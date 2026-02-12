@@ -15,7 +15,24 @@ logger = logging.getLogger(__name__)
 
 # Module-level flag: synthetic data is NEVER allowed by default.
 # Set MERCURY_ALLOW_SYNTHETIC=1 in environment to permit synthetic fallback.
-ALLOW_SYNTHETIC: bool = os.environ.get("MERCURY_ALLOW_SYNTHETIC", "0") == "1"
+#
+# This is a dynamic flag — it reads the env var on every truthiness check,
+# so tests can toggle os.environ["MERCURY_ALLOW_SYNTHETIC"] at runtime.
+
+
+class _DynamicSyntheticFlag:
+    """Bool-like flag that reads MERCURY_ALLOW_SYNTHETIC from env dynamically."""
+
+    __slots__ = ()
+
+    def __bool__(self) -> bool:
+        return os.environ.get("MERCURY_ALLOW_SYNTHETIC", "0") == "1"
+
+    def __repr__(self) -> str:
+        return f"ALLOW_SYNTHETIC={bool(self)}"
+
+
+ALLOW_SYNTHETIC = _DynamicSyntheticFlag()
 
 
 class DataSourceUnavailableError(RuntimeError):
@@ -71,7 +88,9 @@ def check_synthetic_allowed(loader_name: str, reason: str = "") -> bool:
         Logs a WARNING if synthetic is allowed.
         Raises DataSourceUnavailableError if not allowed.
     """
-    if ALLOW_SYNTHETIC:
+    # Re-check env var at call time so tests can toggle it dynamically.
+    allowed = os.environ.get("MERCURY_ALLOW_SYNTHETIC", "0") == "1"
+    if allowed:
         logger.warning(
             "%s: falling back to SYNTHETIC data (MERCURY_ALLOW_SYNTHETIC=1). Reason: %s",
             loader_name,

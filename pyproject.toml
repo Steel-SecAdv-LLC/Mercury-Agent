@@ -484,6 +484,13 @@ module = [
 ]
 warn_return_any = false
 
+# Dataset loaders handle numpy arrays with complex shapes
+[[tool.mypy.overrides]]
+module = [
+    "omni_mercury_engine.datasets.*",
+]
+warn_return_any = false
+
 # Data sources handle numpy arrays with complex shapes
 [[tool.mypy.overrides]]
 module = [

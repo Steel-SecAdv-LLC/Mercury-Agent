@@ -653,6 +653,45 @@ class SepsisDataset(MIMICLoader):
         config.preprocessing["task"] = "sepsis"
         super().__init__(config)
 
+    def download(self) -> bool:
+        """Download or generate sepsis data.
+
+        Unlike the parent MIMICLoader, SepsisDataset supports synthetic
+        generation because sepsis prediction research benefits from
+        configurable prevalence rates in test/development data.
+        """
+        # Try real MIMIC data first (inherited behaviour without the raise)
+        if self.local_path:
+            local_dir = Path(self.local_path)
+            if local_dir.exists():
+                chartevents = local_dir / "CHARTEVENTS.csv.gz"
+                if chartevents.exists():
+                    logger.info(f"Found real MIMIC data at {local_dir}")
+                    self._is_real_data = True
+                    return True
+
+        chartevents_path = self.data_path / "CHARTEVENTS.csv.gz"
+        if chartevents_path.exists():
+            logger.info(f"Found real MIMIC data at {self.data_path}")
+            self._is_real_data = True
+            return True
+
+        # Fall back to synthetic if allowed
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed(
+                "SepsisDataset",
+                "MIMIC-III data not found locally — generating synthetic sepsis data",
+            )
+            return self._create_synthetic_mimic()
+
+        raise DataSourceUnavailableError(
+            loader_name="SepsisDataset",
+            reason=(
+                "Requires MIMIC-III data (see MIMICLoader docs) or "
+                "set MERCURY_ALLOW_SYNTHETIC=1 for synthetic fallback."
+            ),
+        )
+
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load sepsis data from disk."""
         # Check for sepsis-specific synthetic data (only if allowed)

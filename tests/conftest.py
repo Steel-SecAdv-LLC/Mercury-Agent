@@ -26,6 +26,8 @@ All test fixtures now use seeded random number generation
 to ensure consistent test results across runs.
 """
 
+import os
+
 import numpy as np
 import pytest
 
@@ -245,6 +247,16 @@ def pixel_scores(deterministic_rng):
     # Higher scores in anomalous regions
     scores[:, 20:40, 20:40] += 0.5
     return scores
+
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-skip network-marked tests unless MERCURY_NETWORK_TESTS=1 is set."""
+    if os.environ.get("MERCURY_NETWORK_TESTS", "0") == "1":
+        return
+    skip_network = pytest.mark.skip(reason="network tests disabled (set MERCURY_NETWORK_TESTS=1)")
+    for item in items:
+        if "network" in item.keywords:
+            item.add_marker(skip_network)
 
 
 # Marker for slow tests
