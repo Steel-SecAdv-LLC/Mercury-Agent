@@ -367,7 +367,7 @@ class MIMICLoader(DatasetLoader):
 
         logger.info(f"Loaded {len(features_list)} ICU stays with {label_type} labels")
         logger.info(
-            f"Positive class rate: {sum(labels_list)/len(labels_list):.2%}"
+            f"Positive class rate: {sum(labels_list) / len(labels_list):.2%}"
             if labels_list
             else "No data"
         )

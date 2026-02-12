@@ -22,11 +22,10 @@ License: Public Domain (US Government)
 from __future__ import annotations
 
 import hashlib
-import io
 import logging
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -89,7 +88,7 @@ class NOAAERDDAPLoader(DatasetLoader):
         base_url = self.SSH_URL if self.dataset_type == "ssh" else self.CHL_URL
 
         # Build ERDDAP constraint URL for the most recent day available
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         date_str = now.strftime("%Y-%m-%dT00:00:00Z")
         lat_min, lat_max = self.lat_range
         lon_min, lon_max = self.lon_range
@@ -97,10 +96,7 @@ class NOAAERDDAPLoader(DatasetLoader):
         if self.dataset_type == "ssh":
             var = "sla"
             url = (
-                f"{base_url}?{var}"
-                f"[({date_str})]"
-                f"[({lat_min}):({lat_max})]"
-                f"[({lon_min}):({lon_max})]"
+                f"{base_url}?{var}[({date_str})][({lat_min}):({lat_max})][({lon_min}):({lon_max})]"
             )
         else:
             var = "chlor_a"
@@ -109,9 +105,7 @@ class NOAAERDDAPLoader(DatasetLoader):
         logger.info("Downloading ERDDAP %s data from %s", self.dataset_type, url[:100])
 
         try:
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )
+            req = urllib.request.Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310
                 content = resp.read()
 
@@ -120,9 +114,7 @@ class NOAAERDDAPLoader(DatasetLoader):
 
             sha = hashlib.sha256(content).hexdigest()
             self.data_path.mkdir(parents=True, exist_ok=True)
-            np.savez_compressed(
-                cache_file, features=features, labels=labels, sha256=sha
-            )
+            np.savez_compressed(cache_file, features=features, labels=labels, sha256=sha)
             self._is_real_data = True
             logger.info(
                 "ERDDAP %s loaded: %d samples, %.1f%% anomalies",
@@ -140,9 +132,7 @@ class NOAAERDDAPLoader(DatasetLoader):
                 reason=str(e),
             ) from e
 
-    def _parse_erddap_csv(
-        self, text: str
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _parse_erddap_csv(self, text: str) -> tuple[np.ndarray, np.ndarray]:
         """Parse ERDDAP CSV response into features and labels."""
         lines = text.strip().split("\n")
 
@@ -166,7 +156,7 @@ class NOAAERDDAPLoader(DatasetLoader):
         features = np.array(data_lines, dtype=np.float64)
         features = np.nan_to_num(features, nan=0.0)
 
-        # Statistical anomaly labeling: 3σ deviation on each column
+        # Statistical anomaly labeling: 3-sigma deviation on each column
         mean = features.mean(axis=0)
         std = features.std(axis=0) + 1e-8
         z_scores = np.abs((features - mean) / std)

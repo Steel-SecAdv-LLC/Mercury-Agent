@@ -304,7 +304,7 @@ class NOAABuoyLoader(DatasetLoader):
 
         logger.info(
             f"Quality filtering: {original_len - len(features_df)} rows removed "
-            f"({(1 - len(features_df)/original_len):.1%} of data)"
+            f"({(1 - len(features_df) / original_len):.1%} of data)"
         )
 
         # ============================================================

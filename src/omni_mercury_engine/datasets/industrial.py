@@ -232,7 +232,7 @@ class SWaTLoader(DatasetLoader):
         if data_file is None:
             self.download()
             raise FileNotFoundError(
-                f"SWaT data not found in {self.data_path}. " "Please download from iTrust Labs."
+                f"SWaT data not found in {self.data_path}. Please download from iTrust Labs."
             )
 
         logger.info(f"Loading SWaT data from {data_file}")
@@ -377,7 +377,7 @@ class WADILoader(DatasetLoader):
         if data_file is None:
             self.download()
             raise FileNotFoundError(
-                f"WADI data not found in {self.data_path}. " "Please download from iTrust Labs."
+                f"WADI data not found in {self.data_path}. Please download from iTrust Labs."
             )
 
         logger.info(f"Loading WADI data from {data_file}")

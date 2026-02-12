@@ -14,7 +14,6 @@ License: Public Domain (US Government)
 from __future__ import annotations
 
 import gzip
-import hashlib
 import io
 import logging
 import urllib.error
@@ -59,16 +58,30 @@ class NOAAStormEventsLoader(DatasetLoader):
     STORM_BASE_URL = TrustedEndpoints.NOAA_STORM_EVENTS
 
     EVENT_TYPES = [
-        "Tornado", "Hail", "Thunderstorm Wind", "Flash Flood", "Flood",
-        "Heavy Rain", "Heavy Snow", "Ice Storm", "Winter Storm",
-        "Blizzard", "High Wind", "Hurricane", "Tropical Storm",
-        "Wildfire", "Drought", "Heat", "Cold/Wind Chill",
+        "Tornado",
+        "Hail",
+        "Thunderstorm Wind",
+        "Flash Flood",
+        "Flood",
+        "Heavy Rain",
+        "Heavy Snow",
+        "Ice Storm",
+        "Winter Storm",
+        "Blizzard",
+        "High Wind",
+        "Hurricane",
+        "Tropical Storm",
+        "Wildfire",
+        "Drought",
+        "Heat",
+        "Cold/Wind Chill",
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
         super().__init__(config)
         import datetime
-        current_year = datetime.datetime.now(datetime.timezone.utc).year
+
+        current_year = datetime.datetime.now(datetime.UTC).year
         self.year_start = config.preprocessing.get("year_start", current_year - 5)
         self.year_end = config.preprocessing.get("year_end", current_year)
 
@@ -86,15 +99,12 @@ class NOAAStormEventsLoader(DatasetLoader):
         all_rows: list[list[float]] = []
 
         for year in range(self.year_start, self.year_end + 1):
-            filename = f"StormEvents_details-ftp_v1.0_d{year}_c*.csv.gz"
             # NCEI uses a consistent naming pattern; try the most common form
             url = f"{self.STORM_BASE_URL}StormEvents_details-ftp_v1.0_d{year}.csv.gz"
 
             try:
                 logger.info("  Downloading storm events for %d...", year)
-                req = urllib.request.Request(
-                    url, headers={"User-Agent": "Mercury-Agent/1.0"}
-                )
+                req = urllib.request.Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
                 with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310
                     content = resp.read()
 
@@ -122,15 +132,14 @@ class NOAAStormEventsLoader(DatasetLoader):
 
         features = np.array(all_rows, dtype=np.float64)
         # Anomaly: fatalities > 0 OR property damage > $1M
-        labels = (
-            (features[:, 5] > 0) | (features[:, 3] > 1_000_000)
-        ).astype(np.int32)
+        labels = ((features[:, 5] > 0) | (features[:, 3] > 1_000_000)).astype(np.int32)
 
         self.data_path.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(cache_file, features=features, labels=labels)
         logger.info(
             "Storm events loaded: %d records, %.1f%% anomalies",
-            len(features), 100.0 * labels.mean(),
+            len(features),
+            100.0 * labels.mean(),
         )
         return True
 
@@ -161,11 +170,20 @@ class NOAAStormEventsLoader(DatasetLoader):
                 lat = float(record.get("BEGIN_LAT", "0") or "0")
                 lon = float(record.get("BEGIN_LON", "0") or "0")
 
-                rows.append([
-                    event_code, state_fips, year, month,
-                    prop_damage, crop_damage, injuries, fatalities,
-                    lat, lon,
-                ])
+                rows.append(
+                    [
+                        event_code,
+                        state_fips,
+                        year,
+                        month,
+                        prop_damage,
+                        crop_damage,
+                        injuries,
+                        fatalities,
+                        lat,
+                        lon,
+                    ]
+                )
             except (ValueError, TypeError):
                 continue
 

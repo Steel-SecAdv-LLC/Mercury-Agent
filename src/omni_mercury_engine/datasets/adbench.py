@@ -33,7 +33,7 @@ import numpy as np
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
-from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError
+from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -118,8 +118,7 @@ class ADBenchLoader(DatasetLoader):
     DATASET_URL = "https://github.com/Minqi824/ADBench"
     LICENSE = "MIT"
     CITATION = (
-        "Han S, Hu X, Huang H, Jiang M, Zhao Y. "
-        "ADBench: Anomaly Detection Benchmark. NeurIPS 2022."
+        "Han S, Hu X, Huang H, Jiang M, Zhao Y. ADBench: Anomaly Detection Benchmark. NeurIPS 2022."
     )
     REQUIRES_CREDENTIALS = False
 
@@ -149,8 +148,7 @@ class ADBenchLoader(DatasetLoader):
             return
 
         raise ValueError(
-            f"Unknown ADBench dataset: '{key}'. "
-            f"Available: {list(ADBENCH_CATALOG.values())}"
+            f"Unknown ADBench dataset: '{key}'. Available: {list(ADBENCH_CATALOG.values())}"
         )
 
     @property
@@ -221,8 +219,7 @@ class ADBenchLoader(DatasetLoader):
         cache_file = self.data_path / self.npz_filename
         if not cache_file.exists():
             raise FileNotFoundError(
-                f"ADBench {self._dataset_name} not found at {cache_file}. "
-                "Run with download=True."
+                f"ADBench {self._dataset_name} not found at {cache_file}. Run with download=True."
             )
 
         data = np.load(cache_file, allow_pickle=False)

@@ -10,11 +10,12 @@ data_source, source_url, sha256, record_count, anomaly_ratio, etc.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import numpy as np
-from numpy.typing import NDArray
+if TYPE_CHECKING:
+    import numpy as np
+    from numpy.typing import NDArray
 
 
 @dataclass
@@ -66,8 +67,8 @@ class LoaderDataset:
     X: NDArray[np.float64]
     y: NDArray[np.int32]
     metadata: LoaderDatasetMetadata
-    feature_names: Optional[list[str]] = None
-    timestamps: Optional[NDArray[np.float64]] = None
+    feature_names: list[str] | None = None
+    timestamps: NDArray[np.float64] | None = None
     split: str = "full"
 
 

@@ -862,9 +862,7 @@ class TrustedEndpoints:
     # ==========================================================================
     # ADBench — Tabular Anomaly Detection Benchmarks (GitHub)
     # ==========================================================================
-    ADBENCH_BASE = (
-        "https://github.com/Minqi824/ADBench/raw/main/adbench/datasets/Classical/"
-    )
+    ADBENCH_BASE = "https://github.com/Minqi824/ADBench/raw/main/adbench/datasets/Classical/"
 
     # ==========================================================================
     # NOAA ERDDAP — Oceanographic / Climate Gridded Data

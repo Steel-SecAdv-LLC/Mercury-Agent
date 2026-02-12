@@ -102,15 +102,12 @@ from .timeseries import NABLoader, SMAPMSLLoader, SMDLoader
 from .ucr_archive import CWRUBearingLoader, MBALoader, MSDSLoader, UCRLoader
 
 __all__ = [
-    # Core infrastructure
-    "ALLOW_SYNTHETIC",
-    "DataSourceUnavailableError",
-    "LoaderDataset",
-    "LoaderDatasetMetadata",
     # ADBench (47 tabular anomaly detection datasets)
     "ADBENCH_CATALOG",
-    "ADBenchLoader",
     "ADREPOSITORY_DATASETS",
+    # Core infrastructure
+    "ALLOW_SYNTHETIC",
+    "ADBenchLoader",
     "ADRepositoryLoader",
     "BATADALLoader",
     # Visual anomaly detection base classes (from data/benchmarks)
@@ -123,6 +120,7 @@ __all__ = [
     "CWRUBearingLoader",
     "CardiologyDataset",
     "CopernicusSeaLevelLoader",
+    "DataSourceUnavailableError",
     "DatasetConfig",
     "DatasetLoader",
     "DatasetRegistry",
@@ -131,6 +129,8 @@ __all__ = [
     "EPAAirQualityLoader",
     "FEMADisasterLoader",
     "FEMAHazardMitigationLoader",
+    "LoaderDataset",
+    "LoaderDatasetMetadata",
     "MBALoader",
     "MIMICLoader",
     # MIT-BIH Arrhythmia

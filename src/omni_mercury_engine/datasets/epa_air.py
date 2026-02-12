@@ -13,7 +13,6 @@ License: Public Domain (US Government)
 
 from __future__ import annotations
 
-import hashlib
 import io
 import logging
 import urllib.error
@@ -75,9 +74,7 @@ class EPAAirQualityLoader(DatasetLoader):
         logger.info("Downloading EPA PM2.5 data for %d from %s", self.year, url)
 
         try:
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mercury-Agent/1.0"}
-            )
+            req = urllib.request.Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
             with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
                 content = resp.read()
 
@@ -95,7 +92,9 @@ class EPAAirQualityLoader(DatasetLoader):
 
             logger.info(
                 "EPA PM2.5 %d loaded: %d records, %.1f%% above AQI threshold",
-                self.year, len(features), 100.0 * labels.mean(),
+                self.year,
+                len(features),
+                100.0 * labels.mean(),
             )
             return True
 

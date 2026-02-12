@@ -23,26 +23,26 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
 def get_loader_registry() -> dict[str, Any]:
     """Get all registered dataset loaders."""
-    from omni_mercury_engine.datasets.base import DatasetConfig, DatasetRegistry
+    from omni_mercury_engine.datasets.base import DatasetRegistry
 
-    return dict(DatasetRegistry._registry)
+    return dict(DatasetRegistry._loaders)
 
 
-def benchmark_loader(
-    name: str, loader_class: Any, timeout: int = 300
-) -> dict[str, Any]:
+def benchmark_loader(name: str, loader_class: Any, timeout: int = 300) -> dict[str, Any]:
     """Benchmark a single loader."""
     from omni_mercury_engine.datasets.base import DatasetConfig
 
     result: dict[str, Any] = {
         "name": name,
-        "loader_class": loader_class.__name__ if hasattr(loader_class, "__name__") else str(loader_class),
+        "loader_class": loader_class.__name__
+        if hasattr(loader_class, "__name__")
+        else str(loader_class),
         "data_source": "error",
         "record_count": 0,
         "feature_count": 0,
@@ -154,7 +154,7 @@ def main() -> int:
 
     # Print Markdown table
     print("\n## Data Loader Benchmark Report\n")
-    print(f"Date: {datetime.now(timezone.utc).isoformat()}")
+    print(f"Date: {datetime.now(UTC).isoformat()}")
     print(f"MERCURY_ALLOW_SYNTHETIC: {'1' if allow_synthetic else '0 (default)'}\n")
     print("| Loader | Status | Source | Records | Anomaly% | SHA256 | Time |")
     print("|--------|--------|--------|---------|----------|--------|------|")
@@ -165,13 +165,15 @@ def main() -> int:
             f"{r['sha256'][:8] or 'N/A'} | {r['load_time_seconds']:.1f}s |"
         )
 
-    print(f"\n**Summary**: {len(results)} loaders, "
-          f"{len(results) - error_count} OK, {error_count} errors, "
-          f"{synthetic_count} synthetic\n")
+    print(
+        f"\n**Summary**: {len(results)} loaders, "
+        f"{len(results) - error_count} OK, {error_count} errors, "
+        f"{synthetic_count} synthetic\n"
+    )
 
     # JSON output
     report = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "allow_synthetic": allow_synthetic,
         "total_loaders": len(results),
         "ok_count": len(results) - error_count,

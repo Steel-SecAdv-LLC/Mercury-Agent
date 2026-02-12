@@ -22,7 +22,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -57,12 +57,15 @@ def check_endpoint(name: str, url: str, timeout: int = 10) -> dict[str, Any]:
 
     start = time.monotonic()
     try:
-        req = urllib.request.Request(
+        if not url.startswith(("https://", "http://")):
+            result["error"] = f"Unsupported scheme in URL: {url}"
+            return result
+        req = urllib.request.Request(  # noqa: S310
             url,
             method="GET",
             headers={"User-Agent": "Mercury-Agent/1.0 EndpointVerifier"},
         )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
             result["status"] = resp.status
             result["content_type"] = resp.headers.get("Content-Type", "")
             body = resp.read(256)
@@ -113,7 +116,7 @@ def main() -> int:
         print(f"[{status}] {result.get('status', 'N/A')}", file=sys.stderr)
 
     report = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "total_endpoints": len(endpoints),
         "validated": len(endpoints) - failed,
         "failed": failed,

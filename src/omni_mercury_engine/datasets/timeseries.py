@@ -506,7 +506,8 @@ class SMAPMSLLoader(DatasetLoader):
         if not test_dir.exists():
             raise FileNotFoundError(
                 f"SMAP/MSL data not found in {self.data_path}. "
-                "Download from https://s3-us-west-2.amazonaws.com/telemanom/data.zip"
+                "Download from HiDrive mirror: https://my.hidrive.com/share/ma4p8w4qqb "
+                "and extract train/ and test/ directories."
             )
 
         logger.info(f"Loading REAL NASA {self.dataset} telemetry data...")

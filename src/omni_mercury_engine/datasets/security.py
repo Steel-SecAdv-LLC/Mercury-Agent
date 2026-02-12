@@ -32,7 +32,6 @@ from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 from .base import DatasetConfig, DatasetLoader, DatasetRegistry
 from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
-from .metadata import LoaderDatasetMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -373,7 +372,9 @@ class NSLKDDLoader(DatasetLoader):
             labels.append(
                 0
                 if attack_type == "normal"
-                else 1 if self.binary_labels else self.CATEGORY_LABELS[attack_type]
+                else 1
+                if self.binary_labels
+                else self.CATEGORY_LABELS[attack_type]
             )
 
         self._features = np.array(features, dtype=np.float32)
@@ -1114,9 +1115,7 @@ class CICIDSLoader(DatasetLoader):
                 self._features = data["features"]
                 self._labels = data["labels"]
                 self._is_real_data = True
-                logger.info(
-                    f"Loaded CICIDS from {cache_name} (is_real_data=True)"
-                )
+                logger.info(f"Loaded CICIDS from {cache_name} (is_real_data=True)")
                 return self._features, self._labels
 
         # Check for synthetic fallback only if ALLOW_SYNTHETIC

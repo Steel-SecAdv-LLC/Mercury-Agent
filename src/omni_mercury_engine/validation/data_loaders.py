@@ -40,7 +40,11 @@ from urllib.request import urlopen
 
 import numpy as np
 
-from omni_mercury_engine.datasets.exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
+from omni_mercury_engine.datasets.exceptions import (
+    ALLOW_SYNTHETIC,
+    DataSourceUnavailableError,
+    check_synthetic_allowed,
+)
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
@@ -292,7 +296,9 @@ class NSLKDDLoader(DatasetLoader):
 
         logger.info("Downloading NSL-KDD dataset...")
         if ALLOW_SYNTHETIC:
-            check_synthetic_allowed("NSL-KDD (validation)", "Download not implemented in validation loader")
+            check_synthetic_allowed(
+                "NSL-KDD (validation)", "Download not implemented in validation loader"
+            )
             return self._generate_synthetic(50000)
         raise DataSourceUnavailableError(
             loader_name="NSL-KDD (validation)",

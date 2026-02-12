@@ -16,7 +16,6 @@ Anomaly labeling:
 from __future__ import annotations
 
 import csv
-import hashlib
 import io
 import logging
 import urllib.error
@@ -72,11 +71,21 @@ class NOAAGSODLoader(DatasetLoader):
     GSOD_BASE = TrustedEndpoints.NOAA_GSOD_BASE
 
     FEATURE_NAMES = [
-        "temp_mean", "temp_max", "temp_min",
-        "dewp", "slp", "stp",
-        "visib", "wdsp", "mxspd", "gust",
-        "prcp", "sndp",
-        "station_idx", "month", "day",
+        "temp_mean",
+        "temp_max",
+        "temp_min",
+        "dewp",
+        "slp",
+        "stp",
+        "visib",
+        "wdsp",
+        "mxspd",
+        "gust",
+        "prcp",
+        "sndp",
+        "station_idx",
+        "month",
+        "day",
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
@@ -100,9 +109,7 @@ class NOAAGSODLoader(DatasetLoader):
         for idx, station_id in enumerate(self.stations):
             url = f"{self.GSOD_BASE}{self.year}/{station_id}.csv"
             try:
-                req = urllib.request.Request(
-                    url, headers={"User-Agent": "Mercury-Agent/1.0"}
-                )
+                req = urllib.request.Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
                 with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
                     text = resp.read().decode("utf-8", errors="replace")
 
@@ -124,7 +131,7 @@ class NOAAGSODLoader(DatasetLoader):
 
         features = np.array(all_rows, dtype=np.float64)
 
-        # 3σ anomaly labeling per station
+        # 3-sigma anomaly labeling per station
         labels = np.zeros(len(features), dtype=np.int32)
         for s_idx in range(len(self.stations)):
             mask = features[:, 12] == s_idx
@@ -142,7 +149,10 @@ class NOAAGSODLoader(DatasetLoader):
 
         logger.info(
             "GSOD %d loaded: %d records from %d stations, %.1f%% anomalies",
-            self.year, len(features), len(self.stations), 100.0 * labels.mean(),
+            self.year,
+            len(features),
+            len(self.stations),
+            100.0 * labels.mean(),
         )
         return True
 
@@ -155,6 +165,7 @@ class NOAAGSODLoader(DatasetLoader):
 
         for record in reader:
             try:
+
                 def safe_float(key: str, default: float = 0.0) -> float:
                     val = record.get(key, "").strip()
                     if val in missing_vals or not val:
@@ -166,23 +177,25 @@ class NOAAGSODLoader(DatasetLoader):
                 month = int(parts[1]) if len(parts) > 1 else 1
                 day = int(parts[2]) if len(parts) > 2 else 1
 
-                rows.append([
-                    safe_float("TEMP"),
-                    safe_float("MAX"),
-                    safe_float("MIN"),
-                    safe_float("DEWP"),
-                    safe_float("SLP"),
-                    safe_float("STP"),
-                    safe_float("VISIB"),
-                    safe_float("WDSP"),
-                    safe_float("MXSPD"),
-                    safe_float("GUST"),
-                    safe_float("PRCP"),
-                    safe_float("SNDP"),
-                    float(station_idx),
-                    float(month),
-                    float(day),
-                ])
+                rows.append(
+                    [
+                        safe_float("TEMP"),
+                        safe_float("MAX"),
+                        safe_float("MIN"),
+                        safe_float("DEWP"),
+                        safe_float("SLP"),
+                        safe_float("STP"),
+                        safe_float("VISIB"),
+                        safe_float("WDSP"),
+                        safe_float("MXSPD"),
+                        safe_float("GUST"),
+                        safe_float("PRCP"),
+                        safe_float("SNDP"),
+                        float(station_idx),
+                        float(month),
+                        float(day),
+                    ]
+                )
             except (ValueError, TypeError):
                 continue
         return rows
