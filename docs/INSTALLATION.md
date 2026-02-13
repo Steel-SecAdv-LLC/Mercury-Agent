@@ -19,7 +19,7 @@ pip install -e ".[all]"
 
 ```bash
 python -c "import omni_mercury_engine; print(omni_mercury_engine.__version__)"
-# Output: 1.4.0
+# Output: 1.4
 ```
 
 ## Running Tests

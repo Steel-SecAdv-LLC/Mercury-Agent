@@ -8,7 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: api
-    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/version: "1.4"
   annotations:
     kubernetes.io/change-cause: "Initial deployment"
 spec:
@@ -28,7 +28,7 @@ spec:
       labels:
         app.kubernetes.io/name: mercury-agent
         app.kubernetes.io/component: api
-        app.kubernetes.io/version: "1.4.0"
+        app.kubernetes.io/version: "1.4"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
@@ -215,7 +215,7 @@ metadata:
   labels:
     app.kubernetes.io/name: mercury-agent
     app.kubernetes.io/component: engine
-    app.kubernetes.io/version: "1.4.0"
+    app.kubernetes.io/version: "1.4"
 spec:
   replicas: 2
   revisionHistoryLimit: 5
@@ -233,7 +233,7 @@ spec:
       labels:
         app.kubernetes.io/name: mercury-agent
         app.kubernetes.io/component: engine
-        app.kubernetes.io/version: "1.4.0"
+        app.kubernetes.io/version: "1.4"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"

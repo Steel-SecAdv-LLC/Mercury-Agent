@@ -1,14 +1,14 @@
-# Mercury-Agent v1.4.0: Real-World Benchmark Results
+# Mercury-Agent v1.4: Real-World Benchmark Results
 
 ## Executive Summary
 
-Mercury-Agent v1.4.0 has been validated on 18 real-world datasets with:
+Mercury-Agent v1.4 has been validated on 18 real-world datasets with:
 - **18 datasets tested** (16 ADBench, NSL-KDD, CICIDS-2017)
 - **2 detectors evaluated** (Statistical, Temporal)
 - **Measured performance** (not synthetic or aspirational)
 
 Baseline stored in `benchmarks/live_data_baseline.json`.
-Full results in `benchmarks/v1.4.0_comprehensive_results.json`.
+Full results in `benchmarks/v1.4_comprehensive_results.json`.
 
 ## ADBench Results (16 Datasets)
 
@@ -46,7 +46,7 @@ Source: ADBench (NeurIPS 2022 Datasets and Benchmarks Track).
 | Temporal | 0.565 | 0.593 | 0.553 | 0.48 |
 
 **Known limitation:** Unsupervised detectors hit a ceiling on network data (0.59 AUC).
-Supervised alternatives (CyberFortress neural) would improve to ~0.75. Planned for v1.5.
+Supervised alternatives would improve to ~0.75. Planned for future release.
 
 ### CICIDS-2017 (600K Real Network Intrusions)
 
@@ -90,7 +90,7 @@ Detector identifies anomalies (AUC 0.88) but produces false positives at optimal
 
 ### 2. NSL-KDD AUC = 0.59 (Below 0.70 Target)
 **Root cause:** Unsupervised statistical methods cannot learn fine-grained network attack patterns.
-**Status:** Expected for unsupervised; not a bug. CyberFortress neural detector targets 0.75+.
+**Status:** Expected for unsupervised; not a bug. Supervised neural detectors target 0.75+.
 
 ### 3. Temporal Detector Underperforms on Tabular
 **Root cause:** Temporal patterns designed for time-series; tabular data lacks temporal structure.
@@ -111,7 +111,7 @@ pytest tests/validation/test_real_data_validation.py -v
 ```
 
 **Baseline:** `benchmarks/live_data_baseline.json`
-**Full results:** `benchmarks/v1.4.0_comprehensive_results.json`
+**Full results:** `benchmarks/v1.4_comprehensive_results.json`
 **CI validation:** `.github/workflows/live-data-validation.yml`
 
 ## Supported Datasets

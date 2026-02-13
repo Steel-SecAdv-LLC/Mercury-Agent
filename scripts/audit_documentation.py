@@ -5,7 +5,7 @@ Mercury Agent - Documentation audit for internal/aspirational content.
 Scans documentation files for content that should be removed or updated:
 - Internal meeting notes and planning docs
 - Aspirational claims without backing data
-- Version references that don't match v1.4.0
+- Version references that don't match v1.4
 - Business/organizational documentation
 
 Copyright (C) 2025 Steel Security Advisors LLC
@@ -23,7 +23,7 @@ PATTERNS_TO_FLAG = [
     (r"business.*strategy", "Business strategy reference"),
     (r"revolutionary", "Aspirational adjective"),
     (r"groundbreaking", "Aspirational adjective"),
-    (r"v1\.5\.0", "Old version reference (should be v1.4.0)"),
+    (r"v1\.5\.0", "Old version reference (should be v1.4)"),
     (r"v1\.5\.1", "Invalid version reference"),
 ]
 

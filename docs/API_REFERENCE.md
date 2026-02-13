@@ -79,7 +79,7 @@ optimizer.save("thresholds.json")
 
 ### ADBenchLoader
 
-47 tabular anomaly detection datasets from NeurIPS 2022.
+Tabular anomaly detection datasets from NeurIPS 2022.
 
 ```python
 from omni_mercury_engine.datasets.adbench import ADBenchLoader
@@ -92,9 +92,9 @@ X, y = loader._load_raw()   # X: features, y: binary labels
 X = loader.preprocess(X)     # Z-score normalization
 ```
 
-Available datasets: cardio, thyroid, mammography, breastw, Ionosphere, Pima,
+Validated datasets (16): cardio, thyroid, mammography, breastw, Ionosphere, Pima,
 satellite, shuttle, wine, glass, musk, arrhythmia, optdigits, pendigits,
-vertebral, WBC, and 31 more (47 total).
+vertebral, WBC.
 
 ### NSLKDDLoader
 

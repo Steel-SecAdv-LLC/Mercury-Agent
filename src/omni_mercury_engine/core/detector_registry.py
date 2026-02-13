@@ -61,7 +61,7 @@ Architecture:
         - ChemistryAnomalyDetector
         - ParapsychologyDetector
 
-    Advanced Physics-Inspired Detectors (v1.4.0):
+    Advanced Physics-Inspired Detectors (v1.4):
         - SpectralVibrationDetector (GNN/CNN spectral, phonon interactions)
         - AccelerationDynamicsDetector (kinematics, Lyapunov, phase space)
         - UIUXAnomalyDetector (user behavior, engagement, bot detection)
@@ -116,7 +116,7 @@ class DetectorCategory(Enum):
     VLM = "vlm"  # Vision-Language Models (AnyAnomaly, LAVAD)
     FOUNDATION = "foundation"  # Foundation model adapters (TimeGPT, Chronos)
     DISTILLATION = "distillation"  # Knowledge distillation methods
-    # Advanced Physics-Inspired categories (v1.4.0)
+    # Advanced Physics-Inspired categories (v1.4)
     PHYSICS = "physics"  # Physics-inspired detectors (spectral, dynamics, kinematics)
     UIUX = "uiux"  # UI/UX behavioral anomaly detection
 
@@ -544,7 +544,7 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Dual-student knowledge distillation for AD",
         tags=["distillation", "sota", "dual-student"],
     ),
-    # -- Advanced Physics-Inspired Detectors (v1.4.0) -------------------------
+    # -- Advanced Physics-Inspired Detectors (v1.4) -------------------------
     DetectorManifestEntry(
         "spectral_vibration",
         "omni_mercury_engine.detectors.spectral_vibration",

@@ -77,8 +77,14 @@ def check_thresholds() -> bool:
 
     errors: list[str] = []
 
-    # Check ADBench datasets
-    for dataset in ["cardio", "thyroid", "mammography", "breastw"]:
+    # Check ADBench datasets (all 16 validated datasets)
+    adbench_datasets = [
+        "cardio", "thyroid", "mammography", "breastw",
+        "Ionosphere", "Pima", "satellite", "shuttle",
+        "wine", "glass", "musk", "arrhythmia",
+        "optdigits", "pendigits", "vertebral", "WBC",
+    ]
+    for dataset in adbench_datasets:
         current_auc = current.get(f"adbench_{dataset}_auc", 0.0)
         if current_auc < min_adbench_auc:
             errors.append(

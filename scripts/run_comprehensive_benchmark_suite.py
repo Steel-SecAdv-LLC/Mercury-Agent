@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent v1.4.0 - Comprehensive live-data benchmark suite.
+Mercury Agent v1.4 - Comprehensive live-data benchmark suite.
 
 Measures detection performance across:
 - 16 ADBench datasets (tabular anomalies)
@@ -11,7 +11,7 @@ Detectors tested:
 - StatisticalAnomalyDetector (baseline)
 - TemporalAnomalyDetector (temporal patterns)
 
-Output: benchmarks/v1.4.0_comprehensive_results.json with full metadata.
+Output: benchmarks/v1.4_comprehensive_results.json with full metadata.
 
 Copyright (C) 2025 Steel Security Advisors LLC
 License: GPL-3.0+
@@ -24,7 +24,7 @@ import logging
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -50,7 +50,7 @@ class BenchmarkSuite:
 
     def __init__(self) -> None:
         self.results: dict = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "version": __version__,
             "environment": self._get_environment(),
             "datasets": {},
@@ -60,9 +60,10 @@ class BenchmarkSuite:
     def _get_environment(self) -> dict:
         """Capture system/environment info for reproducibility."""
         git_commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+            ["git", "rev-parse", "HEAD"],  # noqa: S607
             capture_output=True,
             text=True,
+            check=False,
         ).stdout.strip()[:7]
 
         env: dict = {
@@ -312,7 +313,7 @@ class BenchmarkSuite:
             },
         }
 
-    def save(self, path: str = "benchmarks/v1.4.0_comprehensive_results.json") -> None:
+    def save(self, path: str = "benchmarks/v1.4_comprehensive_results.json") -> None:
         """Save benchmark results to JSON."""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:

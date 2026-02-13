@@ -30,7 +30,7 @@ Includes:
     - Advanced SOTA detectors (time-series, industrial, contrastive, copula-based)
 """
 
-# Advanced SOTA Detectors (v1.4.0)
+# Advanced SOTA Detectors (v1.4)
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
     EnergyState,
@@ -58,7 +58,7 @@ from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
 
-# Advanced Physics-Inspired Detectors (v1.4.0)
+# Advanced Physics-Inspired Detectors (v1.4)
 from omni_mercury_engine.detectors.spectral_vibration import (
     SpectralAnalysisMode,
     SpectralVibrationDetector,
@@ -90,7 +90,7 @@ from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector, BaseVLMDetecto
 __all__ = [
     "AccelerationDynamicsDetector",
     "AdvancedPhysicsIntegratedDetector",
-    # Advanced SOTA detectors (v1.4.0)
+    # Advanced SOTA detectors (v1.4)
     "AdversarialAutoencoderDetector",
     "AnomalyCategory",
     # VLM detectors
@@ -119,7 +119,7 @@ __all__ = [
     "SigmaDirectiveDetector",
     "SpatialAnomalyDetector",
     "SpectralAnalysisMode",
-    # Advanced Physics-Inspired Detectors (v1.4.0)
+    # Advanced Physics-Inspired Detectors (v1.4)
     "SpectralVibrationDetector",
     "StatisticalAnomalyDetector",
     "TemporalAnomalyDetector",

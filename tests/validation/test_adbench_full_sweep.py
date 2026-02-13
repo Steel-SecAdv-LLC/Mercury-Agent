@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -146,8 +147,10 @@ def test_adbench_comprehensive_report() -> None:
         f1s = [r["f1"] for r in results]
         above_target = sum(1 for a in aucs if a >= 0.70)
 
+        from datetime import datetime
+
         report = {
-            "generated_at": "2026-02-12",
+            "generated_at": datetime.now(tz=UTC).isoformat(),
             "datasets_tested": len(results),
             "datasets_failed": len(failures),
             "detectors": ["statistical"],
@@ -176,4 +179,6 @@ def test_adbench_comprehensive_report() -> None:
             above_target,
         )
 
-    assert len(results) >= 4, f"Need at least 4 successful benchmarks, got {len(results)}"
+    assert len(results) >= len(PRIMARY_DATASETS) // 2, (
+        f"Need at least {len(PRIMARY_DATASETS) // 2} successful benchmarks, got {len(results)}"
+    )

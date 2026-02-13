@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent v1.4.0 - Professional benchmark visualization generator.
+Mercury Agent v1.4 - Professional benchmark visualization generator.
 
 Generates charts from benchmark results JSON.
 
@@ -27,7 +27,7 @@ import numpy as np
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-RESULTS_PATH = "benchmarks/v1.4.0_comprehensive_results.json"
+RESULTS_PATH = "benchmarks/v1.4_comprehensive_results.json"
 OUTPUT_DIR = "docs/images"
 
 
@@ -74,7 +74,7 @@ def plot_adbench_auc(results: dict) -> None:
     ax.axhline(y=0.85, color="red", linestyle="--", alpha=0.5, label="Target (0.85)")
 
     ax.set_ylabel("AUC-ROC")
-    ax.set_title(f"Mercury-Agent v1.4.0: ADBench AUC Comparison ({len(datasets)} Datasets)")
+    ax.set_title(f"Mercury-Agent v1.4: ADBench AUC Comparison ({len(datasets)} Datasets)")
     ax.set_xticks(x)
     ax.set_xticklabels(datasets, rotation=45, ha="right")
     ax.legend()
@@ -123,7 +123,7 @@ def plot_network_security(results: dict) -> None:
     bars_temp = ax.bar(x + width / 2, temporal_vals, width, label="Temporal", color="#d62728")
 
     ax.set_ylabel("AUC-ROC")
-    ax.set_title("Mercury-Agent v1.4.0: Network Security Benchmark (Real Intrusion Data)")
+    ax.set_title("Mercury-Agent v1.4: Network Security Benchmark (Real Intrusion Data)")
     ax.set_xticks(x)
     ax.set_xticklabels(datasets_labels)
     ax.legend()

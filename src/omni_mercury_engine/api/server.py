@@ -121,7 +121,7 @@ for logger_name in ["omni_mercury_engine.api", "omni_mercury_engine.security", "
     _logger.addFilter(PIIMaskingFilter())
 
 # API version information
-API_VERSION = "1.4.0"
+API_VERSION = "1.4"
 API_TITLE = "Mercury Agent ♱ API"
 API_DESCRIPTION = """
 ## Overview

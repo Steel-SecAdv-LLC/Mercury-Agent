@@ -11,7 +11,7 @@ export MERCURY_RUN_LIVE_DATA=true
 pytest tests/validation/test_real_data_validation.py -v
 
 # Run with caching (faster subsequent runs)
-export MERCURY_DATASET_CACHE=~/.mercury_cache
+export MERCURY_DATASET_CACHE="$HOME/.mercury_cache"
 pytest tests/validation/test_real_data_validation.py -v
 
 # Run only a specific dataset
@@ -30,8 +30,8 @@ but this remains a challenging dataset.
 ### NSL-KDD AUC = 0.59 (Below 0.70 target)
 
 **Root cause:** Unsupervised statistical methods hit a ceiling on network data.
-**Solution:** Use CyberFortress neural detector (supervised), or transfer learning.
-**Status:** Tracked for v1.5 improvement.
+**Solution:** Use supervised methods or transfer learning for network intrusion data.
+**Status:** Tracked for future improvement.
 
 ### "RuntimeError: CUDA out of memory"
 
@@ -39,7 +39,7 @@ but this remains a challenging dataset.
 **Solution:**
 
 ```bash
-export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 pytest tests/validation/test_real_data_validation.py -v
 ```
 

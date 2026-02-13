@@ -14,16 +14,17 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
 def generate_baseline() -> dict:
     """Create benchmarks/live_data_baseline.json with metadata."""
     git_commit = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
+        ["git", "rev-parse", "HEAD"],  # noqa: S607
         capture_output=True,
         text=True,
+        check=False,
     ).stdout.strip()[:7]
 
     system_info: dict = {
@@ -52,7 +53,7 @@ def generate_baseline() -> dict:
         pass
 
     baseline = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "git_commit": git_commit,
         "system": system_info,
         "thresholds": {

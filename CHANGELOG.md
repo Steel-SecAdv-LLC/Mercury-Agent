@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] - 2026-02-12
+## [1.4] - 2026-02-12
 
 ### Added
 - Real-data validation suite (ADBench, NSL-KDD, live-dataset CI gates)
@@ -14,11 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CICIDS-2017 network security dataset integration
 - Expanded ADBench coverage from 4 to 16 datasets
 - Live-data validation CI workflow (.github/workflows/live-data-validation.yml)
+- Physics-inspired anomaly detectors (spectral vibration, acceleration dynamics,
+  dimensional analysis, spatial, UI/UX behavioral)
+- GOSNN scalar fusion with physics detector backends
+- SHA3-256 cryptographic alignment with Ava-Guardian
+- Comprehensive strict type checking (MyPy strict, 274+ errors resolved)
 
 ### Changed
 - CI now requires live-data validation (no synthetic-only benchmarks)
-- All version references normalized to v1.4.0
+- All version references normalized to v1.4
 - Documentation updated with measured real-world metrics
+- Codebase consolidation: removed all `cast()` workarounds for proper type annotations
+- CI/CD pipeline compliance across 408 files (Flake8, MyPy, Bandit, pytest)
+
+### Security
+- Cryptographic hash upgrade from SHA-256 to SHA3-256 across audit trail components
+- Removed type-unsafe `cast()` calls that masked potential runtime errors
 
 ### Fixed
 - Removed 3.5MB generated benchmark bloat
@@ -26,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.5.0] - 2026-02-11
+## [1.4-pre] - 2026-02-11
 
 ### Added - Mathematical Audit & Parameterization Overhaul
 
@@ -173,33 +184,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bayesian optimization: Bergstra et al. (2011) TPE
 
 ---
-
-## [1.4.0] - 2026-02-09
-
-### Added - Advanced Cognitive AI & Physics-Inspired Detectors
-
-- **Physics-Inspired Anomaly Detectors**: Spectral vibration analysis, acceleration dynamics,
-  dimensional analysis, spatial anomaly detection, and UI/UX behavioral anomaly detection
-- **Advanced Physics Integration**: GOSNN scalar fusion with physics detector backends,
-  factory functions and registry integration for all new detector types
-- **Comprehensive Strict Type Checking**: MyPy strict mode enabled across entire codebase,
-  resolved 274+ strict-mode errors and removed all `ignore_errors` exclusions
-- **SHA3-256 Cryptographic Alignment**: Aligned cryptographic posture with Ava-Guardian,
-  upgraded hash functions to SHA3-256 for tamper-evident audit trails
-- **CI/CD Pipeline Compliance**: Resolved all blocking lint (Flake8), type (MyPy),
-  security (Bandit), and test (pytest) failures across 408 files
-
-### Changed
-
-- **Codebase Consolidation**: Major refactoring for production readiness, removing
-  all `cast()` workarounds in favor of proper type annotations
-- **Version Alignment**: All deployment manifests, Helm charts, Kubernetes labels,
-  Docker images, User-Agent strings, and documentation updated to v1.4.0
-
-### Security
-
-- Cryptographic hash upgrade from SHA-256 to SHA3-256 across audit trail components
-- Removed type-unsafe `cast()` calls that masked potential runtime errors
 
 ---
 
