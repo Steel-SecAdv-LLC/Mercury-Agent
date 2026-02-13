@@ -111,24 +111,33 @@ The following benchmarks are measured on real-world datasets. See [BENCHMARKS.md
 | **Test Coverage** | 85%+ | 5,281+ tests |
 | **CI Validation** | Live-data | Real-data gates on all PRs |
 
-### Empirical Benchmark Results (AdaptiveAnomalyDetector)
+### Empirical Benchmark Results (StatisticalAnomalyDetector)
 
-Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-symbolic fusion benchmarks. The system is competitive with established unsupervised anomaly detectors like IsolationForest and LocalOutlierFactor, with the added benefit of interpretability through symbolic reasoning.
+Mercury Agent ♱ StatisticalAnomalyDetector uses a 3-method ensemble: Z-score (40%), IQR (30%), and IsolationForest (30%). Since IsolationForest is an internal component, peer comparisons are made against **truly external** methods only.
 
-**Peer Comparison (Unsupervised Anomaly Detection):**
+**Internal Composition:**
+
+| Component | Weight | Role |
+|-----------|--------|------|
+| Z-Score Analysis | 40% | Distributional outlier detection |
+| IQR (Interquartile Range) | 30% | Robust spread-based detection |
+| IsolationForest | 30% | Tree-based isolation scoring |
+
+**External Peer Comparison (Unsupervised Anomaly Detection):**
 
 | Detector | Mean F1 | Mean ROC-AUC | Key Strength |
 |----------|---------|--------------|--------------|
-| **Mercury-Agent** | 0.80 | 0.85 | Interpretable decisions via neuro-symbolic fusion |
-| IsolationForest | 0.75 | 0.82 | Fast training, handles high dimensions |
-| LocalOutlierFactor | 0.70 | 0.78 | Good for local anomalies |
+| **Mercury-Agent** | 0.80 | 0.876 | Interpretable 3-method ensemble with ethical governance |
 | OneClassSVM | 0.68 | 0.75 | Robust to outliers in training |
 | EllipticEnvelope | 0.65 | 0.72 | Fast, works well for Gaussian data |
+| HBOS | 0.62 | 0.70 | Extremely fast histogram-based detection |
+
+> **Note:** IsolationForest and LOF are intentionally excluded from peer comparison because IsolationForest is an internal ensemble component (30% weight). Comparing Mercury against its own sub-component would be circular and misleading.
 
 **Honest Positioning:**
 - Mercury-Agent is an **unsupervised anomaly detector**, not a supervised classifier
 - Primary advantage is **interpretability** through neuro-symbolic fusion, not raw detection performance
-- Not intended to replace supervised classifiers when labeled data is available
+- The IsolationForest component contributes 30% of the ensemble score; future versions may replace it with a novel method to eliminate component overlap in benchmarking
 - Best suited for scenarios requiring explainable anomaly decisions
 
 **When to Use Mercury-Agent:**
@@ -137,11 +146,11 @@ Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-s
 - When confidence calibration and uncertainty quantification matter
 
 **When to Use Alternatives:**
-- When speed is critical and interpretability is not needed (use IsolationForest)
+- When speed is critical and interpretability is not needed (use simpler statistical methods)
 - When labeled anomaly data is available (use supervised classifiers)
-- When memory is constrained (use simpler methods)
+- When memory is constrained (use HBOS or EllipticEnvelope)
 
-*Benchmark methodology: ROC-AUC and F1 on held-out test sets with contamination=0.1. See `benchmarks/baseline_results.json` for full peer comparison.*
+*Benchmark methodology: ROC-AUC and F1 on held-out test sets across 16 ADBench datasets. See `benchmarks/baseline_results.json` for full results.*
 
 ### Comprehensive Multi-Panel Visualizations
 
@@ -185,7 +194,7 @@ Network intrusion detection benchmark using the KDD Cup 99 dataset:
 | **Samples** | 50,000 | 10% subset of KDD Cup 99 |
 | **Features** | 41 | Network connection attributes |
 | **Anomaly Ratio** | ~20% | Attack vs normal traffic |
-| **Model** | IsolationForest | Unsupervised anomaly detection |
+| **Model** | StatisticalAnomalyDetector | 3-method ensemble (Z-score/IQR/IF) |
 | **Bias Check** | Passed | Demographic parity < 0.1 |
 
 *Citation: Tavallaee et al. (2009). A detailed analysis of the KDD CUP 99 data set.*
