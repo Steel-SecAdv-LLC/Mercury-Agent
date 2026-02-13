@@ -1512,7 +1512,7 @@ class OmniMercuryEngine(LoggerMixin):
         This method addresses the threshold calibration issue where a fixed
         threshold of 0.5 fails on highly imbalanced datasets. It supports:
         1. Fixed threshold from config.anomaly_threshold
-        2. Contamination-based percentile threshold (like sklearn IsolationForest)
+        2. Contamination-based percentile threshold for Mercury's statistical ensemble
         3. Adaptive threshold based on score distribution with IQR fallback
 
         The adaptive threshold uses IQR-based outlier detection when contamination

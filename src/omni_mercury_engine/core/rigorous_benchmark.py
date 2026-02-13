@@ -25,15 +25,6 @@ from typing import Any, Protocol
 
 import numpy as np
 from scipy import stats
-from sklearn.metrics import (
-    average_precision_score,
-    brier_score_loss,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import StratifiedKFold, train_test_split
 
 # Fixed seed for reproducibility
 GLOBAL_SEED = 42
@@ -205,6 +196,13 @@ def stratified_split(
     Returns:
         X_train, X_test, y_train, y_test
     """
+    try:
+        from sklearn.model_selection import train_test_split
+    except ImportError as e:
+        raise ImportError(
+            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+        ) from e
+
     set_all_seeds(seed)
     return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)  # type: ignore[no-any-return]
 
@@ -306,6 +304,13 @@ def point_adjusted_f1(
     Returns:
         Point-adjusted F1 score
     """
+    try:
+        from sklearn.metrics import f1_score
+    except ImportError as e:
+        raise ImportError(
+            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+        ) from e
+
     # Get anomaly segments
     adjusted_pred = np.zeros_like(y_pred)
 
@@ -391,6 +396,21 @@ class RigorousBenchmarkHarness:
         Returns:
             BenchmarkResult with all metrics and statistics
         """
+        try:
+            from sklearn.metrics import (
+                average_precision_score,
+                brier_score_loss,
+                f1_score,
+                precision_score,
+                recall_score,
+                roc_auc_score,
+            )
+            from sklearn.model_selection import StratifiedKFold
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
+
         set_all_seeds(self.seed)
 
         result = BenchmarkResult(

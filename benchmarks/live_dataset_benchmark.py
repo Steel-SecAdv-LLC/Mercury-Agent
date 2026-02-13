@@ -180,11 +180,12 @@ class LiveDatasetBenchmarkRunner:
             logger.info(f"Initialized {self.detector_name} detector")
         except ImportError as e:
             logger.warning(f"Could not import AdaptiveAnomalyDetector: {e}")
-            # Fallback to IsolationForest
+            # Fallback to sklearn IsolationForest baseline for comparison only
+            # Note: This is NOT Mercury's detector, just a baseline for benchmarking
             from sklearn.ensemble import IsolationForest
 
             self.detector = IsolationForest(contamination=0.1, random_state=42)
-            self.detector_name = "IsolationForest"
+            self.detector_name = "IsolationForest-baseline"
 
     def _load_dataset(
         self, category: str, dataset_name: str, loader_name: str

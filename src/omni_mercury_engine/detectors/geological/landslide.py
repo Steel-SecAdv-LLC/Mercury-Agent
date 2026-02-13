@@ -54,9 +54,6 @@ from typing import Any
 import numpy as np
 import torch
 from scipy import signal
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
 from torch import nn
 
 
@@ -433,6 +430,15 @@ class SVMRFEnsembleClassifier:
             rf_n_estimators: Number of trees in Random Forest
             ensemble_weights: Weights for (SVM, RF) predictions
         """
+        try:
+            from sklearn.ensemble import RandomForestClassifier
+            from sklearn.preprocessing import StandardScaler
+            from sklearn.svm import SVC
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
+
         self.svm = SVC(kernel=svm_kernel, probability=True, random_state=42)
         self.rf = RandomForestClassifier(n_estimators=rf_n_estimators, random_state=42)
         self.scaler = StandardScaler()

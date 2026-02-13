@@ -22,8 +22,6 @@ from typing import Any, Protocol
 
 import numpy as np
 from scipy.optimize import minimize
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_predict
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +93,19 @@ class StackingFusion:
             passthrough: Include original features in meta-learner
             seed: Random seed
         """
-        self.meta_learner = meta_learner or LogisticRegression(
-            solver="lbfgs",
-            max_iter=1000,
-            random_state=seed,
-        )
+        if meta_learner is None:
+            try:
+                from sklearn.linear_model import LogisticRegression
+            except ImportError as e:
+                raise ImportError(
+                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                ) from e
+            meta_learner = LogisticRegression(
+                solver="lbfgs",
+                max_iter=1000,
+                random_state=seed,
+            )
+        self.meta_learner = meta_learner
         self.cv_folds = cv_folds
         self.use_proba = use_proba
         self.passthrough = passthrough
@@ -144,6 +150,14 @@ class StackingFusion:
             raise ValueError("Must add detectors before fitting")
 
         np.random.seed(self.seed)
+
+        # Import sklearn functions needed for cross-validation
+        try:
+            from sklearn.model_selection import cross_val_predict
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
 
         # Generate out-of-fold predictions for each detector
         meta_features = []

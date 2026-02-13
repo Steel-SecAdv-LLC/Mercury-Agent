@@ -22,10 +22,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-from sklearn.calibration import calibration_curve
-from sklearn.isotonic import IsotonicRegression
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import brier_score_loss, log_loss
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +137,13 @@ class PlattScaling:
             solver: Solver for logistic regression
             max_iter: Maximum iterations for convergence
         """
+        try:
+            from sklearn.linear_model import LogisticRegression
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
+
         self.model = LogisticRegression(
             solver=solver,
             max_iter=max_iter,
@@ -212,6 +215,13 @@ class IsotonicCalibration:
         Args:
             out_of_bounds: How to handle out-of-bounds values ("clip", "nan")
         """
+        try:
+            from sklearn.isotonic import IsotonicRegression
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
+
         self.model = IsotonicRegression(
             y_min=0.0,
             y_max=1.0,
@@ -307,6 +317,13 @@ class TemperatureScaling:
 
         logits = self._logit(y_prob)
 
+        try:
+            from sklearn.metrics import log_loss
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
+
         # Grid search for optimal temperature
         best_nll = float("inf")
         best_T = 1.0
@@ -396,6 +413,13 @@ class CalibrationEnsemble:
             calibrated = calibrator.calibrate(y_prob_val)
 
             try:
+                from sklearn.metrics import brier_score_loss
+            except ImportError as e:
+                raise ImportError(
+                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                ) from e
+
+            try:
                 brier = brier_score_loss(y_true_val, calibrated)
             except ValueError:
                 brier = float("inf")
@@ -448,6 +472,14 @@ def evaluate_calibration(
     Returns:
         CalibrationResult with before/after metrics
     """
+    try:
+        from sklearn.calibration import calibration_curve
+        from sklearn.metrics import brier_score_loss
+    except ImportError as e:
+        raise ImportError(
+            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+        ) from e
+
     # Brier scores
     brier_before = brier_score_loss(y_true, y_prob_uncalibrated)
     brier_after = brier_score_loss(y_true, y_prob_calibrated)
