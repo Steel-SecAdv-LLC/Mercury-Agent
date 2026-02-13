@@ -105,14 +105,7 @@ class _NativeLOF:
         if k < 1:
             return np.zeros(len(X))
         dists, idx = self._tree.query(X, k=k)
-        # k-distance of each training neighbor
-        kdist_neighbors = np.array([
-            self._tree.query(self._tree.data[idx[i]], k=min(self.k, len(self._lrd)))[0][:, -1]
-            if self._tree.data[idx[i]].ndim > 1
-            else np.array([0.0])
-            for i in range(len(X))
-        ])
-        # Simplified: use ratio of local densities as score
+        # Simplified LOF: use ratio of local densities as score
         reach = np.maximum(dists, 1e-10)
         mean_reach = reach.mean(axis=1)
         lrd_query = np.where(mean_reach > 0, 1.0 / mean_reach, 1.0)

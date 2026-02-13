@@ -59,7 +59,7 @@ class _NativePCA:
     def fit(self, X: np.ndarray[Any, Any]) -> _NativePCA:
         self.mean_ = X.mean(axis=0)
         X_centered = X - self.mean_
-        # Economy SVD – only compute first min(n, d) singular vectors
+        # Economy SVD - only compute first min(n, d) singular vectors
         _U, _s, Vt = np.linalg.svd(X_centered, full_matrices=False)
         self.components_ = Vt[: self.n_components]
         return self

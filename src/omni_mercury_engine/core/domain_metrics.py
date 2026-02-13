@@ -223,7 +223,6 @@ class MetricsCalculator:
             from sklearn.metrics import (
                 accuracy_score,
                 average_precision_score,
-                brier_score_loss,
                 f1_score,
                 precision_score,
                 recall_score,
