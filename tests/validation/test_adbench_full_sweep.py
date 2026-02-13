@@ -122,9 +122,7 @@ def test_adbench_statistical_detector(dataset_name: str) -> None:
         result["n_features"],
     )
 
-    assert result["auc"] >= MIN_AUC, (
-        f"AUC {result['auc']:.3f} < {MIN_AUC} for {dataset_name}"
-    )
+    assert result["auc"] >= MIN_AUC, f"AUC {result['auc']:.3f} < {MIN_AUC} for {dataset_name}"
 
 
 @pytest.mark.skipif(not LIVE_DATA_ENABLED, reason="MERCURY_RUN_LIVE_DATA not set")
@@ -179,6 +177,6 @@ def test_adbench_comprehensive_report() -> None:
             above_target,
         )
 
-    assert len(results) >= len(PRIMARY_DATASETS) // 2, (
-        f"Need at least {len(PRIMARY_DATASETS) // 2} successful benchmarks, got {len(results)}"
-    )
+    assert (
+        len(results) >= len(PRIMARY_DATASETS) // 2
+    ), f"Need at least {len(PRIMARY_DATASETS) // 2} successful benchmarks, got {len(results)}"

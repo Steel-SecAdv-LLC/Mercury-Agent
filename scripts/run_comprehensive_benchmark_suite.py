@@ -325,10 +325,22 @@ class BenchmarkSuite:
         logger.info("Mercury-Agent v%s Comprehensive Benchmark Suite", __version__)
 
         adbench_datasets = [
-            "cardio", "thyroid", "mammography", "breastw",
-            "Ionosphere", "Pima", "satellite", "shuttle",
-            "wine", "glass", "musk", "arrhythmia",
-            "optdigits", "pendigits", "vertebral", "WBC",
+            "cardio",
+            "thyroid",
+            "mammography",
+            "breastw",
+            "Ionosphere",
+            "Pima",
+            "satellite",
+            "shuttle",
+            "wine",
+            "glass",
+            "musk",
+            "arrhythmia",
+            "optdigits",
+            "pendigits",
+            "vertebral",
+            "WBC",
         ]
 
         for name in adbench_datasets:
@@ -341,12 +353,17 @@ class BenchmarkSuite:
         self.save()
 
         summary = self.results["summary"]
-        logger.info("Suite complete: %d datasets tested, %d failed",
-                     summary["total_datasets_tested"], summary["total_datasets_failed"])
+        logger.info(
+            "Suite complete: %d datasets tested, %d failed",
+            summary["total_datasets_tested"],
+            summary["total_datasets_failed"],
+        )
         if summary["statistical_detector"]["mean_auc"]:
-            logger.info("Statistical: mean AUC=%.3f, mean F1=%.3f",
-                         summary["statistical_detector"]["mean_auc"],
-                         summary["statistical_detector"]["mean_f1"])
+            logger.info(
+                "Statistical: mean AUC=%.3f, mean F1=%.3f",
+                summary["statistical_detector"]["mean_auc"],
+                summary["statistical_detector"]["mean_f1"],
+            )
 
 
 if __name__ == "__main__":

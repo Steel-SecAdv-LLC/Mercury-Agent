@@ -54,9 +54,7 @@ def _load_adbench(dataset_name: str) -> tuple[np.ndarray[Any, Any], np.ndarray[A
     return X, y
 
 
-def _run_detector_on_data(
-    X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]
-) -> dict[str, float]:
+def _run_detector_on_data(X: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> dict[str, float]:
     """Run statistical detector on data and return metrics."""
     # Split: use 70% for training, 30% for testing
     n = len(X)
@@ -116,9 +114,9 @@ def test_adbench_statistical_detector(dataset_name: str) -> None:
         metrics["n_test"],
     )
 
-    assert metrics["auc"] >= MIN_ADBENCH_AUC, (
-        f"ADBench {dataset_name}: AUC {metrics['auc']:.3f} < {MIN_ADBENCH_AUC}"
-    )
+    assert (
+        metrics["auc"] >= MIN_ADBENCH_AUC
+    ), f"ADBench {dataset_name}: AUC {metrics['auc']:.3f} < {MIN_ADBENCH_AUC}"
 
 
 @pytest.mark.skipif(not LIVE_DATA_ENABLED, reason="MERCURY_RUN_LIVE_DATA not set")
@@ -143,9 +141,7 @@ def test_nslkdd_statistical_detector() -> None:
         metrics["n_test"],
     )
 
-    assert metrics["auc"] >= MIN_NSLKDD_AUC, (
-        f"NSL-KDD: AUC {metrics['auc']:.3f} < {MIN_NSLKDD_AUC}"
-    )
+    assert metrics["auc"] >= MIN_NSLKDD_AUC, f"NSL-KDD: AUC {metrics['auc']:.3f} < {MIN_NSLKDD_AUC}"
 
 
 @pytest.mark.skipif(not LIVE_DATA_ENABLED, reason="MERCURY_RUN_LIVE_DATA not set")
@@ -167,6 +163,6 @@ def test_adbench_metrics_stored() -> None:
         computed[f"adbench_{name}_auc"] = m["auc"]
         computed[f"adbench_{name}_f1"] = m["f1"]
 
-    assert len(results) >= len(ADBENCH_DATASETS) // 2, (
-        f"At least {len(ADBENCH_DATASETS) // 2} ADBench datasets should load, got {len(results)}"
-    )
+    assert (
+        len(results) >= len(ADBENCH_DATASETS) // 2
+    ), f"At least {len(ADBENCH_DATASETS) // 2} ADBench datasets should load, got {len(results)}"

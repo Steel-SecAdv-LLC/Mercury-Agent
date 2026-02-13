@@ -51,7 +51,8 @@ class DatasetCache:
     ) -> Path:
         """Save dataset to cache. Returns the cache file path."""
         cache_file = self.cache_dir / f"{dataset_name}_{source}.npz"
-        np.savez_compressed(cache_file, **data)
+        arrays: dict[str, Any] = dict(data)
+        np.savez_compressed(str(cache_file), **arrays)
         logger.info("Cached: %s to %s", dataset_name, cache_file)
         return cache_file
 

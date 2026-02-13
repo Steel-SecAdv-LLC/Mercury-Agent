@@ -73,10 +73,12 @@ class TestFindOptimalThreshold:
     def test_normal_case(self) -> None:
         """Standard case with mixed labels."""
         np.random.seed(42)
-        scores = np.concatenate([
-            np.random.uniform(0.0, 0.5, 80),
-            np.random.uniform(0.5, 1.0, 20),
-        ])
+        scores = np.concatenate(
+            [
+                np.random.uniform(0.0, 0.5, 80),
+                np.random.uniform(0.5, 1.0, 20),
+            ]
+        )
         labels = np.concatenate([np.zeros(80), np.ones(20)])
         threshold = find_optimal_threshold(scores, labels)
         assert 0.0 <= threshold <= 1.0
@@ -95,10 +97,12 @@ class TestFindOptimalThresholdFine:
     def test_fine_improves_or_matches(self) -> None:
         """Fine search should match or improve coarse result."""
         np.random.seed(42)
-        scores = np.concatenate([
-            np.random.uniform(0.0, 0.6, 80),
-            np.random.uniform(0.4, 1.0, 20),
-        ])
+        scores = np.concatenate(
+            [
+                np.random.uniform(0.0, 0.6, 80),
+                np.random.uniform(0.4, 1.0, 20),
+            ]
+        )
         labels = np.concatenate([np.zeros(80), np.ones(20)])
 
         coarse = find_optimal_threshold(scores, labels)

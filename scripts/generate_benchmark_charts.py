@@ -57,9 +57,7 @@ def plot_adbench_auc(results: dict) -> None:
         label = name.replace("adbench_", "").title()
         datasets.append(label)
         statistical_auc.append(data["detectors"]["statistical"]["auc"])
-        temporal_auc.append(
-            data["detectors"].get("temporal", {}).get("auc", 0.0)
-        )
+        temporal_auc.append(data["detectors"].get("temporal", {}).get("auc", 0.0))
 
     if not datasets:
         logger.warning("No ADBench results found")
