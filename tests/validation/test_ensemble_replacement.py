@@ -33,9 +33,9 @@ class TestResonanceScore:
         score_sine = detector._compute_resonance_score(sine).mean()
         score_noise = detector._compute_resonance_score(noise).mean()
 
-        assert score_noise > score_sine, (
-            f"Resonance: noise ({score_noise:.3f}) should be > sine ({score_sine:.3f})"
-        )
+        assert (
+            score_noise > score_sine
+        ), f"Resonance: noise ({score_noise:.3f}) should be > sine ({score_sine:.3f})"
 
     def test_small_dataset(self, detector: StatisticalAnomalyDetector) -> None:
         """Resonance should not crash on n_samples < 32."""
@@ -76,18 +76,20 @@ class TestKinematicScore:
     def test_jerky_scored_higher_than_smooth(self, detector: StatisticalAnomalyDetector) -> None:
         """Jerky trajectory should be more anomalous than smooth."""
         smooth = np.linspace(0, 1, 50).reshape(-1, 1)
-        jerky = np.concatenate([
-            np.linspace(0, 1, 25),
-            np.random.RandomState(42).randn(25) + 5,
-        ]).reshape(-1, 1)
+        jerky = np.concatenate(
+            [
+                np.linspace(0, 1, 25),
+                np.random.RandomState(42).randn(25) + 5,
+            ]
+        ).reshape(-1, 1)
 
         detector.fit(smooth)
         score_smooth = detector._compute_kinematic_score(smooth).mean()
         score_jerky = detector._compute_kinematic_score(jerky).mean()
 
-        assert score_jerky > score_smooth, (
-            f"Kinematic: jerky ({score_jerky:.3f}) should be > smooth ({score_smooth:.3f})"
-        )
+        assert (
+            score_jerky > score_smooth
+        ), f"Kinematic: jerky ({score_jerky:.3f}) should be > smooth ({score_smooth:.3f})"
 
     def test_single_sample(self, detector: StatisticalAnomalyDetector) -> None:
         """Single sample should return 0.5 (no dynamics)."""
@@ -139,9 +141,9 @@ class TestInfoGeometryScore:
         score_in = detector._compute_info_geometry_score(in_dist).mean()
         score_out = detector._compute_info_geometry_score(out_dist).mean()
 
-        assert score_out > score_in, (
-            f"InfoGeo: OOD ({score_out:.3f}) should be > in-dist ({score_in:.3f})"
-        )
+        assert (
+            score_out > score_in
+        ), f"InfoGeo: OOD ({score_out:.3f}) should be > in-dist ({score_in:.3f})"
 
     def test_singular_covariance(self, detector: StatisticalAnomalyDetector) -> None:
         """Near-singular covariance (many more features than samples) should not crash."""
@@ -196,9 +198,7 @@ class TestEnsembleCombined:
         assert len(result["scores"]) == 1
         assert 0 <= result["scores"][0] <= 1
 
-    def test_nan_raises(
-        self, detector: StatisticalAnomalyDetector, train_data: np.ndarray
-    ) -> None:
+    def test_nan_raises(self, detector: StatisticalAnomalyDetector, train_data: np.ndarray) -> None:
         """NaN in training data should be filtered; NaN in test data propagates."""
         detector.fit(train_data)
         data_nan = train_data[:5].copy()
@@ -246,26 +246,20 @@ class TestEnsembleCombined:
         assert "kinematic" in components
         assert "info_geometry" in components
 
-    def test_scores_are_continuous(
-        self, detector: StatisticalAnomalyDetector
-    ) -> None:
+    def test_scores_are_continuous(self, detector: StatisticalAnomalyDetector) -> None:
         """Scores should have many unique values (not discrete)."""
         rng = np.random.RandomState(42)
         X = rng.randn(200, 10).astype(np.float32)
         detector.fit(X)
         result = detector.detect(X)
         unique_scores = np.unique(result["scores"])
-        assert len(unique_scores) > 10, (
-            f"Expected >10 unique scores, got {len(unique_scores)}"
-        )
+        assert len(unique_scores) > 10, f"Expected >10 unique scores, got {len(unique_scores)}"
 
-    def test_no_isolation_forest_attribute(
-        self, detector: StatisticalAnomalyDetector
-    ) -> None:
+    def test_no_isolation_forest_attribute(self, detector: StatisticalAnomalyDetector) -> None:
         """Detector should not have an isolation_forest attribute."""
-        assert not hasattr(detector, "isolation_forest"), (
-            "isolation_forest attribute should be removed"
-        )
+        assert not hasattr(
+            detector, "isolation_forest"
+        ), "isolation_forest attribute should be removed"
 
     def test_1d_data(self, detector: StatisticalAnomalyDetector) -> None:
         """1D input should work (reshaped to (n, 1) internally)."""

@@ -34,7 +34,7 @@ References:
   - InfoGeometry: IGEOOD / FisherInformationMatrix (core/info_geometry.py)
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -62,34 +62,34 @@ class StatisticalAnomalyDetector(BaseDetector):
     scores in [0, 1], and require only numpy/scipy (no sklearn).
     """
 
-    def __init__(self, config: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         self.z_threshold: float = self.config.get("z_threshold", 3.0)
         self.iqr_multiplier: float = self.config.get("iqr_multiplier", 1.5)
 
         # Stored statistics from fit()
-        self.mean: Optional[np.ndarray[Any, Any]] = None
-        self.std: Optional[np.ndarray[Any, Any]] = None
-        self.q1: Optional[np.ndarray[Any, Any]] = None
-        self.q3: Optional[np.ndarray[Any, Any]] = None
+        self.mean: np.ndarray[Any, Any] | None = None
+        self.std: np.ndarray[Any, Any] | None = None
+        self.q1: np.ndarray[Any, Any] | None = None
+        self.q3: np.ndarray[Any, Any] | None = None
 
         # InfoGeometry fit state
-        self._ig_mean: Optional[np.ndarray[Any, Any]] = None
-        self._ig_cov_inv: Optional[np.ndarray[Any, Any]] = None
+        self._ig_mean: np.ndarray[Any, Any] | None = None
+        self._ig_cov_inv: np.ndarray[Any, Any] | None = None
         self._ig_log_det: float = 0.0
 
         # Kinematic fit state (baseline statistics per feature)
-        self._kin_jerk_mean: Optional[np.ndarray[Any, Any]] = None
-        self._kin_jerk_std: Optional[np.ndarray[Any, Any]] = None
-        self._kin_accel_mean: Optional[np.ndarray[Any, Any]] = None
-        self._kin_accel_std: Optional[np.ndarray[Any, Any]] = None
+        self._kin_jerk_mean: np.ndarray[Any, Any] | None = None
+        self._kin_jerk_std: np.ndarray[Any, Any] | None = None
+        self._kin_accel_mean: np.ndarray[Any, Any] | None = None
+        self._kin_accel_std: np.ndarray[Any, Any] | None = None
 
         # Training data reference for resonance (needed for per-feature FFT)
-        self._train_data: Optional[np.ndarray[Any, Any]] = None
+        self._train_data: np.ndarray[Any, Any] | None = None
 
         # Precomputed spectral profiles per feature (set during fit)
-        self._res_h_train: Optional[np.ndarray[Any, Any]] = None
-        self._res_noise_ratio: Optional[np.ndarray[Any, Any]] = None
+        self._res_h_train: np.ndarray[Any, Any] | None = None
+        self._res_noise_ratio: np.ndarray[Any, Any] | None = None
 
     # =====================================================================
     # fit()
