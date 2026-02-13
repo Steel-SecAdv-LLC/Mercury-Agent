@@ -1,0 +1,52 @@
+name: Live-Data Validation Gate
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'benchmarks/**'
+      - '.github/workflows/live-data-validation.yml'
+
+jobs:
+  live-data-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[all]"
+
+      - name: Run live-data validation suite
+        run: |
+          pytest tests/validation/test_real_data_validation.py -v --tb=short
+        env:
+          MERCURY_RUN_LIVE_DATA: "true"
+
+      - name: Check benchmark thresholds
+        run: |
+          python scripts/validate_live_data_metrics.py
+        env:
+          MERCURY_MIN_ADBENCH_AUC: "0.85"
+          MERCURY_MIN_NSLKDD_F1: "0.50"
+          MERCURY_MIN_NSLKDD_AUC: "0.55"
+          MERCURY_ALLOW_REGRESSION: "0.02"
+
+      - name: Generate live-data report
+        if: always()
+        run: |
+          pytest tests/validation/test_real_data_validation.py --json-report --json-report-file=live-data-report.json || true
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-data-validation-report
+          path: live-data-report.json

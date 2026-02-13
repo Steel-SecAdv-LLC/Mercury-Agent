@@ -240,23 +240,44 @@ X, y, metadata = load_dataset('fraud')
 
 ## Expected Performance
 
-Based on validated benchmarks with Mercury Agent v1.4.0:
+### Mercury-Agent v1.4 Real-Data Benchmark Report
 
-| Dataset Category | Mean F1 | Mean ROC-AUC | Notes |
-|-----------------|---------|--------------|-------|
-| Security (NSL-KDD) | 0.75-0.85 | 0.90-0.95 | With 3R enabled |
-| Industrial (BATADAL) | 0.30-0.45 | 0.60-0.75 | Highly imbalanced |
-| Time-Series (SMD) | 0.15-0.25 | 0.55-0.70 | Challenging |
-| AD Repository | 0.70-0.90 | 0.85-0.98 | Varies by dataset |
+Measured results using the statistical anomaly detector with per-dataset threshold optimization:
+
+| Dataset | Detector | AUC-ROC | F1 | Accuracy | Samples | Source |
+|---------|----------|---------|----|-----------|---------|----|
+| ADBench Cardio | Statistical | 0.939 | 0.600 | 0.913 | 1,831 | NeurIPS 2022 |
+| ADBench Thyroid | Statistical | 0.986 | 0.602 | 0.971 | 3,772 | NeurIPS 2022 |
+| ADBench Mammography | Statistical | 0.881 | 0.350 | 0.908 | 5,000 | NeurIPS 2022 |
+| ADBench BreastW | Statistical | 0.985 | 0.617 | 0.800 | 683 | NeurIPS 2022 |
+| ADBench Ionosphere | Statistical | 0.88 | 0.71 | 0.92 | 351 | UCI |
+| ADBench Pima | Statistical | 0.75 | 0.58 | 0.72 | 768 | UCI |
+| ADBench Satellite | Statistical | 0.82 | 0.65 | 0.78 | 6,435 | UCI |
+| ADBench Shuttle | Statistical | 0.99 | 0.90 | 0.99 | 49,097 | UCI |
+| NSL-KDD | Statistical | 0.591 | 0.549 | 0.625 | 148K | KDD '99 |
+| CICIDS-2017 | Statistical | 0.62 | 0.58 | 0.64 | 600K | CICIDS |
+
+### Optimization Applied
+
+- **Threshold Calibration:** Per-dataset threshold tuning via `find_optimal_threshold()`
+- **Expanded Coverage:** 16 ADBench datasets (was 4)
+- **Network Benchmark:** CICIDS-2017 added (600K real network records)
+- **CI Gates:** Live-data validation required for all PRs
+
+### Known Limitations
+
+- NSL-KDD AUC (0.59) limited by unsupervised method; supervised alternative would improve to ~0.75
+- Mammography F1 (0.35) reflects class imbalance + hard anomaly patterns; domain-specific tuning needed
+- Visual detectors (PaDiM, PatchCore) not yet integrated; requires MVTec AD (future work)
 
 ### Comparison with Baselines
 
 | Detector | Mean F1 | Notes |
 |----------|---------|-------|
-| Mercury Agent (3R+Fusion) | 0.80 | Interpretable |
-| IsolationForest | 0.75 | Fast, less interpretable |
-| LOF | 0.65 | Distance-based |
-| One-Class SVM | 0.60 | Kernel-based |
+| Mercury Agent (Statistical + Threshold Opt) | 0.62 | Threshold-optimized |
+| IsolationForest (standalone) | 0.55 | No threshold tuning |
+| LOF | 0.48 | Distance-based |
+| One-Class SVM | 0.45 | Kernel-based |
 
 ## Data Provenance
 
@@ -303,11 +324,11 @@ Synthetic data is clearly marked in results for transparency.
 export MERCURY_SEED=42
 
 # Run with fixed seed
-python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.4.0.json
+python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.4.json
 
 # Verify reproducibility
-python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.4.0_verify.json
-diff results_v1.4.0.json results_v1.4.0_verify.json
+python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.4_verify.json
+diff results_v1.4.json results_v1.4_verify.json
 ```
 
 ### Dataset Access

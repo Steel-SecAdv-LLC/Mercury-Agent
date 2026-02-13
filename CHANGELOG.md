@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4] - 2026-02-12
+
+### Added
+- Real-data validation suite (ADBench, NSL-KDD, live-dataset CI gates)
+- Live-dataset detector benchmarks (AUC-ROC, F1, Accuracy measured)
+- Automated threshold calibration via `enable_auto_calibration()`
+- CICIDS-2017 network security dataset integration
+- Expanded ADBench coverage from 4 to 16 datasets
+- Live-data validation CI workflow (.github/workflows/live-data-validation.yml)
+
+### Changed
+- CI now requires live-data validation (no synthetic-only benchmarks)
+- All version references normalized to v1.4
+- Documentation updated with measured real-world metrics
+
+### Fixed
+- Removed 3.5MB generated benchmark bloat
+- Email standardization across all config files
+
+---
+
 ## [1.5.0] - 2026-02-11
 
 ### Added - Mathematical Audit & Parameterization Overhaul

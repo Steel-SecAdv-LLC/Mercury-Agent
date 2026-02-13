@@ -1,0 +1,12 @@
+{
+  "adbench_cardio_auc": 0.939,
+  "adbench_cardio_f1": 0.600,
+  "adbench_thyroid_auc": 0.986,
+  "adbench_thyroid_f1": 0.602,
+  "adbench_mammography_auc": 0.881,
+  "adbench_mammography_f1": 0.350,
+  "adbench_breastw_auc": 0.985,
+  "adbench_breastw_f1": 0.617,
+  "nslkdd_auc": 0.591,
+  "nslkdd_f1": 0.549
+}
