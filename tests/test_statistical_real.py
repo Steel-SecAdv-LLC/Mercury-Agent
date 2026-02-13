@@ -159,49 +159,46 @@ class TestIQRBounds:
 
 
 class TestAdaptiveContamination:
-    """Test adaptive contamination estimation (Fix for Issue #5)."""
+    """Test detector adapts to different data distributions.
 
-    def test_contamination_adapts_to_data(self):
-        """Contamination should adapt based on z-score outliers."""
-        # Clean data (few outliers) - should have low contamination
-        clean_data = np.random.randn(1000, 1)
-        detector_clean = StatisticalAnomalyDetector()
-        detector_clean.fit(clean_data)
-        clean_contamination = detector_clean.contamination
+    Note: IsolationForest and explicit contamination estimation were removed
+    in the ensemble replacement (Resonance + Kinematic + InfoGeo). These tests
+    now verify the detector handles different distributions correctly via
+    its info-geometry and kinematic scoring.
+    """
 
-        # Noisy data (many outliers) - should have higher contamination
+    def test_noisy_data_scores_higher_than_clean(self):
+        """Noisy data should produce higher anomaly scores than clean data."""
+        clean_data = np.random.RandomState(42).randn(200, 1)
         noisy_data = np.concatenate(
             [
-                np.random.randn(700, 1),  # Normal
-                np.random.randn(300, 1) * 5 + 10,  # Outliers
+                np.random.RandomState(42).randn(140, 1),
+                np.random.RandomState(43).randn(60, 1) * 5 + 10,
             ]
         )
-        detector_noisy = StatisticalAnomalyDetector()
-        detector_noisy.fit(noisy_data)
-        noisy_contamination = detector_noisy.contamination
 
-        # Noisy data should have higher contamination estimate
-        assert noisy_contamination > clean_contamination
+        detector = StatisticalAnomalyDetector()
+        detector.fit(clean_data)
 
-    def test_config_contamination_overrides_adaptive(self):
-        """Explicit contamination config should override adaptive estimation."""
+        clean_scores = detector.detect(clean_data)["scores"].mean()
+        noisy_scores = detector.detect(noisy_data)["scores"].mean()
+
+        assert noisy_scores > clean_scores
+
+    def test_config_contamination_accepted(self):
+        """Legacy contamination config should not cause errors."""
         detector = StatisticalAnomalyDetector({"contamination": 0.25})
         data = np.random.randn(100, 1)
         detector.fit(data)
+        assert detector._is_fitted
 
-        # Should use configured value, not adaptive
-        assert detector.contamination == 0.25
-
-    def test_contamination_bounds(self):
-        """Contamination should be clamped to [0.001, 0.5]."""
-        # Create data with no outliers
-        uniform_data = np.ones((100, 1))  # All same value
+    def test_uniform_data_handled(self):
+        """Uniform/constant data should not crash the detector."""
+        uniform_data = np.ones((100, 1))
         detector = StatisticalAnomalyDetector()
         detector.fit(uniform_data)
-
-        # Should be clamped to minimum
-        assert detector.contamination >= 0.001
-        assert detector.contamination <= 0.5
+        result = detector.detect(uniform_data)
+        assert np.all(np.isfinite(result["scores"]))
 
 
 class TestContinuousScores:

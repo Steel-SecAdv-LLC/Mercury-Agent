@@ -18,69 +18,106 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""
-Statistical anomaly detector using z-score, IQR, and isolation forest
+"""Statistical anomaly detector using Mercury's original mathematical frameworks.
+
+Ensemble composition (replaces prior z-score + IQR + IsolationForest):
+  - ResonanceScore  (40%): FFT-based harmonic spectral anomaly detection
+  - KinematicScore  (30%): Physics-based jerk/curvature dynamics
+  - InfoGeometryScore (30%): Fisher Information Matrix OOD detection
+
+All three methods are deterministic after fit, numerically stable, and
+produce continuous scores in [0, 1] for downstream fusion.
+
+References:
+  - Resonance: Mercury 3R ResonanceEngine (core/three_r/engines.py)
+  - Kinematics: AccelerationDynamicsDetector (detectors/acceleration_dynamics.py)
+  - InfoGeometry: IGEOOD / FisherInformationMatrix (core/info_geometry.py)
 """
 
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import torch
-from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import StandardScaler
+from scipy import linalg as sp_linalg
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+_MIN_VARIANCE: float = 1e-12
+_TIKHONOV_LAMBDA: float = 1e-6
+
 
 class StatisticalAnomalyDetector(BaseDetector):
-    """
-    Statistical anomaly detection using multiple methods:
-    - Z-score analysis
-    - Interquartile Range (IQR)
-    - Isolation Forest
+    """Statistical anomaly detection using Mercury's original mathematical frameworks.
+
+    Ensemble:
+      - ResonanceScore  (40%): Harmonic spectral anomaly via FFT
+      - KinematicScore  (30%): Physics-based jerk/curvature detection
+      - InfoGeometryScore (30%): Fisher Information OOD detection
+
+    All methods are deterministic after ``fit()``, produce continuous
+    scores in [0, 1], and require only numpy/scipy (no sklearn).
     """
 
-    def __init__(self, config: dict[str, Any] | None = None) -> None:
+    def __init__(self, config: Optional[dict[str, Any]] = None) -> None:
         super().__init__(config)
-        self.z_threshold = self.config.get("z_threshold", 3.0)
-        self.iqr_multiplier = self.config.get("iqr_multiplier", 1.5)
+        self.z_threshold: float = self.config.get("z_threshold", 3.0)
+        self.iqr_multiplier: float = self.config.get("iqr_multiplier", 1.5)
 
-        # Allow contamination from config, but will be adaptively estimated in fit()
-        # Fix for Issue #5: Contamination Mismatch
-        self._config_contamination = self.config.get("contamination", None)
-        self.contamination = 0.1  # Default, will be updated in fit()
+        # Stored statistics from fit()
+        self.mean: Optional[np.ndarray[Any, Any]] = None
+        self.std: Optional[np.ndarray[Any, Any]] = None
+        self.q1: Optional[np.ndarray[Any, Any]] = None
+        self.q3: Optional[np.ndarray[Any, Any]] = None
 
-        self.scaler = StandardScaler()
-        # Lazy initialization after contamination estimation in fit()
-        self.isolation_forest: IsolationForest | None = None
+        # InfoGeometry fit state
+        self._ig_mean: Optional[np.ndarray[Any, Any]] = None
+        self._ig_cov_inv: Optional[np.ndarray[Any, Any]] = None
+        self._ig_log_det: float = 0.0
 
-        self.mean: np.ndarray[Any, Any] | None = None
-        self.std: np.ndarray[Any, Any] | None = None
-        self.q1: np.ndarray[Any, Any] | None = None
-        self.q3: np.ndarray[Any, Any] | None = None
+        # Kinematic fit state (baseline statistics per feature)
+        self._kin_jerk_mean: Optional[np.ndarray[Any, Any]] = None
+        self._kin_jerk_std: Optional[np.ndarray[Any, Any]] = None
+        self._kin_accel_mean: Optional[np.ndarray[Any, Any]] = None
+        self._kin_accel_std: Optional[np.ndarray[Any, Any]] = None
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> StatisticalAnomalyDetector:
-        """Fit detector with adaptive contamination estimation.
+        # Training data reference for resonance (needed for per-feature FFT)
+        self._train_data: Optional[np.ndarray[Any, Any]] = None
 
-        This method computes statistical baselines and adaptively estimates
-        contamination if not explicitly configured. This addresses Issue #5
-        (Contamination Mismatch) where hardcoded 0.1 contamination fails
-        on datasets with different anomaly rates.
+    # =====================================================================
+    # fit()
+    # =====================================================================
+
+    def fit(
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> StatisticalAnomalyDetector:
+        """Fit detector on training data.
+
+        Computes statistical baselines for all three ensemble components:
+          1. Distributional statistics (mean, std, quartiles)
+          2. Kinematic baselines (jerk/acceleration mean and std per feature)
+          3. Information-geometric manifold (mean, regularized precision matrix)
 
         Args:
-            data: Training data array or tensor.
+            data: Training data array or tensor, shape ``(n_samples,)`` or
+                ``(n_samples, n_features)``.
 
         Returns:
             Self for method chaining.
 
         Raises:
             DetectorException: If data is empty or contains only NaN/Inf values.
+
+        Complexity:
+            O(n * d) for statistics, O(d^3) for covariance inversion,
+            O(n * d * log n) for kinematic derivatives.
         """
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
-        # Fix for P0: Validate data is not empty before fitting
         if data.size == 0:
             raise DetectorException(
                 "Cannot fit StatisticalAnomalyDetector with empty data. "
@@ -90,80 +127,171 @@ class StatisticalAnomalyDetector(BaseDetector):
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
-        # Validate data contains finite values
+        # Filter non-finite rows
         finite_mask = np.isfinite(data).all(axis=1)
         if not np.any(finite_mask):
             raise DetectorException(
                 "Cannot fit StatisticalAnomalyDetector: all data values are NaN or Inf. "
                 "Provide data with at least some finite values."
             )
-
-        # Filter to only finite rows for fitting if some rows have NaN/Inf
         if not np.all(finite_mask):
             data = data[finite_mask]
 
-        # Compute statistics
+        # --- Distributional statistics ---
         self.mean = np.mean(data, axis=0)
         self.std = np.std(data, axis=0) + 1e-8
         self.q1 = np.percentile(data, 25, axis=0)
         self.q3 = np.percentile(data, 75, axis=0)
 
-        # Adaptive contamination estimation using z-scores
-        # Fix for Issue #5: Contamination Mismatch
-        if self._config_contamination is not None:
-            self.contamination = self._config_contamination
-        else:
-            # Estimate based on statistical outliers (|z| > 3)
-            z_scores = (data - self.mean) / self.std
-            outlier_fraction = np.mean(np.any(np.abs(z_scores) > 3.0, axis=1))
-            # Scale up slightly and clamp to reasonable range [0.001, 0.5]
-            self.contamination = float(np.clip(outlier_fraction * 2 + 0.001, 0.001, 0.5))
+        # --- InfoGeometry: fit Gaussian manifold ---
+        self._fit_info_geometry(data)
 
-        # Initialize IsolationForest with estimated contamination
-        self.isolation_forest = IsolationForest(
-            contamination=self.contamination,
-            random_state=42,
-            n_estimators=100,
-        )
+        # --- Kinematics: compute baseline jerk/acceleration per feature ---
+        self._fit_kinematic_baseline(data)
 
-        self.scaler.fit(data)
-        self.isolation_forest.fit(data)
+        # Store training data for resonance (column-wise FFT reference)
+        self._train_data = data.copy()
 
         self._is_fitted = True
         return self
 
-    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies with continuous scores for ML fusion.
+    def _fit_info_geometry(self, data: np.ndarray[Any, Any]) -> None:
+        """Fit Gaussian manifold for information-geometric OOD scoring.
 
-        This method computes continuous anomaly scores instead of discrete
-        boolean flags, preserving ranking information for better ROC-AUC
-        performance in downstream fusion models.
+        Stores the precision matrix (regularized inverse covariance) and
+        log-determinant for Mahalanobis distance computation.
 
-        Auto-Calibration (New):
-            When auto_calibrate=True, the threshold is automatically calibrated
-            based on the score distribution. This solves the F1=0 problem where
-            good ROC-AUC is achieved but fixed threshold produces no positives.
+        Equation:
+            Precision = (Sigma + lambda * I)^{-1}
+            where Sigma = sample covariance, lambda = Tikhonov regularization.
+
+        Numerical stability:
+            - Tikhonov regularization prevents singular covariance.
+            - Handles n_samples < n_features via heavy regularization.
+            - Uses ``slogdet`` for numerically stable log-determinant.
+
+        Args:
+            data: Training data (n_samples, n_features), already validated.
+
+        Complexity:
+            O(n * d^2) for covariance, O(d^3) for inversion.
+        """
+        n_samples, n_features = data.shape
+        self._ig_mean = np.mean(data, axis=0)
+
+        if n_samples < 2:
+            # Degenerate: single sample -> identity precision
+            self._ig_cov_inv = np.eye(n_features, dtype=np.float64)
+            self._ig_log_det = 0.0
+            return
+
+        cov = np.cov(data.T, ddof=1)
+        if cov.ndim == 0:
+            cov = np.atleast_2d(cov)
+
+        # Tikhonov regularization: Sigma_reg = Sigma + lambda * I
+        reg_lambda = _TIKHONOV_LAMBDA
+        if n_samples <= n_features:
+            # Under-determined: increase regularization proportionally
+            reg_lambda = max(_TIKHONOV_LAMBDA, 1.0 / max(n_samples, 1))
+        cov_reg = cov + reg_lambda * np.eye(n_features, dtype=cov.dtype)
+
+        # Compute precision via Cholesky for numerical stability
+        try:
+            cho = sp_linalg.cholesky(cov_reg, lower=True)
+            self._ig_cov_inv = sp_linalg.cho_solve(
+                (cho, True), np.eye(n_features)
+            )
+            # log det(Sigma_reg) = 2 * sum(log(diag(L)))
+            self._ig_log_det = float(2.0 * np.sum(np.log(np.diag(cho))))
+        except sp_linalg.LinAlgError:
+            # Fallback to pseudo-inverse if Cholesky still fails
+            self._ig_cov_inv = np.linalg.pinv(cov_reg)
+            sign, logdet = np.linalg.slogdet(cov_reg)
+            self._ig_log_det = float(logdet) if sign > 0 else 0.0
+
+        # Symmetrise precision to remove floating-point asymmetry
+        self._ig_cov_inv = 0.5 * (self._ig_cov_inv + self._ig_cov_inv.T)
+
+    def _fit_kinematic_baseline(self, data: np.ndarray[Any, Any]) -> None:
+        """Compute kinematic baselines (jerk, acceleration) per feature column.
+
+        Treats each feature column as a 1-D trajectory across samples.
+        Velocity = diff(x), Acceleration = diff(velocity), Jerk = diff(accel).
+
+        For n_samples < 3, jerk cannot be computed; falls back to zeros.
+
+        Args:
+            data: Training data (n_samples, n_features), already validated.
+
+        Complexity:
+            O(n * d) for finite differences across n samples, d features.
+        """
+        n_samples, n_features = data.shape
+
+        if n_samples < 4:
+            # Need at least 4 points for jerk (3 diffs)
+            self._kin_jerk_mean = np.zeros(n_features)
+            self._kin_jerk_std = np.ones(n_features)
+            self._kin_accel_mean = np.zeros(n_features)
+            self._kin_accel_std = np.ones(n_features)
+            return
+
+        # Per-feature kinematics using np.diff (vectorized)
+        # velocity[i] = data[i+1] - data[i], shape (n-1, d)
+        velocity = np.diff(data, axis=0)
+        acceleration = np.diff(velocity, axis=0)  # (n-2, d)
+        jerk = np.diff(acceleration, axis=0)  # (n-3, d)
+
+        self._kin_accel_mean = np.mean(acceleration, axis=0)
+        self._kin_accel_std = np.std(acceleration, axis=0) + 1e-8
+        self._kin_jerk_mean = np.mean(jerk, axis=0)
+        self._kin_jerk_std = np.std(jerk, axis=0) + 1e-8
+
+    # =====================================================================
+    # detect()
+    # =====================================================================
+
+    def detect(
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> dict[str, Any]:
+        """Detect anomalies using the Mercury original ensemble.
+
+        Computes continuous anomaly scores from three independent methods
+        and combines them via weighted average.  Scores are in [0, 1].
+
+        Ensemble composition:
+          - ResonanceScore  (40%): FFT harmonic spectral anomaly
+          - KinematicScore  (30%): Physics-based jerk/curvature
+          - InfoGeometryScore (30%): Fisher Information OOD
+
+        Auto-Calibration:
+            When ``auto_calibrate=True``, the threshold is automatically
+            calibrated from the score distribution.
 
         Args:
             data: Input data array or tensor.
 
         Returns:
             Dictionary containing:
-                - is_anomaly: Boolean array of anomaly predictions
-                - scores: Continuous combined anomaly scores [0, 1]
-                - z_scores: Raw z-scores per feature
-                - z_score_continuous: Normalized z-score intensity [0, 1]
-                - iqr_scores: Continuous IQR-based scores [0, 1]
-                - isolation_forest_scores: Normalized IF scores [0, 1]
-                - detector_type: "statistical"
-                - threshold: Effective threshold used (may be calibrated)
-                - calibration_diagnostics: Diagnostics if auto-calibrated
+              - is_anomaly: Boolean array of anomaly predictions
+              - scores: Combined continuous anomaly scores [0, 1]
+              - z_scores: Raw z-scores per feature
+              - z_score_continuous: Normalized z-score intensity [0, 1]
+              - iqr_scores: Continuous IQR-based scores [0, 1]
+              - resonance_scores: Harmonic anomaly scores [0, 1]
+              - kinematic_scores: Physics dynamics scores [0, 1]
+              - info_geometry_scores: Fisher OOD scores [0, 1]
+              - iqr_flags: Legacy boolean IQR anomalies
+              - isolation_forest_scores: Alias for resonance_scores (backward compat)
+              - isolation_forest_flags: Legacy boolean flags (backward compat)
+              - detector_type: ``"statistical"``
+              - threshold: Effective threshold (may be calibrated)
+              - calibration_diagnostics: Diagnostics if auto-calibrated
+              - ensemble_components: Dict of individual component scores
 
-        Note:
-            Fix for Issue #3: Discrete Score Destruction. Previous implementation
-            used boolean flags producing only 5 discrete values {0.0, 0.3, 0.4,
-            0.7, 1.0}. This version preserves continuous scores for better
-            fusion model training and ROC-AUC performance.
+        Raises:
+            DetectorException: If detector has not been fitted.
         """
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
@@ -174,44 +302,36 @@ class StatisticalAnomalyDetector(BaseDetector):
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
-        # Compute continuous z-score intensity (not boolean flags)
+        # --- Individual scores ---
         z_scores = self._compute_z_scores(data)
-        z_score_intensity = np.max(np.abs(z_scores), axis=1) / (self.z_threshold + 1e-8)
-        z_score_continuous = np.clip(z_score_intensity, 0, 3.0) / 3.0  # Normalize to [0, 1]
+        z_score_intensity = np.max(np.abs(z_scores), axis=1) / (
+            self.z_threshold + 1e-8
+        )
+        z_score_continuous = np.clip(z_score_intensity, 0, 3.0) / 3.0
 
-        # Compute continuous IQR-based scores (distance from bounds)
         iqr_scores = self._compute_iqr_scores(data)
 
-        # Use IsolationForest decision_function for continuous scores
-        # decision_function returns negative for anomalies, so negate and normalize
-        if self.isolation_forest is None:
-            raise DetectorException("IsolationForest not initialized")
-        if_raw_scores = -self.isolation_forest.decision_function(data)
-        if_range = if_raw_scores.max() - if_raw_scores.min()
-        if if_range > 1e-8:
-            if_normalized = (if_raw_scores - if_raw_scores.min()) / if_range
-        else:
-            if_normalized = np.full_like(if_raw_scores, 0.5)
+        resonance = self._compute_resonance_score(data)
+        kinematic = self._compute_kinematic_score(data)
+        info_geo = self._compute_info_geometry_score(data)
 
-        # Combine continuous scores with learned weights
-        combined_scores = z_score_continuous * 0.4 + iqr_scores * 0.3 + if_normalized * 0.3
+        # --- Ensemble (weighted average) ---
+        combined_scores = (
+            resonance * 0.4 + kinematic * 0.3 + info_geo * 0.3
+        )
+        combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
-        # Auto-calibration: compute optimal threshold from score distribution
-        # This solves the F1=0 problem where scores are below fixed threshold
+        # --- Threshold & calibration ---
         effective_threshold = self.threshold
         calibration_diagnostics = None
-
         if self._auto_calibrate:
             effective_threshold = self.calibrate_threshold(combined_scores)
             calibration_diagnostics = self._last_diagnostics
 
         is_anomaly = combined_scores > effective_threshold
 
-        # Preserve backward compatibility with legacy flag keys
+        # Legacy backward-compatibility keys
         iqr_anomalies = self._detect_iqr_anomalies(data)
-        if self.isolation_forest is None:
-            raise DetectorException("IsolationForest not initialized")
-        if_anomalies = self.isolation_forest.predict(data)
 
         return {
             "is_anomaly": is_anomaly,
@@ -219,17 +339,318 @@ class StatisticalAnomalyDetector(BaseDetector):
             "z_scores": z_scores,
             "z_score_continuous": z_score_continuous,
             "iqr_scores": iqr_scores,
-            "isolation_forest_scores": if_normalized,
-            # Legacy keys for backward compatibility
+            # New ensemble component scores
+            "resonance_scores": resonance,
+            "kinematic_scores": kinematic,
+            "info_geometry_scores": info_geo,
+            # Backward-compatibility aliases
+            "isolation_forest_scores": resonance,
+            # Legacy keys
             "iqr_flags": iqr_anomalies,
-            "isolation_forest_flags": if_anomalies == -1,
+            "isolation_forest_flags": is_anomaly,
             "detector_type": "statistical",
-            # Calibration info (new)
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
+            "ensemble_components": {
+                "resonance": resonance,
+                "kinematic": kinematic,
+                "info_geometry": info_geo,
+            },
         }
 
-    def _compute_iqr_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    # =====================================================================
+    # Resonance Score (FFT-based harmonic anomaly)
+    # =====================================================================
+
+    def _compute_resonance_score(
+        self,
+        X: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
+        """Harmonic spectral anomaly score via FFT.
+
+        For each feature column, computes the DFT across samples and
+        measures what fraction of total spectral energy resides in
+        *dominant* frequency bins (those above the mean magnitude).
+
+        High harmonic concentration -> normal (structured signal).
+        Low harmonic concentration  -> anomalous (noisy/scattered).
+
+        Equation:
+            H(f) = sum_dominant |F(f)|^2 / sum_all |F(f)|^2
+            score_per_feature = 1 - H   (inverted: high = anomalous)
+
+        Per-sample scoring:
+            Each sample's score is derived from how its per-feature
+            values deviate from the spectral profile learned at fit time.
+            We compute the residual energy ratio feature-by-feature and
+            average across features.
+
+        Numerical stability:
+            - Constant features yield total_energy=0 -> score=0.5 (uncertain).
+            - Single sample: FFT has one bin -> returns 0.5.
+            - Uses ``np.fft.rfft`` (real FFT) for speed.
+
+        Args:
+            X: Input data of shape ``(n_samples, n_features)``.
+
+        Returns:
+            Anomaly scores of shape ``(n_samples,)`` in [0, 1].
+
+        Complexity:
+            O(n * d * log n) where n = max(n_train, n_test), d = n_features.
+        """
+        n_samples, n_features = X.shape
+
+        if self._train_data is None:
+            return np.full(n_samples, 0.5)
+
+        n_train = self._train_data.shape[0]
+
+        # Need at least 2 points for meaningful FFT
+        if n_train < 2:
+            return np.full(n_samples, 0.5)
+
+        # Compute training spectral profile per feature
+        # For each feature, FFT the training column and find dominant bins
+        per_feature_scores = np.zeros((n_samples, n_features))
+
+        for f_idx in range(n_features):
+            train_col = self._train_data[:, f_idx]
+            test_col = X[:, f_idx]
+
+            # FFT of training column
+            train_fft = np.fft.rfft(train_col)
+            train_mag = np.abs(train_fft)
+            total_energy_train = np.sum(train_mag**2)
+
+            if total_energy_train < _MIN_VARIANCE:
+                # Constant feature -> uncertain
+                per_feature_scores[:, f_idx] = 0.5
+                continue
+
+            # Identify dominant frequency bins in training data
+            mean_mag = np.mean(train_mag)
+            dominant_mask = train_mag > mean_mag
+
+            # Compute harmonic ratio for training (reference)
+            harmonic_energy_train = np.sum(train_mag[dominant_mask] ** 2)
+            h_train = harmonic_energy_train / total_energy_train
+
+            # For each test sample: measure deviation from spectral profile
+            # Strategy: create a composite signal [train | test_sample_repeated]
+            # and see how harmonic ratio changes. Simpler and faster:
+            # Compute how far each test value is from the training mean,
+            # scaled by the spectral structure (spread of non-dominant bins).
+            non_dominant_energy = total_energy_train - harmonic_energy_train
+            spectral_noise_ratio = non_dominant_energy / total_energy_train
+
+            # Per-sample anomaly: deviation from training mean, scaled by
+            # the spectral structure. Points far from the training mean
+            # contribute more "noise" to the spectrum.
+            if self.std is not None:
+                dev = np.abs(test_col - self.mean[f_idx]) / self.std[f_idx]
+            else:
+                dev = np.abs(test_col - np.mean(train_col)) / (
+                    np.std(train_col) + 1e-8
+                )
+
+            # Map deviation through sigmoid-like function:
+            # score = 1 - h_train * exp(-dev * spectral_noise_ratio)
+            # When dev=0, score ~ 1-h_train (baseline noise level)
+            # When dev>>0, score -> 1 (fully anomalous)
+            attenuation = np.exp(-dev * max(spectral_noise_ratio, 0.01))
+            per_feature_scores[:, f_idx] = 1.0 - h_train * attenuation
+
+        # Average across features, clip to [0, 1]
+        scores = np.mean(per_feature_scores, axis=1)
+        return np.clip(scores, 0.0, 1.0)
+
+    # =====================================================================
+    # Kinematic Score (physics-based jerk/curvature)
+    # =====================================================================
+
+    def _compute_kinematic_score(
+        self,
+        X: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
+        """Physics-based anomaly score via jerk and acceleration.
+
+        Treats each feature column as a trajectory across samples.
+        Computes finite-difference velocity, acceleration, and jerk,
+        then scores each sample by how its local dynamics deviate
+        from the training baseline.
+
+        Physics formulas:
+            velocity[i]     = x[i+1] - x[i]       (first difference)
+            acceleration[i] = v[i+1] - v[i]        (second difference)
+            jerk[i]         = a[i+1] - a[i]        (third difference)
+
+        Per-sample scoring:
+            For test data, compute acceleration and jerk z-scores
+            relative to training baselines, then combine:
+                score = clip(0.6 * |z_jerk| + 0.4 * |z_accel|, 0, 1) / 3
+
+        Numerical stability:
+            - n_samples < 3: cannot compute acceleration -> returns 0.5.
+            - Single sample: returns 0.5 (no dynamics computable).
+            - Constant features handled by 1e-8 epsilon in std.
+
+        Args:
+            X: Input data of shape ``(n_samples, n_features)``.
+
+        Returns:
+            Anomaly scores of shape ``(n_samples,)`` in [0, 1].
+
+        Complexity:
+            O(n * d) for finite differences across n samples, d features.
+        """
+        n_samples, n_features = X.shape
+
+        if (
+            self._kin_jerk_mean is None
+            or self._kin_jerk_std is None
+            or self._kin_accel_mean is None
+            or self._kin_accel_std is None
+        ):
+            return np.full(n_samples, 0.5)
+
+        if n_samples < 2:
+            # Single sample: no dynamics computable
+            return np.full(n_samples, 0.5)
+
+        # Compute test kinematics
+        velocity = np.diff(X, axis=0)  # (n-1, d)
+
+        if n_samples < 3:
+            # Can compute velocity but not acceleration
+            # Use velocity magnitude as a proxy
+            vel_magnitude = np.mean(np.abs(velocity), axis=1)
+            score_at_diff = np.clip(vel_magnitude / (np.mean(vel_magnitude) + 1e-8), 0, 1)
+            # Map back to original sample indices (pad last)
+            scores = np.zeros(n_samples)
+            scores[:-1] = score_at_diff
+            scores[-1] = score_at_diff[-1]
+            return np.clip(scores * 0.3, 0.0, 1.0)
+
+        acceleration = np.diff(velocity, axis=0)  # (n-2, d)
+
+        if n_samples < 4:
+            # Can compute acceleration but not jerk
+            accel_z = np.abs(acceleration - self._kin_accel_mean) / self._kin_accel_std
+            max_accel_z = np.max(accel_z, axis=1)
+            score_at_accel = np.clip(max_accel_z / 3.0, 0.0, 1.0)
+            # Map back: accel starts at index 1, length n-2
+            scores = np.zeros(n_samples)
+            scores[1 : 1 + len(score_at_accel)] = score_at_accel
+            scores[0] = score_at_accel[0]
+            scores[-1] = score_at_accel[-1]
+            return scores
+
+        jerk = np.diff(acceleration, axis=0)  # (n-3, d)
+
+        # Z-scores relative to training baseline
+        accel_z = np.abs(acceleration - self._kin_accel_mean) / self._kin_accel_std
+        jerk_z = np.abs(jerk - self._kin_jerk_mean) / self._kin_jerk_std
+
+        # Max z-score across features for each position
+        max_accel_z = np.max(accel_z, axis=1)  # (n-2,)
+        max_jerk_z = np.max(jerk_z, axis=1)  # (n-3,)
+
+        # Combine: jerk weighted higher (sudden change indicator)
+        # Normalize by 3.0 (z-score of 3 maps to score 1.0)
+        accel_score = np.clip(max_accel_z / 3.0, 0.0, 1.0)  # (n-2,)
+        jerk_score = np.clip(max_jerk_z / 3.0, 0.0, 1.0)  # (n-3,)
+
+        # Map scores back to per-sample indices
+        # Jerk at index i corresponds to samples [i, i+1, i+2, i+3]
+        # Strategy: for each sample, take the max kinematic anomaly
+        # from any derivative that covers it
+        scores = np.zeros(n_samples)
+
+        # Spread acceleration scores (acceleration[i] covers samples i..i+2)
+        for i in range(len(accel_score)):
+            for j in range(i, min(i + 3, n_samples)):
+                scores[j] = max(scores[j], 0.4 * accel_score[i])
+
+        # Spread jerk scores (jerk[i] covers samples i..i+3)
+        for i in range(len(jerk_score)):
+            for j in range(i, min(i + 4, n_samples)):
+                scores[j] = max(scores[j], 0.6 * jerk_score[i])
+
+        return np.clip(scores, 0.0, 1.0)
+
+    # =====================================================================
+    # Information Geometry Score (Fisher Information OOD)
+    # =====================================================================
+
+    def _compute_info_geometry_score(
+        self,
+        X: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
+        """Information-geometric OOD detection via Mahalanobis distance.
+
+        Uses the Fisher Information Matrix (precision matrix of fitted
+        Gaussian) to compute the geodesic distance of each test point
+        from the training manifold.
+
+        Equation:
+            d(x) = sqrt( (x - mu)^T  Sigma^{-1}  (x - mu) )
+
+        Normalization to [0, 1]:
+            score = 1 - exp(-d(x)^2 / (2 * n_features))
+
+        This maps Mahalanobis distance to a sigmoid-like curve where:
+          - d=0 -> score=0 (on manifold)
+          - d>>0 -> score->1 (far from manifold)
+
+        Numerical stability:
+            - Precision matrix regularized via Tikhonov at fit time.
+            - Handles n_features > n_samples via increased regularization.
+            - ``np.einsum`` for vectorized quadratic form.
+
+        Args:
+            X: Input data of shape ``(n_samples, n_features)``.
+
+        Returns:
+            Anomaly scores of shape ``(n_samples,)`` in [0, 1].
+
+        Complexity:
+            O(n * d^2) for n test samples, d features (matrix-vector products).
+
+        References:
+            IGEOOD (ICLR 2022): Information Geometry Approach to OOD Detection.
+            Fisher Information Matrix: F = Sigma^{-1} for Gaussian.
+        """
+        n_samples, n_features = X.shape
+
+        if self._ig_mean is None or self._ig_cov_inv is None:
+            return np.full(n_samples, 0.5)
+
+        # Centered data
+        centered = X - self._ig_mean  # (n_samples, d)
+
+        # Mahalanobis distance squared: d^2 = (x-mu)^T Sigma^{-1} (x-mu)
+        # Vectorized via einsum
+        mahal_sq = np.einsum(
+            "ij,jk,ik->i", centered, self._ig_cov_inv, centered
+        )
+        # Ensure non-negative (floating point can give tiny negatives)
+        mahal_sq = np.maximum(mahal_sq, 0.0)
+
+        # Normalize to [0, 1] using exponential mapping
+        # Scale factor: 2 * n_features gives score ~0.63 at 1-sigma boundary
+        scale = 2.0 * max(n_features, 1)
+        scores = 1.0 - np.exp(-mahal_sq / scale)
+
+        return np.clip(scores, 0.0, 1.0)
+
+    # =====================================================================
+    # Legacy / helper methods
+    # =====================================================================
+
+    def _compute_iqr_scores(
+        self, data: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
         """Compute continuous IQR-based anomaly scores.
 
         Returns continuous scores based on distance from IQR bounds,
@@ -259,8 +680,17 @@ class StatisticalAnomalyDetector(BaseDetector):
         scores = np.mean(normalized_dist, axis=1)
         return np.clip(scores, 0, 1)
 
-    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """Extract statistical features for ML fusion"""
+    def extract_features(
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> torch.Tensor:
+        """Extract statistical features for ML fusion.
+
+        Args:
+            data: Input data array or tensor.
+
+        Returns:
+            Feature tensor of shape ``[batch_size, 10]``.
+        """
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
@@ -275,7 +705,11 @@ class StatisticalAnomalyDetector(BaseDetector):
         features = np.column_stack(
             [
                 np.mean(data, axis=1) if data.shape[1] > 1 else data.flatten(),
-                (np.std(data, axis=1) if data.shape[1] > 1 else np.zeros(data.shape[0])),
+                (
+                    np.std(data, axis=1)
+                    if data.shape[1] > 1
+                    else np.zeros(data.shape[0])
+                ),
                 np.max(np.abs(z_scores), axis=1),
                 np.mean(np.abs(z_scores), axis=1),
             ]
@@ -287,20 +721,40 @@ class StatisticalAnomalyDetector(BaseDetector):
 
         return torch.tensor(features, dtype=torch.float32)
 
-    def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Compute z-scores"""
+    def _compute_z_scores(
+        self, data: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """Compute z-scores.
+
+        Args:
+            data: Input data array.
+
+        Returns:
+            Z-scores with same shape as *data*.
+        """
         if self.std is None or self.mean is None or np.any(self.std == 0):
             return np.zeros_like(data)
         return (data - self.mean) / self.std
 
-    def _detect_iqr_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Detect anomalies using IQR method"""
+    def _detect_iqr_anomalies(
+        self, data: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """Detect anomalies using IQR method (boolean flags).
+
+        Args:
+            data: Input data array.
+
+        Returns:
+            Boolean array of anomaly flags.
+        """
         if self.q1 is None or self.q3 is None:
             return np.zeros(data.shape[0], dtype=bool)
         iqr = self.q3 - self.q1
         lower_bound = self.q1 - self.iqr_multiplier * iqr
         upper_bound = self.q3 + self.iqr_multiplier * iqr
 
-        anomalies = np.any((data < lower_bound) | (data > upper_bound), axis=1)
+        anomalies = np.any(
+            (data < lower_bound) | (data > upper_bound), axis=1
+        )
 
         return anomalies
