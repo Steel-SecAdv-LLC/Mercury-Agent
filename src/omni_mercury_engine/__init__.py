@@ -71,7 +71,7 @@ def __getattr__(name: str) -> type:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__version__ = "1.4"  # Single source of truth
+__version__ = "1.4.0"  # Single source of truth
 __author__ = "Steel Security Advisors LLC"
 __license__ = "GNU General Public License v3.0"
 

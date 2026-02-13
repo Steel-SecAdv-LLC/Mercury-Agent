@@ -22,7 +22,7 @@
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.4                        |
+              |                                   Mercury Agent ♱ v1.4.0                      |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -43,7 +43,7 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.4
+**Version:** v1.4.0
 **Date:** 2026-02-09
 **AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕ | Claude ⊛
 
@@ -95,23 +95,21 @@ Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that
 <details>
 <summary><strong>Click to expand benchmarks</strong></summary>
 
-The following benchmarks were generated from a 200-epoch training run with the full neuro-symbolic cognitive stack active. All metrics are from actual system execution, not simulated data.
+The following benchmarks are measured on real-world datasets. See [BENCHMARKS.md](docs/BENCHMARKS.md) for full details and methodology.
 
-### Benchmark Summary (200 Epochs with Neuro-Symbolic Fusion)
+### Real-Data Benchmark Summary (v1.4.0, Measured)
 
 | Metric | Value | Description |
 |--------|-------|-------------|
-| **Final Confidence** | 0.999 | Bayesian calibrated confidence score |
-| **Confidence Growth** | +0.239 | Improvement from baseline 0.76 |
-| **Anomaly Detection F1** | 0.797 | Precision/Recall harmonic mean |
-| **Anomaly Precision** | 0.879 | True positive rate |
-| **Anomaly Recall** | 0.729 | Detection coverage |
-| **Memory Entries** | 3,300 | Accumulated episodic/semantic memories |
-| **Benevolence Score** | 0.99+ | Ethical alignment metric (target threshold) |
-| **Neural Contribution** | 47.0% | Neural network pattern detection |
-| **Symbolic Contribution** | 53.0% | Symbolic reasoning inference |
-| **Test Coverage** | 85%+ | Comprehensive test suite (5,114+ tests) |
-| **Statistical Significance** | p < 0.0001 | Cohen's d = 0.952 (large effect size) |
+| **ADBench Mean AUC** | 0.876 | Statistical detector across 16 datasets |
+| **ADBench Mean F1** | 0.600 | With per-dataset threshold optimization |
+| **NSL-KDD AUC** | 0.591 | Unsupervised on 148K network records |
+| **NSL-KDD F1** | 0.549 | Threshold-optimized |
+| **CICIDS-2017 AUC** | 0.620 | 600K real network intrusion records |
+| **Datasets Validated** | 18 | ADBench (16) + NSL-KDD + CICIDS-2017 |
+| **Detectors Tested** | 2 | Statistical, Temporal |
+| **Test Coverage** | 85%+ | 5,281+ tests |
+| **CI Validation** | Live-data | Real-data gates on all PRs |
 
 ### Empirical Benchmark Results (AdaptiveAnomalyDetector)
 
@@ -147,7 +145,7 @@ Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-s
 
 ### Comprehensive Multi-Panel Visualizations
 
-The following consolidated visualizations capture all benchmark metrics in professional multi-panel format (v1.4):
+The following consolidated visualizations capture all benchmark metrics in professional multi-panel format (v1.4.0):
 
 #### Neuro-Symbolic Benchmark Report
 
@@ -169,7 +167,7 @@ Consolidated dashboard showing benevolence score evolution, 180 ethical scalars 
 
 #### Live Data Benchmark Summary
 
-Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (415 modules, 246,539 LOC), 5 new v1.4 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
+Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (415 modules, 246,539 LOC), 5 new v1.4.0 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
@@ -938,7 +936,7 @@ The test suite includes:
 - **Security scanning** with Bandit integrated in CI/CD
 - **Coverage tracking**: 85%+ across core modules
 
-**New Test Suites (v1.4):**
+**New Test Suites (v1.4.0):**
 - `test_enhanced_anomaly_detection.py`: 38+ tests for enhanced statistical methods, cross-platform hub, ensemble coordination
 - `test_cortical_network.py`: 40+ tests for 6-layer cortical architecture
 - `test_statistical_real.py`: 30+ tests for Z-score, IQR, adaptive detection
@@ -1747,7 +1745,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent ♱ v1.4 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent ♱ v1.4.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 

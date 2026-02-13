@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mercury-Agent v1.4 Pre-PR Validation Script
+# Mercury-Agent v1.4.0 Pre-PR Validation Script
 #
 # Copyright (C) 2025 Steel Security Advisors LLC
 # License: GPL-3.0+
@@ -8,16 +8,16 @@
 
 set -e
 
-echo "Mercury-Agent v1.4 Pre-PR Validation"
+echo "Mercury-Agent v1.4.0 Pre-PR Validation"
 echo "========================================"
 
 # 1. Check version
 echo -n "Version check: "
 version=$(python -c "import omni_mercury_engine; print(omni_mercury_engine.__version__)")
-if [ "$version" = "1.4" ]; then
+if [ "$version" = "1.4.0" ]; then
     echo "v$version OK"
 else
-    echo "v$version FAIL (expected 1.4)"
+    echo "v$version FAIL (expected 1.4.0)"
     exit 1
 fi
 
