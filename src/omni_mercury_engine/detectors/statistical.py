@@ -87,13 +87,15 @@ class StatisticalAnomalyDetector(BaseDetector):
         # Training data reference for resonance (needed for per-feature FFT)
         self._train_data: Optional[np.ndarray[Any, Any]] = None
 
+        # Precomputed spectral profiles per feature (set during fit)
+        self._res_h_train: Optional[np.ndarray[Any, Any]] = None
+        self._res_noise_ratio: Optional[np.ndarray[Any, Any]] = None
+
     # =====================================================================
     # fit()
     # =====================================================================
 
-    def fit(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> StatisticalAnomalyDetector:
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> StatisticalAnomalyDetector:
         """Fit detector on training data.
 
         Computes statistical baselines for all three ensemble components:
@@ -118,39 +120,43 @@ class StatisticalAnomalyDetector(BaseDetector):
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
-        if data.size == 0:
+        # Narrow type for mypy: after tensor conversion, data is ndarray
+        arr: np.ndarray[Any, Any] = np.asarray(data)
+
+        if arr.size == 0:
             raise DetectorException(
                 "Cannot fit StatisticalAnomalyDetector with empty data. "
                 "Provide at least one sample for statistical baseline computation."
             )
 
-        if data.ndim == 1:
-            data = data.reshape(-1, 1)
+        if arr.ndim == 1:
+            arr = arr.reshape(-1, 1)
 
         # Filter non-finite rows
-        finite_mask = np.isfinite(data).all(axis=1)
+        finite_mask = np.isfinite(arr).all(axis=1)
         if not np.any(finite_mask):
             raise DetectorException(
                 "Cannot fit StatisticalAnomalyDetector: all data values are NaN or Inf. "
                 "Provide data with at least some finite values."
             )
         if not np.all(finite_mask):
-            data = data[finite_mask]
+            arr = arr[finite_mask]
 
         # --- Distributional statistics ---
-        self.mean = np.mean(data, axis=0)
-        self.std = np.std(data, axis=0) + 1e-8
-        self.q1 = np.percentile(data, 25, axis=0)
-        self.q3 = np.percentile(data, 75, axis=0)
+        self.mean = np.mean(arr, axis=0)
+        self.std = np.std(arr, axis=0) + 1e-8
+        self.q1 = np.percentile(arr, 25, axis=0)
+        self.q3 = np.percentile(arr, 75, axis=0)
 
         # --- InfoGeometry: fit Gaussian manifold ---
-        self._fit_info_geometry(data)
+        self._fit_info_geometry(arr)
 
         # --- Kinematics: compute baseline jerk/acceleration per feature ---
-        self._fit_kinematic_baseline(data)
+        self._fit_kinematic_baseline(arr)
 
-        # Store training data for resonance (column-wise FFT reference)
-        self._train_data = data.copy()
+        # Store training data and precompute spectral profiles for resonance
+        self._train_data = arr.copy()
+        self._precompute_resonance_profiles(arr)
 
         self._is_fitted = True
         return self
@@ -199,9 +205,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         # Compute precision via Cholesky for numerical stability
         try:
             cho = sp_linalg.cholesky(cov_reg, lower=True)
-            self._ig_cov_inv = sp_linalg.cho_solve(
-                (cho, True), np.eye(n_features)
-            )
+            self._ig_cov_inv = sp_linalg.cho_solve((cho, True), np.eye(n_features))
             # log det(Sigma_reg) = 2 * sum(log(diag(L)))
             self._ig_log_det = float(2.0 * np.sum(np.log(np.diag(cho))))
         except sp_linalg.LinAlgError:
@@ -248,13 +252,51 @@ class StatisticalAnomalyDetector(BaseDetector):
         self._kin_jerk_mean = np.mean(jerk, axis=0)
         self._kin_jerk_std = np.std(jerk, axis=0) + 1e-8
 
+    def _precompute_resonance_profiles(self, data: np.ndarray[Any, Any]) -> None:
+        """Precompute per-feature spectral profiles at fit time.
+
+        For each feature column, computes the FFT harmonic ratio (h_train)
+        and spectral noise ratio so that ``_compute_resonance_score`` only
+        needs to evaluate deviations at inference time (no FFT needed).
+
+        Args:
+            data: Training data (n_samples, n_features), already validated.
+
+        Complexity:
+            O(n * d * log n) — done once at fit time.
+        """
+        n_samples, n_features = data.shape
+        h_train = np.full(n_features, 0.5)
+        noise_ratio = np.full(n_features, 0.5)
+
+        if n_samples < 2:
+            self._res_h_train = h_train
+            self._res_noise_ratio = noise_ratio
+            return
+
+        for f_idx in range(n_features):
+            train_col = data[:, f_idx]
+            train_fft = np.fft.rfft(train_col)
+            train_mag = np.abs(train_fft)
+            total_energy = np.sum(train_mag**2)
+
+            if total_energy < _MIN_VARIANCE:
+                continue  # leave defaults (0.5)
+
+            mean_mag = np.mean(train_mag)
+            dominant_mask = train_mag > mean_mag
+            harmonic_energy = np.sum(train_mag[dominant_mask] ** 2)
+            h_train[f_idx] = harmonic_energy / total_energy
+            noise_ratio[f_idx] = (total_energy - harmonic_energy) / total_energy
+
+        self._res_h_train = h_train
+        self._res_noise_ratio = noise_ratio
+
     # =====================================================================
     # detect()
     # =====================================================================
 
-    def detect(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> dict[str, Any]:
+    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using the Mercury original ensemble.
 
         Computes continuous anomaly scores from three independent methods
@@ -304,9 +346,7 @@ class StatisticalAnomalyDetector(BaseDetector):
 
         # --- Individual scores ---
         z_scores = self._compute_z_scores(data)
-        z_score_intensity = np.max(np.abs(z_scores), axis=1) / (
-            self.z_threshold + 1e-8
-        )
+        z_score_intensity = np.max(np.abs(z_scores), axis=1) / (self.z_threshold + 1e-8)
         z_score_continuous = np.clip(z_score_intensity, 0, 3.0) / 3.0
 
         iqr_scores = self._compute_iqr_scores(data)
@@ -316,9 +356,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         info_geo = self._compute_info_geometry_score(data)
 
         # --- Ensemble (weighted average) ---
-        combined_scores = (
-            resonance * 0.4 + kinematic * 0.3 + info_geo * 0.3
-        )
+        combined_scores = resonance * 0.4 + kinematic * 0.3 + info_geo * 0.3
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # --- Threshold & calibration ---
@@ -401,65 +439,25 @@ class StatisticalAnomalyDetector(BaseDetector):
         """
         n_samples, n_features = X.shape
 
-        if self._train_data is None:
+        if (
+            self._res_h_train is None
+            or self._res_noise_ratio is None
+            or self.mean is None
+            or self.std is None
+        ):
             return np.full(n_samples, 0.5)
 
-        n_train = self._train_data.shape[0]
+        # Vectorized deviation: (n_samples, n_features)
+        dev = np.abs(X - self.mean) / self.std  # broadcasting
 
-        # Need at least 2 points for meaningful FFT
-        if n_train < 2:
-            return np.full(n_samples, 0.5)
+        # Clamp noise ratio for numerical stability
+        noise_ratio = np.maximum(self._res_noise_ratio, 0.01)  # (n_features,)
 
-        # Compute training spectral profile per feature
-        # For each feature, FFT the training column and find dominant bins
-        per_feature_scores = np.zeros((n_samples, n_features))
+        # Attenuation: exp(-dev * noise_ratio) — broadcast (n_samples, n_features)
+        attenuation = np.exp(-dev * noise_ratio[np.newaxis, :])
 
-        for f_idx in range(n_features):
-            train_col = self._train_data[:, f_idx]
-            test_col = X[:, f_idx]
-
-            # FFT of training column
-            train_fft = np.fft.rfft(train_col)
-            train_mag = np.abs(train_fft)
-            total_energy_train = np.sum(train_mag**2)
-
-            if total_energy_train < _MIN_VARIANCE:
-                # Constant feature -> uncertain
-                per_feature_scores[:, f_idx] = 0.5
-                continue
-
-            # Identify dominant frequency bins in training data
-            mean_mag = np.mean(train_mag)
-            dominant_mask = train_mag > mean_mag
-
-            # Compute harmonic ratio for training (reference)
-            harmonic_energy_train = np.sum(train_mag[dominant_mask] ** 2)
-            h_train = harmonic_energy_train / total_energy_train
-
-            # For each test sample: measure deviation from spectral profile
-            # Strategy: create a composite signal [train | test_sample_repeated]
-            # and see how harmonic ratio changes. Simpler and faster:
-            # Compute how far each test value is from the training mean,
-            # scaled by the spectral structure (spread of non-dominant bins).
-            non_dominant_energy = total_energy_train - harmonic_energy_train
-            spectral_noise_ratio = non_dominant_energy / total_energy_train
-
-            # Per-sample anomaly: deviation from training mean, scaled by
-            # the spectral structure. Points far from the training mean
-            # contribute more "noise" to the spectrum.
-            if self.std is not None:
-                dev = np.abs(test_col - self.mean[f_idx]) / self.std[f_idx]
-            else:
-                dev = np.abs(test_col - np.mean(train_col)) / (
-                    np.std(train_col) + 1e-8
-                )
-
-            # Map deviation through sigmoid-like function:
-            # score = 1 - h_train * exp(-dev * spectral_noise_ratio)
-            # When dev=0, score ~ 1-h_train (baseline noise level)
-            # When dev>>0, score -> 1 (fully anomalous)
-            attenuation = np.exp(-dev * max(spectral_noise_ratio, 0.01))
-            per_feature_scores[:, f_idx] = 1.0 - h_train * attenuation
+        # Per-feature score: 1 - h_train * attenuation — broadcast
+        per_feature_scores = 1.0 - self._res_h_train[np.newaxis, :] * attenuation
 
         # Average across features, clip to [0, 1]
         scores = np.mean(per_feature_scores, axis=1)
@@ -561,22 +559,30 @@ class StatisticalAnomalyDetector(BaseDetector):
         accel_score = np.clip(max_accel_z / 3.0, 0.0, 1.0)  # (n-2,)
         jerk_score = np.clip(max_jerk_z / 3.0, 0.0, 1.0)  # (n-3,)
 
-        # Map scores back to per-sample indices
-        # Jerk at index i corresponds to samples [i, i+1, i+2, i+3]
-        # Strategy: for each sample, take the max kinematic anomaly
-        # from any derivative that covers it
-        scores = np.zeros(n_samples)
+        # Map derivative scores back to per-sample indices (vectorized).
+        # accel[i] reflects samples i..i+2 -> sliding max over window 3
+        # jerk[i] reflects samples i..i+3 -> sliding max over window 4
+        # Use cumulative-max trick with padded arrays instead of Python loops.
+        accel_padded = np.zeros(n_samples)
+        n_a = len(accel_score)
+        accel_padded[:n_a] = 0.4 * accel_score
+        # Sliding-max via shifts: max(score[i], score[i-1], score[i-2])
+        accel_spread = accel_padded.copy()
+        for shift in range(1, 3):
+            shifted = np.zeros(n_samples)
+            shifted[shift : shift + n_a] = 0.4 * accel_score[: n_samples - shift]
+            np.maximum(accel_spread, shifted, out=accel_spread)
 
-        # Spread acceleration scores (acceleration[i] covers samples i..i+2)
-        for i in range(len(accel_score)):
-            for j in range(i, min(i + 3, n_samples)):
-                scores[j] = max(scores[j], 0.4 * accel_score[i])
+        jerk_padded = np.zeros(n_samples)
+        n_j = len(jerk_score)
+        jerk_padded[:n_j] = 0.6 * jerk_score
+        jerk_spread = jerk_padded.copy()
+        for shift in range(1, 4):
+            shifted = np.zeros(n_samples)
+            shifted[shift : shift + n_j] = 0.6 * jerk_score[: n_samples - shift]
+            np.maximum(jerk_spread, shifted, out=jerk_spread)
 
-        # Spread jerk scores (jerk[i] covers samples i..i+3)
-        for i in range(len(jerk_score)):
-            for j in range(i, min(i + 4, n_samples)):
-                scores[j] = max(scores[j], 0.6 * jerk_score[i])
-
+        scores = np.maximum(accel_spread, jerk_spread)
         return np.clip(scores, 0.0, 1.0)
 
     # =====================================================================
@@ -631,9 +637,7 @@ class StatisticalAnomalyDetector(BaseDetector):
 
         # Mahalanobis distance squared: d^2 = (x-mu)^T Sigma^{-1} (x-mu)
         # Vectorized via einsum
-        mahal_sq = np.einsum(
-            "ij,jk,ik->i", centered, self._ig_cov_inv, centered
-        )
+        mahal_sq = np.einsum("ij,jk,ik->i", centered, self._ig_cov_inv, centered)
         # Ensure non-negative (floating point can give tiny negatives)
         mahal_sq = np.maximum(mahal_sq, 0.0)
 
@@ -648,9 +652,7 @@ class StatisticalAnomalyDetector(BaseDetector):
     # Legacy / helper methods
     # =====================================================================
 
-    def _compute_iqr_scores(
-        self, data: np.ndarray[Any, Any]
-    ) -> np.ndarray[Any, Any]:
+    def _compute_iqr_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute continuous IQR-based anomaly scores.
 
         Returns continuous scores based on distance from IQR bounds,
@@ -680,9 +682,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         scores = np.mean(normalized_dist, axis=1)
         return np.clip(scores, 0, 1)
 
-    def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor
-    ) -> torch.Tensor:
+    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract statistical features for ML fusion.
 
         Args:
@@ -705,11 +705,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         features = np.column_stack(
             [
                 np.mean(data, axis=1) if data.shape[1] > 1 else data.flatten(),
-                (
-                    np.std(data, axis=1)
-                    if data.shape[1] > 1
-                    else np.zeros(data.shape[0])
-                ),
+                (np.std(data, axis=1) if data.shape[1] > 1 else np.zeros(data.shape[0])),
                 np.max(np.abs(z_scores), axis=1),
                 np.mean(np.abs(z_scores), axis=1),
             ]
@@ -721,9 +717,7 @@ class StatisticalAnomalyDetector(BaseDetector):
 
         return torch.tensor(features, dtype=torch.float32)
 
-    def _compute_z_scores(
-        self, data: np.ndarray[Any, Any]
-    ) -> np.ndarray[Any, Any]:
+    def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute z-scores.
 
         Args:
@@ -736,9 +730,7 @@ class StatisticalAnomalyDetector(BaseDetector):
             return np.zeros_like(data)
         return (data - self.mean) / self.std
 
-    def _detect_iqr_anomalies(
-        self, data: np.ndarray[Any, Any]
-    ) -> np.ndarray[Any, Any]:
+    def _detect_iqr_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Detect anomalies using IQR method (boolean flags).
 
         Args:
@@ -753,8 +745,6 @@ class StatisticalAnomalyDetector(BaseDetector):
         lower_bound = self.q1 - self.iqr_multiplier * iqr
         upper_bound = self.q3 + self.iqr_multiplier * iqr
 
-        anomalies = np.any(
-            (data < lower_bound) | (data > upper_bound), axis=1
-        )
+        anomalies = np.any((data < lower_bound) | (data > upper_bound), axis=1)
 
         return anomalies

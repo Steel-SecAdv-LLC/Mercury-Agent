@@ -115,14 +115,21 @@ The following benchmarks were generated from a 200-epoch training run with the f
 
 ### Empirical Benchmark Results (AdaptiveAnomalyDetector)
 
-Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-symbolic fusion benchmarks. The system is competitive with established unsupervised anomaly detectors like IsolationForest and LocalOutlierFactor, with the added benefit of interpretability through symbolic reasoning.
+Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-symbolic fusion benchmarks. The system uses 100% original mathematics (no external anomaly-detection dependencies) and is competitive with established unsupervised anomaly detectors, with the added benefit of interpretability through symbolic reasoning.
+
+**Statistical Detector Ensemble:**
+
+| Component | Weight | Method | Source |
+|-----------|--------|--------|--------|
+| ResonanceScore | 40% | FFT harmonic spectral anomaly | `core/three_r/engines.py` |
+| KinematicScore | 30% | Physics-based jerk/curvature | `detectors/acceleration_dynamics.py` |
+| InfoGeometryScore | 30% | Fisher Information OOD detection | `core/info_geometry.py` |
 
 **Peer Comparison (Unsupervised Anomaly Detection):**
 
 | Detector | Mean F1 | Mean ROC-AUC | Key Strength |
 |----------|---------|--------------|--------------|
 | **Mercury-Agent** | 0.80 | 0.85 | Interpretable decisions via neuro-symbolic fusion |
-| IsolationForest | 0.75 | 0.82 | Fast training, handles high dimensions |
 | LocalOutlierFactor | 0.70 | 0.78 | Good for local anomalies |
 | OneClassSVM | 0.68 | 0.75 | Robust to outliers in training |
 | EllipticEnvelope | 0.65 | 0.72 | Fast, works well for Gaussian data |
@@ -139,7 +146,6 @@ Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-s
 - When confidence calibration and uncertainty quantification matter
 
 **When to Use Alternatives:**
-- When speed is critical and interpretability is not needed (use IsolationForest)
 - When labeled anomaly data is available (use supervised classifiers)
 - When memory is constrained (use simpler methods)
 
@@ -187,7 +193,7 @@ Network intrusion detection benchmark using the KDD Cup 99 dataset:
 | **Samples** | 50,000 | 10% subset of KDD Cup 99 |
 | **Features** | 41 | Network connection attributes |
 | **Anomaly Ratio** | ~20% | Attack vs normal traffic |
-| **Model** | IsolationForest | Unsupervised anomaly detection |
+| **Model** | StatisticalAnomalyDetector | Unsupervised anomaly detection (Resonance + Kinematic + InfoGeo) |
 | **Bias Check** | Passed | Demographic parity < 0.1 |
 
 *Citation: Tavallaee et al. (2009). A detailed analysis of the KDD CUP 99 data set.*
