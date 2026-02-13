@@ -6,6 +6,9 @@ Validates live-data metrics against baseline thresholds.
 Prevents regressions in real-world performance.
 Exit code 0 = all metrics pass, 1 = regression detected.
 
+Reads thresholds from the baseline file if available, falling back
+to environment variables for CI override.
+
 Copyright (C) 2025 Steel Security Advisors LLC
 License: GPL-3.0+
 """
@@ -18,7 +21,7 @@ import sys
 from pathlib import Path
 
 
-def load_baseline() -> dict[str, float] | None:
+def load_baseline() -> dict | None:
     """Load baseline metrics from last successful run."""
     baseline_path = Path("benchmarks/live_data_baseline.json")
     if baseline_path.exists():
@@ -36,14 +39,40 @@ def load_current_metrics() -> dict[str, float]:
     return {}
 
 
+def _get_threshold(baseline: dict | None, key: str, env_var: str, default: str) -> float:
+    """Get threshold from baseline file or environment variable."""
+    # Environment variable takes priority (CI override)
+    env_val = os.getenv(env_var)
+    if env_val is not None:
+        return float(env_val)
+
+    # Try baseline thresholds section
+    if baseline and "thresholds" in baseline:
+        thresholds = baseline["thresholds"]
+        if key in thresholds:
+            return float(thresholds[key])
+
+    return float(default)
+
+
 def check_thresholds() -> bool:
     """Verify metrics meet minimum thresholds."""
-    min_adbench_auc = float(os.getenv("MERCURY_MIN_ADBENCH_AUC", "0.85"))
-    min_nslkdd_f1 = float(os.getenv("MERCURY_MIN_NSLKDD_F1", "0.50"))
-    min_nslkdd_auc = float(os.getenv("MERCURY_MIN_NSLKDD_AUC", "0.55"))
-    allow_regression = float(os.getenv("MERCURY_ALLOW_REGRESSION", "0.02"))
-
     baseline = load_baseline()
+
+    if baseline is None:
+        print("No baseline found. Run: python scripts/generate_baseline_report.py")
+        return False
+
+    min_adbench_auc = _get_threshold(baseline, "min_adbench_auc", "MERCURY_MIN_ADBENCH_AUC", "0.85")
+    min_nslkdd_f1 = _get_threshold(baseline, "min_nslkdd_f1", "MERCURY_MIN_NSLKDD_F1", "0.50")
+    min_nslkdd_auc = _get_threshold(baseline, "min_nslkdd_auc", "MERCURY_MIN_NSLKDD_AUC", "0.55")
+    allow_regression = _get_threshold(
+        baseline, "allow_regression_percent", "MERCURY_ALLOW_REGRESSION", "0.02"
+    )
+    # Normalize: baseline stores as percent (2.0), env var as fraction (0.02)
+    if allow_regression > 1.0:
+        allow_regression = allow_regression / 100.0
+
     current = load_current_metrics()
 
     errors: list[str] = []
@@ -57,13 +86,12 @@ def check_thresholds() -> bool:
             )
 
         # Check for regression vs baseline
-        if baseline:
-            baseline_auc = baseline.get(f"adbench_{dataset}_auc", current_auc)
-            regression = baseline_auc - current_auc
-            if regression > allow_regression:
-                errors.append(
-                    f"ADBench {dataset}: Regression {regression:.1%} > allowed {allow_regression:.1%}"
-                )
+        baseline_auc = baseline.get(f"adbench_{dataset}_auc", current_auc)
+        regression = baseline_auc - current_auc
+        if regression > allow_regression:
+            errors.append(
+                f"ADBench {dataset}: Regression {regression:.1%} > allowed {allow_regression:.1%}"
+            )
 
     # Check NSL-KDD
     nslkdd_f1 = current.get("nslkdd_f1", 0.0)

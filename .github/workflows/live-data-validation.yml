@@ -24,9 +24,18 @@ jobs:
         run: |
           pip install -e ".[all]"
 
+      - name: Generate baseline (first run only)
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ ! -f benchmarks/live_data_baseline.json ]; then
+            python scripts/generate_baseline_report.py
+            echo "Baseline generated"
+          fi
+
       - name: Run live-data validation suite
         run: |
-          pytest tests/validation/test_real_data_validation.py -v --tb=short
+          pytest tests/validation/test_real_data_validation.py -v --tb=short --timeout=1800
+        timeout-minutes: 35
         env:
           MERCURY_RUN_LIVE_DATA: "true"
 
@@ -42,11 +51,49 @@ jobs:
       - name: Generate live-data report
         if: always()
         run: |
-          pytest tests/validation/test_real_data_validation.py --json-report --json-report-file=live-data-report.json || true
+          pytest tests/validation/test_real_data_validation.py \
+            --json-report --json-report-file=live-data-report.json || true
+
+          # Store for trending
+          git_commit=$(git rev-parse --short HEAD)
+          timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          mkdir -p benchmarks/history
+          cp live-data-report.json "benchmarks/history/${timestamp}_${git_commit}.json" || true
 
       - name: Upload benchmark report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: live-data-validation-report
+          name: live-data-report-${{ github.run_id }}
           path: live-data-report.json
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## Live-Data Validation Report\n\n';
+
+            try {
+              const report = JSON.parse(fs.readFileSync('live-data-report.json', 'utf8'));
+              const tests = report.tests || [];
+              const passed = tests.filter(t => t.outcome === 'passed').length;
+              const failed = tests.filter(t => t.outcome === 'failed').length;
+              const skipped = tests.filter(t => t.outcome === 'skipped').length;
+
+              body += `- **Passed:** ${passed}\n`;
+              body += `- **Failed:** ${failed}\n`;
+              body += `- **Skipped:** ${skipped}\n`;
+              body += `\n**Status:** ${failed === 0 ? 'All thresholds met' : 'Regressions detected'}\n`;
+            } catch (e) {
+              body += 'Report not available (tests may have timed out).\n';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });

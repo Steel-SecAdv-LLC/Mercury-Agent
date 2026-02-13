@@ -1,12 +1,70 @@
 {
+  "generated_at": "2026-02-13T03:25:28.139602+00:00",
+  "git_commit": "37fd33e",
+  "system": {
+    "python_version": "3.11.14",
+    "cuda_available": false,
+    "gpu_count": 0,
+    "numpy_version": "2.4.2",
+    "pytorch_version": "2.10.0+cu128"
+  },
+  "thresholds": {
+    "min_adbench_auc": 0.85,
+    "min_nslkdd_f1": 0.5,
+    "min_nslkdd_auc": 0.55,
+    "allow_regression_percent": 2.0
+  },
+  "results": {
+    "adbench": {
+      "cardio": {
+        "auc": 0.939,
+        "f1": 0.6,
+        "threshold": 0.45
+      },
+      "thyroid": {
+        "auc": 0.986,
+        "f1": 0.602,
+        "threshold": 0.4
+      },
+      "mammography": {
+        "auc": 0.881,
+        "f1": 0.35,
+        "threshold": 0.3
+      },
+      "breastw": {
+        "auc": 0.985,
+        "f1": 0.617,
+        "threshold": 0.42
+      }
+    },
+    "nslkdd": {
+      "statistical": {
+        "auc": 0.591,
+        "f1": 0.549,
+        "threshold": 0.5
+      },
+      "temporal": {
+        "auc": 0.565,
+        "f1": 0.593,
+        "threshold": 0.48
+      }
+    }
+  },
   "adbench_cardio_auc": 0.939,
-  "adbench_cardio_f1": 0.600,
+  "adbench_cardio_f1": 0.6,
   "adbench_thyroid_auc": 0.986,
   "adbench_thyroid_f1": 0.602,
   "adbench_mammography_auc": 0.881,
-  "adbench_mammography_f1": 0.350,
+  "adbench_mammography_f1": 0.35,
   "adbench_breastw_auc": 0.985,
   "adbench_breastw_f1": 0.617,
   "nslkdd_auc": 0.591,
-  "nslkdd_f1": 0.549
+  "nslkdd_f1": 0.549,
+  "notes": [
+    "Baseline measured with Statistical/Temporal detectors",
+    "ADBench datasets from NeurIPS 2022 suite",
+    "NSL-KDD: 148K real network records",
+    "Thresholds optimized per-dataset for F1 maximization",
+    "Regression tolerance: 2% variance (tuning normal)"
+  ]
 }
