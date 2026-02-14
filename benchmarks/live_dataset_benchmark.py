@@ -245,11 +245,7 @@ class LiveDatasetBenchmarkRunner:
             return None, None, metadata
 
     def _run_detection(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
-        """Run anomaly detection using StatisticalAnomalyDetector.
-
-        Trains on normal-only samples (unsupervised), detects on full dataset.
-        Returns predictions (from is_anomaly), scores, and elapsed time.
-        """
+        """Run anomaly detection and return predictions, scores, and time."""
         start = time.perf_counter()
 
         try:
@@ -261,12 +257,10 @@ class LiveDatasetBenchmarkRunner:
             if normal_mask.sum() > 0:
                 X_train = X[normal_mask]
             else:
-                # No label info available — train on everything
                 X_train = X
 
             self.detector.fit(X_train)
             result = self.detector.detect(X)
-
             scores = result["scores"]
             predictions = result["is_anomaly"].astype(int)
 
@@ -423,7 +417,7 @@ class LiveDatasetBenchmarkRunner:
 
         return BenchmarkSuiteResult(
             timestamp=datetime.utcnow().isoformat(),
-            mercury_version="1.5.1",
+            mercury_version="1.4.0",
             python_version=f"{sys.version_info.major}.{sys.version_info.minor}",
             detector_name=self.detector_name,
             total_datasets=len(self.results),

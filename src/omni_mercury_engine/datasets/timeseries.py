@@ -197,14 +197,18 @@ class NABLoader(DatasetLoader):
         features = []
         labels = []
 
-        # Get anomaly windows for this file.
-        # NAB combined_windows.json keys use forward-slash paths like
-        # "realKnownCause/ambient_temperature_system_failure.csv"
+        # Get anomaly windows for this file
         rel_path = f"{filepath.parent.name}/{filepath.name}"
         windows = anomaly_windows.get(rel_path, [])
 
         if not windows:
-            logger.debug(f"  No anomaly windows for {rel_path} (key not in labels JSON)")
+            logger.debug(
+                "No anomaly windows found for '%s'. "
+                "Available keys (sample): %s. "
+                "This may cause AUC=0 for this file.",
+                rel_path,
+                list(anomaly_windows.keys())[:5],
+            )
 
         # Parse windows into datetime ranges
         anomaly_ranges = []
@@ -214,8 +218,9 @@ class NABLoader(DatasetLoader):
                 end = datetime.fromisoformat(window[1].replace("Z", "+00:00"))
                 anomaly_ranges.append((start, end))
             except (ValueError, IndexError):
-                # Invalid window format; skip this anomaly window
-                pass
+                logger.debug(
+                    "Invalid anomaly window format for '%s': %s", rel_path, window
+                )
 
         with open(filepath, newline="") as f:
             reader = csv.DictReader(f)
@@ -378,19 +383,17 @@ class SMDLoader(DatasetLoader):
             if label_path.exists():
                 labels = np.load(label_path).ravel()
             else:
-                # Try loading from txt (test_label files are one value per line)
+                # Try loading from txt
                 txt_path = machine_dir / "test_label.txt"
                 if txt_path.exists():
                     labels = np.loadtxt(txt_path).ravel()
-                    # Cache as npy for next load
-                    np.save(label_path, labels)
                 else:
                     logger.warning(
-                        f"  No test_label found for {machine} — labels will be all-zero"
+                        "No test_label file found for %s; defaulting to all-zero labels",
+                        machine,
                     )
                     labels = np.zeros(len(features))
-
-            # Ensure binary labels
+            # Ensure binary labels: anything > 0 is anomaly
             labels = (labels > 0).astype(np.int64)
             all_labels.append(labels)
 
@@ -447,9 +450,8 @@ class SMAPMSLLoader(DatasetLoader):
     KDD 2018."""
     REQUIRES_CREDENTIALS = False
 
-    # Data URLs — OmniAnomaly GitHub mirror is the primary source.
-    # The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403.
-    OMNIANOMALY_BASE_URL = (
+    # Data URLs — primary mirror is OmniAnomaly GitHub (the original S3 URL returns 403)
+    OMNI_MIRROR_URL = (
         "https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/"
     )
     LABELED_ANOMALIES_URL = (
@@ -461,11 +463,11 @@ class SMAPMSLLoader(DatasetLoader):
         self.dataset = config.preprocessing.get("dataset", "SMAP")  # SMAP or MSL
 
     def download(self) -> bool:
-        """Download REAL SMAP/MSL data.
+        """Download REAL SMAP/MSL data from OmniAnomaly GitHub mirror.
 
         The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403.
-        Labels are fetched from the GitHub repo. For the actual telemetry data, users must
-        download from TimeEval HiDrive mirror or the GitHub repo's preprocessed files.
+        We download per-channel .npy files from the OmniAnomaly GitHub mirror and labels
+        from the telemanom GitHub repo.
 
         Returns:
             True if data is available, False otherwise.
@@ -473,6 +475,7 @@ class SMAPMSLLoader(DatasetLoader):
         Raises:
             DataSourceUnavailableError: If data cannot be obtained.
         """
+        import csv
         import urllib.error
 
         logger.info(f"Preparing NASA {self.dataset} spacecraft telemetry...")
@@ -502,46 +505,53 @@ class SMAPMSLLoader(DatasetLoader):
                 logger.info(f"  Found {n_train} train, {n_test} test files")
                 return True
 
-        # Attempt download from OmniAnomaly GitHub mirror
-        import csv
-
-        labels_path = self.data_path / "labeled_anomalies.csv"
+        # Discover channel names from the labels CSV
+        channel_ids: list[str] = []
         if labels_path.exists():
-            with open(labels_path) as f:
+            with open(labels_path, newline="") as f:
                 reader = csv.DictReader(f)
-                channels = [
-                    row["chan_id"]
-                    for row in reader
-                    if row.get("spacecraft") == self.dataset
-                ]
+                for row in reader:
+                    if row.get("spacecraft") == self.dataset:
+                        chan = row.get("chan_id", "")
+                        if chan:
+                            channel_ids.append(chan)
 
-            if channels:
-                train_dir.mkdir(parents=True, exist_ok=True)
-                test_dir.mkdir(parents=True, exist_ok=True)
-                downloaded = 0
-                for chan in channels:
-                    for split, sdir in [("train", train_dir), ("test", test_dir)]:
-                        npy_path = sdir / f"{chan}.npy"
-                        if npy_path.exists():
-                            downloaded += 1
-                            continue
-                        url = f"{self.OMNIANOMALY_BASE_URL}{split}/{chan}.npy"
-                        try:
-                            safe_urlretrieve(url, npy_path)
-                            downloaded += 1
-                        except Exception:
-                            pass  # individual channel may be missing
-                if downloaded > 0:
-                    logger.info(f"  Downloaded {downloaded} channel files from OmniAnomaly mirror")
-                    return True
+        if not channel_ids:
+            logger.warning("No channels found for %s in labeled_anomalies.csv", self.dataset)
 
+        # Download per-channel .npy files from OmniAnomaly GitHub mirror
+        train_dir.mkdir(parents=True, exist_ok=True)
+        test_dir.mkdir(parents=True, exist_ok=True)
+
+        downloaded_count = 0
+        for chan_id in channel_ids:
+            for split, dest_dir in [("train", train_dir), ("test", test_dir)]:
+                dest_file = dest_dir / f"{chan_id}.npy"
+                if dest_file.exists():
+                    downloaded_count += 1
+                    continue
+
+                url = f"{self.OMNI_MIRROR_URL}{split}/{chan_id}.npy"
+                try:
+                    safe_urlretrieve(url, dest_file)
+                    downloaded_count += 1
+                    logger.info(f"  Downloaded {split}/{chan_id}.npy")
+                except (urllib.error.URLError, ValueError) as e:
+                    logger.warning(f"  Failed to download {split}/{chan_id}.npy: {e}")
+
+        if downloaded_count > 0:
+            logger.info(
+                f"Downloaded {downloaded_count} SMAP/MSL channel files from OmniAnomaly mirror"
+            )
+            return True
+
+        # Fallback: nothing could be downloaded
         raise DataSourceUnavailableError(
             loader_name=f"SMAP/MSL ({self.dataset})",
-            source_url=self.OMNIANOMALY_BASE_URL,
+            source_url=self.OMNI_MIRROR_URL,
             reason=(
-                "Could not download telemetry data from OmniAnomaly mirror. "
-                "Alternative: download from TimeEval HiDrive mirror "
-                "(https://my.hidrive.com/share/ma4p8w4qqb) "
+                "Preprocessed telemetry data could not be downloaded from the OmniAnomaly mirror. "
+                "You may also try the TimeEval HiDrive mirror: https://my.hidrive.com/share/ma4p8w4qqb "
                 f"and extract train/ and test/ directories to: {self.data_path}"
             ),
         )

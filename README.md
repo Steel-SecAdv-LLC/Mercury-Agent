@@ -90,138 +90,69 @@ Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that
 
 ---
 
-## Current Benchmarks and Visual Proof
+## Benchmark Results (Measured)
 
 <details>
 <summary><strong>Click to expand benchmarks</strong></summary>
 
-The following benchmarks were generated from a 200-epoch training run with the full neuro-symbolic cognitive stack active. All metrics are from actual system execution, not simulated data.
+> All numbers measured on 2026-02-14 using `benchmarks/honest_benchmark.py`.
+> Detector: `StatisticalAnomalyDetector` (Resonance 40% + Kinematic 30% + InfoGeometry 30%).
+> No synthetic data. Every metric comes from `benchmarks/honest_benchmark_results.json`.
 
-### Benchmark Summary (200 Epochs with Neuro-Symbolic Fusion)
+### Aggregate Performance (49 Real-World Datasets)
 
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Final Confidence** | 0.999 | Bayesian calibrated confidence score |
-| **Confidence Growth** | +0.239 | Improvement from baseline 0.76 |
-| **Anomaly Detection F1** | 0.797 | Precision/Recall harmonic mean |
-| **Anomaly Precision** | 0.879 | True positive rate |
-| **Anomaly Recall** | 0.729 | Detection coverage |
-| **Memory Entries** | 3,300 | Accumulated episodic/semantic memories |
-| **Benevolence Score** | 0.99+ | Ethical alignment metric (target threshold) |
-| **Neural Contribution** | 47.0% | Neural network pattern detection |
-| **Symbolic Contribution** | 53.0% | Symbolic reasoning inference |
-| **Test Coverage** | 85%+ | Comprehensive test suite (5,114+ tests) |
-| **Statistical Significance** | p < 0.0001 | Cohen's d = 0.952 (large effect size) |
+| Metric | Value |
+|--------|-------|
+| **Datasets Tested** | 49 (47 ADBench + NSL-KDD + BATADAL) |
+| **Mean ROC-AUC** | 0.814 |
+| **Median ROC-AUC** | 0.850 |
+| **Mean Oracle F1** | 0.529 |
+| **Median Oracle F1** | 0.540 |
 
-### Empirical Benchmark Results (AdaptiveAnomalyDetector)
+### Top Performing Datasets
 
-Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-symbolic fusion benchmarks. The system uses 100% original mathematics (no external anomaly-detection dependencies) and is competitive with established unsupervised anomaly detectors, with the added benefit of interpretability through symbolic reasoning.
+| Dataset | ROC-AUC | Oracle F1 | Domain |
+|---------|---------|-----------|--------|
+| musk | 0.999 | 0.921 | Chemistry |
+| http | 0.999 | 0.846 | Network |
+| satimage-2 | 0.998 | 0.797 | Remote Sensing |
+| WBC | 0.997 | 0.870 | Medical |
+| shuttle | 0.992 | 0.958 | Space |
+| breastw | 0.989 | 0.936 | Medical |
+| InternetAds | 0.974 | 0.922 | Web |
+| thyroid | 0.970 | 0.593 | Medical |
+| fraud | 0.966 | 0.281 | Finance |
+| Ionosphere | 0.951 | 0.881 | Physics |
 
-**Statistical Detector Ensemble:**
+### Domain-Specific Results
 
-| Component | Weight | Method | Source |
-|-----------|--------|--------|--------|
-| ResonanceScore | 40% | FFT harmonic spectral anomaly | `core/three_r/engines.py` |
-| KinematicScore | 30% | Physics-based jerk/curvature | `detectors/acceleration_dynamics.py` |
-| InfoGeometryScore | 30% | Fisher Information OOD detection | `core/info_geometry.py` |
+| Dataset | Domain | Samples | ROC-AUC | Oracle F1 |
+|---------|--------|---------|---------|-----------|
+| NSL-KDD | Security | 148,517 | 0.907 | 0.838 |
+| BATADAL | Industrial | 12,938 | 0.867 | 0.540 |
 
-**Peer Comparison (Unsupervised Anomaly Detection):**
+### Honest Positioning
 
-| Detector | Mean F1 | Mean ROC-AUC | Key Strength |
-|----------|---------|--------------|--------------|
-| **Mercury-Agent** | 0.80 | 0.85 | Interpretable decisions via neuro-symbolic fusion |
-| LocalOutlierFactor | 0.70 | 0.78 | Good for local anomalies |
-| OneClassSVM | 0.68 | 0.75 | Robust to outliers in training |
-| EllipticEnvelope | 0.65 | 0.72 | Fast, works well for Gaussian data |
+- Mercury-Agent is an **unsupervised anomaly detector** using three original mathematical frameworks
+- **No sklearn anomaly detectors** in the detection pipeline (numpy only)
+- Mean AUC of 0.814 across 49 datasets is competitive for unsupervised methods
+- 3 datasets score below AUC 0.50 (ALOI, landsat, vertebral) — known hard cases
+- Oracle F1 is an **upper bound** (threshold sweep), not operational F1
 
-**Honest Positioning:**
-- Mercury-Agent is an **unsupervised anomaly detector**, not a supervised classifier
-- Primary advantage is **interpretability** through neuro-symbolic fusion, not raw detection performance
-- Not intended to replace supervised classifiers when labeled data is available
-- Best suited for scenarios requiring explainable anomaly decisions
+### When to Use Mercury-Agent
 
-**When to Use Mercury-Agent:**
-- When interpretability of anomaly decisions is required
+- When interpretability of anomaly scores is required (three named component scores)
 - When dealing with diverse data types requiring adaptive profiling
-- When confidence calibration and uncertainty quantification matter
+- When sklearn-free detection is needed
 
-**When to Use Alternatives:**
+### When to Use Alternatives
+
 - When labeled anomaly data is available (use supervised classifiers)
 - When memory is constrained (use simpler methods)
 
-*Benchmark methodology: ROC-AUC and F1 on held-out test sets with contamination=0.1. See `benchmarks/baseline_results.json` for full peer comparison.*
+Full per-dataset results: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 
-### Comprehensive Multi-Panel Visualizations
-
-The following consolidated visualizations capture all benchmark metrics in professional multi-panel format (v1.4.0):
-
-#### Neuro-Symbolic Benchmark Report
-
-Complete visualization showing confidence evolution over 200 epochs, final metrics radar chart, neural-symbolic fusion balance, precision/recall evolution, memory growth to 3,300 entries, and 8-domain performance heatmap:
-
-![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
-
-#### Anomaly Detection Analysis
-
-Comprehensive 9-panel analysis: F1 score evolution, detector comparison (Mercury vs peers), 8 enhanced statistical methods, threshold sensitivity, score distributions, throughput benchmarks, cross-platform integration (10+ platforms), 7 ensemble strategies, and statistical significance metrics:
-
-![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
-
-#### Performance, Ethics & Quality Dashboard
-
-Consolidated dashboard showing benevolence score evolution, 180 ethical scalars distribution, latency comparison (CPU/GPU), memory footprint, Fairlearn bias metrics, Lyapunov stability (λ=0.25), 3-layer security architecture, and key performance indicators:
-
-![Mercury Performance Dashboard](docs/images/mercury_performance_dashboard.png)
-
-#### Live Data Benchmark Summary
-
-Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (415 modules, 246,539 LOC), 5 new v1.4.0 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
-
-![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
-
-### Real-World Data Benchmarks
-
-Mercury Agent ♱ has been validated against real-world public datasets to demonstrate practical anomaly detection capabilities:
-
-#### NSL-KDD (Security Domain)
-
-Network intrusion detection benchmark using the KDD Cup 99 dataset:
-
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Dataset** | NSL-KDD | Network intrusion detection |
-| **Samples** | 50,000 | 10% subset of KDD Cup 99 |
-| **Features** | 41 | Network connection attributes |
-| **Anomaly Ratio** | ~20% | Attack vs normal traffic |
-| **Model** | StatisticalAnomalyDetector | Unsupervised anomaly detection (Resonance + Kinematic + InfoGeo) |
-| **Bias Check** | Passed | Demographic parity < 0.1 |
-
-*Citation: Tavallaee et al. (2009). A detailed analysis of the KDD CUP 99 data set.*
-
-#### MIMIC-III Demo (Medical Domain)
-
-Medical ICU anomaly detection benchmark simulating sepsis detection:
-
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Dataset** | MIMIC-III Demo | ICU vital signs simulation |
-| **Patients** | 2,000 | Simulated patient records |
-| **Features** | 30 | Vital sign statistics |
-| **Sepsis Ratio** | 15% | Anomaly prevalence |
-| **Vital Signs** | 6 | HR, SBP, DBP, RR, SpO2, Temp |
-| **Bias Check** | Warning | Age-based DPD > 0.1 (expected) |
-
-*Note: Full MIMIC-III requires PhysioNet credentials. Demo uses simulated data based on MIMIC-III patterns.*
-
-#### Ethical AI Compliance
-
-All benchmarks include Fairlearn bias auditing:
-
-- **Demographic Parity Difference (DPD)**: Measures selection rate differences across sensitive groups
-- **Threshold**: DPD < 0.1 for passing bias check
-- **Sensitive Attributes**: Protocol type (security), Age group (medical)
-
-Run benchmarks: `python benchmarks/real_data_benchmarks.py`
+Run benchmarks: `python benchmarks/honest_benchmark.py`
 
 ### Live Anomaly Detection Demo
 
@@ -550,7 +481,7 @@ Optimized for both accuracy and interpretability:
 - **Complete**: Implemented and tested with synthetic data
 - **Pending**: Requires real-world dataset validation
 
-> **Note:** Current benchmarks use simulated data. Expected variance on production data: 20-40%. Performance metrics require validation on domain-specific real-world datasets before production deployment.
+> **Note:** Core anomaly detection benchmarks use real-world data (49 datasets). Domain-specific modules may require additional validation.
 
 </details>
 
@@ -655,15 +586,15 @@ Optimized for both accuracy and interpretability:
 </details>
 
 <details>
-<summary><strong>Detection Accuracy</strong></summary>
+<summary><strong>Detection Accuracy (Measured)</strong></summary>
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Precision | 1.000 | Synthetic cosmic ray data |
-| Recall | 0.850 | Synthetic cosmic ray data |
-| F1 Score | 0.919 | Synthetic cosmic ray data |
+| Mean ROC-AUC | 0.814 | 49 real-world datasets |
+| Median ROC-AUC | 0.850 | 49 real-world datasets |
+| Mean Oracle F1 | 0.529 | Threshold sweep upper bound |
 
-> **Important:** These metrics are from synthetic benchmarks. Real-world performance requires validation on domain-specific datasets. Expected variance: 20-40%.
+> Measured on 47 ADBench + NSL-KDD + BATADAL datasets. See `benchmarks/honest_benchmark_results.json`.
 
 </details>
 
@@ -1729,7 +1660,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Simulated Benchmarks:** Current metrics use synthetic data. Real-world performance may vary 20-40%.
+- **Benchmark Scope:** Metrics are measured on 49 real-world datasets (ADBench, NSL-KDD, BATADAL). Performance on other domains may vary.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 

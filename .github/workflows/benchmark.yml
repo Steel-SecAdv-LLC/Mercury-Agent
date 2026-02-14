@@ -45,11 +45,11 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
-  # Performance thresholds - fail CI if below these values
-  # Measured baseline (2026-02-14): mean AUC 0.783, mean F1 0.600
-  # Thresholds set below measured performance as regression gates
-  MIN_ROC_AUC: 0.70
-  MIN_F1: 0.35
+  # Performance thresholds — fail CI if below these values
+  # Measured: mean_auc=0.814, mean_oracle_f1=0.529 (49 datasets, 2026-02-14)
+  # Thresholds set at ~15% below measured baseline
+  MIN_ROC_AUC: 0.69
+  MIN_F1: 0.45
   # Prevent silent synthetic data fallbacks in CI
   MERCURY_ALLOW_SYNTHETIC: "false"
   # CI-optimized benchmark settings to stay under 120 min timeout

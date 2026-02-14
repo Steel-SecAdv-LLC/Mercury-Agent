@@ -109,11 +109,27 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
-from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
 
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+# Import adaptive detector for targeted performance enhancements
+try:
+    from omni_mercury_engine.core.adaptive_detector import AdaptiveAnomalyDetector, DatasetProfile
+
+    ADAPTIVE_DETECTOR_AVAILABLE = True
+except ImportError:
+    ADAPTIVE_DETECTOR_AVAILABLE = False
+
+# Import score calibration for improved threshold optimization
+try:
+    from omni_mercury_engine.core.score_calibration import (
+        CalibrationMethod,
+        ScoreCalibrationManager,
+    )
+
+    SCORE_CALIBRATION_AVAILABLE = True
+except ImportError:
+    SCORE_CALIBRATION_AVAILABLE = False
 
 # Suppress expected warnings from sklearn/numpy during benchmark model fitting.
 # Scoped to specific categories rather than blanket suppression.
@@ -667,6 +683,14 @@ def fetch_batadal_from_github() -> tuple[np.ndarray, np.ndarray, str] | None:
 
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    from omni_mercury_engine.engine import OmniMercuryEngine
+
+    MERCURY_AGENT_AVAILABLE = True
+except ImportError:
+    MERCURY_AGENT_AVAILABLE = False
+    print("Warning: OmniMercuryEngine not available, using mock implementation")
 
 
 @dataclass
@@ -1725,50 +1749,226 @@ class MAATDetector:
 
 
 class FallbackStrategy:
-    """Enumeration of available fallback strategies (unused, kept for API compat)."""
+    """Enumeration of available fallback strategies."""
 
     MAHALANOBIS = "mahalanobis"
+    EUCLIDEAN = "euclidean"
+
+
+@dataclass
+class DetectorHealth:
+    """Health status of a detector component."""
+
+    name: str
+    operational: bool
+    fallback_mode: bool
+    fallback_strategy: str
+    last_error: str | None
+    error_count: int
+    success_count: int
+    recovery_attempts: int
+    last_recovery_attempt: str | None
+
+
+class FallbackTelemetry:
+    """Telemetry tracking for fallback mechanisms."""
+
+    def __init__(self) -> None:
+        self.fallback_counts: dict[str, int] = {
+            "import_failure": 0,
+            "initialization_error": 0,
+            "runtime_error": 0,
+            "covariance_failure": 0,
+            "recovery_attempt": 0,
+            "recovery_success": 0,
+        }
+        self.fallback_reasons: list[dict[str, Any]] = []
+        self.last_fallback_time: str | None = None
+
+    def record_fallback(self, reason: str, details: str | None = None) -> None:
+        """Record a fallback event with telemetry."""
+        self.fallback_counts[reason] = self.fallback_counts.get(reason, 0) + 1
+        self.last_fallback_time = datetime.now(UTC).isoformat()
+        self.fallback_reasons.append(
+            {
+                "reason": reason,
+                "details": details,
+                "timestamp": self.last_fallback_time,
+            }
+        )
+        logger.warning(f"Fallback triggered: {reason} - {details}")
+
+    def get_summary(self) -> dict[str, Any]:
+        """Get telemetry summary."""
+        return {
+            "fallback_counts": self.fallback_counts,
+            "total_fallbacks": sum(self.fallback_counts.values()),
+            "last_fallback_time": self.last_fallback_time,
+            "recent_reasons": self.fallback_reasons[-10:],
+        }
 
 
 class OmniMercuryDetector:
-    """Benchmark wrapper around StatisticalAnomalyDetector.
+    """
+    Thin wrapper around StatisticalAnomalyDetector for benchmark evaluation.
 
-    Exposes the sklearn-compatible interface (fit/predict/decision_function)
-    expected by the benchmark harness while delegating all detection to
-    Mercury's original ensemble (Resonance 40% + Kinematic 30% + InfoGeo 30%).
+    Delegates all anomaly detection to StatisticalAnomalyDetector from
+    omni_mercury_engine.detectors.statistical, providing a sklearn-compatible
+    interface (fit/predict/decision_function).
     """
 
-    def __init__(self, contamination: float = 0.1, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        contamination: float = 0.1,
+        **kwargs: Any,
+    ):
+        """
+        Initialize the Mercury-Agent detector.
+
+        Args:
+            contamination: Expected proportion of anomalies in the dataset
+            **kwargs: Additional keyword arguments (ignored, kept for API compat)
+        """
+        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+
         self.contamination = contamination
         self._detector = StatisticalAnomalyDetector()
-        self._scores: np.ndarray | None = None
+
+        logger.info("OmniMercuryDetector initialized (StatisticalAnomalyDetector backend)")
 
     def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "OmniMercuryDetector":
-        """Fit StatisticalAnomalyDetector on training data."""
+        """
+        Fit the detector on training data.
+
+        Args:
+            X: Training features
+            y: Training labels (unused, kept for API compatibility)
+        """
         X_clean = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
         self._detector.fit(X_clean)
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict anomaly labels (-1 = anomaly, 1 = normal, sklearn convention)."""
+        """Predict anomaly labels (-1 for anomaly, 1 for normal)."""
         X_clean = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
         result = self._detector.detect(X_clean)
-        self._scores = result["scores"]
         return np.where(result["is_anomaly"], -1, 1)
 
     def decision_function(self, X: np.ndarray) -> np.ndarray:
-        """Return anomaly scores (higher = more anomalous).
-
-        If predict() was already called on this data, returns cached scores.
-        Otherwise runs detection fresh.
         """
-        if self._scores is not None and len(self._scores) == len(X):
-            return self._scores
+        Compute anomaly scores.
+
+        Higher scores indicate more anomalous samples.
+        """
         X_clean = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
         result = self._detector.detect(X_clean)
         return result["scores"]
 
+    def set_dataset_hint(self, dataset_name: str) -> None:
+        """Set dataset hint (no-op, kept for API compatibility)."""
+        pass
 
+    def get_health(self) -> DetectorHealth:
+        """Get health status of the detector."""
+        return DetectorHealth(
+            name="OmniMercuryDetector",
+            operational=True,
+            fallback_mode=False,
+            fallback_strategy="statistical",
+            last_error=None,
+            error_count=0,
+            success_count=0,
+            recovery_attempts=0,
+            last_recovery_attempt=None,
+        )
+
+    def get_telemetry(self) -> dict[str, Any]:
+        """Get telemetry data for monitoring."""
+        health = self.get_health()
+        return {
+            "health": asdict(health),
+            "config": {
+                "contamination": self.contamination,
+            },
+        }
+
+
+def get_detector_health_endpoint() -> dict[str, Any]:
+    """
+    Health check API endpoint for detector status.
+
+    Returns JSON with operational status of each detector component.
+    Can be exposed via FastAPI or similar framework.
+    """
+    health_status: dict[str, Any] = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "status": "healthy",
+        "components": {},
+    }
+
+    # Check Mercury-Agent availability
+    health_status["components"]["mercury_agent"] = {
+        "available": MERCURY_AGENT_AVAILABLE,
+        "status": "operational" if MERCURY_AGENT_AVAILABLE else "unavailable",
+    }
+
+    # Check sklearn detectors
+    sklearn_detectors = [
+        ("EllipticEnvelope", EllipticEnvelope),
+        ("OneClassSVM", OneClassSVM),
+    ]
+
+    for name, detector_class in sklearn_detectors:
+        try:
+            detector_class()
+            health_status["components"][name] = {
+                "available": True,
+                "status": "operational",
+            }
+        except Exception as e:
+            health_status["components"][name] = {
+                "available": False,
+                "status": "error",
+                "error": str(e),
+            }
+
+    # Check SOTA models
+    try:
+        import importlib.util
+
+        tranad_spec = importlib.util.find_spec("omni_mercury_engine.models.sota.tranad")
+        health_status["components"]["TranAD"] = {
+            "available": tranad_spec is not None,
+            "status": "operational" if tranad_spec is not None else "unavailable",
+        }
+    except (ImportError, ModuleNotFoundError):
+        health_status["components"]["TranAD"] = {
+            "available": False,
+            "status": "unavailable",
+        }
+
+    try:
+        maat_spec = importlib.util.find_spec("omni_mercury_engine.models.sota.maat")
+        health_status["components"]["MAAT"] = {
+            "available": maat_spec is not None,
+            "status": "operational" if maat_spec is not None else "unavailable",
+        }
+    except (ImportError, ModuleNotFoundError):
+        health_status["components"]["MAAT"] = {
+            "available": False,
+            "status": "unavailable",
+        }
+
+    # Determine overall status
+    unavailable_count = sum(
+        1 for c in health_status["components"].values() if c.get("status") != "operational"
+    )
+    if unavailable_count > len(health_status["components"]) // 2:
+        health_status["status"] = "degraded"
+    elif unavailable_count == len(health_status["components"]):
+        health_status["status"] = "unhealthy"
+
+    return health_status
 
 
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray) -> dict[str, Any]:
@@ -1876,8 +2076,6 @@ def benchmark_detector_kfold(
         # Create detector instance
         if detector_name == "Mercury-Agent":
             detector = detector_class(contamination=contamination)
-        elif detector_name == "LocalOutlierFactor":
-            detector = detector_class(contamination=contamination, novelty=True, **kwargs)
         elif detector_name == "OneClassSVM":
             nu = min(0.5, max(0.01, contamination))
             detector = detector_class(nu=nu, **kwargs)
@@ -1985,8 +2183,6 @@ def benchmark_detector(
     """Run benchmark for a single detector on a single dataset."""
     if detector_name == "Mercury-Agent":
         detector = detector_class(contamination=contamination)
-    elif detector_name == "LocalOutlierFactor":
-        detector = detector_class(contamination=contamination, novelty=True, **kwargs)
     elif detector_name == "OneClassSVM":
         nu = min(0.5, max(0.01, contamination))
         detector = detector_class(nu=nu, **kwargs)
@@ -2135,7 +2331,6 @@ def run_full_benchmark(
     detectors: list[tuple[type, str, dict[str, Any]]] = [
         (OmniMercuryDetector, "Mercury-Agent", {}),
         (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
-        (LocalOutlierFactor, "LocalOutlierFactor", {"n_neighbors": 20}),
         (EllipticEnvelope, "EllipticEnvelope", {"random_state": 42}),
     ]
 

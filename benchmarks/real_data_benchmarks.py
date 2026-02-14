@@ -42,6 +42,7 @@ from urllib.request import urlretrieve
 
 import numpy as np
 import pandas as pd
+from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 from sklearn.metrics import (
     f1_score,
     precision_score,
@@ -50,8 +51,6 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -622,7 +621,6 @@ class MIMICDemoBenchmark:
             y_test = y[test_idx]
 
             detector = StatisticalAnomalyDetector()
-            # Train on normal samples only (unsupervised)
             y_train = y[train_idx]
             normal_mask = y_train == 0
             X_train_normal = X_train[normal_mask] if normal_mask.sum() > 0 else X_train

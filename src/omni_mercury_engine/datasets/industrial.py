@@ -189,10 +189,6 @@ class SWaTLoader(DatasetLoader):
 
     def download(self) -> bool:
         """SWaT requires iTrust institutional registration."""
-        logger.info(
-            "SWaT dataset requires credentials. "
-            "Register at: https://itrust.sutd.edu.sg/itrust-labs-datasets/"
-        )
         raise DataSourceUnavailableError(
             loader_name="SWaT",
             source_url="https://itrust.sutd.edu.sg/itrust-labs-datasets/",
@@ -347,10 +343,6 @@ class WADILoader(DatasetLoader):
 
     def download(self) -> bool:
         """WADI requires iTrust institutional registration."""
-        logger.info(
-            "WADI dataset requires credentials. "
-            "Register at: https://itrust.sutd.edu.sg/itrust-labs-datasets/"
-        )
         raise DataSourceUnavailableError(
             loader_name="WADI",
             source_url="https://itrust.sutd.edu.sg/itrust-labs-datasets/",
@@ -501,54 +493,59 @@ class BATADALLoader(DatasetLoader):
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load BATADAL dataset.
+        """Load BATADAL dataset (both train and test CSVs).
 
-        Loads both the training CSV (no attacks) and the test CSV (with
-        ATT_FLAG column containing attack labels).  For anomaly detection
-        benchmarks the test set is the one that matters — it contains the
-        labeled attack periods.
-
-        Returns:
-            Tuple of (features, labels) where labels are binary (1 = attack).
+        The train CSV (dataset03) has an ATT_FLAG column with 0/1 labels.
+        The test CSV (dataset04) has an ATT_FLAG column with -999 (unknown), 0, or 1.
+        Labels are mapped so that only 1 = anomaly; -999 and 0 = normal.
         """
         try:
             import pandas as pd
         except ImportError as e:
             raise ImportError("pandas required for BATADAL loading") from e
 
-        test_file = self.data_path / "BATADAL_test.csv"
         train_file = self.data_path / "BATADAL_train.csv"
+        test_file = self.data_path / "BATADAL_test.csv"
 
-        if not test_file.exists() and not train_file.exists():
+        if not train_file.exists():
             self.download()
 
-        dfs = []
-        for fpath in [train_file, test_file]:
-            if fpath.exists():
-                dfs.append(pd.read_csv(fpath))
-
-        if not dfs:
+        if not train_file.exists():
             raise FileNotFoundError(f"BATADAL data not found in {self.data_path}")
 
-        df = pd.concat(dfs, ignore_index=True)
+        # Load train CSV
+        df_train = pd.read_csv(train_file)
+        df_train.columns = df_train.columns.str.strip()
 
-        # Strip whitespace from column names (BATADAL CSVs have trailing spaces)
-        df.columns = df.columns.str.strip()
+        frames = [df_train]
+
+        # Load test CSV if available (contains ATT_FLAG with attack labels)
+        if test_file.exists():
+            df_test = pd.read_csv(test_file)
+            df_test.columns = df_test.columns.str.strip()
+            frames.append(df_test)
+            logger.info(f"Loaded BATADAL test file with {len(df_test)} samples")
+        else:
+            logger.warning(
+                "BATADAL test file not found at %s; loading train only", test_file
+            )
+
+        df = pd.concat(frames, ignore_index=True)
 
         feature_cols = [c for c in df.columns if c not in ["DATETIME", "ATT_FLAG"]]
         features = df[feature_cols].values.astype(np.float32)
 
         if "ATT_FLAG" in df.columns:
-            labels = df["ATT_FLAG"].values.astype(int)
+            # Map labels: only 1 = anomaly; -999 (unknown) and 0 = normal
+            raw_labels = df["ATT_FLAG"].values
+            labels = (raw_labels == 1).astype(np.int64)
         else:
-            labels = np.zeros(len(features), dtype=int)
+            labels = np.zeros(len(features), dtype=np.int64)
 
         features = np.nan_to_num(features, nan=0.0)
 
-        logger.info(
-            f"Loaded BATADAL: {features.shape[0]} samples, {features.shape[1]} features, "
-            f"anomalies: {labels.sum()}"
-        )
+        logger.info(f"Loaded BATADAL: {features.shape[0]} samples, {features.shape[1]} features")
+        logger.info(f"Anomaly ratio: {labels.mean():.2%}")
 
         return features, labels
 

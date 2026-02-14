@@ -605,16 +605,15 @@ def random_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     return np.random.rand(len(features))
 
 
-def mercury_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Mercury StatisticalAnomalyDetector baseline."""
+def isolation_forest_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Mercury StatisticalAnomalyDetector baseline (legacy name kept for API compat)."""
     try:
         from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 
         detector = StatisticalAnomalyDetector()
         detector.fit(features)
         result = detector.detect(features)
-        scores = result["scores"]
-        return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
+        return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
     except Exception:
         return random_baseline(features)
 
