@@ -170,22 +170,12 @@ class LiveDatasetBenchmarkRunner:
         self.results: list[DatasetBenchmarkResult] = []
 
     def _initialize_detector(self) -> None:
-        """Initialize the anomaly detector."""
-        try:
-            from omni_mercury_engine.core.adaptive_detector import AdaptiveAnomalyDetector
+        """Initialize the StatisticalAnomalyDetector (Mercury's original ensemble)."""
+        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 
-            self.detector = AdaptiveAnomalyDetector(
-                contamination=0.05,
-            )
-            logger.info(f"Initialized {self.detector_name} detector")
-        except ImportError as e:
-            logger.warning(f"Could not import AdaptiveAnomalyDetector: {e}")
-            # Fallback to sklearn IsolationForest baseline for comparison only
-            # Note: This is NOT Mercury's detector, just a baseline for benchmarking
-            from sklearn.ensemble import IsolationForest
-
-            self.detector = IsolationForest(contamination=0.1, random_state=42)
-            self.detector_name = "IsolationForest-baseline"
+        self.detector = StatisticalAnomalyDetector()
+        self.detector_name = "StatisticalAnomalyDetector"
+        logger.info("Initialized StatisticalAnomalyDetector (Resonance+Kinematic+InfoGeo)")
 
     def _load_dataset(
         self, category: str, dataset_name: str, loader_name: str
@@ -255,33 +245,30 @@ class LiveDatasetBenchmarkRunner:
             return None, None, metadata
 
     def _run_detection(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
-        """Run anomaly detection and return predictions, scores, and time."""
+        """Run anomaly detection using StatisticalAnomalyDetector.
+
+        Trains on normal-only samples (unsupervised), detects on full dataset.
+        Returns predictions (from is_anomaly), scores, and elapsed time.
+        """
         start = time.perf_counter()
 
         try:
             # Handle NaN/Inf values
             X = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
 
-            if hasattr(self.detector, "fit_predict"):
-                # Scikit-learn style
-                predictions = self.detector.fit_predict(X)
-                # Convert -1/1 to 0/1
-                predictions = (predictions == -1).astype(int)
-                scores = (
-                    -self.detector.score_samples(X)
-                    if hasattr(self.detector, "score_samples")
-                    else predictions.astype(float)
-                )
-            elif hasattr(self.detector, "fit") and hasattr(self.detector, "predict"):
-                self.detector.fit(X, y)
-                predictions = self.detector.predict(X)
-                scores = (
-                    self.detector.predict_proba(X)[:, 1]
-                    if hasattr(self.detector, "predict_proba")
-                    else predictions.astype(float)
-                )
+            # Train on normal-only samples (unsupervised anomaly detection)
+            normal_mask = y == 0
+            if normal_mask.sum() > 0:
+                X_train = X[normal_mask]
             else:
-                raise ValueError("Detector must have fit_predict or fit/predict methods")
+                # No label info available — train on everything
+                X_train = X
+
+            self.detector.fit(X_train)
+            result = self.detector.detect(X)
+
+            scores = result["scores"]
+            predictions = result["is_anomaly"].astype(int)
 
             elapsed_ms = (time.perf_counter() - start) * 1000
             return predictions, scores, elapsed_ms
@@ -436,7 +423,7 @@ class LiveDatasetBenchmarkRunner:
 
         return BenchmarkSuiteResult(
             timestamp=datetime.utcnow().isoformat(),
-            mercury_version="1.4.0",
+            mercury_version="1.5.1",
             python_version=f"{sys.version_info.major}.{sys.version_info.minor}",
             detector_name=self.detector_name,
             total_datasets=len(self.results),

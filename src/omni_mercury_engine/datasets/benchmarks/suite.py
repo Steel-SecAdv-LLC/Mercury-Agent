@@ -605,16 +605,17 @@ def random_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     return np.random.rand(len(features))
 
 
-def isolation_forest_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Isolation Forest baseline detector."""
+def mercury_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Mercury StatisticalAnomalyDetector baseline."""
     try:
-        from sklearn.ensemble import IsolationForest
+        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 
-        clf = IsolationForest(random_state=42, contamination=0.1)
-        clf.fit(features)
-        scores = -clf.score_samples(features)  # Higher = more anomalous
-        return np.asarray((scores - scores.min()) / (scores.max() - scores.min() + 1e-10))  # type: ignore[no-any-return, unused-ignore]
-    except ImportError:
+        detector = StatisticalAnomalyDetector()
+        detector.fit(features)
+        result = detector.detect(features)
+        scores = result["scores"]
+        return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
+    except Exception:
         return random_baseline(features)
 
 

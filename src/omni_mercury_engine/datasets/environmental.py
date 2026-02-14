@@ -46,6 +46,10 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     Data source: https://earthquake.usgs.gov/fdsnws/event/1/
     License: Public Domain (USGS)
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "earthquake"
@@ -332,6 +336,10 @@ class NOAAWeatherLoader(DatasetLoader):
 
     Data source: https://open-meteo.com/ (free, no API key required)
     License: CC BY 4.0
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "weather"
@@ -573,6 +581,10 @@ class WildfireDataLoader(DatasetLoader):
 
     Data source: https://firms.modaps.eosdis.nasa.gov/
     License: Public Domain (NASA)
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "wildfire"
@@ -856,6 +868,10 @@ class USGSGeochemistryLoader(DatasetLoader):
     Data source: https://mrdata.usgs.gov/geochem/
     License: Public Domain (USGS)
     Citation: USGS Mineral Resources Data System (MRDS).
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "geochemistry"

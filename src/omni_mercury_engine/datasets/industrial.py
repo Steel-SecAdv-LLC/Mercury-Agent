@@ -189,6 +189,10 @@ class SWaTLoader(DatasetLoader):
 
     def download(self) -> bool:
         """SWaT requires iTrust institutional registration."""
+        logger.info(
+            "SWaT dataset requires credentials. "
+            "Register at: https://itrust.sutd.edu.sg/itrust-labs-datasets/"
+        )
         raise DataSourceUnavailableError(
             loader_name="SWaT",
             source_url="https://itrust.sutd.edu.sg/itrust-labs-datasets/",
@@ -343,6 +347,10 @@ class WADILoader(DatasetLoader):
 
     def download(self) -> bool:
         """WADI requires iTrust institutional registration."""
+        logger.info(
+            "WADI dataset requires credentials. "
+            "Register at: https://itrust.sutd.edu.sg/itrust-labs-datasets/"
+        )
         raise DataSourceUnavailableError(
             loader_name="WADI",
             source_url="https://itrust.sutd.edu.sg/itrust-labs-datasets/",
@@ -493,32 +501,54 @@ class BATADALLoader(DatasetLoader):
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load BATADAL dataset."""
+        """Load BATADAL dataset.
+
+        Loads both the training CSV (no attacks) and the test CSV (with
+        ATT_FLAG column containing attack labels).  For anomaly detection
+        benchmarks the test set is the one that matters — it contains the
+        labeled attack periods.
+
+        Returns:
+            Tuple of (features, labels) where labels are binary (1 = attack).
+        """
         try:
             import pandas as pd
         except ImportError as e:
             raise ImportError("pandas required for BATADAL loading") from e
 
+        test_file = self.data_path / "BATADAL_test.csv"
         train_file = self.data_path / "BATADAL_train.csv"
-        if not train_file.exists():
+
+        if not test_file.exists() and not train_file.exists():
             self.download()
 
-        if not train_file.exists():
+        dfs = []
+        for fpath in [train_file, test_file]:
+            if fpath.exists():
+                dfs.append(pd.read_csv(fpath))
+
+        if not dfs:
             raise FileNotFoundError(f"BATADAL data not found in {self.data_path}")
 
-        df = pd.read_csv(train_file)
+        df = pd.concat(dfs, ignore_index=True)
+
+        # Strip whitespace from column names (BATADAL CSVs have trailing spaces)
+        df.columns = df.columns.str.strip()
 
         feature_cols = [c for c in df.columns if c not in ["DATETIME", "ATT_FLAG"]]
         features = df[feature_cols].values.astype(np.float32)
 
         if "ATT_FLAG" in df.columns:
-            labels = df["ATT_FLAG"].values
+            labels = df["ATT_FLAG"].values.astype(int)
         else:
-            labels = np.zeros(len(features))
+            labels = np.zeros(len(features), dtype=int)
 
         features = np.nan_to_num(features, nan=0.0)
 
-        logger.info(f"Loaded BATADAL: {features.shape[0]} samples, {features.shape[1]} features")
+        logger.info(
+            f"Loaded BATADAL: {features.shape[0]} samples, {features.shape[1]} features, "
+            f"anomalies: {labels.sum()}"
+        )
 
         return features, labels
 

@@ -197,9 +197,14 @@ class NABLoader(DatasetLoader):
         features = []
         labels = []
 
-        # Get anomaly windows for this file
+        # Get anomaly windows for this file.
+        # NAB combined_windows.json keys use forward-slash paths like
+        # "realKnownCause/ambient_temperature_system_failure.csv"
         rel_path = f"{filepath.parent.name}/{filepath.name}"
         windows = anomaly_windows.get(rel_path, [])
+
+        if not windows:
+            logger.debug(f"  No anomaly windows for {rel_path} (key not in labels JSON)")
 
         # Parse windows into datetime ranges
         anomaly_ranges = []
@@ -371,14 +376,22 @@ class SMDLoader(DatasetLoader):
             all_features.append(features)
 
             if label_path.exists():
-                labels = np.load(label_path)
+                labels = np.load(label_path).ravel()
             else:
-                # Try loading from txt
+                # Try loading from txt (test_label files are one value per line)
                 txt_path = machine_dir / "test_label.txt"
                 if txt_path.exists():
-                    labels = np.loadtxt(txt_path)
+                    labels = np.loadtxt(txt_path).ravel()
+                    # Cache as npy for next load
+                    np.save(label_path, labels)
                 else:
+                    logger.warning(
+                        f"  No test_label found for {machine} — labels will be all-zero"
+                    )
                     labels = np.zeros(len(features))
+
+            # Ensure binary labels
+            labels = (labels > 0).astype(np.int64)
             all_labels.append(labels)
 
         if not all_features:
@@ -434,8 +447,11 @@ class SMAPMSLLoader(DatasetLoader):
     KDD 2018."""
     REQUIRES_CREDENTIALS = False
 
-    # Data URLs
-    SMAP_MSL_BASE_URL = "https://raw.githubusercontent.com/khundman/telemanom/master/data/"
+    # Data URLs — OmniAnomaly GitHub mirror is the primary source.
+    # The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403.
+    OMNIANOMALY_BASE_URL = (
+        "https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/"
+    )
     LABELED_ANOMALIES_URL = (
         "https://raw.githubusercontent.com/khundman/telemanom/master/labeled_anomalies.csv"
     )
@@ -486,14 +502,46 @@ class SMAPMSLLoader(DatasetLoader):
                 logger.info(f"  Found {n_train} train, {n_test} test files")
                 return True
 
-        # Data not present — raise with download instructions
+        # Attempt download from OmniAnomaly GitHub mirror
+        import csv
+
+        labels_path = self.data_path / "labeled_anomalies.csv"
+        if labels_path.exists():
+            with open(labels_path) as f:
+                reader = csv.DictReader(f)
+                channels = [
+                    row["chan_id"]
+                    for row in reader
+                    if row.get("spacecraft") == self.dataset
+                ]
+
+            if channels:
+                train_dir.mkdir(parents=True, exist_ok=True)
+                test_dir.mkdir(parents=True, exist_ok=True)
+                downloaded = 0
+                for chan in channels:
+                    for split, sdir in [("train", train_dir), ("test", test_dir)]:
+                        npy_path = sdir / f"{chan}.npy"
+                        if npy_path.exists():
+                            downloaded += 1
+                            continue
+                        url = f"{self.OMNIANOMALY_BASE_URL}{split}/{chan}.npy"
+                        try:
+                            safe_urlretrieve(url, npy_path)
+                            downloaded += 1
+                        except Exception:
+                            pass  # individual channel may be missing
+                if downloaded > 0:
+                    logger.info(f"  Downloaded {downloaded} channel files from OmniAnomaly mirror")
+                    return True
+
         raise DataSourceUnavailableError(
             loader_name=f"SMAP/MSL ({self.dataset})",
-            source_url="https://my.hidrive.com/share/ma4p8w4qqb",
+            source_url=self.OMNIANOMALY_BASE_URL,
             reason=(
-                "Preprocessed telemetry data not found. "
-                "The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403. "
-                "Download from TimeEval HiDrive mirror: https://my.hidrive.com/share/ma4p8w4qqb "
+                "Could not download telemetry data from OmniAnomaly mirror. "
+                "Alternative: download from TimeEval HiDrive mirror "
+                "(https://my.hidrive.com/share/ma4p8w4qqb) "
                 f"and extract train/ and test/ directories to: {self.data_path}"
             ),
         )

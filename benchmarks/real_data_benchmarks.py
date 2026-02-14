@@ -42,7 +42,6 @@ from urllib.request import urlretrieve
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import IsolationForest
 from sklearn.metrics import (
     f1_score,
     precision_score,
@@ -51,6 +50,8 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+
+from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -400,16 +401,16 @@ class NSLKDDBenchmark:
             X_train, X_test = X[train_idx], X[test_idx]
             y_test = y[test_idx]
 
-            model = IsolationForest(
-                n_estimators=100,
-                contamination=0.2,
-                random_state=42,
-                n_jobs=-1,
-            )
-            model.fit(X_train)
+            detector = StatisticalAnomalyDetector()
+            # Train on normal samples only (unsupervised)
+            y_train = y[train_idx]
+            normal_mask = y_train == 0
+            X_train_normal = X_train[normal_mask] if normal_mask.sum() > 0 else X_train
+            detector.fit(X_train_normal)
 
-            y_scores = -model.score_samples(X_test)
-            y_pred = (model.predict(X_test) == -1).astype(int)
+            result = detector.detect(X_test)
+            y_scores = result["scores"]
+            y_pred = result["is_anomaly"].astype(int)
 
             all_y_true.extend(y_test)
             all_y_pred.extend(y_pred)
@@ -454,8 +455,7 @@ class NSLKDDBenchmark:
             bias_metrics=bias_metrics,
             metadata={
                 "n_folds": n_folds,
-                "model": "IsolationForest",
-                "contamination": 0.2,
+                "model": "StatisticalAnomalyDetector",
             },
         )
 
@@ -621,16 +621,16 @@ class MIMICDemoBenchmark:
             X_train, X_test = X[train_idx], X[test_idx]
             y_test = y[test_idx]
 
-            model = IsolationForest(
-                n_estimators=100,
-                contamination=sepsis_ratio,
-                random_state=42,
-                n_jobs=-1,
-            )
-            model.fit(X_train)
+            detector = StatisticalAnomalyDetector()
+            # Train on normal samples only (unsupervised)
+            y_train = y[train_idx]
+            normal_mask = y_train == 0
+            X_train_normal = X_train[normal_mask] if normal_mask.sum() > 0 else X_train
+            detector.fit(X_train_normal)
 
-            y_scores = -model.score_samples(X_test)
-            y_pred = (model.predict(X_test) == -1).astype(int)
+            result = detector.detect(X_test)
+            y_scores = result["scores"]
+            y_pred = result["is_anomaly"].astype(int)
 
             all_y_true.extend(y_test)
             all_y_pred.extend(y_pred)
@@ -675,7 +675,7 @@ class MIMICDemoBenchmark:
             bias_metrics=bias_metrics,
             metadata={
                 "n_folds": n_folds,
-                "model": "IsolationForest",
+                "model": "StatisticalAnomalyDetector",
                 "sepsis_ratio": sepsis_ratio,
                 "vital_signs": self.VITAL_SIGNS,
                 "note": "Simulated data based on MIMIC-III patterns. "

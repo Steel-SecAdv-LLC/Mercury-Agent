@@ -114,8 +114,9 @@ class StatisticalAnomalyDetector(BaseDetector):
             DetectorException: If data is empty or contains only NaN/Inf values.
 
         Complexity:
-            O(n * d) for statistics, O(d^3) for covariance inversion,
-            O(n * d * log n) for kinematic derivatives.
+            O(n * d) for statistics and kinematic derivatives (np.diff),
+            O(n * d * log n) for FFT spectral profiles (once at fit time),
+            O(d^3) for covariance inversion.
         """
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -325,8 +326,8 @@ class StatisticalAnomalyDetector(BaseDetector):
               - kinematic_scores: Physics dynamics scores [0, 1]
               - info_geometry_scores: Fisher OOD scores [0, 1]
               - iqr_flags: Legacy boolean IQR anomalies
-              - isolation_forest_scores: Alias for resonance_scores (backward compat)
-              - isolation_forest_flags: Legacy boolean flags (backward compat)
+              - isolation_forest_scores: DEPRECATED alias for scores (backward compat)
+              - isolation_forest_flags: DEPRECATED alias for is_anomaly (backward compat)
               - detector_type: ``"statistical"``
               - threshold: Effective threshold (may be calibrated)
               - calibration_diagnostics: Diagnostics if auto-calibrated
@@ -381,10 +382,11 @@ class StatisticalAnomalyDetector(BaseDetector):
             "resonance_scores": resonance,
             "kinematic_scores": kinematic,
             "info_geometry_scores": info_geo,
-            # Backward-compatibility aliases
-            "isolation_forest_scores": resonance,
+            # DEPRECATED: will be removed in v2.0 - use "scores" instead
+            "isolation_forest_scores": combined_scores,
             # Legacy keys
             "iqr_flags": iqr_anomalies,
+            # DEPRECATED: will be removed in v2.0 - use "is_anomaly" instead
             "isolation_forest_flags": is_anomaly,
             "detector_type": "statistical",
             "threshold": effective_threshold,
@@ -404,29 +406,28 @@ class StatisticalAnomalyDetector(BaseDetector):
         self,
         X: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Harmonic spectral anomaly score via FFT.
+        """Spectral-profile anomaly score using precomputed FFT statistics.
 
-        For each feature column, computes the DFT across samples and
-        measures what fraction of total spectral energy resides in
-        *dominant* frequency bins (those above the mean magnitude).
+        At **fit time**, ``_precompute_resonance_profiles()`` runs FFT on
+        each feature column to extract per-feature harmonic energy ratios
+        (``h_train``) and noise ratios (``noise_ratio``).
 
-        High harmonic concentration -> normal (structured signal).
-        Low harmonic concentration  -> anomalous (noisy/scattered).
+        At **inference time** (this method), no FFT is performed.  Instead,
+        each sample is scored by how far its per-feature values deviate
+        from the training mean, attenuated by the precomputed noise ratio:
 
-        Equation:
-            H(f) = sum_dominant |F(f)|^2 / sum_all |F(f)|^2
-            score_per_feature = 1 - H   (inverted: high = anomalous)
+            dev = |x - mean| / std
+            attenuation = exp(-dev * noise_ratio)
+            score = mean_over_features(1 - h_train * attenuation)
 
-        Per-sample scoring:
-            Each sample's score is derived from how its per-feature
-            values deviate from the spectral profile learned at fit time.
-            We compute the residual energy ratio feature-by-feature and
-            average across features.
+        High harmonic concentration at fit time + small deviation at
+        inference -> low score (normal).  Large deviation or noisy
+        spectral profile -> high score (anomalous).
 
         Numerical stability:
             - Constant features yield total_energy=0 -> score=0.5 (uncertain).
-            - Single sample: FFT has one bin -> returns 0.5.
-            - Uses ``np.fft.rfft`` (real FFT) for speed.
+            - Single sample returns 0.5.
+            - noise_ratio clamped to >= 0.01.
 
         Args:
             X: Input data of shape ``(n_samples, n_features)``.
@@ -435,7 +436,7 @@ class StatisticalAnomalyDetector(BaseDetector):
             Anomaly scores of shape ``(n_samples,)`` in [0, 1].
 
         Complexity:
-            O(n * d * log n) where n = max(n_train, n_test), d = n_features.
+            O(n * d) - element-wise operations, no FFT at inference.
         """
         n_samples, n_features = X.shape
 

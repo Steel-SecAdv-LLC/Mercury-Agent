@@ -49,6 +49,10 @@ class FEMADisasterLoader(DatasetLoader):
     Data source: https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries
     License: Public Domain (US Government)
     No API key required - free and open access.
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "fema_disaster"
@@ -477,6 +481,10 @@ class FEMAHazardMitigationLoader(DatasetLoader):
 
     Data source: https://www.fema.gov/api/open/v2/HazardMitigationGrants
     License: Public Domain (US Government)
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "fema_hazard_mitigation"

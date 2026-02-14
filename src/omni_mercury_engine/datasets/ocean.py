@@ -59,6 +59,10 @@ class NOAABuoyLoader(DatasetLoader):
 
     Data source: https://www.ndbc.noaa.gov/
     License: Public Domain (US Government)
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "noaa_buoy"

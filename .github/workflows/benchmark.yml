@@ -46,8 +46,12 @@ env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
   # Performance thresholds - fail CI if below these values
-  MIN_ROC_AUC: 0.60
-  MIN_F1: 0.40
+  # Measured baseline (2026-02-14): mean AUC 0.783, mean F1 0.600
+  # Thresholds set below measured performance as regression gates
+  MIN_ROC_AUC: 0.70
+  MIN_F1: 0.35
+  # Prevent silent synthetic data fallbacks in CI
+  MERCURY_ALLOW_SYNTHETIC: "false"
   # CI-optimized benchmark settings to stay under 120 min timeout
   # Reduce sample sizes for faster CI runs without sacrificing statistical validity
   MERCURY_CI_MODE: "true"
@@ -280,8 +284,7 @@ jobs:
               print('WARNING: >50% of datasets used synthetic fallbacks.')
               print('This may indicate external data sources are unavailable.')
               print('Benchmark results may not reflect real-world performance.')
-              # Note: Not failing CI, just warning for transparency
-              # sys.exit(1)
+              sys.exit(1)
           else:
               print('Quality gate passed: majority of datasets are from real sources.')
           "
@@ -385,8 +388,7 @@ jobs:
 
           if regression:
               print('Performance regression detected!')
-              # Note: Not failing CI for now as we're working to improve metrics
-              # sys.exit(1)
+              sys.exit(1)
           else:
               print('No performance regression detected')
           "

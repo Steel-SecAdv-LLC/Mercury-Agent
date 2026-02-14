@@ -607,9 +607,10 @@ def run_baseline_benchmarks(
         Dictionary mapping detector name to BenchmarkResult
     """
     from sklearn.covariance import EllipticEnvelope
-    from sklearn.ensemble import IsolationForest
     from sklearn.neighbors import LocalOutlierFactor
     from sklearn.svm import OneClassSVM
+
+    from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 
     harness = RigorousBenchmarkHarness(n_folds=n_folds, seed=seed)
     results = {}
@@ -618,30 +619,24 @@ def run_baseline_benchmarks(
     anomaly_ratio = np.mean(y)
     contamination = min(0.5, max(0.01, anomaly_ratio))
 
-    # Isolation Forest
-    class IFWrapper:
+    # Mercury StatisticalAnomalyDetector
+    class MercuryWrapper:
         def __init__(self) -> None:
-            self.model = IsolationForest(
-                n_estimators=100,
-                contamination=contamination,
-                random_state=seed,
-            )
+            self.detector = StatisticalAnomalyDetector()
 
         def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
-            self.model.fit(X)
+            self.detector.fit(X)
 
         def predict(self, X: np.ndarray) -> np.ndarray:
-            preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))  # type: ignore[no-any-return, unused-ignore]
+            result = self.detector.detect(X)
+            return np.asarray(result["is_anomaly"].astype(int))  # type: ignore[no-any-return, unused-ignore]
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
-            scores = -self.model.score_samples(X)
-            # Normalize to [0, 1]
-            scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
+            result = self.detector.detect(X)
+            return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
 
-    results["IsolationForest"] = harness.benchmark_detector(
-        IFWrapper(), X, y, "IsolationForest", dataset_name
+    results["Mercury-Agent"] = harness.benchmark_detector(
+        MercuryWrapper(), X, y, "Mercury-Agent", dataset_name
     )
 
     # One-Class SVM
