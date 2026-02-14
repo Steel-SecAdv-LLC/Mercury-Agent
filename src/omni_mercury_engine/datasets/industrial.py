@@ -525,21 +525,24 @@ class BATADALLoader(DatasetLoader):
         dfs = []
         for fpath in [train_file, test_file]:
             if fpath.exists():
-                dfs.append(pd.read_csv(fpath))
+                frame = pd.read_csv(fpath)
+                # Strip whitespace from column names BEFORE concat
+                # (test CSV has leading spaces: ' ATT_FLAG', ' L_T1', etc.)
+                frame.columns = frame.columns.str.strip()
+                dfs.append(frame)
 
         if not dfs:
             raise FileNotFoundError(f"BATADAL data not found in {self.data_path}")
 
         df = pd.concat(dfs, ignore_index=True)
 
-        # Strip whitespace from column names (BATADAL CSVs have trailing spaces)
-        df.columns = df.columns.str.strip()
-
         feature_cols = [c for c in df.columns if c not in ["DATETIME", "ATT_FLAG"]]
         features = df[feature_cols].values.astype(np.float32)
 
         if "ATT_FLAG" in df.columns:
-            labels = df["ATT_FLAG"].values.astype(int)
+            raw_flags = df["ATT_FLAG"].values.astype(int)
+            # Map to binary: 1 = attack, everything else (0 and -999) = normal
+            labels = (raw_flags == 1).astype(int)
         else:
             labels = np.zeros(len(features), dtype=int)
 

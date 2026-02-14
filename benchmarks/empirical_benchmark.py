@@ -1769,8 +1769,6 @@ class OmniMercuryDetector:
         return result["scores"]
 
 
-
-
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray) -> dict[str, Any]:
     """Compute comprehensive evaluation metrics including confusion matrix."""
     y_pred_binary = (y_pred == -1).astype(int)

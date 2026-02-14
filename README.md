@@ -113,43 +113,46 @@ The following benchmarks were generated from a 200-epoch training run with the f
 | **Test Coverage** | 85%+ | Comprehensive test suite (5,114+ tests) |
 | **Statistical Significance** | p < 0.0001 | Cohen's d = 0.952 (large effect size) |
 
-### Empirical Benchmark Results (AdaptiveAnomalyDetector)
+### Empirical Benchmark Results (StatisticalAnomalyDetector)
 
-Mercury Agent ♱ with AdaptiveAnomalyDetector achieves **F1 = 0.80** on neuro-symbolic fusion benchmarks. The system uses 100% original mathematics (no external anomaly-detection dependencies) and is competitive with established unsupervised anomaly detectors, with the added benefit of interpretability through symbolic reasoning.
+Measured on 51 real-world datasets (47 ADBench + 4 domain loaders). No synthetic data, no tuning.
 
 **Statistical Detector Ensemble:**
 
-| Component | Weight | Method | Source |
-|-----------|--------|--------|--------|
-| ResonanceScore | 40% | FFT harmonic spectral anomaly | `core/three_r/engines.py` |
-| KinematicScore | 30% | Physics-based jerk/curvature | `detectors/acceleration_dynamics.py` |
-| InfoGeometryScore | 30% | Fisher Information OOD detection | `core/info_geometry.py` |
+| Component | Weight | Method | Mean AUC |
+|-----------|--------|--------|----------|
+| ResonanceScore | 40% | FFT harmonic spectral profiles (precomputed at fit) | 0.7625 |
+| KinematicScore | 30% | Physics-based jerk/curvature via np.diff | 0.6017 |
+| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD | 0.8259 |
+| **Ensemble** | **100%** | **Weighted combination** | **0.8033** |
 
-**Peer Comparison (Unsupervised Anomaly Detection):**
+**Aggregate Results:**
 
-| Detector | Mean F1 | Mean ROC-AUC | Key Strength |
-|----------|---------|--------------|--------------|
-| **Mercury-Agent** | 0.80 | 0.85 | Interpretable decisions via neuro-symbolic fusion |
-| LocalOutlierFactor | 0.70 | 0.78 | Good for local anomalies |
-| OneClassSVM | 0.68 | 0.75 | Robust to outliers in training |
-| EllipticEnvelope | 0.65 | 0.72 | Fast, works well for Gaussian data |
+| Metric | Value |
+|--------|-------|
+| Datasets tested | 51 successful / 55 total |
+| Mean AUC | 0.8033 |
+| Median AUC | 0.8852 |
+| Mean Oracle F1 | 0.5886 |
+| Median Oracle F1 | 0.6250 |
 
 **Honest Positioning:**
 - Mercury-Agent is an **unsupervised anomaly detector**, not a supervised classifier
-- Primary advantage is **interpretability** through neuro-symbolic fusion, not raw detection performance
-- Not intended to replace supervised classifiers when labeled data is available
-- Best suited for scenarios requiring explainable anomaly decisions
+- Oracle F1 is an upper bound (best of 101 threshold sweeps), not operational performance
+- KinematicScore contributes near-random on shuffled tabular data (mean AUC 0.60)
+- 6 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
+- No hyperparameter tuning was performed
 
 **When to Use Mercury-Agent:**
 - When interpretability of anomaly decisions is required
 - When dealing with diverse data types requiring adaptive profiling
-- When confidence calibration and uncertainty quantification matter
+- When no labeled anomaly data is available (unsupervised setting)
 
 **When to Use Alternatives:**
 - When labeled anomaly data is available (use supervised classifiers)
 - When memory is constrained (use simpler methods)
 
-*Benchmark methodology: ROC-AUC and F1 on held-out test sets with contamination=0.1. See `benchmarks/baseline_results.json` for full peer comparison.*
+*Full results: `benchmarks/honest_benchmark_results.json`. Methodology: `docs/BENCHMARKS.md`.*
 
 ### Comprehensive Multi-Panel Visualizations
 
@@ -157,25 +160,25 @@ The following consolidated visualizations capture all benchmark metrics in profe
 
 #### Neuro-Symbolic Benchmark Report
 
-Complete visualization showing confidence evolution over 200 epochs, final metrics radar chart, neural-symbolic fusion balance, precision/recall evolution, memory growth to 3,300 entries, and 8-domain performance heatmap:
+Ensemble vs. individual component AUCs across all measured datasets, generated from `honest_benchmark_results.json`:
 
 ![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
 
 #### Anomaly Detection Analysis
 
-Comprehensive 9-panel analysis: F1 score evolution, detector comparison (Mercury vs peers), 8 enhanced statistical methods, threshold sensitivity, score distributions, throughput benchmarks, cross-platform integration (10+ platforms), 7 ensemble strategies, and statistical significance metrics:
+Per-component AUC breakdown (resonance, kinematic, info_geometry) for top-10 and bottom-10 datasets:
 
 ![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
 
-#### Performance, Ethics & Quality Dashboard
+#### Performance Dashboard
 
-Consolidated dashboard showing benevolence score evolution, 180 ethical scalars distribution, latency comparison (CPU/GPU), memory footprint, Fairlearn bias metrics, Lyapunov stability (λ=0.25), 3-layer security architecture, and key performance indicators:
+Timing scatter plots, AUC distribution histogram, and per-component statistics:
 
 ![Mercury Performance Dashboard](docs/images/mercury_performance_dashboard.png)
 
-#### Live Data Benchmark Summary
+#### Benchmark Summary (All Datasets)
 
-Module coverage and codebase statistics: 30+ dataset categories, test coverage by module (85%+), codebase stats (415 modules, 246,539 LOC), 5 new v1.4.0 modules (4,921 LOC), dataset benchmark results, distributed processing scalability, version evolution, code quality metrics, and CI/CD pipeline status:
+AUC bar chart for all 51 datasets sorted by performance, with mean line:
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 

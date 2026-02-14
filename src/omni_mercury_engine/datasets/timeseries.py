@@ -385,9 +385,7 @@ class SMDLoader(DatasetLoader):
                     # Cache as npy for next load
                     np.save(label_path, labels)
                 else:
-                    logger.warning(
-                        f"  No test_label found for {machine} — labels will be all-zero"
-                    )
+                    logger.warning(f"  No test_label found for {machine} — labels will be all-zero")
                     labels = np.zeros(len(features))
 
             # Ensure binary labels
@@ -449,9 +447,7 @@ class SMAPMSLLoader(DatasetLoader):
 
     # Data URLs — OmniAnomaly GitHub mirror is the primary source.
     # The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403.
-    OMNIANOMALY_BASE_URL = (
-        "https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/"
-    )
+    OMNIANOMALY_BASE_URL = "https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/"
     LABELED_ANOMALIES_URL = (
         "https://raw.githubusercontent.com/khundman/telemanom/master/labeled_anomalies.csv"
     )
@@ -510,9 +506,7 @@ class SMAPMSLLoader(DatasetLoader):
             with open(labels_path) as f:
                 reader = csv.DictReader(f)
                 channels = [
-                    row["chan_id"]
-                    for row in reader
-                    if row.get("spacecraft") == self.dataset
+                    row["chan_id"] for row in reader if row.get("spacecraft") == self.dataset
                 ]
 
             if channels:

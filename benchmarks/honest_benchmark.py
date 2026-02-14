@@ -119,7 +119,7 @@ def _load_adbench() -> list[dict[str, Any]]:
         try:
             cfg = DatasetConfig(
                 name=name,
-                preprocessing={"dataset_index": idx},
+                preprocessing={"dataset": str(idx)},
             )
             loader = ADBenchLoader(cfg)
             loader.download()

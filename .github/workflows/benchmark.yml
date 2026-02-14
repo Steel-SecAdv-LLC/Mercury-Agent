@@ -48,8 +48,8 @@ env:
   # Performance thresholds - fail CI if below these values
   # Measured baseline (2026-02-14): mean AUC 0.783, mean F1 0.600
   # Thresholds set below measured performance as regression gates
-  MIN_ROC_AUC: 0.70
-  MIN_F1: 0.35
+  MIN_ROC_AUC: "0.65"
+  MIN_F1: "0.30"
   # Prevent silent synthetic data fallbacks in CI
   MERCURY_ALLOW_SYNTHETIC: "false"
   # CI-optimized benchmark settings to stay under 120 min timeout

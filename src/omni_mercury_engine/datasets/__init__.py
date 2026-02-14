@@ -67,7 +67,7 @@ from .benchmarks import (
     UCFCrimeConfig,
     UCFCrimeDataset,
     get_default_transforms,
-    isolation_forest_baseline,
+    mercury_baseline,
     one_class_svm_baseline,
     random_baseline,
 )
@@ -174,9 +174,9 @@ __all__ = [
     "WorldOceanDatabaseLoader",
     # Benchmark utilities
     "get_default_transforms",
-    "isolation_forest_baseline",
     "list_available_datasets",
     "load_dataset",
+    "mercury_baseline",
     "one_class_svm_baseline",
     "random_baseline",
 ]
