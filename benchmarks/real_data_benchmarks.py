@@ -51,7 +51,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -401,7 +401,7 @@ class NSLKDDBenchmark:
             X_train, X_test = X[train_idx], X[test_idx]
             y_test = y[test_idx]
 
-            detector = StatisticalAnomalyDetector()
+            detector = MercuryAnomalyDetector()
             # Train on normal samples only (unsupervised)
             y_train = y[train_idx]
             normal_mask = y_train == 0
@@ -455,7 +455,7 @@ class NSLKDDBenchmark:
             bias_metrics=bias_metrics,
             metadata={
                 "n_folds": n_folds,
-                "model": "StatisticalAnomalyDetector",
+                "model": "MercuryAnomalyDetector",
             },
         )
 
@@ -621,7 +621,7 @@ class MIMICDemoBenchmark:
             X_train, X_test = X[train_idx], X[test_idx]
             y_test = y[test_idx]
 
-            detector = StatisticalAnomalyDetector()
+            detector = MercuryAnomalyDetector()
             # Train on normal samples only (unsupervised)
             y_train = y[train_idx]
             normal_mask = y_train == 0
@@ -675,7 +675,7 @@ class MIMICDemoBenchmark:
             bias_metrics=bias_metrics,
             metadata={
                 "n_folds": n_folds,
-                "model": "StatisticalAnomalyDetector",
+                "model": "MercuryAnomalyDetector",
                 "sepsis_ratio": sepsis_ratio,
                 "vital_signs": self.VITAL_SIGNS,
                 "note": "Simulated data based on MIMIC-III patterns. "

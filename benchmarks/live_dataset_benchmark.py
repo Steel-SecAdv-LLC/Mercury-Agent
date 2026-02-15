@@ -170,12 +170,12 @@ class LiveDatasetBenchmarkRunner:
         self.results: list[DatasetBenchmarkResult] = []
 
     def _initialize_detector(self) -> None:
-        """Initialize the StatisticalAnomalyDetector (Mercury's original ensemble)."""
-        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+        """Initialize the MercuryAnomalyDetector (Mercury's original ensemble)."""
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
-        self.detector = StatisticalAnomalyDetector()
-        self.detector_name = "StatisticalAnomalyDetector"
-        logger.info("Initialized StatisticalAnomalyDetector (Resonance+Kinematic+InfoGeo)")
+        self.detector = MercuryAnomalyDetector()
+        self.detector_name = "MercuryAnomalyDetector"
+        logger.info("Initialized MercuryAnomalyDetector (Resonance+Kinematic+InfoGeo)")
 
     def _load_dataset(
         self, category: str, dataset_name: str, loader_name: str
@@ -245,7 +245,7 @@ class LiveDatasetBenchmarkRunner:
             return None, None, metadata
 
     def _run_detection(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
-        """Run anomaly detection using StatisticalAnomalyDetector.
+        """Run anomaly detection using MercuryAnomalyDetector.
 
         Trains on normal-only samples (unsupervised), detects on full dataset.
         Returns predictions (from is_anomaly), scores, and elapsed time.

@@ -404,8 +404,8 @@ class TestDetectorIntegration:
     """Test integration with actual detectors."""
 
     def test_statistical_detector_auto_calibration(self):
-        """Test StatisticalAnomalyDetector with auto-calibration."""
-        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+        """Test MercuryAnomalyDetector with auto-calibration."""
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         # Create test data
         np.random.seed(42)
@@ -421,12 +421,12 @@ class TestDetectorIntegration:
         )
 
         # Without auto-calibration
-        detector_fixed = StatisticalAnomalyDetector({"threshold": 0.5})
+        detector_fixed = MercuryAnomalyDetector({"threshold": 0.5})
         detector_fixed.fit(X_train)
         detector_fixed.detect(X_test)
 
         # With auto-calibration
-        detector_cal = StatisticalAnomalyDetector({"threshold": 0.5})
+        detector_cal = MercuryAnomalyDetector({"threshold": 0.5})
         detector_cal.fit(X_train)
         detector_cal.enable_auto_calibration(contamination=0.1)
         result_cal = detector_cal.detect(X_test)
@@ -438,12 +438,12 @@ class TestDetectorIntegration:
 
     def test_detector_diagnose_scores_method(self):
         """Test detector's diagnose_scores method."""
-        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         np.random.seed(42)
         X = np.random.randn(50, 5)
 
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         detector.fit(X)
         result = detector.detect(X)
 

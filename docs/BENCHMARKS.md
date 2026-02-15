@@ -2,7 +2,7 @@
 
 ## What This Measures
 
-This document reports the empirical performance of `StatisticalAnomalyDetector` — Mercury's
+This document reports the empirical performance of `MercuryAnomalyDetector` — Mercury's
 unsupervised anomaly detection ensemble — on labeled real-world datasets.
 
 **Ensemble composition** (no external anomaly-detection dependencies):

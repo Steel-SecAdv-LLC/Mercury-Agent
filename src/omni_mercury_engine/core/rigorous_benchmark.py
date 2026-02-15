@@ -1,7 +1,7 @@
 """DEPRECATED: This module uses sklearn for anomaly detection baselines.
 
 Mercury's production benchmark is benchmarks/honest_benchmark.py.
-Mercury's production detector is StatisticalAnomalyDetector in
+Mercury's production detector is MercuryAnomalyDetector in
 detectors/statistical.py. This module is retained for reference
 only and will be removed in a future release.
 
@@ -17,7 +17,7 @@ from __future__ import annotations
 import warnings
 
 warnings.warn(
-    f"{__name__} is deprecated. Use StatisticalAnomalyDetector.",
+    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
     DeprecationWarning,
     stacklevel=2,
 )
@@ -614,7 +614,7 @@ def run_baseline_benchmarks(
     from sklearn.neighbors import LocalOutlierFactor
     from sklearn.svm import OneClassSVM
 
-    from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+    from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
     harness = RigorousBenchmarkHarness(n_folds=n_folds, seed=seed)
     results = {}
@@ -623,10 +623,10 @@ def run_baseline_benchmarks(
     anomaly_ratio = np.mean(y)
     contamination = min(0.5, max(0.01, anomaly_ratio))
 
-    # Mercury StatisticalAnomalyDetector
+    # Mercury MercuryAnomalyDetector
     class MercuryWrapper:
         def __init__(self) -> None:
-            self.detector = StatisticalAnomalyDetector()
+            self.detector = MercuryAnomalyDetector()
 
         def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             self.detector.fit(X)

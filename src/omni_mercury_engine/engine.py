@@ -118,7 +118,7 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 
 # Runtime pipeline modules - always imported (required for core functionality)
@@ -691,7 +691,7 @@ class OmniMercuryEngine(LoggerMixin):
             - directive: Sigma-based rule detection
         """
         self.detectors = {
-            "statistical": StatisticalAnomalyDetector(),
+            "statistical": MercuryAnomalyDetector(),
             "temporal": TemporalAnomalyDetector(),
             "spatial": SpatialAnomalyDetector(),
             "dimensional": DimensionalAnalyzer(),

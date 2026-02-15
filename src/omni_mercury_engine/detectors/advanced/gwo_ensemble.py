@@ -23,6 +23,14 @@ Target: Improve ensemble F1 by 10-15% over simple averaging
 
 from __future__ import annotations
 
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 

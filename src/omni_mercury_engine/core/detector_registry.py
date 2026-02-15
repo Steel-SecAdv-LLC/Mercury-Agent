@@ -32,7 +32,7 @@ Architecture:
     DetectorRegistry connects to the following detector categories:
 
     Base Detectors (detectors/):
-        - StatisticalAnomalyDetector
+        - MercuryAnomalyDetector
         - TemporalAnomalyDetector
         - SpatialAnomalyDetector
         - DimensionalAnalyzer
@@ -213,7 +213,7 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
     DetectorManifestEntry(
         "statistical",
         "omni_mercury_engine.detectors.statistical",
-        "StatisticalAnomalyDetector",
+        "MercuryAnomalyDetector",
         DetectorCategory.BASE,
         "Z-score, percentile, MAD-based detection",
     ),

@@ -64,7 +64,10 @@ from omni_mercury_engine.detectors.spectral_vibration import (
     SpectralVibrationDetector,
     VibrationSignatureType,
 )
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.statistical import (
+    MercuryAnomalyDetector,
+    StatisticalAnomalyDetector,  # compat alias
+)
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 from omni_mercury_engine.detectors.uiux_anomaly import (
     AnomalyCategory,
@@ -90,26 +93,23 @@ from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector, BaseVLMDetecto
 __all__ = [
     "AccelerationDynamicsDetector",
     "AdvancedPhysicsIntegratedDetector",
-    # Advanced SOTA detectors (v1.4.0)
     "AdversarialAutoencoderDetector",
     "AnomalyCategory",
-    # VLM detectors
     "AnyAnomalyDetector",
     "BaseVLMDetector",
     "BaseVisualDetector",
     "CFlowDetector",
     "COPODDetector",
     "ContrastiveLearningDetector",
-    # Base detectors
     "DimensionalAnalyzer",
     "EnergyState",
     "GWOEnsembleDetector",
     "InteractionType",
     "LAVADDetector",
+    "MercuryAnomalyDetector",
     "MotionState",
     "MultiScaleTransformerDetector",
     "PaDiMDetector",
-    # Visual detectors
     "PatchCoreDetector",
     "PhysicsDetectorType",
     "PhysicsGOSNNScalars",
@@ -119,7 +119,6 @@ __all__ = [
     "SigmaDirectiveDetector",
     "SpatialAnomalyDetector",
     "SpectralAnalysisMode",
-    # Advanced Physics-Inspired Detectors (v1.4.0)
     "SpectralVibrationDetector",
     "StatisticalAnomalyDetector",
     "TemporalAnomalyDetector",

@@ -315,7 +315,7 @@ class BenchmarkDiagnostics:
             scores=scores,
             labels=y_true,
             threshold=detector.threshold,
-            detector_name="StatisticalAnomalyDetector",
+            detector_name="MercuryAnomalyDetector",
             dataset_name="covtype",
         )
 
@@ -575,13 +575,13 @@ def run_diagnostic_benchmark(
         DiagnosticResult with full analysis
 
     Example:
-        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
         from omni_mercury_engine.evaluation.benchmark_diagnostics import run_diagnostic_benchmark
 
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         result = run_diagnostic_benchmark(
             detector, X_train, X_test, y_test,
-            detector_name="StatisticalAnomalyDetector",
+            detector_name="MercuryAnomalyDetector",
             dataset_name="covtype",
         )
     """

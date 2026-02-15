@@ -113,9 +113,9 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
 
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
-# AdaptiveAnomalyDetector removed — Mercury uses StatisticalAnomalyDetector only
+# AdaptiveAnomalyDetector removed — Mercury uses MercuryAnomalyDetector only
 ADAPTIVE_DETECTOR_AVAILABLE = False
 
 # Suppress expected warnings from sklearn/numpy during benchmark model fitting.
@@ -1734,7 +1734,7 @@ class FallbackStrategy:
 
 
 class OmniMercuryDetector:
-    """Benchmark wrapper around StatisticalAnomalyDetector.
+    """Benchmark wrapper around MercuryAnomalyDetector.
 
     Exposes the sklearn-compatible interface (fit/predict/decision_function)
     expected by the benchmark harness while delegating all detection to
@@ -1743,11 +1743,11 @@ class OmniMercuryDetector:
 
     def __init__(self, contamination: float = 0.1, **kwargs: Any) -> None:
         self.contamination = contamination
-        self._detector = StatisticalAnomalyDetector()
+        self._detector = MercuryAnomalyDetector()
         self._scores: np.ndarray | None = None
 
     def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "OmniMercuryDetector":
-        """Fit StatisticalAnomalyDetector on training data."""
+        """Fit MercuryAnomalyDetector on training data."""
         X_clean = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
         self._detector.fit(X_clean)
         return self

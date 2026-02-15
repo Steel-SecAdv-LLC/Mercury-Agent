@@ -606,10 +606,10 @@ def random_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
 
 
 def mercury_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Mercury StatisticalAnomalyDetector baseline."""
-    from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+    """Mercury MercuryAnomalyDetector baseline."""
+    from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
-    detector = StatisticalAnomalyDetector()
+    detector = MercuryAnomalyDetector()
     detector.fit(features)
     result = detector.detect(features)
     return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]

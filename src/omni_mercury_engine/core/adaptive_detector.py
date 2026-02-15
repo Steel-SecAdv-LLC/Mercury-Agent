@@ -1,6 +1,6 @@
 """DEPRECATED: This module uses sklearn for anomaly detection.
 
-Mercury's production detector is StatisticalAnomalyDetector in
+Mercury's production detector is MercuryAnomalyDetector in
 detectors/statistical.py. This module is retained for reference
 only and will be removed in a future release.
 
@@ -15,7 +15,7 @@ Copyright (C) 2025 Steel Security Advisors LLC
 import warnings
 
 warnings.warn(
-    f"{__name__} is deprecated. Use StatisticalAnomalyDetector.",
+    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
     DeprecationWarning,
     stacklevel=2,
 )

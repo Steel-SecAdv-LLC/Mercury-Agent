@@ -50,8 +50,8 @@ _MIN_VARIANCE: float = 1e-12
 _TIKHONOV_LAMBDA: float = 1e-6
 
 
-class StatisticalAnomalyDetector(BaseDetector):
-    """Statistical anomaly detection using Mercury's original mathematical frameworks.
+class MercuryAnomalyDetector(BaseDetector):
+    """Mercury's original anomaly detection ensemble.
 
     Ensemble:
       - ResonanceScore  (40%): Harmonic spectral anomaly via FFT
@@ -60,6 +60,10 @@ class StatisticalAnomalyDetector(BaseDetector):
 
     All methods are deterministic after ``fit()``, produce continuous
     scores in [0, 1], and require only numpy/scipy (no sklearn).
+
+    .. deprecated:: 1.6
+       ``StatisticalAnomalyDetector`` is an alias retained for backward
+       compatibility. Use ``MercuryAnomalyDetector`` in new code.
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
@@ -95,7 +99,7 @@ class StatisticalAnomalyDetector(BaseDetector):
     # fit()
     # =====================================================================
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> StatisticalAnomalyDetector:
+    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> MercuryAnomalyDetector:
         """Fit detector on training data.
 
         Computes statistical baselines for all three ensemble components:
@@ -126,7 +130,7 @@ class StatisticalAnomalyDetector(BaseDetector):
 
         if arr.size == 0:
             raise DetectorException(
-                "Cannot fit StatisticalAnomalyDetector with empty data. "
+                "Cannot fit MercuryAnomalyDetector with empty data. "
                 "Provide at least one sample for statistical baseline computation."
             )
 
@@ -137,7 +141,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         finite_mask = np.isfinite(arr).all(axis=1)
         if not np.any(finite_mask):
             raise DetectorException(
-                "Cannot fit StatisticalAnomalyDetector: all data values are NaN or Inf. "
+                "Cannot fit MercuryAnomalyDetector: all data values are NaN or Inf. "
                 "Provide data with at least some finite values."
             )
         if not np.all(finite_mask):
@@ -749,3 +753,7 @@ class StatisticalAnomalyDetector(BaseDetector):
         anomalies = np.any((data < lower_bound) | (data > upper_bound), axis=1)
 
         return anomalies
+
+
+# Backward compatibility alias
+StatisticalAnomalyDetector = MercuryAnomalyDetector

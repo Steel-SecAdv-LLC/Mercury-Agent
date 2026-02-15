@@ -2,7 +2,7 @@
 Mercury Agent - Honest Benchmark Suite
 Copyright (C) 2025 Steel Security Advisors LLC (GPL-3.0)
 
-Standalone benchmark that measures StatisticalAnomalyDetector performance
+Standalone benchmark that measures MercuryAnomalyDetector performance
 on real datasets.  Every number produced by this script is measured, not
 estimated.  If a loader fails the error is recorded and the script moves
 on -- no synthetic fallback, no silent skip.
@@ -34,7 +34,7 @@ from sklearn.preprocessing import StandardScaler
 # ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -179,7 +179,7 @@ def run_benchmark() -> dict[str, Any]:
     """Run the honest benchmark.  Returns the full results dict."""
     print("=" * 70)
     print("Mercury Agent - Honest Benchmark")
-    print("StatisticalAnomalyDetector (Resonance 40% + Kinematic 30% + InfoGeo 30%)")
+    print("MercuryAnomalyDetector (Resonance 40% + Kinematic 30% + InfoGeo 30%)")
     print(f"Max {MAX_SAMPLES} samples per dataset, oracle threshold sweep")
     print("=" * 70)
 
@@ -242,7 +242,7 @@ def run_benchmark() -> dict[str, Any]:
             "timestamp": datetime.now(UTC).isoformat(),
             "max_samples_per_dataset": MAX_SAMPLES,
             "n_thresholds": N_THRESHOLDS,
-            "detector": "StatisticalAnomalyDetector",
+            "detector": "MercuryAnomalyDetector",
             "ensemble_weights": {"resonance": 0.4, "kinematic": 0.3, "info_geometry": 0.3},
         },
         "summary": summary,
@@ -331,7 +331,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     X_test = scaler.transform(X_test)
 
     # Fit detector
-    detector = StatisticalAnomalyDetector()
+    detector = MercuryAnomalyDetector()
     try:
         t0 = time.perf_counter()
         detector.fit(X_train)

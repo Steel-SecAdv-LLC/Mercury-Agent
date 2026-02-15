@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed - Statistical Detector Ensemble Replacement
 
-- **StatisticalAnomalyDetector**: Replaced `z-score * 0.4 + IQR * 0.3 + IsolationForest * 0.3`
+- **MercuryAnomalyDetector**: Replaced `z-score * 0.4 + IQR * 0.3 + IsolationForest * 0.3`
   ensemble with three Mercury-original mathematical frameworks:
   - **ResonanceScore (40%)**: FFT-based harmonic spectral anomaly detection
   - **KinematicScore (30%)**: Physics-based jerk/curvature dynamics via finite differences
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **sklearn dependency from core detectors**: `StatisticalAnomalyDetector`,
+- **sklearn dependency from core detectors**: `MercuryAnomalyDetector`,
   `DimensionalAnalyzer`, and `SpatialAnomalyDetector` no longer import sklearn.
   PCA replaced with numpy SVD; LOF replaced with scipy KDTree implementation.
 - All remaining top-level sklearn imports in `src/` converted to lazy imports.

@@ -397,7 +397,7 @@ class GOSNNIntegration:
 
             # Import base detectors
             from omni_mercury_engine.detectors.statistical import (
-                StatisticalAnomalyDetector,
+                MercuryAnomalyDetector,
             )
             from omni_mercury_engine.detectors.temporal import (
                 TemporalAnomalyDetector,
@@ -405,7 +405,7 @@ class GOSNNIntegration:
 
             # Add enhanced domains
             domain_configs = [
-                ("statistical", StatisticalAnomalyDetector, PHI, 0.98),
+                ("statistical", MercuryAnomalyDetector, PHI, 0.98),
                 ("temporal", TemporalAnomalyDetector, 1.0, 0.97),
                 ("spatial", SpatialAnomalyDetector, 1.0 / PHI, 0.96),
                 ("dimensional", DimensionalAnalyzer, 1.0, 0.95),

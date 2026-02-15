@@ -448,7 +448,7 @@ class BaseDetector(ABC):
             Self for method chaining.
 
         Example:
-            >>> detector = StatisticalAnomalyDetector()
+            >>> detector = MercuryAnomalyDetector()
             >>> detector.fit(train_data).enable_auto_calibration(contamination=0.05)
             >>> result = detector.detect(test_data)  # Threshold auto-calibrated
         """

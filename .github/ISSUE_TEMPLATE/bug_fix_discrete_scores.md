@@ -1,14 +1,14 @@
 ---
 name: Bug Fix - Discrete Score Destruction
 about: Statistical detector outputs only 5 discrete score values
-title: "[BUG] Fix #3: Preserve continuous scores in StatisticalAnomalyDetector"
+title: "[BUG] Fix #3: Preserve continuous scores in MercuryAnomalyDetector"
 labels: bug, high-priority, detectors
 assignees: ''
 ---
 
 ## Description
 
-`StatisticalAnomalyDetector.detect()` converts continuous scores to boolean flags before combining, producing only 5 discrete values: {0.0, 0.3, 0.4, 0.7, 1.0}.
+`MercuryAnomalyDetector.detect()` converts continuous scores to boolean flags before combining, producing only 5 discrete values: {0.0, 0.3, 0.4, 0.7, 1.0}.
 
 ## Evidence
 

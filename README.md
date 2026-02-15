@@ -95,7 +95,7 @@ Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that
 <details>
 <summary><strong>Click to expand benchmarks</strong></summary>
 
-### Empirical Benchmark Results (StatisticalAnomalyDetector)
+### Empirical Benchmark Results (MercuryAnomalyDetector)
 
 Measured on 51 real-world datasets (47 ADBench + 4 domain loaders). No synthetic data, no tuning.
 
@@ -178,7 +178,7 @@ Network intrusion detection benchmark using the KDD Cup 99 dataset:
 | **Samples** | 50,000 | 10% subset of KDD Cup 99 |
 | **Features** | 41 | Network connection attributes |
 | **Anomaly Ratio** | ~20% | Attack vs normal traffic |
-| **Model** | StatisticalAnomalyDetector | Unsupervised anomaly detection (Resonance + Kinematic + InfoGeo) |
+| **Model** | MercuryAnomalyDetector | Unsupervised anomaly detection (Resonance + Kinematic + InfoGeo) |
 | **Bias Check** | Passed | Demographic parity < 0.1 |
 
 *Citation: Tavallaee et al. (2009). A detailed analysis of the KDD CUP 99 data set.*
@@ -532,10 +532,10 @@ Optimized for both accuracy and interpretability:
 | Real-Data Validation | **Pending** | Requires MIMIC-III, NSL-KDD datasets |
 
 **Legend:**
-- **Complete**: Implemented and tested with synthetic data
+- **Complete**: Implemented and tested
 - **Pending**: Requires real-world dataset validation
 
-> **Note:** Current benchmarks use simulated data. Expected variance on production data: 20-40%. Performance metrics require validation on domain-specific real-world datasets before production deployment.
+> **Note:** Core anomaly detection is benchmarked on 51 real-world datasets (see `benchmarks/honest_benchmark_results.json`). Domain-specific modules may still require validation on their target datasets before production deployment.
 
 </details>
 
@@ -639,18 +639,6 @@ Optimized for both accuracy and interpretability:
 
 </details>
 
-<details>
-<summary><strong>Detection Accuracy</strong></summary>
-
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Precision | 1.000 | Synthetic cosmic ray data |
-| Recall | 0.850 | Synthetic cosmic ray data |
-| F1 Score | 0.919 | Synthetic cosmic ray data |
-
-> **Important:** These metrics are from synthetic benchmarks. Real-world performance requires validation on domain-specific datasets. Expected variance: 20-40%.
-
-</details>
 
 ---
 
@@ -1714,7 +1702,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Simulated Benchmarks:** Current metrics use synthetic data. Real-world performance may vary 20-40%.
+- **Domain-Specific Validation:** Core detection is benchmarked on 51 real datasets (Mean AUC 0.803). Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 
