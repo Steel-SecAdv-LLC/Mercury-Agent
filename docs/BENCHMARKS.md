@@ -1,361 +1,179 @@
-# Mercury Agent Benchmark Documentation
+# Mercury Agent Benchmark Results
 
-This document describes the comprehensive benchmark suite for Mercury Agent, covering 30+ real-world datasets across 7 domain categories.
+## What This Measures
 
-## Overview
+This document reports the empirical performance of `MercuryAnomalyDetector` — Mercury's
+unsupervised anomaly detection ensemble — on labeled real-world datasets.
 
-Mercury Agent's benchmark suite validates anomaly detection performance across diverse real-world scenarios:
+**Ensemble composition** (no external anomaly-detection dependencies):
 
-| Category | Datasets | Data Sources | Focus |
-|----------|----------|--------------|-------|
-| Security | 2 | NSL-KDD, CICIDS | Network intrusion detection |
-| Industrial | 3 | BATADAL, SWaT, WADI | Cyber-physical systems |
-| Time-Series | 3 | SMD, NAB, SMAP/MSL | Server & IoT monitoring |
-| Climate | 3 | Simons CMAP, WOD, Copernicus | Ocean & atmosphere |
-| Disaster | 2 | FEMA | Emergency management |
-| Environmental | 3 | USGS, NOAA | Seismic, weather, contamination |
-| AD Repository | 21+ | Kaggle, UCI | Standard AD benchmarks |
+| Component | Weight | Method |
+|-----------|--------|--------|
+| ResonanceScore | 40% | FFT harmonic spectral anomaly (FFT at fit, O(n*d) inference) |
+| KinematicScore | 30% | Physics-based jerk/curvature detection (O(n*d)) |
+| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD (O(n*d^2) inference) |
 
-## Running Benchmarks
+**Protocol:**
+- Normal-only training (unsupervised) with `StandardScaler`
+- ROC-AUC from continuous scores
+- Oracle F1: best F1 over 101 thresholds from 0.0 to 1.0 (upper bound, not operational)
+- No hyperparameter tuning was performed
+- Datasets capped at 10,000 samples with stratified sampling
 
-### Quick Start
+## How to Reproduce
 
 ```bash
-# Run all benchmarks
-python benchmarks/live_dataset_benchmark.py
-
-# Run specific category
-python benchmarks/live_dataset_benchmark.py --category security
-
-# Export results to JSON
-python benchmarks/live_dataset_benchmark.py --output results.json
-
-# Verbose mode with full logging
-python benchmarks/live_dataset_benchmark.py -v
+python benchmarks/honest_benchmark.py
 ```
 
-### Benchmark Scripts
-
-| Script | Purpose | Time Estimate |
-|--------|---------|---------------|
-| `live_dataset_benchmark.py` | Full live dataset evaluation | 15-30 min |
-| `empirical_benchmark.py` | Empirical validation suite | 10-20 min |
-| `neuro_symbolic_benchmark.py` | Neuro-symbolic feature testing | 5-10 min |
-| `comprehensive_benchmark.py` | All components | 30-60 min |
-
-## Dataset Details
-
-### Security Datasets
-
-#### NSL-KDD (Network Intrusion Detection)
-- **Source**: Canadian Institute for Cybersecurity
-- **Samples**: 125,973 (train) + 22,544 (test)
-- **Features**: 41 network connection attributes
-- **Anomaly Types**: DoS, Probe, R2L, U2R attacks
-- **Anomaly Ratio**: ~20%
-- **License**: Research use
-
-```python
-from omni_mercury_engine.datasets import NSLKDDLoader
-loader = NSLKDDLoader()
-data = loader.load()
-```
-
-#### CICIDS-2017 (Modern Network Attacks)
-- **Source**: Canadian Institute for Cybersecurity
-- **Samples**: 2.8M+ flows
-- **Features**: 78 flow-based features
-- **Anomaly Types**: Brute Force, Web Attacks, Infiltration, Botnet, DDoS
-- **Anomaly Ratio**: ~19%
-
-### Industrial Datasets
-
-#### BATADAL (Water Infrastructure)
-- **Source**: Battle of the Attack Detection Algorithms
-- **Samples**: 43,200 (train) + 17,280 (test)
-- **Features**: 43 SCADA sensor readings
-- **Anomaly Types**: 7 cyber-physical attack scenarios
-- **Anomaly Ratio**: ~10%
-
-#### SWaT (Secure Water Treatment)
-- **Source**: Singapore University of Technology and Design
-- **Samples**: 946,722
-- **Features**: 51 sensors
-- **Anomaly Types**: 36 attack scenarios
-- **Anomaly Ratio**: ~12%
-- **Access**: Requires registration
-
-#### WADI (Water Distribution)
-- **Source**: iTrust Labs
-- **Samples**: 1,209,601
-- **Features**: 123 sensors
-- **Anomaly Types**: 15 attack scenarios
-- **Anomaly Ratio**: ~6%
-- **Access**: Requires registration
-
-### Time-Series Datasets
-
-#### SMD (Server Machine Dataset)
-- **Source**: Tsinghua University
-- **Samples**: 1.4M+ data points across 28 machines
-- **Features**: 38 server metrics per machine
-- **Anomaly Types**: Point and contextual anomalies
-- **Anomaly Ratio**: ~5%
-
-#### NAB (Numenta Anomaly Benchmark)
-- **Source**: Numenta Inc.
-- **Samples**: 365,558 data points across 58 files
-- **Features**: Univariate time series
-- **Anomaly Types**: Known anomalies with labels
-- **Anomaly Ratio**: Variable
-
-#### SMAP/MSL (NASA Spacecraft Telemetry)
-- **Source**: NASA Jet Propulsion Laboratory
-- **Samples**: 427,617 (SMAP) + 132,046 (MSL)
-- **Features**: 25 (SMAP) + 55 (MSL) telemetry channels
-- **Anomaly Types**: Spacecraft anomalies
-- **Anomaly Ratio**: ~13%
-
-### Climate & Ocean Datasets
-
-#### Simons CMAP (Ocean Biogeochemistry)
-- **Source**: Simons Collaborative Marine Atlas Project
-- **Data**: Satellite observations, in-situ measurements, model outputs
-- **Coverage**: Global ocean biogeochemistry
-- **Features**: Chlorophyll, nutrients, temperature, salinity
-- **Access**: Free API
-
-```python
-from omni_mercury_engine.datasets import SimonsCMAPLoader
-loader = SimonsCMAPLoader()
-data = loader.load(variable="chlorophyll", depth_range=(0, 100))
-```
-
-#### World Ocean Database
-- **Source**: NOAA National Centers for Environmental Information
-- **Data**: 20M+ ocean profiles (1770-present)
-- **Features**: Temperature, salinity, oxygen, nutrients
-- **Coverage**: Global ocean observations
-
-#### Copernicus Sea Level
-- **Source**: EU Copernicus Climate Data Store
-- **Data**: Satellite altimetry (1993-present)
-- **Resolution**: 0.25 degree
-- **Features**: Sea surface height, trends
-
-### Disaster Datasets
-
-#### FEMA Disaster Declarations
-- **Source**: OpenFEMA API
-- **Data**: All US disaster declarations
-- **Types**: Hurricanes, floods, fires, earthquakes
-- **Coverage**: 1953-present
-- **Access**: Free, no API key required
-
-```python
-from omni_mercury_engine.datasets import FEMADisasterLoader
-loader = FEMADisasterLoader()
-data = loader.load(start_date="2020-01-01", disaster_types=["Hurricane"])
-```
-
-#### FEMA Hazard Mitigation
-- **Source**: OpenFEMA API
-- **Data**: Hazard mitigation grant program records
-- **Features**: Project costs, types, outcomes
-
-### Environmental Datasets
-
-#### USGS Earthquake
-- **Source**: USGS Earthquake Hazards Program
-- **Data**: Global earthquake catalog
-- **Features**: Magnitude, location, depth, time
-- **Coverage**: Real-time + historical
-
-#### USGS Geochemistry
-- **Source**: USGS Mineral Resources Data System
-- **Data**: Heavy metal concentrations
-- **Features**: As, Pb, Hg, Cu, Zn concentrations
-- **Anomaly Labels**: EPA Regional Screening Levels
-
-#### NOAA Weather
-- **Source**: NOAA National Weather Service
-- **Data**: Weather observations and forecasts
-- **Features**: Temperature, precipitation, wind
-- **Coverage**: US stations
-
-### AD Repository Datasets (21+)
-
-Mercury Agent integrates with the Anomaly Detection Repository, providing access to standard benchmark datasets:
-
-| Dataset | Domain | Samples | Features | Anomaly % |
-|---------|--------|---------|----------|-----------|
-| fraud | Finance | 284,807 | 30 | 0.17% |
-| thyroid | Medical | 3,772 | 6 | 2.5% |
-| mammography | Medical | 11,183 | 6 | 2.3% |
-| campaign | Marketing | 41,188 | 62 | 11.3% |
-| backdoor | Security | 95,329 | 196 | 2.4% |
-| satellite | Remote Sensing | 6,435 | 36 | 32% |
-| shuttle | Space | 49,097 | 9 | 7% |
-| pima | Medical | 768 | 8 | 35% |
-| wine | Chemistry | 129 | 13 | 7.7% |
-| glass | Materials | 214 | 9 | 4.2% |
-
-```python
-from omni_mercury_engine.datasets import load_dataset, list_available_datasets
-
-# List all available datasets
-print(list_available_datasets())
-
-# Load a specific dataset
-X, y, metadata = load_dataset('fraud')
-```
-
-## Benchmark Metrics
-
-### Core Metrics
-
-| Metric | Description | Range | Better |
-|--------|-------------|-------|--------|
-| ROC-AUC | Area under ROC curve | [0, 1] | Higher |
-| PR-AUC | Average precision | [0, 1] | Higher |
-| F1 Score | Harmonic mean of P & R | [0, 1] | Higher |
-| Precision | True positives / Predicted positives | [0, 1] | Higher |
-| Recall | True positives / Actual positives | [0, 1] | Higher |
-
-### Time-Series Metrics
-
-| Metric | Description | Application |
-|--------|-------------|-------------|
-| Event F1 | F1 on event segments | Contiguous anomaly detection |
-| Time-to-Detection | Delay to first detection | Real-time systems |
-| Point-Adjusted F1 | Lenient point matching | Time-series alignment |
-
-### Ethical Metrics
-
-| Metric | Description | Threshold |
-|--------|-------------|-----------|
-| Benevolence Score | Ethical compliance | >= 0.99 |
-| Sigma Immutable | Stability measure | >= 0.96 |
-| Fairness Ratio | Demographic parity | >= 0.80 |
-
-## Expected Performance
-
-Based on validated benchmarks with Mercury Agent v1.4.0:
-
-| Dataset Category | Mean F1 | Mean ROC-AUC | Notes |
-|-----------------|---------|--------------|-------|
-| Security (NSL-KDD) | 0.75-0.85 | 0.90-0.95 | With 3R enabled |
-| Industrial (BATADAL) | 0.30-0.45 | 0.60-0.75 | Highly imbalanced |
-| Time-Series (SMD) | 0.15-0.25 | 0.55-0.70 | Challenging |
-| AD Repository | 0.70-0.90 | 0.85-0.98 | Varies by dataset |
-
-### Comparison with Baselines
-
-| Detector | Mean F1 | Notes |
-|----------|---------|-------|
-| Mercury Agent (3R+Fusion) | 0.80 | Interpretable |
-| IsolationForest | 0.75 | Fast, less interpretable |
-| LOF | 0.65 | Distance-based |
-| One-Class SVM | 0.60 | Kernel-based |
-
-## Data Provenance
-
-All benchmark results include provenance tracking:
-
-```json
-{
-  "provenance": {
-    "source": "live",
-    "checksum": "sha256:abc123...",
-    "used_synthetic": false,
-    "n_samples": 125973,
-    "n_features": 41,
-    "anomaly_ratio": 0.20
-  }
-}
-```
-
-- `source`: "live" (real API/file), "synthetic" (generated fallback)
-- `checksum`: SHA-256 hash for reproducibility
-- `used_synthetic`: Whether fallback data was used
-
-## Synthetic Fallbacks
-
-When real data is unavailable (network issues, credentials required), the benchmark suite generates synthetic data that mimics the statistical properties of real datasets:
-
-```python
-class SyntheticDataGenerator:
-    def generate_smd_like(self, n_samples=5000, n_features=38):
-        """Generate data with SMD-like characteristics."""
-        # Temporal correlations
-        # Periodic patterns
-        # ~5% anomaly rate with point/contextual anomalies
-```
-
-Synthetic data is clearly marked in results for transparency.
-
-## Reproducing Results
-
-### Full Reproducibility
-
-```bash
-# Set random seed
-export MERCURY_SEED=42
-
-# Run with fixed seed
-python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.4.0.json
-
-# Verify reproducibility
-python benchmarks/live_dataset_benchmark.py --seed 42 --output results_v1.4.0_verify.json
-diff results_v1.4.0.json results_v1.4.0_verify.json
-```
-
-### Dataset Access
-
-Some datasets require registration or credentials:
-
-| Dataset | Access | Registration |
-|---------|--------|--------------|
-| SWaT, WADI | Registration required | iTrust Labs |
-| MIMIC-III/IV | Credentials required | PhysioNet |
-| NSL-KDD | Free download | UNB |
-| CICIDS-2017 | Free download | UNB |
-
-## Continuous Integration
-
-Benchmarks run automatically in CI:
-
-```yaml
-# .github/workflows/benchmark.yml
-- name: Run benchmark suite
-  run: |
-    python benchmarks/live_dataset_benchmark.py \
-      --max-samples 1000 \
-      --output benchmark_results.json
-```
-
-Results are archived and compared against baselines for regression detection.
-
-## Contributing Datasets
-
-To add a new dataset to the benchmark suite:
-
-1. Create a loader in `src/omni_mercury_engine/datasets/`
-2. Implement the `DatasetLoader` interface
-3. Add to `DATASET_REGISTRY` in `live_dataset_benchmark.py`
-4. Add documentation to this file
-5. Submit a pull request
-
-```python
-class MyDatasetLoader(DatasetLoader):
-    def load(self) -> DatasetSplit:
-        # Load and return data
-        pass
-```
+Results are saved to `benchmarks/honest_benchmark_results.json`.
+Every number in this document comes from that file.
+
+## Aggregate Results
+
+| Metric | Value |
+|--------|-------|
+| Datasets tested | 55 |
+| Datasets successful | 51 |
+| Datasets failed | 4 |
+| Mean AUC | 0.8030 |
+| Median AUC | 0.8852 |
+| Std AUC | 0.1916 |
+| Mean Oracle F1 | 0.5886 |
+| Median Oracle F1 | 0.6250 |
+
+## Per-Component AUC
+
+| Component | Mean AUC | Median AUC | n_datasets |
+|-----------|----------|------------|------------|
+| InfoGeometry | 0.8256 | 0.8760 | 51 |
+| Resonance | 0.7623 | 0.8294 | 51 |
+| Kinematic | 0.6013 | 0.6116 | 51 |
+| **Ensemble** | **0.8030** | **0.8852** | **51** |
+
+## Per-Dataset Results
+
+| Dataset | n_samples | Anomaly Ratio | AUC | Oracle F1 | Threshold | Fit (ms) |
+|---------|-----------|---------------|-----|-----------|-----------|----------|
+| ADBench-31 | 5803 | 0.012 | 0.9990 | 0.8971 | 0.59 | 15 |
+| ADBench-43 | 367 | 0.027 | 0.9989 | 0.9091 | 0.63 | 2 |
+| ADBench-25 | 3062 | 0.032 | 0.9979 | 0.9029 | 0.53 | 22 |
+| ADBench-32 | 49097 | 0.072 | 0.9968 | 0.9593 | 0.55 | 10 |
+| ADBench-21 | 148 | 0.041 | 0.9930 | 0.8000 | 0.63 | 1 |
+| ADBench-04 | 683 | 0.350 | 0.9924 | 0.9687 | 0.61 | 1 |
+| ADBench-42 | 223 | 0.045 | 0.9897 | 0.9000 | 0.65 | 1 |
+| ADBench-16 | 567498 | 0.004 | 0.9888 | 0.5135 | 0.50 | 7 |
+| ADBench-38 | 3772 | 0.025 | 0.9855 | 0.7302 | 0.61 | 2 |
+| ADBench-13 | 284807 | 0.002 | 0.9767 | 0.4545 | 0.70 | 24 |
+| ADBench-40 | 1456 | 0.034 | 0.9756 | 0.7800 | 0.44 | 1 |
+| NSL-KDD | 148517 | 0.481 | 0.9721 | 0.9388 | 0.43 | 31 |
+| ADBench-27 | 5393 | 0.095 | 0.9576 | 0.7564 | 0.41 | 4 |
+| ADBench-34 | 95156 | 0.000 | 0.9576 | 0.5000 | 0.73 | 4 |
+| ADBench-18 | 351 | 0.359 | 0.9506 | 0.9084 | 0.56 | 2 |
+| ADBench-03 | 95329 | 0.024 | 0.9474 | 0.8872 | 0.64 | 290 |
+| ADBench-24 | 7603 | 0.092 | 0.9362 | 0.7270 | 0.44 | 23 |
+| ADBench-06 | 1831 | 0.096 | 0.9303 | 0.7500 | 0.45 | 3 |
+| ADBench-23 | 11183 | 0.023 | 0.9186 | 0.4513 | 0.61 | 4 |
+| ADBench-37 | 340 | 0.091 | 0.9143 | 0.7209 | 0.39 | 1 |
+| SMD | 75876 | 0.053 | 0.9066 | 0.5881 | 0.46 | 70 |
+| ADBench-10 | 286048 | 0.010 | 0.9061 | 0.2093 | 0.48 | 17 |
+| ADBench-17 | 1966 | 0.187 | 0.9032 | 0.7728 | 0.49 | 327 |
+| ADBench-45 | 129 | 0.078 | 0.8883 | 0.6250 | 0.40 | 1 |
+| ADBench-11 | 619326 | 0.059 | 0.8854 | 0.4950 | 0.40 | 14 |
+| ADBench-02 | 7200 | 0.074 | 0.8852 | 0.5380 | 0.40 | 3 |
+| BATADAL | 12938 | 0.017 | 0.8711 | 0.5358 | 0.47 | 42 |
+| ADBench-20 | 1600 | 0.062 | 0.8502 | 0.5188 | 0.44 | 4 |
+| ADBench-22 | 19020 | 0.352 | 0.8453 | 0.7886 | 0.35 | 11 |
+| ADBench-35 | 4207 | 0.399 | 0.8077 | 0.7790 | 0.34 | 7 |
+| ADBench-05 | 41188 | 0.113 | 0.8043 | 0.5468 | 0.42 | 85 |
+| ADBench-08 | 202599 | 0.022 | 0.7954 | 0.2474 | 0.47 | 27 |
+| ADBench-07 | 2114 | 0.220 | 0.7757 | 0.6439 | 0.35 | 2 |
+| ADBench-30 | 6435 | 0.316 | 0.7725 | 0.7343 | 0.36 | 16 |
+| ADBench-33 | 245057 | 0.208 | 0.7621 | 0.7002 | 0.31 | 4 |
+| ADBench-28 | 6870 | 0.023 | 0.7604 | 0.2065 | 0.44 | 11 |
+| ADBench-29 | 768 | 0.349 | 0.7333 | 0.7363 | 0.34 | 1 |
+| ADBench-09 | 299285 | 0.062 | 0.7076 | 0.2959 | 0.32 | 827 |
+| ADBench-14 | 214 | 0.042 | 0.6936 | 0.3030 | 0.44 | 1 |
+| ADBench-12 | 1941 | 0.347 | 0.6918 | 0.7033 | 0.28 | 3 |
+| ADBench-15 | 80 | 0.163 | 0.6878 | 0.5455 | 0.52 | 1 |
+| ADBench-01 | 49534 | 0.030 | 0.5667 | 0.1273 | 0.28 | 28 |
+| ADBench-41 | 3443 | 0.029 | 0.5372 | 0.1198 | 0.43 | 6 |
+| ADBench-44 | 4819 | 0.053 | 0.5253 | 0.2072 | 0.25 | 2 |
+| NAB | 69561 | 0.095 | 0.4697 | 0.2951 | 0.00 | 5 |
+| ADBench-36 | 3686 | 0.017 | 0.4741 | 0.0805 | 0.49 | 118 |
+| ADBench-46 | 198 | 0.237 | 0.4625 | 0.5562 | 0.30 | 2 |
+| ADBench-39 | 240 | 0.125 | 0.4416 | 0.3704 | 0.17 | 1 |
+| ADBench-19 | 6435 | 0.207 | 0.4101 | 0.5110 | 0.00 | 16 |
+| ADBench-26 | 5216 | 0.029 | 0.3761 | 0.1078 | 0.30 | 16 |
+| ADBench-47 | 1484 | 0.342 | 0.3752 | 0.6747 | 0.00 | 1 |
+
+### Failed Datasets (4)
+
+| Dataset | Reason |
+|---------|--------|
+| SMAP | Data source unavailable (OmniAnomaly mirror) |
+| MSL | Data source unavailable (OmniAnomaly mirror) |
+| CICIDS-2017 | All download sources failed |
+| MIT-BIH | Requires wfdb library |
+
+## Known Weaknesses
+
+1. **KinematicScore underperforms on unordered tabular data.**
+   KinematicScore computes derivatives (velocity, acceleration, jerk) via `np.diff`.
+   This assumes adjacent rows are temporally ordered. On shuffled tabular data
+   (e.g., ADBench datasets), derivatives are meaningless noise. The kinematic
+   component achieved mean AUC 0.6017 across all datasets — near-random on
+   unordered tabular data, more useful on time-series.
+
+2. **Ensemble inversion on high-dimensional data.**
+   On high-dimensional image-like features (optdigits, landsat, WPBC), the ensemble
+   score can invert (anomalies score lower than normal). This manifests as
+   ROC-AUC < 0.5 on 6 datasets.
+
+3. **Oracle F1 is an upper bound, not operational performance.**
+   The oracle threshold sweeps 101 values and picks the best F1. A deployed
+   system would use a fixed threshold (e.g., 0.5) and would achieve lower F1.
+
+4. **No hyperparameter tuning was performed.**
+   All results use default parameters. Tuning per-dataset could improve
+   performance but would also risk overfitting.
+
+5. **InfoGeometryScore requires d < n.**
+   The Fisher Information component inverts a d x d covariance matrix. When
+   the number of features exceeds the number of training samples, the matrix
+   is singular and a pseudo-inverse is used, degrading accuracy.
+
+## Data Sources
+
+- **ADBench** (47 datasets): Downloaded from the ADBench GitHub repository.
+  Tabular anomaly detection benchmarks across diverse domains.
+- **NSL-KDD**: Network intrusion detection from Canadian Institute for Cybersecurity.
+- **SMD**: Server Machine Dataset from Tsinghua University (28 machines).
+- **SMAP/MSL**: NASA spacecraft telemetry — OmniAnomaly mirror unavailable.
+- **NAB**: Numenta Anomaly Benchmark (realKnownCause category).
+- **BATADAL**: Water infrastructure attack detection (train + test with ATT_FLAG labels).
+- **CICIDS-2017**: Modern network attack flows — all download sources failed.
+- **MIT-BIH**: ECG arrhythmia dataset — requires wfdb library.
+
+Some datasets require network access or credentials. Failed downloads are
+recorded as errors in the results JSON, not replaced with synthetic data.
+
+## CI Integration
+
+The CI pipeline (`.github/workflows/benchmark.yml`) gates on `honest_benchmark.py`
+(Mercury detector in isolation) with regression thresholds set at 15% margin below
+measured performance:
+
+- **MIN_ROC_AUC: 0.68** — fail if mean AUC drops below this (measured: 0.803)
+- **MIN_F1: 0.50** — fail if mean F1 drops below this (measured: 0.589)
+- **MERCURY_ALLOW_SYNTHETIC: false** — no synthetic data fallbacks in CI
+
+`empirical_benchmark.py` runs as a non-gating comparison step on scheduled/manual runs.
 
 ## References
 
-1. NSL-KDD: Tavallaee et al., "A Detailed Analysis of the KDD CUP 99 Data Set", IEEE CISDA 2009
-2. BATADAL: Taormina et al., "Battle of the Attack Detection Algorithms", J. Water Resources Planning 2018
-3. SMD: Su et al., "Robust Anomaly Detection for Multivariate Time Series", KDD 2019
-4. SMAP/MSL: Hundman et al., "Detecting Spacecraft Anomalies Using LSTMs and Nonparametric Dynamic Thresholding", KDD 2018
+1. Tavallaee et al., "A Detailed Analysis of the KDD CUP 99 Data Set", IEEE CISDA 2009
+2. Taormina et al., "Battle of the Attack Detection Algorithms", J. Water Resources Planning 2018
+3. Su et al., "Robust Anomaly Detection for Multivariate Time Series", KDD 2019
+4. Hundman et al., "Detecting Spacecraft Anomalies Using LSTMs", KDD 2018
+5. Han et al., "ADBench: Anomaly Detection Benchmark", NeurIPS 2022

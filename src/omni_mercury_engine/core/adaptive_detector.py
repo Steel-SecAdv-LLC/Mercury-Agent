@@ -1,14 +1,24 @@
-"""
+"""DEPRECATED: This module uses sklearn for anomaly detection.
+
+Mercury's production detector is MercuryAnomalyDetector in
+detectors/statistical.py. This module is retained for reference
+only and will be removed in a future release.
+
+Do not import this module in production or benchmark code paths.
+
+Original description:
 Adaptive Detector Module for Mercury-Agent.
-
-Addresses specific weaknesses identified in benchmark analysis:
-- covtype: Threshold calibration (F1=0 despite good AUC)
-- batadal: Covariance-aware detection (EllipticEnvelope dominates)
-- smd: Temporal pattern recognition (time-series aware)
-
-Targeted Performance Improvements for Multi-Dataset Optimization
+Addresses specific weaknesses identified in benchmark analysis.
 Copyright (C) 2025 Steel Security Advisors LLC
 """
+
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import logging
 from dataclasses import dataclass, field

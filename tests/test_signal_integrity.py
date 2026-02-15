@@ -13,7 +13,7 @@ import pytest
 from sklearn.datasets import make_blobs, make_classification
 from sklearn.metrics import roc_auc_score
 
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 
 class TestContinuousScores:
@@ -35,8 +35,8 @@ class TestContinuousScores:
 
     @pytest.fixture
     def detector(self):
-        """Create a StatisticalAnomalyDetector instance."""
-        return StatisticalAnomalyDetector()
+        """Create a MercuryAnomalyDetector instance."""
+        return MercuryAnomalyDetector()
 
     def test_scores_are_continuous(self, detector, toy_data):
         """Verify scores have more than 5 unique values.
@@ -94,7 +94,11 @@ class TestContinuousScores:
         assert len(unique_iqr) >= 2, "IQR scores should have variance"
 
     def test_isolation_forest_scores_continuous(self, detector, toy_data):
-        """Verify isolation_forest_scores are from decision_function, not predict."""
+        """Verify isolation_forest_scores key exists and is continuous.
+
+        Note: isolation_forest_scores is now an alias for the resonance score
+        (backward compatibility). It should still be continuous [0, 1].
+        """
         X, _ = toy_data
         detector.fit(X)
         result = detector.detect(X)
@@ -145,7 +149,7 @@ class TestROCAUCImprovement:
     def test_roc_auc_above_baseline(self, separable_data):
         """Verify ROC-AUC is significantly above random (0.5)."""
         X, y = separable_data
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         detector.fit(X)
         result = detector.detect(X)
 
@@ -158,7 +162,7 @@ class TestROCAUCImprovement:
     def test_continuous_scores_better_than_discrete(self, separable_data):
         """Verify continuous scores outperform simulated discrete scores."""
         X, y = separable_data
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         detector.fit(X)
         result = detector.detect(X)
 
@@ -180,10 +184,15 @@ class TestROCAUCImprovement:
 
 
 class TestAdaptiveContamination:
-    """Test for Issue #5: Adaptive contamination estimation."""
+    """Test that detector fits correctly with various data distributions.
 
-    def test_contamination_estimated_when_not_configured(self):
-        """Verify contamination is adaptively estimated when not in config."""
+    Note: IsolationForest and explicit contamination estimation were removed
+    in the ensemble replacement (Resonance + Kinematic + InfoGeo). These tests
+    now verify the detector still handles different data distributions correctly.
+    """
+
+    def test_detector_fits_with_skewed_data(self):
+        """Verify detector fits correctly on skewed class distributions."""
         X, _ = make_classification(
             n_samples=200,
             n_features=10,
@@ -192,25 +201,25 @@ class TestAdaptiveContamination:
             random_state=42,
         )
 
-        detector = StatisticalAnomalyDetector()  # No contamination in config
+        detector = MercuryAnomalyDetector()
         detector.fit(X)
 
-        # Should estimate contamination, not use fixed 0.1
-        assert detector.contamination != 0.1 or detector._config_contamination is None
-        assert 0.001 <= detector.contamination <= 0.5
+        # Detector should be fitted successfully
+        assert detector._is_fitted
+        result = detector.detect(X)
+        assert result["scores"].shape == (200,)
 
-    def test_contamination_respects_config(self):
-        """Verify configured contamination is used when provided."""
+    def test_detector_accepts_contamination_config(self):
+        """Verify detector does not crash when contamination is in config."""
         X, _ = make_classification(n_samples=100, n_features=5, random_state=42)
 
-        config_contamination = 0.05
-        detector = StatisticalAnomalyDetector(config={"contamination": config_contamination})
+        # Config may still have contamination from legacy callers
+        detector = MercuryAnomalyDetector(config={"contamination": 0.05})
         detector.fit(X)
+        assert detector._is_fitted
 
-        assert detector.contamination == config_contamination
-
-    def test_isolation_forest_uses_estimated_contamination(self):
-        """Verify IsolationForest is initialized with estimated contamination."""
+    def test_detector_fits_with_rare_anomalies(self):
+        """Verify detector handles data with very rare anomalies."""
         X, _ = make_classification(
             n_samples=200,
             n_features=10,
@@ -218,13 +227,11 @@ class TestAdaptiveContamination:
             random_state=42,
         )
 
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         detector.fit(X)
-
-        # IsolationForest should use the estimated contamination
-        assert detector.isolation_forest is not None
-        # Note: sklearn's IsolationForest stores contamination differently
-        # We just verify it was created after fit
+        assert detector._is_fitted
+        result = detector.detect(X)
+        assert np.all(result["scores"] >= 0) and np.all(result["scores"] <= 1)
 
 
 class TestEdgeCases:
@@ -232,7 +239,7 @@ class TestEdgeCases:
 
     def test_single_sample(self):
         """Test detection on a single sample."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         X_train = np.random.randn(50, 5).astype(np.float32)
         detector.fit(X_train)
 
@@ -244,7 +251,7 @@ class TestEdgeCases:
 
     def test_1d_data(self):
         """Test with 1D input data."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         X_train = np.random.randn(50).astype(np.float32)
         detector.fit(X_train)
 
@@ -256,7 +263,7 @@ class TestEdgeCases:
 
     def test_high_dimensional_data(self):
         """Test with high-dimensional data."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         X = np.random.randn(100, 100).astype(np.float32)
         detector.fit(X)
         result = detector.detect(X)
@@ -266,7 +273,7 @@ class TestEdgeCases:
 
     def test_constant_feature_handling(self):
         """Test handling of constant (zero-variance) features."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         X = np.random.randn(50, 5).astype(np.float32)
         X[:, 2] = 1.0  # Constant feature
 

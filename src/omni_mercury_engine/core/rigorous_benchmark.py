@@ -1,22 +1,26 @@
-"""
-Mercury Agent - Rigorous Benchmark Harness
+"""DEPRECATED: This module uses sklearn for anomaly detection baselines.
+
+Mercury's production benchmark is benchmarks/honest_benchmark.py.
+Mercury's production detector is MercuryAnomalyDetector in
+detectors/statistical.py. This module is retained for reference
+only and will be removed in a future release.
+
+Do not import this module in production or benchmark code paths.
+
+Original: Rigorous Benchmark Harness.
 Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Implements rigorous benchmark methodology:
-- Fixed random seeds (42) for reproducibility
-- Stratified 80/20 train/test splits
-- K-fold cross-validation (k=10 default)
-- Standard metrics: ROC-AUC, point-adjusted F1, event-based precision/recall
-- Statistical significance testing (paired t-test, Wilcoxon)
-- Confidence intervals (95%)
+License: GPL-3.0-or-later
 """
 
 from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import logging
 import time
@@ -25,15 +29,6 @@ from typing import Any, Protocol
 
 import numpy as np
 from scipy import stats
-from sklearn.metrics import (
-    average_precision_score,
-    brier_score_loss,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import StratifiedKFold, train_test_split
 
 # Fixed seed for reproducibility
 GLOBAL_SEED = 42
@@ -205,6 +200,13 @@ def stratified_split(
     Returns:
         X_train, X_test, y_train, y_test
     """
+    try:
+        from sklearn.model_selection import train_test_split
+    except ImportError as e:
+        raise ImportError(
+            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+        ) from e
+
     set_all_seeds(seed)
     return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)  # type: ignore[no-any-return]
 
@@ -306,6 +308,13 @@ def point_adjusted_f1(
     Returns:
         Point-adjusted F1 score
     """
+    try:
+        from sklearn.metrics import f1_score
+    except ImportError as e:
+        raise ImportError(
+            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+        ) from e
+
     # Get anomaly segments
     adjusted_pred = np.zeros_like(y_pred)
 
@@ -391,6 +400,21 @@ class RigorousBenchmarkHarness:
         Returns:
             BenchmarkResult with all metrics and statistics
         """
+        try:
+            from sklearn.metrics import (
+                average_precision_score,
+                brier_score_loss,
+                f1_score,
+                precision_score,
+                recall_score,
+                roc_auc_score,
+            )
+            from sklearn.model_selection import StratifiedKFold
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
+
         set_all_seeds(self.seed)
 
         result = BenchmarkResult(
@@ -587,9 +611,10 @@ def run_baseline_benchmarks(
         Dictionary mapping detector name to BenchmarkResult
     """
     from sklearn.covariance import EllipticEnvelope
-    from sklearn.ensemble import IsolationForest
     from sklearn.neighbors import LocalOutlierFactor
     from sklearn.svm import OneClassSVM
+
+    from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
     harness = RigorousBenchmarkHarness(n_folds=n_folds, seed=seed)
     results = {}
@@ -598,30 +623,24 @@ def run_baseline_benchmarks(
     anomaly_ratio = np.mean(y)
     contamination = min(0.5, max(0.01, anomaly_ratio))
 
-    # Isolation Forest
-    class IFWrapper:
+    # Mercury MercuryAnomalyDetector
+    class MercuryWrapper:
         def __init__(self) -> None:
-            self.model = IsolationForest(
-                n_estimators=100,
-                contamination=contamination,
-                random_state=seed,
-            )
+            self.detector = MercuryAnomalyDetector()
 
         def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
-            self.model.fit(X)
+            self.detector.fit(X)
 
         def predict(self, X: np.ndarray) -> np.ndarray:
-            preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))  # type: ignore[no-any-return, unused-ignore]
+            result = self.detector.detect(X)
+            return np.asarray(result["is_anomaly"].astype(int))  # type: ignore[no-any-return, unused-ignore]
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
-            scores = -self.model.score_samples(X)
-            # Normalize to [0, 1]
-            scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
+            result = self.detector.detect(X)
+            return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
 
-    results["IsolationForest"] = harness.benchmark_detector(
-        IFWrapper(), X, y, "IsolationForest", dataset_name
+    results["Mercury-Agent"] = harness.benchmark_detector(
+        MercuryWrapper(), X, y, "Mercury-Agent", dataset_name
     )
 
     # One-Class SVM

@@ -1,14 +1,14 @@
 ---
 name: Bug Fix - Discrete Score Destruction
 about: Statistical detector outputs only 5 discrete score values
-title: "[BUG] Fix #3: Preserve continuous scores in StatisticalAnomalyDetector"
+title: "[BUG] Fix #3: Preserve continuous scores in MercuryAnomalyDetector"
 labels: bug, high-priority, detectors
 assignees: ''
 ---
 
 ## Description
 
-`StatisticalAnomalyDetector.detect()` converts continuous scores to boolean flags before combining, producing only 5 discrete values: {0.0, 0.3, 0.4, 0.7, 1.0}.
+`MercuryAnomalyDetector.detect()` converts continuous scores to boolean flags before combining, producing only 5 discrete values: {0.0, 0.3, 0.4, 0.7, 1.0}.
 
 ## Evidence
 
@@ -27,12 +27,12 @@ combined_scores = (
 - Loss of ranking granularity
 - ROC-AUC cannot distinguish between anomaly severities
 - Upstream fusion receives coarse-grained inputs
-- IsolationForest achieves 0.82+ ROC-AUC alone, but discrete combination destroys this
+- sklearn's IsolationForest baseline achieves 0.82+ ROC-AUC, but discrete combination destroys the continuous score information
 
 ## Proposed Fix
 
 1. Replace boolean flags with continuous intensity scores
-2. Use `decision_function()` for IsolationForest (returns continuous scores)
+2. Use `decision_function()` for IsolationForest component (returns continuous scores)
 3. Compute IQR distance scores instead of boolean threshold
 4. Normalize all scores to [0, 1] before combining
 

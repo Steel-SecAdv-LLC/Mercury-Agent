@@ -18,7 +18,21 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""Novel Anomaly Class Discovery for Industrial Scenarios.
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+"""DEPRECATED: This module uses sklearn (KMeans) for anomaly detection.
+
+Mercury's production detector is MercuryAnomalyDetector in
+detectors/statistical.py. This module is retained for reference
+only and will be removed in a future release.
+
+Original: Novel Anomaly Class Discovery for Industrial Scenarios.
 
 Based on: AnomalyNCD - Towards Novel Anomaly Class Discovery in Industrial Scenarios
 (CVPR 2025: https://openaccess.thecvf.com/content/CVPR2025/papers/

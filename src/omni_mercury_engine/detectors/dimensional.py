@@ -35,7 +35,6 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 from scipy.fft import fft
-from sklearn.decomposition import PCA
 from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
@@ -43,6 +42,35 @@ from omni_mercury_engine.core.exceptions import DetectorException
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+
+class _NativePCA:
+    """Minimal PCA via truncated SVD (no sklearn dependency).
+
+    Supports fit / transform / inverse_transform with the same API surface
+    that DimensionalAnalyzer requires.
+    """
+
+    def __init__(self, n_components: int) -> None:
+        self.n_components = n_components
+        self.components_: np.ndarray[Any, Any] | None = None
+        self.mean_: np.ndarray[Any, Any] | None = None
+
+    def fit(self, X: np.ndarray[Any, Any]) -> _NativePCA:
+        self.mean_ = X.mean(axis=0)
+        X_centered = X - self.mean_
+        # Economy SVD - only compute first min(n, d) singular vectors
+        _U, _s, Vt = np.linalg.svd(X_centered, full_matrices=False)
+        self.components_ = Vt[: self.n_components]
+        return self
+
+    def transform(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        assert self.mean_ is not None and self.components_ is not None
+        return (X - self.mean_) @ self.components_.T
+
+    def inverse_transform(self, X_reduced: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        assert self.mean_ is not None and self.components_ is not None
+        return X_reduced @ self.components_ + self.mean_
 
 
 @dataclass(frozen=True)
@@ -194,7 +222,7 @@ class DimensionalAnalyzer(BaseDetector):
                 f"weights must be DimensionalWeights or dict, got {type(weights_config)}"
             )
 
-        self.pca: PCA | None = None
+        self.pca: _NativePCA | None = None
         self.autoencoder: NeuralProjection | None = None
 
         self.input_dim: int | None = None
@@ -263,7 +291,7 @@ class DimensionalAnalyzer(BaseDetector):
 
         n_comp = max(n_comp, 1)
 
-        self.pca = PCA(n_components=n_comp)
+        self.pca = _NativePCA(n_components=n_comp)
         self.pca.fit(data_np)
 
         self.autoencoder = NeuralProjection(

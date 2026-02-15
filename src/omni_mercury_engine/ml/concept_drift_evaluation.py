@@ -30,13 +30,6 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 from scipy import stats
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
 
 from omni_mercury_engine.ml.drift import (
     DriftResult,
@@ -979,6 +972,19 @@ class ConceptDriftEvaluator:
             inference_time = time.time() - inference_start
 
             # Calculate metrics
+            try:
+                from sklearn.metrics import (
+                    accuracy_score,
+                    f1_score,
+                    precision_score,
+                    recall_score,
+                    roc_auc_score,
+                )
+            except ImportError as e:
+                raise ImportError(
+                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                ) from e
+
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
 

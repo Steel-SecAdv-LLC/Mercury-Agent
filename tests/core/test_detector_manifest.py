@@ -135,7 +135,7 @@ class TestAutoDiscoverDetectorsRefactored:
         mock_cls.return_value = MagicMock()
 
         mock_module = MagicMock()
-        mock_module.StatisticalAnomalyDetector = mock_cls
+        mock_module.MercuryAnomalyDetector = mock_cls
 
         # Patch just the first manifest entry's module, fail the rest
         def selective_import(name: str, *args: object, **kwargs: object) -> object:
@@ -156,7 +156,7 @@ class TestAutoDiscoverDetectorsRefactored:
         mock_cls = MagicMock()
         mock_cls.return_value = MagicMock()
         mock_module = MagicMock()
-        mock_module.StatisticalAnomalyDetector = mock_cls
+        mock_module.MercuryAnomalyDetector = mock_cls
 
         def selective_import(name: str, *args: object, **kwargs: object) -> object:
             if name == "omni_mercury_engine.detectors.statistical":

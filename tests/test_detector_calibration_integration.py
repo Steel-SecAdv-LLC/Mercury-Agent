@@ -34,18 +34,18 @@ class TestAllDetectorsAutoCalibration:
         return X[idx], y[idx]
 
     def test_statistical_detector_calibration(self, sample_data):
-        """Test StatisticalAnomalyDetector auto-calibration."""
-        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+        """Test MercuryAnomalyDetector auto-calibration."""
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         X, y = sample_data
 
         # Without calibration
-        detector_fixed = StatisticalAnomalyDetector({"threshold": 0.5})
+        detector_fixed = MercuryAnomalyDetector({"threshold": 0.5})
         detector_fixed.fit(X)
         detector_fixed.detect(X)
 
         # With calibration
-        detector_cal = StatisticalAnomalyDetector({"threshold": 0.5})
+        detector_cal = MercuryAnomalyDetector({"threshold": 0.5})
         detector_cal.fit(X)
         detector_cal.enable_auto_calibration(contamination=0.1, method="percentile")
         result_cal = detector_cal.detect(X)
@@ -152,18 +152,18 @@ class TestF1ZeroProblemAllDetectors:
         return X, y
 
     def test_statistical_f1_zero_solved(self, f1_zero_scenario):
-        """Verify StatisticalAnomalyDetector calibration solves F1=0."""
-        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+        """Verify MercuryAnomalyDetector calibration solves F1=0."""
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         X, y = f1_zero_scenario
 
         # Without calibration: F1 = 0
-        detector_fixed = StatisticalAnomalyDetector({"threshold": 0.5})
+        detector_fixed = MercuryAnomalyDetector({"threshold": 0.5})
         detector_fixed.fit(X)
         detector_fixed.detect(X)
 
         # With calibration: should have predictions
-        detector_cal = StatisticalAnomalyDetector({"threshold": 0.5})
+        detector_cal = MercuryAnomalyDetector({"threshold": 0.5})
         detector_cal.fit(X)
         detector_cal.enable_auto_calibration(contamination=0.05, method="percentile")
         result_cal = detector_cal.detect(X)
@@ -194,11 +194,11 @@ class TestCalibratedThresholdMethods:
 
     def test_percentile_method(self, bimodal_data):
         """Test percentile calibration method."""
-        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         X, y = bimodal_data
 
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         detector.fit(X)
         detector.enable_auto_calibration(contamination=0.2, method="percentile")
         result = detector.detect(X)
@@ -332,7 +332,7 @@ class TestBenchmarkDiagnostics:
 
     def test_run_diagnostic_benchmark(self):
         """Test run_diagnostic_benchmark convenience function."""
-        from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
         from omni_mercury_engine.evaluation.benchmark_diagnostics import (
             run_diagnostic_benchmark,
         )
@@ -347,7 +347,7 @@ class TestBenchmarkDiagnostics:
         )
         y_test = np.concatenate([np.zeros(90), np.ones(10)]).astype(np.int32)
 
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
 
         result = run_diagnostic_benchmark(
             detector,

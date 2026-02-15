@@ -36,7 +36,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 
 class TestZScoreComputation:
@@ -49,7 +49,7 @@ class TestZScoreComputation:
             mean = 100, std = sqrt(200) = 14.14
             z_score(130) = (130 - 100) / 14.14 = 2.12
         """
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.array([[80], [90], [100], [110], [120]])
         detector.fit(data)
 
@@ -68,7 +68,7 @@ class TestZScoreComputation:
 
     def test_z_score_zero_deviation(self):
         """Z-score should be 0 for point at mean."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.array([[10], [20], [30], [40], [50]])  # mean = 30
         detector.fit(data)
 
@@ -79,7 +79,7 @@ class TestZScoreComputation:
 
     def test_z_score_multivariate(self):
         """Z-scores computed correctly for multivariate data."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         # Two features with different distributions
         data = np.array(
             [
@@ -115,7 +115,7 @@ class TestIQRBounds:
             Lower bound = 3.25 - 1.5 * 4.5 = -3.5
             Upper bound = 7.75 + 1.5 * 4.5 = 14.5
         """
-        detector = StatisticalAnomalyDetector({"iqr_multiplier": 1.5})
+        detector = MercuryAnomalyDetector({"iqr_multiplier": 1.5})
         data = np.array([[i] for i in range(1, 11)])  # 1 to 10
         detector.fit(data)
 
@@ -138,7 +138,7 @@ class TestIQRBounds:
 
     def test_iqr_continuous_scores(self):
         """IQR scores should be continuous, not discrete flags."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.random.randn(100, 1)
         detector.fit(data)
 
@@ -159,49 +159,46 @@ class TestIQRBounds:
 
 
 class TestAdaptiveContamination:
-    """Test adaptive contamination estimation (Fix for Issue #5)."""
+    """Test detector adapts to different data distributions.
 
-    def test_contamination_adapts_to_data(self):
-        """Contamination should adapt based on z-score outliers."""
-        # Clean data (few outliers) - should have low contamination
-        clean_data = np.random.randn(1000, 1)
-        detector_clean = StatisticalAnomalyDetector()
-        detector_clean.fit(clean_data)
-        clean_contamination = detector_clean.contamination
+    Note: IsolationForest and explicit contamination estimation were removed
+    in the ensemble replacement (Resonance + Kinematic + InfoGeo). These tests
+    now verify the detector handles different distributions correctly via
+    its info-geometry and kinematic scoring.
+    """
 
-        # Noisy data (many outliers) - should have higher contamination
+    def test_noisy_data_scores_higher_than_clean(self):
+        """Noisy data should produce higher anomaly scores than clean data."""
+        clean_data = np.random.RandomState(42).randn(200, 1)
         noisy_data = np.concatenate(
             [
-                np.random.randn(700, 1),  # Normal
-                np.random.randn(300, 1) * 5 + 10,  # Outliers
+                np.random.RandomState(42).randn(140, 1),
+                np.random.RandomState(43).randn(60, 1) * 5 + 10,
             ]
         )
-        detector_noisy = StatisticalAnomalyDetector()
-        detector_noisy.fit(noisy_data)
-        noisy_contamination = detector_noisy.contamination
 
-        # Noisy data should have higher contamination estimate
-        assert noisy_contamination > clean_contamination
+        detector = MercuryAnomalyDetector()
+        detector.fit(clean_data)
 
-    def test_config_contamination_overrides_adaptive(self):
-        """Explicit contamination config should override adaptive estimation."""
-        detector = StatisticalAnomalyDetector({"contamination": 0.25})
+        clean_scores = detector.detect(clean_data)["scores"].mean()
+        noisy_scores = detector.detect(noisy_data)["scores"].mean()
+
+        assert noisy_scores > clean_scores
+
+    def test_config_contamination_accepted(self):
+        """Legacy contamination config should not cause errors."""
+        detector = MercuryAnomalyDetector({"contamination": 0.25})
         data = np.random.randn(100, 1)
         detector.fit(data)
+        assert detector._is_fitted
 
-        # Should use configured value, not adaptive
-        assert detector.contamination == 0.25
-
-    def test_contamination_bounds(self):
-        """Contamination should be clamped to [0.001, 0.5]."""
-        # Create data with no outliers
-        uniform_data = np.ones((100, 1))  # All same value
-        detector = StatisticalAnomalyDetector()
+    def test_uniform_data_handled(self):
+        """Uniform/constant data should not crash the detector."""
+        uniform_data = np.ones((100, 1))
+        detector = MercuryAnomalyDetector()
         detector.fit(uniform_data)
-
-        # Should be clamped to minimum
-        assert detector.contamination >= 0.001
-        assert detector.contamination <= 0.5
+        result = detector.detect(uniform_data)
+        assert np.all(np.isfinite(result["scores"]))
 
 
 class TestContinuousScores:
@@ -209,7 +206,7 @@ class TestContinuousScores:
 
     def test_combined_scores_continuous(self):
         """Combined scores should have more than 5 discrete values."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.random.randn(200, 5)
         detector.fit(data)
 
@@ -224,7 +221,7 @@ class TestContinuousScores:
 
     def test_scores_preserve_ranking(self):
         """Scores should preserve ranking of anomaly severity."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.random.randn(100, 1)
         detector.fit(data)
 
@@ -240,7 +237,7 @@ class TestContinuousScores:
 
     def test_z_score_continuous_not_boolean(self):
         """Z-score component should be continuous in [0, 1]."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.random.randn(100, 1)
         detector.fit(data)
 
@@ -263,7 +260,7 @@ class TestAnomalyAccuracy:
 
     def test_detects_obvious_outliers(self):
         """Should detect points > 3 std from mean as anomalies."""
-        detector = StatisticalAnomalyDetector({"z_threshold": 3.0})
+        detector = MercuryAnomalyDetector({"z_threshold": 3.0})
         # Training data: normal distribution
         train_data = np.random.randn(1000, 1)
         detector.fit(train_data)
@@ -289,7 +286,7 @@ class TestAnomalyAccuracy:
     def test_isolation_forest_scores(self):
         """Isolation forest scores should identify outliers."""
         np.random.seed(42)
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         train_data = np.random.randn(200, 2)
         detector.fit(train_data)
 
@@ -311,7 +308,7 @@ class TestAnomalyAccuracy:
     def test_multivariate_anomaly_detection(self):
         """Should detect anomalies in multivariate data."""
         np.random.seed(42)
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
 
         # 5-dimensional normal data
         train_data = np.random.randn(500, 5)
@@ -339,7 +336,7 @@ class TestEdgeCases:
         """Should raise DetectorException for empty data."""
         from omni_mercury_engine.core.exceptions import DetectorException
 
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         with pytest.raises(DetectorException, match="empty data"):
             detector.fit(np.array([]))
 
@@ -347,7 +344,7 @@ class TestEdgeCases:
         """Should handle NaN and Inf values gracefully."""
         from omni_mercury_engine.core.exceptions import DetectorException
 
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
 
         # All NaN should raise exception
         nan_data = np.array([[np.nan], [np.nan], [np.nan]])
@@ -362,7 +359,7 @@ class TestEdgeCases:
 
     def test_single_sample(self):
         """Should handle single sample edge case."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.array([[5.0]])
         detector.fit(data)
 
@@ -372,7 +369,7 @@ class TestEdgeCases:
 
     def test_constant_data(self):
         """Should handle constant (zero variance) data."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.ones((100, 1)) * 5
         detector.fit(data)
 
@@ -386,7 +383,7 @@ class TestFeatureExtraction:
 
     def test_feature_extraction_shape(self):
         """Extracted features should have correct shape."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.random.randn(50, 5)
         detector.fit(data)
 
@@ -398,7 +395,7 @@ class TestFeatureExtraction:
 
     def test_features_include_statistics(self):
         """Features should include meaningful statistics."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         data = np.random.randn(100, 3)
         detector.fit(data)
 
@@ -416,7 +413,7 @@ class TestAutoCalibration:
 
     def test_auto_calibration_adjusts_threshold(self):
         """Auto-calibration should adjust threshold based on score distribution."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         detector.enable_auto_calibration()
 
         data = np.random.randn(200, 2)
@@ -432,7 +429,7 @@ class TestAutoCalibration:
 
     def test_calibrated_threshold_produces_positives(self):
         """Calibrated threshold should produce some positive predictions."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         detector.enable_auto_calibration()
 
         # Create data with some anomalies

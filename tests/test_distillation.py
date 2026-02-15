@@ -24,6 +24,8 @@ Tests for Knowledge Distillation modules.
 Tests Dual-Student Knowledge Distillation for anomaly detection.
 """
 
+import importlib.util
+
 import pytest
 
 try:
@@ -33,11 +35,13 @@ try:
 except ImportError:
     HAS_TORCH = False
 
+HAS_TORCHVISION = importlib.util.find_spec("torchvision") is not None
+
 
 pytestmark = [pytest.mark.slow, pytest.mark.visual]
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestDualStudentConfig:
     """Tests for DualStudentConfig."""
 
@@ -66,7 +70,7 @@ class TestDualStudentConfig:
         assert config.learning_rate == 1e-3
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestEncoderDecoderStudent:
     """Tests for Encoder-Decoder student network."""
 
@@ -90,7 +94,7 @@ class TestEncoderDecoderStudent:
         assert output.shape == x.shape
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestEncoderEncoderStudent:
     """Tests for Encoder-Encoder student network."""
 
@@ -123,7 +127,7 @@ class TestEncoderEncoderStudent:
         assert hasattr(student, "attention")
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestDualStudentDistillation:
     """Tests for Dual-Student Distillation main class."""
 
@@ -222,7 +226,7 @@ class TestDualStudentDistillation:
         assert aggregated.shape[3] == 14
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestDistillationModule:
     """Tests for distillation module imports and structure."""
 

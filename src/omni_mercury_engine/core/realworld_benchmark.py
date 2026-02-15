@@ -21,6 +21,14 @@ Provides:
 
 from __future__ import annotations
 
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use benchmarks/honest_benchmark.py and MercuryAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 import logging
 import time
 from dataclasses import dataclass, field

@@ -157,7 +157,7 @@ class TestSMAPMSLLoader:
 
     def test_real_url_references(self, smap_loader):
         """Should reference telemanom repository."""
-        assert "telemanom" in smap_loader.SMAP_MSL_BASE_URL
+        assert "telemanom" in smap_loader.DATASET_URL
 
 
 class TestDataLoaderIntegration:

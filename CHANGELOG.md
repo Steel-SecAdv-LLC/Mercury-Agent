@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-02-13
+
+### Changed - Statistical Detector Ensemble Replacement
+
+- **MercuryAnomalyDetector**: Replaced `z-score * 0.4 + IQR * 0.3 + IsolationForest * 0.3`
+  ensemble with three Mercury-original mathematical frameworks:
+  - **ResonanceScore (40%)**: FFT-based harmonic spectral anomaly detection
+  - **KinematicScore (30%)**: Physics-based jerk/curvature dynamics via finite differences
+  - **InfoGeometryScore (30%)**: Fisher Information Matrix OOD detection with Tikhonov
+    regularization and Cholesky-decomposed precision matrix
+- Performance: 49x faster fit (14.8 ms), 4.7x faster inference (13.3 ms) vs prior
+  IsolationForest ensemble on 10,000 x 20 synthetic data
+- Mean AUC 0.992 on synthetic ADBench-style benchmark (8 dataset patterns)
+- 100% backward-compatible `detect()` return dict (all legacy keys preserved)
+
+### Removed
+
+- **sklearn dependency from core detectors**: `MercuryAnomalyDetector`,
+  `DimensionalAnalyzer`, and `SpatialAnomalyDetector` no longer import sklearn.
+  PCA replaced with numpy SVD; LOF replaced with scipy KDTree implementation.
+- All remaining top-level sklearn imports in `src/` converted to lazy imports.
+  sklearn is now a true optional dependency (`pip install mercury-agent[ml]`).
+- Deleted stale benchmark PNG artifacts from `benchmarks/`
+
+### Fixed
+
+- Updated stale IsolationForest references across src/, docs/, benchmarks/, and
+  issue templates to reflect the new ensemble architecture
+
+---
+
 ## [1.5.0] - 2026-02-11
 
 ### Added - Mathematical Audit & Parameterization Overhaul

@@ -425,7 +425,7 @@ class NewEngineModel(BaseModel):
 
 - **GitHub Issues:** Bug reports, feature requests
 - **GitHub Discussions:** General questions, ideas
-- **Email:** support@steelsecurityadvisors.com
+- **Email:** steel.sa.llc@gmail.com
 
 ### Recognition
 

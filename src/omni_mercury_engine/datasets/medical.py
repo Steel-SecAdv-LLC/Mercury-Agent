@@ -130,6 +130,10 @@ class MIMICLoader(DatasetLoader):
             return True
 
         # No real data found - raise error (never generate synthetic MIMIC data)
+        logger.info(
+            "MIMIC-III dataset requires PhysioNet credentials. "
+            "Register and complete training at: https://physionet.org/"
+        )
         raise DataSourceUnavailableError(
             loader_name="MIMIC-III",
             reason=(

@@ -52,7 +52,7 @@
     ]
   },
   "honest_assessment": {
-    "summary": "Mercury-Agent is competitive with established unsupervised anomaly detectors like IsolationForest and LOF. Its primary advantage is interpretability through neuro-symbolic fusion, not raw detection performance.",
+    "summary": "Mercury-Agent's ensemble detector (combining statistical, ML, and symbolic methods) is competitive with established unsupervised anomaly detectors like IsolationForest and LOF. Its primary advantage is interpretability through neuro-symbolic fusion, not raw detection performance.",
     "when_to_use_mercury": [
       "When interpretability of anomaly decisions is required",
       "When dealing with diverse data types requiring adaptive profiling",

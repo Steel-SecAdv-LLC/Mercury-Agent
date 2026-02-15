@@ -18,8 +18,19 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""
-Real-Time Threat Detection with PyOD-Compatible Anomaly Detection
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+"""DEPRECATED: This module uses sklearn (IsolationForest, LOF, EllipticEnvelope)
+for anomaly detection. Mercury's production detector is MercuryAnomalyDetector
+in detectors/statistical.py. This module is retained for reference only.
+
+Original: Real-Time Threat Detection with PyOD-Compatible Anomaly Detection
 
 Implements real-time threat detection using ensemble anomaly detection methods
 compatible with PyOD (Python Outlier Detection) framework.
@@ -36,9 +47,6 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
-from sklearn.covariance import EllipticEnvelope
-from sklearn.ensemble import IsolationForest
-from sklearn.neighbors import LocalOutlierFactor
 
 from omni_mercury_engine.utils.logging import LoggerMixin
 
@@ -91,6 +99,15 @@ class RealTimeThreatDetector(LoggerMixin):
         self.n_estimators = n_estimators
 
         self.detectors = {}
+
+        try:
+            from sklearn.covariance import EllipticEnvelope
+            from sklearn.ensemble import IsolationForest
+            from sklearn.neighbors import LocalOutlierFactor
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
 
         if enable_isolation_forest:
             self.detectors["isolation_forest"] = IsolationForest(

@@ -194,6 +194,10 @@ class NASAExoplanetLoader(DatasetLoader):
 
     Data source: https://exoplanetarchive.ipac.caltech.edu/TAP/
     License: Public Domain
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "exoplanet"
@@ -442,6 +446,10 @@ class SolarDynamicsLoader(DatasetLoader):
 
     Data source: https://services.swpc.noaa.gov/
     License: Public Domain (NOAA)
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "solar"

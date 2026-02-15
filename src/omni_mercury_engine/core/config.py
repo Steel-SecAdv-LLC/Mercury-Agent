@@ -217,7 +217,8 @@ class EngineConfig:
 
     contamination: float | None = None
     """Expected fraction of anomalies (0.0-1.0). If set, uses percentile-based
-    threshold instead of fixed threshold. Similar to sklearn IsolationForest.
+    threshold instead of fixed threshold. Works with Mercury's statistical ensemble
+    (Resonance + Kinematic + InfoGeometry detectors).
     Example: contamination=0.05 means top 5% of scores are classified as anomalies."""
 
     adaptive_threshold: bool = False

@@ -25,13 +25,13 @@ Test detector modules
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 
 
 def test_statistical_detector(sample_data):
     """Test statistical anomaly detection"""
-    detector = StatisticalAnomalyDetector()
+    detector = MercuryAnomalyDetector()
     detector.fit(sample_data)
     result = detector.detect(sample_data)
 

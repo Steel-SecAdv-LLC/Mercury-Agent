@@ -50,6 +50,10 @@ class SimonsCMAPLoader(DatasetLoader):
     Data source: https://simonscmap.com/
     License: CC BY 4.0 (most datasets)
     Citation: Ashkezari et al. (2021). Limnology and Oceanography: Methods.
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "simons_cmap"
@@ -405,6 +409,10 @@ class WorldOceanDatabaseLoader(DatasetLoader):
     Data source: https://www.ncei.noaa.gov/products/world-ocean-database
     License: Public Domain (US Government)
     Citation: WOD Team (2025). World Ocean Database. NOAA NCEI.
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "world_ocean_database"
@@ -616,6 +624,10 @@ class CopernicusSeaLevelLoader(DatasetLoader):
     Data source: https://cds.climate.copernicus.eu/datasets/satellite-sea-level-global
     License: CC BY 4.0
     Requires: CDS API registration (free)
+
+    Note:
+        This dataset does not include ground-truth anomaly labels.
+        Use for unsupervised deployment only.
     """
 
     DATASET_NAME = "copernicus_sea_level"

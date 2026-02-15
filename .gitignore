@@ -125,6 +125,12 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Generated benchmark output (regenerate with scripts in benchmarks/)
+results/latest/
+benchmarks/*.png
+benchmarks/*_results.json
+!benchmarks/baseline_results.json
+
 # ML models and data (trained weights, not source code)
 *.pth
 *.ckpt

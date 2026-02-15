@@ -24,15 +24,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    brier_score_loss,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
 
 from omni_mercury_engine.core.centralized_constants import ETHICAL, MATH
 
@@ -229,6 +220,20 @@ class MetricsCalculator:
     ) -> None:
         """Compute standard classification metrics."""
         try:
+            from sklearn.metrics import (
+                accuracy_score,
+                average_precision_score,
+                f1_score,
+                precision_score,
+                recall_score,
+                roc_auc_score,
+            )
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
+
+        try:
             metrics.accuracy = float(accuracy_score(y_true, y_pred))
             metrics.precision = float(precision_score(y_true, y_pred, zero_division=0))
             metrics.recall = float(recall_score(y_true, y_pred, zero_division=0))
@@ -302,6 +307,12 @@ class MetricsCalculator:
         # Point-adjusted metrics
         y_pred_adjusted = self._point_adjust(y_true, y_pred)
         if np.sum(y_pred_adjusted) > 0:
+            try:
+                from sklearn.metrics import f1_score, precision_score, recall_score
+            except ImportError as e:
+                raise ImportError(
+                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                ) from e
             metrics.pa_precision = float(precision_score(y_true, y_pred_adjusted, zero_division=0))
             metrics.pa_recall = float(recall_score(y_true, y_pred_adjusted, zero_division=0))
             metrics.pa_f1 = float(f1_score(y_true, y_pred_adjusted, zero_division=0))
@@ -343,6 +354,13 @@ class MetricsCalculator:
         y_prob: np.ndarray,
     ) -> None:
         """Compute calibration metrics."""
+        try:
+            from sklearn.metrics import brier_score_loss
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
+
         try:
             # Brier score
             metrics.brier_score = float(brier_score_loss(y_true, y_prob))

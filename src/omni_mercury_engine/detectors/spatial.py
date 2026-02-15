@@ -28,7 +28,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from sklearn.neighbors import LocalOutlierFactor
+from scipy.spatial import KDTree
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -68,11 +68,60 @@ except ImportError:
     NUMBA_AVAILABLE = False
 
 
+class _NativeLOF:
+    """Local Outlier Factor via scipy KDTree (no sklearn dependency).
+
+    Implements LOF as defined by Breunig et al. (2000).  Only the
+    ``fit`` / ``decision_function`` surface used by SpatialAnomalyDetector
+    is provided.
+    """
+
+    def __init__(self, n_neighbors: int = 20) -> None:
+        self.k = n_neighbors
+        self._tree: KDTree | None = None
+        self._lrd: np.ndarray[Any, Any] | None = None  # local reachability densities of training
+
+    def fit(self, X: np.ndarray[Any, Any]) -> _NativeLOF:
+        self._tree = KDTree(X)
+        k = min(self.k, len(X) - 1)
+        if k < 1:
+            self._lrd = np.ones(len(X))
+            return self
+        dists, idx = self._tree.query(X, k=k + 1)  # +1 because query includes self
+        dists, idx = dists[:, 1:], idx[:, 1:]  # drop self-neighbor
+        # k-distance of each neighbor
+        kdist_neighbors = dists[idx, -1] if dists.ndim > 1 else dists
+        # reachability distance = max(k-dist of neighbor, actual dist)
+        reach = np.maximum(dists, kdist_neighbors)
+        # local reachability density = 1 / mean(reach-dist to k-neighbors)
+        mean_reach = reach.mean(axis=1)
+        self._lrd = np.where(mean_reach > 0, 1.0 / mean_reach, 1.0)
+        return self
+
+    def decision_function(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Return LOF-style decision scores (negative = more anomalous)."""
+        assert self._tree is not None and self._lrd is not None
+        k = min(self.k, len(self._lrd))
+        if k < 1:
+            return np.zeros(len(X))
+        dists, idx = self._tree.query(X, k=k)
+        # Simplified LOF: use ratio of local densities as score
+        reach = np.maximum(dists, 1e-10)
+        mean_reach = reach.mean(axis=1)
+        lrd_query = np.where(mean_reach > 0, 1.0 / mean_reach, 1.0)
+        # LOF = mean(lrd_neighbors) / lrd_query
+        neighbor_lrd = self._lrd[idx]
+        mean_neighbor_lrd = neighbor_lrd.mean(axis=1)
+        lof = mean_neighbor_lrd / np.maximum(lrd_query, 1e-10)
+        # decision_function returns negative for outliers (sklearn convention)
+        return -(lof - 1.0)
+
+
 class SpatialAnomalyDetector(BaseDetector):
     """
     Spatial anomaly detection for geographic data using:
     - Distance-based outliers
-    - Density-based outliers (LOF)
+    - Density-based outliers (LOF via scipy KDTree)
     - Spatial clustering
     """
 
@@ -81,11 +130,7 @@ class SpatialAnomalyDetector(BaseDetector):
         self.n_neighbors = self.config.get("n_neighbors", 20)
         self.contamination = self.config.get("contamination", 0.1)
 
-        self.lof = LocalOutlierFactor(
-            n_neighbors=self.n_neighbors,
-            contamination=self.contamination,
-            novelty=True,
-        )
+        self.lof = _NativeLOF(n_neighbors=self.n_neighbors)
 
         self.center: np.ndarray[Any, Any] | None = None
         self.radius_threshold: float | None = None

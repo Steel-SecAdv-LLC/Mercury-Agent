@@ -48,15 +48,9 @@ except ImportError:
     torch = None  # type: ignore[assignment, unused-ignore]
     nn = None  # type: ignore[assignment, unused-ignore]
 
+SKLEARN_AVAILABLE = False
 try:
-    from sklearn.metrics import (
-        accuracy_score,
-        f1_score,
-        precision_score,
-        recall_score,
-        roc_auc_score,
-    )
-    from sklearn.preprocessing import LabelEncoder, StandardScaler
+    import sklearn  # noqa: F401
 
     SKLEARN_AVAILABLE = True
 except ImportError:
@@ -1577,12 +1571,26 @@ class CrossDomainTransferLearner:
 
         # Normalize
         if self.normalize and SKLEARN_AVAILABLE:
+            try:
+                from sklearn.preprocessing import StandardScaler
+            except ImportError as e:
+                raise ImportError(
+                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                ) from e
+
             self.scaler = StandardScaler()
             source_X = self.scaler.fit_transform(source_X)
             target_X = self.scaler.transform(target_X)
 
         # Encode labels
         if SKLEARN_AVAILABLE:
+            try:
+                from sklearn.preprocessing import LabelEncoder
+            except ImportError as e:
+                raise ImportError(
+                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                ) from e
+
             self.label_encoder = LabelEncoder()
             source_y = self.label_encoder.fit_transform(source_data.y)
         else:
@@ -1651,6 +1659,19 @@ class CrossDomainTransferLearner:
             TransferResult with comprehensive metrics
         """
         start_time = time.time()
+
+        try:
+            from sklearn.metrics import (
+                accuracy_score,
+                f1_score,
+                precision_score,
+                recall_score,
+                roc_auc_score,
+            )
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
 
         # Fit the model
         self.fit(source_data, target_data, target_data.y)

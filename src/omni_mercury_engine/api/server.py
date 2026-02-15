@@ -182,7 +182,7 @@ app = FastAPI(
     contact={
         "name": "Steel Security Advisors LLC",
         "url": "https://github.com/Steel-SecAdv-LLC/Mercury-Agent",
-        "email": "support@steelsecurityadvisors.com",
+        "email": "steel.sa.llc@gmail.com",
     },
     license_info={
         "name": "GNU General Public License v3.0",

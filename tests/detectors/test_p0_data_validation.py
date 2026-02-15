@@ -42,7 +42,7 @@ from omni_mercury_engine.core.fusion import HybridFusionLayer, ResonanceWeighted
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.graph_based import GraphAnomalyDetector
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
-from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 
 
@@ -259,8 +259,8 @@ class TestNaNInfHandling:
 
     # --- Statistical Detector Tests ---
     def test_statistical_produces_finite_scores(self, normal_data):
-        """StatisticalAnomalyDetector should produce finite scores."""
-        detector = StatisticalAnomalyDetector()
+        """MercuryAnomalyDetector should produce finite scores."""
+        detector = MercuryAnomalyDetector()
         detector.fit(normal_data)
         result = detector.detect(normal_data)
 
@@ -271,25 +271,25 @@ class TestNaNInfHandling:
 # Test 4: Empty Data Validation
 # =============================================================================
 class TestEmptyDataValidation:
-    """Test empty data rejection in StatisticalAnomalyDetector."""
+    """Test empty data rejection in MercuryAnomalyDetector."""
 
     def test_empty_array_raises_exception(self):
         """Empty array should raise DetectorException."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
 
         with pytest.raises(DetectorException, match="empty data"):
             detector.fit(np.array([]))
 
     def test_empty_2d_array_raises_exception(self):
         """Empty 2D array should raise DetectorException."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
 
         with pytest.raises(DetectorException, match="empty data"):
             detector.fit(np.array([]).reshape(0, 10))
 
     def test_all_nan_array_raises_exception(self):
         """Array with all NaN values should raise DetectorException."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
 
         all_nan = np.full((10, 5), np.nan)
         with pytest.raises(DetectorException, match="all data values are NaN or Inf"):
@@ -297,7 +297,7 @@ class TestEmptyDataValidation:
 
     def test_all_inf_array_raises_exception(self):
         """Array with all Inf values should raise DetectorException."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
 
         all_inf = np.full((10, 5), np.inf)
         with pytest.raises(DetectorException, match="all data values are NaN or Inf"):
@@ -305,7 +305,7 @@ class TestEmptyDataValidation:
 
     def test_partial_nan_rows_filtered(self, deterministic_rng):
         """Rows with NaN should be filtered, valid rows used for fitting."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
 
         # 10 rows, 5 features, rows 0 and 5 have NaN
         data = deterministic_rng.randn(10, 5)
@@ -506,8 +506,8 @@ class TestScoreRangeValidation:
         assert np.all(result["scores"] <= 1.0), "Scores above 1"
 
     def test_statistical_scores_in_range(self, normal_data):
-        """StatisticalAnomalyDetector scores should be in [0, 1]."""
-        detector = StatisticalAnomalyDetector()
+        """MercuryAnomalyDetector scores should be in [0, 1]."""
+        detector = MercuryAnomalyDetector()
         detector.fit(normal_data)
         result = detector.detect(normal_data)
 
@@ -523,7 +523,7 @@ class TestEdgeCases:
 
     def test_single_sample_detection(self, deterministic_rng):
         """Detectors should handle single-sample detection."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 5)
         detector.fit(train_data)
 
@@ -535,7 +535,7 @@ class TestEdgeCases:
 
     def test_high_dimensional_data(self, deterministic_rng):
         """Detectors should handle high-dimensional data."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 500)  # 500 features
         detector.fit(train_data)
 
@@ -546,7 +546,7 @@ class TestEdgeCases:
 
     def test_very_small_values(self, deterministic_rng):
         """Detectors should handle very small values without underflow."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 10) * 1e-10
         detector.fit(train_data)
 
@@ -557,7 +557,7 @@ class TestEdgeCases:
 
     def test_very_large_values(self, deterministic_rng):
         """Detectors should handle very large values without overflow."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 10) * 1e6
         detector.fit(train_data)
 
@@ -568,7 +568,7 @@ class TestEdgeCases:
 
     def test_mixed_scale_features(self, deterministic_rng):
         """Detectors should handle features with vastly different scales."""
-        detector = StatisticalAnomalyDetector()
+        detector = MercuryAnomalyDetector()
         train_data = np.column_stack(
             [
                 deterministic_rng.randn(100) * 1e-5,  # Tiny scale

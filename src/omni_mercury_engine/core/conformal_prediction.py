@@ -22,7 +22,6 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import numpy as np
-from sklearn.model_selection import KFold
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +216,13 @@ class CrossConformalPredictor:
         Returns:
             Self for method chaining
         """
+        try:
+            from sklearn.model_selection import KFold
+        except ImportError as e:
+            raise ImportError(
+                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+            ) from e
+
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)
 
         all_scores: list[float] = []  # type: ignore[var-annotated, unused-ignore]

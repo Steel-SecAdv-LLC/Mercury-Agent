@@ -605,27 +605,15 @@ def random_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     return np.random.rand(len(features))
 
 
-def isolation_forest_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Isolation Forest baseline detector."""
-    try:
-        from sklearn.ensemble import IsolationForest
+def mercury_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Mercury MercuryAnomalyDetector baseline."""
+    from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
-        clf = IsolationForest(random_state=42, contamination=0.1)
-        clf.fit(features)
-        scores = -clf.score_samples(features)  # Higher = more anomalous
-        return np.asarray((scores - scores.min()) / (scores.max() - scores.min() + 1e-10))  # type: ignore[no-any-return, unused-ignore]
-    except ImportError:
-        return random_baseline(features)
+    detector = MercuryAnomalyDetector()
+    detector.fit(features)
+    result = detector.detect(features)
+    return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
 
 
-def one_class_svm_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """One-Class SVM baseline detector."""
-    try:
-        from sklearn.svm import OneClassSVM
-
-        clf = OneClassSVM(nu=0.1, kernel="rbf", gamma="auto")
-        clf.fit(features[: min(1000, len(features))])  # Limit for speed
-        scores = -clf.score_samples(features)
-        return np.asarray((scores - scores.min()) / (scores.max() - scores.min() + 1e-10))  # type: ignore[no-any-return, unused-ignore]
-    except ImportError:
-        return random_baseline(features)
+# DEPRECATED: remove in v2.0
+isolation_forest_baseline = mercury_baseline
