@@ -24,6 +24,8 @@ Tests for SOTA Visual Anomaly Detection modules.
 Tests PatchCore, PaDiM, STFPM, Reverse Distillation, and CFlow detectors.
 """
 
+import importlib.util
+
 import pytest
 
 try:
@@ -33,11 +35,13 @@ try:
 except ImportError:
     HAS_TORCH = False
 
+HAS_TORCHVISION = importlib.util.find_spec("torchvision") is not None
+
 
 pytestmark = pytest.mark.visual
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestPatchCoreDetector:
     """Tests for PatchCore anomaly detector."""
 
@@ -87,7 +91,7 @@ class TestPatchCoreDetector:
         assert "is_anomaly" in result
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestPaDiMDetector:
     """Tests for PaDiM anomaly detector."""
 
@@ -122,7 +126,7 @@ class TestPaDiMDetector:
         assert "anomaly_maps" in result
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestSTFPMDetector:
     """Tests for STFPM teacher-student detector."""
 
@@ -148,7 +152,7 @@ class TestSTFPMDetector:
         assert len(detector.config.layers) == 2
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestReverseDistillationDetector:
     """Tests for Reverse Distillation detector."""
 
@@ -177,7 +181,7 @@ class TestReverseDistillationDetector:
         assert detector.config.oce_gamma == 0.5
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestCFlowDetector:
     """Tests for CFlow normalizing flow detector."""
 
@@ -204,7 +208,7 @@ class TestCFlowDetector:
         assert detector.config.hidden_ratio == 0.5
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestFeatureExtractor:
     """Tests for backbone feature extraction."""
 
@@ -229,7 +233,7 @@ class TestFeatureExtractor:
         assert "layer2" in features or len(features) > 0
 
 
-@pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+@pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
 class TestBaseVisualDetector:
     """Tests for base visual detector class."""
 

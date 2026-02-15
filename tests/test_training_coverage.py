@@ -22,6 +22,8 @@ from __future__ import annotations
 Additional training tests to boost coverage above 85%
 """
 
+import importlib.util
+
 import pytest
 
 # Conditional torch import
@@ -33,8 +35,13 @@ except ImportError:
     HAS_TORCH = False
     torch = None  # type: ignore
 
-# Skip all tests in this module if torch is not available
-pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
+HAS_LIGHTNING = importlib.util.find_spec("pytorch_lightning") is not None
+
+# Skip all tests in this module if torch or lightning is not available
+pytestmark = pytest.mark.skipif(
+    not HAS_TORCH or not HAS_LIGHTNING,
+    reason="PyTorch or pytorch-lightning not installed",
+)
 
 # Conditional imports - only when torch is available
 if HAS_TORCH:
