@@ -36,9 +36,9 @@ Every number in this document comes from that file.
 | Datasets tested | 55 |
 | Datasets successful | 51 |
 | Datasets failed | 4 |
-| Mean AUC | 0.8033 |
+| Mean AUC | 0.8030 |
 | Median AUC | 0.8852 |
-| Std AUC | 0.1910 |
+| Std AUC | 0.1916 |
 | Mean Oracle F1 | 0.5886 |
 | Median Oracle F1 | 0.6250 |
 
@@ -46,10 +46,10 @@ Every number in this document comes from that file.
 
 | Component | Mean AUC | Median AUC | n_datasets |
 |-----------|----------|------------|------------|
-| InfoGeometry | 0.8259 | 0.8760 | 51 |
-| Resonance | 0.7625 | 0.8294 | 51 |
-| Kinematic | 0.6017 | 0.6116 | 51 |
-| **Ensemble** | **0.8033** | **0.8852** | **51** |
+| InfoGeometry | 0.8256 | 0.8760 | 51 |
+| Resonance | 0.7623 | 0.8294 | 51 |
+| Kinematic | 0.6013 | 0.6116 | 51 |
+| **Ensemble** | **0.8030** | **0.8852** | **51** |
 
 ## Per-Dataset Results
 
@@ -99,7 +99,7 @@ Every number in this document comes from that file.
 | ADBench-01 | 49534 | 0.030 | 0.5667 | 0.1273 | 0.28 | 28 |
 | ADBench-41 | 3443 | 0.029 | 0.5372 | 0.1198 | 0.43 | 6 |
 | ADBench-44 | 4819 | 0.053 | 0.5253 | 0.2072 | 0.25 | 2 |
-| NAB | 69561 | 0.095 | 0.4878 | 0.2951 | 0.00 | 5 |
+| NAB | 69561 | 0.095 | 0.4697 | 0.2951 | 0.00 | 5 |
 | ADBench-36 | 3686 | 0.017 | 0.4741 | 0.0805 | 0.49 | 118 |
 | ADBench-46 | 198 | 0.237 | 0.4625 | 0.5562 | 0.30 | 2 |
 | ADBench-39 | 240 | 0.125 | 0.4416 | 0.3704 | 0.17 | 1 |

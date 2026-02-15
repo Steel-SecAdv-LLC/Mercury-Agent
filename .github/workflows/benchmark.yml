@@ -46,7 +46,7 @@ env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
   # Performance thresholds - fail CI if below these values
-  # Measured baseline (2026-02-14): mean AUC 0.783, mean F1 0.600
+  # Measured baseline (2026-02-15): mean AUC 0.803, mean F1 0.589
   # Thresholds set below measured performance as regression gates
   MIN_ROC_AUC: "0.65"
   MIN_F1: "0.30"

@@ -24,10 +24,11 @@ class TestResonanceScore:
         return StatisticalAnomalyDetector()
 
     def test_noise_scored_higher_than_sine(self, detector: StatisticalAnomalyDetector) -> None:
-        """Noise should be more anomalous than a pure sine wave."""
+        """Noise should be more anomalous than a pure sine wave (multi-dim)."""
         rng = np.random.RandomState(42)
-        sine = np.sin(np.linspace(0, 4 * np.pi, 100)).reshape(-1, 1)
-        noise = rng.randn(100, 1)
+        t = np.linspace(0, 4 * np.pi, 200)
+        sine = np.column_stack([np.sin(t + i) for i in range(5)])
+        noise = rng.randn(200, 5) * 3.0
 
         detector.fit(sine)
         score_sine = detector._compute_resonance_score(sine).mean()

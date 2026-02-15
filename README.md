@@ -121,17 +121,17 @@ Measured on 51 real-world datasets (47 ADBench + 4 domain loaders). No synthetic
 
 | Component | Weight | Method | Mean AUC |
 |-----------|--------|--------|----------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles (precomputed at fit) | 0.7625 |
-| KinematicScore | 30% | Physics-based jerk/curvature via np.diff | 0.6017 |
-| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD | 0.8259 |
-| **Ensemble** | **100%** | **Weighted combination** | **0.8033** |
+| ResonanceScore | 40% | FFT harmonic spectral profiles (precomputed at fit) | 0.7623 |
+| KinematicScore | 30% | Physics-based jerk/curvature via np.diff | 0.6013 |
+| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD | 0.8256 |
+| **Ensemble** | **100%** | **Weighted combination** | **0.8030** |
 
 **Aggregate Results:**
 
 | Metric | Value |
 |--------|-------|
 | Datasets tested | 51 successful / 55 total |
-| Mean AUC | 0.8033 |
+| Mean AUC | 0.8030 |
 | Median AUC | 0.8852 |
 | Mean Oracle F1 | 0.5886 |
 | Median Oracle F1 | 0.6250 |

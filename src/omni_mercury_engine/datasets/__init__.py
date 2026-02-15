@@ -68,7 +68,6 @@ from .benchmarks import (
     UCFCrimeDataset,
     get_default_transforms,
     mercury_baseline,
-    one_class_svm_baseline,
     random_baseline,
 )
 from .climate import (
@@ -177,6 +176,5 @@ __all__ = [
     "list_available_datasets",
     "load_dataset",
     "mercury_baseline",
-    "one_class_svm_baseline",
     "random_baseline",
 ]

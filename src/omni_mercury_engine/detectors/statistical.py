@@ -378,10 +378,15 @@ class StatisticalAnomalyDetector(BaseDetector):
             "z_scores": z_scores,
             "z_score_continuous": z_score_continuous,
             "iqr_scores": iqr_scores,
-            # New ensemble component scores
+            # Ensemble component scores
             "resonance_scores": resonance,
             "kinematic_scores": kinematic,
             "info_geometry_scores": info_geo,
+            "ensemble_components": {
+                "resonance": resonance,
+                "kinematic": kinematic,
+                "info_geometry": info_geo,
+            },
             # DEPRECATED: will be removed in v2.0 - use "scores" instead
             "isolation_forest_scores": combined_scores,
             # Legacy keys

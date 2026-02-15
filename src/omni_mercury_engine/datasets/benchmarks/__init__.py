@@ -52,7 +52,6 @@ from .suite import (
     BenchmarkResult,
     RealWorldBenchmarkSuite,
     mercury_baseline,
-    one_class_svm_baseline,
     random_baseline,
 )
 from .ucf_crime import UCFCrimeConfig, UCFCrimeDataset
@@ -77,6 +76,5 @@ __all__ = [
     "UCFCrimeDataset",
     "get_default_transforms",
     "mercury_baseline",
-    "one_class_svm_baseline",
     "random_baseline",
 ]

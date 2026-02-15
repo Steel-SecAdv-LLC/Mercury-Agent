@@ -115,6 +115,20 @@ from sklearn.svm import OneClassSVM
 
 from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 
+# AdaptiveAnomalyDetector removed — Mercury uses StatisticalAnomalyDetector only
+ADAPTIVE_DETECTOR_AVAILABLE = False
+
+# Import score calibration for improved threshold optimization
+try:
+    from omni_mercury_engine.core.score_calibration import (
+        CalibrationMethod,
+        ScoreCalibrationManager,
+    )
+
+    SCORE_CALIBRATION_AVAILABLE = True
+except ImportError:
+    SCORE_CALIBRATION_AVAILABLE = False
+
 # Suppress expected warnings from sklearn/numpy during benchmark model fitting.
 # Scoped to specific categories rather than blanket suppression.
 warnings.filterwarnings("ignore", category=FutureWarning)
