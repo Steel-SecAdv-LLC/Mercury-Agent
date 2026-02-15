@@ -31,6 +31,7 @@ import numpy as np
 import pytest
 
 HAS_TORCH = importlib.util.find_spec("torch") is not None
+HAS_TORCHVISION = importlib.util.find_spec("torchvision") is not None
 
 
 class TestBaseImageDataset:
@@ -227,7 +228,7 @@ class TestBenchmarkModuleImports:
 class TestDatasetTransforms:
     """Tests for dataset transform utilities."""
 
-    @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+    @pytest.mark.skipif(not HAS_TORCHVISION, reason="torchvision not installed")
     def test_default_transforms(self):
         """Test default image transforms."""
         from omni_mercury_engine.data.benchmarks.base_dataset import get_default_transforms
@@ -244,7 +245,7 @@ class TestDatasetTransforms:
 
         assert transformed.shape == (3, 224, 224)
 
-    @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
+    @pytest.mark.skipif(not HAS_TORCHVISION, reason="torchvision not installed")
     def test_no_normalize_transforms(self):
         """Test transforms without normalization."""
         from omni_mercury_engine.data.benchmarks.base_dataset import get_default_transforms
