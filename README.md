@@ -95,24 +95,6 @@ Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that
 <details>
 <summary><strong>Click to expand benchmarks</strong></summary>
 
-The following benchmarks were generated from a 200-epoch training run with the full neuro-symbolic cognitive stack active. All metrics are from actual system execution, not simulated data.
-
-### Benchmark Summary (200 Epochs with Neuro-Symbolic Fusion)
-
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Final Confidence** | 0.999 | Bayesian calibrated confidence score |
-| **Confidence Growth** | +0.239 | Improvement from baseline 0.76 |
-| **Anomaly Detection F1** | 0.797 | Precision/Recall harmonic mean |
-| **Anomaly Precision** | 0.879 | True positive rate |
-| **Anomaly Recall** | 0.729 | Detection coverage |
-| **Memory Entries** | 3,300 | Accumulated episodic/semantic memories |
-| **Benevolence Score** | 0.99+ | Ethical alignment metric (target threshold) |
-| **Neural Contribution** | 47.0% | Neural network pattern detection |
-| **Symbolic Contribution** | 53.0% | Symbolic reasoning inference |
-| **Test Coverage** | 85%+ | Comprehensive test suite (5,114+ tests) |
-| **Statistical Significance** | p < 0.0001 | Cohen's d = 0.952 (large effect size) |
-
 ### Empirical Benchmark Results (StatisticalAnomalyDetector)
 
 Measured on 51 real-world datasets (47 ADBench + 4 domain loaders). No synthetic data, no tuning.

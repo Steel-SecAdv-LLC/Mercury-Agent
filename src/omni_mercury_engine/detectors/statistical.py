@@ -396,11 +396,6 @@ class StatisticalAnomalyDetector(BaseDetector):
             "detector_type": "statistical",
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
-            "ensemble_components": {
-                "resonance": resonance,
-                "kinematic": kinematic,
-                "info_geometry": info_geo,
-            },
         }
 
     # =====================================================================

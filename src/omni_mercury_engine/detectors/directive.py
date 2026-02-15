@@ -18,8 +18,19 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""
-Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use StatisticalAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+"""DEPRECATED: This module uses sklearn (PCA) for anomaly detection.
+Mercury's production detector is StatisticalAnomalyDetector in
+detectors/statistical.py. This module is retained for reference only.
+
+Original: Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
 
 Enhanced with quantum pattern containment and nano-scale detection for
 critical applications in medical diagnostics, geological monitoring,

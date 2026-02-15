@@ -160,12 +160,15 @@ recorded as errors in the results JSON, not replaced with synthetic data.
 
 ## CI Integration
 
-The CI pipeline (`.github/workflows/benchmark.yml`) runs `empirical_benchmark.py`
-with regression gates:
+The CI pipeline (`.github/workflows/benchmark.yml`) gates on `honest_benchmark.py`
+(Mercury detector in isolation) with regression thresholds set at 15% margin below
+measured performance:
 
-- **MIN_ROC_AUC: 0.65** — fail if mean AUC drops below this
-- **MIN_F1: 0.30** — fail if mean F1 drops below this
+- **MIN_ROC_AUC: 0.68** — fail if mean AUC drops below this (measured: 0.803)
+- **MIN_F1: 0.50** — fail if mean F1 drops below this (measured: 0.589)
 - **MERCURY_ALLOW_SYNTHETIC: false** — no synthetic data fallbacks in CI
+
+`empirical_benchmark.py` runs as a non-gating comparison step on scheduled/manual runs.
 
 ## References
 

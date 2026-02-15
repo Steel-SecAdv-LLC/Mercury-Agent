@@ -1,20 +1,25 @@
-"""
-Mercury Agent - Stacking and Bayesian Model Averaging Fusion
+"""DEPRECATED: This module uses sklearn for anomaly detection.
+
+Mercury's production detector is StatisticalAnomalyDetector in
+detectors/statistical.py. This module is retained for reference
+only and will be removed in a future release.
+
+Do not import this module in production or benchmark code paths.
+
+Original: Stacking and Bayesian Model Averaging Fusion.
 Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Replaces heuristic attention-weighting with validated ensemble methods:
-- Stacking (sklearn.ensemble StackingClassifier)
-- Bayesian Model Averaging (weighted by posterior model probability)
-- Dynamic Weight Fusion (learned weights with ethical constraints)
-- Integration with GOSNN ethical gating
+License: GPL-3.0-or-later
 """
 
 from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use StatisticalAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import logging
 from dataclasses import dataclass, field

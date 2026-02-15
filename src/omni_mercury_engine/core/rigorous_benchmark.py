@@ -1,22 +1,26 @@
-"""
-Mercury Agent - Rigorous Benchmark Harness
+"""DEPRECATED: This module uses sklearn for anomaly detection baselines.
+
+Mercury's production benchmark is benchmarks/honest_benchmark.py.
+Mercury's production detector is StatisticalAnomalyDetector in
+detectors/statistical.py. This module is retained for reference
+only and will be removed in a future release.
+
+Do not import this module in production or benchmark code paths.
+
+Original: Rigorous Benchmark Harness.
 Copyright (C) 2025 Steel Security Advisors LLC
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Implements rigorous benchmark methodology:
-- Fixed random seeds (42) for reproducibility
-- Stratified 80/20 train/test splits
-- K-fold cross-validation (k=10 default)
-- Standard metrics: ROC-AUC, point-adjusted F1, event-based precision/recall
-- Statistical significance testing (paired t-test, Wilcoxon)
-- Confidence intervals (95%)
+License: GPL-3.0-or-later
 """
 
 from __future__ import annotations
+
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use StatisticalAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 import logging
 import time

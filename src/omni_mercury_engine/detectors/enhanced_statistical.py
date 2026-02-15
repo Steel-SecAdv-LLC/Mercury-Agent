@@ -1,11 +1,13 @@
-"""
-Mercury Agent - Enhanced Statistical Anomaly Detection Module
-Copyright (C) 2025 Steel Security Advisors LLC
+"""DEPRECATED: This module uses sklearn (LOF, DBSCAN, MinCovDet, NearestNeighbors)
+for anomaly detection. Mercury's production detector is StatisticalAnomalyDetector
+in detectors/statistical.py. This module is retained for reference only and will
+be removed in a future release.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+Do not import this module in production or benchmark code paths.
+
+Original: Enhanced Statistical Anomaly Detection Module.
+Copyright (C) 2025 Steel Security Advisors LLC
+License: GPL-3.0-or-later
 
 Enhanced statistical methods for robust anomaly detection including:
 - Median Absolute Deviation (MAD) - robust to outliers
@@ -21,6 +23,13 @@ Enhanced statistical methods for robust anomaly detection including:
 from __future__ import annotations
 
 import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use StatisticalAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any

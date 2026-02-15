@@ -18,8 +18,19 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""
-Real-Time Threat Detection with PyOD-Compatible Anomaly Detection
+import warnings
+
+warnings.warn(
+    f"{__name__} is deprecated. Use StatisticalAnomalyDetector.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+"""DEPRECATED: This module uses sklearn (IsolationForest, LOF, EllipticEnvelope)
+for anomaly detection. Mercury's production detector is StatisticalAnomalyDetector
+in detectors/statistical.py. This module is retained for reference only.
+
+Original: Real-Time Threat Detection with PyOD-Compatible Anomaly Detection
 
 Implements real-time threat detection using ensemble anomaly detection methods
 compatible with PyOD (Python Outlier Detection) framework.

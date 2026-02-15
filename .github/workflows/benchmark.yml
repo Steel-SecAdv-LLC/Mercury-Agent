@@ -1,5 +1,5 @@
 # Mercury-Agent Benchmark CI/CD Pipeline
-# Runs empirical benchmarks on PRs and stores results as artifacts
+# Gates on honest_benchmark.py (Mercury detector in isolation); empirical runs as comparison only
 # Copyright (C) 2025 Steel Security Advisors LLC
 
 name: Benchmark Pipeline
@@ -47,9 +47,9 @@ env:
   PIP_CACHE_DIR: ~/.cache/pip
   # Performance thresholds - fail CI if below these values
   # Measured baseline (2026-02-15): mean AUC 0.803, mean F1 0.589
-  # Thresholds set below measured performance as regression gates
-  MIN_ROC_AUC: "0.65"
-  MIN_F1: "0.30"
+  # Thresholds set at 15% margin below measured performance as regression gates
+  MIN_ROC_AUC: "0.68"
+  MIN_F1: "0.50"
   # Prevent silent synthetic data fallbacks in CI
   MERCURY_ALLOW_SYNTHETIC: "false"
   # CI-optimized benchmark settings to stay under 120 min timeout
@@ -64,7 +64,7 @@ jobs:
   # Benchmark Suite
   # ===========================================================================
   benchmark:
-    name: Run Empirical Benchmarks
+    name: Run Honest Benchmarks
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -98,243 +98,85 @@ jobs:
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov
 
-      - name: Run empirical benchmarks
+      - name: Run honest benchmark (gating)
         id: benchmark
         run: |
-          cd benchmarks
+          python benchmarks/honest_benchmark.py
+
           python -c "
-          import json
-          import sys
-          sys.path.insert(0, '..')
-          from benchmarks.empirical_benchmark import run_full_benchmark, save_results
+          import json, sys, os
 
-          import os
+          with open('benchmarks/honest_benchmark_results.json') as f:
+              data = json.load(f)
 
-          # Run benchmark with configuration
-          # CI mode uses reduced settings to stay under 120 min timeout
-          ci_mode = os.environ.get('MERCURY_CI_MODE', 'false').lower() == 'true'
-          event_name = '${{ github.event_name }}'
+          mean_auc = data['summary']['mean_auc']
+          mean_f1 = data['summary']['mean_oracle_f1']
+          n_success = data['summary']['successful']
 
-          # For PR CI: disable SOTA and time-series by default for speed
-          # For scheduled/manual runs: enable all features
-          if event_name == 'workflow_dispatch':
-              include_time_series = '${{ github.event.inputs.include_time_series }}' != 'false'
-              include_sota = '${{ github.event.inputs.include_sota }}' != 'false'
-              n_folds = int('${{ github.event.inputs.n_folds }}' or '5')
-          elif event_name == 'schedule':
-              # Weekly runs: full benchmark suite
-              include_time_series = True
-              include_sota = True
-              n_folds = 5
-          else:
-              # PR/push runs: fast CI mode
-              include_time_series = False  # Skip time-series for PR CI (saves ~40 min)
-              include_sota = False
-              n_folds = int(os.environ.get('MERCURY_CI_FOLDS', '3'))
-
-          print(f'CI Mode: {ci_mode}')
-          print(f'Running benchmarks: time_series={include_time_series}, sota={include_sota}, folds={n_folds}')
-
-          results = run_full_benchmark(
-              use_kfold=True,
-              n_folds=n_folds,
-              include_time_series=include_time_series,
-              include_sota=include_sota,
-          )
-
-          # Save results
-          save_results(results, 'benchmark_results.json')
-
-          # Extract key metrics for CI check
-          # Handle both nested (per_detector) and flat summary formats
-          summary_root = results.get('summary', {})
-          per_detector = summary_root.get('per_detector', summary_root)
-          mercury_metrics = per_detector.get('Mercury-Agent', {})
-          mean_roc_auc = mercury_metrics.get('mean_roc_auc', 0.0)
-          mean_f1 = mercury_metrics.get('mean_f1', 0.0)
-
-          print(f'Mercury-Agent Mean ROC-AUC: {mean_roc_auc:.4f}')
-          print(f'Mercury-Agent Mean F1: {mean_f1:.4f}')
+          print(f'Datasets: {n_success} successful')
+          print(f'Mean ROC-AUC: {mean_auc:.4f}')
+          print(f'Mean Oracle F1: {mean_f1:.4f}')
 
           # Write metrics to GitHub output
-          with open('$GITHUB_OUTPUT', 'a') as f:
-              f.write(f'roc_auc={mean_roc_auc:.4f}\n')
+          github_output = os.environ.get('GITHUB_OUTPUT', '/dev/null')
+          with open(github_output, 'a') as f:
+              f.write(f'roc_auc={mean_auc:.4f}\n')
               f.write(f'f1={mean_f1:.4f}\n')
 
-          # Check thresholds
+          # Check thresholds — fail CI on regression
           min_roc_auc = float('${{ env.MIN_ROC_AUC }}')
           min_f1 = float('${{ env.MIN_F1 }}')
 
-          if mean_roc_auc < min_roc_auc:
-              print(f'WARNING: ROC-AUC {mean_roc_auc:.4f} below threshold {min_roc_auc}')
+          failed = False
+          if mean_auc < min_roc_auc:
+              print(f'REGRESSION: ROC-AUC {mean_auc:.4f} below threshold {min_roc_auc}')
+              failed = True
           if mean_f1 < min_f1:
-              print(f'WARNING: F1 {mean_f1:.4f} below threshold {min_f1}')
-          "
+              print(f'REGRESSION: F1 {mean_f1:.4f} below threshold {min_f1}')
+              failed = True
 
-      - name: Generate benchmark report
-        run: |
-          cd benchmarks
-          python -c "
-          import json
-          from pathlib import Path
-
-          # Load results
-          with open('benchmark_results.json', 'r') as f:
-              results = json.load(f)
-
-          # Generate markdown report
-          report = []
-          report.append('# Mercury-Agent Benchmark Report')
-          report.append('')
-          report.append(f'**Timestamp:** {results[\"timestamp\"]}')
-          report.append('')
-          report.append('## Configuration')
-          methodology = results.get('methodology', {})
-          report.append(f'- **Datasets:** {len(methodology.get(\"datasets\", []))}')
-          report.append(f'- **Detectors:** {len(methodology.get(\"detectors\", []))}')
-          report.append(f'- **K-Fold CV:** {methodology.get(\"k_fold\", False)} (n={methodology.get(\"n_folds\", \"N/A\")})')
-          report.append(f'- **Time-Series:** {methodology.get(\"include_time_series\", False)}')
-          report.append(f'- **SOTA Models:** {methodology.get(\"include_sota\", False)}')
-          report.append('')
-          report.append('## Summary Results')
-          report.append('')
-          report.append('| Detector | Mean ROC-AUC | Std ROC-AUC | Mean F1 | Std F1 |')
-          report.append('|----------|-------------|-------------|---------|--------|')
-
-          # Handle both nested (per_detector) and flat summary formats
-          summary_root = results.get('summary', {})
-          per_detector = summary_root.get('per_detector', summary_root)
-          for detector, metrics in per_detector.items():
-              # Skip non-detector entries (like 'rankings', 'honest_assessment')
-              if not isinstance(metrics, dict) or 'mean_roc_auc' not in metrics:
-                  continue
-              mean_roc = metrics.get('mean_roc_auc', 0.0)
-              std_roc = metrics.get('std_roc_auc', 0.0)
-              mean_f1 = metrics.get('mean_f1', 0.0)
-              std_f1 = metrics.get('std_f1', 0.0)
-              report.append(f'| {detector} | {mean_roc:.4f} | {std_roc:.4f} | {mean_f1:.4f} | {std_f1:.4f} |')
-
-          report.append('')
-          report.append('## Per-Dataset Results')
-          report.append('')
-
-          # Group results by dataset
-          dataset_results = {}
-          for r in results.get('results', []):
-              ds = r['dataset_name']
-              if ds not in dataset_results:
-                  dataset_results[ds] = []
-              dataset_results[ds].append(r)
-
-          for dataset, ds_results in dataset_results.items():
-              report.append(f'### {dataset}')
-              report.append('')
-              report.append('| Detector | ROC-AUC | F1 | Precision | Recall |')
-              report.append('|----------|---------|-----|-----------|--------|')
-              for r in ds_results:
-                  report.append(f'| {r[\"detector_name\"]} | {r[\"roc_auc\"]:.4f} | {r[\"f1\"]:.4f} | {r[\"precision\"]:.4f} | {r[\"recall\"]:.4f} |')
-              report.append('')
-
-          # Add synthetic dataset tracking section
-          dataset_names = list(dataset_results.keys())
-          synthetic_datasets = [d for d in dataset_names if '_synthetic' in d]
-          real_datasets = [d for d in dataset_names if '_synthetic' not in d]
-          synthetic_ratio = len(synthetic_datasets) / len(dataset_names) if dataset_names else 0
-
-          report.append('## Data Source Transparency')
-          report.append('')
-          real_list = ', '.join(real_datasets) if real_datasets else 'none'
-          synth_list = ', '.join(synthetic_datasets) if synthetic_datasets else 'none'
-          report.append(f'- **Real datasets:** {len(real_datasets)} ({real_list})')
-          report.append(f'- **Synthetic fallbacks:** {len(synthetic_datasets)} ({synth_list})')
-          report.append(f'- **Synthetic ratio:** {synthetic_ratio:.1%}')
-          if synthetic_ratio > 0.5:
-              report.append('')
-              report.append('**WARNING:** >50% of datasets used synthetic fallbacks. Results may not reflect real-world performance.')
-          report.append('')
-
-          # Write report
-          with open('benchmark_report.md', 'w') as f:
-              f.write('\n'.join(report))
-
-          print('Benchmark report generated: benchmark_report.md')
-          print(f'Data sources: {len(real_datasets)} real, {len(synthetic_datasets)} synthetic ({synthetic_ratio:.1%} synthetic)')
-          "
-
-      - name: Check synthetic data quality gate
-        run: |
-          cd benchmarks
-          python -c "
-          import json
-          import sys
-
-          with open('benchmark_results.json', 'r') as f:
-              results = json.load(f)
-
-          # Count synthetic vs real datasets
-          dataset_names = set(r['dataset_name'] for r in results.get('results', []))
-          synthetic_count = sum(1 for d in dataset_names if '_synthetic' in d)
-          total_count = len(dataset_names)
-          synthetic_ratio = synthetic_count / total_count if total_count else 0
-
-          print(f'Dataset sources: {total_count - synthetic_count} real, {synthetic_count} synthetic')
-          print(f'Synthetic ratio: {synthetic_ratio:.1%}')
-
-          if synthetic_ratio > 0.5:
-              print('WARNING: >50% of datasets used synthetic fallbacks.')
-              print('This may indicate external data sources are unavailable.')
-              print('Benchmark results may not reflect real-world performance.')
+          if failed:
               sys.exit(1)
           else:
-              print('Quality gate passed: majority of datasets are from real sources.')
+              print('All regression gates passed.')
           "
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results-${{ github.sha }}
-          path: |
-            benchmarks/benchmark_results.json
-            benchmarks/benchmark_report.md
+          path: benchmarks/honest_benchmark_results.json
           retention-days: 90
 
-      - name: Comment on PR with results
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+      # Comparison baselines — not gating
+      - name: Run empirical benchmarks (comparison only)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        run: |
+          cd benchmarks
+          python -c "
+          import sys
+          sys.path.insert(0, '..')
+          from benchmarks.empirical_benchmark import run_full_benchmark, save_results
+
+          results = run_full_benchmark(
+              use_kfold=True,
+              n_folds=3,
+              include_time_series=False,
+              include_sota=False,
+          )
+          save_results(results, 'empirical_benchmark_results.json')
+          print('Empirical benchmark complete (comparison only, not gating).')
+          "
+
+      - name: Upload empirical results (comparison)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
-          script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('benchmarks/benchmark_report.md', 'utf8');
-
-            // Find existing comment
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-
-            const botComment = comments.find(comment =>
-              comment.user.type === 'Bot' &&
-              comment.body.includes('Mercury-Agent Benchmark Report')
-            );
-
-            const body = `## Benchmark Results\n\n${report}\n\n*Updated: ${new Date().toISOString()}*`;
-
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
-            }
+          name: empirical-results-${{ github.sha }}
+          path: benchmarks/empirical_benchmark_results.json
+          retention-days: 90
 
   # ===========================================================================
   # Performance Regression Check
@@ -358,31 +200,23 @@ jobs:
           import json
           import sys
 
-          # Load current results
-          with open('current/benchmark_results.json', 'r') as f:
-              current = json.load(f)
+          with open('current/honest_benchmark_results.json') as f:
+              data = json.load(f)
 
-          # Extract Mercury-Agent metrics
-          # Handle both nested (per_detector) and flat summary formats
-          summary_root = current.get('summary', {})
-          per_detector = summary_root.get('per_detector', summary_root)
-          mercury = per_detector.get('Mercury-Agent', {})
-          current_roc_auc = mercury.get('mean_roc_auc', 0.0)
-          current_f1 = mercury.get('mean_f1', 0.0)
+          mean_auc = data['summary']['mean_auc']
+          mean_f1 = data['summary']['mean_oracle_f1']
 
-          # Performance thresholds
           min_roc_auc = float('${{ env.MIN_ROC_AUC }}')
           min_f1 = float('${{ env.MIN_F1 }}')
 
-          print(f'Current ROC-AUC: {current_roc_auc:.4f} (threshold: {min_roc_auc})')
-          print(f'Current F1: {current_f1:.4f} (threshold: {min_f1})')
+          print(f'Current ROC-AUC: {mean_auc:.4f} (threshold: {min_roc_auc})')
+          print(f'Current F1: {mean_f1:.4f} (threshold: {min_f1})')
 
-          # Check for regression
           regression = False
-          if current_roc_auc < min_roc_auc:
+          if mean_auc < min_roc_auc:
               print(f'REGRESSION: ROC-AUC below threshold')
               regression = True
-          if current_f1 < min_f1:
+          if mean_f1 < min_f1:
               print(f'REGRESSION: F1 below threshold')
               regression = True
 
