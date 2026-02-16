@@ -119,6 +119,29 @@ class FinancialLoader(BaseDomainLoader):
     SOURCE_URL: str = _FRED_BASE_URL
     REQUIRES_API_KEY: bool = True
     API_KEY_ENV_VAR: str = "FRED_API_KEY"
+    FEATURE_COLUMNS: list[str] = [
+        "vix",
+        "vix_roc",
+        "yield_curve",
+        "yield_curve_inverted",
+        "credit_spread",
+        "credit_spread_roc",
+        "ted_spread",
+        "vix_yc_corr",
+        "vix_zscore",
+        "yc_zscore",
+        "cs_zscore",
+        "ted_zscore",
+    ]
+
+    def _require_api_key(self) -> None:
+        """Raise EnvironmentError if the FRED API key is not configured."""
+        if not self._api_key:
+            raise EnvironmentError(
+                "FRED_API_KEY not set. The financial domain loader requires a free "
+                "FRED API key. Register at https://fred.stlouisfed.org/docs/api/api_key.html "
+                "and set the FRED_API_KEY environment variable."
+            )
 
     # ------------------------------------------------------------------
     # Abstract interface implementation
@@ -136,8 +159,10 @@ class FinancialLoader(BaseDomainLoader):
             ``fed_funds_rate``, ``ted_spread``.
 
         Raises:
+            EnvironmentError: If FRED_API_KEY is not set.
             ConnectionError: If the FRED API is unreachable after retries.
         """
+        self._require_api_key()
         cache_key = "financial_realtime"
         cached = self._read_cache(cache_key)
 
@@ -170,9 +195,11 @@ class FinancialLoader(BaseDomainLoader):
             covering the event's date range.
 
         Raises:
+            EnvironmentError: If FRED_API_KEY is not set.
             ValueError: If *event_id* is not in the catalog.
             ConnectionError: If the FRED API is unreachable after retries.
         """
+        self._require_api_key()
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
                 f"Unknown event_id '{event_id}'. "

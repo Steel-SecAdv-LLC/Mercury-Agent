@@ -102,6 +102,11 @@ class EarthquakeLoader(BaseDomainLoader):
     SOURCE_URL: str = _REALTIME_URL
     REQUIRES_API_KEY: bool = False
 
+    FEATURE_COLUMNS: list[str] = [
+        "magnitude", "depth", "latitude", "longitude",
+        "time_delta_s", "seismicity_rate", "b_value", "mag_deviation",
+    ]
+
     # ------------------------------------------------------------------
     # Abstract interface implementation
     # ------------------------------------------------------------------

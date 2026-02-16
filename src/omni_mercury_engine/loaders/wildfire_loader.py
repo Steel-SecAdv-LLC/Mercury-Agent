@@ -117,6 +117,15 @@ class WildfireLoader(BaseDomainLoader):
     SOURCE_URL: str = "https://firms.modaps.eosdis.nasa.gov/api/area/csv/"
     REQUIRES_API_KEY: bool = True
     API_KEY_ENV_VAR: str = "NASA_FIRMS_MAP_KEY"
+    FEATURE_COLUMNS: list[str] = [
+        "brightness",
+        "frp",
+        "confidence",
+        "scan",
+        "track",
+        "cluster_count",
+        "spread_rate",
+    ]
 
     # ------------------------------------------------------------------
     # Abstract interface implementation
@@ -421,13 +430,14 @@ class WildfireLoader(BaseDomainLoader):
         """Raise if no API key is configured.
 
         Raises:
-            RuntimeError: When the API key is empty.
+            EnvironmentError: When the API key is empty.
         """
         if not self._api_key:
-            raise RuntimeError(
-                f"{self.DOMAIN} loader requires an API key. "
-                f"Set the {self.API_KEY_ENV_VAR} environment variable or "
-                f"pass api_key= to the constructor."
+            raise EnvironmentError(
+                "NASA_FIRMS_MAP_KEY not set. The wildfire domain loader requires a "
+                "free NASA FIRMS MAP key. Register at "
+                "https://firms.modaps.eosdis.nasa.gov/api/map_key/ "
+                "and set the NASA_FIRMS_MAP_KEY environment variable."
             )
 
     def _fetch_firms_csv(self, url: str) -> pd.DataFrame:

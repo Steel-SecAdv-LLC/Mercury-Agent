@@ -137,6 +137,12 @@ class TsunamiLoader(BaseDomainLoader):
     DOMAIN: str = "tsunami"
     SOURCE_URL: str = "https://www.ndbc.noaa.gov/data/realtime2/"
     REQUIRES_API_KEY: bool = False
+    FEATURE_COLUMNS: list[str] = [
+        "bpr",
+        "tidal_deviation",
+        "rate_of_change",
+        "rolling_std",
+    ]
 
     # Cache historical event data for 24 hours (events are static).
     CACHE_TTL: int = 86400

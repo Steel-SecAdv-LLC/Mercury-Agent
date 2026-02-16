@@ -109,6 +109,12 @@ class TornadoLoader(BaseDomainLoader):
     SOURCE_URL: str = _ARCHIVE_URL
     REQUIRES_API_KEY: bool = False
 
+    FEATURE_COLUMNS: list[str] = [
+        "ef_scale", "path_length", "path_width", "fatalities", "injuries",
+        "slat", "slon", "temporal_cluster", "geo_anomaly",
+        "month", "day_of_year", "hour",
+    ]
+
     # ------------------------------------------------------------------
     # Abstract interface implementation
     # ------------------------------------------------------------------

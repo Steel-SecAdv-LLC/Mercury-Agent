@@ -167,6 +167,16 @@ class MarineLoader(BaseDomainLoader):
     DOMAIN: str = "marine"
     SOURCE_URL: str = _OBIS_BASE_URL
     REQUIRES_API_KEY: bool = False
+    FEATURE_COLUMNS: list[str] = [
+        "occurrence_count",
+        "species_richness",
+        "mean_depth",
+        "depth_std",
+        "lat_centroid",
+        "lon_centroid",
+        "temporal_change",
+        "sst_anomaly_proxy",
+    ]
 
     # Cache historical event data for 24 hours (events are static).
     CACHE_TTL: int = 86400
@@ -471,7 +481,11 @@ class MarineLoader(BaseDomainLoader):
             baseline_df = pd.DataFrame()
             primary_df = df
 
-        grid_cells = sorted(primary_df["grid_cell"].unique())
+        # Use union of all grid cells (matching get_ground_truth behaviour).
+        all_cell_set = set(primary_df["grid_cell"].unique())
+        if not baseline_df.empty and "grid_cell" in baseline_df.columns:
+            all_cell_set |= set(baseline_df["grid_cell"].unique())
+        grid_cells = sorted(all_cell_set)
         if not grid_cells:
             return np.empty((0, 8), dtype=np.float64)
 

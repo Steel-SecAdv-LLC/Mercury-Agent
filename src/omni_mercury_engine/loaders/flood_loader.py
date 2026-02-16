@@ -106,6 +106,13 @@ class FloodLoader(BaseDomainLoader):
     DOMAIN: str = "flood"
     SOURCE_URL: str = _USGS_IV_URL
     REQUIRES_API_KEY: bool = False
+    FEATURE_COLUMNS: list[str] = [
+        "gauge_height_ft",
+        "discharge_cfs",
+        "rate_of_rise",
+        "median_deviation",
+        "peak_to_baseline",
+    ]
 
     # ------------------------------------------------------------------
     # Abstract interface implementation

@@ -147,6 +147,16 @@ class EnergyLoader(BaseDomainLoader):
     SOURCE_URL: str = "https://services.swpc.noaa.gov/json/"
     REQUIRES_API_KEY: bool = False
     API_KEY_ENV_VAR: str = ""
+    FEATURE_COLUMNS: list[str] = [
+        "kp",
+        "kp_rate_of_change",
+        "solar_wind_speed",
+        "solar_wind_density",
+        "xray_class",
+        "kp_storm_flag",
+        "kp_severe_flag",
+        "kp_rolling_max",
+    ]
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the energy loader.

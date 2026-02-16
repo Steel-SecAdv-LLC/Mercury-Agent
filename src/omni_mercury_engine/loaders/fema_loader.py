@@ -117,7 +117,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "All flood disaster declarations for fiscal year 2024. "
             "Captures major flooding events requiring federal response."
         ),
-        "filter": "incidentType eq 'Flood' and fyDeclared eq '2024'",
+        "filter": "incidentType eq 'Flood' and fyDeclared eq 2024",
     },
     "hurricane_2024": {
         "name": "2024 Hurricane Disaster Declarations",
@@ -144,7 +144,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Complete set of disaster declarations for 2023 across "
             "all incident types and declaration categories."
         ),
-        "filter": "fyDeclared eq '2023'",
+        "filter": "fyDeclared eq 2023",
     },
     "earthquake_all": {
         "name": "All Earthquake Declarations",
@@ -192,9 +192,59 @@ class FEMALoader(BaseDomainLoader):
     DOMAIN: str = "fema"
     SOURCE_URL: str = _DECLARATIONS_URL
     REQUIRES_API_KEY: bool = False
+    FEATURE_COLUMNS: list[str] = [
+        "disaster_type",
+        "state_fips",
+        "declaration_type",
+        "year",
+        "month",
+        "day",
+        "ia_program",
+        "pa_program",
+        "hm_program",
+        "time_between_declarations",
+        "geographic_cluster",
+    ]
 
     # Cache historical event data for 24 hours (declarations are stable).
     CACHE_TTL: int = 86400
+
+    def _fetch_fema_json(
+        self,
+        url: str,
+        params: dict[str, str],
+    ) -> Any:
+        """Fetch JSON from the FEMA OpenFEMA API with OData $-parameters.
+
+        The base ``_fetch_json`` method uses ``urllib.parse.urlencode`` which
+        percent-encodes ``$`` as ``%24`` in query keys.  The FEMA OData API
+        requires literal ``$`` characters, so we build the query string
+        manually.
+
+        Args:
+            url: Base URL.
+            params: OData query parameters (may contain ``$`` keys).
+
+        Returns:
+            Parsed JSON response.
+        """
+        import urllib.parse
+
+        # FEMA OData API requires $inlinecount=allpages for $filter to work
+        if "$inlinecount" not in params:
+            params["$inlinecount"] = "allpages"
+
+        parts: list[str] = []
+        for k, v in params.items():
+            # Encode value (spaces -> %20, quotes -> %27) but keep $ in keys
+            encoded_val = urllib.parse.quote(str(v), safe="")
+            parts.append(f"{k}={encoded_val}")
+        query_string = "&".join(parts)
+        full_url = f"{url}?{query_string}"
+        data = self._fetch_url(full_url)
+        import json as _json
+
+        return _json.loads(data)
 
     # ------------------------------------------------------------------
     # Abstract interface implementation
@@ -230,7 +280,7 @@ class FEMALoader(BaseDomainLoader):
             "$top": str(_PAGE_SIZE),
         }
 
-        data = self._fetch_json(_DECLARATIONS_URL, params=params)
+        data = self._fetch_fema_json(_DECLARATIONS_URL, params)
         records = data.get("DisasterDeclarationsSummaries", [])
         df = self._records_to_dataframe(records)
 
@@ -285,7 +335,7 @@ class FEMALoader(BaseDomainLoader):
                 "$orderby": "declarationDate asc",
             }
 
-            data = self._fetch_json(_DECLARATIONS_URL, params=params)
+            data = self._fetch_fema_json(_DECLARATIONS_URL, params)
             records = data.get("DisasterDeclarationsSummaries", [])
 
             if not records:

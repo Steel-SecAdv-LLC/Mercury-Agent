@@ -155,6 +155,20 @@ class PandemicLoader(BaseDomainLoader):
     DOMAIN: str = "pandemic"
     SOURCE_URL: str = "https://github.com/owid/covid-19-data"
     REQUIRES_API_KEY: bool = False
+    FEATURE_COLUMNS: list[str] = [
+        "new_cases",
+        "new_deaths",
+        "total_cases",
+        "total_deaths",
+        "new_cases_per_million",
+        "new_deaths_per_million",
+        "rolling_avg_7d",
+        "case_growth_rate",
+        "reproduction_rate",
+        "testing_rate",
+        "positivity_rate",
+        "stringency_index",
+    ]
 
     #: Cache the large OWID dataset for 6 hours
     CACHE_TTL: int = 21600

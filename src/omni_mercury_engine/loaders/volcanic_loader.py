@@ -150,6 +150,16 @@ class VolcanicLoader(BaseDomainLoader):
     DOMAIN: str = "volcanic"
     SOURCE_URL: str = _API_BASE
     REQUIRES_API_KEY: bool = False
+    FEATURE_COLUMNS: list[str] = [
+        "alert_level_numeric",
+        "color_code_numeric",
+        "alert_level_delta",
+        "color_code_delta",
+        "latitude",
+        "longitude",
+        "elevation",
+        "days_since_last_change",
+    ]
 
     # ------------------------------------------------------------------
     # Abstract interface implementation

@@ -147,6 +147,27 @@ class SepsisLoader(BaseDomainLoader):
     DOMAIN: str = "sepsis"
     SOURCE_URL: str = "https://physionet.org/content/challenge-2019/"
     REQUIRES_API_KEY: bool = False
+    FEATURE_COLUMNS: list[str] = [
+        # Raw vital signs (7)
+        "HR", "O2Sat", "Temp", "SBP", "MAP", "DBP", "Resp",
+        # Raw lab values (5)
+        "WBC", "Lactate", "Creatinine", "Platelets", "Bilirubin_total",
+        # Raw SOFA-related (5)
+        "FiO2", "pH", "PaCO2", "SaO2", "BUN",
+        # First derivatives (17)
+        "d_HR", "d_O2Sat", "d_Temp", "d_SBP", "d_MAP", "d_DBP", "d_Resp",
+        "d_WBC", "d_Lactate", "d_Creatinine", "d_Platelets",
+        "d_Bilirubin_total",
+        "d_FiO2", "d_pH", "d_PaCO2", "d_SaO2", "d_BUN",
+        # Rolling standard deviation (17)
+        "std_HR", "std_O2Sat", "std_Temp", "std_SBP", "std_MAP",
+        "std_DBP", "std_Resp",
+        "std_WBC", "std_Lactate", "std_Creatinine", "std_Platelets",
+        "std_Bilirubin_total",
+        "std_FiO2", "std_pH", "std_PaCO2", "std_SaO2", "std_BUN",
+        # Interaction terms (2)
+        "hr_map_product", "resp_o2sat_product",
+    ]
 
     #: Cache TTL -- 24 hours (challenge data is static)
     CACHE_TTL: int = 86400

@@ -181,9 +181,15 @@ loadtest = [
     "locust>=2.20.0",  # Load testing framework
 ]
 
+# Domain-specific loader dependencies (currently all loaders use stdlib + numpy + pandas,
+# but these are reserved for future external API client libraries)
+domains = [
+    "aiohttp>=3.9.0",
+]
+
 # Full installation with all features
 all = [
-    "mercury-agent[ml,visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark]",
+    "mercury-agent[ml,visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains]",
 ]
 
 [project.urls]

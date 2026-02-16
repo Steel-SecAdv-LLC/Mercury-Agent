@@ -165,6 +165,16 @@ class HurricaneLoader(BaseDomainLoader):
     DOMAIN: str = "hurricane"
     SOURCE_URL: str = _BASE_CSV_URL
     REQUIRES_API_KEY: bool = False
+    FEATURE_COLUMNS: list[str] = [
+        "wind_kt",
+        "pressure_mb",
+        "lat",
+        "lon",
+        "wind_change_24h",
+        "pressure_drop_24h",
+        "track_deviation",
+        "translation_speed",
+    ]
 
     # Cache for 6 hours since IBTrACS updates less frequently
     CACHE_TTL: int = 21600

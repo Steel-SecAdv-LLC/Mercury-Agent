@@ -148,6 +148,18 @@ class LandslideLoader(BaseDomainLoader):
         "global_landslide_catalog/"
     )
     REQUIRES_API_KEY: bool = False
+    FEATURE_COLUMNS: list[str] = [
+        "category_code",
+        "fatality_count",
+        "injury_count",
+        "trigger_code",
+        "latitude",
+        "longitude",
+        "size_code",
+        "country_code",
+        "month",
+        "day_of_year",
+    ]
 
     # ------------------------------------------------------------------
     # Abstract interface implementation
