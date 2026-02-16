@@ -40,6 +40,7 @@ Usage:
 from __future__ import annotations
 
 import time
+from typing import Any
 
 import numpy as np
 
@@ -75,8 +76,7 @@ class FederatedAggregator:
         age = time.time() - stats.timestamp
         if age > self.max_age_seconds:
             raise ValueError(
-                f"Statistics from {stats.node_id} are {age:.0f}s old "
-                f"(max {self.max_age_seconds:.0f}s)"
+                f"Statistics from {stats.node_id} are {age:.0f}s old " f"(max {self.max_age_seconds:.0f}s)"
             )
         if stats.n_samples < 1:
             raise ValueError(f"Node {stats.node_id} reports 0 samples")
@@ -102,9 +102,7 @@ class FederatedAggregator:
             RuntimeError: If fewer than min_nodes have submitted.
         """
         if len(self._submissions) < self.min_nodes:
-            raise RuntimeError(
-                f"Need {self.min_nodes} nodes, have {len(self._submissions)}"
-            )
+            raise RuntimeError(f"Need {self.min_nodes} nodes, have {len(self._submissions)}")
 
         subs = self._submissions
         total_n = sum(s.n_samples for s in subs)
@@ -141,15 +139,9 @@ class FederatedAggregator:
         global_res_noise_ratio = wavg([s.res_noise_ratio for s in subs])
 
         # Aggregate stds via pooled variance
-        global_std = pooled_std(
-            [s.mean for s in subs], [s.std for s in subs]
-        )
-        global_kin_jerk_std = pooled_std(
-            [s.kin_jerk_mean for s in subs], [s.kin_jerk_std for s in subs]
-        )
-        global_kin_accel_std = pooled_std(
-            [s.kin_accel_mean for s in subs], [s.kin_accel_std for s in subs]
-        )
+        global_std = pooled_std([s.mean for s in subs], [s.std for s in subs])
+        global_kin_jerk_std = pooled_std([s.kin_jerk_mean for s in subs], [s.kin_jerk_std for s in subs])
+        global_kin_accel_std = pooled_std([s.kin_accel_mean for s in subs], [s.kin_accel_std for s in subs])
 
         # Aggregate percentiles (weighted average approximation)
         global_q1 = wavg([s.q1 for s in subs])
@@ -190,7 +182,7 @@ class FederatedAggregator:
         return result
 
     @staticmethod
-    def to_detector(stats: FittedStatistics):
+    def to_detector(stats: FittedStatistics) -> Any:
         """Reconstruct a working MercuryAnomalyDetector from FittedStatistics.
 
         This is the CRITICAL bridge that makes federation complete.

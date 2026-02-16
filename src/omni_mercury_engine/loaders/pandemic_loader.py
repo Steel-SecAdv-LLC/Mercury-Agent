@@ -17,7 +17,6 @@ transmission dynamics.
 from __future__ import annotations
 
 import io
-import json
 import logging
 from typing import Any
 
@@ -31,10 +30,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Data source URLs
 # ---------------------------------------------------------------------------
-_OWID_CSV_URL = (
-    "https://raw.githubusercontent.com/owid/covid-19-data/"
-    "master/public/data/owid-covid-data.csv"
-)
+_OWID_CSV_URL = "https://raw.githubusercontent.com/owid/covid-19-data/" "master/public/data/owid-covid-data.csv"
 
 _WHO_GHO_BASE_URL = "https://ghoapi.azureedge.net/api"
 
@@ -43,8 +39,7 @@ _WHO_GHO_API_URL = "https://ghoapi.azureedge.net/api/"
 _WHO_EMERGENCIES_URL = "https://www.who.int/api/hubs/emergencies"
 
 _JHU_CSSE_BASE_URL = (
-    "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/"
-    "master/csse_covid_19_data/csse_covid_19_time_series/"
+    "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/" "master/csse_covid_19_data/csse_covid_19_time_series/"
 )
 
 # ---------------------------------------------------------------------------
@@ -180,10 +175,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "source": "stub",
         "pathogen_class": "fungus",
         "pathogen": "Candida auris",
-        "_stub_reason": (
-            "CDC C. auris data requires manual download. "
-            "Placeholder for future integration."
-        ),
+        "_stub_reason": ("CDC C. auris data requires manual download. " "Placeholder for future integration."),
     },
     # --- PARASITE (pathogen_class=parasite) ---
     "malaria_subsaharan_2019_2022": {
@@ -203,8 +195,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "pathogen_class": "parasite",
         "pathogen": "Plasmodium falciparum",
         "_stub_reason": (
-            "WHO GHO MALARIA001 indicator returns empty for NGA. "
-            "Placeholder pending alternative data source."
+            "WHO GHO MALARIA001 indicator returns empty for NGA. " "Placeholder pending alternative data source."
         ),
     },
     # --- PRION (pathogen_class=prion) ---
@@ -222,11 +213,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "source": "stub",
         "pathogen_class": "prion",
         "pathogen": "Prion (CJD)",
-        "_warning": "Annual data only. Insufficient density for "
-                    "real-time detection.",
-        "_stub_reason": (
-            "CDC CJD data is published as annual PDF reports, not API."
-        ),
+        "_warning": "Annual data only. Insufficient density for " "real-time detection.",
+        "_stub_reason": ("CDC CJD data is published as annual PDF reports, not API."),
     },
     # --- BIOSURVEILLANCE (pathogen_class=biosurveillance) ---
     "who_emergencies_2020_2024": {
@@ -354,10 +342,7 @@ class PandemicLoader(BaseDomainLoader):
             ConnectionError: If the data source is unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
-            )
+            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
 
         cache_key = f"pandemic_historical_{event_id}"
         cached = self._read_cache(cache_key)
@@ -371,8 +356,7 @@ class PandemicLoader(BaseDomainLoader):
 
         if source == "stub":
             logger.warning(
-                "Data source for '%s' is a stub — no live API available. "
-                "Reason: %s",
+                "Data source for '%s' is a stub — no live API available. " "Reason: %s",
                 event_id,
                 event.get("_stub_reason", "unknown"),
             )
@@ -396,14 +380,10 @@ class PandemicLoader(BaseDomainLoader):
                 end_date=event["end"],
             )
         else:
-            raise ValueError(
-                f"Unknown data source '{source}' for event '{event_id}'."
-            )
+            raise ValueError(f"Unknown data source '{source}' for event '{event_id}'.")
 
         if df.empty:
-            logger.warning(
-                "No data returned for event '%s'.", event_id
-            )
+            logger.warning("No data returned for event '%s'.", event_id)
             return df
 
         # Sort chronologically
@@ -412,9 +392,7 @@ class PandemicLoader(BaseDomainLoader):
             df = df.sort_values("date").reset_index(drop=True)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d historical records for event '%s'.", len(df), event_id
-        )
+        logger.info("Fetched %d historical records for event '%s'.", len(df), event_id)
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
@@ -442,10 +420,7 @@ class PandemicLoader(BaseDomainLoader):
         Returns:
             Sorted list of unique pathogen class strings.
         """
-        return sorted(set(
-            e.get("pathogen_class", "unknown")
-            for e in _EVENT_CATALOG.values()
-        ))
+        return sorted(set(e.get("pathogen_class", "unknown") for e in _EVENT_CATALOG.values()))
 
     def get_ground_truth(self, event_id: str) -> np.ndarray:
         """Generate binary anomaly labels for a historical pandemic event.
@@ -468,18 +443,13 @@ class PandemicLoader(BaseDomainLoader):
                 available.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
-            )
+            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
 
         event = _EVENT_CATALOG[event_id]
 
         # Stub events have no data
         if event.get("source") == "stub":
-            logger.warning(
-                "Ground truth unavailable for stub event '%s'.", event_id
-            )
+            logger.warning("Ground truth unavailable for stub event '%s'.", event_id)
             return np.array([], dtype=np.int64)
 
         df = self.fetch_historical(event_id)
@@ -491,17 +461,14 @@ class PandemicLoader(BaseDomainLoader):
         # Density warning for sparse data
         if n_samples < 100:
             logger.warning(
-                "%s | N=%d | Insufficient density for reliable "
-                "anomaly detection",
+                "%s | N=%d | Insufficient density for reliable " "anomaly detection",
                 event_id,
                 n_samples,
             )
 
         # Prion-specific warning
         if event.get("_warning"):
-            logger.warning(
-                "PRION | N=%d | %s", n_samples, event["_warning"]
-            )
+            logger.warning("PRION | N=%d | %s", n_samples, event["_warning"])
 
         # Compute 7-day rolling average of new cases
         new_cases = df["new_cases"].fillna(0).values.astype(np.float64)
@@ -531,8 +498,7 @@ class PandemicLoader(BaseDomainLoader):
                 labels[i] = 1
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total "
-            "(wave acceleration threshold: 2x prior-month mean).",
+            "Ground truth for '%s': %d anomalies / %d total " "(wave acceleration threshold: 2x prior-month mean).",
             event_id,
             int(labels.sum()),
             len(labels),
@@ -735,8 +701,7 @@ class PandemicLoader(BaseDomainLoader):
         records = data.get("value", [])
         if not records:
             logger.warning(
-                "WHO GHO returned no records for indicator '%s' "
-                "country='%s'.",
+                "WHO GHO returned no records for indicator '%s' " "country='%s'.",
                 indicator,
                 country,
             )
@@ -764,16 +729,18 @@ class PandemicLoader(BaseDomainLoader):
                 row_date = pd.Timestamp(year=year, month=month, day=15)
                 if row_date < start_ts or row_date > end_ts:
                     continue
-                rows.append({
-                    "date": row_date,
-                    "location": rec.get("SpatialDim", country),
-                    "new_cases": monthly_value,
-                    "new_deaths": 0.0,
-                    "total_cases": 0.0,
-                    "total_deaths": 0.0,
-                    "new_cases_per_million": 0.0,
-                    "new_deaths_per_million": 0.0,
-                })
+                rows.append(
+                    {
+                        "date": row_date,
+                        "location": rec.get("SpatialDim", country),
+                        "new_cases": monthly_value,
+                        "new_deaths": 0.0,
+                        "total_cases": 0.0,
+                        "total_deaths": 0.0,
+                        "new_cases_per_million": 0.0,
+                        "new_deaths_per_million": 0.0,
+                    }
+                )
 
         if not rows:
             logger.warning(
@@ -824,9 +791,7 @@ class PandemicLoader(BaseDomainLoader):
         try:
             data = self._fetch_json(_WHO_EMERGENCIES_URL)
         except (ConnectionError, ValueError) as exc:
-            logger.warning(
-                "Failed to fetch WHO Emergencies: %s", exc
-            )
+            logger.warning("Failed to fetch WHO Emergencies: %s", exc)
             return pd.DataFrame()
 
         emergencies = data.get("value", [])
@@ -869,33 +834,28 @@ class PandemicLoader(BaseDomainLoader):
 
         for month_start in date_range:
             month_end = month_start + pd.offsets.MonthEnd(1)
-            count = sum(
-                1 for d in alert_dates
-                if month_start <= d <= month_end
+            count = sum(1 for d in alert_dates if month_start <= d <= month_end)
+            unique_diseases = len(set(t for t, d in zip(alert_titles, alert_dates) if month_start <= d <= month_end))
+            rows.append(
+                {
+                    "date": month_start,
+                    "location": "Global",
+                    "new_cases": float(count),
+                    "new_deaths": 0.0,
+                    "total_cases": 0.0,
+                    "total_deaths": 0.0,
+                    "new_cases_per_million": 0.0,
+                    "new_deaths_per_million": 0.0,
+                    "alert_count": float(count),
+                    "unique_diseases": float(unique_diseases),
+                }
             )
-            unique_diseases = len(set(
-                t for t, d in zip(alert_titles, alert_dates)
-                if month_start <= d <= month_end
-            ))
-            rows.append({
-                "date": month_start,
-                "location": "Global",
-                "new_cases": float(count),
-                "new_deaths": 0.0,
-                "total_cases": 0.0,
-                "total_deaths": 0.0,
-                "new_cases_per_million": 0.0,
-                "new_deaths_per_million": 0.0,
-                "alert_count": float(count),
-                "unique_diseases": float(unique_diseases),
-            })
 
         df = pd.DataFrame(rows)
         df["total_cases"] = df["new_cases"].cumsum()
 
         logger.info(
-            "WHO Emergencies: constructed %d-month biosurveillance "
-            "time series (%d alerts total).",
+            "WHO Emergencies: constructed %d-month biosurveillance " "time series (%d alerts total).",
             len(df),
             len(alert_dates),
         )
@@ -994,8 +954,7 @@ class PandemicLoader(BaseDomainLoader):
             records = data.get("value", [])
             if not records:
                 logger.warning(
-                    "WHO GHO returned no records for indicator '%s'. "
-                    "Falling back to synthetic Ebola data.",
+                    "WHO GHO returned no records for indicator '%s'. " "Falling back to synthetic Ebola data.",
                     indicator,
                 )
                 return self._synthetic_ebola_2014()
@@ -1026,10 +985,7 @@ class PandemicLoader(BaseDomainLoader):
             df = df[(df["date"] >= start) & (df["date"] <= end)].copy()
 
             if df.empty:
-                logger.warning(
-                    "WHO GHO data empty after date filtering. "
-                    "Falling back to synthetic Ebola data."
-                )
+                logger.warning("WHO GHO data empty after date filtering. " "Falling back to synthetic Ebola data.")
                 return self._synthetic_ebola_2014()
 
             df = df.sort_values("date").reset_index(drop=True)
@@ -1037,8 +993,7 @@ class PandemicLoader(BaseDomainLoader):
 
         except (ConnectionError, KeyError, TypeError) as exc:
             logger.warning(
-                "Failed to fetch WHO GHO data: %s. "
-                "Falling back to synthetic Ebola data.",
+                "Failed to fetch WHO GHO data: %s. " "Falling back to synthetic Ebola data.",
                 exc,
             )
             return self._synthetic_ebola_2014()

@@ -1,7 +1,7 @@
 """Tests for Mercury-native federated anomaly detection.
 
 Covers: FederatedNode, FederatedAggregator, FittedStatistics,
-DifferentialPrivacy, and end-to-end federation with real domain data.
+and end-to-end federation with real domain data.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ import pytest
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.federation.aggregator import FederatedAggregator
 from omni_mercury_engine.federation.node import FederatedNode
-from omni_mercury_engine.federation.privacy import DifferentialPrivacy
 from omni_mercury_engine.federation.statistics import FittedStatistics
 
 # ---------------------------------------------------------------------------
@@ -67,6 +66,7 @@ def stats_b(node_b: FederatedNode) -> FittedStatistics:
 # Test 1: node fit and export
 # ---------------------------------------------------------------------------
 
+
 def test_node_fit_export(node_a: FederatedNode) -> None:
     """Fit a node on synthetic data, export statistics, verify all 13
     fields populated and shapes match."""
@@ -82,9 +82,12 @@ def test_node_fit_export(node_a: FederatedNode) -> None:
         assert arr.shape == (_N_FEATURES,), f"{attr} shape mismatch"
 
     for attr in [
-        "res_h_train", "res_noise_ratio",
-        "kin_jerk_mean", "kin_jerk_std",
-        "kin_accel_mean", "kin_accel_std",
+        "res_h_train",
+        "res_noise_ratio",
+        "kin_jerk_mean",
+        "kin_jerk_std",
+        "kin_accel_mean",
+        "kin_accel_std",
         "ig_mean",
     ]:
         arr = getattr(stats, attr)
@@ -100,6 +103,7 @@ def test_node_fit_export(node_a: FederatedNode) -> None:
 # ---------------------------------------------------------------------------
 # Test 2: statistics match detector
 # ---------------------------------------------------------------------------
+
 
 def test_statistics_match_detector(data_a: np.ndarray) -> None:
     """Fit a node, export stats, compare each exported field against
@@ -129,6 +133,7 @@ def test_statistics_match_detector(data_a: np.ndarray) -> None:
 # Test 3: aggregator two nodes
 # ---------------------------------------------------------------------------
 
+
 def test_aggregator_two_nodes(
     stats_a: FittedStatistics,
     stats_b: FittedStatistics,
@@ -145,8 +150,7 @@ def test_aggregator_two_nodes(
         lo = min(stats_a.mean[i], stats_b.mean[i])
         hi = max(stats_a.mean[i], stats_b.mean[i])
         assert lo <= global_stats.mean[i] <= hi, (
-            f"Feature {i}: aggregated mean {global_stats.mean[i]} "
-            f"not between {lo} and {hi}"
+            f"Feature {i}: aggregated mean {global_stats.mean[i]} " f"not between {lo} and {hi}"
         )
 
     assert global_stats.n_samples == _N_SAMPLES_A + _N_SAMPLES_B
@@ -156,6 +160,7 @@ def test_aggregator_two_nodes(
 # ---------------------------------------------------------------------------
 # Test 4: aggregator weighted by sample size
 # ---------------------------------------------------------------------------
+
 
 def test_aggregator_weighted_by_sample_size() -> None:
     """Node with 1000 samples should dominate over node with 10 samples."""
@@ -189,6 +194,7 @@ def test_aggregator_weighted_by_sample_size() -> None:
 # Test 5: to_detector produces working detector
 # ---------------------------------------------------------------------------
 
+
 def test_to_detector_produces_working_detector(
     stats_a: FittedStatistics,
     stats_b: FittedStatistics,
@@ -208,14 +214,13 @@ def test_to_detector_produces_working_detector(
     assert result["is_anomaly"].shape == (20,)
     assert np.all(result["scores"] >= 0.0)
     assert np.all(result["scores"] <= 1.0)
-    assert result["is_anomaly"].dtype == bool or np.issubdtype(
-        result["is_anomaly"].dtype, np.bool_
-    )
+    assert result["is_anomaly"].dtype == bool or np.issubdtype(result["is_anomaly"].dtype, np.bool_)
 
 
 # ---------------------------------------------------------------------------
 # Test 6: federated detector matches centralized (approximately)
 # ---------------------------------------------------------------------------
+
 
 def test_federated_detector_matches_centralized() -> None:
     """Split data in half, fit two nodes, aggregate, reconstruct
@@ -244,14 +249,13 @@ def test_federated_detector_matches_centralized() -> None:
 
     # Scores should be positively correlated
     correlation = np.corrcoef(central_scores, fed_scores)[0, 1]
-    assert correlation > 0.5, (
-        f"Federated and centralized scores poorly correlated: r={correlation:.3f}"
-    )
+    assert correlation > 0.5, f"Federated and centralized scores poorly correlated: r={correlation:.3f}"
 
 
 # ---------------------------------------------------------------------------
 # Test 7: differential privacy adds noise
 # ---------------------------------------------------------------------------
+
 
 def test_differential_privacy_adds_noise(
     node_a: FederatedNode,
@@ -273,6 +277,7 @@ def test_differential_privacy_adds_noise(
 # ---------------------------------------------------------------------------
 # Test 8: stronger epsilon => more noise
 # ---------------------------------------------------------------------------
+
 
 def test_dp_stronger_epsilon_more_noise(data_a: np.ndarray) -> None:
     """epsilon=0.1 should produce more noise than epsilon=10.0."""
@@ -305,6 +310,7 @@ def test_dp_stronger_epsilon_more_noise(data_a: np.ndarray) -> None:
 # Test 9: DP preserves non-negative
 # ---------------------------------------------------------------------------
 
+
 def test_dp_preserves_non_negative(node_a: FederatedNode) -> None:
     """Noised std, kin_*_std, res_noise_ratio must remain positive."""
     noised = node_a.export_statistics(epsilon=1.0)
@@ -319,6 +325,7 @@ def test_dp_preserves_non_negative(node_a: FederatedNode) -> None:
 # Test 10: serialization roundtrip
 # ---------------------------------------------------------------------------
 
+
 def test_serialization_roundtrip(stats_a: FittedStatistics) -> None:
     """FittedStatistics.to_dict() -> from_dict() preserves all values."""
     d = stats_a.to_dict()
@@ -330,11 +337,18 @@ def test_serialization_roundtrip(stats_a: FittedStatistics) -> None:
     assert restored.ig_log_det == pytest.approx(stats_a.ig_log_det)
 
     for attr in [
-        "mean", "std", "q1", "q3",
-        "res_h_train", "res_noise_ratio",
-        "kin_jerk_mean", "kin_jerk_std",
-        "kin_accel_mean", "kin_accel_std",
-        "ig_mean", "ig_cov_inv",
+        "mean",
+        "std",
+        "q1",
+        "q3",
+        "res_h_train",
+        "res_noise_ratio",
+        "kin_jerk_mean",
+        "kin_jerk_std",
+        "kin_accel_mean",
+        "kin_accel_std",
+        "ig_mean",
+        "ig_cov_inv",
     ]:
         np.testing.assert_allclose(
             getattr(restored, attr),
@@ -347,6 +361,7 @@ def test_serialization_roundtrip(stats_a: FittedStatistics) -> None:
 # ---------------------------------------------------------------------------
 # Test 11: aggregator rejects stale stats
 # ---------------------------------------------------------------------------
+
 
 def test_aggregator_rejects_stale_stats(stats_a: FittedStatistics) -> None:
     """Stats older than max_age_seconds should raise ValueError."""
@@ -379,6 +394,7 @@ def test_aggregator_rejects_stale_stats(stats_a: FittedStatistics) -> None:
 # Test 12: aggregator min nodes
 # ---------------------------------------------------------------------------
 
+
 def test_aggregator_min_nodes(stats_a: FittedStatistics) -> None:
     """Aggregation with fewer than min_nodes should raise RuntimeError."""
     agg = FederatedAggregator(min_nodes=3)
@@ -391,6 +407,7 @@ def test_aggregator_min_nodes(stats_a: FittedStatistics) -> None:
 # ---------------------------------------------------------------------------
 # Test 13: aggregator rejects dimension mismatch
 # ---------------------------------------------------------------------------
+
 
 def test_aggregator_rejects_dimension_mismatch() -> None:
     """Node A with 5 features, Node B with 8 features should raise."""
@@ -414,6 +431,7 @@ def test_aggregator_rejects_dimension_mismatch() -> None:
 # ---------------------------------------------------------------------------
 # Test 14: from_statistics classmethod
 # ---------------------------------------------------------------------------
+
 
 def test_from_statistics_classmethod(data_a: np.ndarray) -> None:
     """Verify from_statistics produces a working detector."""
@@ -452,6 +470,7 @@ def test_from_statistics_classmethod(data_a: np.ndarray) -> None:
 # Test 15: federation end-to-end with real earthquake data
 # ---------------------------------------------------------------------------
 
+
 def test_federation_end_to_end_with_real_domain() -> None:
     """Federation with real EarthquakeLoader data — NOT synthetic."""
     try:
@@ -467,10 +486,7 @@ def test_federation_end_to_end_with_real_domain() -> None:
         X = loader.engineer_features(raw_data)
 
         if X is None or len(X) < 30:
-            pytest.skip(
-                f"Insufficient earthquake data: "
-                f"N={len(X) if X is not None else 0}"
-            )
+            pytest.skip(f"Insufficient earthquake data: " f"N={len(X) if X is not None else 0}")
 
         # Split into 3 partitions
         n = len(X)
@@ -498,9 +514,7 @@ def test_federation_end_to_end_with_real_domain() -> None:
         assert len(scores) == n
         assert np.all(scores >= 0.0)
         assert np.all(scores <= 1.0)
-        assert is_anomaly.dtype == bool or np.issubdtype(
-            is_anomaly.dtype, np.bool_
-        )
+        assert is_anomaly.dtype == bool or np.issubdtype(is_anomaly.dtype, np.bool_)
 
     except ImportError:
         pytest.skip("EarthquakeLoader not available")

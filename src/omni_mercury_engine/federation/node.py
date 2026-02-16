@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import time
+from typing import Any
 
 import numpy as np
 
@@ -32,7 +33,7 @@ class FederatedNode:
 
     def __init__(self, node_id: str) -> None:
         self.node_id = node_id
-        self._detector = None
+        self._detector: Any = None
         self._fitted = False
         self._n_samples = 0
         self._n_features = 0
@@ -48,6 +49,7 @@ class FederatedNode:
         from omni_mercury_engine.detectors.statistical import (
             MercuryAnomalyDetector,
         )
+
         self._detector = MercuryAnomalyDetector()
         self._detector.fit(X)
         self._n_samples = X.shape[0]
@@ -109,6 +111,7 @@ class FederatedNode:
             from omni_mercury_engine.federation.privacy import (
                 DifferentialPrivacy,
             )
+
             dp = DifferentialPrivacy(epsilon=epsilon, delta=delta)
             stats = dp.apply(stats)
 

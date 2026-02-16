@@ -49,24 +49,24 @@ class FittedStatistics:
     n_features: int
 
     # --- Basic statistics ---
-    mean: np.ndarray              # (n_features,)
-    std: np.ndarray               # (n_features,)
-    q1: np.ndarray                # (n_features,)
-    q3: np.ndarray                # (n_features,)
+    mean: np.ndarray  # (n_features,)
+    std: np.ndarray  # (n_features,)
+    q1: np.ndarray  # (n_features,)
+    q3: np.ndarray  # (n_features,)
 
     # --- ResonanceScore ---
-    res_h_train: np.ndarray       # (n_features,)
-    res_noise_ratio: np.ndarray   # (n_features,)
+    res_h_train: np.ndarray  # (n_features,)
+    res_noise_ratio: np.ndarray  # (n_features,)
 
     # --- KinematicScore ---
-    kin_jerk_mean: np.ndarray     # (n_features,)
-    kin_jerk_std: np.ndarray      # (n_features,)
-    kin_accel_mean: np.ndarray    # (n_features,)
-    kin_accel_std: np.ndarray     # (n_features,)
+    kin_jerk_mean: np.ndarray  # (n_features,)
+    kin_jerk_std: np.ndarray  # (n_features,)
+    kin_accel_mean: np.ndarray  # (n_features,)
+    kin_accel_std: np.ndarray  # (n_features,)
 
     # --- InfoGeometryScore ---
-    ig_mean: np.ndarray           # (n_features,)
-    ig_cov_inv: np.ndarray        # (n_features, n_features)
+    ig_mean: np.ndarray  # (n_features,)
+    ig_cov_inv: np.ndarray  # (n_features, n_features)
     ig_log_det: float = 0.0
 
     # --- Privacy metadata ---
@@ -89,11 +89,18 @@ class FittedStatistics:
             "data_hash": self.data_hash,
         }
         for key in [
-            "mean", "std", "q1", "q3",
-            "res_h_train", "res_noise_ratio",
-            "kin_jerk_mean", "kin_jerk_std",
-            "kin_accel_mean", "kin_accel_std",
-            "ig_mean", "ig_cov_inv",
+            "mean",
+            "std",
+            "q1",
+            "q3",
+            "res_h_train",
+            "res_noise_ratio",
+            "kin_jerk_mean",
+            "kin_jerk_std",
+            "kin_accel_mean",
+            "kin_accel_std",
+            "ig_mean",
+            "ig_cov_inv",
         ]:
             d[key] = getattr(self, key).tolist()
         return d
@@ -103,11 +110,18 @@ class FittedStatistics:
         """Deserialize from dictionary."""
         arrays = {}
         for key in [
-            "mean", "std", "q1", "q3",
-            "res_h_train", "res_noise_ratio",
-            "kin_jerk_mean", "kin_jerk_std",
-            "kin_accel_mean", "kin_accel_std",
-            "ig_mean", "ig_cov_inv",
+            "mean",
+            "std",
+            "q1",
+            "q3",
+            "res_h_train",
+            "res_noise_ratio",
+            "kin_jerk_mean",
+            "kin_jerk_std",
+            "kin_accel_mean",
+            "kin_accel_std",
+            "ig_mean",
+            "ig_cov_inv",
         ]:
             arrays[key] = np.array(d[key])
         return cls(

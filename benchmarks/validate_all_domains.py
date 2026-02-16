@@ -180,10 +180,7 @@ def validate_domain(loader: Any) -> dict[str, Any]:
         }
 
     mean_auc = float(np.mean(valid_aucs))
-    mean_ratio = float(np.mean([
-        r.get("anomaly_ratio", 0.0) for r in event_results
-        if r.get("auc") is not None
-    ]))
+    mean_ratio = float(np.mean([r.get("anomaly_ratio", 0.0) for r in event_results if r.get("auc") is not None]))
 
     return {
         "status": "OK",
@@ -203,10 +200,7 @@ def main() -> None:
     print(f"Date: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}")
     print("=" * 76)
     print()
-    print(
-        f"{'Domain':<14} | {'Before':>7} | {'After':>7} | {'Delta':>7} | "
-        f"{'N':>6} | {'Anom%':>6} | Status"
-    )
+    print(f"{'Domain':<14} | {'Before':>7} | {'After':>7} | {'Delta':>7} | " f"{'N':>6} | {'Anom%':>6} | Status")
     print("-" * 76)
 
     results: dict[str, dict[str, Any]] = {}
@@ -221,11 +215,7 @@ def main() -> None:
         after = r["auc"]
         delta = after - before
         sign = "+" if delta >= 0 else ""
-        anom_pct = (
-            f"{r.get('anomaly_ratio', 0) * 100:.1f}%"
-            if r["n"] > 0
-            else "N/A"
-        )
+        anom_pct = f"{r.get('anomaly_ratio', 0) * 100:.1f}%" if r["n"] > 0 else "N/A"
 
         status = r["status"]
         if status == "OK" and after < 0.50 and before >= 0.50:
@@ -244,11 +234,7 @@ def main() -> None:
 
     print("-" * 76)
 
-    regressions = [
-        name
-        for name, r in results.items()
-        if r.get("status") == "REGRESSED"
-    ]
+    regressions = [name for name, r in results.items() if r.get("status") == "REGRESSED"]
     if regressions:
         print(f"\n*** REGRESSION DETECTED in: {', '.join(regressions)} ***")
         print("*** STOP — investigate before proceeding ***")

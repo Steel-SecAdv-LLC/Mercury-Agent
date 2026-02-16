@@ -505,12 +505,7 @@ class MercuryAnomalyDetector(BaseDetector):
         """
         n_samples, n_features = X.shape
 
-        if (
-            self._res_h_train is None
-            or self._res_noise_ratio is None
-            or self.mean is None
-            or self.std is None
-        ):
+        if self._res_h_train is None or self._res_noise_ratio is None or self.mean is None or self.std is None:
             return np.full(n_samples, 0.5)
 
         # Vectorized deviation: (n_samples, n_features)

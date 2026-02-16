@@ -8,13 +8,11 @@ from __future__ import annotations
 
 import logging
 import unittest
-from unittest.mock import MagicMock, patch
-
-import numpy as np
+from unittest.mock import patch
 
 from omni_mercury_engine.loaders.pandemic_loader import (
-    PandemicLoader,
     _EVENT_CATALOG,
+    PandemicLoader,
 )
 
 logger = logging.getLogger(__name__)

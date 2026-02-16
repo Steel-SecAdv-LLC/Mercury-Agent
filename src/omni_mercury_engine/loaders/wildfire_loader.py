@@ -144,7 +144,7 @@ class WildfireLoader(BaseDomainLoader):
 
         Raises:
             ConnectionError: If the FIRMS API is unreachable after retries.
-            RuntimeError: If no API key is configured.
+            EnvironmentError: If no API key is configured.
         """
         self._require_api_key()
 
@@ -179,7 +179,7 @@ class WildfireLoader(BaseDomainLoader):
         Raises:
             ValueError: If *event_id* is not in the catalog.
             ConnectionError: If the FIRMS API is unreachable.
-            RuntimeError: If no API key is configured.
+            EnvironmentError: If no API key is configured.
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(

@@ -141,9 +141,7 @@ _NSLKDD_CATEGORICAL: list[str] = ["protocol_type", "service", "flag"]
 # UNSW-NB15 column definitions
 # ---------------------------------------------------------------------------
 
-_UNSWNB15_URL = (
-    "https://research.unsw.edu.au/projects/unsw-nb15-dataset"
-)
+_UNSWNB15_URL = "https://research.unsw.edu.au/projects/unsw-nb15-dataset"
 
 _UNSWNB15_FEATURE_COLS: list[str] = [
     "dur",
@@ -220,28 +218,50 @@ class NetworkSecurityLoader(BaseDomainLoader):
     # (FFT spectral analysis, Fisher information geometry) operates on
     # continuous distributions. Discrete clusters confuse these methods.
     FEATURE_COLUMNS: list[str] = [
-        "duration", "src_bytes", "dst_bytes",
-        "wrong_fragment", "urgent", "hot",
-        "num_failed_logins", "num_compromised",
-        "num_root", "num_file_creations",
-        "count", "srv_count", "serror_rate",
-        "srv_serror_rate", "rerror_rate", "srv_rerror_rate",
-        "same_srv_rate", "diff_srv_rate",
-        "dst_host_count", "dst_host_srv_count",
-        "dst_host_same_srv_rate", "dst_host_diff_srv_rate",
-        "dst_host_serror_rate", "dst_host_srv_serror_rate",
-        "dst_host_rerror_rate", "dst_host_srv_rerror_rate",
+        "duration",
+        "src_bytes",
+        "dst_bytes",
+        "wrong_fragment",
+        "urgent",
+        "hot",
+        "num_failed_logins",
+        "num_compromised",
+        "num_root",
+        "num_file_creations",
+        "count",
+        "srv_count",
+        "serror_rate",
+        "srv_serror_rate",
+        "rerror_rate",
+        "srv_rerror_rate",
+        "same_srv_rate",
+        "diff_srv_rate",
+        "dst_host_count",
+        "dst_host_srv_count",
+        "dst_host_same_srv_rate",
+        "dst_host_diff_srv_rate",
+        "dst_host_serror_rate",
+        "dst_host_srv_serror_rate",
+        "dst_host_rerror_rate",
+        "dst_host_srv_rerror_rate",
     ]
 
     # Columns to drop — categorical or near-constant binary.
     _DROP_COLUMNS: list[str] = [
-        "protocol_type", "service", "flag",
-        "land", "logged_in", "is_host_login", "is_guest_login",
+        "protocol_type",
+        "service",
+        "flag",
+        "land",
+        "logged_in",
+        "is_host_login",
+        "is_guest_login",
     ]
 
     # Heavy-tailed columns that benefit from log1p transform.
     _LOG_TRANSFORM_COLUMNS: list[str] = [
-        "duration", "src_bytes", "dst_bytes",
+        "duration",
+        "src_bytes",
+        "dst_bytes",
     ]
 
     # Cache event data for 24 hours (benchmark datasets are static).
@@ -299,18 +319,13 @@ class NetworkSecurityLoader(BaseDomainLoader):
             ConnectionError: If the data source is unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id {event_id!r}. "
-                f"Available: {list(_EVENT_CATALOG)}"
-            )
+            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}")
 
         cache_key = f"network_security_historical_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
-            logger.debug(
-                "Returning cached historical data for '%s'.", event_id
-            )
+            logger.debug("Returning cached historical data for '%s'.", event_id)
             return pd.DataFrame(cached)
 
         if event_id == "nsl_kdd":
@@ -364,17 +379,13 @@ class NetworkSecurityLoader(BaseDomainLoader):
             ValueError: If *event_id* is not recognised.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id {event_id!r}. "
-                f"Available: {list(_EVENT_CATALOG)}"
-            )
+            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}")
 
         # Try to load via existing dataset infrastructure first
         labels = self._load_labels_from_dataset(event_id)
         if labels is not None:
             logger.info(
-                "network_security: ground truth for '%s' -- "
-                "%d anomalies / %d total.",
+                "network_security: ground truth for '%s' -- " "%d anomalies / %d total.",
                 event_id,
                 int(labels.sum()),
                 len(labels),
@@ -392,8 +403,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
             labels = np.zeros(len(df), dtype=np.int64)
 
         logger.info(
-            "network_security: ground truth for '%s' -- "
-            "%d anomalies / %d total.",
+            "network_security: ground truth for '%s' -- " "%d anomalies / %d total.",
             event_id,
             int(labels.sum()),
             len(labels),
@@ -437,24 +447,17 @@ class NetworkSecurityLoader(BaseDomainLoader):
         df = raw_data.copy()
 
         # Drop non-feature columns
-        drop_cols = [
-            c for c in ["label", "difficulty", "DATETIME", "ATT_FLAG"]
-            if c in df.columns
-        ]
+        drop_cols = [c for c in ["label", "difficulty", "DATETIME", "ATT_FLAG"] if c in df.columns]
         if drop_cols:
             df = df.drop(columns=drop_cols)
 
         # Drop categorical and near-constant binary columns
-        drop_categorical = [
-            c for c in self._DROP_COLUMNS if c in df.columns
-        ]
+        drop_categorical = [c for c in self._DROP_COLUMNS if c in df.columns]
         if drop_categorical:
             df = df.drop(columns=drop_categorical)
 
         # Also drop any remaining object/category columns
-        categorical_cols = df.select_dtypes(
-            include=["object", "category"]
-        ).columns.tolist()
+        categorical_cols = df.select_dtypes(include=["object", "category"]).columns.tolist()
         if categorical_cols:
             df = df.drop(columns=categorical_cols)
 
@@ -469,9 +472,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
 
         # Select FEATURE_COLUMNS if they exist in the DataFrame;
         # otherwise keep all remaining numeric columns (for CICIDS/BATADAL)
-        available_features = [
-            c for c in self.FEATURE_COLUMNS if c in df.columns
-        ]
+        available_features = [c for c in self.FEATURE_COLUMNS if c in df.columns]
         if available_features:
             df = df[available_features]
 
@@ -507,8 +508,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
         """
         try:
             if event_id == "nsl_kdd":
-                from omni_mercury_engine.datasets.security import NSLKDDLoader
                 from omni_mercury_engine.datasets.base import DatasetConfig
+                from omni_mercury_engine.datasets.security import NSLKDDLoader
 
                 config = DatasetConfig(
                     name="nsl-kdd",
@@ -519,8 +520,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 return labels.astype(np.int64)
 
             elif event_id == "cicids_2017":
-                from omni_mercury_engine.datasets.security import CICIDSLoader
                 from omni_mercury_engine.datasets.base import DatasetConfig
+                from omni_mercury_engine.datasets.security import CICIDSLoader
 
                 config = DatasetConfig(
                     name="cicids",
@@ -531,8 +532,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 return labels.astype(np.int64)
 
             elif event_id == "batadal":
-                from omni_mercury_engine.datasets.industrial import BATADALLoader
                 from omni_mercury_engine.datasets.base import DatasetConfig
+                from omni_mercury_engine.datasets.industrial import BATADALLoader
 
                 config = DatasetConfig(name="batadal")
                 loader = BATADALLoader(config)
@@ -541,8 +542,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
 
         except Exception as exc:
             logger.debug(
-                "network_security: could not load labels via dataset "
-                "infrastructure for '%s': %s",
+                "network_security: could not load labels via dataset " "infrastructure for '%s': %s",
                 event_id,
                 exc,
             )
@@ -562,8 +562,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
         """
         # Try existing infrastructure
         try:
-            from omni_mercury_engine.datasets.security import NSLKDDLoader
             from omni_mercury_engine.datasets.base import DatasetConfig
+            from omni_mercury_engine.datasets.security import NSLKDDLoader
 
             config = DatasetConfig(
                 name="nsl-kdd",
@@ -590,8 +590,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
 
         except Exception as exc:
             logger.debug(
-                "network_security: NSLKDDLoader failed (%s), "
-                "falling back to direct download.",
+                "network_security: NSLKDDLoader failed (%s), " "falling back to direct download.",
                 exc,
             )
 
@@ -607,10 +606,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
         Raises:
             ConnectionError: If the download fails after retries.
         """
-        url = (
-            "https://raw.githubusercontent.com/defcom17/NSL_KDD/"
-            "master/KDDTest+.txt"
-        )
+        url = "https://raw.githubusercontent.com/defcom17/NSL_KDD/" "master/KDDTest+.txt"
         raw_bytes = self._fetch_url(url)
         text = raw_bytes.decode("utf-8", errors="replace")
 
@@ -647,8 +643,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
         """
         # Try existing infrastructure
         try:
-            from omni_mercury_engine.datasets.security import CICIDSLoader
             from omni_mercury_engine.datasets.base import DatasetConfig
+            from omni_mercury_engine.datasets.security import CICIDSLoader
 
             config = DatasetConfig(
                 name="cicids",
@@ -672,9 +668,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 "CICIDS 2017 requires download via the datasets package.",
                 exc,
             )
-            raise ConnectionError(
-                f"network_security: failed to load CICIDS 2017 data: {exc}"
-            ) from exc
+            raise ConnectionError(f"network_security: failed to load CICIDS 2017 data: {exc}") from exc
 
     def _load_batadal_dataframe(self) -> pd.DataFrame:
         """Load BATADAL data as a DataFrame.
@@ -691,8 +685,8 @@ class NetworkSecurityLoader(BaseDomainLoader):
         """
         # Try existing infrastructure
         try:
-            from omni_mercury_engine.datasets.industrial import BATADALLoader
             from omni_mercury_engine.datasets.base import DatasetConfig
+            from omni_mercury_engine.datasets.industrial import BATADALLoader
 
             config = DatasetConfig(name="batadal")
             loader = BATADALLoader(config)
@@ -709,8 +703,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
 
         except Exception as exc:
             logger.debug(
-                "network_security: BATADALLoader failed (%s), "
-                "falling back to direct download.",
+                "network_security: BATADALLoader failed (%s), " "falling back to direct download.",
                 exc,
             )
 
@@ -756,9 +749,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 )
 
         if not dfs:
-            raise ConnectionError(
-                "network_security: failed to download any BATADAL data."
-            )
+            raise ConnectionError("network_security: failed to download any BATADAL data.")
 
         df = pd.concat(dfs, ignore_index=True)
 

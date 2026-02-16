@@ -78,9 +78,7 @@ class DifferentialPrivacy:
         noise_scale = sensitivity * self.sigma
 
         # Helper: clip then noise an array
-        def clip_and_noise(
-            arr: np.ndarray, non_negative: bool = False
-        ) -> np.ndarray:
+        def clip_and_noise(arr: np.ndarray, non_negative: bool = False) -> np.ndarray:
             clipped = np.clip(arr, -self.clip_norm, self.clip_norm)
             noised_arr = clipped + np.random.normal(0, noise_scale, arr.shape)
             if non_negative:
@@ -93,31 +91,22 @@ class DifferentialPrivacy:
         noised.q1 = clip_and_noise(noised.q1)
         noised.q3 = clip_and_noise(noised.q3)
         noised.res_h_train = clip_and_noise(noised.res_h_train)
-        noised.res_noise_ratio = clip_and_noise(
-            noised.res_noise_ratio, non_negative=True
-        )
+        noised.res_noise_ratio = clip_and_noise(noised.res_noise_ratio, non_negative=True)
         noised.kin_jerk_mean = clip_and_noise(noised.kin_jerk_mean)
-        noised.kin_jerk_std = clip_and_noise(
-            noised.kin_jerk_std, non_negative=True
-        )
+        noised.kin_jerk_std = clip_and_noise(noised.kin_jerk_std, non_negative=True)
         noised.kin_accel_mean = clip_and_noise(noised.kin_accel_mean)
-        noised.kin_accel_std = clip_and_noise(
-            noised.kin_accel_std, non_negative=True
-        )
+        noised.kin_accel_std = clip_and_noise(noised.kin_accel_std, non_negative=True)
         noised.ig_mean = clip_and_noise(noised.ig_mean)
 
         # Noise precision matrix (must stay symmetric)
-        clipped_cov = np.clip(
-            noised.ig_cov_inv, -self.clip_norm, self.clip_norm
-        )
+        clipped_cov = np.clip(noised.ig_cov_inv, -self.clip_norm, self.clip_norm)
         noise_matrix = np.random.normal(0, noise_scale, clipped_cov.shape)
         noise_matrix = (noise_matrix + noise_matrix.T) / 2  # Symmetrize
         noised.ig_cov_inv = clipped_cov + noise_matrix
 
         # Noise scalar
         noised.ig_log_det = float(
-            np.clip(noised.ig_log_det, -self.clip_norm, self.clip_norm)
-            + np.random.normal(0, noise_scale)
+            np.clip(noised.ig_log_det, -self.clip_norm, self.clip_norm) + np.random.normal(0, noise_scale)
         )
 
         # Record privacy parameters

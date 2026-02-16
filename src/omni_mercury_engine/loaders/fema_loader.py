@@ -42,12 +42,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # OpenFEMA API endpoints
 # ---------------------------------------------------------------------------
-_DECLARATIONS_URL = (
-    "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
-)
-_HAZARD_MITIGATION_URL = (
-    "https://www.fema.gov/api/open/v2/HazardMitigationGrants"
-)
+_DECLARATIONS_URL = "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
+_HAZARD_MITIGATION_URL = "https://www.fema.gov/api/open/v2/HazardMitigationGrants"
 
 # ---------------------------------------------------------------------------
 # Pagination limits
@@ -84,26 +80,75 @@ _INCIDENT_TYPE_MAP: dict[str, int] = {
 # Declaration type encoding
 # ---------------------------------------------------------------------------
 _DECLARATION_TYPE_MAP: dict[str, int] = {
-    "DR": 1,   # Major Disaster
-    "EM": 2,   # Emergency
-    "FM": 3,   # Fire Management
-    "FS": 4,   # Fire Suppression
+    "DR": 1,  # Major Disaster
+    "EM": 2,  # Emergency
+    "FM": 3,  # Fire Management
+    "FS": 4,  # Fire Suppression
 }
 
 # ---------------------------------------------------------------------------
 # US state FIPS codes
 # ---------------------------------------------------------------------------
 _STATE_FIPS: dict[str, int] = {
-    "AL": 1, "AK": 2, "AZ": 4, "AR": 5, "CA": 6, "CO": 8, "CT": 9,
-    "DE": 10, "DC": 11, "FL": 12, "GA": 13, "HI": 15, "ID": 16,
-    "IL": 17, "IN": 18, "IA": 19, "KS": 20, "KY": 21, "LA": 22,
-    "ME": 23, "MD": 24, "MA": 25, "MI": 26, "MN": 27, "MS": 28,
-    "MO": 29, "MT": 30, "NE": 31, "NV": 32, "NH": 33, "NJ": 34,
-    "NM": 35, "NY": 36, "NC": 37, "ND": 38, "OH": 39, "OK": 40,
-    "OR": 41, "PA": 42, "RI": 44, "SC": 45, "SD": 46, "TN": 47,
-    "TX": 48, "UT": 49, "VT": 50, "VA": 51, "WA": 53, "WV": 54,
-    "WI": 55, "WY": 56, "AS": 60, "GU": 66, "MH": 68, "FM": 64,
-    "MP": 69, "PW": 70, "PR": 72, "VI": 78,
+    "AL": 1,
+    "AK": 2,
+    "AZ": 4,
+    "AR": 5,
+    "CA": 6,
+    "CO": 8,
+    "CT": 9,
+    "DE": 10,
+    "DC": 11,
+    "FL": 12,
+    "GA": 13,
+    "HI": 15,
+    "ID": 16,
+    "IL": 17,
+    "IN": 18,
+    "IA": 19,
+    "KS": 20,
+    "KY": 21,
+    "LA": 22,
+    "ME": 23,
+    "MD": 24,
+    "MA": 25,
+    "MI": 26,
+    "MN": 27,
+    "MS": 28,
+    "MO": 29,
+    "MT": 30,
+    "NE": 31,
+    "NV": 32,
+    "NH": 33,
+    "NJ": 34,
+    "NM": 35,
+    "NY": 36,
+    "NC": 37,
+    "ND": 38,
+    "OH": 39,
+    "OK": 40,
+    "OR": 41,
+    "PA": 42,
+    "RI": 44,
+    "SC": 45,
+    "SD": 46,
+    "TN": 47,
+    "TX": 48,
+    "UT": 49,
+    "VT": 50,
+    "VA": 51,
+    "WA": 53,
+    "WV": 54,
+    "WI": 55,
+    "WY": 56,
+    "AS": 60,
+    "GU": 66,
+    "MH": 68,
+    "FM": 64,
+    "MP": 69,
+    "PW": 70,
+    "PR": 72,
+    "VI": 78,
 }
 
 # ---------------------------------------------------------------------------
@@ -123,8 +168,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "2024 Hurricane Disaster Declarations",
         "date": "2024-01-01",
         "description": (
-            "All hurricane disaster declarations for 2024. "
-            "Includes major Atlantic and Gulf hurricane seasons."
+            "All hurricane disaster declarations for 2024. " "Includes major Atlantic and Gulf hurricane seasons."
         ),
         "filter": "incidentType eq 'Hurricane'",
     },
@@ -132,8 +176,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "2023 Fire Declarations",
         "date": "2023-01-01",
         "description": (
-            "All fire-related disaster declarations for 2023. "
-            "Covers wildfire and fire management assistance."
+            "All fire-related disaster declarations for 2023. " "Covers wildfire and fire management assistance."
         ),
         "filter": "incidentType eq 'Fire'",
     },
@@ -141,8 +184,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "All 2023 Disaster Declarations",
         "date": "2023-01-01",
         "description": (
-            "Complete set of disaster declarations for 2023 across "
-            "all incident types and declaration categories."
+            "Complete set of disaster declarations for 2023 across " "all incident types and declaration categories."
         ),
         "filter": "fyDeclared eq 2023",
     },
@@ -285,9 +327,7 @@ class FEMALoader(BaseDomainLoader):
         df = self._records_to_dataframe(records)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d real-time FEMA declaration records.", len(df)
-        )
+        logger.info("Fetched %d real-time FEMA declaration records.", len(df))
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
@@ -309,18 +349,13 @@ class FEMALoader(BaseDomainLoader):
             ConnectionError: If the OpenFEMA API is unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
-            )
+            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
 
         cache_key = f"fema_historical_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
-            logger.debug(
-                "Returning cached historical data for '%s'.", event_id
-            )
+            logger.debug("Returning cached historical data for '%s'.", event_id)
             return pd.DataFrame(cached)
 
         event = _EVENT_CATALOG[event_id]
@@ -355,9 +390,7 @@ class FEMALoader(BaseDomainLoader):
         df = self._records_to_dataframe(all_records)
 
         if df.empty:
-            logger.warning(
-                "OpenFEMA returned no records for event '%s'.", event_id
-            )
+            logger.warning("OpenFEMA returned no records for event '%s'.", event_id)
             return df
 
         # Sort chronologically for temporal feature engineering.
@@ -413,10 +446,7 @@ class FEMALoader(BaseDomainLoader):
                 available.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
-            )
+            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
 
         df = self.fetch_historical(event_id)
         if df.empty:
@@ -432,8 +462,7 @@ class FEMALoader(BaseDomainLoader):
         labels = (is_major_disaster & has_ia & has_pa).astype(np.int64)
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total "
-            "(DR with both IA and PA).",
+            "Ground truth for '%s': %d anomalies / %d total " "(DR with both IA and PA).",
             event_id,
             int(labels.sum()),
             len(labels),
@@ -483,9 +512,7 @@ class FEMALoader(BaseDomainLoader):
 
         # Ensure chronological order.
         if "declarationDate" in df.columns:
-            df["declarationDate"] = pd.to_datetime(
-                df["declarationDate"], errors="coerce", utc=True
-            )
+            df["declarationDate"] = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
             df = df.sort_values("declarationDate").reset_index(drop=True)
 
         n = len(df)
@@ -500,9 +527,7 @@ class FEMALoader(BaseDomainLoader):
 
         # ---- Features 3-4: temporal components ----
         if "declarationDate" in df.columns:
-            dates = pd.to_datetime(
-                df["declarationDate"], errors="coerce", utc=True
-            )
+            dates = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
             month = dates.dt.month.fillna(0).values.astype(np.float64)
             day_of_year = dates.dt.dayofyear.fillna(0).values.astype(np.float64)
         else:
@@ -513,9 +538,7 @@ class FEMALoader(BaseDomainLoader):
         days_since_last_same_state = self._compute_days_since_last_same_state(df)
 
         # ---- Features 6-7: trailing 12-month declaration counts ----
-        trailing_same_state, trailing_national = (
-            self._compute_trailing_counts(df)
-        )
+        trailing_same_state, trailing_national = self._compute_trailing_counts(df)
 
         # ---- Feature 8: program count (0-4) ----
         ia = self._bool_column(df, "iaProgramDeclared")
@@ -615,9 +638,7 @@ class FEMALoader(BaseDomainLoader):
         df = pd.DataFrame(rows, columns=_COLUMNS)
 
         # Coerce numeric columns.
-        df["disasterNumber"] = pd.to_numeric(
-            df["disasterNumber"], errors="coerce"
-        )
+        df["disasterNumber"] = pd.to_numeric(df["disasterNumber"], errors="coerce")
         df["fyDeclared"] = pd.to_numeric(df["fyDeclared"], errors="coerce")
 
         # Coerce boolean program columns.
@@ -664,9 +685,7 @@ class FEMALoader(BaseDomainLoader):
         if "state" not in df.columns or "declarationDate" not in df.columns:
             return result
 
-        dates = pd.to_datetime(
-            df["declarationDate"], errors="coerce", utc=True
-        )
+        dates = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
         states = df["state"].values
 
         last_date_by_state: dict[str, pd.Timestamp] = {}
@@ -705,9 +724,7 @@ class FEMALoader(BaseDomainLoader):
         if "state" not in df.columns or "declarationDate" not in df.columns:
             return same_state, national
 
-        dates = pd.to_datetime(
-            df["declarationDate"], errors="coerce", utc=True
-        )
+        dates = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
         states = df["state"].values
         one_year = pd.Timedelta(days=365)
 
@@ -756,9 +773,7 @@ class FEMALoader(BaseDomainLoader):
         if "declarationDate" not in df.columns or n < 2:
             return time_between
 
-        dates = pd.to_datetime(
-            df["declarationDate"], errors="coerce", utc=True
-        )
+        dates = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
 
         # Convert to epoch seconds for differencing.
         epoch_s = dates.astype(np.int64).values / 1e9
@@ -797,8 +812,23 @@ class FEMALoader(BaseDomainLoader):
         _NORTHEAST = {9, 23, 25, 33, 34, 36, 42, 44, 50}
         _MIDWEST = {17, 18, 19, 20, 26, 27, 29, 31, 38, 39, 46, 55}
         _SOUTH = {
-            1, 5, 10, 11, 12, 13, 21, 22, 24, 28, 37, 40, 45, 47, 48,
-            51, 54,
+            1,
+            5,
+            10,
+            11,
+            12,
+            13,
+            21,
+            22,
+            24,
+            28,
+            37,
+            40,
+            45,
+            47,
+            48,
+            51,
+            54,
         }
         _WEST = {2, 4, 6, 8, 15, 16, 30, 32, 35, 41, 49, 53, 56}
 

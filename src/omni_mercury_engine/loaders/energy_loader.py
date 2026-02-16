@@ -29,22 +29,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # NOAA SWPC API endpoints
 # ---------------------------------------------------------------------------
-_KP_INDEX_URL = (
-    "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
-)
-_XRAY_FLARES_URL = (
-    "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json"
-)
-_SOLAR_WIND_URL = (
-    "https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json"
-)
+_KP_INDEX_URL = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+_XRAY_FLARES_URL = "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json"
+_SOLAR_WIND_URL = "https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json"
 
 # ---------------------------------------------------------------------------
 # EIA API v2 endpoint (requires API key)
 # ---------------------------------------------------------------------------
-_EIA_DAILY_REGION_URL = (
-    "https://api.eia.gov/v2/electricity/rto/daily-region-data/data/"
-)
+_EIA_DAILY_REGION_URL = "https://api.eia.gov/v2/electricity/rto/daily-region-data/data/"
 
 # ---------------------------------------------------------------------------
 # Solar flare classification mapping (X-ray peak flux class -> numeric)
@@ -171,9 +163,7 @@ class EnergyLoader(BaseDomainLoader):
         if self._eia_api_key:
             logger.info("EIA API key found; grid data endpoints enabled.")
         else:
-            logger.debug(
-                "No EIA_API_KEY set. EIA grid data will not be available."
-            )
+            logger.debug("No EIA_API_KEY set. EIA grid data will not be available.")
 
     # ------------------------------------------------------------------
     # Abstract interface implementation
@@ -209,9 +199,7 @@ class EnergyLoader(BaseDomainLoader):
         df = self._merge_kp_and_solar_wind(kp_df, sw_df)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d real-time energy/space-weather records.", len(df)
-        )
+        logger.info("Fetched %d real-time energy/space-weather records.", len(df))
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
@@ -239,18 +227,13 @@ class EnergyLoader(BaseDomainLoader):
             ConnectionError: If data sources are unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
-            )
+            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
 
         cache_key = f"energy_historical_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
-            logger.debug(
-                "Returning cached historical data for '%s'.", event_id
-            )
+            logger.debug("Returning cached historical data for '%s'.", event_id)
             return pd.DataFrame(cached)
 
         event = _EVENT_CATALOG[event_id]
@@ -261,9 +244,7 @@ class EnergyLoader(BaseDomainLoader):
             df = self._generate_synthetic_kp_series(event)
 
         if df.empty:
-            logger.warning(
-                "No data generated for event '%s'.", event_id
-            )
+            logger.warning("No data generated for event '%s'.", event_id)
             return df
 
         # Sort chronologically
@@ -320,10 +301,7 @@ class EnergyLoader(BaseDomainLoader):
                 available.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
-            )
+            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
 
         df = self.fetch_historical(event_id)
         if df.empty:
@@ -480,9 +458,7 @@ class EnergyLoader(BaseDomainLoader):
 
         df = pd.DataFrame(records)
         if not df.empty:
-            df["timestamp"] = pd.to_datetime(
-                df["timestamp"], errors="coerce", utc=True
-            )
+            df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", utc=True)
             df = df.dropna(subset=["timestamp"])
         return df
 
@@ -542,9 +518,7 @@ class EnergyLoader(BaseDomainLoader):
 
         df = pd.DataFrame(records)
         if not df.empty:
-            df["timestamp"] = pd.to_datetime(
-                df["timestamp"], errors="coerce", utc=True
-            )
+            df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", utc=True)
             df = df.dropna(subset=["timestamp"])
         return df
 
@@ -563,9 +537,7 @@ class EnergyLoader(BaseDomainLoader):
         records: list[dict[str, Any]] = []
         for entry in raw:
             time_tag = entry.get("begin_time") or entry.get("time_tag", "")
-            class_type = entry.get("current_class", "") or entry.get(
-                "max_class", ""
-            )
+            class_type = entry.get("current_class", "") or entry.get("max_class", "")
             numeric_class = self._parse_flare_class(class_type)
             records.append(
                 {
@@ -576,15 +548,11 @@ class EnergyLoader(BaseDomainLoader):
 
         df = pd.DataFrame(records)
         if not df.empty:
-            df["timestamp"] = pd.to_datetime(
-                df["timestamp"], errors="coerce", utc=True
-            )
+            df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", utc=True)
             df = df.dropna(subset=["timestamp"])
         return df
 
-    def _fetch_eia_grid_data(
-        self, event: dict[str, Any]
-    ) -> pd.DataFrame:
+    def _fetch_eia_grid_data(self, event: dict[str, Any]) -> pd.DataFrame:
         """Fetch EIA electricity grid data for a grid event.
 
         Uses the EIA API v2 daily region data endpoint to retrieve
@@ -598,10 +566,7 @@ class EnergyLoader(BaseDomainLoader):
             grid_supply, solar_wind_speed, solar_wind_density, xray_class.
         """
         if not self._eia_api_key:
-            logger.warning(
-                "EIA API key not set; falling back to synthetic data "
-                "for grid event."
-            )
+            logger.warning("EIA API key not set; falling back to synthetic data " "for grid event.")
             return self._generate_synthetic_kp_series(event)
 
         params: dict[str, str] = {
@@ -617,21 +582,13 @@ class EnergyLoader(BaseDomainLoader):
         try:
             response = self._fetch_json(_EIA_DAILY_REGION_URL, params=params)
         except ConnectionError:
-            logger.warning(
-                "EIA API unreachable; falling back to synthetic data."
-            )
+            logger.warning("EIA API unreachable; falling back to synthetic data.")
             return self._generate_synthetic_kp_series(event)
 
-        data_rows = (
-            response.get("response", {}).get("data", [])
-            if isinstance(response, dict)
-            else []
-        )
+        data_rows = response.get("response", {}).get("data", []) if isinstance(response, dict) else []
 
         if not data_rows:
-            logger.warning(
-                "EIA returned no data; falling back to synthetic data."
-            )
+            logger.warning("EIA returned no data; falling back to synthetic data.")
             return self._generate_synthetic_kp_series(event)
 
         records: list[dict[str, Any]] = []
@@ -650,9 +607,7 @@ class EnergyLoader(BaseDomainLoader):
 
         df = pd.DataFrame(records)
         if not df.empty:
-            df["timestamp"] = pd.to_datetime(
-                df["timestamp"], errors="coerce", utc=True
-            )
+            df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", utc=True)
             df = df.dropna(subset=["timestamp"])
         return df
 
@@ -660,9 +615,7 @@ class EnergyLoader(BaseDomainLoader):
     # Private helpers -- synthetic data generation
     # ------------------------------------------------------------------
 
-    def _generate_synthetic_kp_series(
-        self, event: dict[str, Any]
-    ) -> pd.DataFrame:
+    def _generate_synthetic_kp_series(self, event: dict[str, Any]) -> pd.DataFrame:
         """Generate synthetic Kp time-series for a historical event.
 
         Creates a plausible multi-week Kp profile with a background of
@@ -689,14 +642,10 @@ class EnergyLoader(BaseDomainLoader):
         n_steps = n_hours // 3
         if n_steps < 1:
             n_steps = 1
-        timestamps = pd.date_range(
-            start=start_date, periods=n_steps, freq="3h", tz="UTC"
-        )
+        timestamps = pd.date_range(start=start_date, periods=n_steps, freq="3h", tz="UTC")
 
         # Build Kp profile: extended quiet + major storm + recovery
-        kp_values = self._build_storm_profile(
-            n_steps, peak_kp, storm_day=storm_day
-        )
+        kp_values = self._build_storm_profile(n_steps, peak_kp, storm_day=storm_day)
 
         # Derive correlated solar wind speed: empirical Kp-speed relation
         rng = np.random.default_rng(seed=hash(event["date"]) & 0xFFFFFFFF)
@@ -728,9 +677,7 @@ class EnergyLoader(BaseDomainLoader):
         return df
 
     @staticmethod
-    def _build_storm_profile(
-        n_steps: int, peak_kp: int, storm_day: int = 40
-    ) -> np.ndarray:
+    def _build_storm_profile(n_steps: int, peak_kp: int, storm_day: int = 40) -> np.ndarray:
         """Build a synthetic Kp storm profile.
 
         For extended time windows (>100 steps), the profile includes:
@@ -752,9 +699,7 @@ class EnergyLoader(BaseDomainLoader):
         Returns:
             1-D numpy array of Kp values.
         """
-        rng = np.random.default_rng(
-            seed=(peak_kp * 1000 + n_steps) & 0xFFFFFFFF
-        )
+        rng = np.random.default_rng(seed=(peak_kp * 1000 + n_steps) & 0xFFFFFFFF)
 
         # Base: quiet conditions with slight variation
         kp = 1.5 + rng.normal(0, 0.4, size=n_steps)
@@ -790,20 +735,14 @@ class EnergyLoader(BaseDomainLoader):
         # Peak: 8 steps (24h)
         peak_start = max(0, storm_center - 8)
         peak_end = min(n_steps, storm_center + 8)
-        kp[peak_start:peak_end] = float(peak_kp) + rng.uniform(
-            -0.5, 0.0, size=peak_end - peak_start
-        )
+        kp[peak_start:peak_end] = float(peak_kp) + rng.uniform(-0.5, 0.0, size=peak_end - peak_start)
 
         # Recovery: 3 days (24 steps) exponential decay
         recovery_len = 24
         recovery_end = min(n_steps, peak_end + recovery_len)
         if recovery_end > peak_end:
-            decay = np.exp(
-                -np.linspace(0, 4.0, recovery_end - peak_end)
-            )
-            kp[peak_end:recovery_end] = (
-                1.5 + (float(peak_kp) - 1.5) * decay
-            )
+            decay = np.exp(-np.linspace(0, 4.0, recovery_end - peak_end))
+            kp[peak_end:recovery_end] = 1.5 + (float(peak_kp) - 1.5) * decay
 
         # Clamp to valid Kp range
         kp = np.clip(kp, 0.0, 9.0)
@@ -813,9 +752,7 @@ class EnergyLoader(BaseDomainLoader):
     # Private helpers -- data merging
     # ------------------------------------------------------------------
 
-    def _merge_kp_and_solar_wind(
-        self, kp_df: pd.DataFrame, sw_df: pd.DataFrame
-    ) -> pd.DataFrame:
+    def _merge_kp_and_solar_wind(self, kp_df: pd.DataFrame, sw_df: pd.DataFrame) -> pd.DataFrame:
         """Merge Kp index and solar wind DataFrames on nearest timestamp.
 
         Uses a merge_asof to align the higher-cadence solar wind data
@@ -904,9 +841,7 @@ class EnergyLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _safe_column(
-        df: pd.DataFrame, column: str
-    ) -> np.ndarray:
+    def _safe_column(df: pd.DataFrame, column: str) -> np.ndarray:
         """Extract a column as a float64 array, returning zeros if absent.
 
         Args:
@@ -918,15 +853,11 @@ class EnergyLoader(BaseDomainLoader):
             column does not exist.
         """
         if column in df.columns:
-            return pd.to_numeric(
-                df[column], errors="coerce"
-            ).fillna(0.0).values.astype(np.float64)
+            return pd.to_numeric(df[column], errors="coerce").fillna(0.0).values.astype(np.float64)
         return np.zeros(len(df), dtype=np.float64)
 
     @staticmethod
-    def _compute_rolling_sum(
-        values: np.ndarray, window: int = 8
-    ) -> np.ndarray:
+    def _compute_rolling_sum(values: np.ndarray, window: int = 8) -> np.ndarray:
         """Compute the rolling sum over a trailing window.
 
         Args:
@@ -944,9 +875,7 @@ class EnergyLoader(BaseDomainLoader):
         return result
 
     @staticmethod
-    def _compute_rolling_max(
-        values: np.ndarray, window: int = 8
-    ) -> np.ndarray:
+    def _compute_rolling_max(values: np.ndarray, window: int = 8) -> np.ndarray:
         """Compute the rolling maximum over a trailing window.
 
         Args:
