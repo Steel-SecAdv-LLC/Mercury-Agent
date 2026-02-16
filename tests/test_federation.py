@@ -446,3 +446,63 @@ def test_from_statistics_classmethod(data_a: np.ndarray) -> None:
         rtol=1e-10,
         err_msg="from_statistics detector should produce identical scores",
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 15: federation end-to-end with real earthquake data
+# ---------------------------------------------------------------------------
+
+def test_federation_end_to_end_with_real_domain() -> None:
+    """Federation with real EarthquakeLoader data — NOT synthetic."""
+    try:
+        from omni_mercury_engine.loaders.earthquake_loader import EarthquakeLoader
+
+        loader = EarthquakeLoader()
+        events = loader.list_events()
+        if not events:
+            pytest.skip("No earthquake events available (network issue)")
+
+        eid = events[0]["event_id"]
+        raw_data = loader.fetch_historical(eid)
+        X = loader.engineer_features(raw_data)
+
+        if X is None or len(X) < 30:
+            pytest.skip(
+                f"Insufficient earthquake data: "
+                f"N={len(X) if X is not None else 0}"
+            )
+
+        # Split into 3 partitions
+        n = len(X)
+        idx = np.random.default_rng(42).permutation(n)
+        splits = np.array_split(idx, 3)
+
+        nodes = []
+        for i, split_idx in enumerate(splits):
+            node = FederatedNode(node_id=f"eq_node_{i}")
+            node.fit(X[split_idx])
+            nodes.append(node)
+
+        agg = FederatedAggregator(min_nodes=2)
+        for node in nodes:
+            stats = node.export_statistics()
+            agg.submit(stats)
+
+        global_stats = agg.aggregate()
+        det = FederatedAggregator.to_detector(global_stats)
+        result = det.detect(X)
+
+        scores = np.asarray(result["scores"])
+        is_anomaly = np.asarray(result["is_anomaly"])
+
+        assert len(scores) == n
+        assert np.all(scores >= 0.0)
+        assert np.all(scores <= 1.0)
+        assert is_anomaly.dtype == bool or np.issubdtype(
+            is_anomaly.dtype, np.bool_
+        )
+
+    except ImportError:
+        pytest.skip("EarthquakeLoader not available")
+    except ConnectionError as e:
+        pytest.skip(f"Network issue: {e}")

@@ -422,21 +422,18 @@ class FEMALoader(BaseDomainLoader):
         if df.empty:
             return np.array([], dtype=np.int64)
 
-        # Anomaly = Major Disaster (DR) with >= 3 assistance programs.
-        # This separates catastrophic events requiring full federal
-        # response from routine declarations with fewer programs.
+        # Anomaly = Major Disaster (DR) with BOTH Individual Assistance (IA)
+        # and Public Assistance (PA) programs designated.  These represent
+        # the most severe events requiring full federal response.
         is_major_disaster = df["declarationType"].values == "DR"
-        has_ia = df["iaProgramDeclared"].fillna(False).values.astype(np.float64)
-        has_pa = df["paProgramDeclared"].fillna(False).values.astype(np.float64)
-        has_hm = df["hmProgramDeclared"].fillna(False).values.astype(np.float64)
-        has_ih = df["ihProgramDeclared"].fillna(False).values.astype(np.float64)
-        program_count = has_ia + has_pa + has_hm + has_ih
+        has_ia = df["iaProgramDeclared"].fillna(False).values.astype(bool)
+        has_pa = df["paProgramDeclared"].fillna(False).values.astype(bool)
 
-        labels = (is_major_disaster & (program_count >= 3)).astype(np.int64)
+        labels = (is_major_disaster & has_ia & has_pa).astype(np.int64)
 
         logger.info(
             "Ground truth for '%s': %d anomalies / %d total "
-            "(DR with >=3 programs).",
+            "(DR with both IA and PA).",
             event_id,
             int(labels.sum()),
             len(labels),
