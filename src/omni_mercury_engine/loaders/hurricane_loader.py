@@ -212,18 +212,12 @@ class HurricaneLoader(BaseDomainLoader):
     SOURCE_URL: str = _BASE_CSV_URL
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
-        "wind_kt",
-        "pressure_mb",
-        "lat",
-        "lon",
-        "storm_speed_kt",
         "delta_wind_6h",
         "delta_wind_12h",
         "delta_wind_24h",
         "delta_pressure_6h",
         "delta_pressure_12h",
         "wind_pressure_deficit",
-        "track_deviation",
     ]
 
     # Cache for 6 hours since IBTrACS updates less frequently
@@ -375,52 +369,43 @@ class HurricaneLoader(BaseDomainLoader):
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
         """Transform raw hurricane track data into a feature matrix.
 
+        Only rapid-intensification-relevant derived features are
+        retained.  Diagnostic analysis showed that raw observables
+        (wind, pressure, lat, lon, storm speed) and track deviation
+        introduce noise that degrades unsupervised AUC, while the
+        multi-scale delta and deficit features capture RI signal.
+
         Engineered features (per track observation):
 
-        1. **wind_kt** -- maximum sustained wind speed in knots.
-        2. **pressure_mb** -- central pressure in millibars.
-        3. **lat** -- track latitude (degrees).
-        4. **lon** -- track longitude (degrees).
-        5. **storm_speed_kt** -- translational speed in knots.
-        6. **delta_wind_6h** -- wind change over prior 6h (1 step).
-        7. **delta_wind_12h** -- wind change over prior 12h (2 steps).
-        8. **delta_wind_24h** -- wind change over prior 24h (4 steps).
+        1. **delta_wind_6h** -- wind change over prior 6h (1 step).
+        2. **delta_wind_12h** -- wind change over prior 12h (2 steps).
+        3. **delta_wind_24h** -- wind change over prior 24h (4 steps).
            Values >= 30 kt indicate rapid intensification.
-        9. **delta_pressure_6h** -- pressure drop over prior 6h
+        4. **delta_pressure_6h** -- pressure drop over prior 6h
            (positive = intensification).
-        10. **delta_pressure_12h** -- pressure drop over prior 12h.
-        11. **wind_pressure_deficit** -- deviation from expected
-            wind-pressure relationship. Storms with pressure dropping
-            faster than wind is rising are "wound up" and precede RI.
-        12. **track_deviation** -- distance (degrees) of the current
-            position from a 5-point running mean track.
+        5. **delta_pressure_12h** -- pressure drop over prior 12h.
+        6. **wind_pressure_deficit** -- deviation from expected
+            wind-pressure relationship.  Negative means storm has
+            untapped pressure gradient and may precede RI.
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
                 :meth:`fetch_historical`.
 
         Returns:
-            2-D numpy array of shape ``(n_samples, 12)``.
+            2-D numpy array of shape ``(n_samples, 6)``.
         """
         if raw_data.empty:
-            return np.empty((0, 12), dtype=np.float64)
+            return np.empty((0, 6), dtype=np.float64)
 
         df = raw_data.copy()
 
         # Ensure chronological order
         df = df.sort_values("iso_time").reset_index(drop=True)
 
-        # ---- base observables ----
+        # ---- base observables (needed for derived features) ----
         wind_kt = df["wind_kt"].values.astype(np.float64)
         pressure_mb = df["pressure_mb"].values.astype(np.float64)
-        lat = df["lat"].values.astype(np.float64)
-        lon = df["lon"].values.astype(np.float64)
-
-        # ---- translational speed in knots (haversine-based) ----
-        # 1 degree of great circle ≈ 60 nautical miles,
-        # 6-hour interval gives speed in degrees/6h * 60 = knots
-        translation_speed_deg = self._compute_translation_speed(lat, lon)
-        storm_speed_kt = translation_speed_deg * 60.0
 
         # ---- multi-scale wind deltas (6h, 12h, 24h) ----
         delta_wind_6h = self._compute_delta(wind_kt, steps=1)
@@ -440,24 +425,15 @@ class HurricaneLoader(BaseDomainLoader):
         expected_wind = 6.7 * np.power(pressure_diff + 1e-8, 0.644)
         wind_pressure_deficit = wind_kt - expected_wind
 
-        # ---- track deviation from running mean ----
-        track_deviation = self._compute_track_deviation(lat, lon, window=5)
-
-        # Stack into feature matrix
+        # Stack into feature matrix — only RI-relevant features.
         features = np.column_stack(
             [
-                wind_kt,
-                pressure_mb,
-                lat,
-                lon,
-                storm_speed_kt,
                 delta_wind_6h,
                 delta_wind_12h,
                 delta_wind_24h,
                 delta_pressure_6h,
                 delta_pressure_12h,
                 wind_pressure_deficit,
-                track_deviation,
             ]
         )
 
