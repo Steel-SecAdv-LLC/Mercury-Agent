@@ -629,6 +629,17 @@ class TrustedEndpoints:
             "www.batadal.net",
             # MAST — Kepler Light Curves
             "mast.stsci.edu",
+            # Domain loader data sources
+            "volcanoes.usgs.gov",  # USGS Volcano Hazards Program
+            "volcano.si.edu",  # Smithsonian Global Volcanism Program
+            "waterservices.usgs.gov",  # USGS Water Services (flood gauges)
+            "water.weather.gov",  # NOAA AHPS (hydrologic prediction)
+            "www.spc.noaa.gov",  # NOAA Storm Prediction Center (tornadoes)
+            "api.stlouisfed.org",  # FRED (Federal Reserve Economic Data)
+            "api.eia.gov",  # EIA (Energy Information Administration)
+            "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
+            "ghoapi.azureedge.net",  # WHO Global Health Observatory
+            "maps.nccs.nasa.gov",  # NASA COOLR (landslide catalog)
         }
     )
 
@@ -910,6 +921,49 @@ class TrustedEndpoints:
     # ==========================================================================
     BATADAL_TRAIN = "https://www.batadal.net/data/BATADAL_dataset03.csv"
     BATADAL_TEST = "https://www.batadal.net/data/BATADAL_dataset04.csv"
+
+    # ==========================================================================
+    # Domain Loader Endpoints (added for Mercury domain wiring)
+    # ==========================================================================
+
+    # USGS Volcano Hazards Program
+    USGS_VOLCANO_ALERTS = "https://volcanoes.usgs.gov/vsc/api/volcanoApi/alerts"
+    USGS_VOLCANO_LIST = "https://volcanoes.usgs.gov/vsc/api/volcanoApi/volcanoList"
+
+    # USGS Water Services (flood gauge data)
+    USGS_WATER_SERVICES = "https://waterservices.usgs.gov/nwis/iv/"
+
+    # NOAA Storm Prediction Center (tornado data)
+    NOAA_SPC_TORNADO_ARCHIVE = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
+    NOAA_SPC_DAILY_REPORTS = "https://www.spc.noaa.gov/climo/reports/today.csv"
+
+    # IBTrACS (hurricane/cyclone data)
+    IBTRACS_CSV_BASE = (
+        "https://www.ncei.noaa.gov/data/"
+        "international-best-track-archive-for-climate-stewardship-ibtracs/"
+        "v04r01/access/csv/"
+    )
+
+    # FRED (Federal Reserve Economic Data)
+    FRED_OBSERVATIONS = "https://api.stlouisfed.org/fred/series/observations"
+
+    # EIA (Energy Information Administration)
+    EIA_API_BASE = "https://api.eia.gov/v2/"
+
+    # OBIS (Ocean Biodiversity Information System)
+    OBIS_OCCURRENCE = "https://api.obis.org/v3/occurrence"
+
+    # WHO Global Health Observatory
+    WHO_GHO_API = "https://ghoapi.azureedge.net/api/"
+
+    # NASA Global Landslide Catalog (COOLR)
+    NASA_COOLR = (
+        "https://maps.nccs.nasa.gov/arcgis/rest/services/"
+        "global_landslide_catalog/"
+    )
+
+    # PhysioNet Sepsis Challenge 2019
+    PHYSIONET_SEPSIS_2019 = "https://physionet.org/content/challenge-2019/"
 
 
 __all__ = [

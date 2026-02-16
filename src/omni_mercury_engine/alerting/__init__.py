@@ -1,0 +1,12 @@
+"""
+Mercury Agent
+Copyright (C) 2025 Steel Security Advisors LLC
+
+CAP (Common Alerting Protocol) alerting integration.
+"""
+
+from __future__ import annotations
+
+from omni_mercury_engine.alerting.cap_generator import CAPAlertGenerator
+
+__all__ = ["CAPAlertGenerator"]
