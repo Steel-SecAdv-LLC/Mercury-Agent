@@ -166,6 +166,67 @@ class MercuryAnomalyDetector(BaseDetector):
         self._is_fitted = True
         return self
 
+    @classmethod
+    def from_statistics(
+        cls,
+        mean: np.ndarray,
+        std: np.ndarray,
+        q1: np.ndarray,
+        q3: np.ndarray,
+        res_h_train: np.ndarray,
+        res_noise_ratio: np.ndarray,
+        kin_jerk_mean: np.ndarray,
+        kin_jerk_std: np.ndarray,
+        kin_accel_mean: np.ndarray,
+        kin_accel_std: np.ndarray,
+        ig_mean: np.ndarray,
+        ig_cov_inv: np.ndarray,
+        ig_log_det: float = 0.0,
+    ) -> "MercuryAnomalyDetector":
+        """Reconstruct a fitted detector from pre-computed statistics.
+
+        This enables federated learning: nodes export statistics,
+        the aggregator combines them, and this method creates a
+        working detector from the aggregated result.
+
+        All 13 parameters correspond exactly to the attributes set
+        during fit(). The resulting detector is ready for detect() calls.
+
+        Args:
+            mean: Feature means, shape (n_features,)
+            std: Feature standard deviations, shape (n_features,)
+            q1: 25th percentile per feature, shape (n_features,)
+            q3: 75th percentile per feature, shape (n_features,)
+            res_h_train: Harmonic energy ratios, shape (n_features,)
+            res_noise_ratio: Noise ratios, shape (n_features,)
+            kin_jerk_mean: Jerk baseline mean, shape (n_features,)
+            kin_jerk_std: Jerk baseline std, shape (n_features,)
+            kin_accel_mean: Acceleration baseline mean, shape (n_features,)
+            kin_accel_std: Acceleration baseline std, shape (n_features,)
+            ig_mean: Gaussian manifold center, shape (n_features,)
+            ig_cov_inv: Precision matrix, shape (n_features, n_features)
+            ig_log_det: Log-determinant of regularized covariance.
+
+        Returns:
+            Fitted MercuryAnomalyDetector ready for detect() calls.
+        """
+        det = cls()
+        det.mean = np.asarray(mean)
+        det.std = np.asarray(std)
+        det.q1 = np.asarray(q1)
+        det.q3 = np.asarray(q3)
+        det._res_h_train = np.asarray(res_h_train)
+        det._res_noise_ratio = np.asarray(res_noise_ratio)
+        det._kin_jerk_mean = np.asarray(kin_jerk_mean)
+        det._kin_jerk_std = np.asarray(kin_jerk_std)
+        det._kin_accel_mean = np.asarray(kin_accel_mean)
+        det._kin_accel_std = np.asarray(kin_accel_std)
+        det._ig_mean = np.asarray(ig_mean)
+        det._ig_cov_inv = np.asarray(ig_cov_inv)
+        det._ig_log_det = float(ig_log_det)
+        det._is_fitted = True
+        return det
+
     def _fit_info_geometry(self, data: np.ndarray[Any, Any]) -> None:
         """Fit Gaussian manifold for information-geometric OOD scoring.
 
