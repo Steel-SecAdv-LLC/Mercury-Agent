@@ -72,25 +72,27 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "date": "1989-03-13",
         "description": (
             "Geomagnetic storm caused by a coronal mass ejection collapsed "
-            "the Hydro-Quebec power grid for 9 hours. Peak Kp=9."
+            "the Hydro-Quebec power grid for 9 hours. Peak Kp=9. Extended "
+            "to 60-day window for adequate sample size."
         ),
-        "start": "1989-03-10",
-        "end": "1989-03-15",
+        "start": "1989-02-01",
+        "end": "1989-04-30",
         "peak_kp": 9,
-        "synthetic_hours": 144,
+        "synthetic_hours": 2160,  # 90 days at 3h = 720 steps
+        "storm_day": 40,  # day within window when storm peaks
     },
     "halloween_2003": {
         "name": "2003 Halloween Solar Storms",
         "date": "2003-10-28",
         "description": (
             "Series of solar flares and coronal mass ejections during "
-            "October-November 2003. Caused power grid disturbances, "
-            "satellite anomalies, and airline rerouting. Peak Kp=9."
+            "October-November 2003. Extended to multi-month window."
         ),
-        "start": "2003-10-25",
-        "end": "2003-11-05",
+        "start": "2003-09-01",
+        "end": "2003-12-31",
         "peak_kp": 9,
-        "synthetic_hours": 264,
+        "synthetic_hours": 2928,  # 122 days
+        "storm_day": 58,  # Oct 28 within window
     },
     "texas_2021": {
         "name": "2021 Texas Grid Crisis",
@@ -100,10 +102,10 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "due to extreme cold and grid supply/demand imbalance. "
             "Grid demand/supply data anomaly (not geomagnetic)."
         ),
-        "start": "2021-02-10",
-        "end": "2021-02-20",
+        "start": "2021-01-01",
+        "end": "2021-03-31",
         "peak_kp": 2,
-        "synthetic_hours": 240,
+        "synthetic_hours": 2160,
         "grid_event": True,
     },
     "bastille_day_2000": {
@@ -111,13 +113,13 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "date": "2000-07-14",
         "description": (
             "X5.7-class solar flare on Bastille Day followed by a severe "
-            "geomagnetic storm. Peak Kp=9. Caused satellite and "
-            "communication disruptions."
+            "geomagnetic storm. Peak Kp=9. Extended to multi-month window."
         ),
-        "start": "2000-07-12",
-        "end": "2000-07-18",
+        "start": "2000-06-01",
+        "end": "2000-08-31",
         "peak_kp": 9,
-        "synthetic_hours": 144,
+        "synthetic_hours": 2208,  # 92 days
+        "storm_day": 44,
     },
 }
 
@@ -150,12 +152,12 @@ class EnergyLoader(BaseDomainLoader):
     FEATURE_COLUMNS: list[str] = [
         "kp",
         "kp_rate_of_change",
+        "kp_sum_24h",
+        "delta_kp_6h",
+        "max_kp_24h",
         "solar_wind_speed",
         "solar_wind_density",
         "xray_class",
-        "kp_storm_flag",
-        "kp_severe_flag",
-        "kp_rolling_max",
     ]
 
     def __init__(self, **kwargs: Any) -> None:
@@ -357,14 +359,15 @@ class EnergyLoader(BaseDomainLoader):
         1. **kp** -- Kp index (0-9 scale).
         2. **kp_rate_of_change** -- difference in Kp from previous time
            step (0 for the first row).
-        3. **solar_wind_speed** -- solar wind bulk speed in km/s.
-        4. **solar_wind_density** -- solar wind proton density (p/cm^3).
-        5. **xray_class** -- numeric solar flare classification
+        3. **kp_sum_24h** -- sum of Kp over trailing 8 steps (24h),
+           a proxy for the Ap index.
+        4. **delta_kp_6h** -- Kp change over 2 steps (6h).
+        5. **max_kp_24h** -- maximum Kp over trailing 8-step (24h)
+           rolling window.
+        6. **solar_wind_speed** -- solar wind bulk speed in km/s.
+        7. **solar_wind_density** -- solar wind proton density (p/cm^3).
+        8. **xray_class** -- numeric solar flare classification
            (A=1, B=2, C=3, M=4, X=5; 0 if absent).
-        6. **kp_storm_flag** -- binary flag: 1 if Kp >= 5, else 0.
-        7. **kp_severe_flag** -- binary flag: 1 if Kp >= 7, else 0.
-        8. **kp_rolling_max** -- maximum Kp over a trailing 8-step
-           (24-hour) rolling window.
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
@@ -382,13 +385,26 @@ class EnergyLoader(BaseDomainLoader):
         if "timestamp" in df.columns:
             df = df.sort_values("timestamp").reset_index(drop=True)
 
+        n = len(df)
+
         # ---- Kp index ----
         kp = self._safe_column(df, "kp")
 
-        # ---- Kp rate of change ----
-        kp_roc = np.zeros(len(df), dtype=np.float64)
-        if len(df) > 1:
+        # ---- Kp rate of change (3h step) ----
+        kp_roc = np.zeros(n, dtype=np.float64)
+        if n > 1:
             kp_roc[1:] = np.diff(kp)
+
+        # ---- Kp sum over 24h (8 steps) — proxy for Ap index ----
+        kp_sum_24h = self._compute_rolling_sum(kp, window=8)
+
+        # ---- Delta Kp over 6h (2 steps) ----
+        delta_kp_6h = np.zeros(n, dtype=np.float64)
+        if n > 2:
+            delta_kp_6h[2:] = kp[2:] - kp[:-2]
+
+        # ---- Max Kp over 24h (8 steps) ----
+        max_kp_24h = self._compute_rolling_max(kp, window=8)
 
         # ---- Solar wind speed (km/s) ----
         sw_speed = self._safe_column(df, "solar_wind_speed")
@@ -399,24 +415,17 @@ class EnergyLoader(BaseDomainLoader):
         # ---- X-ray flux class (numeric) ----
         xray_class = self._safe_column(df, "xray_class")
 
-        # ---- Storm flags ----
-        kp_storm_flag = (kp >= _KP_STORM_THRESHOLD).astype(np.float64)
-        kp_severe_flag = (kp >= _KP_SEVERE_THRESHOLD).astype(np.float64)
-
-        # ---- Kp rolling max (trailing 8-step / 24-hour window) ----
-        kp_rolling_max = self._compute_rolling_max(kp, window=8)
-
         # Stack into feature matrix
         features = np.column_stack(
             [
                 kp,
                 kp_roc,
+                kp_sum_24h,
+                delta_kp_6h,
+                max_kp_24h,
                 sw_speed,
                 sw_density,
                 xray_class,
-                kp_storm_flag,
-                kp_severe_flag,
-                kp_rolling_max,
             ]
         )
 
@@ -656,10 +665,13 @@ class EnergyLoader(BaseDomainLoader):
     ) -> pd.DataFrame:
         """Generate synthetic Kp time-series for a historical event.
 
-        Creates a plausible Kp profile based on documented storm
-        characteristics: a gradual ramp-up, peak phase at the cataloged
-        peak Kp, and exponential recovery.  Solar wind and X-ray
-        parameters are correlated with Kp using empirical relationships.
+        Creates a plausible multi-week Kp profile with a background of
+        quiet/unsettled conditions punctuated by the documented major
+        storm.  Solar wind and X-ray parameters are correlated with Kp
+        using empirical relationships.
+
+        For extended time windows, minor storms (Kp 4-5) are sprinkled
+        throughout the quiet period to provide realistic baseline variance.
 
         Args:
             event: Event metadata dict from the catalog.
@@ -668,8 +680,9 @@ class EnergyLoader(BaseDomainLoader):
             DataFrame with columns: timestamp, kp, solar_wind_speed,
             solar_wind_density, xray_class.
         """
-        n_hours: int = event.get("synthetic_hours", 144)
+        n_hours: int = event.get("synthetic_hours", 2160)
         peak_kp: int = event.get("peak_kp", 9)
+        storm_day: int = event.get("storm_day", 40)
         start_date = pd.Timestamp(event["start"], tz="UTC")
 
         # Generate 3-hour resolution timestamps (standard Kp cadence)
@@ -680,11 +693,12 @@ class EnergyLoader(BaseDomainLoader):
             start=start_date, periods=n_steps, freq="3h", tz="UTC"
         )
 
-        # Build Kp profile: ramp-up -> peak -> recovery
-        kp_values = self._build_storm_profile(n_steps, peak_kp)
+        # Build Kp profile: extended quiet + major storm + recovery
+        kp_values = self._build_storm_profile(
+            n_steps, peak_kp, storm_day=storm_day
+        )
 
         # Derive correlated solar wind speed: empirical Kp-speed relation
-        # Higher Kp correlates with higher solar wind speed
         rng = np.random.default_rng(seed=hash(event["date"]) & 0xFFFFFFFF)
         base_speed = 350.0 + kp_values * 50.0
         sw_speed = base_speed + rng.normal(0, 20, size=n_steps)
@@ -715,50 +729,78 @@ class EnergyLoader(BaseDomainLoader):
 
     @staticmethod
     def _build_storm_profile(
-        n_steps: int, peak_kp: int
+        n_steps: int, peak_kp: int, storm_day: int = 40
     ) -> np.ndarray:
         """Build a synthetic Kp storm profile.
 
-        The profile consists of three phases:
+        For extended time windows (>100 steps), the profile includes:
 
-        1. **Pre-storm quiet** (first 20% of steps): Kp ~ 1-2
-        2. **Storm onset and peak** (20%-50%): rapid rise to peak_kp
-        3. **Recovery phase** (50%-100%): exponential decay back to
-           quiet levels
+        1. **Background quiet** -- Kp ~ 1-2 with Gaussian noise and
+           occasional minor disturbances (Kp 3-5).
+        2. **Major storm** -- a 2-day ramp-up, 1-day peak at peak_kp,
+           and 3-day exponential recovery, positioned at storm_day.
+        3. **Post-storm quiet** -- return to background levels.
+
+        This produces a realistic Kp distribution: ~90% quiet (<3),
+        ~7% unsettled/minor storm (3-6), ~3% severe (>=7).
 
         Args:
             n_steps: Total number of time steps.
             peak_kp: Maximum Kp value at storm peak.
+            storm_day: Day within the window to place the storm center.
 
         Returns:
             1-D numpy array of Kp values.
         """
-        kp = np.ones(n_steps, dtype=np.float64) * 1.5
+        rng = np.random.default_rng(
+            seed=(peak_kp * 1000 + n_steps) & 0xFFFFFFFF
+        )
 
-        pre_storm_end = int(n_steps * 0.2)
-        peak_start = int(n_steps * 0.3)
-        peak_end = int(n_steps * 0.45)
-        recovery_end = n_steps
+        # Base: quiet conditions with slight variation
+        kp = 1.5 + rng.normal(0, 0.4, size=n_steps)
 
-        # Ramp-up phase: linear rise from quiet to peak
-        if peak_start > pre_storm_end:
-            ramp_len = peak_start - pre_storm_end
-            kp[pre_storm_end:peak_start] = np.linspace(
-                2.0, float(peak_kp), ramp_len
-            )
+        # Sprinkle minor storms every ~7-10 days (56-80 steps)
+        steps_per_day = 8  # 24h / 3h
+        n_minor = max(1, n_steps // (steps_per_day * 8))
+        minor_positions = rng.integers(0, n_steps, size=n_minor)
+        for pos in minor_positions:
+            # Minor storm: 8-16 steps (1-2 days)
+            storm_len = rng.integers(8, 17)
+            minor_peak = rng.uniform(3.5, 5.5)
+            for j in range(min(storm_len, n_steps - pos)):
+                # Bell curve shape
+                t = j / storm_len
+                kp[pos + j] = max(
+                    kp[pos + j],
+                    minor_peak * np.sin(np.pi * t),
+                )
 
-        # Peak phase: sustained high Kp with slight variation
-        if peak_end > peak_start:
-            peak_len = peak_end - peak_start
-            rng = np.random.default_rng(seed=42)
-            kp[peak_start:peak_end] = float(peak_kp) + rng.uniform(
-                -0.5, 0.0, size=peak_len
-            )
+        # Place major storm at storm_day
+        storm_center = storm_day * steps_per_day
+        if storm_center >= n_steps:
+            storm_center = n_steps // 2
 
-        # Recovery phase: exponential decay
+        # Ramp-up: 2 days (16 steps)
+        ramp_len = 16
+        ramp_start = max(0, storm_center - ramp_len - 8)
+        for j in range(min(ramp_len, storm_center - ramp_start)):
+            t = j / ramp_len
+            kp[ramp_start + j] = 2.0 + (float(peak_kp) - 2.0) * t
+
+        # Peak: 8 steps (24h)
+        peak_start = max(0, storm_center - 8)
+        peak_end = min(n_steps, storm_center + 8)
+        kp[peak_start:peak_end] = float(peak_kp) + rng.uniform(
+            -0.5, 0.0, size=peak_end - peak_start
+        )
+
+        # Recovery: 3 days (24 steps) exponential decay
+        recovery_len = 24
+        recovery_end = min(n_steps, peak_end + recovery_len)
         if recovery_end > peak_end:
-            recovery_len = recovery_end - peak_end
-            decay = np.exp(-np.linspace(0, 4.0, recovery_len))
+            decay = np.exp(
+                -np.linspace(0, 4.0, recovery_end - peak_end)
+            )
             kp[peak_end:recovery_end] = (
                 1.5 + (float(peak_kp) - 1.5) * decay
             )
@@ -880,6 +922,26 @@ class EnergyLoader(BaseDomainLoader):
                 df[column], errors="coerce"
             ).fillna(0.0).values.astype(np.float64)
         return np.zeros(len(df), dtype=np.float64)
+
+    @staticmethod
+    def _compute_rolling_sum(
+        values: np.ndarray, window: int = 8
+    ) -> np.ndarray:
+        """Compute the rolling sum over a trailing window.
+
+        Args:
+            values: 1-D input array.
+            window: Number of steps in the trailing window.
+
+        Returns:
+            1-D array of rolling sum values.
+        """
+        n = len(values)
+        result = np.zeros(n, dtype=np.float64)
+        for i in range(n):
+            start = max(0, i - window + 1)
+            result[i] = np.sum(values[start : i + 1])
+        return result
 
     @staticmethod
     def _compute_rolling_max(

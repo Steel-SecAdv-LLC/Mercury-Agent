@@ -139,6 +139,73 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "basin": "NA",
         "source": "last3years",
     },
+    # --- Additional storms for larger sample size ---
+    "irma_2017": {
+        "name": "Hurricane Irma (2017)",
+        "date": "2017-09-10",
+        "description": (
+            "Category 5 hurricane that caused widespread destruction "
+            "across the Caribbean and Florida."
+        ),
+        "sid": "2017242N16333",
+        "basin": "NA",
+        "source": "historical",
+    },
+    "michael_2018": {
+        "name": "Hurricane Michael (2018)",
+        "date": "2018-10-10",
+        "description": (
+            "Category 5 hurricane that rapidly intensified before making "
+            "landfall on the Florida Panhandle."
+        ),
+        "sid": "2018280N18082",
+        "basin": "NA",
+        "source": "historical",
+    },
+    "dorian_2019": {
+        "name": "Hurricane Dorian (2019)",
+        "date": "2019-09-01",
+        "description": (
+            "Category 5 hurricane that devastated the Bahamas after "
+            "extreme rapid intensification."
+        ),
+        "sid": "2019236N10340",
+        "basin": "NA",
+        "source": "historical",
+    },
+    "ida_2021": {
+        "name": "Hurricane Ida (2021)",
+        "date": "2021-08-29",
+        "description": (
+            "Category 4 hurricane that rapidly intensified in the "
+            "Gulf of Mexico before striking Louisiana."
+        ),
+        "sid": "2021238N17279",
+        "basin": "NA",
+        "source": "historical",
+    },
+    "sandy_2012": {
+        "name": "Hurricane Sandy (2012)",
+        "date": "2012-10-29",
+        "description": (
+            "Post-tropical cyclone that caused massive damage to the "
+            "northeastern United States."
+        ),
+        "sid": "2012296N14283",
+        "basin": "NA",
+        "source": "historical",
+    },
+    "matthew_2016": {
+        "name": "Hurricane Matthew (2016)",
+        "date": "2016-10-08",
+        "description": (
+            "Category 5 hurricane in the Caribbean that caused "
+            "devastating impacts in Haiti and the southeastern US."
+        ),
+        "sid": "2016272N13318",
+        "basin": "NA",
+        "source": "historical",
+    },
 }
 
 
@@ -170,10 +237,14 @@ class HurricaneLoader(BaseDomainLoader):
         "pressure_mb",
         "lat",
         "lon",
-        "wind_change_24h",
-        "pressure_drop_24h",
+        "storm_speed_kt",
+        "delta_wind_6h",
+        "delta_wind_12h",
+        "delta_wind_24h",
+        "delta_pressure_6h",
+        "delta_pressure_12h",
+        "wind_pressure_deficit",
         "track_deviation",
-        "translation_speed",
     ]
 
     # Cache for 6 hours since IBTrACS updates less frequently
@@ -342,25 +413,29 @@ class HurricaneLoader(BaseDomainLoader):
         2. **pressure_mb** -- central pressure in millibars.
         3. **lat** -- track latitude (degrees).
         4. **lon** -- track longitude (degrees).
-        5. **wind_change_24h** -- wind speed change over the preceding
-           24 hours (4 six-hourly observations).  Values >= 30 kt
-           indicate rapid intensification.
-        6. **pressure_drop_24h** -- pressure drop over the preceding
-           24 hours (positive values = intensification).
-        7. **track_deviation** -- distance (degrees) of the current
-           position from a 5-point running mean track.
-        8. **translation_speed** -- storm forward motion in degrees
-           per 6-hour interval (great-circle approximation).
+        5. **storm_speed_kt** -- translational speed in knots.
+        6. **delta_wind_6h** -- wind change over prior 6h (1 step).
+        7. **delta_wind_12h** -- wind change over prior 12h (2 steps).
+        8. **delta_wind_24h** -- wind change over prior 24h (4 steps).
+           Values >= 30 kt indicate rapid intensification.
+        9. **delta_pressure_6h** -- pressure drop over prior 6h
+           (positive = intensification).
+        10. **delta_pressure_12h** -- pressure drop over prior 12h.
+        11. **wind_pressure_deficit** -- deviation from expected
+            wind-pressure relationship. Storms with pressure dropping
+            faster than wind is rising are "wound up" and precede RI.
+        12. **track_deviation** -- distance (degrees) of the current
+            position from a 5-point running mean track.
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
                 :meth:`fetch_historical`.
 
         Returns:
-            2-D numpy array of shape ``(n_samples, 8)``.
+            2-D numpy array of shape ``(n_samples, 12)``.
         """
         if raw_data.empty:
-            return np.empty((0, 8), dtype=np.float64)
+            return np.empty((0, 12), dtype=np.float64)
 
         df = raw_data.copy()
 
@@ -373,17 +448,32 @@ class HurricaneLoader(BaseDomainLoader):
         lat = df["lat"].values.astype(np.float64)
         lon = df["lon"].values.astype(np.float64)
 
-        # ---- wind speed change over 24 h (4 x 6-hourly steps) ----
-        wind_change_24h = self._compute_delta(wind_kt, steps=_STEPS_24H)
+        # ---- translational speed in knots (haversine-based) ----
+        # 1 degree of great circle ≈ 60 nautical miles,
+        # 6-hour interval gives speed in degrees/6h * 60 = knots
+        translation_speed_deg = self._compute_translation_speed(lat, lon)
+        storm_speed_kt = translation_speed_deg * 60.0
 
-        # ---- pressure drop over 24 h (negate so drop is positive) ----
-        pressure_drop_24h = -self._compute_delta(pressure_mb, steps=_STEPS_24H)
+        # ---- multi-scale wind deltas (6h, 12h, 24h) ----
+        delta_wind_6h = self._compute_delta(wind_kt, steps=1)
+        delta_wind_12h = self._compute_delta(wind_kt, steps=2)
+        delta_wind_24h = self._compute_delta(wind_kt, steps=_STEPS_24H)
+
+        # ---- multi-scale pressure drops (negate so drop=positive) ----
+        delta_pressure_6h = -self._compute_delta(pressure_mb, steps=1)
+        delta_pressure_12h = -self._compute_delta(pressure_mb, steps=2)
+
+        # ---- wind-pressure deficit ----
+        # Expected wind from pressure via simplified Atkinson-Holliday:
+        #   V_expected ≈ 6.7 * (1015 - P)^0.644  (knots)
+        # Deficit = actual_wind - expected_wind. Negative means storm
+        # has untapped pressure gradient → precedes RI.
+        pressure_diff = np.maximum(1015.0 - pressure_mb, 0.0)
+        expected_wind = 6.7 * np.power(pressure_diff + 1e-8, 0.644)
+        wind_pressure_deficit = wind_kt - expected_wind
 
         # ---- track deviation from running mean ----
         track_deviation = self._compute_track_deviation(lat, lon, window=5)
-
-        # ---- translation speed (degrees per 6-h interval) ----
-        translation_speed = self._compute_translation_speed(lat, lon)
 
         # Stack into feature matrix
         features = np.column_stack(
@@ -392,10 +482,14 @@ class HurricaneLoader(BaseDomainLoader):
                 pressure_mb,
                 lat,
                 lon,
-                wind_change_24h,
-                pressure_drop_24h,
+                storm_speed_kt,
+                delta_wind_6h,
+                delta_wind_12h,
+                delta_wind_24h,
+                delta_pressure_6h,
+                delta_pressure_12h,
+                wind_pressure_deficit,
                 track_deviation,
-                translation_speed,
             ]
         )
 

@@ -214,20 +214,34 @@ class NetworkSecurityLoader(BaseDomainLoader):
     DOMAIN: str = "network_security"
     SOURCE_URL: str = "https://www.unb.ca/cic/datasets/ids-2017.html"
     REQUIRES_API_KEY: bool = False
+    # Continuous numeric features only. Categorical features (protocol_type,
+    # service, flag) and near-constant binary features (land, logged_in,
+    # is_host_login, is_guest_login) are excluded because Mercury's math
+    # (FFT spectral analysis, Fisher information geometry) operates on
+    # continuous distributions. Discrete clusters confuse these methods.
     FEATURE_COLUMNS: list[str] = [
-        "duration", "protocol_type", "service", "flag",
-        "src_bytes", "dst_bytes", "land", "wrong_fragment", "urgent",
-        "hot", "num_failed_logins", "logged_in", "num_compromised",
-        "root_shell", "su_attempted", "num_root", "num_file_creations",
-        "num_shells", "num_access_files", "num_outbound_cmds",
-        "is_host_login", "is_guest_login", "count", "srv_count",
-        "serror_rate", "srv_serror_rate", "rerror_rate",
-        "srv_rerror_rate", "same_srv_rate", "diff_srv_rate",
-        "srv_diff_host_rate", "dst_host_count", "dst_host_srv_count",
+        "duration", "src_bytes", "dst_bytes",
+        "wrong_fragment", "urgent", "hot",
+        "num_failed_logins", "num_compromised",
+        "num_root", "num_file_creations",
+        "count", "srv_count", "serror_rate",
+        "srv_serror_rate", "rerror_rate", "srv_rerror_rate",
+        "same_srv_rate", "diff_srv_rate",
+        "dst_host_count", "dst_host_srv_count",
         "dst_host_same_srv_rate", "dst_host_diff_srv_rate",
-        "dst_host_same_src_port_rate", "dst_host_srv_diff_host_rate",
         "dst_host_serror_rate", "dst_host_srv_serror_rate",
         "dst_host_rerror_rate", "dst_host_srv_rerror_rate",
+    ]
+
+    # Columns to drop — categorical or near-constant binary.
+    _DROP_COLUMNS: list[str] = [
+        "protocol_type", "service", "flag",
+        "land", "logged_in", "is_host_login", "is_guest_login",
+    ]
+
+    # Heavy-tailed columns that benefit from log1p transform.
+    _LOG_TRANSFORM_COLUMNS: list[str] = [
+        "duration", "src_bytes", "dst_bytes",
     ]
 
     # Cache event data for 24 hours (benchmark datasets are static).
@@ -395,19 +409,17 @@ class NetworkSecurityLoader(BaseDomainLoader):
 
         Feature engineering depends on the source dataset:
 
-        **NSL-KDD features** (41 dimensions):
-            Network flow features (duration, protocol_type, service,
-            flag), byte counts (src_bytes, dst_bytes), connection
-            counts (count, srv_count), and error rates (serror_rate,
-            rerror_rate).  Categorical columns are label-encoded.
+        **NSL-KDD features** (26 continuous dimensions):
+            Continuous numeric features only — duration, byte counts,
+            connection counts, and error rates.  Categorical columns
+            (protocol_type, service, flag) and near-constant binary
+            columns are dropped.  Heavy-tailed features (duration,
+            src_bytes, dst_bytes) are log1p-transformed.
 
-        **CICIDS 2017 features** (~78 dimensions):
-            Flow duration, total fwd/bwd packets, packet length
-            statistics, flow byte/packet rates, flag counts, and
-            inter-arrival time statistics.
-
-        **BATADAL features** (43 dimensions):
-            SCADA sensor readings from a water distribution network.
+        **CICIDS 2017 / BATADAL features**:
+            All numeric columns retained (these datasets are already
+            predominantly continuous).  Categorical and metadata
+            columns are dropped.
 
         All features are cleaned (inf/nan removed) and returned as
         float64.  The ``label`` column is excluded from features.
@@ -432,16 +444,36 @@ class NetworkSecurityLoader(BaseDomainLoader):
         if drop_cols:
             df = df.drop(columns=drop_cols)
 
-        # Detect and encode categorical columns
-        categorical_cols = df.select_dtypes(include=["object", "category"]).columns.tolist()
-        for col in categorical_cols:
-            unique_vals = df[col].unique()
-            encoding = {val: idx for idx, val in enumerate(unique_vals)}
-            df[col] = df[col].map(encoding)
+        # Drop categorical and near-constant binary columns
+        drop_categorical = [
+            c for c in self._DROP_COLUMNS if c in df.columns
+        ]
+        if drop_categorical:
+            df = df.drop(columns=drop_categorical)
+
+        # Also drop any remaining object/category columns
+        categorical_cols = df.select_dtypes(
+            include=["object", "category"]
+        ).columns.tolist()
+        if categorical_cols:
+            df = df.drop(columns=categorical_cols)
 
         # Convert to numeric, coercing errors
         for col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        # Log1p transform for heavy-tailed features
+        for col in self._LOG_TRANSFORM_COLUMNS:
+            if col in df.columns:
+                df[col] = np.log1p(df[col].fillna(0).clip(lower=0))
+
+        # Select FEATURE_COLUMNS if they exist in the DataFrame;
+        # otherwise keep all remaining numeric columns (for CICIDS/BATADAL)
+        available_features = [
+            c for c in self.FEATURE_COLUMNS if c in df.columns
+        ]
+        if available_features:
+            df = df[available_features]
 
         arr = df.values.astype(np.float64)
 

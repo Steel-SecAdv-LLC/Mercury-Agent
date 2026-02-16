@@ -63,42 +63,43 @@ _OWID_COLUMNS = [
 # ---------------------------------------------------------------------------
 _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "covid_usa_wave1": {
-        "name": "COVID-19 First Wave USA",
+        "name": "COVID-19 Multi-Wave USA",
         "date": "2020-03-15",
         "description": (
-            "COVID-19 first wave in the United States (March-June 2020). "
-            "Characterized by rapid exponential growth of cases across "
-            "major metropolitan areas."
+            "COVID-19 in the United States (Jan 2020 - Dec 2022). "
+            "Covers multiple waves: initial outbreak, winter 2020-21, "
+            "Delta summer 2021, and Omicron winter 2021-22. Daily "
+            "granularity provides ~1000 observations."
         ),
         "location": "United States",
-        "start": "2020-03-01",
-        "end": "2020-06-30",
+        "start": "2020-01-22",
+        "end": "2022-12-31",
         "source": "owid",
     },
     "covid_italy_wave1": {
-        "name": "COVID-19 First Wave Italy",
+        "name": "COVID-19 Multi-Wave Italy",
         "date": "2020-02-21",
         "description": (
-            "COVID-19 first wave in Italy (February-May 2020). "
-            "Italy was among the first European countries with widespread "
-            "community transmission, centered in Lombardy."
+            "COVID-19 in Italy (Feb 2020 - Dec 2021). Covers the "
+            "devastating first wave, second wave, and Alpha/Delta "
+            "variant waves."
         ),
         "location": "Italy",
         "start": "2020-02-15",
-        "end": "2020-05-31",
+        "end": "2021-12-31",
         "source": "owid",
     },
     "covid_india_delta": {
-        "name": "COVID-19 Delta Wave India",
+        "name": "COVID-19 Multi-Wave India",
         "date": "2021-04-15",
         "description": (
-            "COVID-19 Delta variant wave in India (April-June 2021). "
-            "Explosive growth driven by the B.1.617.2 (Delta) variant, "
-            "overwhelming healthcare systems across the country."
+            "COVID-19 in India (Mar 2020 - Dec 2022). Covers the "
+            "initial wave, devastating Delta variant wave (Apr-Jun "
+            "2021), and subsequent Omicron waves."
         ),
         "location": "India",
-        "start": "2021-04-01",
-        "end": "2021-06-30",
+        "start": "2020-03-01",
+        "end": "2022-12-31",
         "source": "owid",
     },
     "ebola_2014": {
@@ -156,10 +157,8 @@ class PandemicLoader(BaseDomainLoader):
     SOURCE_URL: str = "https://github.com/owid/covid-19-data"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
-        "new_cases",
-        "new_deaths",
-        "total_cases",
-        "total_deaths",
+        "new_cases_smoothed",
+        "new_deaths_smoothed",
         "new_cases_per_million",
         "new_deaths_per_million",
         "rolling_avg_7d",
@@ -168,6 +167,8 @@ class PandemicLoader(BaseDomainLoader):
         "testing_rate",
         "positivity_rate",
         "stringency_index",
+        "case_acceleration",
+        "death_acceleration",
     ]
 
     #: Cache the large OWID dataset for 6 hours
@@ -359,23 +360,24 @@ class PandemicLoader(BaseDomainLoader):
 
         Engineered features (per day):
 
-        1. **new_cases** -- daily new confirmed cases.
-        2. **new_deaths** -- daily new confirmed deaths.
-        3. **total_cases** -- cumulative confirmed cases.
-        4. **total_deaths** -- cumulative confirmed deaths.
-        5. **new_cases_per_million** -- new cases normalized by
+        1. **new_cases_smoothed** -- 7-day smoothed new cases.
+        2. **new_deaths_smoothed** -- 7-day smoothed new deaths.
+        3. **new_cases_per_million** -- new cases normalized by
            population.
-        6. **new_deaths_per_million** -- new deaths normalized by
+        4. **new_deaths_per_million** -- new deaths normalized by
            population.
-        7. **rolling_avg_7d** -- 7-day rolling average of new cases.
-        8. **case_growth_rate** -- ratio of today's new cases to
+        5. **rolling_avg_7d** -- 7-day rolling average of new cases.
+        6. **case_growth_rate** -- ratio of today's new cases to
            new cases 7 days ago.
-        9. **reproduction_rate** -- effective reproduction number (Rt)
+        7. **reproduction_rate** -- effective reproduction number (Rt)
            from OWID.
-        10. **testing_rate** -- new tests per thousand population.
-        11. **positivity_rate** -- test positivity rate.
-        12. **stringency_index** -- government response stringency
+        8. **testing_rate** -- new tests per thousand population.
+        9. **positivity_rate** -- test positivity rate.
+        10. **stringency_index** -- government response stringency
             index (0-100).
+        11. **case_acceleration** -- 7d avg / 30d trailing avg of
+            new cases (captures wave onsets).
+        12. **death_acceleration** -- same ratio for deaths.
 
         Args:
             raw_data: DataFrame from :meth:`fetch_historical` or
@@ -397,8 +399,10 @@ class PandemicLoader(BaseDomainLoader):
         # ---- base columns (fill missing with 0) ----
         new_cases = df["new_cases"].fillna(0).values.astype(np.float64)
         new_deaths = df["new_deaths"].fillna(0).values.astype(np.float64)
-        total_cases = df["total_cases"].fillna(0).values.astype(np.float64)
-        total_deaths = df["total_deaths"].fillna(0).values.astype(np.float64)
+
+        # ---- smoothed columns (7-day rolling) ----
+        new_cases_smoothed = self._rolling_mean(new_cases, window=7)
+        new_deaths_smoothed = self._rolling_mean(new_deaths, window=7)
 
         # ---- per-million rates ----
         new_cases_per_million = (
@@ -413,7 +417,7 @@ class PandemicLoader(BaseDomainLoader):
         )
 
         # ---- 7-day rolling average of new cases ----
-        rolling_avg_7d = self._rolling_mean(new_cases, window=7)
+        rolling_avg_7d = new_cases_smoothed  # reuse
 
         # ---- case growth rate (new_cases / new_cases_7_days_ago) ----
         case_growth_rate = self._compute_growth_rate(new_cases, lag=7)
@@ -446,13 +450,27 @@ class PandemicLoader(BaseDomainLoader):
             else np.zeros(len(df), dtype=np.float64)
         )
 
+        # ---- case acceleration: 7d avg / 30d trailing avg ----
+        rolling_30d = self._rolling_mean(new_cases, window=30)
+        case_acceleration = np.where(
+            rolling_30d > 1.0,
+            new_cases_smoothed / rolling_30d,
+            0.0,
+        )
+
+        # ---- death acceleration ----
+        deaths_30d = self._rolling_mean(new_deaths, window=30)
+        death_acceleration = np.where(
+            deaths_30d > 0.1,
+            new_deaths_smoothed / deaths_30d,
+            0.0,
+        )
+
         # Stack into feature matrix
         features = np.column_stack(
             [
-                new_cases,
-                new_deaths,
-                total_cases,
-                total_deaths,
+                new_cases_smoothed,
+                new_deaths_smoothed,
                 new_cases_per_million,
                 new_deaths_per_million,
                 rolling_avg_7d,
@@ -461,6 +479,8 @@ class PandemicLoader(BaseDomainLoader):
                 testing_rate,
                 positivity_rate,
                 stringency_index,
+                case_acceleration,
+                death_acceleration,
             ]
         )
 

@@ -195,15 +195,15 @@ class FEMALoader(BaseDomainLoader):
     FEATURE_COLUMNS: list[str] = [
         "disaster_type",
         "state_fips",
-        "declaration_type",
-        "year",
-        "month",
-        "day",
-        "ia_program",
-        "pa_program",
-        "hm_program",
-        "time_between_declarations",
+        "declaration_month",
+        "declaration_day_of_year",
+        "days_since_last_same_state",
+        "declarations_trailing_12mo_same_state",
+        "declarations_trailing_12mo_national",
+        "program_count",
+        "is_major_disaster",
         "geographic_cluster",
+        "time_between_declarations",
     ]
 
     # Cache historical event data for 24 hours (declarations are stable).
@@ -422,16 +422,21 @@ class FEMALoader(BaseDomainLoader):
         if df.empty:
             return np.array([], dtype=np.int64)
 
-        # Major Disaster (DR) with both IA and PA programs = anomaly.
+        # Anomaly = Major Disaster (DR) with >= 3 assistance programs.
+        # This separates catastrophic events requiring full federal
+        # response from routine declarations with fewer programs.
         is_major_disaster = df["declarationType"].values == "DR"
-        has_ia = df["iaProgramDeclared"].values.astype(bool)
-        has_pa = df["paProgramDeclared"].values.astype(bool)
+        has_ia = df["iaProgramDeclared"].fillna(False).values.astype(np.float64)
+        has_pa = df["paProgramDeclared"].fillna(False).values.astype(np.float64)
+        has_hm = df["hmProgramDeclared"].fillna(False).values.astype(np.float64)
+        has_ih = df["ihProgramDeclared"].fillna(False).values.astype(np.float64)
+        program_count = has_ia + has_pa + has_hm + has_ih
 
-        labels = (is_major_disaster & has_ia & has_pa).astype(np.int64)
+        labels = (is_major_disaster & (program_count >= 3)).astype(np.int64)
 
         logger.info(
             "Ground truth for '%s': %d anomalies / %d total "
-            "(DR with IA+PA).",
+            "(DR with >=3 programs).",
             event_id,
             int(labels.sum()),
             len(labels),
@@ -450,22 +455,22 @@ class FEMALoader(BaseDomainLoader):
         1. **disaster_type** -- encoded incident type (Hurricane=1,
            Flood=2, Fire=3, Tornado=4, Earthquake=5, etc.).
         2. **state_fips** -- numeric FIPS code for the declaring state.
-        3. **declaration_type** -- encoded declaration type (DR=1,
-           EM=2, FM=3, FS=4).
-        4. **year** -- year of the declaration date.
-        5. **month** -- month of the declaration date.
-        6. **day** -- day of the declaration date.
-        7. **ia_program** -- Individual Assistance program designated
-           (1 or 0).
-        8. **pa_program** -- Public Assistance program designated
-           (1 or 0).
-        9. **hm_program** -- Hazard Mitigation program designated
-           (1 or 0).
-        10. **time_between_declarations** -- seconds since the
-            previous declaration (0 for the first row), for temporal
-            anomaly detection.
-        11. **geographic_cluster** -- simple geographic clustering
-            based on state FIPS region encoding.
+        3. **declaration_month** -- month of the declaration date.
+        4. **declaration_day_of_year** -- day of year (1-366),
+           captures seasonal patterns.
+        5. **days_since_last_same_state** -- days since the previous
+           declaration in the same state (0 for the first).
+        6. **declarations_trailing_12mo_same_state** -- count of
+           declarations in the same state over the prior 12 months.
+        7. **declarations_trailing_12mo_national** -- count of all
+           declarations nationally over the prior 12 months.
+        8. **program_count** -- number of assistance programs activated
+           (IA + PA + HM + IH, range 0-4).
+        9. **is_major_disaster** -- 1 if declaration type is DR (Major
+           Disaster), 0 otherwise.
+        10. **geographic_cluster** -- Census Bureau region cluster.
+        11. **time_between_declarations** -- seconds since the
+            previous declaration (0 for the first row).
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
@@ -486,6 +491,8 @@ class FEMALoader(BaseDomainLoader):
             )
             df = df.sort_values("declarationDate").reset_index(drop=True)
 
+        n = len(df)
+
         # ---- Feature 1: disaster type encoding ----
         disaster_type = df["incidentType"].map(_INCIDENT_TYPE_MAP).fillna(99)
         disaster_type = disaster_type.values.astype(np.float64)
@@ -494,51 +501,57 @@ class FEMALoader(BaseDomainLoader):
         state_fips = df["state"].map(_STATE_FIPS).fillna(0)
         state_fips = state_fips.values.astype(np.float64)
 
-        # ---- Feature 3: declaration type encoding ----
-        declaration_type = (
-            df["declarationType"].map(_DECLARATION_TYPE_MAP).fillna(0)
-        )
-        declaration_type = declaration_type.values.astype(np.float64)
-
-        # ---- Features 4-6: temporal components ----
+        # ---- Features 3-4: temporal components ----
         if "declarationDate" in df.columns:
             dates = pd.to_datetime(
                 df["declarationDate"], errors="coerce", utc=True
             )
-            year = dates.dt.year.fillna(0).values.astype(np.float64)
             month = dates.dt.month.fillna(0).values.astype(np.float64)
-            day = dates.dt.day.fillna(0).values.astype(np.float64)
+            day_of_year = dates.dt.dayofyear.fillna(0).values.astype(np.float64)
         else:
-            n = len(df)
-            year = np.zeros(n, dtype=np.float64)
             month = np.zeros(n, dtype=np.float64)
-            day = np.zeros(n, dtype=np.float64)
+            day_of_year = np.zeros(n, dtype=np.float64)
 
-        # ---- Features 7-9: program designations ----
-        ia_program = self._bool_column(df, "iaProgramDeclared")
-        pa_program = self._bool_column(df, "paProgramDeclared")
-        hm_program = self._bool_column(df, "hmProgramDeclared")
+        # ---- Feature 5: days since last declaration in same state ----
+        days_since_last_same_state = self._compute_days_since_last_same_state(df)
 
-        # ---- Feature 10: time between declarations (seconds) ----
-        time_between = self._compute_time_between_declarations(df)
+        # ---- Features 6-7: trailing 12-month declaration counts ----
+        trailing_same_state, trailing_national = (
+            self._compute_trailing_counts(df)
+        )
 
-        # ---- Feature 11: geographic clustering ----
+        # ---- Feature 8: program count (0-4) ----
+        ia = self._bool_column(df, "iaProgramDeclared")
+        pa = self._bool_column(df, "paProgramDeclared")
+        hm = self._bool_column(df, "hmProgramDeclared")
+        ih = self._bool_column(df, "ihProgramDeclared")
+        program_count = ia + pa + hm + ih
+
+        # ---- Feature 9: is major disaster ----
+        is_major = np.zeros(n, dtype=np.float64)
+        if "declarationType" in df.columns:
+            is_major = (df["declarationType"].values == "DR").astype(np.float64)
+
+        # ---- Feature 10: geographic clustering ----
         geographic_cluster = self._compute_geographic_cluster(state_fips)
+
+        # ---- Feature 11: time between declarations (seconds) ----
+        time_between = self._compute_time_between_declarations(df)
 
         # Stack into feature matrix.
         features = np.column_stack(
             [
                 disaster_type,
                 state_fips,
-                declaration_type,
-                year,
                 month,
-                day,
-                ia_program,
-                pa_program,
-                hm_program,
-                time_between,
+                day_of_year,
+                days_since_last_same_state,
+                trailing_same_state,
+                trailing_national,
+                program_count,
+                is_major,
                 geographic_cluster,
+                time_between,
             ]
         )
 
@@ -635,6 +648,94 @@ class FEMALoader(BaseDomainLoader):
         if col in df.columns:
             return df[col].fillna(False).astype(np.float64).values
         return np.zeros(len(df), dtype=np.float64)
+
+    @staticmethod
+    def _compute_days_since_last_same_state(
+        df: pd.DataFrame,
+    ) -> np.ndarray:
+        """Compute days since the last declaration in the same state.
+
+        Args:
+            df: DataFrame with ``state`` and ``declarationDate`` columns.
+
+        Returns:
+            1-D float64 array. 0 for the first occurrence in each state.
+        """
+        n = len(df)
+        result = np.zeros(n, dtype=np.float64)
+
+        if "state" not in df.columns or "declarationDate" not in df.columns:
+            return result
+
+        dates = pd.to_datetime(
+            df["declarationDate"], errors="coerce", utc=True
+        )
+        states = df["state"].values
+
+        last_date_by_state: dict[str, pd.Timestamp] = {}
+        for i in range(n):
+            state = str(states[i])
+            current_date = dates.iloc[i]
+            if pd.isna(current_date):
+                continue
+            if state in last_date_by_state:
+                delta = current_date - last_date_by_state[state]
+                result[i] = max(0.0, delta.total_seconds() / 86400.0)
+            last_date_by_state[state] = current_date
+
+        return result
+
+    @staticmethod
+    def _compute_trailing_counts(
+        df: pd.DataFrame,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute trailing 12-month declaration counts.
+
+        Returns two arrays:
+        - declarations in the same state over prior 12 months
+        - declarations nationally over prior 12 months
+
+        Args:
+            df: DataFrame with ``state`` and ``declarationDate`` columns.
+
+        Returns:
+            Tuple of (same_state_counts, national_counts) arrays.
+        """
+        n = len(df)
+        same_state = np.zeros(n, dtype=np.float64)
+        national = np.zeros(n, dtype=np.float64)
+
+        if "state" not in df.columns or "declarationDate" not in df.columns:
+            return same_state, national
+
+        dates = pd.to_datetime(
+            df["declarationDate"], errors="coerce", utc=True
+        )
+        states = df["state"].values
+        one_year = pd.Timedelta(days=365)
+
+        for i in range(n):
+            current_date = dates.iloc[i]
+            if pd.isna(current_date):
+                continue
+            cutoff = current_date - one_year
+            current_state = str(states[i])
+
+            # Count prior declarations within 12 months
+            nat_count = 0
+            state_count = 0
+            for j in range(max(0, i - 5000), i):  # cap lookback
+                prior_date = dates.iloc[j]
+                if pd.isna(prior_date) or prior_date < cutoff:
+                    continue
+                nat_count += 1
+                if str(states[j]) == current_state:
+                    state_count += 1
+
+            same_state[i] = float(state_count)
+            national[i] = float(nat_count)
+
+        return same_state, national
 
     @staticmethod
     def _compute_time_between_declarations(
