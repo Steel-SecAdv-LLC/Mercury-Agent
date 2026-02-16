@@ -59,6 +59,7 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     # Sort by descending score
     desc_idx = np.argsort(y_scores)[::-1]
     y_true_sorted = y_true[desc_idx]
+    y_scores_sorted = y_scores[desc_idx]
 
     # Compute TPR and FPR at each threshold
     tps = np.cumsum(y_true_sorted)
@@ -66,6 +67,14 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
 
     tpr = tps / n_pos
     fpr = fps / n_neg
+
+    # Collapse tied scores: only keep the last point in each group
+    # of identical scores (matching sklearn roc_curve behaviour).
+    distinct = np.concatenate(
+        [np.where(np.diff(y_scores_sorted))[0], [len(y_scores_sorted) - 1]]
+    )
+    tpr = tpr[distinct]
+    fpr = fpr[distinct]
 
     # Prepend origin
     tpr = np.concatenate([[0], tpr])

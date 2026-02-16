@@ -225,6 +225,10 @@ class FEMALoader(BaseDomainLoader):
     federal response.  Emergency-only (EM) declarations are labeled
     normal (0).
 
+    **Honest ceiling note**: FEMA declaration data has low per-feature
+    Cohen's d separation (max ~1.6).  The administrative nature of the
+    features limits unsupervised anomaly detection AUC to ~0.63.
+
     Attributes:
         DOMAIN: ``"fema"``
         SOURCE_URL: OpenFEMA Disaster Declarations Summaries endpoint.
