@@ -46,7 +46,7 @@
 **License:** GNU General Public License v3.0
 **Version:** v1.4.0
 **Date:** 2026-02-09
-**AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕ | Claude ⊛
+**AI Co-Architects:** Devin ⚛ | Claude ⊛
 
 ---
 
