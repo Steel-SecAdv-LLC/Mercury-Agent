@@ -1,5 +1,21 @@
 # Mercury Agent ♱ - Strategic Engineering Roadmap
 
+> **Status (2026-02-17):** All seven capabilities listed below have initial
+> implementations in the source tree. The phase checklists below were written
+> before the implementations were merged and have **not** been updated to
+> reflect completion. Treat the interface designs as aspirational targets
+> rather than exact API contracts — the actual implementations may differ.
+>
+> | Capability | Source Location | Status |
+> |---|---|---|
+> | 1. Distributed Processing | `distributed/cluster.py`, `distributed/raft_consensus.py` | Implemented |
+> | 2. Biometric Modalities | `biometric/iris_recognition.py`, `biometric/fingerprint_recognition.py`, `biometric/voice_recognition.py` | Implemented |
+> | 3. Real Quantum Computing | `quantum_computing/circuits.py`, `quantum_computing/executor.py`, `quantum_computing/hybrid.py` | Implemented |
+> | 4. Advanced Harmonics | `harmonics/analyzer.py`, `harmonics/features.py`, `harmonics/transform.py` | Implemented |
+> | 5. AutoML | `automl/optimizer.py`, `automl/schedulers.py`, `automl/search_space.py` | Implemented |
+> | 6. Federated Learning | `federated_learning/client.py`, `federated_learning/server.py`, `federated_learning/privacy.py` | Implemented |
+> | 7. Explainability | `explainability/shap.py`, `explainability/counterfactuals.py`, `explainability/gdpr_compliance.py` | Implemented |
+
 This document outlines the strategic engineering roadmap for Mercury Agent, detailing planned enhancements, architectural considerations, and implementation strategies.
 
 ---
@@ -8,13 +24,13 @@ This document outlines the strategic engineering roadmap for Mercury Agent, deta
 
 Mercury Agent is evolving toward a distributed, privacy-preserving, and explainable AI platform. This roadmap establishes the technical foundation for seven major capability expansions:
 
-1. **Distributed Processing** - Multi-node deployment for horizontal scalability
-2. **Additional Biometric Modalities** - Iris, fingerprint, and voice authentication
-3. **Real Quantum Computing** - Qiskit integration for production quantum workloads
-4. **Advanced Harmonics** - Higher l_max spherical harmonic analysis for 3D data
-5. **AutoML** - Automatic hyperparameter tuning and model selection
-6. **Federated Learning** - Privacy-preserving distributed training
-7. **Explainability** - SHAP values and comprehensive interpretability framework
+1. **Distributed Processing** - Multi-node deployment for horizontal scalability — **Implemented**
+2. **Additional Biometric Modalities** - Iris, fingerprint, and voice authentication — **Implemented**
+3. **Real Quantum Computing** - Qiskit integration for production quantum workloads — **Implemented**
+4. **Advanced Harmonics** - Higher l_max spherical harmonic analysis for 3D data — **Implemented**
+5. **AutoML** - Automatic hyperparameter tuning and model selection — **Implemented**
+6. **Federated Learning** - Privacy-preserving distributed training — **Implemented**
+7. **Explainability** - SHAP values and comprehensive interpretability framework — **Implemented**
 
 ---
 
