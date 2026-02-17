@@ -1,6 +1,6 @@
 <div align="center">
 
-  <h1 style="font-family: 'PMingLiU-ExtB', serif; background: transparent; letter-spacing: 0.05em;"><b><span style="color:#B4B124">M</span><span style="color:#11AEED">ercury</span>&nbsp;&nbsp;<span style="color:#B4B124">A</span><span style="color:#000000">gent</span>&nbsp;&nbsp;<span style="color:#B4B124">♱</span></b></h1>
+  <img src="docs/images/mercury_agent_header.svg" alt="Mercury Agent" width="600" />
 
 </div>
 
