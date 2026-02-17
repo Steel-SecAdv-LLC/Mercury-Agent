@@ -95,7 +95,7 @@ class BaseDomainLoader(ABC):
 
         if self.REQUIRES_API_KEY and not self._api_key:
             logger.warning(
-                "%s loader requires API key via %s env var. " "Some operations may fail.",
+                "%s loader: authentication not configured (set %s). " "Some operations may fail.",
                 self.DOMAIN,
                 self.API_KEY_ENV_VAR,
             )
@@ -192,30 +192,6 @@ class BaseDomainLoader(ABC):
     # HTTP fetch with retry
     # =========================================================================
 
-    @staticmethod
-    def _redact_url(url: str) -> str:
-        """Strip API keys and credentials from a URL for safe logging."""
-        import re
-        import urllib.parse
-
-        # Redact sensitive query parameters
-        parsed = urllib.parse.urlparse(url)
-        if parsed.query:
-            params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
-            for key in list(params):
-                if re.search(r"key|token|secret|password|auth", key, re.IGNORECASE):
-                    params[key] = ["REDACTED"]
-            redacted_query = urllib.parse.urlencode(params, doseq=True)
-            url = urllib.parse.urlunparse(parsed._replace(query=redacted_query))
-
-        # Redact path-embedded API keys (e.g. FIRMS: /api/area/csv/<KEY>/...)
-        url = re.sub(
-            r"(/(?:csv|json)/)[A-Za-z0-9]{20,}(/)",
-            r"\1REDACTED\2",
-            url,
-        )
-        return url
-
     def _fetch_url(
         self,
         url: str,
@@ -248,14 +224,14 @@ class BaseDomainLoader(ABC):
         if headers:
             default_headers.update(headers)
 
-        last_error: Exception | None = None
+        last_error_kind = "unknown"
         for attempt in range(self.max_retries + 1):
             try:
                 req = urllib.request.Request(full_url, headers=default_headers)  # noqa: S310
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
                     return resp.read()  # type: ignore[no-any-return]
             except Exception as exc:
-                last_error = exc
+                last_error_kind = type(exc).__name__
                 if attempt < self.max_retries:
                     wait = self.retry_backoff * (2**attempt)
                     logger.warning(
@@ -263,14 +239,14 @@ class BaseDomainLoader(ABC):
                         self.DOMAIN,
                         attempt + 1,
                         self.max_retries + 1,
-                        type(exc).__name__,
+                        last_error_kind,
                         wait,
                     )
                     time.sleep(wait)
 
         raise ConnectionError(
             f"{self.DOMAIN}: Failed to fetch data after "
-            f"{self.max_retries + 1} attempts: {type(last_error).__name__}"
+            f"{self.max_retries + 1} attempts ({last_error_kind})"
         )
 
     def _fetch_json(
