@@ -2533,7 +2533,19 @@ class OmniMercuryEngine(LoggerMixin):
                 # to prevent arbitrary code execution during deserialization.
 
                 _SAFE_MODULES: dict[str, set[str]] = {
-                    "builtins": {"dict", "list", "tuple", "set", "frozenset", "int", "float", "str", "bool", "bytes", "complex"},
+                    "builtins": {
+                        "dict",
+                        "list",
+                        "tuple",
+                        "set",
+                        "frozenset",
+                        "int",
+                        "float",
+                        "str",
+                        "bool",
+                        "bytes",
+                        "complex",
+                    },
                     "collections": {"OrderedDict"},
                     "numpy": {"ndarray", "dtype", "float32", "float64", "int32", "int64"},
                     "numpy.core.multiarray": {"scalar", "_reconstruct"},
