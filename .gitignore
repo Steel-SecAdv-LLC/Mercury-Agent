@@ -131,6 +131,13 @@ benchmarks/*.png
 benchmarks/*_results.json
 !benchmarks/baseline_results.json
 
+# Generated report files (CI artifacts)
+live-data-report.json
+bandit-report.json
+safety-report.json
+pip-audit-report.json
+semgrep-report.json
+
 # ML models and data (trained weights, not source code)
 *.pth
 *.ckpt
