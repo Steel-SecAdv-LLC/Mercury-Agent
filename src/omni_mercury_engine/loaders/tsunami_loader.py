@@ -511,16 +511,15 @@ class TsunamiLoader(BaseDomainLoader):
             event["window_end"].replace("Z", "+00:00")
         )
 
-        # Scale observation window so the anomaly ratio stays below ~40%.
-        # For long-duration events (e.g. Tonga 2022, ~12 h window) the
-        # fixed 6-hour padding produces near-50% anomaly ratio, which
-        # confuses unsupervised detectors.  Using max(6h, 0.75×dur)
-        # extends padding only for events whose window exceeds 8 hours.
+        # Scale observation window so the anomaly ratio stays below ~35%.
+        # Long-duration events (>8 h) need proportionally more padding to
+        # provide sufficient normal baseline for unsupervised detectors.
         event_duration_s = (
             window_end.timestamp() - window_start.timestamp()
         )
-        pre_seconds = max(6 * 3600, int(event_duration_s * 0.75))
-        post_seconds = max(6 * 3600, int(event_duration_s * 0.75))
+        padding_mult = 1.0 if event_duration_s > 8 * 3600 else 0.75
+        pre_seconds = max(6 * 3600, int(event_duration_s * padding_mult))
+        post_seconds = max(6 * 3600, int(event_duration_s * padding_mult))
         total_start = window_start.timestamp() - pre_seconds
         total_end = window_end.timestamp() + post_seconds
         step_seconds = 60  # 1-minute resolution
@@ -549,17 +548,24 @@ class TsunamiLoader(BaseDomainLoader):
         if event["event_id"] == "tohoku_2011":
             amplitude = 0.15  # large signal (~15 cm water equiv.)
             period = 20 * 60  # ~20-minute dominant period
+            decay_rate = 2.0
         elif event["event_id"] == "chile_2010":
+            # Pacific-wide tsunami with sustained oscillations over ~7 h.
             amplitude = 0.08
             period = 25 * 60
+            decay_rate = 1.5
         else:  # tonga_2022
-            amplitude = 0.06
+            # Hunga Tonga eruption: VEI-5+ submarine volcanic event.
+            # Pressure wave sustained oscillations over ~12 h across
+            # the Pacific, with slower decay than seismic tsunamis.
+            amplitude = 0.08
             period = 15 * 60
+            decay_rate = 1.5
 
         # Decaying oscillation within the window.
         window_time = time_array[in_window] - ws_epoch
         window_duration = we_epoch - ws_epoch
-        decay = np.exp(-2.0 * window_time / window_duration)
+        decay = np.exp(-decay_rate * window_time / window_duration)
         tsunami_signal[in_window] = (
             amplitude * decay * np.sin(2 * np.pi * window_time / period)
         )
