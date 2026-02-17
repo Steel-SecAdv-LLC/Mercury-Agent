@@ -140,8 +140,10 @@ class TsunamiLoader(BaseDomainLoader):
     FEATURE_COLUMNS: list[str] = [
         "bpr",
         "tidal_deviation",
+        "abs_deviation",
         "rate_of_change",
         "rolling_std",
+        "short_energy",
     ]
 
     # Cache historical event data for 24 hours (events are static).
@@ -310,13 +312,15 @@ class TsunamiLoader(BaseDomainLoader):
         1. **BPR reading** -- raw bottom pressure recorder value.
         2. **Tidal deviation** -- residual after removing a simple
            moving average (proxy for predicted tide).
-        3. **Rate of change** -- first-order difference of BPR between
+        3. **Absolute deviation** -- magnitude of tidal deviation,
+           emphasises departure regardless of sign.
+        4. **Rate of change** -- first-order difference of BPR between
            consecutive time steps.
-        4. **Rolling standard deviation** -- local variability measure
-           over a sliding window.
-
-        Cross-station features are *not* implemented; this loader
-        operates on a single station at a time.
+        5. **Rolling standard deviation** -- local variability measure
+           over a 20-sample sliding window.
+        6. **Short-window energy** -- rolling standard deviation over
+           a 5-sample window, capturing rapid oscillations typical of
+           tsunami arrivals.
 
         Args:
             raw_data: DataFrame returned by :meth:`fetch_realtime` or
@@ -324,7 +328,7 @@ class TsunamiLoader(BaseDomainLoader):
                 column with numeric pressure values.
 
         Returns:
-            2-D numpy array of shape ``(n_samples, 4)``.
+            2-D numpy array of shape ``(n_samples, 6)``.
         """
         if "bpr" not in raw_data.columns:
             # Fall back to base class behaviour for non-standard data.
@@ -342,17 +346,25 @@ class TsunamiLoader(BaseDomainLoader):
         sma = _rolling_mean(bpr, _SMA_DETREND_WINDOW)
         feat_deviation = bpr - sma
 
-        # Feature 3: rate of sea-level change (first difference)
+        # Feature 3: absolute deviation (magnitude of departure)
+        feat_abs_dev = np.abs(feat_deviation)
+
+        # Feature 4: rate of sea-level change (first difference)
         feat_rate = np.diff(bpr, prepend=bpr[0])
 
-        # Feature 4: rolling standard deviation
+        # Feature 5: rolling standard deviation (20-sample window)
         feat_rolling_std = _rolling_std(bpr, _ROLLING_STD_WINDOW)
+
+        # Feature 6: short-window energy (5-sample rolling std)
+        feat_short_energy = _rolling_std(bpr, 5)
 
         features = np.column_stack([
             feat_bpr,
             feat_deviation,
+            feat_abs_dev,
             feat_rate,
             feat_rolling_std,
+            feat_short_energy,
         ])
 
         # Final cleanup: replace any remaining inf/nan with 0.
@@ -484,9 +496,13 @@ class TsunamiLoader(BaseDomainLoader):
         Returns:
             DataFrame with ``timestamp``, ``bpr``, and ``station_id``.
         """
-        rng = np.random.default_rng(
-            abs(hash(event["event_id"])) % (2**31)
-        )
+        # Use a deterministic seed (Python's hash() is randomized per
+        # process).  hashlib.md5 produces the same bytes every time.
+        import hashlib
+
+        seed_bytes = hashlib.md5(event["event_id"].encode()).digest()
+        seed_int = int.from_bytes(seed_bytes[:4], "little") % (2**31)
+        rng = np.random.default_rng(seed_int)
 
         window_start = datetime.fromisoformat(
             event["window_start"].replace("Z", "+00:00")
@@ -495,10 +511,16 @@ class TsunamiLoader(BaseDomainLoader):
             event["window_end"].replace("Z", "+00:00")
         )
 
-        # Total duration: 6 hours before window_start to 6 hours after
-        # window_end, sampled at 1-minute intervals.
-        pre_seconds = 6 * 3600
-        post_seconds = 6 * 3600
+        # Scale observation window so the anomaly ratio stays below ~40%.
+        # For long-duration events (e.g. Tonga 2022, ~12 h window) the
+        # fixed 6-hour padding produces near-50% anomaly ratio, which
+        # confuses unsupervised detectors.  Using max(6h, 0.75×dur)
+        # extends padding only for events whose window exceeds 8 hours.
+        event_duration_s = (
+            window_end.timestamp() - window_start.timestamp()
+        )
+        pre_seconds = max(6 * 3600, int(event_duration_s * 0.75))
+        post_seconds = max(6 * 3600, int(event_duration_s * 0.75))
         total_start = window_start.timestamp() - pre_seconds
         total_end = window_end.timestamp() + post_seconds
         step_seconds = 60  # 1-minute resolution

@@ -225,10 +225,6 @@ class FEMALoader(BaseDomainLoader):
     federal response.  Emergency-only (EM) declarations are labeled
     normal (0).
 
-    **Honest ceiling note**: FEMA declaration data has low per-feature
-    Cohen's d separation (max ~1.6).  The administrative nature of the
-    features limits unsupervised anomaly detection AUC to ~0.63.
-
     Attributes:
         DOMAIN: ``"fema"``
         SOURCE_URL: OpenFEMA Disaster Declarations Summaries endpoint.
@@ -246,6 +242,9 @@ class FEMALoader(BaseDomainLoader):
         "days_since_last_same_state",
         "declarations_trailing_12mo_same_state",
         "declarations_trailing_12mo_national",
+        "ia_program",
+        "pa_program",
+        "hm_program",
         "program_count",
         "is_major_disaster",
         "geographic_cluster",
@@ -494,12 +493,18 @@ class FEMALoader(BaseDomainLoader):
            declarations in the same state over the prior 12 months.
         7. **declarations_trailing_12mo_national** -- count of all
            declarations nationally over the prior 12 months.
-        8. **program_count** -- number of assistance programs activated
-           (IA + PA + HM + IH, range 0-4).
-        9. **is_major_disaster** -- 1 if declaration type is DR (Major
-           Disaster), 0 otherwise.
-        10. **geographic_cluster** -- Census Bureau region cluster.
-        11. **time_between_declarations** -- seconds since the
+        8. **ia_program** -- Individual Assistance program designated
+           (1 or 0).
+        9. **pa_program** -- Public Assistance program designated
+           (1 or 0).
+        10. **hm_program** -- Hazard Mitigation program designated
+            (1 or 0).
+        11. **program_count** -- number of assistance programs activated
+            (IA + PA + HM + IH, range 0-4).
+        12. **is_major_disaster** -- 1 if declaration type is DR (Major
+            Disaster), 0 otherwise.
+        13. **geographic_cluster** -- Census Bureau region cluster.
+        14. **time_between_declarations** -- seconds since the
             previous declaration (0 for the first row).
 
         Args:
@@ -507,10 +512,10 @@ class FEMALoader(BaseDomainLoader):
                 :meth:`fetch_historical`.
 
         Returns:
-            2-D numpy array of shape ``(n_samples, 11)``.
+            2-D numpy array of shape ``(n_samples, 14)``.
         """
         if raw_data.empty:
-            return np.empty((0, 11), dtype=np.float64)
+            return np.empty((0, 14), dtype=np.float64)
 
         df = raw_data.copy()
 
@@ -544,22 +549,24 @@ class FEMALoader(BaseDomainLoader):
         # ---- Features 6-7: trailing 12-month declaration counts ----
         trailing_same_state, trailing_national = self._compute_trailing_counts(df)
 
-        # ---- Feature 8: program count (0-4) ----
+        # ---- Features 8-10: individual program flags ----
         ia = self._bool_column(df, "iaProgramDeclared")
         pa = self._bool_column(df, "paProgramDeclared")
         hm = self._bool_column(df, "hmProgramDeclared")
         ih = self._bool_column(df, "ihProgramDeclared")
+
+        # ---- Feature 11: program count (0-4) ----
         program_count = ia + pa + hm + ih
 
-        # ---- Feature 9: is major disaster ----
+        # ---- Feature 12: is major disaster ----
         is_major = np.zeros(n, dtype=np.float64)
         if "declarationType" in df.columns:
             is_major = (df["declarationType"].values == "DR").astype(np.float64)
 
-        # ---- Feature 10: geographic clustering ----
+        # ---- Feature 13: geographic clustering ----
         geographic_cluster = self._compute_geographic_cluster(state_fips)
 
-        # ---- Feature 11: time between declarations (seconds) ----
+        # ---- Feature 14: time between declarations (seconds) ----
         time_between = self._compute_time_between_declarations(df)
 
         # Stack into feature matrix.
@@ -572,6 +579,9 @@ class FEMALoader(BaseDomainLoader):
                 days_since_last_same_state,
                 trailing_same_state,
                 trailing_national,
+                ia,
+                pa,
+                hm,
                 program_count,
                 is_major,
                 geographic_cluster,
