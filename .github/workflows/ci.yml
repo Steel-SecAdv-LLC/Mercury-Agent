@@ -28,10 +28,10 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
-  # Core tests cover test_cli.py + tests/core/ against the full source tree.
-  # Actual measured coverage: ~10.3% (475 passing tests across ~20 files
-  # against 89,540 total source lines in 415+ files).  Threshold set to 10
-  # to match reality; raise only after adding tests or scoping --cov.
+  # Core tests cover test_cli.py + tests/core/ + ensemble module tests
+  # (federation, alerting, loaders, streaming) against the full source tree.
+  # Threshold set to 10 to match reality; raise after adding tests or
+  # scoping --cov.
   COVERAGE_THRESHOLD_CORE: 10
   # Full suite (ML tests) covers all tests/ against the full source tree.
   # pyproject.toml fail_under stays at 85 as the aspirational local/nightly
@@ -260,6 +260,11 @@ jobs:
           # Run core tests with coverage threshold enforcement
           # Note: We test core modules only here; full suite in ml-tests job
           pytest tests/test_cli.py tests/core/ \
+            tests/test_federation.py \
+            tests/test_cap_alerting.py \
+            tests/test_streaming_detector.py \
+            tests/test_domain_loaders.py \
+            tests/test_domain_benchmarks.py \
             -v \
             --cov=src/omni_mercury_engine \
             --cov-report=xml \

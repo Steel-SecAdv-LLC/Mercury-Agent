@@ -580,15 +580,19 @@ class JWTAuth:
             logger.warning("JWT token expired")
             return None
         except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid JWT token: {e}")
+            # Sanitize error message to prevent log injection via crafted tokens
+            safe_msg = str(e).replace("\n", " ").replace("\r", " ")
+            logger.warning("Invalid JWT token: %s", safe_msg)
             return None
         except (KeyError, TypeError, ValueError) as e:
             # Malformed payload - missing required fields or wrong types
-            logger.warning(f"JWT payload malformed: {type(e).__name__}: {e}")
+            safe_msg = str(e).replace("\n", " ").replace("\r", " ")
+            logger.warning("JWT payload malformed: %s: %s", type(e).__name__, safe_msg)
             return None
         except Exception as e:
             # Unexpected errors - log at error level for investigation
-            logger.error(f"Unexpected JWT validation error: {type(e).__name__}: {e}")
+            safe_msg = str(e).replace("\n", " ").replace("\r", " ")
+            logger.error("Unexpected JWT validation error: %s: %s", type(e).__name__, safe_msg)
             return None
 
     @staticmethod

@@ -164,6 +164,60 @@ AUC bar chart for all 51 datasets sorted by performance, with mean line:
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
+### Domain Loader Validation (15 Real-World Domains)
+
+Mercury Agent validates its core `MercuryAnomalyDetector` against 15 real-world data domains spanning natural disasters, infrastructure, cybersecurity, and public health. Nine domains are fully validated against live API data with the following AUC scores:
+
+| Domain           | AUC    | N Samples | Data Source |
+|-----------------|--------|-----------|-------------|
+| Earthquake       | 0.9795 | 248       | USGS API |
+| Tsunami          | 0.9097 | 283       | NOAA NDBC / DART buoys |
+| Flood            | 0.8619 | 1,259     | USGS Water Services |
+| Tornado          | 0.7932 | 7,614     | NOAA SPC |
+| FEMA             | 0.7666 | 10,000    | OpenFEMA API |
+| Energy/Space Wx  | 0.7083 | 48+       | NOAA SWPC |
+| Pandemic         | 0.6370 | 122+      | OWID / WHO GHO |
+| Net Security     | 0.6122 | 148,517   | NSL-KDD |
+| Hurricane        | 0.5238 | 64+       | IBTrACS |
+
+**Optimizations applied (v1.4.1):**
+- **Marine**: Expanded synthetic sampling with baseline + event + control regions
+- **Hurricane**: Added 6 more storms, multi-scale delta features, wind-pressure deficit
+- **Network Security**: Continuous features only + log1p transform
+- **Pandemic**: Extended to multi-year daily granularity with acceleration features
+- **Energy**: Extended to multi-month windows (~700+ samples)
+- **FEMA**: Temporal enrichment (trailing counts, days since last same-state)
+
+### Federated Learning (Privacy-Preserving Detection)
+
+Mercury now supports federated anomaly detection — nodes train locally and
+exchange only sufficient statistics (13 fitted attributes), never raw data.
+
+```python
+from omni_mercury_engine.federation import FederatedNode, FederatedAggregator
+
+# Each node trains on local data
+node = FederatedNode("hospital_A")
+node.fit(local_patient_data)
+stats = node.export_statistics(epsilon=1.0)  # with differential privacy
+
+# Aggregator combines statistics from multiple nodes
+aggregator = FederatedAggregator(min_nodes=2)
+aggregator.submit(stats_a)
+aggregator.submit(stats_b)
+global_detector = aggregator.to_detector(aggregator.aggregate())
+
+# Global detector is ready for inference
+result = global_detector.detect(new_data)
+```
+
+**Key properties:**
+- No external FL frameworks (Flower, PySyft, etc.) — uses Mercury's native math
+- Gaussian mechanism differential privacy with clipping-norm-based sensitivity
+- Mathematically exact aggregation for means (MLE) and stds (parallel variance formula)
+- Precision-weighted averaging for Fisher information geometry
+- 14 tests covering correctness, privacy, serialization, and dimension validation
+
 ### Real-World Data Benchmarks
 
 Mercury Agent ♱ has been validated against real-world public datasets to demonstrate practical anomaly detection capabilities:

@@ -936,9 +936,10 @@ async def detect_univariate(request: UnivariateRequest) -> UnivariateResponse:
             detail=str(e),
         ) from e
     except Exception as e:
+        logger.error("Univariate detection failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Detection failed: {e!s}",
+            detail="An internal error occurred during detection.",
         ) from e
 
 
@@ -1104,9 +1105,10 @@ async def detect_multivariate(request: MultivariateRequest) -> MultivariateRespo
             detail=str(e),
         ) from e
     except Exception as e:
+        logger.error("Multivariate detection failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Detection failed: {e!s}",
+            detail="An internal error occurred during detection.",
         ) from e
 
 

@@ -5,6 +5,7 @@ Copyright (C) 2025 Steel Security Advisors LLC
 
 Generate multi-panel anomaly detection visualization.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,8 +18,15 @@ import numpy as np
 def generate_anomaly_detection_panel() -> Path:
     """Generate comprehensive anomaly detection multi-panel visualization."""
     # Load benchmark data
-    results_path = Path(__file__).parent.parent / "results" / "latest" / "neuro_symbolic_benchmark_results.json"
-    comprehensive_path = Path(__file__).parent.parent / "benchmarks" / "comprehensive_benchmark_results.json"
+    results_path = (
+        Path(__file__).parent.parent
+        / "results"
+        / "latest"
+        / "neuro_symbolic_benchmark_results.json"
+    )
+    comprehensive_path = (
+        Path(__file__).parent.parent / "benchmarks" / "comprehensive_benchmark_results.json"
+    )
 
     with open(results_path) as f:
         ns_data = json.load(f)
@@ -34,7 +42,9 @@ def generate_anomaly_detection_panel() -> Path:
 
     # Create figure with 2x3 grid
     fig, axes = plt.subplots(2, 3, figsize=(16, 10))
-    fig.suptitle("Mercury Agent ♱ Anomaly Detection Analysis", fontsize=16, fontweight="bold", y=0.98)
+    fig.suptitle(
+        "Mercury Agent ♱ Anomaly Detection Analysis", fontsize=16, fontweight="bold", y=0.98
+    )
 
     # Color scheme
     colors = {
@@ -43,7 +53,7 @@ def generate_anomaly_detection_panel() -> Path:
         "f1": "#9b59b6",
         "cosmic": "#e74c3c",
         "threshold": "#e67e22",
-        "domain": "#1abc9c"
+        "domain": "#1abc9c",
     }
 
     # Panel 1: Precision/Recall/F1 Evolution
@@ -64,18 +74,38 @@ def generate_anomaly_detection_panel() -> Path:
     cosmic_data = comp_data["benchmarks"]["cosmic_ray"]
     metrics = ["Precision", "Recall", "F1"]
     values = [cosmic_data["precision"], cosmic_data["recall"], cosmic_data["f1"]]
-    bars = ax2.bar(metrics, values, color=[colors["precision"], colors["recall"], colors["f1"]], edgecolor="black")
+    bars = ax2.bar(
+        metrics,
+        values,
+        color=[colors["precision"], colors["recall"], colors["f1"]],
+        edgecolor="black",
+    )
     ax2.set_ylabel("Score")
     ax2.set_title(f"Cosmic Ray Detection (F1: {cosmic_data['f1']:.3f})")
     ax2.set_ylim(0, 1.1)
     ax2.axhline(y=0.9, color=colors["threshold"], linestyle="--", alpha=0.7)
     for bar, val in zip(bars, values):
-        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02, f"{val:.3f}", ha="center", fontsize=10)
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.02,
+            f"{val:.3f}",
+            ha="center",
+            fontsize=10,
+        )
     ax2.grid(True, alpha=0.3, axis="y")
 
     # Panel 3: Domain-Specific F1 Scores (Bar Chart)
     ax3 = axes[0, 2]
-    domains = ["Medical", "Security", "Space", "Infra", "Environ", "Financial", "Scientific", "General"]
+    domains = [
+        "Medical",
+        "Security",
+        "Space",
+        "Infra",
+        "Environ",
+        "Financial",
+        "Scientific",
+        "General",
+    ]
     # Domain scores based on comprehensive benchmark
     domain_scores = [0.72, 0.88, 0.92, 0.79, 0.85, 0.76, 0.91, 0.80]
 
@@ -87,7 +117,13 @@ def generate_anomaly_detection_panel() -> Path:
     ax3.set_xticklabels(domains, rotation=45, ha="right", fontsize=8)
     ax3.grid(True, alpha=0.3, axis="y")
     for bar, val in zip(bars, domain_scores):
-        ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02, f"{val:.2f}", ha="center", fontsize=7)
+        ax3.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.02,
+            f"{val:.2f}",
+            ha="center",
+            fontsize=7,
+        )
 
     # Panel 4: Detection Threshold Analysis
     ax4 = axes[1, 0]
@@ -109,12 +145,17 @@ def generate_anomaly_detection_panel() -> Path:
 
     # Panel 5: Throughput Comparison
     ax5 = axes[1, 1]
-    detectors = ["Space\nExploration", "Cosmic\nRay", "Multiverse\nPrediction", "Collatz\nExploration"]
+    detectors = [
+        "Space\nExploration",
+        "Cosmic\nRay",
+        "Multiverse\nPrediction",
+        "Collatz\nExploration",
+    ]
     throughputs = [
         comp_data["benchmarks"]["space_exploration"]["throughput_samples_per_sec"],
         comp_data["benchmarks"]["cosmic_ray"]["throughput_samples_per_sec"],
         comp_data["benchmarks"]["simulation"]["prediction_throughput_samples_per_sec"],
-        comp_data["benchmarks"]["simulation"]["collatz_cases_per_sec"]
+        comp_data["benchmarks"]["simulation"]["collatz_cases_per_sec"],
     ]
     # Log scale for visualization
     log_throughputs = np.log10(np.array(throughputs))
@@ -122,8 +163,13 @@ def generate_anomaly_detection_panel() -> Path:
     ax5.set_xlabel("Throughput (log₁₀ samples/sec)")
     ax5.set_title("Detector Throughput Comparison")
     for bar, val in zip(bars, throughputs):
-        ax5.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2,
-                f"{val:.0f}/s", va="center", fontsize=9)
+        ax5.text(
+            bar.get_width() + 0.1,
+            bar.get_y() + bar.get_height() / 2,
+            f"{val:.0f}/s",
+            va="center",
+            fontsize=9,
+        )
     ax5.grid(True, alpha=0.3, axis="x")
 
     # Panel 6: Severity Distribution & Events
@@ -139,7 +185,7 @@ def generate_anomaly_detection_panel() -> Path:
         autopct="%1.1f%%",
         colors=colors_severity,
         explode=(0, 0, 0.05, 0.1),
-        shadow=True
+        shadow=True,
     )
     ax6.set_title(f"Anomaly Severity Distribution\n(Total: {sum(severity_counts)} events)")
 
@@ -153,9 +199,15 @@ def generate_anomaly_detection_panel() -> Path:
         f"  Cosmic Ray F1: {cosmic_data['f1']:.3f}\n"
         f"  Events Detected: {cosmic_data['cosmic_ray_events_detected']}"
     )
-    fig.text(0.02, 0.02, summary_text, fontsize=9, family="monospace",
-             bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
-             verticalalignment="bottom")
+    fig.text(
+        0.02,
+        0.02,
+        summary_text,
+        fontsize=9,
+        family="monospace",
+        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+        verticalalignment="bottom",
+    )
 
     plt.tight_layout(rect=[0, 0.08, 1, 0.96])
 
@@ -166,8 +218,11 @@ def generate_anomaly_detection_panel() -> Path:
     plt.close()
 
     # Also save to results/latest
-    results_output = Path(__file__).parent.parent / "results" / "latest" / "anomaly_detection_panel.png"
+    results_output = (
+        Path(__file__).parent.parent / "results" / "latest" / "anomaly_detection_panel.png"
+    )
     import shutil
+
     shutil.copy(output_path, results_output)
 
     print(f"Generated: {output_path}")

@@ -2529,11 +2529,41 @@ class OmniMercuryEngine(LoggerMixin):
                 }
                 labels = torch.tensor(data["labels"], dtype=torch.long)
             elif training_data.endswith(".pkl") or training_data.endswith(".pickle"):
-                # nosec B301 - pickle required for legacy data format compatibility
-                # Security Note: Only load pickle files from trusted sources to
-                # prevent arbitrary code execution during deserialization.
+                # Use a restricted unpickler that only allows safe data types
+                # to prevent arbitrary code execution during deserialization.
+
+                _SAFE_MODULES: dict[str, set[str]] = {
+                    "builtins": {
+                        "dict",
+                        "list",
+                        "tuple",
+                        "set",
+                        "frozenset",
+                        "int",
+                        "float",
+                        "str",
+                        "bool",
+                        "bytes",
+                        "complex",
+                    },
+                    "collections": {"OrderedDict"},
+                    "numpy": {"ndarray", "dtype", "float32", "float64", "int32", "int64"},
+                    "numpy.core.multiarray": {"scalar", "_reconstruct"},
+                }
+
+                class _RestrictedUnpickler(pickle.Unpickler):
+                    """Unpickler that only allows whitelisted safe types."""
+
+                    def find_class(self, module: str, name: str) -> Any:
+                        allowed = _SAFE_MODULES.get(module)
+                        if allowed is not None and name in allowed:
+                            return super().find_class(module, name)
+                        raise pickle.UnpicklingError(
+                            f"Refusing to unpickle disallowed class: {module}.{name}"
+                        )
+
                 with open(training_data, "rb") as f:
-                    loaded = pickle.load(f)  # nosec B301
+                    loaded = _RestrictedUnpickler(f).load()
                 features_dict = {
                     k: torch.tensor(v, dtype=torch.float32) for k, v in loaded["features"].items()
                 }
