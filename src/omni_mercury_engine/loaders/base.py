@@ -95,9 +95,9 @@ class BaseDomainLoader(ABC):
 
         if self.REQUIRES_API_KEY and not self._api_key:
             logger.warning(
-                "%s loader: authentication not configured (set %s). " "Some operations may fail.",
+                "%s loader: authentication not configured — "
+                "set the required API key environment variable. Some operations may fail.",
                 self.DOMAIN,
-                self.API_KEY_ENV_VAR,
             )
 
     # =========================================================================

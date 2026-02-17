@@ -271,6 +271,7 @@ class BatchDetectRequest(BaseModel):
         except socket.gaierror:
             raise ValueError("Callback URL hostname could not be resolved")
         return v
+
     metadata: dict[str, Any] | None = Field(
         default=None,
         description="Optional metadata to attach to the job.",
@@ -597,9 +598,13 @@ async def submit_batch_job(
         request.callback_url,
     )
 
+    safe_method = str(request.method.value).replace("\n", " ").replace("\r", " ")
     logger.info(
-        f"Batch job {job.job_id} submitted by {user_id}: "
-        f"{len(request.data)} items, method={request.method.value}"
+        "Batch job %s submitted by %s: %d items, method=%s",
+        job.job_id,
+        user_id,
+        len(request.data),
+        safe_method,
     )
 
     return BatchJobSubmitResponse(
@@ -734,7 +739,8 @@ async def cancel_job(
         )
 
     await store.cancel_job(job_id)
-    logger.info(f"Batch job {job_id} cancelled")
+    safe_job_id = str(job_id).replace("\n", " ").replace("\r", " ")
+    logger.info("Batch job %s cancelled", safe_job_id)
 
 
 @router.get(
