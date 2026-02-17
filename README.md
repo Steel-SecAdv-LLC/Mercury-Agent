@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="docs/images/mercury_agent_header.svg" alt="Mercury Agent" width="600" />
+  <img width="721" height="155" alt="image" src="https://github.com/user-attachments/assets/9fae8d89-900b-43aa-971c-dce9eee26b67" />
 
 </div>
 
