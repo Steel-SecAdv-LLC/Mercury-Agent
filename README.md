@@ -1,5 +1,5 @@
 <div align="center">
-   <h1><b>Mercury Agent <span style="color:#B8860B">♱</span></b></h1>
+  <h1 style="font-family: 'PMingLiU-ExtB', serif; background: transparent;"><b><span style="color:#B4B124">M</span><span style="color:#11AEED">ercury</span> <span style="color:#B4B124">A</span><span style="color:#000000">gent</span> <span style="color:#B4B124">♱</span></b></h1>
 </div>
 
 <div align="center">
