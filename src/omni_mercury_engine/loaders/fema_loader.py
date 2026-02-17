@@ -463,7 +463,7 @@ class FEMALoader(BaseDomainLoader):
             int(labels.sum()),
             len(labels),
         )
-        return labels
+        return np.asarray(labels)
 
     # ------------------------------------------------------------------
     # Feature engineering
@@ -654,7 +654,7 @@ class FEMALoader(BaseDomainLoader):
             1-D float64 numpy array.
         """
         if col in df.columns:
-            return df[col].fillna(False).astype(np.float64).values
+            return np.asarray(df[col].fillna(False).astype(np.float64))
         return np.zeros(len(df), dtype=np.float64)
 
     @staticmethod

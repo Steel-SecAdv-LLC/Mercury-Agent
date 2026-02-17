@@ -702,17 +702,17 @@ class MarineLoader(BaseDomainLoader):
             lon = rng.uniform(lon_min_focus, lon_max_focus)
             sp = rng.choice(species_list)
             depth = rng.uniform(0, 100)
-            year = rng.integers(
+            year = int(rng.integers(
                 int(event["baseline_start"][:4]),
                 int(event["baseline_end"][:4]) + 1,
-            )
+            ))
             records.append(
                 {
                     "scientificName": sp,
                     "decimalLatitude": lat,
                     "decimalLongitude": lon,
                     "depth": depth,
-                    "date_year": int(year),
+                    "date_year": year,
                     "eventDate": f"{year}-06-15",
                     "species": sp,
                     "dataset_id": "synthetic",

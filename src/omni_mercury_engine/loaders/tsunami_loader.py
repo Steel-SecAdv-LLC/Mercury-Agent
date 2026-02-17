@@ -427,7 +427,7 @@ class TsunamiLoader(BaseDomainLoader):
         if ncols >= 7:
             base_names = ["year", "month", "day", "hour", "minute", "type", "bpr"]
             extra_names = [f"col_{i}" for i in range(7, ncols)]
-            df.columns = base_names + extra_names  # type: ignore[assignment]
+            df.columns = base_names + extra_names
 
             # Build timestamp (handle 2-digit and 4-digit years).
             years = df["year"].astype(int)
@@ -467,7 +467,7 @@ class TsunamiLoader(BaseDomainLoader):
 
         elif ncols >= 2:
             # Minimal fallback: treat first column as index, last as BPR.
-            df.columns = [f"col_{i}" for i in range(ncols)]  # type: ignore[assignment]
+            df.columns = [f"col_{i}" for i in range(ncols)]
             df = df.rename(columns={f"col_{ncols - 1}": "bpr"})
             df["timestamp"] = pd.Timestamp.now(tz="UTC")
         else:
