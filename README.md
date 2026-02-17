@@ -180,7 +180,7 @@ Mercury Agent validates its core `MercuryAnomalyDetector` against 15 real-world 
 | Net Security     | 0.6122 | 148,517   | NSL-KDD |
 | Hurricane        | 0.5238 | 64+       | IBTrACS |
 
-**Optimizations applied (v1.4.1):**
+**Optimizations applied (post-v1.4.0):**
 - **Marine**: Expanded synthetic sampling with baseline + event + control regions
 - **Hurricane**: Added 6 more storms, multi-scale delta features, wind-pressure deficit
 - **Network Security**: Continuous features only + log1p transform
@@ -565,10 +565,10 @@ Optimized for both accuracy and interpretability:
 | Multi-Domain Coverage | 22+ detection engines across 5 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 5,114+ tests in 212 files, property-based testing, security scanning |
+| Comprehensive Testing | 5,000+ tests in 224 files, property-based testing, security scanning |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
-| Codebase Scale | 415 Python modules, 246,539+ lines of code |
+| Codebase Scale | 455 Python modules, 268,000+ lines of code |
 
 </details>
 
@@ -689,7 +689,7 @@ Optimized for both accuracy and interpretability:
 | Cosmic Ray Detection | 0.324ms | 3,081,781 samples/sec |
 | Collatz Exploration | 67.07ms | 74,544 cases/sec |
 
-*Benchmarks from `benchmarks/comprehensive_benchmark_results.json` (2026-01-27). Results on synthetic data.*
+*Module performance benchmarks measured on synthetic data (2026-01-27). Results may vary by hardware.*
 
 </details>
 
@@ -966,7 +966,7 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **5,114+ tests** across 212 test files
+- **5,000+ tests** across 224 test files
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
 - **Coverage tracking**: 85%+ across core modules
@@ -1747,7 +1747,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics
 - **Quantified claims:** All performance metrics are measured and documented with methodology
-- **Comprehensive testing:** 5,114+ tests with property-based testing and security scanning
+- **Comprehensive testing:** 5,000+ tests with property-based testing and security scanning
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline
 - **Academic grounding:** Medical modules reference JAMA guidelines, security follows OWASP
