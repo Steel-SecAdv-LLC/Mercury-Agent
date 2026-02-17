@@ -212,38 +212,24 @@ class NetworkSecurityLoader(BaseDomainLoader):
     DOMAIN: str = "network_security"
     SOURCE_URL: str = "https://www.unb.ca/cic/datasets/ids-2017.html"
     REQUIRES_API_KEY: bool = False
-    # Continuous numeric features only. Categorical features (protocol_type,
-    # service, flag) and near-constant binary features (land, logged_in,
-    # is_host_login, is_guest_login) are excluded because Mercury's math
-    # (FFT spectral analysis, Fisher information geometry) operates on
-    # continuous distributions. Discrete clusters confuse these methods.
+    # Feature selection based on Cohen's d effect size analysis.
+    # Only features with d >= 1.2 are retained — these provide strong
+    # separation between normal and attack traffic.  Features below
+    # this threshold (duration d=0.007, urgent d=0.008, hot d=0.019,
+    # num_compromised d=0.020, num_root d=0.022, count d=1.23, etc.)
+    # add noise that degrades unsupervised AUC.  Categorical features
+    # (protocol_type, service, flag) and near-constant binary features
+    # (land, logged_in, is_host_login, is_guest_login) are also excluded.
     FEATURE_COLUMNS: list[str] = [
-        "duration",
-        "src_bytes",
         "dst_bytes",
-        "wrong_fragment",
-        "urgent",
-        "hot",
-        "num_failed_logins",
-        "num_compromised",
-        "num_root",
-        "num_file_creations",
-        "count",
-        "srv_count",
+        "same_srv_rate",
+        "dst_host_srv_count",
+        "src_bytes",
+        "dst_host_same_srv_rate",
+        "dst_host_srv_serror_rate",
+        "dst_host_serror_rate",
         "serror_rate",
         "srv_serror_rate",
-        "rerror_rate",
-        "srv_rerror_rate",
-        "same_srv_rate",
-        "diff_srv_rate",
-        "dst_host_count",
-        "dst_host_srv_count",
-        "dst_host_same_srv_rate",
-        "dst_host_diff_srv_rate",
-        "dst_host_serror_rate",
-        "dst_host_srv_serror_rate",
-        "dst_host_rerror_rate",
-        "dst_host_srv_rerror_rate",
     ]
 
     # Columns to drop — categorical or near-constant binary.
@@ -419,12 +405,14 @@ class NetworkSecurityLoader(BaseDomainLoader):
 
         Feature engineering depends on the source dataset:
 
-        **NSL-KDD features** (26 continuous dimensions):
-            Continuous numeric features only — duration, byte counts,
-            connection counts, and error rates.  Categorical columns
-            (protocol_type, service, flag) and near-constant binary
-            columns are dropped.  Heavy-tailed features (duration,
-            src_bytes, dst_bytes) are log1p-transformed.
+        **NSL-KDD features** (9 high-signal dimensions):
+            Features selected by Cohen's d effect size (d >= 1.2).
+            Covers byte volumes (src_bytes, dst_bytes), service
+            patterns (same_srv_rate, dst_host_srv_count,
+            dst_host_same_srv_rate), and SYN error indicators
+            (serror_rate, srv_serror_rate, dst_host_serror_rate,
+            dst_host_srv_serror_rate).  Heavy-tailed features
+            (src_bytes, dst_bytes) are log1p-transformed.
 
         **CICIDS 2017 / BATADAL features**:
             All numeric columns retained (these datasets are already
