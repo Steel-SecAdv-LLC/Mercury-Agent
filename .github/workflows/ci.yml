@@ -427,6 +427,8 @@ jobs:
       - name: Run ethics audit
         # Ethics audit is an advisory check for AI alignment verification
         # Failures indicate areas needing review but don't block the pipeline
+        # NOTE: benchmarks/run_ethics_audit.py does not exist yet — this step
+        # will always fail silently. Create the script or remove this step.
         continue-on-error: true
         run: python benchmarks/run_ethics_audit.py
 
