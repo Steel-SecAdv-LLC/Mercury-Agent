@@ -192,6 +192,30 @@ class BaseDomainLoader(ABC):
     # HTTP fetch with retry
     # =========================================================================
 
+    @staticmethod
+    def _redact_url(url: str) -> str:
+        """Strip API keys and credentials from a URL for safe logging."""
+        import re
+        import urllib.parse
+
+        # Redact sensitive query parameters
+        parsed = urllib.parse.urlparse(url)
+        if parsed.query:
+            params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+            for key in list(params):
+                if re.search(r"key|token|secret|password|auth", key, re.IGNORECASE):
+                    params[key] = ["REDACTED"]
+            redacted_query = urllib.parse.urlencode(params, doseq=True)
+            url = urllib.parse.urlunparse(parsed._replace(query=redacted_query))
+
+        # Redact path-embedded API keys (e.g. FIRMS: /api/area/csv/<KEY>/...)
+        url = re.sub(
+            r"(/(?:csv|json)/)[A-Za-z0-9]{20,}(/)",
+            r"\1REDACTED\2",
+            url,
+        )
+        return url
+
     def _fetch_url(
         self,
         url: str,
@@ -224,6 +248,7 @@ class BaseDomainLoader(ABC):
         if headers:
             default_headers.update(headers)
 
+        safe_url = self._redact_url(full_url)
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:
@@ -235,18 +260,18 @@ class BaseDomainLoader(ABC):
                 if attempt < self.max_retries:
                     wait = self.retry_backoff * (2**attempt)
                     logger.warning(
-                        "%s fetch attempt %d/%d failed: %s. Retrying in %.1fs.",
+                        "%s fetch attempt %d/%d failed (%s). Retrying in %.1fs.",
                         self.DOMAIN,
                         attempt + 1,
                         self.max_retries + 1,
-                        exc,
+                        type(exc).__name__,
                         wait,
                     )
                     time.sleep(wait)
 
         raise ConnectionError(
-            f"{self.DOMAIN}: Failed to fetch {url} after "
-            f"{self.max_retries + 1} attempts: {last_error}"
+            f"{self.DOMAIN}: Failed to fetch {safe_url} after "
+            f"{self.max_retries + 1} attempts: {type(last_error).__name__}"
         )
 
     def _fetch_json(
