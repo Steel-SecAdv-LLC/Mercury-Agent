@@ -248,7 +248,6 @@ class BaseDomainLoader(ABC):
         if headers:
             default_headers.update(headers)
 
-        safe_url = self._redact_url(full_url)
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:
@@ -270,7 +269,7 @@ class BaseDomainLoader(ABC):
                     time.sleep(wait)
 
         raise ConnectionError(
-            f"{self.DOMAIN}: Failed to fetch {safe_url} after "
+            f"{self.DOMAIN}: Failed to fetch data after "
             f"{self.max_retries + 1} attempts: {type(last_error).__name__}"
         )
 

@@ -428,7 +428,7 @@ class WildfireLoader(BaseDomainLoader):
         text = raw_bytes.decode("utf-8", errors="replace")
 
         if not text.strip():
-            logger.warning("FIRMS returned empty response for URL: %s", self._redact_url(url))
+            logger.warning("FIRMS returned empty response")
             return pd.DataFrame()
 
         df = pd.read_csv(io.StringIO(text))

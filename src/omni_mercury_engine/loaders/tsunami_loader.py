@@ -488,10 +488,10 @@ class TsunamiLoader(BaseDomainLoader):
             DataFrame with ``timestamp``, ``bpr``, and ``station_id``.
         """
         # Use a deterministic seed (Python's hash() is randomized per
-        # process).  hashlib.md5 produces the same bytes every time.
+        # process).  hashlib.sha256 produces the same bytes every time.
         import hashlib
 
-        seed_bytes = hashlib.md5(event["event_id"].encode(), usedforsecurity=False).digest()
+        seed_bytes = hashlib.sha256(event["event_id"].encode()).digest()
         seed_int = int.from_bytes(seed_bytes[:4], "little") % (2**31)
         rng = np.random.default_rng(seed_int)
 
