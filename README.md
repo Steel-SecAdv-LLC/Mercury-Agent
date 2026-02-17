@@ -1,14 +1,15 @@
 <div align="center">
-  <h1 style="font-family: 'PMingLiU-ExtB', serif; background: transparent;"><b><span style="color:#B4B124">M</span><span style="color:#11AEED">ercury</span> <span style="color:#B4B124">A</span><span style="color:#000000">gent</span> <span style="color:#B4B124">♱</span></b></h1>
-</div>
 
-<div align="center">
-  <img width="358" height="478" alt="image" src="https://github.com/user-attachments/assets/4d7f93cb-96d9-4421-92c9-1575e9d75060" />
+  <h1 style="font-family: 'PMingLiU-ExtB', serif; background: transparent; letter-spacing: 0.05em;"><b><span style="color:#B4B124">M</span><span style="color:#11AEED">ercury</span>&nbsp;&nbsp;<span style="color:#B4B124">A</span><span style="color:#000000">gent</span>&nbsp;&nbsp;<span style="color:#B4B124">♱</span></b></h1>
+
 </div>
 
 ---
 
+<div align="center">
+
 ![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
+
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
@@ -19,6 +20,8 @@
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
 [![Ava-Guardian](https://img.shields.io/badge/Ava--Guardian-PQC%20Adapter-green.svg)](#ava-guardian-integration)
+
+</div>
 
 ```
               +===============================================================================+
