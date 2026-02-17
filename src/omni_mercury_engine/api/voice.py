@@ -382,10 +382,10 @@ async def speak(request: SpeakRequest) -> VoiceResponseModel:
             )
 
     except Exception as e:
-        logger.error(f"Voice processing error: {e}")
+        logger.error("Voice processing error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process message: {e!s}",
+            detail="An internal error occurred while processing the message.",
         )
 
 
@@ -470,10 +470,10 @@ async def narrate_detection(request: DetectionNarrationRequest) -> NarrationResp
         )
 
     except Exception as e:
-        logger.error(f"Narration error: {e}")
+        logger.error("Narration error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate narration: {e!s}",
+            detail="An internal error occurred while generating narration.",
         )
 
 

@@ -15,13 +15,16 @@ Features:
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 import os
+import socket
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
@@ -245,6 +248,29 @@ class BatchDetectRequest(BaseModel):
         default=None,
         description="Optional webhook URL to notify upon completion.",
     )
+
+    @field_validator("callback_url")
+    @classmethod
+    def validate_callback_url(cls, v: str | None) -> str | None:
+        """Validate callback URL to prevent SSRF attacks."""
+        if v is None:
+            return v
+        parsed = urlparse(v)
+        if parsed.scheme not in ("https",):
+            raise ValueError("Callback URL must use HTTPS scheme")
+        hostname = parsed.hostname
+        if not hostname:
+            raise ValueError("Callback URL must include a valid hostname")
+        # Reject URLs targeting private/reserved IP ranges
+        try:
+            resolved = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
+            for _family, _type, _proto, _canonname, sockaddr in resolved:
+                ip = ipaddress.ip_address(sockaddr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    raise ValueError("Callback URL must not target private or internal addresses")
+        except socket.gaierror:
+            raise ValueError("Callback URL hostname could not be resolved")
+        return v
     metadata: dict[str, Any] | None = Field(
         default=None,
         description="Optional metadata to attach to the job.",
@@ -446,11 +472,11 @@ async def _process_chunk(
                 }
             )
 
-        except Exception as e:
+        except Exception:
             results.append(
                 {
                     "index": offset + i,
-                    "error": str(e),
+                    "error": "Processing failed for this sample.",
                 }
             )
 
@@ -458,22 +484,26 @@ async def _process_chunk(
 
 
 async def _send_callback(url: str, job_id: str, status: JobStatus) -> None:
-    """Send webhook callback for job completion."""
+    """Send webhook callback for job completion.
+
+    The URL has already been validated by BatchDetectRequest.validate_callback_url
+    to ensure it uses HTTPS and does not target private/internal addresses.
+    """
     try:
         import httpx
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             await client.post(
-                url,
+                url,  # validated by BatchDetectRequest.validate_callback_url
                 json={
                     "job_id": job_id,
                     "status": status.value,
                     "timestamp": datetime.now().isoformat(),
                 },
             )
-        logger.info(f"Callback sent to {url} for job {job_id}")
+        logger.info("Callback sent for job %s", job_id)
     except Exception as e:
-        logger.warning(f"Failed to send callback to {url}: {e}")
+        logger.warning("Failed to send callback for job %s: %s", job_id, type(e).__name__)
 
 
 def _get_current_user(

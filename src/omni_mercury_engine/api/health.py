@@ -245,12 +245,12 @@ class HealthChecker:
 
         except Exception as e:
             latency = (time.time() - start_time) * 1000
-            logger.error(f"Health check '{check.name}' failed: {e}")
+            logger.error("Health check '%s' failed: %s", check.name, e)
             return ComponentHealth(
                 name=check.name,
                 status=ComponentStatus.DOWN,
                 latency_ms=round(latency, 2),
-                message=str(e),
+                message="Health check failed",
             )
 
     async def run_checks(

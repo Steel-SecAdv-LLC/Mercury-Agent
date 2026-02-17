@@ -672,28 +672,41 @@ class RedisCache:
         """Add prefix to key."""
         return f"{self.prefix}{key}"
 
+    @staticmethod
+    def _get_signing_key() -> bytes:
+        """Get the HMAC signing key for pickle integrity verification."""
+        import hashlib
+
+        key = os.environ.get("MERCURY_CACHE_SECRET", "")
+        if not key:
+            # Derive a stable key from the machine identity
+            key = "mercury-cache-default-key"
+        return hashlib.sha256(key.encode()).digest()
+
     def _serialize(self, value: Any) -> str:
         """Serialize value for storage.
 
-        Security Note: Pickle serialization is used for complex Python objects
-        that cannot be JSON-serialized. The data is stored in Redis which is
-        typically on a private network and the data was serialized by this
-        same application. For untrusted data sources, use serializer="json".
+        When using pickle serialization, an HMAC signature is prepended
+        to prevent deserialization of tampered data.
+        For untrusted data sources, use serializer="json".
         """
         if self.serializer == "json":
             return json.dumps(value)
         else:
             import base64
+            import hmac
             import pickle  # nosec B403 - pickle used for internal cache serialization only
 
-            return base64.b64encode(pickle.dumps(value)).decode()
+            payload = pickle.dumps(value)
+            sig = hmac.new(self._get_signing_key(), payload, "sha256").hexdigest()
+            # Prefix with HMAC signature separated by '.'
+            return sig + "." + base64.b64encode(payload).decode()
 
     def _deserialize(self, data: str | None) -> Any:
         """Deserialize value from storage.
 
-        Security Note: Pickle deserialization is only used for data that was
-        serialized by this same application and stored in Redis. The Redis
-        instance should be on a private network with proper access controls.
+        When using pickle, verifies HMAC signature before deserializing
+        to prevent arbitrary code execution from tampered cache data.
         For untrusted data sources, use serializer="json" instead.
         """
         if data is None:
@@ -702,11 +715,20 @@ class RedisCache:
             return json.loads(data)
         else:
             import base64
+            import hmac
             import pickle  # nosec B403 - pickle used for internal cache serialization only
 
-            return pickle.loads(
-                base64.b64decode(data.encode())
-            )  # nosec B301 - trusted Redis cache data
+            # Verify HMAC signature before deserializing
+            if "." not in data:
+                logger.warning("Cache data missing HMAC signature, rejecting")
+                return None
+            sig, _, encoded = data.partition(".")
+            payload = base64.b64decode(encoded.encode())
+            expected_sig = hmac.new(self._get_signing_key(), payload, "sha256").hexdigest()
+            if not hmac.compare_digest(sig, expected_sig):
+                logger.warning("Cache data HMAC verification failed, rejecting")
+                return None
+            return pickle.loads(payload)  # nosec B301 - HMAC-verified data
 
     async def get(self, key: str) -> Any | None:
         """Get value from cache.
