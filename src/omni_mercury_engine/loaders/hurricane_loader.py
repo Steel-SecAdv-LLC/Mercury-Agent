@@ -218,6 +218,8 @@ class HurricaneLoader(BaseDomainLoader):
         "delta_pressure_6h",
         "delta_pressure_12h",
         "wind_pressure_deficit",
+        "ri_interaction_24h",
+        "ri_interaction_6h",
     ]
 
     # Cache for 6 hours since IBTrACS updates less frequently
@@ -373,7 +375,8 @@ class HurricaneLoader(BaseDomainLoader):
         retained.  Diagnostic analysis showed that raw observables
         (wind, pressure, lat, lon, storm speed) and track deviation
         introduce noise that degrades unsupervised AUC, while the
-        multi-scale delta and deficit features capture RI signal.
+        multi-scale delta, deficit, and interaction features capture
+        RI signal.
 
         Engineered features (per track observation):
 
@@ -387,16 +390,23 @@ class HurricaneLoader(BaseDomainLoader):
         6. **wind_pressure_deficit** -- deviation from expected
             wind-pressure relationship.  Negative means storm has
             untapped pressure gradient and may precede RI.
+        7. **ri_interaction_24h** -- ``delta_wind_24h * delta_pressure_12h``.
+            Joint wind-pressure intensification at sustained (24h)
+            timescale.  Large positive values indicate concurrent
+            rapid wind increase and pressure drop characteristic of RI.
+        8. **ri_interaction_6h** -- ``delta_wind_6h * delta_pressure_6h``.
+            Same interaction at short (6h) timescale, capturing rapid
+            RI onset.
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
                 :meth:`fetch_historical`.
 
         Returns:
-            2-D numpy array of shape ``(n_samples, 6)``.
+            2-D numpy array of shape ``(n_samples, 8)``.
         """
         if raw_data.empty:
-            return np.empty((0, 6), dtype=np.float64)
+            return np.empty((0, 8), dtype=np.float64)
 
         df = raw_data.copy()
 
@@ -425,6 +435,14 @@ class HurricaneLoader(BaseDomainLoader):
         expected_wind = 6.7 * np.power(pressure_diff + 1e-8, 0.644)
         wind_pressure_deficit = wind_kt - expected_wind
 
+        # ---- RI interaction features (multi-scale) ----
+        # Joint wind-pressure product amplifies the RI signature:
+        # large wind increase concurrent with large pressure drop
+        # produces a large positive product, while either alone
+        # contributes much less.
+        ri_interaction_24h = delta_wind_24h * delta_pressure_12h
+        ri_interaction_6h = delta_wind_6h * delta_pressure_6h
+
         # Stack into feature matrix — only RI-relevant features.
         features = np.column_stack(
             [
@@ -434,6 +452,8 @@ class HurricaneLoader(BaseDomainLoader):
                 delta_pressure_6h,
                 delta_pressure_12h,
                 wind_pressure_deficit,
+                ri_interaction_24h,
+                ri_interaction_6h,
             ]
         )
 
