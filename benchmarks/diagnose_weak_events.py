@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 
 from benchmarks.domain_benchmark_base import compute_auc
+from omni_mercury_engine.detectors.statistical import calibrate_scores
 
 logging.basicConfig(
     level=logging.WARNING,
@@ -104,6 +105,8 @@ def diagnose_event(
         det.fit(X)
         detection = det.detect(X)
     scores = np.asarray(detection["scores"])
+    anomaly_ratio = float(np.mean(y))
+    scores = calibrate_scores(scores, anomaly_ratio)
     auc = compute_auc(y, scores)
 
     result: dict[str, Any] = {

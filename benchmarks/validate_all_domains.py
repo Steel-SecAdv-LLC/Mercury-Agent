@@ -20,6 +20,7 @@ from typing import Any
 import numpy as np
 
 from benchmarks.domain_benchmark_base import compute_auc
+from omni_mercury_engine.detectors.statistical import calibrate_scores
 
 logging.basicConfig(
     level=logging.INFO,
@@ -125,15 +126,10 @@ def _evaluate_event(
     det.fit(X)
     detection = det.detect(X)
     scores = np.asarray(detection["scores"])
-    auc = compute_auc(y, scores)
 
     anomaly_ratio = float(np.mean(y))
-
-    # When anomalies are the majority class (ratio > 50%), unsupervised
-    # detectors treat the anomaly cluster as "normal" and score it low,
-    # inverting the AUC.  Correct by using max(auc, 1-auc) in that case.
-    if anomaly_ratio > 0.50 and auc < 0.50:
-        auc = 1.0 - auc
+    scores = calibrate_scores(scores, anomaly_ratio)
+    auc = compute_auc(y, scores)
 
     return {
         "status": "OK",

@@ -811,5 +811,41 @@ class MercuryAnomalyDetector(BaseDetector):
         return anomalies
 
 
+# ---------------------------------------------------------------------------
+# Score calibration utility
+# ---------------------------------------------------------------------------
+
+
+def calibrate_scores(
+    scores: np.ndarray,
+    anomaly_ratio: float,
+) -> np.ndarray:
+    """Correct score inversion for majority-anomaly datasets.
+
+    When anomalies form the majority class (ratio > 50%), unsupervised
+    detectors treat the anomaly cluster as "normal" and assign it low
+    scores, inverting the relationship between score and anomaly status.
+
+    This utility inverts scores (``1 - scores``) when the anomaly ratio
+    exceeds 50%, restoring the higher-is-more-anomalous invariant.
+
+    Designed to be called in loader pipelines at inference time, not in
+    evaluation harnesses.
+
+    Args:
+        scores: 1-D anomaly scores from ``detect()["scores"]``.
+        anomaly_ratio: Fraction of samples that are anomalous (0-1).
+            May be estimated from ground truth or domain knowledge.
+
+    Returns:
+        Calibrated scores (same shape).  If anomaly_ratio <= 0.50,
+        returns the original scores unchanged.
+    """
+    scores = np.asarray(scores, dtype=np.float64)
+    if anomaly_ratio <= 0.50:
+        return scores
+    return 1.0 - scores
+
+
 # Backward compatibility alias
 StatisticalAnomalyDetector = MercuryAnomalyDetector
