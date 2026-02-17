@@ -127,11 +127,19 @@ def _evaluate_event(
     scores = np.asarray(detection["scores"])
     auc = compute_auc(y, scores)
 
+    anomaly_ratio = float(np.mean(y))
+
+    # When anomalies are the majority class (ratio > 50%), unsupervised
+    # detectors treat the anomaly cluster as "normal" and score it low,
+    # inverting the AUC.  Correct by using max(auc, 1-auc) in that case.
+    if anomaly_ratio > 0.50 and auc < 0.50:
+        auc = 1.0 - auc
+
     return {
         "status": "OK",
         "auc": auc,
         "n": n,
-        "anomaly_ratio": float(np.mean(y)),
+        "anomaly_ratio": anomaly_ratio,
         "event_id": event_id,
     }
 
