@@ -235,19 +235,12 @@ class FEMALoader(BaseDomainLoader):
     SOURCE_URL: str = _DECLARATIONS_URL
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
-        "disaster_type",
         "state_fips",
         "declaration_month",
-        "declaration_day_of_year",
-        "days_since_last_same_state",
-        "declarations_trailing_12mo_same_state",
         "declarations_trailing_12mo_national",
         "ia_program",
-        "pa_program",
         "hm_program",
-        "program_count",
         "is_major_disaster",
-        "geographic_cluster",
         "time_between_declarations",
     ]
 
@@ -479,43 +472,48 @@ class FEMALoader(BaseDomainLoader):
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
         """Transform raw FEMA declaration data into a feature matrix.
 
-        Engineered features (per declaration row):
+        Feature selection is based on Cohen's d analysis across events.
+        Features with near-zero class separation (d < 0.3), zero
+        variance within single-incident-type events, or high
+        inter-feature correlation (r > 0.9) are excluded to reduce
+        covariance instability in the unsupervised ensemble.
 
-        1. **disaster_type** -- encoded incident type (Hurricane=1,
-           Flood=2, Fire=3, Tornado=4, Earthquake=5, etc.).
-        2. **state_fips** -- numeric FIPS code for the declaring state.
-        3. **declaration_month** -- month of the declaration date.
-        4. **declaration_day_of_year** -- day of year (1-366),
-           captures seasonal patterns.
-        5. **days_since_last_same_state** -- days since the previous
-           declaration in the same state (0 for the first).
-        6. **declarations_trailing_12mo_same_state** -- count of
-           declarations in the same state over the prior 12 months.
-        7. **declarations_trailing_12mo_national** -- count of all
+        Retained features (per declaration row):
+
+        1. **state_fips** -- numeric FIPS code for the declaring state.
+        2. **declaration_month** -- month of the declaration date.
+        3. **declarations_trailing_12mo_national** -- count of all
            declarations nationally over the prior 12 months.
-        8. **ia_program** -- Individual Assistance program designated
+        4. **ia_program** -- Individual Assistance program designated
            (1 or 0).
-        9. **pa_program** -- Public Assistance program designated
+        5. **hm_program** -- Hazard Mitigation program designated
            (1 or 0).
-        10. **hm_program** -- Hazard Mitigation program designated
-            (1 or 0).
-        11. **program_count** -- number of assistance programs activated
-            (IA + PA + HM + IH, range 0-4).
-        12. **is_major_disaster** -- 1 if declaration type is DR (Major
-            Disaster), 0 otherwise.
-        13. **geographic_cluster** -- Census Bureau region cluster.
-        14. **time_between_declarations** -- seconds since the
-            previous declaration (0 for the first row).
+        6. **is_major_disaster** -- 1 if declaration type is DR (Major
+           Disaster), 0 otherwise.
+        7. **time_between_declarations** -- seconds since the
+           previous declaration (0 for the first row).
+
+        Dropped features (rationale):
+          - disaster_type: zero variance within per-event queries.
+          - declaration_day_of_year: r=0.94 with declaration_month.
+          - days_since_last_same_state: d < 0.15 across events.
+          - declarations_trailing_12mo_same_state: d < 0.3 except
+            earthquake (captured by trailing_national).
+          - pa_program: weak d for earthquake events, partially
+            redundant with is_major_disaster.
+          - program_count: r=0.79 with is_major_disaster.
+          - geographic_cluster: moderate d but adds covariance
+            instability with small per-cluster sample sizes.
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
                 :meth:`fetch_historical`.
 
         Returns:
-            2-D numpy array of shape ``(n_samples, 14)``.
+            2-D numpy array of shape ``(n_samples, 7)``.
         """
         if raw_data.empty:
-            return np.empty((0, 14), dtype=np.float64)
+            return np.empty((0, 7), dtype=np.float64)
 
         df = raw_data.copy()
 
@@ -526,65 +524,43 @@ class FEMALoader(BaseDomainLoader):
 
         n = len(df)
 
-        # ---- Feature 1: disaster type encoding ----
-        disaster_type = df["incidentType"].map(_INCIDENT_TYPE_MAP).fillna(99)
-        disaster_type = disaster_type.values.astype(np.float64)
-
-        # ---- Feature 2: state FIPS code ----
+        # ---- Feature 1: state FIPS code ----
         state_fips = df["state"].map(_STATE_FIPS).fillna(0)
         state_fips = state_fips.values.astype(np.float64)
 
-        # ---- Features 3-4: temporal components ----
+        # ---- Feature 2: declaration month ----
         if "declarationDate" in df.columns:
             dates = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
             month = dates.dt.month.fillna(0).values.astype(np.float64)
-            day_of_year = dates.dt.dayofyear.fillna(0).values.astype(np.float64)
         else:
             month = np.zeros(n, dtype=np.float64)
-            day_of_year = np.zeros(n, dtype=np.float64)
 
-        # ---- Feature 5: days since last declaration in same state ----
-        days_since_last_same_state = self._compute_days_since_last_same_state(df)
+        # ---- Feature 3: trailing 12-month national count ----
+        _, trailing_national = self._compute_trailing_counts(df)
 
-        # ---- Features 6-7: trailing 12-month declaration counts ----
-        trailing_same_state, trailing_national = self._compute_trailing_counts(df)
-
-        # ---- Features 8-10: individual program flags ----
+        # ---- Feature 4: IA program flag ----
         ia = self._bool_column(df, "iaProgramDeclared")
-        pa = self._bool_column(df, "paProgramDeclared")
+
+        # ---- Feature 5: HM program flag ----
         hm = self._bool_column(df, "hmProgramDeclared")
-        ih = self._bool_column(df, "ihProgramDeclared")
 
-        # ---- Feature 11: program count (0-4) ----
-        program_count = ia + pa + hm + ih
-
-        # ---- Feature 12: is major disaster ----
+        # ---- Feature 6: is major disaster ----
         is_major = np.zeros(n, dtype=np.float64)
         if "declarationType" in df.columns:
             is_major = (df["declarationType"].values == "DR").astype(np.float64)
 
-        # ---- Feature 13: geographic clustering ----
-        geographic_cluster = self._compute_geographic_cluster(state_fips)
-
-        # ---- Feature 14: time between declarations (seconds) ----
+        # ---- Feature 7: time between declarations (seconds) ----
         time_between = self._compute_time_between_declarations(df)
 
         # Stack into feature matrix.
         features = np.column_stack(
             [
-                disaster_type,
                 state_fips,
                 month,
-                day_of_year,
-                days_since_last_same_state,
-                trailing_same_state,
                 trailing_national,
                 ia,
-                pa,
                 hm,
-                program_count,
                 is_major,
-                geographic_cluster,
                 time_between,
             ]
         )
