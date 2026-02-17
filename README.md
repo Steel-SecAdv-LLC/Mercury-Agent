@@ -9,8 +9,6 @@
 <div align="center">
 
 ![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
-
-[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
