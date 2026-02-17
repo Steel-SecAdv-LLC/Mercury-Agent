@@ -184,7 +184,9 @@ def validate_domain(loader: Any) -> dict[str, Any]:
         }
 
     mean_auc = float(np.mean(valid_aucs))
-    mean_ratio = float(np.mean([r.get("anomaly_ratio", 0.0) for r in event_results if r.get("auc") is not None]))
+    mean_ratio = float(
+        np.mean([r.get("anomaly_ratio", 0.0) for r in event_results if r.get("auc") is not None])
+    )
 
     return {
         "status": "OK",
@@ -204,7 +206,10 @@ def main() -> None:
     print(f"Date: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}")
     print("=" * 76)
     print()
-    print(f"{'Domain':<14} | {'Before':>7} | {'After':>7} | {'Delta':>7} | " f"{'N':>6} | {'Anom%':>6} | Status")
+    print(
+        f"{'Domain':<14} | {'Before':>7} | {'After':>7} | {'Delta':>7} | "
+        f"{'N':>6} | {'Anom%':>6} | Status"
+    )
     print("-" * 76)
 
     results: dict[str, dict[str, Any]] = {}

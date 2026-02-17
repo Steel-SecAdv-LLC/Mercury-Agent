@@ -227,7 +227,9 @@ class EnergyLoader(BaseDomainLoader):
             ConnectionError: If data sources are unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         cache_key = f"energy_historical_{event_id}"
         cached = self._read_cache(cache_key)
@@ -301,7 +303,9 @@ class EnergyLoader(BaseDomainLoader):
                 available.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         df = self.fetch_historical(event_id)
         if df.empty:
@@ -585,7 +589,9 @@ class EnergyLoader(BaseDomainLoader):
             logger.warning("EIA API unreachable; falling back to synthetic data.")
             return self._generate_synthetic_kp_series(event)
 
-        data_rows = response.get("response", {}).get("data", []) if isinstance(response, dict) else []
+        data_rows = (
+            response.get("response", {}).get("data", []) if isinstance(response, dict) else []
+        )
 
         if not data_rows:
             logger.warning("EIA returned no data; falling back to synthetic data.")
@@ -640,8 +646,7 @@ class EnergyLoader(BaseDomainLoader):
 
         # Generate 3-hour resolution timestamps (standard Kp cadence)
         n_steps = n_hours // 3
-        if n_steps < 1:
-            n_steps = 1
+        n_steps = max(n_steps, 1)
         timestamps = pd.date_range(start=start_date, periods=n_steps, freq="3h", tz="UTC")
 
         # Build Kp profile: extended quiet + major storm + recovery
@@ -729,13 +734,15 @@ class EnergyLoader(BaseDomainLoader):
         ramp_len = 16
         ramp_start = max(0, storm_center - ramp_len - 8)
         for j in range(min(ramp_len, storm_center - ramp_start)):
-            t = j / ramp_len
+            t = j / ramp_len  # type: ignore[assignment]
             kp[ramp_start + j] = 2.0 + (float(peak_kp) - 2.0) * t
 
         # Peak: 8 steps (24h)
         peak_start = max(0, storm_center - 8)
         peak_end = min(n_steps, storm_center + 8)
-        kp[peak_start:peak_end] = float(peak_kp) + rng.uniform(-0.5, 0.0, size=peak_end - peak_start)
+        kp[peak_start:peak_end] = float(peak_kp) + rng.uniform(
+            -0.5, 0.0, size=peak_end - peak_start
+        )
 
         # Recovery: 3 days (24 steps) exponential decay
         recovery_len = 24
@@ -834,7 +841,7 @@ class EnergyLoader(BaseDomainLoader):
         demand = df["grid_demand"].values.astype(np.float64)
         supply = df["grid_supply"].values.astype(np.float64)
         labels = (demand > supply).astype(np.int64)
-        return labels
+        return labels  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------
     # Private helpers -- utilities
@@ -853,7 +860,7 @@ class EnergyLoader(BaseDomainLoader):
             column does not exist.
         """
         if column in df.columns:
-            return pd.to_numeric(df[column], errors="coerce").fillna(0.0).values.astype(np.float64)
+            return pd.to_numeric(df[column], errors="coerce").fillna(0.0).values.astype(np.float64)  # type: ignore[no-any-return]
         return np.zeros(len(df), dtype=np.float64)
 
     @staticmethod

@@ -202,9 +202,7 @@ class VolcanicLoader(BaseDomainLoader):
         df = self._enrich_with_geography(df)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d real-time volcanic alert records from USGS.", len(df)
-        )
+        logger.info("Fetched %d real-time volcanic alert records from USGS.", len(df))
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
@@ -230,17 +228,14 @@ class VolcanicLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"volcanic_historical_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
-            logger.debug(
-                "Returning cached historical data for '%s'.", event_id
-            )
+            logger.debug("Returning cached historical data for '%s'.", event_id)
             return pd.DataFrame(cached)
 
         event = _EVENT_CATALOG[event_id]
@@ -257,10 +252,7 @@ class VolcanicLoader(BaseDomainLoader):
             raise DataSourceUnavailableError(
                 loader_name="VolcanicLoader",
                 source_url=_ALERTS_URL,
-                reason=(
-                    f"Cannot reach USGS volcano API for event "
-                    f"'{event_id}': {exc}"
-                ),
+                reason=(f"Cannot reach USGS volcano API for event " f"'{event_id}': {exc}"),
             ) from exc
 
         df = self._alerts_to_dataframe(alerts_raw)
@@ -278,9 +270,7 @@ class VolcanicLoader(BaseDomainLoader):
 
         # Filter for the specific volcano name
         volcano_name = event["volcano_name"]
-        mask = df["volcano_name"].str.contains(
-            volcano_name, case=False, na=False
-        )
+        mask = df["volcano_name"].str.contains(volcano_name, case=False, na=False)
         df_filtered = df[mask].copy()
 
         if df_filtered.empty:
@@ -304,13 +294,9 @@ class VolcanicLoader(BaseDomainLoader):
 
         # Sort chronologically if dates are available
         if "alert_date" in df_filtered.columns:
-            df_filtered = df_filtered.sort_values(
-                "alert_date"
-            ).reset_index(drop=True)
+            df_filtered = df_filtered.sort_values("alert_date").reset_index(drop=True)
 
-        self._write_cache(
-            cache_key, df_filtered.to_dict(orient="list")
-        )
+        self._write_cache(cache_key, df_filtered.to_dict(orient="list"))
         logger.info(
             "Fetched %d historical records for volcanic event '%s'.",
             len(df_filtered),
@@ -362,8 +348,7 @@ class VolcanicLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -381,13 +366,12 @@ class VolcanicLoader(BaseDomainLoader):
         ).astype(np.int64)
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total "
-            "(WARNING/RED threshold).",
+            "Ground truth for '%s': %d anomalies / %d total " "(WARNING/RED threshold).",
             event_id,
             int(labels.sum()),
             len(labels),
         )
-        return labels
+        return labels  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------
     # Feature engineering
@@ -429,27 +413,15 @@ class VolcanicLoader(BaseDomainLoader):
         # Ensure numeric encodings exist
         if "alert_level_numeric" not in df.columns:
             df["alert_level_numeric"] = (
-                df["alert_level"]
-                .str.upper()
-                .map(_ALERT_LEVEL_MAP)
-                .fillna(0)
-                .astype(np.float64)
+                df["alert_level"].str.upper().map(_ALERT_LEVEL_MAP).fillna(0).astype(np.float64)
             )
         if "color_code_numeric" not in df.columns:
             df["color_code_numeric"] = (
-                df["color_code"]
-                .str.upper()
-                .map(_COLOR_CODE_MAP)
-                .fillna(0)
-                .astype(np.float64)
+                df["color_code"].str.upper().map(_COLOR_CODE_MAP).fillna(0).astype(np.float64)
             )
 
-        alert_level_numeric = df["alert_level_numeric"].values.astype(
-            np.float64
-        )
-        color_code_numeric = df["color_code_numeric"].values.astype(
-            np.float64
-        )
+        alert_level_numeric = df["alert_level_numeric"].values.astype(np.float64)
+        color_code_numeric = df["color_code_numeric"].values.astype(np.float64)
 
         # ---- Alert level delta (change from previous record) ----
         alert_level_delta = self._compute_deltas(alert_level_numeric)
@@ -458,14 +430,24 @@ class VolcanicLoader(BaseDomainLoader):
         color_code_delta = self._compute_deltas(color_code_numeric)
 
         # ---- Geographic features ----
-        latitude = df["latitude"].values.astype(np.float64) if "latitude" in df.columns else np.zeros(len(df), dtype=np.float64)
-        longitude = df["longitude"].values.astype(np.float64) if "longitude" in df.columns else np.zeros(len(df), dtype=np.float64)
-        elevation = df["elevation"].values.astype(np.float64) if "elevation" in df.columns else np.zeros(len(df), dtype=np.float64)
+        latitude = (
+            df["latitude"].values.astype(np.float64)
+            if "latitude" in df.columns
+            else np.zeros(len(df), dtype=np.float64)
+        )
+        longitude = (
+            df["longitude"].values.astype(np.float64)
+            if "longitude" in df.columns
+            else np.zeros(len(df), dtype=np.float64)
+        )
+        elevation = (
+            df["elevation"].values.astype(np.float64)
+            if "elevation" in df.columns
+            else np.zeros(len(df), dtype=np.float64)
+        )
 
         # ---- Days since last alert change ----
-        days_since_last_change = self._compute_days_since_last_change(
-            df, alert_level_numeric
-        )
+        days_since_last_change = self._compute_days_since_last_change(df, alert_level_numeric)
 
         # Stack into feature matrix
         features = np.column_stack(
@@ -550,11 +532,7 @@ class VolcanicLoader(BaseDomainLoader):
                 or props.get("volcano_name", "")
                 or props.get("name", "")
             )
-            alert_level = (
-                props.get("alertLevel", "")
-                or props.get("alert_level", "")
-                or ""
-            )
+            alert_level = props.get("alertLevel", "") or props.get("alert_level", "") or ""
             color_code = (
                 props.get("colorCode", "")
                 or props.get("color_code", "")
@@ -576,12 +554,8 @@ class VolcanicLoader(BaseDomainLoader):
                     "volcano_name": str(volcano_name).strip(),
                     "alert_level": alert_upper,
                     "color_code": color_upper,
-                    "alert_level_numeric": _ALERT_LEVEL_MAP.get(
-                        alert_upper, 0
-                    ),
-                    "color_code_numeric": _COLOR_CODE_MAP.get(
-                        color_upper, 0
-                    ),
+                    "alert_level_numeric": _ALERT_LEVEL_MAP.get(alert_upper, 0),
+                    "color_code_numeric": _COLOR_CODE_MAP.get(color_upper, 0),
                     "alert_date": alert_date,
                 }
             )
@@ -589,9 +563,7 @@ class VolcanicLoader(BaseDomainLoader):
         df = pd.DataFrame(rows, columns=columns)
         return df
 
-    def _enrich_with_geography(
-        self, df: pd.DataFrame
-    ) -> pd.DataFrame:
+    def _enrich_with_geography(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich alert DataFrame with geographic data from the volcano list.
 
         Fetches the USGS volcano list and merges latitude, longitude, and
@@ -611,10 +583,7 @@ class VolcanicLoader(BaseDomainLoader):
             return df
 
         # Skip if geography is already present
-        if all(
-            col in df.columns
-            for col in ("latitude", "longitude", "elevation")
-        ):
+        if all(col in df.columns for col in ("latitude", "longitude", "elevation")):
             return df
 
         cache_key = "volcanic_volcano_list"
@@ -627,9 +596,7 @@ class VolcanicLoader(BaseDomainLoader):
                 volcanoes_raw = self._fetch_json(_VOLCANO_LIST_URL)
                 geo_df = self._volcano_list_to_geodf(volcanoes_raw)
                 if not geo_df.empty:
-                    self._write_cache(
-                        cache_key, geo_df.to_dict(orient="list")
-                    )
+                    self._write_cache(cache_key, geo_df.to_dict(orient="list"))
             except Exception as exc:
                 logger.warning(
                     "Could not fetch volcano list for geographic "
@@ -693,9 +660,7 @@ class VolcanicLoader(BaseDomainLoader):
         columns = ["volcano_name", "latitude", "longitude", "elevation"]
 
         if isinstance(volcanoes_raw, dict):
-            volcanoes_list = volcanoes_raw.get(
-                "volcanoList", volcanoes_raw.get("features", [])
-            )
+            volcanoes_list = volcanoes_raw.get("volcanoList", volcanoes_raw.get("features", []))
             if not isinstance(volcanoes_list, list):
                 volcanoes_list = []
         elif isinstance(volcanoes_raw, list):
@@ -789,9 +754,7 @@ class VolcanicLoader(BaseDomainLoader):
         timestamps: np.ndarray | None = None
         if "alert_date" in df.columns:
             try:
-                parsed_dates = pd.to_datetime(
-                    df["alert_date"], errors="coerce", utc=True
-                )
+                parsed_dates = pd.to_datetime(df["alert_date"], errors="coerce", utc=True)
                 if not parsed_dates.isna().all():
                     timestamps = parsed_dates.values
             except Exception:
@@ -815,9 +778,7 @@ class VolcanicLoader(BaseDomainLoader):
                 if pd.notna(current_ts) and pd.notna(change_ts):
                     delta = current_ts - change_ts
                     # Convert numpy timedelta64 to days
-                    days_since[i] = float(
-                        delta / np.timedelta64(1, "D")
-                    )
+                    days_since[i] = float(delta / np.timedelta64(1, "D"))
                 else:
                     # Fallback: row distance as proxy
                     days_since[i] = float(i - last_change_idx)

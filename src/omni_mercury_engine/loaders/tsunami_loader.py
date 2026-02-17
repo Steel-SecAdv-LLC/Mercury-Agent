@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import io
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -176,15 +176,14 @@ class TsunamiLoader(BaseDomainLoader):
                 df = self._fetch_station(station_id)
                 if not df.empty:
                     frames.append(df)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 msg = f"Station {station_id}: {exc}"
                 logger.warning("tsunami: failed to fetch %s", msg)
                 errors.append(msg)
 
         if not frames:
             raise ConnectionError(
-                f"tsunami: could not retrieve data from any DART station. "
-                f"Errors: {errors}"
+                f"tsunami: could not retrieve data from any DART station. " f"Errors: {errors}"
             )
 
         combined = pd.concat(frames, ignore_index=True)
@@ -216,10 +215,7 @@ class TsunamiLoader(BaseDomainLoader):
             ValueError: If *event_id* is not recognised.
         """
         if event_id not in _EVENTS_BY_ID:
-            raise ValueError(
-                f"Unknown event_id {event_id!r}. "
-                f"Available: {list(_EVENTS_BY_ID)}"
-            )
+            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENTS_BY_ID)}")
 
         # Try the cache first.
         cache_key = f"tsunami_historical_{event_id}"
@@ -270,20 +266,13 @@ class TsunamiLoader(BaseDomainLoader):
             ValueError: If *event_id* is not recognised.
         """
         if event_id not in _EVENTS_BY_ID:
-            raise ValueError(
-                f"Unknown event_id {event_id!r}. "
-                f"Available: {list(_EVENTS_BY_ID)}"
-            )
+            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENTS_BY_ID)}")
 
         event = _EVENTS_BY_ID[event_id]
         df = self.fetch_historical(event_id)
 
-        window_start = datetime.fromisoformat(
-            event["window_start"].replace("Z", "+00:00")
-        )
-        window_end = datetime.fromisoformat(
-            event["window_end"].replace("Z", "+00:00")
-        )
+        window_start = datetime.fromisoformat(event["window_start"].replace("Z", "+00:00"))
+        window_end = datetime.fromisoformat(event["window_end"].replace("Z", "+00:00"))
 
         timestamps = pd.to_datetime(df["timestamp"], utc=True)
         labels = np.where(
@@ -358,14 +347,16 @@ class TsunamiLoader(BaseDomainLoader):
         # Feature 6: short-window energy (5-sample rolling std)
         feat_short_energy = _rolling_std(bpr, 5)
 
-        features = np.column_stack([
-            feat_bpr,
-            feat_deviation,
-            feat_abs_dev,
-            feat_rate,
-            feat_rolling_std,
-            feat_short_energy,
-        ])
+        features = np.column_stack(
+            [
+                feat_bpr,
+                feat_deviation,
+                feat_abs_dev,
+                feat_rate,
+                feat_rolling_std,
+                feat_short_energy,
+            ]
+        )
 
         # Final cleanup: replace any remaining inf/nan with 0.
         features = np.where(np.isfinite(features), features, 0.0)
@@ -442,10 +433,10 @@ class TsunamiLoader(BaseDomainLoader):
                         int(row["day"]),
                         int(row["hour"]),
                         int(row["minute"]),
-                        tzinfo=timezone.utc,
+                        tzinfo=UTC,
                     )
                 except (ValueError, OverflowError):
-                    ts = datetime(2000, 1, 1, tzinfo=timezone.utc)
+                    ts = datetime(2000, 1, 1, tzinfo=UTC)
                 timestamps.append(ts)
 
             # Vectorised timestamp construction (faster for large files).
@@ -460,7 +451,7 @@ class TsunamiLoader(BaseDomainLoader):
                     },
                     utc=True,
                 )
-            except Exception:  # noqa: BLE001
+            except Exception:
                 ts_series = pd.Series(timestamps)
 
             df["timestamp"] = ts_series
@@ -500,23 +491,17 @@ class TsunamiLoader(BaseDomainLoader):
         # process).  hashlib.md5 produces the same bytes every time.
         import hashlib
 
-        seed_bytes = hashlib.md5(event["event_id"].encode()).digest()
+        seed_bytes = hashlib.md5(event["event_id"].encode(), usedforsecurity=False).digest()
         seed_int = int.from_bytes(seed_bytes[:4], "little") % (2**31)
         rng = np.random.default_rng(seed_int)
 
-        window_start = datetime.fromisoformat(
-            event["window_start"].replace("Z", "+00:00")
-        )
-        window_end = datetime.fromisoformat(
-            event["window_end"].replace("Z", "+00:00")
-        )
+        window_start = datetime.fromisoformat(event["window_start"].replace("Z", "+00:00"))
+        window_end = datetime.fromisoformat(event["window_end"].replace("Z", "+00:00"))
 
         # Scale observation window so the anomaly ratio stays below ~35%.
         # Long-duration events (>8 h) need proportionally more padding to
         # provide sufficient normal baseline for unsupervised detectors.
-        event_duration_s = (
-            window_end.timestamp() - window_start.timestamp()
-        )
+        event_duration_s = window_end.timestamp() - window_start.timestamp()
         padding_mult = 1.0 if event_duration_s > 8 * 3600 else 0.75
         pre_seconds = max(6 * 3600, int(event_duration_s * padding_mult))
         post_seconds = max(6 * 3600, int(event_duration_s * padding_mult))
@@ -532,9 +517,7 @@ class TsunamiLoader(BaseDomainLoader):
         baseline_pressure = 5000.0  # nominal deep-ocean BPR in dbar
         tidal_amplitude = 0.5  # typical deep-ocean tidal amplitude (dbar)
 
-        tide = baseline_pressure + tidal_amplitude * np.sin(
-            2 * np.pi * time_array / tidal_period
-        )
+        tide = baseline_pressure + tidal_amplitude * np.sin(2 * np.pi * time_array / tidal_period)
 
         # Noise floor.
         noise = rng.normal(0, 0.005, size=n_samples)
@@ -566,9 +549,7 @@ class TsunamiLoader(BaseDomainLoader):
         window_time = time_array[in_window] - ws_epoch
         window_duration = we_epoch - ws_epoch
         decay = np.exp(-decay_rate * window_time / window_duration)
-        tsunami_signal[in_window] = (
-            amplitude * decay * np.sin(2 * np.pi * window_time / period)
-        )
+        tsunami_signal[in_window] = amplitude * decay * np.sin(2 * np.pi * window_time / period)
 
         bpr = tide + tsunami_signal + noise
 

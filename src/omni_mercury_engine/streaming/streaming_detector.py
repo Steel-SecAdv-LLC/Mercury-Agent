@@ -18,7 +18,10 @@ import asyncio
 import logging
 import time
 from collections import deque
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import numpy as np
 
@@ -118,9 +121,7 @@ class StreamingDetector:
             self._is_fitted = True
             self._points_since_refit = 0
             self._last_refit_time = time.monotonic()
-            logger.debug(
-                "StreamingDetector refit on %d samples.", len(self._window)
-            )
+            logger.debug("StreamingDetector refit on %d samples.", len(self._window))
         except Exception as exc:
             logger.warning("StreamingDetector refit failed: %s", exc)
 
@@ -181,9 +182,7 @@ class StreamingDetector:
             logger.warning("StreamingDetector detection failed: %s", exc)
             return None
 
-    def ingest_batch(
-        self, batch: np.ndarray | list[list[float]]
-    ) -> dict[str, Any] | None:
+    def ingest_batch(self, batch: np.ndarray | list[list[float]]) -> dict[str, Any] | None:
         """Ingest a batch of data points.
 
         Args:
@@ -229,9 +228,7 @@ class StreamingDetector:
             logger.warning("StreamingDetector batch detection failed: %s", exc)
             return None
 
-    async def async_ingest(
-        self, point: np.ndarray | list[float] | float
-    ) -> dict[str, Any] | None:
+    async def async_ingest(self, point: np.ndarray | list[float] | float) -> dict[str, Any] | None:
         """Async version of ingest for use with asyncio event loops.
 
         Args:
@@ -241,9 +238,7 @@ class StreamingDetector:
             Detection result dict or None.
         """
         async with self._lock:
-            return await asyncio.get_event_loop().run_in_executor(
-                None, self.ingest, point
-            )
+            return await asyncio.get_event_loop().run_in_executor(None, self.ingest, point)
 
     async def async_ingest_batch(
         self, batch: np.ndarray | list[list[float]]
@@ -257,9 +252,7 @@ class StreamingDetector:
             Detection result dict or None.
         """
         async with self._lock:
-            return await asyncio.get_event_loop().run_in_executor(
-                None, self.ingest_batch, batch
-            )
+            return await asyncio.get_event_loop().run_in_executor(None, self.ingest_batch, batch)
 
     def reset(self) -> None:
         """Reset the detector state, clearing all buffered data."""

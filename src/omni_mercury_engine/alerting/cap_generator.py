@@ -14,7 +14,7 @@ Reference: http://docs.oasis-open.org/emergency/cap/v1.2/CAP-v1.2.html
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -265,7 +265,7 @@ class CAPAlertGenerator:
         Returns:
             CAP 1.2 XML string.
         """
-        now = event_time or datetime.now(timezone.utc)
+        now = event_time or datetime.now(UTC)
         expires = now + timedelta(hours=expires_hours)
         alert_id = f"mercury-{domain}-{uuid.uuid4().hex[:12]}"
 
@@ -402,10 +402,10 @@ class CAPAlertGenerator:
         Returns:
             True if valid CAP structure, False otherwise.
         """
-        from xml.etree.ElementTree import fromstring
+        from defusedxml.ElementTree import fromstring as safe_fromstring
 
         try:
-            root = fromstring(xml_string)
+            root = safe_fromstring(xml_string)
         except Exception:
             return False
 
@@ -426,8 +426,4 @@ class CAPAlertGenerator:
             return False
 
         info_required = ["category", "event", "urgency", "severity", "certainty"]
-        for tag in info_required:
-            if info.find(f"{ns}{tag}") is None:
-                return False
-
-        return True
+        return all(info.find(f"{ns}{tag}") is not None for tag in info_required)

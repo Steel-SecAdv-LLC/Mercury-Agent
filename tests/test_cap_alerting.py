@@ -26,12 +26,12 @@ Tests for the CAP (Common Alerting Protocol) 1.2 alert generator:
 
 from __future__ import annotations
 
-from xml.etree.ElementTree import fromstring
-
 import numpy as np
 import pytest
+from defusedxml.ElementTree import fromstring
 
 from omni_mercury_engine.alerting.cap_generator import (
+    DOMAIN_CATEGORY_MAP,
     CAPAlertGenerator,
     CAPCategory,
     CAPCertainty,
@@ -40,7 +40,6 @@ from omni_mercury_engine.alerting.cap_generator import (
     CAPSeverity,
     CAPStatus,
     CAPUrgency,
-    DOMAIN_CATEGORY_MAP,
 )
 
 # CAP namespace for element lookups
@@ -473,8 +472,18 @@ class TestCAPEnumValues:
     def test_cap_category_values(self):
         """CAPCategory must cover all CAP 1.2 categories."""
         expected = {
-            "Geo", "Met", "Safety", "Security", "Rescue", "Fire",
-            "Health", "Env", "Transport", "Infra", "CBRNE", "Other",
+            "Geo",
+            "Met",
+            "Safety",
+            "Security",
+            "Rescue",
+            "Fire",
+            "Health",
+            "Env",
+            "Transport",
+            "Infra",
+            "CBRNE",
+            "Other",
         }
         actual = {c.value for c in CAPCategory}
         assert actual == expected
@@ -537,8 +546,7 @@ class TestDomainCategoryMap:
         """Every value in the map must be a CAPCategory enum member."""
         for domain, category in DOMAIN_CATEGORY_MAP.items():
             assert isinstance(category, CAPCategory), (
-                f"DOMAIN_CATEGORY_MAP['{domain}'] is {type(category)}, "
-                f"expected CAPCategory"
+                f"DOMAIN_CATEGORY_MAP['{domain}'] is {type(category)}, " f"expected CAPCategory"
             )
 
     def test_earthquake_is_geo(self):

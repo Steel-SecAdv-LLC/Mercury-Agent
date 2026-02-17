@@ -40,8 +40,7 @@ except ImportError:
 if not _torch_available:
     pytest.skip("torch required for StreamingDetector", allow_module_level=True)
 
-from omni_mercury_engine.streaming.streaming_detector import StreamingDetector  # noqa: E402
-
+from omni_mercury_engine.streaming.streaming_detector import StreamingDetector
 
 # ======================================================================
 # Instantiation

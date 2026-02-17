@@ -221,7 +221,7 @@ class MarineLoader(BaseDomainLoader):
                 records = self._fetch_occurrences(scientificname=species_name)
                 if records:
                     frames.append(pd.DataFrame(records))
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning(
                     "marine: failed to fetch occurrences for %s: %s",
                     species_name,
@@ -229,7 +229,9 @@ class MarineLoader(BaseDomainLoader):
                 )
 
         if not frames:
-            raise ConnectionError("marine: could not retrieve occurrence data from OBIS " "for any indicator species.")
+            raise ConnectionError(
+                "marine: could not retrieve occurrence data from OBIS " "for any indicator species."
+            )
 
         df = pd.concat(frames, ignore_index=True)
         df = self._normalize_columns(df)
@@ -262,7 +264,9 @@ class MarineLoader(BaseDomainLoader):
             ConnectionError: If the OBIS API is unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         cache_key = f"marine_historical_{event_id}"
         cached = self._read_cache(cache_key)
@@ -294,7 +298,7 @@ class MarineLoader(BaseDomainLoader):
                     df_sp = pd.DataFrame(records)
                     df_sp["period"] = "baseline"
                     baseline_frames.append(df_sp)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning(
                     "marine: baseline fetch failed for %s: %s",
                     species_name,
@@ -315,7 +319,7 @@ class MarineLoader(BaseDomainLoader):
                     df_sp = pd.DataFrame(records)
                     df_sp["period"] = "event"
                     event_frames.append(df_sp)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning(
                     "marine: event fetch failed for %s: %s",
                     species_name,
@@ -325,7 +329,8 @@ class MarineLoader(BaseDomainLoader):
         all_frames = baseline_frames + event_frames
         if not all_frames:
             logger.warning(
-                "marine: no occurrence data retrieved for event '%s'. " "Generating synthetic data.",
+                "marine: no occurrence data retrieved for event '%s'. "
+                "Generating synthetic data.",
                 event_id,
             )
             df = self._synthesize_event(event)
@@ -381,7 +386,9 @@ class MarineLoader(BaseDomainLoader):
             ValueError: If *event_id* is not recognized.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         df = self.fetch_historical(event_id)
         if df.empty:
@@ -416,7 +423,8 @@ class MarineLoader(BaseDomainLoader):
 
         anomaly_count = int(labels.sum())
         logger.info(
-            "marine: ground truth for '%s' — %d anomaly / %d total cells " "(>70%% richness drop threshold).",
+            "marine: ground truth for '%s' — %d anomaly / %d total cells "
+            "(>70%% richness drop threshold).",
             event_id,
             anomaly_count,
             len(labels),
@@ -491,9 +499,7 @@ class MarineLoader(BaseDomainLoader):
                 cell_str = str(cell)
                 baseline_counts[cell_str] = float(len(group))
                 if "scientificName" in group.columns:
-                    baseline_richness_map[cell_str] = float(
-                        group["scientificName"].nunique()
-                    )
+                    baseline_richness_map[cell_str] = float(group["scientificName"].nunique())
                 if "depth" in group.columns:
                     dv = pd.to_numeric(group["depth"], errors="coerce").dropna()
                     if len(dv) > 0:
@@ -517,9 +523,7 @@ class MarineLoader(BaseDomainLoader):
             # Fractional richness loss.
             frac_richness_loss = 0.0
             if bl_richness > 0:
-                frac_richness_loss = max(
-                    0.0, (bl_richness - event_richness) / bl_richness
-                )
+                frac_richness_loss = max(0.0, (bl_richness - event_richness) / bl_richness)
 
             # Feature 1: weighted richness loss (continuous, varies
             # with baseline magnitude — cells with richer baselines
@@ -702,10 +706,12 @@ class MarineLoader(BaseDomainLoader):
             lon = rng.uniform(lon_min_focus, lon_max_focus)
             sp = rng.choice(species_list)
             depth = rng.uniform(0, 100)
-            year = int(rng.integers(
-                int(event["baseline_start"][:4]),
-                int(event["baseline_end"][:4]) + 1,
-            ))
+            year = int(
+                rng.integers(
+                    int(event["baseline_start"][:4]),
+                    int(event["baseline_end"][:4]) + 1,
+                )
+            )
             records.append(
                 {
                     "scientificName": sp,
@@ -855,7 +861,8 @@ def _assign_grid_cells(
     grid_lon = np.floor(lon / resolution) * resolution
 
     df["grid_cell"] = [
-        f"{la}_{lo}" if (np.isfinite(la) and np.isfinite(lo)) else "unknown" for la, lo in zip(grid_lat, grid_lon)
+        f"{la}_{lo}" if (np.isfinite(la) and np.isfinite(lo)) else "unknown"
+        for la, lo in zip(grid_lat, grid_lon)
     ]
 
     return df
@@ -912,7 +919,9 @@ def _compute_sst_anomaly_proxy(cell_data: pd.DataFrame) -> float:
     warm_indicators = set(_REEF_INDICATOR_SPECIES[: len(_REEF_INDICATOR_SPECIES) // 2])
 
     warm_count = sum(
-        1 for name in cell_data["scientificName"] if any(indicator in str(name) for indicator in warm_indicators)
+        1
+        for name in cell_data["scientificName"]
+        if any(indicator in str(name) for indicator in warm_indicators)
     )
 
     return float(warm_count) / float(total)

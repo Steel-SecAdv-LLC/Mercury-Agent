@@ -76,7 +76,8 @@ class FederatedAggregator:
         age = time.time() - stats.timestamp
         if age > self.max_age_seconds:
             raise ValueError(
-                f"Statistics from {stats.node_id} are {age:.0f}s old " f"(max {self.max_age_seconds:.0f}s)"
+                f"Statistics from {stats.node_id} are {age:.0f}s old "
+                f"(max {self.max_age_seconds:.0f}s)"
             )
         if stats.n_samples < 1:
             raise ValueError(f"Node {stats.node_id} reports 0 samples")
@@ -128,7 +129,7 @@ class FederatedAggregator:
             between = np.zeros_like(global_mean)
             for m, w in zip(means, weights):
                 between = between + (np.asarray(m, dtype=np.float64) - global_mean) ** 2 * w
-            return np.sqrt(np.maximum(within + between, 1e-16))
+            return np.sqrt(np.maximum(within + between, 1e-16))  # type: ignore[no-any-return]
 
         # Aggregate means
         global_mean = wavg([s.mean for s in subs])
@@ -140,8 +141,12 @@ class FederatedAggregator:
 
         # Aggregate stds via pooled variance
         global_std = pooled_std([s.mean for s in subs], [s.std for s in subs])
-        global_kin_jerk_std = pooled_std([s.kin_jerk_mean for s in subs], [s.kin_jerk_std for s in subs])
-        global_kin_accel_std = pooled_std([s.kin_accel_mean for s in subs], [s.kin_accel_std for s in subs])
+        global_kin_jerk_std = pooled_std(
+            [s.kin_jerk_mean for s in subs], [s.kin_jerk_std for s in subs]
+        )
+        global_kin_accel_std = pooled_std(
+            [s.kin_accel_mean for s in subs], [s.kin_accel_std for s in subs]
+        )
 
         # Aggregate percentiles (weighted average approximation)
         global_q1 = wavg([s.q1 for s in subs])

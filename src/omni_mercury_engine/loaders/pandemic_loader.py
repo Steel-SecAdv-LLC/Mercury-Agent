@@ -30,7 +30,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Data source URLs
 # ---------------------------------------------------------------------------
-_OWID_CSV_URL = "https://raw.githubusercontent.com/owid/covid-19-data/" "master/public/data/owid-covid-data.csv"
+_OWID_CSV_URL = (
+    "https://raw.githubusercontent.com/owid/covid-19-data/" "master/public/data/owid-covid-data.csv"
+)
 
 _WHO_GHO_BASE_URL = "https://ghoapi.azureedge.net/api"
 
@@ -39,7 +41,8 @@ _WHO_GHO_API_URL = "https://ghoapi.azureedge.net/api/"
 _WHO_EMERGENCIES_URL = "https://www.who.int/api/hubs/emergencies"
 
 _JHU_CSSE_BASE_URL = (
-    "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/" "master/csse_covid_19_data/csse_covid_19_time_series/"
+    "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/"
+    "master/csse_covid_19_data/csse_covid_19_time_series/"
 )
 
 # ---------------------------------------------------------------------------
@@ -175,7 +178,9 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "source": "stub",
         "pathogen_class": "fungus",
         "pathogen": "Candida auris",
-        "_stub_reason": ("CDC C. auris data requires manual download. " "Placeholder for future integration."),
+        "_stub_reason": (
+            "CDC C. auris data requires manual download. " "Placeholder for future integration."
+        ),
     },
     # --- PARASITE (pathogen_class=parasite) ---
     "malaria_subsaharan_2019_2022": {
@@ -195,7 +200,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "pathogen_class": "parasite",
         "pathogen": "Plasmodium falciparum",
         "_stub_reason": (
-            "WHO GHO MALARIA001 indicator returns empty for NGA. " "Placeholder pending alternative data source."
+            "WHO GHO MALARIA001 indicator returns empty for NGA. "
+            "Placeholder pending alternative data source."
         ),
     },
     # --- PRION (pathogen_class=prion) ---
@@ -342,7 +348,9 @@ class PandemicLoader(BaseDomainLoader):
             ConnectionError: If the data source is unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         cache_key = f"pandemic_historical_{event_id}"
         cached = self._read_cache(cache_key)
@@ -420,7 +428,7 @@ class PandemicLoader(BaseDomainLoader):
         Returns:
             Sorted list of unique pathogen class strings.
         """
-        return sorted(set(e.get("pathogen_class", "unknown") for e in _EVENT_CATALOG.values()))
+        return sorted({e.get("pathogen_class", "unknown") for e in _EVENT_CATALOG.values()})
 
     def get_ground_truth(self, event_id: str) -> np.ndarray:
         """Generate binary anomaly labels for a historical pandemic event.
@@ -443,7 +451,9 @@ class PandemicLoader(BaseDomainLoader):
                 available.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         event = _EVENT_CATALOG[event_id]
 
@@ -498,7 +508,8 @@ class PandemicLoader(BaseDomainLoader):
                 labels[i] = 1
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total " "(wave acceleration threshold: 2x prior-month mean).",
+            "Ground truth for '%s': %d anomalies / %d total "
+            "(wave acceleration threshold: 2x prior-month mean).",
             event_id,
             int(labels.sum()),
             len(labels),
@@ -835,7 +846,9 @@ class PandemicLoader(BaseDomainLoader):
         for month_start in date_range:
             month_end = month_start + pd.offsets.MonthEnd(1)
             count = sum(1 for d in alert_dates if month_start <= d <= month_end)
-            unique_diseases = len(set(t for t, d in zip(alert_titles, alert_dates) if month_start <= d <= month_end))
+            unique_diseases = len(
+                {t for t, d in zip(alert_titles, alert_dates) if month_start <= d <= month_end}
+            )
             rows.append(
                 {
                     "date": month_start,
@@ -855,7 +868,8 @@ class PandemicLoader(BaseDomainLoader):
         df["total_cases"] = df["new_cases"].cumsum()
 
         logger.info(
-            "WHO Emergencies: constructed %d-month biosurveillance " "time series (%d alerts total).",
+            "WHO Emergencies: constructed %d-month biosurveillance "
+            "time series (%d alerts total).",
             len(df),
             len(alert_dates),
         )
@@ -954,7 +968,8 @@ class PandemicLoader(BaseDomainLoader):
             records = data.get("value", [])
             if not records:
                 logger.warning(
-                    "WHO GHO returned no records for indicator '%s'. " "Falling back to synthetic Ebola data.",
+                    "WHO GHO returned no records for indicator '%s'. "
+                    "Falling back to synthetic Ebola data.",
                     indicator,
                 )
                 return self._synthetic_ebola_2014()
@@ -985,7 +1000,10 @@ class PandemicLoader(BaseDomainLoader):
             df = df[(df["date"] >= start) & (df["date"] <= end)].copy()
 
             if df.empty:
-                logger.warning("WHO GHO data empty after date filtering. " "Falling back to synthetic Ebola data.")
+                logger.warning(
+                    "WHO GHO data empty after date filtering. "
+                    "Falling back to synthetic Ebola data."
+                )
                 return self._synthetic_ebola_2014()
 
             df = df.sort_values("date").reset_index(drop=True)

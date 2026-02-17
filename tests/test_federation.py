@@ -249,7 +249,9 @@ def test_federated_detector_matches_centralized() -> None:
 
     # Scores should be positively correlated
     correlation = np.corrcoef(central_scores, fed_scores)[0, 1]
-    assert correlation > 0.5, f"Federated and centralized scores poorly correlated: r={correlation:.3f}"
+    assert (
+        correlation > 0.5
+    ), f"Federated and centralized scores poorly correlated: r={correlation:.3f}"
 
 
 # ---------------------------------------------------------------------------

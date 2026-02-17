@@ -46,36 +46,36 @@ _TRAINING_B_URL = f"{_BASE_DATA_URL}training/training_setB.zip"
 # Canonical column names from the challenge PSV files
 # ---------------------------------------------------------------------------
 _VITAL_SIGN_COLS: list[str] = [
-    "HR",         # Heart rate (beats/min)
-    "O2Sat",      # Pulse oximetry SpO2 (%)
-    "Temp",       # Temperature (deg C)
-    "SBP",        # Systolic blood pressure (mmHg)
-    "MAP",        # Mean arterial pressure (mmHg)
-    "DBP",        # Diastolic blood pressure (mmHg)
-    "Resp",       # Respiration rate (breaths/min)
+    "HR",  # Heart rate (beats/min)
+    "O2Sat",  # Pulse oximetry SpO2 (%)
+    "Temp",  # Temperature (deg C)
+    "SBP",  # Systolic blood pressure (mmHg)
+    "MAP",  # Mean arterial pressure (mmHg)
+    "DBP",  # Diastolic blood pressure (mmHg)
+    "Resp",  # Respiration rate (breaths/min)
 ]
 
 _LAB_VALUE_COLS: list[str] = [
-    "WBC",        # White blood cell count (10^3/uL)
-    "Lactate",    # Lactate (mmol/L)
+    "WBC",  # White blood cell count (10^3/uL)
+    "Lactate",  # Lactate (mmol/L)
     "Creatinine",  # Creatinine (mg/dL)
     "Platelets",  # Platelets (10^3/uL)
     "Bilirubin_total",  # Total bilirubin (mg/dL)
 ]
 
 _SOFA_COLS: list[str] = [
-    "FiO2",       # Fraction of inspired oxygen (%)
-    "pH",         # Arterial pH
-    "PaCO2",      # Partial pressure of CO2 (mmHg)
-    "SaO2",       # Arterial oxygen saturation (%)
-    "BUN",        # Blood urea nitrogen (mg/dL)
+    "FiO2",  # Fraction of inspired oxygen (%)
+    "pH",  # Arterial pH
+    "PaCO2",  # Partial pressure of CO2 (mmHg)
+    "SaO2",  # Arterial oxygen saturation (%)
+    "BUN",  # Blood urea nitrogen (mg/dL)
 ]
 
 _DEMOGRAPHIC_COLS: list[str] = [
     "Age",
     "Gender",
     "HospAdmTime",
-    "ICULOS",     # ICU length of stay (hours)
+    "ICULOS",  # ICU length of stay (hours)
 ]
 
 _LABEL_COL = "SepsisLabel"
@@ -149,24 +149,64 @@ class SepsisLoader(BaseDomainLoader):
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         # Raw vital signs (7)
-        "HR", "O2Sat", "Temp", "SBP", "MAP", "DBP", "Resp",
+        "HR",
+        "O2Sat",
+        "Temp",
+        "SBP",
+        "MAP",
+        "DBP",
+        "Resp",
         # Raw lab values (5)
-        "WBC", "Lactate", "Creatinine", "Platelets", "Bilirubin_total",
+        "WBC",
+        "Lactate",
+        "Creatinine",
+        "Platelets",
+        "Bilirubin_total",
         # Raw SOFA-related (5)
-        "FiO2", "pH", "PaCO2", "SaO2", "BUN",
+        "FiO2",
+        "pH",
+        "PaCO2",
+        "SaO2",
+        "BUN",
         # First derivatives (17)
-        "d_HR", "d_O2Sat", "d_Temp", "d_SBP", "d_MAP", "d_DBP", "d_Resp",
-        "d_WBC", "d_Lactate", "d_Creatinine", "d_Platelets",
+        "d_HR",
+        "d_O2Sat",
+        "d_Temp",
+        "d_SBP",
+        "d_MAP",
+        "d_DBP",
+        "d_Resp",
+        "d_WBC",
+        "d_Lactate",
+        "d_Creatinine",
+        "d_Platelets",
         "d_Bilirubin_total",
-        "d_FiO2", "d_pH", "d_PaCO2", "d_SaO2", "d_BUN",
+        "d_FiO2",
+        "d_pH",
+        "d_PaCO2",
+        "d_SaO2",
+        "d_BUN",
         # Rolling standard deviation (17)
-        "std_HR", "std_O2Sat", "std_Temp", "std_SBP", "std_MAP",
-        "std_DBP", "std_Resp",
-        "std_WBC", "std_Lactate", "std_Creatinine", "std_Platelets",
+        "std_HR",
+        "std_O2Sat",
+        "std_Temp",
+        "std_SBP",
+        "std_MAP",
+        "std_DBP",
+        "std_Resp",
+        "std_WBC",
+        "std_Lactate",
+        "std_Creatinine",
+        "std_Platelets",
         "std_Bilirubin_total",
-        "std_FiO2", "std_pH", "std_PaCO2", "std_SaO2", "std_BUN",
+        "std_FiO2",
+        "std_pH",
+        "std_PaCO2",
+        "std_SaO2",
+        "std_BUN",
         # Interaction terms (2)
-        "hr_map_product", "resp_o2sat_product",
+        "hr_map_product",
+        "resp_o2sat_product",
     ]
 
     #: Cache TTL -- 24 hours (challenge data is static)
@@ -250,17 +290,14 @@ class SepsisLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"sepsis_historical_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
-            logger.debug(
-                "Returning cached historical data for '%s'.", event_id
-            )
+            logger.debug("Returning cached historical data for '%s'.", event_id)
             return pd.DataFrame(cached)
 
         event = _EVENT_CATALOG[event_id]
@@ -271,9 +308,7 @@ class SepsisLoader(BaseDomainLoader):
         )
 
         if df.empty:
-            logger.warning(
-                "PhysioNet returned no data for event '%s'.", event_id
-            )
+            logger.warning("PhysioNet returned no data for event '%s'.", event_id)
             return df
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
@@ -325,8 +360,7 @@ class SepsisLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -351,7 +385,7 @@ class SepsisLoader(BaseDomainLoader):
             len(labels),
             100.0 * n_positive / max(len(labels), 1),
         )
-        return labels
+        return labels  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------
     # Feature engineering
@@ -421,32 +455,30 @@ class SepsisLoader(BaseDomainLoader):
         rolling_std = self._compute_rolling_std(df, _FEATURE_COLS, window=6)
 
         # --- Interaction terms ---
-        hr_map_product = (
-            df["HR"].values.astype(np.float64)
-            * df["MAP"].values.astype(np.float64)
-        )
-        resp_o2sat_product = (
-            df["Resp"].values.astype(np.float64)
-            * df["O2Sat"].values.astype(np.float64)
+        hr_map_product = df["HR"].values.astype(np.float64) * df["MAP"].values.astype(np.float64)
+        resp_o2sat_product = df["Resp"].values.astype(np.float64) * df["O2Sat"].values.astype(
+            np.float64
         )
         interactions = np.column_stack([hr_map_product, resp_o2sat_product])
 
         # --- Combine all features ---
-        features = np.column_stack([
-            raw_values,
-            derivatives,
-            rolling_std,
-            interactions,
-        ])
+        features = np.column_stack(
+            [
+                raw_values,
+                derivatives,
+                rolling_std,
+                interactions,
+            ]
+        )
 
         # --- Clean non-finite values ---
         features = np.where(np.isinf(features), np.nan, features)
         for col_idx in range(features.shape[1]):
-            col = features[:, col_idx]
-            mask = np.isnan(col)
+            col_data = features[:, col_idx]
+            mask = np.isnan(col_data)
             if mask.any():
-                median_val = np.nanmedian(col)
-                col[mask] = median_val if np.isfinite(median_val) else 0.0
+                median_val = np.nanmedian(col_data)
+                col_data[mask] = median_val if np.isfinite(median_val) else 0.0
 
         return features
 
@@ -486,10 +518,7 @@ class SepsisLoader(BaseDomainLoader):
             raise DataSourceUnavailableError(
                 loader_name="SepsisLoader",
                 source_url=url,
-                reason=(
-                    f"Failed to download training set {set_label} from "
-                    f"PhysioNet: {exc}"
-                ),
+                reason=(f"Failed to download training set {set_label} from " f"PhysioNet: {exc}"),
             ) from exc
 
         return self._parse_zip_archive(raw_bytes, max_patients=max_patients)
@@ -513,10 +542,7 @@ class SepsisLoader(BaseDomainLoader):
 
         try:
             with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
-                psv_names = sorted(
-                    name for name in zf.namelist()
-                    if name.endswith(".psv")
-                )
+                psv_names = sorted(name for name in zf.namelist() if name.endswith(".psv"))
 
                 if not psv_names:
                     logger.warning("No .psv files found in ZIP archive.")

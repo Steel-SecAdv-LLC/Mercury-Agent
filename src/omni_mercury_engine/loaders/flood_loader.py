@@ -30,12 +30,10 @@ _USGS_IV_URL = "https://waterservices.usgs.gov/nwis/iv/"
 
 # USGS parameter codes
 _PARAM_GAUGE_HEIGHT = "00065"  # Gauge height, ft
-_PARAM_DISCHARGE = "00060"     # Discharge, cubic feet per second
+_PARAM_DISCHARGE = "00060"  # Discharge, cubic feet per second
 
 # Supplemental FEMA endpoint
-_FEMA_DECLARATIONS_URL = (
-    "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
-)
+_FEMA_DECLARATIONS_URL = "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
 
 # ---------------------------------------------------------------------------
 # Ground truth event catalog
@@ -182,17 +180,14 @@ class FloodLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"flood_historical_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
-            logger.debug(
-                "Returning cached historical data for '%s'.", event_id
-            )
+            logger.debug("Returning cached historical data for '%s'.", event_id)
             return pd.DataFrame(cached)
 
         event = _EVENT_CATALOG[event_id]
@@ -213,9 +208,7 @@ class FloodLoader(BaseDomainLoader):
             return df
 
         if not event["sites"]:
-            logger.warning(
-                "No USGS sites configured for event '%s'.", event_id
-            )
+            logger.warning("No USGS sites configured for event '%s'.", event_id)
             return self._empty_dataframe()
 
         df = self._fetch_sites(
@@ -225,9 +218,7 @@ class FloodLoader(BaseDomainLoader):
         )
 
         if df.empty:
-            logger.warning(
-                "USGS returned no data for event '%s'.", event_id
-            )
+            logger.warning("USGS returned no data for event '%s'.", event_id)
             return df
 
         # Sort chronologically
@@ -286,8 +277,7 @@ class FloodLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -357,16 +347,12 @@ class FloodLoader(BaseDomainLoader):
         # ---- base observables ----
         gauge_height = df.get("gauge_height_ft")
         if gauge_height is None:
-            gauge_height = pd.Series(
-                np.zeros(len(df)), dtype=np.float64
-            )
+            gauge_height = pd.Series(np.zeros(len(df)), dtype=np.float64)
         gauge_height = gauge_height.astype(np.float64).values
 
         discharge = df.get("discharge_cfs")
         if discharge is None:
-            discharge = pd.Series(
-                np.zeros(len(df)), dtype=np.float64
-            )
+            discharge = pd.Series(np.zeros(len(df)), dtype=np.float64)
         discharge = discharge.astype(np.float64).values
 
         # ---- rate of rise: dH/dt in ft/hr ----
@@ -446,9 +432,7 @@ class FloodLoader(BaseDomainLoader):
         response = self._fetch_json(_USGS_IV_URL, params=params)
         return self._parse_usgs_response(response)
 
-    def _parse_usgs_response(
-        self, response: dict[str, Any]
-    ) -> pd.DataFrame:
+    def _parse_usgs_response(self, response: dict[str, Any]) -> pd.DataFrame:
         """Parse the nested USGS Water Services JSON response.
 
         The USGS instantaneous values API returns a deeply nested JSON
@@ -564,9 +548,7 @@ class FloodLoader(BaseDomainLoader):
         try:
             response = self._fetch_json(_FEMA_DECLARATIONS_URL, params=params)
         except ConnectionError:
-            logger.warning(
-                "FEMA API unavailable; returning empty DataFrame."
-            )
+            logger.warning("FEMA API unavailable; returning empty DataFrame.")
             return pd.DataFrame(
                 columns=[
                     "datetime",
@@ -594,9 +576,7 @@ class FloodLoader(BaseDomainLoader):
             rows.append(
                 {
                     "datetime": rec.get("declarationDate", ""),
-                    "declaration_id": rec.get(
-                        "disasterNumber", rec.get("id", "")
-                    ),
+                    "declaration_id": rec.get("disasterNumber", rec.get("id", "")),
                     "state": rec.get("state", ""),
                     "title": rec.get("declarationTitle", ""),
                     "incident_type": rec.get("incidentType", "Flood"),
@@ -657,24 +637,16 @@ class FloodLoader(BaseDomainLoader):
         if "datetime" in df.columns:
             times = pd.to_datetime(df["datetime"], errors="coerce")
             for i in range(1, n):
-                dt_diff = (times.iloc[i] - times.iloc[i - 1])
+                dt_diff = times.iloc[i] - times.iloc[i - 1]
                 hours = dt_diff.total_seconds() / 3600.0
-                if hours > 0 and np.isfinite(gauge_height[i]) and np.isfinite(
-                    gauge_height[i - 1]
-                ):
-                    rate[i] = (
-                        gauge_height[i] - gauge_height[i - 1]
-                    ) / hours
+                if hours > 0 and np.isfinite(gauge_height[i]) and np.isfinite(gauge_height[i - 1]):
+                    rate[i] = (gauge_height[i] - gauge_height[i - 1]) / hours
         else:
             # Assume 15-minute intervals (0.25 hours)
             interval_hr = 0.25
             for i in range(1, n):
-                if np.isfinite(gauge_height[i]) and np.isfinite(
-                    gauge_height[i - 1]
-                ):
-                    rate[i] = (
-                        gauge_height[i] - gauge_height[i - 1]
-                    ) / interval_hr
+                if np.isfinite(gauge_height[i]) and np.isfinite(gauge_height[i - 1]):
+                    rate[i] = (gauge_height[i] - gauge_height[i - 1]) / interval_hr
 
         return rate
 
@@ -714,9 +686,7 @@ class FloodLoader(BaseDomainLoader):
 
             median_val = np.median(valid)
             if median_val > 0 and np.isfinite(gauge_height[i]):
-                deviation[i] = (
-                    gauge_height[i] - median_val
-                ) / median_val
+                deviation[i] = (gauge_height[i] - median_val) / median_val
 
         return deviation
 

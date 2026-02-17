@@ -30,8 +30,10 @@ import inspect
 import json
 import sys
 import time
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -57,7 +59,12 @@ LOADER_REGISTRY: list[tuple[str, str, str, bool]] = [
     ("FinancialLoader", "omni_mercury_engine.loaders.financial_loader", "financial", True),
     ("EnergyLoader", "omni_mercury_engine.loaders.energy_loader", "energy", False),
     ("MarineLoader", "omni_mercury_engine.loaders.marine_loader", "marine", False),
-    ("NetworkSecurityLoader", "omni_mercury_engine.loaders.network_security_loader", "network_security", False),
+    (
+        "NetworkSecurityLoader",
+        "omni_mercury_engine.loaders.network_security_loader",
+        "network_security",
+        False,
+    ),
     ("FEMALoader", "omni_mercury_engine.loaders.fema_loader", "fema", False),
 ]
 
@@ -71,6 +78,7 @@ _REQUIRED_EVENT_KEYS = {"event_id", "name", "date", "description"}
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _import_loader_class(module_path: str, class_name: str) -> type:
     """Import a loader class by module path and class name."""
@@ -99,14 +107,14 @@ def _make_loader(module_path: str, class_name: str, tmp_path: Path) -> BaseDomai
 
 _LOADER_IDS = [entry[0] for entry in LOADER_REGISTRY]
 _LOADER_PARAMS = [
-    pytest.param(entry[0], entry[1], entry[2], entry[3], id=entry[0])
-    for entry in LOADER_REGISTRY
+    pytest.param(entry[0], entry[1], entry[2], entry[3], id=entry[0]) for entry in LOADER_REGISTRY
 ]
 
 
 # =========================================================================
 # 1. Instantiation
 # =========================================================================
+
 
 class TestLoaderInstantiation:
     """Each loader class can be instantiated without network access."""
@@ -134,7 +142,7 @@ class TestLoaderInstantiation:
         tmp_path: Path,
     ) -> None:
         loader = _make_loader(module_path, class_name, tmp_path)
-        assert loader.DOMAIN == domain
+        assert domain == loader.DOMAIN
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_requires_api_key_attribute(
@@ -177,6 +185,7 @@ class TestLoaderInstantiation:
 # 2. Interface compliance
 # =========================================================================
 
+
 class TestInterfaceCompliance:
     """Each loader implements the full BaseDomainLoader interface."""
 
@@ -200,12 +209,8 @@ class TestInterfaceCompliance:
         loader = _make_loader(module_path, class_name, tmp_path)
         for method_name in self._REQUIRED_METHODS:
             method = getattr(loader, method_name, None)
-            assert method is not None, (
-                f"{class_name} is missing required method '{method_name}'"
-            )
-            assert callable(method), (
-                f"{class_name}.{method_name} is not callable"
-            )
+            assert method is not None, f"{class_name} is missing required method '{method_name}'"
+            assert callable(method), f"{class_name}.{method_name} is not callable"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_is_subclass_of_base(
@@ -230,9 +235,9 @@ class TestInterfaceCompliance:
         sig = inspect.signature(cls.fetch_realtime)
         # Only parameter should be 'self'
         params = list(sig.parameters.keys())
-        assert params == ["self"], (
-            f"{class_name}.fetch_realtime should accept only 'self', got {params}"
-        )
+        assert params == [
+            "self"
+        ], f"{class_name}.fetch_realtime should accept only 'self', got {params}"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_fetch_historical_signature(
@@ -318,6 +323,7 @@ class TestInterfaceCompliance:
 # 3. list_events() returns non-empty list of dicts with required keys
 # =========================================================================
 
+
 class TestListEvents:
     """Validate the event catalog exposed by each loader."""
 
@@ -332,9 +338,7 @@ class TestListEvents:
     ) -> None:
         loader = _make_loader(module_path, class_name, tmp_path)
         events = loader.list_events()
-        assert isinstance(events, list), (
-            f"{class_name}.list_events() should return a list"
-        )
+        assert isinstance(events, list), f"{class_name}.list_events() should return a list"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_list_events_non_empty(
@@ -347,9 +351,7 @@ class TestListEvents:
     ) -> None:
         loader = _make_loader(module_path, class_name, tmp_path)
         events = loader.list_events()
-        assert len(events) > 0, (
-            f"{class_name}.list_events() returned an empty list"
-        )
+        assert len(events) > 0, f"{class_name}.list_events() returned an empty list"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_list_events_items_are_dicts(
@@ -363,9 +365,9 @@ class TestListEvents:
         loader = _make_loader(module_path, class_name, tmp_path)
         events = loader.list_events()
         for idx, event in enumerate(events):
-            assert isinstance(event, dict), (
-                f"{class_name}.list_events()[{idx}] is not a dict: {type(event)}"
-            )
+            assert isinstance(
+                event, dict
+            ), f"{class_name}.list_events()[{idx}] is not a dict: {type(event)}"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_list_events_required_keys(
@@ -380,9 +382,7 @@ class TestListEvents:
         events = loader.list_events()
         for idx, event in enumerate(events):
             missing = _REQUIRED_EVENT_KEYS - set(event.keys())
-            assert not missing, (
-                f"{class_name}.list_events()[{idx}] missing keys: {missing}"
-            )
+            assert not missing, f"{class_name}.list_events()[{idx}] missing keys: {missing}"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_list_events_values_are_strings(
@@ -402,9 +402,7 @@ class TestListEvents:
                     f"{class_name}.list_events()[{idx}]['{key}'] "
                     f"is {type(val).__name__}, expected str"
                 )
-                assert len(val) > 0, (
-                    f"{class_name}.list_events()[{idx}]['{key}'] is empty"
-                )
+                assert len(val) > 0, f"{class_name}.list_events()[{idx}]['{key}'] is empty"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_list_events_unique_ids(
@@ -418,14 +416,15 @@ class TestListEvents:
         loader = _make_loader(module_path, class_name, tmp_path)
         events = loader.list_events()
         event_ids = [e["event_id"] for e in events]
-        assert len(event_ids) == len(set(event_ids)), (
-            f"{class_name}.list_events() contains duplicate event_ids"
-        )
+        assert len(event_ids) == len(
+            set(event_ids)
+        ), f"{class_name}.list_events() contains duplicate event_ids"
 
 
 # =========================================================================
 # 4. Feature engineering with mock data
 # =========================================================================
+
 
 def _make_generic_numeric_df(n_rows: int = 50, n_cols: int = 5) -> pd.DataFrame:
     """Create a generic DataFrame with numeric columns for testing
@@ -440,110 +439,122 @@ def _make_earthquake_df(n_rows: int = 50) -> pd.DataFrame:
     """Create mock earthquake data matching the USGS GeoJSON schema."""
     rng = np.random.default_rng(42)
     base_time = 1700000000000  # epoch ms
-    return pd.DataFrame({
-        "time": base_time + np.arange(n_rows) * 60000,
-        "latitude": rng.uniform(30, 40, n_rows),
-        "longitude": rng.uniform(-120, -110, n_rows),
-        "depth": rng.uniform(0, 300, n_rows),
-        "magnitude": rng.uniform(1.0, 8.0, n_rows),
-        "place": [f"location_{i}" for i in range(n_rows)],
-        "event_id": [f"evt_{i}" for i in range(n_rows)],
-    })
+    return pd.DataFrame(
+        {
+            "time": base_time + np.arange(n_rows) * 60000,
+            "latitude": rng.uniform(30, 40, n_rows),
+            "longitude": rng.uniform(-120, -110, n_rows),
+            "depth": rng.uniform(0, 300, n_rows),
+            "magnitude": rng.uniform(1.0, 8.0, n_rows),
+            "place": [f"location_{i}" for i in range(n_rows)],
+            "event_id": [f"evt_{i}" for i in range(n_rows)],
+        }
+    )
 
 
 def _make_tsunami_df(n_rows: int = 100) -> pd.DataFrame:
     """Create mock tsunami BPR data."""
     rng = np.random.default_rng(42)
     timestamps = pd.date_range("2011-03-11", periods=n_rows, freq="1min", tz="UTC")
-    return pd.DataFrame({
-        "timestamp": timestamps,
-        "bpr": 5000.0 + rng.normal(0, 0.05, n_rows),
-        "station_id": "21418",
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": timestamps,
+            "bpr": 5000.0 + rng.normal(0, 0.05, n_rows),
+            "station_id": "21418",
+        }
+    )
 
 
 def _make_hurricane_df(n_rows: int = 40) -> pd.DataFrame:
     """Create mock hurricane track data matching IBTrACS schema."""
     rng = np.random.default_rng(42)
     times = pd.date_range("2005-08-23", periods=n_rows, freq="6h")
-    return pd.DataFrame({
-        "sid": "2005236N23285",
-        "season": 2005,
-        "name": "KATRINA",
-        "iso_time": times.strftime("%Y-%m-%d %H:%M:%S"),
-        "lat": np.linspace(23, 30, n_rows) + rng.normal(0, 0.1, n_rows),
-        "lon": np.linspace(-85, -90, n_rows) + rng.normal(0, 0.1, n_rows),
-        "wind_kt": np.clip(rng.normal(80, 30, n_rows), 20, 165),
-        "pressure_mb": np.clip(rng.normal(960, 20, n_rows), 900, 1013),
-    })
+    return pd.DataFrame(
+        {
+            "sid": "2005236N23285",
+            "season": 2005,
+            "name": "KATRINA",
+            "iso_time": times.strftime("%Y-%m-%d %H:%M:%S"),
+            "lat": np.linspace(23, 30, n_rows) + rng.normal(0, 0.1, n_rows),
+            "lon": np.linspace(-85, -90, n_rows) + rng.normal(0, 0.1, n_rows),
+            "wind_kt": np.clip(rng.normal(80, 30, n_rows), 20, 165),
+            "pressure_mb": np.clip(rng.normal(960, 20, n_rows), 900, 1013),
+        }
+    )
 
 
 def _make_tornado_df(n_rows: int = 30) -> pd.DataFrame:
     """Create mock tornado data matching SPC archive schema."""
     rng = np.random.default_rng(42)
-    return pd.DataFrame({
-        "om": np.arange(n_rows),
-        "yr": [2011] * n_rows,
-        "mo": [4] * n_rows,
-        "dy": rng.integers(25, 29, n_rows),
-        "date": [f"2011-04-{d:02d}" for d in rng.integers(25, 29, n_rows)],
-        "time": ["18:00:00"] * n_rows,
-        "tz": [3] * n_rows,
-        "st": ["AL"] * n_rows,
-        "stf": [1] * n_rows,
-        "stn": [0] * n_rows,
-        "mag": rng.integers(0, 6, n_rows),
-        "inj": rng.integers(0, 20, n_rows),
-        "fat": rng.integers(0, 5, n_rows),
-        "loss": rng.uniform(0, 1e6, n_rows),
-        "closs": rng.uniform(0, 1e5, n_rows),
-        "slat": rng.uniform(33, 35, n_rows),
-        "slon": rng.uniform(-88, -86, n_rows),
-        "elat": rng.uniform(33, 35, n_rows),
-        "elon": rng.uniform(-88, -86, n_rows),
-        "len": rng.uniform(0.1, 30, n_rows),
-        "wid": rng.integers(10, 2000, n_rows),
-        "ns": [1] * n_rows,
-        "sn": [0] * n_rows,
-        "sg": [1] * n_rows,
-        "f1": [0] * n_rows,
-        "f2": [0] * n_rows,
-        "f3": [0] * n_rows,
-        "f4": [0] * n_rows,
-        "fc": [0] * n_rows,
-    })
+    return pd.DataFrame(
+        {
+            "om": np.arange(n_rows),
+            "yr": [2011] * n_rows,
+            "mo": [4] * n_rows,
+            "dy": rng.integers(25, 29, n_rows),
+            "date": [f"2011-04-{d:02d}" for d in rng.integers(25, 29, n_rows)],
+            "time": ["18:00:00"] * n_rows,
+            "tz": [3] * n_rows,
+            "st": ["AL"] * n_rows,
+            "stf": [1] * n_rows,
+            "stn": [0] * n_rows,
+            "mag": rng.integers(0, 6, n_rows),
+            "inj": rng.integers(0, 20, n_rows),
+            "fat": rng.integers(0, 5, n_rows),
+            "loss": rng.uniform(0, 1e6, n_rows),
+            "closs": rng.uniform(0, 1e5, n_rows),
+            "slat": rng.uniform(33, 35, n_rows),
+            "slon": rng.uniform(-88, -86, n_rows),
+            "elat": rng.uniform(33, 35, n_rows),
+            "elon": rng.uniform(-88, -86, n_rows),
+            "len": rng.uniform(0.1, 30, n_rows),
+            "wid": rng.integers(10, 2000, n_rows),
+            "ns": [1] * n_rows,
+            "sn": [0] * n_rows,
+            "sg": [1] * n_rows,
+            "f1": [0] * n_rows,
+            "f2": [0] * n_rows,
+            "f3": [0] * n_rows,
+            "f4": [0] * n_rows,
+            "fc": [0] * n_rows,
+        }
+    )
 
 
 def _make_flood_df(n_rows: int = 100) -> pd.DataFrame:
     """Create mock flood gauge data matching USGS schema."""
     rng = np.random.default_rng(42)
     datetimes = pd.date_range("2024-09-25", periods=n_rows, freq="15min")
-    return pd.DataFrame({
-        "datetime": datetimes,
-        "site_id": "03451500",
-        "site_name": "French Broad River at Marshall, NC",
-        "gauge_height_ft": rng.uniform(3.0, 20.0, n_rows),
-        "discharge_cfs": rng.uniform(500, 50000, n_rows),
-    })
+    return pd.DataFrame(
+        {
+            "datetime": datetimes,
+            "site_id": "03451500",
+            "site_name": "French Broad River at Marshall, NC",
+            "gauge_height_ft": rng.uniform(3.0, 20.0, n_rows),
+            "discharge_cfs": rng.uniform(500, 50000, n_rows),
+        }
+    )
 
 
 def _make_wildfire_df(n_rows: int = 40) -> pd.DataFrame:
     """Create mock FIRMS fire detection data."""
     rng = np.random.default_rng(42)
-    return pd.DataFrame({
-        "latitude": rng.uniform(33.5, 34.5, n_rows),
-        "longitude": rng.uniform(-119.0, -117.5, n_rows),
-        "bright_ti4": rng.uniform(300, 500, n_rows),
-        "frp": rng.uniform(0.5, 200, n_rows),
-        "confidence": rng.choice(["low", "nominal", "high"], n_rows),
-        "scan": rng.uniform(0.3, 1.0, n_rows),
-        "track": rng.uniform(0.3, 1.0, n_rows),
-        "acq_date": ["2025-01-07"] * n_rows,
-        "acq_time": rng.integers(0, 2400, n_rows),
-        "satellite": ["N"] * n_rows,
-        "instrument": ["VIIRS"] * n_rows,
-        "version": ["2.0NRT"] * n_rows,
-    })
+    return pd.DataFrame(
+        {
+            "latitude": rng.uniform(33.5, 34.5, n_rows),
+            "longitude": rng.uniform(-119.0, -117.5, n_rows),
+            "bright_ti4": rng.uniform(300, 500, n_rows),
+            "frp": rng.uniform(0.5, 200, n_rows),
+            "confidence": rng.choice(["low", "nominal", "high"], n_rows),
+            "scan": rng.uniform(0.3, 1.0, n_rows),
+            "track": rng.uniform(0.3, 1.0, n_rows),
+            "acq_date": ["2025-01-07"] * n_rows,
+            "acq_time": rng.integers(0, 2400, n_rows),
+            "satellite": ["N"] * n_rows,
+            "instrument": ["VIIRS"] * n_rows,
+            "version": ["2.0NRT"] * n_rows,
+        }
+    )
 
 
 def _make_volcanic_df(n_rows: int = 20) -> pd.DataFrame:
@@ -555,17 +566,19 @@ def _make_volcanic_df(n_rows: int = 20) -> pd.DataFrame:
     color_code_map = {"GREEN": 0, "YELLOW": 1, "ORANGE": 2, "RED": 3}
     chosen_levels = rng.choice(levels, n_rows)
     chosen_colors = rng.choice(colors, n_rows)
-    return pd.DataFrame({
-        "volcano_name": ["Kilauea"] * n_rows,
-        "alert_level": chosen_levels,
-        "color_code": chosen_colors,
-        "alert_level_numeric": [alert_level_map[lvl] for lvl in chosen_levels],
-        "color_code_numeric": [color_code_map[c] for c in chosen_colors],
-        "alert_date": pd.date_range("2018-05-01", periods=n_rows, freq="1D").astype(str),
-        "latitude": [19.421] * n_rows,
-        "longitude": [-155.287] * n_rows,
-        "elevation": [1222] * n_rows,
-    })
+    return pd.DataFrame(
+        {
+            "volcano_name": ["Kilauea"] * n_rows,
+            "alert_level": chosen_levels,
+            "color_code": chosen_colors,
+            "alert_level_numeric": [alert_level_map[lvl] for lvl in chosen_levels],
+            "color_code_numeric": [color_code_map[c] for c in chosen_colors],
+            "alert_date": pd.date_range("2018-05-01", periods=n_rows, freq="1D").astype(str),
+            "latitude": [19.421] * n_rows,
+            "longitude": [-155.287] * n_rows,
+            "elevation": [1222] * n_rows,
+        }
+    )
 
 
 def _make_landslide_df(n_rows: int = 30) -> pd.DataFrame:
@@ -574,19 +587,21 @@ def _make_landslide_df(n_rows: int = 30) -> pd.DataFrame:
     categories = ["landslide", "mudslide", "rockfall", "debris_flow"]
     triggers = ["rain", "earthquake", "construction"]
     sizes = ["small", "medium", "large", "very_large"]
-    return pd.DataFrame({
-        "event_id": [f"ls_{i}" for i in range(n_rows)],
-        "event_date": pd.date_range("2014-03-01", periods=n_rows, freq="1D").astype(str),
-        "event_category": rng.choice(categories, n_rows),
-        "landslide_trigger": rng.choice(triggers, n_rows),
-        "landslide_size": rng.choice(sizes, n_rows),
-        "fatality_count": rng.integers(0, 10, n_rows),
-        "injury_count": rng.integers(0, 30, n_rows),
-        "latitude": rng.uniform(47, 49, n_rows),
-        "longitude": rng.uniform(-122, -121, n_rows),
-        "country_name": ["United States"] * n_rows,
-        "admin_division_name": ["Washington"] * n_rows,
-    })
+    return pd.DataFrame(
+        {
+            "event_id": [f"ls_{i}" for i in range(n_rows)],
+            "event_date": pd.date_range("2014-03-01", periods=n_rows, freq="1D").astype(str),
+            "event_category": rng.choice(categories, n_rows),
+            "landslide_trigger": rng.choice(triggers, n_rows),
+            "landslide_size": rng.choice(sizes, n_rows),
+            "fatality_count": rng.integers(0, 10, n_rows),
+            "injury_count": rng.integers(0, 30, n_rows),
+            "latitude": rng.uniform(47, 49, n_rows),
+            "longitude": rng.uniform(-122, -121, n_rows),
+            "country_name": ["United States"] * n_rows,
+            "admin_division_name": ["Washington"] * n_rows,
+        }
+    )
 
 
 def _make_sepsis_df(n_rows: int = 100) -> pd.DataFrame:
@@ -596,31 +611,33 @@ def _make_sepsis_df(n_rows: int = 100) -> pd.DataFrame:
     rows_per_patient = n_rows // n_patients
     dfs = []
     for p in range(n_patients):
-        patient_df = pd.DataFrame({
-            "HR": rng.uniform(60, 120, rows_per_patient),
-            "O2Sat": rng.uniform(90, 100, rows_per_patient),
-            "Temp": rng.uniform(36, 39, rows_per_patient),
-            "SBP": rng.uniform(90, 160, rows_per_patient),
-            "MAP": rng.uniform(60, 110, rows_per_patient),
-            "DBP": rng.uniform(50, 90, rows_per_patient),
-            "Resp": rng.uniform(10, 30, rows_per_patient),
-            "WBC": rng.uniform(4, 20, rows_per_patient),
-            "Lactate": rng.uniform(0.5, 4, rows_per_patient),
-            "Creatinine": rng.uniform(0.5, 3, rows_per_patient),
-            "Platelets": rng.uniform(100, 400, rows_per_patient),
-            "Bilirubin_total": rng.uniform(0.1, 5, rows_per_patient),
-            "FiO2": rng.uniform(0.21, 1.0, rows_per_patient),
-            "pH": rng.uniform(7.2, 7.5, rows_per_patient),
-            "PaCO2": rng.uniform(30, 50, rows_per_patient),
-            "SaO2": rng.uniform(90, 100, rows_per_patient),
-            "BUN": rng.uniform(5, 40, rows_per_patient),
-            "Age": [65.0] * rows_per_patient,
-            "Gender": [1.0] * rows_per_patient,
-            "HospAdmTime": [-1.0] * rows_per_patient,
-            "ICULOS": np.arange(1, rows_per_patient + 1, dtype=float),
-            "SepsisLabel": rng.integers(0, 2, rows_per_patient),
-            "patient_id": [f"p{p:06d}"] * rows_per_patient,
-        })
+        patient_df = pd.DataFrame(
+            {
+                "HR": rng.uniform(60, 120, rows_per_patient),
+                "O2Sat": rng.uniform(90, 100, rows_per_patient),
+                "Temp": rng.uniform(36, 39, rows_per_patient),
+                "SBP": rng.uniform(90, 160, rows_per_patient),
+                "MAP": rng.uniform(60, 110, rows_per_patient),
+                "DBP": rng.uniform(50, 90, rows_per_patient),
+                "Resp": rng.uniform(10, 30, rows_per_patient),
+                "WBC": rng.uniform(4, 20, rows_per_patient),
+                "Lactate": rng.uniform(0.5, 4, rows_per_patient),
+                "Creatinine": rng.uniform(0.5, 3, rows_per_patient),
+                "Platelets": rng.uniform(100, 400, rows_per_patient),
+                "Bilirubin_total": rng.uniform(0.1, 5, rows_per_patient),
+                "FiO2": rng.uniform(0.21, 1.0, rows_per_patient),
+                "pH": rng.uniform(7.2, 7.5, rows_per_patient),
+                "PaCO2": rng.uniform(30, 50, rows_per_patient),
+                "SaO2": rng.uniform(90, 100, rows_per_patient),
+                "BUN": rng.uniform(5, 40, rows_per_patient),
+                "Age": [65.0] * rows_per_patient,
+                "Gender": [1.0] * rows_per_patient,
+                "HospAdmTime": [-1.0] * rows_per_patient,
+                "ICULOS": np.arange(1, rows_per_patient + 1, dtype=float),
+                "SepsisLabel": rng.integers(0, 2, rows_per_patient),
+                "patient_id": [f"p{p:06d}"] * rows_per_patient,
+            }
+        )
         dfs.append(patient_df)
     return pd.concat(dfs, ignore_index=True)
 
@@ -631,21 +648,23 @@ def _make_pandemic_df(n_rows: int = 120) -> pd.DataFrame:
     dates = pd.date_range("2020-03-01", periods=n_rows, freq="1D")
     cumulative = np.cumsum(rng.integers(100, 5000, n_rows))
     new_cases = np.concatenate([[0], np.diff(cumulative)])
-    return pd.DataFrame({
-        "date": dates.astype(str),
-        "location": ["United States"] * n_rows,
-        "new_cases": np.abs(new_cases),
-        "new_deaths": rng.integers(0, 200, n_rows),
-        "total_cases": cumulative,
-        "total_deaths": np.cumsum(rng.integers(0, 200, n_rows)),
-        "new_cases_per_million": rng.uniform(0, 50, n_rows),
-        "new_deaths_per_million": rng.uniform(0, 5, n_rows),
-        "new_cases_smoothed": rng.uniform(100, 5000, n_rows),
-        "reproduction_rate": rng.uniform(0.5, 3.0, n_rows),
-        "new_tests_per_thousand": rng.uniform(0, 10, n_rows),
-        "positive_rate": rng.uniform(0.01, 0.30, n_rows),
-        "stringency_index": rng.uniform(0, 100, n_rows),
-    })
+    return pd.DataFrame(
+        {
+            "date": dates.astype(str),
+            "location": ["United States"] * n_rows,
+            "new_cases": np.abs(new_cases),
+            "new_deaths": rng.integers(0, 200, n_rows),
+            "total_cases": cumulative,
+            "total_deaths": np.cumsum(rng.integers(0, 200, n_rows)),
+            "new_cases_per_million": rng.uniform(0, 50, n_rows),
+            "new_deaths_per_million": rng.uniform(0, 5, n_rows),
+            "new_cases_smoothed": rng.uniform(100, 5000, n_rows),
+            "reproduction_rate": rng.uniform(0.5, 3.0, n_rows),
+            "new_tests_per_thousand": rng.uniform(0, 10, n_rows),
+            "positive_rate": rng.uniform(0.01, 0.30, n_rows),
+            "stringency_index": rng.uniform(0, 100, n_rows),
+        }
+    )
 
 
 def _make_financial_df(n_rows: int = 252) -> pd.DataFrame:
@@ -657,14 +676,16 @@ def _make_financial_df(n_rows: int = 252) -> pd.DataFrame:
     """
     rng = np.random.default_rng(42)
     dates = pd.date_range("2008-01-02", periods=n_rows, freq="B")
-    return pd.DataFrame({
-        "date": dates.astype(str),
-        "vix": rng.uniform(10, 80, n_rows),
-        "yield_curve_10y2y": rng.uniform(-1, 3, n_rows),
-        "high_yield_spread": rng.uniform(3, 20, n_rows),
-        "fed_funds_rate": rng.uniform(0, 5, n_rows),
-        "ted_spread": rng.uniform(0, 4, n_rows),
-    })
+    return pd.DataFrame(
+        {
+            "date": dates.astype(str),
+            "vix": rng.uniform(10, 80, n_rows),
+            "yield_curve_10y2y": rng.uniform(-1, 3, n_rows),
+            "high_yield_spread": rng.uniform(3, 20, n_rows),
+            "fed_funds_rate": rng.uniform(0, 5, n_rows),
+            "ted_spread": rng.uniform(0, 4, n_rows),
+        }
+    )
 
 
 def _make_energy_df(n_rows: int = 100) -> pd.DataFrame:
@@ -676,43 +697,49 @@ def _make_energy_df(n_rows: int = 100) -> pd.DataFrame:
     ``xray_class``.
     """
     rng = np.random.default_rng(42)
-    return pd.DataFrame({
-        "timestamp": pd.date_range("2024-05-10", periods=n_rows, freq="3h").astype(str),
-        "kp": rng.uniform(0, 9, n_rows),
-        "solar_wind_speed": rng.uniform(300, 800, n_rows),
-        "solar_wind_density": rng.uniform(1, 20, n_rows),
-        "xray_class": rng.choice([0, 1, 2, 3, 4, 5], n_rows).astype(float),
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-05-10", periods=n_rows, freq="3h").astype(str),
+            "kp": rng.uniform(0, 9, n_rows),
+            "solar_wind_speed": rng.uniform(300, 800, n_rows),
+            "solar_wind_density": rng.uniform(1, 20, n_rows),
+            "xray_class": rng.choice([0, 1, 2, 3, 4, 5], n_rows).astype(float),
+        }
+    )
 
 
 def _make_marine_df(n_rows: int = 50) -> pd.DataFrame:
     """Create mock OBIS marine occurrence data."""
     rng = np.random.default_rng(42)
-    return pd.DataFrame({
-        "decimalLatitude": rng.uniform(-30, 30, n_rows),
-        "decimalLongitude": rng.uniform(-180, 180, n_rows),
-        "depth": rng.uniform(0, 500, n_rows),
-        "speciesCount": rng.integers(1, 200, n_rows),
-        "year": rng.integers(2015, 2023, n_rows),
-        "month": rng.integers(1, 13, n_rows),
-    })
+    return pd.DataFrame(
+        {
+            "decimalLatitude": rng.uniform(-30, 30, n_rows),
+            "decimalLongitude": rng.uniform(-180, 180, n_rows),
+            "depth": rng.uniform(0, 500, n_rows),
+            "speciesCount": rng.integers(1, 200, n_rows),
+            "year": rng.integers(2015, 2023, n_rows),
+            "month": rng.integers(1, 13, n_rows),
+        }
+    )
 
 
 def _make_network_security_df(n_rows: int = 100) -> pd.DataFrame:
     """Create mock network security flow data."""
     rng = np.random.default_rng(42)
-    return pd.DataFrame({
-        "duration": rng.uniform(0, 1000, n_rows),
-        "src_bytes": rng.integers(0, 100000, n_rows),
-        "dst_bytes": rng.integers(0, 100000, n_rows),
-        "count": rng.integers(1, 500, n_rows),
-        "srv_count": rng.integers(1, 500, n_rows),
-        "serror_rate": rng.uniform(0, 1, n_rows),
-        "rerror_rate": rng.uniform(0, 1, n_rows),
-        "same_srv_rate": rng.uniform(0, 1, n_rows),
-        "diff_srv_rate": rng.uniform(0, 1, n_rows),
-        "dst_host_count": rng.integers(1, 255, n_rows),
-    })
+    return pd.DataFrame(
+        {
+            "duration": rng.uniform(0, 1000, n_rows),
+            "src_bytes": rng.integers(0, 100000, n_rows),
+            "dst_bytes": rng.integers(0, 100000, n_rows),
+            "count": rng.integers(1, 500, n_rows),
+            "srv_count": rng.integers(1, 500, n_rows),
+            "serror_rate": rng.uniform(0, 1, n_rows),
+            "rerror_rate": rng.uniform(0, 1, n_rows),
+            "same_srv_rate": rng.uniform(0, 1, n_rows),
+            "diff_srv_rate": rng.uniform(0, 1, n_rows),
+            "dst_host_count": rng.integers(1, 255, n_rows),
+        }
+    )
 
 
 def _make_fema_df(n_rows: int = 50) -> pd.DataFrame:
@@ -720,18 +747,20 @@ def _make_fema_df(n_rows: int = 50) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     declaration_types = ["DR", "EM", "FM"]
     incident_types = ["Flood", "Hurricane", "Severe Storm(s)", "Fire"]
-    return pd.DataFrame({
-        "disasterNumber": rng.integers(4000, 5000, n_rows),
-        "declarationDate": pd.date_range("2020-01-01", periods=n_rows, freq="7D").astype(str),
-        "declarationType": rng.choice(declaration_types, n_rows),
-        "incidentType": rng.choice(incident_types, n_rows),
-        "state": rng.choice(["TX", "FL", "CA", "NC", "NY"], n_rows),
-        "declarationTitle": [f"Disaster {i}" for i in range(n_rows)],
-        "ihProgramDeclared": rng.integers(0, 2, n_rows),
-        "iaProgramDeclared": rng.integers(0, 2, n_rows),
-        "paProgramDeclared": rng.integers(0, 2, n_rows),
-        "hmProgramDeclared": rng.integers(0, 2, n_rows),
-    })
+    return pd.DataFrame(
+        {
+            "disasterNumber": rng.integers(4000, 5000, n_rows),
+            "declarationDate": pd.date_range("2020-01-01", periods=n_rows, freq="7D").astype(str),
+            "declarationType": rng.choice(declaration_types, n_rows),
+            "incidentType": rng.choice(incident_types, n_rows),
+            "state": rng.choice(["TX", "FL", "CA", "NC", "NY"], n_rows),
+            "declarationTitle": [f"Disaster {i}" for i in range(n_rows)],
+            "ihProgramDeclared": rng.integers(0, 2, n_rows),
+            "iaProgramDeclared": rng.integers(0, 2, n_rows),
+            "paProgramDeclared": rng.integers(0, 2, n_rows),
+            "hmProgramDeclared": rng.integers(0, 2, n_rows),
+        }
+    )
 
 
 # Map loader class names to their mock DataFrame factories.
@@ -771,12 +800,11 @@ class TestFeatureEngineering:
         mock_df = factory()
         features = loader.engineer_features(mock_df)
 
-        assert isinstance(features, np.ndarray), (
-            f"{class_name}.engineer_features() should return np.ndarray"
-        )
+        assert isinstance(
+            features, np.ndarray
+        ), f"{class_name}.engineer_features() should return np.ndarray"
         assert features.ndim == 2, (
-            f"{class_name}.engineer_features() should return a 2-D array, "
-            f"got {features.ndim}-D"
+            f"{class_name}.engineer_features() should return a 2-D array, " f"got {features.ndim}-D"
         )
 
     # Loaders that aggregate/bin input rows (output rows != input rows).
@@ -824,9 +852,7 @@ class TestFeatureEngineering:
         features = loader.engineer_features(mock_df)
 
         nan_count = int(np.isnan(features).sum())
-        assert nan_count == 0, (
-            f"{class_name}.engineer_features() produced {nan_count} NaN values"
-        )
+        assert nan_count == 0, f"{class_name}.engineer_features() produced {nan_count} NaN values"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_engineer_features_no_inf(
@@ -843,9 +869,9 @@ class TestFeatureEngineering:
         features = loader.engineer_features(mock_df)
 
         inf_count = int(np.isinf(features).sum())
-        assert inf_count == 0, (
-            f"{class_name}.engineer_features() produced {inf_count} infinite values"
-        )
+        assert (
+            inf_count == 0
+        ), f"{class_name}.engineer_features() produced {inf_count} infinite values"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_engineer_features_positive_feature_count(
@@ -861,9 +887,7 @@ class TestFeatureEngineering:
         mock_df = factory()
         features = loader.engineer_features(mock_df)
 
-        assert features.shape[1] > 0, (
-            f"{class_name}.engineer_features() returned 0 columns"
-        )
+        assert features.shape[1] > 0, f"{class_name}.engineer_features() returned 0 columns"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_engineer_features_empty_df(
@@ -905,13 +929,12 @@ class TestFeatureEngineering:
 # 5. Mocked HTTP responses (no real network calls)
 # =========================================================================
 
+
 class TestMockedNetworkCalls:
     """Verify loaders work with mocked HTTP responses."""
 
     @patch("omni_mercury_engine.loaders.base.BaseDomainLoader._fetch_url")
-    def test_earthquake_fetch_realtime_mocked(
-        self, mock_fetch: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_earthquake_fetch_realtime_mocked(self, mock_fetch: MagicMock, tmp_path: Path) -> None:
         """Earthquake loader processes mocked USGS GeoJSON correctly."""
         geojson = {
             "type": "FeatureCollection",
@@ -936,9 +959,7 @@ class TestMockedNetworkCalls:
         mock_fetch.assert_called_once()
 
     @patch("omni_mercury_engine.loaders.base.BaseDomainLoader._fetch_url")
-    def test_tsunami_fetch_realtime_mocked(
-        self, mock_fetch: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_tsunami_fetch_realtime_mocked(self, mock_fetch: MagicMock, tmp_path: Path) -> None:
         """Tsunami loader handles mocked DART data."""
         # Simulate a DART data file with a header and a few data rows.
         dart_content = (
@@ -957,9 +978,7 @@ class TestMockedNetworkCalls:
         assert len(df) >= 3  # At least the 3 rows * number of stations that succeed
 
     @patch("omni_mercury_engine.loaders.base.BaseDomainLoader._fetch_url")
-    def test_fema_fetch_realtime_mocked(
-        self, mock_fetch: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_fema_fetch_realtime_mocked(self, mock_fetch: MagicMock, tmp_path: Path) -> None:
         """FEMA loader processes mocked OpenFEMA JSON."""
         fema_response = {
             "DisasterDeclarationsSummaries": [
@@ -996,8 +1015,15 @@ class TestMockedNetworkCalls:
             "features": [
                 {
                     "type": "Feature",
-                    "properties": {"time": 1700000000000 + i * 60000, "mag": 3.0 + i * 0.5, "place": f"loc_{i}"},
-                    "geometry": {"type": "Point", "coordinates": [-118.5 + i * 0.01, 34.0 + i * 0.01, 10.0]},
+                    "properties": {
+                        "time": 1700000000000 + i * 60000,
+                        "mag": 3.0 + i * 0.5,
+                        "place": f"loc_{i}",
+                    },
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [-118.5 + i * 0.01, 34.0 + i * 0.01, 10.0],
+                    },
                     "id": f"q_{i}",
                 }
                 for i in range(10)
@@ -1022,7 +1048,11 @@ class TestMockedNetworkCalls:
             "features": [
                 {
                     "type": "Feature",
-                    "properties": {"time": 1700000000000 + i * 60000, "mag": 2.5 + i * 0.7, "place": f"loc_{i}"},
+                    "properties": {
+                        "time": 1700000000000 + i * 60000,
+                        "mag": 2.5 + i * 0.7,
+                        "place": f"loc_{i}",
+                    },
                     "geometry": {"type": "Point", "coordinates": [-118.5, 34.0, 10.0]},
                     "id": f"q_{i}",
                 }
@@ -1050,7 +1080,7 @@ class TestMockedNetworkCalls:
     ) -> None:
         """All loaders raise ValueError for an unknown event_id."""
         loader = _make_loader(module_path, class_name, tmp_path)
-        with pytest.raises(ValueError, match="[Uu]nknown"):
+        with pytest.raises(ValueError, match=r"[Uu]nknown"):
             loader.fetch_historical("nonexistent_event_id_xyz")
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
@@ -1064,13 +1094,14 @@ class TestMockedNetworkCalls:
     ) -> None:
         """All loaders raise ValueError for an unknown event_id in get_ground_truth."""
         loader = _make_loader(module_path, class_name, tmp_path)
-        with pytest.raises(ValueError, match="[Uu]nknown"):
+        with pytest.raises(ValueError, match=r"[Uu]nknown"):
             loader.get_ground_truth("nonexistent_event_id_xyz")
 
 
 # =========================================================================
 # 6. No loader imports sklearn
 # =========================================================================
+
 
 class TestNoSklearnImports:
     """Verify that none of the loader modules import sklearn."""
@@ -1101,8 +1132,7 @@ class TestNoSklearnImports:
                 or "from sklearn" in stripped
             ):
                 raise AssertionError(
-                    f"{module_path} imports sklearn at line {lineno}: "
-                    f"{stripped!r}"
+                    f"{module_path} imports sklearn at line {lineno}: " f"{stripped!r}"
                 )
 
     @pytest.mark.parametrize("module_path", _LOADER_MODULE_PATHS, ids=_LOADER_IDS)
@@ -1118,9 +1148,9 @@ class TestNoSklearnImports:
         new_modules = after - before
 
         sklearn_modules = [m for m in new_modules if m.startswith("sklearn")]
-        assert len(sklearn_modules) == 0, (
-            f"Importing {module_path} loaded sklearn modules: {sklearn_modules}"
-        )
+        assert (
+            len(sklearn_modules) == 0
+        ), f"Importing {module_path} loaded sklearn modules: {sklearn_modules}"
 
     def test_base_loader_no_sklearn(self) -> None:
         """The base loader itself does not import sklearn."""
@@ -1141,14 +1171,14 @@ class TestNoSklearnImports:
                 or "from sklearn" in stripped
             ):
                 raise AssertionError(
-                    f"Base loader imports sklearn at line {lineno}: "
-                    f"{stripped!r}"
+                    f"Base loader imports sklearn at line {lineno}: " f"{stripped!r}"
                 )
 
 
 # =========================================================================
 # 7. BaseDomainLoader helper methods
 # =========================================================================
+
 
 class TestBaseDomainLoaderHelpers:
     """Test the BaseDomainLoader static/helper methods directly."""
@@ -1312,11 +1342,13 @@ class TestBaseDomainLoaderHelpers:
         loader = EarthquakeLoader(cache_dir=tmp_path / "base_eng", max_retries=0)
 
         # Call the BASE class method directly (not the override)
-        df = pd.DataFrame({
-            "num_a": [1.0, 2.0, np.nan, 4.0],
-            "num_b": [10.0, np.inf, 30.0, 40.0],
-            "str_c": ["a", "b", "c", "d"],
-        })
+        df = pd.DataFrame(
+            {
+                "num_a": [1.0, 2.0, np.nan, 4.0],
+                "num_b": [10.0, np.inf, 30.0, 40.0],
+                "str_c": ["a", "b", "c", "d"],
+            }
+        )
 
         features = BaseDomainLoader.engineer_features(loader, df)
         assert isinstance(features, np.ndarray)
@@ -1327,9 +1359,7 @@ class TestBaseDomainLoaderHelpers:
     # -- _fetch_url retry and error handling --
 
     @patch("urllib.request.urlopen")
-    def test_fetch_url_raises_on_failure(
-        self, mock_urlopen: MagicMock, tmp_path: Path
-    ) -> None:
+    def test_fetch_url_raises_on_failure(self, mock_urlopen: MagicMock, tmp_path: Path) -> None:
         """_fetch_url raises ConnectionError after exhausting retries."""
         mock_urlopen.side_effect = Exception("Network error")
 
@@ -1348,6 +1378,7 @@ class TestBaseDomainLoaderHelpers:
 # Network tests (skipped in CI, run with -m network)
 # =========================================================================
 
+
 class TestNetworkLive:
     """Live network tests -- only run when explicitly requested.
 
@@ -1355,9 +1386,10 @@ class TestNetworkLive:
     """
 
     @pytest.mark.network
-    @pytest.mark.parametrize("class_name,module_path,domain,requires_key", [
-        p for p in _LOADER_PARAMS if not p.values[3]  # skip loaders requiring API keys
-    ])
+    @pytest.mark.parametrize(
+        "class_name,module_path,domain,requires_key",
+        [p for p in _LOADER_PARAMS if not p.values[3]],  # skip loaders requiring API keys
+    )
     def test_list_events_live(
         self,
         class_name: str,

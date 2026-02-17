@@ -127,7 +127,9 @@ def print_feature_separation(X: np.ndarray, y: np.ndarray, n_features: int) -> N
     """Print per-feature Cohen's d for weak events."""
     mask0 = y == 0
     mask1 = y == 1
-    print(f"    {'Feature':>10} | {'Cohen_d':>8} | {'Mean(0)':>10} | {'Mean(1)':>10} | {'NaN(0)':>6} | {'NaN(1)':>6}")
+    print(
+        f"    {'Feature':>10} | {'Cohen_d':>8} | {'Mean(0)':>10} | {'Mean(1)':>10} | {'NaN(0)':>6} | {'NaN(1)':>6}"
+    )
     print(f"    {'-' * 65}")
     for fi in range(n_features):
         col = X[:, fi] if X.ndim > 1 else X
@@ -138,7 +140,9 @@ def print_feature_separation(X: np.ndarray, y: np.ndarray, n_features: int) -> N
         m1 = np.nanmean(g1) if len(g1) > 0 else float("nan")
         nan0 = int(np.isnan(g0).sum()) if np.issubdtype(g0.dtype, np.floating) else 0
         nan1 = int(np.isnan(g1).sum()) if np.issubdtype(g1.dtype, np.floating) else 0
-        print(f"    {'feat_' + str(fi):>10} | {d:>+8.4f} | {m0:>10.4f} | {m1:>10.4f} | {nan0:>6} | {nan1:>6}")
+        print(
+            f"    {'feat_' + str(fi):>10} | {d:>+8.4f} | {m0:>10.4f} | {m1:>10.4f} | {nan0:>6} | {nan1:>6}"
+        )
 
 
 def main() -> None:

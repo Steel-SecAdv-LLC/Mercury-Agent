@@ -45,8 +45,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "2025 Los Angeles Wildfires",
         "date": "2025-01-07",
         "description": (
-            "Palisades and Eaton fires in the Los Angeles metropolitan area, "
-            "January 2025."
+            "Palisades and Eaton fires in the Los Angeles metropolitan area, " "January 2025."
         ),
         "area": "-119.0,33.5,-117.5,34.5",
         "country_code": None,
@@ -57,10 +56,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "maui_2023": {
         "name": "2023 Maui Wildfire",
         "date": "2023-08-08",
-        "description": (
-            "Devastating wildfire in Lahaina, Maui, Hawaii, "
-            "August 2023."
-        ),
+        "description": ("Devastating wildfire in Lahaina, Maui, Hawaii, " "August 2023."),
         "area": "-156.7,20.8,-156.4,21.0",
         "country_code": None,
         "start": "2023-08-08",
@@ -161,9 +157,7 @@ class WildfireLoader(BaseDomainLoader):
 
         if not df.empty:
             self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d real-time fire detections from FIRMS.", len(df)
-        )
+        logger.info("Fetched %d real-time fire detections from FIRMS.", len(df))
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
@@ -183,8 +177,7 @@ class WildfireLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         self._require_api_key()
@@ -193,9 +186,7 @@ class WildfireLoader(BaseDomainLoader):
         cached = self._read_cache(cache_key)
 
         if cached is not None:
-            logger.debug(
-                "Returning cached historical data for '%s'.", event_id
-            )
+            logger.debug("Returning cached historical data for '%s'.", event_id)
             return pd.DataFrame(cached)
 
         event = _EVENT_CATALOG[event_id]
@@ -209,18 +200,14 @@ class WildfireLoader(BaseDomainLoader):
         df = self._fetch_firms_csv(url)
 
         if df.empty:
-            logger.warning(
-                "FIRMS returned no detections for event '%s'.", event_id
-            )
+            logger.warning("FIRMS returned no detections for event '%s'.", event_id)
             return df
 
         # Sort chronologically by acquisition date and time
         df = self._sort_chronologically(df)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d fire detections for event '%s'.", len(df), event_id
-        )
+        logger.info("Fetched %d fire detections for event '%s'.", len(df), event_id)
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
@@ -264,17 +251,14 @@ class WildfireLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
         if df.empty:
             return np.array([], dtype=np.int64)
 
-        frp = pd.to_numeric(df["frp"], errors="coerce").values.astype(
-            np.float64
-        )
+        frp = pd.to_numeric(df["frp"], errors="coerce").values.astype(np.float64)
 
         # Replace NaN with 0 for threshold computation
         frp_clean = np.where(np.isnan(frp), 0.0, frp)
@@ -282,14 +266,13 @@ class WildfireLoader(BaseDomainLoader):
 
         labels = (frp_clean >= threshold).astype(np.int64)
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total "
-            "(FRP >= %.1f, 90th percentile).",
+            "Ground truth for '%s': %d anomalies / %d total " "(FRP >= %.1f, 90th percentile).",
             event_id,
             int(labels.sum()),
             len(labels),
             threshold,
         )
-        return labels
+        return labels  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------
     # Feature engineering
@@ -327,33 +310,27 @@ class WildfireLoader(BaseDomainLoader):
         df = self._sort_chronologically(df)
 
         # ---- base observables ----
-        brightness = pd.to_numeric(
-            df["bright_ti4"] if "bright_ti4" in df.columns else df.get("brightness", 0),
-            errors="coerce",
-        ).fillna(0.0).values.astype(np.float64)
+        brightness = (
+            pd.to_numeric(
+                df["bright_ti4"] if "bright_ti4" in df.columns else df.get("brightness", 0),
+                errors="coerce",
+            )
+            .fillna(0.0)
+            .values.astype(np.float64)
+        )
 
-        frp = pd.to_numeric(
-            df["frp"], errors="coerce"
-        ).fillna(0.0).values.astype(np.float64)
+        frp = pd.to_numeric(df["frp"], errors="coerce").fillna(0.0).values.astype(np.float64)
 
         confidence = self._parse_confidence(df)
 
-        scan = pd.to_numeric(
-            df["scan"], errors="coerce"
-        ).fillna(0.0).values.astype(np.float64)
+        scan = pd.to_numeric(df["scan"], errors="coerce").fillna(0.0).values.astype(np.float64)
 
-        track = pd.to_numeric(
-            df["track"], errors="coerce"
-        ).fillna(0.0).values.astype(np.float64)
+        track = pd.to_numeric(df["track"], errors="coerce").fillna(0.0).values.astype(np.float64)
 
         # ---- spatial coordinates ----
-        lat = pd.to_numeric(
-            df["latitude"], errors="coerce"
-        ).fillna(0.0).values.astype(np.float64)
+        lat = pd.to_numeric(df["latitude"], errors="coerce").fillna(0.0).values.astype(np.float64)
 
-        lon = pd.to_numeric(
-            df["longitude"], errors="coerce"
-        ).fillna(0.0).values.astype(np.float64)
+        lon = pd.to_numeric(df["longitude"], errors="coerce").fillna(0.0).values.astype(np.float64)
 
         # ---- timestamps in fractional hours since first detection ----
         hours = self._compute_hours_since_start(df)
@@ -403,9 +380,7 @@ class WildfireLoader(BaseDomainLoader):
             Fully-qualified URL string including the API key.
         """
         days = min(days, _MAX_NRT_DAYS)
-        return (
-            f"{_AREA_URL}/{self._api_key}/{_SENSOR}/{area}/{days}"
-        )
+        return f"{_AREA_URL}/{self._api_key}/{_SENSOR}/{area}/{days}"
 
     def _build_country_url(self, country_code: str, days: int) -> str:
         """Build a FIRMS country-endpoint URL.
@@ -418,9 +393,7 @@ class WildfireLoader(BaseDomainLoader):
             Fully-qualified URL string including the API key.
         """
         days = min(days, _MAX_NRT_DAYS)
-        return (
-            f"{_COUNTRY_URL}/{self._api_key}/{_SENSOR}/{country_code}/{days}"
-        )
+        return f"{_COUNTRY_URL}/{self._api_key}/{_SENSOR}/{country_code}/{days}"
 
     # ------------------------------------------------------------------
     # Private helpers -- data parsing
@@ -433,7 +406,7 @@ class WildfireLoader(BaseDomainLoader):
             EnvironmentError: When the API key is empty.
         """
         if not self._api_key:
-            raise EnvironmentError(
+            raise OSError(
                 "NASA_FIRMS_MAP_KEY not set. The wildfire domain loader requires a "
                 "free NASA FIRMS MAP key. Register at "
                 "https://firms.modaps.eosdis.nasa.gov/api/map_key/ "
@@ -472,9 +445,7 @@ class WildfireLoader(BaseDomainLoader):
             Sorted DataFrame with reset index.
         """
         if "acq_date" in df.columns and "acq_time" in df.columns:
-            df = df.sort_values(["acq_date", "acq_time"]).reset_index(
-                drop=True
-            )
+            df = df.sort_values(["acq_date", "acq_time"]).reset_index(drop=True)
         return df
 
     @staticmethod
@@ -541,19 +512,19 @@ class WildfireLoader(BaseDomainLoader):
         minutes_col = acq_time % 100
 
         timestamps = pd.to_datetime(df["acq_date"], errors="coerce")
-        timestamps = timestamps + pd.to_timedelta(hours_col, unit="h") + pd.to_timedelta(
-            minutes_col, unit="m"
+        timestamps = (
+            timestamps
+            + pd.to_timedelta(hours_col, unit="h")
+            + pd.to_timedelta(minutes_col, unit="m")
         )
 
         # Convert to fractional hours since the first detection
         t0 = timestamps.min()
         elapsed = (timestamps - t0).dt.total_seconds().fillna(0.0).values / 3600.0
-        return elapsed.astype(np.float64)
+        return elapsed.astype(np.float64)  # type: ignore[no-any-return]
 
     @staticmethod
-    def _haversine_km(
-        lat1: float, lon1: float, lat2: float, lon2: float
-    ) -> float:
+    def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """Compute the Haversine distance between two points in kilometres.
 
         Args:
@@ -609,9 +580,7 @@ class WildfireLoader(BaseDomainLoader):
             # Pre-filter by coordinate distance
             lat_diff = np.abs(lat - lat[i])
             lon_diff = np.abs(lon - lon[i])
-            candidates = np.where(
-                (lat_diff <= deg_threshold) & (lon_diff <= deg_threshold)
-            )[0]
+            candidates = np.where((lat_diff <= deg_threshold) & (lon_diff <= deg_threshold))[0]
 
             count = 0
             for j in candidates:

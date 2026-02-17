@@ -143,10 +143,7 @@ class LandslideLoader(BaseDomainLoader):
     """
 
     DOMAIN: str = "landslide"
-    SOURCE_URL: str = (
-        "https://maps.nccs.nasa.gov/arcgis/rest/services/"
-        "global_landslide_catalog/"
-    )
+    SOURCE_URL: str = "https://maps.nccs.nasa.gov/arcgis/rest/services/" "global_landslide_catalog/"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "category_code",
@@ -223,17 +220,14 @@ class LandslideLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"landslide_historical_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
-            logger.debug(
-                "Returning cached historical data for '%s'.", event_id
-            )
+            logger.debug("Returning cached historical data for '%s'.", event_id)
             return pd.DataFrame(cached)
 
         event = _EVENT_CATALOG[event_id]
@@ -265,8 +259,7 @@ class LandslideLoader(BaseDomainLoader):
             )
             # Fallback: try a broader temporal-only query
             fallback_where = (
-                f"event_date >= '{event['start']}' "
-                f"AND event_date <= '{event['end']}'"
+                f"event_date >= '{event['start']}' " f"AND event_date <= '{event['end']}'"
             )
             fallback_params: dict[str, str] = {
                 "where": fallback_where,
@@ -327,8 +320,7 @@ class LandslideLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -345,13 +337,12 @@ class LandslideLoader(BaseDomainLoader):
         labels = (fatality_mask | size_mask).astype(np.int64)
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total "
-            "(fatal or large/very_large).",
+            "Ground truth for '%s': %d anomalies / %d total " "(fatal or large/very_large).",
             event_id,
             int(labels.sum()),
             len(labels),
         )
-        return labels
+        return labels  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------
     # Feature engineering (Mercury-native, no sklearn)
@@ -396,9 +387,7 @@ class LandslideLoader(BaseDomainLoader):
         features = np.zeros((n_samples, n_features), dtype=np.float64)
 
         # 1. Category encoding
-        features[:, 0] = self._encode_column(
-            df, "event_category", _CATEGORY_ENCODING
-        )
+        features[:, 0] = self._encode_column(df, "event_category", _CATEGORY_ENCODING)
 
         # 2. Fatality count
         features[:, 1] = (
@@ -415,28 +404,20 @@ class LandslideLoader(BaseDomainLoader):
         )
 
         # 4. Trigger encoding
-        features[:, 3] = self._encode_column(
-            df, "landslide_trigger", _TRIGGER_ENCODING
-        )
+        features[:, 3] = self._encode_column(df, "landslide_trigger", _TRIGGER_ENCODING)
 
         # 5. Latitude
         features[:, 4] = (
-            pd.to_numeric(df.get("latitude"), errors="coerce")
-            .fillna(0)
-            .values.astype(np.float64)
+            pd.to_numeric(df.get("latitude"), errors="coerce").fillna(0).values.astype(np.float64)
         )
 
         # 6. Longitude
         features[:, 5] = (
-            pd.to_numeric(df.get("longitude"), errors="coerce")
-            .fillna(0)
-            .values.astype(np.float64)
+            pd.to_numeric(df.get("longitude"), errors="coerce").fillna(0).values.astype(np.float64)
         )
 
         # 7. Size encoding
-        features[:, 6] = self._encode_column(
-            df, "landslide_size", _SIZE_ENCODING
-        )
+        features[:, 6] = self._encode_column(df, "landslide_size", _SIZE_ENCODING)
 
         # 8. Country/admin division encoding (stable numeric hash)
         features[:, 7] = self._encode_country(df)
@@ -581,10 +562,8 @@ class LandslideLoader(BaseDomainLoader):
 
         default_code = encoding_map.get("unknown", 0)
         values = df[column].fillna("unknown").astype(str).str.lower().str.strip()
-        encoded = values.map(
-            lambda v: encoding_map.get(v, default_code)
-        ).values.astype(np.float64)
-        return encoded
+        encoded = values.map(lambda v: encoding_map.get(v, default_code)).values.astype(np.float64)
+        return encoded  # type: ignore[no-any-return]
 
     @staticmethod
     def _encode_country(df: pd.DataFrame) -> np.ndarray:
@@ -604,10 +583,8 @@ class LandslideLoader(BaseDomainLoader):
 
         values = df["country_name"].fillna("unknown").astype(str).str.lower()
         # Use a stable hash modulo a prime for numeric encoding
-        codes = values.map(
-            lambda v: sum(ord(c) for c in v) % 997
-        ).values.astype(np.float64)
-        return codes
+        codes = values.map(lambda v: sum(ord(c) for c in v) % 997).values.astype(np.float64)
+        return codes  # type: ignore[no-any-return]
 
     @staticmethod
     def _extract_month(df: pd.DataFrame) -> np.ndarray:
@@ -658,6 +635,7 @@ class LandslideLoader(BaseDomainLoader):
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
+
 
 def _parse_date(value: Any) -> datetime | None:
     """Parse a date value from ArcGIS into a datetime object.

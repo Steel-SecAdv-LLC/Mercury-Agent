@@ -70,9 +70,7 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
 
     # Collapse tied scores: only keep the last point in each group
     # of identical scores (matching sklearn roc_curve behaviour).
-    distinct = np.concatenate(
-        [np.where(np.diff(y_scores_sorted))[0], [len(y_scores_sorted) - 1]]
-    )
+    distinct = np.concatenate([np.where(np.diff(y_scores_sorted))[0], [len(y_scores_sorted) - 1]])
     tpr = tpr[distinct]
     fpr = fpr[distinct]
 
@@ -86,9 +84,7 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     return auc
 
 
-def compute_f1_precision_recall(
-    y_true: np.ndarray, y_pred: np.ndarray
-) -> dict[str, float]:
+def compute_f1_precision_recall(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     """Compute F1, precision, and recall without sklearn.
 
     Args:
@@ -107,11 +103,7 @@ def compute_f1_precision_recall(
 
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = (
-        2 * precision * recall / (precision + recall)
-        if (precision + recall) > 0
-        else 0.0
-    )
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
     return {"f1": f1, "precision": precision, "recall": recall}
 
@@ -246,8 +238,7 @@ def run_domain_benchmark(
     # Summary
     if successful_events == 0:
         logger.error(
-            "No events could be benchmarked for %s. "
-            "All data sources were unavailable.",
+            "No events could be benchmarked for %s. " "All data sources were unavailable.",
             domain,
         )
         results["summary"] = {"status": "no_data", "events_attempted": len(events)}

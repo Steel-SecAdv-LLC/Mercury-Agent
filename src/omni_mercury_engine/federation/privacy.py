@@ -59,7 +59,7 @@ class DifferentialPrivacy:
         self.clip_norm = clip_norm
         self.sigma = np.sqrt(2.0 * np.log(1.25 / delta)) / epsilon
 
-    def apply(self, stats: "FittedStatistics") -> "FittedStatistics":
+    def apply(self, stats: FittedStatistics) -> FittedStatistics:
         """Apply calibrated noise to all numeric statistics.
 
         Process:
@@ -83,7 +83,7 @@ class DifferentialPrivacy:
             noised_arr = clipped + np.random.normal(0, noise_scale, arr.shape)
             if non_negative:
                 noised_arr = np.maximum(noised_arr, 1e-12)
-            return noised_arr
+            return noised_arr  # type: ignore[no-any-return]
 
         # Noise all vector statistics
         noised.mean = clip_and_noise(noised.mean)
@@ -106,7 +106,8 @@ class DifferentialPrivacy:
 
         # Noise scalar
         noised.ig_log_det = float(
-            np.clip(noised.ig_log_det, -self.clip_norm, self.clip_norm) + np.random.normal(0, noise_scale)
+            np.clip(noised.ig_log_det, -self.clip_norm, self.clip_norm)
+            + np.random.normal(0, noise_scale)
         )
 
         # Record privacy parameters

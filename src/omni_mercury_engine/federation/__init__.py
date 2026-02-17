@@ -10,8 +10,8 @@ from omni_mercury_engine.federation.privacy import DifferentialPrivacy
 from omni_mercury_engine.federation.statistics import FittedStatistics
 
 __all__ = [
+    "DifferentialPrivacy",
     "FederatedAggregator",
     "FederatedNode",
-    "DifferentialPrivacy",
     "FittedStatistics",
 ]

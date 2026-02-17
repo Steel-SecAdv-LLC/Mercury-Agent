@@ -30,7 +30,6 @@ import pytest
 
 from benchmarks.domain_benchmark_base import compute_auc, compute_f1_precision_recall
 
-
 # ======================================================================
 # compute_auc
 # ======================================================================

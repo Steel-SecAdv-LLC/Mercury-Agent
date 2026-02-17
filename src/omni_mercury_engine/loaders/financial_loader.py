@@ -137,7 +137,7 @@ class FinancialLoader(BaseDomainLoader):
     def _require_api_key(self) -> None:
         """Raise EnvironmentError if the FRED API key is not configured."""
         if not self._api_key:
-            raise EnvironmentError(
+            raise OSError(
                 "FRED_API_KEY not set. The financial domain loader requires a free "
                 "FRED API key. Register at https://fred.stlouisfed.org/docs/api/api_key.html "
                 "and set the FRED_API_KEY environment variable."
@@ -202,8 +202,7 @@ class FinancialLoader(BaseDomainLoader):
         self._require_api_key()
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"financial_historical_{event_id}"
@@ -220,15 +219,11 @@ class FinancialLoader(BaseDomainLoader):
         df = self._fetch_merged_series(event["start"], event["end"])
 
         if df.empty:
-            logger.warning(
-                "FRED returned no observations for event '%s'.", event_id
-            )
+            logger.warning("FRED returned no observations for event '%s'.", event_id)
             return df
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d historical records for event '%s'.", len(df), event_id
-        )
+        logger.info("Fetched %d historical records for event '%s'.", len(df), event_id)
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
@@ -272,8 +267,7 @@ class FinancialLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -298,7 +292,7 @@ class FinancialLoader(BaseDomainLoader):
             int(labels.sum()),
             len(labels),
         )
-        return labels
+        return labels  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------
     # Feature engineering
@@ -355,9 +349,7 @@ class FinancialLoader(BaseDomainLoader):
         )
 
         # ---- Rolling 20-day correlation between VIX and yield curve ----
-        vix_yc_corr = self._compute_rolling_correlation(
-            vix, yield_curve, window=20
-        )
+        vix_yc_corr = self._compute_rolling_correlation(vix, yield_curve, window=20)
 
         # ---- Z-scores (252-day / 1-year lookback) ----
         vix_zscore = self._compute_rolling_zscore(vix, window=252)
@@ -483,9 +475,7 @@ class FinancialLoader(BaseDomainLoader):
             try:
                 series_df = self._fetch_fred_series(series_id, start_date, end_date)
             except ConnectionError:
-                logger.error(
-                    "Failed to fetch FRED series '%s'. Skipping.", series_id
-                )
+                logger.error("Failed to fetch FRED series '%s'. Skipping.", series_id)
                 continue
 
             if series_df.empty:
@@ -497,9 +487,7 @@ class FinancialLoader(BaseDomainLoader):
                 merged = merged.merge(series_df, on="date", how="outer")
 
         if merged is None or merged.empty:
-            logger.warning(
-                "No FRED data available for range %s to %s.", start_date, end_date
-            )
+            logger.warning("No FRED data available for range %s to %s.", start_date, end_date)
             columns = ["date"] + list(_SERIES_IDS.values())
             return pd.DataFrame(columns=columns)
 

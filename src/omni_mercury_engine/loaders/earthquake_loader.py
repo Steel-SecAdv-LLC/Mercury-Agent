@@ -25,9 +25,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # USGS API endpoints
 # ---------------------------------------------------------------------------
-_REALTIME_URL = (
-    "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
-)
+_REALTIME_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
 _HISTORICAL_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
 
 # ---------------------------------------------------------------------------
@@ -103,8 +101,14 @@ class EarthquakeLoader(BaseDomainLoader):
     REQUIRES_API_KEY: bool = False
 
     FEATURE_COLUMNS: list[str] = [
-        "magnitude", "depth", "latitude", "longitude",
-        "time_delta_s", "seismicity_rate", "b_value", "mag_deviation",
+        "magnitude",
+        "depth",
+        "latitude",
+        "longitude",
+        "time_delta_s",
+        "seismicity_rate",
+        "b_value",
+        "mag_deviation",
     ]
 
     # ------------------------------------------------------------------
@@ -132,9 +136,7 @@ class EarthquakeLoader(BaseDomainLoader):
         df = self._geojson_to_dataframe(geojson)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d real-time earthquake records from USGS.", len(df)
-        )
+        logger.info("Fetched %d real-time earthquake records from USGS.", len(df))
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
@@ -153,8 +155,7 @@ class EarthquakeLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"earthquake_historical_{event_id}"
@@ -176,18 +177,14 @@ class EarthquakeLoader(BaseDomainLoader):
         df = self._geojson_to_dataframe(geojson)
 
         if df.empty:
-            logger.warning(
-                "USGS returned no features for event '%s'.", event_id
-            )
+            logger.warning("USGS returned no features for event '%s'.", event_id)
             return df
 
         # Sort chronologically so time-series features are meaningful
         df = df.sort_values("time").reset_index(drop=True)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d historical records for event '%s'.", len(df), event_id
-        )
+        logger.info("Fetched %d historical records for event '%s'.", len(df), event_id)
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
@@ -231,8 +228,7 @@ class EarthquakeLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -250,7 +246,7 @@ class EarthquakeLoader(BaseDomainLoader):
             len(labels),
             threshold,
         )
-        return labels
+        return labels  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------
     # Feature engineering
@@ -306,9 +302,7 @@ class EarthquakeLoader(BaseDomainLoader):
         seismicity_rate = self._compute_seismicity_rate(times_ms)
 
         # ---- Gutenberg-Richter b-value (rolling window) ----
-        b_value = self._compute_rolling_b_value(
-            magnitude, window=50, min_events=10
-        )
+        b_value = self._compute_rolling_b_value(magnitude, window=50, min_events=10)
 
         # ---- magnitude deviation from rolling mean ----
         mag_deviation = self._compute_mag_deviation(magnitude, window=20)
@@ -407,9 +401,7 @@ class EarthquakeLoader(BaseDomainLoader):
         for i in range(n):
             window_start = times_ms[i] - one_hour_ms
             # Count events in (window_start, times_ms[i]]
-            rate[i] = float(
-                np.sum((times_ms[:i] > window_start) & (times_ms[:i] <= times_ms[i]))
-            )
+            rate[i] = float(np.sum((times_ms[:i] > window_start) & (times_ms[:i] <= times_ms[i])))
 
         return rate
 

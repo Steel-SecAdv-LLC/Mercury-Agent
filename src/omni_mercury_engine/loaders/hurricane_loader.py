@@ -83,7 +83,9 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "harvey_2017": {
         "name": "Hurricane Harvey (2017)",
         "date": "2017-08-25",
-        "description": ("Category 4 hurricane that caused catastrophic flooding in " "southeastern Texas."),
+        "description": (
+            "Category 4 hurricane that caused catastrophic flooding in " "southeastern Texas."
+        ),
         "sid": "2017232N14283",
         "basin": "NA",
         "source": "historical",
@@ -114,7 +116,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "Hurricane Helene (2024)",
         "date": "2024-09-26",
         "description": (
-            "Major hurricane that impacted the southeastern United States " "causing significant inland flooding."
+            "Major hurricane that impacted the southeastern United States "
+            "causing significant inland flooding."
         ),
         "sid": None,
         "basin": "NA",
@@ -124,7 +127,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "Hurricane Milton (2024)",
         "date": "2024-10-09",
         "description": (
-            "Rapidly intensifying hurricane in the Gulf of Mexico that " "made landfall on Florida's west coast."
+            "Rapidly intensifying hurricane in the Gulf of Mexico that "
+            "made landfall on Florida's west coast."
         ),
         "sid": None,
         "basin": "NA",
@@ -134,7 +138,10 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "irma_2017": {
         "name": "Hurricane Irma (2017)",
         "date": "2017-09-10",
-        "description": ("Category 5 hurricane that caused widespread destruction " "across the Caribbean and Florida."),
+        "description": (
+            "Category 5 hurricane that caused widespread destruction "
+            "across the Caribbean and Florida."
+        ),
         "sid": "2017242N16333",
         "basin": "NA",
         "source": "historical",
@@ -143,7 +150,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "Hurricane Michael (2018)",
         "date": "2018-10-10",
         "description": (
-            "Category 5 hurricane that rapidly intensified before making " "landfall on the Florida Panhandle."
+            "Category 5 hurricane that rapidly intensified before making "
+            "landfall on the Florida Panhandle."
         ),
         "sid": "2018280N18082",
         "basin": "NA",
@@ -152,7 +160,10 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "dorian_2019": {
         "name": "Hurricane Dorian (2019)",
         "date": "2019-09-01",
-        "description": ("Category 5 hurricane that devastated the Bahamas after " "extreme rapid intensification."),
+        "description": (
+            "Category 5 hurricane that devastated the Bahamas after "
+            "extreme rapid intensification."
+        ),
         "sid": "2019236N10340",
         "basin": "NA",
         "source": "historical",
@@ -161,7 +172,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "Hurricane Ida (2021)",
         "date": "2021-08-29",
         "description": (
-            "Category 4 hurricane that rapidly intensified in the " "Gulf of Mexico before striking Louisiana."
+            "Category 4 hurricane that rapidly intensified in the "
+            "Gulf of Mexico before striking Louisiana."
         ),
         "sid": "2021238N17279",
         "basin": "NA",
@@ -170,7 +182,9 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "sandy_2012": {
         "name": "Hurricane Sandy (2012)",
         "date": "2012-10-29",
-        "description": ("Post-tropical cyclone that caused massive damage to the " "northeastern United States."),
+        "description": (
+            "Post-tropical cyclone that caused massive damage to the " "northeastern United States."
+        ),
         "sid": "2012296N14283",
         "basin": "NA",
         "source": "historical",
@@ -179,7 +193,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "Hurricane Matthew (2016)",
         "date": "2016-10-08",
         "description": (
-            "Category 5 hurricane in the Caribbean that caused " "devastating impacts in Haiti and the southeastern US."
+            "Category 5 hurricane in the Caribbean that caused "
+            "devastating impacts in Haiti and the southeastern US."
         ),
         "sid": "2016272N13318",
         "basin": "NA",
@@ -280,7 +295,9 @@ class HurricaneLoader(BaseDomainLoader):
             ConnectionError: If the IBTrACS server is unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         cache_key = f"hurricane_historical_{event_id}"
         cached = self._read_cache(cache_key)
@@ -346,7 +363,9 @@ class HurricaneLoader(BaseDomainLoader):
                 available.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         df = self.fetch_historical(event_id)
         if df.empty:
@@ -544,7 +563,9 @@ class HurricaneLoader(BaseDomainLoader):
             date_str = event["date"]
             year = int(date_str[:4])
 
-            storm_df = basin_df[(basin_df["name"].str.upper() == storm_name) & (basin_df["season"] == year)].copy()
+            storm_df = basin_df[
+                (basin_df["name"].str.upper() == storm_name) & (basin_df["season"] == year)
+            ].copy()
 
         return storm_df.reset_index(drop=True)
 
@@ -567,10 +588,14 @@ class HurricaneLoader(BaseDomainLoader):
 
         result["sid"] = df["SID"].astype(str) if "SID" in df.columns else ""
         result["season"] = (
-            pd.to_numeric(df["SEASON"], errors="coerce").astype("Int64") if "SEASON" in df.columns else pd.NA
+            pd.to_numeric(df["SEASON"], errors="coerce").astype("Int64")
+            if "SEASON" in df.columns
+            else pd.NA
         )
         result["name"] = df["NAME"].astype(str).str.strip() if "NAME" in df.columns else ""
-        result["iso_time"] = df["ISO_TIME"].astype(str).str.strip() if "ISO_TIME" in df.columns else ""
+        result["iso_time"] = (
+            df["ISO_TIME"].astype(str).str.strip() if "ISO_TIME" in df.columns else ""
+        )
 
         # Latitude / longitude
         result["lat"] = pd.to_numeric(df["LAT"], errors="coerce") if "LAT" in df.columns else np.nan
@@ -694,7 +719,10 @@ class HurricaneLoader(BaseDomainLoader):
             dlat = lat_rad[i] - lat_rad[i - 1]
             dlon = lon_rad[i] - lon_rad[i - 1]
             # Haversine formula
-            a = np.sin(dlat / 2.0) ** 2 + np.cos(lat_rad[i - 1]) * np.cos(lat_rad[i]) * np.sin(dlon / 2.0) ** 2
+            a = (
+                np.sin(dlat / 2.0) ** 2
+                + np.cos(lat_rad[i - 1]) * np.cos(lat_rad[i]) * np.sin(dlon / 2.0) ** 2
+            )
             c = 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
             # Return in degrees for consistency with track coordinates
             speed[i] = np.degrees(c)

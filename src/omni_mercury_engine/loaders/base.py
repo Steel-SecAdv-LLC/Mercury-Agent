@@ -19,7 +19,7 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -95,8 +95,7 @@ class BaseDomainLoader(ABC):
 
         if self.REQUIRES_API_KEY and not self._api_key:
             logger.warning(
-                "%s loader requires API key via %s env var. "
-                "Some operations may fail.",
+                "%s loader requires API key via %s env var. " "Some operations may fail.",
                 self.DOMAIN,
                 self.API_KEY_ENV_VAR,
             )
@@ -228,8 +227,8 @@ class BaseDomainLoader(ABC):
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:
-                req = urllib.request.Request(full_url, headers=default_headers)
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                req = urllib.request.Request(full_url, headers=default_headers)  # noqa: S310
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
                     return resp.read()  # type: ignore[no-any-return]
             except Exception as exc:
                 last_error = exc
@@ -371,7 +370,7 @@ class BaseDomainLoader(ABC):
         try:
             git_commit = (
                 subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"],
+                    ["git", "rev-parse", "HEAD"],  # noqa: S607
                     stderr=subprocess.DEVNULL,
                 )
                 .decode()
@@ -383,7 +382,7 @@ class BaseDomainLoader(ABC):
         return {
             "domain": self.DOMAIN,
             "event_id": event_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "data_hash": self.compute_data_hash(data),
             "data_shape": list(data.shape),
             "git_commit": git_commit,

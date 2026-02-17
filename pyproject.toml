@@ -57,6 +57,7 @@ dependencies = [
     "requests>=2.32.0",  # Security: SSL/TLS improvements
     "tqdm>=4.65.0",
     "networkx>=3.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]

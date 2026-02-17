@@ -305,7 +305,9 @@ class NetworkSecurityLoader(BaseDomainLoader):
             ConnectionError: If the data source is unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}")
+            raise ValueError(
+                f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}"
+            )
 
         cache_key = f"network_security_historical_{event_id}"
         cached = self._read_cache(cache_key)
@@ -365,7 +367,9 @@ class NetworkSecurityLoader(BaseDomainLoader):
             ValueError: If *event_id* is not recognised.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}")
+            raise ValueError(
+                f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}"
+            )
 
         # Try to load via existing dataset infrastructure first
         labels = self._load_labels_from_dataset(event_id)
@@ -515,7 +519,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
                     name="cicids",
                     preprocessing={"binary": True},
                 )
-                loader = CICIDSLoader(config)
+                loader = CICIDSLoader(config)  # type: ignore[assignment]
                 _features, labels = loader.load_data()
                 return labels.astype(np.int64)
 
@@ -524,13 +528,14 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 from omni_mercury_engine.datasets.industrial import BATADALLoader
 
                 config = DatasetConfig(name="batadal")
-                loader = BATADALLoader(config)
+                loader = BATADALLoader(config)  # type: ignore[assignment]
                 _features, labels = loader.load()
                 return labels.astype(np.int64)
 
         except Exception as exc:
             logger.debug(
-                "network_security: could not load labels via dataset " "infrastructure for '%s': %s",
+                "network_security: could not load labels via dataset "
+                "infrastructure for '%s': %s",
                 event_id,
                 exc,
             )
@@ -656,7 +661,9 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 "CICIDS 2017 requires download via the datasets package.",
                 exc,
             )
-            raise ConnectionError(f"network_security: failed to load CICIDS 2017 data: {exc}") from exc
+            raise ConnectionError(
+                f"network_security: failed to load CICIDS 2017 data: {exc}"
+            ) from exc
 
     def _load_batadal_dataframe(self) -> pd.DataFrame:
         """Load BATADAL data as a DataFrame.

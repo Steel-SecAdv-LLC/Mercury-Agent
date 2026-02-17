@@ -142,9 +142,7 @@ def run_all(
 
                 gate = AUC_GATES.get(domain, 0.60)
                 if mean_auc < gate:
-                    gate_failures.append(
-                        f"{domain}: AUC {mean_auc:.3f} < gate {gate:.3f}"
-                    )
+                    gate_failures.append(f"{domain}: AUC {mean_auc:.3f} < gate {gate:.3f}")
                     logger.warning(
                         "GATE FAILURE: %s AUC %.3f < %.3f",
                         domain,
@@ -183,9 +181,7 @@ def run_all(
     logger.info("=" * 60)
     logger.info("UNIFIED BENCHMARK REPORT")
     logger.info("=" * 60)
-    logger.info(
-        "Domains: %d/%d successful", len(all_aucs), len(domains)
-    )
+    logger.info("Domains: %d/%d successful", len(all_aucs), len(domains))
     if all_aucs:
         logger.info("Mean AUC (all domains): %.4f", np.mean(all_aucs))
     if gate_failures:
@@ -202,9 +198,7 @@ def run_all(
 
 def main() -> None:
     """CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description="Mercury-Agent Domain Benchmark Runner"
-    )
+    parser = argparse.ArgumentParser(description="Mercury-Agent Domain Benchmark Runner")
     parser.add_argument(
         "--domains",
         type=str,

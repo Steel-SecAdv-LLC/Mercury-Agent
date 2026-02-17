@@ -168,7 +168,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "2024 Hurricane Disaster Declarations",
         "date": "2024-01-01",
         "description": (
-            "All hurricane disaster declarations for 2024. " "Includes major Atlantic and Gulf hurricane seasons."
+            "All hurricane disaster declarations for 2024. "
+            "Includes major Atlantic and Gulf hurricane seasons."
         ),
         "filter": "incidentType eq 'Hurricane'",
     },
@@ -176,7 +177,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "2023 Fire Declarations",
         "date": "2023-01-01",
         "description": (
-            "All fire-related disaster declarations for 2023. " "Covers wildfire and fire management assistance."
+            "All fire-related disaster declarations for 2023. "
+            "Covers wildfire and fire management assistance."
         ),
         "filter": "incidentType eq 'Fire'",
     },
@@ -184,7 +186,8 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "All 2023 Disaster Declarations",
         "date": "2023-01-01",
         "description": (
-            "Complete set of disaster declarations for 2023 across " "all incident types and declaration categories."
+            "Complete set of disaster declarations for 2023 across "
+            "all incident types and declaration categories."
         ),
         "filter": "fyDeclared eq 2023",
     },
@@ -345,7 +348,9 @@ class FEMALoader(BaseDomainLoader):
             ConnectionError: If the OpenFEMA API is unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         cache_key = f"fema_historical_{event_id}"
         cached = self._read_cache(cache_key)
@@ -442,7 +447,9 @@ class FEMALoader(BaseDomainLoader):
                 available.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}")
+            raise ValueError(
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+            )
 
         df = self.fetch_historical(event_id)
         if df.empty:

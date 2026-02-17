@@ -25,18 +25,42 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # SPC data endpoints
 # ---------------------------------------------------------------------------
-_ARCHIVE_URL = (
-    "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
-)
+_ARCHIVE_URL = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
 _DAILY_REPORTS_URL = "https://www.spc.noaa.gov/climo/reports/today.csv"
 
 # ---------------------------------------------------------------------------
 # SPC CSV column names (canonical ordering)
 # ---------------------------------------------------------------------------
 _SPC_COLUMNS = [
-    "om", "yr", "mo", "dy", "date", "time", "tz", "st", "stf", "stn",
-    "mag", "inj", "fat", "loss", "closs", "slat", "slon", "elat", "elon",
-    "len", "wid", "ns", "sn", "sg", "f1", "f2", "f3", "f4", "fc",
+    "om",
+    "yr",
+    "mo",
+    "dy",
+    "date",
+    "time",
+    "tz",
+    "st",
+    "stf",
+    "stn",
+    "mag",
+    "inj",
+    "fat",
+    "loss",
+    "closs",
+    "slat",
+    "slon",
+    "elat",
+    "elon",
+    "len",
+    "wid",
+    "ns",
+    "sn",
+    "sg",
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "fc",
 ]
 
 # ---------------------------------------------------------------------------
@@ -110,9 +134,18 @@ class TornadoLoader(BaseDomainLoader):
     REQUIRES_API_KEY: bool = False
 
     FEATURE_COLUMNS: list[str] = [
-        "ef_scale", "path_length", "path_width", "fatalities", "injuries",
-        "slat", "slon", "temporal_cluster", "geo_anomaly",
-        "month", "day_of_year", "hour",
+        "ef_scale",
+        "path_length",
+        "path_width",
+        "fatalities",
+        "injuries",
+        "slat",
+        "slon",
+        "temporal_cluster",
+        "geo_anomaly",
+        "month",
+        "day_of_year",
+        "hour",
     ]
 
     # ------------------------------------------------------------------
@@ -142,9 +175,7 @@ class TornadoLoader(BaseDomainLoader):
         df = self._normalise_daily_report(df)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d real-time tornado reports from SPC.", len(df)
-        )
+        logger.info("Fetched %d real-time tornado reports from SPC.", len(df))
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
@@ -167,17 +198,14 @@ class TornadoLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"tornado_historical_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
-            logger.debug(
-                "Returning cached historical data for '%s'.", event_id
-            )
+            logger.debug("Returning cached historical data for '%s'.", event_id)
             return pd.DataFrame(cached)
 
         # Fetch the full archive CSV
@@ -191,9 +219,7 @@ class TornadoLoader(BaseDomainLoader):
         df = self._filter_by_date_range(archive_df, start_date, end_date)
 
         if df.empty:
-            logger.warning(
-                "SPC archive returned no records for event '%s'.", event_id
-            )
+            logger.warning("SPC archive returned no records for event '%s'.", event_id)
             return df
 
         # Sort chronologically
@@ -248,8 +274,7 @@ class TornadoLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. "
-                f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -265,7 +290,7 @@ class TornadoLoader(BaseDomainLoader):
             int(labels.sum()),
             len(labels),
         )
-        return labels
+        return labels  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------
     # Feature engineering
@@ -319,9 +344,7 @@ class TornadoLoader(BaseDomainLoader):
         # ---- temporal features ----
         timestamps = self._parse_timestamps(df)
         month = np.array([ts.month for ts in timestamps], dtype=np.float64)
-        day_of_year = np.array(
-            [ts.timetuple().tm_yday for ts in timestamps], dtype=np.float64
-        )
+        day_of_year = np.array([ts.timetuple().tm_yday for ts in timestamps], dtype=np.float64)
         hour = np.array([ts.hour for ts in timestamps], dtype=np.float64)
 
         # ---- temporal clustering (tornadoes per hour in 100 km radius) ----
@@ -388,8 +411,19 @@ class TornadoLoader(BaseDomainLoader):
         df.columns = [c.strip().lower() for c in df.columns]
 
         # Coerce numeric columns
-        numeric_cols = ["mag", "inj", "fat", "loss", "closs", "slat", "slon",
-                        "elat", "elon", "len", "wid"]
+        numeric_cols = [
+            "mag",
+            "inj",
+            "fat",
+            "loss",
+            "closs",
+            "slat",
+            "slon",
+            "elat",
+            "elon",
+            "len",
+            "wid",
+        ]
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -422,9 +456,7 @@ class TornadoLoader(BaseDomainLoader):
             parsed_dates = pd.to_datetime(df["date"], errors="coerce")
         elif all(c in df.columns for c in ("yr", "mo", "dy")):
             parsed_dates = pd.to_datetime(
-                df[["yr", "mo", "dy"]].rename(
-                    columns={"yr": "year", "mo": "month", "dy": "day"}
-                ),
+                df[["yr", "mo", "dy"]].rename(columns={"yr": "year", "mo": "month", "dy": "day"}),
                 errors="coerce",
             )
         else:
@@ -539,9 +571,7 @@ class TornadoLoader(BaseDomainLoader):
             return cluster_counts
 
         # Convert timestamps to epoch seconds for efficient comparison
-        epoch_seconds = np.array(
-            [ts.timestamp() for ts in timestamps], dtype=np.float64
-        )
+        epoch_seconds = np.array([ts.timestamp() for ts in timestamps], dtype=np.float64)
         one_hour_s = 3600.0
 
         for i in range(n):
@@ -554,8 +584,10 @@ class TornadoLoader(BaseDomainLoader):
                     continue
                 # Check spatial proximity using haversine approximation
                 dist = _haversine_km(
-                    latitudes[i], longitudes[i],
-                    latitudes[j], longitudes[j],
+                    latitudes[i],
+                    longitudes[i],
+                    latitudes[j],
+                    longitudes[j],
                 )
                 if dist <= radius_km:
                     count += 1.0
@@ -586,7 +618,8 @@ class TornadoLoader(BaseDomainLoader):
 
         for i in range(n):
             distances[i] = _haversine_km(
-                latitudes[i], longitudes[i],
+                latitudes[i],
+                longitudes[i],
                 _TORNADO_DENSITY_CENTROID_LAT,
                 _TORNADO_DENSITY_CENTROID_LON,
             )
@@ -597,6 +630,7 @@ class TornadoLoader(BaseDomainLoader):
 # ---------------------------------------------------------------------------
 # Module-level utility functions
 # ---------------------------------------------------------------------------
+
 
 def _haversine_km(
     lat1: float,
@@ -622,10 +656,7 @@ def _haversine_km(
     dlat = np.radians(lat2 - lat1)
     dlon = np.radians(lon2 - lon1)
 
-    a = (
-        np.sin(dlat / 2.0) ** 2
-        + np.cos(lat1_r) * np.cos(lat2_r) * np.sin(dlon / 2.0) ** 2
-    )
+    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1_r) * np.cos(lat2_r) * np.sin(dlon / 2.0) ** 2
     c = 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
 
     return float(earth_radius_km * c)
