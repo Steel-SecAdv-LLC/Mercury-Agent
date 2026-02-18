@@ -39,6 +39,7 @@ from typing import Any
 import numpy as np
 import torch
 from scipy import linalg as sp_linalg
+from scipy import stats as sp_stats
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -228,6 +229,23 @@ class MercuryAnomalyDetector(BaseDetector):
             arr = arr.reshape(-1, 1)
 
         labels = np.asarray(labels, dtype=np.int32).ravel()
+
+        # Compute data-driven component weights before generating scores
+        self._adaptive_weights = self._compute_adaptive_weights(arr, labels)
+
+        import logging as _log_aw
+        _logger_aw = _log_aw.getLogger(__name__)
+        _component_names = ['resonance', 'kinematic', 'infogeo']
+        _logger_aw.info(
+            "fit_with_labels: adaptive weights source=%s", self._weight_source
+        )
+        for _i, _k in enumerate(_component_names):
+            _auc_val = self._component_aucs[_k]
+            _direction = "OK" if _auc_val >= 0.5 else "INVERTED"
+            _logger_aw.info(
+                "  %s: AUC=%.4f weight=%.3f %s",
+                _k, _auc_val, self._adaptive_weights[_i], _direction,
+            )
 
         # Generate ensemble scores for the training data
         detection = self.detect(arr)
@@ -505,6 +523,92 @@ class MercuryAnomalyDetector(BaseDetector):
         self._res_noise_ratio = noise_ratio
 
     # =====================================================================
+    # Adaptive ensemble weighting
+    # =====================================================================
+
+    @staticmethod
+    def _component_separation(scores: np.ndarray, labels: np.ndarray) -> float:
+        """Measure discriminative power of a score component via AUC.
+
+        Returns value in [0, 1] where:
+          > 0.5  : component separates correctly
+          ~ 0.5  : component is noise
+          < 0.5  : component is inverted (anomalies score lower than normal)
+
+        Uses Mann-Whitney U -- no threshold required, no distributional
+        assumptions.
+
+        Args:
+            scores: Per-sample scores from one ensemble component.
+            labels: Binary ground-truth (0 = normal, 1 = anomaly).
+
+        Returns:
+            Normalised U-statistic in [0, 1].
+        """
+        if len(np.unique(labels)) < 2:
+            return 0.5
+        pos = scores[labels == 1]
+        neg = scores[labels == 0]
+        if len(pos) == 0 or len(neg) == 0:
+            return 0.5
+        u_stat, _ = sp_stats.mannwhitneyu(pos, neg, alternative='greater')
+        return float(u_stat / (len(pos) * len(neg)))
+
+    def _compute_adaptive_weights(
+        self,
+        X: np.ndarray,
+        labels: np.ndarray,
+    ) -> np.ndarray:
+        """Compute per-component ensemble weights proportional to AUC separation.
+
+        Components with inverted signal (AUC < 0.5) receive zero weight.
+        Minimum weight floor of 0.05 prevents complete exclusion of any
+        component unless it is demonstrably harmful.
+
+        Falls back to fixed 40/30/30 if all components have AUC ~ 0.5
+        (pure noise).
+
+        Args:
+            X: Training data, shape ``(n_samples, n_features)``.
+            labels: Binary ground-truth labels.
+
+        Returns:
+            Weight array of shape ``(3,)`` summing to 1.
+        """
+        resonance_scores = self._compute_resonance_score(X)
+        kinematic_scores = self._compute_kinematic_score(X)
+        infogeo_scores = self._compute_info_geometry_score(X)
+
+        aucs = np.array([
+            self._component_separation(resonance_scores, labels),
+            self._component_separation(kinematic_scores, labels),
+            self._component_separation(infogeo_scores, labels),
+        ])
+
+        self._component_aucs = {
+            'resonance': float(aucs[0]),
+            'kinematic': float(aucs[1]),
+            'infogeo': float(aucs[2]),
+        }
+
+        # Inverted components get zero contribution
+        effective_aucs = np.where(aucs < 0.5, 0.0, aucs - 0.5)
+
+        total = effective_aucs.sum()
+        if total < 1e-6:
+            self._weight_source = 'fallback_default'
+            return np.array([0.40, 0.30, 0.30])
+
+        weights = effective_aucs / total
+        # Apply minimum floor of 0.05 for components with any positive signal
+        has_signal = aucs >= 0.5
+        weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
+        weights = weights / weights.sum()
+
+        self._weight_source = 'adaptive'
+        return weights
+
+    # =====================================================================
     # detect()
     # =====================================================================
 
@@ -568,7 +672,10 @@ class MercuryAnomalyDetector(BaseDetector):
         info_geo = self._compute_info_geometry_score(data)
 
         # --- Ensemble (weighted average) ---
-        combined_scores = resonance * 0.4 + kinematic * 0.3 + info_geo * 0.3
+        weights = getattr(self, '_adaptive_weights', np.array([0.40, 0.30, 0.30]))
+        combined_scores = (
+            weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
+        )
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # --- Threshold & calibration ---
