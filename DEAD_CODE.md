@@ -82,6 +82,15 @@ All paths relative to `src/omni_mercury_engine/`.
 | `benchmarks/generate_advanced_visuals.py` | Defines 6 output PNGs that don't exist; never successfully run |
 | `benchmarks/run_ethics_audit.py` | Referenced by CI (`ci.yml` line 431) but file does not exist |
 
+## Audited Modules (2026-02-18)
+
+The following orphaned modules were audited in detail for disposition:
+
+| Module | Lines | Canonical Counterpart | Disposition |
+|--------|-------|-----------------------|-------------|
+| `core/adaptive_fusion.py` | 800 | `cognitive/uncertainty.py`, `detectors/fusion/multimodal_fusion.py`, `models/sota/maat.py` | **REMOVE** — all 3 capabilities (uncertainty, sparse attention, adaptive fusion) have live, tested counterparts |
+| `core/learnable_gosnn.py` | 828 | `core/global_omni_scalar_network.py` | **REMOVE** — production GOSNN is wired and exported; learnable variant adds online-learning concepts not on roadmap |
+
 ## Notes
 
 - The `gui/streamlit_dashboard.py` module is likely intentionally standalone (run

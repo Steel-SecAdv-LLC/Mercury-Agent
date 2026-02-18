@@ -77,6 +77,9 @@ def _evaluate_event(
     loader: Any,
     event_id: str,
     detector_cls: type,
+    *,
+    use_calibration: bool = False,
+    calibration_strategy: str = "youden_j",
 ) -> dict[str, Any]:
     """Evaluate a single event: fetch, fit, detect, compute AUC.
 
@@ -84,9 +87,15 @@ def _evaluate_event(
         loader: Domain loader instance.
         event_id: Event identifier.
         detector_cls: MercuryAnomalyDetector class.
+        use_calibration: When True, use ``fit_with_labels()`` to run
+            supervised threshold calibration from
+            :class:`ThresholdCalibrationPipeline`.
+        calibration_strategy: Strategy for supervised calibration
+            (``"youden_j"``, ``"f1_optimal"``, ``"cost_sensitive"``).
 
     Returns:
-        Dict with auc, n, anomaly_ratio, status.
+        Dict with auc, n, anomaly_ratio, status, and (if calibrated)
+        calibrated_threshold and calibrated_f1.
     """
     try:
         raw_data = loader.fetch_historical(event_id)
@@ -123,7 +132,12 @@ def _evaluate_event(
         }
 
     det = detector_cls()
-    det.fit(X)
+
+    if use_calibration:
+        det.fit_with_labels(X, y, strategy=calibration_strategy)
+    else:
+        det.fit(X)
+
     detection = det.detect(X)
     scores = np.asarray(detection["scores"])
 
@@ -131,7 +145,7 @@ def _evaluate_event(
     scores = calibrate_scores(scores, anomaly_ratio)
     auc = compute_auc(y, scores)
 
-    return {
+    result: dict[str, Any] = {
         "status": "OK",
         "auc": auc,
         "n": n,
@@ -139,8 +153,26 @@ def _evaluate_event(
         "event_id": event_id,
     }
 
+    if use_calibration:
+        preds = detection["is_anomaly"]
+        tp = int(np.sum(preds & (y == 1)))
+        fp = int(np.sum(preds & (y == 0)))
+        fn = int(np.sum(~preds & (y == 1)))
+        prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+        result["calibrated_threshold"] = detection["threshold"]
+        result["calibrated_f1"] = f1
 
-def validate_domain(loader: Any) -> dict[str, Any]:
+    return result
+
+
+def validate_domain(
+    loader: Any,
+    *,
+    use_calibration: bool = False,
+    calibration_strategy: str = "youden_j",
+) -> dict[str, Any]:
     """Validate a domain loader across all events.
 
     Runs the full pipeline for EACH event, then computes
@@ -148,6 +180,8 @@ def validate_domain(loader: Any) -> dict[str, Any]:
 
     Args:
         loader: A BaseDomainLoader instance.
+        use_calibration: When True, use supervised threshold calibration.
+        calibration_strategy: Strategy for supervised calibration.
 
     Returns:
         Dict with status, auc (mean across events), n (total),
@@ -166,7 +200,13 @@ def validate_domain(loader: Any) -> dict[str, Any]:
 
     for event_info in events:
         eid = event_info["event_id"]
-        r = _evaluate_event(loader, eid, MercuryAnomalyDetector)
+        r = _evaluate_event(
+            loader,
+            eid,
+            MercuryAnomalyDetector,
+            use_calibration=use_calibration,
+            calibration_strategy=calibration_strategy,
+        )
         event_results.append(r)
 
         if r.get("auc") is not None:
@@ -200,15 +240,42 @@ def validate_domain(loader: Any) -> dict[str, Any]:
 
 
 def main() -> None:
-    """Run validation for all domains and print results table."""
+    """Run validation for all domains and print results table.
+
+    Pass ``--calibrate`` to enable supervised threshold calibration
+    via :class:`ThresholdCalibrationPipeline`.  Optional
+    ``--strategy=youden_j|f1_optimal|cost_sensitive`` selects the
+    calibration strategy (default: ``youden_j``).
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Validate all domain loaders")
+    parser.add_argument(
+        "--calibrate",
+        action="store_true",
+        help="Enable supervised threshold calibration (Youden-J by default)",
+    )
+    parser.add_argument(
+        "--strategy",
+        default="youden_j",
+        choices=["youden_j", "f1_optimal", "cost_sensitive"],
+        help="Calibration strategy (default: youden_j)",
+    )
+    args = parser.parse_args()
+
+    mode = f" [calibration={args.strategy}]" if args.calibrate else " [baseline]"
     print("=" * 76)
-    print("DOMAIN VALIDATION — Mercury-Agent †")
+    print(f"DOMAIN VALIDATION — Mercury-Agent \u2020{mode}")
     print(f"Date: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}")
     print("=" * 76)
     print()
+
+    header_f1 = " | {'F1':>5}" if args.calibrate else ""
     print(
         f"{'Domain':<14} | {'Before':>7} | {'After':>7} | {'Delta':>7} | "
-        f"{'N':>6} | {'Anom%':>6} | Status"
+        f"{'N':>6} | {'Anom%':>6}"
+        + (" | {'F1':>5}" if args.calibrate else "")
+        + " | Status"
     )
     print("-" * 76)
 
@@ -216,7 +283,11 @@ def main() -> None:
     for name, mod_name, cls_name in DOMAINS:
         try:
             loader = _get_loader(mod_name, cls_name)
-            r = validate_domain(loader)
+            r = validate_domain(
+                loader,
+                use_calibration=args.calibrate,
+                calibration_strategy=args.strategy,
+            )
         except Exception as exc:
             r = {"status": f"IMPORT_ERROR: {exc}", "auc": 0.0, "n": 0}
 
@@ -234,11 +305,16 @@ def main() -> None:
         n_ev = r.get("n_events_valid", "")
         n_ev_str = f" ({n_ev}ev)" if n_ev else ""
 
-        print(
+        line = (
             f"{name:<14} | {before:>7.4f} | {after:>7.4f} | "
-            f"{sign}{delta:>6.4f} | {r['n']:>6} | {anom_pct:>6} | "
-            f"{status}{n_ev_str}"
+            f"{sign}{delta:>6.4f} | {r['n']:>6} | {anom_pct:>6}"
         )
+        if args.calibrate:
+            cal_f1 = r.get("calibrated_f1")
+            line += f" | {cal_f1:>5.3f}" if cal_f1 is not None else " |   N/A"
+        line += f" | {status}{n_ev_str}"
+
+        print(line)
         results[name] = r
 
     print("-" * 76)

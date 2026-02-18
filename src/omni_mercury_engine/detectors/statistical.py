@@ -95,6 +95,11 @@ class MercuryAnomalyDetector(BaseDetector):
         self._res_h_train: np.ndarray[Any, Any] | None = None
         self._res_noise_ratio: np.ndarray[Any, Any] | None = None
 
+        # Supervised calibration pipeline (wired from core/calibration_pipeline.py)
+        self._threshold_pipeline: Any = None
+        self._supervised_threshold: float | None = None
+        self._calibration_result: Any = None
+
     # =====================================================================
     # fit()
     # =====================================================================
@@ -164,6 +169,66 @@ class MercuryAnomalyDetector(BaseDetector):
         self._precompute_resonance_profiles(arr)
 
         self._is_fitted = True
+        return self
+
+    def fit_with_labels(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        labels: np.ndarray[Any, Any],
+        strategy: str = "youden_j",
+    ) -> MercuryAnomalyDetector:
+        """Fit detector and calibrate threshold using labelled data.
+
+        Performs the standard ``fit()`` followed by supervised threshold
+        calibration via :class:`ThresholdCalibrationPipeline`.  This
+        resolves the calibration gap where AUC is high but F1 is low
+        because the default 0.5 threshold does not match the actual
+        score distribution.
+
+        Args:
+            data: Training data array or tensor, shape ``(n_samples,)``
+                or ``(n_samples, n_features)``.
+            labels: Binary ground-truth labels (``0`` = normal,
+                ``1`` = anomaly).  Must have the same number of
+                samples as *data*.
+            strategy: Calibration strategy — one of ``"youden_j"``,
+                ``"f1_optimal"``, or ``"cost_sensitive"``.
+
+        Returns:
+            Self for method chaining.
+        """
+        self.fit(data)
+
+        from omni_mercury_engine.core.calibration_pipeline import (
+            CalibrationStrategy,
+            ThresholdCalibrationPipeline,
+        )
+
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+        arr = np.asarray(data, dtype=np.float64)
+        if arr.ndim == 1:
+            arr = arr.reshape(-1, 1)
+
+        labels = np.asarray(labels, dtype=np.int32).ravel()
+
+        # Generate ensemble scores for the training data
+        detection = self.detect(arr)
+        scores = np.asarray(detection["scores"], dtype=np.float64)
+
+        # Run supervised calibration
+        pipeline = ThresholdCalibrationPipeline()
+        result = pipeline.calibrate_from_data(
+            scores,
+            labels,
+            method=CalibrationStrategy(strategy),
+            threshold_name="anomaly.default_threshold",
+        )
+
+        self._threshold_pipeline = pipeline
+        self._supervised_threshold = result.threshold
+        self._calibration_result = result
+
         return self
 
     @classmethod
@@ -426,9 +491,12 @@ class MercuryAnomalyDetector(BaseDetector):
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # --- Threshold & calibration ---
+        # Priority: supervised pipeline > unsupervised auto-calibrate > default
         effective_threshold = self.threshold
         calibration_diagnostics = None
-        if self._auto_calibrate:
+        if self._supervised_threshold is not None:
+            effective_threshold = self._supervised_threshold
+        elif self._auto_calibrate:
             effective_threshold = self.calibrate_threshold(combined_scores)
             calibration_diagnostics = self._last_diagnostics
 
