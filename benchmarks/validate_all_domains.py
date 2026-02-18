@@ -167,6 +167,127 @@ def _evaluate_event(
     return result
 
 
+def _evaluate_domain_mondrian(
+    loader: Any,
+    detector_cls: type,
+) -> dict[str, Any]:
+    """Evaluate a domain using Mondrian conformal per-sub-event calibration.
+
+    Concatenates ALL events from the domain into a single dataset with
+    per-event group IDs, fits a single detector with Mondrian strategy,
+    and computes per-event and domain-level metrics.
+
+    Args:
+        loader: A BaseDomainLoader instance.
+        detector_cls: MercuryAnomalyDetector class.
+
+    Returns:
+        Dict with status, auc, calibrated_f1, per-event results.
+    """
+    events = loader.list_events()
+    if not events:
+        return {"status": "NO_EVENTS", "auc": 0.0, "n": 0}
+
+    # Collect all events into a combined dataset
+    all_X: list[np.ndarray] = []
+    all_y: list[np.ndarray] = []
+    all_groups: list[np.ndarray] = []
+    event_slices: list[tuple[str, int, int]] = []  # (event_id, start, end)
+    offset = 0
+
+    for event_info in events:
+        eid = event_info["event_id"]
+        try:
+            raw_data = loader.fetch_historical(eid)
+            X = loader.engineer_features(raw_data)
+            y = loader.get_ground_truth(eid)
+        except Exception as exc:
+            logger.warning("Mondrian: skipping event '%s': %s", eid, exc)
+            continue
+
+        if X is None or len(X) == 0 or y is None or len(y) == 0:
+            continue
+
+        n = min(len(X), len(y))
+        X, y = X[:n], y[:n]
+
+        n_pos = int(np.sum(y == 1))
+        n_neg = n - n_pos
+        if n < 10 or n_pos == 0 or n_neg == 0:
+            continue
+
+        all_X.append(X)
+        all_y.append(y.astype(np.int32))
+        all_groups.append(np.full(n, len(event_slices), dtype=np.int32))
+        event_slices.append((eid, offset, offset + n))
+        offset += n
+
+    if not all_X:
+        return {"status": "NO_VALID_EVENTS", "auc": 0.0, "n": 0}
+
+    X_all = np.vstack(all_X)
+    y_all = np.concatenate(all_y)
+    group_ids = np.concatenate(all_groups)
+
+    # Fit with Mondrian strategy
+    det = detector_cls()
+    det.fit_with_labels(X_all, y_all, strategy="mondrian", group_ids=group_ids)
+
+    # Detect on the combined data (uses stored group_ids)
+    detection = det.detect(X_all)
+    scores = np.asarray(detection["scores"])
+    preds = np.asarray(detection["is_anomaly"])
+
+    # Compute per-event and domain-level metrics
+    event_results: list[dict[str, Any]] = []
+    valid_aucs: list[float] = []
+    valid_f1s: list[float] = []
+
+    for group_idx, (eid, start, end) in enumerate(event_slices):
+        ev_y = y_all[start:end]
+        ev_scores = scores[start:end]
+        ev_preds = preds[start:end]
+        anomaly_ratio = float(np.mean(ev_y))
+
+        ev_scores_cal = calibrate_scores(ev_scores, anomaly_ratio)
+        from benchmarks.domain_benchmark_base import compute_auc as _auc
+        auc = _auc(ev_y, ev_scores_cal)
+
+        tp = int(np.sum(ev_preds & (ev_y == 1)))
+        fp = int(np.sum(ev_preds & (ev_y == 0)))
+        fn = int(np.sum(~ev_preds & (ev_y == 1)))
+        prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+
+        ev_result = {
+            "status": "OK",
+            "auc": auc,
+            "n": end - start,
+            "anomaly_ratio": anomaly_ratio,
+            "event_id": eid,
+            "calibrated_f1": f1,
+        }
+        event_results.append(ev_result)
+        valid_aucs.append(auc)
+        valid_f1s.append(f1)
+
+    mean_auc = float(np.mean(valid_aucs)) if valid_aucs else 0.0
+    mean_f1 = float(np.mean(valid_f1s)) if valid_f1s else 0.0
+    mean_ratio = float(np.mean(y_all))
+
+    return {
+        "status": "OK",
+        "auc": mean_auc,
+        "n": len(X_all),
+        "anomaly_ratio": mean_ratio,
+        "n_events_valid": len(valid_aucs),
+        "n_events_total": len(events),
+        "event_results": event_results,
+        "calibrated_f1": mean_f1,
+    }
+
+
 def validate_domain(
     loader: Any,
     *,
@@ -177,6 +298,10 @@ def validate_domain(
 
     Runs the full pipeline for EACH event, then computes
     the mean AUC across events with valid results.
+
+    When ``calibration_strategy="mondrian"``, uses a combined-event
+    evaluation with :class:`MondrianConformalPredictor` for per-sub-event
+    calibration instead of per-event independent evaluation.
 
     Args:
         loader: A BaseDomainLoader instance.
@@ -189,6 +314,10 @@ def validate_domain(
     """
     _stat_mod = importlib.import_module("omni_mercury_engine.detectors.statistical")
     MercuryAnomalyDetector = _stat_mod.MercuryAnomalyDetector
+
+    # Mondrian requires combined-event evaluation
+    if calibration_strategy == "mondrian" and use_calibration:
+        return _evaluate_domain_mondrian(loader, MercuryAnomalyDetector)
 
     events = loader.list_events()
     if not events:
@@ -270,7 +399,7 @@ def main() -> None:
     parser.add_argument(
         "--strategy",
         default="youden_j",
-        choices=["youden_j", "f1_optimal", "cost_sensitive"],
+        choices=["youden_j", "f1_optimal", "cost_sensitive", "mondrian"],
         help="Calibration strategy (default: youden_j)",
     )
     args = parser.parse_args()
