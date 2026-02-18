@@ -228,7 +228,7 @@ def validate_domain(
         np.mean([r.get("anomaly_ratio", 0.0) for r in event_results if r.get("auc") is not None])
     )
 
-    return {
+    domain_result: dict[str, Any] = {
         "status": "OK",
         "auc": mean_auc,
         "n": total_n,
@@ -237,6 +237,18 @@ def validate_domain(
         "n_events_total": len(events),
         "event_results": event_results,
     }
+
+    # Aggregate calibrated F1 across events (if calibration was used)
+    cal_f1s = [r["calibrated_f1"] for r in event_results if "calibrated_f1" in r]
+    if cal_f1s:
+        domain_result["calibrated_f1"] = float(np.mean(cal_f1s))
+    cal_thresholds = [
+        r["calibrated_threshold"] for r in event_results if "calibrated_threshold" in r
+    ]
+    if cal_thresholds:
+        domain_result["calibrated_threshold"] = float(np.mean(cal_thresholds))
+
+    return domain_result
 
 
 def main() -> None:
@@ -270,11 +282,10 @@ def main() -> None:
     print("=" * 76)
     print()
 
-    header_f1 = " | {'F1':>5}" if args.calibrate else ""
     print(
         f"{'Domain':<14} | {'Before':>7} | {'After':>7} | {'Delta':>7} | "
         f"{'N':>6} | {'Anom%':>6}"
-        + (" | {'F1':>5}" if args.calibrate else "")
+        + (f" | {'F1':>5}" if args.calibrate else "")
         + " | Status"
     )
     print("-" * 76)
