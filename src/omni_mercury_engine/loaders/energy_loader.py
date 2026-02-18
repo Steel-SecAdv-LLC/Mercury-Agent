@@ -150,6 +150,8 @@ class EnergyLoader(BaseDomainLoader):
         "solar_wind_speed",
         "solar_wind_density",
         "xray_class",
+        "kp_rolling_std",
+        "sw_speed_diff",
     ]
 
     def __init__(self, **kwargs: Any) -> None:
@@ -350,16 +352,22 @@ class EnergyLoader(BaseDomainLoader):
         7. **solar_wind_density** -- solar wind proton density (p/cm^3).
         8. **xray_class** -- numeric solar flare classification
            (A=1, B=2, C=3, M=4, X=5; 0 if absent).
+        9. **kp_rolling_std** -- rolling standard deviation of Kp
+           (window=5 steps / 15h).  Captures variance spikes that
+           precede and accompany geomagnetic storms.
+        10. **sw_speed_diff** -- first-order difference of solar wind
+            speed.  Sudden speed jumps indicate interplanetary shock
+            arrival.
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
                 :meth:`fetch_historical`.
 
         Returns:
-            2-D numpy array of shape ``(n_samples, 8)``.
+            2-D numpy array of shape ``(n_samples, 10)``.
         """
         if raw_data.empty:
-            return np.empty((0, 8), dtype=np.float64)
+            return np.empty((0, 10), dtype=np.float64)
 
         df = raw_data.copy()
 
@@ -397,6 +405,14 @@ class EnergyLoader(BaseDomainLoader):
         # ---- X-ray flux class (numeric) ----
         xray_class = self._safe_column(df, "xray_class")
 
+        # ---- Kp rolling standard deviation (window=5) ----
+        kp_rolling_std = self._compute_rolling_std(kp, window=5)
+
+        # ---- Solar wind speed first-order difference ----
+        sw_speed_diff = np.zeros(n, dtype=np.float64)
+        if n > 1:
+            sw_speed_diff[1:] = np.diff(sw_speed)
+
         # Stack into feature matrix
         features = np.column_stack(
             [
@@ -408,6 +424,8 @@ class EnergyLoader(BaseDomainLoader):
                 sw_speed,
                 sw_density,
                 xray_class,
+                kp_rolling_std,
+                sw_speed_diff,
             ]
         )
 
@@ -879,6 +897,25 @@ class EnergyLoader(BaseDomainLoader):
         for i in range(n):
             start = max(0, i - window + 1)
             result[i] = np.sum(values[start : i + 1])
+        return result
+
+    @staticmethod
+    def _compute_rolling_std(values: np.ndarray, window: int = 5) -> np.ndarray:
+        """Compute the rolling standard deviation over a trailing window.
+
+        Args:
+            values: 1-D input array.
+            window: Number of steps in the trailing window.
+
+        Returns:
+            1-D array of rolling standard deviation values.
+        """
+        n = len(values)
+        result = np.zeros(n, dtype=np.float64)
+        for i in range(n):
+            start = max(0, i - window + 1)
+            chunk = values[start : i + 1]
+            result[i] = float(np.std(chunk)) if len(chunk) > 1 else 0.0
         return result
 
     @staticmethod
