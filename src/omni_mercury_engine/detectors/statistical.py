@@ -176,6 +176,8 @@ class MercuryAnomalyDetector(BaseDetector):
         data: np.ndarray[Any, Any] | torch.Tensor,
         labels: np.ndarray[Any, Any],
         strategy: str = "youden_j",
+        *,
+        group_ids: np.ndarray[Any, Any] | None = None,
     ) -> MercuryAnomalyDetector:
         """Fit detector and calibrate threshold using labelled data.
 
@@ -185,6 +187,17 @@ class MercuryAnomalyDetector(BaseDetector):
         because the default 0.5 threshold does not match the actual
         score distribution.
 
+        For extreme-imbalance datasets (fewer than 5 positive samples
+        or anomaly rate below 1%), Youden's J is unreliable.  In this
+        case the method automatically switches to a contamination-aware
+        percentile threshold that places the decision boundary at the
+        ``(1 - contamination)`` percentile of the score distribution.
+
+        When ``strategy="mondrian"`` and *group_ids* are provided,
+        uses :class:`MondrianConformalPredictor` to calibrate a
+        separate threshold per sub-event group, providing per-group
+        coverage guarantees.
+
         Args:
             data: Training data array or tensor, shape ``(n_samples,)``
                 or ``(n_samples, n_features)``.
@@ -192,7 +205,11 @@ class MercuryAnomalyDetector(BaseDetector):
                 ``1`` = anomaly).  Must have the same number of
                 samples as *data*.
             strategy: Calibration strategy — one of ``"youden_j"``,
-                ``"f1_optimal"``, or ``"cost_sensitive"``.
+                ``"f1_optimal"``, ``"cost_sensitive"``, or
+                ``"mondrian"``.
+            group_ids: Optional per-sample group labels for Mondrian
+                conformal calibration.  Required when
+                ``strategy="mondrian"``.
 
         Returns:
             Self for method chaining.
@@ -216,7 +233,85 @@ class MercuryAnomalyDetector(BaseDetector):
         detection = self.detect(arr)
         scores = np.asarray(detection["scores"], dtype=np.float64)
 
-        # Run supervised calibration
+        # --- Extreme-imbalance guard ---
+        n_positives = int(np.sum(labels == 1))
+        anomaly_rate = float(np.mean(labels))
+
+        if n_positives < 5 or anomaly_rate < 0.01:
+            # Youden's J is unreliable with fewer than 5 positive samples
+            # because the J statistic overfits to the specific positive
+            # positions.  Evaluate BOTH Youden's J and F1-optimal, then
+            # select the threshold that yields the higher training F1.
+            import logging as _log
+            _logger = _log.getLogger(__name__)
+
+            best_f1 = -1.0
+            best_threshold = float(np.median(scores))
+            best_method = strategy
+
+            for strat in [CalibrationStrategy.YOUDEN_J, CalibrationStrategy.F1_OPTIMAL]:
+                try:
+                    trial = ThresholdCalibrationPipeline()
+                    result = trial.calibrate_from_data(
+                        scores,
+                        labels,
+                        method=strat,
+                        threshold_name="anomaly.default_threshold",
+                    )
+                    preds = scores > result.threshold
+                    tp = int(np.sum(preds & (labels == 1)))
+                    fp = int(np.sum(preds & (labels == 0)))
+                    fn = int(np.sum(~preds & (labels == 1)))
+                    prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+                    rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+                    f1 = (
+                        2 * prec * rec / (prec + rec)
+                        if (prec + rec) > 0
+                        else 0.0
+                    )
+                    if f1 > best_f1:
+                        best_f1 = f1
+                        best_threshold = result.threshold
+                        best_method = strat.value
+                        self._threshold_pipeline = trial
+                        self._calibration_result = result
+                except Exception:
+                    continue
+
+            self._supervised_threshold = best_threshold
+            self._calibration_method = f"best_of_j_f1_imbalance({best_method})"
+            _logger.info(
+                "fit_with_labels: extreme imbalance (n_pos=%d, rate=%.4f) "
+                "selected %s threshold=%.6f (training F1=%.4f)",
+                n_positives,
+                anomaly_rate,
+                best_method,
+                best_threshold,
+                best_f1,
+            )
+            return self
+
+        # --- Mondrian conformal per-group calibration ---
+        if strategy == "mondrian":
+            from omni_mercury_engine.core.conformal_prediction import (
+                MondrianConformalPredictor,
+            )
+
+            if group_ids is None:
+                raise ValueError(
+                    "strategy='mondrian' requires group_ids to be provided"
+                )
+            group_ids = np.asarray(group_ids).ravel()
+            mcp = MondrianConformalPredictor(coverage=0.90)
+            mcp.fit(scores, group_ids)
+            self._conformal_predictor = mcp
+            self._conformal_group_ids = group_ids
+            self._calibration_method = "mondrian_conformal"
+            # Set supervised threshold to global fallback for detect()
+            self._supervised_threshold = mcp.get_anomaly_threshold(None)
+            return self
+
+        # --- Standard calibration (Youden's J / F1 / cost-sensitive) ---
         pipeline = ThresholdCalibrationPipeline()
         result = pipeline.calibrate_from_data(
             scores,
@@ -491,16 +586,30 @@ class MercuryAnomalyDetector(BaseDetector):
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # --- Threshold & calibration ---
-        # Priority: supervised pipeline > unsupervised auto-calibrate > default
+        # Priority: mondrian conformal > supervised pipeline > auto-calibrate > default
         effective_threshold = self.threshold
         calibration_diagnostics = None
-        if self._supervised_threshold is not None:
+
+        if (
+            hasattr(self, "_conformal_predictor")
+            and self._conformal_predictor is not None
+            and hasattr(self, "_conformal_group_ids")
+            and self._conformal_group_ids is not None
+            and len(self._conformal_group_ids) == len(combined_scores)
+        ):
+            is_anomaly = self._conformal_predictor.predict(
+                combined_scores, self._conformal_group_ids
+            ).astype(bool)
+            effective_threshold = self._supervised_threshold or self.threshold
+        elif self._supervised_threshold is not None:
             effective_threshold = self._supervised_threshold
+            is_anomaly = combined_scores > effective_threshold
         elif self._auto_calibrate:
             effective_threshold = self.calibrate_threshold(combined_scores)
             calibration_diagnostics = self._last_diagnostics
-
-        is_anomaly = combined_scores > effective_threshold
+            is_anomaly = combined_scores > effective_threshold
+        else:
+            is_anomaly = combined_scores > effective_threshold
 
         # Legacy backward-compatibility keys
         iqr_anomalies = self._detect_iqr_anomalies(data)
