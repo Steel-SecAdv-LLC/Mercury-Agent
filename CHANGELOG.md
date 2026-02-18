@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repository documentation, metadata, and organizational state audited for
   accuracy against actual code
 - README.md: Updated module count (455), line count (268,000+), test file
-  count (224); removed phantom version reference (v1.4.1); removed reference
+  count (244); removed phantom version reference (v1.4.1); removed reference
   to nonexistent benchmark results file; updated header and co-architects
 - CHANGELOG.md: Removed orphaned [Unreleased] section whose content was
   already captured in versioned entries (v1.1.0, v1.2.0)
@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CONTRIBUTING.md: Fixed Python version requirement from 3.12 to 3.11+
 - .gitignore: Added coverage for generated report files
 - DEAD_CODE.md: Created inventory of 59 orphaned modules
+
+### Calibration Pipeline Integration
+- ThresholdCalibrationPipeline wired into MercuryAnomalyDetector.fit_with_labels()
+  and detect() — adaptive strategy selection (best of Youden's J / F1-optimal)
+- Per-component Mann-Whitney AUC measured during fit; components with inverted
+  signal receive zero weight (replaces fixed 40/30/30 ensemble weighting)
+- 10 real-world domains benchmarked with calibrated F1; results recorded in
+  honest_benchmark_results.json
 
 ### Version Reconciliation
 - All version strings bumped from 1.4.0 → 1.5.1 to match CHANGELOG entries
