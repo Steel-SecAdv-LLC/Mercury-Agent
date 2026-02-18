@@ -44,7 +44,7 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.4.0
+**Version:** v1.5.1
 **Date:** 2026-02-09
 **AI Co-Architects:** Devin ⚛ | Claude ⊛
 
@@ -1688,7 +1688,7 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 **Author/Inventor**: Andrew E. A.
 
-**AI Co-Architects:** Caduceus ⚚ | Dev ⚕
+**AI Co-Architects:** Devin ⚛ | Claude ⊛
 
 **Special Thanks**:
 - NIST Post-Quantum Cryptography Standardization Project
@@ -1736,7 +1736,7 @@ Dataset fetching can be configured via environment variables:
 
 **Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of Mercury Agent ♱.
 
-**AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Caduceus ⚚ and Dev ⚕.
+**AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Devin ⚛ and Claude ⊛.
 
 This project represents a human/AI collaborative construct - a development paradigm where human vision, requirements, and critical evaluation guide AI-generated implementation.
 

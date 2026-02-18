@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mercury-agent"
-version = "1.4.0"
+version = "1.5.1"
 description = "Mercury Agent ♱: ML-Centric Multi-Domain Anomaly Detection Framework"
 readme = "README.md"
 license = {text = "GPL-3.0+"}

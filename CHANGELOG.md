@@ -12,23 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   accuracy against actual code
 - README.md: Updated module count (455), line count (268,000+), test file
   count (224); removed phantom version reference (v1.4.1); removed reference
-  to nonexistent benchmark results file
+  to nonexistent benchmark results file; updated header and co-architects
 - CHANGELOG.md: Removed orphaned [Unreleased] section whose content was
   already captured in versioned entries (v1.1.0, v1.2.0)
-- docs/ROADMAP.md: Marked all 7 planned capabilities as implemented (they
-  exist in the source tree)
-- docs/CONTRIBUTING.md: Fixed Python version requirement from 3.12 to 3.11+
-  to match pyproject.toml
+- docs/ROADMAP.md: Marked all 7 planned capabilities as implemented
+- CONTRIBUTING.md: Fixed Python version requirement from 3.12 to 3.11+
 - .gitignore: Added coverage for generated report files
+- DEAD_CODE.md: Created inventory of 59 orphaned modules
 
-### Known Issues — Version String Inconsistency
-- `pyproject.toml`, `__init__.py`, `cli.py`, and `api/health.py` all declare
-  version **1.4.0**
-- CHANGELOG entries [1.5.0] and [1.5.1] document work that IS present in the
-  codebase but the version was never bumped
-- No git tags exist for any version
-- **Resolution required:** Bump version strings to match CHANGELOG, or
-  re-label CHANGELOG entries as unreleased work
+### Version Reconciliation
+- All version strings bumped from 1.4.0 → 1.5.1 to match CHANGELOG entries
+  (pyproject.toml, __init__.py, cli.py, api/health.py, .secrets.baseline,
+  README.md, SECURITY.md)
+- CHANGELOG entries [1.5.0] and [1.5.1] verified against actual code —
+  all described changes are present
 
 ---
 
