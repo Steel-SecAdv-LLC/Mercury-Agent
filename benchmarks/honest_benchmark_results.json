@@ -1137,27 +1137,28 @@
   ],
   "domain_benchmarks": {
     "_metadata": {
-      "timestamp": "2026-02-18T04:18:38Z",
-      "calibration_method": "youden_j",
-      "pipeline": "ThresholdCalibrationPipeline via fit_with_labels()",
-      "note": "AUC measured on ensemble scores after calibrate_scores(). F1 measured using calibrated Youden-J threshold. All data is from live APIs — no synthetic fallbacks except where noted."
+      "timestamp": "2026-02-18T05:56:00Z",
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
+      "pipeline": "ThresholdCalibrationPipeline via fit_with_labels() with adaptive strategy selection",
+      "note": "AUC measured on ensemble scores after calibrate_scores(). F1 measured using adaptively selected threshold (whichever of Youden's J or F1-optimal yields higher training F1). All data is from live APIs — no synthetic fallbacks except where noted.",
+      "prior_calibration_method": "youden_j (commit 159d7bc)"
     },
     "earthquake": {
       "auc": 0.9340,
-      "calibrated_f1": 0.387,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.468,
+      "calibrated_f1": 0.396,
+      "prior_f1": 0.387,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 2867,
       "n_events": 5,
       "anomaly_ratio": 0.004,
       "meets_criteria": false,
-      "failure_reason": "Extreme class imbalance (0.4% anomalies, 1-2 per event). Even 1 FP destroys precision. Sample-size limitation, not calibration failure. Per-event F1: tohoku=1.000, nepal=0.500, turkey=0.267, noto=0.125, haiti=0.042."
+      "failure_reason": "Extreme class imbalance (0.4% anomalies, 1-2 per event). Adaptive strategy improved haiti_2010 (0.042->0.087 via F1-optimal). Per-event F1: tohoku=1.000, nepal=0.500, turkey=0.267, noto=0.125, haiti=0.087. Fundamental precision limit at this imbalance level."
     },
     "tsunami": {
       "auc": 0.8839,
-      "calibrated_f1": 0.744,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.237,
+      "calibrated_f1": 0.746,
+      "prior_f1": 0.744,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 4375,
       "n_events": 3,
       "anomaly_ratio": 0.353,
@@ -1165,9 +1166,9 @@
     },
     "flood": {
       "auc": 0.8619,
-      "calibrated_f1": 0.633,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.184,
+      "calibrated_f1": 0.648,
+      "prior_f1": 0.633,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 1536,
       "n_events": 1,
       "anomaly_ratio": 0.253,
@@ -1175,9 +1176,9 @@
     },
     "tornado": {
       "auc": 0.8966,
-      "calibrated_f1": 0.719,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.396,
+      "calibrated_f1": 0.742,
+      "prior_f1": 0.719,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 414,
       "n_events": 2,
       "anomaly_ratio": 0.076,
@@ -1185,9 +1186,9 @@
     },
     "fema": {
       "auc": 0.7669,
-      "calibrated_f1": 0.478,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.281,
+      "calibrated_f1": 0.500,
+      "prior_f1": 0.478,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 14072,
       "n_events": 3,
       "anomaly_ratio": 0.157,
@@ -1195,43 +1196,43 @@
       "note": "AUC 0.70-0.79 bracket: F1 >= 0.40 required."
     },
     "energy": {
-      "auc": 0.8945,
-      "calibrated_f1": 0.240,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.348,
+      "auc": 0.9180,
+      "calibrated_f1": 0.282,
+      "prior_f1": 0.240,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 2432,
       "n_events": 3,
       "anomaly_ratio": 0.028,
       "meets_criteria": false,
-      "failure_reason": "Score distributions overlap significantly (pos_mean~0.40, neg_mean~0.26). Recall=1.0 but precision~0.14 across all events. Model capacity limitation — the ensemble cannot separate geomagnetic storm anomalies from normal readings with enough margin. Not a calibration failure."
+      "failure_reason": "Ensemble weighting bottleneck: InfoGeo (30% weight) provides strong separation (0.45-0.51) but Resonance (40%) and Kinematic (30%) contribute noise or anti-signal. KinematicScore has NEGATIVE separation (-0.09 to -0.13) on tabular energy features. Adaptive strategy improved F1 from 0.240 to 0.282. Real fix: rebalance ensemble toward InfoGeo."
     },
     "pandemic": {
       "auc": 0.9145,
-      "calibrated_f1": 0.439,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.268,
+      "calibrated_f1": 0.591,
+      "prior_f1": 0.439,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 66909,
       "n_events": 6,
       "anomaly_ratio": 0.082,
-      "meets_criteria": false,
-      "failure_reason": "Mean F1 dragged down by mpox_2022 (n=63674, F1=0.195, 15k FPs). Per-event range: cholera=0.807, covid_usa=0.457, covid_italy=0.409, covid_india=0.387, ebola=0.382, mpox=0.195. Large-N events dominate the mean. Excluding mpox: mean F1=0.488."
+      "meets_criteria": true,
+      "note": "F1-optimal selected for most events. Per-event F1: cholera=0.807, ebola=0.839, covid_usa=0.637, covid_italy=0.494, covid_india=0.474, mpox=0.297. Major improvement from Youden's J (0.439->0.591)."
     },
     "net_security": {
       "auc": 0.8082,
-      "calibrated_f1": 0.447,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.260,
+      "calibrated_f1": 0.605,
+      "prior_f1": 0.447,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 161455,
       "n_events": 2,
       "anomaly_ratio": 0.249,
-      "meets_criteria": false,
-      "failure_reason": "NSL-KDD F1=0.757 (strong), BATADAL F1=0.136 (poor — 1.7% anomalies with overlapping score distributions). Mean dragged down by BATADAL. CICIDS-2017 unavailable (data source 404)."
+      "meets_criteria": true,
+      "note": "BATADAL improved dramatically (0.136->0.453 via F1-optimal). NSL-KDD stable at 0.757. CICIDS-2017 unavailable (data source 404)."
     },
     "hurricane": {
       "auc": 0.7819,
-      "calibrated_f1": 0.458,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.336,
+      "calibrated_f1": 0.477,
+      "prior_f1": 0.458,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 294,
       "n_events": 4,
       "anomaly_ratio": 0.117,
@@ -1240,14 +1241,14 @@
     },
     "marine": {
       "auc": 0.6335,
-      "calibrated_f1": 0.481,
-      "calibration_method": "youden_j",
-      "calibration_threshold_mean": 0.188,
+      "calibrated_f1": 0.659,
+      "prior_f1": 0.481,
+      "calibration_method": "adaptive (best of youden_j / f1_optimal)",
       "n_samples": 96,
       "n_events": 2,
       "anomaly_ratio": 0.496,
       "meets_criteria": null,
-      "note": "AUC < 0.70 — below minimum threshold for F1 criteria. Small sample size (96 aggregated cells across 2 events)."
+      "note": "AUC < 0.70 — below minimum threshold for F1 criteria. Small sample size (96 aggregated cells across 2 events). F1-optimal improved gbr_bleaching_2016 significantly."
     }
   }
 }
