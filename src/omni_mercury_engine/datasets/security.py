@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Security Dataset Loaders: NSL-KDD, CICIDS, Threat Intelligence

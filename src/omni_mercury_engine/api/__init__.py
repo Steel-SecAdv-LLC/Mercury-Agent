@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""REST API for Mercury Agent ♱ anomaly detection."""
+"""REST API for Mercury Agent anomaly detection."""
 
 from .auth import APIKeyAuth, JWTAuth, Permission, User, require_permission, require_role
 from .health import HealthChecker, get_health_checker, health_router

@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 """FastAPI server for real-time anomaly detection.
 
 This module provides a REST API for multi-domain anomaly detection using
-the Mercury Agent ♱ framework. It implements best practices from Azure AI Anomaly
+the Mercury Agent framework. It implements best practices from Azure AI Anomaly
 Detector and provides comprehensive OpenAPI documentation.
 
 API Reference:
@@ -122,11 +122,11 @@ for logger_name in ["omni_mercury_engine.api", "omni_mercury_engine.security", "
 
 # API version information
 API_VERSION = "1.5.1"
-API_TITLE = "Mercury Agent ♱ API"
+API_TITLE = "Mercury Agent API"
 API_DESCRIPTION = """
 ## Overview
 
-The Mercury Agent ♱ API provides multi-domain anomaly detection capabilities through a REST interface.
+The Mercury Agent API provides multi-domain anomaly detection capabilities through a REST interface.
 This API is designed for real-time anomaly detection in time-series data.
 
 ## Features

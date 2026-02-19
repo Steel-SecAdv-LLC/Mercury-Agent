@@ -1,8 +1,8 @@
-# Mercury Agent ♱ Architecture
+# Mercury Agent Architecture
 
 ## Overview
 
-The Mercury Agent ♱ implements a ML-Centric Hybrid Fusion architecture that integrates 18 diverse scientific and computational paradigms into a unified anomaly detection framework. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent implements a ML-Centric Hybrid Fusion architecture that integrates 18 diverse scientific and computational paradigms into a unified anomaly detection framework. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -397,7 +397,7 @@ results = await queue.receive()
 
 ### Overview
 
-The Mercury Agent ♱ includes comprehensive infrastructure monitoring capabilities spanning **8 major frameworks** with **11 specialized modules** organized by thematic impact areas. The system implements the **InfrastructureCoordinator** for flexible module selection, allowing users to run 1, 2, 5, or all modules simultaneously based on their specific needs.
+The Mercury Agent includes comprehensive infrastructure monitoring capabilities spanning **8 major frameworks** with **11 specialized modules** organized by thematic impact areas. The system implements the **InfrastructureCoordinator** for flexible module selection, allowing users to run 1, 2, 5, or all modules simultaneously based on their specific needs.
 
 ### Supported Frameworks
 
@@ -764,7 +764,7 @@ logger.info(f"Detected anomaly: score={score}, components={components}")
 
 ### Overview
 
-The Mercury Agent ♱ implements **Lyapunov stability theory** to guarantee convergence and prevent divergence in the state evolution of the OmniMercuryEngine. This provides mathematical rigor ensuring the system remains stable during iterative updates.
+The Mercury Agent implements **Lyapunov stability theory** to guarantee convergence and prevent divergence in the state evolution of the OmniMercuryEngine. This provides mathematical rigor ensuring the system remains stable during iterative updates.
 
 ### Theoretical Foundation
 
@@ -775,7 +775,7 @@ A **Lyapunov function** V(𝔄) is a scalar-valued function that measures the "e
 1. **Positive Definite**: V(𝔄) > 0 for all 𝔄 ≠ 𝔄_equilibrium, and V(𝔄_equilibrium) = 0
 2. **Decreasing Along Trajectories**: ΔV = V(𝔄_{t+1}) - V(𝔄_t) < 0
 
-In the Mercury Agent ♱, the Lyapunov function is defined as:
+In the Mercury Agent, the Lyapunov function is defined as:
 
 ```
 V(𝔄_t) = ||𝔄_t - 𝔄_target||²
@@ -932,7 +932,7 @@ This combination of **classical control theory**, **ethical AI principles**, and
 
 ## Omni-Codes: Bio-Inspired Helical Parameters
 
-Mercury Agent ♱ integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
+Mercury Agent integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
 
 ### The Seven Omni-Codes
 
@@ -988,7 +988,7 @@ is_stable = OmniCodes.validate_stability(min_total=50.0)  # True
 
 ## Conclusion
 
-The Mercury Agent ♱ successfully integrates **18 engines** (13 original + 5 new fully integrated + 1 optional utilities) with **11 infrastructure monitoring modules** across **8 major frameworks** into a production-ready ML-centric platform. The hybrid fusion approach balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
+The Mercury Agent successfully integrates **18 engines** (13 original + 5 new fully integrated + 1 optional utilities) with **11 infrastructure monitoring modules** across **8 major frameworks** into a production-ready ML-centric platform. The hybrid fusion approach balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
 
 ### Core ML Achievements:
 - ✅ Hybrid fusion (feature + decision level) with multi-head attention
@@ -1030,4 +1030,4 @@ The Mercury Agent ♱ successfully integrates **18 engines** (13 original + 5 ne
 - **332KB research findings** covering 27+ topics with full citations
 - **322 optimization experiments** documented (Ava, ethical scalars, fusion weights, harmonics)
 
-Mercury Agent ♱ bridges classical scientific methodologies with modern deep learning, implements biological defense mechanisms, integrates regenerative design principles, and maintains rigorous scientific standards with full system traceability via Omni-Codes. The system is **ethically aligned and freely accessible** under GPL v3 license for humanitarian impact.
+Mercury Agent bridges classical scientific methodologies with modern deep learning, implements biological defense mechanisms, integrates regenerative design principles, and maintains rigorous scientific standards with full system traceability via Omni-Codes. The system is **ethically aligned and freely accessible** under GPL v3 license for humanitarian impact.

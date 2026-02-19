@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 EPA Air Quality System (AQS) — Daily PM2.5 Loader

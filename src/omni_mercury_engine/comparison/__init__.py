@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 """
 Anomaly Detection Engine Comparison and Benchmarking
 
-Compare Mercury Agent ♱ with top open-source anomaly detection engines.
+Compare Mercury Agent with top open-source anomaly detection engines.
 """
 
 from .pyod_integration import CombinationMethod, PyODAlgorithm, PyODComparison

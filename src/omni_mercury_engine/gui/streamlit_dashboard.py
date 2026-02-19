@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 """
-Streamlit Dashboard for Mercury Agent ♱
+Streamlit Dashboard for Mercury Agent
 
 Interactive GUI for non-technical users featuring:
 - Real-time anomaly visualization
@@ -44,7 +44,7 @@ import streamlit as st
 from omni_mercury_engine.utils.rng import get_global_rng
 
 st.set_page_config(
-    page_title="Mercury Agent ♱ Dashboard",
+    page_title="Mercury Agent Dashboard",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -54,7 +54,7 @@ st.set_page_config(
 def main() -> None:
     """Main Streamlit application"""
 
-    st.sidebar.title("🔬 Mercury Agent ♱")
+    st.sidebar.title("🔬 Mercury Agent")
     st.sidebar.markdown("---")
 
     analysis_mode = st.sidebar.selectbox(

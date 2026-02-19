@@ -23,7 +23,7 @@
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.5.1                      |
+              |                                   Mercury Agent ♱ v1.5.1                     |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -52,11 +52,11 @@
 
 ## Executive Summary
 
-Mercury Agent ♱ is a comprehensive neuro-symbolic AI Archetype implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
+Mercury Agent is a comprehensive neuro-symbolic AI Archetype implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
 The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must pass a benevolence threshold of 0.99 or higher, ensuring the system operates in service of human flourishing and civilizational progress.
 
-> **Project Philosophy:** Mercury Agent ♱ represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
+> **Project Philosophy:** Mercury Agent represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
 >
 > **Security Disclosure:** This is a research-grade implementation. Production use REQUIRES:
 > - Independent security review by qualified professionals
@@ -77,7 +77,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 
 ## 7-Phase Neuro-Symbolic Evolution
 
-Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that progressively builds from basic neural memory to superintelligence bootstrap capabilities:
+Mercury Agent implements a comprehensive 7-phase cognitive architecture that progressively builds from basic neural memory to superintelligence bootstrap capabilities:
 
 | Phase | Component | Description | Key Features |
 |-------|-----------|-------------|--------------|
@@ -221,7 +221,7 @@ result = global_detector.detect(new_data)
 
 ### Real-World Data Benchmarks
 
-Mercury Agent ♱ has been validated against real-world public datasets to demonstrate practical anomaly detection capabilities:
+Mercury Agent has been validated against real-world public datasets to demonstrate practical anomaly detection capabilities:
 
 #### NSL-KDD (Security Domain)
 
@@ -265,7 +265,7 @@ Run benchmarks: `python benchmarks/real_data_benchmarks.py`
 
 ### Live Anomaly Detection Demo
 
-Mercury Agent ♱ includes a live demonstration script that showcases real-time anomaly detection across multiple domains:
+Mercury Agent includes a live demonstration script that showcases real-time anomaly detection across multiple domains:
 
 #### Quick Start
 
@@ -334,7 +334,7 @@ A recorded demo session is available at [`assets/live_anomaly_demo.mp4`](assets/
 <details>
 <summary><strong>Click to expand 3R Mathematical Framework</strong></summary>
 
-The **3R mechanism** (Recursion-Resonance-Refactoring) is a mathematical method for anomaly detection and optimization that forms the core of Mercury Agent ♱'s detection capabilities. This framework combines three complementary engines for pattern recognition and adaptive learning.
+The **3R mechanism** (Recursion-Resonance-Refactoring) is a mathematical method for anomaly detection and optimization that forms the core of Mercury Agent's detection capabilities. This framework combines three complementary engines for pattern recognition and adaptive learning.
 
 ### Recursion Engine
 
@@ -456,9 +456,9 @@ loss = loss_fn(
 - **Lyapunov stability**: Penalizes divergent predictions for safety-critical applications
 - **Domain configs**: See `configs/ablation_3r_lyapunov.yaml` for medical/security/infrastructure presets
 
-### Integration with Mercury Agent ♱
+### Integration with Mercury Agent
 
-The 3R mechanism is integrated throughout Mercury Agent ♱:
+The 3R mechanism is integrated throughout Mercury Agent:
 - **Detectors**: All 18+ detection engines leverage 3R for feature extraction
 - **Fusion Network**: Multi-head attention combines 3R outputs across domains
 - **Ethical Governance**: Refactoring engine ensures Lyapunov stability constraints
@@ -508,9 +508,9 @@ Modern anomaly detection faces three critical challenges:
 2. **Ethical Blind Spots**: Most ML systems lack bias detection, fairness metrics, and ethical governance
 3. **Production Gaps**: Research models often lack security hardening, input validation, and deployment infrastructure
 
-### The Mercury Agent ♱ Solution
+### The Mercury Agent Solution
 
-Mercury Agent ♱ addresses all three challenges through:
+Mercury Agent addresses all three challenges through:
 
 - **Unified Framework**: 18+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
@@ -600,7 +600,7 @@ Optimized for both accuracy and interpretability:
 
 ## Use Cases by Sector
 
-> **Experimental Research Areas:** The use cases below represent targeted experimental applications where Mercury Agent ♱ multi-domain anomaly detection may provide value. These are research-grade implementations requiring independent validation before deployment in regulated, clinical, or mission-critical environments.
+> **Experimental Research Areas:** The use cases below represent targeted experimental applications where Mercury Agent multi-domain anomaly detection may provide value. These are research-grade implementations requiring independent validation before deployment in regulated, clinical, or mission-critical environments.
 
 <details>
 <summary><strong>Medical & Healthcare</strong></summary>
@@ -1259,7 +1259,7 @@ bandit -r src/
 <details>
 <summary><strong>Ethical AI Governance</strong> - Mathematically-Bound Fairness Constraints</summary>
 
-Mercury Agent ♱ pioneers the integration of ethical principles directly into ML operations through mathematically rigorous constraints. Unlike traditional ML systems that treat ethics as policy overlays, Mercury Agent ♱ embeds ethical considerations into the detection foundation itself.
+Mercury Agent pioneers the integration of ethical principles directly into ML operations through mathematically rigorous constraints. Unlike traditional ML systems that treat ethics as policy overlays, Mercury Agent embeds ethical considerations into the detection foundation itself.
 
 **Fairlearn Integration** provides bias detection across all predictions:
 
@@ -1280,7 +1280,7 @@ Mercury Agent ♱ pioneers the integration of ethical principles directly into M
 <details>
 <summary><strong>Production Security</strong> - Defense-in-Depth Architecture</summary>
 
-Mercury Agent ♱ employs a comprehensive security architecture designed for production deployment:
+Mercury Agent employs a comprehensive security architecture designed for production deployment:
 
 **Input Validation** (OWASP-compliant):
 - SQL injection detection and prevention
@@ -1310,7 +1310,7 @@ Mercury Agent ♱ employs a comprehensive security architecture designed for pro
 <details>
 <summary><strong>Multi-Domain Detection</strong> - 22+ Specialized Engines</summary>
 
-Mercury Agent ♱ transcends single-domain limitations by providing specialized detection engines across multiple domains:
+Mercury Agent transcends single-domain limitations by providing specialized detection engines across multiple domains:
 
 | Domain | Engines | Capabilities |
 |--------|---------|--------------|
@@ -1389,7 +1389,7 @@ if adapter.pqc_available:
 <details>
 <summary><strong>Omni-Codes</strong> - Bio-Inspired Helical Parameters</summary>
 
-Mercury Agent ♱ integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
+Mercury Agent integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
 
 **The Seven Omni-Codes:**
 
@@ -1660,7 +1660,7 @@ Copyright 2025 Steel Security Advisors LLC
 Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) file for details.
 
 ```
-Mercury Agent ♱ - Multi-Domain Anomaly Detection Framework
+Mercury Agent - Multi-Domain Anomaly Detection Framework
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -1694,7 +1694,7 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 | General Inquiries | steel.sa.llc@gmail.com |
 | Security Issues | See [SECURITY.md](SECURITY.md) for responsible disclosure |
 | GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues) |
-| GitHub Repository | [Mercury Agent ♱](https://github.com/Steel-SecAdv-LLC/Mercury-Agent) |
+| GitHub Repository | [Mercury Agent](https://github.com/Steel-SecAdv-LLC/Mercury-Agent) |
 
 </details>
 
@@ -1750,7 +1750,7 @@ Dataset fetching can be configured via environment variables:
 
 ### Development Model
 
-**Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of Mercury Agent ♱.
+**Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of Mercury Agent.
 
 **AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Devin ⚛ and Claude ⊛.
 
@@ -1797,7 +1797,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent ♱ v1.5.1 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent v1.5.1 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 

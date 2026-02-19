@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 """
 PyOD Integration and Comparison
 
-Compare Mercury Agent ♱ with PyOD's 40+ anomaly detection algorithms.
+Compare Mercury Agent with PyOD's 40+ anomaly detection algorithms.
 
 Research sources:
 - PyOD GitHub (github.com/yzhao062/pyod)
@@ -60,7 +60,7 @@ class CombinationMethod(Enum):
 
 class PyODComparison:
     """
-    Compare Mercury Agent ♱ with PyOD algorithms.
+    Compare Mercury Agent with PyOD algorithms.
 
     Enables:
     - Benchmarking Mercury-Agent's 13 engines against PyOD's 40+ algorithms
@@ -223,10 +223,10 @@ class PyODComparison:
         pyod_algorithms: list[PyODAlgorithm],
     ) -> dict[str, Any]:
         """
-        Benchmark Mercury Agent ♱ against PyOD algorithms.
+        Benchmark Mercury Agent against PyOD algorithms.
 
         Args:
-            omni_engine: Mercury Agent ♱ instance
+            omni_engine: Mercury Agent instance
             test_data: Test dataset
             ground_truth: True anomaly labels
             pyod_algorithms: PyOD algorithms to compare

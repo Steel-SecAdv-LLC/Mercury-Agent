@@ -1,4 +1,4 @@
-# Mercury Agent ♱ - Strategic Engineering Roadmap
+# Mercury Agent - Strategic Engineering Roadmap
 
 > **Status (2026-02-17):** All seven capabilities listed below have initial
 > implementations in the source tree. The phase checklists below were written

@@ -1,4 +1,4 @@
-# Mercury Agent ♱ Secure Container
+# Mercury Agent Secure Container
 # Security-hardened Dockerfile with CVE mitigations
 # Multi-stage build for minimal attack surface
 

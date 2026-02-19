@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -440,7 +440,7 @@ if __name__ == "__main__":
 
     if len(functions) < 10:
         print("\nWARNING: Not enough functions from benchmark repos.")
-        print("Falling back to using Mercury Agent ♱'s own Python files...")
+        print("Falling back to using Mercury Agent's own Python files...")
 
         fallback_paths = [
             Path(__file__).parent.parent / "omni_mercury_engine",

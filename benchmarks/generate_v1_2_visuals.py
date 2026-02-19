@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱ v1.4.0 - Comprehensive Benchmark Visualization Generator
+Mercury Agent v1.4.0 - Comprehensive Benchmark Visualization Generator
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Generates consolidated publication-quality benchmark visualizations for v1.4.0:
@@ -71,7 +71,7 @@ def generate_neuro_symbolic_report(results: dict[str, Any]) -> None:
     """Generate comprehensive neuro-symbolic benchmark report (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
-        "Mercury Agent ♱ v1.4.0 - Neuro-Symbolic Benchmark Report",
+        "Mercury Agent v1.4.0 - Neuro-Symbolic Benchmark Report",
         fontsize=16,
         fontweight="bold",
         color=COLORS["gold"],
@@ -201,7 +201,7 @@ def generate_anomaly_detection_panel(results: dict[str, Any]) -> None:
     """Generate anomaly detection analysis panel (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
-        "Mercury Agent ♱ v1.4.0 - Anomaly Detection Analysis",
+        "Mercury Agent v1.4.0 - Anomaly Detection Analysis",
         fontsize=16,
         fontweight="bold",
         color=COLORS["gold"],
@@ -385,7 +385,7 @@ def generate_benchmark_summary(results: dict[str, Any]) -> None:
     """Generate benchmark summary with live data and module coverage (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
-        "Mercury Agent ♱ v1.4.0 - Benchmark Summary & Module Coverage",
+        "Mercury Agent v1.4.0 - Benchmark Summary & Module Coverage",
         fontsize=16,
         fontweight="bold",
         color=COLORS["gold"],
@@ -587,7 +587,7 @@ def generate_performance_dashboard(results: dict[str, Any]) -> None:
     """Generate performance, ethics, and quality dashboard (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
-        "Mercury Agent ♱ v1.4.0 - Performance & Ethics Dashboard",
+        "Mercury Agent v1.4.0 - Performance & Ethics Dashboard",
         fontsize=16,
         fontweight="bold",
         color=COLORS["gold"],
@@ -749,7 +749,7 @@ def generate_performance_dashboard(results: dict[str, Any]) -> None:
 def main() -> None:
     """Generate all consolidated visualizations."""
     print("=" * 60)
-    print("Mercury Agent ♱ v1.4.0 - Visualization Generator")
+    print("Mercury Agent v1.4.0 - Visualization Generator")
     print("=" * 60)
 
     # Ensure output directory exists

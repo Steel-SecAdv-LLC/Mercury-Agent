@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ Anti-Terrorism Pattern Recognition Module
 Detects radicalization patterns using QBM and OSINT anomalies.
 Integrates with existing threat knowledge base.
 
-Part of Mercury Agent ♱ Security module.
+Part of Mercury Agent Security module.
 """
 
 from omni_mercury_engine.security.anti_terrorism.pattern_recognition import (

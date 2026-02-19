@@ -1,4 +1,4 @@
-# Mercury Agent ♱ Project Configuration
+# Mercury Agent Project Configuration
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: GPL-3.0+
 
@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mercury-agent"
 version = "1.5.1"
-description = "Mercury Agent ♱: ML-Centric Multi-Domain Anomaly Detection Framework"
+description = "Mercury Agent: ML-Centric Multi-Domain Anomaly Detection Framework"
 readme = "README.md"
 license = {text = "GPL-3.0+"}
 requires-python = ">=3.11"
@@ -758,8 +758,8 @@ ignore = [
     "PTH118", # os.path.join (acceptable)
     "PTH120", # os.path.dirname (acceptable)
     "PTH123", # builtin open (acceptable)
-    "RUF001", # Ambiguous unicode character (intentional: ♱)
-    "RUF002", # Ambiguous unicode character in docstring (intentional: ♱)
+    "RUF001", # Ambiguous unicode character
+    "RUF002", # Ambiguous unicode character in docstring
     "RUF005", # Collection literal concatenation (readability)
     "RUF012", # Mutable class default (intentional for configs)
     "RUF034", # Useless if-else (readability preference)

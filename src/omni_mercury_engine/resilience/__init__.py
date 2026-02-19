@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Resilience module for Mercury Agent ♱
+Resilience module for Mercury Agent
 
 Provides self-healing, circuit breaker, retry logic, and health monitoring.
 """

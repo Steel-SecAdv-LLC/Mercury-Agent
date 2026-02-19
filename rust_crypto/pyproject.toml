@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "mercury_crypto"
 version = "0.1.0"
-description = "High-performance cryptographic operations for Mercury Agent ♱"
+description = "High-performance cryptographic operations for Mercury Agent"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0" }

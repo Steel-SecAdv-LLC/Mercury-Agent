@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱ — Live Data Loader Tests
+Mercury Agent — Live Data Loader Tests
 
 Tests each loader against real endpoints.
 Mark with @pytest.mark.network for optional CI skipping.

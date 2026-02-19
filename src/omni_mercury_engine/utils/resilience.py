@@ -1,8 +1,8 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
-Resilience and error recovery utilities for Mercury Agent ♱.
+Resilience and error recovery utilities for Mercury Agent.
 
 This module provides patterns for building resilient applications:
 - Circuit breaker pattern for failing fast

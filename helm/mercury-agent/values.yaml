@@ -1,5 +1,5 @@
-# Mercury Agent ♱ Helm Chart Default Values
-# This file contains the default configuration values for the Mercury Agent ♱ chart.
+# Mercury Agent Helm Chart Default Values
+# This file contains the default configuration values for the Mercury Agent chart.
 # All values can be overridden via command line or custom values files.
 
 # Global settings

@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -304,7 +304,7 @@ class DetectorConfig(BaseModel):
 
 
 class MercuryEngineConfig(BaseModel):
-    """Main Mercury Agent ♱ Engine Configuration.
+    """Main Mercury Agent Engine Configuration.
 
     Provides centralized, validated configuration with:
     - Domain-specific ethical thresholds

@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Comprehensive integration tests for Mercury Agent ♱ enhancements.
+Comprehensive integration tests for Mercury Agent enhancements.
 
 Tests InfrastructureCoordinator with all 12 modules, synthetic data predictions,
 and end-to-end workflow validation.

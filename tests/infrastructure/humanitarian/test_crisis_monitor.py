@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests for infrastructure/humanitarian/crisis_monitoring/crisis_monitor.py module.

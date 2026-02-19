@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 TranAD: Deep Transformer Networks for Anomaly Detection (VLDB 2022)
