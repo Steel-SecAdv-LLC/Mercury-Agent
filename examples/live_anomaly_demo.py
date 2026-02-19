@@ -29,10 +29,10 @@ capabilities using simulated streaming data. It showcases:
 4. Visual output with detection timestamps and confidence scores
 
 Usage:
-    python demos/live_anomaly_demo.py --domain security
-    python demos/live_anomaly_demo.py --domain medical
-    python demos/live_anomaly_demo.py --domain environmental
-    python demos/live_anomaly_demo.py --all
+    python examples/live_anomaly_demo.py --domain security
+    python examples/live_anomaly_demo.py --domain medical
+    python examples/live_anomaly_demo.py --domain environmental
+    python examples/live_anomaly_demo.py --all
 """
 
 import argparse
@@ -489,9 +489,9 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python demos/live_anomaly_demo.py --domain security
-  python demos/live_anomaly_demo.py --domain medical --samples 100
-  python demos/live_anomaly_demo.py --all --delay 100
+  python examples/live_anomaly_demo.py --domain security
+  python examples/live_anomaly_demo.py --domain medical --samples 100
+  python examples/live_anomaly_demo.py --all --delay 100
         """,
     )
     parser.add_argument(

@@ -271,16 +271,16 @@ Mercury Agent ♱ includes a live demonstration script that showcases real-time 
 
 ```bash
 # Run security domain demo (network intrusion detection)
-python demos/live_anomaly_demo.py --domain security --samples 30
+python examples/live_anomaly_demo.py --domain security --samples 30
 
 # Run medical domain demo (vital signs anomaly detection)
-python demos/live_anomaly_demo.py --domain medical --samples 30
+python examples/live_anomaly_demo.py --domain medical --samples 30
 
 # Run environmental domain demo (sensor anomaly detection)
-python demos/live_anomaly_demo.py --domain environmental --samples 30
+python examples/live_anomaly_demo.py --domain environmental --samples 30
 
 # Run all domains
-python demos/live_anomaly_demo.py --all --samples 20
+python examples/live_anomaly_demo.py --all --samples 20
 ```
 
 #### Demo Features
