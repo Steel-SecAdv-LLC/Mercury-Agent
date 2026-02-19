@@ -9,11 +9,11 @@
 <div align="center">
 
 ![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-5114%2B-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-5500%2B-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-85%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -23,7 +23,7 @@
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.4                        |
+              |                                   Mercury Agent ♱ v1.5.1                      |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -566,7 +566,7 @@ Optimized for both accuracy and interpretability:
 | Multi-Domain Coverage | 22+ detection engines across 5 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 4,596 tests in 244 files, property-based testing, security scanning |
+| Comprehensive Testing | 5,500+ tests across 226 files, property-based testing, security scanning |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
 | Codebase Scale | 455 Python modules, 268,000+ lines of code |
@@ -967,7 +967,7 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **5,000+ tests** across 224 test files
+- **5,500+ tests** across 226 test files
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
 - **Coverage tracking**: 85%+ across core modules
@@ -1781,7 +1781,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent ♱ v1.4 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent ♱ v1.5.1 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
