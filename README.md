@@ -1015,6 +1015,7 @@ GitHub Actions automatically tests:
 | Input Validation | OWASP-compliant SQL/XSS/injection detection |
 | Authentication | JWT with proper expiration and signature verification |
 | Cryptography | Kyber768/Dilithium3 via liboqs with classical fallback |
+| Rust Crypto | AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id via PyO3 (see `rust_crypto/`) |
 | Rate Limiting | Token bucket algorithm with configurable limits |
 | Secret Detection | detect-secrets in pre-commit hooks |
 
@@ -1288,6 +1289,13 @@ Mercury Agent ♱ employs a comprehensive security architecture designed for pro
 - Kyber768 key encapsulation
 - Dilithium3 digital signatures
 - Classical fallback for compatibility
+
+**Rust Cryptographic Module** (`rust_crypto/`):
+- AES-256-GCM and ChaCha20-Poly1305 AEAD encryption
+- BLAKE3 hashing (6.5x faster than Python `cryptography`)
+- Argon2id key derivation
+- Constant-time comparisons (timing-attack resistant)
+- Python bindings via PyO3; build with `maturin develop`
 
 </details>
 

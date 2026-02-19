@@ -155,3 +155,165 @@ Source: `https://physionet.org/content/mimiciii/1.4/`
 Issue: Requires credentialed access and CITI training.
 To access: https://mimic.physionet.org/gettingstarted/access/
 Loader: `MIMICLoader` in `src/omni_mercury_engine/datasets/medical.py`
+
+---
+
+## Real-World Domain API Reference
+
+This section catalogs all real-world data sources used by Mercury-Agent's domain-specific
+anomaly detectors. Every benchmark result is from real data with a verifiable source.
+No synthetic data is used in any benchmark.
+
+### Domain: Earthquake
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `EarthquakeLoader` |
+| **API** | USGS Earthquake Hazards Program |
+| **Real-time URL** | `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson` |
+| **Historical URL** | `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson` |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government) |
+| **Ground Truth Events** | Turkey-Syria 2023 (M7.8), Noto 2024 (M7.5), Tohoku 2011 (M9.1) |
+
+### Domain: Tsunami
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `TsunamiLoader` |
+| **API** | NOAA National Data Buoy Center (NDBC) — DART buoys |
+| **Real-time URL** | `https://www.ndbc.noaa.gov/data/realtime2/{station_id}.dart` |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government) |
+| **Ground Truth Events** | Tohoku 2011, Chile 2010, Tonga 2022 |
+
+### Domain: Hurricane / Cyclone
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `HurricaneLoader` |
+| **API** | NOAA International Best Track Archive (IBTrACS) |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government) |
+| **Anomaly Target** | Rapid intensification (ΔV >= 30kt in 24h) |
+
+### Domain: Tornado
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `TornadoLoader` |
+| **API** | NOAA Storm Prediction Center (SPC) |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government) |
+
+### Domain: Flood
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `FloodLoader` |
+| **API** | USGS Water Services + OpenFEMA |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government) |
+
+### Domain: Wildfire
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `WildfireLoader` |
+| **API** | NASA FIRMS (Fire Information for Resource Management System) |
+| **API Key** | **Required** (free) — Register at https://firms.modaps.eosdis.nasa.gov/api/map_key/ |
+| **Env Variable** | `NASA_FIRMS_MAP_KEY` |
+| **License** | Public Domain (US Government / NASA) |
+
+### Domain: Volcanic
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `VolcanicLoader` |
+| **API** | USGS Volcano Hazards Program |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government) |
+
+### Domain: Landslide
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `LandslideLoader` |
+| **API** | NASA Global Landslide Catalog (COOLR) |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government / NASA) |
+
+### Domain: Sepsis / Critical Care
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `SepsisLoader` |
+| **API** | PhysioNet/CinC Challenge 2019 |
+| **API Key** | Not required (open challenge dataset) |
+| **License** | PhysioNet Credentialed Health Data License |
+
+### Domain: Pandemic
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `PandemicLoader` |
+| **API** | Our World in Data + WHO GHO |
+| **API Key** | Not required |
+| **License** | Creative Commons (OWID), Public Domain (WHO) |
+
+### Domain: Financial Crisis
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `FinancialLoader` |
+| **API** | FRED (Federal Reserve Economic Data) |
+| **API Key** | **Required** (free) — Register at https://fred.stlouisfed.org/docs/api/api_key.html |
+| **Env Variable** | `FRED_API_KEY` |
+| **License** | Public Domain (US Government) |
+
+### Domain: EMP / Energy Grid
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `EnergyLoader` |
+| **API** | NOAA Space Weather Prediction Center + EIA |
+| **EIA Key** | Optional (free) — Register at https://www.eia.gov/opendata/register.php |
+| **Env Variable** | `EIA_API_KEY` (optional) |
+
+### Domain: Marine Biodiversity
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `MarineLoader` |
+| **API** | OBIS (Ocean Biodiversity Information System) |
+| **API Key** | Not required |
+| **License** | Open Access |
+
+### Domain: Network Security
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `NetworkSecurityLoader` |
+| **Datasets** | NSL-KDD, CICIDS2017, BATADAL |
+| **API Key** | Not required |
+| **License** | Research use |
+
+### Domain: FEMA Cross-Domain
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `FEMALoader` |
+| **API** | OpenFEMA |
+| **API Key** | Not required |
+| **License** | Public Domain (US Government) |
+
+### API Key Summary
+
+| API | Key Required | Env Variable |
+|-----|-------------|--------------|
+| USGS / NOAA / FEMA / WHO | No | — |
+| NASA FIRMS | **Yes** (free) | `NASA_FIRMS_MAP_KEY` |
+| FRED | **Yes** (free) | `FRED_API_KEY` |
+| EIA | Optional (free) | `EIA_API_KEY` |
+
+All API keys are stored in environment variables, never in code. See `.env.example` for the complete list.

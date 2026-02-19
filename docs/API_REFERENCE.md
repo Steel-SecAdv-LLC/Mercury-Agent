@@ -19,11 +19,17 @@ components = result["ensemble_components"]   # Per-component scores
 
 ### Ensemble Components
 
-| Component | Weight | Method |
-|-----------|--------|--------|
+| Component | Default Weight | Method |
+|-----------|---------------|--------|
 | ResonanceScore | 40% | FFT spectral density profiling |
 | KinematicScore | 30% | Derivative-based dynamics (velocity, acceleration, jerk) |
 | InfoGeometryScore | 30% | Fisher information / Mahalanobis distance |
+
+> **Note:** Weights are **adaptive** after `fit()`. The detector computes per-component
+> AUC separation and assigns weights proportional to each component's discriminative
+> power. Components with AUC < 0.5 (inverted signal) receive zero weight. The
+> 40/30/30 split above is the **fallback default** used only when all components
+> produce near-random scores. See `_compute_adaptive_weights()` in `statistical.py`.
 
 ### Config Options
 
