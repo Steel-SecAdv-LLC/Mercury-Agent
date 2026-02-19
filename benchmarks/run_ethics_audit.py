@@ -19,7 +19,7 @@ import sys
 def main() -> int:
     """Run basic ethics module import check."""
     try:
-        from omni_mercury_engine.core.ai_ethics import EthicalScorer  # noqa: F401
+        from omni_mercury_engine.core.ai_ethics import EthicsConfig  # noqa: F401
 
         print("Ethics audit: ai_ethics module importable.")
     except ImportError as e:

@@ -332,7 +332,7 @@ The live demo demonstrates:
 <details>
 <summary><strong>Click to expand 3R Mathematical Framework</strong></summary>
 
-The **3R mechanism** (Recursion-Resonance-Refactoring) is a novel mathematical method for anomaly detection and optimization that forms the core of Mercury Agent ♱'s detection capabilities. This framework synergizes three complementary engines to achieve superior pattern recognition and adaptive learning.
+The **3R mechanism** (Recursion-Resonance-Refactoring) is a mathematical method for anomaly detection and optimization that forms the core of Mercury Agent ♱'s detection capabilities. This framework combines three complementary engines for pattern recognition and adaptive learning.
 
 ### Recursion Engine
 
@@ -566,7 +566,7 @@ Optimized for both accuracy and interpretability:
 | Multi-Domain Coverage | 22+ detection engines across 5 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 5,300+ tests in 244 files, property-based testing, security scanning |
+| Comprehensive Testing | 4,596 tests in 244 files, property-based testing, security scanning |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
 | Codebase Scale | 455 Python modules, 268,000+ lines of code |
