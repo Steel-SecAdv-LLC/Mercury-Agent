@@ -982,6 +982,8 @@ is_stable = OmniCodes.validate_stability(min_total=50.0)  # True
 4. **Advanced Harmonics**: Higher l_max for more detailed 3D analysis
 5. **AutoML**: Automatic hyperparameter tuning for Ava optimizers
 6. **Federated Learning**: Privacy-preserving distributed training
+   - `federated_learning/` is the canonical package (server, client, privacy engine, CISA coordinator)
+   - `federated/` is a backwards-compatibility shim that re-exports from `federated_learning/`; new code should import from `federated_learning` directly
 7. **Explainability**: SHAP values for model interpretability
 
 ## Conclusion

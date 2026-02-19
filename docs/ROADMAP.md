@@ -36,6 +36,8 @@ Mercury Agent is evolving toward a distributed, privacy-preserving, and explaina
 
 ## 1. Distributed Processing
 
+> **Status: Implemented** in `distributed/cluster.py`, `distributed/raft_consensus.py`. The design below was written pre-implementation; actual API may differ.
+
 ### Current State
 - Single-node deployment with threading for parallelism
 - Local caching via in-memory stores
@@ -140,6 +142,8 @@ class DistributedMercuryCluster:
 ---
 
 ## 2. Additional Biometric Modalities
+
+> **Status: Implemented** in `biometric/iris_recognition.py`, `biometric/fingerprint_recognition.py`, `biometric/voice_recognition.py`. The design below was written pre-implementation; actual API may differ.
 
 ### Current State
 - Facial recognition behavioral analysis
@@ -262,6 +266,8 @@ class BiometricAnomalyDetector:
 
 ## 3. Real Quantum Computing Integration
 
+> **Status: Implemented** in `quantum_computing/circuits.py`, `quantum_computing/executor.py`, `quantum_computing/hybrid.py`. The design below was written pre-implementation; actual API may differ.
+
 ### Current State
 - Simulated quantum operations via NumPy
 - Quantum-inspired algorithms (annealing simulation)
@@ -378,6 +384,8 @@ class QuantumAnomalyDetector:
 ---
 
 ## 4. Advanced Harmonics
+
+> **Status: Implemented** in `harmonics/analyzer.py`, `harmonics/features.py`, `harmonics/transform.py`. The design below was written pre-implementation; actual API may differ.
 
 ### Current State
 - Basic spherical harmonic decomposition
@@ -510,6 +518,8 @@ class AdvancedHarmonicAnalyzer:
 ---
 
 ## 5. AutoML
+
+> **Status: Implemented** in `automl/optimizer.py`, `automl/schedulers.py`, `automl/search_space.py`. The design below was written pre-implementation; actual API may differ.
 
 ### Current State
 - Manual hyperparameter configuration
@@ -645,6 +655,8 @@ class MercuryAutoML:
 
 ## 6. Federated Learning
 
+> **Status: Implemented** in `federated_learning/client.py`, `federated_learning/server.py`, `federated_learning/privacy.py`. The design below was written pre-implementation; actual API may differ.
+
 ### Current State
 - Centralized training only
 - No support for distributed data sources
@@ -769,6 +781,8 @@ class FederatedMercury:
 ---
 
 ## 7. Explainability
+
+> **Status: Implemented** in `explainability/shap.py`, `explainability/counterfactuals.py`, `explainability/gdpr_compliance.py`. The design below was written pre-implementation; actual API may differ.
 
 ### Current State
 - Basic feature importance via permutation

@@ -293,6 +293,8 @@ The live demo demonstrates:
 - **Threat classification** with severity levels (LOW/MEDIUM/HIGH/CRITICAL)
 - **JSON output** for integration with monitoring systems
 
+A recorded demo session is available at [`assets/live_anomaly_demo.mp4`](assets/live_anomaly_demo.mp4).
+
 #### Sample Output
 
 ```
@@ -1154,6 +1156,12 @@ docker build --target builder -t mercury-agent:builder .
 # Deploy to Kubernetes
 helm install mercury-agent ./helm/mercury-agent -f values.yaml
 ```
+
+> **Note:** The Kubernetes, Helm, and monitoring configurations in `k8s/`, `helm/`, and
+> `monitoring/` are **reference configurations** for those who wish to deploy Mercury Agent
+> in containerized environments. Mercury Agent is research-grade, community-tested software
+> that has not been externally audited for production hardening. Review and adapt these
+> configurations to your security requirements before deploying.
 
 </details>
 
