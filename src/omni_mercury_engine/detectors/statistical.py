@@ -664,6 +664,9 @@ class MercuryAnomalyDetector(BaseDetector):
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
+        # mypy can't narrow through compound `TORCH_AVAILABLE and isinstance`
+        assert isinstance(data, np.ndarray)
+
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
@@ -1035,6 +1038,9 @@ class MercuryAnomalyDetector(BaseDetector):
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
+        # mypy can't narrow through compound `TORCH_AVAILABLE and isinstance`
+        assert isinstance(data, np.ndarray)
+
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
@@ -1058,7 +1064,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
         if TORCH_AVAILABLE:
             return torch.tensor(features, dtype=torch.float32)
-        return features
+        return features  # type: ignore[return-value]
 
     def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute z-scores.
