@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs/ROADMAP.md: Marked all 7 planned capabilities as implemented
 - CONTRIBUTING.md: Fixed Python version requirement from 3.12 to 3.11+
 - .gitignore: Added coverage for generated report files
-- DEAD_CODE.md: Created inventory of 59 orphaned modules
+
 
 ### Calibration Pipeline Integration
 - ThresholdCalibrationPipeline wired into MercuryAnomalyDetector.fit_with_labels()
