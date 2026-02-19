@@ -31,7 +31,8 @@ Tests cover:
 7. CorticalLoss function components
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import torch

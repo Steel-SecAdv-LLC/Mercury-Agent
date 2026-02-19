@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
 try:
     import torch
     from torch import nn
@@ -108,6 +109,7 @@ class DimensionalWeights:
 
 
 if TORCH_AVAILABLE:
+
     class NeuralProjection(nn.Module):
         """Neural network autoencoder for dimensionality reduction.
 
@@ -158,12 +160,12 @@ if TORCH_AVAILABLE:
             latent = self.encoder(x)
             reconstructed = self.decoder(latent)
             return latent, reconstructed
+
 else:
-    def NeuralProjection(*args: Any, **kwargs: Any) -> None:  # type: ignore[misc]
+
+    def NeuralProjection(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: NeuralProjection requires PyTorch."""
-        raise ImportError(
-            "NeuralProjection requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("NeuralProjection requires PyTorch. Install with: pip install torch")
 
 
 class DimensionalAnalyzer(BaseDetector):

@@ -80,6 +80,7 @@ class AttentionVisualization:
 
 
 if TORCH_AVAILABLE:
+
     class TemperatureScaledAttention(nn.Module):
         """
         Attention mechanism with learnable temperature scaling.
@@ -750,35 +751,28 @@ if TORCH_AVAILABLE:
             )
 
 else:
-    def TemperatureScaledAttention(*args: Any, **kwargs: Any):  # type: ignore[misc]
+
+    def TemperatureScaledAttention(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: TemperatureScaledAttention requires PyTorch."""
         raise ImportError(
             "TemperatureScaledAttention requires PyTorch. Install with: pip install torch"
         )
 
-    def SparseAttention(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def SparseAttention(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: SparseAttention requires PyTorch."""
-        raise ImportError(
-            "SparseAttention requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("SparseAttention requires PyTorch. Install with: pip install torch")
 
-    def AdaptiveHeadAttention(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def AdaptiveHeadAttention(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: AdaptiveHeadAttention requires PyTorch."""
-        raise ImportError(
-            "AdaptiveHeadAttention requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("AdaptiveHeadAttention requires PyTorch. Install with: pip install torch")
 
-    def UncertaintyQuantifier(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def UncertaintyQuantifier(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: UncertaintyQuantifier requires PyTorch."""
-        raise ImportError(
-            "UncertaintyQuantifier requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("UncertaintyQuantifier requires PyTorch. Install with: pip install torch")
 
-    def AdaptiveFusionLayer(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def AdaptiveFusionLayer(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: AdaptiveFusionLayer requires PyTorch."""
-        raise ImportError(
-            "AdaptiveFusionLayer requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("AdaptiveFusionLayer requires PyTorch. Install with: pip install torch")
 
 
 def create_attention_heatmap(

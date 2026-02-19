@@ -91,6 +91,7 @@ class NanoSafeguardResult:
 
 
 if TORCH_AVAILABLE:
+
     class HierarchicalMicroScanner(nn.Module):
         """
         Hierarchical micro-pattern scanner using multi-scale convolutions.
@@ -151,7 +152,8 @@ if TORCH_AVAILABLE:
             return score, scale_features
 
 else:
-    def HierarchicalMicroScanner(*args: Any, **kwargs: Any):  # type: ignore[misc]
+
+    def HierarchicalMicroScanner(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: HierarchicalMicroScanner requires PyTorch."""
         raise ImportError(
             "HierarchicalMicroScanner requires PyTorch. Install with: pip install torch"

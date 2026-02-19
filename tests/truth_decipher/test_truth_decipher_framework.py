@@ -32,7 +32,8 @@ Five-Phase Architecture (Enhanced with Cognitive Layer):
 5. Resolution: Automated fixes with self-healing and autonomous execution
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import numpy as np

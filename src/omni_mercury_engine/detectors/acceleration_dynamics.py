@@ -243,6 +243,7 @@ class AccelerationAnomalyResult:
 # =============================================================================
 
 if TORCH_AVAILABLE:
+
     class MotionEncoder(nn.Module):
         """Neural network encoder for motion feature extraction.
 
@@ -457,19 +458,16 @@ if TORCH_AVAILABLE:
             return predicted.squeeze(-1), violation_scores.squeeze(-1)
 
 else:
-    def MotionEncoder(*args: Any, **kwargs: Any):  # type: ignore[misc]
+
+    def MotionEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: MotionEncoder requires PyTorch."""
-        raise ImportError(
-            "MotionEncoder requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("MotionEncoder requires PyTorch. Install with: pip install torch")
 
-    def PhaseSpaceNetwork(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def PhaseSpaceNetwork(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: PhaseSpaceNetwork requires PyTorch."""
-        raise ImportError(
-            "PhaseSpaceNetwork requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("PhaseSpaceNetwork requires PyTorch. Install with: pip install torch")
 
-    def EnergyConservationNetwork(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def EnergyConservationNetwork(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: EnergyConservationNetwork requires PyTorch."""
         raise ImportError(
             "EnergyConservationNetwork requires PyTorch. Install with: pip install torch"

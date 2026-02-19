@@ -5,7 +5,8 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import pytest

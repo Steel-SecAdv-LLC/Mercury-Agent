@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 try:
     import torch
     from torch import nn
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -667,10 +668,12 @@ class BaseModel(ABC):
         if TORCH_AVAILABLE:
             return torch.zeros(len(data) if hasattr(data, "__len__") else 1)
         import numpy as np
+
         return np.zeros(len(data) if hasattr(data, "__len__") else 1)
 
 
 if TORCH_AVAILABLE:
+
     class BaseEncoder(nn.Module):
         """Abstract base class for feature encoders.
 
@@ -704,12 +707,12 @@ if TORCH_AVAILABLE:
         def get_output_dim(self) -> int:
             """Get output embedding dimension."""
             return self.output_dim
+
 else:
-    def BaseEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[misc]
+
+    def BaseEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: BaseEncoder requires PyTorch."""
-        raise ImportError(
-            "BaseEncoder requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("BaseEncoder requires PyTorch. Install with: pip install torch")
 
 
 @dataclass

@@ -11,7 +11,8 @@ Comprehensive test suite for neurocritical care components:
 Target: 85%+ code coverage for life-critical module.
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import numpy as np

@@ -70,23 +70,15 @@ _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
         "create_spectral_detector",
         "create_uiux_detector",
     ),
-    "omni_mercury_engine.detectors.dimensional": (
-        "DimensionalAnalyzer",
-    ),
-    "omni_mercury_engine.detectors.directive": (
-        "SigmaDirectiveDetector",
-    ),
-    "omni_mercury_engine.detectors.spatial": (
-        "SpatialAnomalyDetector",
-    ),
+    "omni_mercury_engine.detectors.dimensional": ("DimensionalAnalyzer",),
+    "omni_mercury_engine.detectors.directive": ("SigmaDirectiveDetector",),
+    "omni_mercury_engine.detectors.spatial": ("SpatialAnomalyDetector",),
     "omni_mercury_engine.detectors.spectral_vibration": (
         "SpectralAnalysisMode",
         "SpectralVibrationDetector",
         "VibrationSignatureType",
     ),
-    "omni_mercury_engine.detectors.temporal": (
-        "TemporalAnomalyDetector",
-    ),
+    "omni_mercury_engine.detectors.temporal": ("TemporalAnomalyDetector",),
     "omni_mercury_engine.detectors.uiux_anomaly": (
         "AnomalyCategory",
         "InteractionType",

@@ -22,7 +22,8 @@ from __future__ import annotations
 Tests for STEM Discipline Router for multi-engine fusion.
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import torch

@@ -19,7 +19,8 @@ unit tests might miss.
 """
 
 # Import modules to test
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("sklearn")
 
 import sys

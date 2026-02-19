@@ -37,11 +37,14 @@ References:
 from typing import Any
 
 import numpy as np
-from scipy import linalg as sp_linalg
-from scipy import stats as sp_stats
+from scipy import (
+    linalg as sp_linalg,
+    stats as sp_stats,
+)
 
 try:
     import torch
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -239,17 +242,19 @@ class MercuryAnomalyDetector(BaseDetector):
         self._adaptive_weights = self._compute_adaptive_weights(arr, labels)
 
         import logging as _log_aw
+
         _logger_aw = _log_aw.getLogger(__name__)
-        _component_names = ['resonance', 'kinematic', 'infogeo']
-        _logger_aw.info(
-            "fit_with_labels: adaptive weights source=%s", self._weight_source
-        )
+        _component_names = ["resonance", "kinematic", "infogeo"]
+        _logger_aw.info("fit_with_labels: adaptive weights source=%s", self._weight_source)
         for _i, _k in enumerate(_component_names):
             _auc_val = self._component_aucs[_k]
             _direction = "OK" if _auc_val >= 0.5 else "INVERTED"
             _logger_aw.info(
                 "  %s: AUC=%.4f weight=%.3f %s",
-                _k, _auc_val, self._adaptive_weights[_i], _direction,
+                _k,
+                _auc_val,
+                self._adaptive_weights[_i],
+                _direction,
             )
 
         # Generate ensemble scores for the training data
@@ -263,9 +268,7 @@ class MercuryAnomalyDetector(BaseDetector):
             )
 
             if group_ids is None:
-                raise ValueError(
-                    "strategy='mondrian' requires group_ids to be provided"
-                )
+                raise ValueError("strategy='mondrian' requires group_ids to be provided")
             group_ids = np.asarray(group_ids).ravel()
             mcp = MondrianConformalPredictor(coverage=0.90)
             mcp.fit(scores, group_ids)
@@ -282,6 +285,7 @@ class MercuryAnomalyDetector(BaseDetector):
         # Evaluate both and keep the threshold that yields the higher
         # training F1.  For cost-sensitive, honour the caller's choice.
         import logging as _log
+
         _logger = _log.getLogger(__name__)
 
         if strategy == "cost_sensitive":
@@ -311,11 +315,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 fn = int(np.sum(~preds & (labels == 1)))
                 prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
                 rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-                f1 = (
-                    2 * prec * rec / (prec + rec)
-                    if (prec + rec) > 0
-                    else 0.0
-                )
+                f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
                 if f1 > best_f1:
                     best_f1 = f1
                     best_threshold = result.threshold
@@ -556,7 +556,7 @@ class MercuryAnomalyDetector(BaseDetector):
         neg = scores[labels == 0]
         if len(pos) == 0 or len(neg) == 0:
             return 0.5
-        u_stat, _ = sp_stats.mannwhitneyu(pos, neg, alternative='greater')
+        u_stat, _ = sp_stats.mannwhitneyu(pos, neg, alternative="greater")
         return float(u_stat / (len(pos) * len(neg)))
 
     def _compute_adaptive_weights(
@@ -584,16 +584,18 @@ class MercuryAnomalyDetector(BaseDetector):
         kinematic_scores = self._compute_kinematic_score(X)
         infogeo_scores = self._compute_info_geometry_score(X)
 
-        aucs = np.array([
-            self._component_separation(resonance_scores, labels),
-            self._component_separation(kinematic_scores, labels),
-            self._component_separation(infogeo_scores, labels),
-        ])
+        aucs = np.array(
+            [
+                self._component_separation(resonance_scores, labels),
+                self._component_separation(kinematic_scores, labels),
+                self._component_separation(infogeo_scores, labels),
+            ]
+        )
 
         self._component_aucs = {
-            'resonance': float(aucs[0]),
-            'kinematic': float(aucs[1]),
-            'infogeo': float(aucs[2]),
+            "resonance": float(aucs[0]),
+            "kinematic": float(aucs[1]),
+            "infogeo": float(aucs[2]),
         }
 
         # Inverted components get zero contribution
@@ -601,7 +603,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
         total = effective_aucs.sum()
         if total < 1e-6:
-            self._weight_source = 'fallback_default'
+            self._weight_source = "fallback_default"
             return np.array([0.40, 0.30, 0.30])
 
         weights = effective_aucs / total
@@ -610,7 +612,7 @@ class MercuryAnomalyDetector(BaseDetector):
         weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
         weights = weights / weights.sum()
 
-        self._weight_source = 'adaptive'
+        self._weight_source = "adaptive"
         return weights
 
     # =====================================================================
@@ -677,10 +679,8 @@ class MercuryAnomalyDetector(BaseDetector):
         info_geo = self._compute_info_geometry_score(data)
 
         # --- Ensemble (weighted average) ---
-        weights = getattr(self, '_adaptive_weights', np.array([0.40, 0.30, 0.30]))
-        combined_scores = (
-            weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
-        )
+        weights = getattr(self, "_adaptive_weights", np.array([0.40, 0.30, 0.30]))
+        combined_scores = weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # --- Threshold & calibration ---

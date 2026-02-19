@@ -205,6 +205,7 @@ class SolarFlarePredictionResult:
 
 
 if TORCH_AVAILABLE:
+
     class WaveformFFTAnalyzer(nn.Module):
         """FFT-based waveform analyzer for tsunami detection.
 
@@ -267,14 +268,14 @@ if TORCH_AVAILABLE:
             return tsunami_prob.squeeze(-1), wave_height.squeeze(-1)
 
 else:
-    def WaveformFFTAnalyzer(*args: Any, **kwargs: Any):  # type: ignore[misc]
+
+    def WaveformFFTAnalyzer(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: WaveformFFTAnalyzer requires PyTorch."""
-        raise ImportError(
-            "WaveformFFTAnalyzer requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("WaveformFFTAnalyzer requires PyTorch. Install with: pip install torch")
 
 
 if TORCH_AVAILABLE:
+
     class SeismicWaveAnalyzer(nn.Module):
         """P/S-wave spectrogram analyzer for earthquake detection.
 
@@ -357,11 +358,10 @@ if TORCH_AVAILABLE:
             )
 
 else:
-    def SeismicWaveAnalyzer(*args: Any, **kwargs: Any):  # type: ignore[misc]
+
+    def SeismicWaveAnalyzer(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: SeismicWaveAnalyzer requires PyTorch."""
-        raise ImportError(
-            "SeismicWaveAnalyzer requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("SeismicWaveAnalyzer requires PyTorch. Install with: pip install torch")
 
 
 class BayesianMeteorFilter:

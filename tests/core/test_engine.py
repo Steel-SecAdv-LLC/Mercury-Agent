@@ -22,7 +22,8 @@ from __future__ import annotations
 Test main engine functionality
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 from omni_mercury_engine.engine import OmniMercuryEngine

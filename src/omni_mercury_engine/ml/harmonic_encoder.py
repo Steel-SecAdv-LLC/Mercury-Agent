@@ -300,6 +300,7 @@ class QuantumHarmonicOscillator:
 
 
 if TORCH_AVAILABLE:
+
     class HarmonicEncoder(nn.Module):
         """
         PyTorch module wrapping harmonic analysis for ML fusion
@@ -344,7 +345,9 @@ if TORCH_AVAILABLE:
                 values_np = values.cpu().numpy()
 
                 coeffs = self.spherical_decomposer.decompose_surface(points_np, values_np)
-                power_spectrum = self.spherical_decomposer.compute_rotation_invariant_features(coeffs)
+                power_spectrum = self.spherical_decomposer.compute_rotation_invariant_features(
+                    coeffs
+                )
                 features.append(torch.tensor(power_spectrum, dtype=torch.float32))
 
             if signal is not None:
@@ -375,8 +378,7 @@ if TORCH_AVAILABLE:
             return encoded.squeeze(0)
 
 else:
-    def HarmonicEncoder(*args: Any, **kwargs: Any):  # type: ignore[misc]
+
+    def HarmonicEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: HarmonicEncoder requires PyTorch."""
-        raise ImportError(
-            "HarmonicEncoder requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("HarmonicEncoder requires PyTorch. Install with: pip install torch")

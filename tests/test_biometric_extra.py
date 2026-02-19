@@ -22,7 +22,8 @@ from __future__ import annotations
 Additional biometric tests to boost coverage above 85%
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import numpy as np

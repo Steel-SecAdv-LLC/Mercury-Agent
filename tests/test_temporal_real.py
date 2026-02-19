@@ -33,7 +33,8 @@ Tests cover:
 6. Continuous score preservation
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import numpy as np

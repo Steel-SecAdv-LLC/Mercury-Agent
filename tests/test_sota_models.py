@@ -7,7 +7,8 @@ Tests for SOTA anomaly detection models.
 
 from __future__ import annotations
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import pytest

@@ -10,7 +10,8 @@ Comprehensive test suite for cardiology components:
 Target: 85%+ code coverage for life-critical module.
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import numpy as np

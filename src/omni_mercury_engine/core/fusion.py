@@ -86,6 +86,7 @@ def _validate_tensor_devices(
 
 
 if TORCH_AVAILABLE:
+
     class AttentionFusion(nn.Module):
         """
         Multi-head attention mechanism for detector fusion.
@@ -187,7 +188,9 @@ if TORCH_AVAILABLE:
                     weights: [batch_size, num_heads, seq_len, seq_len] - Attention weights
             """
             if self.enable_hierarchical:
-                fused, attn_weights = self._hierarchical_forward(detector_embeddings, return_attention)
+                fused, attn_weights = self._hierarchical_forward(
+                    detector_embeddings, return_attention
+                )
             else:
                 attn_output, attn_weights = self.attention(
                     detector_embeddings,
@@ -506,7 +509,9 @@ if TORCH_AVAILABLE:
                     divergences = torch.nan_to_num(divergences, nan=0.0, posinf=10.0, neginf=0.0)
                 resonance = self.compute_resonance(divergences)
             else:
-                resonance = torch.ones(batch_size, self.num_detectors, device=detector_scores.device)
+                resonance = torch.ones(
+                    batch_size, self.num_detectors, device=detector_scores.device
+                )
 
             # Validate detector_scores as well
             if torch.any(~torch.isfinite(detector_scores)):
@@ -587,7 +592,9 @@ if TORCH_AVAILABLE:
             )
 
             # Keep legacy weights for backward compatibility
-            self.late_fusion_weights = nn.Parameter(torch.ones(self.num_detectors) / self.num_detectors)
+            self.late_fusion_weights = nn.Parameter(
+                torch.ones(self.num_detectors) / self.num_detectors
+            )
 
             # Sparse attention for efficiency
             self.sparse_attention: SparseTopKAttention | None
@@ -635,7 +642,9 @@ if TORCH_AVAILABLE:
 
             # Also validate scores if provided
             if detector_scores:
-                score_device, score_dtype = _validate_tensor_devices(detector_scores, "detector_scores")
+                score_device, score_dtype = _validate_tensor_devices(
+                    detector_scores, "detector_scores"
+                )
                 if score_device != device:
                     raise ValueError(
                         f"Device mismatch: detector_features on {device}, "
@@ -673,7 +682,9 @@ if TORCH_AVAILABLE:
 
             stacked_features = torch.stack(projected_features, dim=1)
 
-            attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
+            attended_features, attn_weights = self.attention(
+                stacked_features, return_attention=True
+            )
 
             fused_representation = attended_features
 
@@ -743,7 +754,9 @@ if TORCH_AVAILABLE:
             return (scores_tensor * weights.unsqueeze(0)).sum(dim=1, keepdim=True)
 
         def hybrid_detect(
-            self, detector_features: dict[str, torch.Tensor], detector_scores: dict[str, torch.Tensor]
+            self,
+            detector_features: dict[str, torch.Tensor],
+            detector_scores: dict[str, torch.Tensor],
         ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
             """
             Hybrid detection: combine early + late fusion with attention.
@@ -763,7 +776,9 @@ if TORCH_AVAILABLE:
                     projected_features.append(torch.zeros(batch_size, self.hidden_dim))
 
             stacked_features = torch.stack(projected_features, dim=1)
-            attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
+            attended_features, attn_weights = self.attention(
+                stacked_features, return_attention=True
+            )
 
             attention_dict = {
                 "detector_weights": F.softmax(self.late_fusion_weights, dim=0).detach(),
@@ -795,41 +810,34 @@ if TORCH_AVAILABLE:
             return result
 
 else:
-    def AttentionFusion(*args: Any, **kwargs: Any):  # type: ignore[misc]
+
+    def AttentionFusion(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: AttentionFusion requires PyTorch."""
-        raise ImportError(
-            "AttentionFusion requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("AttentionFusion requires PyTorch. Install with: pip install torch")
 
-    def SparseTopKAttention(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def SparseTopKAttention(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: SparseTopKAttention requires PyTorch."""
-        raise ImportError(
-            "SparseTopKAttention requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("SparseTopKAttention requires PyTorch. Install with: pip install torch")
 
-    def UncertaintyWeightedFusion(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def UncertaintyWeightedFusion(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: UncertaintyWeightedFusion requires PyTorch."""
         raise ImportError(
             "UncertaintyWeightedFusion requires PyTorch. Install with: pip install torch"
         )
 
-    def ResonanceWeightedFusion(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def ResonanceWeightedFusion(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: ResonanceWeightedFusion requires PyTorch."""
         raise ImportError(
             "ResonanceWeightedFusion requires PyTorch. Install with: pip install torch"
         )
 
-    def HybridFusionLayer(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def HybridFusionLayer(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: HybridFusionLayer requires PyTorch."""
-        raise ImportError(
-            "HybridFusionLayer requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("HybridFusionLayer requires PyTorch. Install with: pip install torch")
 
-    def EarlyFusionEncoder(*args: Any, **kwargs: Any):  # type: ignore[misc]
+    def EarlyFusionEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: EarlyFusionEncoder requires PyTorch."""
-        raise ImportError(
-            "EarlyFusionEncoder requires PyTorch. Install with: pip install torch"
-        )
+        raise ImportError("EarlyFusionEncoder requires PyTorch. Install with: pip install torch")
 
 
 class DoubleHelixEvolutionEngine:

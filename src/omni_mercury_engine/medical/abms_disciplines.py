@@ -107,6 +107,7 @@ class MedicalAnomalyResult:
 
 
 if TORCH_AVAILABLE:
+
     class MultiSpecialtyNeuralNet(nn.Module):
         """
         Neural network for multi-specialty medical anomaly detection.
@@ -182,7 +183,8 @@ if TORCH_AVAILABLE:
             return predictions
 
 else:
-    def MultiSpecialtyNeuralNet(*args: Any, **kwargs: Any):  # type: ignore[misc]
+
+    def MultiSpecialtyNeuralNet(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: MultiSpecialtyNeuralNet requires PyTorch."""
         raise ImportError(
             "MultiSpecialtyNeuralNet requires PyTorch. Install with: pip install torch"

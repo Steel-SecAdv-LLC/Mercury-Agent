@@ -10,7 +10,8 @@ Comprehensive test suite for pandemic detection components:
 Target: 85%+ code coverage for public health critical module.
 """
 
-import pytest  # noqa: E402
+import pytest
+
 pytest.importorskip("torch")
 
 import pytest

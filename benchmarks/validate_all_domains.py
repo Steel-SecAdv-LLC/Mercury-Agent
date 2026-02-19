@@ -251,6 +251,7 @@ def _evaluate_domain_mondrian(
 
         ev_scores_cal = calibrate_scores(ev_scores, anomaly_ratio)
         from benchmarks.domain_benchmark_base import compute_auc as _auc
+
         auc = _auc(ev_y, ev_scores_cal)
 
         tp = int(np.sum(ev_preds & (ev_y == 1)))
@@ -413,9 +414,7 @@ def main() -> None:
 
     print(
         f"{'Domain':<14} | {'Before':>7} | {'After':>7} | {'Delta':>7} | "
-        f"{'N':>6} | {'Anom%':>6}"
-        + (f" | {'F1':>5}" if args.calibrate else "")
-        + " | Status"
+        f"{'N':>6} | {'Anom%':>6}" + (f" | {'F1':>5}" if args.calibrate else "") + " | Status"
     )
     print("-" * 76)
 

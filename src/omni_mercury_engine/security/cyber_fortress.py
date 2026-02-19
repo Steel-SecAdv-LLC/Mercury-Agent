@@ -254,6 +254,7 @@ class MultiverseZeroDaySimulator(LoggerMixin):
 
 
 if TORCH_AVAILABLE:
+
     class EncryptedTrafficAnomalyDetector(LoggerMixin):
         """
         Novel encrypted traffic behavioral anomaly detection.
@@ -345,7 +346,9 @@ if TORCH_AVAILABLE:
                 "encrypted_traffic_anomaly": is_anomalous,
                 "anomaly_score": anomaly_score,
                 "behavioral_features": features.tolist(),
-                "recommendations": self._generate_traffic_recommendations(is_anomalous, anomaly_score),
+                "recommendations": self._generate_traffic_recommendations(
+                    is_anomalous, anomaly_score
+                ),
             }
 
         def _generate_traffic_recommendations(self, is_anomalous: bool, score: float) -> list[str]:
@@ -369,7 +372,8 @@ if TORCH_AVAILABLE:
             return recs
 
 else:
-    def EncryptedTrafficAnomalyDetector(*args: Any, **kwargs: Any):  # type: ignore[misc]
+
+    def EncryptedTrafficAnomalyDetector(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
         """Stub: EncryptedTrafficAnomalyDetector requires PyTorch."""
         raise ImportError(
             "EncryptedTrafficAnomalyDetector requires PyTorch. Install with: pip install torch"
