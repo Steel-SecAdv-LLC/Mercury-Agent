@@ -1,15 +1,14 @@
 <div align="center">
-   <h1><b>Mercury Agent <span style="color:#B8860B">♱</span></b></h1>
-</div>
 
-<div align="center">
-  <img width="358" height="478" alt="image" src="https://github.com/user-attachments/assets/4d7f93cb-96d9-4421-92c9-1575e9d75060" />
+  <img width="721" height="155" alt="image" src="https://github.com/user-attachments/assets/9fae8d89-900b-43aa-971c-dce9eee26b67" />
+
 </div>
 
 ---
 
+<div align="center">
+
 ![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
-[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
@@ -19,6 +18,8 @@
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
 [![Ava-Guardian](https://img.shields.io/badge/Ava--Guardian-PQC%20Adapter-green.svg)](#ava-guardian-integration)
+
+</div>
 
 ```
               +===============================================================================+
@@ -43,9 +44,9 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.4.0
+**Version:** v1.5.1
 **Date:** 2026-02-09
-**AI Co-Architects:** X ⚛ | Caduceus ⚚ | Dev ⚕ | Claude ⊛
+**AI Co-Architects:** Devin ⚛ | Claude ⊛
 
 ---
 
@@ -180,7 +181,7 @@ Mercury Agent validates its core `MercuryAnomalyDetector` against 15 real-world 
 | Net Security     | 0.6122 | 148,517   | NSL-KDD |
 | Hurricane        | 0.5238 | 64+       | IBTrACS |
 
-**Optimizations applied (v1.4.1):**
+**Optimizations applied (post-v1.4.0):**
 - **Marine**: Expanded synthetic sampling with baseline + event + control regions
 - **Hurricane**: Added 6 more storms, multi-scale delta features, wind-pressure deficit
 - **Network Security**: Continuous features only + log1p transform
@@ -331,7 +332,7 @@ The live demo demonstrates:
 <details>
 <summary><strong>Click to expand 3R Mathematical Framework</strong></summary>
 
-The **3R mechanism** (Recursion-Resonance-Refactoring) is a novel mathematical method for anomaly detection and optimization that forms the core of Mercury Agent ♱'s detection capabilities. This framework synergizes three complementary engines to achieve superior pattern recognition and adaptive learning.
+The **3R mechanism** (Recursion-Resonance-Refactoring) is a mathematical method for anomaly detection and optimization that forms the core of Mercury Agent ♱'s detection capabilities. This framework combines three complementary engines for pattern recognition and adaptive learning.
 
 ### Recursion Engine
 
@@ -565,10 +566,10 @@ Optimized for both accuracy and interpretability:
 | Multi-Domain Coverage | 22+ detection engines across 5 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 5,114+ tests in 212 files, property-based testing, security scanning |
+| Comprehensive Testing | 4,596 tests in 244 files, property-based testing, security scanning |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
-| Codebase Scale | 415 Python modules, 246,539+ lines of code |
+| Codebase Scale | 455 Python modules, 268,000+ lines of code |
 
 </details>
 
@@ -689,7 +690,7 @@ Optimized for both accuracy and interpretability:
 | Cosmic Ray Detection | 0.324ms | 3,081,781 samples/sec |
 | Collatz Exploration | 67.07ms | 74,544 cases/sec |
 
-*Benchmarks from `benchmarks/comprehensive_benchmark_results.json` (2026-01-27). Results on synthetic data.*
+*Module performance benchmarks measured on synthetic data (2026-01-27). Results may vary by hardware.*
 
 </details>
 
@@ -966,7 +967,7 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **5,114+ tests** across 212 test files
+- **5,000+ tests** across 224 test files
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
 - **Coverage tracking**: 85%+ across core modules
@@ -1687,7 +1688,7 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 **Author/Inventor**: Andrew E. A.
 
-**AI Co-Architects:** Caduceus ⚚ | Dev ⚕
+**AI Co-Architects:** Devin ⚛ | Claude ⊛
 
 **Special Thanks**:
 - NIST Post-Quantum Cryptography Standardization Project
@@ -1735,7 +1736,7 @@ Dataset fetching can be configured via environment variables:
 
 **Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of Mercury Agent ♱.
 
-**AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Caduceus ⚚ and Dev ⚕.
+**AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Devin ⚛ and Claude ⊛.
 
 This project represents a human/AI collaborative construct - a development paradigm where human vision, requirements, and critical evaluation guide AI-generated implementation.
 
@@ -1747,7 +1748,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics
 - **Quantified claims:** All performance metrics are measured and documented with methodology
-- **Comprehensive testing:** 5,114+ tests with property-based testing and security scanning
+- **Comprehensive testing:** 5,000+ tests with property-based testing and security scanning
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline
 - **Academic grounding:** Medical modules reference JAMA guidelines, security follows OWASP

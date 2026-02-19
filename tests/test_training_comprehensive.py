@@ -8,6 +8,10 @@ Targets coverage improvement for training utilities, optimizers, and loss functi
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("torch")
+
 import tempfile
 from pathlib import Path
 

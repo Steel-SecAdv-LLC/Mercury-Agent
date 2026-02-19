@@ -11,6 +11,10 @@ Target: 85%+ code coverage for public health critical module.
 """
 
 import pytest
+
+pytest.importorskip("torch")
+
+import pytest
 import torch
 
 from omni_mercury_engine.medical.pandemic.pandemic_detector import (

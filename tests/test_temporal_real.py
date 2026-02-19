@@ -33,6 +33,10 @@ Tests cover:
 6. Continuous score preservation
 """
 
+import pytest
+
+pytest.importorskip("torch")
+
 import numpy as np
 import pytest
 import torch

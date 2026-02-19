@@ -44,8 +44,13 @@ from dataclasses import dataclass, field
 from functools import wraps
 from typing import TYPE_CHECKING, Any, TypedDict
 
-import torch
-from torch import nn
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -658,44 +663,56 @@ class BaseModel(ABC):
             Uncertainty tensor of shape [batch_size].
         """
 
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             return torch.zeros(data.shape[0])
-        return torch.zeros(len(data) if hasattr(data, "__len__") else 1)
+        if TORCH_AVAILABLE:
+            return torch.zeros(len(data) if hasattr(data, "__len__") else 1)
+        import numpy as np
+
+        return np.zeros(len(data) if hasattr(data, "__len__") else 1)  # type: ignore[return-value]
 
 
-class BaseEncoder(nn.Module):
-    """Abstract base class for feature encoders.
+if TORCH_AVAILABLE:
 
-    Encoders transform variable-length or heterogeneous inputs
-    into fixed-size embeddings suitable for fusion.
-    """
+    class BaseEncoder(nn.Module):
+        """Abstract base class for feature encoders.
 
-    def __init__(self, input_dim: int, output_dim: int) -> None:
-        """Initialize encoder.
-
-        Args:
-            input_dim: Input feature dimension.
-            output_dim: Output embedding dimension.
+        Encoders transform variable-length or heterogeneous inputs
+        into fixed-size embeddings suitable for fusion.
         """
-        super().__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
 
-    @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Encode input features to fixed-size embedding.
+        def __init__(self, input_dim: int, output_dim: int) -> None:
+            """Initialize encoder.
 
-        Args:
-            x: Input tensor of shape [batch_size, input_dim].
+            Args:
+                input_dim: Input feature dimension.
+                output_dim: Output embedding dimension.
+            """
+            super().__init__()
+            self.input_dim = input_dim
+            self.output_dim = output_dim
 
-        Returns:
-            Embedding tensor of shape [batch_size, output_dim].
-        """
-        pass
+        @abstractmethod
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            """Encode input features to fixed-size embedding.
 
-    def get_output_dim(self) -> int:
-        """Get output embedding dimension."""
-        return self.output_dim
+            Args:
+                x: Input tensor of shape [batch_size, input_dim].
+
+            Returns:
+                Embedding tensor of shape [batch_size, output_dim].
+            """
+            pass
+
+        def get_output_dim(self) -> int:
+            """Get output embedding dimension."""
+            return self.output_dim
+
+else:
+
+    def BaseEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        """Stub: BaseEncoder requires PyTorch."""
+        raise ImportError("BaseEncoder requires PyTorch. Install with: pip install torch")
 
 
 @dataclass

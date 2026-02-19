@@ -7,6 +7,10 @@ Tests for ThreeRAttentionBlock and LyapunovAnomalyLoss.
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("torch")
+
 import numpy as np
 import pytest
 import torch

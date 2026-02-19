@@ -22,6 +22,10 @@ from __future__ import annotations
 Test fusion mechanisms
 """
 
+import pytest
+
+pytest.importorskip("torch")
+
 import torch
 
 from omni_mercury_engine.core.fusion import HybridFusionLayer

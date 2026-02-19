@@ -14,6 +14,10 @@ This test suite covers:
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("httpx")
+
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 

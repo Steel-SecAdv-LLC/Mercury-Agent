@@ -10,6 +10,7 @@ We provide security updates for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 1.5.x   | :white_check_mark: |
 | 1.4.x   | :white_check_mark: |
 | 1.2.x   | :white_check_mark: |
 | 1.0.x   | :white_check_mark: |
@@ -253,4 +254,4 @@ We thank the security researchers who have helped improve Mercury Agent ♱'s se
 ---
 
 *Last Updated: 2026-02-09*
-*Version: 1.4.0*
+*Version: 1.5.1*

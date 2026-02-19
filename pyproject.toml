@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mercury-agent"
-version = "1.4.0"
+version = "1.5.1"
 description = "Mercury Agent ♱: ML-Centric Multi-Domain Anomaly Detection Framework"
 readme = "README.md"
 license = {text = "GPL-3.0+"}
@@ -616,7 +616,7 @@ output = "coverage.xml"
 # Flake8 Configuration (via pyproject.toml support)
 # =============================================================================
 [tool.flake8]
-max-line-length = 100
+max-line-length = 120
 extend-ignore = ["E203", "W503", "E402", "E501", "E704"]  # E704: Protocol stubs are valid PEP 544
 exclude = [
     ".git",
@@ -661,7 +661,7 @@ enable = [
 ]
 
 [tool.pylint.format]
-max-line-length = 100
+max-line-length = 120
 
 [tool.pylint.design]
 max-args = 10

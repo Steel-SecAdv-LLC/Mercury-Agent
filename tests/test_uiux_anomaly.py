@@ -7,6 +7,10 @@ Tests for UI/UX Anomaly Detection Module.
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("torch")
+
 import time
 
 import numpy as np

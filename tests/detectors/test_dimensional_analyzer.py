@@ -18,6 +18,10 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("torch")
+
 """Tests for DimensionalAnalyzer detector."""
 
 import numpy as np

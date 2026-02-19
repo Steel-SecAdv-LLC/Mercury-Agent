@@ -43,8 +43,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-import torch
-from torch import nn
+
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 from omni_mercury_engine.core.three_r_mechanism import ResonanceEngine, ThreeRMechanism
 from omni_mercury_engine.models.multiverse import MultiverseOmniEngine
@@ -247,119 +253,131 @@ class MultiverseZeroDaySimulator(LoggerMixin):
         return recs
 
 
-class EncryptedTrafficAnomalyDetector(LoggerMixin):
-    """
-    Novel encrypted traffic behavioral anomaly detection.
+if TORCH_AVAILABLE:
 
-    Uses PyTorch GNN to detect anomalies in encrypted network traffic
-    based on behavioral patterns without decryption.
-    """
-
-    def __init__(self) -> None:
-        self.model = nn.Sequential(
-            nn.Linear(20, 64),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.Sigmoid(),
-        )
-
-    def extract_behavioral_features(
-        self, traffic_data: np.ndarray[Any, Any]
-    ) -> np.ndarray[Any, Any]:
+    class EncryptedTrafficAnomalyDetector(LoggerMixin):
         """
-        Extract behavioral features from encrypted traffic.
+        Novel encrypted traffic behavioral anomaly detection.
 
-        Features include: packet sizes, inter-arrival times, flow patterns,
-        connection metadata (without payload inspection).
-
-        Args:
-            traffic_data: Network traffic metadata
-
-        Returns:
-            Behavioral feature vector
+        Uses PyTorch GNN to detect anomalies in encrypted network traffic
+        based on behavioral patterns without decryption.
         """
-        features = []
 
-        features.extend(
-            [
-                np.mean(traffic_data),
-                np.std(traffic_data),
-                np.percentile(traffic_data, 25),
-                np.percentile(traffic_data, 75),
-                np.max(traffic_data) - np.min(traffic_data),
-            ]
-        )
+        def __init__(self) -> None:
+            self.model = nn.Sequential(
+                nn.Linear(20, 64),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+                nn.Linear(64, 32),
+                nn.ReLU(),
+                nn.Linear(32, 1),
+                nn.Sigmoid(),
+            )
 
-        if traffic_data.ndim > 1 and traffic_data.shape[1] > 1:
+        def extract_behavioral_features(
+            self, traffic_data: np.ndarray[Any, Any]
+        ) -> np.ndarray[Any, Any]:
+            """
+            Extract behavioral features from encrypted traffic.
+
+            Features include: packet sizes, inter-arrival times, flow patterns,
+            connection metadata (without payload inspection).
+
+            Args:
+                traffic_data: Network traffic metadata
+
+            Returns:
+                Behavioral feature vector
+            """
+            features = []
+
             features.extend(
                 [
-                    np.mean(np.diff(traffic_data[:, 0])),
-                    np.std(np.diff(traffic_data[:, 0])),
+                    np.mean(traffic_data),
+                    np.std(traffic_data),
+                    np.percentile(traffic_data, 25),
+                    np.percentile(traffic_data, 75),
+                    np.max(traffic_data) - np.min(traffic_data),
                 ]
             )
-        else:
-            features.extend([0.0, 0.0])
 
-        features.extend(
-            [
-                len(traffic_data),
-                float(np.sum(traffic_data > np.median(traffic_data))),
-            ]
-        )
-
-        while len(features) < 20:
-            features.append(0.0)
-
-        return np.array(features[:20], dtype=np.float32)
-
-    def detect_anomaly(self, traffic_data: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """
-        Detect behavioral anomalies in encrypted traffic.
-
-        Args:
-            traffic_data: Encrypted network traffic metadata
-
-        Returns:
-            Anomaly detection results
-        """
-        features = self.extract_behavioral_features(traffic_data)
-
-        self.model.eval()
-        with torch.no_grad():
-            features_tensor = torch.tensor(features).unsqueeze(0)
-            anomaly_score = float(self.model(features_tensor).item())
-
-        is_anomalous = anomaly_score > 0.5
-
-        return {
-            "encrypted_traffic_anomaly": is_anomalous,
-            "anomaly_score": anomaly_score,
-            "behavioral_features": features.tolist(),
-            "recommendations": self._generate_traffic_recommendations(is_anomalous, anomaly_score),
-        }
-
-    def _generate_traffic_recommendations(self, is_anomalous: bool, score: float) -> list[str]:
-        """Generate recommendations based on traffic analysis."""
-        recs = []
-
-        if is_anomalous:
-            if score > 0.9:
-                recs.append("CRITICAL: Highly anomalous encrypted traffic detected")
-                recs.append("Potential data exfiltration or C2 communication")
-                recs.append("Isolate affected endpoints immediately")
-            elif score > 0.7:
-                recs.append("HIGH: Suspicious encrypted traffic patterns")
-                recs.append("Investigate source/destination endpoints")
+            if traffic_data.ndim > 1 and traffic_data.shape[1] > 1:
+                features.extend(
+                    [
+                        np.mean(np.diff(traffic_data[:, 0])),
+                        np.std(np.diff(traffic_data[:, 0])),
+                    ]
+                )
             else:
-                recs.append("MODERATE: Anomalous traffic behavior detected")
-                recs.append("Monitor for escalation")
-        else:
-            recs.append("Normal encrypted traffic behavior")
+                features.extend([0.0, 0.0])
 
-        return recs
+            features.extend(
+                [
+                    len(traffic_data),
+                    float(np.sum(traffic_data > np.median(traffic_data))),
+                ]
+            )
+
+            while len(features) < 20:
+                features.append(0.0)
+
+            return np.array(features[:20], dtype=np.float32)
+
+        def detect_anomaly(self, traffic_data: np.ndarray[Any, Any]) -> dict[str, Any]:
+            """
+            Detect behavioral anomalies in encrypted traffic.
+
+            Args:
+                traffic_data: Encrypted network traffic metadata
+
+            Returns:
+                Anomaly detection results
+            """
+            features = self.extract_behavioral_features(traffic_data)
+
+            self.model.eval()
+            with torch.no_grad():
+                features_tensor = torch.tensor(features).unsqueeze(0)
+                anomaly_score = float(self.model(features_tensor).item())
+
+            is_anomalous = anomaly_score > 0.5
+
+            return {
+                "encrypted_traffic_anomaly": is_anomalous,
+                "anomaly_score": anomaly_score,
+                "behavioral_features": features.tolist(),
+                "recommendations": self._generate_traffic_recommendations(
+                    is_anomalous, anomaly_score
+                ),
+            }
+
+        def _generate_traffic_recommendations(self, is_anomalous: bool, score: float) -> list[str]:
+            """Generate recommendations based on traffic analysis."""
+            recs = []
+
+            if is_anomalous:
+                if score > 0.9:
+                    recs.append("CRITICAL: Highly anomalous encrypted traffic detected")
+                    recs.append("Potential data exfiltration or C2 communication")
+                    recs.append("Isolate affected endpoints immediately")
+                elif score > 0.7:
+                    recs.append("HIGH: Suspicious encrypted traffic patterns")
+                    recs.append("Investigate source/destination endpoints")
+                else:
+                    recs.append("MODERATE: Anomalous traffic behavior detected")
+                    recs.append("Monitor for escalation")
+            else:
+                recs.append("Normal encrypted traffic behavior")
+
+            return recs
+
+else:
+
+    def EncryptedTrafficAnomalyDetector(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        """Stub: EncryptedTrafficAnomalyDetector requires PyTorch."""
+        raise ImportError(
+            "EncryptedTrafficAnomalyDetector requires PyTorch. Install with: pip install torch"
+        )
 
 
 class CyberFortress(LoggerMixin):

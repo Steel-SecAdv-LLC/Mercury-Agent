@@ -529,7 +529,7 @@ class LearnableGOSNN:
 
         idx = self._scalar_name_to_idx[name]
         with torch.no_grad():
-            emb = self.scalar_embeddings.scalar_embeddings[idx].cpu().numpy()
+            emb: np.ndarray = self.scalar_embeddings.scalar_embeddings[idx].cpu().numpy()
         return emb
 
     def activate_scalars(

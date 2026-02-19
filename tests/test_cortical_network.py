@@ -31,6 +31,10 @@ Tests cover:
 7. CorticalLoss function components
 """
 
+import pytest
+
+pytest.importorskip("torch")
+
 import torch
 from numpy.testing import assert_allclose
 

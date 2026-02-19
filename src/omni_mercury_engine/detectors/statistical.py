@@ -37,8 +37,17 @@ References:
 from typing import Any
 
 import numpy as np
-import torch
-from scipy import linalg as sp_linalg
+from scipy import (
+    linalg as sp_linalg,
+    stats as sp_stats,
+)
+
+try:
+    import torch
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -95,6 +104,11 @@ class MercuryAnomalyDetector(BaseDetector):
         self._res_h_train: np.ndarray[Any, Any] | None = None
         self._res_noise_ratio: np.ndarray[Any, Any] | None = None
 
+        # Supervised calibration pipeline (wired from core/calibration_pipeline.py)
+        self._threshold_pipeline: Any = None
+        self._supervised_threshold: float | None = None
+        self._calibration_result: Any = None
+
     # =====================================================================
     # fit()
     # =====================================================================
@@ -122,7 +136,7 @@ class MercuryAnomalyDetector(BaseDetector):
             O(n * d * log n) for FFT spectral profiles (once at fit time),
             O(d^3) for covariance inversion.
         """
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         # Narrow type for mypy: after tensor conversion, data is ndarray
@@ -164,6 +178,161 @@ class MercuryAnomalyDetector(BaseDetector):
         self._precompute_resonance_profiles(arr)
 
         self._is_fitted = True
+        return self
+
+    def fit_with_labels(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        labels: np.ndarray[Any, Any],
+        strategy: str = "youden_j",
+        *,
+        group_ids: np.ndarray[Any, Any] | None = None,
+    ) -> MercuryAnomalyDetector:
+        """Fit detector and calibrate threshold using labelled data.
+
+        Performs the standard ``fit()`` followed by supervised threshold
+        calibration via :class:`ThresholdCalibrationPipeline`.  This
+        resolves the calibration gap where AUC is high but F1 is low
+        because the default 0.5 threshold does not match the actual
+        score distribution.
+
+        For extreme-imbalance datasets (fewer than 5 positive samples
+        or anomaly rate below 1%), Youden's J is unreliable.  In this
+        case the method automatically switches to a contamination-aware
+        percentile threshold that places the decision boundary at the
+        ``(1 - contamination)`` percentile of the score distribution.
+
+        When ``strategy="mondrian"`` and *group_ids* are provided,
+        uses :class:`MondrianConformalPredictor` to calibrate a
+        separate threshold per sub-event group, providing per-group
+        coverage guarantees.
+
+        Args:
+            data: Training data array or tensor, shape ``(n_samples,)``
+                or ``(n_samples, n_features)``.
+            labels: Binary ground-truth labels (``0`` = normal,
+                ``1`` = anomaly).  Must have the same number of
+                samples as *data*.
+            strategy: Calibration strategy — one of ``"youden_j"``,
+                ``"f1_optimal"``, ``"cost_sensitive"``, or
+                ``"mondrian"``.
+            group_ids: Optional per-sample group labels for Mondrian
+                conformal calibration.  Required when
+                ``strategy="mondrian"``.
+
+        Returns:
+            Self for method chaining.
+        """
+        self.fit(data)
+
+        from omni_mercury_engine.core.calibration_pipeline import (
+            CalibrationStrategy,
+            ThresholdCalibrationPipeline,
+        )
+
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
+        arr = np.asarray(data, dtype=np.float64)
+        if arr.ndim == 1:
+            arr = arr.reshape(-1, 1)
+
+        labels = np.asarray(labels, dtype=np.int32).ravel()
+
+        # Compute data-driven component weights before generating scores
+        self._adaptive_weights = self._compute_adaptive_weights(arr, labels)
+
+        import logging as _log_aw
+
+        _logger_aw = _log_aw.getLogger(__name__)
+        _component_names = ["resonance", "kinematic", "infogeo"]
+        _logger_aw.info("fit_with_labels: adaptive weights source=%s", self._weight_source)
+        for _i, _k in enumerate(_component_names):
+            _auc_val = self._component_aucs[_k]
+            _direction = "OK" if _auc_val >= 0.5 else "INVERTED"
+            _logger_aw.info(
+                "  %s: AUC=%.4f weight=%.3f %s",
+                _k,
+                _auc_val,
+                self._adaptive_weights[_i],
+                _direction,
+            )
+
+        # Generate ensemble scores for the training data
+        detection = self.detect(arr)
+        scores = np.asarray(detection["scores"], dtype=np.float64)
+
+        # --- Mondrian conformal per-group calibration ---
+        if strategy == "mondrian":
+            from omni_mercury_engine.core.conformal_prediction import (
+                MondrianConformalPredictor,
+            )
+
+            if group_ids is None:
+                raise ValueError("strategy='mondrian' requires group_ids to be provided")
+            group_ids = np.asarray(group_ids).ravel()
+            mcp = MondrianConformalPredictor(coverage=0.90)
+            mcp.fit(scores, group_ids)
+            self._conformal_predictor = mcp
+            self._conformal_group_ids = group_ids
+            self._calibration_method = "mondrian_conformal"
+            self._supervised_threshold = mcp.get_anomaly_threshold(None)
+            return self
+
+        # --- Adaptive strategy selection ---
+        # Youden's J maximises TPR - FPR (good for balanced data), while
+        # F1-optimal directly maximises the harmonic mean of precision and
+        # recall (better when class imbalance makes the FPR term misleading).
+        # Evaluate both and keep the threshold that yields the higher
+        # training F1.  For cost-sensitive, honour the caller's choice.
+        import logging as _log
+
+        _logger = _log.getLogger(__name__)
+
+        if strategy == "cost_sensitive":
+            strategies_to_try = [CalibrationStrategy.COST_SENSITIVE]
+        else:
+            strategies_to_try = [
+                CalibrationStrategy.YOUDEN_J,
+                CalibrationStrategy.F1_OPTIMAL,
+            ]
+
+        best_f1 = -1.0
+        best_threshold = float(np.median(scores))
+        best_method = strategy
+
+        for strat in strategies_to_try:
+            try:
+                trial = ThresholdCalibrationPipeline()
+                result = trial.calibrate_from_data(
+                    scores,
+                    labels,
+                    method=strat,
+                    threshold_name="anomaly.default_threshold",
+                )
+                preds = scores > result.threshold
+                tp = int(np.sum(preds & (labels == 1)))
+                fp = int(np.sum(preds & (labels == 0)))
+                fn = int(np.sum(~preds & (labels == 1)))
+                prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+                rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+                f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+                if f1 > best_f1:
+                    best_f1 = f1
+                    best_threshold = result.threshold
+                    best_method = strat.value
+                    self._threshold_pipeline = trial
+                    self._calibration_result = result
+            except Exception:
+                continue
+
+        self._supervised_threshold = best_threshold
+        self._calibration_method = f"best_of({best_method})"
+        _logger.info(
+            "fit_with_labels: selected %s threshold=%.6f (training F1=%.4f)",
+            best_method,
+            best_threshold,
+            best_f1,
+        )
         return self
 
     @classmethod
@@ -359,6 +528,94 @@ class MercuryAnomalyDetector(BaseDetector):
         self._res_noise_ratio = noise_ratio
 
     # =====================================================================
+    # Adaptive ensemble weighting
+    # =====================================================================
+
+    @staticmethod
+    def _component_separation(scores: np.ndarray, labels: np.ndarray) -> float:
+        """Measure discriminative power of a score component via AUC.
+
+        Returns value in [0, 1] where:
+          > 0.5  : component separates correctly
+          ~ 0.5  : component is noise
+          < 0.5  : component is inverted (anomalies score lower than normal)
+
+        Uses Mann-Whitney U -- no threshold required, no distributional
+        assumptions.
+
+        Args:
+            scores: Per-sample scores from one ensemble component.
+            labels: Binary ground-truth (0 = normal, 1 = anomaly).
+
+        Returns:
+            Normalised U-statistic in [0, 1].
+        """
+        if len(np.unique(labels)) < 2:
+            return 0.5
+        pos = scores[labels == 1]
+        neg = scores[labels == 0]
+        if len(pos) == 0 or len(neg) == 0:
+            return 0.5
+        u_stat, _ = sp_stats.mannwhitneyu(pos, neg, alternative="greater")
+        return float(u_stat / (len(pos) * len(neg)))
+
+    def _compute_adaptive_weights(
+        self,
+        X: np.ndarray,
+        labels: np.ndarray,
+    ) -> np.ndarray:
+        """Compute per-component ensemble weights proportional to AUC separation.
+
+        Components with inverted signal (AUC < 0.5) receive zero weight.
+        Minimum weight floor of 0.05 prevents complete exclusion of any
+        component unless it is demonstrably harmful.
+
+        Falls back to fixed 40/30/30 if all components have AUC ~ 0.5
+        (pure noise).
+
+        Args:
+            X: Training data, shape ``(n_samples, n_features)``.
+            labels: Binary ground-truth labels.
+
+        Returns:
+            Weight array of shape ``(3,)`` summing to 1.
+        """
+        resonance_scores = self._compute_resonance_score(X)
+        kinematic_scores = self._compute_kinematic_score(X)
+        infogeo_scores = self._compute_info_geometry_score(X)
+
+        aucs = np.array(
+            [
+                self._component_separation(resonance_scores, labels),
+                self._component_separation(kinematic_scores, labels),
+                self._component_separation(infogeo_scores, labels),
+            ]
+        )
+
+        self._component_aucs = {
+            "resonance": float(aucs[0]),
+            "kinematic": float(aucs[1]),
+            "infogeo": float(aucs[2]),
+        }
+
+        # Inverted components get zero contribution
+        effective_aucs = np.where(aucs < 0.5, 0.0, aucs - 0.5)
+
+        total = effective_aucs.sum()
+        if total < 1e-6:
+            self._weight_source = "fallback_default"
+            return np.array([0.40, 0.30, 0.30])
+
+        weights = effective_aucs / total
+        # Apply minimum floor of 0.05 for components with any positive signal
+        has_signal = aucs >= 0.5
+        weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
+        weights = weights / weights.sum()
+
+        self._weight_source = "adaptive"
+        return weights
+
+    # =====================================================================
     # detect()
     # =====================================================================
 
@@ -404,8 +661,11 @@ class MercuryAnomalyDetector(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+
+        # mypy can't narrow through compound `TORCH_AVAILABLE and isinstance`
+        assert isinstance(data, np.ndarray)
 
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -422,17 +682,35 @@ class MercuryAnomalyDetector(BaseDetector):
         info_geo = self._compute_info_geometry_score(data)
 
         # --- Ensemble (weighted average) ---
-        combined_scores = resonance * 0.4 + kinematic * 0.3 + info_geo * 0.3
+        weights = getattr(self, "_adaptive_weights", np.array([0.40, 0.30, 0.30]))
+        combined_scores = weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # --- Threshold & calibration ---
+        # Priority: mondrian conformal > supervised pipeline > auto-calibrate > default
         effective_threshold = self.threshold
         calibration_diagnostics = None
-        if self._auto_calibrate:
+
+        if (
+            hasattr(self, "_conformal_predictor")
+            and self._conformal_predictor is not None
+            and hasattr(self, "_conformal_group_ids")
+            and self._conformal_group_ids is not None
+            and len(self._conformal_group_ids) == len(combined_scores)
+        ):
+            is_anomaly = self._conformal_predictor.predict(
+                combined_scores, self._conformal_group_ids
+            ).astype(bool)
+            effective_threshold = self._supervised_threshold or self.threshold
+        elif self._supervised_threshold is not None:
+            effective_threshold = self._supervised_threshold
+            is_anomaly = combined_scores > effective_threshold
+        elif self._auto_calibrate:
             effective_threshold = self.calibrate_threshold(combined_scores)
             calibration_diagnostics = self._last_diagnostics
-
-        is_anomaly = combined_scores > effective_threshold
+            is_anomaly = combined_scores > effective_threshold
+        else:
+            is_anomaly = combined_scores > effective_threshold
 
         # Legacy backward-compatibility keys
         iqr_anomalies = self._detect_iqr_anomalies(data)
@@ -757,8 +1035,11 @@ class MercuryAnomalyDetector(BaseDetector):
         Returns:
             Feature tensor of shape ``[batch_size, 10]``.
         """
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+
+        # mypy can't narrow through compound `TORCH_AVAILABLE and isinstance`
+        assert isinstance(data, np.ndarray)
 
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -781,7 +1062,9 @@ class MercuryAnomalyDetector(BaseDetector):
             padding = np.zeros((features.shape[0], 10 - features.shape[1]))
             features = np.column_stack([features, padding])
 
-        return torch.tensor(features, dtype=torch.float32)
+        if TORCH_AVAILABLE:
+            return torch.tensor(features, dtype=torch.float32)
+        return features  # type: ignore[return-value]
 
     def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute z-scores.

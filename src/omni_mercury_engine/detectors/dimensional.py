@@ -33,9 +33,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import torch
+
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
 from scipy.fft import fft
-from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -101,56 +108,64 @@ class DimensionalWeights:
             raise ValueError(f"db_blend must be in [0, 1], got {self.db_blend}")
 
 
-class NeuralProjection(nn.Module):
-    """Neural network autoencoder for dimensionality reduction.
+if TORCH_AVAILABLE:
 
-    A symmetric encoder-decoder architecture that learns compressed
-    representations of input data. Reconstruction error serves as
-    an anomaly indicator.
+    class NeuralProjection(nn.Module):
+        """Neural network autoencoder for dimensionality reduction.
 
-    Attributes:
-        encoder: Sequential network mapping input to latent space.
-        decoder: Sequential network reconstructing input from latent.
+        A symmetric encoder-decoder architecture that learns compressed
+        representations of input data. Reconstruction error serves as
+        an anomaly indicator.
 
-    Args:
-        input_dim: Dimensionality of input features.
-        latent_dim: Dimensionality of compressed latent space.
-    """
-
-    def __init__(self, input_dim: int, latent_dim: int) -> None:
-        """Initialize autoencoder architecture.
+        Attributes:
+            encoder: Sequential network mapping input to latent space.
+            decoder: Sequential network reconstructing input from latent.
 
         Args:
-            input_dim: Input feature dimension.
-            latent_dim: Latent space dimension (compression target).
+            input_dim: Dimensionality of input features.
+            latent_dim: Dimensionality of compressed latent space.
         """
-        super().__init__()
-        hidden_dim = max(input_dim // 2, latent_dim * 2)
 
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, latent_dim),
-        )
+        def __init__(self, input_dim: int, latent_dim: int) -> None:
+            """Initialize autoencoder architecture.
 
-        self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, input_dim),
-        )
+            Args:
+                input_dim: Input feature dimension.
+                latent_dim: Latent space dimension (compression target).
+            """
+            super().__init__()
+            hidden_dim = max(input_dim // 2, latent_dim * 2)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass through encoder and decoder.
+            self.encoder = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, latent_dim),
+            )
 
-        Args:
-            x: Input tensor of shape (batch_size, input_dim).
+            self.decoder = nn.Sequential(
+                nn.Linear(latent_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, input_dim),
+            )
 
-        Returns:
-            Tuple of (latent_representation, reconstructed_input).
-        """
-        latent = self.encoder(x)
-        reconstructed = self.decoder(latent)
-        return latent, reconstructed
+        def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            """Forward pass through encoder and decoder.
+
+            Args:
+                x: Input tensor of shape (batch_size, input_dim).
+
+            Returns:
+                Tuple of (latent_representation, reconstructed_input).
+            """
+            latent = self.encoder(x)
+            reconstructed = self.decoder(latent)
+            return latent, reconstructed
+
+else:
+
+    def NeuralProjection(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        """Stub: NeuralProjection requires PyTorch."""
+        raise ImportError("NeuralProjection requires PyTorch. Install with: pip install torch")
 
 
 class DimensionalAnalyzer(BaseDetector):

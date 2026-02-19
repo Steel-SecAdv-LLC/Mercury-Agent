@@ -32,6 +32,10 @@ Five-Phase Architecture (Enhanced with Cognitive Layer):
 5. Resolution: Automated fixes with self-healing and autonomous execution
 """
 
+import pytest
+
+pytest.importorskip("torch")
+
 import numpy as np
 
 from omni_mercury_engine.truth_decipher import TruthDecipherFramework, TruthDecipherResult

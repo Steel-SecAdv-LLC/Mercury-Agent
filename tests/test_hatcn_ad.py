@@ -5,6 +5,10 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 """
 
+import pytest
+
+pytest.importorskip("torch")
+
 import torch
 
 from omni_mercury_engine.ml.hatcn_ad import (

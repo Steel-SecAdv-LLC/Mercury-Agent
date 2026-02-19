@@ -19,6 +19,10 @@ unit tests might miss.
 """
 
 # Import modules to test
+import pytest
+
+pytest.importorskip("sklearn")
+
 import sys
 from pathlib import Path
 

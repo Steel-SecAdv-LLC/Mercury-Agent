@@ -27,7 +27,14 @@ Optimized with Numba JIT compilation for performance-critical paths.
 from typing import Any
 
 import numpy as np
-import torch
+
+try:
+    import torch
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
 from scipy.spatial import KDTree
 
 from omni_mercury_engine.core.base import BaseDetector

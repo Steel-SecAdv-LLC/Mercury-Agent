@@ -27,9 +27,16 @@ Provides frequency-domain feature extraction for anomaly detection.
 
 
 import numpy as np
-import torch
+
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
 from scipy.fft import fft, ifft
-from torch import nn
 
 # Handle scipy.special spherical harmonics API deprecation (scipy 1.14+)
 try:
@@ -292,76 +299,86 @@ class QuantumHarmonicOscillator:
         return psi_t
 
 
-class HarmonicEncoder(nn.Module):
-    """
-    PyTorch module wrapping harmonic analysis for ML fusion
-    """
+if TORCH_AVAILABLE:
 
-    def __init__(
-        self,
-        l_max: int = 10,
-        num_fourier_harmonics: int = 8,
-        output_dim: int = 64,
-    ):
-        super().__init__()
-
-        self.spherical_decomposer = SphericalHarmonicDecomposer(l_max=l_max)
-        self.fourier_analyzer = FourierHarmonicAnalyzer(num_harmonics=num_fourier_harmonics)
-
-        self.feature_dim = l_max + 1 + num_fourier_harmonics * 2
-
-        self.projection = nn.Linear(self.feature_dim, output_dim)
-
-    def forward(
-        self,
-        points: torch.Tensor | None = None,
-        values: torch.Tensor | None = None,
-        signal: torch.Tensor | None = None,
-    ) -> torch.Tensor:
+    class HarmonicEncoder(nn.Module):
         """
-        Extract harmonic features from 3D surface or 1D signal
-
-        Args:
-            points: 3D surface points (N, 3)
-            values: Surface values (N,)
-            signal: 1D signal for Fourier analysis (N,)
-
-        Returns:
-            Encoded features (output_dim,)
+        PyTorch module wrapping harmonic analysis for ML fusion
         """
-        features = []
 
-        if points is not None and values is not None:
-            points_np = points.cpu().numpy()
-            values_np = values.cpu().numpy()
+        def __init__(
+            self,
+            l_max: int = 10,
+            num_fourier_harmonics: int = 8,
+            output_dim: int = 64,
+        ):
+            super().__init__()
 
-            coeffs = self.spherical_decomposer.decompose_surface(points_np, values_np)
-            power_spectrum = self.spherical_decomposer.compute_rotation_invariant_features(coeffs)
-            features.append(torch.tensor(power_spectrum, dtype=torch.float32))
+            self.spherical_decomposer = SphericalHarmonicDecomposer(l_max=l_max)
+            self.fourier_analyzer = FourierHarmonicAnalyzer(num_harmonics=num_fourier_harmonics)
 
-        if signal is not None:
-            signal_np = signal.cpu().numpy()
-            harmonics = self.fourier_analyzer.extract_harmonics(signal_np)
+            self.feature_dim = l_max + 1 + num_fourier_harmonics * 2
 
-            fourier_feats = np.concatenate(
-                [
-                    harmonics["amplitudes"],
-                    harmonics["phases"],
-                ]
-            )
-            features.append(torch.tensor(fourier_feats, dtype=torch.float32))
+            self.projection = nn.Linear(self.feature_dim, output_dim)
 
-        if not features:
-            raise ValueError("Must provide either (points, values) or signal")
+        def forward(
+            self,
+            points: torch.Tensor | None = None,
+            values: torch.Tensor | None = None,
+            signal: torch.Tensor | None = None,
+        ) -> torch.Tensor:
+            """
+            Extract harmonic features from 3D surface or 1D signal
 
-        combined_features = torch.cat(features, dim=0)
+            Args:
+                points: 3D surface points (N, 3)
+                values: Surface values (N,)
+                signal: 1D signal for Fourier analysis (N,)
 
-        if combined_features.shape[0] < self.feature_dim:
-            padding = torch.zeros(self.feature_dim - combined_features.shape[0])
-            combined_features = torch.cat([combined_features, padding], dim=0)
-        elif combined_features.shape[0] > self.feature_dim:
-            combined_features = combined_features[: self.feature_dim]
+            Returns:
+                Encoded features (output_dim,)
+            """
+            features = []
 
-        encoded = self.projection(combined_features.unsqueeze(0))
+            if points is not None and values is not None:
+                points_np = points.cpu().numpy()
+                values_np = values.cpu().numpy()
 
-        return encoded.squeeze(0)
+                coeffs = self.spherical_decomposer.decompose_surface(points_np, values_np)
+                power_spectrum = self.spherical_decomposer.compute_rotation_invariant_features(
+                    coeffs
+                )
+                features.append(torch.tensor(power_spectrum, dtype=torch.float32))
+
+            if signal is not None:
+                signal_np = signal.cpu().numpy()
+                harmonics = self.fourier_analyzer.extract_harmonics(signal_np)
+
+                fourier_feats = np.concatenate(
+                    [
+                        harmonics["amplitudes"],
+                        harmonics["phases"],
+                    ]
+                )
+                features.append(torch.tensor(fourier_feats, dtype=torch.float32))
+
+            if not features:
+                raise ValueError("Must provide either (points, values) or signal")
+
+            combined_features = torch.cat(features, dim=0)
+
+            if combined_features.shape[0] < self.feature_dim:
+                padding = torch.zeros(self.feature_dim - combined_features.shape[0])
+                combined_features = torch.cat([combined_features, padding], dim=0)
+            elif combined_features.shape[0] > self.feature_dim:
+                combined_features = combined_features[: self.feature_dim]
+
+            encoded = self.projection(combined_features.unsqueeze(0))
+
+            return encoded.squeeze(0)
+
+else:
+
+    def HarmonicEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        """Stub: HarmonicEncoder requires PyTorch."""
+        raise ImportError("HarmonicEncoder requires PyTorch. Install with: pip install torch")

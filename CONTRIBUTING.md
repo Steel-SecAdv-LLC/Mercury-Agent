@@ -55,7 +55,7 @@ We welcome AI-assisted contributions (e.g., via Claude Code, GitHub Copilot):
 
 ### Prerequisites
 
-- Python 3.12 or higher
+- Python 3.11 or higher (3.12 recommended)
 - Git
 - Basic understanding of machine learning and anomaly detection
 - Familiarity with ethical AI principles

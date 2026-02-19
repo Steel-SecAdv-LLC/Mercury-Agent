@@ -30,65 +30,92 @@ Includes:
     - Advanced SOTA detectors (time-series, industrial, contrastive, copula-based)
 """
 
-# Advanced SOTA Detectors (v1.4.0)
-from omni_mercury_engine.detectors.acceleration_dynamics import (
-    AccelerationDynamicsDetector,
-    EnergyState,
-    MotionState,
-)
-from omni_mercury_engine.detectors.advanced import (
-    AdversarialAutoencoderDetector,
-    ContrastiveLearningDetector,
-    COPODDetector,
-    GWOEnsembleDetector,
-    MultiScaleTransformerDetector,
-    PointAdjustmentEvaluator,
-    create_detector,
-)
-from omni_mercury_engine.detectors.advanced_physics_integration import (
-    AdvancedPhysicsIntegratedDetector,
-    PhysicsDetectorType,
-    PhysicsGOSNNScalars,
-    create_dynamics_detector,
-    create_integrated_detector,
-    create_spectral_detector,
-    create_uiux_detector,
-)
-from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
-from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
-from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
+import importlib
+import logging
 
-# Advanced Physics-Inspired Detectors (v1.4.0)
-from omni_mercury_engine.detectors.spectral_vibration import (
-    SpectralAnalysisMode,
-    SpectralVibrationDetector,
-    VibrationSignatureType,
-)
+# Core detectors — no PyTorch dependency; always available.
 from omni_mercury_engine.detectors.statistical import (
     MercuryAnomalyDetector,
-    StatisticalAnomalyDetector,  # compat alias
-)
-from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
-from omni_mercury_engine.detectors.uiux_anomaly import (
-    AnomalyCategory,
-    InteractionType,
-    UIUXAnomalyDetector,
-    UserBehaviorClass,
-    UserInteraction,
+    StatisticalAnomalyDetector,
 )
 
-# SOTA Visual Anomaly Detection
-from omni_mercury_engine.detectors.visual import (
-    BaseVisualDetector,
-    CFlowDetector,
-    PaDiMDetector,
-    PatchCoreDetector,
-    ReverseDistillationDetector,
-    STFPMDetector,
-)
+logger = logging.getLogger(__name__)
 
-# Vision-Language Model Detectors
-from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector, BaseVLMDetector, LAVADDetector
+# ---------------------------------------------------------------------------
+# Lazy imports — detectors below require PyTorch (or other optional deps).
+# They are loaded on first access via __getattr__ so that importing this
+# package never crashes when PyTorch is absent.
+# ---------------------------------------------------------------------------
+_LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
+    "omni_mercury_engine.detectors.acceleration_dynamics": (
+        "AccelerationDynamicsDetector",
+        "EnergyState",
+        "MotionState",
+    ),
+    "omni_mercury_engine.detectors.advanced": (
+        "AdversarialAutoencoderDetector",
+        "ContrastiveLearningDetector",
+        "COPODDetector",
+        "GWOEnsembleDetector",
+        "MultiScaleTransformerDetector",
+        "PointAdjustmentEvaluator",
+        "create_detector",
+    ),
+    "omni_mercury_engine.detectors.advanced_physics_integration": (
+        "AdvancedPhysicsIntegratedDetector",
+        "PhysicsDetectorType",
+        "PhysicsGOSNNScalars",
+        "create_dynamics_detector",
+        "create_integrated_detector",
+        "create_spectral_detector",
+        "create_uiux_detector",
+    ),
+    "omni_mercury_engine.detectors.dimensional": ("DimensionalAnalyzer",),
+    "omni_mercury_engine.detectors.directive": ("SigmaDirectiveDetector",),
+    "omni_mercury_engine.detectors.spatial": ("SpatialAnomalyDetector",),
+    "omni_mercury_engine.detectors.spectral_vibration": (
+        "SpectralAnalysisMode",
+        "SpectralVibrationDetector",
+        "VibrationSignatureType",
+    ),
+    "omni_mercury_engine.detectors.temporal": ("TemporalAnomalyDetector",),
+    "omni_mercury_engine.detectors.uiux_anomaly": (
+        "AnomalyCategory",
+        "InteractionType",
+        "UIUXAnomalyDetector",
+        "UserBehaviorClass",
+        "UserInteraction",
+    ),
+    "omni_mercury_engine.detectors.visual": (
+        "BaseVisualDetector",
+        "CFlowDetector",
+        "PaDiMDetector",
+        "PatchCoreDetector",
+        "ReverseDistillationDetector",
+        "STFPMDetector",
+    ),
+    "omni_mercury_engine.detectors.vlm": (
+        "AnyAnomalyDetector",
+        "BaseVLMDetector",
+        "LAVADDetector",
+    ),
+}
+
+_NAME_TO_MODULE: dict[str, str] = {}
+for _mod, _names in _LAZY_IMPORTS.items():
+    for _name in _names:
+        _NAME_TO_MODULE[_name] = _mod
+
+
+def __getattr__(name: str) -> object:
+    if name in _NAME_TO_MODULE:
+        mod = importlib.import_module(_NAME_TO_MODULE[name])
+        obj = getattr(mod, name)
+        # Cache in the module namespace for subsequent access.
+        globals()[name] = obj
+        return obj
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "AccelerationDynamicsDetector",

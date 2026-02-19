@@ -33,6 +33,10 @@ These tests ensure the Mercury Agent anomaly detection pipeline
 produces reliable, finite scores even with edge-case inputs.
 """
 
+import pytest
+
+pytest.importorskip("torch")
+
 import numpy as np
 import pytest
 import torch

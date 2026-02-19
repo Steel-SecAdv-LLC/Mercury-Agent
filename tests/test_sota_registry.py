@@ -6,6 +6,10 @@ Copyright (C) 2025 Steel Security Advisors LLC
 """
 
 import pytest
+
+pytest.importorskip("torch")
+
+import pytest
 import torch
 from torch import nn
 

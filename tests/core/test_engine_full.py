@@ -22,6 +22,10 @@ from __future__ import annotations
 Full engine tests to boost coverage
 """
 
+import pytest
+
+pytest.importorskip("torch")
+
 import os
 import tempfile
 

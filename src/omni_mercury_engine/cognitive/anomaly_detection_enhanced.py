@@ -46,7 +46,13 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
-import httpx
+try:
+    import httpx
+
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
+
 import numpy as np
 
 try:
@@ -714,7 +720,7 @@ class NOAAWeatherSource(ExternalDataSource):
         self._client = httpx.Client(
             timeout=timeout_seconds,
             headers={
-                "User-Agent": "MercuryAgent/1.4.0 (steel.sa.llc@gmail.com)",
+                "User-Agent": "MercuryAgent/1.5.1 (steel.sa.llc@gmail.com)",
                 "Accept": "application/geo+json",
             },
         )

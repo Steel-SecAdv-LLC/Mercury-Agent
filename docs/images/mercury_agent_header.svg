@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 80" width="600" height="80">
+  <style>
+    @font-face {
+      font-family: 'PMingLiU-ExtB';
+      src: local('PMingLiU-ExtB');
+    }
+    text {
+      font-family: 'PMingLiU-ExtB', 'Georgia', 'Times New Roman', serif;
+      font-weight: bold;
+      font-size: 52px;
+    }
+  </style>
+  <text x="50%" y="58" text-anchor="middle">
+    <tspan fill="#B4B124">M</tspan><tspan fill="#11AEED">ercury</tspan>
+    <tspan dx="8" fill="#B4B124">A</tspan><tspan fill="#000000">gent</tspan>
+  </text>
+</svg>

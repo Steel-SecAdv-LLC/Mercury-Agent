@@ -37,7 +37,13 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, TypeVar
 
-import httpx
+try:
+    import httpx
+
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
+
 import numpy as np
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState
@@ -394,7 +400,7 @@ class DataSourceBase(ABC):
 
     DEFAULT_BASE_URL: str = ""
     DEFAULT_TIMEOUT: float = 30.0
-    DEFAULT_USER_AGENT: str = "MercuryAgent/1.4.0 (steel.sa.llc@gmail.com)"
+    DEFAULT_USER_AGENT: str = "MercuryAgent/1.5.1 (steel.sa.llc@gmail.com)"
 
     def __init__(self, config: DataSourceConfig | None = None) -> None:
         """Initialize data source.

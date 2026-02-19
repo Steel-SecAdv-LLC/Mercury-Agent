@@ -242,226 +242,236 @@ class AccelerationAnomalyResult:
 # Neural Network Components
 # =============================================================================
 
-# Guard: nn.Module subclasses require PyTorch at class definition time.
-# When torch is unavailable, provide a base object stub so the module can
-# still be imported for non-neural operations (e.g., kinematic analysis).
-_NNBase: type = nn.Module if TORCH_AVAILABLE else object  # type: ignore[assignment, unused-ignore]
+if TORCH_AVAILABLE:
 
+    class MotionEncoder(nn.Module):
+        """Neural network encoder for motion feature extraction.
 
-class MotionEncoder(_NNBase):  # type: ignore[misc, unused-ignore]
-    """Neural network encoder for motion feature extraction.
-
-    Learns representations from kinematic features that capture
-    normal motion patterns and detect deviations.
-    """
-
-    def __init__(
-        self,
-        input_dim: int = 4,  # position, velocity, acceleration, jerk
-        hidden_dim: int = 64,
-        output_dim: int = 32,
-        num_layers: int = 2,
-    ) -> None:
-        """Initialize motion encoder.
-
-        Args:
-            input_dim: Number of kinematic input features
-            hidden_dim: Hidden layer dimension
-            output_dim: Output embedding dimension
-            num_layers: Number of LSTM layers
+        Learns representations from kinematic features that capture
+        normal motion patterns and detect deviations.
         """
-        super().__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
 
-        # Bidirectional LSTM for temporal patterns
-        self.lstm = nn.LSTM(
-            input_dim,
-            hidden_dim,
-            num_layers=num_layers,
-            batch_first=True,
-            bidirectional=True,
-            dropout=0.1 if num_layers > 1 else 0.0,
-        )
+        def __init__(
+            self,
+            input_dim: int = 4,  # position, velocity, acceleration, jerk
+            hidden_dim: int = 64,
+            output_dim: int = 32,
+            num_layers: int = 2,
+        ) -> None:
+            """Initialize motion encoder.
 
-        # Attention mechanism
-        self.attention = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.Tanh(),
-            nn.Linear(hidden_dim, 1),
-        )
+            Args:
+                input_dim: Number of kinematic input features
+                hidden_dim: Hidden layer dimension
+                output_dim: Output embedding dimension
+                num_layers: Number of LSTM layers
+            """
+            super().__init__()
+            self.input_dim = input_dim
+            self.output_dim = output_dim
 
-        # Output projection
-        self.output_proj = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hidden_dim, output_dim),
-        )
+            # Bidirectional LSTM for temporal patterns
+            self.lstm = nn.LSTM(
+                input_dim,
+                hidden_dim,
+                num_layers=num_layers,
+                batch_first=True,
+                bidirectional=True,
+                dropout=0.1 if num_layers > 1 else 0.0,
+            )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass through motion encoder.
+            # Attention mechanism
+            self.attention = nn.Sequential(
+                nn.Linear(hidden_dim * 2, hidden_dim),
+                nn.Tanh(),
+                nn.Linear(hidden_dim, 1),
+            )
 
-        Args:
-            x: Kinematic features [batch, time, input_dim]
+            # Output projection
+            self.output_proj = nn.Sequential(
+                nn.Linear(hidden_dim * 2, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.Linear(hidden_dim, output_dim),
+            )
 
-        Returns:
-            Motion embedding [batch, output_dim]
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            """Forward pass through motion encoder.
+
+            Args:
+                x: Kinematic features [batch, time, input_dim]
+
+            Returns:
+                Motion embedding [batch, output_dim]
+            """
+            # LSTM encoding
+            lstm_out, _ = self.lstm(x)  # [batch, time, hidden*2]
+
+            # Attention-weighted aggregation
+            attn_weights = torch.softmax(self.attention(lstm_out), dim=1)
+            context = (lstm_out * attn_weights).sum(dim=1)
+
+            # Project to output
+            return self.output_proj(context)
+
+    class PhaseSpaceNetwork(nn.Module):
+        """Neural network for phase space trajectory analysis.
+
+        Processes phase space embeddings to detect chaotic behavior
+        and trajectory anomalies.
         """
-        # LSTM encoding
-        lstm_out, _ = self.lstm(x)  # [batch, time, hidden*2]
 
-        # Attention-weighted aggregation
-        attn_weights = torch.softmax(self.attention(lstm_out), dim=1)
-        context = (lstm_out * attn_weights).sum(dim=1)
+        def __init__(
+            self,
+            embedding_dim: int = 3,
+            hidden_dim: int = 32,
+            output_dim: int = 16,
+        ) -> None:
+            """Initialize phase space network.
 
-        # Project to output
-        return self.output_proj(context)
+            Args:
+                embedding_dim: Phase space embedding dimension
+                hidden_dim: Hidden layer dimension
+                output_dim: Output feature dimension
+            """
+            super().__init__()
 
+            # Trajectory encoder
+            self.trajectory_encoder = nn.Sequential(
+                nn.Linear(embedding_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+            )
 
-class PhaseSpaceNetwork(_NNBase):  # type: ignore[misc, unused-ignore]
-    """Neural network for phase space trajectory analysis.
+            # Temporal convolution for local patterns
+            self.temporal_conv = nn.Sequential(
+                nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.Conv1d(hidden_dim, hidden_dim // 2, kernel_size=3, padding=1),
+                nn.ReLU(),
+            )
 
-    Processes phase space embeddings to detect chaotic behavior
-    and trajectory anomalies.
-    """
+            # Global pooling and output
+            self.global_pool = nn.AdaptiveAvgPool1d(1)
+            self.output_proj = nn.Linear(hidden_dim // 2, output_dim)
 
-    def __init__(
-        self,
-        embedding_dim: int = 3,
-        hidden_dim: int = 32,
-        output_dim: int = 16,
-    ) -> None:
-        """Initialize phase space network.
+            # Chaos classifier
+            self.chaos_classifier = nn.Sequential(
+                nn.Linear(hidden_dim // 2, 16),
+                nn.ReLU(),
+                nn.Linear(16, 1),
+                nn.Sigmoid(),
+            )
 
-        Args:
-            embedding_dim: Phase space embedding dimension
-            hidden_dim: Hidden layer dimension
-            output_dim: Output feature dimension
+        def forward(
+            self,
+            trajectory: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            """Forward pass through phase space network.
+
+            Args:
+                trajectory: Phase space trajectory [batch, time, embedding_dim]
+
+            Returns:
+                Tuple of (features, chaos_score)
+            """
+            # Encode trajectory points
+            encoded = self.trajectory_encoder(trajectory)  # [batch, time, hidden]
+
+            # Temporal convolution
+            encoded_t = encoded.transpose(1, 2)  # [batch, hidden, time]
+            conv_out = self.temporal_conv(encoded_t)  # [batch, hidden/2, time]
+
+            # Global pooling
+            pooled = self.global_pool(conv_out).squeeze(-1)  # [batch, hidden/2]
+
+            # Output features and chaos score
+            features = self.output_proj(pooled)
+            chaos_score = self.chaos_classifier(pooled)
+
+            return features, chaos_score
+
+    class EnergyConservationNetwork(nn.Module):
+        """Network for detecting energy conservation violations.
+
+        Learns to predict energy at each timestep and flags deviations
+        that indicate anomalous energy injection or dissipation.
         """
-        super().__init__()
 
-        # Trajectory encoder
-        self.trajectory_encoder = nn.Sequential(
-            nn.Linear(embedding_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
+        def __init__(
+            self,
+            input_dim: int = 3,  # KE, PE, momentum
+            hidden_dim: int = 32,
+        ) -> None:
+            """Initialize energy conservation network.
+
+            Args:
+                input_dim: Number of energy-related inputs
+                hidden_dim: Hidden layer dimension
+            """
+            super().__init__()
+
+            # Energy predictor (predicts next energy from current state)
+            self.energy_predictor = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, 1),
+            )
+
+            # Violation detector
+            self.violation_detector = nn.Sequential(
+                nn.Linear(input_dim + 1, hidden_dim),  # +1 for prediction error
+                nn.ReLU(),
+                nn.Linear(hidden_dim, 1),
+                nn.Sigmoid(),
+            )
+
+        def forward(
+            self,
+            energy_features: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            """Detect energy conservation violations.
+
+            Args:
+                energy_features: Energy features [batch, time, input_dim]
+
+            Returns:
+                Tuple of (predicted_energy, violation_score)
+            """
+            batch_size, time_steps, _ = energy_features.shape
+
+            # Predict energy at each step
+            predicted = self.energy_predictor(energy_features)  # [batch, time, 1]
+
+            # Compute prediction error (actual total energy vs predicted)
+            # For simplicity, use first feature as total energy proxy
+            actual_energy = energy_features[:, :, 0:1]
+            prediction_error = (actual_energy - predicted).abs()
+
+            # Detect violations
+            violation_input = torch.cat([energy_features, prediction_error], dim=-1)
+            violation_scores = self.violation_detector(violation_input)
+
+            return predicted.squeeze(-1), violation_scores.squeeze(-1)
+
+else:
+
+    def MotionEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        """Stub: MotionEncoder requires PyTorch."""
+        raise ImportError("MotionEncoder requires PyTorch. Install with: pip install torch")
+
+    def PhaseSpaceNetwork(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        """Stub: PhaseSpaceNetwork requires PyTorch."""
+        raise ImportError("PhaseSpaceNetwork requires PyTorch. Install with: pip install torch")
+
+    def EnergyConservationNetwork(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        """Stub: EnergyConservationNetwork requires PyTorch."""
+        raise ImportError(
+            "EnergyConservationNetwork requires PyTorch. Install with: pip install torch"
         )
-
-        # Temporal convolution for local patterns
-        self.temporal_conv = nn.Sequential(
-            nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv1d(hidden_dim, hidden_dim // 2, kernel_size=3, padding=1),
-            nn.ReLU(),
-        )
-
-        # Global pooling and output
-        self.global_pool = nn.AdaptiveAvgPool1d(1)
-        self.output_proj = nn.Linear(hidden_dim // 2, output_dim)
-
-        # Chaos classifier
-        self.chaos_classifier = nn.Sequential(
-            nn.Linear(hidden_dim // 2, 16),
-            nn.ReLU(),
-            nn.Linear(16, 1),
-            nn.Sigmoid(),
-        )
-
-    def forward(
-        self,
-        trajectory: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass through phase space network.
-
-        Args:
-            trajectory: Phase space trajectory [batch, time, embedding_dim]
-
-        Returns:
-            Tuple of (features, chaos_score)
-        """
-        # Encode trajectory points
-        encoded = self.trajectory_encoder(trajectory)  # [batch, time, hidden]
-
-        # Temporal convolution
-        encoded_t = encoded.transpose(1, 2)  # [batch, hidden, time]
-        conv_out = self.temporal_conv(encoded_t)  # [batch, hidden/2, time]
-
-        # Global pooling
-        pooled = self.global_pool(conv_out).squeeze(-1)  # [batch, hidden/2]
-
-        # Output features and chaos score
-        features = self.output_proj(pooled)
-        chaos_score = self.chaos_classifier(pooled)
-
-        return features, chaos_score
-
-
-class EnergyConservationNetwork(nn.Module):
-    """Network for detecting energy conservation violations.
-
-    Learns to predict energy at each timestep and flags deviations
-    that indicate anomalous energy injection or dissipation.
-    """
-
-    def __init__(
-        self,
-        input_dim: int = 3,  # KE, PE, momentum
-        hidden_dim: int = 32,
-    ) -> None:
-        """Initialize energy conservation network.
-
-        Args:
-            input_dim: Number of energy-related inputs
-            hidden_dim: Hidden layer dimension
-        """
-        super().__init__()
-
-        # Energy predictor (predicts next energy from current state)
-        self.energy_predictor = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 1),
-        )
-
-        # Violation detector
-        self.violation_detector = nn.Sequential(
-            nn.Linear(input_dim + 1, hidden_dim),  # +1 for prediction error
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 1),
-            nn.Sigmoid(),
-        )
-
-    def forward(
-        self,
-        energy_features: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Detect energy conservation violations.
-
-        Args:
-            energy_features: Energy features [batch, time, input_dim]
-
-        Returns:
-            Tuple of (predicted_energy, violation_score)
-        """
-        batch_size, time_steps, _ = energy_features.shape
-
-        # Predict energy at each step
-        predicted = self.energy_predictor(energy_features)  # [batch, time, 1]
-
-        # Compute prediction error (actual total energy vs predicted)
-        # For simplicity, use first feature as total energy proxy
-        actual_energy = energy_features[:, :, 0:1]
-        prediction_error = (actual_energy - predicted).abs()
-
-        # Detect violations
-        violation_input = torch.cat([energy_features, prediction_error], dim=-1)
-        violation_scores = self.violation_detector(violation_input)
-
-        return predicted.squeeze(-1), violation_scores.squeeze(-1)
 
 
 # =============================================================================

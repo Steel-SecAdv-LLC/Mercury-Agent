@@ -492,7 +492,8 @@ class ConformalAnomalyDetector:
             min_score = np.min(scores)
             max_score = np.max(scores)
             if max_score > min_score:
-                return np.asarray(1.0 - (scores - min_score) / (max_score - min_score))  # type: ignore[no-any-return, unused-ignore]
+                normalized = 1.0 - (scores - min_score) / (max_score - min_score)
+                return np.asarray(normalized)  # type: ignore[no-any-return, unused-ignore]
             return np.full(len(scores), 0.5)
         except (AttributeError, NotImplementedError):
             pass
