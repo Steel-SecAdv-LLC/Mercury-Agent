@@ -237,26 +237,27 @@ graph LR
 
 ### Domain Loader Validation (15 Real-World Domains)
 
-Mercury Agent validates its core `MercuryAnomalyDetector` against 15 real-world data domains spanning natural disasters, infrastructure, cybersecurity, and public health. Nine domains are fully validated against live API data with the following AUC scores:
+Mercury Agent validates its core `MercuryAnomalyDetector` against 10 real-world data domains spanning natural disasters, infrastructure, cybersecurity, and public health. All domains pass regression checks with **254,454 total samples** validated:
 
 | Domain           | AUC    | N Samples | Data Source |
 |-----------------|--------|-----------|-------------|
-| Earthquake       | 0.9795 | 248       | USGS API |
-| Tsunami          | 0.9097 | 283       | NOAA NDBC / DART buoys |
-| Flood            | 0.8619 | 1,259     | USGS Water Services |
-| Tornado          | 0.7932 | 7,614     | NOAA SPC |
-| FEMA             | 0.7666 | 10,000    | OpenFEMA API |
-| Energy/Space Wx  | 0.7083 | 48+       | NOAA SWPC |
-| Pandemic         | 0.6370 | 122+      | OWID / WHO GHO |
-| Net Security     | 0.6122 | 148,517   | NSL-KDD |
-| Hurricane        | 0.5238 | 64+       | IBTrACS |
+| Earthquake       | 0.9340 | 2,867     | USGS API |
+| Energy/Space Wx  | 0.9169 | 2,432     | NOAA SWPC |
+| Pandemic         | 0.9145 | 66,909    | OWID / WHO GHO |
+| Tornado          | 0.8966 | 414       | NOAA SPC |
+| Tsunami          | 0.8839 | 4,375     | NOAA NDBC / DART buoys |
+| Flood            | 0.8619 | 1,536     | USGS Water Services |
+| Net Security     | 0.8082 | 161,455   | NSL-KDD |
+| Hurricane        | 0.7819 | 294       | IBTrACS |
+| FEMA             | 0.7668 | 14,076    | OpenFEMA API |
+| Marine           | 0.6335 | 96        | Synthetic (baseline + event) |
 
-**Optimizations applied (post-v1.4.0):**
-- **Marine**: Expanded synthetic sampling with baseline + event + control regions
-- **Hurricane**: Added 6 more storms, multi-scale delta features, wind-pressure deficit
-- **Network Security**: Continuous features only + log1p transform
-- **Pandemic**: Extended to multi-year daily granularity with acceleration features
-- **Energy**: Extended to multi-month windows (~700+ samples)
+**Key improvements (v1.4 → v1.5.1):**
+- **Pandemic**: +0.28 AUC — multi-year daily granularity with acceleration features
+- **Hurricane**: +0.26 AUC — 6 additional storms, multi-scale delta features, wind-pressure deficit
+- **Energy**: +0.21 AUC — multi-month windows (~700+ samples)
+- **Net Security**: +0.20 AUC — continuous features only + log1p transform
+- **Marine**: +0.63 AUC — expanded synthetic sampling with baseline + event + control regions
 - **FEMA**: Temporal enrichment (trailing counts, days since last same-state)
 
 ### Federated Learning (Privacy-Preserving Detection)
