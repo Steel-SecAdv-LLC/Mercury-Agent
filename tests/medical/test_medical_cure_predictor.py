@@ -18,6 +18,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+import pytest  # noqa: E402
+pytest.importorskip("torch")
+
 """Comprehensive tests for Medical Cure Predictor module."""
 
 import numpy as np

@@ -49,9 +49,16 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-import torch
+
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
 from scipy.fft import fft
-from torch import nn
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -83,64 +90,72 @@ class NanoSafeguardResult:
     recommended_actions: list[str] = field(default_factory=list)
 
 
-class HierarchicalMicroScanner(nn.Module):
-    """
-    Hierarchical micro-pattern scanner using multi-scale convolutions.
+if TORCH_AVAILABLE:
+    class HierarchicalMicroScanner(nn.Module):
+        """
+        Hierarchical micro-pattern scanner using multi-scale convolutions.
 
-    Implements the Recursion Engine component of 3R for multi-scale
-    pattern detection at progressively finer granularities.
-    """
+        Implements the Recursion Engine component of 3R for multi-scale
+        pattern detection at progressively finer granularities.
+        """
 
-    def __init__(self, input_dim: int = 64, num_scales: int = 4) -> None:
-        super().__init__()
-        self.num_scales = num_scales
+        def __init__(self, input_dim: int = 64, num_scales: int = 4) -> None:
+            super().__init__()
+            self.num_scales = num_scales
 
-        self.scale_encoders = nn.ModuleList()
-        for scale in range(num_scales):
-            kernel_size = 2 ** (num_scales - scale - 1) + 1
-            padding = kernel_size // 2
-            self.scale_encoders.append(
-                nn.Sequential(
-                    nn.Conv1d(1, 16, kernel_size=kernel_size, padding=padding),
-                    nn.BatchNorm1d(16),
-                    nn.ReLU(),
-                    nn.Conv1d(16, 8, kernel_size=3, padding=1),
-                    nn.AdaptiveAvgPool1d(input_dim // (2**scale) or 1),
+            self.scale_encoders = nn.ModuleList()
+            for scale in range(num_scales):
+                kernel_size = 2 ** (num_scales - scale - 1) + 1
+                padding = kernel_size // 2
+                self.scale_encoders.append(
+                    nn.Sequential(
+                        nn.Conv1d(1, 16, kernel_size=kernel_size, padding=padding),
+                        nn.BatchNorm1d(16),
+                        nn.ReLU(),
+                        nn.Conv1d(16, 8, kernel_size=3, padding=1),
+                        nn.AdaptiveAvgPool1d(input_dim // (2**scale) or 1),
+                    )
                 )
+
+            self.fusion = nn.Sequential(
+                nn.Linear(8 * num_scales, 32),
+                nn.ReLU(),
+                nn.Linear(32, 1),
+                nn.Sigmoid(),
             )
 
-        self.fusion = nn.Sequential(
-            nn.Linear(8 * num_scales, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.Sigmoid(),
+        def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
+            """
+            Multi-scale hierarchical scanning.
+
+            Args:
+                x: Input tensor (batch, features)
+
+            Returns:
+                Tuple of (micro_anomaly_score, scale_features)
+            """
+            if x.dim() == 1:
+                x = x.unsqueeze(0)
+            if x.dim() == 2:
+                x = x.unsqueeze(1)
+
+            scale_features = []
+            for encoder in self.scale_encoders:
+                feat = encoder(x)
+                pooled = feat.mean(dim=-1)
+                scale_features.append(pooled)
+
+            combined = torch.cat(scale_features, dim=-1)
+            score = self.fusion(combined)
+
+            return score, scale_features
+
+else:
+    def HierarchicalMicroScanner(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: HierarchicalMicroScanner requires PyTorch."""
+        raise ImportError(
+            "HierarchicalMicroScanner requires PyTorch. Install with: pip install torch"
         )
-
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
-        """
-        Multi-scale hierarchical scanning.
-
-        Args:
-            x: Input tensor (batch, features)
-
-        Returns:
-            Tuple of (micro_anomaly_score, scale_features)
-        """
-        if x.dim() == 1:
-            x = x.unsqueeze(0)
-        if x.dim() == 2:
-            x = x.unsqueeze(1)
-
-        scale_features = []
-        for encoder in self.scale_encoders:
-            feat = encoder(x)
-            pooled = feat.mean(dim=-1)
-            scale_features.append(pooled)
-
-        combined = torch.cat(scale_features, dim=-1)
-        score = self.fusion(combined)
-
-        return score, scale_features
 
 
 class ResonanceAnalyzer:

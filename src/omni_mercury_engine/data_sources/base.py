@@ -37,7 +37,13 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, TypeVar
 
-import httpx
+try:
+    import httpx
+
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
+
 import numpy as np
 
 from omni_mercury_engine.resilience.circuit_breaker import CircuitBreaker, CircuitState

@@ -46,7 +46,13 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
-import httpx
+try:
+    import httpx
+
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
+
 import numpy as np
 
 try:

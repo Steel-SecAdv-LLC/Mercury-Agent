@@ -8,6 +8,9 @@ Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GNU GPL v3
 """
 
+import pytest  # noqa: E402
+pytest.importorskip("sklearn")
+
 import numpy as np
 import pytest
 from sklearn.datasets import make_blobs, make_classification

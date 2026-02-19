@@ -19,6 +19,9 @@ unit tests might miss.
 """
 
 # Import modules to test
+import pytest  # noqa: E402
+pytest.importorskip("sklearn")
+
 import sys
 from pathlib import Path
 

@@ -50,10 +50,17 @@ from typing import Any
 from urllib.request import Request, urlopen
 
 import numpy as np
-import torch
+
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
 from scipy import signal
 from scipy.fft import fft, fftfreq
-from torch import nn
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
@@ -197,147 +204,163 @@ class SolarFlarePredictionResult:
     affected_systems: list[str] = field(default_factory=list)
 
 
-class WaveformFFTAnalyzer(nn.Module):
-    """FFT-based waveform analyzer for tsunami detection.
+if TORCH_AVAILABLE:
+    class WaveformFFTAnalyzer(nn.Module):
+        """FFT-based waveform analyzer for tsunami detection.
 
-    Analyzes oceanic waveform patterns using frequency domain analysis
-    integrated with 3R Resonance mechanism.
-    """
-
-    def __init__(self, input_dim: int = 256, hidden_dim: int = 64) -> None:
-        super().__init__()
-
-        self.conv1d = nn.Conv1d(1, 16, kernel_size=7, padding=3)
-        self.conv1d_2 = nn.Conv1d(16, 32, kernel_size=5, padding=2)
-
-        self.lstm = nn.LSTM(
-            input_size=32,
-            hidden_size=hidden_dim,
-            num_layers=2,
-            batch_first=True,
-            bidirectional=True,
-        )
-
-        self.classifier = nn.Sequential(
-            nn.Linear(hidden_dim * 2, 32),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(32, 1),
-            nn.Sigmoid(),
-        )
-
-        self.wave_height_estimator = nn.Sequential(
-            nn.Linear(hidden_dim * 2, 16),
-            nn.ReLU(),
-            nn.Linear(16, 1),
-            nn.ReLU(),
-        )
-
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass for waveform analysis.
-
-        Args:
-            x: Waveform tensor [batch, seq_len]
-
-        Returns:
-            Tuple of (tsunami_prob, estimated_wave_height)
+        Analyzes oceanic waveform patterns using frequency domain analysis
+        integrated with 3R Resonance mechanism.
         """
-        if x.dim() == 2:
-            x = x.unsqueeze(1)
 
-        x = torch.relu(self.conv1d(x))
-        x = torch.relu(self.conv1d_2(x))
+        def __init__(self, input_dim: int = 256, hidden_dim: int = 64) -> None:
+            super().__init__()
 
-        x = x.permute(0, 2, 1)
-        lstm_out, _ = self.lstm(x)
+            self.conv1d = nn.Conv1d(1, 16, kernel_size=7, padding=3)
+            self.conv1d_2 = nn.Conv1d(16, 32, kernel_size=5, padding=2)
 
-        pooled = lstm_out.mean(dim=1)
+            self.lstm = nn.LSTM(
+                input_size=32,
+                hidden_size=hidden_dim,
+                num_layers=2,
+                batch_first=True,
+                bidirectional=True,
+            )
 
-        tsunami_prob = self.classifier(pooled)
-        wave_height = self.wave_height_estimator(pooled)
+            self.classifier = nn.Sequential(
+                nn.Linear(hidden_dim * 2, 32),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+                nn.Linear(32, 1),
+                nn.Sigmoid(),
+            )
 
-        return tsunami_prob.squeeze(-1), wave_height.squeeze(-1)
+            self.wave_height_estimator = nn.Sequential(
+                nn.Linear(hidden_dim * 2, 16),
+                nn.ReLU(),
+                nn.Linear(16, 1),
+                nn.ReLU(),
+            )
 
+        def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            """Forward pass for waveform analysis.
 
-class SeismicWaveAnalyzer(nn.Module):
-    """P/S-wave spectrogram analyzer for earthquake detection.
+            Args:
+                x: Waveform tensor [batch, seq_len]
 
-    Uses scipy.signal for spectrogram computation and neural network
-    for classification.
-    """
+            Returns:
+                Tuple of (tsunami_prob, estimated_wave_height)
+            """
+            if x.dim() == 2:
+                x = x.unsqueeze(1)
 
-    def __init__(self, n_freq_bins: int = 64, hidden_dim: int = 128) -> None:
-        super().__init__()
+            x = torch.relu(self.conv1d(x))
+            x = torch.relu(self.conv1d_2(x))
 
-        self.conv2d = nn.Sequential(
-            nn.Conv2d(1, 16, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((4, 4)),
+            x = x.permute(0, 2, 1)
+            lstm_out, _ = self.lstm(x)
+
+            pooled = lstm_out.mean(dim=1)
+
+            tsunami_prob = self.classifier(pooled)
+            wave_height = self.wave_height_estimator(pooled)
+
+            return tsunami_prob.squeeze(-1), wave_height.squeeze(-1)
+
+else:
+    def WaveformFFTAnalyzer(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: WaveformFFTAnalyzer requires PyTorch."""
+        raise ImportError(
+            "WaveformFFTAnalyzer requires PyTorch. Install with: pip install torch"
         )
 
-        self.classifier = nn.Sequential(
-            nn.Linear(64 * 4 * 4, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1),
-            nn.Sigmoid(),
-        )
 
-        self.magnitude_estimator = nn.Sequential(
-            nn.Linear(64 * 4 * 4, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1),
-        )
+if TORCH_AVAILABLE:
+    class SeismicWaveAnalyzer(nn.Module):
+        """P/S-wave spectrogram analyzer for earthquake detection.
 
-        self.p_wave_detector = nn.Sequential(
-            nn.Linear(64 * 4 * 4, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.Sigmoid(),
-        )
-
-        self.s_wave_detector = nn.Sequential(
-            nn.Linear(64 * 4 * 4, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.Sigmoid(),
-        )
-
-    def forward(
-        self, spectrogram: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Forward pass for seismic analysis.
-
-        Args:
-            spectrogram: Spectrogram tensor [batch, 1, freq, time]
-
-        Returns:
-            Tuple of (earthquake_prob, magnitude, p_wave_prob, s_wave_prob)
+        Uses scipy.signal for spectrogram computation and neural network
+        for classification.
         """
-        if spectrogram.dim() == 3:
-            spectrogram = spectrogram.unsqueeze(1)
 
-        features = self.conv2d(spectrogram)
-        features_flat = features.view(features.size(0), -1)
+        def __init__(self, n_freq_bins: int = 64, hidden_dim: int = 128) -> None:
+            super().__init__()
 
-        earthquake_prob = self.classifier(features_flat)
-        magnitude = self.magnitude_estimator(features_flat)
-        p_wave_prob = self.p_wave_detector(features_flat)
-        s_wave_prob = self.s_wave_detector(features_flat)
+            self.conv2d = nn.Sequential(
+                nn.Conv2d(1, 16, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Conv2d(16, 32, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Conv2d(32, 64, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.AdaptiveAvgPool2d((4, 4)),
+            )
 
-        return (
-            earthquake_prob.squeeze(-1),
-            magnitude.squeeze(-1),
-            p_wave_prob.squeeze(-1),
-            s_wave_prob.squeeze(-1),
+            self.classifier = nn.Sequential(
+                nn.Linear(64 * 4 * 4, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(hidden_dim, 64),
+                nn.ReLU(),
+                nn.Linear(64, 1),
+                nn.Sigmoid(),
+            )
+
+            self.magnitude_estimator = nn.Sequential(
+                nn.Linear(64 * 4 * 4, 64),
+                nn.ReLU(),
+                nn.Linear(64, 1),
+            )
+
+            self.p_wave_detector = nn.Sequential(
+                nn.Linear(64 * 4 * 4, 32),
+                nn.ReLU(),
+                nn.Linear(32, 1),
+                nn.Sigmoid(),
+            )
+
+            self.s_wave_detector = nn.Sequential(
+                nn.Linear(64 * 4 * 4, 32),
+                nn.ReLU(),
+                nn.Linear(32, 1),
+                nn.Sigmoid(),
+            )
+
+        def forward(
+            self, spectrogram: torch.Tensor
+        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+            """Forward pass for seismic analysis.
+
+            Args:
+                spectrogram: Spectrogram tensor [batch, 1, freq, time]
+
+            Returns:
+                Tuple of (earthquake_prob, magnitude, p_wave_prob, s_wave_prob)
+            """
+            if spectrogram.dim() == 3:
+                spectrogram = spectrogram.unsqueeze(1)
+
+            features = self.conv2d(spectrogram)
+            features_flat = features.view(features.size(0), -1)
+
+            earthquake_prob = self.classifier(features_flat)
+            magnitude = self.magnitude_estimator(features_flat)
+            p_wave_prob = self.p_wave_detector(features_flat)
+            s_wave_prob = self.s_wave_detector(features_flat)
+
+            return (
+                earthquake_prob.squeeze(-1),
+                magnitude.squeeze(-1),
+                p_wave_prob.squeeze(-1),
+                s_wave_prob.squeeze(-1),
+            )
+
+else:
+    def SeismicWaveAnalyzer(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: SeismicWaveAnalyzer requires PyTorch."""
+        raise ImportError(
+            "SeismicWaveAnalyzer requires PyTorch. Install with: pip install torch"
         )
 
 

@@ -37,9 +37,14 @@ References:
 from typing import Any
 
 import numpy as np
-import torch
 from scipy import linalg as sp_linalg
 from scipy import stats as sp_stats
+
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
@@ -128,7 +133,7 @@ class MercuryAnomalyDetector(BaseDetector):
             O(n * d * log n) for FFT spectral profiles (once at fit time),
             O(d^3) for covariance inversion.
         """
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         # Narrow type for mypy: after tensor conversion, data is ndarray
@@ -222,7 +227,7 @@ class MercuryAnomalyDetector(BaseDetector):
             ThresholdCalibrationPipeline,
         )
 
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         arr = np.asarray(data, dtype=np.float64)
         if arr.ndim == 1:
@@ -654,7 +659,7 @@ class MercuryAnomalyDetector(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if data.ndim == 1:
@@ -1027,7 +1032,7 @@ class MercuryAnomalyDetector(BaseDetector):
         Returns:
             Feature tensor of shape ``[batch_size, 10]``.
         """
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if data.ndim == 1:
@@ -1051,7 +1056,9 @@ class MercuryAnomalyDetector(BaseDetector):
             padding = np.zeros((features.shape[0], 10 - features.shape[1]))
             features = np.column_stack([features, padding])
 
-        return torch.tensor(features, dtype=torch.float32)
+        if TORCH_AVAILABLE:
+            return torch.tensor(features, dtype=torch.float32)
+        return features
 
     def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute z-scores.

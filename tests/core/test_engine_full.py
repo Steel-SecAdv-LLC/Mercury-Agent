@@ -22,6 +22,9 @@ from __future__ import annotations
 Full engine tests to boost coverage
 """
 
+import pytest  # noqa: E402
+pytest.importorskip("torch")
+
 import os
 import tempfile
 

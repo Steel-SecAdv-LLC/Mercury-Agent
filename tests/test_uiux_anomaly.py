@@ -7,6 +7,9 @@ Tests for UI/UX Anomaly Detection Module.
 
 from __future__ import annotations
 
+import pytest  # noqa: E402
+pytest.importorskip("torch")
+
 import time
 
 import numpy as np

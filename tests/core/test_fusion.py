@@ -22,6 +22,9 @@ from __future__ import annotations
 Test fusion mechanisms
 """
 
+import pytest  # noqa: E402
+pytest.importorskip("torch")
+
 import torch
 
 from omni_mercury_engine.core.fusion import HybridFusionLayer

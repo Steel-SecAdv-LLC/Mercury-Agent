@@ -53,7 +53,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import torch
+
+try:
+    import torch
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
 from scipy.fft import fft
 
 from omni_mercury_engine.core.base import BaseDetector

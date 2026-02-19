@@ -13,6 +13,9 @@ This module tests:
 
 from __future__ import annotations
 
+import pytest  # noqa: E402
+pytest.importorskip("torch")
+
 import numpy as np
 
 from omni_mercury_engine.core.config import EngineConfig

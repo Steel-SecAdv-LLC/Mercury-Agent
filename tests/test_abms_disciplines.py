@@ -6,6 +6,9 @@ Tests ABMS medical specialty-based anomaly detection.
 
 from __future__ import annotations
 
+import pytest  # noqa: E402
+pytest.importorskip("torch")
+
 import numpy as np
 import pytest
 import torch

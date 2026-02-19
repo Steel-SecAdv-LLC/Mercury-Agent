@@ -51,8 +51,14 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-import torch
-from torch import nn
+
+try:
+    import torch
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 
 class ABMSBoard(Enum):
@@ -100,79 +106,87 @@ class MedicalAnomalyResult:
     neurosymbolic_reasoning: dict[str, Any] | None = None
 
 
-class MultiSpecialtyNeuralNet(nn.Module):
-    """
-    Neural network for multi-specialty medical anomaly detection.
-
-    Architecture optimized with golden ratio (φ ≈ 1.618) for layer dimensions.
-    """
-
-    def __init__(self, input_dim: int = 64, num_specialties: int = 24) -> None:
-        super().__init__()
-
-        phi = 1.618
-        hidden_1 = int(input_dim * phi)
-        hidden_2 = int(hidden_1 * phi)
-        hidden_3 = (
-            round(int(hidden_2 / phi) / 8) * 8
-        )  # Round to nearest multiple of 8 for attention
-
-        self.shared_encoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_1),
-            nn.LayerNorm(hidden_1),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(hidden_1, hidden_2),
-            nn.LayerNorm(hidden_2),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(hidden_2, hidden_3),
-            nn.LayerNorm(hidden_3),
-            nn.ReLU(),
-        )
-
-        self.specialty_heads = nn.ModuleDict(
-            {
-                board.value: nn.Sequential(
-                    nn.Linear(hidden_3, hidden_3 // 2),
-                    nn.ReLU(),
-                    nn.Dropout(0.15),
-                    nn.Linear(hidden_3 // 2, 3),
-                )
-                for board in ABMSBoard
-            }
-        )
-
-        self.attention = nn.MultiheadAttention(
-            embed_dim=hidden_3, num_heads=8, dropout=0.1, batch_first=True
-        )
-
-    def forward(self, x: torch.Tensor, specialty: str | None = None) -> dict[str, torch.Tensor]:
+if TORCH_AVAILABLE:
+    class MultiSpecialtyNeuralNet(nn.Module):
         """
-        Forward pass with optional specialty-specific prediction.
+        Neural network for multi-specialty medical anomaly detection.
 
-        Args:
-            x: Input features [batch, input_dim]
-            specialty: Specific ABMS board to predict (None = all)
-
-        Returns:
-            Dictionary of predictions per specialty
+        Architecture optimized with golden ratio (φ ≈ 1.618) for layer dimensions.
         """
-        encoded = self.shared_encoder(x)
 
-        encoded_seq = encoded.unsqueeze(1)
-        attended, _attention_weights = self.attention(encoded_seq, encoded_seq, encoded_seq)
-        attended = attended.squeeze(1)
+        def __init__(self, input_dim: int = 64, num_specialties: int = 24) -> None:
+            super().__init__()
 
-        predictions = {}
+            phi = 1.618
+            hidden_1 = int(input_dim * phi)
+            hidden_2 = int(hidden_1 * phi)
+            hidden_3 = (
+                round(int(hidden_2 / phi) / 8) * 8
+            )  # Round to nearest multiple of 8 for attention
 
-        if specialty and specialty in self.specialty_heads:
-            predictions[specialty] = self.specialty_heads[specialty](attended)
-        else:
-            for spec_name, head in self.specialty_heads.items():
-                predictions[spec_name] = head(attended)
+            self.shared_encoder = nn.Sequential(
+                nn.Linear(input_dim, hidden_1),
+                nn.LayerNorm(hidden_1),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+                nn.Linear(hidden_1, hidden_2),
+                nn.LayerNorm(hidden_2),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+                nn.Linear(hidden_2, hidden_3),
+                nn.LayerNorm(hidden_3),
+                nn.ReLU(),
+            )
 
-        return predictions
+            self.specialty_heads = nn.ModuleDict(
+                {
+                    board.value: nn.Sequential(
+                        nn.Linear(hidden_3, hidden_3 // 2),
+                        nn.ReLU(),
+                        nn.Dropout(0.15),
+                        nn.Linear(hidden_3 // 2, 3),
+                    )
+                    for board in ABMSBoard
+                }
+            )
+
+            self.attention = nn.MultiheadAttention(
+                embed_dim=hidden_3, num_heads=8, dropout=0.1, batch_first=True
+            )
+
+        def forward(self, x: torch.Tensor, specialty: str | None = None) -> dict[str, torch.Tensor]:
+            """
+            Forward pass with optional specialty-specific prediction.
+
+            Args:
+                x: Input features [batch, input_dim]
+                specialty: Specific ABMS board to predict (None = all)
+
+            Returns:
+                Dictionary of predictions per specialty
+            """
+            encoded = self.shared_encoder(x)
+
+            encoded_seq = encoded.unsqueeze(1)
+            attended, _attention_weights = self.attention(encoded_seq, encoded_seq, encoded_seq)
+            attended = attended.squeeze(1)
+
+            predictions = {}
+
+            if specialty and specialty in self.specialty_heads:
+                predictions[specialty] = self.specialty_heads[specialty](attended)
+            else:
+                for spec_name, head in self.specialty_heads.items():
+                    predictions[spec_name] = head(attended)
+
+            return predictions
+
+else:
+    def MultiSpecialtyNeuralNet(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: MultiSpecialtyNeuralNet requires PyTorch."""
+        raise ImportError(
+            "MultiSpecialtyNeuralNet requires PyTorch. Install with: pip install torch"
+        )
 
 
 class ABMSDisciplineDetector:

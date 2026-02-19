@@ -5,6 +5,9 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 """
 
+import pytest  # noqa: E402
+pytest.importorskip("sklearn")
+
 import numpy as np
 import pytest
 from sklearn.tree import DecisionTreeClassifier

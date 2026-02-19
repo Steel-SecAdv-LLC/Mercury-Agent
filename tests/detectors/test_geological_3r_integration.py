@@ -27,6 +27,9 @@ RefactoringEngine) are properly integrated and actively used in the prediction
 flow of each geological detector.
 """
 
+import pytest  # noqa: E402
+pytest.importorskip("torch")
+
 import numpy as np
 import pytest
 

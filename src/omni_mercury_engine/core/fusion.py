@@ -20,9 +20,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import torch
-import torch.nn.functional as F
-from torch import nn
+try:
+    import torch
+    import torch.nn.functional as F
+    from torch import nn
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -80,718 +85,751 @@ def _validate_tensor_devices(
     return first_tensor.device, first_tensor.dtype
 
 
-class AttentionFusion(nn.Module):
-    """
-    Multi-head attention mechanism for detector fusion.
+if TORCH_AVAILABLE:
+    class AttentionFusion(nn.Module):
+        """
+        Multi-head attention mechanism for detector fusion.
 
-    Learns which detectors are most relevant for each input sample,
-    providing interpretability via attention weights.
+        Learns which detectors are most relevant for each input sample,
+        providing interpretability via attention weights.
 
-    Can be used in two modes:
-    1. Detector fusion: Pass num_detectors for fusing multiple detector outputs
-    2. Sequence attention: Pass embed_dim only for sequence-to-embedding attention
+        Can be used in two modes:
+        1. Detector fusion: Pass num_detectors for fusing multiple detector outputs
+        2. Sequence attention: Pass embed_dim only for sequence-to-embedding attention
 
-    Enhanced with:
-    - Cross-attention between detector groups (opt-in)
-    - Hierarchical attention for coarse-to-fine pattern matching
-    - Configurable number of attention heads (up to 512 for complex patterns)
-    """
+        Enhanced with:
+        - Cross-attention between detector groups (opt-in)
+        - Hierarchical attention for coarse-to-fine pattern matching
+        - Configurable number of attention heads (up to 512 for complex patterns)
+        """
 
-    def __init__(
-        self,
-        embed_dim: int | None = None,
-        num_heads: int = 4,
-        dropout: float = 0.1,
-        num_detectors: int | None = None,
-        enable_cross_attention: bool = False,
-        enable_hierarchical: bool = False,
-        num_detector_groups: int = 3,
-    ):
-        super().__init__()
-        if embed_dim is None and num_detectors is not None:
-            embed_dim = num_detectors
-        elif embed_dim is None:
-            embed_dim = 128
+        def __init__(
+            self,
+            embed_dim: int | None = None,
+            num_heads: int = 4,
+            dropout: float = 0.1,
+            num_detectors: int | None = None,
+            enable_cross_attention: bool = False,
+            enable_hierarchical: bool = False,
+            num_detector_groups: int = 3,
+        ):
+            super().__init__()
+            if embed_dim is None and num_detectors is not None:
+                embed_dim = num_detectors
+            elif embed_dim is None:
+                embed_dim = 128
 
-        self.num_detectors = num_detectors
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.enable_cross_attention = enable_cross_attention
-        self.enable_hierarchical = enable_hierarchical
-        self.num_detector_groups = num_detector_groups
+            self.num_detectors = num_detectors
+            self.embed_dim = embed_dim
+            self.num_heads = num_heads
+            self.enable_cross_attention = enable_cross_attention
+            self.enable_hierarchical = enable_hierarchical
+            self.num_detector_groups = num_detector_groups
 
-        self.attention = nn.MultiheadAttention(
-            embed_dim=embed_dim,
-            num_heads=num_heads,
-            dropout=dropout,
-            batch_first=True,
-        )
-
-        self.layer_norm = nn.LayerNorm(embed_dim)
-        self.dropout = nn.Dropout(dropout)
-
-        if enable_cross_attention:
-            self.cross_attention = nn.MultiheadAttention(
+            self.attention = nn.MultiheadAttention(
                 embed_dim=embed_dim,
                 num_heads=num_heads,
                 dropout=dropout,
                 batch_first=True,
             )
-            self.cross_layer_norm = nn.LayerNorm(embed_dim)
 
-        if enable_hierarchical:
-            self.coarse_attention = nn.MultiheadAttention(
-                embed_dim=embed_dim,
-                num_heads=max(1, num_heads // 2),
-                dropout=dropout,
-                batch_first=True,
-            )
-            self.fine_attention = nn.MultiheadAttention(
-                embed_dim=embed_dim,
-                num_heads=num_heads,
-                dropout=dropout,
-                batch_first=True,
-            )
-            self.hierarchical_gate = nn.Sequential(
-                nn.Linear(embed_dim * 2, embed_dim),
-                nn.Sigmoid(),
-            )
+            self.layer_norm = nn.LayerNorm(embed_dim)
+            self.dropout = nn.Dropout(dropout)
 
-    def forward(
-        self,
-        detector_embeddings: torch.Tensor,
-        return_attention: bool = False,
-        context_embeddings: torch.Tensor | None = None,
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        """
-        Apply multi-head attention over detector embeddings.
-
-        Enhanced with optional cross-attention and hierarchical attention.
-
-        Args:
-            detector_embeddings: [batch_size, num_detectors, embed_dim]
-            return_attention: Whether to return attention weights (default: False)
-            context_embeddings: Optional context for cross-attention
-
-        Returns:
-            If return_attention=False:
-                fused: [batch_size, embed_dim] - Fused representation
-            If return_attention=True:
-                fused: [batch_size, embed_dim] - Fused representation
-                weights: [batch_size, num_heads, seq_len, seq_len] - Attention weights
-        """
-        if self.enable_hierarchical:
-            fused, attn_weights = self._hierarchical_forward(detector_embeddings, return_attention)
-        else:
-            attn_output, attn_weights = self.attention(
-                detector_embeddings,
-                detector_embeddings,
-                detector_embeddings,
-            )
-
-            attn_output = self.dropout(attn_output)
-            attn_output = self.layer_norm(attn_output + detector_embeddings)
-
-            if self.enable_cross_attention and context_embeddings is not None:
-                cross_output, _ = self.cross_attention(
-                    attn_output,
-                    context_embeddings,
-                    context_embeddings,
+            if enable_cross_attention:
+                self.cross_attention = nn.MultiheadAttention(
+                    embed_dim=embed_dim,
+                    num_heads=num_heads,
+                    dropout=dropout,
+                    batch_first=True,
                 )
-                attn_output = self.cross_layer_norm(attn_output + cross_output)
+                self.cross_layer_norm = nn.LayerNorm(embed_dim)
 
-            fused = attn_output.mean(dim=1)
+            if enable_hierarchical:
+                self.coarse_attention = nn.MultiheadAttention(
+                    embed_dim=embed_dim,
+                    num_heads=max(1, num_heads // 2),
+                    dropout=dropout,
+                    batch_first=True,
+                )
+                self.fine_attention = nn.MultiheadAttention(
+                    embed_dim=embed_dim,
+                    num_heads=num_heads,
+                    dropout=dropout,
+                    batch_first=True,
+                )
+                self.hierarchical_gate = nn.Sequential(
+                    nn.Linear(embed_dim * 2, embed_dim),
+                    nn.Sigmoid(),
+                )
 
-        if return_attention:
-            return fused, attn_weights
-        return fused
+        def forward(
+            self,
+            detector_embeddings: torch.Tensor,
+            return_attention: bool = False,
+            context_embeddings: torch.Tensor | None = None,
+        ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+            """
+            Apply multi-head attention over detector embeddings.
 
-    def _hierarchical_forward(
-        self,
-        detector_embeddings: torch.Tensor,
-        return_attention: bool = False,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Apply hierarchical coarse-to-fine attention.
+            Enhanced with optional cross-attention and hierarchical attention.
 
-        First applies coarse attention to capture global patterns,
-        then fine attention for detailed pattern matching.
+            Args:
+                detector_embeddings: [batch_size, num_detectors, embed_dim]
+                return_attention: Whether to return attention weights (default: False)
+                context_embeddings: Optional context for cross-attention
+
+            Returns:
+                If return_attention=False:
+                    fused: [batch_size, embed_dim] - Fused representation
+                If return_attention=True:
+                    fused: [batch_size, embed_dim] - Fused representation
+                    weights: [batch_size, num_heads, seq_len, seq_len] - Attention weights
+            """
+            if self.enable_hierarchical:
+                fused, attn_weights = self._hierarchical_forward(detector_embeddings, return_attention)
+            else:
+                attn_output, attn_weights = self.attention(
+                    detector_embeddings,
+                    detector_embeddings,
+                    detector_embeddings,
+                )
+
+                attn_output = self.dropout(attn_output)
+                attn_output = self.layer_norm(attn_output + detector_embeddings)
+
+                if self.enable_cross_attention and context_embeddings is not None:
+                    cross_output, _ = self.cross_attention(
+                        attn_output,
+                        context_embeddings,
+                        context_embeddings,
+                    )
+                    attn_output = self.cross_layer_norm(attn_output + cross_output)
+
+                fused = attn_output.mean(dim=1)
+
+            if return_attention:
+                return fused, attn_weights
+            return fused
+
+        def _hierarchical_forward(
+            self,
+            detector_embeddings: torch.Tensor,
+            return_attention: bool = False,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            """Apply hierarchical coarse-to-fine attention.
+
+            First applies coarse attention to capture global patterns,
+            then fine attention for detailed pattern matching.
+            """
+            coarse_output, coarse_weights = self.coarse_attention(
+                detector_embeddings,
+                detector_embeddings,
+                detector_embeddings,
+            )
+
+            fine_output, fine_weights = self.fine_attention(
+                detector_embeddings,
+                detector_embeddings,
+                detector_embeddings,
+            )
+
+            coarse_pooled = coarse_output.mean(dim=1)
+            fine_pooled = fine_output.mean(dim=1)
+
+            gate = self.hierarchical_gate(torch.cat([coarse_pooled, fine_pooled], dim=-1))
+            fused = gate * coarse_pooled + (1 - gate) * fine_pooled
+
+            combined_weights = (coarse_weights + fine_weights) / 2
+
+            return fused, combined_weights
+
+    class SparseTopKAttention(nn.Module):
         """
-        coarse_output, coarse_weights = self.coarse_attention(
-            detector_embeddings,
-            detector_embeddings,
-            detector_embeddings,
-        )
+        Sparse top-k attention for O(n) -> O(k) complexity.
 
-        fine_output, fine_weights = self.fine_attention(
-            detector_embeddings,
-            detector_embeddings,
-            detector_embeddings,
-        )
+        Instead of computing full attention over all positions, only attends
+        to the top-k most relevant positions, dramatically reducing compute
+        for large detector ensembles.
 
-        coarse_pooled = coarse_output.mean(dim=1)
-        fine_pooled = fine_output.mean(dim=1)
-
-        gate = self.hierarchical_gate(torch.cat([coarse_pooled, fine_pooled], dim=-1))
-        fused = gate * coarse_pooled + (1 - gate) * fine_pooled
-
-        combined_weights = (coarse_weights + fine_weights) / 2
-
-        return fused, combined_weights
-
-
-class SparseTopKAttention(nn.Module):
-    """
-    Sparse top-k attention for O(n) -> O(k) complexity.
-
-    Instead of computing full attention over all positions, only attends
-    to the top-k most relevant positions, dramatically reducing compute
-    for large detector ensembles.
-
-    Implements sparse attention: weight_i = softmax(logit_i) where only
-    top-k% of logits are kept, rest are masked to -inf.
-    """
-
-    def __init__(
-        self,
-        embed_dim: int,
-        num_heads: int = 4,
-        dropout: float = 0.1,
-        top_k_ratio: float = 0.3,
-    ):
+        Implements sparse attention: weight_i = softmax(logit_i) where only
+        top-k% of logits are kept, rest are masked to -inf.
         """
-        Initialize sparse top-k attention.
 
-        Args:
-            embed_dim: Embedding dimension
-            num_heads: Number of attention heads
-            dropout: Dropout probability
-            top_k_ratio: Ratio of positions to keep (0.3 = top 30%)
+        def __init__(
+            self,
+            embed_dim: int,
+            num_heads: int = 4,
+            dropout: float = 0.1,
+            top_k_ratio: float = 0.3,
+        ):
+            """
+            Initialize sparse top-k attention.
+
+            Args:
+                embed_dim: Embedding dimension
+                num_heads: Number of attention heads
+                dropout: Dropout probability
+                top_k_ratio: Ratio of positions to keep (0.3 = top 30%)
+            """
+            super().__init__()
+            self.embed_dim = embed_dim
+            self.num_heads = num_heads
+            self.top_k_ratio = top_k_ratio
+            self.head_dim = embed_dim // num_heads
+            self.scale = self.head_dim**-0.5
+
+            self.qkv = nn.Linear(embed_dim, embed_dim * 3, bias=False)
+            self.proj = nn.Linear(embed_dim, embed_dim)
+            self.dropout = nn.Dropout(dropout)
+
+        def forward(
+            self,
+            x: torch.Tensor,
+            return_attention: bool = False,
+        ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+            """
+            Apply sparse top-k attention.
+
+            Args:
+                x: Input tensor [batch_size, seq_len, embed_dim]
+                return_attention: Whether to return attention weights
+
+            Returns:
+                Output tensor [batch_size, seq_len, embed_dim]
+                Optionally returns attention weights
+            """
+            batch_size, seq_len, _ = x.shape
+            k = max(1, int(seq_len * self.top_k_ratio))
+
+            # Compute Q, K, V
+            qkv = self.qkv(x).reshape(batch_size, seq_len, 3, self.num_heads, self.head_dim)
+            qkv = qkv.permute(2, 0, 3, 1, 4)  # [3, B, H, N, D]
+            q, key, v = qkv[0], qkv[1], qkv[2]
+
+            # Compute attention scores
+            attn = (q @ key.transpose(-2, -1)) * self.scale  # [B, H, N, N]
+
+            # Apply top-k sparsity
+            if k < seq_len:
+                # Get top-k values and indices
+                top_k_vals, top_k_idx = torch.topk(attn, k, dim=-1)
+
+                # Create sparse mask
+                sparse_attn = torch.full_like(attn, float("-inf"))
+                sparse_attn.scatter_(-1, top_k_idx, top_k_vals)
+                attn = sparse_attn
+
+            # Softmax and dropout
+            attn_weights = F.softmax(attn, dim=-1)
+            attn_weights = self.dropout(attn_weights)
+
+            # Apply attention to values
+            out = attn_weights @ v  # [B, H, N, D]
+            out = out.transpose(1, 2).reshape(batch_size, seq_len, self.embed_dim)
+            out = self.proj(out)
+
+            if return_attention:
+                return out, attn_weights
+            return out  # type: ignore[no-any-return, unused-ignore]
+
+    class UncertaintyWeightedFusion(nn.Module):
         """
-        super().__init__()
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.top_k_ratio = top_k_ratio
-        self.head_dim = embed_dim // num_heads
-        self.scale = self.head_dim**-0.5
+        Uncertainty-weighted fusion layer.
 
-        self.qkv = nn.Linear(embed_dim, embed_dim * 3, bias=False)
-        self.proj = nn.Linear(embed_dim, embed_dim)
-        self.dropout = nn.Dropout(dropout)
+        Implements uncertainty-weighted detector fusion:
+        weight_i = softmax(logit_i - lambda * uncertainty_i)
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        return_attention: bool = False,
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        Where:
+        - logit_i: Base logit for detector i
+        - uncertainty_i: Entropy-based uncertainty estimate
+        - lambda: Uncertainty penalty parameter (default 0.25)
+
+        This penalizes detectors with high uncertainty, giving more
+        weight to confident predictions.
         """
-        Apply sparse top-k attention.
 
-        Args:
-            x: Input tensor [batch_size, seq_len, embed_dim]
-            return_attention: Whether to return attention weights
+        def __init__(
+            self,
+            num_detectors: int,
+            uncertainty_lambda: float = 0.25,
+            enable_entropy_weighting: bool = True,
+            temperature: float = 1.0,
+        ):
+            """
+            Initialize uncertainty-weighted fusion.
 
-        Returns:
-            Output tensor [batch_size, seq_len, embed_dim]
-            Optionally returns attention weights
+            Args:
+                num_detectors: Number of detectors to fuse
+                uncertainty_lambda: Uncertainty penalty parameter
+                enable_entropy_weighting: Enable entropy-based uncertainty
+                temperature: Softmax temperature
+            """
+            super().__init__()
+            self.num_detectors = num_detectors
+            self.uncertainty_lambda = uncertainty_lambda
+            self.enable_entropy_weighting = enable_entropy_weighting
+            self.temperature = temperature
+
+            # Learnable base logits for each detector
+            self.base_logits = nn.Parameter(torch.zeros(num_detectors))
+
+        def compute_entropy(self, scores: torch.Tensor) -> torch.Tensor:
+            """
+            Compute entropy-based uncertainty from detector scores.
+
+            Args:
+                scores: Detector scores [batch_size, num_detectors]
+
+            Returns:
+                Entropy values [batch_size, num_detectors]
+            """
+            # Clamp to valid probability range
+            p = torch.clamp(scores, 1e-7, 1 - 1e-7)
+
+            # Binary entropy: H(p) = -p*log(p) - (1-p)*log(1-p)
+            entropy = -p * torch.log(p) - (1 - p) * torch.log(1 - p)
+
+            return entropy
+
+        def forward(
+            self,
+            detector_scores: torch.Tensor,
+            detector_uncertainties: torch.Tensor | None = None,
+            return_weights: bool = False,
+        ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+            """
+            Apply uncertainty-weighted fusion.
+
+            Args:
+                detector_scores: Scores from each detector [batch_size, num_detectors]
+                detector_uncertainties: Optional explicit uncertainties
+                return_weights: Whether to return fusion weights
+
+            Returns:
+                Fused score [batch_size, 1]
+                Optionally returns fusion weights
+            """
+            batch_size = detector_scores.shape[0]
+
+            # Expand base logits for batch
+            logits = self.base_logits.unsqueeze(0).expand(batch_size, -1)
+
+            # Compute or use provided uncertainties
+            if detector_uncertainties is not None:
+                uncertainties = detector_uncertainties
+            elif self.enable_entropy_weighting:
+                uncertainties = self.compute_entropy(detector_scores)
+            else:
+                uncertainties = torch.zeros_like(detector_scores)
+
+            # Apply uncertainty penalty: weight = softmax(logit - lambda * uncertainty)
+            adjusted_logits = logits - self.uncertainty_lambda * uncertainties
+            weights = F.softmax(adjusted_logits / self.temperature, dim=-1)
+
+            # Weighted combination
+            fused = (detector_scores * weights).sum(dim=-1, keepdim=True)
+
+            if return_weights:
+                return fused, weights
+            return fused
+
+    class ResonanceWeightedFusion(nn.Module):
         """
-        batch_size, seq_len, _ = x.shape
-        k = max(1, int(seq_len * self.top_k_ratio))
+        Resonance-weighted fusion integrating with 3R mechanism.
 
-        # Compute Q, K, V
-        qkv = self.qkv(x).reshape(batch_size, seq_len, 3, self.num_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # [3, B, H, N, D]
-        q, key, v = qkv[0], qkv[1], qkv[2]
+        Implements resonance-based weight modulation:
+        weight = base_logit * (1 + resonance_score)
+        resonance = exp(-lambda * divergence)
 
-        # Compute attention scores
-        attn = (q @ key.transpose(-2, -1)) * self.scale  # [B, H, N, N]
-
-        # Apply top-k sparsity
-        if k < seq_len:
-            # Get top-k values and indices
-            top_k_vals, top_k_idx = torch.topk(attn, k, dim=-1)
-
-            # Create sparse mask
-            sparse_attn = torch.full_like(attn, float("-inf"))
-            sparse_attn.scatter_(-1, top_k_idx, top_k_vals)
-            attn = sparse_attn
-
-        # Softmax and dropout
-        attn_weights = F.softmax(attn, dim=-1)
-        attn_weights = self.dropout(attn_weights)
-
-        # Apply attention to values
-        out = attn_weights @ v  # [B, H, N, D]
-        out = out.transpose(1, 2).reshape(batch_size, seq_len, self.embed_dim)
-        out = self.proj(out)
-
-        if return_attention:
-            return out, attn_weights
-        return out  # type: ignore[no-any-return, unused-ignore]
-
-
-class UncertaintyWeightedFusion(nn.Module):
-    """
-    Uncertainty-weighted fusion layer.
-
-    Implements uncertainty-weighted detector fusion:
-    weight_i = softmax(logit_i - lambda * uncertainty_i)
-
-    Where:
-    - logit_i: Base logit for detector i
-    - uncertainty_i: Entropy-based uncertainty estimate
-    - lambda: Uncertainty penalty parameter (default 0.25)
-
-    This penalizes detectors with high uncertainty, giving more
-    weight to confident predictions.
-    """
-
-    def __init__(
-        self,
-        num_detectors: int,
-        uncertainty_lambda: float = 0.25,
-        enable_entropy_weighting: bool = True,
-        temperature: float = 1.0,
-    ):
+        This allows the 3R mechanism's resonance scores to influence
+        detector fusion, creating feedback between detection and state evolution.
         """
-        Initialize uncertainty-weighted fusion.
 
-        Args:
-            num_detectors: Number of detectors to fuse
-            uncertainty_lambda: Uncertainty penalty parameter
-            enable_entropy_weighting: Enable entropy-based uncertainty
-            temperature: Softmax temperature
+        def __init__(
+            self,
+            num_detectors: int,
+            resonance_lambda: float = 0.15,
+        ):
+            """
+            Initialize resonance-weighted fusion.
+
+            Args:
+                num_detectors: Number of detectors
+                resonance_lambda: Resonance decay parameter (tuned from 0.25 for faster convergence)
+            """
+            super().__init__()
+            self.num_detectors = num_detectors
+            self.resonance_lambda = resonance_lambda
+
+            # Base weights for each detector
+            self.base_weights = nn.Parameter(torch.ones(num_detectors) / num_detectors)
+
+        def compute_resonance(self, divergences: torch.Tensor) -> torch.Tensor:
+            """
+            Compute resonance scores from divergences.
+
+            Args:
+                divergences: Divergence values [batch_size, num_detectors]
+
+            Returns:
+                Resonance scores [batch_size, num_detectors]
+            """
+            return torch.exp(-self.resonance_lambda * divergences)
+
+        def forward(
+            self,
+            detector_scores: torch.Tensor,
+            divergences: torch.Tensor | None = None,
+            return_weights: bool = False,
+        ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+            """
+            Apply resonance-weighted fusion.
+
+            Args:
+                detector_scores: Scores from each detector [batch_size, num_detectors]
+                divergences: Optional divergence values from 3R mechanism
+                return_weights: Whether to return fusion weights
+
+            Returns:
+                Fused score [batch_size, 1]
+                Optionally returns fusion weights
+            """
+            batch_size = detector_scores.shape[0]
+
+            # Compute resonance from divergences if provided
+            if divergences is not None:
+                # Fix for P0: Validate divergences for NaN/Inf before computing resonance
+                # Invalid divergences corrupt fusion weights and final scores
+                if torch.any(~torch.isfinite(divergences)):
+                    # Replace NaN/Inf with neutral values (0 divergence = max resonance)
+                    divergences = torch.nan_to_num(divergences, nan=0.0, posinf=10.0, neginf=0.0)
+                resonance = self.compute_resonance(divergences)
+            else:
+                resonance = torch.ones(batch_size, self.num_detectors, device=detector_scores.device)
+
+            # Validate detector_scores as well
+            if torch.any(~torch.isfinite(detector_scores)):
+                detector_scores = torch.nan_to_num(detector_scores, nan=0.5, posinf=1.0, neginf=0.0)
+
+            # Apply resonance modulation: weight = base * (1 + resonance)
+            modulated_weights = self.base_weights.unsqueeze(0) * (1 + resonance)
+            weights = F.softmax(modulated_weights, dim=-1)
+
+            # Weighted combination
+            fused = (detector_scores * weights).sum(dim=-1, keepdim=True)
+
+            if return_weights:
+                return fused, weights
+            return fused
+
+    class HybridFusionLayer(nn.Module):
         """
-        super().__init__()
-        self.num_detectors = num_detectors
-        self.uncertainty_lambda = uncertainty_lambda
-        self.enable_entropy_weighting = enable_entropy_weighting
-        self.temperature = temperature
+        Hybrid fusion combining early and late fusion strategies with uncertainty weighting.
 
-        # Learnable base logits for each detector
-        self.base_logits = nn.Parameter(torch.zeros(num_detectors))
+        Architecture:
+        1. Early fusion: Concatenate normalized detector features → MLP
+        2. Late fusion: Detector anomaly scores → uncertainty-weighted average
+        3. Combine: Concat [early_features, late_scores] → Sparse Attention → Final decision
 
-    def compute_entropy(self, scores: torch.Tensor) -> torch.Tensor:
+        Enhanced with:
+        - Uncertainty-weighted fusion (lambda=0.25 for entropy penalty)
+        - Sparse top-k attention (k=0.3 for O(n)->O(k) complexity)
+        - Resonance integration with 3R mechanism
         """
-        Compute entropy-based uncertainty from detector scores.
 
-        Args:
-            scores: Detector scores [batch_size, num_detectors]
+        def __init__(
+            self,
+            feature_dims: dict[str, int],
+            hidden_dim: int = 128,
+            num_heads: int = 4,
+            dropout: float = 0.1,
+            # New uncertainty weighting parameters
+            uncertainty_lambda: float = 0.25,
+            enable_entropy_weighting: bool = True,
+            # New sparse attention parameters
+            enable_sparse_attention: bool = True,
+            sparse_top_k_ratio: float = 0.3,
+            # Resonance integration parameters
+            resonance_lambda: float = 0.15,
+        ):
+            super().__init__()
+            self.feature_dims = feature_dims
+            self.hidden_dim = hidden_dim
+            self.detector_names = list(feature_dims.keys())
+            self.num_detectors = len(self.detector_names)
+            self.enable_sparse_attention = enable_sparse_attention
 
-        Returns:
-            Entropy values [batch_size, num_detectors]
-        """
-        # Clamp to valid probability range
-        p = torch.clamp(scores, 1e-7, 1 - 1e-7)
+            self.feature_projectors = nn.ModuleDict(
+                {name: nn.Linear(feature_dims[name], hidden_dim) for name in feature_dims}
+            )
 
-        # Binary entropy: H(p) = -p*log(p) - (1-p)*log(1-p)
-        entropy = -p * torch.log(p) - (1 - p) * torch.log(1 - p)
+            total_encoded_dim = hidden_dim * self.num_detectors
+            self.early_fusion = nn.Sequential(
+                nn.Linear(total_encoded_dim, hidden_dim * 2),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden_dim * 2, hidden_dim),
+                nn.ReLU(),
+            )
 
-        return entropy
+            # Enhanced: Uncertainty-weighted fusion instead of simple learned weights
+            self.uncertainty_fusion = UncertaintyWeightedFusion(
+                num_detectors=self.num_detectors,
+                uncertainty_lambda=uncertainty_lambda,
+                enable_entropy_weighting=enable_entropy_weighting,
+            )
 
-    def forward(
-        self,
-        detector_scores: torch.Tensor,
-        detector_uncertainties: torch.Tensor | None = None,
-        return_weights: bool = False,
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        """
-        Apply uncertainty-weighted fusion.
+            # Resonance-weighted fusion for 3R integration
+            self.resonance_fusion = ResonanceWeightedFusion(
+                num_detectors=self.num_detectors,
+                resonance_lambda=resonance_lambda,
+            )
 
-        Args:
-            detector_scores: Scores from each detector [batch_size, num_detectors]
-            detector_uncertainties: Optional explicit uncertainties
-            return_weights: Whether to return fusion weights
+            # Keep legacy weights for backward compatibility
+            self.late_fusion_weights = nn.Parameter(torch.ones(self.num_detectors) / self.num_detectors)
 
-        Returns:
-            Fused score [batch_size, 1]
-            Optionally returns fusion weights
-        """
-        batch_size = detector_scores.shape[0]
+            # Sparse attention for efficiency
+            self.sparse_attention: SparseTopKAttention | None
+            if enable_sparse_attention and self.num_detectors >= 3:
+                self.sparse_attention = SparseTopKAttention(
+                    embed_dim=hidden_dim,
+                    num_heads=num_heads,
+                    dropout=dropout,
+                    top_k_ratio=sparse_top_k_ratio,
+                )
+            else:
+                self.sparse_attention = None
 
-        # Expand base logits for batch
-        logits = self.base_logits.unsqueeze(0).expand(batch_size, -1)
-
-        # Compute or use provided uncertainties
-        if detector_uncertainties is not None:
-            uncertainties = detector_uncertainties
-        elif self.enable_entropy_weighting:
-            uncertainties = self.compute_entropy(detector_scores)
-        else:
-            uncertainties = torch.zeros_like(detector_scores)
-
-        # Apply uncertainty penalty: weight = softmax(logit - lambda * uncertainty)
-        adjusted_logits = logits - self.uncertainty_lambda * uncertainties
-        weights = F.softmax(adjusted_logits / self.temperature, dim=-1)
-
-        # Weighted combination
-        fused = (detector_scores * weights).sum(dim=-1, keepdim=True)
-
-        if return_weights:
-            return fused, weights
-        return fused
-
-
-class ResonanceWeightedFusion(nn.Module):
-    """
-    Resonance-weighted fusion integrating with 3R mechanism.
-
-    Implements resonance-based weight modulation:
-    weight = base_logit * (1 + resonance_score)
-    resonance = exp(-lambda * divergence)
-
-    This allows the 3R mechanism's resonance scores to influence
-    detector fusion, creating feedback between detection and state evolution.
-    """
-
-    def __init__(
-        self,
-        num_detectors: int,
-        resonance_lambda: float = 0.15,
-    ):
-        """
-        Initialize resonance-weighted fusion.
-
-        Args:
-            num_detectors: Number of detectors
-            resonance_lambda: Resonance decay parameter (tuned from 0.25 for faster convergence)
-        """
-        super().__init__()
-        self.num_detectors = num_detectors
-        self.resonance_lambda = resonance_lambda
-
-        # Base weights for each detector
-        self.base_weights = nn.Parameter(torch.ones(num_detectors) / num_detectors)
-
-    def compute_resonance(self, divergences: torch.Tensor) -> torch.Tensor:
-        """
-        Compute resonance scores from divergences.
-
-        Args:
-            divergences: Divergence values [batch_size, num_detectors]
-
-        Returns:
-            Resonance scores [batch_size, num_detectors]
-        """
-        return torch.exp(-self.resonance_lambda * divergences)
-
-    def forward(
-        self,
-        detector_scores: torch.Tensor,
-        divergences: torch.Tensor | None = None,
-        return_weights: bool = False,
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        """
-        Apply resonance-weighted fusion.
-
-        Args:
-            detector_scores: Scores from each detector [batch_size, num_detectors]
-            divergences: Optional divergence values from 3R mechanism
-            return_weights: Whether to return fusion weights
-
-        Returns:
-            Fused score [batch_size, 1]
-            Optionally returns fusion weights
-        """
-        batch_size = detector_scores.shape[0]
-
-        # Compute resonance from divergences if provided
-        if divergences is not None:
-            # Fix for P0: Validate divergences for NaN/Inf before computing resonance
-            # Invalid divergences corrupt fusion weights and final scores
-            if torch.any(~torch.isfinite(divergences)):
-                # Replace NaN/Inf with neutral values (0 divergence = max resonance)
-                divergences = torch.nan_to_num(divergences, nan=0.0, posinf=10.0, neginf=0.0)
-            resonance = self.compute_resonance(divergences)
-        else:
-            resonance = torch.ones(batch_size, self.num_detectors, device=detector_scores.device)
-
-        # Validate detector_scores as well
-        if torch.any(~torch.isfinite(detector_scores)):
-            detector_scores = torch.nan_to_num(detector_scores, nan=0.5, posinf=1.0, neginf=0.0)
-
-        # Apply resonance modulation: weight = base * (1 + resonance)
-        modulated_weights = self.base_weights.unsqueeze(0) * (1 + resonance)
-        weights = F.softmax(modulated_weights, dim=-1)
-
-        # Weighted combination
-        fused = (detector_scores * weights).sum(dim=-1, keepdim=True)
-
-        if return_weights:
-            return fused, weights
-        return fused
-
-
-class HybridFusionLayer(nn.Module):
-    """
-    Hybrid fusion combining early and late fusion strategies with uncertainty weighting.
-
-    Architecture:
-    1. Early fusion: Concatenate normalized detector features → MLP
-    2. Late fusion: Detector anomaly scores → uncertainty-weighted average
-    3. Combine: Concat [early_features, late_scores] → Sparse Attention → Final decision
-
-    Enhanced with:
-    - Uncertainty-weighted fusion (lambda=0.25 for entropy penalty)
-    - Sparse top-k attention (k=0.3 for O(n)->O(k) complexity)
-    - Resonance integration with 3R mechanism
-    """
-
-    def __init__(
-        self,
-        feature_dims: dict[str, int],
-        hidden_dim: int = 128,
-        num_heads: int = 4,
-        dropout: float = 0.1,
-        # New uncertainty weighting parameters
-        uncertainty_lambda: float = 0.25,
-        enable_entropy_weighting: bool = True,
-        # New sparse attention parameters
-        enable_sparse_attention: bool = True,
-        sparse_top_k_ratio: float = 0.3,
-        # Resonance integration parameters
-        resonance_lambda: float = 0.15,
-    ):
-        super().__init__()
-        self.feature_dims = feature_dims
-        self.hidden_dim = hidden_dim
-        self.detector_names = list(feature_dims.keys())
-        self.num_detectors = len(self.detector_names)
-        self.enable_sparse_attention = enable_sparse_attention
-
-        self.feature_projectors = nn.ModuleDict(
-            {name: nn.Linear(feature_dims[name], hidden_dim) for name in feature_dims}
-        )
-
-        total_encoded_dim = hidden_dim * self.num_detectors
-        self.early_fusion = nn.Sequential(
-            nn.Linear(total_encoded_dim, hidden_dim * 2),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.ReLU(),
-        )
-
-        # Enhanced: Uncertainty-weighted fusion instead of simple learned weights
-        self.uncertainty_fusion = UncertaintyWeightedFusion(
-            num_detectors=self.num_detectors,
-            uncertainty_lambda=uncertainty_lambda,
-            enable_entropy_weighting=enable_entropy_weighting,
-        )
-
-        # Resonance-weighted fusion for 3R integration
-        self.resonance_fusion = ResonanceWeightedFusion(
-            num_detectors=self.num_detectors,
-            resonance_lambda=resonance_lambda,
-        )
-
-        # Keep legacy weights for backward compatibility
-        self.late_fusion_weights = nn.Parameter(torch.ones(self.num_detectors) / self.num_detectors)
-
-        # Sparse attention for efficiency
-        self.sparse_attention: SparseTopKAttention | None
-        if enable_sparse_attention and self.num_detectors >= 3:
-            self.sparse_attention = SparseTopKAttention(
+            self.attention = AttentionFusion(
+                num_detectors=self.num_detectors,
                 embed_dim=hidden_dim,
                 num_heads=num_heads,
                 dropout=dropout,
-                top_k_ratio=sparse_top_k_ratio,
             )
-        else:
-            self.sparse_attention = None
 
-        self.attention = AttentionFusion(
-            num_detectors=self.num_detectors,
-            embed_dim=hidden_dim,
-            num_heads=num_heads,
-            dropout=dropout,
+        def forward(
+            self,
+            detector_features: dict[str, torch.Tensor],
+            detector_scores: dict[str, torch.Tensor],
+        ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+            """
+            Hybrid fusion of detector outputs.
+
+            Args:
+                detector_features: Dict mapping detector name to feature tensor
+                    [batch_size, feature_dim]
+                detector_scores: Dict mapping detector name to anomaly score
+                    [batch_size, 1]
+
+            Returns:
+                fused_representation: [batch_size, hidden_dim] - Fused feature representation
+                attention_weights: Dict of attention weights for interpretability
+
+            Raises:
+                ValueError: If tensors have mismatched devices (e.g., some CPU, some CUDA).
+            """
+            # Validate all tensors share the same device and dtype
+            # This catches mixed-device errors early with a clear message
+            device, dtype = _validate_tensor_devices(detector_features, "detector_features")
+
+            # Also validate scores if provided
+            if detector_scores:
+                score_device, score_dtype = _validate_tensor_devices(detector_scores, "detector_scores")
+                if score_device != device:
+                    raise ValueError(
+                        f"Device mismatch: detector_features on {device}, "
+                        f"detector_scores on {score_device}"
+                    )
+
+            first_tensor = next(iter(detector_features.values()))
+            batch_size = first_tensor.shape[0]
+
+            projected_features = []
+            for name in self.detector_names:
+                if name in detector_features:
+                    proj = self.feature_projectors[name](detector_features[name])
+                    projected_features.append(proj)
+                else:
+                    # Fix for P0: Zero-fill with correct device to avoid device mismatch
+                    projected_features.append(
+                        torch.zeros(batch_size, self.hidden_dim, device=device, dtype=dtype)
+                    )
+
+            early_features = torch.cat(projected_features, dim=1)
+            early_output = self.early_fusion(early_features)
+
+            score_list = []
+            for name in self.detector_names:
+                if name in detector_scores:
+                    score_list.append(detector_scores[name])
+                else:
+                    # Fix for P0: Zero-fill with correct device to avoid device mismatch
+                    score_list.append(torch.zeros(batch_size, 1, device=device, dtype=dtype))
+
+            scores_tensor = torch.cat(score_list, dim=1)
+            weights = F.softmax(self.late_fusion_weights, dim=0)
+            late_output = (scores_tensor * weights.unsqueeze(0)).sum(dim=1, keepdim=True)
+
+            stacked_features = torch.stack(projected_features, dim=1)
+
+            attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
+
+            fused_representation = attended_features
+
+            attention_dict = {
+                "detector_weights": weights.detach(),
+                "attention_weights": attn_weights.detach(),
+                "early_contribution": early_output.detach(),
+                "late_contribution": late_output.detach(),
+            }
+
+            return fused_representation, attention_dict
+
+        def extract_features(
+            self, detector_features: dict[str, torch.Tensor]
+        ) -> dict[str, torch.Tensor]:
+            """
+            Extract and normalize features from all detectors.
+            Explicitly named method for feature extraction phase.
+            """
+            extracted = {}
+            batch_size = next(iter(detector_features.values())).shape[0]
+
+            for name in self.detector_names:
+                if name in detector_features:
+                    proj = self.feature_projectors[name](detector_features[name])
+                    extracted[name] = proj
+                else:
+                    extracted[name] = torch.zeros(batch_size, self.hidden_dim)
+
+            return extracted
+
+        def early_fusion_forward(self, detector_features: dict[str, torch.Tensor]) -> torch.Tensor:
+            """
+            Early fusion: concatenate normalized features → MLP.
+            Explicitly named method for early fusion phase.
+            """
+            projected_features = []
+            batch_size = next(iter(detector_features.values())).shape[0]
+
+            for name in self.detector_names:
+                if name in detector_features:
+                    proj = self.feature_projectors[name](detector_features[name])
+                    projected_features.append(proj)
+                else:
+                    projected_features.append(torch.zeros(batch_size, self.hidden_dim))
+
+            concatenated = torch.cat(projected_features, dim=1)
+            result: torch.Tensor = self.early_fusion(concatenated)
+            return result
+
+        def late_fusion_forward(self, detector_scores: dict[str, torch.Tensor]) -> torch.Tensor:
+            """
+            Late fusion: weighted average of detector scores.
+            Explicitly named method for late fusion phase.
+            """
+            batch_size = next(iter(detector_scores.values())).shape[0]
+            score_list = []
+
+            for name in self.detector_names:
+                if name in detector_scores:
+                    score_list.append(detector_scores[name])
+                else:
+                    score_list.append(torch.zeros(batch_size, 1))
+
+            scores_tensor = torch.cat(score_list, dim=1)
+            weights = F.softmax(self.late_fusion_weights, dim=0)
+            return (scores_tensor * weights.unsqueeze(0)).sum(dim=1, keepdim=True)
+
+        def hybrid_detect(
+            self, detector_features: dict[str, torch.Tensor], detector_scores: dict[str, torch.Tensor]
+        ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+            """
+            Hybrid detection: combine early + late fusion with attention.
+            Explicitly named method for complete hybrid fusion pipeline.
+            """
+            early_output = self.early_fusion_forward(detector_features)
+            late_output = self.late_fusion_forward(detector_scores)
+
+            projected_features = []
+            batch_size = next(iter(detector_features.values())).shape[0]
+
+            for name in self.detector_names:
+                if name in detector_features:
+                    proj = self.feature_projectors[name](detector_features[name])
+                    projected_features.append(proj)
+                else:
+                    projected_features.append(torch.zeros(batch_size, self.hidden_dim))
+
+            stacked_features = torch.stack(projected_features, dim=1)
+            attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
+
+            attention_dict = {
+                "detector_weights": F.softmax(self.late_fusion_weights, dim=0).detach(),
+                "attention_weights": attn_weights.detach(),
+                "early_contribution": early_output.detach(),
+                "late_contribution": late_output.detach(),
+            }
+
+            return attended_features, attention_dict
+
+    class EarlyFusionEncoder(nn.Module):
+        """
+        Explicitly named early fusion encoder.
+        Concatenates and encodes features from multiple detectors.
+        """
+
+        def __init__(self, input_dim: int, hidden_dim: int = 128, dropout: float = 0.1) -> None:
+            super().__init__()
+            self.encoder = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim * 2),
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden_dim * 2, hidden_dim),
+                nn.ReLU(),
+            )
+
+        def forward(self, concatenated_features: torch.Tensor) -> torch.Tensor:
+            result: torch.Tensor = self.encoder(concatenated_features)
+            return result
+
+else:
+    def AttentionFusion(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: AttentionFusion requires PyTorch."""
+        raise ImportError(
+            "AttentionFusion requires PyTorch. Install with: pip install torch"
         )
 
-    def forward(
-        self,
-        detector_features: dict[str, torch.Tensor],
-        detector_scores: dict[str, torch.Tensor],
-    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        """
-        Hybrid fusion of detector outputs.
-
-        Args:
-            detector_features: Dict mapping detector name to feature tensor
-                [batch_size, feature_dim]
-            detector_scores: Dict mapping detector name to anomaly score
-                [batch_size, 1]
-
-        Returns:
-            fused_representation: [batch_size, hidden_dim] - Fused feature representation
-            attention_weights: Dict of attention weights for interpretability
-
-        Raises:
-            ValueError: If tensors have mismatched devices (e.g., some CPU, some CUDA).
-        """
-        # Validate all tensors share the same device and dtype
-        # This catches mixed-device errors early with a clear message
-        device, dtype = _validate_tensor_devices(detector_features, "detector_features")
-
-        # Also validate scores if provided
-        if detector_scores:
-            score_device, score_dtype = _validate_tensor_devices(detector_scores, "detector_scores")
-            if score_device != device:
-                raise ValueError(
-                    f"Device mismatch: detector_features on {device}, "
-                    f"detector_scores on {score_device}"
-                )
-
-        first_tensor = next(iter(detector_features.values()))
-        batch_size = first_tensor.shape[0]
-
-        projected_features = []
-        for name in self.detector_names:
-            if name in detector_features:
-                proj = self.feature_projectors[name](detector_features[name])
-                projected_features.append(proj)
-            else:
-                # Fix for P0: Zero-fill with correct device to avoid device mismatch
-                projected_features.append(
-                    torch.zeros(batch_size, self.hidden_dim, device=device, dtype=dtype)
-                )
-
-        early_features = torch.cat(projected_features, dim=1)
-        early_output = self.early_fusion(early_features)
-
-        score_list = []
-        for name in self.detector_names:
-            if name in detector_scores:
-                score_list.append(detector_scores[name])
-            else:
-                # Fix for P0: Zero-fill with correct device to avoid device mismatch
-                score_list.append(torch.zeros(batch_size, 1, device=device, dtype=dtype))
-
-        scores_tensor = torch.cat(score_list, dim=1)
-        weights = F.softmax(self.late_fusion_weights, dim=0)
-        late_output = (scores_tensor * weights.unsqueeze(0)).sum(dim=1, keepdim=True)
-
-        stacked_features = torch.stack(projected_features, dim=1)
-
-        attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
-
-        fused_representation = attended_features
-
-        attention_dict = {
-            "detector_weights": weights.detach(),
-            "attention_weights": attn_weights.detach(),
-            "early_contribution": early_output.detach(),
-            "late_contribution": late_output.detach(),
-        }
-
-        return fused_representation, attention_dict
-
-    def extract_features(
-        self, detector_features: dict[str, torch.Tensor]
-    ) -> dict[str, torch.Tensor]:
-        """
-        Extract and normalize features from all detectors.
-        Explicitly named method for feature extraction phase.
-        """
-        extracted = {}
-        batch_size = next(iter(detector_features.values())).shape[0]
-
-        for name in self.detector_names:
-            if name in detector_features:
-                proj = self.feature_projectors[name](detector_features[name])
-                extracted[name] = proj
-            else:
-                extracted[name] = torch.zeros(batch_size, self.hidden_dim)
-
-        return extracted
-
-    def early_fusion_forward(self, detector_features: dict[str, torch.Tensor]) -> torch.Tensor:
-        """
-        Early fusion: concatenate normalized features → MLP.
-        Explicitly named method for early fusion phase.
-        """
-        projected_features = []
-        batch_size = next(iter(detector_features.values())).shape[0]
-
-        for name in self.detector_names:
-            if name in detector_features:
-                proj = self.feature_projectors[name](detector_features[name])
-                projected_features.append(proj)
-            else:
-                projected_features.append(torch.zeros(batch_size, self.hidden_dim))
-
-        concatenated = torch.cat(projected_features, dim=1)
-        result: torch.Tensor = self.early_fusion(concatenated)
-        return result
-
-    def late_fusion_forward(self, detector_scores: dict[str, torch.Tensor]) -> torch.Tensor:
-        """
-        Late fusion: weighted average of detector scores.
-        Explicitly named method for late fusion phase.
-        """
-        batch_size = next(iter(detector_scores.values())).shape[0]
-        score_list = []
-
-        for name in self.detector_names:
-            if name in detector_scores:
-                score_list.append(detector_scores[name])
-            else:
-                score_list.append(torch.zeros(batch_size, 1))
-
-        scores_tensor = torch.cat(score_list, dim=1)
-        weights = F.softmax(self.late_fusion_weights, dim=0)
-        return (scores_tensor * weights.unsqueeze(0)).sum(dim=1, keepdim=True)
-
-    def hybrid_detect(
-        self, detector_features: dict[str, torch.Tensor], detector_scores: dict[str, torch.Tensor]
-    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        """
-        Hybrid detection: combine early + late fusion with attention.
-        Explicitly named method for complete hybrid fusion pipeline.
-        """
-        early_output = self.early_fusion_forward(detector_features)
-        late_output = self.late_fusion_forward(detector_scores)
-
-        projected_features = []
-        batch_size = next(iter(detector_features.values())).shape[0]
-
-        for name in self.detector_names:
-            if name in detector_features:
-                proj = self.feature_projectors[name](detector_features[name])
-                projected_features.append(proj)
-            else:
-                projected_features.append(torch.zeros(batch_size, self.hidden_dim))
-
-        stacked_features = torch.stack(projected_features, dim=1)
-        attended_features, attn_weights = self.attention(stacked_features, return_attention=True)
-
-        attention_dict = {
-            "detector_weights": F.softmax(self.late_fusion_weights, dim=0).detach(),
-            "attention_weights": attn_weights.detach(),
-            "early_contribution": early_output.detach(),
-            "late_contribution": late_output.detach(),
-        }
-
-        return attended_features, attention_dict
-
-
-class EarlyFusionEncoder(nn.Module):
-    """
-    Explicitly named early fusion encoder.
-    Concatenates and encodes features from multiple detectors.
-    """
-
-    def __init__(self, input_dim: int, hidden_dim: int = 128, dropout: float = 0.1) -> None:
-        super().__init__()
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim * 2),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.ReLU(),
+    def SparseTopKAttention(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: SparseTopKAttention requires PyTorch."""
+        raise ImportError(
+            "SparseTopKAttention requires PyTorch. Install with: pip install torch"
         )
 
-    def forward(self, concatenated_features: torch.Tensor) -> torch.Tensor:
-        result: torch.Tensor = self.encoder(concatenated_features)
-        return result
+    def UncertaintyWeightedFusion(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: UncertaintyWeightedFusion requires PyTorch."""
+        raise ImportError(
+            "UncertaintyWeightedFusion requires PyTorch. Install with: pip install torch"
+        )
+
+    def ResonanceWeightedFusion(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: ResonanceWeightedFusion requires PyTorch."""
+        raise ImportError(
+            "ResonanceWeightedFusion requires PyTorch. Install with: pip install torch"
+        )
+
+    def HybridFusionLayer(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: HybridFusionLayer requires PyTorch."""
+        raise ImportError(
+            "HybridFusionLayer requires PyTorch. Install with: pip install torch"
+        )
+
+    def EarlyFusionEncoder(*args: Any, **kwargs: Any):  # type: ignore[misc]
+        """Stub: EarlyFusionEncoder requires PyTorch."""
+        raise ImportError(
+            "EarlyFusionEncoder requires PyTorch. Install with: pip install torch"
+        )
 
 
 class DoubleHelixEvolutionEngine:

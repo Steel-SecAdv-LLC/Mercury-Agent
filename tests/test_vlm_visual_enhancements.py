@@ -10,6 +10,9 @@ Tests for VLM/Visual detector enhancements including:
 
 from __future__ import annotations
 
+import pytest  # noqa: E402
+pytest.importorskip("torch")
+
 import threading
 from unittest.mock import MagicMock, patch
 

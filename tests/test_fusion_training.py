@@ -8,6 +8,9 @@ Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GNU GPL v3
 """
 
+import pytest  # noqa: E402
+pytest.importorskip("torch")
+
 import numpy as np
 import pytest
 import torch
