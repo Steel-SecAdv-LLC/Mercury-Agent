@@ -646,15 +646,27 @@ class ConformalAnomalyDetector:
         X_test: np.ndarray,
         y_test: np.ndarray,
     ) -> CoverageResult:
-        """
-        Evaluate empirical coverage on test set.
+        """Evaluate prediction accuracy on test set.
+
+        NOTE: Despite the name, this method measures overall classification
+        accuracy (predictions == y_test), NOT the conformal coverage guarantee.
+        For the true conformal guarantee (fraction of test nonconformity scores
+        at or below the calibration quantile threshold), use
+        ``SplitConformalPredictor`` or ``CrossConformalPredictor`` directly
+        and measure score-based coverage. See
+        ``benchmarks/calibration_validation.py::measure_score_based_coverage()``
+        for the correct methodology.
+
+        For heavily imbalanced anomaly detection datasets, accuracy is
+        dominated by the majority (normal) class and can be misleadingly
+        high even with poor anomaly detection.
 
         Args:
             X_test: Test features
             y_test: True labels
 
         Returns:
-            CoverageResult with coverage statistics
+            CoverageResult with prediction accuracy statistics
         """
         scores = self._get_anomaly_scores(X_test)
         if isinstance(self.conformal, AdaptiveConformalInference):
@@ -663,8 +675,8 @@ class ConformalAnomalyDetector:
             threshold = self.conformal.get_anomaly_threshold()
         predictions = (scores > threshold).astype(int)
 
-        # Empirical coverage: fraction of true labels in prediction sets
-        # For anomaly detection: correct predictions
+        # Prediction accuracy: fraction of correct binary predictions
+        # NOTE: This is NOT the conformal coverage guarantee
         correct = predictions == y_test
         empirical_coverage = np.mean(correct)
 
