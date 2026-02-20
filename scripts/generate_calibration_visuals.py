@@ -100,42 +100,55 @@ def generate_calibration_improvement(data: dict) -> None:
 
 
 def generate_conformal_coverage(data: dict) -> None:
-    """Generate conformal coverage scatter plot (MD-005)."""
+    """Generate conformal coverage scatter plot using score-based metric (MD-005)."""
     results = [
         r for r in data["results"]
-        if r.get("error") is None and "conformal" in r
-        and "coverage_results" in r.get("conformal", {})
+        if r.get("error") is None and "conformal_score_based" in r
+        and "score_coverage_results" in r.get("conformal_score_based", {})
     ]
 
     if not results:
-        print("  SKIPPED: No conformal coverage data available")
+        print("  SKIPPED: No score-based conformal coverage data available")
         return
 
     fig, ax = plt.subplots(figsize=(8, 6))
 
-    targets = []
-    empiricals = []
-    names = []
+    # Collect split and cross conformal score-based coverage
+    split_targets: list[float] = []
+    split_coverages: list[float] = []
+    cross_targets: list[float] = []
+    cross_coverages: list[float] = []
 
     for r in results:
-        for cov in r["conformal"]["coverage_results"]:
+        for cov in r["conformal_score_based"]["score_coverage_results"]:
             if "error" in cov:
                 continue
-            targets.append(cov["target_coverage"])
-            empiricals.append(cov["empirical_coverage"])
-            names.append(r["name"])
+            tgt = cov["target_coverage"]
+            split_targets.append(tgt)
+            split_coverages.append(cov["split_score_coverage"])
+            cross_targets.append(tgt)
+            cross_coverages.append(cov["cross_score_coverage"])
 
-    targets_arr = np.array(targets)
-    empiricals_arr = np.array(empiricals)
+    split_targets_arr = np.array(split_targets)
+    split_coverages_arr = np.array(split_coverages)
+    cross_targets_arr = np.array(cross_targets)
+    cross_coverages_arr = np.array(cross_coverages)
 
-    # Color by target level
+    # Color by target level, shape by method
     colors = {0.90: "#4C72B0", 0.95: "#DD8452", 0.99: "#55A868"}
     for tgt in [0.90, 0.95, 0.99]:
-        mask = targets_arr == tgt
+        s_mask = split_targets_arr == tgt
+        c_mask = cross_targets_arr == tgt
         ax.scatter(
-            targets_arr[mask], empiricals_arr[mask],
-            c=colors[tgt], alpha=0.6, s=40,
-            label=f"Target={tgt:.0%}",
+            split_targets_arr[s_mask], split_coverages_arr[s_mask],
+            c=colors[tgt], alpha=0.4, s=30, marker="o",
+            label=f"Split @ {tgt:.0%}",
+            edgecolors="white", linewidth=0.5,
+        )
+        ax.scatter(
+            cross_targets_arr[c_mask], cross_coverages_arr[c_mask],
+            c=colors[tgt], alpha=0.6, s=50, marker="D",
+            label=f"Cross @ {tgt:.0%}",
             edgecolors="white", linewidth=0.5,
         )
 
@@ -144,24 +157,42 @@ def generate_conformal_coverage(data: dict) -> None:
             label="Perfect calibration")
 
     ax.set_xlabel("Target Coverage")
-    ax.set_ylabel("Empirical Coverage")
-    ax.set_title("Conformal Coverage: Empirical vs Target (MD-005)")
-    ax.legend(loc="upper left", fontsize=8)
+    ax.set_ylabel("Score-Based Coverage")
+    ax.set_title("Conformal Coverage (Score-Based): Split vs Cross (MD-005)")
+    ax.legend(loc="upper left", fontsize=7, ncol=2)
     ax.set_xlim(0.85, 1.02)
     ax.set_ylim(0.4, 1.05)
 
-    # Count meets
-    meets_90 = sum(1 for t, e in zip(targets, empiricals) if t == 0.90 and e >= t)
-    meets_95 = sum(1 for t, e in zip(targets, empiricals) if t == 0.95 and e >= t)
-    meets_99 = sum(1 for t, e in zip(targets, empiricals) if t == 0.99 and e >= t)
-    total_per_level = sum(1 for t in targets if t == 0.90)
+    # Count meets for split and cross conformal
+    total_per_level = sum(1 for t in split_targets if t == 0.90)
+    split_meets_90 = sum(
+        1 for t, c in zip(split_targets, split_coverages) if t == 0.90 and c >= t
+    )
+    split_meets_95 = sum(
+        1 for t, c in zip(split_targets, split_coverages) if t == 0.95 and c >= t
+    )
+    split_meets_99 = sum(
+        1 for t, c in zip(split_targets, split_coverages) if t == 0.99 and c >= t
+    )
+    cross_meets_90 = sum(
+        1 for t, c in zip(cross_targets, cross_coverages) if t == 0.90 and c >= t
+    )
+    cross_meets_95 = sum(
+        1 for t, c in zip(cross_targets, cross_coverages) if t == 0.95 and c >= t
+    )
+    cross_meets_99 = sum(
+        1 for t, c in zip(cross_targets, cross_coverages) if t == 0.99 and c >= t
+    )
 
+    n = total_per_level
     ax.annotate(
-        f"Meets guarantee: 90%={meets_90}/{total_per_level}, "
-        f"95%={meets_95}/{total_per_level}, 99%={meets_99}/{total_per_level}\n"
-        f"Below diagonal = overconfident",
+        f"SplitConformal meets: 90%={split_meets_90}/{n}, "
+        f"95%={split_meets_95}/{n}, 99%={split_meets_99}/{n}\n"
+        f"CrossConformal meets: 90%={cross_meets_90}/{n}, "
+        f"95%={cross_meets_95}/{n}, 99%={cross_meets_99}/{n}\n"
+        f"Above diagonal = exceeds guarantee",
         xy=(0.02, 0.02), xycoords="axes fraction",
-        fontsize=8, bbox={"boxstyle": "round", "fc": "wheat", "alpha": 0.8},
+        fontsize=7, bbox={"boxstyle": "round", "fc": "wheat", "alpha": 0.8},
     )
 
     plt.tight_layout()
@@ -171,7 +202,7 @@ def generate_conformal_coverage(data: dict) -> None:
 
 
 def generate_weight_distribution(data: dict) -> None:
-    """Generate adaptive weight distribution box plot (MD-003)."""
+    """Generate adaptive weight distribution box plot with CV overlay (MD-003)."""
     results = [
         r for r in data["results"]
         if r.get("error") is None and "fusion" in r
@@ -184,6 +215,21 @@ def generate_weight_distribution(data: dict) -> None:
 
     weights = np.array([r["fusion"]["adaptive_weights"] for r in results])
 
+    # Collect CV-optimal weights where available
+    cv_optimal_weights: list[list[float]] = []
+    cv_default_validated = 0
+    cv_adaptive_validated = 0
+    cv_total = 0
+    for r in results:
+        fcv = r.get("fusion_cv", {})
+        if fcv.get("mean_optimal_weights") is not None:
+            cv_optimal_weights.append(fcv["mean_optimal_weights"])
+            cv_total += 1
+            if fcv.get("delta_optimal_vs_default", 1.0) < 0.02:
+                cv_default_validated += 1
+            if fcv.get("delta_optimal_vs_adaptive", 1.0) < 0.02:
+                cv_adaptive_validated += 1
+
     fig, ax = plt.subplots(figsize=(8, 5))
 
     component_names = ["Resonance", "Kinematic", "InfoGeometry"]
@@ -192,7 +238,7 @@ def generate_weight_distribution(data: dict) -> None:
 
     positions = np.arange(len(component_names))
 
-    # Box plots
+    # Box plots of adaptive weights
     bp = ax.boxplot(
         [weights[:, i] for i in range(3)],
         positions=positions,
@@ -206,18 +252,31 @@ def generate_weight_distribution(data: dict) -> None:
         patch.set_facecolor(color)
         patch.set_alpha(0.6)
 
-    # Reference lines at defaults
-    for i, (default, color) in enumerate(zip(default_weights, colors)):
+    # Reference lines at defaults (red dashed)
+    for i, default in enumerate(default_weights):
         ax.hlines(default, i - 0.3, i + 0.3, colors="red",
                   linestyles="dashed", linewidth=1.5,
-                  label="Default" if i == 0 else None)
+                  label="Default (0.4/0.3/0.3)" if i == 0 else None)
+
+    # CV-optimal weight overlay (diamond markers)
+    if cv_optimal_weights:
+        cv_arr = np.array(cv_optimal_weights)
+        cv_means = np.mean(cv_arr, axis=0)
+        for i, mean_w in enumerate(cv_means):
+            ax.plot(i, mean_w, marker="D", color="#8B0000", markersize=10,
+                    zorder=5, markeredgecolor="white", markeredgewidth=1.0,
+                    label="CV-Optimal (L-BFGS-B)" if i == 0 else None)
+
+    # Add invisible artist for legend entry for box plots
+    ax.plot([], [], "s", color="#4C72B0", alpha=0.6, markersize=8,
+            label="Adaptive (AUC-proportional)")
 
     ax.set_xticks(positions)
     ax.set_xticklabels(component_names)
     ax.set_ylabel("Weight")
-    ax.set_title("Adaptive Ensemble Weight Distribution Across Datasets (MD-003)")
+    ax.set_title("Ensemble Weight Distribution: Adaptive vs CV-Optimal (MD-003)")
     ax.set_ylim(-0.05, 1.05)
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper right", fontsize=8)
 
     # Summary stats
     for i, name in enumerate(component_names):
@@ -227,6 +286,18 @@ def generate_weight_distribution(data: dict) -> None:
             f"\u03bc={mean:.2f}\n\u03c3={std:.2f}",
             xy=(i, 1.0), ha="center", fontsize=8,
             bbox={"boxstyle": "round", "fc": "white", "alpha": 0.8},
+        )
+
+    # CV validation annotation
+    if cv_total > 0:
+        ax.annotate(
+            f"CV validation (<0.02 gap):\n"
+            f"  Default: {cv_default_validated}/{cv_total} "
+            f"({cv_default_validated / cv_total * 100:.1f}%)\n"
+            f"  Adaptive: {cv_adaptive_validated}/{cv_total} "
+            f"({cv_adaptive_validated / cv_total * 100:.1f}%)",
+            xy=(0.02, 0.02), xycoords="axes fraction",
+            fontsize=8, bbox={"boxstyle": "round", "fc": "wheat", "alpha": 0.8},
         )
 
     plt.tight_layout()
