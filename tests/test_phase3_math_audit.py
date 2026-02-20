@@ -43,8 +43,8 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
     reset_global_network,
 )
 from omni_mercury_engine.core.three_r.fusion import (
-    OmniAvaEquation,
     BanachRecursion,
+    OmniAvaEquation,
 )
 
 # ==========================================================================

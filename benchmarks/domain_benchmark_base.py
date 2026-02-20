@@ -18,7 +18,7 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -147,7 +147,7 @@ def run_domain_benchmark(
 
     results: dict[str, Any] = {
         "domain": domain,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "source_url": loader.SOURCE_URL,
         "events": {},
         "summary": {},
