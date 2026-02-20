@@ -373,9 +373,20 @@ def measure_score_based_coverage(
                 d.fit(X)
                 return d.detect(X)["scores"]
 
+            # NOTE: CrossConformalPredictor's API passes only X[cal_idx] to the
+            # scoring function, so the function fits and scores on the same fold.
+            # For unsupervised detectors this is acceptable (score distributions
+            # are similar regardless of training subset), but for supervised
+            # models a proper cross-conformal implementation would require
+            # fitting on X[train_idx] and scoring X[cal_idx] separately.
             cross_pred.fit(X_cal, _scoring_fn)
             cross_threshold = cross_pred.get_anomaly_threshold()
 
+            # NOTE: test_scores were produced by a detector fit on X_train (above),
+            # while the conformal thresholds were calibrated on X_cal with separate
+            # detector instances. For unsupervised detectors, this distribution
+            # mismatch is negligible. For supervised detectors, a single detector
+            # fit on X_train should be used for both calibration and test scoring.
             cross_score_coverage = float(
                 np.mean(test_scores <= cross_threshold)
             )

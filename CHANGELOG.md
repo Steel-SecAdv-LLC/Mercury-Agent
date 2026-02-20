@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - .gitignore: Added coverage for generated report files
 
 
+### Renamed
+- **OAE (Omni-Ava Equation)**: Renamed from "AVA Anomaly Fusion Equation (AAFE)"
+  across 26 files. All old class names (`AnomalyFusionEquation`, `AAFEWeightOptimizer`,
+  `DomainAdaptiveAAFEWeights`) and constants (`AAFE_WEIGHT_R/H/O`) remain functional
+  as backward-compatible aliases per the Preservation Principle (see DEPRECATION.md).
+
 ### Calibration Pipeline Integration
 - ThresholdCalibrationPipeline wired into MercuryAnomalyDetector.fit_with_labels()
   and detect() — adaptive strategy selection (best of Youden's J / F1-optimal)
