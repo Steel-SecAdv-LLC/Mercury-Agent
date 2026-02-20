@@ -58,6 +58,7 @@ from honest_benchmark import (  # type: ignore[import-untyped]
     _load_adbench,
     _load_domain_dataset,
 )
+
 from omni_mercury_engine.core.conformal_prediction import ConformalAnomalyDetector
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -312,10 +313,11 @@ def run_fusion_weight_analysis(
     Strategy B (fallback): Validate statistical detector's adaptive ensemble
     weights which are exercised during fit_with_labels().
     """
-    global _strategy_a_attempted, _strategy_a_failed  # noqa: PLW0603
+    global _strategy_a_attempted, _strategy_a_failed
 
     # Strategy A: try NeuroSymbolicHub if not already known to fail
     if not _strategy_a_failed:
+        _strategy_a_attempted = True
         result = _try_neurosymbolic_hub(name, X_train, y_train, X_test, y_test)
         if result is not None:
             return result
@@ -342,9 +344,6 @@ def _try_neurosymbolic_hub(
     combined fit is prohibitively slow for a benchmark loop over 50+
     datasets.  We verify importability but fall back to Strategy B.
     """
-    global _strategy_a_attempted  # noqa: PLW0603
-    _strategy_a_attempted = True
-
     try:
         from omni_mercury_engine.core.neurosymbolic_hub import (  # noqa: F401
             FusionMode,
