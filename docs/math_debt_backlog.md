@@ -8,6 +8,7 @@ This document tracks remaining mathematical issues discovered during the Phase 1
 | ID | Issue | Severity | Effort | Impact | Recommendation |
 |----|-------|----------|--------|--------|----------------|
 | MD-002 | Statistical detector fusion weights (0.4/0.3/0.3) are fixed | MEDIUM | LOW | Detector combination quality | **PARTIALLY RESOLVED**: `DomainAdaptiveOAEWeights` class now learns per-domain weight profiles. Full validation pending real datasets. |
+| MD-005 | Conformal prediction coverage below 90% gate | LOW | MEDIUM | Conformal guarantee reliability | **PARTIALLY RESOLVED**: Score-based metric corrected, CrossConformal meets 90% target on 77.5% of datasets (below >90% gate). Investigate Mondrian conformal and larger calibration fractions. |
 | MD-004 | GOSNN ethical score weights (0.4/0.4/0.2) are arbitrary | LOW | LOW | Ethical gate sensitivity | Learn from labeled ethical compliance scenarios. |
 | MD-009 | No PCA redundancy analysis on 180+ omni-scalars | MEDIUM | LOW | Computational efficiency | Run PCA to determine how many principal components capture 95% variance. Remove redundant scalars (correlation > 0.95). |
 | MD-012 | Domain-adaptive harmonics need MUSIC/ESPRIT for production | LOW | HIGH | Spectral analysis for unknown domains | Replace scipy `find_peaks` with MUSIC algorithm for sub-Nyquist resolution. |
@@ -19,8 +20,8 @@ This document tracks remaining mathematical issues discovered during the Phase 1
 
 | Priority | Count | Examples |
 |----------|-------|---------|
-| RESOLVED | 10 | MD-001, MD-003, MD-005, MD-006, MD-007, MD-008, MD-010, MD-011 |
-| PARTIALLY RESOLVED | 1 | MD-002 |
+| RESOLVED | 9 | MD-001, MD-003, MD-006, MD-007, MD-008, MD-010, MD-011 |
+| PARTIALLY RESOLVED | 2 | MD-002, MD-005 |
 | CRITICAL (fix immediately) | 0 | — |
 | HIGH (next sprint) | 0 | — |
 | MEDIUM (next quarter) | 3 | MD-009, MD-013, MD-015 |
@@ -42,7 +43,6 @@ For each item:
 |----|-------|------------|
 | MD-001 | OAE golden ratio exponent (Phi = 1.618) lacks empirical validation | **RESOLVED**: 1,000-trial Optuna sweep confirms Phi is statistically optimal (p < 0.001, t=8.05). Mean F1 near Phi=0.9045 vs 0.8944. Results in `benchmarks/parameter_sweep_results.json`. |
 | MD-003 | Neural-symbolic fusion weights (0.6/0.4) lack cross-validation evidence | **RESOLVED** (2026-02-20): L-BFGS-B cross-validated fusion weights (same mechanism as `NeuroSymbolicHub._learn_fusion_weights`) tested on 40 real datasets via `run_fusion_weight_cv()` in `benchmarks/calibration_validation.py`. Default weights (0.4/0.3/0.3) validated on 72.5% of datasets (delta < 0.02 F1 vs CV-optimal); adaptive AUC-proportional weights validated on 82.5%. Mean optimal weights: R=0.516, K=0.087, I=0.397. Mean delta optimal-vs-default: +0.0099 F1, optimal-vs-adaptive: +0.0031 F1. Both are near-optimal — no constant changes warranted. Evidence: `benchmarks/calibration_validation_results.json` (`fusion_cv` key). |
-| MD-005 | Conformal prediction needs real-data validation | **RESOLVED** (2026-02-20): Corrected conformal coverage measurement to use score-based guarantee (fraction of test nonconformity scores <= calibration quantile threshold) instead of binary prediction accuracy. The prior metric (`evaluate_coverage()` in `ConformalAnomalyDetector`) was measuring overall classification accuracy, which is dominated by majority class and is NOT the conformal guarantee. Corrected results via `measure_score_based_coverage()` on 40 datasets: SplitConformal score coverage meets 90% target on 45% of datasets; CrossConformal (k=5) meets 90% on 77.5%, 95% on 80.0%. Normal-class coverage (the practically meaningful guarantee) meets target on 67.5-80.0% of datasets. The conformal predictor implementation (`SplitConformalPredictor`, `CrossConformalPredictor`) is correct — coverage gaps on some datasets reflect finite calibration set sizes and heavy class imbalance. Evidence: `benchmarks/calibration_validation_results.json` (`conformal_score_based` key). |
 | MD-006 | Topological Data Analysis (TDA) not yet implemented | **RESOLVED**: `core/topological_analysis.py` implements Vietoris-Rips filtration, 0D/1D persistent homology, persistence diagrams, Betti numbers, Wasserstein/bottleneck distances, and `TopologicalAnomalyDetector`. |
 | MD-007 | Information-geometric thresholds not yet derived | **RESOLVED**: `core/info_geometry.py` now includes `FisherInformationMatrix`, `NaturalGradient`, `FisherRaoAdaptiveThreshold` (tau = mu + k*sqrt(tr(F^{-1}))), and drift detection with auto-recalibration. |
 | MD-008 | Riemannian optimization not applied to constrained parameters | **RESOLVED**: `core/riemannian_optimization.py` provides `SimplexManifold`, `SPDManifold`, `RiemannianGradientDescent`, `RiemannianAdam`, and `ConstrainedParameterOptimizer` for OAE weights on simplex and covariance on SPD. |

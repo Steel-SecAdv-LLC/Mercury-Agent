@@ -233,9 +233,12 @@ with score <= threshold) is the practically meaningful guarantee for anomaly det
 | 95% | 8/40 | 20.0% |
 | 99% | 1/40 | 2.5% |
 
-**Status: RESOLVED.** The conformal predictor implementation is correct. The prior
+**Status: PARTIALLY RESOLVED.** The conformal predictor implementation is correct. The prior
 "low coverage" diagnosis was based on the wrong metric (prediction accuracy vs.
 score-based coverage). CrossConformal achieves 77.5-80% guarantee rates across targets.
+Does not meet the >90% dataset-level threshold for full resolution. The implementation
+is correct; coverage gaps are inherent to split/cross conformal on small, heavily
+imbalanced datasets.
 
 ![Conformal Coverage](images/conformal_coverage.png)
 
