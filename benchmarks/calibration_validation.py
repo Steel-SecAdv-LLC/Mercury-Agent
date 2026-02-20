@@ -38,8 +38,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from scipy.optimize import minimize
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 from sklearn.preprocessing import StandardScaler
 
 # ---------------------------------------------------------------------------
@@ -59,7 +60,11 @@ from honest_benchmark import (  # type: ignore[import-untyped]
     _load_domain_dataset,
 )
 
-from omni_mercury_engine.core.conformal_prediction import ConformalAnomalyDetector
+from omni_mercury_engine.core.conformal_prediction import (
+    ConformalAnomalyDetector,
+    CrossConformalPredictor,
+    SplitConformalPredictor,
+)
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 # ---------------------------------------------------------------------------
@@ -291,6 +296,129 @@ def run_conformal_coverage(
     return {"coverage_results": coverage_results}
 
 
+def measure_score_based_coverage(
+    name: str,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_cal: np.ndarray,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+) -> dict[str, Any]:
+    """Measure the TRUE conformal coverage guarantee (score-based).
+
+    The conformal guarantee (Vovk et al., 2005) is about SCORES, not
+    class labels: the fraction of test nonconformity scores at or below
+    the calibration quantile threshold should be >= coverage.
+
+    For each target coverage level (90%, 95%, 99%):
+    1. Fit MercuryAnomalyDetector on X_train (unsupervised)
+    2. Get anomaly scores on X_cal (calibration nonconformity scores)
+    3. Compute quantile threshold via SplitConformalPredictor.fit()
+    4. Get anomaly scores on X_test
+    5. Measure: fraction of test scores <= threshold (the raw guarantee)
+    6. Also report: normal-class coverage and anomaly detection rate
+
+    This avoids ConformalAnomalyDetector's internal data splitting and
+    tests the SplitConformalPredictor directly.
+    """
+    # Fit detector on training data (unsupervised — no labels)
+    detector = MercuryAnomalyDetector()
+    detector.fit(X_train)
+
+    # Get calibration scores
+    cal_result = detector.detect(X_cal)
+    cal_scores = cal_result["scores"]
+
+    # Get test scores
+    test_result = detector.detect(X_test)
+    test_scores = test_result["scores"]
+
+    score_coverage_results: list[dict[str, Any]] = []
+
+    for target in CONFORMAL_COVERAGE_LEVELS:
+        try:
+            # --- Split Conformal ---
+            split_pred = SplitConformalPredictor(coverage=target, seed=42)
+            split_pred.fit(cal_scores)
+            split_threshold = split_pred.get_anomaly_threshold()
+
+            # Score-based coverage: fraction of ALL test scores <= threshold
+            score_coverage = float(np.mean(test_scores <= split_threshold))
+
+            # Normal-class coverage: fraction of normal test points <= threshold
+            normal_mask = y_test == 0
+            normal_coverage = (
+                float(np.mean(test_scores[normal_mask] <= split_threshold))
+                if np.any(normal_mask)
+                else float("nan")
+            )
+
+            # Anomaly detection rate: fraction of anomalies ABOVE threshold
+            anomaly_mask = y_test == 1
+            anomaly_detection_rate = (
+                float(np.mean(test_scores[anomaly_mask] > split_threshold))
+                if np.any(anomaly_mask)
+                else float("nan")
+            )
+
+            # --- Cross Conformal (k=5) for comparison ---
+            cross_pred = CrossConformalPredictor(
+                coverage=target, n_folds=5, seed=42
+            )
+
+            def _scoring_fn(
+                X: np.ndarray, y: np.ndarray | None = None
+            ) -> np.ndarray:
+                d = MercuryAnomalyDetector()
+                d.fit(X)
+                return d.detect(X)["scores"]
+
+            cross_pred.fit(X_cal, _scoring_fn)
+            cross_threshold = cross_pred.get_anomaly_threshold()
+
+            cross_score_coverage = float(
+                np.mean(test_scores <= cross_threshold)
+            )
+            cross_normal_coverage = (
+                float(np.mean(test_scores[normal_mask] <= cross_threshold))
+                if np.any(normal_mask)
+                else float("nan")
+            )
+
+            score_coverage_results.append(
+                {
+                    "target_coverage": target,
+                    "split_threshold": float(split_threshold),
+                    "split_score_coverage": score_coverage,
+                    "split_normal_coverage": normal_coverage,
+                    "split_anomaly_detection_rate": anomaly_detection_rate,
+                    "split_meets_score_guarantee": bool(
+                        score_coverage >= target
+                    ),
+                    "split_meets_normal_guarantee": bool(
+                        normal_coverage >= target
+                    ),
+                    "cross_threshold": float(cross_threshold),
+                    "cross_score_coverage": cross_score_coverage,
+                    "cross_normal_coverage": cross_normal_coverage,
+                    "cross_meets_score_guarantee": bool(
+                        cross_score_coverage >= target
+                    ),
+                }
+            )
+        except Exception as e:
+            score_coverage_results.append(
+                {
+                    "target_coverage": target,
+                    "error": str(e),
+                    "split_meets_score_guarantee": False,
+                    "cross_meets_score_guarantee": False,
+                }
+            )
+
+    return {"score_coverage_results": score_coverage_results}
+
+
 # ---------------------------------------------------------------------------
 # MD-003: Fusion Weight Analysis
 # ---------------------------------------------------------------------------
@@ -404,6 +532,174 @@ def _run_statistical_weight_analysis(
     }
 
 
+def _bce_objective_3way(
+    w: np.ndarray, scores_matrix: np.ndarray, y: np.ndarray
+) -> float:
+    """BCE loss for 3-way weighted fusion.
+
+    Same mechanism as NeuroSymbolicHub._learn_fusion_weights (line 889).
+    """
+    w = np.abs(w)
+    w = w / (np.sum(w) + 1e-10)
+    fused = scores_matrix @ w
+    fused = np.clip(fused, 1e-10, 1 - 1e-10)
+    return float(-np.mean(y * np.log(fused) + (1 - y) * np.log(1 - fused)))
+
+
+def _f1_from_weights(
+    w: np.ndarray,
+    scores_matrix: np.ndarray,
+    y: np.ndarray,
+    threshold: float | None = None,
+) -> float:
+    """Compute F1 score for a given weight vector on component scores."""
+    w = np.abs(w)
+    w = w / (np.sum(w) + 1e-10)
+    fused = np.clip(scores_matrix @ w, 0.0, 1.0)
+    if threshold is None:
+        # Use Youden's J to find optimal threshold
+        thresholds = np.unique(fused)
+        if len(thresholds) > 200:
+            thresholds = np.percentile(fused, np.linspace(0, 100, 200))
+        best_f1 = 0.0
+        for t in thresholds:
+            preds = (fused > t).astype(int)
+            f1_val = float(f1_score(y, preds, zero_division=0))
+            if f1_val > best_f1:
+                best_f1 = f1_val
+        return best_f1
+    preds = (fused > threshold).astype(int)
+    return float(f1_score(y, preds, zero_division=0))
+
+
+def run_fusion_weight_cv(
+    name: str,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    n_splits: int = 3,
+) -> dict[str, Any]:
+    """Cross-validate fusion weights using L-BFGS-B (same as NeuroSymbolicHub).
+
+    The NeuroSymbolicHub._learn_fusion_weights() (line 865) uses::
+
+        minimize(bce_objective, [0.6, 0.4], method='L-BFGS-B',
+                 bounds=[(0.1, 0.9), (0.1, 0.9)])
+
+    We replicate this exact optimization on the statistical detector's
+    3-component scores (resonance, kinematic, infogeo) to validate whether:
+    (a) The default weights (0.4/0.3/0.3) are near-optimal
+    (b) The adaptive AUC-proportional weights are near-optimal
+    (c) PHI-weighted (~0.618/0.382 for 2-way) is near-optimal
+
+    Uses StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42).
+    """
+    PHI = (1.0 + np.sqrt(5.0)) / 2.0
+    phi_2way_weight = float(PHI / (1.0 + PHI))  # ~0.618
+
+    # Fit detector on full training data to get component scores
+    detector = MercuryAnomalyDetector()
+    detector.fit(X_train)
+
+    # Get 3-component scores for training data
+    train_result = detector.detect(X_train)
+    train_components = train_result["ensemble_components"]
+    train_scores_matrix = np.column_stack([
+        train_components["resonance"],
+        train_components["kinematic"],
+        train_components["info_geometry"],
+    ])
+
+    # Get 3-component scores for test data
+    test_result = detector.detect(X_test)
+    test_components = test_result["ensemble_components"]
+    test_scores_matrix = np.column_stack([
+        test_components["resonance"],
+        test_components["kinematic"],
+        test_components["info_geometry"],
+    ])
+
+    # Get adaptive weights for comparison
+    detector_supervised = MercuryAnomalyDetector()
+    detector_supervised.fit(X_train)
+    detector_supervised._adaptive_weights = (
+        detector_supervised._compute_adaptive_weights(X_train, y_train)
+    )
+    adaptive_weights = detector_supervised._adaptive_weights.tolist()
+
+    # Cross-validate to find optimal weights
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+    cv_optimal_weights: list[np.ndarray] = []
+
+    for train_idx, val_idx in skf.split(train_scores_matrix, y_train):
+        sm_train = train_scores_matrix[train_idx]
+        y_tr = y_train[train_idx]
+        sm_val = train_scores_matrix[val_idx]
+        y_va = y_train[val_idx]
+
+        # Optimize weights on fold training data
+        result = minimize(
+            _bce_objective_3way,
+            [0.4, 0.3, 0.3],
+            args=(sm_train, y_tr),
+            method="L-BFGS-B",
+            bounds=[(0.05, 0.95)] * 3,
+        )
+        opt_w = np.abs(result.x)
+        opt_w = opt_w / np.sum(opt_w)
+        cv_optimal_weights.append(opt_w)
+
+    # Average optimal weights across folds
+    mean_optimal = np.mean(cv_optimal_weights, axis=0)
+    mean_optimal = mean_optimal / mean_optimal.sum()
+    std_optimal = np.std(cv_optimal_weights, axis=0)
+
+    # Compute test F1 for each weight scheme
+    default_weights = np.array([0.4, 0.3, 0.3])
+    f1_at_optimal = _f1_from_weights(mean_optimal, test_scores_matrix, y_test)
+    f1_at_default = _f1_from_weights(default_weights, test_scores_matrix, y_test)
+    f1_at_adaptive = _f1_from_weights(
+        np.array(adaptive_weights), test_scores_matrix, y_test
+    )
+
+    # PHI 2-way fusion: best component + rest
+    # Find best component by AUC on test data
+    component_aucs = []
+    for i in range(3):
+        component_aucs.append(_safe_auc(y_test, test_scores_matrix[:, i]))
+    best_idx = int(np.argmax(component_aucs))
+    rest_idx = [i for i in range(3) if i != best_idx]
+    phi_3way = np.zeros(3)
+    phi_3way[best_idx] = phi_2way_weight
+    rest_weight = (1.0 - phi_2way_weight) / len(rest_idx)
+    for ri in rest_idx:
+        phi_3way[ri] = rest_weight
+    f1_at_phi_2way = _f1_from_weights(phi_3way, test_scores_matrix, y_test)
+
+    return {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": n_splits,
+        "mean_optimal_weights": mean_optimal.tolist(),
+        "std_optimal_weights": std_optimal.tolist(),
+        "default_weights": default_weights.tolist(),
+        "adaptive_weights": adaptive_weights,
+        "f1_at_optimal": f1_at_optimal,
+        "f1_at_default": f1_at_default,
+        "f1_at_adaptive": f1_at_adaptive,
+        "delta_optimal_vs_default": f1_at_optimal - f1_at_default,
+        "delta_optimal_vs_adaptive": f1_at_optimal - f1_at_adaptive,
+        "phi_2way_weight": phi_2way_weight,
+        "phi_3way_weights": phi_3way.tolist(),
+        "f1_at_phi_2way": f1_at_phi_2way,
+        "component_aucs": {
+            "resonance": component_aucs[0],
+            "kinematic": component_aucs[1],
+            "infogeo": component_aucs[2],
+        },
+    }
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -459,7 +755,7 @@ def run_validation(
     uncal_f1s = [r["calibration"]["uncalibrated_f1"] for r in successful if "calibration" in r]
     delta_f1s = [r["calibration"]["delta_f1"] for r in successful if "calibration" in r]
 
-    # MD-005 summary
+    # MD-005 summary (legacy accuracy-based)
     conformal_stats: dict[float, dict[str, int]] = {}
     if not skip_conformal:
         for target in CONFORMAL_COVERAGE_LEVELS:
@@ -474,6 +770,32 @@ def run_validation(
                     if cov.get("meets_guarantee", False):
                         conformal_stats[tgt]["meets"] += 1
 
+    # MD-005 summary (corrected score-based)
+    score_conformal_stats: dict[float, dict[str, int]] = {}
+    if not skip_conformal:
+        for target in CONFORMAL_COVERAGE_LEVELS:
+            score_conformal_stats[target] = {
+                "split_meets": 0,
+                "cross_meets": 0,
+                "normal_meets": 0,
+                "total": 0,
+            }
+        for r in successful:
+            if "conformal_score_based" not in r:
+                continue
+            for cov in r["conformal_score_based"].get(
+                "score_coverage_results", []
+            ):
+                tgt = cov.get("target_coverage")
+                if tgt in score_conformal_stats:
+                    score_conformal_stats[tgt]["total"] += 1
+                    if cov.get("split_meets_score_guarantee", False):
+                        score_conformal_stats[tgt]["split_meets"] += 1
+                    if cov.get("cross_meets_score_guarantee", False):
+                        score_conformal_stats[tgt]["cross_meets"] += 1
+                    if cov.get("split_meets_normal_guarantee", False):
+                        score_conformal_stats[tgt]["normal_meets"] += 1
+
     # MD-003 summary
     weight_strategies = [
         r.get("fusion", {}).get("strategy_used", "unknown")
@@ -485,6 +807,21 @@ def run_validation(
         for r in successful
         if "fusion" in r and r["fusion"].get("adaptive_weights") is not None
     ]
+
+    # MD-003 CV summary
+    cv_deltas_default: list[float] = []
+    cv_deltas_adaptive: list[float] = []
+    cv_optimal_weights_all: list[list[float]] = []
+    for r in successful:
+        fcv = r.get("fusion_cv", {})
+        if "delta_optimal_vs_default" in fcv:
+            cv_deltas_default.append(fcv["delta_optimal_vs_default"])
+            cv_deltas_adaptive.append(fcv["delta_optimal_vs_adaptive"])
+            cv_optimal_weights_all.append(fcv["mean_optimal_weights"])
+
+    # Decision gate for MD-003: default validated if optimal-default < 0.02
+    default_validated_count = sum(1 for d in cv_deltas_default if d < 0.02)
+    adaptive_validated_count = sum(1 for d in cv_deltas_adaptive if d < 0.02)
 
     summary = {
         "total_datasets": len(results),
@@ -503,7 +840,7 @@ def run_validation(
                 else None
             ),
         },
-        "md_005": {
+        "md_005_accuracy_based": {
             str(tgt): {
                 "meets_guarantee": stats["meets"],
                 "total": stats["total"],
@@ -517,12 +854,65 @@ def run_validation(
         }
         if not skip_conformal
         else "skipped",
+        "md_005_score_based": {
+            str(tgt): {
+                "split_meets": stats["split_meets"],
+                "cross_meets": stats["cross_meets"],
+                "normal_meets": stats["normal_meets"],
+                "total": stats["total"],
+                "split_pct": (
+                    float(stats["split_meets"] / stats["total"] * 100)
+                    if stats["total"] > 0
+                    else None
+                ),
+                "cross_pct": (
+                    float(stats["cross_meets"] / stats["total"] * 100)
+                    if stats["total"] > 0
+                    else None
+                ),
+                "normal_pct": (
+                    float(stats["normal_meets"] / stats["total"] * 100)
+                    if stats["total"] > 0
+                    else None
+                ),
+            }
+            for tgt, stats in score_conformal_stats.items()
+        }
+        if not skip_conformal
+        else "skipped",
         "md_003": {
             "strategy_used": (
                 weight_strategies[0] if weight_strategies else "unknown"
             ),
             "n_datasets_with_adaptive_weights": len(all_adaptive_weights),
             "weight_distribution": _compute_weight_distribution(all_adaptive_weights),
+        },
+        "md_003_cv": {
+            "strategy": "lbfgs_cv_3way",
+            "n_datasets": len(cv_deltas_default),
+            "mean_delta_optimal_vs_default": (
+                float(np.mean(cv_deltas_default)) if cv_deltas_default else None
+            ),
+            "mean_delta_optimal_vs_adaptive": (
+                float(np.mean(cv_deltas_adaptive)) if cv_deltas_adaptive else None
+            ),
+            "default_validated_count": default_validated_count,
+            "default_validated_pct": (
+                float(default_validated_count / len(cv_deltas_default) * 100)
+                if cv_deltas_default
+                else None
+            ),
+            "adaptive_validated_count": adaptive_validated_count,
+            "adaptive_validated_pct": (
+                float(adaptive_validated_count / len(cv_deltas_adaptive) * 100)
+                if cv_deltas_adaptive
+                else None
+            ),
+            "mean_optimal_weights": (
+                np.mean(cv_optimal_weights_all, axis=0).tolist()
+                if cv_optimal_weights_all
+                else None
+            ),
         },
     }
 
@@ -644,7 +1034,7 @@ def _validate_single(
     except Exception as e:
         result["calibration"] = {"error": str(e)}
 
-    # --- MD-005: Conformal coverage ---
+    # --- MD-005: Conformal coverage (accuracy-based, legacy) ---
     if not skip_conformal:
         try:
             t0 = time.perf_counter()
@@ -656,7 +1046,19 @@ def _validate_single(
         except Exception as e:
             result["conformal"] = {"error": str(e)}
 
-    # --- MD-003: Fusion weight analysis ---
+    # --- MD-005: Score-based conformal coverage (corrected metric) ---
+    if not skip_conformal:
+        try:
+            t0 = time.perf_counter()
+            score_cov_result = measure_score_based_coverage(
+                name, X_train, y_train, X_cal, X_test, y_test
+            )
+            score_cov_result["elapsed_ms"] = (time.perf_counter() - t0) * 1000
+            result["conformal_score_based"] = score_cov_result
+        except Exception as e:
+            result["conformal_score_based"] = {"error": str(e)}
+
+    # --- MD-003: Fusion weight analysis (Strategy B) ---
     try:
         t0 = time.perf_counter()
         fusion_result = run_fusion_weight_analysis(
@@ -667,10 +1069,22 @@ def _validate_single(
     except Exception as e:
         result["fusion"] = {"error": str(e)}
 
+    # --- MD-003: L-BFGS-B cross-validated fusion weights ---
+    try:
+        t0 = time.perf_counter()
+        fusion_cv_result = run_fusion_weight_cv(
+            name, X_train, y_train, X_test, y_test
+        )
+        fusion_cv_result["elapsed_ms"] = (time.perf_counter() - t0) * 1000
+        result["fusion_cv"] = fusion_cv_result
+    except Exception as e:
+        result["fusion_cv"] = {"error": str(e)}
+
     # Print row
     cal = result.get("calibration", {})
-    conf = result.get("conformal", {})
+    conf_sb = result.get("conformal_score_based", {})
     fus = result.get("fusion", {})
+    fcv = result.get("fusion_cv", {})
 
     cal_f1 = cal.get("calibrated_f1", float("nan"))
     uncal_f1 = cal.get("uncalibrated_f1", float("nan"))
@@ -678,21 +1092,22 @@ def _validate_single(
     wt_src = cal.get("weight_source", "?")[:8]
 
     cov_strs = []
-    if not skip_conformal and "coverage_results" in conf:
-        for cov in conf["coverage_results"]:
-            emp = cov.get("empirical_coverage", float("nan"))
-            cov_strs.append(f"{emp:.2f}")
+    if not skip_conformal and "score_coverage_results" in conf_sb:
+        for cov in conf_sb["score_coverage_results"]:
+            sc = cov.get("split_score_coverage", float("nan"))
+            cov_strs.append(f"{sc:.2f}")
     else:
         cov_strs = ["skip"] * 3
 
-    fus_strat = fus.get("strategy_used", "?")[:6]
+    fus_strat = fcv.get("strategy_used", fus.get("strategy_used", "?"))[:6]
+    cv_delta = fcv.get("delta_optimal_vs_default", float("nan"))
 
     print(
         f"  [{name:<20s}] "
         f"Cal={cal_f1:.3f} Uncal={uncal_f1:.3f} D={delta:+.3f} "
         f"Wt={wt_src} "
-        f"Cov={'/'.join(cov_strs)} "
-        f"Fus={fus_strat}"
+        f"ScCov={'/'.join(cov_strs)} "
+        f"Fus={fus_strat} dF1={cv_delta:+.3f}"
     )
 
     return result
@@ -757,16 +1172,33 @@ def _print_summary_table(
         print(f"  Mean Delta F1:        {md011['mean_delta_f1']:+.4f}")
 
     if not skip_conformal:
-        print("\n--- MD-005: Conformal Coverage ---")
-        md005 = summary.get("md_005", {})
-        for tgt_str, stats in md005.items():
-            if isinstance(stats, dict):
-                pct = stats.get("pct", 0)
-                print(
-                    f"  Coverage@{tgt_str}: "
-                    f"{stats.get('meets_guarantee', 0)}/{stats.get('total', 0)} "
-                    f"({pct:.1f}%) meet guarantee"
-                )
+        print("\n--- MD-005: Conformal Coverage (accuracy-based, legacy) ---")
+        md005 = summary.get("md_005_accuracy_based", {})
+        if isinstance(md005, dict):
+            for tgt_str, stats in md005.items():
+                if isinstance(stats, dict):
+                    pct = stats.get("pct") or 0
+                    print(
+                        f"  Accuracy@{tgt_str}: "
+                        f"{stats.get('meets_guarantee', 0)}/{stats.get('total', 0)} "
+                        f"({pct:.1f}%) meet guarantee"
+                    )
+
+        print("\n--- MD-005: Conformal Coverage (score-based, CORRECTED) ---")
+        md005s = summary.get("md_005_score_based", {})
+        if isinstance(md005s, dict):
+            for tgt_str, stats in md005s.items():
+                if isinstance(stats, dict):
+                    sp = stats.get("split_pct") or 0
+                    cp = stats.get("cross_pct") or 0
+                    np_ = stats.get("normal_pct") or 0
+                    total = stats.get("total", 0)
+                    print(
+                        f"  ScoreCov@{tgt_str}: "
+                        f"split={stats.get('split_meets', 0)}/{total} ({sp:.1f}%) "
+                        f"cross={stats.get('cross_meets', 0)}/{total} ({cp:.1f}%) "
+                        f"normal={stats.get('normal_meets', 0)}/{total} ({np_:.1f}%)"
+                    )
 
     print("\n--- MD-003: Fusion Weight Analysis ---")
     md003 = summary.get("md_003", {})
@@ -781,6 +1213,35 @@ def _print_summary_table(
                     f"std={s['std']:.3f} "
                     f"range=[{s['min']:.3f}, {s['max']:.3f}]"
                 )
+
+    print("\n--- MD-003: L-BFGS-B Cross-Validated Fusion Weights ---")
+    md003cv = summary.get("md_003_cv", {})
+    print(f"  Datasets tested: {md003cv.get('n_datasets', 0)}")
+    if md003cv.get("mean_delta_optimal_vs_default") is not None:
+        print(
+            f"  Mean delta (optimal-default): "
+            f"{md003cv['mean_delta_optimal_vs_default']:+.4f}"
+        )
+        print(
+            f"  Mean delta (optimal-adaptive): "
+            f"{md003cv['mean_delta_optimal_vs_adaptive']:+.4f}"
+        )
+        print(
+            f"  Default validated (<0.02 gap): "
+            f"{md003cv['default_validated_count']}/{md003cv['n_datasets']} "
+            f"({md003cv['default_validated_pct']:.1f}%)"
+        )
+        print(
+            f"  Adaptive validated (<0.02 gap): "
+            f"{md003cv['adaptive_validated_count']}/{md003cv['n_datasets']} "
+            f"({md003cv['adaptive_validated_pct']:.1f}%)"
+        )
+        if md003cv.get("mean_optimal_weights"):
+            w = md003cv["mean_optimal_weights"]
+            print(
+                f"  Mean optimal weights: "
+                f"R={w[0]:.3f} K={w[1]:.3f} I={w[2]:.3f}"
+            )
 
     print("=" * 100)
 

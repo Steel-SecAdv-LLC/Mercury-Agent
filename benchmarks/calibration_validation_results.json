@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "git_commit": "a440bb8f25ad60dc5cf26f05cd600a397dc2bb63",
+    "git_commit": "5db03e4a773f78f752b956ec38d4941ab1ff8bea",
     "python_version": "3.11.14",
-    "timestamp": "2026-02-20T07:51:16.911096+00:00",
+    "timestamp": "2026-02-20T18:40:27.543887+00:00",
     "max_samples_per_dataset": 20000,
     "skip_conformal": false
   },
@@ -14,12 +14,12 @@
       "calibration_improved": 32,
       "calibration_same": 2,
       "calibration_degraded": 6,
-      "mean_calibrated_f1": 0.41922242843907753,
-      "mean_uncalibrated_f1": 0.2762564948157503,
-      "mean_delta_f1": 0.14296593362332716,
+      "mean_calibrated_f1": 0.4192174816260624,
+      "mean_uncalibrated_f1": 0.2746908629131435,
+      "mean_delta_f1": 0.14452661871291897,
       "pct_improved_or_same": 85.0
     },
-    "md_005": {
+    "md_005_accuracy_based": {
       "0.9": {
         "meets_guarantee": 12,
         "total": 40,
@@ -34,6 +34,35 @@
         "meets_guarantee": 1,
         "total": 40,
         "pct": 2.5
+      }
+    },
+    "md_005_score_based": {
+      "0.9": {
+        "split_meets": 18,
+        "cross_meets": 31,
+        "normal_meets": 27,
+        "total": 40,
+        "split_pct": 45.0,
+        "cross_pct": 77.5,
+        "normal_pct": 67.5
+      },
+      "0.95": {
+        "split_meets": 19,
+        "cross_meets": 32,
+        "normal_meets": 29,
+        "total": 40,
+        "split_pct": 47.5,
+        "cross_pct": 80.0,
+        "normal_pct": 72.5
+      },
+      "0.99": {
+        "split_meets": 24,
+        "cross_meets": 23,
+        "normal_meets": 32,
+        "total": 40,
+        "split_pct": 60.0,
+        "cross_pct": 57.49999999999999,
+        "normal_pct": 80.0
       }
     },
     "md_003": {
@@ -59,6 +88,21 @@
           "max": 1.0
         }
       }
+    },
+    "md_003_cv": {
+      "strategy": "lbfgs_cv_3way",
+      "n_datasets": 40,
+      "mean_delta_optimal_vs_default": 0.009852788060941729,
+      "mean_delta_optimal_vs_adaptive": 0.0030736175925131686,
+      "default_validated_count": 29,
+      "default_validated_pct": 72.5,
+      "adaptive_validated_count": 33,
+      "adaptive_validated_pct": 82.5,
+      "mean_optimal_weights": [
+        0.5164361002262826,
+        0.08673998470307123,
+        0.3968239150706463
+      ]
     }
   },
   "results": [
@@ -86,7 +130,7 @@
         "calibrated_recall": 0.743801652892562,
         "delta_f1": -0.002988847422322513,
         "auc": 0.5865403667555112,
-        "elapsed_ms": 141.0091050001938
+        "elapsed_ms": 142.43976900002053
       },
       "conformal": {
         "coverage_results": [
@@ -121,7 +165,51 @@
             }
           }
         ],
-        "elapsed_ms": 2203.1003279998913
+        "elapsed_ms": 2250.729036999928
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4562224077324555,
+            "split_score_coverage": 0.904,
+            "split_normal_coverage": 0.9061613817994328,
+            "split_anomaly_detection_rate": 0.1652892561983471,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4942898786581767,
+            "cross_score_coverage": 0.92725,
+            "cross_normal_coverage": 0.9291054395462748,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5519001848808767,
+            "split_score_coverage": 0.95925,
+            "split_normal_coverage": 0.9602990461459139,
+            "split_anomaly_detection_rate": 0.0743801652892562,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5728749526019694,
+            "cross_score_coverage": 0.9685,
+            "cross_normal_coverage": 0.9693219902036607,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6016660732109467,
+            "split_score_coverage": 0.99125,
+            "split_normal_coverage": 0.991234854343903,
+            "split_anomaly_detection_rate": 0.008264462809917356,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.610864873673356,
+            "cross_score_coverage": 0.998,
+            "cross_normal_coverage": 0.9979376127868007,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 115.08703000004061
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -140,7 +228,49 @@
           "infogeo": 0.5464254511457914
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 567.6592489999166
+        "elapsed_ms": 630.8749400000124
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.5643035352356214,
+          0.029700186065032705,
+          0.4059962786993459
+        ],
+        "std_optimal_weights": [
+          0.010363793967507386,
+          0.0005454628403951258,
+          0.010909256807902494
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.38633675276003154,
+          0.048446127060065465,
+          0.565217120179903
+        ],
+        "f1_at_optimal": 0.08639308855291576,
+        "f1_at_default": 0.08639308855291576,
+        "f1_at_adaptive": 0.08281573498964803,
+        "delta_optimal_vs_default": 0.0,
+        "delta_optimal_vs_adaptive": 0.0035773535632677295,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.08436724565756824,
+        "component_aucs": {
+          "resonance": 0.5861803012193225,
+          "kinematic": 0.51922196016269,
+          "infogeo": 0.5801721070651676
+        },
+        "elapsed_ms": 1152.6450180001575
       }
     },
     {
@@ -167,7 +297,7 @@
         "calibrated_recall": 0.2616822429906542,
         "delta_f1": 0.04069716004600549,
         "auc": 0.6491576165069305,
-        "elapsed_ms": 37.137875000098575
+        "elapsed_ms": 37.17427200012935
       },
       "conformal": {
         "coverage_results": [
@@ -202,7 +332,51 @@
             }
           }
         ],
-        "elapsed_ms": 76.56198599988784
+        "elapsed_ms": 77.66202900006647
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.42668805333206683,
+            "split_score_coverage": 0.9090277777777778,
+            "split_normal_coverage": 0.9197299324831207,
+            "split_anomaly_detection_rate": 0.22429906542056074,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4777847233054838,
+            "cross_score_coverage": 0.9375,
+            "cross_normal_coverage": 0.9467366841710427,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5085907527354736,
+            "split_score_coverage": 0.9527777777777777,
+            "split_normal_coverage": 0.959489872468117,
+            "split_anomaly_detection_rate": 0.1308411214953271,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5888425500030309,
+            "cross_score_coverage": 0.9798611111111111,
+            "cross_normal_coverage": 0.9834958739684921,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6545524440973249,
+            "split_score_coverage": 0.9923611111111111,
+            "split_normal_coverage": 0.9954988747186797,
+            "split_anomaly_detection_rate": 0.04672897196261682,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6884394323820919,
+            "cross_score_coverage": 0.9986111111111111,
+            "cross_normal_coverage": 0.9992498124531133,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 21.988719000091805
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -221,7 +395,49 @@
           "infogeo": 0.632428125
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 33.039215999906446
+        "elapsed_ms": 32.490229000131876
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.8367940200088813,
+          0.04404179052678323,
+          0.11916418946433555
+        ],
+        "std_optimal_weights": [
+          0.022194870358602917,
+          0.001168151071505419,
+          0.023363021430108332
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.5293252058468185,
+          0.11357941205282245,
+          0.35709538210035907
+        ],
+        "f1_at_optimal": 0.24277456647398843,
+        "f1_at_default": 0.22916666666666666,
+        "f1_at_adaptive": 0.21782178217821782,
+        "delta_optimal_vs_default": 0.013607899807321772,
+        "delta_optimal_vs_adaptive": 0.024952784295770608,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.23673469387755103,
+        "component_aucs": {
+          "resonance": 0.6967769979878148,
+          "kinematic": 0.5669139247428681,
+          "infogeo": 0.6302276503705365
+        },
+        "elapsed_ms": 915.989424999907
       }
     },
     {
@@ -248,7 +464,7 @@
         "calibrated_recall": 0.4948453608247423,
         "delta_f1": 0.07909752738243592,
         "auc": 0.9354474881864597,
-        "elapsed_ms": 1894.752674999836
+        "elapsed_ms": 2054.974248999997
       },
       "conformal": {
         "coverage_results": [
@@ -283,7 +499,51 @@
             }
           }
         ],
-        "elapsed_ms": 8639.734557000338
+        "elapsed_ms": 9048.586470999908
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.3326786458157553,
+            "split_score_coverage": 0.893,
+            "split_normal_coverage": 0.9133999487573661,
+            "split_anomaly_detection_rate": 0.9278350515463918,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.35171067434414377,
+            "cross_score_coverage": 0.912,
+            "cross_normal_coverage": 0.927235459902639,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.3931063002152586,
+            "split_score_coverage": 0.946,
+            "split_normal_coverage": 0.9590058929028952,
+            "split_anomaly_detection_rate": 0.5773195876288659,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.41645763451338136,
+            "cross_score_coverage": 0.9615,
+            "cross_normal_coverage": 0.9748911094030234,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5766944503912157,
+            "split_score_coverage": 0.99,
+            "split_normal_coverage": 0.9982065078145017,
+            "split_anomaly_detection_rate": 0.3402061855670103,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5353814515082806,
+            "cross_score_coverage": 0.9805,
+            "cross_normal_coverage": 0.9928260312580066,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 1566.8903279999995
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -302,7 +562,49 @@
           "infogeo": 0.9149214049094744
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 1864.5756789996994
+        "elapsed_ms": 1998.7980559999414
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.04761904761904762,
+          0.04761904761904762,
+          0.9047619047619048
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.4069359930264939,
+          0.09506388589597205,
+          0.498000121077534
+        ],
+        "f1_at_optimal": 0.6075949367088608,
+        "f1_at_default": 0.6075949367088608,
+        "f1_at_adaptive": 0.6075949367088608,
+        "delta_optimal_vs_default": 0.0,
+        "delta_optimal_vs_adaptive": 0.0,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.6075949367088608,
+        "component_aucs": {
+          "resonance": 0.8457147687081839,
+          "kinematic": 0.5789836525432458,
+          "infogeo": 0.9338058749415596
+        },
+        "elapsed_ms": 3206.00176999983
       }
     },
     {
@@ -329,7 +631,7 @@
         "calibrated_recall": 0.9375,
         "delta_f1": 0.22415940224159403,
         "auc": 0.9861891385767789,
-        "elapsed_ms": 20.728251000036835
+        "elapsed_ms": 22.320257000046695
       },
       "conformal": {
         "coverage_results": [
@@ -364,7 +666,51 @@
             }
           }
         ],
-        "elapsed_ms": 5.133452999871224
+        "elapsed_ms": 5.266216000109125
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.48989755753894,
+            "split_score_coverage": 0.8686131386861314,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.375,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5558900564933463,
+            "cross_score_coverage": 0.9781021897810219,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5453961721543783,
+            "split_score_coverage": 0.9635036496350365,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.10416666666666667,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5830893051565248,
+            "cross_score_coverage": 1.0,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6288649568623166,
+            "split_score_coverage": 1.0,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5830893051565248,
+            "cross_score_coverage": 1.0,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 13.372468999932607
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -383,7 +729,49 @@
           "infogeo": 0.9676376255323623
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 16.413476999787235
+        "elapsed_ms": 17.461414999843328
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.04761904761904762,
+          0.04761904761904762,
+          0.9047619047619048
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.40847893810104297,
+          0.10965732087227419,
+          0.4818637410266829
+        ],
+        "f1_at_optimal": 0.9320388349514563,
+        "f1_at_default": 0.9306930693069307,
+        "f1_at_adaptive": 0.9411764705882353,
+        "delta_optimal_vs_default": 0.0013457656445255983,
+        "delta_optimal_vs_adaptive": -0.00913763563677894,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.9320388349514563,
+        "component_aucs": {
+          "resonance": 0.8841292134831461,
+          "kinematic": 0.6086142322097379,
+          "infogeo": 0.9815074906367042
+        },
+        "elapsed_ms": 577.13882500002
       }
     },
     {
@@ -410,7 +798,7 @@
         "calibrated_recall": 0.47555555555555556,
         "delta_f1": 0.16873458999443247,
         "auc": 0.7820394366197183,
-        "elapsed_ms": 306.9199589999698
+        "elapsed_ms": 298.06740999993053
       },
       "conformal": {
         "coverage_results": [
@@ -445,7 +833,51 @@
             }
           }
         ],
-        "elapsed_ms": 3374.2645259999335
+        "elapsed_ms": 3520.628674000136
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.45685638654929994,
+            "split_score_coverage": 0.90925,
+            "split_normal_coverage": 0.9433802816901409,
+            "split_anomaly_detection_rate": 0.36,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.44953378564436064,
+            "cross_score_coverage": 0.89725,
+            "cross_normal_coverage": 0.9335211267605634,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.49196907072378804,
+            "split_score_coverage": 0.955,
+            "split_normal_coverage": 0.9732394366197183,
+            "split_anomaly_detection_rate": 0.18888888888888888,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.49081812398497315,
+            "cross_score_coverage": 0.95325,
+            "cross_normal_coverage": 0.971830985915493,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5693917877700405,
+            "split_score_coverage": 0.992,
+            "split_normal_coverage": 0.9960563380281691,
+            "split_anomaly_detection_rate": 0.04,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5507079262091139,
+            "cross_score_coverage": 0.9885,
+            "cross_normal_coverage": 0.9935211267605634,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 267.90154700006497
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -464,7 +896,49 @@
           "infogeo": 0.7622676721447773
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 275.85211800032994
+        "elapsed_ms": 293.4537169999203
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.48717948717948717,
+          0.025641025641025644,
+          0.48717948717948717
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.44961437019960254,
+          0.06581406275339872,
+          0.4845715670469987
+        ],
+        "f1_at_optimal": 0.42400774443368827,
+        "f1_at_default": 0.4259438528557599,
+        "f1_at_adaptive": 0.42230347349177333,
+        "delta_optimal_vs_default": -0.0019361084220716474,
+        "delta_optimal_vs_adaptive": 0.0017042709419149427,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.4175209692451072,
+        "component_aucs": {
+          "resonance": 0.7646785602503912,
+          "kinematic": 0.5398134585289516,
+          "infogeo": 0.7799211267605635
+        },
+        "elapsed_ms": 1361.1678289998963
       }
     },
     {
@@ -491,7 +965,7 @@
         "calibrated_recall": 0.8,
         "delta_f1": 0.2011695906432749,
         "auc": 0.9290877796901893,
-        "elapsed_ms": 28.40170199988279
+        "elapsed_ms": 31.188524999834044
       },
       "conformal": {
         "coverage_results": [
@@ -526,7 +1000,51 @@
             }
           }
         ],
-        "elapsed_ms": 23.87822699984099
+        "elapsed_ms": 25.56811700014805
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4758389943319187,
+            "split_score_coverage": 0.9291553133514986,
+            "split_normal_coverage": 0.9668674698795181,
+            "split_anomaly_detection_rate": 0.42857142857142855,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4923148235452484,
+            "cross_score_coverage": 0.9455040871934605,
+            "cross_normal_coverage": 0.9728915662650602,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5490433848360392,
+            "split_score_coverage": 0.9673024523160763,
+            "split_normal_coverage": 0.9849397590361446,
+            "split_anomaly_detection_rate": 0.2,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5437809666787169,
+            "cross_score_coverage": 0.9645776566757494,
+            "cross_normal_coverage": 0.9819277108433735,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6131308504170216,
+            "split_score_coverage": 0.9918256130790191,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.08571428571428572,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.583713404654066,
+            "cross_score_coverage": 0.989100817438692,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 26.66948800015234
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -545,7 +1063,49 @@
           "infogeo": 0.8982520541692027
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 23.585274000197387
+        "elapsed_ms": 24.604922999969858
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.48717948717948717,
+          0.025641025641025644,
+          0.48717948717948717
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.42843824134843483,
+          0.18500364616506515,
+          0.3865581124864999
+        ],
+        "f1_at_optimal": 0.6666666666666666,
+        "f1_at_default": 0.6086956521739131,
+        "f1_at_adaptive": 0.6292134831460674,
+        "delta_optimal_vs_default": 0.05797101449275355,
+        "delta_optimal_vs_adaptive": 0.03745318352059923,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.631578947368421,
+        "component_aucs": {
+          "resonance": 0.9516351118760757,
+          "kinematic": 0.6284423407917384,
+          "infogeo": 0.9158347676419966
+        },
+        "elapsed_ms": 869.3378590000975
       }
     },
     {
@@ -572,7 +1132,7 @@
         "calibrated_recall": 0.5483870967741935,
         "delta_f1": 0.2656518345042935,
         "auc": 0.6717171717171717,
-        "elapsed_ms": 31.08574599991698
+        "elapsed_ms": 31.821365000041624
       },
       "conformal": {
         "coverage_results": [
@@ -607,7 +1167,51 @@
             }
           }
         ],
-        "elapsed_ms": 23.126941000100487
+        "elapsed_ms": 23.400430000037886
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4336411055941103,
+            "split_score_coverage": 0.8770685579196218,
+            "split_normal_coverage": 0.9242424242424242,
+            "split_anomaly_detection_rate": 0.2903225806451613,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.48744814330837116,
+            "cross_score_coverage": 0.9219858156028369,
+            "cross_normal_coverage": 0.9575757575757575,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.49381099248944355,
+            "split_score_coverage": 0.9267139479905437,
+            "split_normal_coverage": 0.9575757575757575,
+            "split_anomaly_detection_rate": 0.1827956989247312,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5256322727136042,
+            "cross_score_coverage": 0.9550827423167849,
+            "cross_normal_coverage": 0.9818181818181818,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.574858953266571,
+            "split_score_coverage": 0.9810874704491725,
+            "split_normal_coverage": 0.9939393939393939,
+            "split_anomaly_detection_rate": 0.06451612903225806,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5639591047136608,
+            "cross_score_coverage": 0.9716312056737588,
+            "cross_normal_coverage": 0.9878787878787879,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 25.10344899997108
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -626,7 +1230,49 @@
           "infogeo": 0.6239860468478889
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 26.865453000027628
+        "elapsed_ms": 26.689135999959035
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.6323774651652676,
+          0.03328302448238251,
+          0.3343395103523498
+        ],
+        "std_optimal_weights": [
+          0.10723771574549283,
+          0.005644090302394362,
+          0.11288180604788722
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.5954823003551902,
+          0.15563424483087646,
+          0.2488834548139333
+        ],
+        "f1_at_optimal": 0.4329004329004329,
+        "f1_at_default": 0.4117647058823529,
+        "f1_at_adaptive": 0.42911877394636017,
+        "delta_optimal_vs_default": 0.021135727018079975,
+        "delta_optimal_vs_adaptive": 0.0037816589540727308,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.4444444444444444,
+        "component_aucs": {
+          "resonance": 0.8128380579993483,
+          "kinematic": 0.5992994460736396,
+          "infogeo": 0.5992505702183122
+        },
+        "elapsed_ms": 911.474200999919
       }
     },
     {
@@ -653,7 +1299,7 @@
         "calibrated_recall": 0.2247191011235955,
         "delta_f1": 0.015873015873015872,
         "auc": 0.7758913924712494,
-        "elapsed_ms": 185.08232400017732
+        "elapsed_ms": 189.5533480001177
       },
       "conformal": {
         "coverage_results": [
@@ -688,7 +1334,51 @@
             }
           }
         ],
-        "elapsed_ms": 2555.0653730001613
+        "elapsed_ms": 2646.8377589999363
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4648805887780507,
+            "split_score_coverage": 0.89275,
+            "split_normal_coverage": 0.8992585016619791,
+            "split_anomaly_detection_rate": 0.39325842696629215,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.47556265342643034,
+            "cross_score_coverage": 0.92075,
+            "cross_normal_coverage": 0.9258501661979034,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4850677903007935,
+            "split_score_coverage": 0.94325,
+            "split_normal_coverage": 0.9475837381743799,
+            "split_anomaly_detection_rate": 0.24719101123595505,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.49549324356542607,
+            "cross_score_coverage": 0.964,
+            "cross_normal_coverage": 0.9665047302480184,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5192038750677439,
+            "split_score_coverage": 0.9915,
+            "split_normal_coverage": 0.9920736384556379,
+            "split_anomaly_detection_rate": 0.033707865168539325,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5296960099586994,
+            "cross_score_coverage": 0.9965,
+            "cross_normal_coverage": 0.9964203528509332,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 161.46569000011368
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -707,7 +1397,49 @@
           "infogeo": 0.7563609022079819
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 170.30190800005585
+        "elapsed_ms": 172.15261799992732
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.4057664803383735,
+          0.13731111101069166,
+          0.4569224086509349
+        ],
+        "f1_at_optimal": 0.1534526854219949,
+        "f1_at_default": 0.14814814814814814,
+        "f1_at_adaptive": 0.14814814814814814,
+        "delta_optimal_vs_default": 0.005304537273846749,
+        "delta_optimal_vs_adaptive": 0.005304537273846749,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.14016172506738545,
+        "component_aucs": {
+          "resonance": 0.7474840481614806,
+          "kinematic": 0.5984015123003686,
+          "infogeo": 0.7757276365422792
+        },
+        "elapsed_ms": 1331.8311929999709
       }
     },
     {
@@ -734,7 +1466,7 @@
         "calibrated_recall": 0.7056451612903226,
         "delta_f1": 0.10969136344564463,
         "auc": 0.6163927625696403,
-        "elapsed_ms": 11235.54096099997
+        "elapsed_ms": 11555.83019400001
       },
       "conformal": {
         "coverage_results": [
@@ -769,7 +1501,51 @@
             }
           }
         ],
-        "elapsed_ms": 21362.228226999832
+        "elapsed_ms": 21964.362928000126
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.45742229176887717,
+            "split_score_coverage": 0.90125,
+            "split_normal_coverage": 0.9000533049040512,
+            "split_anomaly_detection_rate": 0.08064516129032258,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4223440927088056,
+            "cross_score_coverage": 0.85425,
+            "cross_normal_coverage": 0.8528784648187633,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5125808626021355,
+            "split_score_coverage": 0.9485,
+            "split_normal_coverage": 0.9466950959488273,
+            "split_anomaly_detection_rate": 0.024193548387096774,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.42488960429506795,
+            "cross_score_coverage": 0.85775,
+            "cross_normal_coverage": 0.8560767590618337,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5632246633459903,
+            "split_score_coverage": 0.987,
+            "split_normal_coverage": 0.9864072494669509,
+            "split_anomaly_detection_rate": 0.004032258064516129,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.42794205557019105,
+            "cross_score_coverage": 0.86275,
+            "cross_normal_coverage": 0.8611407249466951,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 9444.872873000122
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -788,7 +1564,49 @@
           "infogeo": 0.661569648853795
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 11272.599537000133
+        "elapsed_ms": 11506.26847400008
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.856193674477162,
+          0.045062824972482214,
+          0.09874350055035588
+        ],
+        "std_optimal_weights": [
+          0.013120091152854061,
+          0.0006905311133081104,
+          0.013810622266162201
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.4561453970444887,
+          0.047619047619047616,
+          0.4962355553364637
+        ],
+        "f1_at_optimal": 0.15384615384615385,
+        "f1_at_default": 0.15411315515446025,
+        "f1_at_adaptive": 0.15449143656064313,
+        "delta_optimal_vs_default": -0.0002670013083063971,
+        "delta_optimal_vs_adaptive": -0.0006452827144892703,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.15379238028661307,
+        "component_aucs": {
+          "resonance": 0.6007322976133159,
+          "kinematic": 0.5,
+          "infogeo": 0.6166711087420043
+        },
+        "elapsed_ms": 13663.206834999983
       }
     },
     {
@@ -815,7 +1633,7 @@
         "calibrated_recall": 0.6052631578947368,
         "delta_f1": 0.001116528341211065,
         "auc": 0.9180105741385265,
-        "elapsed_ms": 74.47796799988282
+        "elapsed_ms": 75.45133099984014
       },
       "conformal": {
         "coverage_results": [
@@ -850,7 +1668,51 @@
             }
           }
         ],
-        "elapsed_ms": 1598.074380000071
+        "elapsed_ms": 1729.4732820000718
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.45297521974419264,
+            "split_score_coverage": 0.8965,
+            "split_normal_coverage": 0.9025744573447754,
+            "split_anomaly_detection_rate": 0.7368421052631579,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4585953802145092,
+            "cross_score_coverage": 0.905,
+            "cross_normal_coverage": 0.9109035840484604,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.49156376904788524,
+            "split_score_coverage": 0.94575,
+            "split_normal_coverage": 0.9510348308934882,
+            "split_anomaly_detection_rate": 0.6052631578947368,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4980076003642847,
+            "cross_score_coverage": 0.95075,
+            "cross_normal_coverage": 0.95557799091368,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5633686262555795,
+            "split_score_coverage": 0.988,
+            "split_normal_coverage": 0.98889449772842,
+            "split_anomaly_detection_rate": 0.10526315789473684,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.5760888246172826,
+            "cross_score_coverage": 0.99225,
+            "cross_normal_coverage": 0.9926804644119132,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 52.57900700007667
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -869,7 +1731,49 @@
           "infogeo": 0.9368087161400788
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 69.74571899991133
+        "elapsed_ms": 68.4034570001586
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.356172797815078,
+          0.24264280671618899,
+          0.401184395468733
+        ],
+        "f1_at_optimal": 0.13445378151260504,
+        "f1_at_default": 0.182648401826484,
+        "f1_at_adaptive": 0.18090452261306533,
+        "delta_optimal_vs_default": -0.04819462031387897,
+        "delta_optimal_vs_adaptive": -0.0464507411004603,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.1787709497206704,
+        "component_aucs": {
+          "resonance": 0.8857302266266373,
+          "kinematic": 0.7220801562209411,
+          "infogeo": 0.921716836260262
+        },
+        "elapsed_ms": 1091.9223729999885
       }
     },
     {
@@ -896,7 +1800,7 @@
         "calibrated_recall": 0.8945147679324894,
         "delta_f1": 0.10453987251710495,
         "auc": 0.8090310832433499,
-        "elapsed_ms": 75.24741699990045
+        "elapsed_ms": 73.59029099984582
       },
       "conformal": {
         "coverage_results": [
@@ -931,7 +1835,51 @@
             }
           }
         ],
-        "elapsed_ms": 1652.076142000169
+        "elapsed_ms": 1692.9108829999677
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4159774854592427,
+            "split_score_coverage": 0.8925,
+            "split_normal_coverage": 0.9000797236247675,
+            "split_anomaly_detection_rate": 0.22784810126582278,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4415305381009282,
+            "cross_score_coverage": 0.9385,
+            "cross_normal_coverage": 0.9444592080786607,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4500172216251084,
+            "split_score_coverage": 0.94575,
+            "split_normal_coverage": 0.9511028434759501,
+            "split_anomaly_detection_rate": 0.13924050632911392,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.49614913837062796,
+            "cross_score_coverage": 0.969,
+            "cross_normal_coverage": 0.9742226946585172,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6153995579440621,
+            "split_score_coverage": 0.99025,
+            "split_normal_coverage": 0.9928248737709274,
+            "split_anomaly_detection_rate": 0.05063291139240506,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6243654719865391,
+            "cross_score_coverage": 0.9955,
+            "cross_normal_coverage": 0.9973425458410843,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 49.66027099999337
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -950,7 +1898,49 @@
           "infogeo": 0.8040411833484347
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 69.92482199984806
+        "elapsed_ms": 68.35424300015802
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.45160769599410594,
+          0.10128506292199206,
+          0.447107241083902
+        ],
+        "f1_at_optimal": 0.257411424439624,
+        "f1_at_default": 0.21717451523545706,
+        "f1_at_adaptive": 0.254957507082153,
+        "delta_optimal_vs_default": 0.04023690920416695,
+        "delta_optimal_vs_adaptive": 0.002453917357471025,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.23040380047505937,
+        "component_aucs": {
+          "resonance": 0.8196709914770848,
+          "kinematic": 0.5562113225487788,
+          "infogeo": 0.8028707232648338
+        },
+        "elapsed_ms": 1052.2132569999485
       }
     },
     {
@@ -977,7 +1967,7 @@
         "calibrated_recall": 0.7481481481481481,
         "delta_f1": 0.3398824035565754,
         "auc": 0.6275590551181103,
-        "elapsed_ms": 31.378605000099924
+        "elapsed_ms": 30.851883999957863
       },
       "conformal": {
         "coverage_results": [
@@ -1012,7 +2002,51 @@
             }
           }
         ],
-        "elapsed_ms": 24.04078900008244
+        "elapsed_ms": 24.441990000013902
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.43862617864106335,
+            "split_score_coverage": 0.9203084832904884,
+            "split_normal_coverage": 0.9330708661417323,
+            "split_anomaly_detection_rate": 0.1037037037037037,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4711594414703825,
+            "cross_score_coverage": 0.9640102827763496,
+            "cross_normal_coverage": 0.9566929133858267,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4812927704028265,
+            "split_score_coverage": 0.9665809768637532,
+            "split_normal_coverage": 0.9566929133858267,
+            "split_anomaly_detection_rate": 0.014814814814814815,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5164912297250925,
+            "cross_score_coverage": 0.9794344473007712,
+            "cross_normal_coverage": 0.9724409448818898,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5994626609649605,
+            "split_score_coverage": 0.9948586118251928,
+            "split_normal_coverage": 0.9921259842519685,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5681378452983343,
+            "cross_score_coverage": 0.9897172236503856,
+            "cross_normal_coverage": 0.984251968503937,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 25.971170999810056
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1031,7 +2065,49 @@
           "infogeo": 0.6367378843147473
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 27.484130999710032
+        "elapsed_ms": 25.732461000188778
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.1235174014381548,
+          0.28082450749327864,
+          0.5956580910685666
+        ],
+        "std_optimal_weights": [
+          0.03559134192172597,
+          0.03879236875118316,
+          0.039843675452342575
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.0,
+          0.3150725157838065,
+          0.6849274842161935
+        ],
+        "f1_at_optimal": 0.546448087431694,
+        "f1_at_default": 0.5231481481481481,
+        "f1_at_adaptive": 0.5519125683060109,
+        "delta_optimal_vs_default": 0.0232999392835459,
+        "delta_optimal_vs_adaptive": -0.005464480874316835,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.544529262086514,
+        "component_aucs": {
+          "resonance": 0.4593467483231263,
+          "kinematic": 0.49734616506270046,
+          "infogeo": 0.6396617089530475
+        },
+        "elapsed_ms": 864.7919610000372
       }
     },
     {
@@ -1073,7 +2149,7 @@
         "calibrated_recall": 1.0,
         "delta_f1": 0.19349845201238391,
         "auc": 0.9949811794228357,
-        "elapsed_ms": 56.302526999843394
+        "elapsed_ms": 59.157587999834504
       },
       "conformal": {
         "coverage_results": [
@@ -1108,7 +2184,51 @@
             }
           }
         ],
-        "elapsed_ms": 1410.8301630003552
+        "elapsed_ms": 1522.8447360000246
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.33530744196006695,
+            "split_score_coverage": 0.88925,
+            "split_normal_coverage": 0.8925972396486825,
+            "split_anomaly_detection_rate": 1.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.4448984618311256,
+            "cross_score_coverage": 0.97675,
+            "cross_normal_coverage": 0.980426599749059,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.3819710441527525,
+            "split_score_coverage": 0.95075,
+            "split_normal_coverage": 0.9543287327478043,
+            "split_anomaly_detection_rate": 1.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4927577124394442,
+            "cross_score_coverage": 0.98625,
+            "cross_normal_coverage": 0.9899623588456713,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5579009713073444,
+            "split_score_coverage": 0.98925,
+            "split_normal_coverage": 0.9929736511919699,
+            "split_anomaly_detection_rate": 1.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6824096519423013,
+            "cross_score_coverage": 0.99625,
+            "cross_normal_coverage": 0.9962358845671268,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 30.370231000006243
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1127,7 +2247,49 @@
           "infogeo": 0.9965717174876964
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 54.203856000185624
+        "elapsed_ms": 55.79323000006298
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.06968579278169548,
+          0.04651571036091524,
+          0.8837984968573893
+        ],
+        "std_optimal_weights": [
+          0.006995896293404712,
+          0.00034979481467023313,
+          0.006646101478734423
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.338785800098351,
+          0.3213004749484902,
+          0.3399137249531587
+        ],
+        "f1_at_optimal": 0.5357142857142857,
+        "f1_at_default": 0.5357142857142857,
+        "f1_at_adaptive": 0.5357142857142857,
+        "delta_optimal_vs_default": 0.0,
+        "delta_optimal_vs_adaptive": 0.0,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.5357142857142857,
+        "component_aucs": {
+          "resonance": 0.9949811794228357,
+          "kinematic": 0.9682559598494354,
+          "infogeo": 0.9967377666248433
+        },
+        "elapsed_ms": 1076.3723469999604
       }
     },
     {
@@ -1154,7 +2316,7 @@
         "calibrated_recall": 0.9054054054054054,
         "delta_f1": -0.07106999426276533,
         "auc": 0.7888935810810811,
-        "elapsed_ms": 8867.36996799982
+        "elapsed_ms": 8913.999592999971
       },
       "conformal": {
         "coverage_results": [
@@ -1189,7 +2351,51 @@
             }
           }
         ],
-        "elapsed_ms": 1655.7973399999355
+        "elapsed_ms": 1718.9445500000602
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.5600244901671059,
+            "split_score_coverage": 0.9137055837563451,
+            "split_normal_coverage": 0.959375,
+            "split_anomaly_detection_rate": 0.28378378378378377,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.21491346247450854,
+            "cross_score_coverage": 0.0,
+            "cross_normal_coverage": 0.0,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5610676747960042,
+            "split_score_coverage": 0.9517766497461929,
+            "split_normal_coverage": 0.990625,
+            "split_anomaly_detection_rate": 0.21621621621621623,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.21542630818385766,
+            "cross_score_coverage": 0.0,
+            "cross_normal_coverage": 0.0,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5640446386241444,
+            "split_score_coverage": 0.9796954314720813,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.10810810810810811,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.21613331696830995,
+            "cross_score_coverage": 0.0,
+            "cross_normal_coverage": 0.0,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 9636.767466000038
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1208,7 +2414,49 @@
           "infogeo": 0.744688689672111
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 8620.585007000045
+        "elapsed_ms": 8827.765732999978
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.04761904761904762,
+          0.04761904761904762,
+          0.9047619047619048
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.37751237984270314,
+          0.047619047619047616,
+          0.5748685725382492
+        ],
+        "f1_at_optimal": 0.5284974093264249,
+        "f1_at_default": 0.5284974093264249,
+        "f1_at_adaptive": 0.5284974093264249,
+        "delta_optimal_vs_default": 0.0,
+        "delta_optimal_vs_adaptive": 0.0,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.5284974093264249,
+        "component_aucs": {
+          "resonance": 0.723268581081081,
+          "kinematic": 0.5,
+          "infogeo": 0.7785261824324325
+        },
+        "elapsed_ms": 10105.222773999913
       }
     },
     {
@@ -1235,7 +2483,7 @@
         "calibrated_recall": 0.9230769230769231,
         "delta_f1": -0.012527634487840777,
         "auc": 0.941025641025641,
-        "elapsed_ms": 22.034330000224145
+        "elapsed_ms": 22.62634699991395
       },
       "conformal": {
         "coverage_results": [
@@ -1270,7 +2518,51 @@
             }
           }
         ],
-        "elapsed_ms": 7.452463999925385
+        "elapsed_ms": 7.910207999884733
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.5838560493628566,
+            "split_score_coverage": 0.8591549295774648,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.38461538461538464,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.3662372907432251,
+            "cross_score_coverage": 0.5211267605633803,
+            "cross_normal_coverage": 0.7777777777777778,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.6298823481402773,
+            "split_score_coverage": 0.971830985915493,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.07692307692307693,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.3662372907432251,
+            "cross_score_coverage": 0.5211267605633803,
+            "cross_normal_coverage": 0.7777777777777778,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6389057222756456,
+            "split_score_coverage": 0.9859154929577465,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.038461538461538464,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.3662372907432251,
+            "cross_score_coverage": 0.5211267605633803,
+            "cross_normal_coverage": 0.7777777777777778,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 23.074394999866854
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1289,7 +2581,49 @@
           "infogeo": 0.9518024691358025
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 17.427573000077246
+        "elapsed_ms": 17.689785000129632
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.04761904761904762,
+          0.04761904761904762,
+          0.9047619047619048
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.3039256320682101,
+          0.15436082657350936,
+          0.5417135413582805
+        ],
+        "f1_at_optimal": 0.9019607843137255,
+        "f1_at_default": 0.8695652173913043,
+        "f1_at_adaptive": 0.88,
+        "delta_optimal_vs_default": 0.03239556692242118,
+        "delta_optimal_vs_adaptive": 0.0219607843137255,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.88,
+        "component_aucs": {
+          "resonance": 0.8068376068376069,
+          "kinematic": 0.685042735042735,
+          "infogeo": 0.9478632478632478
+        },
+        "elapsed_ms": 308.9027639998676
       }
     },
     {
@@ -1316,7 +2650,7 @@
         "calibrated_recall": 1.0,
         "delta_f1": 0.3305867338086223,
         "auc": 0.43394725795880496,
-        "elapsed_ms": 64.37864600002285
+        "elapsed_ms": 68.58964799994283
       },
       "conformal": {
         "coverage_results": [
@@ -1351,7 +2685,51 @@
             }
           }
         ],
-        "elapsed_ms": 233.05386999982147
+        "elapsed_ms": 225.5328260000624
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.45306994338875595,
+            "split_score_coverage": 0.8997668997668997,
+            "split_normal_coverage": 0.8844270323212536,
+            "split_anomaly_detection_rate": 0.041353383458646614,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.45967190879183584,
+            "cross_score_coverage": 0.905982905982906,
+            "cross_normal_coverage": 0.8903036238981391,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.49584437814519816,
+            "split_score_coverage": 0.9417249417249417,
+            "split_normal_coverage": 0.9285014691478942,
+            "split_anomaly_detection_rate": 0.007518796992481203,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.4993088751538618,
+            "cross_score_coverage": 0.9463869463869464,
+            "cross_normal_coverage": 0.9343780607247796,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5549586354562079,
+            "split_score_coverage": 0.9867909867909868,
+            "split_normal_coverage": 0.9833496571988247,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.579189483975515,
+            "cross_score_coverage": 0.9976689976689976,
+            "cross_normal_coverage": 0.9970617042115573,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 69.57907700007127
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1370,7 +2748,49 @@
           "infogeo": 0.46737708265272787
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 60.03849499984426
+        "elapsed_ms": 60.25585299994418
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "f1_at_optimal": 0.3427835051546392,
+        "f1_at_default": 0.3427835051546392,
+        "f1_at_adaptive": 0.3427835051546392,
+        "delta_optimal_vs_default": 0.0,
+        "delta_optimal_vs_adaptive": 0.0,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.34152652005174644,
+        "component_aucs": {
+          "resonance": 0.39863615944857245,
+          "kinematic": 0.44751938612446884,
+          "infogeo": 0.45647051026194285
+        },
+        "elapsed_ms": 957.9511660001572
       }
     },
     {
@@ -1397,7 +2817,7 @@
         "calibrated_recall": 0.3,
         "delta_f1": 0.028397565922920892,
         "auc": 0.7641666666666667,
-        "elapsed_ms": 28.95442199996978
+        "elapsed_ms": 32.70947200007868
       },
       "conformal": {
         "coverage_results": [
@@ -1432,7 +2852,51 @@
             }
           }
         ],
-        "elapsed_ms": 21.396992999598297
+        "elapsed_ms": 22.06258599994726
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4456695079935573,
+            "split_score_coverage": 0.846875,
+            "split_normal_coverage": 0.86,
+            "split_anomaly_detection_rate": 0.35,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.4415518509339089,
+            "cross_score_coverage": 0.840625,
+            "cross_normal_coverage": 0.8533333333333334,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4684767744329191,
+            "split_score_coverage": 0.909375,
+            "split_normal_coverage": 0.92,
+            "split_anomaly_detection_rate": 0.25,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.46106130442599647,
+            "cross_score_coverage": 0.89375,
+            "cross_normal_coverage": 0.9033333333333333,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5210035915522729,
+            "split_score_coverage": 0.98125,
+            "split_normal_coverage": 0.9866666666666667,
+            "split_anomaly_detection_rate": 0.1,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.4858572781874967,
+            "cross_score_coverage": 0.9375,
+            "cross_normal_coverage": 0.9433333333333334,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 27.708415000006426
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1451,7 +2915,49 @@
           "infogeo": 0.7980555555555555
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 25.786722999782796
+        "elapsed_ms": 25.465703000008943
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.04761904761904765
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          6.938893903907228e-18
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.0,
+          0.17208919523674798,
+          0.827910804763252
+        ],
+        "f1_at_optimal": 0.20833333333333334,
+        "f1_at_default": 0.23255813953488372,
+        "f1_at_adaptive": 0.24489795918367346,
+        "delta_optimal_vs_default": -0.024224806201550375,
+        "delta_optimal_vs_adaptive": -0.03656462585034012,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.24489795918367346,
+        "component_aucs": {
+          "resonance": 0.4678333333333333,
+          "kinematic": 0.5405,
+          "infogeo": 0.771
+        },
+        "elapsed_ms": 865.7013830002143
       }
     },
     {
@@ -1483,7 +2989,7 @@
         "calibrated_recall": 0.649962602842184,
         "delta_f1": 0.18756950234035968,
         "auc": 0.7117265784192781,
-        "elapsed_ms": 72.65952599982484
+        "elapsed_ms": 75.6513520000226
       },
       "conformal": {
         "coverage_results": [
@@ -1518,7 +3024,51 @@
             }
           }
         ],
-        "elapsed_ms": 1460.2012840000498
+        "elapsed_ms": 1514.3991920001554
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4564160789504882,
+            "split_score_coverage": 0.887223974763407,
+            "split_normal_coverage": 0.9647344953384678,
+            "split_anomaly_detection_rate": 0.25579655946148094,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.47169725223297937,
+            "cross_score_coverage": 0.9011566771819137,
+            "cross_normal_coverage": 0.9736522091609242,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5313819670513281,
+            "split_score_coverage": 0.9429547844374343,
+            "split_normal_coverage": 0.9951357924604783,
+            "split_anomaly_detection_rate": 0.15332834704562454,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5655671781311888,
+            "cross_score_coverage": 0.9566246056782335,
+            "cross_normal_coverage": 0.9971625456019457,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.645114387322585,
+            "split_score_coverage": 0.9881703470031545,
+            "split_normal_coverage": 0.9995946493717065,
+            "split_anomaly_detection_rate": 0.032909498878085267,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6552604061304709,
+            "cross_score_coverage": 0.9915878023133544,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 58.61658900016664
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1537,7 +3087,49 @@
           "infogeo": 0.7414999103973042
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 69.35962000034124
+        "elapsed_ms": 71.99734799996804
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.04761904761904762,
+          0.04761904761904762,
+          0.9047619047619048
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.3228144780104362,
+          0.15978517236160494,
+          0.5174003496279589
+        ],
+        "f1_at_optimal": 0.5825977301387137,
+        "f1_at_default": 0.5546006066734075,
+        "f1_at_adaptive": 0.5726027397260274,
+        "delta_optimal_vs_default": 0.02799712346530625,
+        "delta_optimal_vs_adaptive": 0.009994990412686366,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.5764671870482798,
+        "component_aucs": {
+          "resonance": 0.6254899755304044,
+          "kinematic": 0.5825223541624537,
+          "infogeo": 0.7212085087856792
+        },
+        "elapsed_ms": 1081.2133330000506
       }
     },
     {
@@ -1564,7 +3156,7 @@
         "calibrated_recall": 0.17307692307692307,
         "delta_f1": 0.04969485614646907,
         "auc": 0.8443891920436544,
-        "elapsed_ms": 48.587100000077044
+        "elapsed_ms": 48.815045000083046
       },
       "conformal": {
         "coverage_results": [
@@ -1599,7 +3191,51 @@
             }
           }
         ],
-        "elapsed_ms": 309.5697169997038
+        "elapsed_ms": 336.49515100000826
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.44372947916440664,
+            "split_score_coverage": 0.9043361645060348,
+            "split_normal_coverage": 0.9148741418764302,
+            "split_anomaly_detection_rate": 0.5384615384615384,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4810076397988192,
+            "cross_score_coverage": 0.9217702279839071,
+            "cross_normal_coverage": 0.9308924485125858,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5496645950753772,
+            "split_score_coverage": 0.94590970049173,
+            "split_normal_coverage": 0.9533180778032037,
+            "split_anomaly_detection_rate": 0.36538461538461536,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5816879930944128,
+            "cross_score_coverage": 0.9646848457755923,
+            "cross_normal_coverage": 0.9702517162471396,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6248976166772564,
+            "split_score_coverage": 0.9946356727760394,
+            "split_normal_coverage": 0.9981693363844394,
+            "split_anomaly_detection_rate": 0.15384615384615385,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6356060521709831,
+            "cross_score_coverage": 0.9964237818506929,
+            "cross_normal_coverage": 0.9995423340961098,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 30.98367200004759
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1618,7 +3254,49 @@
           "infogeo": 0.863212973505969
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 42.63988999991852
+        "elapsed_ms": 44.4429910000963
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.48717948717948717,
+          0.025641025641025644,
+          0.48717948717948717
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.4023333773397842,
+          0.21320452386314515,
+          0.38446209879707066
+        ],
+        "f1_at_optimal": 0.2558139534883721,
+        "f1_at_default": 0.26666666666666666,
+        "f1_at_adaptive": 0.2558139534883721,
+        "delta_optimal_vs_default": -0.01085271317829456,
+        "delta_optimal_vs_adaptive": 0.0,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.29333333333333333,
+        "component_aucs": {
+          "resonance": 0.8591929237810245,
+          "kinematic": 0.6894120753388486,
+          "infogeo": 0.8405166343953528
+        },
+        "elapsed_ms": 1011.105703000112
       }
     },
     {
@@ -1645,7 +3323,7 @@
         "calibrated_recall": 0.5785714285714286,
         "delta_f1": 0.18114861085213502,
         "auc": 0.862004758456605,
-        "elapsed_ms": 247.03182899975218
+        "elapsed_ms": 254.92994100000033
       },
       "conformal": {
         "coverage_results": [
@@ -1680,7 +3358,51 @@
             }
           }
         ],
-        "elapsed_ms": 665.7143319998795
+        "elapsed_ms": 683.0442509999557
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.42219390554123437,
+            "split_score_coverage": 0.8994082840236687,
+            "split_normal_coverage": 0.9326574945691528,
+            "split_anomaly_detection_rate": 0.42857142857142855,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.42619891651160013,
+            "cross_score_coverage": 0.9132149901380671,
+            "cross_normal_coverage": 0.945691527878349,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.45926964221276756,
+            "split_score_coverage": 0.9572649572649573,
+            "split_normal_coverage": 0.9768283852280956,
+            "split_anomaly_detection_rate": 0.2357142857142857,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4854517098786023,
+            "cross_score_coverage": 0.9737015121630507,
+            "cross_normal_coverage": 0.9891383055756698,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5984828117405643,
+            "split_score_coverage": 0.9914529914529915,
+            "split_normal_coverage": 0.997827661115134,
+            "split_anomaly_detection_rate": 0.07142857142857142,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5479175817064296,
+            "cross_score_coverage": 0.9835634451019066,
+            "cross_normal_coverage": 0.9956553222302679,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 237.4009519999163
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1699,7 +3421,49 @@
           "infogeo": 0.8578195972907395
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 231.71348500000022
+        "elapsed_ms": 252.22065599996313
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.04761904761904762,
+          0.04761904761904762,
+          0.9047619047619048
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.4584446976083274,
+          0.08968899325243222,
+          0.45186630913924036
+        ],
+        "f1_at_optimal": 0.44685466377440347,
+        "f1_at_default": 0.4530120481927711,
+        "f1_at_adaptive": 0.4519774011299435,
+        "delta_optimal_vs_default": -0.006157384418367606,
+        "delta_optimal_vs_adaptive": -0.00512273735554003,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.445,
+        "component_aucs": {
+          "resonance": 0.8327661115133961,
+          "kinematic": 0.5867047688010758,
+          "infogeo": 0.8584462604737767
+        },
+        "elapsed_ms": 1215.2590549999331
       }
     },
     {
@@ -1726,7 +3490,7 @@
         "calibrated_recall": 0.95,
         "delta_f1": 0.0,
         "auc": 0.9975548060708262,
-        "elapsed_ms": 208.97783600003095
+        "elapsed_ms": 220.63969600003475
       },
       "conformal": {
         "coverage_results": [
@@ -1761,7 +3525,51 @@
             }
           }
         ],
-        "elapsed_ms": 219.0045369998188
+        "elapsed_ms": 222.0850569999584
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4662264572168331,
+            "split_score_coverage": 0.9037520391517129,
+            "split_normal_coverage": 0.9342327150084317,
+            "split_anomaly_detection_rate": 1.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.38321342302147754,
+            "cross_score_coverage": 0.3197389885807504,
+            "cross_normal_coverage": 0.3305227655986509,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.48789344041081206,
+            "split_score_coverage": 0.9526916802610114,
+            "split_normal_coverage": 0.984822934232715,
+            "split_anomaly_detection_rate": 1.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.38866792416343127,
+            "cross_score_coverage": 0.3768352365415987,
+            "cross_normal_coverage": 0.38954468802698144,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5788923527761385,
+            "split_score_coverage": 0.9934747145187602,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.2,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.40658750155060736,
+            "cross_score_coverage": 0.5709624796084829,
+            "cross_normal_coverage": 0.5902192242833052,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 251.0644650001268
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1780,7 +3588,49 @@
           "infogeo": 0.9969859083948751
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 204.82641699982196
+        "elapsed_ms": 217.1920719999889
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.40228336808964693,
+          0.18161458629167715,
+          0.4161020456186759
+        ],
+        "f1_at_optimal": 0.9743589743589743,
+        "f1_at_default": 0.9047619047619048,
+        "f1_at_adaptive": 0.9047619047619048,
+        "delta_optimal_vs_default": 0.06959706959706957,
+        "delta_optimal_vs_adaptive": 0.06959706959706957,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.8571428571428571,
+        "component_aucs": {
+          "resonance": 0.9881956155143339,
+          "kinematic": 0.7428330522765599,
+          "infogeo": 0.9961214165261383
+        },
+        "elapsed_ms": 1095.082537000053
       }
     },
     {
@@ -1807,7 +3657,7 @@
         "calibrated_recall": 0.8333333333333334,
         "delta_f1": 0.05767012687427912,
         "auc": 0.434155161078238,
-        "elapsed_ms": 94.68260100038606
+        "elapsed_ms": 101.21856399996432
       },
       "conformal": {
         "coverage_results": [
@@ -1842,7 +3692,51 @@
             }
           }
         ],
-        "elapsed_ms": 241.38436800012641
+        "elapsed_ms": 244.44915899994157
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.42833374437235794,
+            "split_score_coverage": 0.882183908045977,
+            "split_normal_coverage": 0.8796844181459567,
+            "split_anomaly_detection_rate": 0.03333333333333333,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.43390412399641864,
+            "cross_score_coverage": 0.8975095785440613,
+            "cross_normal_coverage": 0.8954635108481263,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.46863626073219855,
+            "split_score_coverage": 0.9454022988505747,
+            "split_normal_coverage": 0.9437869822485208,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.4939952049787691,
+            "cross_score_coverage": 0.9626436781609196,
+            "cross_normal_coverage": 0.9615384615384616,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5826111068983301,
+            "split_score_coverage": 0.9837164750957854,
+            "split_normal_coverage": 0.9832347140039448,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.5472710245695056,
+            "cross_score_coverage": 0.9770114942528736,
+            "cross_normal_coverage": 0.9763313609467456,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 104.69049800008179
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1861,7 +3755,49 @@
           "infogeo": 0.4966509451208365
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 86.63729099998818
+        "elapsed_ms": 96.49771499994131
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "f1_at_optimal": 0.0650759219088937,
+        "f1_at_default": 0.060335195530726256,
+        "f1_at_adaptive": 0.060335195530726256,
+        "delta_optimal_vs_default": 0.004740726378167449,
+        "delta_optimal_vs_adaptive": 0.004740726378167449,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.06053550640279395,
+        "component_aucs": {
+          "resonance": 0.49506903353057197,
+          "kinematic": 0.4361932938856016,
+          "infogeo": 0.4652859960552268
+        },
+        "elapsed_ms": 982.7791749999051
       }
     },
     {
@@ -1888,7 +3824,7 @@
         "calibrated_recall": 0.7156862745098039,
         "delta_f1": 0.04324728769173214,
         "auc": 0.9362193188431974,
-        "elapsed_ms": 38.37716299995009
+        "elapsed_ms": 37.34765299986975
       },
       "conformal": {
         "coverage_results": [
@@ -1923,7 +3859,51 @@
             }
           }
         ],
-        "elapsed_ms": 58.51667500019175
+        "elapsed_ms": 61.269240000001446
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.42629793035929614,
+            "split_score_coverage": 0.9110287303058388,
+            "split_normal_coverage": 0.9631525076765609,
+            "split_anomaly_detection_rate": 0.5882352941176471,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5123983802663219,
+            "cross_score_coverage": 0.953660797034291,
+            "cross_normal_coverage": 0.9877175025588536,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5132669067771147,
+            "split_score_coverage": 0.9545875810936052,
+            "split_normal_coverage": 0.9877175025588536,
+            "split_anomaly_detection_rate": 0.3627450980392157,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6035009161624114,
+            "cross_score_coverage": 0.9731232622798888,
+            "cross_normal_coverage": 0.9959058341862845,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6527965939453818,
+            "split_score_coverage": 0.9935125115848007,
+            "split_normal_coverage": 0.9979529170931423,
+            "split_anomaly_detection_rate": 0.049019607843137254,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.7027898388527083,
+            "cross_score_coverage": 0.9990732159406858,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 24.362282000083724
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -1942,7 +3922,49 @@
           "infogeo": 0.9268683460638153
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 33.10381699975551
+        "elapsed_ms": 32.539186000121845
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.04761904761904762,
+          0.04761904761904762,
+          0.9047619047619048
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.3965059243475074,
+          0.18808018567027232,
+          0.4154138899822201
+        ],
+        "f1_at_optimal": 0.6337448559670782,
+        "f1_at_default": 0.624390243902439,
+        "f1_at_adaptive": 0.6255506607929515,
+        "delta_optimal_vs_default": 0.009354612064639167,
+        "delta_optimal_vs_adaptive": 0.008194195174126673,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.6306306306306306,
+        "component_aucs": {
+          "resonance": 0.9281212996969515,
+          "kinematic": 0.7556696168743854,
+          "infogeo": 0.9445682059927349
+        },
+        "elapsed_ms": 882.3143800000253
       }
     },
     {
@@ -1969,7 +3991,7 @@
         "calibrated_recall": 0.6451612903225806,
         "delta_f1": -0.004237662223006977,
         "auc": 0.8677971801215382,
-        "elapsed_ms": 45.75603500006764
+        "elapsed_ms": 44.7214509999867
       },
       "conformal": {
         "coverage_results": [
@@ -2004,7 +4026,51 @@
             }
           }
         ],
-        "elapsed_ms": 115.8384999998816
+        "elapsed_ms": 118.08449999989534
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.44215335724951593,
+            "split_score_coverage": 0.9090247452692868,
+            "split_normal_coverage": 0.9166046165301563,
+            "split_anomaly_detection_rate": 0.41935483870967744,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.45744382523340876,
+            "cross_score_coverage": 0.9388646288209607,
+            "cross_normal_coverage": 0.9448994787788533,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.47344200624905775,
+            "split_score_coverage": 0.9643377001455604,
+            "split_normal_coverage": 0.9672375279225615,
+            "split_anomaly_detection_rate": 0.16129032258064516,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.48452557963326903,
+            "cross_score_coverage": 0.9708879184861717,
+            "cross_normal_coverage": 0.9731943410275503,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5315264495953343,
+            "split_score_coverage": 0.9919941775836972,
+            "split_normal_coverage": 0.9947877885331348,
+            "split_anomaly_detection_rate": 0.12903225806451613,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5408638295206045,
+            "cross_score_coverage": 0.9941775836972343,
+            "cross_normal_coverage": 0.996276991809382,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 33.825529999830906
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2023,7 +4089,49 @@
           "infogeo": 0.761111052420292
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 41.10714999978882
+        "elapsed_ms": 39.481180999928256
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.5362892148783034,
+          0.14419052605383675,
+          0.31952025906785986
+        ],
+        "f1_at_optimal": 0.3939393939393939,
+        "f1_at_default": 0.17777777777777778,
+        "f1_at_adaptive": 0.18181818181818182,
+        "delta_optimal_vs_default": 0.21616161616161614,
+        "delta_optimal_vs_adaptive": 0.2121212121212121,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.24793388429752067,
+        "component_aucs": {
+          "resonance": 0.9496072826844091,
+          "kinematic": 0.7030120337232484,
+          "infogeo": 0.809357961232676
+        },
+        "elapsed_ms": 941.0452520000945
       }
     },
     {
@@ -2050,7 +4158,7 @@
         "calibrated_recall": 0.8301886792452831,
         "delta_f1": 0.3627105366235801,
         "auc": 0.7076405753782925,
-        "elapsed_ms": 22.705156000029092
+        "elapsed_ms": 22.944407000068168
       },
       "conformal": {
         "coverage_results": [
@@ -2085,7 +4193,51 @@
             }
           }
         ],
-        "elapsed_ms": 5.461558999741101
+        "elapsed_ms": 5.497656999978062
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.46056823491120313,
+            "split_score_coverage": 0.8701298701298701,
+            "split_normal_coverage": 0.9207920792079208,
+            "split_anomaly_detection_rate": 0.22641509433962265,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4938753172266348,
+            "cross_score_coverage": 0.922077922077922,
+            "cross_normal_coverage": 0.9603960396039604,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.505011656006892,
+            "split_score_coverage": 0.9415584415584416,
+            "split_normal_coverage": 0.9603960396039604,
+            "split_anomaly_detection_rate": 0.09433962264150944,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5421276041865049,
+            "cross_score_coverage": 0.974025974025974,
+            "cross_normal_coverage": 0.9900990099009901,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5816334770513167,
+            "split_score_coverage": 0.987012987012987,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.03773584905660377,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5421276041865049,
+            "cross_score_coverage": 0.974025974025974,
+            "cross_normal_coverage": 0.9900990099009901,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 13.26695199986716
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2104,7 +4256,49 @@
           "infogeo": 0.6666943642368973
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 19.719330000043556
+        "elapsed_ms": 17.966192999892883
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.31215860318864547,
+          0.13234326951355657,
+          0.555498127297798
+        ],
+        "std_optimal_weights": [
+          0.04952093978039563,
+          0.06320870440845973,
+          0.08787828730154311
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.37730949467211894,
+          0.14365877682595588,
+          0.47903172850192516
+        ],
+        "f1_at_optimal": 0.6013986013986014,
+        "f1_at_default": 0.5967741935483871,
+        "f1_at_adaptive": 0.5986394557823129,
+        "delta_optimal_vs_default": 0.004624407850214229,
+        "delta_optimal_vs_adaptive": 0.0027591456162884276,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.5945945945945946,
+        "component_aucs": {
+          "resonance": 0.6624322809639454,
+          "kinematic": 0.5871473939846815,
+          "infogeo": 0.7082010087801233
+        },
+        "elapsed_ms": 665.6405429998813
       }
     },
     {
@@ -2131,7 +4325,7 @@
         "calibrated_recall": 0.4864864864864865,
         "delta_f1": 0.21435932669185848,
         "auc": 0.6458733526915345,
-        "elapsed_ms": 68.26729299973522
+        "elapsed_ms": 72.58016400010092
       },
       "conformal": {
         "coverage_results": [
@@ -2166,7 +4360,51 @@
             }
           }
         ],
-        "elapsed_ms": 210.98424699994212
+        "elapsed_ms": 211.7095999999492
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4525485372756697,
+            "split_score_coverage": 0.9028749028749029,
+            "split_normal_coverage": 0.975,
+            "split_anomaly_detection_rate": 0.25307125307125306,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4547753057984608,
+            "cross_score_coverage": 0.905982905982906,
+            "cross_normal_coverage": 0.9772727272727273,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4911445503149515,
+            "split_score_coverage": 0.9448329448329449,
+            "split_normal_coverage": 0.9943181818181818,
+            "split_anomaly_detection_rate": 0.16216216216216217,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5033772776816513,
+            "cross_score_coverage": 0.9557109557109557,
+            "cross_normal_coverage": 0.9965909090909091,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.54700443739241,
+            "split_score_coverage": 0.98989898989899,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.03194103194103194,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.575660804310462,
+            "cross_score_coverage": 0.9984459984459985,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 69.56491899995854
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2185,7 +4423,49 @@
           "infogeo": 0.6460926341562946
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 64.7363400003087
+        "elapsed_ms": 60.536146999993434
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.42151634945998717,
+          0.02892418252700064,
+          0.5495594680130121
+        ],
+        "std_optimal_weights": [
+          0.012354734548778392,
+          0.0006177367274389175,
+          0.011736997821339431
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.3506040809283699,
+          0.2237789308171839,
+          0.4256169882544462
+        ],
+        "f1_at_optimal": 0.5046728971962616,
+        "f1_at_default": 0.5146666666666667,
+        "f1_at_adaptive": 0.5063938618925832,
+        "delta_optimal_vs_default": -0.00999376947040509,
+        "delta_optimal_vs_adaptive": -0.0017209646963215475,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.4913151364764268,
+        "component_aucs": {
+          "resonance": 0.6034844762117489,
+          "kinematic": 0.5661226825999554,
+          "infogeo": 0.6232549698458789
+        },
+        "elapsed_ms": 968.6005700000351
       }
     },
     {
@@ -2212,7 +4492,7 @@
         "calibrated_recall": 0.2857142857142857,
         "delta_f1": -0.17506631299734748,
         "auc": 0.9919043467430564,
-        "elapsed_ms": 66.84695800004192
+        "elapsed_ms": 65.75487500003874
       },
       "conformal": {
         "coverage_results": [
@@ -2247,7 +4527,51 @@
             }
           }
         ],
-        "elapsed_ms": 177.7546989997063
+        "elapsed_ms": 173.19829999996728
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4337127572699413,
+            "split_score_coverage": 0.9147286821705426,
+            "split_normal_coverage": 0.925893635571055,
+            "split_anomaly_detection_rate": 1.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4377910193934712,
+            "cross_score_coverage": 0.9233419465977606,
+            "cross_normal_coverage": 0.934612031386225,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.47017989329653964,
+            "split_score_coverage": 0.9569336778639104,
+            "split_normal_coverage": 0.9686137750653879,
+            "split_anomaly_detection_rate": 1.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.48431554316676984,
+            "cross_score_coverage": 0.9655469422911284,
+            "cross_normal_coverage": 0.977332170880558,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5834464548475508,
+            "split_score_coverage": 0.9888027562446167,
+            "split_normal_coverage": 0.994768962510898,
+            "split_anomaly_detection_rate": 0.5,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6057489455178096,
+            "cross_score_coverage": 0.9974160206718347,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 64.07603399998152
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2266,7 +4590,49 @@
           "infogeo": 0.9858286997578365
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 60.43629099985992
+        "elapsed_ms": 58.32584700010557
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.3355771577832189,
+          0.3029515308754438,
+          0.36147131134133725
+        ],
+        "f1_at_optimal": 0.8461538461538461,
+        "f1_at_default": 0.631578947368421,
+        "f1_at_adaptive": 0.5789473684210527,
+        "delta_optimal_vs_default": 0.21457489878542513,
+        "delta_optimal_vs_adaptive": 0.2672064777327935,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.4489795918367347,
+        "component_aucs": {
+          "resonance": 0.9538547764354216,
+          "kinematic": 0.9021982812305394,
+          "infogeo": 0.976460331299041
+        },
+        "elapsed_ms": 954.0780060001453
       }
     },
     {
@@ -2293,7 +4659,7 @@
         "calibrated_recall": 0.9125874125874126,
         "delta_f1": 0.06145876502279313,
         "auc": 0.9861354316120067,
-        "elapsed_ms": 71.36819800007288
+        "elapsed_ms": 72.8961029999482
       },
       "conformal": {
         "coverage_results": [
@@ -2328,7 +4694,51 @@
             }
           }
         ],
-        "elapsed_ms": 1595.7208919999175
+        "elapsed_ms": 1638.9835489999314
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4135146949233039,
+            "split_score_coverage": 0.90425,
+            "split_normal_coverage": 0.9711900915455035,
+            "split_anomaly_detection_rate": 0.965034965034965,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4339216937053265,
+            "cross_score_coverage": 0.919,
+            "cross_normal_coverage": 0.9854604200323102,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5062716120330125,
+            "split_score_coverage": 0.94975,
+            "split_normal_coverage": 0.9986537425955843,
+            "split_anomaly_detection_rate": 0.6853146853146853,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5398559063227242,
+            "cross_score_coverage": 0.96025,
+            "cross_normal_coverage": 0.9986537425955843,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.578620124022196,
+            "split_score_coverage": 0.992,
+            "split_normal_coverage": 0.9989229940764675,
+            "split_anomaly_detection_rate": 0.0979020979020979,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6093034104655417,
+            "cross_score_coverage": 0.999,
+            "cross_normal_coverage": 0.9994614970382337,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 48.296352999841474
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2347,7 +4757,49 @@
           "infogeo": 0.9845131456521816
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 68.74551199962298
+        "elapsed_ms": 67.42279300010523
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.04761904761904762,
+          0.04761904761904762,
+          0.9047619047619048
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.37422330666459563,
+          0.2579866250519053,
+          0.3677900682834991
+        ],
+        "f1_at_optimal": 0.8978102189781022,
+        "f1_at_default": 0.9154929577464789,
+        "f1_at_adaptive": 0.9190140845070423,
+        "delta_optimal_vs_default": -0.01768273876837667,
+        "delta_optimal_vs_adaptive": -0.021203865528940047,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.9471830985915493,
+        "component_aucs": {
+          "resonance": 0.9909075846070999,
+          "kinematic": 0.8494587668658751,
+          "infogeo": 0.9866230968815783
+        },
+        "elapsed_ms": 1062.1823320000203
       }
     },
     {
@@ -2374,7 +4826,7 @@
         "calibrated_recall": 0.8421686746987952,
         "delta_f1": 0.49488122766449444,
         "auc": 0.7015202766903578,
-        "elapsed_ms": 63.58505700018213
+        "elapsed_ms": 58.51670200013359
       },
       "conformal": {
         "coverage_results": [
@@ -2409,7 +4861,51 @@
             }
           }
         ],
-        "elapsed_ms": 1451.6371250001612
+        "elapsed_ms": 1451.9995860000563
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.44236305491116995,
+            "split_score_coverage": 0.89225,
+            "split_normal_coverage": 0.8643533123028391,
+            "split_anomaly_detection_rate": 0.0012048192771084338,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.44617129313839754,
+            "cross_score_coverage": 0.89775,
+            "cross_normal_coverage": 0.8709779179810726,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4866942629724143,
+            "split_score_coverage": 0.94875,
+            "split_normal_coverage": 0.9353312302839116,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.5022087521303198,
+            "cross_score_coverage": 0.95875,
+            "cross_normal_coverage": 0.9479495268138801,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5692947149471218,
+            "split_score_coverage": 0.99025,
+            "split_normal_coverage": 0.9876971608832807,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.5867880479181627,
+            "cross_score_coverage": 0.9935,
+            "cross_normal_coverage": 0.9917981072555205,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 32.81583400007548
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2428,7 +4924,49 @@
           "infogeo": 0.7135209889933063
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 61.31234599979507
+        "elapsed_ms": 53.68482799985941
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.44631228691980523,
+          0.09105868061911644,
+          0.4626290324610784
+        ],
+        "std_optimal_weights": [
+          0.027877064613951508,
+          0.027599525672194588,
+          0.0014204630526215177
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.0,
+          0.04784189444135614,
+          0.9521581055586438
+        ],
+        "f1_at_optimal": 0.4857142857142857,
+        "f1_at_default": 0.4305468258956631,
+        "f1_at_adaptive": 0.5218365061590146,
+        "delta_optimal_vs_default": 0.05516745981862259,
+        "delta_optimal_vs_adaptive": -0.03612222044472885,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.49714285714285716,
+        "component_aucs": {
+          "resonance": 0.46957774314925316,
+          "kinematic": 0.4654722359469423,
+          "infogeo": 0.7030656379461061
+        },
+        "elapsed_ms": 1087.2625429999516
       }
     },
     {
@@ -2460,7 +4998,7 @@
         "calibrated_recall": 0.9523809523809523,
         "delta_f1": 0.5812897366030881,
         "auc": 0.5398727178618483,
-        "elapsed_ms": 83.55564900011814
+        "elapsed_ms": 86.35217100004411
       },
       "conformal": {
         "coverage_results": [
@@ -2495,7 +5033,51 @@
             }
           }
         ],
-        "elapsed_ms": 168.89711499970872
+        "elapsed_ms": 165.03612199994677
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.47648564022433476,
+            "split_score_coverage": 0.9026128266033254,
+            "split_normal_coverage": 0.8913043478260869,
+            "split_anomaly_detection_rate": 0.08035714285714286,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.49229069835703954,
+            "cross_score_coverage": 0.9287410926365796,
+            "cross_normal_coverage": 0.9189723320158103,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5241450752894006,
+            "split_score_coverage": 0.9572446555819477,
+            "split_normal_coverage": 0.950592885375494,
+            "split_anomaly_detection_rate": 0.03273809523809524,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5159805644309793,
+            "cross_score_coverage": 0.9501187648456056,
+            "cross_normal_coverage": 0.9446640316205533,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5845531807122977,
+            "split_score_coverage": 0.995249406175772,
+            "split_normal_coverage": 0.9920948616600791,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5396134026189549,
+            "cross_score_coverage": 0.9596199524940617,
+            "cross_normal_coverage": 0.950592885375494,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 86.31173200001285
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2514,7 +5096,49 @@
           "infogeo": 0.5245241123604774
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 79.81200099993657
+        "elapsed_ms": 76.34297599997808
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.5231486393905412,
+          0.44931722169416705,
+          0.027534138915291644
+        ],
+        "std_optimal_weights": [
+          0.001901940357259185,
+          0.0020020424813254408,
+          0.00010010212406627263
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.6577680765985543,
+          0.06736123849003998,
+          0.27487068491140576
+        ],
+        "f1_at_optimal": 0.577639751552795,
+        "f1_at_default": 0.5857002938295789,
+        "f1_at_adaptive": 0.588011417697431,
+        "delta_optimal_vs_default": -0.008060542276783877,
+        "delta_optimal_vs_adaptive": -0.010371666144636027,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.5825242718446602,
+        "component_aucs": {
+          "resonance": 0.5718520609824957,
+          "kinematic": 0.5304530161867118,
+          "infogeo": 0.5367436006022962
+        },
+        "elapsed_ms": 1001.7865290001282
       }
     },
     {
@@ -2541,7 +5165,7 @@
         "calibrated_recall": 0.9166666666666666,
         "delta_f1": -0.0019042407660738725,
         "auc": 0.4903581267217631,
-        "elapsed_ms": 1289.043228999617
+        "elapsed_ms": 1256.4114719998543
       },
       "conformal": {
         "coverage_results": [
@@ -2576,7 +5200,51 @@
             }
           }
         ],
-        "elapsed_ms": 1116.3834629996927
+        "elapsed_ms": 1081.1144639999384
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.47369695460585426,
+            "split_score_coverage": 0.8956639566395664,
+            "split_normal_coverage": 0.8994490358126722,
+            "split_anomaly_detection_rate": 0.3333333333333333,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.3535802644906124,
+            "cross_score_coverage": 0.0027100271002710027,
+            "cross_normal_coverage": 0.0027548209366391185,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.48320125433757,
+            "split_score_coverage": 0.9444444444444444,
+            "split_normal_coverage": 0.9462809917355371,
+            "split_anomaly_detection_rate": 0.16666666666666666,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.35483709533469365,
+            "cross_score_coverage": 0.0040650406504065045,
+            "cross_normal_coverage": 0.004132231404958678,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5000272030278882,
+            "split_score_coverage": 0.989159891598916,
+            "split_normal_coverage": 0.9889807162534435,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.35907921222362843,
+            "cross_score_coverage": 0.006775067750677507,
+            "cross_normal_coverage": 0.006887052341597796,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 2582.200841000031
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2595,7 +5263,49 @@
           "infogeo": 0.46873368308510904
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 1227.6532529999713
+        "elapsed_ms": 1274.9974200000906
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "f1_at_optimal": 0.09375,
+        "f1_at_default": 0.10526315789473684,
+        "f1_at_adaptive": 0.03260869565217391,
+        "delta_optimal_vs_default": -0.011513157894736836,
+        "delta_optimal_vs_adaptive": 0.06114130434782609,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.10666666666666667,
+        "component_aucs": {
+          "resonance": 0.5404040404040403,
+          "kinematic": 0.4903581267217631,
+          "infogeo": 0.5668044077134986
+        },
+        "elapsed_ms": 2070.302202999983
       }
     },
     {
@@ -2627,7 +5337,7 @@
         "calibrated_recall": 0.7894736842105263,
         "delta_f1": 0.0,
         "auc": 0.9800486270022883,
-        "elapsed_ms": 30.13945699967735
+        "elapsed_ms": 30.101444999900195
       },
       "conformal": {
         "coverage_results": [
@@ -2662,7 +5372,51 @@
             }
           }
         ],
-        "elapsed_ms": 22.78154599980553
+        "elapsed_ms": 24.678077000089615
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.39462179482898263,
+            "split_score_coverage": 0.8649006622516556,
+            "split_normal_coverage": 0.8872282608695652,
+            "split_anomaly_detection_rate": 1.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.4897599076073573,
+            "cross_score_coverage": 0.952317880794702,
+            "cross_normal_coverage": 0.9728260869565217,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4973878220254419,
+            "split_score_coverage": 0.9549668874172186,
+            "split_normal_coverage": 0.9755434782608695,
+            "split_anomaly_detection_rate": 0.8421052631578947,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.586546576109884,
+            "cross_score_coverage": 0.9774834437086093,
+            "cross_normal_coverage": 0.9891304347826086,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6087355076288672,
+            "split_score_coverage": 0.9814569536423841,
+            "split_normal_coverage": 0.9918478260869565,
+            "split_anomaly_detection_rate": 0.42105263157894735,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6964016398467652,
+            "cross_score_coverage": 1.0,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 17.677728000080606
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2681,7 +5435,49 @@
           "infogeo": 0.924052527671694
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 25.241345999802434
+        "elapsed_ms": 25.027403999956732
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.48717948717948717,
+          0.025641025641025644,
+          0.48717948717948717
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.41232374996380905,
+          0.2083260951388286,
+          0.3793501548973625
+        ],
+        "f1_at_optimal": 0.5555555555555556,
+        "f1_at_default": 0.5925925925925926,
+        "f1_at_adaptive": 0.5555555555555556,
+        "delta_optimal_vs_default": -0.03703703703703698,
+        "delta_optimal_vs_adaptive": 0.0,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.5925925925925926,
+        "component_aucs": {
+          "resonance": 0.9896310068649885,
+          "kinematic": 0.8497926201372998,
+          "infogeo": 0.9741132723112128
+        },
+        "elapsed_ms": 926.1904889999641
       }
     },
     {
@@ -2713,7 +5509,7 @@
         "calibrated_recall": 0.5,
         "delta_f1": 0.13450292397660824,
         "auc": 0.9712765957446808,
-        "elapsed_ms": 25.2310280002348
+        "elapsed_ms": 25.77850500006207
       },
       "conformal": {
         "coverage_results": [
@@ -2748,7 +5544,51 @@
             }
           }
         ],
-        "elapsed_ms": 11.549863999789522
+        "elapsed_ms": 12.614817999974548
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.43281459678184714,
+            "split_score_coverage": 0.9315068493150684,
+            "split_normal_coverage": 0.950354609929078,
+            "split_anomaly_detection_rate": 0.6,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4619722875090343,
+            "cross_score_coverage": 0.9794520547945206,
+            "cross_normal_coverage": 0.9929078014184397,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4750567189128435,
+            "split_score_coverage": 0.9794520547945206,
+            "split_normal_coverage": 0.9929078014184397,
+            "split_anomaly_detection_rate": 0.4,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.49960686613142624,
+            "cross_score_coverage": 0.9897260273972602,
+            "cross_normal_coverage": 0.9964539007092199,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5366604242924226,
+            "split_score_coverage": 0.9965753424657534,
+            "split_normal_coverage": 1.0,
+            "split_anomaly_detection_rate": 0.1,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5183673419491445,
+            "cross_score_coverage": 0.9931506849315068,
+            "cross_normal_coverage": 0.9964539007092199,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 17.387929000051372
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2767,7 +5607,49 @@
           "infogeo": 0.907829181494662
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 19.658960000015213
+        "elapsed_ms": 20.799404999934268
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.04781609732412063,
+          0.2638002926664853,
+          0.6883836100093942
+        ],
+        "f1_at_optimal": 0.36363636363636365,
+        "f1_at_default": 0.5714285714285714,
+        "f1_at_adaptive": 0.631578947368421,
+        "delta_optimal_vs_default": -0.20779220779220775,
+        "delta_optimal_vs_adaptive": -0.26794258373205737,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.5714285714285714,
+        "component_aucs": {
+          "resonance": 0.6822695035460994,
+          "kinematic": 0.6799645390070922,
+          "infogeo": 0.9656028368794327
+        },
+        "elapsed_ms": 885.1181179998093
       }
     },
     {
@@ -2794,7 +5676,7 @@
         "calibrated_recall": 0.2,
         "delta_f1": 0.04519774011299435,
         "auc": 0.5824364723467863,
-        "elapsed_ms": 35.05104300029416
+        "elapsed_ms": 35.80913900009364
       },
       "conformal": {
         "coverage_results": [
@@ -2829,7 +5711,51 @@
             }
           }
         ],
-        "elapsed_ms": 43.86811700032922
+        "elapsed_ms": 45.93626700011555
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.43219269246263065,
+            "split_score_coverage": 0.8766328011611031,
+            "split_normal_coverage": 0.8774289985052317,
+            "split_anomaly_detection_rate": 0.15,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.4441530064789839,
+            "cross_score_coverage": 0.9201741654571843,
+            "cross_normal_coverage": 0.9207772795216741,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4503324751387832,
+            "split_score_coverage": 0.941944847605225,
+            "split_normal_coverage": 0.9431988041853513,
+            "split_anomaly_detection_rate": 0.1,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.47163098575796225,
+            "cross_score_coverage": 0.9854862119013063,
+            "cross_normal_coverage": 0.9850523168908819,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.479913407673931,
+            "split_score_coverage": 0.9941944847605225,
+            "split_normal_coverage": 0.9940209267563528,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4877725834011891,
+            "cross_score_coverage": 0.9956458635703919,
+            "cross_normal_coverage": 0.9955156950672646,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 30.3890870000032
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2848,7 +5774,49 @@
           "infogeo": 0.5877722360764754
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 31.288908000078663
+        "elapsed_ms": 30.445107999867105
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.5554088165967335,
+          0.09155953793945079,
+          0.3530316454638157
+        ],
+        "f1_at_optimal": 0.10526315789473684,
+        "f1_at_default": 0.09655172413793103,
+        "f1_at_adaptive": 0.15789473684210525,
+        "delta_optimal_vs_default": 0.008711433756805803,
+        "delta_optimal_vs_adaptive": -0.05263157894736842,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.0975609756097561,
+        "component_aucs": {
+          "resonance": 0.5991031390134529,
+          "kinematic": 0.5956651718983557,
+          "infogeo": 0.5443946188340807
+        },
+        "elapsed_ms": 877.8746939999564
       }
     },
     {
@@ -2885,7 +5853,7 @@
         "calibrated_recall": 0.49019607843137253,
         "delta_f1": 0.09274307319000058,
         "auc": 0.6185598007001267,
-        "elapsed_ms": 30.688340999859065
+        "elapsed_ms": 30.884000000014566
       },
       "conformal": {
         "coverage_results": [
@@ -2920,7 +5888,51 @@
             }
           }
         ],
-        "elapsed_ms": 47.957003000192344
+        "elapsed_ms": 36.16858199984563
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.406067558103641,
+            "split_score_coverage": 0.8724066390041494,
+            "split_normal_coverage": 0.8652792990142387,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.49719256493240493,
+            "cross_score_coverage": 0.9439834024896265,
+            "cross_normal_coverage": 0.940854326396495,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4542391566785762,
+            "split_score_coverage": 0.9242738589211619,
+            "split_normal_coverage": 0.9200438116100766,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.5682183250711554,
+            "cross_score_coverage": 0.9636929460580913,
+            "cross_normal_coverage": 0.9616648411829135,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6582329701254581,
+            "split_score_coverage": 0.991701244813278,
+            "split_normal_coverage": 0.9912376779846659,
+            "split_anomaly_detection_rate": 0.0,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.7454713580205351,
+            "cross_score_coverage": 1.0,
+            "cross_normal_coverage": 1.0,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 17.645402000198374
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -2939,7 +5951,49 @@
           "infogeo": 0.681253529079616
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 28.285059000154433
+        "elapsed_ms": 26.793787999849883
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.7706810057966342,
+          0.04056215819982287,
+          0.18875683600354293
+        ],
+        "std_optimal_weights": [
+          0.018310613606660878,
+          0.0009637165056137303,
+          0.019274330112274633
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "f1_at_optimal": 0.10893246187363835,
+        "f1_at_default": 0.10921501706484642,
+        "f1_at_adaptive": 0.14545454545454545,
+        "delta_optimal_vs_default": -0.00028255519120806705,
+        "delta_optimal_vs_adaptive": -0.0365220835809071,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.12721893491124261,
+        "component_aucs": {
+          "resonance": 0.2729635118012156,
+          "kinematic": 0.3965809763116638,
+          "infogeo": 0.6185598007001267
+        },
+        "elapsed_ms": 878.6599149998437
       }
     },
     {
@@ -2976,7 +6030,7 @@
         "calibrated_recall": 0.9900990099009901,
         "delta_f1": 0.43655144677518365,
         "auc": 0.3598201656900384,
-        "elapsed_ms": 24.80334900019443
+        "elapsed_ms": 24.068184000043402
       },
       "conformal": {
         "coverage_results": [
@@ -3011,7 +6065,51 @@
             }
           }
         ],
-        "elapsed_ms": 9.661824999966484
+        "elapsed_ms": 8.933936999937941
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4426118776102502,
+            "split_score_coverage": 0.8922558922558923,
+            "split_normal_coverage": 0.8724489795918368,
+            "split_anomaly_detection_rate": 0.06930693069306931,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.4649419571399368,
+            "cross_score_coverage": 0.9057239057239057,
+            "cross_normal_coverage": 0.8928571428571429,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5011467279135831,
+            "split_score_coverage": 0.9393939393939394,
+            "split_normal_coverage": 0.9285714285714286,
+            "split_anomaly_detection_rate": 0.039603960396039604,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.49157174337684695,
+            "cross_score_coverage": 0.936026936026936,
+            "cross_normal_coverage": 0.9285714285714286,
+            "cross_meets_score_guarantee": false
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6172220850509955,
+            "split_score_coverage": 0.9831649831649831,
+            "split_normal_coverage": 0.9846938775510204,
+            "split_anomaly_detection_rate": 0.019801980198019802,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.5639436361367696,
+            "cross_score_coverage": 0.9595959595959596,
+            "cross_normal_coverage": 0.9540816326530612,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 14.819050999903993
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -3030,7 +6128,49 @@
           "infogeo": 0.4255377671995689
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 22.29600499958906
+        "elapsed_ms": 19.6284349999587
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.6439595255100512,
+          0.3221478678841567,
+          0.03389260660579217
+        ],
+        "std_optimal_weights": [
+          0.029292819754419715,
+          0.030834547109915515,
+          0.0015417273554957755
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "f1_at_optimal": 0.5037783375314862,
+        "f1_at_default": 0.5037783375314862,
+        "f1_at_adaptive": 0.5037783375314862,
+        "delta_optimal_vs_default": 0.0,
+        "delta_optimal_vs_adaptive": 0.0,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.6180339887498949,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.5037783375314862,
+        "component_aucs": {
+          "resonance": 0.3634572640937563,
+          "kinematic": 0.47264598908870487,
+          "infogeo": 0.3310769852495454
+        },
+        "elapsed_ms": 937.8738630000498
       }
     },
     {
@@ -3057,7 +6197,7 @@
         "calibrated_recall": 0.8825363825363826,
         "delta_f1": 0.7052959501557632,
         "auc": 0.6798309258569374,
-        "elapsed_ms": 196.24281400001564
+        "elapsed_ms": 195.45225399997435
       },
       "conformal": {
         "coverage_results": [
@@ -3092,7 +6232,51 @@
             }
           }
         ],
-        "elapsed_ms": 2590.3712109998196
+        "elapsed_ms": 2772.98896100001
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.44917537797460405,
+            "split_score_coverage": 0.90975,
+            "split_normal_coverage": 0.9315992292870906,
+            "split_anomaly_detection_rate": 0.11382536382536383,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4809641835849143,
+            "cross_score_coverage": 0.93125,
+            "cross_normal_coverage": 0.9450867052023122,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5275384003931185,
+            "split_score_coverage": 0.95725,
+            "split_normal_coverage": 0.9682080924855492,
+            "split_anomaly_detection_rate": 0.05457380457380458,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5422841157326691,
+            "cross_score_coverage": 0.967,
+            "cross_normal_coverage": 0.9739884393063584,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5838711411949984,
+            "split_score_coverage": 0.99275,
+            "split_normal_coverage": 0.9956647398843931,
+            "split_anomaly_detection_rate": 0.010395010395010396,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6029287164203054,
+            "cross_score_coverage": 0.99975,
+            "cross_normal_coverage": 0.9995183044315993,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 175.3187589999925
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -3111,7 +6295,49 @@
           "infogeo": 0.6194188044175316
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 183.72119400009979
+        "elapsed_ms": 181.86933900005897
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.15343927758519046,
+          0.7338429282459799,
+          0.11271779416882967
+        ],
+        "std_optimal_weights": [
+          0.00744694472157663,
+          0.0022038265543384296,
+          0.005304240338932311
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.7061660590256029,
+          0.07118931713634936,
+          0.22264462383804767
+        ],
+        "f1_at_optimal": 0.6533620999640417,
+        "f1_at_default": 0.658187029738445,
+        "f1_at_adaptive": 0.7074401008827238,
+        "delta_optimal_vs_default": -0.004824929774403297,
+        "delta_optimal_vs_adaptive": -0.05407800091868209,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.6180339887498949,
+          0.19098300562505255,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.6653529201003224,
+        "component_aucs": {
+          "resonance": 0.884790136957767,
+          "kinematic": 0.5363166913022404,
+          "infogeo": 0.6223773378758928
+        },
+        "elapsed_ms": 1384.7415980001188
       }
     },
     {
@@ -3138,7 +6364,7 @@
         "calibrated_recall": 0.5915492957746479,
         "delta_f1": 0.08903538050734311,
         "auc": 0.8050719597932634,
-        "elapsed_ms": 168.91503600027136
+        "elapsed_ms": 185.28008299995236
       },
       "conformal": {
         "coverage_results": [
@@ -3173,7 +6399,51 @@
             }
           }
         ],
-        "elapsed_ms": 2463.547657000163
+        "elapsed_ms": 2586.346896000123
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4239282392089687,
+            "split_score_coverage": 0.8965,
+            "split_normal_coverage": 0.9115394771587009,
+            "split_anomaly_detection_rate": 0.37089201877934275,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.44814303043712467,
+            "cross_score_coverage": 0.9235,
+            "cross_normal_coverage": 0.9360971745444944,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4931333608289853,
+            "split_score_coverage": 0.9505,
+            "split_normal_coverage": 0.9593345656192237,
+            "split_anomaly_detection_rate": 0.20657276995305165,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.5259344956597473,
+            "cross_score_coverage": 0.96375,
+            "cross_normal_coverage": 0.9709532611565883,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6089716138730751,
+            "split_score_coverage": 0.99275,
+            "split_normal_coverage": 0.9976234486400845,
+            "split_anomaly_detection_rate": 0.09389671361502347,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6176647042777876,
+            "cross_score_coverage": 0.99475,
+            "cross_normal_coverage": 0.9986796936889358,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 160.76737299999877
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -3192,7 +6462,49 @@
           "infogeo": 0.8322812046132135
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 168.85746400021162
+        "elapsed_ms": 173.59947999989345
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.13870890991693346,
+          0.04306455450415333,
+          0.8182265355789132
+        ],
+        "std_optimal_weights": [
+          0.0048935781177707185,
+          0.000244678905888536,
+          0.004648899211882186
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.3244796143901181,
+          0.2181671166469515,
+          0.45735326896293044
+        ],
+        "f1_at_optimal": 0.3169897377423033,
+        "f1_at_default": 0.2748091603053435,
+        "f1_at_adaptive": 0.3053435114503817,
+        "delta_optimal_vs_default": 0.0421805774369598,
+        "delta_optimal_vs_adaptive": 0.011646226291921635,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.311886586695747,
+        "component_aucs": {
+          "resonance": 0.7041608864524175,
+          "kinematic": 0.6243443408448224,
+          "infogeo": 0.8076636033080801
+        },
+        "elapsed_ms": 1192.070018000095
       }
     },
     {
@@ -3205,7 +6517,7 @@
       "anomaly_ratio": 0.09475473773688685,
       "error": null,
       "calibration": {
-        "calibrated_threshold": 0.15154419123449478,
+        "calibrated_threshold": 0.13283419259395812,
         "calibration_method": "best_of(f1_optimal)",
         "adaptive_weights": [
           0.4,
@@ -3213,48 +6525,92 @@
           0.3
         ],
         "weight_source": "fallback_default",
-        "calibrated_f1": 0.17329675354366714,
-        "uncalibrated_f1": 0.12374581939799331,
-        "calibrated_precision": 0.09486858573216521,
+        "calibrated_f1": 0.17309888102306462,
+        "uncalibrated_f1": 0.06112054329371817,
+        "calibrated_precision": 0.09475,
         "calibrated_recall": 1.0,
-        "delta_f1": 0.049550934145673825,
-        "auc": 0.5177923560817541,
-        "elapsed_ms": 61.19664199968611
+        "delta_f1": 0.11197833772934646,
+        "auc": 0.4890629929923584,
+        "elapsed_ms": 62.805953999941266
       },
       "conformal": {
         "coverage_results": [
           {
             "target_coverage": 0.9,
-            "empirical_coverage": 0.83875,
-            "coverage_gap": 0.06125000000000003,
+            "empirical_coverage": 0.77125,
+            "coverage_gap": 0.12875000000000003,
             "meets_guarantee": false,
             "class_coverage": {
-              "0": 0.908036454018227,
-              "1": 0.17678100263852242
+              "0": 0.8340237503452085,
+              "1": 0.17150395778364116
             }
           },
           {
             "target_coverage": 0.95,
-            "empirical_coverage": 0.87725,
-            "coverage_gap": 0.07274999999999998,
+            "empirical_coverage": 0.8305,
+            "coverage_gap": 0.11949999999999994,
             "meets_guarantee": false,
             "class_coverage": {
-              "0": 0.9549848108257387,
-              "1": 0.1345646437994723
+              "0": 0.9025131179232256,
+              "1": 0.1424802110817942
             }
           },
           {
             "target_coverage": 0.99,
-            "empirical_coverage": 0.90325,
-            "coverage_gap": 0.08675,
+            "empirical_coverage": 0.87775,
+            "coverage_gap": 0.11224999999999996,
             "meets_guarantee": false,
             "class_coverage": {
-              "0": 0.9917149958574979,
-              "1": 0.05804749340369393
+              "0": 0.9632698149682408,
+              "1": 0.06068601583113457
             }
           }
         ],
-        "elapsed_ms": 1385.9451250000347
+        "elapsed_ms": 1479.5849229999476
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.4560494771100223,
+            "split_score_coverage": 0.89975,
+            "split_normal_coverage": 0.8991991162662248,
+            "split_anomaly_detection_rate": 0.09498680738786279,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.45726724543597996,
+            "cross_score_coverage": 0.90125,
+            "cross_normal_coverage": 0.9008561170947252,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.5037965928332541,
+            "split_score_coverage": 0.9495,
+            "split_normal_coverage": 0.9489091411212373,
+            "split_anomaly_detection_rate": 0.044854881266490766,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": false,
+            "cross_threshold": 0.5047905656142839,
+            "cross_score_coverage": 0.9505,
+            "cross_normal_coverage": 0.9500138083402375,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.5912115659270065,
+            "split_score_coverage": 0.99225,
+            "split_normal_coverage": 0.9917149958574979,
+            "split_anomaly_detection_rate": 0.002638522427440633,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6111800253827483,
+            "cross_score_coverage": 0.99675,
+            "cross_normal_coverage": 0.9966859983429992,
+            "cross_meets_score_guarantee": true
+          }
+        ],
+        "elapsed_ms": 34.81578600008106
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -3266,14 +6622,56 @@
           0.3
         ],
         "weight_source": "fallback_default",
-        "f1_at_learned_weights": 0.17329675354366714,
+        "f1_at_learned_weights": 0.17309888102306462,
         "component_aucs": {
-          "resonance": 0.471303740684079,
-          "kinematic": 0.4954848521800725,
-          "infogeo": 0.4823938587026139
+          "resonance": 0.486287918132445,
+          "kinematic": 0.4839374906782086,
+          "infogeo": 0.49301280621831706
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 58.70277900021392
+        "elapsed_ms": 59.053564000123515
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.9047619047619047,
+          0.047619047619047616,
+          0.047619047619047616
+        ],
+        "std_optimal_weights": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "f1_at_optimal": 0.17313841936957514,
+        "f1_at_default": 0.17313841936957514,
+        "f1_at_adaptive": 0.17313841936957514,
+        "delta_optimal_vs_default": 0.0,
+        "delta_optimal_vs_adaptive": 0.0,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.6180339887498949,
+          0.19098300562505255
+        ],
+        "f1_at_phi_2way": 0.17313841936957514,
+        "component_aucs": {
+          "resonance": 0.4804562800258533,
+          "kinematic": 0.5049790178808898,
+          "infogeo": 0.4854848476236904
+        },
+        "elapsed_ms": 1089.254944000004
       }
     },
     {
@@ -3310,7 +6708,7 @@
         "calibrated_recall": 0.4772727272727273,
         "delta_f1": 0.09642857142857147,
         "auc": 0.8913307604345341,
-        "elapsed_ms": 158.62185500009218
+        "elapsed_ms": 156.85966199998802
       },
       "conformal": {
         "coverage_results": [
@@ -3345,7 +6743,51 @@
             }
           }
         ],
-        "elapsed_ms": 1124.7633390003102
+        "elapsed_ms": 1163.2741109999643
+      },
+      "conformal_score_based": {
+        "score_coverage_results": [
+          {
+            "target_coverage": 0.9,
+            "split_threshold": 0.40813304217751845,
+            "split_score_coverage": 0.902241112828439,
+            "split_normal_coverage": 0.9127358490566038,
+            "split_anomaly_detection_rate": 0.7045454545454546,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.41052992878701305,
+            "cross_score_coverage": 0.9061051004636785,
+            "cross_normal_coverage": 0.9166666666666666,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.95,
+            "split_threshold": 0.4328069016224581,
+            "split_score_coverage": 0.9489953632148377,
+            "split_normal_coverage": 0.9591194968553459,
+            "split_anomaly_detection_rate": 0.6363636363636364,
+            "split_meets_score_guarantee": false,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.4468148247238579,
+            "cross_score_coverage": 0.9629057187017002,
+            "cross_normal_coverage": 0.9716981132075472,
+            "cross_meets_score_guarantee": true
+          },
+          {
+            "target_coverage": 0.99,
+            "split_threshold": 0.6086309918595285,
+            "split_score_coverage": 0.991112828438949,
+            "split_normal_coverage": 0.9956761006289309,
+            "split_anomaly_detection_rate": 0.2727272727272727,
+            "split_meets_score_guarantee": true,
+            "split_meets_normal_guarantee": true,
+            "cross_threshold": 0.6067764927786823,
+            "cross_score_coverage": 0.9899536321483772,
+            "cross_normal_coverage": 0.9952830188679245,
+            "cross_meets_score_guarantee": false
+          }
+        ],
+        "elapsed_ms": 146.2423890000082
       },
       "fusion": {
         "strategy_used": "statistical_adaptive_weights",
@@ -3364,7 +6806,49 @@
           "infogeo": 0.9016966751728837
         },
         "notes": "MD-003 PARTIALLY RESOLVED: Neural-symbolic fusion weights live in NeuroSymbolicHub (requires torch + NeuralEncoder + KnowledgeGraph). Statistical detector adaptive ensemble weights validated instead.",
-        "elapsed_ms": 159.52371700041112
+        "elapsed_ms": 150.46882600017852
+      },
+      "fusion_cv": {
+        "strategy_used": "lbfgs_cv_3way",
+        "n_splits": 3,
+        "mean_optimal_weights": [
+          0.07307243060163852,
+          0.04634637846991808,
+          0.8805811909284434
+        ],
+        "std_optimal_weights": [
+          0.007051794940037709,
+          0.00035258974700188797,
+          0.006699205193035874
+        ],
+        "default_weights": [
+          0.4,
+          0.3,
+          0.3
+        ],
+        "adaptive_weights": [
+          0.2637524794325238,
+          0.2705861752466676,
+          0.4656613453208086
+        ],
+        "f1_at_optimal": 0.4583333333333333,
+        "f1_at_default": 0.5238095238095238,
+        "f1_at_adaptive": 0.5,
+        "delta_optimal_vs_default": -0.06547619047619052,
+        "delta_optimal_vs_adaptive": -0.041666666666666685,
+        "phi_2way_weight": 0.6180339887498949,
+        "phi_3way_weights": [
+          0.19098300562505255,
+          0.19098300562505255,
+          0.6180339887498949
+        ],
+        "f1_at_phi_2way": 0.47619047619047616,
+        "component_aucs": {
+          "resonance": 0.7028927244139509,
+          "kinematic": 0.718325650371641,
+          "infogeo": 0.9126286449399656
+        },
+        "elapsed_ms": 1128.0131510000047
       }
     },
     {
