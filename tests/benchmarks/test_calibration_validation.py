@@ -19,13 +19,15 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-# Ensure src/ and project root are on the path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Ensure src/ and benchmarks/ are on the path
+_project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(_project_root / "src"))
+sys.path.insert(0, str(_project_root / "benchmarks"))
+sys.path.insert(0, str(_project_root))
 
 sklearn = pytest.importorskip("sklearn")
 
-from benchmarks.calibration_validation import (
+from calibration_validation import (  # type: ignore[import-untyped]
     run_calibration_validation,
     run_conformal_coverage,
     run_fusion_weight_analysis,

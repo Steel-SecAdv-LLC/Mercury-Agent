@@ -47,7 +47,12 @@ from sklearn.preprocessing import StandardScaler
 # ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from benchmarks.honest_benchmark import (
+# Import from honest_benchmark (sibling module in benchmarks/)
+_benchmarks_dir = str(Path(__file__).parent)
+if _benchmarks_dir not in sys.path:
+    sys.path.insert(0, _benchmarks_dir)
+
+from honest_benchmark import (  # type: ignore[import-untyped]
     DOMAIN_DATASETS,
     _cap_stratified,
     _load_adbench,
