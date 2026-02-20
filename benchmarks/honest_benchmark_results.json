@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "git_commit": "9012afee2d5557897ba5d68ef3ef0af8f8d55a5c",
+    "git_commit": "68df19bdaf047a03db8d52d649872349db9cb669",
     "python_version": "3.11.14",
-    "timestamp": "2026-02-20T05:13:46.970370+00:00",
+    "timestamp": "2026-02-20T07:52:50.033467+00:00",
     "max_samples_per_dataset": 10000,
     "n_thresholds": 101,
     "detector": "MercuryAnomalyDetector",
@@ -16,29 +16,29 @@
     "total_datasets": 55,
     "successful": 51,
     "failed": 4,
-    "mean_auc": 0.803062050122191,
+    "mean_auc": 0.8037084472671829,
     "median_auc": 0.8852362764366324,
-    "std_auc": 0.19144471117591066,
+    "std_auc": 0.19038716706825104,
     "mean_oracle_f1": 0.5886014993785739,
     "median_oracle_f1": 0.625
   },
   "component_summary": {
     "resonance": {
-      "mean_auc": 0.7622925062981581,
+      "mean_auc": 0.7626094931230113,
       "median_auc": 0.8293587307862345,
-      "std_auc": 0.1909553115135576,
+      "std_auc": 0.19049455738583704,
       "n_datasets": 51
     },
     "kinematic": {
-      "mean_auc": 0.6015374716308421,
+      "mean_auc": 0.6025056589503203,
       "median_auc": 0.6115504682622269,
-      "std_auc": 0.234179779355421,
+      "std_auc": 0.23369767840353073,
       "n_datasets": 51
     },
     "info_geometry": {
-      "mean_auc": 0.8256161243209229,
+      "mean_auc": 0.8259900416622191,
       "median_auc": 0.8759956905050278,
-      "std_auc": 0.1600668911190791,
+      "std_auc": 0.1592941356336682,
       "n_datasets": 51
     }
   },
@@ -60,8 +60,8 @@
       "oracle_precision": 0.07084051311506796,
       "oracle_recall": 0.6271186440677966,
       "oracle_threshold": 0.28,
-      "fit_ms": 294.629896999993,
-      "score_ms": 24.55049500002815,
+      "fit_ms": 27.974260000064533,
+      "score_ms": 27.88767000038206,
       "error": null
     },
     {
@@ -81,8 +81,8 @@
       "oracle_precision": 0.44349939246658565,
       "oracle_recall": 0.6835205992509363,
       "oracle_threshold": 0.4,
-      "fit_ms": 2.597674000014649,
-      "score_ms": 2.372571999956108,
+      "fit_ms": 2.5983400000768597,
+      "score_ms": 2.243203000034555,
       "error": null
     },
     {
@@ -102,8 +102,8 @@
       "oracle_precision": 0.9076923076923077,
       "oracle_recall": 0.8676470588235294,
       "oracle_threshold": 0.64,
-      "fit_ms": 269.0994719999935,
-      "score_ms": 526.5779329999987,
+      "fit_ms": 276.36752699982026,
+      "score_ms": 604.6723740000743,
       "error": null
     },
     {
@@ -123,8 +123,8 @@
       "oracle_precision": 0.9666666666666667,
       "oracle_recall": 0.9707112970711297,
       "oracle_threshold": 0.61,
-      "fit_ms": 0.8800930000347762,
-      "score_ms": 0.4760599999826809,
+      "fit_ms": 0.9224800000993127,
+      "score_ms": 0.47485300001426367,
       "error": null
     },
     {
@@ -144,8 +144,8 @@
       "oracle_precision": 0.5273061037173015,
       "oracle_recall": 0.5676877470355731,
       "oracle_threshold": 0.42,
-      "fit_ms": 75.02466699997967,
-      "score_ms": 78.19625300004418,
+      "fit_ms": 88.81694799993056,
+      "score_ms": 83.42396299985921,
       "error": null
     },
     {
@@ -165,8 +165,8 @@
       "oracle_precision": 0.705,
       "oracle_recall": 0.8011363636363636,
       "oracle_threshold": 0.45,
-      "fit_ms": 2.882055999975819,
-      "score_ms": 1.6495809999810263,
+      "fit_ms": 2.9178179997870757,
+      "score_ms": 1.6112250000333006,
       "error": null
     },
     {
@@ -186,8 +186,8 @@
       "oracle_precision": 0.5531587057010786,
       "oracle_recall": 0.7703862660944206,
       "oracle_threshold": 0.35000000000000003,
-      "fit_ms": 2.1060049999732655,
-      "score_ms": 1.9611120000035953,
+      "fit_ms": 2.2671799997624476,
+      "score_ms": 2.1809920003761363,
       "error": null
     },
     {
@@ -207,8 +207,8 @@
       "oracle_precision": 0.17201426024955438,
       "oracle_recall": 0.4406392694063927,
       "oracle_threshold": 0.47000000000000003,
-      "fit_ms": 22.120737000022928,
-      "score_ms": 32.271756000000096,
+      "fit_ms": 25.30050899986236,
+      "score_ms": 36.52162800017322,
       "error": null
     },
     {
@@ -228,8 +228,8 @@
       "oracle_precision": 0.1799962887363147,
       "oracle_recall": 0.831191088260497,
       "oracle_threshold": 0.32,
-      "fit_ms": 771.7802390000088,
-      "score_ms": 3590.5928680000443,
+      "fit_ms": 779.0650329998243,
+      "score_ms": 3791.078809999817,
       "error": null
     },
     {
@@ -249,8 +249,8 @@
       "oracle_precision": 0.13352685050798258,
       "oracle_recall": 0.4842105263157895,
       "oracle_threshold": 0.48,
-      "fit_ms": 15.063799000017752,
-      "score_ms": 6.722890999981246,
+      "fit_ms": 16.227887999775703,
+      "score_ms": 7.518521999827499,
       "error": null
     },
     {
@@ -270,8 +270,8 @@
       "oracle_precision": 0.3794089609151573,
       "oracle_recall": 0.7119856887298748,
       "oracle_threshold": 0.4,
-      "fit_ms": 12.300788999993983,
-      "score_ms": 5.9953869999844756,
+      "fit_ms": 14.189226999860693,
+      "score_ms": 7.140984000216122,
       "error": null
     },
     {
@@ -291,8 +291,8 @@
       "oracle_precision": 0.5794032723772858,
       "oracle_recall": 0.8945022288261516,
       "oracle_threshold": 0.28,
-      "fit_ms": 2.542643000026601,
-      "score_ms": 2.3387580000076014,
+      "fit_ms": 3.0170549998729257,
+      "score_ms": 2.907449999838718,
       "error": null
     },
     {
@@ -312,8 +312,8 @@
       "oracle_precision": 0.9090909090909091,
       "oracle_recall": 0.30303030303030304,
       "oracle_threshold": 0.7000000000000001,
-      "fit_ms": 25.110529000016868,
-      "score_ms": 24.639347000004364,
+      "fit_ms": 23.246932000347442,
+      "score_ms": 24.28350899981524,
       "error": null
     },
     {
@@ -333,8 +333,8 @@
       "oracle_precision": 0.20833333333333334,
       "oracle_recall": 0.5555555555555556,
       "oracle_threshold": 0.44,
-      "fit_ms": 0.7091860000514316,
-      "score_ms": 0.27523400001427945,
+      "fit_ms": 0.6752579997737485,
+      "score_ms": 0.25831400034803664,
       "error": null
     },
     {
@@ -354,8 +354,8 @@
       "oracle_precision": 0.3870967741935484,
       "oracle_recall": 0.9230769230769231,
       "oracle_threshold": 0.52,
-      "fit_ms": 0.8353450000413432,
-      "score_ms": 0.24421900002380426,
+      "fit_ms": 0.857189000271319,
+      "score_ms": 0.24850299996614922,
       "error": null
     },
     {
@@ -375,8 +375,8 @@
       "oracle_precision": 0.34545454545454546,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.5,
-      "fit_ms": 5.72100399995179,
-      "score_ms": 3.5595749999970394,
+      "fit_ms": 6.468838999808213,
+      "score_ms": 3.9223469998432847,
       "error": null
     },
     {
@@ -396,8 +396,8 @@
       "oracle_precision": 0.6989010989010989,
       "oracle_recall": 0.8641304347826086,
       "oracle_threshold": 0.49,
-      "fit_ms": 277.4284359999797,
-      "score_ms": 3037.3396499999785,
+      "fit_ms": 280.11393899987524,
+      "score_ms": 3472.3892040001374,
       "error": null
     },
     {
@@ -417,8 +417,8 @@
       "oracle_precision": 0.912,
       "oracle_recall": 0.9047619047619048,
       "oracle_threshold": 0.56,
-      "fit_ms": 2.1761639999908766,
-      "score_ms": 0.8554550000212657,
+      "fit_ms": 2.320405999853392,
+      "score_ms": 0.8061829998950998,
       "error": null
     },
     {
@@ -438,8 +438,8 @@
       "oracle_precision": 0.34320288362512874,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.0,
-      "fit_ms": 13.624975000027462,
-      "score_ms": 12.187836999999035,
+      "fit_ms": 13.887609999983397,
+      "score_ms": 12.70224599966241,
       "error": null
     },
     {
@@ -459,8 +459,8 @@
       "oracle_precision": 0.41566265060240964,
       "oracle_recall": 0.69,
       "oracle_threshold": 0.44,
-      "fit_ms": 3.6172060000012607,
-      "score_ms": 2.235642000016469,
+      "fit_ms": 3.37563900029636,
+      "score_ms": 2.3535410000476986,
       "error": null
     },
     {
@@ -480,8 +480,8 @@
       "oracle_precision": 0.6666666666666666,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.63,
-      "fit_ms": 0.8520459999772356,
-      "score_ms": 0.27126599997018275,
+      "fit_ms": 1.1921790000997134,
+      "score_ms": 0.3870810000989877,
       "error": null
     },
     {
@@ -501,8 +501,8 @@
       "oracle_precision": 0.6967998820233003,
       "oracle_recall": 0.9081299250432443,
       "oracle_threshold": 0.35000000000000003,
-      "fit_ms": 8.733112000015808,
-      "score_ms": 6.925601999967057,
+      "fit_ms": 9.825558000102319,
+      "score_ms": 7.460529000127281,
       "error": null
     },
     {
@@ -522,8 +522,8 @@
       "oracle_precision": 0.5900621118012422,
       "oracle_recall": 0.36538461538461536,
       "oracle_threshold": 0.61,
-      "fit_ms": 3.6653050000268195,
-      "score_ms": 3.3359230000087337,
+      "fit_ms": 3.6442420000639686,
+      "score_ms": 3.1304280000767903,
       "error": null
     },
     {
@@ -543,8 +543,8 @@
       "oracle_precision": 0.7144827586206897,
       "oracle_recall": 0.74,
       "oracle_threshold": 0.44,
-      "fit_ms": 20.858285999963755,
-      "score_ms": 69.41598100002011,
+      "fit_ms": 20.53143099965382,
+      "score_ms": 72.05689900001744,
       "error": null
     },
     {
@@ -564,8 +564,8 @@
       "oracle_precision": 0.8532110091743119,
       "oracle_recall": 0.9587628865979382,
       "oracle_threshold": 0.53,
-      "fit_ms": 18.92107999998416,
-      "score_ms": 51.82415100000526,
+      "fit_ms": 20.293355000376323,
+      "score_ms": 58.97638199985522,
       "error": null
     },
     {
@@ -585,8 +585,8 @@
       "oracle_precision": 0.056990881458966566,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.3,
-      "fit_ms": 14.725236999993285,
-      "score_ms": 18.747810999968806,
+      "fit_ms": 13.696587999675103,
+      "score_ms": 19.26653400005307,
       "error": null
     },
     {
@@ -606,8 +606,8 @@
       "oracle_precision": 0.6367292225201072,
       "oracle_recall": 0.9313725490196079,
       "oracle_threshold": 0.41000000000000003,
-      "fit_ms": 4.193208999993203,
-      "score_ms": 2.1965049999721487,
+      "fit_ms": 5.054407999978139,
+      "score_ms": 2.210052000009455,
       "error": null
     },
     {
@@ -627,8 +627,8 @@
       "oracle_precision": 0.1411764705882353,
       "oracle_recall": 0.38461538461538464,
       "oracle_threshold": 0.44,
-      "fit_ms": 8.034465999969598,
-      "score_ms": 3.980946000012864,
+      "fit_ms": 7.976954000241676,
+      "score_ms": 4.24270500025159,
       "error": null
     },
     {
@@ -648,8 +648,8 @@
       "oracle_precision": 0.6327077747989276,
       "oracle_recall": 0.8805970149253731,
       "oracle_threshold": 0.34,
-      "fit_ms": 0.8180410000022675,
-      "score_ms": 0.5356969999752437,
+      "fit_ms": 0.7703069995841361,
+      "score_ms": 0.5320679997566913,
       "error": null
     },
     {
@@ -669,8 +669,8 @@
       "oracle_precision": 0.8037383177570093,
       "oracle_recall": 0.6758349705304518,
       "oracle_threshold": 0.36,
-      "fit_ms": 12.27097200001026,
-      "score_ms": 12.543848999996499,
+      "fit_ms": 11.654840000119293,
+      "score_ms": 13.297217999934219,
       "error": null
     },
     {
@@ -690,8 +690,8 @@
       "oracle_precision": 0.9384615384615385,
       "oracle_recall": 0.8591549295774648,
       "oracle_threshold": 0.59,
-      "fit_ms": 13.022083999999268,
-      "score_ms": 7.829184999991412,
+      "fit_ms": 14.748410999800399,
+      "score_ms": 9.81598499993197,
       "error": null
     },
     {
@@ -711,8 +711,8 @@
       "oracle_precision": 0.9560685033507074,
       "oracle_recall": 0.9625187406296851,
       "oracle_threshold": 0.55,
-      "fit_ms": 8.009114999993017,
-      "score_ms": 5.579532000012932,
+      "fit_ms": 8.965756999714358,
+      "score_ms": 6.496864999917307,
       "error": null
     },
     {
@@ -732,8 +732,8 @@
       "oracle_precision": 0.5899122807017544,
       "oracle_recall": 0.8611757857974389,
       "oracle_threshold": 0.31,
-      "fit_ms": 3.3822590000340824,
-      "score_ms": 3.2871040000372886,
+      "fit_ms": 4.039604999888979,
+      "score_ms": 3.804768999998487,
       "error": null
     },
     {
@@ -753,8 +753,8 @@
       "oracle_precision": 0.6666666666666666,
       "oracle_recall": 0.4,
       "oracle_threshold": 0.73,
-      "fit_ms": 3.7761579999937567,
-      "score_ms": 3.1971590000239303,
+      "fit_ms": 4.000758000074711,
+      "score_ms": 3.94023000035304,
       "error": null
     },
     {
@@ -774,8 +774,8 @@
       "oracle_precision": 0.7086383601756955,
       "oracle_recall": 0.8648004764740918,
       "oracle_threshold": 0.34,
-      "fit_ms": 6.764172999965012,
-      "score_ms": 16.561820999982046,
+      "fit_ms": 6.208451000020432,
+      "score_ms": 18.981621999955678,
       "error": null
     },
     {
@@ -795,8 +795,8 @@
       "oracle_precision": 0.061946902654867256,
       "oracle_recall": 0.11475409836065574,
       "oracle_threshold": 0.49,
-      "fit_ms": 106.91013699999985,
-      "score_ms": 396.4001679999569,
+      "fit_ms": 161.52021600009903,
+      "score_ms": 398.784975000126,
       "error": null
     },
     {
@@ -816,8 +816,8 @@
       "oracle_precision": 0.5636363636363636,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.39,
-      "fit_ms": 0.795396000000892,
-      "score_ms": 0.30939099997340236,
+      "fit_ms": 0.7990280000740313,
+      "score_ms": 0.38456300035250024,
       "error": null
     },
     {
@@ -837,8 +837,8 @@
       "oracle_precision": 0.71875,
       "oracle_recall": 0.7419354838709677,
       "oracle_threshold": 0.61,
-      "fit_ms": 2.161589999957414,
-      "score_ms": 1.0768360000383836,
+      "fit_ms": 2.361349000238988,
+      "score_ms": 1.2486599998737802,
       "error": null
     },
     {
@@ -858,8 +858,8 @@
       "oracle_precision": 0.22727272727272727,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.17,
-      "fit_ms": 0.6450180000001637,
-      "score_ms": 0.31027199997879507,
+      "fit_ms": 0.6174830000418297,
+      "score_ms": 0.26442899979883805,
       "error": null
     },
     {
@@ -879,8 +879,8 @@
       "oracle_precision": 0.78,
       "oracle_recall": 0.78,
       "oracle_threshold": 0.44,
-      "fit_ms": 1.378473999977814,
-      "score_ms": 0.8080459999746381,
+      "fit_ms": 1.363244999993185,
+      "score_ms": 0.7712229999015108,
       "error": null
     },
     {
@@ -900,8 +900,8 @@
       "oracle_precision": 0.08547008547008547,
       "oracle_recall": 0.2,
       "oracle_threshold": 0.43,
-      "fit_ms": 5.571776000010686,
-      "score_ms": 2.943002999984401,
+      "fit_ms": 5.214800999965519,
+      "score_ms": 2.768891999949119,
       "error": null
     },
     {
@@ -921,8 +921,8 @@
       "oracle_precision": 0.9,
       "oracle_recall": 0.9,
       "oracle_threshold": 0.65,
-      "fit_ms": 0.6144139999832987,
-      "score_ms": 0.2781640000080188,
+      "fit_ms": 0.711206000232778,
+      "score_ms": 0.2502379998077231,
       "error": null
     },
     {
@@ -942,8 +942,8 @@
       "oracle_precision": 0.8333333333333334,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.63,
-      "fit_ms": 1.8759220000106325,
-      "score_ms": 0.5844070000193824,
+      "fit_ms": 1.4961820002099557,
+      "score_ms": 0.6292540001595626,
       "error": null
     },
     {
@@ -963,8 +963,8 @@
       "oracle_precision": 0.12113232389730086,
       "oracle_recall": 0.7159533073929961,
       "oracle_threshold": 0.25,
-      "fit_ms": 2.429554000002554,
-      "score_ms": 1.509845999976278,
+      "fit_ms": 2.298224000242044,
+      "score_ms": 1.354227000319952,
       "error": null
     },
     {
@@ -984,8 +984,8 @@
       "oracle_precision": 0.45454545454545453,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.4,
-      "fit_ms": 0.9508389999837163,
-      "score_ms": 0.3109510000172122,
+      "fit_ms": 0.7457910000994161,
+      "score_ms": 0.2627260000735987,
       "error": null
     },
     {
@@ -1005,8 +1005,8 @@
       "oracle_precision": 0.38524590163934425,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.3,
-      "fit_ms": 2.0875589999604927,
-      "score_ms": 0.536318999991181,
+      "fit_ms": 2.055143999768916,
+      "score_ms": 0.5648900000778667,
       "error": null
     },
     {
@@ -1026,8 +1026,8 @@
       "oracle_precision": 0.5090361445783133,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.0,
-      "fit_ms": 0.8973269999614786,
-      "score_ms": 0.7922599999687918,
+      "fit_ms": 0.9346950000690413,
+      "score_ms": 0.8314340002470999,
       "error": null
     },
     {
@@ -1047,8 +1047,8 @@
       "oracle_precision": 0.9266756635177688,
       "oracle_recall": 0.9512082499615206,
       "oracle_threshold": 0.43,
-      "fit_ms": 27.314089000014974,
-      "score_ms": 35.21268700001201,
+      "fit_ms": 30.138544000237744,
+      "score_ms": 47.60888900000282,
       "error": null
     },
     {
@@ -1068,8 +1068,8 @@
       "oracle_precision": 0.5152190051967335,
       "oracle_recall": 0.6850937808489634,
       "oracle_threshold": 0.46,
-      "fit_ms": 47.21823099998801,
-      "score_ms": 42.146891000015785,
+      "fit_ms": 50.881009999557136,
+      "score_ms": 33.76068999978088,
       "error": null
     },
     {
@@ -1081,16 +1081,16 @@
       "n_features": 4,
       "anomaly_ratio": 0.09479449691637555,
       "test_anomaly_ratio": 0.17311731173117312,
-      "ensemble_auc": 0.4745523098667208,
-      "resonance_auc": 0.47714085361644304,
-      "kinematic_auc": 0.4608449132009512,
-      "info_geometry_auc": 0.48626479432371983,
+      "ensemble_auc": 0.507518564261313,
+      "resonance_auc": 0.4933071816839516,
+      "kinematic_auc": 0.5102224664943347,
+      "info_geometry_auc": 0.5053345787298241,
       "oracle_f1": 0.2951406649616368,
       "oracle_precision": 0.17311731173117312,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.0,
-      "fit_ms": 4.147613000043293,
-      "score_ms": 4.209424999999101,
+      "fit_ms": 4.517776000284357,
+      "score_ms": 4.500199000176508,
       "error": null
     },
     {
@@ -1120,8 +1120,8 @@
       "oracle_precision": 0.5420560747663551,
       "oracle_recall": 0.5296803652968036,
       "oracle_threshold": 0.47000000000000003,
-      "fit_ms": 35.589690999984214,
-      "score_ms": 25.91082099996811,
+      "fit_ms": 35.51148199994714,
+      "score_ms": 26.860482000302,
       "error": null
     },
     {
