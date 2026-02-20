@@ -205,7 +205,7 @@ def generate_anomaly_detection_panel() -> Path:
         summary_text,
         fontsize=9,
         family="monospace",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+        bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.8},
         verticalalignment="bottom",
     )
 

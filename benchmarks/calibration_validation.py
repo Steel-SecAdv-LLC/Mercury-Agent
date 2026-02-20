@@ -565,8 +565,7 @@ def _f1_from_weights(
         for t in thresholds:
             preds = (fused > t).astype(int)
             f1_val = float(f1_score(y, preds, zero_division=0))
-            if f1_val > best_f1:
-                best_f1 = f1_val
+            best_f1 = max(best_f1, f1_val)
         return best_f1
     preds = (fused > threshold).astype(int)
     return float(f1_score(y, preds, zero_division=0))
