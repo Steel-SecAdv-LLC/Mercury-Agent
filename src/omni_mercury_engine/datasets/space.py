@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Space & Astronomical Dataset Loaders: SETI, NASA Exoplanets, Solar Dynamics

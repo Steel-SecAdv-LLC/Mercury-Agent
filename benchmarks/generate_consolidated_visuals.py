@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱ - Consolidated Benchmark Visualization Generator
+Mercury Agent - Consolidated Benchmark Visualization Generator
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify

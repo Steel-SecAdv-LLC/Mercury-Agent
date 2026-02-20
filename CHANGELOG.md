@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs/ROADMAP.md: Marked all 7 planned capabilities as implemented
 - CONTRIBUTING.md: Fixed Python version requirement from 3.12 to 3.11+
 - .gitignore: Added coverage for generated report files
-- DEAD_CODE.md: Created inventory of 59 orphaned modules
+
 
 ### Calibration Pipeline Integration
 - ThresholdCalibrationPipeline wired into MercuryAnomalyDetector.fit_with_labels()
@@ -411,7 +411,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-10-14
 
 ### Added
-- Initial release of Mercury Agent ♱ (formerly Omni-Anomaly-Engine)
+- Initial release of Mercury Agent (formerly Omni-Anomaly-Engine)
 - 13 fused detection engines with neural network fusion
 - 150+ ethical scalars from ancient wisdom and modern principles
 - 17+ infrastructure modules for critical sectors (healthcare, cyber, energy, etc.)
@@ -429,7 +429,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 150+ domain-specific ethical scalars
 
 ### Changed
-- Renamed from Omni-Anomaly-Engine to Mercury Agent ♱
+- Renamed from Omni-Anomaly-Engine to Mercury Agent
 - Enhanced CLI with argparse for humanitarian demo
 - Improved documentation with simulation disclaimers
 

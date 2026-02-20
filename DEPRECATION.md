@@ -1,6 +1,6 @@
-# Mercury Agent ♱ - Deprecation and Migration Guide
+# Mercury Agent - Deprecation and Migration Guide
 
-This document tracks deprecated modules, classes, methods, and parameters in Mercury Agent ♱.
+This document tracks deprecated modules, classes, methods, and parameters in Mercury Agent.
 
 ## Policy Statement
 

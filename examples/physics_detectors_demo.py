@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Physics-Inspired Anomaly Detection Demo - Mercury Agent ♱ v1.4.0
+Physics-Inspired Anomaly Detection Demo - Mercury Agent v1.4.0
 
 Demonstrates the advanced physics-inspired anomaly detection modules:
 1. SpectralVibrationDetector - Frequency-domain analysis with GNN/CNN

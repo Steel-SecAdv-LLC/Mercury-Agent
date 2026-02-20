@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea for Mercury Agent ♱
+about: Suggest an idea for Mercury Agent
 title: '[FEATURE] '
 labels: enhancement, needs-triage
 assignees: ''

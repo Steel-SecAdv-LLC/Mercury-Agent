@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-"""Core modules for Mercury Agent ♱."""
+"""Core modules for Mercury Agent."""
 
 from omni_mercury_engine.core.double_helix_engine import (
     DoubleHelixEvolutionEngine,

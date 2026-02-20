@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Real-World Data Benchmarks for Mercury Agent ♱
+Real-World Data Benchmarks for Mercury Agent
 
 This module provides benchmarks using real-world public datasets:
 - NSL-KDD: Network intrusion detection (security domain)
@@ -687,7 +687,7 @@ class MIMICDemoBenchmark:
 def run_all_benchmarks() -> dict[str, Any]:
     """Run all real-data benchmarks and return comprehensive results."""
     print("=" * 70)
-    print("Mercury Agent ♱ REAL-DATA BENCHMARKS")
+    print("Mercury Agent REAL-DATA BENCHMARKS")
     print("=" * 70)
 
     results: dict[str, Any] = {

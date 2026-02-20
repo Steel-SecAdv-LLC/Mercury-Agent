@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Model modules for Mercury Agent ♱ anomaly detection.
+Model modules for Mercury Agent anomaly detection.
 
 Uses lazy imports to avoid circular dependency issues during package initialization.
 """

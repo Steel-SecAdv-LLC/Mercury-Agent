@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -465,7 +465,7 @@ class OmniCode:
 
 class OmniCodes:
     """
-    Seven foundational Omni-Codes governing Mercury Agent ♱.
+    Seven foundational Omni-Codes governing Mercury Agent.
 
     These codes are integrated from Ava Guardian and provide:
     - Helical data encoding (mirrors DNA double-helix stability)

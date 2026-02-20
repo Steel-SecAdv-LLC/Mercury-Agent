@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ Crisis Monitoring Module for Humanitarian CI
 Integrates GEOINT (Geospatial Intelligence) for natural disaster,
 humanitarian crisis, and essential worker protection monitoring.
 
-Part of Mercury Agent ♱ Infrastructure module.
+Part of Mercury Agent Infrastructure module.
 """
 
 from omni_mercury_engine.infrastructure.humanitarian.crisis_monitoring.crisis_monitor import (

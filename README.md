@@ -9,12 +9,12 @@
 <div align="center">
 
 ![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-5%2C984-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-53%25-yellow.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-5500%2B-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-85%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
 [![Ava-Guardian](https://img.shields.io/badge/Ava--Guardian-PQC%20Adapter-green.svg)](#ava-guardian-integration)
@@ -23,11 +23,11 @@
 
 ```
               +===============================================================================+
-              |                              Mercury Agent ♱ v1.5.1                           |
+              |                                   Mercury Agent ♱ v1.5.1                     |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
-              |   Neural + Symbolic      |   169 Detector Classes  |   Post-Quantum Crypto    |
+              |   Neural + Symbolic      |   22+ Detection Engines |   Post-Quantum Crypto    |
               |   Ethical Governance     |   Multi-Head Attention  |   OWASP Validation       |
               |                                                                               |
               |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
@@ -45,18 +45,18 @@
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
 **Version:** v1.5.1
-**Date:** 2026-02-19
+**Date:** 2026-02-09
 **AI Co-Architects:** Devin ⚛ | Claude ⊛
 
 ---
 
 ## Executive Summary
 
-Mercury Agent ♱ is a comprehensive neuro-symbolic AI Archetype implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
+Mercury Agent is a comprehensive neuro-symbolic AI Archetype implementing a 7-phase cognitive evolution for multi-domain anomaly detection. The system combines neural pattern recognition with symbolic reasoning to produce explainable, ethically-bounded decisions across security, medical, environmental, humanitarian, and infrastructure domains.
 
 The framework embodies a **Civilization-First** philosophy, prioritizing ethical AI governance and humanitarian impact. Every action must pass a benevolence threshold of 0.99 or higher, ensuring the system operates in service of human flourishing and civilizational progress.
 
-> **Project Philosophy:** Mercury Agent ♱ represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
+> **Project Philosophy:** Mercury Agent represents the next evolution in AI systems - one that combines the pattern recognition power of neural networks with the interpretability and reasoning capabilities of symbolic AI. This neuro-symbolic fusion enables the system to not only detect anomalies but explain why they matter and what actions should be taken.
 >
 > **Security Disclosure:** This is a research-grade implementation. Production use REQUIRES:
 > - Independent security review by qualified professionals
@@ -71,13 +71,13 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-02-19
+> **Last Updated:** 2026-02-09
 
 ---
 
 ## 7-Phase Neuro-Symbolic Evolution
 
-Mercury Agent ♱ implements a comprehensive 7-phase cognitive architecture that progressively builds from basic neural memory to superintelligence bootstrap capabilities:
+Mercury Agent implements a comprehensive 7-phase cognitive architecture that progressively builds from basic neural memory to superintelligence bootstrap capabilities:
 
 | Phase | Component | Description | Key Features |
 |-------|-----------|-------------|--------------|
@@ -137,127 +137,56 @@ Measured on 51 real-world datasets (47 ADBench + 4 domain loaders). No synthetic
 
 *Full results: `benchmarks/honest_benchmark_results.json`. Methodology: `docs/BENCHMARKS.md`.*
 
-### Live Calibration Benchmark (v1.5.1)
+### Comprehensive Multi-Panel Visualizations
 
-Measured on 550-sample synthetic dataset (500 normal + 50 anomalous, 10 features) with `fit_with_labels` calibration:
+The following consolidated visualizations capture all benchmark metrics in professional multi-panel format (v1.4.0):
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                  Mercury Ensemble Calibration (v1.5.1)              │
-├──────────────────────┬──────────────────────────────────────────────┤
-│ Calibration Method   │ best_of(f1_optimal)                         │
-│ Threshold            │ 0.4068                                      │
-│ Adaptive Weights     │ [0.54, 0.00, 0.46]                          │
-│ Fit Time             │ 22ms                                        │
-│ Detect Time          │ 1ms                                         │
-├──────────────────────┼──────────────────────────────────────────────┤
-│ Precision            │ 0.7705                                      │
-│ Recall               │ 0.9400                                      │
-│ F1 Score             │ 0.8468                                      │
-│ Accuracy             │ 0.9691                                      │
-├──────────────────────┼──────────┬──────────┬───────────────────────┤
-│ Component            │  Normal  │ Anomaly  │ Separation            │
-│ ResonanceScore (54%) │  0.2068  │  0.3683  │ +0.1615               │
-│ KinematicScore (0%)  │  0.4662  │  0.4333  │ -0.0329 (suppressed)  │
-│ InfoGeoScore (46%)   │  0.3552  │  0.5811  │ +0.2259               │
-└──────────────────────┴──────────┴──────────┴───────────────────────┘
-```
+#### Neuro-Symbolic Benchmark Report
 
-**How adaptive weighting works:** The `ThresholdCalibrationPipeline` computes per-component Mann-Whitney AUC. KinematicScore provides near-random separation on tabular data (AUC ~0.5), so it is automatically weighted to 0%. ResonanceScore and InfoGeometryScore carry all the predictive weight.
+Ensemble vs. individual component AUCs across all measured datasets, generated from `honest_benchmark_results.json`:
 
-### System Architecture
+![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
 
-```mermaid
-graph TB
-    subgraph Input["Data Input"]
-        A[Raw Data<br/>ndarray / Tensor]
-    end
+#### Anomaly Detection Analysis
 
-    subgraph Ensemble["MercuryAnomalyDetector Ensemble"]
-        direction TB
-        B1["ResonanceScore<br/>FFT harmonic profiles<br/>Weight: adaptive"]
-        B2["KinematicScore<br/>Physics jerk/curvature<br/>Weight: adaptive"]
-        B3["InfoGeometryScore<br/>Fisher Info Mahalanobis<br/>Weight: adaptive"]
-    end
+Per-component AUC breakdown (resonance, kinematic, info_geometry) for top-10 and bottom-10 datasets:
 
-    subgraph Calibration["ThresholdCalibrationPipeline"]
-        C1["Per-component<br/>Mann-Whitney AUC"]
-        C2["F1-optimal<br/>threshold search"]
-        C3["Adaptive weight<br/>assignment"]
-    end
+![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
 
-    subgraph Output["Detection Output"]
-        D["is_anomaly + scores<br/>+ ensemble_components<br/>+ threshold"]
-    end
+#### Performance Dashboard
 
-    A --> B1 & B2 & B3
-    B1 & B2 & B3 --> C1
-    C1 --> C2 --> C3
-    C3 --> D
+Timing scatter plots, AUC distribution histogram, and per-component statistics:
 
-    style Ensemble fill:#1a1a2e,color:#e0e0e0
-    style Calibration fill:#16213e,color:#e0e0e0
-    style Input fill:#0f3460,color:#e0e0e0
-    style Output fill:#533483,color:#e0e0e0
-```
+![Mercury Performance Dashboard](docs/images/mercury_performance_dashboard.png)
 
-### Codebase Architecture
+#### Benchmark Summary (All Datasets)
 
-```mermaid
-graph LR
-    subgraph Core["core/ (base, fusion, engine)"]
-        E1[BaseEncoder]
-        E2[AdaptiveFusion]
-        E3[GOSNN]
-    end
+AUC bar chart for all 51 datasets sorted by performance, with mean line:
 
-    subgraph Detectors["detectors/ (12 domains)"]
-        D1[statistical]
-        D2[acceleration_dynamics]
-        D3[spatial / temporal]
-        D4[geological / marine]
-        D5[visual / vlm]
-        D6[economic / energy]
-    end
-
-    subgraph Platform["Infrastructure"]
-        P1[api/ - FastAPI REST]
-        P2[security/ - PQC Kyber768]
-        P3[federation/ - Privacy FL]
-        P4[ethical/ - Fairlearn]
-    end
-
-    Core --> Detectors
-    Detectors --> Platform
-
-    style Core fill:#2d3436,color:#dfe6e9
-    style Detectors fill:#2d3436,color:#dfe6e9
-    style Platform fill:#2d3436,color:#dfe6e9
-```
+![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
 ### Domain Loader Validation (15 Real-World Domains)
 
-Mercury Agent validates its core `MercuryAnomalyDetector` against 10 real-world data domains spanning natural disasters, infrastructure, cybersecurity, and public health. All domains pass regression checks with **254,454 total samples** validated:
+Mercury Agent validates its core `MercuryAnomalyDetector` against 15 real-world data domains spanning natural disasters, infrastructure, cybersecurity, and public health. Nine domains are fully validated against live API data with the following AUC scores:
 
 | Domain           | AUC    | N Samples | Data Source |
 |-----------------|--------|-----------|-------------|
-| Earthquake       | 0.9340 | 2,867     | USGS API |
-| Energy/Space Wx  | 0.9169 | 2,432     | NOAA SWPC |
-| Pandemic         | 0.9145 | 66,909    | OWID / WHO GHO |
-| Tornado          | 0.8966 | 414       | NOAA SPC |
-| Tsunami          | 0.8839 | 4,375     | NOAA NDBC / DART buoys |
-| Flood            | 0.8619 | 1,536     | USGS Water Services |
-| Net Security     | 0.8082 | 161,455   | NSL-KDD |
-| Hurricane        | 0.7819 | 294       | IBTrACS |
-| FEMA             | 0.7668 | 14,076    | OpenFEMA API |
-| Marine           | 0.6335 | 96        | Synthetic (baseline + event) |
+| Earthquake       | 0.9795 | 248       | USGS API |
+| Tsunami          | 0.9097 | 283       | NOAA NDBC / DART buoys |
+| Flood            | 0.8619 | 1,259     | USGS Water Services |
+| Tornado          | 0.7932 | 7,614     | NOAA SPC |
+| FEMA             | 0.7666 | 10,000    | OpenFEMA API |
+| Energy/Space Wx  | 0.7083 | 48+       | NOAA SWPC |
+| Pandemic         | 0.6370 | 122+      | OWID / WHO GHO |
+| Net Security     | 0.6122 | 148,517   | NSL-KDD |
+| Hurricane        | 0.5238 | 64+       | IBTrACS |
 
-**Key improvements (v1.4 → v1.5.1):**
-- **Pandemic**: +0.28 AUC — multi-year daily granularity with acceleration features
-- **Hurricane**: +0.26 AUC — 6 additional storms, multi-scale delta features, wind-pressure deficit
-- **Energy**: +0.21 AUC — multi-month windows (~700+ samples)
-- **Net Security**: +0.20 AUC — continuous features only + log1p transform
-- **Marine**: +0.63 AUC — expanded synthetic sampling with baseline + event + control regions
+**Optimizations applied (post-v1.4.0):**
+- **Marine**: Expanded synthetic sampling with baseline + event + control regions
+- **Hurricane**: Added 6 more storms, multi-scale delta features, wind-pressure deficit
+- **Network Security**: Continuous features only + log1p transform
+- **Pandemic**: Extended to multi-year daily granularity with acceleration features
+- **Energy**: Extended to multi-month windows (~700+ samples)
 - **FEMA**: Temporal enrichment (trailing counts, days since last same-state)
 
 ### Federated Learning (Privacy-Preserving Detection)
@@ -292,7 +221,7 @@ result = global_detector.detect(new_data)
 
 ### Real-World Data Benchmarks
 
-Mercury Agent ♱ has been validated against real-world public datasets to demonstrate practical anomaly detection capabilities:
+Mercury Agent has been validated against real-world public datasets to demonstrate practical anomaly detection capabilities:
 
 #### NSL-KDD (Security Domain)
 
@@ -336,22 +265,22 @@ Run benchmarks: `python benchmarks/real_data_benchmarks.py`
 
 ### Live Anomaly Detection Demo
 
-Mercury Agent ♱ includes a live demonstration script that showcases real-time anomaly detection across multiple domains:
+Mercury Agent includes a live demonstration script that showcases real-time anomaly detection across multiple domains:
 
 #### Quick Start
 
 ```bash
 # Run security domain demo (network intrusion detection)
-python demos/live_anomaly_demo.py --domain security --samples 30
+python examples/live_anomaly_demo.py --domain security --samples 30
 
 # Run medical domain demo (vital signs anomaly detection)
-python demos/live_anomaly_demo.py --domain medical --samples 30
+python examples/live_anomaly_demo.py --domain medical --samples 30
 
 # Run environmental domain demo (sensor anomaly detection)
-python demos/live_anomaly_demo.py --domain environmental --samples 30
+python examples/live_anomaly_demo.py --domain environmental --samples 30
 
 # Run all domains
-python demos/live_anomaly_demo.py --all --samples 20
+python examples/live_anomaly_demo.py --all --samples 20
 ```
 
 #### Demo Features
@@ -363,6 +292,8 @@ The live demo demonstrates:
 - **Ethical AI governance** with benevolence scoring (target: 0.99+)
 - **Threat classification** with severity levels (LOW/MEDIUM/HIGH/CRITICAL)
 - **JSON output** for integration with monitoring systems
+
+A recorded demo session is available at [`assets/live_anomaly_demo.mp4`](assets/live_anomaly_demo.mp4).
 
 #### Sample Output
 
@@ -403,7 +334,7 @@ The live demo demonstrates:
 <details>
 <summary><strong>Click to expand 3R Mathematical Framework</strong></summary>
 
-The **3R mechanism** (Recursion-Resonance-Refactoring) is a mathematical method for anomaly detection and optimization that forms the core of Mercury Agent ♱'s detection capabilities. This framework combines three complementary engines for pattern recognition and adaptive learning.
+The **3R mechanism** (Recursion-Resonance-Refactoring) is a mathematical method for anomaly detection and optimization that forms the core of Mercury Agent's detection capabilities. This framework combines three complementary engines for pattern recognition and adaptive learning.
 
 ### Recursion Engine
 
@@ -525,10 +456,10 @@ loss = loss_fn(
 - **Lyapunov stability**: Penalizes divergent predictions for safety-critical applications
 - **Domain configs**: See `configs/ablation_3r_lyapunov.yaml` for medical/security/infrastructure presets
 
-### Integration with Mercury Agent ♱
+### Integration with Mercury Agent
 
-The 3R mechanism is integrated throughout Mercury Agent ♱:
-- **Detectors**: Detection engines across 12+ domains leverage 3R for feature extraction
+The 3R mechanism is integrated throughout Mercury Agent:
+- **Detectors**: All 18+ detection engines leverage 3R for feature extraction
 - **Fusion Network**: Multi-head attention combines 3R outputs across domains
 - **Ethical Governance**: Refactoring engine ensures Lyapunov stability constraints
 - **Self-Healing**: CRISPR-inspired adaptation uses recursive pattern learning
@@ -577,11 +508,11 @@ Modern anomaly detection faces three critical challenges:
 2. **Ethical Blind Spots**: Most ML systems lack bias detection, fairness metrics, and ethical governance
 3. **Production Gaps**: Research models often lack security hardening, input validation, and deployment infrastructure
 
-### The Mercury Agent ♱ Solution
+### The Mercury Agent Solution
 
-Mercury Agent ♱ addresses all three challenges through:
+Mercury Agent addresses all three challenges through:
 
-- **Unified Framework**: 169 detector classes under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
+- **Unified Framework**: 18+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
 - **Production Security**: OWASP-compliant input validation, post-quantum cryptography support (Kyber768, Dilithium3), JWT authentication, rate limiting
 
@@ -606,7 +537,7 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 | Layer | Protection | Components |
 |-------|------------|------------|
 | 1. Core Infrastructure | Security foundation | Kyber768/Dilithium3 PQC, JWT auth, OWASP validation |
-| 2. ML/AI Pipeline | Detection intelligence | 169 detector classes, hybrid fusion, multi-head attention |
+| 2. ML/AI Pipeline | Detection intelligence | 18+ engines, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
 ### Ethical AI Governance
@@ -622,7 +553,7 @@ The signature innovation providing transparent, auditable AI decision-making:
 
 Optimized for both accuracy and interpretability:
 
-- **Feature Fusion**: `torch.cat()` across detector outputs
+- **Feature Fusion**: `torch.cat()` across 18+ detector outputs
 - **Decision Fusion**: Weighted voting with learned importance scores
 - **Attention Fusion**: Multi-head attention (8 heads) for cross-domain correlation
 - **Final Score**: `0.7 * MLP + 0.3 * weighted_vote` ensemble
@@ -634,14 +565,13 @@ Optimized for both accuracy and interpretability:
 
 | Achievement | Description |
 |-------------|-------------|
-| Multi-Domain Coverage | 169 detector classes across 43 subpackages spanning medical, security, space, infrastructure, environmental |
+| Multi-Domain Coverage | 22+ detection engines across 5 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 5,984 tests in 244 files, property-based testing, security scanning |
+| Comprehensive Testing | 5,500+ tests across 226 files, property-based testing, security scanning |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
-| Codebase Scale | 455 Python modules, 268,689 lines of code, 2,552 classes |
-| Lazy Imports | PyTorch optional — `import omni_mercury_engine` works without torch installed |
+| Codebase Scale | 455 Python modules, 268,000+ lines of code |
 
 </details>
 
@@ -670,7 +600,7 @@ Optimized for both accuracy and interpretability:
 
 ## Use Cases by Sector
 
-> **Experimental Research Areas:** The use cases below represent targeted experimental applications where Mercury Agent ♱ multi-domain anomaly detection may provide value. These are research-grade implementations requiring independent validation before deployment in regulated, clinical, or mission-critical environments.
+> **Experimental Research Areas:** The use cases below represent targeted experimental applications where Mercury Agent multi-domain anomaly detection may provide value. These are research-grade implementations requiring independent validation before deployment in regulated, clinical, or mission-critical environments.
 
 <details>
 <summary><strong>Medical & Healthcare</strong></summary>
@@ -1039,19 +969,10 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **5,984 tests** across 244 test files (5,869 passed, 111 skipped, 2 flaky)
-- **53.7% statement coverage** across 96,448 statements (268,689 source LOC)
+- **5,500+ tests** across 226 test files
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
-- **Full suite runtime**: ~9 minutes on CPU
-
-```
-Test Results (v1.5.1, 2026-02-19):
-├── 5,869 passed       ██████████████████████████████████████████  98.1%
-├── 111 skipped        █                                           1.9%
-├── 2 flaky            ░                                           0.03%
-└── Coverage: 53.7%    ██████████████████████░░░░░░░░░░░░░░░░░░░░
-```
+- **Coverage tracking**: 85%+ across core modules
 
 **New Test Suites (v1.4.0):**
 - `test_enhanced_anomaly_detection.py`: 38+ tests for enhanced statistical methods, cross-platform hub, ensemble coordination
@@ -1096,6 +1017,7 @@ GitHub Actions automatically tests:
 | Input Validation | OWASP-compliant SQL/XSS/injection detection |
 | Authentication | JWT with proper expiration and signature verification |
 | Cryptography | Kyber768/Dilithium3 via liboqs with classical fallback |
+| Rust Crypto | AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id via PyO3 (see `rust_crypto/`) |
 | Rate Limiting | Token bucket algorithm with configurable limits |
 | Secret Detection | detect-secrets in pre-commit hooks |
 
@@ -1110,7 +1032,7 @@ See [SECURITY.md](SECURITY.md) for complete security analysis.
 |------|----------|
 | black | PEP 8 formatting |
 | isort | Import sorting |
-| flake8 | Linting (max-line-length=120) |
+| flake8 | Linting (max-line-length=100) |
 | mypy | Static type checking |
 | ruff | Fast Python linting |
 | bandit | Security-focused static analysis |
@@ -1235,6 +1157,12 @@ docker build --target builder -t mercury-agent:builder .
 helm install mercury-agent ./helm/mercury-agent -f values.yaml
 ```
 
+> **Note:** The Kubernetes, Helm, and monitoring configurations in `k8s/`, `helm/`, and
+> `monitoring/` are **reference configurations** for those who wish to deploy Mercury Agent
+> in containerized environments. Mercury Agent is research-grade, community-tested software
+> that has not been externally audited for production hardening. Review and adapt these
+> configurations to your security requirements before deploying.
+
 </details>
 
 ---
@@ -1331,7 +1259,7 @@ bandit -r src/
 <details>
 <summary><strong>Ethical AI Governance</strong> - Mathematically-Bound Fairness Constraints</summary>
 
-Mercury Agent ♱ pioneers the integration of ethical principles directly into ML operations through mathematically rigorous constraints. Unlike traditional ML systems that treat ethics as policy overlays, Mercury Agent ♱ embeds ethical considerations into the detection foundation itself.
+Mercury Agent pioneers the integration of ethical principles directly into ML operations through mathematically rigorous constraints. Unlike traditional ML systems that treat ethics as policy overlays, Mercury Agent embeds ethical considerations into the detection foundation itself.
 
 **Fairlearn Integration** provides bias detection across all predictions:
 
@@ -1352,7 +1280,7 @@ Mercury Agent ♱ pioneers the integration of ethical principles directly into M
 <details>
 <summary><strong>Production Security</strong> - Defense-in-Depth Architecture</summary>
 
-Mercury Agent ♱ employs a comprehensive security architecture designed for production deployment:
+Mercury Agent employs a comprehensive security architecture designed for production deployment:
 
 **Input Validation** (OWASP-compliant):
 - SQL injection detection and prevention
@@ -1370,12 +1298,19 @@ Mercury Agent ♱ employs a comprehensive security architecture designed for pro
 - Dilithium3 digital signatures
 - Classical fallback for compatibility
 
+**Rust Cryptographic Module** (`rust_crypto/`):
+- AES-256-GCM and ChaCha20-Poly1305 AEAD encryption
+- BLAKE3 hashing (6.5x faster than Python `cryptography`)
+- Argon2id key derivation
+- Constant-time comparisons (timing-attack resistant)
+- Python bindings via PyO3; build with `maturin develop`
+
 </details>
 
 <details>
-<summary><strong>Multi-Domain Detection</strong> - 169 Detector Classes Across 12+ Domains</summary>
+<summary><strong>Multi-Domain Detection</strong> - 22+ Specialized Engines</summary>
 
-Mercury Agent ♱ provides specialized detection engines across multiple domains:
+Mercury Agent transcends single-domain limitations by providing specialized detection engines across multiple domains:
 
 | Domain | Engines | Capabilities |
 |--------|---------|--------------|
@@ -1454,7 +1389,7 @@ if adapter.pqc_available:
 <details>
 <summary><strong>Omni-Codes</strong> - Bio-Inspired Helical Parameters</summary>
 
-Mercury Agent ♱ integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
+Mercury Agent integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
 
 **The Seven Omni-Codes:**
 
@@ -1725,7 +1660,7 @@ Copyright 2025 Steel Security Advisors LLC
 Licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) file for details.
 
 ```
-Mercury Agent ♱ - Multi-Domain Anomaly Detection Framework
+Mercury Agent - Multi-Domain Anomaly Detection Framework
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -1759,7 +1694,7 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 | General Inquiries | steel.sa.llc@gmail.com |
 | Security Issues | See [SECURITY.md](SECURITY.md) for responsible disclosure |
 | GitHub Issues | [Issues Page](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues) |
-| GitHub Repository | [Mercury Agent ♱](https://github.com/Steel-SecAdv-LLC/Mercury-Agent) |
+| GitHub Repository | [Mercury Agent](https://github.com/Steel-SecAdv-LLC/Mercury-Agent) |
 
 </details>
 
@@ -1815,7 +1750,7 @@ Dataset fetching can be configured via environment variables:
 
 ### Development Model
 
-**Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of Mercury Agent ♱.
+**Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of Mercury Agent.
 
 **AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Devin ⚛ and Claude ⊛.
 
@@ -1829,7 +1764,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics
 - **Quantified claims:** All performance metrics are measured and documented with methodology
-- **Comprehensive testing:** 5,984 tests with property-based testing and security scanning
+- **Comprehensive testing:** 5,000+ tests with property-based testing and security scanning
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline
 - **Academic grounding:** Medical modules reference JAMA guidelines, security follows OWASP
@@ -1862,7 +1797,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent ♱ v1.5.1 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent v1.5.1 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 
@@ -1872,6 +1807,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-02-19*
+*Last updated: 2026-02-09*
 
 </div>

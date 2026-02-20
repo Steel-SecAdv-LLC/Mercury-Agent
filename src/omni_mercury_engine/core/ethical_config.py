@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 """
 Ethical Scalars Configuration
 
-Original implementation for Mercury Agent ♱ neural-symbolic AI archetype.
+Original implementation for Mercury Agent neural-symbolic AI archetype.
 
 This module defines the ethical scalar framework that guides the engine's
 decision-making processes, ensuring alignment with compassionate and just AI principles.
@@ -269,7 +269,7 @@ class EngineConfig:
     """
     Main engine configuration including ethical scalars.
 
-    Provides a unified configuration interface for the Mercury Agent ♱,
+    Provides a unified configuration interface for the Mercury Agent,
     incorporating both technical and ethical parameters.
     """
 

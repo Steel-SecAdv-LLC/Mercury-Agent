@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@ Advanced cardiac anomaly detection for humanitarian healthcare:
 - Arrhythmia classification
 - Cardiac risk prediction
 
-Part of Mercury Agent ♱ Medical framework.
+Part of Mercury Agent Medical framework.
 """
 
 from omni_mercury_engine.medical.cardiology.cardiology_predictor import (

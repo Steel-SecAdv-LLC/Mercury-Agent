@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱ — Endpoint Verification Script
+Mercury Agent — Endpoint Verification Script
 
 Performs an audit of every URL in TrustedEndpoints:
   1. HTTP HEAD/GET each URL with a 10-second timeout.

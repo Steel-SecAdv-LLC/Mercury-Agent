@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -11,7 +11,7 @@ the Free Software Foundation, either version 3 of the License, or
 from __future__ import annotations
 
 """
-Cognitive Architecture Module for Mercury Agent ♱
+Cognitive Architecture Module for Mercury Agent
 
 This is NOT market fluff. These components integrate directly into the
 Truth Decipher Framework via the CognitiveOrchestrator.

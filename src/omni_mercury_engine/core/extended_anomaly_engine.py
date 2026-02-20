@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Extended Mercury Agent ♱ with 14-Engine Integration
+Extended Mercury Agent with 14-Engine Integration
 Production-ready anomaly detection with 3R mechanism
 """
 
@@ -258,7 +258,7 @@ class OmniMercury:
 
         self.integration_engine: IntegrationEngine = IntegrationEngine()
 
-        logging.info("Mercury Agent ♱ initialized with full integration")
+        logging.info("Mercury Agent initialized with full integration")
 
     def detect_anomaly(
         self, data: np.ndarray[Any, Any], use_3r_enhancement: bool = True

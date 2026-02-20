@@ -7,11 +7,16 @@ unsupervised anomaly detection ensemble — on labeled real-world datasets.
 
 **Ensemble composition** (no external anomaly-detection dependencies):
 
-| Component | Weight | Method |
-|-----------|--------|--------|
+| Component | Default Weight | Method |
+|-----------|---------------|--------|
 | ResonanceScore | 40% | FFT harmonic spectral anomaly (FFT at fit, O(n*d) inference) |
 | KinematicScore | 30% | Physics-based jerk/curvature detection (O(n*d)) |
 | InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD (O(n*d^2) inference) |
+
+> **Adaptive weighting:** After `fit()`, weights are recomputed proportional to each
+> component's AUC separation from random. Components with AUC < 0.5 are zeroed out.
+> The 40/30/30 defaults above are the fallback when all components produce
+> near-random scores. See `_compute_adaptive_weights()` in `statistical.py`.
 
 **Protocol:**
 - Normal-only training (unsupervised) with `StandardScaler`

@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 """
 Unified Neurosymbolic Engine - Fusion of neural networks and symbolic reasoning
 
-This module provides the core neurosymbolic AI capabilities for Mercury Agent ♱,
+This module provides the core neurosymbolic AI capabilities for Mercury Agent,
 combining Logic Tensor Networks (LTN) with symbolic reasoning for:
 - Explainable anomaly detection
 - Ethical constraint enforcement
@@ -311,7 +311,7 @@ class NeurosymbolicEngine:
     - Explainable AI with human-readable explanations
     - Ethical constraint enforcement
 
-    This is the primary neurosymbolic component for Mercury Agent ♱.
+    This is the primary neurosymbolic component for Mercury Agent.
     """
 
     def __init__(

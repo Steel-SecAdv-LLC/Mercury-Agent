@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -136,7 +136,7 @@ class DetailedHealthResponse(BaseModel):
         "json_schema_extra": {
             "example": {
                 "status": "healthy",
-                "version": "1.0.0",
+                "version": "1.5.1",
                 "uptime_seconds": 3600.5,
                 "components": [
                     {"name": "database", "status": "up", "latency_ms": 5.2},

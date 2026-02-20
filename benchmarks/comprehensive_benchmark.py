@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Comprehensive benchmark for Mercury Agent ♱ enhancements.
+Comprehensive benchmark for Mercury Agent enhancements.
 
 Benchmarks module instantiation, detection performance, and scalability
 across 1, 5, and all 12 infrastructure modules.
@@ -220,7 +220,7 @@ def run_all_benchmarks(include_real_data: bool = True) -> dict[str, Any]:
         include_real_data: Whether to include real-data benchmarks (NSL-KDD, MIMIC-III)
     """
     print("=" * 70)
-    print("Mercury Agent ♱ COMPREHENSIVE BENCHMARK")
+    print("Mercury Agent COMPREHENSIVE BENCHMARK")
     print("=" * 70)
 
     results: dict[str, Any] = {

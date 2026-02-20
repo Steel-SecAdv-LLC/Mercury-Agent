@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@ Specialized critical care detection for humanitarian healthcare:
 - Sepsis detection and SOFA scoring
 - Neurocritical care (stroke, seizure, TBI, ICP)
 
-Part of Mercury Agent ♱ Medical framework.
+Part of Mercury Agent Medical framework.
 """
 
 from omni_mercury_engine.medical.critical_care.neurocritical_care import (
