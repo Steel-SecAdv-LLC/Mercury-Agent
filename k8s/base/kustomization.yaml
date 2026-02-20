@@ -26,5 +26,5 @@ configMapGenerator:
   - name: mercury-agent-app-info
     literals:
       - app-name=mercury-agent
-      - version=1.4.0
+      - version=1.5.1
       - environment=base

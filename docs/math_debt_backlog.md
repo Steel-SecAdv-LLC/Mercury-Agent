@@ -20,7 +20,7 @@ This document tracks remaining mathematical issues discovered during the Phase 1
 
 | Priority | Count | Examples |
 |----------|-------|---------|
-| RESOLVED | 9 | MD-001, MD-003, MD-006, MD-007, MD-008, MD-010, MD-011 |
+| RESOLVED | 7 | MD-001, MD-003, MD-006, MD-007, MD-008, MD-010, MD-011 |
 | PARTIALLY RESOLVED | 2 | MD-002, MD-005 |
 | CRITICAL (fix immediately) | 0 | — |
 | HIGH (next sprint) | 0 | — |

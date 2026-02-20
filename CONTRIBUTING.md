@@ -444,6 +444,7 @@ Contributors will be recognized in:
 | 2.0.0 | 2026-01-06 | Consolidated from docs/, updated to use pyproject.toml |
 | 2.1.0 | 2026-01-09 | Updated to v1.1.0 |
 | 2.2.0 | 2026-02-09 | Updated to v1.4.0, aligned Python prerequisite |
+| 2.3.0 | 2026-02-20 | Updated to v1.5.1, OAE rename, calibration validation |
 
 ---
 

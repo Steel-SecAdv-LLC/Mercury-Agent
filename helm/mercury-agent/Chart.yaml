@@ -8,8 +8,8 @@ description: |
   monitoring, chemistry, and consciousness research domains.
 
 type: application
-version: 1.4.0
-appVersion: "1.4.0"
+version: 1.5.1
+appVersion: "1.5.1"
 
 # Minimum Kubernetes version required
 kubeVersion: ">=1.23.0-0"
