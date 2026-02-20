@@ -399,7 +399,7 @@ The three engines work together to create emergent detection capabilities:
 | **Ava Equation** | All 3R | Unified anomaly scoring: `A = R·H·O` |
 | **Asymptotic Horizons** | Resonance + Refactoring | Convergence guarantees via Lyapunov stability |
 
-### The AVA Anomaly Fusion Equation (AAFE)
+### The Omni-Ava Equation (OAE)
 
 The unified 3R scoring function with ethical gating:
 
@@ -450,7 +450,7 @@ loss = loss_fn(
 ```
 
 **Key Features:**
-- **Golden-ratio AAFE weights**: Mathematically grounded fusion (0.447/0.276/0.276)
+- **Golden-ratio OAE weights**: Mathematically grounded fusion (0.447/0.276/0.276)
 - **Bounded outputs**: Sigmoid activation ensures anomaly scores in [0, 1]
 - **Supervised + unsupervised**: BCE loss with labels + reconstruction loss
 - **Lyapunov stability**: Penalizes divergent predictions for safety-critical applications

@@ -11,7 +11,7 @@
 
 Mercury Agent implements a multi-paradigm anomaly detection framework built on a
 mathematically grounded fusion architecture. The core mathematical framework is
-the **AVA Anomaly Fusion Equation (AAFE)**, which combines three orthogonal
+the **Omni-Ava Equation (OAE)**, which combines three orthogonal
 detection signals -- Recursion, Resonance, and Optimization -- through
 golden-ratio-weighted convex combination, modulated by a sigmoid ethical gate.
 
@@ -26,7 +26,7 @@ All scores are normalized to $[0, 1]$. All weights sum to $1.0$. All division
 operations are guarded with $\varepsilon = 10^{-8}$.
 
 **Source files:**
-- `core/three_r/fusion.py` -- AAFE implementation
+- `core/three_r/fusion.py` -- OAE implementation
 - `core/centralized_constants.py` -- All constants and domain profiles
 - `core/ethical_governor.py` -- Sigma Directive
 - `core/calibration.py` -- ECE, Platt, Temperature scaling
@@ -38,7 +38,7 @@ operations are guarded with $\varepsilon = 10^{-8}$.
 
 ## 2. Core Equations
 
-### 2.1 AVA Anomaly Fusion Equation (AAFE)
+### 2.1 Omni-Ava Equation (OAE)
 
 The central equation of Mercury Agent computes a fused anomaly score from three
 orthogonal detection sub-systems, gated by an ethical compliance function:
@@ -58,7 +58,7 @@ $$
 | $p$ | Ethical exponent | $\mathbb{R}^+$ | Default $\Phi = 1.618\ldots$ (configurable) |
 | $A$ | Fusion score | $[0, 1]$ | Final anomaly score |
 
-**Implementation:** `core/three_r/fusion.py`, class `AnomalyFusionEquation.compute()`, lines 119--202.
+**Implementation:** `core/three_r/fusion.py`, class `OmniAvaEquation.compute()`, lines 119--202.
 
 #### 2.1.1 Weight Derivation (Golden Ratio Proportions)
 
@@ -156,7 +156,7 @@ calibration data.
 
 **Implementation:** `core/centralized_constants.py`, function `sigmoid_benevolence_gate()`, lines 205--240.
 
-#### 2.1.4 AAFE Output Range
+#### 2.1.4 OAE Output Range
 
 **Claim:** $A \in [0, 1]$.
 
@@ -654,9 +654,9 @@ The five ethical pillars are:
 | $z_{\text{threshold}}$ | 3.0 | `centralized_constants.py:363` | Z-score anomaly threshold | Gaussian theory: 99.7% coverage |
 | IQR multiplier | 1.5 | `centralized_constants.py:367` | IQR fence multiplier | Tukey (1977) |
 | MAD multiplier | 3.0 | `centralized_constants.py:375` | MAD-based threshold | Robust statistics convention |
-| $w_R$ (AAFE Recursion) | $\Phi / \phi_{\text{sum}} \approx 0.559$ | `fusion.py:108` | Golden ratio proportion | Mathematically grounded |
-| $w_H$ (AAFE Harmonic) | $1 / \phi_{\text{sum}} \approx 0.346$ | `fusion.py:109` | Golden ratio proportion | Mathematically grounded |
-| $w_O$ (AAFE Optimization) | $(1/\Phi) / \phi_{\text{sum}} \approx 0.214$ | `fusion.py:110` | Golden ratio proportion | Mathematically grounded |
+| $w_R$ (OAE Recursion) | $\Phi / \phi_{\text{sum}} \approx 0.559$ | `fusion.py:108` | Golden ratio proportion | Mathematically grounded |
+| $w_H$ (OAE Harmonic) | $1 / \phi_{\text{sum}} \approx 0.346$ | `fusion.py:109` | Golden ratio proportion | Mathematically grounded |
+| $w_O$ (OAE Optimization) | $(1/\Phi) / \phi_{\text{sum}} \approx 0.214$ | `fusion.py:110` | Golden ratio proportion | Mathematically grounded |
 | $p$ (ethical exponent) | $\Phi = 1.618$ | `fusion.py:96` | Ethical scaling power | **UNJUSTIFIED:** needs parameter sweep |
 | Statistical fusion weights | 0.4 / 0.3 / 0.3 | `statistical.py:197` | Z / IQR / IF combination | **UNJUSTIFIED:** needs cross-validation |
 | Neural-symbolic weights | 0.6 / 0.4 | `centralized_constants.py:400-401` | Neural vs. symbolic | **UNJUSTIFIED:** needs empirical tuning |
@@ -723,7 +723,7 @@ $V(S_t) \leq \varepsilon \cdot e^{-\lambda t}$ is computed at each step but is
 a tracking bound, not a proven invariant of the discrete system. The empirical
 convergence rate estimation (Section 2.2.3) provides runtime verification.
 
-### 4.3 AAFE Weight Normalization Proof
+### 4.3 OAE Weight Normalization Proof
 
 **Claim:** $w_R + w_H + w_O = 1.0$ for the golden ratio default initialization.
 
@@ -746,7 +746,7 @@ re-normalizes after each update (line 226).
 
 ## 5. Sensitivity Analysis
 
-### 5.1 AAFE Ethical Exponent $p$
+### 5.1 OAE Ethical Exponent $p$
 
 Perturbation of $\pm 10\%$ around $\Phi = 1.618$:
 
@@ -842,7 +842,7 @@ division by zero:
 | Z-score intensity normalization | $z_{\text{thresh}} + \varepsilon$ | $\varepsilon = 10^{-8}$ |
 | Weight normalization | $\sum w + \varepsilon$ | $\varepsilon = 10^{-10}$ |
 | Score range normalization | $\max - \min + \varepsilon$ | $\varepsilon = 10^{-10}$ |
-| AAFE weight optimizer | $\sum |w| + \varepsilon$ | $\varepsilon = 10^{-10}$ |
+| OAE weight optimizer | $\sum |w| + \varepsilon$ | $\varepsilon = 10^{-10}$ |
 | Standard deviation in calibration | $\sigma + \varepsilon$ | $\varepsilon = 10^{-10}$ |
 
 **Central epsilon constant:** `MATH.EPSILON = 1e-8` (general), `MATH.EPSILON_SMALL = 1e-10` (sensitive).
@@ -889,7 +889,7 @@ in $(0, 1]$. No overflow risk.
 
 | Location | Guard | Behavior |
 |----------|-------|----------|
-| AAFE `compute()` | `np.isnan()` check on each input | Replace NaN with 0.0, log warning |
+| OAE `compute()` | `np.isnan()` check on each input | Replace NaN with 0.0, log warning |
 | Score calibration | `_validate_scores()` | Replace NaN/Inf with median |
 | Statistical detector | `np.isfinite()` mask | Filter non-finite rows before fitting |
 | Conformal prediction | `np.fill_diagonal(distances, np.inf)` | Intentional self-exclusion (not a bug) |
@@ -976,7 +976,7 @@ in $(0, 1]$. No overflow risk.
 
 | Symbol | Definition | First Appearance |
 |--------|-----------|------------------|
-| $A$ | AAFE fusion score | Section 2.1 |
+| $A$ | OAE fusion score | Section 2.1 |
 | $\alpha$ | Recursion contraction factor | Section 2.3 |
 | $\alpha_{\max}$ | Maximum contraction factor (0.95) | Section 2.3.2 |
 | $b$ | Benevolence score | Section 2.1.3 |
@@ -999,5 +999,5 @@ in $(0, 1]$. No overflow risk.
 | $S$ | Sigma Directive weighted score | Section 2.7.1 |
 | $T$ | Temperature scaling parameter | Section 2.5.3 |
 | $V$ | Lyapunov function | Section 2.2 |
-| $w_R, w_H, w_O$ | AAFE component weights | Section 2.1.1 |
+| $w_R, w_H, w_O$ | OAE component weights | Section 2.1.1 |
 | $z$ | Z-score | Section 2.6.1 |

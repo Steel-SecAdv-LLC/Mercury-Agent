@@ -33,6 +33,7 @@ Until these criteria are met, deprecated items operate via compatibility shims t
 | `sigma_immutable` param | `ethical_compliance_threshold` | **Preserved** - Alias mapping active |
 | `lambda_lyapunov` param | `convergence_rate` | **Preserved** - Alias mapping active |
 | `enable_quantum_terms` | `enable_optimization_terms` | **Preserved** - Alias mapping active |
+| `AnomalyFusionEquation` / `AAFE*` | `OmniAvaEquation` / `OAE*` | **Preserved** - Alias mapping active |
 
 ---
 
@@ -189,7 +190,7 @@ gosnn.set_scalar("omnimorality", 0.95)           # New name
 
 ## 3. Parameter Aliases
 
-### 3.1 AnomalyFusionEquation (3R Mechanism)
+### 3.1 OmniAvaEquation (3R Mechanism)
 
 **Status:** Alias mapping active - both parameter names accepted
 
@@ -199,8 +200,9 @@ gosnn.set_scalar("omnimorality", 0.95)           # New name
 | `lambda_lyapunov` | `convergence_rate` | Both supported |
 | `sigma_immutable_override` | `ethical_threshold_override` | Both supported |
 
-**Original usage (continues to work):**
+**Legacy class name (continues to work):**
 ```python
+from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
 aafe = AnomalyFusionEquation(
     sigma_immutable=0.93,
     lambda_lyapunov=0.25,
@@ -215,11 +217,12 @@ result = aafe.compute(
 
 **Preferred usage (recommended for new code):**
 ```python
-aafe = AnomalyFusionEquation(
+from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
+oae = OmniAvaEquation(
     ethical_compliance_threshold=0.93,
     convergence_rate=0.25,
 )
-result = aafe.compute(
+result = oae.compute(
     recursion_score=0.8,
     resonance_score=0.85,
     optimization_score=0.9,

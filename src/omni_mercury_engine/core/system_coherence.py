@@ -87,7 +87,7 @@ class SignalFlowGraph:
 
         This captures the canonical pipeline:
         raw data -> feature extraction -> per-detector scoring ->
-        AAFE fusion -> ethical gating -> calibrated output.
+        OAE fusion -> ethical gating -> calibrated output.
         """
         return cls(
             stages=[
@@ -118,12 +118,12 @@ class SignalFlowGraph:
                     ),
                 ),
                 PipelineStage(
-                    name="aafe_fusion",
+                    name="oae_fusion",
                     input_range=(0.0, 1.0),
                     output_range=(0.0, 1.0),
                     normalization="weighted-sum-clamp",
                     description=(
-                        "AAFE: A = (w_R*R + w_H*H + w_O*O) * eta^phi. "
+                        "OAE: A = (w_R*R + w_H*H + w_O*O) * eta^phi. "
                         "Weights sum to 1, eta in (0,1], result clamped."
                     ),
                 ),

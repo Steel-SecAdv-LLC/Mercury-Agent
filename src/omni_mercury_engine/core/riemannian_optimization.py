@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Riemannian optimization for manifold-constrained parameters.
 
 Provides geometric optimization on:
-- The probability simplex (for AAFE weight optimization)
+- The probability simplex (for OAE weight optimization)
 - The manifold of Symmetric Positive Definite matrices (for covariance parameters)
 
 Key algorithms:
@@ -805,7 +805,7 @@ class ConstrainedParameterOptimizer:
 
     Designed for Mercury Agent integration:
 
-    * **AAFE weights** live on the probability simplex (they must be
+    * **OAE weights** live on the probability simplex (they must be
       non-negative and sum to one).  Using Riemannian optimisation
       respects this constraint *exactly* at every iterate, avoiding
       the projection-after-the-fact approach that can cause zig-zagging.
@@ -817,7 +817,7 @@ class ConstrainedParameterOptimizer:
 
         opt = ConstrainedParameterOptimizer()
 
-        # Optimise AAFE weights
+        # Optimise OAE weights
         result = opt.optimize_simplex_weights(
             initial_weights=np.array([0.4, 0.3, 0.3]),
             objective_fn=my_loss,
@@ -908,7 +908,7 @@ class ConstrainedParameterOptimizer:
     ) -> OptimizationResult:
         """Optimise weights constrained to the probability simplex.
 
-        This is the recommended method for learning AAFE weights
+        This is the recommended method for learning OAE weights
         (w_R, w_H, w_O) because it respects the simplex constraint
         intrinsically at every step.
 
@@ -1004,9 +1004,9 @@ class ConstrainedParameterOptimizer:
             tol=_tol,
         )
 
-    # -- AAFE integration helper ------------------------------------------
+    # -- OAE integration helper ------------------------------------------
 
-    def optimize_aafe_weights(
+    def optimize_oae_weights(
         self,
         initial_weights: dict[str, float] | np.ndarray | None = None,
         objective_fn: Callable[[np.ndarray], float] | None = None,
@@ -1015,9 +1015,9 @@ class ConstrainedParameterOptimizer:
         max_iter: int | None = None,
         tol: float | None = None,
     ) -> OptimizationResult:
-        """Convenience wrapper specifically for AAFE weight optimisation.
+        """Convenience wrapper specifically for OAE weight optimisation.
 
-        AAFE uses three weights (w_R, w_H, w_O) that must lie on the
+        OAE uses three weights (w_R, w_H, w_O) that must lie on the
         probability simplex.  If no objective/gradient are provided a
         default uniform initialisation is returned without optimisation.
 
@@ -1049,7 +1049,7 @@ class ConstrainedParameterOptimizer:
             w0 = np.asarray(initial_weights, dtype=np.float64)
 
         if w0.shape != (3,):
-            msg = f"AAFE weights must have shape (3,), got {w0.shape}"
+            msg = f"OAE weights must have shape (3,), got {w0.shape}"
             raise ValueError(msg)
 
         # If no objective is provided, just project and return
@@ -1073,3 +1073,6 @@ class ConstrainedParameterOptimizer:
             max_iter=max_iter,
             tol=tol,
         )
+
+    # Backward compatibility alias
+    optimize_aafe_weights = optimize_oae_weights

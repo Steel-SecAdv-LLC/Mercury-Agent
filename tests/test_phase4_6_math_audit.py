@@ -6,7 +6,7 @@ Covers:
 - Phase 4C: Fisher Information Metric adaptive thresholds
 - Phase 4D: Riemannian optimization (simplex, SPD, gradient descent)
 - Phase 6: Signal flow graph, normalization verification, Lyapunov enforcement
-- Phase 3B: Domain-adaptive AAFE weights
+- Phase 3B: Domain-adaptive OAE weights
 """
 
 from __future__ import annotations
@@ -453,7 +453,7 @@ class TestRiemannianGradientDescent:
 class TestConstrainedParameterOptimizer:
     """Tests for Mercury Agent parameter optimization on manifolds."""
 
-    def test_optimize_aafe_weights(self) -> None:
+    def test_optimize_oae_weights(self) -> None:
         from omni_mercury_engine.core.riemannian_optimization import (
             ConstrainedParameterOptimizer,
         )
@@ -490,7 +490,7 @@ class TestSignalFlowGraph:
         graph = SignalFlowGraph.build_default()
         ascii_text = graph.to_ascii()
         assert "data_ingestion" in ascii_text
-        assert "aafe_fusion" in ascii_text
+        assert "oae_fusion" in ascii_text
         assert "ethical_gating" in ascii_text
 
 
@@ -610,24 +610,24 @@ class TestCoherenceAudit:
 
 
 # ============================================================================
-# Phase 3B — Domain-Adaptive AAFE Weights
+# Phase 3B — Domain-Adaptive OAE Weights
 # ============================================================================
 
 
-class TestDomainAdaptiveAAFEWeights:
+class TestDomainAdaptiveOAEWeights:
     """Tests for domain-adaptive weight profiles."""
 
     def test_default_weights_are_golden_ratio(self) -> None:
-        from omni_mercury_engine.core.three_r.fusion import DomainAdaptiveAAFEWeights
+        from omni_mercury_engine.core.three_r.fusion import DomainAdaptiveOAEWeights
 
-        daw = DomainAdaptiveAAFEWeights()
+        daw = DomainAdaptiveOAEWeights()
         w = daw.get_weights("unknown")
         assert abs(sum(w.values()) - 1.0) < 1e-10
 
     def test_record_and_fit(self) -> None:
-        from omni_mercury_engine.core.three_r.fusion import DomainAdaptiveAAFEWeights
+        from omni_mercury_engine.core.three_r.fusion import DomainAdaptiveOAEWeights
 
-        daw = DomainAdaptiveAAFEWeights()
+        daw = DomainAdaptiveOAEWeights()
         rng = np.random.RandomState(42)
         for _ in range(50):
             daw.record_observation("medical", rng.rand(), rng.rand(), rng.rand(), rng.randint(2))
@@ -639,9 +639,9 @@ class TestDomainAdaptiveAAFEWeights:
         assert abs(sum(profiles["medical"].values()) - 1.0) < 1e-6
 
     def test_has_domain_profile(self) -> None:
-        from omni_mercury_engine.core.three_r.fusion import DomainAdaptiveAAFEWeights
+        from omni_mercury_engine.core.three_r.fusion import DomainAdaptiveOAEWeights
 
-        daw = DomainAdaptiveAAFEWeights()
+        daw = DomainAdaptiveOAEWeights()
         assert not daw.has_domain_profile("medical")
 
         rng = np.random.RandomState(42)
@@ -651,9 +651,9 @@ class TestDomainAdaptiveAAFEWeights:
         assert daw.has_domain_profile("medical")
 
     def test_insufficient_data_uses_defaults(self) -> None:
-        from omni_mercury_engine.core.three_r.fusion import DomainAdaptiveAAFEWeights
+        from omni_mercury_engine.core.three_r.fusion import DomainAdaptiveOAEWeights
 
-        daw = DomainAdaptiveAAFEWeights()
+        daw = DomainAdaptiveOAEWeights()
         for _ in range(5):  # Too few
             daw.record_observation("sparse", 0.5, 0.5, 0.5, 1)
         daw.fit_domain_profiles(min_samples=30)
@@ -816,7 +816,7 @@ class TestWassersteinTriangleInequality:
 
 
 class TestGoldenRatioWeightCorrectness:
-    """Verify FUSION AAFE weights match actual golden ratio derivation."""
+    """Verify FUSION OAE weights match actual golden ratio derivation."""
 
     def test_aafe_weights_are_golden_ratio_proportions(self) -> None:
         from omni_mercury_engine.core.centralized_constants import FUSION
@@ -828,24 +828,24 @@ class TestGoldenRatioWeightCorrectness:
         expected_o = (1.0 / phi) / phi_sum
 
         assert (
-            abs(FUSION.AAFE_WEIGHT_R - expected_r) < 0.001
-        ), f"w_R should be {expected_r:.6f}, got {FUSION.AAFE_WEIGHT_R}"
+            abs(FUSION.OAE_WEIGHT_R - expected_r) < 0.001
+        ), f"w_R should be {expected_r:.6f}, got {FUSION.OAE_WEIGHT_R}"
         assert (
-            abs(FUSION.AAFE_WEIGHT_H - expected_h) < 0.001
-        ), f"w_H should be {expected_h:.6f}, got {FUSION.AAFE_WEIGHT_H}"
+            abs(FUSION.OAE_WEIGHT_H - expected_h) < 0.001
+        ), f"w_H should be {expected_h:.6f}, got {FUSION.OAE_WEIGHT_H}"
         assert (
-            abs(FUSION.AAFE_WEIGHT_O - expected_o) < 0.001
-        ), f"w_O should be {expected_o:.6f}, got {FUSION.AAFE_WEIGHT_O}"
+            abs(FUSION.OAE_WEIGHT_O - expected_o) < 0.001
+        ), f"w_O should be {expected_o:.6f}, got {FUSION.OAE_WEIGHT_O}"
 
     def test_aafe_weights_sum_to_one(self) -> None:
         from omni_mercury_engine.core.centralized_constants import FUSION
 
-        total = FUSION.AAFE_WEIGHT_R + FUSION.AAFE_WEIGHT_H + FUSION.AAFE_WEIGHT_O
+        total = FUSION.OAE_WEIGHT_R + FUSION.OAE_WEIGHT_H + FUSION.OAE_WEIGHT_O
         assert abs(total - 1.0) < 1e-6, f"Weights must sum to 1.0, got {total}"
 
     def test_aafe_weight_ordering(self) -> None:
         """w_R > w_H > w_O (golden ratio ordering)."""
         from omni_mercury_engine.core.centralized_constants import FUSION
 
-        assert FUSION.AAFE_WEIGHT_R > FUSION.AAFE_WEIGHT_H, "w_R should be largest"
-        assert FUSION.AAFE_WEIGHT_H > FUSION.AAFE_WEIGHT_O, "w_H should be larger than w_O"
+        assert FUSION.OAE_WEIGHT_R > FUSION.OAE_WEIGHT_H, "w_R should be largest"
+        assert FUSION.OAE_WEIGHT_H > FUSION.OAE_WEIGHT_O, "w_H should be larger than w_O"

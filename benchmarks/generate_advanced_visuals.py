@@ -554,7 +554,7 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
     ax6.legend(fontsize=8)
 
     ax7 = fig.add_subplot(gs[2, 0])
-    methods = ["Baseline", "3R", "AAFE", "Full"]
+    methods = ["Baseline", "3R", "OAE", "Full"]
     f1_scores = [0.797, 0.85, 0.89, 0.92]
     bars = ax7.barh(methods, f1_scores, color=[VIRIDIS(i / 4) for i in range(4)])
     ax7.set_title("Method Comparison")

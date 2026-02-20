@@ -27,7 +27,7 @@ anomaly detection systems with the core Mercury Agent architecture:
 1. Integration with 3R Mechanism (Recursion-Resonance-Refactoring)
 2. Integration with GOSNN (Global Omni Scalar Network)
 3. Unified detector interface for all physics-based detectors
-4. Combined anomaly fusion using AAFE (Ava Anomaly Fusion Equation)
+4. Combined anomaly fusion using OAE (Omni-Ava Equation)
 
 The module bridges:
 - Spectral Vibration Analysis (frequencies, GNN, phonons)
@@ -51,7 +51,7 @@ import torch
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
-from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
+from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
 )
@@ -142,7 +142,7 @@ class IntegratedPhysicsResult:
         spectral_result: Result from spectral vibration detector
         dynamics_result: Result from acceleration dynamics detector
         uiux_result: Result from UI/UX anomaly detector
-        fusion_result: 3R AAFE fusion result
+        fusion_result: 3R OAE fusion result
         recursion_score: Score from recursion engine
         resonance_score: Score from resonance engine
         ethical_scaling: Ethical compliance scaling factor
@@ -267,7 +267,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
     With full integration into the Mercury Agent architecture:
     - 3R Mechanism for recursive enhancement
     - GOSNN for ethical governance
-    - AAFE for anomaly fusion
+    - OAE for anomaly fusion
 
     Example:
         >>> detector = AdvancedPhysicsIntegratedDetector(config={
@@ -301,7 +301,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         # Initialize 3R components
         self._recursion_engine: RecursionEngine | None = None
         self._resonance_engine: ResonanceEngine | None = None
-        self._fusion_equation: AnomalyFusionEquation | None = None
+        self._fusion_equation: OmniAvaEquation | None = None
 
         if self._physics_config.use_3r_enhancement:
             self._init_3r_components()
@@ -377,7 +377,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             sampling_rate=1.0,
         )
 
-        self._fusion_equation = AnomalyFusionEquation(
+        self._fusion_equation = OmniAvaEquation(
             ethical_compliance_threshold=cfg.ethical_compliance_threshold,
             convergence_rate=CONVERGENCE_RATE,
         )
@@ -640,7 +640,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             else:
                 resonance_score = self._resonance_engine.compute_resonance_score(scores_array)
 
-        # Apply AAFE fusion
+        # Apply OAE fusion
         if self._fusion_equation is not None:
             # Use component scores as inputs to fusion
             r_score = component_scores.get("spectral", 0.5)
@@ -672,7 +672,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             recursion_score: Score from recursion engine
             resonance_score: Score from resonance engine
             ethical_scaling: GOSNN ethical scaling factor
-            fusion_result: AAFE fusion result
+            fusion_result: OAE fusion result
 
         Returns:
             Combined anomaly score [0, 1]
@@ -680,7 +680,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         if not component_scores:
             return 0.0
 
-        # If we have AAFE fusion result, use it
+        # If we have OAE fusion result, use it
         if fusion_result is not None:
             base_score = fusion_result.fusion_score
         else:

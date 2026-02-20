@@ -94,9 +94,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Hierarchical Omni-Scalar Aggregation**: Added 3-level hierarchical aggregation
     (category grouping → weighted mean → geometric mean) for 180+ omni-scalars organized
     into safety, fairness, transparency, accountability, and beneficence categories
-  - **Configurable AAFE Exponent**: Made ethical scaling exponent configurable (default Φ)
+  - **Configurable OAE Exponent**: Made ethical scaling exponent configurable (default Φ)
     to support empirical optimization via parameter sweep
-  - **NaN Guards**: Added NaN propagation prevention to AAFE fusion equation
+  - **NaN Guards**: Added NaN propagation prevention to OAE fusion equation
   - **Parameter Sweep Infrastructure** (`benchmarks/parameter_sweep.py`): Bayesian
     optimization via Optuna TPE over full parameter space with composite objective
     (F1 + calibration error + stability)
@@ -110,8 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Phi=1.618). Mean F1 near Phi: 0.9045 vs 0.8944 elsewhere (p < 0.001, t=8.05).
   Phi confirmed as near-optimal with best trial at 1.742
 
-- **PHASE 3B — Domain-Adaptive AAFE Weights** (`core/three_r/fusion.py`):
-  `DomainAdaptiveAAFEWeights` class that learns per-domain weight profiles from empirical
+- **PHASE 3B — Domain-Adaptive OAE Weights** (`core/three_r/fusion.py`):
+  `DomainAdaptiveOAEWeights` class that learns per-domain weight profiles from empirical
   data when cross-domain variance exceeds 10%. Falls back to golden-ratio defaults
 
 - **PHASE 4A — Conformal Prediction Enhancement** (`core/conformal_prediction.py`):
@@ -144,7 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `SPDManifold`: Symmetric positive definite matrices with affine-invariant metric
   - `RiemannianGradientDescent`: Manifold optimization with Armijo line search
   - `RiemannianAdam`: Adam optimizer adapted for Riemannian manifolds
-  - `ConstrainedParameterOptimizer`: High-level API for AAFE weights on simplex
+  - `ConstrainedParameterOptimizer`: High-level API for OAE weights on simplex
     and covariance parameters on SPD manifold
 
 - **PHASE 5 — Calibration Pipeline** (`core/calibration_pipeline.py`): Threshold
@@ -179,7 +179,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **AAFE Equation** (`core/three_r/fusion.py`): Ethical exponent now configurable
+- **OAE Equation** (`core/three_r/fusion.py`): Ethical exponent now configurable
   (was hardcoded to Φ). Added `domain` and `ethical_exponent` constructor parameters.
   Added `benevolence_score` parameter to `compute()` for sigmoid gate integration.
 - **Spectral Vibration** (`detectors/spectral_vibration.py`): `_compute_schumann_alignment`

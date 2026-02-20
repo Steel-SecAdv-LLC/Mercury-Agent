@@ -10,7 +10,7 @@ improved maintainability:
 
 - types.py: Enums, dataclasses, and type definitions
 - engines.py: RecursionEngine and ResonanceEngine
-- fusion.py: AnomalyFusionEquation and AAFEWeightOptimizer
+- fusion.py: OmniAvaEquation and OAEWeightOptimizer
 
 The main orchestrator (ThreeRMechanism) remains in the parent module
 for backward compatibility.
@@ -19,11 +19,11 @@ Example:
     >>> from omni_mercury_engine.core.three_r import (
     ...     RecursionEngine,
     ...     ResonanceEngine,
-    ...     AnomalyFusionEquation,
+    ...     OmniAvaEquation,
     ... )
     >>> recursion = RecursionEngine(max_depth=5)
     >>> resonance = ResonanceEngine(sampling_rate=1.0)
-    >>> fusion = AnomalyFusionEquation(ethical_compliance_threshold=0.96)
+    >>> fusion = OmniAvaEquation(ethical_compliance_threshold=0.96)
 """
 
 from omni_mercury_engine.core.three_r.engines import (
@@ -31,8 +31,12 @@ from omni_mercury_engine.core.three_r.engines import (
     ResonanceEngine,
 )
 from omni_mercury_engine.core.three_r.fusion import (
-    AAFEWeightOptimizer,
     AnomalyFusionEquation,
+    AAFEWeightOptimizer,
+    DomainAdaptiveAAFEWeights,
+    DomainAdaptiveOAEWeights,
+    OAEWeightOptimizer,
+    OmniAvaEquation,
 )
 from omni_mercury_engine.core.three_r.types import (
     CONVERGENCE_RATE_PARAMETER,
@@ -50,9 +54,14 @@ from omni_mercury_engine.core.three_r.types import (
 __all__ = [
     "CONVERGENCE_RATE_PARAMETER",
     "GOLDEN_RATIO_CONSTANT",
+    "OAEWeightOptimizer",
+    "OmniAvaEquation",
+    "DomainAdaptiveOAEWeights",
+    # Backward compatibility
     "AAFEWeightOptimizer",
-    "AnomalyDetectionMethod",
     "AnomalyFusionEquation",
+    "DomainAdaptiveAAFEWeights",
+    "AnomalyDetectionMethod",
     "AnomalyFusionResult",
     "CodeIssue",
     "EvolutionStrategy",
