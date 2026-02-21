@@ -479,7 +479,8 @@ class ConformalAnomalyDetector:
         # Strategy 2: decision_function (SVM, LinearSVC, etc.)
         try:
             decision = self.base_detector.decision_function(X)
-            # Normalize to [0, 1] using sigmoid
+            # Normalize to [0, 1] using sigmoid (clip to prevent exp overflow)
+            decision = np.clip(decision, -500, 500)
             return np.asarray(1.0 / (1.0 + np.exp(-decision)))  # type: ignore[no-any-return, unused-ignore]
         except (AttributeError, NotImplementedError):
             pass

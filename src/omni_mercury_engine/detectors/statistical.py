@@ -323,6 +323,7 @@ class MercuryAnomalyDetector(BaseDetector):
                     self._threshold_pipeline = trial
                     self._calibration_result = result
             except Exception:
+                _logger.debug("Calibration strategy %s failed, skipping", strat.value)
                 continue
 
         self._supervised_threshold = best_threshold
