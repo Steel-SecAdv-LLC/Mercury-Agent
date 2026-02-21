@@ -4,8 +4,8 @@
 
 | Property | Value |
 |----------|-------|
-| Document Version | 2.2 |
-| Last Updated | 2026-02-09 |
+| Document Version | 2.3 |
+| Last Updated | 2026-02-21 |
 | Classification | Public |
 | Maintainer | Steel Security Advisors LLC |
 
@@ -220,13 +220,13 @@ pytest tests/ -v
 pytest tests/ --cov=src/omni_mercury_engine --cov-report=html --cov-report=term
 
 # Run specific test file
-pytest tests/test_harmonic_encoder.py -v
+pytest tests/test_harmonic.py -v
 
-# Run only unit tests (fast)
-pytest tests/unit/
+# Run core tests (fast)
+pytest tests/test_cli.py tests/core/ -v
 
-# Run only integration tests
-pytest tests/integration/
+# Run detector tests
+pytest tests/detectors/ -v
 ```
 
 ### Test Coverage Requirements
@@ -444,7 +444,7 @@ Contributors will be recognized in:
 | 2.0.0 | 2026-01-06 | Consolidated from docs/, updated to use pyproject.toml |
 | 2.1.0 | 2026-01-09 | Updated to v1.1.0 |
 | 2.2.0 | 2026-02-09 | Updated to v1.4.0, aligned Python prerequisite |
-| 2.3.0 | 2026-02-20 | Updated to v1.5.1, OAE rename, calibration validation |
+| 2.3.0 | 2026-02-21 | Updated to v1.5.1, fixed test directory references, aligned with CI |
 
 ---
 
