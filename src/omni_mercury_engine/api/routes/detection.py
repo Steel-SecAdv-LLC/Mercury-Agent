@@ -393,7 +393,7 @@ async def detect_three_r(
 ) -> ThreeRResponse:
     """Perform 3R mechanism analysis."""
     try:
-        from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
+        from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 
         data = np.array(request.data)
 
@@ -442,7 +442,7 @@ async def detect_three_r(
         snr = signal_variance / (noise_estimate + 1e-8)
         optimization_score = float(np.clip(1.0 / (1.0 + np.exp(-np.log10(snr + 1))), 0.0, 1.0))
 
-        aafe = AnomalyFusionEquation(
+        aafe = OmniAvaEquation(
             ethical_compliance_threshold=request.ethical_threshold,
         )
 

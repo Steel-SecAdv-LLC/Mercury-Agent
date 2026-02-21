@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Medical Cure Predictor validation with statistical tests.
+Cyber Fortress validation with statistical tests.
 """
 
 import os
@@ -28,30 +28,29 @@ from scipy import stats
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from assets.loaders import generate_mimic_vitals
+from assets.loaders import generate_pcap_data
 
-from omni_mercury_engine.medical.medical_cure_predictor import MedicalCurePredictor
+from omni_mercury_engine.security.cyber_fortress import ResonanceHashIntegrityChecker
 
 
-def validate_medical_predictor():
-    """Validate Medical Predictor with t-tests."""
-    print("Medical Predictor Validation")
+def validate_cyber_fortress():
+    """Validate Cyber Fortress with t-tests."""
+    print("Cyber Fortress Validation")
     print("=" * 60)
 
-    predictor = MedicalCurePredictor(enable_imaging=False, enable_treatment_opt=False)
+    checker = ResonanceHashIntegrityChecker(threshold_std=10.0)
 
     our_scores = []
     baseline_scores = []
 
     for _ in range(50):
-        data = generate_mimic_vitals(num_timesteps=288, inject_disease=True, disease_type="sepsis")
+        data = generate_pcap_data(num_packets=500, inject_tampering=True, tampering_ratio=0.1)
 
-        result = predictor.predict_and_cure({"vital_signs_sequence": data["vital_signs_sequence"]})
-
-        our_score = result.confidence
+        result = checker.check_integrity(data["hash_chain"])
+        our_score = 1.0 if not result["integrity_verified"] else 0.0
         our_scores.append(our_score)
 
-        baseline_score = np.random.uniform(0.4, 0.6)
+        baseline_score = np.random.uniform(0.5, 0.8)
         baseline_scores.append(baseline_score)
 
     our_mean = np.mean(our_scores)
@@ -72,4 +71,4 @@ def validate_medical_predictor():
 
 
 if __name__ == "__main__":
-    validate_medical_predictor()
+    validate_cyber_fortress()

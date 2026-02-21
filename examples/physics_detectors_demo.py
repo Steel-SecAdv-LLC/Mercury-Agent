@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Physics-Inspired Anomaly Detection Demo - Mercury Agent ♱ v1.4.0
+Physics-Inspired Anomaly Detection Demo - Mercury Agent v1.5.1
 
 Demonstrates the advanced physics-inspired anomaly detection modules:
 1. SpectralVibrationDetector - Frequency-domain analysis with GNN/CNN
@@ -52,7 +52,7 @@ from omni_mercury_engine.detectors.uiux_anomaly import (
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Physics-Inspired Anomaly Detection Demo - Mercury Agent v1.4.0"
+        description="Physics-Inspired Anomaly Detection Demo - Mercury Agent v1.5.1"
     )
     parser.add_argument(
         "--threshold",
@@ -605,7 +605,7 @@ def main():
     args = parse_args()
 
     print("\n" + "=" * 70)
-    print("Mercury Agent: PHYSICS-INSPIRED ANOMALY DETECTION DEMO (v1.4.0)")
+    print("Mercury Agent: PHYSICS-INSPIRED ANOMALY DETECTION DEMO (v1.5.1)")
     print(f"Threshold: {args.threshold} | Module: {args.module}")
     print("=" * 70)
 

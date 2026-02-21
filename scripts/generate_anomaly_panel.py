@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Generate multi-panel anomaly detection visualization.
@@ -42,9 +42,7 @@ def generate_anomaly_detection_panel() -> Path:
 
     # Create figure with 2x3 grid
     fig, axes = plt.subplots(2, 3, figsize=(16, 10))
-    fig.suptitle(
-        "Mercury Agent ♱ Anomaly Detection Analysis", fontsize=16, fontweight="bold", y=0.98
-    )
+    fig.suptitle("Mercury Agent Anomaly Detection Analysis", fontsize=16, fontweight="bold", y=0.98)
 
     # Color scheme
     colors = {
@@ -205,7 +203,7 @@ def generate_anomaly_detection_panel() -> Path:
         summary_text,
         fontsize=9,
         family="monospace",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+        bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.8},
         verticalalignment="bottom",
     )
 

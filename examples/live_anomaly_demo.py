@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱ - Live Anomaly Detection Demo
+Mercury Agent - Live Anomaly Detection Demo
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 Live Anomaly Detection Demo
 
-This script demonstrates Mercury Agent ♱'s real-time anomaly detection
+This script demonstrates Mercury Agent's real-time anomaly detection
 capabilities using simulated streaming data. It showcases:
 
 1. Real-time data stream processing
@@ -29,10 +29,10 @@ capabilities using simulated streaming data. It showcases:
 4. Visual output with detection timestamps and confidence scores
 
 Usage:
-    python demos/live_anomaly_demo.py --domain security
-    python demos/live_anomaly_demo.py --domain medical
-    python demos/live_anomaly_demo.py --domain environmental
-    python demos/live_anomaly_demo.py --all
+    python examples/live_anomaly_demo.py --domain security
+    python examples/live_anomaly_demo.py --domain medical
+    python examples/live_anomaly_demo.py --domain environmental
+    python examples/live_anomaly_demo.py --all
 """
 
 import argparse
@@ -57,7 +57,7 @@ BANNER = """
 ║   ██║ ╚═╝ ██║███████╗██║  ██║╚██████╗╚██████╔╝██║  ██║   ██║                ║
 ║   ╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝                ║
 ║                                                                              ║
-║                    ♱ AGENT - Live Anomaly Detection Demo                     ║
+║                    AGENT - Live Anomaly Detection Demo                     ║
 ║                                                                              ║
 ║   Neuro-Symbolic AI | Ethical Governance | Civilization-First                ║
 ║                                                                              ║
@@ -485,13 +485,13 @@ class LiveAnomalyDetector:
 def main() -> None:
     """Main entry point for the live demo."""
     parser = argparse.ArgumentParser(
-        description="Mercury Agent ♱ Live Anomaly Detection Demo",
+        description="Mercury Agent Live Anomaly Detection Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python demos/live_anomaly_demo.py --domain security
-  python demos/live_anomaly_demo.py --domain medical --samples 100
-  python demos/live_anomaly_demo.py --all --delay 100
+  python examples/live_anomaly_demo.py --domain security
+  python examples/live_anomaly_demo.py --domain medical --samples 100
+  python examples/live_anomaly_demo.py --all --delay 100
         """,
     )
     parser.add_argument(
@@ -548,7 +548,7 @@ Examples:
             output_path = args.output.replace(".json", f"_{domain}.json")
             detector.save_results(output_path)
 
-    print("\n♱ Demo complete. Mercury Agent ♱ - Civilization-First AI")
+    print("\nDemo complete. Mercury Agent - Civilization-First AI")
 
 
 if __name__ == "__main__":

@@ -940,7 +940,7 @@ class DomainEnsembleWeightOptimizer:
     Domain-specific ensemble weighting optimizer.
 
     Learns optimal weights for combining multiple detectors per domain,
-    extending the AAFEWeightOptimizer with domain awareness.
+    extending the OAEWeightOptimizer with domain awareness.
     """
 
     def __init__(

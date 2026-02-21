@@ -2,7 +2,7 @@
 Mercury Agent - 3R Mechanism Fusion
 Copyright (C) 2025 Steel Security Advisors LLC
 
-AVA Anomaly Fusion Equation (AAFE) implementation for unified precision scoring.
+Omni-Ava Equation (OAE) implementation for unified precision scoring.
 """
 
 from __future__ import annotations
@@ -30,9 +30,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AnomalyFusionEquation:
+class OmniAvaEquation:
     """
-    AVA Anomaly Fusion Equation (AAFE) for unified precision scoring in 3R mechanism.
+    Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
 
     Implements the mathematical framework:
     A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
@@ -58,9 +58,9 @@ class AnomalyFusionEquation:
         ethical_exponent: float | None = None,
     ):
         """
-        Initialize AVA Anomaly Fusion Equation.
+        Initialize Omni-Ava Equation.
 
-        The AAFE computes:
+        The OAE computes:
             A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · η(b)^p
 
         Where η(b) is the sigmoid benevolence gate (replacing hard threshold)
@@ -132,7 +132,7 @@ class AnomalyFusionEquation:
         benevolence_score: float | None = None,
     ) -> AnomalyFusionResult:
         """
-        Compute AVA Anomaly Fusion Equation score.
+        Compute Omni-Ava Equation score.
 
         A = (w_R·R(x) + w_H·H(ω) + w_O·O(θ)) · η^p
 
@@ -170,13 +170,13 @@ class AnomalyFusionEquation:
 
         # NaN guard on input scores
         if np.isnan(recursion_score):
-            logger.warning("NaN recursion_score in AAFE, replacing with 0.0")
+            logger.warning("NaN recursion_score in OAE, replacing with 0.0")
             recursion_score = 0.0
         if np.isnan(resonance_score):
-            logger.warning("NaN resonance_score in AAFE, replacing with 0.0")
+            logger.warning("NaN resonance_score in OAE, replacing with 0.0")
             resonance_score = 0.0
         if np.isnan(optimization_score):
-            logger.warning("NaN optimization_score in AAFE, replacing with 0.0")
+            logger.warning("NaN optimization_score in OAE, replacing with 0.0")
             optimization_score = 0.0
 
         # Compute ethical gate value
@@ -275,9 +275,9 @@ class AnomalyFusionEquation:
         return is_stable, float(estimated_lambda)
 
 
-class AAFEWeightOptimizer:
+class OAEWeightOptimizer:
     """
-    Optimizer for AAFE weights using gradient-based methods.
+    Optimizer for OAE weights using gradient-based methods.
 
     Learns optimal weights (w_R, w_H, w_O) to maximize anomaly detection performance
     while maintaining ethical constraints.
@@ -313,7 +313,7 @@ class AAFEWeightOptimizer:
         max_iterations: int = 100,
     ) -> NDArray[Any]:
         """
-        Optimize AAFE weights to minimize prediction error.
+        Optimize OAE weights to minimize prediction error.
 
         Args:
             scores: List of (R, H, O) score tuples
@@ -353,17 +353,17 @@ class AAFEWeightOptimizer:
 
         return self.optimized_weights
 
-    def get_optimized_fusion(self) -> AnomalyFusionEquation | None:
+    def get_optimized_fusion(self) -> OmniAvaEquation | None:
         """
-        Get AnomalyFusionEquation with optimized weights.
+        Get OmniAvaEquation with optimized weights.
 
         Returns:
-            Configured AnomalyFusionEquation or None if not optimized
+            Configured OmniAvaEquation or None if not optimized
         """
         if self.optimized_weights is None:
             return None
 
-        return AnomalyFusionEquation(
+        return OmniAvaEquation(
             initial_weights={
                 "w_R": float(self.optimized_weights[0]),
                 "w_H": float(self.optimized_weights[1]),
@@ -372,8 +372,8 @@ class AAFEWeightOptimizer:
         )
 
 
-class DomainAdaptiveAAFEWeights:
-    """Domain-adaptive weight profiles for the AAFE equation.
+class DomainAdaptiveOAEWeights:
+    """Domain-adaptive weight profiles for the OAE equation.
 
     When cross-domain weight variance exceeds a threshold (default 10%),
     this class maintains per-domain weight profiles learned from empirical
@@ -441,7 +441,7 @@ class DomainAdaptiveAAFEWeights:
             scores = data[:, :3]
             targets = data[:, 3]
 
-            optimizer = AAFEWeightOptimizer()
+            optimizer = OAEWeightOptimizer()
             tuples = [(float(r), float(h), float(o)) for r, h, o in scores]
             optimized = optimizer.optimize_weights(tuples, targets.tolist())
 
@@ -669,3 +669,9 @@ class BanachRecursion:
                 self.convergence_achieved = True
 
         return result
+
+
+# Backward compatibility aliases (PRESERVATION PRINCIPLE — see DEPRECATION.md)
+AnomalyFusionEquation = OmniAvaEquation
+AAFEWeightOptimizer = OAEWeightOptimizer
+DomainAdaptiveAAFEWeights = DomainAdaptiveOAEWeights

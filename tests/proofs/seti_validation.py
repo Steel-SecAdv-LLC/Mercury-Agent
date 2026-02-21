@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Cyber Fortress validation with statistical tests.
+Emergent Life Detector validation with statistical tests.
 """
 
 import os
@@ -28,29 +28,30 @@ from scipy import stats
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from assets.loaders import generate_pcap_data
+from assets.loaders import generate_seti_signal
 
-from omni_mercury_engine.security.cyber_fortress import ResonanceHashIntegrityChecker
+from omni_mercury_engine.emergent.emergent_life_detector import EmergentLifeDetector
 
 
-def validate_cyber_fortress():
-    """Validate Cyber Fortress with t-tests."""
-    print("Cyber Fortress Validation")
+def validate_life_detector():
+    """Validate Life Detector with t-tests."""
+    print("Emergent Life Detector Validation")
     print("=" * 60)
 
-    checker = ResonanceHashIntegrityChecker(threshold_std=10.0)
+    detector = EmergentLifeDetector(enable_biosignatures=False, enable_contact_protocols=False)
 
     our_scores = []
     baseline_scores = []
 
     for _ in range(50):
-        data = generate_pcap_data(num_packets=500, inject_tampering=True, tampering_ratio=0.1)
+        data = generate_seti_signal(num_samples=10000, inject_technosignature=True)
 
-        result = checker.check_integrity(data["hash_chain"])
-        our_score = 1.0 if not result["integrity_verified"] else 0.0
+        result = detector.detect_emergent_life(data["cosmic_signal"], "seti")
+
+        our_score = result.confidence
         our_scores.append(our_score)
 
-        baseline_score = np.random.uniform(0.5, 0.8)
+        baseline_score = np.random.uniform(0.3, 0.5)
         baseline_scores.append(baseline_score)
 
     our_mean = np.mean(our_scores)
@@ -71,4 +72,4 @@ def validate_cyber_fortress():
 
 
 if __name__ == "__main__":
-    validate_cyber_fortress()
+    validate_life_detector()

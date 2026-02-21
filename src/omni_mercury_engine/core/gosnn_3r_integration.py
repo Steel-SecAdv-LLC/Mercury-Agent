@@ -35,7 +35,7 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
     ScalarGroup,
     get_global_scalar_network,
 )
-from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
+from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 from omni_mercury_engine.core.three_r.types import (
     CONVERGENCE_RATE_PARAMETER,
     AnomalyFusionResult,
@@ -291,7 +291,7 @@ class GOSNN3RIntegration:
     def __init__(
         self,
         gosnn: GlobalOmniScalarNetwork | None = None,
-        fusion_equation: AnomalyFusionEquation | None = None,
+        fusion_equation: OmniAvaEquation | None = None,
         feedback_direction: FeedbackDirection = FeedbackDirection.BIDIRECTIONAL,
         domain: str | None = None,
         enable_sliding_window: bool = True,
@@ -301,13 +301,13 @@ class GOSNN3RIntegration:
 
         Args:
             gosnn: GOSNN instance (creates default if None)
-            fusion_equation: AAFE instance (creates default if None)
+            fusion_equation: OAE instance (creates default if None)
             feedback_direction: Direction of feedback flow
             domain: Target domain for calibration
             enable_sliding_window: Enable sliding window normalization
         """
         self.gosnn = gosnn or get_global_scalar_network(domain=domain)
-        self.fusion_equation = fusion_equation or AnomalyFusionEquation()
+        self.fusion_equation = fusion_equation or OmniAvaEquation()
         self.feedback_direction = feedback_direction
         self.domain = domain
 

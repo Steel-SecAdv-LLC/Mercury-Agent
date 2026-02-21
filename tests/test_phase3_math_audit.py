@@ -20,7 +20,7 @@ Comprehensive unit tests for Phase 3 mathematical audit changes:
     2. Banach Recursion convergence bounds
     3. Domain-Adaptive Harmonics
     4. Hierarchical Omni-Scalar Aggregation
-    5. AAFE Enhancements (configurable exponent, NaN guard, benevolence)
+    5. OAE Enhancements (configurable exponent, NaN guard, benevolence)
 """
 
 from __future__ import annotations
@@ -43,8 +43,8 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
     reset_global_network,
 )
 from omni_mercury_engine.core.three_r.fusion import (
-    AnomalyFusionEquation,
     BanachRecursion,
+    OmniAvaEquation,
 )
 
 # ==========================================================================
@@ -601,25 +601,25 @@ class TestHierarchicalOmniScalarAggregation:
 
 
 # ==========================================================================
-# 5. AAFE Enhancements
+# 5. OAE Enhancements
 # ==========================================================================
 
 
-class TestAAFEEnhancements:
-    """Tests for AnomalyFusionEquation enhancements (Phase 3)."""
+class TestOAEEnhancements:
+    """Tests for OmniAvaEquation enhancements (Phase 3)."""
 
     # --- Configurable ethical_exponent ---
 
     def test_default_ethical_exponent_is_golden_ratio(self) -> None:
         """When ethical_exponent is not set, it should default to phi (1.618)."""
-        aafe = AnomalyFusionEquation()
+        aafe = OmniAvaEquation()
         assert aafe.ethical_exponent == pytest.approx(1.618033988749895, rel=1e-10)
 
     def test_custom_ethical_exponent(self) -> None:
         """A custom ethical_exponent should be respected in computation."""
-        aafe_phi = AnomalyFusionEquation(ethical_exponent=None)  # Defaults to phi
-        aafe_one = AnomalyFusionEquation(ethical_exponent=1.0)
-        aafe_two = AnomalyFusionEquation(ethical_exponent=2.0)
+        aafe_phi = OmniAvaEquation(ethical_exponent=None)  # Defaults to phi
+        aafe_one = OmniAvaEquation(ethical_exponent=1.0)
+        aafe_two = OmniAvaEquation(ethical_exponent=2.0)
 
         assert aafe_phi.ethical_exponent == pytest.approx(1.618033988749895, rel=1e-10)
         assert aafe_one.ethical_exponent == pytest.approx(1.0)
@@ -627,8 +627,8 @@ class TestAAFEEnhancements:
 
     def test_ethical_exponent_affects_fusion_score(self) -> None:
         """Different ethical exponents should produce different fusion scores."""
-        aafe_low = AnomalyFusionEquation(ethical_exponent=0.5)
-        aafe_high = AnomalyFusionEquation(ethical_exponent=3.0)
+        aafe_low = OmniAvaEquation(ethical_exponent=0.5)
+        aafe_high = OmniAvaEquation(ethical_exponent=3.0)
 
         result_low = aafe_low.compute(0.8, 0.7, 0.6)
         result_high = aafe_high.compute(0.8, 0.7, 0.6)
@@ -640,7 +640,7 @@ class TestAAFEEnhancements:
 
     def test_nan_recursion_score_replaced_with_zero(self) -> None:
         """NaN recursion_score should be replaced with 0.0."""
-        aafe = AnomalyFusionEquation()
+        aafe = OmniAvaEquation()
         result = aafe.compute(
             recursion_score=float("nan"),
             resonance_score=0.5,
@@ -652,7 +652,7 @@ class TestAAFEEnhancements:
 
     def test_nan_resonance_score_replaced_with_zero(self) -> None:
         """NaN resonance_score should be replaced with 0.0."""
-        aafe = AnomalyFusionEquation()
+        aafe = OmniAvaEquation()
         result = aafe.compute(
             recursion_score=0.5,
             resonance_score=float("nan"),
@@ -663,7 +663,7 @@ class TestAAFEEnhancements:
 
     def test_nan_optimization_score_replaced_with_zero(self) -> None:
         """NaN optimization_score should be replaced with 0.0."""
-        aafe = AnomalyFusionEquation()
+        aafe = OmniAvaEquation()
         result = aafe.compute(
             recursion_score=0.5,
             resonance_score=0.5,
@@ -674,7 +674,7 @@ class TestAAFEEnhancements:
 
     def test_all_nan_inputs_produce_zero_score(self) -> None:
         """If all three input scores are NaN, fusion_score should be 0.0."""
-        aafe = AnomalyFusionEquation()
+        aafe = OmniAvaEquation()
         result = aafe.compute(
             recursion_score=float("nan"),
             resonance_score=float("nan"),
@@ -686,7 +686,7 @@ class TestAAFEEnhancements:
 
     def test_benevolence_score_uses_sigmoid_gate(self) -> None:
         """When benevolence_score is provided, the sigmoid gate should be used."""
-        aafe = AnomalyFusionEquation(domain="medical")
+        aafe = OmniAvaEquation(domain="medical")
         result = aafe.compute(
             recursion_score=0.8,
             resonance_score=0.7,
@@ -699,7 +699,7 @@ class TestAAFEEnhancements:
 
     def test_benevolence_score_none_uses_threshold(self) -> None:
         """Without benevolence_score, the raw ethical_compliance_threshold is used."""
-        aafe = AnomalyFusionEquation(ethical_compliance_threshold=0.96)
+        aafe = OmniAvaEquation(ethical_compliance_threshold=0.96)
         result = aafe.compute(
             recursion_score=0.8,
             resonance_score=0.7,
@@ -709,10 +709,10 @@ class TestAAFEEnhancements:
 
     def test_high_benevolence_boosts_score(self) -> None:
         """A high benevolence_score (near 1.0) should produce a higher score than a low one."""
-        aafe = AnomalyFusionEquation(domain="security")
+        aafe = OmniAvaEquation(domain="security")
         result_high = aafe.compute(0.8, 0.7, 0.6, benevolence_score=0.99)
 
-        aafe2 = AnomalyFusionEquation(domain="security")
+        aafe2 = OmniAvaEquation(domain="security")
         result_low = aafe2.compute(0.8, 0.7, 0.6, benevolence_score=0.5)
 
         assert result_high.fusion_score > result_low.fusion_score
@@ -721,19 +721,19 @@ class TestAAFEEnhancements:
 
     def test_backward_compat_sigma_immutable_alias(self) -> None:
         """sigma_immutable parameter should work as an alias for ethical_compliance_threshold."""
-        aafe = AnomalyFusionEquation(sigma_immutable=0.94)
+        aafe = OmniAvaEquation(sigma_immutable=0.94)
         assert aafe.ethical_compliance_threshold == pytest.approx(0.94)
         assert aafe.sigma_immutable == pytest.approx(0.94)
 
     def test_backward_compat_lambda_lyapunov_alias(self) -> None:
         """lambda_lyapunov parameter should work as an alias for convergence_rate."""
-        aafe = AnomalyFusionEquation(lambda_lyapunov=0.3)
+        aafe = OmniAvaEquation(lambda_lyapunov=0.3)
         assert aafe.convergence_rate_param == pytest.approx(0.3)
         assert aafe.lambda_lyapunov == pytest.approx(0.3)
 
     def test_backward_compat_sigma_immutable_override(self) -> None:
         """sigma_immutable_override should work as an alias in compute()."""
-        aafe = AnomalyFusionEquation()
+        aafe = OmniAvaEquation()
         result = aafe.compute(
             recursion_score=0.8,
             resonance_score=0.7,
@@ -744,13 +744,13 @@ class TestAAFEEnhancements:
 
     def test_default_weights_sum_to_one(self) -> None:
         """Default golden-ratio-based weights should sum to 1.0."""
-        aafe = AnomalyFusionEquation()
+        aafe = OmniAvaEquation()
         total: float = sum(aafe.weights.values())
         assert total == pytest.approx(1.0, abs=1e-10)
 
     def test_compute_returns_anomaly_fusion_result(self) -> None:
         """compute() should return an AnomalyFusionResult with all expected fields."""
-        aafe = AnomalyFusionEquation()
+        aafe = OmniAvaEquation()
         result = aafe.compute(0.8, 0.7, 0.6)
 
         assert hasattr(result, "fusion_score")
@@ -764,7 +764,7 @@ class TestAAFEEnhancements:
 
     def test_lyapunov_bound_decreases_over_time(self) -> None:
         """Lyapunov bound should decrease with each call (exponential decay)."""
-        aafe = AnomalyFusionEquation()
+        aafe = OmniAvaEquation()
         bounds: list[float] = []
         for _ in range(10):
             result = aafe.compute(0.8, 0.7, 0.6)
@@ -778,15 +778,15 @@ class TestAAFEEnhancements:
 
     def test_ethical_compliance_threshold_clamped(self) -> None:
         """ethical_compliance_threshold should be clamped to [0.90, 0.99]."""
-        aafe_low = AnomalyFusionEquation(ethical_compliance_threshold=0.5)
+        aafe_low = OmniAvaEquation(ethical_compliance_threshold=0.5)
         assert aafe_low.ethical_compliance_threshold >= 0.90
 
-        aafe_high = AnomalyFusionEquation(ethical_compliance_threshold=1.0)
+        aafe_high = OmniAvaEquation(ethical_compliance_threshold=1.0)
         assert aafe_high.ethical_compliance_threshold <= 0.99
 
     def test_domain_parameter_persists(self) -> None:
         """The domain parameter should be stored and accessible."""
-        aafe = AnomalyFusionEquation(domain="humanitarian")
+        aafe = OmniAvaEquation(domain="humanitarian")
         assert aafe.domain == "humanitarian"
 
 
@@ -799,7 +799,7 @@ class TestCrossCuttingIntegration:
     """Integration tests that verify Phase 3 components work together."""
 
     def test_aafe_with_banach_recursion_result(self) -> None:
-        """AAFE should accept the output of BanachRecursion as a component score."""
+        """OAE should accept the output of BanachRecursion as a component score."""
         br = BanachRecursion(alpha_raw=0.0, max_depth=10)
 
         def f(x: float) -> float:
@@ -810,7 +810,7 @@ class TestCrossCuttingIntegration:
 
         recursion_result, _ = br.recurse(1.0, f, g)
 
-        aafe = AnomalyFusionEquation(domain="environmental")
+        aafe = OmniAvaEquation(domain="environmental")
         result = aafe.compute(
             recursion_score=min(max(recursion_result, 0.0), 1.0),
             resonance_score=0.7,

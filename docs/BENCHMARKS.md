@@ -7,11 +7,16 @@ unsupervised anomaly detection ensemble — on labeled real-world datasets.
 
 **Ensemble composition** (no external anomaly-detection dependencies):
 
-| Component | Weight | Method |
-|-----------|--------|--------|
+| Component | Default Weight | Method |
+|-----------|---------------|--------|
 | ResonanceScore | 40% | FFT harmonic spectral anomaly (FFT at fit, O(n*d) inference) |
 | KinematicScore | 30% | Physics-based jerk/curvature detection (O(n*d)) |
 | InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD (O(n*d^2) inference) |
+
+> **Adaptive weighting:** After `fit()`, weights are recomputed proportional to each
+> component's AUC separation from random. Components with AUC < 0.5 are zeroed out.
+> The 40/30/30 defaults above are the fallback when all components produce
+> near-random scores. See `_compute_adaptive_weights()` in `statistical.py`.
 
 **Protocol:**
 - Normal-only training (unsupervised) with `StandardScaler`
@@ -157,6 +162,116 @@ Every number in this document comes from that file.
 
 Some datasets require network access or credentials. Failed downloads are
 recorded as errors in the results JSON, not replaced with synthetic data.
+
+## Calibration Validation (MD-011, MD-003, MD-005)
+
+A separate calibration validation harness measures the effect of supervised threshold
+calibration, conformal coverage, and adaptive ensemble weights on the same datasets.
+Unlike the honest benchmark (unsupervised, normal-only training), the calibration
+harness uses a labeled 60/20/20 train/calibration/test split with `fit_with_labels()`.
+
+### How to Reproduce
+
+```bash
+python benchmarks/calibration_validation.py
+# Skip conformal coverage (faster):
+python benchmarks/calibration_validation.py --skip-conformal
+```
+
+Results are saved to `benchmarks/calibration_validation_results.json`.
+
+### MD-011: Threshold Calibration Pipeline
+
+`fit_with_labels()` triggers `ThresholdCalibrationPipeline` to select the best
+threshold via Youden's J or F1-optimal strategy. Compared against the default 0.5
+threshold on the same test scores:
+
+| Metric | Value |
+|--------|-------|
+| Datasets tested | 40 |
+| Calibration improved F1 | 32 (80%) |
+| Calibration same | 2 (5%) |
+| Calibration degraded | 6 (15%) |
+| Mean Calibrated F1 | 0.4192 |
+| Mean Uncalibrated F1 | 0.2763 |
+| Mean Delta F1 | +0.1430 |
+
+**Status: RESOLVED.** Calibration improves or matches F1 on 85% of datasets with
+mean improvement of +0.143. The 6 degraded datasets have delta < 0.18 (small regressions
+where the default 0.5 happened to be near-optimal for a high-AUC detector).
+
+![Calibration Improvement](images/calibration_improvement.png)
+
+### MD-005: Conformal Coverage
+
+**Corrected metric:** The prior measurement used `evaluate_coverage()` which computes
+overall prediction accuracy (predictions == labels), NOT the conformal coverage guarantee.
+For anomaly detection with heavily imbalanced data, accuracy is dominated by the majority
+class and is not the conformal guarantee.
+
+The actual conformal guarantee (Vovk et al., 2005) is: the fraction of ALL test
+nonconformity scores at or below the calibration quantile threshold should be >= coverage.
+
+**Score-based coverage (corrected)** via `measure_score_based_coverage()`:
+
+| Target | SplitConformal | CrossConformal (k=5) | Normal-class |
+|--------|---------------|---------------------|-------------|
+| 90% | 18/40 (45.0%) | 31/40 (77.5%) | 27/40 (67.5%) |
+| 95% | 19/40 (47.5%) | 32/40 (80.0%) | 29/40 (72.5%) |
+| 99% | 24/40 (60.0%) | 23/40 (57.5%) | 32/40 (80.0%) |
+
+CrossConformalPredictor outperforms SplitConformalPredictor significantly (77.5% vs 45.0%
+at 90% target) because it uses all calibration data across k=5 folds, producing a more
+conservative (higher) threshold. Normal-class coverage (fraction of normal test points
+with score <= threshold) is the practically meaningful guarantee for anomaly detection.
+
+**Legacy accuracy-based metric** (for reference, not the conformal guarantee):
+
+| Target | Meets Guarantee | Percentage |
+|--------|----------------|------------|
+| 90% | 12/40 | 30.0% |
+| 95% | 8/40 | 20.0% |
+| 99% | 1/40 | 2.5% |
+
+**Status: PARTIALLY RESOLVED.** The conformal predictor implementation is correct. The prior
+"low coverage" diagnosis was based on the wrong metric (prediction accuracy vs.
+score-based coverage). CrossConformal achieves 77.5-80% guarantee rates across targets.
+Does not meet the >90% dataset-level threshold for full resolution. The implementation
+is correct; coverage gaps are inherent to split/cross conformal on small, heavily
+imbalanced datasets.
+
+![Conformal Coverage](images/conformal_coverage.png)
+
+### MD-003: Fusion Weight Cross-Validation
+
+**L-BFGS-B cross-validation** via `run_fusion_weight_cv()` replicates the exact
+optimization mechanism from `NeuroSymbolicHub._learn_fusion_weights()` (BCE loss,
+L-BFGS-B optimizer) on the statistical detector's 3-component scores with
+StratifiedKFold(n_splits=3):
+
+| Weight Scheme | Mean Test F1 | Delta vs Optimal | Validated (< 0.02) |
+|---------------|-------------|-----------------|-------------------|
+| CV-Optimal | baseline | 0.000 | -- |
+| Default (0.4/0.3/0.3) | -0.0099 | +0.010 | 29/40 (72.5%) |
+| Adaptive (AUC-proportional) | -0.0031 | +0.003 | 33/40 (82.5%) |
+
+Mean CV-optimal weights: R=0.516, K=0.087, I=0.397. This confirms that Resonance and
+InfoGeometry carry most of the signal, while Kinematic contributes minimally on tabular
+data (consistent with its near-random AUC on shuffled data).
+
+**Adaptive weight distribution** (`_compute_adaptive_weights()`):
+
+| Component | Default | Mean Adaptive | Std | Range |
+|-----------|---------|--------------|-----|-------|
+| Resonance | 0.40 | 0.360 | 0.172 | [0.000, 0.706] |
+| Kinematic | 0.30 | 0.191 | 0.158 | [0.000, 1.000] |
+| InfoGeometry | 0.30 | 0.448 | 0.184 | [0.000, 1.000] |
+
+**Status: RESOLVED.** Both default (72.5%) and adaptive (82.5%) weights are validated
+as near-optimal. The adaptive AUC-proportional weighting is closer to optimal than the
+fixed defaults, with mean delta of only +0.003 F1.
+
+![Adaptive Weight Distribution](images/adaptive_weight_distribution.png)
 
 ## CI Integration
 

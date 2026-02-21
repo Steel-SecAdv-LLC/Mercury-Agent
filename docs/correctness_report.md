@@ -10,7 +10,7 @@
 - PASS: score_calibration.py line 870 uses (max - min + 1e-10)
 
 ### 1.2 Overflow/Underflow Potential
-- WARNING: EQ-001 AAFE ethical_scaling = η^Φ where η ∈ [0.90, 0.99] and Φ = 1.618. Range: 0.90^1.618 ≈ 0.837 to 0.99^1.618 ≈ 0.984. No overflow risk but values are always < 1, which means ethical scaling always reduces the fusion score. This is by design.
+- WARNING: EQ-001 OAE ethical_scaling = η^Φ where η ∈ [0.90, 0.99] and Φ = 1.618. Range: 0.90^1.618 ≈ 0.837 to 0.99^1.618 ≈ 0.984. No overflow risk but values are always < 1, which means ethical scaling always reduces the fusion score. This is by design.
 - WARNING: core/calibration.py line 286 clips to [1e-10, 1-1e-10] before logit — PASS
 - WARNING: conformal_prediction.py line 476 — sigmoid 1/(1+exp(-x)) — could overflow for large positive x (exp(-x) → 0, safe) or large negative x (exp(|x|) → overflow). Should use np.clip on decision values.
 - PASS: exp(-z_distance/3) in z-score anomaly — z_distance is always positive, so exponent is negative, no overflow.
@@ -29,7 +29,7 @@
 
 ## 2. Mathematical Correctness Issues
 
-### 2.1 AAFE Golden Ratio Exponent (EQ-001) — CRITICAL
+### 2.1 OAE Golden Ratio Exponent (EQ-001) — CRITICAL
 - ISSUE: The golden ratio Φ = 1.618... is used as the ethical scaling exponent with no mathematical justification.
 - IMPACT: This is the core fusion equation. An unjustified exponent means the entire scoring system has an arbitrary nonlinearity.
 - RECOMMENDATION: Replace with empirically optimized exponent from parameter sweep, or provide structural derivation.
@@ -84,7 +84,7 @@
 
 ## 4. Docstring/Implementation Mismatches
 
-### 4.1 AAFE Weight Documentation
+### 4.1 OAE Weight Documentation
 - ISSUE: README documents weights as w_R=0.35, w_H=0.35, w_O=0.30 but code uses w_R≈0.447, w_H≈0.276, w_O≈0.276
 - LOCATION: README.md vs core/centralized_constants.py lines 197-199
 - STATUS: DOCUMENTATION MISMATCH — code is correct (golden-ratio derived), README is stale
@@ -103,7 +103,7 @@
 ### 5.1 Score Normalization
 - PASS: All anomaly scores are normalized to [0, 1] before fusion
 - PASS: Ethical thresholds are in [0, 1]
-- PASS: AAFE output is bounded by η^Φ ≤ 1 and weighted sum ≤ 1
+- PASS: OAE output is bounded by η^Φ ≤ 1 and weighted sum ≤ 1
 
 ### 5.2 Physical Units
 - PASS: Schumann frequencies in Hz (physically correct)

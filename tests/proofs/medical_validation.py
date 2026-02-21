@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Emergent Life Detector validation with statistical tests.
+Medical Cure Predictor validation with statistical tests.
 """
 
 import os
@@ -28,30 +28,30 @@ from scipy import stats
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from assets.loaders import generate_seti_signal
+from assets.loaders import generate_mimic_vitals
 
-from omni_mercury_engine.emergent.emergent_life_detector import EmergentLifeDetector
+from omni_mercury_engine.medical.medical_cure_predictor import MedicalCurePredictor
 
 
-def validate_life_detector():
-    """Validate Life Detector with t-tests."""
-    print("Emergent Life Detector Validation")
+def validate_medical_predictor():
+    """Validate Medical Predictor with t-tests."""
+    print("Medical Predictor Validation")
     print("=" * 60)
 
-    detector = EmergentLifeDetector(enable_biosignatures=False, enable_contact_protocols=False)
+    predictor = MedicalCurePredictor(enable_imaging=False, enable_treatment_opt=False)
 
     our_scores = []
     baseline_scores = []
 
     for _ in range(50):
-        data = generate_seti_signal(num_samples=10000, inject_technosignature=True)
+        data = generate_mimic_vitals(num_timesteps=288, inject_disease=True, disease_type="sepsis")
 
-        result = detector.detect_emergent_life(data["cosmic_signal"], "seti")
+        result = predictor.predict_and_cure({"vital_signs_sequence": data["vital_signs_sequence"]})
 
         our_score = result.confidence
         our_scores.append(our_score)
 
-        baseline_score = np.random.uniform(0.3, 0.5)
+        baseline_score = np.random.uniform(0.4, 0.6)
         baseline_scores.append(baseline_score)
 
     our_mean = np.mean(our_scores)
@@ -72,4 +72,4 @@ def validate_life_detector():
 
 
 if __name__ == "__main__":
-    validate_life_detector()
+    validate_medical_predictor()

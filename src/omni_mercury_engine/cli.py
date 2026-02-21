@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@ import os
 from typing import Any
 
 """
-Command-line interface for Mercury Agent ♱
+Command-line interface for Mercury Agent
 """
 
 import json
@@ -59,7 +59,7 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
 @click.group()
 @click.version_option(version="1.5.1")
 def main() -> None:
-    """Mercury Agent ♱: ML-Centric Anomaly Detection Framework"""
+    """Mercury Agent: ML-Centric Anomaly Detection Framework"""
     pass
 
 
@@ -657,7 +657,7 @@ def physics_integrated(
 def physics_list() -> None:
     """List available physics-inspired detectors and their capabilities."""
     click.echo("\n" + "=" * 65)
-    click.echo("  Mercury Agent ♱ - Physics-Inspired Anomaly Detectors")
+    click.echo("  Mercury Agent - Physics-Inspired Anomaly Detectors")
     click.echo("=" * 65)
 
     click.echo("\n  1. SpectralVibrationDetector")
@@ -824,7 +824,7 @@ def _start_voice_conversation(
 
     # Print banner
     click.echo("\n" + "=" * 60)
-    click.echo("  Mercury Agent ♱ - Interactive Voice Interface")
+    click.echo("  Mercury Agent - Interactive Voice Interface")
     click.echo("=" * 60)
     click.echo()
 

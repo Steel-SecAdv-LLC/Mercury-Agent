@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -19,9 +19,9 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Ava-Guardian Integration Adapter for Mercury Agent ♱
+Ava-Guardian Integration Adapter for Mercury Agent
 
-Integrates post-quantum cryptography (Kyber/Dilithium) from Ava-Guardian ♱
+Integrates post-quantum cryptography (Kyber/Dilithium) from Ava-Guardian
 with GOSNN ethical gating and security detectors.
 
 Features:
@@ -35,7 +35,7 @@ Synapse: Crypto anomalies → GOSNN gate → security detectors
 References:
 - NIST FIPS 203: ML-KEM (Kyber)
 - NIST FIPS 204: ML-DSA (CRYSTALS-Dilithium)
-- Ava-Guardian ♱ Post-Quantum Cryptography Backends
+- Ava-Guardian Post-Quantum Cryptography Backends
 """
 
 import logging
@@ -228,7 +228,7 @@ class EWMATimingMonitor:
 
 
 class MercuryGuardianAdapter:
-    """Adapter integrating Ava-Guardian PQC with Mercury Agent ♱.
+    """Adapter integrating Ava-Guardian PQC with Mercury Agent.
 
     Provides post-quantum cryptographic operations with:
     - EWMA/MAD timing anomaly detection

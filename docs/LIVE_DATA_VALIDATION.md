@@ -44,6 +44,31 @@ Subsequent runs are faster.
 | BATADAL | 0.8711 | 0.5358 | Water treatment plant |
 | SMD | 0.9066 | 0.5881 | Server machine dataset |
 
+## Calibration Validation
+
+In addition to the unsupervised honest benchmark, a calibration validation harness
+tests supervised threshold calibration, conformal coverage, and adaptive ensemble
+weights on the same real-world datasets.
+
+```bash
+# Full run (includes conformal coverage — slower)
+python benchmarks/calibration_validation.py
+
+# Skip conformal for faster iteration
+python benchmarks/calibration_validation.py --skip-conformal
+
+# Run specific datasets
+python benchmarks/calibration_validation.py --datasets lympho,smtp
+```
+
+Results are saved to `benchmarks/calibration_validation_results.json`.
+See `docs/BENCHMARKS.md` for detailed results and analysis.
+
+Key findings (40 datasets):
+- Threshold calibration improves F1 on 80% of datasets (mean +0.143)
+- Adaptive weights shift: InfoGeometry dominates (0.448 mean), Kinematic lowest (0.191)
+- Conformal coverage is systematically overconfident (split conformal limitation)
+
 ## Troubleshooting
 
 ### Dataset download failures

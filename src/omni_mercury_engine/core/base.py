@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 """
 Abstract base classes for detectors, models, and encoders with enforced interface contracts.
 
-This module defines the core abstractions for the Mercury Agent ♱ anomaly detection system.
+This module defines the core abstractions for the Mercury Agent anomaly detection system.
 All detectors and models MUST implement these interfaces to ensure consistent behavior
 across the fusion pipeline.
 

@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -537,7 +537,7 @@ class EmailReportSender:
         self.smtp_config = smtp_config or {}
 
     def send_email_report(
-        self, report: str, recipient: str, subject: str = "Mercury Agent ♱ Analysis Report"
+        self, report: str, recipient: str, subject: str = "Mercury Agent Analysis Report"
     ) -> bool:
         """
         Send report via email.
@@ -655,7 +655,7 @@ class ReportManager:
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Mercury Agent ♱ Report</title>
+            <title>Mercury Agent Report</title>
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 40px; }}
                 pre {{ background-color: #f4f4f4; padding: 20px; border-radius: 5px; }}

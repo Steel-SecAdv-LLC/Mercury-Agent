@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -19,12 +19,12 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Custom exceptions for Mercury Agent ♱
+Custom exceptions for Mercury Agent
 """
 
 
 class OmniAnomalyException(Exception):
-    """Base exception for all Mercury Agent ♱ errors"""
+    """Base exception for all Mercury Agent errors"""
 
     pass
 

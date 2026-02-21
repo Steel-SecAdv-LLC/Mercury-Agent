@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Algorithm-Agnostic Cryptographic API for Mercury Agent ♱
+Algorithm-Agnostic Cryptographic API for Mercury Agent
 
 Provides a unified interface for cryptographic operations supporting:
 - Classical algorithms (Ed25519, RSA)
@@ -369,7 +369,7 @@ class HybridSignatureProvider:
 
 class MercuryCrypto:
     """
-    Unified cryptographic interface for Mercury Agent ♱.
+    Unified cryptographic interface for Mercury Agent.
 
     Provides algorithm-agnostic cryptographic operations with automatic
     selection based on security requirements and available backends.

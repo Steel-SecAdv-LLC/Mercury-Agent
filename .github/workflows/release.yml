@@ -1,4 +1,4 @@
-# Mercury Agent ♱ Release Workflow
+# Mercury Agent Release Workflow
 #
 # Automated release workflow for versioning and publishing.
 # Triggers on version tags (v*) or manual dispatch.
@@ -231,7 +231,7 @@ jobs:
           else
             echo "## Initial Release" > CHANGELOG_EXCERPT.md
             echo "" >> CHANGELOG_EXCERPT.md
-            echo "First release of Mercury Agent ♱" >> CHANGELOG_EXCERPT.md
+            echo "First release of Mercury Agent" >> CHANGELOG_EXCERPT.md
           fi
 
           echo "" >> CHANGELOG_EXCERPT.md
@@ -255,7 +255,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.validate.outputs.version }}
-          name: Mercury Agent ♱ v${{ needs.validate.outputs.version }}
+          name: Mercury Agent v${{ needs.validate.outputs.version }}
           body_path: CHANGELOG_EXCERPT.md
           draft: false
           prerelease: ${{ needs.validate.outputs.is_prerelease == 'true' }}
@@ -305,7 +305,7 @@ jobs:
           VERSION="${{ needs.validate.outputs.version }}"
           PRERELEASE="${{ needs.validate.outputs.is_prerelease }}"
 
-          echo "🎉 Mercury Agent ♱ v$VERSION Released!"
+          echo "🎉 Mercury Agent v$VERSION Released!"
           echo ""
           echo "Release Type: $([ "$PRERELEASE" == "true" ] && echo "Pre-release" || echo "Stable")"
           echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v$VERSION"

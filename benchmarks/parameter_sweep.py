@@ -15,16 +15,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 
-Parameter Sweep Optimization for Mercury Agent AAFE
+Parameter Sweep Optimization for Mercury Agent OAE
 
-Bayesian optimization (TPE sampler via Optuna) over the full AAFE parameter
+Bayesian optimization (TPE sampler via Optuna) over the full OAE parameter
 space.  The objective function synthesises anomaly data, applies the AVA
 Anomaly Fusion Equation, and returns a composite score combining weighted-F1,
 Expected Calibration Error (ECE), and a Lyapunov stability metric.
 
 Mathematical Framework
 ----------------------
-AVA Anomaly Fusion Equation (AAFE):
+Omni-Ava Equation (OAE):
 
     .. math::
 
@@ -103,7 +103,7 @@ try:
     from omni_mercury_engine.core.centralized_constants import (
         sigmoid_benevolence_gate,
     )
-    from omni_mercury_engine.core.three_r.fusion import AnomalyFusionEquation
+    from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 
     MERCURY_IMPORTS_AVAILABLE = True
 except ImportError:
@@ -213,7 +213,7 @@ def _fallback_sigmoid_benevolence_gate(
     return 1.0 / (1.0 + math.exp(exponent))
 
 
-def _fallback_aafe(
+def _fallback_oae(
     recursion_score: float,
     resonance_score: float,
     optimization_score: float,
@@ -223,7 +223,7 @@ def _fallback_aafe(
     eta: float,
     ethical_exponent: float,
 ) -> float:
-    """Compute the AAFE score -- standalone fallback.
+    """Compute the OAE score -- standalone fallback.
 
     .. math::
 
@@ -259,7 +259,7 @@ def generate_synthetic_data(
 ) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
     """Generate a synthetic anomaly-detection dataset.
 
-    The dataset consists of three feature channels that map onto the AAFE
+    The dataset consists of three feature channels that map onto the OAE
     components ``(R, H, O)``:
 
     * **Normal points** are drawn from ``N(0.3, 0.1)`` per feature.
@@ -395,7 +395,7 @@ def compute_lyapunov_stability(
     lambda_rate: float,
     window: int = 10,
 ) -> float:
-    """Lyapunov stability metric for the AAFE score sequence.
+    """Lyapunov stability metric for the OAE score sequence.
 
     Estimates the degree to which successive variance decays
     exponentially, in accordance with the Lyapunov bound:
@@ -463,8 +463,8 @@ def objective(
     """Optuna objective: composite of F1, ECE, and Lyapunov stability.
 
     The function:
-    1. Samples the full AAFE parameter space from the trial.
-    2. Computes fusion scores for every sample using the AAFE.
+    1. Samples the full OAE parameter space from the trial.
+    2. Computes fusion scores for every sample using the OAE.
     3. Derives binary predictions from a threshold.
     4. Returns the composite score ``J``.
 
@@ -482,7 +482,7 @@ def objective(
         Composite score ``J`` (to be *maximised*).
     """
     # ------------------------------------------------------------------
-    # 1. Sample AAFE weights (Dirichlet-like: sample 3, normalise)
+    # 1. Sample OAE weights (Dirichlet-like: sample 3, normalise)
     # ------------------------------------------------------------------
     w_r_raw: float = trial.suggest_float("w_R_raw", 0.1, 1.0)
     w_h_raw: float = trial.suggest_float("w_H_raw", 0.1, 1.0)
@@ -545,7 +545,7 @@ def objective(
     use_mercury = MERCURY_IMPORTS_AVAILABLE
 
     if use_mercury:
-        aafe = AnomalyFusionEquation(
+        aafe = OmniAvaEquation(
             convergence_rate=lambda_rate,
             initial_weights={"w_R": w_r, "w_H": w_h, "w_O": w_o},
             ethical_exponent=ethical_exponent,
@@ -586,7 +586,7 @@ def objective(
                 b0=b0,
                 k=k,
             )
-            fusion_scores[i] = _fallback_aafe(
+            fusion_scores[i] = _fallback_oae(
                 recursion_score=r_adj,
                 resonance_score=h_adj,
                 optimization_score=o_adj,
@@ -741,7 +741,7 @@ def run_sweep(
     study = optuna.create_study(
         direction="maximize",
         sampler=sampler,
-        study_name="mercury_aafe_parameter_sweep",
+        study_name="mercury_oae_parameter_sweep",
     )
 
     # Suppress Optuna's per-trial logging unless truly verbose
@@ -889,7 +889,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         description=(
-            "Mercury Agent AAFE Parameter Sweep -- "
+            "Mercury Agent OAE Parameter Sweep -- "
             "Bayesian optimisation over the full parameter space."
         ),
     )

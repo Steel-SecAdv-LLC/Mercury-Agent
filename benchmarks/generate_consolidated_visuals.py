@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱ - Consolidated Benchmark Visualization Generator
+Mercury Agent - Consolidated Benchmark Visualization Generator
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -469,7 +469,7 @@ def generate_neuro_symbolic_benchmark_report(
 
     # Panel 7: Method Comparison
     ax7 = fig.add_subplot(gs[2, 0])
-    methods = ["Baseline", "3R Only", "AAFE", "Full Stack"]
+    methods = ["Baseline", "3R Only", "OAE", "Full Stack"]
     f1_scores = [0.80, 0.85, 0.89, 0.92]
     bars = ax7.barh(methods, f1_scores, color=[VIRIDIS(i / 4) for i in range(4)])
     ax7.set_title("Method Comparison")

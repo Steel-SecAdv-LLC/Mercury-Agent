@@ -23,7 +23,7 @@ class RecursionEngine:
     Implements recursive self-referential processing for hierarchical
     feature extraction and multi-level optimization.
 
-    The recursion component R(x) of the AAFE provides hierarchical feature
+    The recursion component R(x) of the OAE provides hierarchical feature
     extraction through self-referential processing patterns.
     """
 
@@ -155,7 +155,7 @@ class ResonanceEngine:
     Implements frequency-domain signal amplification using Fourier analysis
     for pattern enhancement and anomaly detection.
 
-    The resonance component H(omega) of the AAFE provides frequency-domain
+    The resonance component H(omega) of the OAE provides frequency-domain
     analysis for detecting harmonic patterns in data.
     """
 

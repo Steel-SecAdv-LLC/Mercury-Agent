@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Enhanced Neurosymbolic Engine - State-of-the-Art Neuro-Symbolic AI
@@ -1127,7 +1127,7 @@ class EnhancedNeurosymbolicEngine:
     - Causal reasoning
     - Probabilistic logic
 
-    This is the next-generation neurosymbolic component for Mercury Agent ♱.
+    This is the next-generation neurosymbolic component for Mercury Agent.
     """
 
     def __init__(
@@ -1342,7 +1342,7 @@ class EnhancedNeurosymbolicEngine:
 
     def _generate_full_explanation(self, result: dict[str, Any]) -> str:
         """Generate comprehensive explanation."""
-        lines = ["=== Mercury Agent ♱ Enhanced Neuro-Symbolic Analysis ===", ""]
+        lines = ["=== Mercury Agent Enhanced Neuro-Symbolic Analysis ===", ""]
 
         # Neural scores
         scores = result.get("anomaly_scores")

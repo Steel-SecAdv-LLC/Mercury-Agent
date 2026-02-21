@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱ - Advanced Visualization Generator
+Mercury Agent - Advanced Visualization Generator
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 """
 
 """
-Advanced Visualization Generator for Mercury Agent ♱
+Advanced Visualization Generator for Mercury Agent
 
 Generates publication-quality STEM visualizations for:
 - Confidence evolution over epochs
@@ -122,7 +122,7 @@ def generate_confidence_evolution(
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Confidence Score")
-    ax.set_title("Mercury Agent ♱ - Confidence Evolution with Bayesian Calibration")
+    ax.set_title("Mercury Agent - Confidence Evolution with Bayesian Calibration")
     ax.set_xlim(0, epochs)
     ax.set_ylim(0.7, 1.02)
     ax.legend(loc="lower right")
@@ -211,7 +211,7 @@ def generate_anomaly_precision_recall(
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Score")
-    ax.set_title("Mercury Agent ♱ - Anomaly Detection Performance")
+    ax.set_title("Mercury Agent - Anomaly Detection Performance")
     ax.set_xlim(0, epochs)
     ax.set_ylim(0.75, 1.0)
     ax.legend(loc="lower right")
@@ -274,7 +274,7 @@ def generate_domain_heatmap(output_path: Path | None = None) -> None:
         linecolor="white",
     )
 
-    ax.set_title("Mercury Agent ♱ - Domain Competence Heatmap", fontsize=14, pad=20)
+    ax.set_title("Mercury Agent - Domain Competence Heatmap", fontsize=14, pad=20)
     ax.set_xlabel("Performance Metric", fontsize=11)
     ax.set_ylabel("Detection Domain", fontsize=11)
 
@@ -323,7 +323,7 @@ def generate_memory_growth(
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Memory Entries")
-    ax.set_title("Mercury Agent ♱ - Memory System Growth")
+    ax.set_title("Mercury Agent - Memory System Growth")
     ax.set_xlim(0, epochs)
     ax.set_ylim(0, max(total) * 1.1)
     ax.legend(loc="upper left")
@@ -394,7 +394,7 @@ def generate_neural_symbolic_contribution(
     )
     ax2.set_title("Average Contribution Distribution")
 
-    plt.suptitle("Mercury Agent ♱ - Neural-Symbolic Fusion Analysis", fontsize=14, y=1.02)
+    plt.suptitle("Mercury Agent - Neural-Symbolic Fusion Analysis", fontsize=14, y=1.02)
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
     plt.close()
@@ -447,7 +447,7 @@ def generate_benevolence_scores(
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Benevolence Score")
-    ax.set_title("Mercury Agent ♱ - Ethical Benevolence Scoring")
+    ax.set_title("Mercury Agent - Ethical Benevolence Scoring")
     ax.set_xlim(0, epochs)
     ax.set_ylim(0.93, 1.01)
     ax.legend(loc="lower right")
@@ -554,7 +554,7 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
     ax6.legend(fontsize=8)
 
     ax7 = fig.add_subplot(gs[2, 0])
-    methods = ["Baseline", "3R", "AAFE", "Full"]
+    methods = ["Baseline", "3R", "OAE", "Full"]
     f1_scores = [0.797, 0.85, 0.89, 0.92]
     bars = ax7.barh(methods, f1_scores, color=[VIRIDIS(i / 4) for i in range(4)])
     ax7.set_title("Method Comparison")
@@ -609,7 +609,7 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
     ax9.set_title("Key Metrics")
 
     fig.suptitle(
-        "Mercury Agent ♱ - Comprehensive Neuro-Symbolic Benchmark Report",
+        "Mercury Agent - Comprehensive Neuro-Symbolic Benchmark Report",
         fontsize=16,
         fontweight="bold",
         y=0.98,
@@ -623,7 +623,7 @@ def generate_comprehensive_report(output_path: Path | None = None) -> None:
 def generate_all_visuals() -> None:
     """Generate all publication-quality visualizations."""
     print("=" * 70)
-    print("Mercury Agent ♱ - Advanced Visualization Generator")
+    print("Mercury Agent - Advanced Visualization Generator")
     print("=" * 70)
     print()
 

@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 """FastAPI server for real-time anomaly detection.
 
 This module provides a REST API for multi-domain anomaly detection using
-the Mercury Agent ♱ framework. It implements best practices from Azure AI Anomaly
+the Mercury Agent framework. It implements best practices from Azure AI Anomaly
 Detector and provides comprehensive OpenAPI documentation.
 
 API Reference:
@@ -122,11 +122,11 @@ for logger_name in ["omni_mercury_engine.api", "omni_mercury_engine.security", "
 
 # API version information
 API_VERSION = "1.5.1"
-API_TITLE = "Mercury Agent ♱ API"
+API_TITLE = "Mercury Agent API"
 API_DESCRIPTION = """
 ## Overview
 
-The Mercury Agent ♱ API provides multi-domain anomaly detection capabilities through a REST interface.
+The Mercury Agent API provides multi-domain anomaly detection capabilities through a REST interface.
 This API is designed for real-time anomaly detection in time-series data.
 
 ## Features
@@ -568,12 +568,12 @@ class HealthResponse(BaseModel):
     status: str = Field(
         ..., description="Service health status", json_schema_extra={"example": "healthy"}
     )
-    version: str = Field(..., description="API version", json_schema_extra={"example": "1.0.0"})
+    version: str = Field(..., description="API version", json_schema_extra={"example": "1.5.1"})
     uptime_seconds: float | None = Field(default=None, description="Server uptime in seconds")
 
     model_config = {
         "json_schema_extra": {
-            "examples": [{"status": "healthy", "version": "1.0.0", "uptime_seconds": 3600.5}]
+            "examples": [{"status": "healthy", "version": "1.5.1", "uptime_seconds": 3600.5}]
         }
     }
 
@@ -746,7 +746,7 @@ def _classify_severity(score: float, threshold: float) -> SeverityLevel:
     responses={
         200: {
             "description": "Service is healthy",
-            "content": {"application/json": {"example": {"status": "healthy", "version": "1.0.0"}}},
+            "content": {"application/json": {"example": {"status": "healthy", "version": "1.5.1"}}},
         },
         503: {
             "description": "Service is unhealthy",
@@ -770,7 +770,7 @@ async def health_check() -> HealthResponse:
 
         Response:
         ```json
-        {"status": "healthy", "version": "1.0.0"}
+        {"status": "healthy", "version": "1.5.1"}
         ```
     """
     return HealthResponse(status="healthy", version=API_VERSION)

@@ -13,7 +13,9 @@
 #   Medical (MIMIC-III): Recall > 0.93 (prioritize)
 #
 # Usage:
-#   python scripts/run_ablation.py --config configs/ablation_3r_lyapunov.yaml
+#   pytest tests/ -k "ablation" --config configs/ablation_3r_lyapunov.yaml
+#   NOTE: scripts/run_ablation.py is not yet implemented. See benchmarks/ for
+#   existing benchmark runners that can be adapted for ablation studies.
 
 # ═══════════════════════════════════════════════════════════════
 # BASELINE (without Lyapunov constraint)

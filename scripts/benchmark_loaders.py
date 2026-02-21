@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mercury Agent ♱ — Data Loader Benchmark Script
+Mercury Agent — Data Loader Benchmark Script
 
 Attempts to load every registered loader and reports:
   - data_source, record_count, anomaly_ratio, sha256, load_time

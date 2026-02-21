@@ -1,4 +1,4 @@
-"""Mercury Agent ♱
+"""Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 3R Attention Block for Anomaly Detection
 
 Implements the complete 3R (Recursion-Resonance-Refactoring) mechanism as a
-differentiable PyTorch module with AAFE fusion for anomaly detection.
+differentiable PyTorch module with OAE fusion for anomaly detection.
 
 Mathematical Foundation:
     A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * eta^Phi
@@ -69,7 +69,7 @@ class ThreeRAttentionBlock(nn.Module):
         - H(ω) → ResonanceEngine (compute_resonance_spectrum)
         - O(θ) → RefactoringEngine (adaptive refinement)
 
-    The block produces anomaly-aware representations with AAFE fusion
+    The block produces anomaly-aware representations with OAE fusion
     using golden-ratio-derived weights for mathematical grounding.
 
     Args:
@@ -155,7 +155,7 @@ class ThreeRAttentionBlock(nn.Module):
         self.refactor_norm = nn.LayerNorm(d_model)
 
         # ═══════════════════════════════════════════════════════════════════
-        # AAFE Fusion weights (golden ratio from three_r_mechanism.py:147-154)
+        # OAE Fusion weights (golden ratio from three_r_mechanism.py:147-154)
         # ═══════════════════════════════════════════════════════════════════
         phi_sum = PHI + 1.0 + (1.0 / PHI)  # ≈ 3.618
         self.register_buffer("w_R", torch.tensor(PHI / phi_sum))  # ≈ 0.447
@@ -212,7 +212,7 @@ class ThreeRAttentionBlock(nn.Module):
         x: torch.Tensor,
         return_component_outputs: bool = False,
     ) -> tuple[torch.Tensor, dict[str, Any]]:
-        """Forward pass implementing all 3Rs with AAFE fusion.
+        """Forward pass implementing all 3Rs with OAE fusion.
 
         Args:
             x: Input tensor [batch_size, seq_len, d_model]
@@ -319,7 +319,7 @@ class ThreeRAttentionBlock(nn.Module):
         O_score = gate.mean()
 
         # ===================================================================
-        # AAFE Fusion: A = (w_R*R + w_H*H + w_O*O) * eta^phi
+        # OAE Fusion: A = (w_R*R + w_H*H + w_O*O) * eta^phi
         # ===================================================================
         fused = self.w_R * R_x + self.w_H * H_proj + self.w_O * O_theta
 

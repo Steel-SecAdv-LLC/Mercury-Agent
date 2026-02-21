@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -567,7 +567,7 @@ class MemoryMonitor:
 class OmniMercuryEngine(LoggerMixin):
     """Unified anomaly detection engine with ML-Centric Hybrid Fusion.
 
-    This is the main entry point for the Mercury Agent ♱ anomaly detection system.
+    This is the main entry point for the Mercury Agent anomaly detection system.
     It integrates 13 specialized detection engines through neural network
     fusion to provide comprehensive multi-domain anomaly detection.
 
@@ -2799,4 +2799,4 @@ class OmniMercuryEngine(LoggerMixin):
             self._executor.shutdown(wait=False)
 
 
-# Legacy alias removed - project renamed to Mercury Agent ♱
+# Legacy alias removed - project renamed to Mercury Agent

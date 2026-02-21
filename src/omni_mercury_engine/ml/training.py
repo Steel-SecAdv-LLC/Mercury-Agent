@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -958,7 +958,7 @@ class ThreeRAnomalyTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         - Lyapunov stability constraint (dV/dt <= -alpha*V)
         - Optional VAE-style KL divergence
         - Multi-scale 3R attention mechanism
-        - Golden-ratio AAFE fusion weights
+        - Golden-ratio OAE fusion weights
 
     Args:
         input_dim: Input feature dimension

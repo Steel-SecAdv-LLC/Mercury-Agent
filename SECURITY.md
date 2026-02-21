@@ -1,8 +1,8 @@
 # Security Policy
 
-## Mercury Agent ♱ Security Framework
+## Mercury Agent Security Framework
 
-Mercury Agent ♱ is a security-focused AI framework developed by Steel Security Advisors LLC. We take security seriously and are committed to maintaining the integrity, confidentiality, and availability of our systems and user data.
+Mercury Agent is a security-focused AI framework developed by Steel Security Advisors LLC. We take security seriously and are committed to maintaining the integrity, confidentiality, and availability of our systems and user data.
 
 ## Supported Versions
 
@@ -18,12 +18,12 @@ We provide security updates for the following versions:
 
 ## Reporting a Vulnerability
 
-We appreciate the security community's efforts in helping keep Mercury Agent ♱ secure. If you discover a security vulnerability, please follow our responsible disclosure process.
+We appreciate the security community's efforts in helping keep Mercury Agent secure. If you discover a security vulnerability, please follow our responsible disclosure process.
 
 ### How to Report
 
 1. **Email**: Send a detailed report to steel.sa.llc@gmail.com
-2. **Subject Line**: Use the format `[SECURITY] Mercury Agent ♱: Brief Description`
+2. **Subject Line**: Use the format `[SECURITY] Mercury Agent: Brief Description`
 3. **PGP Encryption**: For sensitive reports, request our PGP public key
 
 ### What to Include
@@ -54,7 +54,7 @@ Please provide as much information as possible:
 
 ### Code Security
 
-Mercury Agent ♱ implements multiple layers of security:
+Mercury Agent implements multiple layers of security:
 
 - **Static Analysis**: Bandit security scanning in CI/CD pipeline
 - **Dependency Scanning**: Regular audits with Safety and pip-audit
@@ -158,13 +158,13 @@ security:
 
 ### Updates
 
-- **Regular Updates**: Keep Mercury Agent ♱ and dependencies updated
+- **Regular Updates**: Keep Mercury Agent and dependencies updated
 - **Security Advisories**: Subscribe to our security mailing list
 - **Vulnerability Monitoring**: Use tools like Dependabot or Snyk
 
 ## Ethical Security Considerations
 
-Mercury Agent ♱ includes security intelligence capabilities. Users must:
+Mercury Agent includes security intelligence capabilities. Users must:
 
 1. **Legal Compliance**: Ensure all usage complies with applicable laws
 2. **Authorization**: Obtain proper authorization before security testing
@@ -226,7 +226,7 @@ As of the last scan, there are **0 high/critical** and **3 medium** severity vul
 
 ## Security Audits
 
-Mercury Agent ♱ undergoes regular security assessments:
+Mercury Agent undergoes regular security assessments:
 
 - **Automated Scanning**: Daily CI/CD security scans
 - **Dependency Audits**: Weekly dependency vulnerability checks
@@ -235,7 +235,7 @@ Mercury Agent ♱ undergoes regular security assessments:
 
 ## Compliance
 
-Mercury Agent ♱ is designed with compliance in mind:
+Mercury Agent is designed with compliance in mind:
 
 - **OWASP**: Follows OWASP Top 10 security guidelines
 - **CWE**: Addresses Common Weakness Enumeration patterns
@@ -249,7 +249,7 @@ Mercury Agent ♱ is designed with compliance in mind:
 
 ## Acknowledgments
 
-We thank the security researchers who have helped improve Mercury Agent ♱'s security. Contributors will be acknowledged here with their permission.
+We thank the security researchers who have helped improve Mercury Agent's security. Contributors will be acknowledged here with their permission.
 
 ---
 

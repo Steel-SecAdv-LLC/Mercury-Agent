@@ -1,4 +1,4 @@
-# Mercury Agent ♱ GitHub Labels Configuration
+# Mercury Agent GitHub Labels Configuration
 #
 # This file defines issue and PR labels for consistent categorization.
 # Apply using GitHub CLI: gh label create --force --name "name" --color "color" --description "desc"

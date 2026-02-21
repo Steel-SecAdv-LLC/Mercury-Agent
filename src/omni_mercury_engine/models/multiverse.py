@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from __future__ import annotations
 """
 Multi-Hypothesis Optimization Engine - Parallel Solution Space Exploration
 
-Original implementation for Mercury Agent ♱ neural-symbolic AI archetype.
+Original implementation for Mercury Agent neural-symbolic AI archetype.
 
 This engine explores multiple solution pathways simultaneously using ensemble
 optimization and multi-dimensional state space exploration to find optimal strategies.

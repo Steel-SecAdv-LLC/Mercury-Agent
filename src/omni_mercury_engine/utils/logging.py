@@ -1,8 +1,8 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
-Structured logging module for Mercury Agent ♱.
+Structured logging module for Mercury Agent.
 
 This module provides a comprehensive logging system with:
 - Structured JSON logging for production environments
@@ -391,7 +391,7 @@ def get_logger(name: str) -> logging.Logger:
     """Get a logger instance for the given name.
 
     This is a convenience function that returns a properly configured
-    logger for the Mercury Agent ♱ application.
+    logger for the Mercury Agent application.
 
     Args:
         name: Logger name, typically __name__ of the module.

@@ -53,7 +53,7 @@ class EvolutionStrategy(Enum):
     ADAPTIVE = "adaptive"
 
 
-# P2: Golden ratio constant for AVA Anomaly Fusion Equation (AAFE)
+# P2: Golden ratio constant for Omni-Ava Equation (OAE)
 # Now references centralized constant
 GOLDEN_RATIO_CONSTANT: float = MATH.GOLDEN_RATIO
 
@@ -71,9 +71,9 @@ _OMEGA: float = 0.5671432904097838730
 
 @dataclass
 class AnomalyFusionResult:
-    """Result of AVA Anomaly Fusion Equation (AAFE) computation with neural verification.
+    """Result of Omni-Ava Equation (OAE) computation with neural verification.
 
-    The AVA Anomaly Fusion Equation (AAFE) provides unified scoring for precision dominance:
+    The Omni-Ava Equation (OAE) provides unified scoring for precision dominance:
     A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
 
     Where:

@@ -1,4 +1,4 @@
-# Mercury Agent ♱ Docker Build Context Exclusions
+# Mercury Agent Docker Build Context Exclusions
 # Reduces build context size for faster, more efficient builds
 
 # Git

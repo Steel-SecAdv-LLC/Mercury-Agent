@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 State-of-the-Art Anomaly Detection Models
@@ -55,5 +55,5 @@ __all__ = [
     "TranADModel",
 ]
 
-__version__ = "1.0.0"
+__version__ = "1.5.1"
 __author__ = "Steel Security Advisors LLC"

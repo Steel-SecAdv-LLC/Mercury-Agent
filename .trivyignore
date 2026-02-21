@@ -1,4 +1,4 @@
-# Mercury Agent ♱ Trivy Ignore Configuration
+# Mercury Agent Trivy Ignore Configuration
 # This file specifies vulnerabilities to ignore during Trivy scans
 # Use with caution - only ignore after careful assessment
 #

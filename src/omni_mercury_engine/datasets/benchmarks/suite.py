@@ -1,8 +1,8 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
-Real-World Benchmark Suite for Mercury Agent ♱
+Real-World Benchmark Suite for Mercury Agent
 
 Comprehensive benchmarking across all real-world datasets with:
 - Per-sample precision, recall, F1
@@ -499,7 +499,7 @@ class RealWorldBenchmarkSuite:
 
         lines = []
         lines.append("=" * 80)
-        lines.append("Mercury Agent ♱ REAL-WORLD BENCHMARK RESULTS")
+        lines.append("Mercury Agent REAL-WORLD BENCHMARK RESULTS")
         lines.append("=" * 80)
         lines.append("")
 

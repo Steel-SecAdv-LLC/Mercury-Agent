@@ -33,7 +33,7 @@ from typing import Any
 class MathConstants:
     """Mathematical constants used throughout the system."""
 
-    # Golden Ratio (φ) - Used in AAFE weights, harmonic analysis
+    # Golden Ratio (φ) - Used in OAE weights, harmonic analysis
     # Origin: core/three_r_mechanism.py, global_omni_scalar_network.py
     GOLDEN_RATIO: float = 1.618033988749895
 
@@ -381,13 +381,17 @@ ANOMALY = AnomalyDetectionConstants()
 class FusionConstants:
     """Fusion and weighting constants."""
 
-    # AAFE default weights (golden ratio proportions)
+    # OAE default weights (golden ratio proportions)
     # w_R: Recursion, w_H: Harmonic, w_O: Optimization
     # Origin: core/three_r/fusion.py, three_r_mechanism.py
     # phi_sum = φ + 1 + 1/φ ≈ 3.2361
-    AAFE_WEIGHT_R: float = 0.500000  # φ / phi_sum
-    AAFE_WEIGHT_H: float = 0.309017  # 1 / phi_sum
-    AAFE_WEIGHT_O: float = 0.190983  # (1/φ) / phi_sum
+    OAE_WEIGHT_R: float = 0.500000  # φ / phi_sum
+    OAE_WEIGHT_H: float = 0.309017  # 1 / phi_sum
+    OAE_WEIGHT_O: float = 0.190983  # (1/φ) / phi_sum
+    # Backward compatibility
+    AAFE_WEIGHT_R: float = OAE_WEIGHT_R
+    AAFE_WEIGHT_H: float = OAE_WEIGHT_H
+    AAFE_WEIGHT_O: float = OAE_WEIGHT_O
 
     # Neural-symbolic fusion weights
     # Origin: neurosymbolic_fusion.py, neurosymbolic_hub.py

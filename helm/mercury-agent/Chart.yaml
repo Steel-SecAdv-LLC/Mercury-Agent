@@ -1,15 +1,15 @@
-# Mercury Agent ♱ Helm Chart
+# Mercury Agent Helm Chart
 # Neural-Symbolic AI Framework for Multi-Domain Anomaly Detection
 apiVersion: v2
 name: mercury-agent
 description: |
-  Mercury Agent ♱ (Omnidisciplinary Neural-Symbolic AI Virtual Analyst) is a comprehensive
+  Mercury Agent (Omnidisciplinary Neural-Symbolic AI Virtual Analyst) is a comprehensive
   anomaly detection framework supporting medical, security intelligence, planetary
   monitoring, chemistry, and consciousness research domains.
 
 type: application
-version: 1.4.0
-appVersion: "1.4.0"
+version: 1.5.1
+appVersion: "1.5.1"
 
 # Minimum Kubernetes version required
 kubeVersion: ">=1.23.0-0"

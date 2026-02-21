@@ -1,5 +1,5 @@
 """
-Mercury Agent ♱
+Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -26,7 +26,7 @@ frequency-domain amplification, and dynamic optimization.
 This module has been refactored into the three_r subpackage for maintainability:
 - three_r/types.py: Enums, dataclasses, constants
 - three_r/engines.py: RecursionEngine, ResonanceEngine
-- three_r/fusion.py: AnomalyFusionEquation, AAFEWeightOptimizer
+- three_r/fusion.py: OmniAvaEquation, OAEWeightOptimizer
 
 This file maintains backward compatibility by re-exporting all classes.
 """
@@ -53,7 +53,7 @@ from omni_mercury_engine.core.code_analysis import (
 
 # Import from refactored subpackage for internal use (maintains backward compat)
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
-from omni_mercury_engine.core.three_r.fusion import AAFEWeightOptimizer, AnomalyFusionEquation
+from omni_mercury_engine.core.three_r.fusion import OAEWeightOptimizer, OmniAvaEquation
 from omni_mercury_engine.core.three_r.types import (
     CONVERGENCE_RATE_PARAMETER,
     GOLDEN_RATIO_CONSTANT,
@@ -79,15 +79,15 @@ if TYPE_CHECKING:
 __all__ = [
     "CONVERGENCE_RATE_PARAMETER",
     "GOLDEN_RATIO_CONSTANT",
-    "AAFEWeightOptimizer",
     "AnomalyDetectionMethod",
-    "AnomalyFusionEquation",
     "AnomalyFusionResult",
     "CodeIssue",
     "CognitiveComplexityVisitor",
     "EvolutionStrategy",
     "IssueSeverity",
     "IssueType",
+    "OAEWeightOptimizer",
+    "OmniAvaEquation",
     "RecursionEngine",
     "RefactoringConfig",
     "RefactoringEngine",
@@ -99,12 +99,12 @@ __all__ = [
 
 
 # Backward-compatible alias for AvaDominanceEquation
-AvaDominanceEquation: type[AnomalyFusionEquation] = AnomalyFusionEquation
+AvaDominanceEquation: type[OmniAvaEquation] = OmniAvaEquation
 
 
-class _LegacyAnomalyFusionEquation:
+class _LegacyOmniAvaEquation:
     """
-    AVA Anomaly Fusion Equation (AAFE) for unified precision scoring in 3R mechanism.
+    Omni-Ava Equation (OAE) for unified precision scoring in 3R mechanism.
 
     Implements the mathematical framework:
     A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ
@@ -128,7 +128,7 @@ class _LegacyAnomalyFusionEquation:
         sigma_immutable: float | None = None,
         lambda_lyapunov: float | None = None,
     ):
-        """Initialize AVA Anomaly Fusion Equation (AAFE).
+        """Initialize Omni-Ava Equation (OAE).
 
         Args:
             ethical_compliance_threshold: Ethical compliance threshold η_Ethical (0.93-0.96)
@@ -180,7 +180,7 @@ class _LegacyAnomalyFusionEquation:
         # Backward-compatible parameter alias
         sigma_immutable_override: float | None = None,
     ) -> AnomalyFusionResult:
-        """Compute AVA Anomaly Fusion Equation (AAFE) score.
+        """Compute Omni-Ava Equation (OAE) score.
 
         Args:
             recursion_score: R(x) from hierarchical feature extraction
@@ -311,7 +311,7 @@ class _LegacyAnomalyFusionEquation:
 
         return {
             "equation": "A = (w_R * R(x) + w_H * H(omega) + w_O * O(theta)) * η_Ethical^Φ",
-            "equation_name": "AVA Anomaly Fusion Equation (AAFE)",
+            "equation_name": "Omni-Ava Equation (OAE)",
             "golden_ratio_constant": self.golden_ratio,
             "ethical_compliance_threshold": self.ethical_compliance_threshold,
             "fusion_weights": self.weights,
@@ -338,11 +338,11 @@ class _LegacyAnomalyFusionEquation:
 
 
 # Backward-compatible alias for AvaDominanceEquation
-AvaDominanceEquation = AnomalyFusionEquation  # type: ignore[misc, unused-ignore]
+AvaDominanceEquation = OmniAvaEquation  # type: ignore[misc, unused-ignore]
 
 
-class _LegacyAAFEWeightOptimizer:
-    """Optimizer for AAFE weights using scipy.optimize.
+class _LegacyOAEWeightOptimizer:
+    """Optimizer for OAE weights using scipy.optimize.
 
     Uses constrained optimization to find optimal weights (w_R, w_H, w_O)
     that maximize F1 score on labeled anomaly detection data while
@@ -354,7 +354,7 @@ class _LegacyAAFEWeightOptimizer:
     - Ethical threshold: η_Ethical >= 0.93 (medical) or 0.96 (default)
 
     Example:
-        optimizer = AAFEWeightOptimizer(domain="medical")
+        optimizer = OAEWeightOptimizer(domain="medical")
         X_train = [...]  # List of (R, H, O) score tuples
         y_train = [...]  # Binary labels (1=anomaly, 0=normal)
         result = optimizer.optimize(X_train, y_train)
@@ -378,7 +378,7 @@ class _LegacyAAFEWeightOptimizer:
         max_iterations: int = 100,
         tolerance: float = 1e-6,
     ) -> None:
-        """Initialize AAFE weight optimizer.
+        """Initialize OAE weight optimizer.
 
         Args:
             domain: Domain for ethical threshold selection
@@ -411,19 +411,19 @@ class _LegacyAAFEWeightOptimizer:
         self.optimized_weights: np.ndarray | None = None
         self.optimization_history: list[dict[str, Any]] = []
 
-    def _compute_aafe_scores(
+    def _compute_oae_scores(
         self,
         weights: np.ndarray,
         X: np.ndarray,
     ) -> np.ndarray:
-        """Compute AAFE scores for given weights and input data.
+        """Compute OAE scores for given weights and input data.
 
         Args:
             weights: Array [w_R, w_H, w_O]
             X: Array of shape (n_samples, 3) with [R, H, O] scores
 
         Returns:
-            Array of AAFE scores
+            Array of OAE scores
         """
         # A = (w_R * R + w_H * H + w_O * O) * η^Φ
         weighted_sum = np.dot(X, weights)
@@ -448,7 +448,7 @@ class _LegacyAAFEWeightOptimizer:
         Returns:
             Negative F1 score (for minimization)
         """
-        scores = self._compute_aafe_scores(weights, X)
+        scores = self._compute_oae_scores(weights, X)
         predictions = (scores >= threshold).astype(int)
 
         # Compute F1 score
@@ -468,7 +468,7 @@ class _LegacyAAFEWeightOptimizer:
         y: list[int] | np.ndarray,
         threshold: float = 0.5,
     ) -> dict[str, Any]:
-        """Optimize AAFE weights on labeled data.
+        """Optimize OAE weights on labeled data.
 
         Args:
             X: Training data - list of (R, H, O) score tuples or array
@@ -536,22 +536,22 @@ class _LegacyAAFEWeightOptimizer:
 
         self.optimization_history.append(optimization_result)
         self.logger.info(
-            f"AAFE optimization complete: F1 {baseline_f1:.4f} -> {optimized_f1:.4f} "
+            f"OAE optimization complete: F1 {baseline_f1:.4f} -> {optimized_f1:.4f} "
             f"({f1_improvement:+.2%})"
         )
 
         return optimization_result
 
-    def get_optimized_equation(self) -> AnomalyFusionEquation | None:
-        """Get AnomalyFusionEquation instance with optimized weights.
+    def get_optimized_equation(self) -> OmniAvaEquation | None:
+        """Get OmniAvaEquation instance with optimized weights.
 
         Returns:
-            AnomalyFusionEquation with optimized weights, or None if not optimized
+            OmniAvaEquation with optimized weights, or None if not optimized
         """
         if self.optimized_weights is None:
             return None
 
-        return AnomalyFusionEquation(
+        return OmniAvaEquation(
             ethical_compliance_threshold=self.ethical_threshold,
             initial_weights={
                 "w_R": float(self.optimized_weights[0]),
