@@ -42,9 +42,7 @@ def generate_anomaly_detection_panel() -> Path:
 
     # Create figure with 2x3 grid
     fig, axes = plt.subplots(2, 3, figsize=(16, 10))
-    fig.suptitle(
-        "Mercury Agent Anomaly Detection Analysis", fontsize=16, fontweight="bold", y=0.98
-    )
+    fig.suptitle("Mercury Agent Anomaly Detection Analysis", fontsize=16, fontweight="bold", y=0.98)
 
     # Color scheme
     colors = {

@@ -87,9 +87,9 @@ class TestRunCalibrationValidation:
             "delta_f1",
             "auc",
         }
-        assert expected_keys.issubset(result.keys()), (
-            f"Missing keys: {expected_keys - result.keys()}"
-        )
+        assert expected_keys.issubset(
+            result.keys()
+        ), f"Missing keys: {expected_keys - result.keys()}"
 
     def test_f1_values_in_range(self) -> None:
         X_train, y_train, _, X_test, y_test = _make_synthetic_data()
@@ -126,18 +126,14 @@ class TestRunConformalCoverage:
 
     def test_returns_coverage_results(self) -> None:
         X_train, y_train, X_cal, X_test, y_test = _make_synthetic_data()
-        result = run_conformal_coverage(
-            "synthetic", X_train, y_train, X_cal, X_test, y_test
-        )
+        result = run_conformal_coverage("synthetic", X_train, y_train, X_cal, X_test, y_test)
 
         assert "coverage_results" in result
         assert len(result["coverage_results"]) == 3  # 90%, 95%, 99%
 
     def test_coverage_values_in_range(self) -> None:
         X_train, y_train, X_cal, X_test, y_test = _make_synthetic_data()
-        result = run_conformal_coverage(
-            "synthetic", X_train, y_train, X_cal, X_test, y_test
-        )
+        result = run_conformal_coverage("synthetic", X_train, y_train, X_cal, X_test, y_test)
 
         for cov in result["coverage_results"]:
             if "error" not in cov:
@@ -147,9 +143,7 @@ class TestRunConformalCoverage:
 
     def test_class_coverage_present(self) -> None:
         X_train, y_train, X_cal, X_test, y_test = _make_synthetic_data()
-        result = run_conformal_coverage(
-            "synthetic", X_train, y_train, X_cal, X_test, y_test
-        )
+        result = run_conformal_coverage("synthetic", X_train, y_train, X_cal, X_test, y_test)
 
         for cov in result["coverage_results"]:
             if "error" not in cov:
@@ -163,9 +157,7 @@ class TestRunFusionWeightAnalysis:
 
     def test_returns_expected_keys(self) -> None:
         X_train, y_train, _, X_test, y_test = _make_synthetic_data()
-        result = run_fusion_weight_analysis(
-            "synthetic", X_train, y_train, X_test, y_test
-        )
+        result = run_fusion_weight_analysis("synthetic", X_train, y_train, X_test, y_test)
 
         expected_keys = {
             "strategy_used",
@@ -174,15 +166,13 @@ class TestRunFusionWeightAnalysis:
             "f1_at_learned_weights",
             "notes",
         }
-        assert expected_keys.issubset(result.keys()), (
-            f"Missing keys: {expected_keys - result.keys()}"
-        )
+        assert expected_keys.issubset(
+            result.keys()
+        ), f"Missing keys: {expected_keys - result.keys()}"
 
     def test_adaptive_weights_valid(self) -> None:
         X_train, y_train, _, X_test, y_test = _make_synthetic_data()
-        result = run_fusion_weight_analysis(
-            "synthetic", X_train, y_train, X_test, y_test
-        )
+        result = run_fusion_weight_analysis("synthetic", X_train, y_train, X_test, y_test)
 
         if result["adaptive_weights"] is not None:
             weights = result["adaptive_weights"]
@@ -192,18 +182,14 @@ class TestRunFusionWeightAnalysis:
 
     def test_f1_in_range(self) -> None:
         X_train, y_train, _, X_test, y_test = _make_synthetic_data()
-        result = run_fusion_weight_analysis(
-            "synthetic", X_train, y_train, X_test, y_test
-        )
+        result = run_fusion_weight_analysis("synthetic", X_train, y_train, X_test, y_test)
 
         f1 = result["f1_at_learned_weights"]
         assert 0.0 <= f1 <= 1.0 or np.isnan(f1)
 
     def test_strategy_is_documented(self) -> None:
         X_train, y_train, _, X_test, y_test = _make_synthetic_data()
-        result = run_fusion_weight_analysis(
-            "synthetic", X_train, y_train, X_test, y_test
-        )
+        result = run_fusion_weight_analysis("synthetic", X_train, y_train, X_test, y_test)
 
         assert result["strategy_used"] in {
             "neurosymbolic_hub",
