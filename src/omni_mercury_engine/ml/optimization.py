@@ -232,7 +232,7 @@ class MemoryManager:
             import importlib.util
 
             self._torch_available = importlib.util.find_spec("torch") is not None
-        except Exception:
+        except (ImportError, ModuleNotFoundError, ValueError):
             pass  # torch availability check failed, assume not available
 
     def get_memory_usage(self) -> dict[str, float]:
