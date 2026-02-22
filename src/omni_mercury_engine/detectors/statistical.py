@@ -143,6 +143,13 @@ class MercuryAnomalyDetector(BaseDetector):
         self._auto_validate = auto_validate
         self._auto_tune = auto_tune
 
+        # Score flip for ensemble inversion (Task 4, set during fit if auto_validate=True)
+        self._score_flip: bool = False
+
+        # Adaptive component weights (set during fit)
+        self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
+        self._weight_source: str = "default"
+
     # =====================================================================
     # fit()
     # =====================================================================
@@ -236,7 +243,7 @@ class MercuryAnomalyDetector(BaseDetector):
             self._adaptive_weights[0],
             self._adaptive_weights[1],
             self._adaptive_weights[2],
-            getattr(self, "_weight_source", "unknown"),
+            self._weight_source,
         )
 
         # --- Ensemble diversity metrics (Task 6) ---
@@ -516,6 +523,14 @@ class MercuryAnomalyDetector(BaseDetector):
 
         All 13 core parameters correspond exactly to the attributes set
         during fit(). The resulting detector is ready for detect() calls.
+
+        .. note::
+            Federation does not currently serialize Oracle
+            (SpectralDomainOracle) fitted state. Federated detectors
+            will operate without Oracle influence. This is a known
+            limitation — the Oracle must be re-fitted on local data
+            at the receiving node for frequency-domain scoring to
+            activate.
 
         Args:
             mean: Feature means, shape (n_features,)
@@ -836,8 +851,12 @@ class MercuryAnomalyDetector(BaseDetector):
                 autocorrs.append(abs(lag1_cov / var))
             if autocorrs and np.median(autocorrs) > 0.3:
                 return DataCharacteristics.TEMPORAL
-        except Exception:
-            pass  # Graceful degradation
+        except (ValueError, TypeError, FloatingPointError, IndexError) as exc:
+            logger.debug(
+                "Data type detection: autocorrelation heuristic failed (%s), "
+                "falling through to next heuristic.",
+                exc,
+            )
 
         # --- Heuristic 2: Adjacent row correlation ---
         # High adjacent-row correlation (> 0.3) also indicates temporal
@@ -866,8 +885,12 @@ class MercuryAnomalyDetector(BaseDetector):
                     if adj_row_corr < 0.1:
                         # Low adjacent-row correlation: shuffled tabular
                         return DataCharacteristics.TABULAR
-        except Exception:
-            pass  # Graceful degradation
+        except (ValueError, TypeError, FloatingPointError, IndexError) as exc:
+            logger.debug(
+                "Data type detection: adjacent-row correlation heuristic failed (%s), "
+                "falling through to next heuristic.",
+                exc,
+            )
 
         # --- Heuristic 3: Image dimensionality ---
         if n_features > 100:
@@ -1247,7 +1270,7 @@ class MercuryAnomalyDetector(BaseDetector):
         else:
             recommended = "No action needed — ensemble is performing correctly."
 
-        weights = getattr(self, "_adaptive_weights", np.array([0.40, 0.30, 0.30]))
+        weights = self._adaptive_weights
 
         diagnostics: dict[str, Any] = {
             "ensemble_auc": float(ensemble_auc),
@@ -1438,7 +1461,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 trial_weights = np.array([w0, w1, w2])
                 trial_weights = trial_weights / trial_weights.sum()
 
-                orig_weights = getattr(self, "_adaptive_weights", np.array([0.40, 0.30, 0.30]))
+                orig_weights = self._adaptive_weights
                 self._adaptive_weights = trial_weights
 
                 detection = self.detect(X)
@@ -1652,12 +1675,12 @@ class MercuryAnomalyDetector(BaseDetector):
         info_geo = self._compute_info_geometry_score(data)
 
         # --- Ensemble (weighted average) ---
-        weights = getattr(self, "_adaptive_weights", np.array([0.40, 0.30, 0.30]))
+        weights = self._adaptive_weights
         combined_scores = weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # Score flip for detected ensemble inversion (Task 4)
-        if getattr(self, "_score_flip", False):
+        if self._score_flip:
             combined_scores = 1.0 - combined_scores
 
         # --- Threshold & calibration ---

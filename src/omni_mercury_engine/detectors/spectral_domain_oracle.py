@@ -626,6 +626,11 @@ class SpectralDomainOracle(BaseDetector):
         nperseg = min(256, len(signal) // 2) if len(signal) >= 4 else len(signal)
 
         if nperseg < 4 or len(self._bands) < 2:
+            logger.debug(
+                "Phase coherence: insufficient data (nperseg=%d, bands=%d), defaulting to 1.0",
+                nperseg,
+                len(self._bands),
+            )
             return 1.0
 
         # Bandpass-filtered power series per band
@@ -656,9 +661,10 @@ class SpectralDomainOracle(BaseDetector):
             band_signals.append(band_sig)
 
         if len(band_signals) < 2:
+            logger.debug("Phase coherence: fewer than 2 bands with data, defaulting to 1.0")
             return 1.0
 
-        # Pairwise coherence between adjacent bands
+        # Pairwise coherencebetween adjacent bands
         coherences: list[float] = []
         for i in range(len(band_signals) - 1):
             try:
@@ -678,10 +684,12 @@ class SpectralDomainOracle(BaseDetector):
                 coherences.append(1.0)
 
         if not coherences:
+            logger.debug("Phase coherence: no valid pairwise coherence computed, defaulting to 1.0")
             return 1.0
         mean_coh = float(np.mean(coherences))
         # Guard against residual NaN from edge cases
         if not np.isfinite(mean_coh):
+            logger.debug("Phase coherence: mean coherence non-finite, defaulting to 1.0")
             return 1.0
         return float(np.clip(mean_coh, 0.0, 1.0))
 
@@ -1302,6 +1310,14 @@ class SpectralDomainOracle(BaseDetector):
         suitable for neural network fusion. Internal computations
         remain in float64 numpy for SI p-value precision; conversion
         to float32 tensor happens here at the boundary.
+
+        .. note::
+            The Oracle operates entirely in numpy/scipy space. The
+            integration layer in
+            ``AdvancedPhysicsIntegratedDetector._extract_combined_features()``
+            handles the numpy-to-torch conversion at the boundary.
+            If adding new callers, convert via:
+            ``torch.from_numpy(oracle.extract_features(data).numpy()).float()``
 
         Args:
             data: Time-domain signals ``(N, T)`` or ``(T,)``.

@@ -950,6 +950,9 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 self._dynamics_detector is not None and self._dynamics_detector.is_fitted()
             ),
             "uiux_anomaly": (self._uiux_detector is not None and self._uiux_detector.is_fitted()),
+            "frequency_domain_oracle": (
+                self._oracle_detector is not None and self._oracle_detector.is_fitted()
+            ),
         }
 
     def get_gosnn_scalars(self) -> dict[str, float]:
