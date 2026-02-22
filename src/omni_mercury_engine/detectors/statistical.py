@@ -319,14 +319,16 @@ class MercuryAnomalyDetector(BaseDetector):
                     self._supervised_threshold = best_threshold
                     logger.info(
                         "fit: supervised threshold=%.6f (F1=%.4f)",
-                        best_threshold, best_f1,
+                        best_threshold,
+                        best_f1,
                     )
                 except ImportError:
                     logger.debug("fit: calibration_pipeline not available")
             else:
                 logger.warning(
                     "fit: calibration_labels length (%d) != data length (%d), ignoring",
-                    len(cal_labels), len(arr),
+                    len(cal_labels),
+                    len(arr),
                 )
 
         return self
@@ -945,10 +947,12 @@ class MercuryAnomalyDetector(BaseDetector):
 
                 # Combine normal (val) + synthetic anomalies
                 X_combined = np.vstack([X_val_fold, synthetic_anomalies])
-                pseudo_labels = np.concatenate([
-                    np.zeros(len(X_val_fold), dtype=np.int32),
-                    np.ones(n_anomalies, dtype=np.int32),
-                ])
+                pseudo_labels = np.concatenate(
+                    [
+                        np.zeros(len(X_val_fold), dtype=np.int32),
+                        np.ones(n_anomalies, dtype=np.int32),
+                    ]
+                )
 
                 # Score each component
                 res_scores = fold_det._compute_resonance_score(X_combined)
@@ -963,10 +967,9 @@ class MercuryAnomalyDetector(BaseDetector):
             if not component_aucs_accum[0]:
                 return self._data_type_default_weights()
 
-            mean_aucs = np.array([
-                float(np.mean(aucs)) if aucs else 0.5
-                for aucs in component_aucs_accum
-            ])
+            mean_aucs = np.array(
+                [float(np.mean(aucs)) if aucs else 0.5 for aucs in component_aucs_accum]
+            )
 
             self._component_aucs = {
                 "resonance": float(mean_aucs[0]),
@@ -1032,11 +1035,13 @@ class MercuryAnomalyDetector(BaseDetector):
         compat = COMPONENT_COMPATIBILITY.get(
             self._data_type, COMPONENT_COMPATIBILITY[DataCharacteristics.UNKNOWN]
         )
-        raw = np.array([
-            0.40 * compat["resonance"],
-            0.30 * compat["kinematic"],
-            0.30 * compat["infogeo"],
-        ])
+        raw = np.array(
+            [
+                0.40 * compat["resonance"],
+                0.30 * compat["kinematic"],
+                0.30 * compat["infogeo"],
+            ]
+        )
         # Force kinematic to zero for tabular
         if self._data_type == DataCharacteristics.TABULAR:
             raw[1] = 0.0
@@ -1111,7 +1116,9 @@ class MercuryAnomalyDetector(BaseDetector):
                         modified = True
                         logger.info(
                             "Diversity: %s-%s correlation=%.3f, reducing %s weight by 50%%",
-                            name_a, name_b, corr_val,
+                            name_a,
+                            name_b,
+                            corr_val,
                             name_a if lower_idx == idx_a else name_b,
                         )
                 if modified:
@@ -1177,9 +1184,11 @@ class MercuryAnomalyDetector(BaseDetector):
         feature_max = np.max(train_data, axis=0)
         feature_range = feature_max - feature_min + 1e-8
         # Generate OOD samples: extend beyond training range
-        synthetic = feature_min - 0.5 * feature_range + rng.rand(
-            n_synthetic, n_features
-        ) * 2.0 * feature_range
+        synthetic = (
+            feature_min
+            - 0.5 * feature_range
+            + rng.rand(n_synthetic, n_features) * 2.0 * feature_range
+        )
 
         if X is not None:
             normal_data = X
@@ -1188,10 +1197,12 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # Combine and create pseudo-labels
         X_eval = np.vstack([normal_data[:n_synthetic], synthetic])
-        y_eval = np.concatenate([
-            np.zeros(min(len(normal_data), n_synthetic), dtype=np.int32),
-            np.ones(n_synthetic, dtype=np.int32),
-        ])
+        y_eval = np.concatenate(
+            [
+                np.zeros(min(len(normal_data), n_synthetic), dtype=np.int32),
+                np.ones(n_synthetic, dtype=np.int32),
+            ]
+        )
 
         # Score with current detector
         detection = self.detect(X_eval)
@@ -1323,7 +1334,9 @@ class MercuryAnomalyDetector(BaseDetector):
         self._supervised_threshold = best_threshold
         logger.info(
             "fit_with_calibration_subset: threshold=%.6f (cal F1=%.4f, n_cal=%d)",
-            best_threshold, best_f1, len(cal_indices),
+            best_threshold,
+            best_f1,
+            len(cal_indices),
         )
         return self
 
@@ -1360,9 +1373,7 @@ class MercuryAnomalyDetector(BaseDetector):
             ImportError: If optuna is not installed.
         """
         if not OPTUNA_AVAILABLE:
-            logger.warning(
-                "auto_tune: optuna not installed. Install with: pip install optuna"
-            )
+            logger.warning("auto_tune: optuna not installed. Install with: pip install optuna")
             return self
 
         if not self._is_fitted:
@@ -1462,7 +1473,8 @@ class MercuryAnomalyDetector(BaseDetector):
 
         logger.info(
             "auto_tune: best_lambda=%.2e, best_value=%.4f",
-            self._tuned_lambda, study.best_value,
+            self._tuned_lambda,
+            study.best_value,
         )
         return self
 
