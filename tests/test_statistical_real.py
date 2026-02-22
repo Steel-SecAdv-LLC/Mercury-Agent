@@ -400,12 +400,13 @@ class TestFeatureExtraction:
         detector.fit(data)
 
         features = detector.extract_features(data)
+        features_np = features.numpy() if hasattr(features, "numpy") else np.asarray(features)
 
         # Features should be finite
-        assert np.all(np.isfinite(features.numpy()))
+        assert np.all(np.isfinite(features_np))
 
         # Features should have some variance (not all same)
-        assert np.std(features.numpy()) > 0
+        assert np.std(features_np) > 0
 
 
 class TestAutoCalibration:
