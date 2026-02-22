@@ -55,6 +55,10 @@ from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
 )
+from omni_mercury_engine.detectors.frequency_domain_oracle import (
+    FrequencyDomainOracle,
+    FrequencyInfluenceVector,
+)
 
 # Import the new advanced detectors
 from omni_mercury_engine.detectors.spectral_vibration import (
@@ -87,11 +91,13 @@ class PhysicsDetectorType(Enum):
     SPECTRAL_VIBRATION = "spectral_vibration"
     ACCELERATION_DYNAMICS = "acceleration_dynamics"
     UIUX_ANOMALY = "uiux_anomaly"
+    FREQUENCY_ORACLE = "frequency_domain_oracle"
     ALL = "all"
     # CLI-friendly aliases
     SPECTRAL = "spectral_vibration"  # Alias for SPECTRAL_VIBRATION
     DYNAMICS = "acceleration_dynamics"  # Alias for ACCELERATION_DYNAMICS
     UIUX = "uiux_anomaly"  # Alias for UIUX_ANOMALY
+    ORACLE = "frequency_domain_oracle"  # Alias for FREQUENCY_ORACLE
 
 
 # =============================================================================
@@ -123,6 +129,7 @@ class AdvancedPhysicsConfig:
     spectral_config: dict[str, Any] = field(default_factory=dict)
     dynamics_config: dict[str, Any] = field(default_factory=dict)
     uiux_config: dict[str, Any] = field(default_factory=dict)
+    oracle_config: dict[str, Any] = field(default_factory=dict)
     use_3r_enhancement: bool = True
     use_gosnn_scaling: bool = True
     fusion_weights: dict[str, float] | None = None
@@ -295,6 +302,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         self._spectral_detector: SpectralVibrationDetector | None = None
         self._dynamics_detector: AccelerationDynamicsDetector | None = None
         self._uiux_detector: UIUXAnomalyDetector | None = None
+        self._oracle_detector: FrequencyDomainOracle | None = None
 
         self._init_detectors()
 
@@ -337,6 +345,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             spectral_config=config.get("spectral_config", {}),
             dynamics_config=config.get("dynamics_config", {}),
             uiux_config=config.get("uiux_config", {}),
+            oracle_config=config.get("oracle_config", {}),
             use_3r_enhancement=config.get("use_3r_enhancement", True),
             use_gosnn_scaling=config.get("use_gosnn_scaling", True),
             fusion_weights=config.get("fusion_weights"),
@@ -364,6 +373,10 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         if all_enabled or PhysicsDetectorType.UIUX_ANOMALY in enabled:
             uiux_config = {**cfg.uiux_config, "threshold": cfg.threshold}
             self._uiux_detector = UIUXAnomalyDetector(uiux_config)
+
+        if all_enabled or PhysicsDetectorType.FREQUENCY_ORACLE in enabled:
+            oracle_config = {**cfg.oracle_config, "threshold": cfg.threshold}
+            self._oracle_detector = FrequencyDomainOracle(oracle_config)
 
     def _init_3r_components(self) -> None:
         """Initialize 3R mechanism components."""
@@ -413,6 +426,9 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             if self._dynamics_detector is not None:
                 self._dynamics_detector.fit(data)  # type: ignore[arg-type, unused-ignore]
 
+            if self._oracle_detector is not None:
+                self._oracle_detector.fit(data)  # type: ignore[arg-type, unused-ignore]
+
         elif data_type == "interactions":
             # Fit UI/UX detector
             if self._uiux_detector is not None:
@@ -434,6 +450,8 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                     self._spectral_detector.fit(ts_data)
                 if self._dynamics_detector is not None:
                     self._dynamics_detector.fit(ts_data)
+                if self._oracle_detector is not None:
+                    self._oracle_detector.fit(ts_data)
 
             if "interactions" in data and self._uiux_detector is not None:
                 self._uiux_detector.fit(data["interactions"])
@@ -472,6 +490,8 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         spectral_result = None
         dynamics_result = None
         uiux_result = None
+        oracle_result: dict[str, Any] | None = None
+        frequency_influence: FrequencyInfluenceVector | None = None
 
         if data_type == "time_series":
             if isinstance(data, torch.Tensor):
@@ -482,6 +502,14 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
             if self._dynamics_detector is not None and self._dynamics_detector.is_fitted():
                 dynamics_result = self._dynamics_detector.detect(data)  # type: ignore[arg-type, unused-ignore]
+
+            # Frequency Domain Oracle — parallel frequency-space pipeline
+            if self._oracle_detector is not None and self._oracle_detector.is_fitted():
+                try:
+                    oracle_result = self._oracle_detector.detect(data)  # type: ignore[arg-type, unused-ignore]
+                    frequency_influence = oracle_result.get("influence_vector")
+                except Exception as e:
+                    logger.warning("FrequencyDomainOracle detection failed: %s", e)
 
         elif data_type == "interactions":
             if self._uiux_detector is not None and self._uiux_detector.is_fitted():
@@ -498,6 +526,14 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 if self._dynamics_detector is not None and self._dynamics_detector.is_fitted():
                     dynamics_result = self._dynamics_detector.detect(ts_data)
 
+                # Frequency Domain Oracle — parallel frequency-space pipeline
+                if self._oracle_detector is not None and self._oracle_detector.is_fitted():
+                    try:
+                        oracle_result = self._oracle_detector.detect(ts_data)
+                        frequency_influence = oracle_result.get("influence_vector")
+                    except Exception as e:
+                        logger.warning("FrequencyDomainOracle detection failed: %s", e)
+
             if "interactions" in data:
                 if self._uiux_detector is not None and self._uiux_detector.is_fitted():
                     uiux_result = self._uiux_detector.detect(data["interactions"])
@@ -513,6 +549,9 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
         if uiux_result is not None:
             component_scores["uiux"] = uiux_result.get("anomaly_score", 0.0)
+
+        if oracle_result is not None:
+            component_scores["frequency_oracle"] = oracle_result.get("anomaly_score", 0.0)
 
         # Apply 3R enhancement
         recursion_score = 0.0
@@ -543,11 +582,17 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             resonance_score,
             ethical_scaling,
             fusion_result,
+            frequency_influence,
         )
 
         # Extract combined features
         detector_features = self._extract_combined_features(
-            data, data_type, spectral_result, dynamics_result, uiux_result
+            data,
+            data_type,
+            spectral_result,
+            dynamics_result,
+            uiux_result,
+            oracle_result,
         )
 
         # Generate combined recommendations
@@ -568,6 +613,8 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             "spectral_result": spectral_result,
             "dynamics_result": dynamics_result,
             "uiux_result": uiux_result,
+            "oracle_result": oracle_result,
+            "frequency_influence": frequency_influence,
             "fusion_result": fusion_result,
             "recursion_score": recursion_score,
             "resonance_score": resonance_score,
@@ -664,6 +711,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         resonance_score: float,
         ethical_scaling: float,
         fusion_result: AnomalyFusionResult | None,
+        frequency_influence: FrequencyInfluenceVector | None = None,
     ) -> float:
         """Compute combined anomaly score.
 
@@ -673,6 +721,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             resonance_score: Score from resonance engine
             ethical_scaling: GOSNN ethical scaling factor
             fusion_result: OAE fusion result
+            frequency_influence: Oracle influence vector (modulates final score)
 
         Returns:
             Combined anomaly score [0, 1]
@@ -712,6 +761,10 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         else:
             final_score = enhanced_score
 
+        # Apply Oracle frequency influence modulation
+        if frequency_influence is not None:
+            final_score *= frequency_influence.influence_multiplier
+
         return float(np.clip(final_score, 0.0, 1.0))
 
     def _extract_combined_features(
@@ -721,6 +774,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         spectral_result: dict[str, Any] | None,
         dynamics_result: dict[str, Any] | None,
         uiux_result: dict[str, Any] | None,
+        oracle_result: dict[str, Any] | None = None,
     ) -> torch.Tensor:
         """Extract and combine features from all detectors.
 
@@ -730,6 +784,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             spectral_result: Spectral detection result
             dynamics_result: Dynamics detection result
             uiux_result: UI/UX detection result
+            oracle_result: Oracle detection result
 
         Returns:
             Combined feature tensor
@@ -765,6 +820,16 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                     feature_parts.append(uiux_features)
             except Exception as e:
                 logger.warning(f"Failed to extract UI/UX features: {e}")
+
+        # Extract Oracle features
+        if self._oracle_detector is not None and oracle_result is not None:
+            try:
+                if data_type in ["time_series", "mixed"]:
+                    ts_data = data["time_series"] if isinstance(data, dict) else data
+                    oracle_features = self._oracle_detector.extract_features(ts_data)
+                    feature_parts.append(oracle_features)
+            except Exception as e:
+                logger.warning(f"Failed to extract Oracle features: {e}")
 
         if not feature_parts:
             return torch.zeros(1, 64)

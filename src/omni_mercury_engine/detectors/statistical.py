@@ -505,6 +505,8 @@ class MercuryAnomalyDetector(BaseDetector):
         ig_mean: np.ndarray,
         ig_cov_inv: np.ndarray,
         ig_log_det: float = 0.0,
+        adaptive_weights: np.ndarray | None = None,
+        data_type: str | None = None,
     ) -> MercuryAnomalyDetector:
         """Reconstruct a fitted detector from pre-computed statistics.
 
@@ -512,7 +514,7 @@ class MercuryAnomalyDetector(BaseDetector):
         the aggregator combines them, and this method creates a
         working detector from the aggregated result.
 
-        All 13 parameters correspond exactly to the attributes set
+        All 13 core parameters correspond exactly to the attributes set
         during fit(). The resulting detector is ready for detect() calls.
 
         Args:
@@ -529,6 +531,13 @@ class MercuryAnomalyDetector(BaseDetector):
             ig_mean: Gaussian manifold center, shape (n_features,)
             ig_cov_inv: Precision matrix, shape (n_features, n_features)
             ig_log_det: Log-determinant of regularized covariance.
+            adaptive_weights: Optional component weights from unsupervised
+                adaptive weighting, shape (3,). If provided, the
+                reconstructed detector uses these weights instead of the
+                default [0.40, 0.30, 0.30].
+            data_type: Optional detected data type ("temporal", "tabular",
+                "image", "unknown"). Preserves the originating node's
+                data-type classification.
 
         Returns:
             Fitted MercuryAnomalyDetector ready for detect() calls.
@@ -547,6 +556,12 @@ class MercuryAnomalyDetector(BaseDetector):
         det._ig_mean = np.asarray(ig_mean)
         det._ig_cov_inv = np.asarray(ig_cov_inv)
         det._ig_log_det = float(ig_log_det)
+        if adaptive_weights is not None:
+            det._adaptive_weights = np.asarray(adaptive_weights)
+        if data_type is not None:
+            from omni_mercury_engine.core.config import DataCharacteristics
+
+            det._data_type = DataCharacteristics(data_type)
         det._is_fitted = True
         return det
 

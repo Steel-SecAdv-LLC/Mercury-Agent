@@ -261,6 +261,7 @@ class DomainHarmonicConstants:
     MEDICAL: tuple[float, ...] = (0.04, 0.15, 0.4, 1.0, 40.0)
     INFRASTRUCTURE: tuple[float, ...] = (50.0, 60.0, 0.1, 0.01)
     SPACE: tuple[float, ...] = (0.001, 0.01, 0.1, 11.0)
+    HUMANITARIAN: tuple[float, ...] = (0.01, 0.1, 1.0, 10.0, 100.0)
     # Security and Financial use adaptive detection (no predefined fundamentals)
 
 
@@ -285,6 +286,7 @@ def get_domain_fundamentals(domain: str) -> tuple[float, ...] | None:
         "space": DOMAIN_HARMONICS.SPACE,
         "security": None,  # Auto-detect via MUSIC/ESPRIT
         "financial": None,  # Auto-detect via MUSIC/ESPRIT
+        "humanitarian": DOMAIN_HARMONICS.HUMANITARIAN,
     }
     return mapping.get(domain_lower, DOMAIN_HARMONICS.ENVIRONMENTAL)
 
