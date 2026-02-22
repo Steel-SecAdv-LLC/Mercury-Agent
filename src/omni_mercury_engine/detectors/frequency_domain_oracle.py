@@ -21,33 +21,28 @@ from __future__ import annotations
 """
 Frequency Domain Oracle — Full-Power Neuro-Symbolic Implementation.
 
-A production-grade frequency-domain anomaly detection system with:
+A production-grade frequency-domain anomaly detection system that runs
+parallel to the time-domain detectors and produces a
+``FrequencyInfluenceVector`` for fusion-layer modulation.
 
-1. **Selective Inference (SI) framework** — guarantees Type I error
-   control on frequency-domain change points.  Post-selection validity
-   is preserved by conditioning on the selection event.
-2. **Binary segmentation change-point detection** — recursive
-   CUSUM-based CP detection with configurable recursion depth.
-3. **Windowed DFT** — sliding inner/outer windows capturing both
-   intra-period and inter-period spectral evolution.  Hann-windowed
-   with 50 % overlap for temporal localisation.
-4. **Per-band structured results** — ``FrequencyBandResult`` dataclass
-   with power_ratio, z_score, p_value, is_significant.
-5. **φ-weighted influence multiplier** — three-signal geometric mean
-   (score, entropy, breadth) with golden ratio weighting (per OSHA
-   OTM §III.5 weighting schemes).
-6. **13 features per sample** — per-band z-scores + spectral entropy
-   + centroid + aggregate score + influence multiplier.
+Capabilities:
+
+1. **Selective Inference (SI) framework** — post-selection Type I error
+   control for detected frequency-domain change points.
+2. **Binary segmentation change-point detection** — recursive CUSUM-based
+   CP detection.
+3. **Windowed DFT** — sliding Hann-windowed frames with 50% overlap.
+4. **Spectral Flux** — rate-of-spectral-change detection.
+5. **Phase Coherence** — inter-band phase relationship monitoring.
+6. **Cepstral Analysis** — harmonic structure fingerprinting.
+7. **φ-weighted influence multiplier** — five-signal geometric mean
+   (score, entropy, breadth, flux, coherence).
 
 Supported domains (7):
     environmental (8 bands), medical (9 bands),
     infrastructure (8 bands), security (6 bands),
     financial (7 bands), space (7 bands),
     humanitarian (5 bands)
-
-Humanitarian domain frequencies are optimised for crisis detection,
-pandemic monitoring, and disaster response — prioritising regenerative
-and resilient features for humanitarian impact.
 """
 
 import logging
@@ -56,6 +51,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import torch
 from scipy.fft import fft, fftfreq
 from scipy.stats import norm, truncnorm
 
@@ -224,6 +220,9 @@ class FrequencyInfluenceVector:
         spectral_centroid: Centre of mass of the spectrum (Hz).
         change_point_detected: True when binary segmentation found a CP.
         confidence: 1 - aggregate_p_value.
+        spectral_flux: Rate-of-spectral-change (L2 norm of frame diffs).
+        phase_coherence: Mean inter-band phase coherence [0, 1].
+        cepstral_peak_ratio: Max quefrency peak / mean (harmonic indicator).
     """
 
     influence_multiplier: float
@@ -235,6 +234,9 @@ class FrequencyInfluenceVector:
     spectral_centroid: float
     change_point_detected: bool
     confidence: float
+    spectral_flux: float = 0.0
+    phase_coherence: float = 0.0
+    cepstral_peak_ratio: float = 0.0
 
 
 @dataclass
@@ -291,7 +293,7 @@ def create_frequency_oracle(
 
 
 class FrequencyDomainOracle(BaseDetector):
-    """Full-power neuro-symbolic frequency-domain anomaly detection Oracle.
+    """Full-power neuro-symbolic spectral-domain anomaly detection Oracle.
 
     The Oracle decomposes a signal into domain-specific frequency bands
     using a **windowed DFT** (Hann window, 50% overlap), then applies:
@@ -299,9 +301,13 @@ class FrequencyDomainOracle(BaseDetector):
     1. Per-band z-score anomaly scoring against reference statistics.
     2. **Binary segmentation** change-point detection (CUSUM-based,
        recursive up to depth 5).
-    3. **Selective inference** p-value correction for detected CPs.
-    4. **φ-weighted influence multiplier** — geometric mean of score,
-       spectral entropy, and significant-band breadth.
+    3. **Selective inference** p-value correction with truncated normal
+       conditioning for detected CPs (Lee et al., 2016).
+    4. **Spectral flux** — rate-of-spectral-change detection.
+    5. **Phase coherence** — inter-band phase relationship monitoring.
+    6. **Cepstral analysis** — harmonic structure fingerprinting.
+    7. **φ-weighted influence multiplier** — five-signal geometric mean
+       of score, entropy, breadth, flux, and coherence.
 
     The resulting :class:`FrequencyInfluenceVector` modulates the fused
     anomaly score in ``AdvancedPhysicsIntegratedDetector``.
@@ -409,13 +415,15 @@ class FrequencyDomainOracle(BaseDetector):
 
         hann = np.hanning(win_len)
 
+        # Pre-compute frequency axis ONCE (invariant across windows)
+        freqs_full = fftfreq(win_len, d=1.0 / self._oracle_config.sample_rate)
+        pos_mask = freqs_full >= 0
+
         windows: list[np.ndarray] = []
         start = 0
         while start + win_len <= n:
             segment = signal[start : start + win_len] * hann
             spectrum = fft(segment)
-            freqs_full = fftfreq(win_len, d=1.0 / self._oracle_config.sample_rate)
-            pos_mask = freqs_full >= 0
             magnitude = np.abs(spectrum[pos_mask]) / win_len
             windows.append(magnitude)
             start += hop
@@ -547,6 +555,157 @@ class FrequencyDomainOracle(BaseDetector):
         mean_spectrum = np.mean(freq_matrix, axis=0)
         total = np.sum(mean_spectrum) + EPSILON
         return float(np.sum(freqs * mean_spectrum) / total)
+
+    # ------------------------------------------------------------------
+    # Spectral Flux — rate-of-spectral-change detection
+    # ------------------------------------------------------------------
+
+    def _compute_spectral_flux(
+        self,
+        freq_matrix: np.ndarray,
+    ) -> float:
+        """Compute spectral flux: rate of spectral change across frames.
+
+        Spectral flux measures the L2 norm of the frame-to-frame difference
+        in the power spectrum, normalised by the number of frames.  High
+        flux indicates rapid spectral evolution — a frequency-domain analog
+        of acceleration that is useful for detecting slow-onset anomalies
+        (e.g., gradual infrastructure degradation, creeping sensor drift).
+
+        Args:
+            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+
+        Returns:
+            Mean spectral flux (non-negative).
+        """
+        if freq_matrix.shape[0] < 2:
+            return 0.0
+
+        diffs = np.diff(freq_matrix, axis=0)
+        frame_fluxes = np.linalg.norm(diffs, axis=1)
+        return float(np.mean(frame_fluxes))
+
+    # ------------------------------------------------------------------
+    # Phase Coherence — inter-band phase relationship monitoring
+    # ------------------------------------------------------------------
+
+    def _compute_phase_coherence(
+        self,
+        signal: np.ndarray,
+    ) -> float:
+        """Compute mean inter-band phase coherence.
+
+        Phase coherence degrades before amplitude changes, making it a
+        *leading indicator* of anomalous behaviour.  Uses Welch's method
+        cross-spectral density estimation (``scipy.signal.csd``) to
+        compute magnitude-squared coherence between adjacent frequency
+        bands.
+
+        When fewer than 2 bands have sufficient data, returns 1.0
+        (maximally coherent — no evidence of decoherence).
+
+        Args:
+            signal: 1-D time-domain signal.
+
+        Returns:
+            Mean coherence in [0, 1].
+        """
+        from scipy.signal import coherence as scipy_coherence
+
+        sr = self._oracle_config.sample_rate
+        nperseg = min(256, len(signal) // 2) if len(signal) >= 4 else len(signal)
+
+        if nperseg < 4 or len(self._bands) < 2:
+            return 1.0
+
+        # Bandpass-filtered power series per band
+        n = len(signal)
+        win_len = min(self._oracle_config.inner_window, n)
+        freqs_full = fftfreq(win_len, d=1.0 / sr)
+        pos_freqs = freqs_full[freqs_full >= 0]
+
+        # Build per-band time-domain approximations via inverse FFT masking
+        band_signals: list[np.ndarray] = []
+        spectrum = fft(signal[:win_len] * np.hanning(win_len))
+        for lo, hi, _label, _w in self._bands:
+            mask_pos = (pos_freqs >= lo) & (pos_freqs <= hi)
+            if not np.any(mask_pos):
+                continue
+
+            # Zero out frequencies outside the band
+            filtered = np.zeros_like(spectrum)
+            # Positive frequencies
+            pos_indices = np.where(freqs_full >= 0)[0]
+            for idx in pos_indices[mask_pos]:
+                filtered[idx] = spectrum[idx]
+                # Mirror for negative frequencies
+                if idx > 0 and idx < len(spectrum) - 1:
+                    filtered[len(spectrum) - idx] = spectrum[len(spectrum) - idx]
+
+            band_sig = np.real(np.fft.ifft(filtered))
+            band_signals.append(band_sig)
+
+        if len(band_signals) < 2:
+            return 1.0
+
+        # Pairwise coherence between adjacent bands
+        coherences: list[float] = []
+        for i in range(len(band_signals) - 1):
+            try:
+                _, coh = scipy_coherence(
+                    band_signals[i],
+                    band_signals[i + 1],
+                    fs=sr,
+                    nperseg=min(nperseg, len(band_signals[i])),
+                )
+                coherences.append(float(np.mean(coh)))
+            except (ValueError, ZeroDivisionError):
+                coherences.append(1.0)
+
+        return float(np.clip(np.mean(coherences), 0.0, 1.0)) if coherences else 1.0
+
+    # ------------------------------------------------------------------
+    # Cepstral Analysis — harmonic structure fingerprinting
+    # ------------------------------------------------------------------
+
+    def _compute_cepstral_peak(
+        self,
+        freq_matrix: np.ndarray,
+    ) -> float:
+        """Compute cepstral peak ratio for harmonic structure detection.
+
+        The cepstrum (inverse FFT of log power spectrum) reveals harmonic
+        structure as peaks in the quefrency domain.  The peak ratio
+        (max quefrency peak / mean) indicates how strongly harmonic the
+        signal is — useful for rotating machinery faults, resonance
+        detection, and structural mode identification.
+
+        Args:
+            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+
+        Returns:
+            Cepstral peak ratio (>= 1.0; higher = more harmonic).
+        """
+        mean_spectrum = np.mean(freq_matrix, axis=0)
+
+        # Log power spectrum (avoid log(0))
+        log_spectrum = np.log(mean_spectrum + EPSILON)
+
+        # Cepstrum via inverse FFT of log power spectrum
+        cepstrum = np.abs(np.fft.ifft(log_spectrum))
+
+        # Skip quefrency 0 (DC component of log spectrum)
+        if len(cepstrum) < 3:
+            return 1.0
+
+        cepstrum_excl_dc = cepstrum[1:]
+        mean_cep = float(np.mean(cepstrum_excl_dc))
+        max_cep = float(np.max(cepstrum_excl_dc))
+
+        if mean_cep < EPSILON:
+            return 1.0
+
+        return float(max_cep / mean_cep)
 
     # ------------------------------------------------------------------
     # Binary segmentation change-point detection
@@ -905,22 +1064,28 @@ class FrequencyDomainOracle(BaseDetector):
         aggregate_score: float,
         spectral_entropy: float,
         band_results: list[FrequencyBandResult],
+        spectral_flux: float = 0.0,
+        phase_coherence: float = 1.0,
     ) -> float:
-        """Three-signal φ-weighted geometric mean influence multiplier.
+        """Five-signal φ-weighted geometric mean influence multiplier.
 
         Combines:
-          - ``score_influence``: from aggregate anomaly score
+          - ``score_influence``: from aggregate anomaly score (φ-weighted)
           - ``entropy_influence``: deviation of spectral entropy from reference
           - ``breadth_influence``: fraction of bands that are significant
+          - ``flux_influence``: spectral rate-of-change contribution
+          - ``coherence_influence``: phase decoherence contribution
 
-        Formula::
+        Formula per OSHA OTM §III.5::
 
-            multiplier = (score^φ * entropy * breadth) ^ (1 / (φ + 2))
+            multiplier = (score^φ × entropy × breadth × flux × coherence) ^ (1/(φ+4))
 
         Args:
             aggregate_score: Weighted aggregate anomaly score.
             spectral_entropy: Current spectral entropy.
             band_results: Per-band detection results.
+            spectral_flux: Spectral flux value (from _compute_spectral_flux).
+            phase_coherence: Phase coherence value in [0, 1].
 
         Returns:
             Influence multiplier bounded to ``[floor, ceiling]``.
@@ -946,9 +1111,25 @@ class FrequencyDomainOracle(BaseDetector):
         breadth_influence = 1.0 + breadth_ratio * 0.5
         breadth_influence = max(breadth_influence, EPSILON)
 
-        # φ-weighted geometric mean
-        exponent = 1.0 / (PHI + 2.0)
-        multiplier = (score_influence**PHI * entropy_influence * breadth_influence) ** exponent
+        # Flux influence: high spectral flux → stronger modulation
+        # Normalise flux to [1.0, 1.5] range; cap contribution
+        flux_influence = 1.0 + min(spectral_flux, 1.0) * 0.5
+        flux_influence = max(flux_influence, EPSILON)
+
+        # Coherence influence: low coherence → amplify (decoherence is anomalous)
+        # phase_coherence in [0, 1]; invert so that low coherence → high influence
+        coherence_influence = 1.0 + (1.0 - phase_coherence) * 0.5
+        coherence_influence = max(coherence_influence, EPSILON)
+
+        # φ-weighted geometric mean (5 signals)
+        exponent = 1.0 / (PHI + 4.0)
+        multiplier = (
+            score_influence**PHI
+            * entropy_influence
+            * breadth_influence
+            * flux_influence
+            * coherence_influence
+        ) ** exponent
 
         return float(np.clip(multiplier, floor, ceiling))
 
@@ -972,13 +1153,8 @@ class FrequencyDomainOracle(BaseDetector):
         Returns:
             Self for method chaining.
         """
-        try:
-            import torch
-
-            if isinstance(data, torch.Tensor):
-                data = data.cpu().numpy()
-        except ImportError:
-            pass
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
 
         if not isinstance(data, np.ndarray):
             data = np.asarray(data)
@@ -1057,13 +1233,8 @@ class FrequencyDomainOracle(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("FrequencyDomainOracle must be fitted before detection.")
 
-        try:
-            import torch
-
-            if isinstance(data, torch.Tensor):
-                data = data.cpu().numpy()
-        except ImportError:
-            pass
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
 
         if not isinstance(data, np.ndarray):
             data = np.asarray(data)
@@ -1091,36 +1262,36 @@ class FrequencyDomainOracle(BaseDetector):
             "detector_type": "frequency_domain_oracle",
         }
 
-    def extract_features(  # type: ignore[override, unused-ignore]
+    def extract_features(
         self,
         data: np.ndarray | Any,
-    ) -> np.ndarray:
-        """Extract per-band spectral features.
+    ) -> torch.Tensor:
+        """Extract per-band spectral features as torch.Tensor.
 
-        Returns ``[batch, n_bands + 4]`` features:
+        Returns ``[batch, n_bands + 7]`` features:
           - Per-band anomaly scores (from band_scores dict)
           - Spectral entropy
           - Spectral centroid
           - Aggregate score
           - Influence multiplier
+          - Spectral flux
+          - Phase coherence
+          - Cepstral peak ratio
 
-        The integration layer (``advanced_physics_integration.py``)
-        handles the ``numpy -> torch`` conversion.
+        Complies with BaseDetector contract: returns torch.Tensor
+        suitable for neural network fusion. Internal computations
+        remain in float64 numpy for SI p-value precision; conversion
+        to float32 tensor happens here at the boundary.
 
         Args:
             data: Time-domain signals ``(N, T)`` or ``(T,)``.
                   Accepts np.ndarray or torch.Tensor.
 
         Returns:
-            Feature array of shape ``(N, n_bands + 4)``, dtype float32.
+            Feature tensor of shape ``(N, n_bands + 7)``, dtype float32.
         """
-        try:
-            import torch
-
-            if isinstance(data, torch.Tensor):
-                data = data.cpu().numpy()
-        except ImportError:
-            pass
+        if isinstance(data, torch.Tensor):
+            data = data.cpu().numpy()
 
         if not isinstance(data, np.ndarray):
             data = np.asarray(data)
@@ -1135,7 +1306,7 @@ class FrequencyDomainOracle(BaseDetector):
 
             # Per-band scores in band order
             band_feats = [iv.band_scores.get(label, 0.0) for _, _, label, _ in self._bands]
-            # Append spectral entropy, centroid, aggregate, multiplier
+            # Append all 7 global features
             feat = np.array(
                 band_feats
                 + [
@@ -1143,12 +1314,16 @@ class FrequencyDomainOracle(BaseDetector):
                     iv.spectral_centroid,
                     iv.aggregate_score,
                     iv.influence_multiplier,
+                    iv.spectral_flux,
+                    iv.phase_coherence,
+                    iv.cepstral_peak_ratio,
                 ],
                 dtype=np.float32,
             )
             features_list.append(feat)
 
-        return np.array(features_list, dtype=np.float32)
+        features_np = np.array(features_list, dtype=np.float32)
+        return torch.from_numpy(features_np)
 
     # ------------------------------------------------------------------
     # Single-sample detection
@@ -1217,14 +1392,23 @@ class FrequencyDomainOracle(BaseDetector):
         spectral_entropy = self._compute_spectral_entropy(freq_matrix)
         spectral_centroid = self._compute_spectral_centroid(freq_matrix, freqs)
 
+        # New spectral features (always computed when Oracle is active)
+        spectral_flux = self._compute_spectral_flux(freq_matrix)
+        phase_coherence = self._compute_phase_coherence(signal)
+        cepstral_peak_ratio = self._compute_cepstral_peak(freq_matrix)
+
         # Dominant frequency
         mean_spectrum = np.mean(freq_matrix, axis=0)
         dominant_idx = int(np.argmax(mean_spectrum))
         dominant_frequency = float(freqs[dominant_idx]) if len(freqs) > dominant_idx else 0.0
 
-        # Stage 4: Influence multiplier (φ-weighted geometric mean)
+        # Stage 4: Influence multiplier (φ-weighted geometric mean, 5 signals)
         influence_multiplier = self._compute_influence_multiplier(
-            aggregate_score, spectral_entropy, band_results
+            aggregate_score,
+            spectral_entropy,
+            band_results,
+            spectral_flux=spectral_flux,
+            phase_coherence=phase_coherence,
         )
 
         confidence = float(np.clip(1.0 - aggregate_p, 0.0, 1.0))
@@ -1239,6 +1423,9 @@ class FrequencyDomainOracle(BaseDetector):
             spectral_centroid=spectral_centroid,
             change_point_detected=change_point_detected,
             confidence=confidence,
+            spectral_flux=spectral_flux,
+            phase_coherence=phase_coherence,
+            cepstral_peak_ratio=cepstral_peak_ratio,
         )
 
         return {
