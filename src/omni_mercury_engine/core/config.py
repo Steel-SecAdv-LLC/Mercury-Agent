@@ -64,6 +64,59 @@ class FusionMode(Enum):
     HYBRID = "hybrid"
 
 
+class DataCharacteristics(Enum):
+    """Detected data characteristics for adaptive component weighting.
+
+    Used by :class:`MercuryAnomalyDetector` to automatically adjust ensemble
+    component weights based on whether data is temporally ordered, unordered
+    tabular, or high-dimensional image-like.
+
+    See Also:
+        - ``MercuryAnomalyDetector._detect_data_characteristics()`` for
+          the detection heuristic.
+        - ``COMPONENT_COMPATIBILITY`` for the weight adjustment matrix.
+    """
+
+    TEMPORAL = "temporal"
+    TABULAR = "tabular"
+    IMAGE = "image"
+    UNKNOWN = "unknown"
+
+
+# Component compatibility matrix: expected relative effectiveness of each
+# ensemble component given detected data characteristics.
+# Values represent multiplicative weight modifiers (1.0 = no change).
+#
+# Rationale:
+#   TEMPORAL  - Kinematics excels (derivatives meaningful); all components useful.
+#   TABULAR   - Kinematics near-random on shuffled rows (AUC ~0.60, see
+#               BENCHMARKS.md line 126-131); InfoGeometry strongest.
+#   IMAGE     - High-dimensional data; Kinematics less useful; Resonance moderate.
+#   UNKNOWN   - Neutral fallback; no adjustment applied.
+COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
+    DataCharacteristics.TEMPORAL: {
+        "resonance": 0.8,
+        "kinematic": 0.9,
+        "infogeo": 0.7,
+    },
+    DataCharacteristics.TABULAR: {
+        "resonance": 0.7,
+        "kinematic": 0.3,
+        "infogeo": 0.8,
+    },
+    DataCharacteristics.IMAGE: {
+        "resonance": 0.6,
+        "kinematic": 0.4,
+        "infogeo": 0.7,
+    },
+    DataCharacteristics.UNKNOWN: {
+        "resonance": 1.0,
+        "kinematic": 1.0,
+        "infogeo": 1.0,
+    },
+}
+
+
 @dataclass
 class DetectorConfig:
     """Configuration for individual detectors"""
