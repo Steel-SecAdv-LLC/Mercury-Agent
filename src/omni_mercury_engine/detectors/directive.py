@@ -277,6 +277,7 @@ class SigmaDirectiveDetector(BaseDetector):
         """
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+        assert isinstance(data, np.ndarray)
 
         # Validate data
         if data.size == 0:
@@ -354,6 +355,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+        assert isinstance(data, np.ndarray)
 
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -435,6 +437,7 @@ class SigmaDirectiveDetector(BaseDetector):
         """Extract Sigma protocol features for ML fusion"""
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+        assert isinstance(data, np.ndarray)
 
         if not self._is_fitted:
             self.fit(data)

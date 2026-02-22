@@ -67,8 +67,8 @@ class TemporalAnomalyDetector(BaseDetector):
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
-        self.baseline_mean = np.mean(data)
-        self.baseline_std = np.std(data)
+        self.baseline_mean = float(np.mean(data))
+        self.baseline_std = float(np.std(data))
 
         self._is_fitted = True
         return self
@@ -95,6 +95,7 @@ class TemporalAnomalyDetector(BaseDetector):
             raise DetectorException("Detector must be fitted before detection")
 
         data_np = data.cpu().numpy() if TORCH_AVAILABLE and isinstance(data, torch.Tensor) else data
+        assert isinstance(data_np, np.ndarray)
 
         trend_anomalies = self._detect_trend_anomalies(data_np)
         change_anomalies = self._detect_sudden_changes(data_np)

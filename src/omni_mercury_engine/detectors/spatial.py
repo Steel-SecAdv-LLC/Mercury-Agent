@@ -146,6 +146,7 @@ class SpatialAnomalyDetector(BaseDetector):
         """Fit detector to normal spatial data"""
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+        assert isinstance(data, np.ndarray)
 
         if data.shape[1] < 2:
             raise DetectorException("Spatial data must have at least 2 dimensions")
@@ -186,6 +187,7 @@ class SpatialAnomalyDetector(BaseDetector):
 
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+        assert isinstance(data, np.ndarray)
 
         distance_scores = self._compute_distance_scores(data)
         lof_scores = self.lof.decision_function(data)
