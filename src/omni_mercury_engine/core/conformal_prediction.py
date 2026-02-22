@@ -848,7 +848,7 @@ class MondrianConformalPredictor:
 
         for i, (score, group) in enumerate(zip(scores, group_ids)):
             predictor = self._group_predictors.get(group, self._global_predictor)
-            cal_scores = predictor._calibration_scores
+            cal_scores = predictor.calibration_scores
             if cal_scores is not None and len(cal_scores) > 0:
                 q_lo = float(np.quantile(cal_scores, alpha / 2))
                 q_hi = float(np.quantile(cal_scores, 1 - alpha / 2))
