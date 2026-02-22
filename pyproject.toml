@@ -188,9 +188,19 @@ domains = [
     "aiohttp>=3.9.0",
 ]
 
+# GUI / visualization dashboard
+gui = [
+    "plotly>=5.18.0",
+]
+
 # Full installation with all features
 all = [
-    "mercury-agent[ml,visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains]",
+    "mercury-agent[ml,visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui]",
+]
+
+# Test environment: all runtime features + dev tooling
+test = [
+    "mercury-agent[all,dev]",
 ]
 
 [project.scripts]
