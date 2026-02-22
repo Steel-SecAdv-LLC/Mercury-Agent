@@ -49,15 +49,16 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY, OracleActivation
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
 from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
 )
-from omni_mercury_engine.detectors.frequency_domain_oracle import (
-    FrequencyDomainOracle,
+from omni_mercury_engine.detectors.spectral_domain_oracle import (
     FrequencyInfluenceVector,
+    SpectralDomainOracle,
 )
 
 # Import the new advanced detectors
@@ -91,13 +92,14 @@ class PhysicsDetectorType(Enum):
     SPECTRAL_VIBRATION = "spectral_vibration"
     ACCELERATION_DYNAMICS = "acceleration_dynamics"
     UIUX_ANOMALY = "uiux_anomaly"
-    FREQUENCY_ORACLE = "frequency_domain_oracle"
+    SPECTRAL_ORACLE = "spectral_domain_oracle"  # Primary name
     ALL = "all"
     # CLI-friendly aliases
     SPECTRAL = "spectral_vibration"  # Alias for SPECTRAL_VIBRATION
     DYNAMICS = "acceleration_dynamics"  # Alias for ACCELERATION_DYNAMICS
     UIUX = "uiux_anomaly"  # Alias for UIUX_ANOMALY
-    ORACLE = "frequency_domain_oracle"  # Alias for FREQUENCY_ORACLE
+    ORACLE = "spectral_domain_oracle"  # Short alias
+    FREQUENCY_ORACLE = "spectral_domain_oracle"  # Backward compat
 
 
 # =============================================================================
@@ -130,6 +132,7 @@ class AdvancedPhysicsConfig:
     dynamics_config: dict[str, Any] = field(default_factory=dict)
     uiux_config: dict[str, Any] = field(default_factory=dict)
     oracle_config: dict[str, Any] = field(default_factory=dict)
+    oracle_mode: OracleActivation = OracleActivation.AUTO
     use_3r_enhancement: bool = True
     use_gosnn_scaling: bool = True
     fusion_weights: dict[str, float] | None = None
@@ -302,7 +305,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         self._spectral_detector: SpectralVibrationDetector | None = None
         self._dynamics_detector: AccelerationDynamicsDetector | None = None
         self._uiux_detector: UIUXAnomalyDetector | None = None
-        self._oracle_detector: FrequencyDomainOracle | None = None
+        self._oracle_detector: SpectralDomainOracle | None = None
 
         self._init_detectors()
 
@@ -346,6 +349,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             dynamics_config=config.get("dynamics_config", {}),
             uiux_config=config.get("uiux_config", {}),
             oracle_config=config.get("oracle_config", {}),
+            oracle_mode=OracleActivation(config.get("oracle_mode", OracleActivation.AUTO.value)),
             use_3r_enhancement=config.get("use_3r_enhancement", True),
             use_gosnn_scaling=config.get("use_gosnn_scaling", True),
             fusion_weights=config.get("fusion_weights"),
@@ -374,9 +378,43 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             uiux_config = {**cfg.uiux_config, "threshold": cfg.threshold}
             self._uiux_detector = UIUXAnomalyDetector(uiux_config)
 
-        if all_enabled or PhysicsDetectorType.FREQUENCY_ORACLE in enabled:
+        # Domain-aware Oracle auto-activation (Task 10)
+        oracle_should_init = False
+        oracle_domain = cfg.oracle_config.get("domain", "environmental")
+
+        if cfg.oracle_mode == OracleActivation.ENABLED:
+            oracle_should_init = True
+        elif cfg.oracle_mode == OracleActivation.DISABLED:
+            oracle_should_init = False
+        elif cfg.oracle_mode == OracleActivation.AUTO:
+            policy = ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled")
+            oracle_should_init = policy in ("enabled", "neutral")
+            if policy == "neutral":
+                # Dampen Oracle influence for uncertain domains
+                cfg.oracle_config.setdefault("influence_ceiling", 1.5)  # Default is 2.0
+                cfg.oracle_config.setdefault("influence_floor", 0.7)  # Default is 0.5
+
+        # Also respect enabled_detectors list
+        if oracle_should_init and (
+            all_enabled
+            or PhysicsDetectorType.SPECTRAL_ORACLE in enabled
+            or PhysicsDetectorType.FREQUENCY_ORACLE in enabled
+            or PhysicsDetectorType.ORACLE in enabled
+        ):
             oracle_config = {**cfg.oracle_config, "threshold": cfg.threshold}
-            self._oracle_detector = FrequencyDomainOracle(oracle_config)
+            self._oracle_detector = SpectralDomainOracle(oracle_config)
+            logger.info(
+                "SpectralDomainOracle activated: domain=%s, mode=%s, policy=%s",
+                oracle_domain,
+                cfg.oracle_mode.value,
+                ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled"),
+            )
+        elif not oracle_should_init:
+            logger.info(
+                "SpectralDomainOracle disabled: domain=%s, mode=%s",
+                oracle_domain,
+                cfg.oracle_mode.value,
+            )
 
     def _init_3r_components(self) -> None:
         """Initialize 3R mechanism components."""
@@ -532,7 +570,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                         oracle_result = self._oracle_detector.detect(ts_data)
                         frequency_influence = oracle_result.get("influence_vector")
                     except Exception as e:
-                        logger.warning("FrequencyDomainOracle detection failed: %s", e)
+                        logger.warning("SpectralDomainOracle detection failed: %s", e)
 
             if "interactions" in data:
                 if self._uiux_detector is not None and self._uiux_detector.is_fitted():

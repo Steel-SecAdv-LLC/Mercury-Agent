@@ -117,6 +117,39 @@ COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
 }
 
 
+class OracleActivation(Enum):
+    """Oracle activation mode.
+
+    Controls whether the SpectralDomainOracle is active. Can be set
+    explicitly or left at AUTO for domain-aware activation.
+    """
+
+    AUTO = "auto"  # Domain-aware: enabled/disabled per ORACLE_DOMAIN_POLICY
+    ENABLED = "enabled"  # Always enabled regardless of domain
+    DISABLED = "disabled"  # Always disabled regardless of domain
+
+
+# Domain-aware Oracle activation policy.
+#
+# Based on empirical analysis of frequency-domain anomaly signatures:
+#   ENABLED  — Domain has strong spectral signatures (infrastructure faults,
+#              network attack patterns, physiological frequency bands)
+#   NEUTRAL  — Domain may benefit; Oracle runs but influence_multiplier is
+#              dampened (multiplied by 0.5) to reduce false positive risk
+#   DISABLED — Domain anomalies are primarily amplitude/statistical, not
+#              spectral. Oracle would add computation without measurable
+#              improvement.
+ORACLE_DOMAIN_POLICY: dict[str, str] = {
+    "infrastructure": "enabled",  # Mains freq, bearing faults, harmonics
+    "security": "enabled",  # DDoS periodicity, scan burst patterns
+    "medical": "enabled",  # HRV bands, neural oscillations
+    "environmental": "neutral",  # Seismic precursors have weak freq signal
+    "space": "neutral",  # Solar wind has some spectral content
+    "financial": "disabled",  # Anomalies are magnitude-based, not spectral
+    "humanitarian": "disabled",  # Weak frequency signatures
+}
+
+
 @dataclass
 class DetectorConfig:
     """Configuration for individual detectors"""

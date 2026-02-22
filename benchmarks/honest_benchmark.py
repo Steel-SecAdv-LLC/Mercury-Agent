@@ -557,3 +557,42 @@ if __name__ == "__main__":
         json.dump(output, f, indent=2, default=str)
 
     print(f"\nResults saved to {OUTPUT_PATH}")
+
+    # -----------------------------------------------------------------------
+    # Per-dataset results for human review (Task 12)
+    # Do NOT overwrite honest_benchmark_results.json — this is a SEPARATE file.
+    # -----------------------------------------------------------------------
+    BENCHMARKS_DIR = Path(__file__).parent
+    per_dataset_path = BENCHMARKS_DIR / "per_dataset_results.json"
+    per_dataset: dict[str, Any] = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "datasets": {},
+    }
+    all_results: list[dict[str, Any]] = output.get("per_dataset", [])
+    for entry in all_results:
+        name = entry.get("name", "unknown")
+        per_dataset["datasets"][name] = {
+            "auc": entry.get("ensemble_auc", None),
+            "f1": entry.get("oracle_f1", None),
+            "precision": entry.get("oracle_precision", None),
+            "recall": entry.get("oracle_recall", None),
+            "n_samples": entry.get("n_samples", None),
+            "oracle_active": entry.get("oracle_active", False),
+        }
+
+    # Flag datasets that still have AUC < 0.5
+    inverted = [
+        name
+        for name, m in per_dataset["datasets"].items()
+        if m["auc"] is not None and m["auc"] < 0.5
+    ]
+    per_dataset["inverted_datasets"] = inverted
+    per_dataset["n_inverted"] = len(inverted)
+
+    with open(per_dataset_path, "w") as f:
+        json.dump(per_dataset, f, indent=2)
+
+    if inverted:
+        print(f"\n  {len(inverted)} datasets still have AUC < 0.5: {inverted}")
+    else:
+        print("\n  No datasets with AUC < 0.5")
