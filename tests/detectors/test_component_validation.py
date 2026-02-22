@@ -56,10 +56,7 @@ def _make_temporal_dataset(
     rng = np.random.RandomState(seed)
     t = np.linspace(0, 4 * np.pi, n_normal + n_anomalies)
 
-    X = np.column_stack([
-        np.sin(t * (f + 1)) + rng.randn(len(t)) * 0.05
-        for f in range(n_features)
-    ])
+    X = np.column_stack([np.sin(t * (f + 1)) + rng.randn(len(t)) * 0.05 for f in range(n_features)])
     y = np.zeros(len(t), dtype=np.int32)
 
     # Inject spike anomalies at random positions
@@ -82,11 +79,12 @@ def _make_spectral_dataset(
     t = np.linspace(0, 8 * np.pi, n_normal + n_anomalies)
 
     # Normal: consistent harmonic pattern
-    X = np.column_stack([
-        np.sin(t * (f + 1)) * (1.0 + 0.3 * np.cos(t * 0.5))
-        + rng.randn(len(t)) * 0.02
-        for f in range(n_features)
-    ])
+    X = np.column_stack(
+        [
+            np.sin(t * (f + 1)) * (1.0 + 0.3 * np.cos(t * 0.5)) + rng.randn(len(t)) * 0.02
+            for f in range(n_features)
+        ]
+    )
     y = np.zeros(len(t), dtype=np.int32)
 
     # Anomalies: inject high-frequency noise (breaks harmonic pattern)
@@ -192,42 +190,39 @@ class TestDataTypeDetection:
         X, _ = _make_temporal_dataset()
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert result == DataCharacteristics.TEMPORAL, (
-            f"Expected TEMPORAL, got {result.value}"
-        )
+        assert result == DataCharacteristics.TEMPORAL, f"Expected TEMPORAL, got {result.value}"
 
     def test_tabular_data_detected(self) -> None:
         X, _ = _make_tabular_dataset()
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert result == DataCharacteristics.TABULAR, (
-            f"Expected TABULAR, got {result.value}"
-        )
+        assert result == DataCharacteristics.TABULAR, f"Expected TABULAR, got {result.value}"
 
     def test_image_data_detected(self) -> None:
         X, _ = _make_image_like_dataset(n_samples=400)
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert result in (DataCharacteristics.IMAGE, DataCharacteristics.TABULAR), (
-            f"Expected IMAGE or TABULAR, got {result.value}"
-        )
+        assert result in (
+            DataCharacteristics.IMAGE,
+            DataCharacteristics.TABULAR,
+        ), f"Expected IMAGE or TABULAR, got {result.value}"
 
     def test_small_data_returns_unknown(self) -> None:
         X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert result == DataCharacteristics.UNKNOWN, (
-            f"Expected UNKNOWN for small data, got {result.value}"
-        )
+        assert (
+            result == DataCharacteristics.UNKNOWN
+        ), f"Expected UNKNOWN for small data, got {result.value}"
 
     def test_gaussian_tabular_detected(self) -> None:
         """Shuffled Gaussian data should be detected as TABULAR."""
         X, _ = _make_gaussian_dataset()
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert result == DataCharacteristics.TABULAR, (
-            f"Expected TABULAR for shuffled Gaussian, got {result.value}"
-        )
+        assert (
+            result == DataCharacteristics.TABULAR
+        ), f"Expected TABULAR for shuffled Gaussian, got {result.value}"
 
 
 class TestComponentPerformance:
@@ -280,9 +275,9 @@ class TestUnsupervisedAdaptiveWeighting:
         det = MercuryAnomalyDetector()
         det.fit(X)
         weights = det._adaptive_weights
-        assert weights[1] < 0.05, (
-            f"Kinematic weight on tabular data should be < 0.05, got {weights[1]:.4f}"
-        )
+        assert (
+            weights[1] < 0.05
+        ), f"Kinematic weight on tabular data should be < 0.05, got {weights[1]:.4f}"
 
     def test_temporal_preserves_kinematic(self) -> None:
         """KinematicScore weight should be preserved on temporal data."""
@@ -291,9 +286,9 @@ class TestUnsupervisedAdaptiveWeighting:
         det.fit(X)
         weights = det._adaptive_weights
         # On temporal data, kinematic should have some weight
-        assert weights[1] > 0.0, (
-            f"Kinematic weight on temporal data should be > 0, got {weights[1]:.4f}"
-        )
+        assert (
+            weights[1] > 0.0
+        ), f"Kinematic weight on temporal data should be > 0, got {weights[1]:.4f}"
 
     def test_weights_sum_to_one(self) -> None:
         """Adaptive weights must always sum to 1."""
@@ -302,18 +297,16 @@ class TestUnsupervisedAdaptiveWeighting:
             det = MercuryAnomalyDetector()
             det.fit(X)
             total = float(np.sum(det._adaptive_weights))
-            assert abs(total - 1.0) < 1e-6, (
-                f"Weights sum to {total:.6f}, expected 1.0"
-            )
+            assert abs(total - 1.0) < 1e-6, f"Weights sum to {total:.6f}, expected 1.0"
 
     def test_weights_non_negative(self) -> None:
         """All adaptive weights must be non-negative."""
         X, _ = _make_tabular_dataset()
         det = MercuryAnomalyDetector()
         det.fit(X)
-        assert np.all(det._adaptive_weights >= 0), (
-            f"Negative weights detected: {det._adaptive_weights}"
-        )
+        assert np.all(
+            det._adaptive_weights >= 0
+        ), f"Negative weights detected: {det._adaptive_weights}"
 
     def test_data_type_stored(self) -> None:
         """Data type should be stored after fit()."""
@@ -371,9 +364,9 @@ class TestPerComponentValidation:
         det.fit(X)
         result = det.validate()
         # Should have reasonable AUC on synthetic test
-        assert result["ensemble_auc"] >= 0.3, (
-            f"Ensemble AUC on validation: {result['ensemble_auc']:.4f}"
-        )
+        assert (
+            result["ensemble_auc"] >= 0.3
+        ), f"Ensemble AUC on validation: {result['ensemble_auc']:.4f}"
 
     def test_validate_unfitted_returns_safe(self) -> None:
         """Validate on unfitted detector should return safe defaults."""
@@ -499,15 +492,25 @@ class TestBackwardCompatibility:
         det.fit(X)
         result = det.detect(X)
         expected_keys = {
-            "is_anomaly", "scores", "z_scores", "z_score_continuous",
-            "iqr_scores", "resonance_scores", "kinematic_scores",
-            "info_geometry_scores", "ensemble_components", "iqr_flags",
-            "isolation_forest_scores", "isolation_forest_flags",
-            "detector_type", "threshold", "calibration_diagnostics",
+            "is_anomaly",
+            "scores",
+            "z_scores",
+            "z_score_continuous",
+            "iqr_scores",
+            "resonance_scores",
+            "kinematic_scores",
+            "info_geometry_scores",
+            "ensemble_components",
+            "iqr_flags",
+            "isolation_forest_scores",
+            "isolation_forest_flags",
+            "detector_type",
+            "threshold",
+            "calibration_diagnostics",
         }
-        assert expected_keys.issubset(set(result.keys())), (
-            f"Missing keys: {expected_keys - set(result.keys())}"
-        )
+        assert expected_keys.issubset(
+            set(result.keys())
+        ), f"Missing keys: {expected_keys - set(result.keys())}"
 
     def test_detector_type_unchanged(self) -> None:
         X, _ = _make_gaussian_dataset()
