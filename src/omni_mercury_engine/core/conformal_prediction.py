@@ -815,6 +815,53 @@ class MondrianConformalPredictor:
             predictions[i] = int(score > threshold)
         return predictions
 
+    def predict_with_uncertainty(
+        self,
+        scores: np.ndarray,
+        group_ids: np.ndarray,
+        alpha: float = 0.1,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Predict anomalies with per-group confidence intervals.
+
+        Returns predictions along with lower and upper confidence bounds
+        on the anomaly scores, providing ``(1 - alpha)`` confidence
+        intervals computed from per-group nonconformity score quantiles.
+
+        Args:
+            scores: Nonconformity scores for test examples.
+            group_ids: Group labels for each test example.
+            alpha: Significance level (default 0.1 for 90% CI).
+
+        Returns:
+            Tuple of ``(predictions, lower_bound, upper_bound)`` where:
+              - ``predictions``: Binary anomaly predictions (int array).
+              - ``lower_bound``: Lower confidence bound on scores.
+              - ``upper_bound``: Upper confidence bound on scores.
+        """
+        if not self._fitted:
+            raise RuntimeError("Must call fit() before predict_with_uncertainty()")
+
+        predictions = self.predict(scores, group_ids)
+        n = len(scores)
+        lower = np.zeros(n, dtype=np.float64)
+        upper = np.ones(n, dtype=np.float64)
+
+        for i, (score, group) in enumerate(zip(scores, group_ids)):
+            predictor = self._group_predictors.get(group, self._global_predictor)
+            cal_scores = predictor._calibration_scores
+            if cal_scores is not None and len(cal_scores) > 0:
+                q_lo = float(np.quantile(cal_scores, alpha / 2))
+                q_hi = float(np.quantile(cal_scores, 1 - alpha / 2))
+                # Confidence interval: how the score relates to calibration
+                half_width = (q_hi - q_lo) / 2.0
+                lower[i] = max(0.0, score - half_width)
+                upper[i] = min(1.0, score + half_width)
+            else:
+                lower[i] = max(0.0, score - 0.1)
+                upper[i] = min(1.0, score + 0.1)
+
+        return predictions, lower, upper
+
     def evaluate_group_coverage(
         self,
         scores: np.ndarray,

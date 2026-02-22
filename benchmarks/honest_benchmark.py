@@ -436,6 +436,120 @@ def _print_table(
     print("=" * 90)
 
 
+# ---------------------------------------------------------------------------
+# Progressive validation for time-series (Task 7)
+# ---------------------------------------------------------------------------
+
+
+def run_progressive_validation(
+    detector: MercuryAnomalyDetector,
+    X: np.ndarray,
+    y: np.ndarray,
+    n_splits: int = 5,
+) -> dict[str, Any]:
+    """Prequential (progressive) validation for time-series data.
+
+    Implements train-on-past, test-on-future evaluation to catch temporal
+    leakage.  For each split *i*, trains on ``X[0 : i*N//n_splits]`` and
+    tests on ``X[i*N//n_splits : (i+1)*N//n_splits]``.
+
+    Temporal leakage detection: if performance degrades > 20% in later
+    splits compared to earlier splits, flags as potential leakage.
+
+    Args:
+        detector: A :class:`MercuryAnomalyDetector` instance (will be
+            re-fitted for each split).
+        X: Full dataset, shape ``(n_samples, n_features)``.  Rows are
+            assumed to be in temporal order.
+        y: Binary labels (0 = normal, 1 = anomaly).
+        n_splits: Number of temporal splits (default 5).
+
+    Returns:
+        Dict with keys:
+          - ``split_aucs``: list of per-split AUC values.
+          - ``split_f1s``: list of per-split oracle F1 values.
+          - ``mean_auc``: mean AUC across splits.
+          - ``mean_f1``: mean F1 across splits.
+          - ``temporal_leakage_detected``: True if performance degrades
+            > 20% in later splits.
+    """
+    n_samples = len(X)
+    split_size = n_samples // n_splits
+
+    split_aucs: list[float] = []
+    split_f1s: list[float] = []
+
+    for i in range(1, n_splits):
+        train_end = i * split_size
+        test_start = train_end
+        test_end = min((i + 1) * split_size, n_samples)
+
+        if test_end <= test_start or train_end < 5:
+            continue
+
+        X_train = X[:train_end]
+        X_test = X[test_start:test_end]
+        y_test = y[test_start:test_end]
+
+        if len(np.unique(y_test)) < 2:
+            continue
+
+        try:
+            # Fresh detector for each split
+            split_det = MercuryAnomalyDetector()
+            # Fit on normal-only training data (unsupervised)
+            normal_mask = y[:train_end] == 0
+            X_train_normal = X_train[normal_mask]
+            if len(X_train_normal) < 5:
+                X_train_normal = X_train  # Fallback to all training data
+
+            split_det.fit(X_train_normal)
+            result = split_det.detect(X_test)
+            scores = result["scores"]
+
+            auc = _safe_auc(y_test, scores)
+            f1, _, _, _ = _oracle_threshold_f1(y_test, scores)
+
+            split_aucs.append(auc)
+            split_f1s.append(f1)
+        except Exception:
+            continue
+
+    if not split_aucs:
+        return {
+            "split_aucs": [],
+            "split_f1s": [],
+            "mean_auc": float("nan"),
+            "mean_f1": float("nan"),
+            "temporal_leakage_detected": False,
+        }
+
+    mean_auc = float(np.mean(split_aucs))
+    mean_f1 = float(np.mean(split_f1s))
+
+    # Temporal leakage detection: compare first half vs second half of splits
+    n_valid = len(split_aucs)
+    if n_valid >= 2:
+        first_half_auc = np.mean(split_aucs[: n_valid // 2])
+        second_half_auc = np.mean(split_aucs[n_valid // 2 :])
+        # If later splits degrade > 20% relative to earlier splits
+        if first_half_auc > 0.01:
+            degradation = (first_half_auc - second_half_auc) / first_half_auc
+            leakage_detected = degradation > 0.20
+        else:
+            leakage_detected = False
+    else:
+        leakage_detected = False
+
+    return {
+        "split_aucs": split_aucs,
+        "split_f1s": split_f1s,
+        "mean_auc": mean_auc,
+        "mean_f1": mean_f1,
+        "temporal_leakage_detected": leakage_detected,
+    }
+
+
 if __name__ == "__main__":
     output = run_benchmark()
 
