@@ -26,6 +26,7 @@ from omni_mercury_engine.loaders.network_security_loader import NetworkSecurityL
 from omni_mercury_engine.loaders.pandemic_loader import PandemicLoader
 from omni_mercury_engine.loaders.sepsis_loader import SepsisLoader
 from omni_mercury_engine.loaders.tornado_loader import TornadoLoader
+from omni_mercury_engine.loaders.transforms import prepare_for_detector
 from omni_mercury_engine.loaders.tsunami_loader import TsunamiLoader
 from omni_mercury_engine.loaders.volcanic_loader import VolcanicLoader
 from omni_mercury_engine.loaders.wildfire_loader import WildfireLoader
@@ -47,4 +48,5 @@ __all__ = [
     "TsunamiLoader",
     "VolcanicLoader",
     "WildfireLoader",
+    "prepare_for_detector",
 ]

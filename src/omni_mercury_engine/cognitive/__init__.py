@@ -65,6 +65,19 @@ from omni_mercury_engine.cognitive.chain_of_thought import (
     ReasoningStrategy,
     ThoughtGenerator,
 )
+from omni_mercury_engine.cognitive.differentiable_logic import (
+    DifferentiableLogicEngine,
+    DifferentiableTNorm,
+    GodelTNorm,
+    LukasiewiczTNorm,
+    ProductTNorm,
+)
+from omni_mercury_engine.cognitive.explainability import (
+    ExplainabilityEngine,
+    ExplanationType,
+    LIMEExplainer,
+    SHAPExplainer,
+)
 from omni_mercury_engine.cognitive.formal_verification import (
     AnomalyVerifier,
     ConstraintSolver,
@@ -141,11 +154,18 @@ __all__ = [
     "ConstraintSolver",
     "CreditAssignment",
     "DetectionAgent",
+    # Differentiable Logic
+    "DifferentiableLogicEngine",
+    "DifferentiableTNorm",
     "ExperienceMemory",
+    # Explainability
+    "ExplainabilityEngine",
+    "ExplanationType",
     "FeedbackProcessor",
     # Formal Verification
     "FormalVerificationEngine",
     "GoalDecomposer",
+    "GodelTNorm",
     "HeuristicEvaluator",
     # Hierarchical Planning
     "HierarchicalPlanner",
@@ -159,6 +179,8 @@ __all__ = [
     "IntervalBoundPropagator",
     "KnowledgeGraph",
     "KnowledgeNode",
+    "LIMEExplainer",
+    "LukasiewiczTNorm",
     "MercuryPredictiveCoding",
     # Multi-Agent Coordination
     "MultiAgentDetectionSystem",
@@ -168,11 +190,13 @@ __all__ = [
     "PlasticityEngine",
     "PrecisionEstimator",
     "PredictiveCodingDetector",
+    "ProductTNorm",
     "ReachabilityAnalyzer",
     "ReasoningChain",
     "ReasoningStrategy",
     # Reflexion
     "ReflexionEngine",
+    "SHAPExplainer",
     "SafetyVerifier",
     "ThoughtGenerator",
     "UncertaintyEstimate",

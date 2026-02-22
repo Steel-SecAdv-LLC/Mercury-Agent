@@ -45,6 +45,9 @@ from omni_mercury_engine.federated_learning.client import (
     LocalUpdate,
     SGDTrainer,
 )
+from omni_mercury_engine.federated_learning.federated_robust import (
+    FederatedAnomalyDetection,
+)
 from omni_mercury_engine.federated_learning.privacy import (
     DifferentialPrivacyMechanism,
     GaussianMechanism,
@@ -92,6 +95,7 @@ __all__ = [
     "FedAdamAggregator",
     "FedAvgAggregator",
     "FedProxTrainer",
+    "FederatedAnomalyDetection",
     "FederatedAnomalyDetector",
     "FederatedClient",
     "FederatedServer",

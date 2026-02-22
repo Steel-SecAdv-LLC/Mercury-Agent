@@ -672,6 +672,7 @@ class MIMICLoader(DatasetLoader):
         self,
         n_samples: int = 5000,
         anomaly_type: str = "sepsis",
+        use_synthetic: bool = False,
         **kwargs: Any,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], DatasetMetadata]:
         """
@@ -680,6 +681,7 @@ class MIMICLoader(DatasetLoader):
         Args:
             n_samples: Number of samples to generate
             anomaly_type: Type of anomaly to simulate ("sepsis", "cardiac", "mortality")
+            use_synthetic: Use synthetic data (for testing without PhysioNet credentials)
 
         Returns:
             Tuple of (features, labels, metadata)
@@ -692,7 +694,7 @@ class MIMICLoader(DatasetLoader):
 
         start_time = time.time()
 
-        if not ALLOW_SYNTHETIC:
+        if not use_synthetic and not ALLOW_SYNTHETIC:
             raise DataSourceUnavailableError(
                 loader_name="MIMIC-III",
                 reason=(
@@ -701,7 +703,8 @@ class MIMICLoader(DatasetLoader):
                     "or download real data from https://physionet.org/content/mimiciii/1.4/"
                 ),
             )
-        check_synthetic_allowed("MIMIC-III", "Using synthetic simulation")
+        if not use_synthetic:
+            check_synthetic_allowed("MIMIC-III", "Using synthetic simulation")
 
         self._data, self._labels = self._generate_synthetic(n_samples, anomaly_type)
 

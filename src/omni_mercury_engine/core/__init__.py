@@ -22,10 +22,19 @@ from typing import Any
 
 """Core modules for Mercury Agent."""
 
+from omni_mercury_engine.core.adaptive_fusion import (
+    AttentionVisualization,
+    UncertaintyEstimate,
+)
 from omni_mercury_engine.core.double_helix_engine import (
     DoubleHelixEvolutionEngine,
     HelixConfig,
     MercuryEquationEngine,
+)
+from omni_mercury_engine.core.feature_pipeline import (
+    FeaturePipeline,
+    FeatureStandardizer,
+    FeatureStore,
 )
 from omni_mercury_engine.core.global_omni_scalar_network import (
     EnhancementResult,
@@ -36,6 +45,11 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
     ScalarRegistration,
     get_global_scalar_network,
     reset_global_network,
+)
+from omni_mercury_engine.core.learnable_gosnn import (
+    LearnableGOSNN,
+    ScalarCategory,
+    ScalarState,
 )
 from omni_mercury_engine.core.score_calibration import (
     AutoThresholdOptimizer,
@@ -61,6 +75,7 @@ from omni_mercury_engine.core.types import (
 __all__ = [
     # Canonical types from core.types
     "AnomalyType",
+    "AttentionVisualization",
     # Score calibration (solves F1=0 problem)
     "AutoThresholdOptimizer",
     "CalibrationDiagnostics",
@@ -76,20 +91,27 @@ __all__ = [
     "EthicalConfig",
     "EthicalGate",
     "EthicalPrinciple",
+    "FeaturePipeline",
+    "FeatureStandardizer",
+    "FeatureStore",
     "FusionStrategy",
     "FusionWeightConfig",
     "GlobalOmniScalarNetwork",
     "HelixConfig",
+    "LearnableGOSNN",
     "MercuryEngineConfig",
     "MercuryEquationEngine",
     "MultiHeadAttentionFusion",
     "PrivacyLevel",
+    "ScalarCategory",
     "ScalarGroup",
     "ScalarRegistration",
+    "ScalarState",
     "ScoreCalibrationManager",
     "ScoreDiagnostics",
     "ThreatLevel",
     "ThreeRConfig",
+    "UncertaintyEstimate",
     "calibrate_scores",
     "diagnose_scores",
     "get_default_config",

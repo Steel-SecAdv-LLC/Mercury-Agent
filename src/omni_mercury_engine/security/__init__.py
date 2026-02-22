@@ -70,6 +70,11 @@ from omni_mercury_engine.security.pqc_backends import (
     sphincs_sign,
     sphincs_verify,
 )
+from omni_mercury_engine.security.pqc_guards import (
+    PQCSimulationWarning,
+    assert_no_simulation_in_production,
+    check_pqc_production_readiness,
+)
 from omni_mercury_engine.security.rate_limiting import RateLimiter
 from omni_mercury_engine.security.secure_audit_logging import (
     AuditEvent,
@@ -109,6 +114,7 @@ __all__ = [
     "MercuryCrypto",
     "PIIMasker",
     "PQCBackend",
+    "PQCSimulationWarning",
     "RateLimiter",
     "SecureAuditLogger",
     "SecureDataHandler",
@@ -118,6 +124,8 @@ __all__ = [
     "SphincsKeyPair",
     "SphincsProvider",
     "ThreatDetector",
+    "assert_no_simulation_in_production",
+    "check_pqc_production_readiness",
     "configure_audit_logger",
     # PQC functions
     "dilithium_sign",

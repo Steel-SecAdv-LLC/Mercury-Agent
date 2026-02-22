@@ -248,6 +248,7 @@ class HyperbandBracket:
     results: dict[str, list[tuple[float, float]]] = field(default_factory=dict)
     rung_results: dict[int, dict[str, float]] = field(default_factory=dict)
     current_rung: int = 0
+    _completed: set[str] = field(default_factory=set)
 
     def add_result(self, trial_id: str, metric: float, budget: float) -> None:
         """Add a result for a trial."""
@@ -280,7 +281,7 @@ class HyperbandBracket:
         n_promote = max(1, int(len(sorted_trials) / self.eta))
 
         promoted_ids = [t[0] for t in sorted_trials[:n_promote]]
-        return trial_id in promoted_ids
+        return trial_id in promoted_ids and trial_id not in self._completed
 
     def should_stop(self, trial_id: str) -> bool:
         """Check if trial should be stopped."""
@@ -304,8 +305,11 @@ class HyperbandBracket:
         return next_budget
 
     def mark_complete(self, trial_id: str) -> None:
-        """Mark trial as complete."""
-        pass
+        """Mark trial as complete.
+
+        Adds trial to completed set so it won't be re-scheduled.
+        """
+        self._completed.add(trial_id)
 
 
 class ASHAScheduler(TrialScheduler):
@@ -415,8 +419,11 @@ class ASHAScheduler(TrialScheduler):
         return None
 
     def on_trial_complete(self, trial_id: str) -> None:
-        """Handle trial completion."""
-        pass
+        """Handle trial completion.
+
+        Cleans up per-trial tracking state.
+        """
+        self._trial_budgets.pop(trial_id, None)
 
     def get_next_budget(self, trial_id: str) -> float:
         """Get current budget for trial."""

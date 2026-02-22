@@ -648,7 +648,10 @@ class LVLMBackendCache:
             self._cache.clear()
             self._stats = CacheStatistics()
 
-        logger.info("Cleared all cached models")
+        try:
+            logger.info("Cleared all cached models")
+        except (ValueError, OSError):
+            pass  # stderr may be closed during interpreter shutdown
 
     def on_load(self, callback: Callable[[str, float], None]) -> None:
         """Register a callback for model load events."""
@@ -706,7 +709,10 @@ class LVLMBackendCache:
 
     def shutdown(self) -> None:
         """Shutdown the cache and release all resources."""
-        logger.info("Shutting down LVLMBackendCache")
+        try:
+            logger.info("Shutting down LVLMBackendCache")
+        except (ValueError, OSError):
+            pass  # stderr may be closed during interpreter shutdown
 
         # Stop health monitoring
         self._shutdown_event.set()

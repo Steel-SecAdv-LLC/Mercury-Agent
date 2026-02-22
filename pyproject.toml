@@ -188,10 +188,23 @@ domains = [
     "aiohttp>=3.9.0",
 ]
 
+# GUI / visualization dashboard
+gui = [
+    "plotly>=5.18.0",
+]
+
 # Full installation with all features
 all = [
-    "mercury-agent[ml,visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains]",
+    "mercury-agent[ml,visual,vlm,foundation,face,api,sota,llm,drift,fairness,streaming,optimization,benchmark,domains,gui]",
 ]
+
+# Test environment: all runtime features + dev tooling
+test = [
+    "mercury-agent[all,dev]",
+]
+
+[project.scripts]
+mercury-agent = "omni_mercury_engine.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent"
@@ -616,7 +629,7 @@ output = "coverage.xml"
 # Flake8 Configuration (via pyproject.toml support)
 # =============================================================================
 [tool.flake8]
-max-line-length = 120
+max-line-length = 100
 extend-ignore = ["E203", "W503", "E402", "E501", "E704"]  # E704: Protocol stubs are valid PEP 544
 exclude = [
     ".git",

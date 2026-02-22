@@ -579,7 +579,7 @@ class AccelerationDynamicsDetector(BaseDetector):
         Raises:
             DetectorException: If data is empty or invalid.
         """
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if data.size == 0:
@@ -640,7 +640,7 @@ class AccelerationDynamicsDetector(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if data.ndim == 1:
@@ -704,7 +704,7 @@ class AccelerationDynamicsDetector(BaseDetector):
         Returns:
             Feature tensor [batch_size, feature_dim]
         """
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if data.ndim == 1:

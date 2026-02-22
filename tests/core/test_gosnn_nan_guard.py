@@ -1,0 +1,33 @@
+"""
+Mercury Agent
+Copyright (C) 2025 Steel Security Advisors LLC
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Tests for GOSNN EthicalGate NaN propagation guard.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+from omni_mercury_engine.core.global_omni_scalar_network import EthicalGate
+
+
+def test_ethical_gate_nan_guard():
+    """Partial NaN vector must produce a finite ethical score."""
+    gate = EthicalGate(input_dim=8)
+    vec = np.array([1.0, np.nan, 0.5, np.nan, 0.8, 0.2, np.nan, 0.9])
+    passes, score = gate.evaluate(vec)
+    assert np.isfinite(score), f"Non-finite score: {score}"
+
+
+def test_ethical_gate_all_nan():
+    """All-NaN vector must produce a finite ethical score."""
+    gate = EthicalGate(input_dim=4)
+    vec = np.full(4, np.nan)
+    passes, score = gate.evaluate(vec)
+    assert np.isfinite(score), f"Non-finite score: {score}"

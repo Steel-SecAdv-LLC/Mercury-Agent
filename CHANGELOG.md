@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repository documentation, metadata, and organizational state audited for
   accuracy against actual code
 - README.md: Updated module count (455), line count (268,000+), test file
-  count (244); removed phantom version reference (v1.4.1); removed reference
+  count (227); removed phantom version reference (v1.4.1); removed reference
   to nonexistent benchmark results file; updated header and co-architects
 - CHANGELOG.md: Removed orphaned [Unreleased] section whose content was
   already captured in versioned entries (v1.1.0, v1.2.0)

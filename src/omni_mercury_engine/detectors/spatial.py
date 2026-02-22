@@ -144,8 +144,9 @@ class SpatialAnomalyDetector(BaseDetector):
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> SpatialAnomalyDetector:
         """Fit detector to normal spatial data"""
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+        assert isinstance(data, np.ndarray)
 
         if data.shape[1] < 2:
             raise DetectorException("Spatial data must have at least 2 dimensions")
@@ -184,8 +185,9 @@ class SpatialAnomalyDetector(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
+        assert isinstance(data, np.ndarray)
 
         distance_scores = self._compute_distance_scores(data)
         lof_scores = self.lof.decision_function(data)
@@ -227,7 +229,7 @@ class SpatialAnomalyDetector(BaseDetector):
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract spatial features for ML fusion"""
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if not self._is_fitted:

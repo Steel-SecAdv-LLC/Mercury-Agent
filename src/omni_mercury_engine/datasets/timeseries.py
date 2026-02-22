@@ -524,7 +524,7 @@ class SMAPMSLLoader(DatasetLoader):
                             safe_urlretrieve(url, npy_path)
                             downloaded += 1
                         except Exception:
-                            pass  # individual channel may be missing
+                            logger.debug("Channel %s download failed, skipping", chan)
                 if downloaded > 0:
                     logger.info(f"  Downloaded {downloaded} channel files from OmniAnomaly mirror")
                     return True

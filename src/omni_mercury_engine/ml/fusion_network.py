@@ -591,7 +591,7 @@ class LabelSmoothingLoss(nn.Module):
 
 class OmniFusionModel(nn.Module):
     """
-    Unified fusion model integrating all 13 engines through neural network.
+    Unified fusion model integrating all detection engines through neural network.
 
     Architecture:
     1. Feature extraction from each detector/model

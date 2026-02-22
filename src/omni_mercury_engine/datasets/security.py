@@ -613,6 +613,13 @@ class CICIDSLoader(DatasetLoader):
                 return True
             logger.warning(f"Local path {self.local_path} failed, trying remote sources...")
 
+        # When synthetic fallback is allowed (e.g. unit tests), skip slow
+        # network downloads and go straight to synthetic generation.  This
+        # avoids 300s+ timeouts against unreliable upstream servers.
+        if ALLOW_SYNTHETIC:
+            check_synthetic_allowed("CICIDS-2017", "Skipping network download (ALLOW_SYNTHETIC)")
+            return self._create_synthetic_fallback()
+
         # Try each remote source in priority order
         for source_id, source_info in self.DATA_SOURCES.items():
             for attempt in range(self.retry_count):

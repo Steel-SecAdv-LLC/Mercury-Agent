@@ -13,6 +13,7 @@ We provide security updates for the following versions:
 | 1.5.x   | :white_check_mark: |
 | 1.4.x   | :white_check_mark: |
 | 1.2.x   | :white_check_mark: |
+| 1.1.x   | :white_check_mark: |
 | 1.0.x   | :white_check_mark: |
 | < 1.0   | :x:                |
 
@@ -187,7 +188,7 @@ Mercury Agent includes security intelligence capabilities. Users must:
 
 ## Current Vulnerability Status
 
-*Last Scan: January 2026*
+*Last Scan: February 2026*
 
 ### Accepted Vulnerabilities (with Mitigations)
 
@@ -253,5 +254,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-02-09*
+*Last Updated: 2026-02-21*
 *Version: 1.5.1*

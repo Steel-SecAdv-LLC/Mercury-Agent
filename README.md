@@ -661,7 +661,7 @@ Optimized for both accuracy and interpretability:
 
 | Configuration | CPU Latency | GPU Latency (RTX 4090) |
 |---------------|-------------|------------------------|
-| Full (18 engines) | ~500ms | ~50ms |
+| Full (22+ engines) | ~500ms | ~50ms |
 | Standard | ~250ms | ~25ms |
 | Fast (statistical only) | ~100ms | ~10ms |
 
@@ -996,16 +996,18 @@ GitHub Actions automatically tests:
 
 | Check | Description |
 |-------|-------------|
-| Python Tests | pytest on Python 3.12, Ubuntu |
-| Code Quality | black, flake8, isort, mypy, ruff |
-| Security Scanning | bandit, detect-secrets |
-| Docker Builds | Multi-stage production image |
+| Python Tests | pytest on Python 3.11 and 3.12, Ubuntu |
+| Code Quality | black, flake8, ruff, mypy, pydocstyle |
+| Security Scanning | bandit, safety, pip-audit, semgrep |
+| Docker Builds | Multi-stage production image with Trivy scan |
+| Ethics Audit | Ethical AI alignment verification |
+| Performance Benchmark | Regression detection for key operations |
 
 ### CI Matrix
 
 - **Python Versions**: 3.11, 3.12
 - **Platforms**: Ubuntu Latest
-- **Jobs**: test, lint, security, docker
+- **Jobs**: code-quality, type-checking, security-scan, core-tests, ml-tests, integration-tests, ethics-audit, performance-benchmark, docker-build
 
 </details>
 
@@ -1764,7 +1766,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **Standards-based design:** Built on OWASP security guidelines, NIST PQC standards, Fairlearn fairness metrics
 - **Quantified claims:** All performance metrics are measured and documented with methodology
-- **Comprehensive testing:** 5,000+ tests with property-based testing and security scanning
+- **Comprehensive testing:** 5,900+ tests with property-based testing and security scanning
 - **Transparent limitations:** Documentation explicitly distinguishes validated vs. pending claims
 - **Ethical governance:** Fairlearn bias auditing integrated throughout the ML pipeline
 - **Academic grounding:** Medical modules reference JAMA guidelines, security follows OWASP

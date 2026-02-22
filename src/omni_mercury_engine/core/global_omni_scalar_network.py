@@ -167,6 +167,10 @@ class EthicalGate:
         Returns:
             Tuple of (passes_gate, ethical_score)
         """
+        if np.any(np.isnan(scalar_vector)):
+            self.logger.warning("NaN detected in scalar_vector; replacing with zeros")
+            scalar_vector = np.nan_to_num(scalar_vector, nan=0.0)
+
         if self.gate_network is not None and TORCH_AVAILABLE:
             padded = np.zeros(self.input_dim)
             padded[: min(len(scalar_vector), self.input_dim)] = scalar_vector[: self.input_dim]
