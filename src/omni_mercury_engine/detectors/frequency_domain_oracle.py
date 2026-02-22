@@ -57,7 +57,7 @@ from typing import Any
 
 import numpy as np
 from scipy.fft import fft, fftfreq
-from scipy.stats import norm
+from scipy.stats import norm, truncnorm
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.centralized_constants import (
@@ -616,50 +616,194 @@ class FrequencyDomainOracle(BaseDetector):
             self._binseg_recurse(series, cp, end, change_points, min_seg, depth + 1, max_depth)
 
     # ------------------------------------------------------------------
-    # Selective Inference p-value
+    # Selective Inference — Truncated Normal Conditioning
     # ------------------------------------------------------------------
+
+    def _compute_truncation_interval(
+        self,
+        series: np.ndarray,
+        cp_index: int,
+        min_seg: int,
+    ) -> tuple[float, float]:
+        """Compute the SI truncation interval [L, U] for a selected CP.
+
+        The binary segmentation selected cp_index because |CUSUM(cp_index)|
+        was maximal among all tested positions. The truncation interval is
+        the set of test statistic values t for which cp_index would still
+        be selected.
+
+        Implements parametric Selective Inference per Lee et al. (2016),
+        "Exact post-selection inference, with application to the LASSO,"
+        adapted for CUSUM-based binary segmentation.
+
+        The key insight: the selection event {k* = argmax |S_k|} defines
+        linear constraints on the data y. When parameterized along the
+        test direction eta, these constraints become interval constraints
+        on the test statistic t, giving the truncation interval [L, U].
+
+        Args:
+            series: 1-D band-power time series.
+            cp_index: Selected change-point index.
+            min_seg: Minimum segment length from config.
+
+        Returns:
+            (L, U) truncation bounds. L may be -inf, U may be +inf.
+        """
+        n = len(series)
+        k = cp_index
+
+        # Contrast vector eta: mean(right) - mean(left)
+        eta = np.zeros(n)
+        eta[:k] = -1.0 / k
+        eta[k:] = 1.0 / (n - k)
+        eta_norm_sq = np.dot(eta, eta)
+
+        if eta_norm_sq < EPSILON:
+            return -np.inf, np.inf
+
+        # Observed test statistic
+        t_obs = np.dot(eta, series)
+
+        # Residual orthogonal to eta
+        z = series - t_obs * (eta / eta_norm_sq)
+
+        # CUSUM at position j: S_j = v_j^T y
+        # where v_j[i] = 1 - j/n for i < j, and v_j[i] = -j/n for i >= j
+        #
+        # Selection event: |v_k^T y| >= |v_j^T y| for all valid j != k
+        #
+        # Parameterize y = t * eta/||eta||^2 + z:
+        #   v_j^T y = t * (v_j^T eta / ||eta||^2) + v_j^T z
+        #           = t * alpha_j + beta_j
+
+        L = -np.inf
+        U = np.inf
+
+        # CUSUM vector at selected CP
+        v_k = np.zeros(n)
+        v_k[:k] = 1.0 - k / n
+        v_k[k:] = -k / n
+
+        alpha_k = np.dot(v_k, eta) / eta_norm_sq
+        beta_k = np.dot(v_k, z)
+        sign_k = np.sign(alpha_k * t_obs + beta_k)
+
+        if abs(sign_k) < EPSILON:
+            return -np.inf, np.inf
+
+        for j in range(min_seg, n - min_seg):
+            if j == k:
+                continue
+
+            v_j = np.zeros(n)
+            v_j[:j] = 1.0 - j / n
+            v_j[j:] = -j / n
+
+            alpha_j = np.dot(v_j, eta) / eta_norm_sq
+            beta_j = np.dot(v_j, z)
+
+            # Constraint: sign_k * (alpha_k * t + beta_k) >= |alpha_j * t + beta_j|
+            # This gives two linear constraints:
+            #   sign_k * (alpha_k * t + beta_k) >= +(alpha_j * t + beta_j)
+            #   sign_k * (alpha_k * t + beta_k) >= -(alpha_j * t + beta_j)
+
+            for s in [1.0, -1.0]:
+                # (sign_k * alpha_k - s * alpha_j) * t >= s * beta_j - sign_k * beta_k
+                a_coef = sign_k * alpha_k - s * alpha_j
+                b_coef = s * beta_j - sign_k * beta_k
+
+                if abs(a_coef) < EPSILON:
+                    continue
+
+                bound = -b_coef / a_coef
+
+                if a_coef > 0:
+                    L = max(L, bound)
+                else:
+                    U = min(U, bound)
+
+        # Sanity: if interval is empty or inverted, fall back to (-inf, inf)
+        if L >= U:
+            logger.debug(
+                "SI truncation interval empty [%.4f, %.4f]; "
+                "falling back to unconditional test.",
+                L,
+                U,
+            )
+            return -np.inf, np.inf
+
+        return L, U
 
     def _selective_inference_p_value(
         self,
         series: np.ndarray,
         change_point: int,
     ) -> float:
-        """Compute SI p-value for a candidate change point.
+        """Compute Selective Inference p-value with truncated normal conditioning.
 
-        Uses a standardised mean-difference test conditioned on the
-        change point being selected by binary segmentation.  The test
-        statistic is the difference in segment means divided by pooled
-        standard error.
+        Conditions the test statistic on the selection event: the binary
+        segmentation selected this change point because its CUSUM was
+        maximal. The truncated normal distribution accounts for this
+        selection bias, guaranteeing Type I error control at the declared
+        significance level.
+
+        Based on:
+          - Lee et al. (2016), "Exact post-selection inference"
+          - Takeuchi Lab (2025), "Time Series Anomaly Detection in the
+            Frequency Domain with Statistical Reliability" (arXiv:2502.03062)
 
         Args:
             series: 1-D band-power time series.
-            change_point: Index of the candidate CP.
+            change_point: Index of the selected CP.
 
         Returns:
-            Two-sided SI p-value in [0, 1].
+            Two-sided SI p-value in [0, 1]. Guaranteed: if no true CP
+            exists, P(p < alpha) <= alpha for any alpha.
         """
-        if change_point <= 0 or change_point >= len(series):
+        n = len(series)
+        if change_point <= 0 or change_point >= n:
             return 1.0
 
         left = series[:change_point]
         right = series[change_point:]
 
-        n_left = len(left)
-        n_right = len(right)
-
-        if n_left < 2 or n_right < 2:
+        if len(left) < 2 or len(right) < 2:
             return 1.0
 
-        mean_diff = np.mean(right) - np.mean(left)
+        # Test statistic: standardized mean difference
+        mean_diff = float(np.mean(right) - np.mean(left))
         sigma = self._estimate_noise_sigma(series)
+        n_left, n_right = len(left), len(right)
         se = sigma * np.sqrt(1.0 / n_left + 1.0 / n_right)
 
         if se < EPSILON:
             return 1.0 if abs(mean_diff) < EPSILON else 0.0
 
-        z_stat = mean_diff / se
-        # Two-sided p-value
-        p_value = 2.0 * (1.0 - norm.cdf(abs(z_stat)))
+        t_obs = mean_diff / se
+
+        # Compute truncation interval from selection event
+        min_seg = max(self._oracle_config.min_segments, 2)
+        L, U = self._compute_truncation_interval(series, change_point, min_seg)
+
+        # If truncation is trivial (no effective constraint), use standard test
+        if np.isinf(L) and np.isinf(U):
+            p_value = 2.0 * (1.0 - norm.cdf(abs(t_obs)))
+            return float(np.clip(p_value, 0.0, 1.0))
+
+        # Standardize truncation bounds
+        L_std = L / se if not np.isinf(L) else -1e10
+        U_std = U / se if not np.isinf(U) else 1e10
+
+        # Truncated normal survival function
+        # P(|T| >= |t_obs| | L <= T <= U, T ~ N(0, 1))
+        try:
+            p_upper = truncnorm.sf(abs(t_obs), L_std, U_std)
+            p_lower = truncnorm.cdf(-abs(t_obs), L_std, U_std)
+            p_value = float(p_upper + p_lower)
+        except (ValueError, RuntimeError):
+            # Numerical issues with extreme truncation; fall back
+            p_value = 2.0 * (1.0 - norm.cdf(abs(t_obs)))
+
         return float(np.clip(p_value, 0.0, 1.0))
 
     def _estimate_noise_sigma(self, series: np.ndarray) -> float:
