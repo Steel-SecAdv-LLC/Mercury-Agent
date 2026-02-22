@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import gc
 import json
+import logging
 import subprocess
 import sys
 import time
@@ -35,6 +36,8 @@ from sklearn.preprocessing import StandardScaler
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -365,6 +368,16 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
         f"fit={fit_ms:.0f}ms score={score_ms:.0f}ms [{status}]"
     )
 
+    # --- Progressive validation for temporal leakage detection (Task 7) ---
+    progressive_result = None
+    if n_total >= 100 and X_full.shape[1] <= 50:  # Only for reasonably sized datasets
+        try:
+            progressive_result = run_progressive_validation(detector, X_test, y_test, n_splits=5)
+            if progressive_result.get("temporal_leakage_detected"):
+                print(f"    WARNING: Temporal leakage detected for {name}")
+        except Exception as exc:
+            logger.debug("Progressive validation failed for %s: %s", name, exc)
+
     return {
         "name": name,
         "category": category,
@@ -384,6 +397,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
         "oracle_threshold": oracle_thr,
         "fit_ms": fit_ms,
         "score_ms": score_ms,
+        "progressive_validation": progressive_result,
         "error": None,
     }
 
