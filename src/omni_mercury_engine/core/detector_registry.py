@@ -578,12 +578,12 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         tags=["physics", "integrated", "3r", "gosnn", "fusion"],
     ),
     DetectorManifestEntry(
-        "frequency_domain_oracle",
-        "omni_mercury_engine.detectors.frequency_domain_oracle",
-        "FrequencyDomainOracle",
+        "spectral_domain_oracle",
+        "omni_mercury_engine.detectors.spectral_domain_oracle",
+        "SpectralDomainOracle",
         DetectorCategory.PHYSICS,
-        "Neuro-symbolic frequency-domain anomaly detection with per-band scoring",
-        tags=["physics", "frequency", "neuro-symbolic", "oracle", "humanitarian"],
+        "Neuro-symbolic spectral-domain anomaly detection with per-band scoring",
+        tags=["physics", "spectral", "frequency", "neuro-symbolic", "oracle", "humanitarian"],
     ),
 ]
 

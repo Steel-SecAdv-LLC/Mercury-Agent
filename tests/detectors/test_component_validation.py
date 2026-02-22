@@ -598,7 +598,7 @@ class TestFrequencyDomainOracleBandCounts:
     }
 
     def test_all_domain_band_counts(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             DOMAIN_FREQUENCY_BANDS,
         )
 
@@ -608,7 +608,7 @@ class TestFrequencyDomainOracleBandCounts:
 
     def test_instantiation_all_domains(self) -> None:
         """Every domain should instantiate without error."""
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -621,7 +621,7 @@ class TestFrequencyDomainOracleNyquist:
     """Verify Nyquist filtering excludes bands above sample_rate / 2."""
 
     def test_nyquist_filtering_low_sample_rate(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -631,7 +631,7 @@ class TestFrequencyDomainOracleNyquist:
             assert lo < 10.0, f"Band with lo={lo} Hz exceeds Nyquist (10 Hz)"
 
     def test_nyquist_weights_renormalised(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -642,7 +642,7 @@ class TestFrequencyDomainOracleNyquist:
         ), f"Weights should sum to 1.0 after Nyquist filtering, got {weight_sum}"
 
     def test_full_sample_rate_keeps_all_bands(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             DOMAIN_FREQUENCY_BANDS,
             FrequencyDomainOracle,
         )
@@ -656,7 +656,7 @@ class TestFrequencyDomainOracleDetection:
     """Verify detect() returns FrequencyBandResult objects with valid p-values."""
 
     def test_detect_returns_band_results(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyBandResult,
             FrequencyDomainOracle,
             FrequencyInfluenceVector,
@@ -685,7 +685,7 @@ class TestFrequencyDomainOracleDetection:
             assert 0.0 <= br.anomaly_score <= 1.0
 
     def test_influence_multiplier_bounded(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -700,7 +700,7 @@ class TestFrequencyDomainOracleDetection:
 
     def test_anomaly_detection_sensitivity(self) -> None:
         """Injected 40 Hz spike should produce higher anomaly score than noise."""
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -726,7 +726,7 @@ class TestFrequencyDomainOracleBinarySegmentation:
     """Verify binary segmentation finds change points in signals with injected mean shifts."""
 
     def test_cp_detection_on_mean_shift(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -745,7 +745,7 @@ class TestFrequencyDomainOracleSelectiveInference:
     """Verify SI p-values are correct for genuine CPs and noise."""
 
     def test_si_pvalue_genuine_cp(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -756,7 +756,7 @@ class TestFrequencyDomainOracleSelectiveInference:
         assert p < 0.05, f"SI p-value for genuine CP should be < 0.05, got {p}"
 
     def test_si_pvalue_noise(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -771,7 +771,7 @@ class TestFrequencyDomainOracleFeatures:
     """Verify extract_features returns correct shape and type."""
 
     def test_feature_shape(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -781,14 +781,18 @@ class TestFrequencyDomainOracleFeatures:
 
         features = oracle.extract_features(rng.standard_normal((3, 512)))
         n_bands = len(oracle._bands)
-        expected_dim = n_bands + 4  # bands + entropy + centroid + agg + mult
+        expected_dim = (
+            n_bands + 7
+        )  # bands + entropy + centroid + agg + mult + flux + coherence + cepstral
         assert features.shape == (
             3,
             expected_dim,
         ), f"Expected (3, {expected_dim}), got {features.shape}"
 
-    def test_feature_dtype_numpy(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+    def test_feature_dtype_torch(self) -> None:
+        import torch
+
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -797,8 +801,8 @@ class TestFrequencyDomainOracleFeatures:
         oracle.fit(rng.standard_normal((10, 512)))
 
         features = oracle.extract_features(rng.standard_normal((3, 512)))
-        assert isinstance(features, np.ndarray), f"Expected np.ndarray, got {type(features)}"
-        assert features.dtype == np.float32
+        assert isinstance(features, torch.Tensor), f"Expected torch.Tensor, got {type(features)}"
+        assert features.dtype == torch.float32
 
 
 class TestFrequencyDomainOracleParseval:
@@ -807,7 +811,7 @@ class TestFrequencyDomainOracleParseval:
     def test_parseval_no_recompute(self) -> None:
         import inspect
 
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -816,7 +820,7 @@ class TestFrequencyDomainOracleParseval:
         assert "fft(signal)" not in src, "Parseval validation should NOT recompute FFT from signal"
 
     def test_parseval_passes_clean_signal(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -832,7 +836,7 @@ class TestFrequencyDomainOracleConfig:
     """Verify OracleConfig is constructed exactly once (no double-init bug)."""
 
     def test_single_config_construction(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
             FrequencyDomainOracleConfig,
         )
@@ -843,7 +847,7 @@ class TestFrequencyDomainOracleConfig:
         assert oracle._oracle_config.sample_rate == 256.0
 
     def test_band_scores_are_dict(self) -> None:
-        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
             FrequencyDomainOracle,
         )
 
@@ -855,3 +859,348 @@ class TestFrequencyDomainOracleConfig:
         assert isinstance(
             iv.band_scores, dict
         ), f"band_scores should be dict, got {type(iv.band_scores)}"
+
+
+# ===========================================================================
+# SpectralDomainOracle — Upgrade Tests (Tasks 11a-11g)
+# ===========================================================================
+
+
+class TestExtractFeaturesContract:
+    """Verify extract_features returns torch.Tensor per BaseDetector."""
+
+    def test_returns_torch_tensor(self) -> None:
+        import torch
+
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = SpectralDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        oracle.fit(rng.standard_normal((5, 512)))
+        features = oracle.extract_features(rng.standard_normal((3, 512)))
+
+        assert isinstance(features, torch.Tensor), (
+            f"extract_features must return torch.Tensor per BaseDetector "
+            f"contract, got {type(features)}"
+        )
+        assert features.dtype == torch.float32
+
+    def test_no_type_ignore_in_source(self) -> None:
+        """Verify # type: ignore is NOT present on extract_features."""
+        import inspect
+
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        src = inspect.getsource(SpectralDomainOracle.extract_features)
+        assert "type: ignore" not in src, (
+            "extract_features must not use # type: ignore. "
+            "Fix the return type instead of suppressing."
+        )
+
+
+class TestSelectiveInferenceTruncation:
+    """Verify SI produces more conservative p-values than naive z-test."""
+
+    def test_si_more_conservative_than_naive(self) -> None:
+        """SI p-value must be >= naive z-test p-value for selected CPs."""
+        from scipy.stats import norm
+
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = SpectralDomainOracle(
+            {
+                "domain": "infrastructure",
+                "sample_rate": 1000.0,
+                "min_segments": 4,
+            }
+        )
+
+        # Signal with a genuine mean shift
+        signal = np.concatenate(
+            [
+                rng.standard_normal(100),
+                rng.standard_normal(100) + 2.0,  # Mean shift of 2 sigma
+            ]
+        )
+
+        fm, freqs = oracle._compute_frequency_matrix(signal)
+        band_powers = oracle._extract_band_powers(fm, freqs)
+
+        # Get any band with enough data
+        for label, bp in band_powers.items():
+            if len(bp) < 20:
+                continue
+
+            cps = oracle._binary_segmentation_frequency(bp)
+            if not cps:
+                continue
+
+            # Compare SI p-value to naive z-test
+            cp = cps[0]
+            si_p = oracle._selective_inference_p_value(bp, cp)
+
+            # Naive z-test (what the old code did)
+            left = bp[:cp]
+            right = bp[cp:]
+            if len(left) < 2 or len(right) < 2:
+                continue
+            sigma = oracle._estimate_noise_sigma(bp)
+            se = sigma * np.sqrt(1.0 / len(left) + 1.0 / len(right))
+            if se < 1e-8:
+                continue
+            z = abs(float(np.mean(right) - np.mean(left))) / se
+            naive_p = 2.0 * (1.0 - norm.cdf(z))
+
+            # SI should be MORE conservative (larger p-value)
+            assert si_p >= naive_p * 0.9, (
+                f"SI p-value ({si_p:.6f}) should be >= naive ({naive_p:.6f}). "
+                f"SI must not be LESS conservative than naive z-test."
+            )
+            return  # One successful test is enough
+
+        # If no band had detectable CPs, that's OK — skip
+        pytest.skip("No change points detected in test signal")
+
+    def test_si_controls_type_i_error(self) -> None:
+        """Under null (no CP), fraction of p < 0.05 should be <= 0.10.
+
+        We allow 0.10 instead of 0.05 because we run limited trials
+        and want to avoid flaky tests, but it should be close to 0.05.
+        """
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        oracle = SpectralDomainOracle(
+            {
+                "domain": "environmental",
+                "sample_rate": 100.0,
+                "min_segments": 4,
+            }
+        )
+
+        rng = np.random.default_rng(123)
+        false_positives = 0
+        n_trials = 100
+
+        for _ in range(n_trials):
+            # Pure noise — no change point
+            noise = rng.standard_normal(200)
+            fm, freqs = oracle._compute_frequency_matrix(noise)
+            bp_dict = oracle._extract_band_powers(fm, freqs)
+
+            for label, bp in bp_dict.items():
+                if len(bp) < 20:
+                    continue
+                cps = oracle._binary_segmentation_frequency(bp)
+                for cp in cps:
+                    p = oracle._selective_inference_p_value(bp, cp)
+                    if p < 0.05:
+                        false_positives += 1
+
+        # With proper SI, false positive rate should be <= alpha = 0.05
+        # Allow 10% for finite-sample effects
+        fp_rate = false_positives / max(n_trials, 1)
+        assert fp_rate <= 0.10, (
+            f"False positive rate {fp_rate:.3f} exceeds 0.10. "
+            f"SI is not controlling Type I error."
+        )
+
+
+class TestSpectralFlux:
+    """Verify spectral flux detects rate-of-spectral-change anomalies."""
+
+    def test_flux_increases_on_changing_signal(self) -> None:
+        """Flux should be higher for signals with spectral transitions."""
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = SpectralDomainOracle(
+            {"domain": "infrastructure", "sample_rate": 1000.0},
+        )
+
+        # Stable signal: constant frequency
+        t = np.arange(2048) / 1000.0
+        stable = np.sin(2 * np.pi * 50 * t) + rng.standard_normal(2048) * 0.1
+
+        # Changing signal: frequency shifts halfway through
+        changing = (
+            np.concatenate(
+                [
+                    np.sin(2 * np.pi * 50 * t[:1024]),
+                    np.sin(2 * np.pi * 200 * t[1024:]),
+                ]
+            )
+            + rng.standard_normal(2048) * 0.1
+        )
+
+        fm_stable, _ = oracle._compute_frequency_matrix(stable)
+        fm_changing, _ = oracle._compute_frequency_matrix(changing)
+
+        flux_stable = oracle._compute_spectral_flux(fm_stable)
+        flux_changing = oracle._compute_spectral_flux(fm_changing)
+
+        assert flux_changing > flux_stable, (
+            f"Changing signal flux ({flux_changing:.4f}) should exceed "
+            f"stable signal flux ({flux_stable:.4f})"
+        )
+
+    def test_flux_zero_on_single_window(self) -> None:
+        """Flux should be 0 when only one window exists."""
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        oracle = SpectralDomainOracle(
+            {"domain": "environmental", "inner_window": 256},
+        )
+        fm = np.random.default_rng(42).standard_normal((1, 128))
+        assert oracle._compute_spectral_flux(fm) == 0.0
+
+
+class TestPhaseCoherence:
+    """Verify phase coherence detects inter-band relationship breakdown."""
+
+    def test_coherence_high_for_correlated_bands(self) -> None:
+        """Coherent signal should produce coherence near 1.0."""
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = SpectralDomainOracle(
+            {"domain": "infrastructure", "sample_rate": 1000.0},
+        )
+
+        # Signal with strong harmonically-related content
+        t = np.arange(4096) / 1000.0
+        signal = np.sin(2 * np.pi * 50 * t) + 0.5 * np.sin(2 * np.pi * 100 * t)
+        signal += rng.standard_normal(4096) * 0.05
+
+        fm, freqs = oracle._compute_frequency_matrix(signal)
+        band_powers = oracle._extract_band_powers(fm, freqs)
+        coh = oracle._compute_phase_coherence(band_powers)
+
+        assert coh > 0.0, f"Coherence should be positive, got {coh}"
+
+    def test_coherence_returns_1_with_insufficient_bands(self) -> None:
+        """Should return 1.0 (neutral) with < 2 valid bands."""
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        oracle = SpectralDomainOracle(
+            {"domain": "humanitarian", "sample_rate": 0.5},
+        )
+        # At 0.5 Hz sample rate, Nyquist = 0.25 Hz -> very few bands
+        empty_powers: dict[str, np.ndarray] = {"single": np.array([1.0, 2.0])}
+        assert oracle._compute_phase_coherence(empty_powers) == 1.0
+
+
+class TestCepstralCoefficients:
+    """Verify cepstral analysis detects harmonic structure changes."""
+
+    def test_harmonic_signal_has_strong_cepstral_peak(self) -> None:
+        """Signal with harmonics should have high cepstral peak ratio."""
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        oracle = SpectralDomainOracle(
+            {"domain": "infrastructure", "sample_rate": 1000.0},
+        )
+
+        # Harmonic signal (fundamental + 3 harmonics)
+        t = np.arange(2048) / 1000.0
+        harmonic = sum(
+            np.sin(2 * np.pi * f * t) / (i + 1) for i, f in enumerate([50, 100, 150, 200])
+        )
+        noise = np.random.default_rng(42).standard_normal(2048)
+
+        fm_h, _ = oracle._compute_frequency_matrix(harmonic + noise * 0.05)
+        fm_n, _ = oracle._compute_frequency_matrix(noise)
+
+        peak_harmonic = oracle._compute_cepstral_peak(fm_h)
+        peak_noise = oracle._compute_cepstral_peak(fm_n)
+
+        assert peak_harmonic > peak_noise, (
+            f"Harmonic peak ratio ({peak_harmonic:.2f}) should exceed "
+            f"noise peak ratio ({peak_noise:.2f})"
+        )
+
+    def test_cepstral_peak_returns_1_for_short_spectrum(self) -> None:
+        """Should return 1.0 for spectrum with < 4 bins."""
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        oracle = SpectralDomainOracle({"domain": "environmental"})
+        tiny_matrix = np.array([[1.0, 2.0, 3.0]])
+        assert oracle._compute_cepstral_peak(tiny_matrix) == 1.0
+
+
+class TestOracleAutoActivation:
+    """Verify domain-aware Oracle activation logic."""
+
+    def test_auto_enables_infrastructure(self) -> None:
+        from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY
+
+        assert ORACLE_DOMAIN_POLICY["infrastructure"] == "enabled"
+
+    def test_auto_enables_security(self) -> None:
+        from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY
+
+        assert ORACLE_DOMAIN_POLICY["security"] == "enabled"
+
+    def test_auto_enables_medical(self) -> None:
+        from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY
+
+        assert ORACLE_DOMAIN_POLICY["medical"] == "enabled"
+
+    def test_auto_disables_financial(self) -> None:
+        from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY
+
+        assert ORACLE_DOMAIN_POLICY["financial"] == "disabled"
+
+    def test_auto_disables_humanitarian(self) -> None:
+        from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY
+
+        assert ORACLE_DOMAIN_POLICY["humanitarian"] == "disabled"
+
+    def test_neutral_dampens_influence(self) -> None:
+        from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY
+
+        assert ORACLE_DOMAIN_POLICY["environmental"] == "neutral"
+        assert ORACLE_DOMAIN_POLICY["space"] == "neutral"
+
+
+class TestSpectralDomainOracleFeatures:
+    """Verify feature extraction shape and dtype."""
+
+    def test_feature_shape(self) -> None:
+        import torch
+
+        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+            SpectralDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = SpectralDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        oracle.fit(rng.standard_normal((5, 512)))
+        features = oracle.extract_features(rng.standard_normal((3, 512)))
+        n_bands = len(oracle._bands)
+        expected_dim = n_bands + 7  # Changed from n_bands + 4
+        assert isinstance(features, torch.Tensor)
+        assert features.shape == (
+            3,
+            expected_dim,
+        ), f"Expected (3, {expected_dim}), got {features.shape}"

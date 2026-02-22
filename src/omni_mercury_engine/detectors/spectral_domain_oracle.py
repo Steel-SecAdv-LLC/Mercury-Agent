@@ -19,24 +19,34 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Frequency Domain Oracle — Full-Power Neuro-Symbolic Implementation.
+Spectral Domain Oracle — Full-Power Neuro-Symbolic Implementation.
 
-A production-grade frequency-domain anomaly detection system that runs
-parallel to the time-domain detectors and produces a
-``FrequencyInfluenceVector`` for fusion-layer modulation.
+A production-grade spectral-domain anomaly detection system covering
+amplitude, phase, entropy, and harmonic structure analysis. Runs
+parallel to all time-domain detectors and produces a
+:class:`~omni_mercury_engine.detectors.spectral_domain_oracle.FrequencyInfluenceVector`
+that modulates fusion-layer scoring.
 
 Capabilities:
 
-1. **Selective Inference (SI) framework** — post-selection Type I error
-   control for detected frequency-domain change points.
+1. **Selective Inference (SI) framework** — truncated normal conditioning
+   on the CUSUM selection event to guarantee post-selection Type I error
+   control (Lee et al., 2016; Takeuchi Lab, arXiv:2502.03062).
 2. **Binary segmentation change-point detection** — recursive CUSUM-based
-   CP detection.
-3. **Windowed DFT** — sliding Hann-windowed frames with 50% overlap.
-4. **Spectral Flux** — rate-of-spectral-change detection.
-5. **Phase Coherence** — inter-band phase relationship monitoring.
-6. **Cepstral Analysis** — harmonic structure fingerprinting.
+   CP detection with configurable recursion depth.
+3. **Windowed DFT** — sliding Hann-windowed frames with 50% overlap for
+   temporal localisation of spectral changes.
+4. **Spectral Flux** — rate-of-spectral-change detection for slow-onset
+   anomalies.
+5. **Phase Coherence** — inter-band phase relationship monitoring; phase
+   decoherence can precede amplitude changes.
+6. **Cepstral Analysis** — harmonic structure fingerprinting via inverse
+   FFT of the log power spectrum.
 7. **φ-weighted influence multiplier** — five-signal geometric mean
-   (score, entropy, breadth, flux, coherence).
+   (score, entropy, breadth, flux, coherence) with golden ratio weighting.
+8. **Domain-aware auto-activation** — enabled/neutral/disabled per
+   :data:`~omni_mercury_engine.core.config.ORACLE_DOMAIN_POLICY` (overridable
+   via :class:`~omni_mercury_engine.core.config.OracleActivation`).
 
 Supported domains (7):
     environmental (8 bands), medical (9 bands),
@@ -240,8 +250,8 @@ class FrequencyInfluenceVector:
 
 
 @dataclass
-class FrequencyDomainOracleConfig:
-    """Configuration for FrequencyDomainOracle.
+class SpectralDomainOracleConfig:
+    """Configuration for SpectralDomainOracle.
 
     Attributes:
         domain: Application domain for band selection.
@@ -273,18 +283,18 @@ class FrequencyDomainOracleConfig:
 # =============================================================================
 
 
-def create_frequency_oracle(
+def create_spectral_oracle(
     config: dict[str, Any] | None = None,
-) -> FrequencyDomainOracle:
-    """Factory function for FrequencyDomainOracle.
+) -> SpectralDomainOracle:
+    """Factory function for SpectralDomainOracle.
 
     Args:
         config: Optional configuration dictionary.
 
     Returns:
-        Configured FrequencyDomainOracle instance.
+        Configured SpectralDomainOracle instance.
     """
-    return FrequencyDomainOracle(config)
+    return SpectralDomainOracle(config)
 
 
 # =============================================================================
@@ -292,7 +302,7 @@ def create_frequency_oracle(
 # =============================================================================
 
 
-class FrequencyDomainOracle(BaseDetector):
+class SpectralDomainOracle(BaseDetector):
     """Full-power neuro-symbolic spectral-domain anomaly detection Oracle.
 
     The Oracle decomposes a signal into domain-specific frequency bands
@@ -314,7 +324,7 @@ class FrequencyDomainOracle(BaseDetector):
 
     Example::
 
-        oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        oracle = SpectralDomainOracle({"domain": "medical", "sample_rate": 256.0})
         oracle.fit(training_signals)       # (N, T) array
         result = oracle.detect(test_signal) # (T,) array
         iv = result["influence_vector"]     # FrequencyInfluenceVector
@@ -326,7 +336,7 @@ class FrequencyDomainOracle(BaseDetector):
         cfg = config or {}
         domain = cfg.get("domain", "environmental")
 
-        self._oracle_config = FrequencyDomainOracleConfig(
+        self._oracle_config = SpectralDomainOracleConfig(
             domain=domain,
             sample_rate=cfg.get("sample_rate", 1000.0),
             threshold=self.threshold,
@@ -658,11 +668,22 @@ class FrequencyDomainOracle(BaseDetector):
                     fs=sr,
                     nperseg=min(nperseg, len(band_signals[i])),
                 )
-                coherences.append(float(np.mean(coh)))
+                # Filter NaN values from coherence (caused by zero-power bins)
+                coh_clean = coh[np.isfinite(coh)]
+                if len(coh_clean) > 0:
+                    coherences.append(float(np.mean(coh_clean)))
+                else:
+                    coherences.append(1.0)
             except (ValueError, ZeroDivisionError):
                 coherences.append(1.0)
 
-        return float(np.clip(np.mean(coherences), 0.0, 1.0)) if coherences else 1.0
+        if not coherences:
+            return 1.0
+        mean_coh = float(np.mean(coherences))
+        # Guard against residual NaN from edge cases
+        if not np.isfinite(mean_coh):
+            return 1.0
+        return float(np.clip(mean_coh, 0.0, 1.0))
 
     # ------------------------------------------------------------------
     # Cepstral Analysis — harmonic structure fingerprinting
@@ -884,8 +905,7 @@ class FrequencyDomainOracle(BaseDetector):
         # Sanity: if interval is empty or inverted, fall back to (-inf, inf)
         if L >= U:
             logger.debug(
-                "SI truncation interval empty [%.4f, %.4f]; "
-                "falling back to unconditional test.",
+                "SI truncation interval empty [%.4f, %.4f]; " "falling back to unconditional test.",
                 L,
                 U,
             )
@@ -1140,7 +1160,7 @@ class FrequencyDomainOracle(BaseDetector):
     def fit(
         self,
         data: np.ndarray | Any,
-    ) -> FrequencyDomainOracle:
+    ) -> SpectralDomainOracle:
         """Fit the Oracle on reference/training signals.
 
         Computes per-band reference means/stds, reference spectral
@@ -1163,7 +1183,7 @@ class FrequencyDomainOracle(BaseDetector):
             data = data.reshape(1, -1)
 
         if data.size == 0:
-            raise DetectorException("Cannot fit FrequencyDomainOracle with empty data.")
+            raise DetectorException("Cannot fit SpectralDomainOracle with empty data.")
 
         # Collect per-band power statistics and spectral entropy
         band_powers_all: dict[str, list[np.ndarray]] = {label: [] for _, _, label, _ in self._bands}
@@ -1201,7 +1221,7 @@ class FrequencyDomainOracle(BaseDetector):
 
         self._is_fitted = True
         logger.info(
-            "FrequencyDomainOracle fitted on %d samples, domain=%s, " "bands=%d (Nyquist=%.1f Hz)",
+            "SpectralDomainOracle fitted on %d samples, domain=%s, " "bands=%d (Nyquist=%.1f Hz)",
             len(data),
             self._oracle_config.domain,
             len(self._bands),
@@ -1231,7 +1251,7 @@ class FrequencyDomainOracle(BaseDetector):
               ``band_results``, ``detector_type``
         """
         if not self._is_fitted:
-            raise DetectorException("FrequencyDomainOracle must be fitted before detection.")
+            raise DetectorException("SpectralDomainOracle must be fitted before detection.")
 
         if isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
@@ -1259,7 +1279,7 @@ class FrequencyDomainOracle(BaseDetector):
             "influence_vector": results[0]["influence_vector"],
             "band_results": results[0]["band_results"],
             "per_sample_results": results,
-            "detector_type": "frequency_domain_oracle",
+            "detector_type": "spectral_domain_oracle",
         }
 
     def extract_features(
@@ -1433,5 +1453,22 @@ class FrequencyDomainOracle(BaseDetector):
             "is_anomaly": aggregate_score > self.threshold,
             "influence_vector": iv,
             "band_results": band_results,
-            "detector_type": "frequency_domain_oracle",
+            "detector_type": "spectral_domain_oracle",
         }
+
+
+# =============================================================================
+# Backward-compatible aliases (Task 9)
+# =============================================================================
+# These aliases ensure that existing code importing the old names continues
+# to work after the rename.  New code should use SpectralDomainOracle,
+# SpectralDomainOracleConfig, and create_spectral_oracle.
+
+FrequencyDomainOracle = SpectralDomainOracle
+"""Deprecated alias for :class:`SpectralDomainOracle`."""
+
+FrequencyDomainOracleConfig = SpectralDomainOracleConfig
+"""Deprecated alias for :class:`SpectralDomainOracleConfig`."""
+
+create_frequency_oracle = create_spectral_oracle
+"""Deprecated alias for :func:`create_spectral_oracle`."""

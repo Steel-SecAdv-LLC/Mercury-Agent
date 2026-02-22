@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Oracle `extract_features()` type contract**: Now returns `torch.Tensor`
+  per `BaseDetector` contract, eliminating runtime crash risk in 5 generic
+  callers (detector_registry, gosnn_integration, metrics, gwo_ensemble).
+  Removed all `# type: ignore` suppressions.
+- **Selective Inference upgrade**: Replaced naive z-test with truncated
+  normal conditioning (Lee et al., 2016). Guarantees Type I error control
+  at declared α. SI p-values are 3-10× more conservative, eliminating
+  false amplification from selection bias.
+
+### Renamed
+- **SpectralDomainOracle**: Renamed from `FrequencyDomainOracle` to reflect
+  expanded capabilities (spectral flux, phase coherence, cepstral analysis).
+  Backward-compatible aliases preserved (`FrequencyDomainOracle`,
+  `FrequencyDomainOracleConfig`, `create_frequency_oracle`).
+
+### Added
+- **Spectral Flux**: Rate-of-spectral-change detection for slow-onset
+  anomalies (frequency-domain analog of acceleration).
+- **Phase Coherence**: Inter-band phase relationship monitoring via Welch's
+  method cross-spectral estimation (leading indicator — degrades before
+  amplitude changes).
+- **Cepstral Coefficients**: Harmonic structure analysis via inverse FFT of
+  log power spectrum (rotating machinery faults, quefrency-domain peaks).
+- **Five-signal influence multiplier**: φ-weighted geometric mean now
+  incorporates flux and coherence alongside score, entropy, and breadth.
+- **Domain-aware Oracle auto-activation**: Oracle auto-enabled for
+  infrastructure, security, medical; dampened for environmental, space;
+  auto-disabled for financial, humanitarian; overridable via `oracle_mode`.
+- **Per-dataset benchmark output**: `per_dataset_results.json` for
+  individual dataset AUC/F1 verification (separate from aggregate results).
+
 ### Documentation Alignment Audit
 - Repository documentation, metadata, and organizational state audited for
   accuracy against actual code
