@@ -92,7 +92,10 @@
 ### 4.2 Lyapunov Decay Rate
 - ISSUE: test_discovery_verification.py line 41 asserts LAMBDA_DECAY == 0.18, but centralized_constants.py uses 0.25
 - LOCATION: tests/test_discovery_verification.py vs core/centralized_constants.py
-- STATUS: POTENTIAL TEST FAILURE — constants were updated but test may be outdated
+- STATUS: RESOLVED — These are intentionally distinct constants for different subsystems.
+  LAMBDA_DECAY=0.18 (double helix adaptation speed) < LAMBDA_CONVERGENCE=0.25 (OAE fusion
+  stability bound). The convergence rate must exceed the adaptation rate for system stability.
+  Test test_discovery_verification.py correctly asserts LAMBDA_DECAY==0.18.
 
 ### 4.3 Benevolence Description
 - ISSUE: README says "benevolence ≥ 0.99" but code clips ethical threshold to [0.90, 0.99]

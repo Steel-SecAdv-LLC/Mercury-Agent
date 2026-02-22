@@ -66,6 +66,12 @@ PHI = (1 + np.sqrt(5)) / 2
 PHI_SQUARED = PHI**2
 PHI_CUBED = PHI**3
 SIGMA_QUADRATIC_THRESHOLD = 0.96
+# Evolutionary adaptation decay rate for the double helix mechanism.
+# Intentionally slower (0.18) than LAMBDA_CONVERGENCE (0.25) in
+# centralized_constants.py, which governs OAE fusion stability.
+# Slower adaptation ensures the helix evolves gradually without
+# destabilizing the fusion layer above it.
+# See also: core/centralized_constants.py:LAMBDA_CONVERGENCE = 0.25
 LAMBDA_DECAY = 0.18
 
 

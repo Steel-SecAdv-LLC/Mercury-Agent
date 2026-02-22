@@ -66,9 +66,12 @@ MATH = MathConstants()
 class LyapunovConstants:
     """Lyapunov stability framework constants."""
 
-    # Convergence rate parameter (λ)
-    # Origin: core/three_r_mechanism.py:59
-    # Purpose: Controls exponential decay rate V(S_t) <= ε * e^(-λt)
+    # Controls exponential decay rate V(S_t) <= ε * e^(-λt) for OAE fusion
+    # score stability. Intentionally faster (0.25) than LAMBDA_DECAY (0.18)
+    # in double_helix_engine.py, which controls evolutionary adaptation speed.
+    # The convergence bound must be tighter than the adaptation rate for
+    # the system to stabilize.
+    # See also: core/double_helix_engine.py:LAMBDA_DECAY = 0.18
     LAMBDA_CONVERGENCE: float = 0.25
 
     # Initial bound (ε)
