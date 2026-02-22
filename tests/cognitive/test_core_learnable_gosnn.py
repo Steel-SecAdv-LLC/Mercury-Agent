@@ -18,22 +18,33 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""Humanitarian infrastructure and workforce monitoring."""
+from omni_mercury_engine.core.learnable_gosnn import (
+    LearnableGOSNN,
+    ScalarCategory,
+    ScalarState,
+)
 
-from .agrifood_security import AgriFoodSecurityDetector
-from .climate_resilience import ClimateResilienceDetector
-from .economic_resilience import EconomicResilienceDetector
-from .education_equity import EducationEquityDetector
-from .essential_workers import EssentialWorkersMonitor
-from .government_facilities import GovernmentFacilitiesMonitor
-from .neuroscience import NeuroscienceDetector
 
-__all__ = [
-    "AgriFoodSecurityDetector",
-    "ClimateResilienceDetector",
-    "EconomicResilienceDetector",
-    "EducationEquityDetector",
-    "EssentialWorkersMonitor",
-    "GovernmentFacilitiesMonitor",
-    "NeuroscienceDetector",
-]
+def test_learnable_gosnn_instantiation() -> None:
+    g = LearnableGOSNN()
+    assert g is not None
+
+
+def test_scalar_category_importable() -> None:
+    assert ScalarCategory is not None
+
+
+def test_scalar_state_importable() -> None:
+    assert ScalarState is not None
+
+
+def test_importable_from_core() -> None:
+    from omni_mercury_engine.core import (
+        LearnableGOSNN as LG,
+        ScalarCategory as SC,
+        ScalarState as SS,
+    )
+
+    assert LG is LearnableGOSNN
+    assert SC is ScalarCategory
+    assert SS is ScalarState

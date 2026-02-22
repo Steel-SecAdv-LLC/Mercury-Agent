@@ -45,6 +45,11 @@ if TYPE_CHECKING:
     from omni_mercury_engine.models.consciousness import (
         ConsciousnessPreservationModel as ConsciousnessPreservationModel,
     )
+    from omni_mercury_engine.models.isotope_predictor import (
+        IsotopePredictor as IsotopePredictor,
+        NuclearForensicsAnalyzer as NuclearForensicsAnalyzer,
+        RadiologicalThreatAssessor as RadiologicalThreatAssessor,
+    )
     from omni_mercury_engine.models.multiverse import MultiverseOmniEngine as MultiverseOmniEngine
     from omni_mercury_engine.models.neural import NeuralCognitiveModel as NeuralCognitiveModel
     from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine as NeurosymbolicEngine
@@ -90,12 +95,14 @@ __all__ = [
     "ConsciousnessPreservationModel",
     "FocusScoreConditioning",
     "GatedFeatureFusion",
+    "IsotopePredictor",
     "MAATModel",
     "MAMLOptimizer",
     "MambaSSM",
     "MultiverseOmniEngine",
     "NeuralCognitiveModel",
     "NeurosymbolicEngine",
+    "NuclearForensicsAnalyzer",
     "ParapsychologyDetector",
     "PriorAssociation",
     "QuantumAgeVariant",
@@ -103,6 +110,7 @@ __all__ = [
     "QuantumCircuit",
     "QuantumEngine",
     "QuantumGate",
+    "RadiologicalThreatAssessor",
     "SeriesAssociation",
     "SimulationModule",
     "SparseAttention",
@@ -121,6 +129,10 @@ _LAZY_IMPORTS = {
     "NeurosymbolicEngine": "omni_mercury_engine.models.neurosymbolic",
     "SimulationModule": "omni_mercury_engine.models.simulation",
     "ChemistryAnomalyDetector": "omni_mercury_engine.models.chemistry",
+    # Isotope Predictor (Nuclear Forensics)
+    "IsotopePredictor": "omni_mercury_engine.models.isotope_predictor",
+    "NuclearForensicsAnalyzer": "omni_mercury_engine.models.isotope_predictor",
+    "RadiologicalThreatAssessor": "omni_mercury_engine.models.isotope_predictor",
     "ParapsychologyDetector": "omni_mercury_engine.models.parapsychology",
     "AdvancedBiometricEngine": "omni_mercury_engine.models.biometric_advanced",
     "AgeProgressionEngine": "omni_mercury_engine.models.biometric_advanced",

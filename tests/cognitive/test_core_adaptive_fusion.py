@@ -18,22 +18,27 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""Humanitarian infrastructure and workforce monitoring."""
+import dataclasses
 
-from .agrifood_security import AgriFoodSecurityDetector
-from .climate_resilience import ClimateResilienceDetector
-from .economic_resilience import EconomicResilienceDetector
-from .education_equity import EducationEquityDetector
-from .essential_workers import EssentialWorkersMonitor
-from .government_facilities import GovernmentFacilitiesMonitor
-from .neuroscience import NeuroscienceDetector
+from omni_mercury_engine.core.adaptive_fusion import (
+    AttentionVisualization,
+    UncertaintyEstimate,
+)
 
-__all__ = [
-    "AgriFoodSecurityDetector",
-    "ClimateResilienceDetector",
-    "EconomicResilienceDetector",
-    "EducationEquityDetector",
-    "EssentialWorkersMonitor",
-    "GovernmentFacilitiesMonitor",
-    "NeuroscienceDetector",
-]
+
+def test_uncertainty_estimate_is_dataclass() -> None:
+    assert dataclasses.is_dataclass(UncertaintyEstimate)
+
+
+def test_attention_visualization_is_dataclass() -> None:
+    assert dataclasses.is_dataclass(AttentionVisualization)
+
+
+def test_importable_from_core() -> None:
+    from omni_mercury_engine.core import (
+        AttentionVisualization as AV,
+        UncertaintyEstimate as UE,
+    )
+
+    assert AV is AttentionVisualization
+    assert UE is UncertaintyEstimate

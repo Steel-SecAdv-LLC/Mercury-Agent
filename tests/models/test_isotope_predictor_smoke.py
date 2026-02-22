@@ -18,22 +18,24 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""Humanitarian infrastructure and workforce monitoring."""
+import pytest
 
-from .agrifood_security import AgriFoodSecurityDetector
-from .climate_resilience import ClimateResilienceDetector
-from .economic_resilience import EconomicResilienceDetector
-from .education_equity import EducationEquityDetector
-from .essential_workers import EssentialWorkersMonitor
-from .government_facilities import GovernmentFacilitiesMonitor
-from .neuroscience import NeuroscienceDetector
+pytest.importorskip("torch")
 
-__all__ = [
-    "AgriFoodSecurityDetector",
-    "ClimateResilienceDetector",
-    "EconomicResilienceDetector",
-    "EducationEquityDetector",
-    "EssentialWorkersMonitor",
-    "GovernmentFacilitiesMonitor",
-    "NeuroscienceDetector",
-]
+
+def test_isotope_predictor_importable() -> None:
+    from omni_mercury_engine.models.isotope_predictor import IsotopePredictor
+
+    assert IsotopePredictor is not None
+
+
+def test_nuclear_forensics_analyzer_importable() -> None:
+    from omni_mercury_engine.models.isotope_predictor import NuclearForensicsAnalyzer
+
+    assert NuclearForensicsAnalyzer is not None
+
+
+def test_radiological_threat_assessor_importable() -> None:
+    from omni_mercury_engine.models.isotope_predictor import RadiologicalThreatAssessor
+
+    assert RadiologicalThreatAssessor is not None

@@ -15,6 +15,13 @@ fairness verification, and multi-dimensional ethical scoring.
 
 from __future__ import annotations
 
+from omni_mercury_engine.ethical.ethical_alignment_engine import (
+    AlignmentArchetype,
+    GeometricPatternProcessor,
+    IndivisibleEngine,
+    PercipienceEngine,
+    StrategicEngine,
+)
 from omni_mercury_engine.ethical.ethical_constraint_engine import (
     AthenaWisdomEngine,
     ImmutableGeometryProcessor,
@@ -26,10 +33,15 @@ from omni_mercury_engine.ethical.ethical_constraint_engine import (
 )
 
 __all__ = [
+    "AlignmentArchetype",
     "AthenaWisdomEngine",
+    "GeometricPatternProcessor",
     "ImmutableGeometryProcessor",
     "ImmutableWisdomEngine",
+    "IndivisibleEngine",
     "MaatBalanceEngine",
+    "PercipienceEngine",
+    "StrategicEngine",
     "TwelveFoldVerificationSystem",
     "VerificationDimension",
     "WisdomArchetype",

@@ -45,6 +45,7 @@ __all__ = [
     "AuxiliaryMaxVariance",
     "BiometricEncoder",
     "CheckpointCallback",
+    "CompressionMethod",
     "ConceptDriftEvaluator",
     "ConvergenceMonitor",
     # Cortical Network (Neuroscience-inspired)
@@ -71,6 +72,7 @@ __all__ = [
     "MemoryEfficientCache",
     "MetaLearningAdapter",
     "MetaLearningAlgorithm",
+    "ModelCompressor",
     "MultiEnvPPOTrainer",
     "MultiHeadDetectorAttention",
     "NisslAnalyzer",
@@ -136,6 +138,10 @@ if HAS_TORCH or TYPE_CHECKING:
         MultiHeadDetectorAttention,
         SpatialAttention,
         TemporalAttention,
+    )
+    from omni_mercury_engine.ml.compression import (
+        CompressionMethod,
+        ModelCompressor,
     )
     from omni_mercury_engine.ml.cortical_network import (
         CorticalColumn,

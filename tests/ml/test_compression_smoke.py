@@ -18,22 +18,13 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""Humanitarian infrastructure and workforce monitoring."""
+import pytest
 
-from .agrifood_security import AgriFoodSecurityDetector
-from .climate_resilience import ClimateResilienceDetector
-from .economic_resilience import EconomicResilienceDetector
-from .education_equity import EducationEquityDetector
-from .essential_workers import EssentialWorkersMonitor
-from .government_facilities import GovernmentFacilitiesMonitor
-from .neuroscience import NeuroscienceDetector
+pytest.importorskip("torch")
 
-__all__ = [
-    "AgriFoodSecurityDetector",
-    "ClimateResilienceDetector",
-    "EconomicResilienceDetector",
-    "EducationEquityDetector",
-    "EssentialWorkersMonitor",
-    "GovernmentFacilitiesMonitor",
-    "NeuroscienceDetector",
-]
+
+def test_compression_importable() -> None:
+    from omni_mercury_engine.ml.compression import CompressionMethod, ModelCompressor
+
+    assert ModelCompressor is not None
+    assert CompressionMethod is not None

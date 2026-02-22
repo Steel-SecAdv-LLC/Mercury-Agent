@@ -38,6 +38,11 @@ from omni_mercury_engine.core.three_r.fusion import (
     OAEWeightOptimizer,
     OmniAvaEquation,
 )
+from omni_mercury_engine.core.three_r.learnable_fusion import (
+    Learnable3RConfig,
+    Learnable3REngine,
+    Learnable3RResult,
+)
 from omni_mercury_engine.core.three_r.types import (
     CONVERGENCE_RATE_PARAMETER,
     GOLDEN_RATIO_CONSTANT,
@@ -64,6 +69,9 @@ __all__ = [
     "EvolutionStrategy",
     "IssueSeverity",
     "IssueType",
+    "Learnable3RConfig",
+    "Learnable3REngine",
+    "Learnable3RResult",
     "OAEWeightOptimizer",
     "OmniAvaEquation",
     "RecursionEngine",

@@ -18,22 +18,30 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-"""Humanitarian infrastructure and workforce monitoring."""
+from omni_mercury_engine.cognitive.explainability import (
+    ExplainabilityEngine,
+    ExplanationType,
+    LIMEExplainer,
+    SHAPExplainer,
+)
 
-from .agrifood_security import AgriFoodSecurityDetector
-from .climate_resilience import ClimateResilienceDetector
-from .economic_resilience import EconomicResilienceDetector
-from .education_equity import EducationEquityDetector
-from .essential_workers import EssentialWorkersMonitor
-from .government_facilities import GovernmentFacilitiesMonitor
-from .neuroscience import NeuroscienceDetector
 
-__all__ = [
-    "AgriFoodSecurityDetector",
-    "ClimateResilienceDetector",
-    "EconomicResilienceDetector",
-    "EducationEquityDetector",
-    "EssentialWorkersMonitor",
-    "GovernmentFacilitiesMonitor",
-    "NeuroscienceDetector",
-]
+def test_shap_explainer_instantiation() -> None:
+    explainer = SHAPExplainer(n_samples=10)
+    assert explainer is not None
+    assert explainer.n_samples == 10
+
+
+def test_lime_explainer_instantiation() -> None:
+    explainer = LIMEExplainer()
+    assert explainer is not None
+
+
+def test_explainability_engine_instantiation() -> None:
+    engine = ExplainabilityEngine()
+    assert engine is not None
+
+
+def test_explanation_type_is_enum() -> None:
+    assert hasattr(ExplanationType, "SHAP")
+    assert hasattr(ExplanationType, "LIME")
