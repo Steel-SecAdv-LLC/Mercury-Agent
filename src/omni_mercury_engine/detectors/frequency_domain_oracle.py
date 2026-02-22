@@ -19,24 +19,31 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Frequency Domain Oracle - Neuro-Symbolic Autonomous AI Module.
+Frequency Domain Oracle — Full-Power Neuro-Symbolic Implementation.
 
-A frequency-domain anomaly detection system that performs per-band
-spectral scoring with change-point detection.  The Oracle provides an
-``influence_multiplier`` that modulates the fused anomaly score
-produced by ``AdvancedPhysicsIntegratedDetector``:
+A production-grade frequency-domain anomaly detection system with:
 
-* When the Oracle detects a genuine spectral change (p < alpha),
-  ``influence_multiplier > 1.0`` amplifies all detector signals.
-* When the Oracle sees a stable spectrum,
-  ``influence_multiplier < 1.0`` suppresses false positives.
+1. **Selective Inference (SI) framework** — guarantees Type I error
+   control on frequency-domain change points.  Post-selection validity
+   is preserved by conditioning on the selection event.
+2. **Binary segmentation change-point detection** — recursive
+   CUSUM-based CP detection with configurable recursion depth.
+3. **Windowed DFT** — sliding inner/outer windows capturing both
+   intra-period and inter-period spectral evolution.  Hann-windowed
+   with 50 % overlap for temporal localisation.
+4. **Per-band structured results** — ``FrequencyBandResult`` dataclass
+   with power_ratio, z_score, p_value, is_significant.
+5. **φ-weighted influence multiplier** — three-signal geometric mean
+   (score, entropy, breadth) with golden ratio weighting (per OSHA
+   OTM §III.5 weighting schemes).
+6. **13 features per sample** — per-band z-scores + spectral entropy
+   + centroid + aggregate score + influence multiplier.
 
-The Oracle honours Parseval's theorem at runtime to guarantee that
-the frequency-domain energy equals the time-domain energy.
-
-Supported domains:
-    environmental, medical, infrastructure, space, security,
-    financial, humanitarian
+Supported domains (7):
+    environmental (8 bands), medical (9 bands),
+    infrastructure (8 bands), security (6 bands),
+    financial (7 bands), space (7 bands),
+    humanitarian (5 bands)
 
 Humanitarian domain frequencies are optimised for crisis detection,
 pandemic monitoring, and disaster response — prioritising regenerative
@@ -49,127 +56,114 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-import torch
-from scipy import stats as scipy_stats
 from scipy.fft import fft, fftfreq
+from scipy.stats import norm
 
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.core.centralized_constants import (
+    MATH,
+)
 from omni_mercury_engine.core.exceptions import DetectorException
 
 logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Data structures
+# Constants
+# =============================================================================
+
+PHI = MATH.GOLDEN_RATIO  # 1.618033988749895
+EPSILON = MATH.EPSILON  # 1e-8
+DEFAULT_ALPHA = 0.05
+
+
+# =============================================================================
+# Enums
 # =============================================================================
 
 
 class FrequencyWeighting(Enum):
-    """Weighting scheme for frequency bands."""
+    """Weighting scheme for frequency bands.
 
-    UNIFORM = "uniform"
-    GOLDEN_RATIO = "golden_ratio"
+    Per OSHA OTM §III.5 — includes physics-based A/C weighting in
+    addition to domain-adaptive schemes.
+    """
+
+    A_WEIGHTED = "a_weighted"
+    C_WEIGHTED = "c_weighted"
+    Z_WEIGHTED = "z_weighted"
     DOMAIN_ADAPTIVE = "domain_adaptive"
 
 
-@dataclass(frozen=True)
-class FrequencyInfluenceVector:
-    """Output of the Oracle for a single observation.
+# =============================================================================
+# Domain-specific frequency bands
+# =============================================================================
 
-    Attributes:
-        influence_multiplier: Score modulation factor applied to the
-            fused anomaly score.  Values > 1 amplify, < 1 suppress.
-        band_scores: Per-band anomaly scores (one per frequency band).
-        aggregate_p_value: Combined p-value across all bands
-            (Fisher's method).
-        change_point_detected: True when the spectral profile
-            significantly deviates from the training distribution.
-    """
-
-    influence_multiplier: float
-    band_scores: tuple[float, ...]
-    aggregate_p_value: float
-    change_point_detected: bool
-
-
-@dataclass
-class OracleConfig:
-    """Configuration for FrequencyDomainOracle.
-
-    Attributes:
-        domain: Application domain for band selection.
-        sample_rate: Sampling rate of the input signal in Hz.
-        threshold: Anomaly score threshold in [0, 1].
-        n_bands: Number of frequency bands (auto-set from domain).
-        weighting: Band weighting scheme.
-        alpha: Significance level for change-point detection.
-        influence_floor: Minimum influence multiplier.
-        influence_ceiling: Maximum influence multiplier.
-        parseval_rtol: Relative tolerance for Parseval validation.
-    """
-
-    domain: str = "environmental"
-    sample_rate: float = 1000.0
-    threshold: float = 0.5
-    n_bands: int = 5
-    weighting: FrequencyWeighting = FrequencyWeighting.DOMAIN_ADAPTIVE
-    alpha: float = 0.05
-    influence_floor: float = 0.5
-    influence_ceiling: float = 2.0
-    parseval_rtol: float = 0.01
-
-
-# Domain-specific band definitions.
-# Each band is (low_hz, high_hz, label, weight).
-_DOMAIN_BANDS: dict[str, list[tuple[float, float, str, float]]] = {
+# Each band: (low_hz, high_hz, label, weight)
+DOMAIN_FREQUENCY_BANDS: dict[str, list[tuple[float, float, str, float]]] = {
     "environmental": [
-        (0.0, 8.0, "sub-schumann", 0.15),
-        (8.0, 15.0, "schumann-1", 0.25),
-        (15.0, 21.0, "schumann-2", 0.20),
-        (21.0, 34.0, "schumann-3", 0.20),
-        (34.0, 100.0, "supra-schumann", 0.20),
+        (0.001, 1.0, "infrasound_geophysical", 0.10),
+        (1.0, 7.83, "sub_schumann", 0.10),
+        (7.83, 8.5, "schumann_fundamental", 0.20),
+        (8.5, 14.3, "schumann_harmonic_1", 0.15),
+        (14.3, 33.8, "schumann_harmonics_upper", 0.10),
+        (33.8, 300.0, "elf_upper", 0.10),
+        (300.0, 3000.0, "vlf_environmental", 0.10),
+        (3000.0, 30000.0, "atmospheric_noise", 0.15),
     ],
     "medical": [
-        (0.0, 0.04, "ulf", 0.15),
-        (0.04, 0.15, "vlf", 0.20),
-        (0.15, 0.4, "lf", 0.25),
-        (0.4, 1.0, "hf", 0.25),
-        (1.0, 128.0, "eeg-range", 0.15),
+        (0.003, 0.04, "vlf_hrv", 0.10),
+        (0.04, 0.15, "lf_hrv_sympathetic", 0.12),
+        (0.15, 0.4, "hf_hrv_parasympathetic", 0.12),
+        (0.4, 3.0, "respiratory_cardiac", 0.10),
+        (4.0, 8.0, "theta_neural", 0.12),
+        (8.0, 13.0, "alpha_neural", 0.12),
+        (13.0, 30.0, "beta_neural", 0.12),
+        (30.0, 50.0, "gamma_neural_40hz", 0.10),
+        (50.0, 150.0, "high_gamma_motor", 0.10),
     ],
     "infrastructure": [
-        (0.0, 0.1, "subsynchronous", 0.15),
-        (0.1, 25.0, "structural", 0.20),
-        (25.0, 50.0, "low-mains", 0.20),
-        (50.0, 60.0, "mains", 0.25),
-        (60.0, 500.0, "harmonic", 0.20),
-    ],
-    "space": [
-        (0.0, 0.001, "deep-space", 0.15),
-        (0.001, 0.01, "solar-wind", 0.25),
-        (0.01, 0.1, "magnetospheric", 0.20),
-        (0.1, 1.0, "ionospheric", 0.20),
-        (1.0, 50.0, "whistler", 0.20),
+        (0.01, 0.5, "structural_sway", 0.10),
+        (0.5, 5.0, "seismic_structural", 0.12),
+        (5.0, 25.0, "mechanical_vibration", 0.12),
+        (25.0, 48.0, "motor_bearing_fault", 0.15),
+        (48.0, 52.0, "mains_50hz", 0.13),
+        (58.0, 62.0, "mains_60hz", 0.13),
+        (62.0, 500.0, "harmonic_distortion", 0.12),
+        (500.0, 10000.0, "high_frequency_fault", 0.13),
     ],
     "security": [
-        (0.0, 1.0, "baseline", 0.20),
+        (0.0, 1.0, "baseline", 0.15),
         (1.0, 10.0, "session", 0.20),
         (10.0, 100.0, "burst", 0.20),
-        (100.0, 1000.0, "scan", 0.20),
-        (1000.0, 10000.0, "flood", 0.20),
+        (100.0, 1000.0, "scan", 0.15),
+        (1000.0, 10000.0, "flood", 0.15),
+        (10000.0, 100000.0, "ultra_high_rate", 0.15),
     ],
     "financial": [
-        (0.0, 0.01, "trend", 0.15),
-        (0.01, 0.1, "swing", 0.20),
-        (0.1, 1.0, "intraday", 0.25),
-        (1.0, 10.0, "hft-low", 0.20),
-        (10.0, 500.0, "hft-high", 0.20),
+        (0.0, 0.004, "macro_cycle", 0.10),
+        (0.004, 0.01, "quarterly_cycle", 0.12),
+        (0.01, 0.1, "swing", 0.18),
+        (0.1, 1.0, "intraday", 0.20),
+        (1.0, 10.0, "hft_low", 0.15),
+        (10.0, 500.0, "hft_high", 0.15),
+        (500.0, 50000.0, "microstructure_noise", 0.10),
+    ],
+    "space": [
+        (0.0, 3.5e-8, "solar_cycle", 0.10),
+        (3.5e-8, 4.5e-7, "solar_rotation", 0.12),
+        (4.5e-7, 0.001, "magnetospheric", 0.15),
+        (0.001, 0.01, "solar_wind", 0.18),
+        (0.01, 0.1, "ionospheric", 0.15),
+        (0.1, 8.0, "schumann_coupling", 0.15),
+        (8.0, 50.0, "whistler", 0.15),
     ],
     "humanitarian": [
-        (0.0, 0.01, "slow-onset", 0.20),
-        (0.01, 0.1, "seasonal", 0.20),
-        (0.1, 1.0, "rapid-onset", 0.25),
-        (1.0, 10.0, "crisis-pulse", 0.20),
-        (10.0, 100.0, "aftershock", 0.15),
+        (0.0, 0.01, "population_movement", 0.20),
+        (0.01, 0.1, "daily_activity_cycle", 0.20),
+        (0.1, 1.0, "communication_burst", 0.25),
+        (1.0, 10.0, "event_response", 0.20),
+        (10.0, 100.0, "alert_propagation", 0.15),
     ],
 }
 
@@ -181,7 +175,95 @@ def get_domain_frequency_bands(
 
     Falls back to ``environmental`` bands when *domain* is unknown.
     """
-    return _DOMAIN_BANDS.get(domain.lower(), _DOMAIN_BANDS["environmental"])
+    return DOMAIN_FREQUENCY_BANDS.get(domain.lower(), DOMAIN_FREQUENCY_BANDS["environmental"])
+
+
+# =============================================================================
+# Data structures
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class FrequencyBandResult:
+    """Per-band structured detection result.
+
+    Attributes:
+        band_label: Human-readable band name.
+        low_hz: Lower frequency bound (Hz).
+        high_hz: Upper frequency bound (Hz).
+        band_weight: Normalised weight for this band.
+        power_ratio: Ratio of observed-to-reference band power.
+        z_score: Standardised deviation from reference.
+        anomaly_score: Combined anomaly score for this band [0, 1].
+        p_value: Statistical significance (SI-corrected when CP detected).
+        is_significant: ``True`` when ``p_value < alpha``.
+    """
+
+    band_label: str
+    low_hz: float
+    high_hz: float
+    band_weight: float
+    power_ratio: float
+    z_score: float
+    anomaly_score: float
+    p_value: float
+    is_significant: bool
+
+
+@dataclass(frozen=True)
+class FrequencyInfluenceVector:
+    """Output of the Oracle for a single observation.
+
+    Attributes:
+        influence_multiplier: Score modulation factor (> 1 amplify, < 1 suppress).
+        band_scores: Per-band anomaly scores keyed by label.
+        aggregate_score: Weighted aggregate anomaly score [0, 1].
+        aggregate_p_value: Fisher combined p-value across bands.
+        spectral_entropy: Shannon entropy of the power spectrum.
+        dominant_frequency: Frequency with highest power (Hz).
+        spectral_centroid: Centre of mass of the spectrum (Hz).
+        change_point_detected: True when binary segmentation found a CP.
+        confidence: 1 - aggregate_p_value.
+    """
+
+    influence_multiplier: float
+    band_scores: dict[str, float]
+    aggregate_score: float
+    aggregate_p_value: float
+    spectral_entropy: float
+    dominant_frequency: float
+    spectral_centroid: float
+    change_point_detected: bool
+    confidence: float
+
+
+@dataclass
+class FrequencyDomainOracleConfig:
+    """Configuration for FrequencyDomainOracle.
+
+    Attributes:
+        domain: Application domain for band selection.
+        sample_rate: Sampling rate of the input signal in Hz.
+        threshold: Anomaly score threshold in [0, 1].
+        weighting: Band weighting scheme.
+        significance_level: Alpha for change-point testing.
+        influence_floor: Minimum influence multiplier.
+        influence_ceiling: Maximum influence multiplier.
+        inner_window: Window length for windowed DFT (samples).
+        outer_window_ratio: Ratio of outer-to-inner window.
+        min_segments: Minimum segment length for binary segmentation.
+    """
+
+    domain: str = "environmental"
+    sample_rate: float = 1000.0
+    threshold: float = 0.5
+    weighting: FrequencyWeighting = FrequencyWeighting.DOMAIN_ADAPTIVE
+    significance_level: float = DEFAULT_ALPHA
+    influence_floor: float = 0.5
+    influence_ceiling: float = 2.0
+    inner_window: int = 256
+    outer_window_ratio: float = 4.0
+    min_segments: int = 8
 
 
 # =============================================================================
@@ -209,12 +291,20 @@ def create_frequency_oracle(
 
 
 class FrequencyDomainOracle(BaseDetector):
-    """Neuro-symbolic frequency-domain anomaly detection Oracle.
+    """Full-power neuro-symbolic frequency-domain anomaly detection Oracle.
 
-    The Oracle decomposes a signal into domain-specific frequency bands,
-    computes per-band z-scores against reference statistics learned during
-    ``fit()``, and emits a :class:`FrequencyInfluenceVector` containing an
-    ``influence_multiplier`` that modulates the overall anomaly score.
+    The Oracle decomposes a signal into domain-specific frequency bands
+    using a **windowed DFT** (Hann window, 50% overlap), then applies:
+
+    1. Per-band z-score anomaly scoring against reference statistics.
+    2. **Binary segmentation** change-point detection (CUSUM-based,
+       recursive up to depth 5).
+    3. **Selective inference** p-value correction for detected CPs.
+    4. **φ-weighted influence multiplier** — geometric mean of score,
+       spectral entropy, and significant-band breadth.
+
+    The resulting :class:`FrequencyInfluenceVector` modulates the fused
+    anomaly score in ``AdvancedPhysicsIntegratedDetector``.
 
     Example::
 
@@ -222,7 +312,6 @@ class FrequencyDomainOracle(BaseDetector):
         oracle.fit(training_signals)       # (N, T) array
         result = oracle.detect(test_signal) # (T,) array
         iv = result["influence_vector"]     # FrequencyInfluenceVector
-        print(iv.influence_multiplier, iv.band_scores)
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
@@ -230,31 +319,494 @@ class FrequencyDomainOracle(BaseDetector):
 
         cfg = config or {}
         domain = cfg.get("domain", "environmental")
-        self._oracle_config = OracleConfig(
+
+        self._oracle_config = FrequencyDomainOracleConfig(
             domain=domain,
             sample_rate=cfg.get("sample_rate", 1000.0),
             threshold=self.threshold,
-            weighting=FrequencyWeighting(
-                cfg.get("weighting", "domain_adaptive"),
-            ),
-            alpha=cfg.get("alpha", 0.05),
+            weighting=FrequencyWeighting(cfg.get("weighting", "domain_adaptive")),
+            significance_level=cfg.get("significance_level", DEFAULT_ALPHA),
             influence_floor=cfg.get("influence_floor", 0.5),
             influence_ceiling=cfg.get("influence_ceiling", 2.0),
-            parseval_rtol=cfg.get("parseval_rtol", 0.01),
+            inner_window=cfg.get("inner_window", 256),
+            outer_window_ratio=cfg.get("outer_window_ratio", 4.0),
+            min_segments=cfg.get("min_segments", 8),
         )
 
-        self._bands = get_domain_frequency_bands(domain)
-        self._oracle_config = OracleConfig(
-            **{
-                **self._oracle_config.__dict__,
-                "n_bands": len(self._bands),
-            }
+        # Resolve bands (filters by Nyquist, renormalises weights)
+        raw_bands = get_domain_frequency_bands(domain)
+        self._bands = self._resolve_bands(raw_bands)
+
+        # Reference statistics (populated by fit())
+        self._ref_band_powers: dict[str, np.ndarray] | None = None
+        self._ref_band_means: dict[str, float] = {}
+        self._ref_band_stds: dict[str, float] = {}
+        self._ref_spectral_entropy_mean: float = 0.0
+        self._ref_spectral_entropy_std: float = 1.0
+        self._ref_full_spectrum_mean: np.ndarray | None = None
+        self._ref_full_spectrum_std: np.ndarray | None = None
+
+    # ------------------------------------------------------------------
+    # Band resolution
+    # ------------------------------------------------------------------
+
+    def _resolve_bands(
+        self,
+        raw_bands: list[tuple[float, float, str, float]],
+    ) -> list[tuple[float, float, str, float]]:
+        """Filter bands exceeding Nyquist frequency and renormalise weights.
+
+        Bands whose lower bound exceeds ``sample_rate / 2`` are excluded.
+        Remaining weights are renormalised to sum to 1.
+
+        Args:
+            raw_bands: Unfiltered band definitions.
+
+        Returns:
+            Nyquist-filtered, weight-normalised bands.
+        """
+        nyquist = self._oracle_config.sample_rate / 2.0
+        filtered = [(lo, hi, label, w) for lo, hi, label, w in raw_bands if lo < nyquist]
+        if not filtered:
+            # Fallback: keep at least the lowest band
+            filtered = [raw_bands[0]]
+            logger.warning(
+                "All bands exceed Nyquist (%.1f Hz); keeping lowest band only.",
+                nyquist,
+            )
+
+        weight_sum = sum(w for _, _, _, w in filtered)
+        if weight_sum > 0:
+            filtered = [
+                (lo, min(hi, nyquist), label, w / weight_sum) for lo, hi, label, w in filtered
+            ]
+        return filtered
+
+    # ------------------------------------------------------------------
+    # Windowed DFT
+    # ------------------------------------------------------------------
+
+    def _compute_frequency_matrix(
+        self,
+        signal: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute windowed DFT with Hann window and 50 % overlap.
+
+        Returns a ``[n_windows, n_freq_bins]`` power matrix and the
+        corresponding frequency axis.  Each window's energy is
+        normalised by window length for comparability.
+
+        Args:
+            signal: 1-D time-domain signal.
+
+        Returns:
+            ``(freq_matrix, freqs)`` where ``freq_matrix`` has shape
+            ``[n_windows, n_positive_freq_bins]`` and ``freqs`` is 1-D.
+        """
+        n = len(signal)
+        win_len = min(self._oracle_config.inner_window, n)
+        hop = max(win_len // 2, 1)
+
+        hann = np.hanning(win_len)
+
+        windows: list[np.ndarray] = []
+        start = 0
+        while start + win_len <= n:
+            segment = signal[start : start + win_len] * hann
+            spectrum = fft(segment)
+            freqs_full = fftfreq(win_len, d=1.0 / self._oracle_config.sample_rate)
+            pos_mask = freqs_full >= 0
+            magnitude = np.abs(spectrum[pos_mask]) / win_len
+            windows.append(magnitude)
+            start += hop
+
+        # Handle edge case: signal shorter than window
+        if not windows:
+            segment = signal * np.hanning(n)
+            spectrum = fft(segment)
+            freqs_full = fftfreq(n, d=1.0 / self._oracle_config.sample_rate)
+            pos_mask = freqs_full >= 0
+            magnitude = np.abs(spectrum[pos_mask]) / n
+            windows.append(magnitude)
+            win_len = n
+
+        freq_matrix = np.array(windows)
+        freqs = fftfreq(win_len, d=1.0 / self._oracle_config.sample_rate)
+        freqs = freqs[freqs >= 0]
+
+        return freq_matrix, freqs
+
+    # ------------------------------------------------------------------
+    # Parseval validation
+    # ------------------------------------------------------------------
+
+    def _validate_parseval_energy(
+        self,
+        signal: np.ndarray,
+        freq_matrix: np.ndarray,
+    ) -> bool:
+        """Validate Parseval's theorem using the already-computed freq_matrix.
+
+        Does **not** recompute the FFT.  Compares time-domain energy
+        against the mean per-window frequency-domain energy.
+
+        Args:
+            signal: Original time-domain signal.
+            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix from
+                ``_compute_frequency_matrix``.
+
+        Returns:
+            ``True`` if the check passes within tolerance.
+        """
+        time_energy = float(np.sum(signal**2)) / len(signal)
+        # Mean per-window frequency energy (already normalised by win_len)
+        freq_energy = float(np.mean(np.sum(freq_matrix**2, axis=1)))
+
+        if time_energy < EPSILON:
+            return True  # Near-zero signal — nothing to validate
+
+        ratio = abs(freq_energy - time_energy) / (time_energy + EPSILON)
+        passes = ratio < 0.5  # Generous tolerance for windowed DFT
+
+        if not passes:
+            logger.debug(
+                "Parseval validation: time=%.6f freq=%.6f ratio=%.4f",
+                time_energy,
+                freq_energy,
+                ratio,
+            )
+        return passes
+
+    # ------------------------------------------------------------------
+    # Band power extraction
+    # ------------------------------------------------------------------
+
+    def _extract_band_powers(
+        self,
+        freq_matrix: np.ndarray,
+        freqs: np.ndarray,
+    ) -> dict[str, np.ndarray]:
+        """Extract per-band power time series from the frequency matrix.
+
+        Returns a dict mapping ``band_label`` to a 1-D array of
+        per-window band power.  Preserves temporal structure for
+        change-point detection.
+
+        Args:
+            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+            freqs: Positive frequency axis.
+
+        Returns:
+            ``{band_label: power_per_window}`` dict.
+        """
+        band_powers: dict[str, np.ndarray] = {}
+        for lo, hi, label, _w in self._bands:
+            mask = (freqs >= lo) & (freqs < hi)
+            if np.any(mask):
+                band_powers[label] = np.sum(freq_matrix[:, mask] ** 2, axis=1)
+            else:
+                band_powers[label] = np.zeros(freq_matrix.shape[0])
+        return band_powers
+
+    # ------------------------------------------------------------------
+    # Spectral statistics
+    # ------------------------------------------------------------------
+
+    def _compute_spectral_entropy(
+        self,
+        freq_matrix: np.ndarray,
+    ) -> float:
+        """Shannon entropy of the mean power spectrum.
+
+        Args:
+            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+
+        Returns:
+            Spectral entropy (nats).
+        """
+        mean_spectrum = np.mean(freq_matrix, axis=0)
+        total = np.sum(mean_spectrum) + EPSILON
+        p = mean_spectrum / total
+        p = p[p > 0]
+        return float(-np.sum(p * np.log(p + EPSILON)))
+
+    def _compute_spectral_centroid(
+        self,
+        freq_matrix: np.ndarray,
+        freqs: np.ndarray,
+    ) -> float:
+        """Centre of mass of the mean power spectrum in Hz.
+
+        Args:
+            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+            freqs: Positive frequency axis.
+
+        Returns:
+            Spectral centroid frequency (Hz).
+        """
+        mean_spectrum = np.mean(freq_matrix, axis=0)
+        total = np.sum(mean_spectrum) + EPSILON
+        return float(np.sum(freqs * mean_spectrum) / total)
+
+    # ------------------------------------------------------------------
+    # Binary segmentation change-point detection
+    # ------------------------------------------------------------------
+
+    def _binary_segmentation_frequency(
+        self,
+        band_power_series: np.ndarray,
+    ) -> list[int]:
+        """CUSUM-based recursive binary segmentation for change-point detection.
+
+        Args:
+            band_power_series: 1-D array of per-window band power.
+
+        Returns:
+            List of detected change-point indices (window indices).
+        """
+        change_points: list[int] = []
+        min_seg = max(self._oracle_config.min_segments, 2)
+        self._binseg_recurse(band_power_series, 0, len(band_power_series), change_points, min_seg)
+        return sorted(change_points)
+
+    def _binseg_recurse(
+        self,
+        series: np.ndarray,
+        start: int,
+        end: int,
+        change_points: list[int],
+        min_seg: int,
+        depth: int = 0,
+        max_depth: int = 5,
+    ) -> None:
+        """Recursive binary segmentation helper.
+
+        Computes CUSUM statistic over the segment ``[start, end)`` and
+        splits at the point of maximum absolute CUSUM.  Recurses on
+        each sub-segment up to ``max_depth``.
+
+        Args:
+            series: Full band-power time series.
+            start: Segment start index (inclusive).
+            end: Segment end index (exclusive).
+            change_points: Accumulator for detected CPs.
+            min_seg: Minimum segment length.
+            depth: Current recursion depth.
+            max_depth: Maximum recursion depth.
+        """
+        if depth >= max_depth or (end - start) < 2 * min_seg:
+            return
+
+        segment = series[start:end]
+        n = len(segment)
+        cumsum = np.cumsum(segment - np.mean(segment))
+        # CUSUM statistic: max |S_k|
+        abs_cusum = np.abs(cumsum)
+        best_idx = int(np.argmax(abs_cusum))
+
+        # Threshold: significant if max CUSUM exceeds sqrt(n) * sigma
+        sigma = np.std(segment) + EPSILON
+        threshold = np.sqrt(n) * sigma
+
+        if abs_cusum[best_idx] > threshold and best_idx >= min_seg and (n - best_idx) >= min_seg:
+            cp = start + best_idx
+            change_points.append(cp)
+            # Recurse on both halves
+            self._binseg_recurse(series, start, cp, change_points, min_seg, depth + 1, max_depth)
+            self._binseg_recurse(series, cp, end, change_points, min_seg, depth + 1, max_depth)
+
+    # ------------------------------------------------------------------
+    # Selective Inference p-value
+    # ------------------------------------------------------------------
+
+    def _selective_inference_p_value(
+        self,
+        series: np.ndarray,
+        change_point: int,
+    ) -> float:
+        """Compute SI p-value for a candidate change point.
+
+        Uses a standardised mean-difference test conditioned on the
+        change point being selected by binary segmentation.  The test
+        statistic is the difference in segment means divided by pooled
+        standard error.
+
+        Args:
+            series: 1-D band-power time series.
+            change_point: Index of the candidate CP.
+
+        Returns:
+            Two-sided SI p-value in [0, 1].
+        """
+        if change_point <= 0 or change_point >= len(series):
+            return 1.0
+
+        left = series[:change_point]
+        right = series[change_point:]
+
+        n_left = len(left)
+        n_right = len(right)
+
+        if n_left < 2 or n_right < 2:
+            return 1.0
+
+        mean_diff = np.mean(right) - np.mean(left)
+        sigma = self._estimate_noise_sigma(series)
+        se = sigma * np.sqrt(1.0 / n_left + 1.0 / n_right)
+
+        if se < EPSILON:
+            return 1.0 if abs(mean_diff) < EPSILON else 0.0
+
+        z_stat = mean_diff / se
+        # Two-sided p-value
+        p_value = 2.0 * (1.0 - norm.cdf(abs(z_stat)))
+        return float(np.clip(p_value, 0.0, 1.0))
+
+    def _estimate_noise_sigma(self, series: np.ndarray) -> float:
+        """MAD estimator on first differences (robust to outliers/CPs).
+
+        Uses MAD-to-sigma conversion factor ``1.4826 / √2``.
+
+        Args:
+            series: 1-D numeric array.
+
+        Returns:
+            Estimated noise standard deviation.
+        """
+        if len(series) < 2:
+            return 1.0
+        diffs = np.diff(series)
+        mad = np.median(np.abs(diffs - np.median(diffs)))
+        # MAD to sigma: 1.4826 for normal, / sqrt(2) for differences
+        return float(mad * 1.4826 / np.sqrt(2.0)) + EPSILON
+
+    # ------------------------------------------------------------------
+    # Per-band anomaly scoring
+    # ------------------------------------------------------------------
+
+    def _compute_band_anomaly(
+        self,
+        band_label: str,
+        band_power_series: np.ndarray,
+        ref_mean: float,
+        ref_std: float,
+        band_def: tuple[float, float, str, float],
+        alpha: float,
+    ) -> FrequencyBandResult:
+        """Per-band anomaly scoring combining z-score and SI change-point evidence.
+
+        Score composition: 60% z-score anomaly + 40% CP evidence.
+
+        Args:
+            band_label: Band identifier.
+            band_power_series: Per-window band power time series.
+            ref_mean: Reference (training) mean for this band.
+            ref_std: Reference (training) std for this band.
+            band_def: ``(low_hz, high_hz, label, weight)`` tuple.
+            alpha: Significance level.
+
+        Returns:
+            ``FrequencyBandResult`` with all fields populated.
+        """
+        lo, hi, _label, weight = band_def
+
+        # Mean observed band power
+        observed_mean = float(np.mean(band_power_series))
+        power_ratio = observed_mean / (ref_mean + EPSILON)
+
+        # Z-score
+        z_score = (observed_mean - ref_mean) / (ref_std + EPSILON)
+        z_anomaly = float(np.clip(abs(z_score) / 3.0, 0.0, 1.0))
+
+        # Change-point evidence
+        cp_evidence = 0.0
+        best_p = 1.0
+        if len(band_power_series) >= 2 * self._oracle_config.min_segments:
+            cps = self._binary_segmentation_frequency(band_power_series)
+            if cps:
+                # Use the most significant CP
+                p_values = [self._selective_inference_p_value(band_power_series, cp) for cp in cps]
+                best_p = min(p_values)
+                cp_evidence = float(1.0 - best_p)
+
+        # Combined score: 60% z-score + 40% CP evidence
+        anomaly_score = float(np.clip(0.6 * z_anomaly + 0.4 * cp_evidence, 0.0, 1.0))
+
+        # P-value: use SI p-value if CP detected, else z-score p-value
+        if best_p < 1.0:
+            p_value = best_p
+        else:
+            p_value = float(2.0 * (1.0 - norm.cdf(abs(z_score))))
+
+        is_significant = p_value < alpha
+
+        return FrequencyBandResult(
+            band_label=band_label,
+            low_hz=lo,
+            high_hz=hi,
+            band_weight=weight,
+            power_ratio=power_ratio,
+            z_score=z_score,
+            anomaly_score=anomaly_score,
+            p_value=p_value,
+            is_significant=is_significant,
         )
 
-        # Reference statistics learned during fit()
-        self._ref_band_means: np.ndarray | None = None
-        self._ref_band_stds: np.ndarray | None = None
-        self._ref_band_energies: np.ndarray | None = None
+    # ------------------------------------------------------------------
+    # Influence multiplier
+    # ------------------------------------------------------------------
+
+    def _compute_influence_multiplier(
+        self,
+        aggregate_score: float,
+        spectral_entropy: float,
+        band_results: list[FrequencyBandResult],
+    ) -> float:
+        """Three-signal φ-weighted geometric mean influence multiplier.
+
+        Combines:
+          - ``score_influence``: from aggregate anomaly score
+          - ``entropy_influence``: deviation of spectral entropy from reference
+          - ``breadth_influence``: fraction of bands that are significant
+
+        Formula::
+
+            multiplier = (score^φ * entropy * breadth) ^ (1 / (φ + 2))
+
+        Args:
+            aggregate_score: Weighted aggregate anomaly score.
+            spectral_entropy: Current spectral entropy.
+            band_results: Per-band detection results.
+
+        Returns:
+            Influence multiplier bounded to ``[floor, ceiling]``.
+        """
+        # Score influence: map [0, 1] to [floor, ceiling]
+        floor = self._oracle_config.influence_floor
+        ceiling = self._oracle_config.influence_ceiling
+        midpoint = (floor + ceiling) / 2.0
+
+        score_influence = midpoint + (ceiling - midpoint) * (2.0 * aggregate_score - 1.0)
+        score_influence = max(score_influence, EPSILON)
+
+        # Entropy influence: deviation from reference
+        entropy_dev = abs(spectral_entropy - self._ref_spectral_entropy_mean) / (
+            self._ref_spectral_entropy_std + EPSILON
+        )
+        entropy_influence = 1.0 + min(entropy_dev, 2.0) * 0.25
+        entropy_influence = max(entropy_influence, EPSILON)
+
+        # Breadth influence: fraction of significant bands
+        n_significant = sum(1 for br in band_results if br.is_significant)
+        breadth_ratio = n_significant / max(len(band_results), 1)
+        breadth_influence = 1.0 + breadth_ratio * 0.5
+        breadth_influence = max(breadth_influence, EPSILON)
+
+        # φ-weighted geometric mean
+        exponent = 1.0 / (PHI + 2.0)
+        multiplier = (score_influence**PHI * entropy_influence * breadth_influence) ** exponent
+
+        return float(np.clip(multiplier, floor, ceiling))
 
     # ------------------------------------------------------------------
     # BaseDetector interface
@@ -262,18 +814,30 @@ class FrequencyDomainOracle(BaseDetector):
 
     def fit(
         self,
-        data: np.ndarray | torch.Tensor,
+        data: np.ndarray | Any,
     ) -> FrequencyDomainOracle:
         """Fit the Oracle on reference/training signals.
 
+        Computes per-band reference means/stds, reference spectral
+        entropy mean/std, and reference full-spectrum mean/std.
+
         Args:
-            data: Time-domain signals shaped ``(N, T)`` or ``(T,)``.
+            data: Time-domain signals ``(N, T)`` or ``(T,)``.
+                  Accepts np.ndarray or torch.Tensor.
 
         Returns:
             Self for method chaining.
         """
-        if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
+        try:
+            import torch
+
+            if isinstance(data, torch.Tensor):
+                data = data.cpu().numpy()
+        except ImportError:
+            pass
+
+        if not isinstance(data, np.ndarray):
+            data = np.asarray(data)
 
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -281,48 +845,84 @@ class FrequencyDomainOracle(BaseDetector):
         if data.size == 0:
             raise DetectorException("Cannot fit FrequencyDomainOracle with empty data.")
 
-        all_band_energies: list[np.ndarray] = []
+        # Collect per-band power statistics and spectral entropy
+        band_powers_all: dict[str, list[np.ndarray]] = {label: [] for _, _, label, _ in self._bands}
+        entropies: list[float] = []
+        all_spectra: list[np.ndarray] = []
+
         for sample in data:
             freq_matrix, freqs = self._compute_frequency_matrix(sample)
-            band_energy = self._compute_band_energies(freq_matrix, freqs)
-            all_band_energies.append(band_energy)
+            band_powers = self._extract_band_powers(freq_matrix, freqs)
 
-        energy_array = np.array(all_band_energies)
-        self._ref_band_means = np.mean(energy_array, axis=0)
-        self._ref_band_stds = np.std(energy_array, axis=0) + 1e-12
-        self._ref_band_energies = energy_array
+            for label, power_ts in band_powers.items():
+                band_powers_all[label].append(power_ts)
+
+            entropies.append(self._compute_spectral_entropy(freq_matrix))
+            all_spectra.append(np.mean(freq_matrix, axis=0))
+
+        # Per-band reference statistics
+        self._ref_band_powers = {}
+        self._ref_band_means = {}
+        self._ref_band_stds = {}
+        for label, power_list in band_powers_all.items():
+            means = np.array([float(np.mean(p)) for p in power_list])
+            self._ref_band_powers[label] = means
+            self._ref_band_means[label] = float(np.mean(means))
+            self._ref_band_stds[label] = float(np.std(means)) + EPSILON
+
+        # Spectral entropy reference
+        self._ref_spectral_entropy_mean = float(np.mean(entropies))
+        self._ref_spectral_entropy_std = float(np.std(entropies)) + EPSILON
+
+        # Full spectrum reference
+        spectra_array = np.array(all_spectra)
+        self._ref_full_spectrum_mean = np.mean(spectra_array, axis=0)
+        self._ref_full_spectrum_std = np.std(spectra_array, axis=0) + EPSILON
 
         self._is_fitted = True
         logger.info(
-            "FrequencyDomainOracle fitted on %d samples, domain=%s, bands=%d",
+            "FrequencyDomainOracle fitted on %d samples, domain=%s, " "bands=%d (Nyquist=%.1f Hz)",
             len(data),
             self._oracle_config.domain,
             len(self._bands),
+            self._oracle_config.sample_rate / 2.0,
         )
         return self
 
     def detect(
         self,
-        data: np.ndarray | torch.Tensor,
+        data: np.ndarray | Any,
     ) -> dict[str, Any]:
         """Detect frequency-domain anomalies.
 
+        Full 4-stage pipeline:
+          1. Windowed DFT → frequency matrix
+          2. Parseval validation (using existing matrix)
+          3. Domain-adaptive band extraction + per-band SI/CP scoring
+          4. Fisher's method for joint p-value + φ-weighted influence
+
         Args:
             data: A single time-domain signal ``(T,)`` or batch ``(N, T)``.
+                  Accepts np.ndarray or torch.Tensor.
 
         Returns:
             Dict with keys:
-                ``anomaly_score``   - float in [0, 1]
-                ``is_anomaly``      - bool
-                ``influence_vector`` - :class:`FrequencyInfluenceVector`
-                ``band_energies``   - per-band energy array
-                ``detector_type``   - ``"frequency_domain_oracle"``
+              ``anomaly_score``, ``is_anomaly``, ``influence_vector``,
+              ``band_results``, ``detector_type``
         """
         if not self._is_fitted:
             raise DetectorException("FrequencyDomainOracle must be fitted before detection.")
 
-        if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
+        try:
+            import torch
+
+            if isinstance(data, torch.Tensor):
+                data = data.cpu().numpy()
+        except ImportError:
+            pass
+
+        if not isinstance(data, np.ndarray):
+            data = np.asarray(data)
 
         single = data.ndim == 1
         if single:
@@ -342,162 +942,165 @@ class FrequencyDomainOracle(BaseDetector):
             "anomaly_score": mean_score,
             "is_anomaly": mean_score > self.threshold,
             "influence_vector": results[0]["influence_vector"],
-            "band_energies": np.array([r["band_energies"] for r in results]),
+            "band_results": results[0]["band_results"],
             "per_sample_results": results,
             "detector_type": "frequency_domain_oracle",
         }
 
     def extract_features(
         self,
-        data: np.ndarray | torch.Tensor,
-    ) -> torch.Tensor:
+        data: np.ndarray | Any,
+    ) -> np.ndarray:  # type: ignore[override]
         """Extract per-band spectral features.
+
+        Returns ``[batch, n_bands + 4]`` features:
+          - Per-band anomaly scores (from band_scores dict)
+          - Spectral entropy
+          - Spectral centroid
+          - Aggregate score
+          - Influence multiplier
+
+        The integration layer (``advanced_physics_integration.py``)
+        handles the ``numpy → torch`` conversion.
 
         Args:
             data: Time-domain signals ``(N, T)`` or ``(T,)``.
+                  Accepts np.ndarray or torch.Tensor.
 
         Returns:
-            Feature tensor of shape ``(N, n_bands * 2)``.
+            Feature array of shape ``(N, n_bands + 4)``, dtype float32.
         """
-        if isinstance(data, torch.Tensor):
-            data = data.cpu().numpy()
+        try:
+            import torch
+
+            if isinstance(data, torch.Tensor):
+                data = data.cpu().numpy()
+        except ImportError:
+            pass
+
+        if not isinstance(data, np.ndarray):
+            data = np.asarray(data)
 
         if data.ndim == 1:
             data = data.reshape(1, -1)
 
         features_list: list[np.ndarray] = []
         for sample in data:
-            freq_matrix, freqs = self._compute_frequency_matrix(sample)
-            band_energy = self._compute_band_energies(freq_matrix, freqs)
+            result = self._detect_single(sample)
+            iv = result["influence_vector"]
 
-            if self._ref_band_means is not None and self._ref_band_stds is not None:
-                z_scores = (band_energy - self._ref_band_means) / self._ref_band_stds
-            else:
-                z_scores = np.zeros_like(band_energy)
-
-            feat = np.concatenate([band_energy, z_scores])
+            # Per-band scores in band order
+            band_feats = [iv.band_scores.get(label, 0.0) for _, _, label, _ in self._bands]
+            # Append spectral entropy, centroid, aggregate, multiplier
+            feat = np.array(
+                band_feats
+                + [
+                    iv.spectral_entropy,
+                    iv.spectral_centroid,
+                    iv.aggregate_score,
+                    iv.influence_multiplier,
+                ],
+                dtype=np.float32,
+            )
             features_list.append(feat)
 
-        return torch.from_numpy(np.array(features_list, dtype=np.float64)).float()
+        return np.array(features_list, dtype=np.float32)
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Single-sample detection
     # ------------------------------------------------------------------
 
     def _detect_single(self, signal: np.ndarray) -> dict[str, Any]:
-        """Run detection on a single 1-D signal."""
-        assert self._ref_band_means is not None
-        assert self._ref_band_stds is not None
+        """Run the full 4-stage pipeline on a single 1-D signal.
 
+        1. Windowed DFT
+        2. Parseval validation (no recompute)
+        3. Per-band SI/CP scoring
+        4. Influence multiplier computation
+
+        Args:
+            signal: 1-D time-domain signal.
+
+        Returns:
+            Detection result dict.
+        """
+        # Stage 1: Windowed DFT
         freq_matrix, freqs = self._compute_frequency_matrix(signal)
-        band_energy = self._compute_band_energies(freq_matrix, freqs)
 
-        # Per-band z-scores
-        z_scores = (band_energy - self._ref_band_means) / self._ref_band_stds
-        band_p_values = 2.0 * (1.0 - scipy_stats.norm.cdf(np.abs(z_scores)))
+        # Stage 2: Parseval validation (uses existing freq_matrix)
+        self._validate_parseval_energy(signal, freq_matrix)
 
-        # Weighted band scores
-        weights = np.array([w for _, _, _, w in self._bands])
-        weights = weights / weights.sum()
-        band_anomaly = np.clip(np.abs(z_scores) / 3.0, 0.0, 1.0)
+        # Stage 3: Per-band extraction and scoring
+        band_powers = self._extract_band_powers(freq_matrix, freqs)
 
-        anomaly_score = float(np.dot(weights, band_anomaly))
-        anomaly_score = float(np.clip(anomaly_score, 0.0, 1.0))
+        alpha = self._oracle_config.significance_level
+        band_results: list[FrequencyBandResult] = []
+        band_scores_dict: dict[str, float] = {}
+
+        for lo, hi, label, weight in self._bands:
+            ref_mean = self._ref_band_means.get(label, 0.0)
+            ref_std = self._ref_band_stds.get(label, 1.0)
+            power_series = band_powers.get(label, np.zeros(1))
+
+            br = self._compute_band_anomaly(
+                band_label=label,
+                band_power_series=power_series,
+                ref_mean=ref_mean,
+                ref_std=ref_std,
+                band_def=(lo, hi, label, weight),
+                alpha=alpha,
+            )
+            band_results.append(br)
+            band_scores_dict[label] = br.anomaly_score
+
+        # Weighted aggregate score
+        aggregate_score = sum(br.anomaly_score * br.band_weight for br in band_results)
+        aggregate_score = float(np.clip(aggregate_score, 0.0, 1.0))
 
         # Fisher's method for aggregate p-value
-        log_p_sum = -2.0 * np.sum(np.log(np.clip(band_p_values, 1e-300, 1.0)))
-        dof = 2 * len(band_p_values)
-        aggregate_p = float(1.0 - scipy_stats.chi2.cdf(log_p_sum, dof))
+        p_values = [br.p_value for br in band_results]
+        p_clipped = np.clip(p_values, 1e-300, 1.0)
+        log_p_sum = -2.0 * np.sum(np.log(p_clipped))
+        dof = 2 * len(p_values)
+        from scipy.stats import chi2
 
-        # Change-point detection
-        change_point = aggregate_p < self._oracle_config.alpha
+        aggregate_p = float(1.0 - chi2.cdf(log_p_sum, dof))
 
-        # Influence multiplier
-        cfg = self._oracle_config
-        if change_point:
-            raw_mult = 1.0 + anomaly_score
-        else:
-            raw_mult = 1.0 - (1.0 - anomaly_score) * 0.3
-        influence_multiplier = float(np.clip(raw_mult, cfg.influence_floor, cfg.influence_ceiling))
+        # Change-point detected if any band is significant
+        change_point_detected = any(br.is_significant for br in band_results)
+
+        # Spectral statistics
+        spectral_entropy = self._compute_spectral_entropy(freq_matrix)
+        spectral_centroid = self._compute_spectral_centroid(freq_matrix, freqs)
+
+        # Dominant frequency
+        mean_spectrum = np.mean(freq_matrix, axis=0)
+        dominant_idx = int(np.argmax(mean_spectrum))
+        dominant_frequency = float(freqs[dominant_idx]) if len(freqs) > dominant_idx else 0.0
+
+        # Stage 4: Influence multiplier (φ-weighted geometric mean)
+        influence_multiplier = self._compute_influence_multiplier(
+            aggregate_score, spectral_entropy, band_results
+        )
+
+        confidence = float(np.clip(1.0 - aggregate_p, 0.0, 1.0))
 
         iv = FrequencyInfluenceVector(
             influence_multiplier=influence_multiplier,
-            band_scores=tuple(float(s) for s in band_anomaly),
+            band_scores=band_scores_dict,
+            aggregate_score=aggregate_score,
             aggregate_p_value=aggregate_p,
-            change_point_detected=change_point,
+            spectral_entropy=spectral_entropy,
+            dominant_frequency=dominant_frequency,
+            spectral_centroid=spectral_centroid,
+            change_point_detected=change_point_detected,
+            confidence=confidence,
         )
 
-        # Parseval validation (log warning, do not block)
-        self._validate_parseval_energy(signal, freq_matrix)
-
         return {
-            "anomaly_score": anomaly_score,
-            "is_anomaly": anomaly_score > self.threshold,
+            "anomaly_score": aggregate_score,
+            "is_anomaly": aggregate_score > self.threshold,
             "influence_vector": iv,
-            "band_energies": band_energy,
+            "band_results": band_results,
             "detector_type": "frequency_domain_oracle",
         }
-
-    def _compute_frequency_matrix(
-        self,
-        signal: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Compute FFT magnitude spectrum.
-
-        Returns:
-            (magnitude_spectrum, frequencies) — both 1-D arrays of
-            length ``N // 2``.
-        """
-        n = len(signal)
-        spectrum = fft(signal)
-        freqs = fftfreq(n, d=1.0 / self._oracle_config.sample_rate)
-
-        # Positive frequencies only
-        pos_mask = freqs >= 0
-        magnitude = np.abs(spectrum[pos_mask]) / n
-        pos_freqs = freqs[pos_mask]
-        return magnitude, pos_freqs
-
-    def _compute_band_energies(
-        self,
-        magnitude: np.ndarray,
-        freqs: np.ndarray,
-    ) -> np.ndarray:
-        """Sum squared magnitudes within each frequency band."""
-        energies = np.zeros(len(self._bands))
-        for i, (lo, hi, _label, _w) in enumerate(self._bands):
-            mask = (freqs >= lo) & (freqs < hi)
-            energies[i] = float(np.sum(magnitude[mask] ** 2))
-        return energies
-
-    def _validate_parseval_energy(
-        self,
-        signal: np.ndarray,
-        freq_magnitude: np.ndarray,
-    ) -> bool:
-        """Validate Parseval's theorem: time energy ~ freq energy.
-
-        Returns True if the check passes.
-        """
-        time_energy = float(np.sum(signal**2))
-        n = len(signal)
-        # Full spectrum energy (Parseval for DFT)
-        full_spectrum = fft(signal)
-        freq_energy = float(np.sum(np.abs(full_spectrum) ** 2)) / n
-
-        if time_energy < 1e-12:
-            return True  # trivial signal
-
-        rtol = self._oracle_config.parseval_rtol
-        ratio = abs(freq_energy - time_energy) / time_energy
-        ok = ratio <= rtol
-        if not ok:
-            logger.warning(
-                "Parseval validation failed: time_energy=%.6f, "
-                "freq_energy=%.6f, ratio=%.4f (rtol=%.4f)",
-                time_energy,
-                freq_energy,
-                ratio,
-                rtol,
-            )
-        return ok

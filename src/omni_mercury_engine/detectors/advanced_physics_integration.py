@@ -821,12 +821,13 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             except Exception as e:
                 logger.warning(f"Failed to extract UI/UX features: {e}")
 
-        # Extract Oracle features
+        # Extract Oracle features (returns np.ndarray; convert to torch)
         if self._oracle_detector is not None and oracle_result is not None:
             try:
                 if data_type in ["time_series", "mixed"]:
                     ts_data = data["time_series"] if isinstance(data, dict) else data
-                    oracle_features = self._oracle_detector.extract_features(ts_data)
+                    oracle_features_np = self._oracle_detector.extract_features(ts_data)
+                    oracle_features = torch.from_numpy(oracle_features_np).float()
                     feature_parts.append(oracle_features)
             except Exception as e:
                 logger.warning(f"Failed to extract Oracle features: {e}")
