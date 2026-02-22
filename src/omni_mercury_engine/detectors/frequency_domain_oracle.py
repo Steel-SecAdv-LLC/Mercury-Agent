@@ -947,10 +947,10 @@ class FrequencyDomainOracle(BaseDetector):
             "detector_type": "frequency_domain_oracle",
         }
 
-    def extract_features(
+    def extract_features(  # type: ignore[override, unused-ignore]
         self,
         data: np.ndarray | Any,
-    ) -> np.ndarray:  # type: ignore[override]
+    ) -> np.ndarray:
         """Extract per-band spectral features.
 
         Returns ``[batch, n_bands + 4]`` features:
@@ -961,7 +961,7 @@ class FrequencyDomainOracle(BaseDetector):
           - Influence multiplier
 
         The integration layer (``advanced_physics_integration.py``)
-        handles the ``numpy → torch`` conversion.
+        handles the ``numpy -> torch`` conversion.
 
         Args:
             data: Time-domain signals ``(N, T)`` or ``(T,)``.
