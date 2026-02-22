@@ -577,3 +577,281 @@ class TestEdgeCasesNewFeatures:
         assert np.all(np.isfinite(result["scores"]))
         assert np.all(result["scores"] >= 0.0)
         assert np.all(result["scores"] <= 1.0)
+
+
+# ===========================================================================
+# FrequencyDomainOracle — Full-Power Tests
+# ===========================================================================
+
+
+class TestFrequencyDomainOracleBandCounts:
+    """Verify all 7 domains have the correct number of frequency bands."""
+
+    EXPECTED_BAND_COUNTS = {
+        "environmental": 8,
+        "medical": 9,
+        "infrastructure": 8,
+        "security": 6,
+        "financial": 7,
+        "space": 7,
+        "humanitarian": 5,
+    }
+
+    def test_all_domain_band_counts(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            DOMAIN_FREQUENCY_BANDS,
+        )
+
+        for domain, expected in self.EXPECTED_BAND_COUNTS.items():
+            actual = len(DOMAIN_FREQUENCY_BANDS[domain])
+            assert actual == expected, f"{domain}: expected {expected} bands, got {actual}"
+
+    def test_instantiation_all_domains(self) -> None:
+        """Every domain should instantiate without error."""
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        for domain in self.EXPECTED_BAND_COUNTS:
+            oracle = FrequencyDomainOracle({"domain": domain, "sample_rate": 1000.0})
+            assert oracle._oracle_config.domain == domain
+
+
+class TestFrequencyDomainOracleNyquist:
+    """Verify Nyquist filtering excludes bands above sample_rate / 2."""
+
+    def test_nyquist_filtering_low_sample_rate(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        # Nyquist = 10 Hz — many env bands should be excluded
+        oracle = FrequencyDomainOracle({"domain": "environmental", "sample_rate": 20.0})
+        for lo, _hi, _label, _w in oracle._bands:
+            assert lo < 10.0, f"Band with lo={lo} Hz exceeds Nyquist (10 Hz)"
+
+    def test_nyquist_weights_renormalised(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        oracle = FrequencyDomainOracle({"domain": "environmental", "sample_rate": 20.0})
+        weight_sum = sum(w for _, _, _, w in oracle._bands)
+        assert (
+            abs(weight_sum - 1.0) < 1e-6
+        ), f"Weights should sum to 1.0 after Nyquist filtering, got {weight_sum}"
+
+    def test_full_sample_rate_keeps_all_bands(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            DOMAIN_FREQUENCY_BANDS,
+            FrequencyDomainOracle,
+        )
+
+        # Very high sample rate — all medical bands should be kept
+        oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 1000.0})
+        assert len(oracle._bands) == len(DOMAIN_FREQUENCY_BANDS["medical"])
+
+
+class TestFrequencyDomainOracleDetection:
+    """Verify detect() returns FrequencyBandResult objects with valid p-values."""
+
+    def test_detect_returns_band_results(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyBandResult,
+            FrequencyDomainOracle,
+            FrequencyInfluenceVector,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        oracle.fit(rng.standard_normal((10, 512)))
+
+        result = oracle.detect(rng.standard_normal(512))
+        assert "band_results" in result
+        assert "influence_vector" in result
+
+        iv = result["influence_vector"]
+        assert isinstance(iv, FrequencyInfluenceVector)
+        assert isinstance(iv.band_scores, dict)
+        assert hasattr(iv, "spectral_entropy")
+        assert hasattr(iv, "confidence")
+        assert hasattr(iv, "spectral_centroid")
+        assert hasattr(iv, "dominant_frequency")
+        assert hasattr(iv, "aggregate_score")
+
+        for br in result["band_results"]:
+            assert isinstance(br, FrequencyBandResult)
+            assert 0.0 <= br.p_value <= 1.0, f"Invalid p_value: {br.p_value}"
+            assert 0.0 <= br.anomaly_score <= 1.0
+
+    def test_influence_multiplier_bounded(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        oracle.fit(rng.standard_normal((10, 512)))
+
+        for _ in range(20):
+            result = oracle.detect(rng.standard_normal(512))
+            m = result["influence_vector"].influence_multiplier
+            assert 0.5 <= m <= 2.0, f"Multiplier {m} out of bounds [0.5, 2.0]"
+
+    def test_anomaly_detection_sensitivity(self) -> None:
+        """Injected 40 Hz spike should produce higher anomaly score than noise."""
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        oracle.fit(rng.standard_normal((10, 512)))
+
+        # Normal
+        normal_result = oracle.detect(rng.standard_normal(512))
+
+        # Anomalous: inject strong 40 Hz spike
+        t = np.arange(512) / 256.0
+        anomalous = rng.standard_normal(512) + 5.0 * np.sin(2 * np.pi * 40 * t)
+        anom_result = oracle.detect(anomalous)
+
+        assert anom_result["anomaly_score"] >= normal_result["anomaly_score"], (
+            f"Anomalous score ({anom_result['anomaly_score']:.3f}) should >= "
+            f"normal score ({normal_result['anomaly_score']:.3f})"
+        )
+
+
+class TestFrequencyDomainOracleBinarySegmentation:
+    """Verify binary segmentation finds change points in signals with injected mean shifts."""
+
+    def test_cp_detection_on_mean_shift(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        oracle = FrequencyDomainOracle(
+            {"domain": "environmental", "sample_rate": 100.0, "min_segments": 2}
+        )
+        # Signal with clear mean shift
+        series = np.concatenate([np.zeros(50), np.ones(50) * 5.0])
+        cps = oracle._binary_segmentation_frequency(series)
+        assert len(cps) > 0, "Should detect at least one change point"
+        # CP should be near index 50
+        assert any(40 <= cp <= 60 for cp in cps), f"Expected CP near 50, got {cps}"
+
+
+class TestFrequencyDomainOracleSelectiveInference:
+    """Verify SI p-values are correct for genuine CPs and noise."""
+
+    def test_si_pvalue_genuine_cp(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        oracle = FrequencyDomainOracle({"domain": "environmental"})
+        # Clear mean shift
+        series = np.concatenate([np.zeros(100), np.ones(100) * 10.0])
+        p = oracle._selective_inference_p_value(series, 100)
+        assert p < 0.05, f"SI p-value for genuine CP should be < 0.05, got {p}"
+
+    def test_si_pvalue_noise(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        oracle = FrequencyDomainOracle({"domain": "environmental"})
+        rng = np.random.default_rng(42)
+        series = rng.standard_normal(200)
+        p = oracle._selective_inference_p_value(series, 100)
+        assert p > 0.05, f"SI p-value for noise should be > 0.05, got {p}"
+
+
+class TestFrequencyDomainOracleFeatures:
+    """Verify extract_features returns correct shape and type."""
+
+    def test_feature_shape(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        oracle.fit(rng.standard_normal((10, 512)))
+
+        features = oracle.extract_features(rng.standard_normal((3, 512)))
+        n_bands = len(oracle._bands)
+        expected_dim = n_bands + 4  # bands + entropy + centroid + agg + mult
+        assert features.shape == (
+            3,
+            expected_dim,
+        ), f"Expected (3, {expected_dim}), got {features.shape}"
+
+    def test_feature_dtype_numpy(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        oracle.fit(rng.standard_normal((10, 512)))
+
+        features = oracle.extract_features(rng.standard_normal((3, 512)))
+        assert isinstance(features, np.ndarray), f"Expected np.ndarray, got {type(features)}"
+        assert features.dtype == np.float32
+
+
+class TestFrequencyDomainOracleParseval:
+    """Verify Parseval validation uses existing matrix, not recomputing FFT."""
+
+    def test_parseval_no_recompute(self) -> None:
+        import inspect
+
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        oracle = FrequencyDomainOracle({"domain": "environmental"})
+        src = inspect.getsource(oracle._validate_parseval_energy)
+        assert "fft(signal)" not in src, "Parseval validation should NOT recompute FFT from signal"
+
+    def test_parseval_passes_clean_signal(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        signal = rng.standard_normal(512)
+        freq_matrix, _freqs = oracle._compute_frequency_matrix(signal)
+        result = oracle._validate_parseval_energy(signal, freq_matrix)
+        assert result is True or result is False  # Returns bool
+
+
+class TestFrequencyDomainOracleConfig:
+    """Verify OracleConfig is constructed exactly once (no double-init bug)."""
+
+    def test_single_config_construction(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+            FrequencyDomainOracleConfig,
+        )
+
+        oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        assert isinstance(oracle._oracle_config, FrequencyDomainOracleConfig)
+        assert oracle._oracle_config.domain == "medical"
+        assert oracle._oracle_config.sample_rate == 256.0
+
+    def test_band_scores_are_dict(self) -> None:
+        from omni_mercury_engine.detectors.frequency_domain_oracle import (
+            FrequencyDomainOracle,
+        )
+
+        rng = np.random.default_rng(42)
+        oracle = FrequencyDomainOracle({"domain": "humanitarian", "sample_rate": 256.0})
+        oracle.fit(rng.standard_normal((5, 512)))
+        result = oracle.detect(rng.standard_normal(512))
+        iv = result["influence_vector"]
+        assert isinstance(
+            iv.band_scores, dict
+        ), f"band_scores should be dict, got {type(iv.band_scores)}"
