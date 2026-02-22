@@ -269,7 +269,7 @@ class DimensionalAnalyzer(BaseDetector):
             >>> analyzer = DimensionalAnalyzer({"n_components": 5})
             >>> analyzer.fit(training_data)  # Must have at least 2 samples
         """
-        data_np = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
+        data_np = data.cpu().numpy() if TORCH_AVAILABLE and isinstance(data, torch.Tensor) else data
 
         # Validate data shape
         if data_np.size == 0:
@@ -370,16 +370,17 @@ class DimensionalAnalyzer(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data_np = data.cpu().numpy()
             data_tensor = data
         else:
             data_np = data
-            data_tensor = torch.tensor(data, dtype=torch.float32)
+            data_tensor = torch.tensor(data, dtype=torch.float32) if TORCH_AVAILABLE else None
 
         if data_np.ndim == 1:
             data_np = data_np.reshape(-1, 1)
-            data_tensor = data_tensor.reshape(-1, 1)
+            if data_tensor is not None:
+                data_tensor = data_tensor.reshape(-1, 1)
 
         if self.pca is None:
             raise DetectorException("PCA must be fitted before detection")
@@ -465,17 +466,17 @@ class DimensionalAnalyzer(BaseDetector):
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract dimensional features for ML fusion"""
         if not self._is_fitted:
-            if isinstance(data, torch.Tensor):
+            if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
                 self.fit(data.cpu().numpy())
             else:
                 self.fit(data)
 
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data_np = data.cpu().numpy()
             data_tensor = data
         else:
             data_np = data
-            data_tensor = torch.tensor(data, dtype=torch.float32)
+            data_tensor = torch.tensor(data, dtype=torch.float32) if TORCH_AVAILABLE else None
 
         assert self.pca is not None, "PCA must be fitted before feature extraction"
         assert self.autoencoder is not None, "Autoencoder must be fitted before feature extraction"

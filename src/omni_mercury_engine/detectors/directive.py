@@ -275,7 +275,7 @@ class SigmaDirectiveDetector(BaseDetector):
             >>> detector.fit(normal_training_data)
             >>> result = detector.detect(test_data)
         """
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         # Validate data
@@ -352,7 +352,7 @@ class SigmaDirectiveDetector(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("Detector must be fitted before detection")
 
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if data.ndim == 1:
@@ -433,7 +433,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """Extract Sigma protocol features for ML fusion"""
-        if isinstance(data, torch.Tensor):
+        if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if not self._is_fitted:
