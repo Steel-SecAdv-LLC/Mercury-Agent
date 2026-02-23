@@ -137,25 +137,105 @@ def _load_adbench() -> list[dict[str, Any]]:
 def _load_domain_dataset(
     name: str, category: str, loader_class_name: str, module: str, **kwargs: Any
 ) -> dict[str, Any]:
-    """Load a single domain dataset by class name."""
+    """Load a single domain dataset by class name.
+
+    Includes circuit-breaker protection, retry with exponential backoff,
+    and data validation (no empty arrays, no NaN/Inf, ≥2 distinct labels).
+    """
     import importlib
 
     try:
+        # Circuit breaker protection
+        try:
+            from omni_mercury_engine.resilience.api_circuit_breakers import (
+                get_data_loader_breaker,
+            )
+
+            breaker = get_data_loader_breaker(name)
+            if hasattr(breaker, "is_open") and breaker.is_open:
+                return {
+                    "name": name,
+                    "category": category,
+                    "error": f"Circuit breaker open for {name}",
+                    "status": "api_unavailable",
+                }
+        except ImportError:
+            breaker = None
+
         mod = importlib.import_module(f"omni_mercury_engine.datasets.{module}")
         loader_cls = getattr(mod, loader_class_name)
         from omni_mercury_engine.datasets.base import DatasetConfig
 
         cfg = DatasetConfig(name=name, preprocessing=kwargs)
         loader = loader_cls(cfg)
-        loader.download()
-        X, y = loader._load_raw()
+
+        # Retry with exponential backoff (3 retries, base 2s)
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                loader.download()
+                X, y = loader._load_raw()
+                last_exc = None
+                break
+            except Exception as e:
+                last_exc = e
+                if attempt < 2:
+                    wait = 2.0 * (2**attempt)  # 2s, 4s
+                    logger.warning(
+                        "Retry %d/%d for %s (wait %.1fs): %s",
+                        attempt + 1,
+                        3,
+                        name,
+                        wait,
+                        e,
+                    )
+                    time.sleep(wait)
+        if last_exc is not None:
+            if breaker is not None and hasattr(breaker, "record_failure"):
+                breaker.record_failure()
+            return {
+                "name": name,
+                "category": category,
+                "error": str(last_exc),
+                "status": "api_unavailable",
+            }
+
+        if breaker is not None and hasattr(breaker, "record_success"):
+            breaker.record_success()
+
+        # Data validation
+        if X is None or len(X) == 0:
+            return {"name": name, "category": category, "error": "Empty dataset"}
+        X = np.asarray(X, dtype=float)
+        y = np.asarray(y, dtype=float)
+        if np.any(~np.isfinite(X)):
+            # Replace NaN/Inf with column medians
+            col_medians = np.nanmedian(X, axis=0)
+            for col_idx in range(X.shape[1] if X.ndim > 1 else 1):
+                col = X[:, col_idx] if X.ndim > 1 else X
+                bad_mask = ~np.isfinite(col)
+                if bad_mask.any():
+                    col[bad_mask] = col_medians[col_idx] if X.ndim > 1 else 0.0
         y = (y > 0).astype(int)
+        if len(np.unique(y)) < 2:
+            return {
+                "name": name,
+                "category": category,
+                "error": "Labels have fewer than 2 distinct values",
+            }
         return {"name": name, "category": category, "X": X, "y": y}
     except Exception as e:
-        return {"name": name, "category": category, "error": str(e)}
+        logger.warning("Dataset %s unavailable: %s", name, e)
+        return {
+            "name": name,
+            "category": category,
+            "error": str(e),
+            "status": "api_unavailable",
+        }
 
 
 DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
+    # --- Original domain datasets ---
     ("NSL-KDD", "security", "NSLKDDLoader", "security", {}),
     (
         "SMD",
@@ -170,6 +250,34 @@ DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
     ("BATADAL", "industrial", "BATADALLoader", "industrial", {}),
     ("CICIDS-2017", "security", "CICIDSLoader", "security", {"binary": True}),
     ("MIT-BIH", "medical", "MITBIHLoader", "mitbih", {}),
+    # --- Environmental ---
+    ("USGS_Earthquake", "environmental", "USGSEarthquakeLoader", "environmental", {}),
+    ("NOAA_Weather", "environmental", "NOAAWeatherLoader", "environmental", {}),
+    ("Wildfire", "environmental", "WildfireDataLoader", "environmental", {}),
+    ("USGS_Geochemistry", "environmental", "USGSGeochemistryLoader", "environmental", {}),
+    # --- Ocean / Climate ---
+    ("NOAA_Buoy", "ocean", "NOAABuoyLoader", "ocean", {}),
+    ("NOAA_StormEvents", "climate", "NOAAStormEventsLoader", "noaa_storm", {}),
+    ("NOAA_GSOD", "climate", "NOAAGSODLoader", "noaa_gsod", {}),
+    ("NOAA_ERDDAP", "climate", "NOAAERDDAPLoader", "noaa_erddap", {}),
+    # --- Air Quality / Disaster ---
+    ("EPA_AirQuality", "air_quality", "EPAAirQualityLoader", "epa_air", {}),
+    ("FEMA_Disaster", "disaster", "FEMADisasterLoader", "disaster", {}),
+    ("FEMA_HazardMitigation", "disaster", "FEMAHazardMitigationLoader", "disaster", {}),
+    # --- Space ---
+    ("NASA_Exoplanet", "space", "NASAExoplanetLoader", "space", {}),
+    ("SolarDynamics", "space", "SolarDynamicsLoader", "space", {}),
+    # --- Academic / Archive ---
+    ("UCR", "academic", "UCRLoader", "ucr_archive", {}),
+    ("CWRU_Bearing", "academic", "CWRUBearingLoader", "ucr_archive", {}),
+    ("MSDS", "academic", "MSDSLoader", "ucr_archive", {}),
+    # --- Security ---
+    ("ThreatIntel", "security", "ThreatIntelLoader", "security", {}),
+    # --- General ---
+    ("ADRepository", "general", "ADRepositoryLoader", "adrepository", {}),
+    # --- Industrial (conditional — may need download) ---
+    ("SWaT", "industrial", "SWaTLoader", "industrial", {}),
+    ("WADI", "industrial", "WADILoader", "industrial", {}),
 ]
 
 
@@ -178,27 +286,43 @@ DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
 # ---------------------------------------------------------------------------
 
 
-def run_benchmark() -> dict[str, Any]:
-    """Run the honest benchmark.  Returns the full results dict."""
+def run_benchmark(
+    *,
+    live_only: bool = False,
+    domain_filter: str | None = None,
+) -> dict[str, Any]:
+    """Run the honest benchmark.  Returns the full results dict.
+
+    Args:
+        live_only: If True, skip ADBench and run only API-sourced domain datasets.
+        domain_filter: If set, only run datasets matching this category.
+    """
     print("=" * 70)
     print("Mercury Agent - Honest Benchmark")
     print("MercuryAnomalyDetector (Resonance 40% + Kinematic 30% + InfoGeo 30%)")
     print(f"Max {MAX_SAMPLES} samples per dataset, oracle threshold sweep")
+    if live_only:
+        print("  Mode: --live-only (ADBench skipped)")
+    if domain_filter:
+        print(f"  Filter: --domain {domain_filter}")
     print("=" * 70)
 
     results: list[dict[str, Any]] = []
 
     # --- ADBench datasets ---
-    print("\n[ADBench] Loading 47 tabular datasets ...")
-    adb_entries = _load_adbench()
-    for entry in adb_entries:
-        result = _benchmark_single(entry)
-        results.append(result)
-        gc.collect()
+    if not live_only:
+        print("\n[ADBench] Loading 47 tabular datasets ...")
+        adb_entries = _load_adbench()
+        for entry in adb_entries:
+            result = _benchmark_single(entry)
+            results.append(result)
+            gc.collect()
 
     # --- Domain datasets ---
     print("\n[Domain] Loading Mercury domain datasets ...")
     for name, cat, cls_name, mod, kwargs in DOMAIN_DATASETS:
+        if domain_filter and cat != domain_filter:
+            continue
         entry = _load_domain_dataset(name, cat, cls_name, mod, **kwargs)
         result = _benchmark_single(entry)
         results.append(result)
@@ -238,6 +362,93 @@ def run_benchmark() -> dict[str, Any]:
                 "n_datasets": len(vals),
             }
 
+    # --- Domain-level summary (Phase 4) ---
+    domain_summary: dict[str, dict[str, Any]] = {}
+    for r in results:
+        if r.get("error"):
+            continue
+        domain = r.get("category", "unknown")
+        if domain not in domain_summary:
+            domain_summary[domain] = {
+                "n_datasets": 0,
+                "n_measured": 0,
+                "n_below_random": 0,
+                "n_failed": 0,
+                "_aucs": [],
+                "_f1s": [],
+                "_precisions": [],
+                "_recalls": [],
+                "_component_aucs": {
+                    "resonance": [],
+                    "kinematic": [],
+                    "info_geometry": [],
+                },
+                "_weight_distributions": [],
+                "oracle_active_count": 0,
+            }
+        ds = domain_summary[domain]
+        ds["n_datasets"] += 1
+        auc = r.get("ensemble_auc")
+        if isinstance(auc, float) and not np.isnan(auc):
+            ds["n_measured"] += 1
+            ds["_aucs"].append(auc)
+            if auc < 0.5:
+                ds["n_below_random"] += 1
+        f1 = r.get("oracle_f1")
+        if isinstance(f1, float) and f1 > 0:
+            ds["_f1s"].append(f1)
+        prec = r.get("oracle_precision")
+        if isinstance(prec, float) and prec > 0:
+            ds["_precisions"].append(prec)
+        rec = r.get("oracle_recall")
+        if isinstance(rec, float) and rec > 0:
+            ds["_recalls"].append(rec)
+        for comp in ["resonance", "kinematic", "info_geometry"]:
+            val = r.get(f"{comp}_auc")
+            if isinstance(val, float) and not np.isnan(val):
+                ds["_component_aucs"][comp].append(val)
+        aw = r.get("adaptive_weights")
+        if aw:
+            ds["_weight_distributions"].append(aw)
+        if r.get("oracle_metadata", {}).get("active"):
+            ds["oracle_active_count"] += 1
+
+    # Compute final stats per domain
+    for domain, ds in domain_summary.items():
+        ds["stats"] = {
+            "mean_auc": float(np.mean(ds["_aucs"])) if ds["_aucs"] else None,
+            "median_auc": float(np.median(ds["_aucs"])) if ds["_aucs"] else None,
+            "std_auc": float(np.std(ds["_aucs"])) if len(ds["_aucs"]) > 1 else 0.0,
+            "mean_f1": float(np.mean(ds["_f1s"])) if ds["_f1s"] else None,
+            "mean_precision": (
+                float(np.mean(ds["_precisions"])) if ds["_precisions"] else None
+            ),
+            "mean_recall": (
+                float(np.mean(ds["_recalls"])) if ds["_recalls"] else None
+            ),
+        }
+        # Identify best component per domain
+        comp_means: dict[str, float] = {}
+        for comp in ["resonance", "kinematic", "info_geometry"]:
+            vals = ds["_component_aucs"][comp]
+            if vals:
+                comp_means[comp] = float(np.mean(vals))
+        ds["stats"]["component_mean_aucs"] = comp_means
+        if comp_means:
+            best = max(comp_means.items(), key=lambda x: x[1])
+            ds["stats"]["best_component"] = best[0]
+            ds["stats"]["best_component_auc"] = best[1]
+        # Clean up internal arrays (don't serialize raw lists)
+        for key in [
+            "_aucs",
+            "_f1s",
+            "_precisions",
+            "_recalls",
+            "_component_aucs",
+            "_weight_distributions",
+        ]:
+            del ds[key]
+
     output = {
         "metadata": {
             "git_commit": _git_commit(),
@@ -250,6 +461,7 @@ def run_benchmark() -> dict[str, Any]:
         },
         "summary": summary,
         "component_summary": component_summary,
+        "domain_summary": domain_summary,
         "per_dataset": results,
     }
 
@@ -378,6 +590,19 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:
             logger.debug("Progressive validation failed for %s: %s", name, exc)
 
+    # --- Capture per-dataset system state (Phase 4) ---
+    adaptive_weights_dict = {
+        "resonance": float(detector._adaptive_weights[0]),
+        "kinematic": float(detector._adaptive_weights[1]),
+        "info_geometry": float(detector._adaptive_weights[2]),
+    }
+    weight_source = getattr(detector, "_weight_source", "unknown")
+    data_type_val = getattr(detector, "_data_type", None)
+    data_type_str = (
+        data_type_val.name if hasattr(data_type_val, "name") else str(data_type_val)
+    )
+    oracle_metadata = getattr(detector, "_oracle_metadata", {"active": False})
+
     return {
         "name": name,
         "category": category,
@@ -398,6 +623,10 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
         "fit_ms": fit_ms,
         "score_ms": score_ms,
         "progressive_validation": progressive_result,
+        "adaptive_weights": adaptive_weights_dict,
+        "weight_source": weight_source,
+        "data_type": data_type_str,
+        "oracle_metadata": oracle_metadata,
         "error": None,
     }
 
@@ -565,7 +794,23 @@ def run_progressive_validation(
 
 
 if __name__ == "__main__":
-    output = run_benchmark()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Mercury Agent Honest Benchmark")
+    parser.add_argument(
+        "--live-only",
+        action="store_true",
+        help="Skip ADBench, run only API-sourced domain datasets",
+    )
+    parser.add_argument(
+        "--domain",
+        type=str,
+        default=None,
+        help="Filter by category (e.g., --domain environmental)",
+    )
+    args = parser.parse_args()
+
+    output = run_benchmark(live_only=args.live_only, domain_filter=args.domain)
 
     with open(OUTPUT_PATH, "w") as f:
         json.dump(output, f, indent=2, default=str)
