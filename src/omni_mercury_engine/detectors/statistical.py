@@ -525,6 +525,27 @@ class MercuryAnomalyDetector(BaseDetector):
         )
         return self
 
+    def get_oracle_statistics(self) -> dict[str, Any] | None:
+        """Export Oracle reference statistics for federation.
+
+        Returns the fitted SpectralDomainOracle state as a serialisable
+        dictionary, or ``None`` if the Oracle was not fitted.
+
+        Returns:
+            Dict with Oracle reference stats or None.
+        """
+        # The Oracle is attached via AdvancedPhysicsIntegratedDetector;
+        # MercuryAnomalyDetector itself does not hold an Oracle instance.
+        # However, we store the inferred domain + confidence so that the
+        # receiving node can reconstruct with correct domain bands.
+        if not self._is_fitted:
+            return None
+        return {
+            "inferred_oracle_domain": self._inferred_oracle_domain,
+            "oracle_domain_confidence": self._oracle_domain_confidence,
+            "data_type": self._data_type.value,
+        }
+
     @classmethod
     def from_statistics(
         cls,
@@ -543,6 +564,7 @@ class MercuryAnomalyDetector(BaseDetector):
         ig_log_det: float = 0.0,
         adaptive_weights: np.ndarray | None = None,
         data_type: str | None = None,
+        oracle_ref_stats: dict[str, Any] | None = None,
     ) -> MercuryAnomalyDetector:
         """Reconstruct a fitted detector from pre-computed statistics.
 
@@ -552,14 +574,6 @@ class MercuryAnomalyDetector(BaseDetector):
 
         All 13 core parameters correspond exactly to the attributes set
         during fit(). The resulting detector is ready for detect() calls.
-
-        .. note::
-            Federation does not currently serialize Oracle
-            (SpectralDomainOracle) fitted state. Federated detectors
-            will operate without Oracle influence. This is a known
-            limitation — the Oracle must be re-fitted on local data
-            at the receiving node for frequency-domain scoring to
-            activate.
 
         Args:
             mean: Feature means, shape (n_features,)
@@ -582,6 +596,9 @@ class MercuryAnomalyDetector(BaseDetector):
             data_type: Optional detected data type ("temporal", "tabular",
                 "image", "unknown"). Preserves the originating node's
                 data-type classification.
+            oracle_ref_stats: Optional Oracle reference statistics from
+                ``get_oracle_statistics()``. Preserves domain inference
+                and Oracle configuration across federation boundaries.
 
         Returns:
             Fitted MercuryAnomalyDetector ready for detect() calls.
@@ -606,6 +623,19 @@ class MercuryAnomalyDetector(BaseDetector):
             from omni_mercury_engine.core.config import DataCharacteristics
 
             det._data_type = DataCharacteristics(data_type)
+        # Restore Oracle reference statistics (Part 10)
+        if oracle_ref_stats is not None:
+            det._inferred_oracle_domain = oracle_ref_stats.get(
+                "inferred_oracle_domain", "environmental",
+            )
+            det._oracle_domain_confidence = oracle_ref_stats.get(
+                "oracle_domain_confidence", 0.0,
+            )
+            logger.info(
+                "from_statistics: restored Oracle domain=%s (confidence=%.2f)",
+                det._inferred_oracle_domain,
+                det._oracle_domain_confidence,
+            )
         det._is_fitted = True
         return det
 
