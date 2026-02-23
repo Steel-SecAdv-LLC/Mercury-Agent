@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "git_commit": "8ff295a51331a5a11caab17aea2b305dde3f29a4",
-    "python_version": "3.12.8",
-    "timestamp": "2026-02-22T22:18:52.309074+00:00",
+    "git_commit": "d5f9edd790f3bea87903232640f5ab648e2753b7",
+    "python_version": "3.11.14",
+    "timestamp": "2026-02-23T17:47:15.917518+00:00",
     "max_samples_per_dataset": 10000,
     "n_thresholds": 101,
     "detector": "MercuryAnomalyDetector",
@@ -13,33 +13,299 @@
     }
   },
   "summary": {
-    "total_datasets": 55,
-    "successful": 51,
-    "failed": 4,
-    "mean_auc": 0.8123018967567356,
-    "median_auc": 0.8890737388345575,
-    "std_auc": 0.18043094535472998,
-    "mean_oracle_f1": 0.5875871265381033,
-    "median_oracle_f1": 0.6451612903225806
+    "total_datasets": 75,
+    "successful": 64,
+    "failed": 11,
+    "mean_auc": 0.8379313382073948,
+    "median_auc": 0.9089918237310033,
+    "std_auc": 0.1725993124360913,
+    "mean_oracle_f1": 0.6344538625126379,
+    "median_oracle_f1": 0.7061834972897009
   },
   "component_summary": {
     "resonance": {
-      "mean_auc": 0.7625508288247769,
-      "median_auc": 0.8293587307862345,
-      "std_auc": 0.1905779245632801,
-      "n_datasets": 51
+      "mean_auc": 0.794375335207429,
+      "median_auc": 0.8393665013820021,
+      "std_auc": 0.18552381847900296,
+      "n_datasets": 64
     },
     "kinematic": {
-      "mean_auc": 0.6016385659741803,
-      "median_auc": 0.6115504682622269,
-      "std_auc": 0.23412012647069103,
-      "n_datasets": 51
+      "mean_auc": 0.6354207838965515,
+      "median_auc": 0.654569175067794,
+      "std_auc": 0.2302228926941288,
+      "n_datasets": 64
     },
     "info_geometry": {
-      "mean_auc": 0.8258968816815857,
-      "median_auc": 0.8759956905050278,
-      "std_auc": 0.1594832436597874,
-      "n_datasets": 51
+      "mean_auc": 0.8478213026422501,
+      "median_auc": 0.894442109988253,
+      "std_auc": 0.15383462423085095,
+      "n_datasets": 64
+    }
+  },
+  "domain_summary": {
+    "adbench": {
+      "n_datasets": 47,
+      "n_measured": 47,
+      "n_below_random": 4,
+      "n_failed": 0,
+      "oracle_active_count": 29,
+      "stats": {
+        "mean_auc": 0.8118096587665895,
+        "median_auc": 0.8752315197626981,
+        "std_auc": 0.1791872785948028,
+        "mean_f1": 0.5878645441516341,
+        "mean_precision": 0.5372445657388744,
+        "mean_recall": 0.7395913040705921,
+        "component_mean_aucs": {
+          "resonance": 0.7651114705796875,
+          "kinematic": 0.596428885788855,
+          "info_geometry": 0.8272002972860732
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8272002972860732
+      }
+    },
+    "security": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.892173772761349,
+        "median_auc": 0.892173772761349,
+        "std_auc": 0.07792858173218487,
+        "mean_f1": 0.7395214461259273,
+        "mean_precision": 0.7019118745332338,
+        "mean_recall": 0.7863337455483432,
+        "component_mean_aucs": {
+          "resonance": 0.9278483085823301,
+          "kinematic": 0.6148362562853965,
+          "info_geometry": 0.8883757004470447
+        },
+        "best_component": "resonance",
+        "best_component_auc": 0.9278483085823301
+      }
+    },
+    "timeseries": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 1,
+      "n_failed": 0,
+      "oracle_active_count": 2,
+      "stats": {
+        "mean_auc": 0.6944197512809867,
+        "median_auc": 0.6944197512809867,
+        "std_auc": 0.21209524220784273,
+        "mean_f1": 0.44201196634771023,
+        "mean_precision": 0.342688958026735,
+        "mean_recall": 0.8460019743336624,
+        "component_mean_aucs": {
+          "resonance": 0.6186797803791736,
+          "kinematic": 0.6607126054445004,
+          "info_geometry": 0.6774217407371455
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.6774217407371455
+      }
+    },
+    "industrial": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.9114686539731772,
+        "median_auc": 0.9114686539731772,
+        "std_auc": 0.0,
+        "mean_f1": 0.5544554455445545,
+        "mean_precision": 0.6054054054054054,
+        "mean_recall": 0.5114155251141552,
+        "component_mean_aucs": {
+          "resonance": 0.7256181614542948,
+          "kinematic": 0.6432695069067517,
+          "info_geometry": 0.9177095000143591
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9177095000143591
+      }
+    },
+    "environmental": {
+      "n_datasets": 3,
+      "n_measured": 3,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 3,
+      "stats": {
+        "mean_auc": 0.8938927806501225,
+        "median_auc": 0.9167641771531296,
+        "std_auc": 0.042668133703032934,
+        "mean_f1": 0.7292705507573433,
+        "mean_precision": 0.7060473609553365,
+        "mean_recall": 0.7586232272024809,
+        "component_mean_aucs": {
+          "resonance": 0.8776231980716626,
+          "kinematic": 0.7601999429734724,
+          "info_geometry": 0.8936174448366851
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8936174448366851
+      }
+    },
+    "ocean": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 1,
+      "stats": {
+        "mean_auc": 0.9675466993178821,
+        "median_auc": 0.9675466993178821,
+        "std_auc": 0.0,
+        "mean_f1": 0.8930635838150289,
+        "mean_precision": 0.8704225352112676,
+        "mean_recall": 0.9169139465875371,
+        "component_mean_aucs": {
+          "resonance": 0.8297530258863215,
+          "kinematic": 0.9616564708815348,
+          "info_geometry": 0.9181427755001147
+        },
+        "best_component": "kinematic",
+        "best_component_auc": 0.9616564708815348
+      }
+    },
+    "climate": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 1,
+      "stats": {
+        "mean_auc": 0.9866950395636633,
+        "median_auc": 0.9866950395636633,
+        "std_auc": 0.0,
+        "mean_f1": 0.883248730964467,
+        "mean_precision": 0.87,
+        "mean_recall": 0.8969072164948454,
+        "component_mean_aucs": {
+          "resonance": 0.8813296696485755,
+          "kinematic": 0.933826415718034,
+          "info_geometry": 0.9828109827903229
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9828109827903229
+      }
+    },
+    "air_quality": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 1,
+      "stats": {
+        "mean_auc": 0.9946913119703599,
+        "median_auc": 0.9946913119703599,
+        "std_auc": 0.0,
+        "mean_f1": 0.754257907542579,
+        "mean_precision": 0.7110091743119266,
+        "mean_recall": 0.8031088082901554,
+        "component_mean_aucs": {
+          "resonance": 0.9800666611010073,
+          "kinematic": 0.8734131265726071,
+          "info_geometry": 0.9985723026718336
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9985723026718336
+      }
+    },
+    "disaster": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.9947815628088659,
+        "median_auc": 0.9947815628088659,
+        "std_auc": 0.0,
+        "mean_f1": 0.9975953280659567,
+        "mean_precision": 0.9952021932830706,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 0.9929622933884298,
+          "kinematic": 0.5971580805233109,
+          "info_geometry": 0.9997614503816794
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9997614503816794
+      }
+    },
+    "space": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 2,
+      "stats": {
+        "mean_auc": 0.881251512787288,
+        "median_auc": 0.881251512787288,
+        "std_auc": 0.11253985782335968,
+        "mean_f1": 0.6709570762650641,
+        "mean_precision": 0.5867888107804026,
+        "mean_recall": 0.7834076553597835,
+        "component_mean_aucs": {
+          "resonance": 0.8734463235751795,
+          "kinematic": 0.6825170314053652,
+          "info_geometry": 0.8763525842109086
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8763525842109086
+      }
+    },
+    "academic": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 1.0,
+        "median_auc": 1.0,
+        "std_auc": 0.0,
+        "mean_f1": 1.0,
+        "mean_precision": 1.0,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 0.998617052631579,
+          "kinematic": 0.7646006191950465,
+          "info_geometry": 1.0
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 1.0
+      }
+    },
+    "general": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 1.0,
+        "median_auc": 1.0,
+        "std_auc": 0.0,
+        "mean_f1": 1.0,
+        "mean_precision": 1.0,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 1.0,
+          "kinematic": 0.8995160831198405,
+          "info_geometry": 1.0
+        },
+        "best_component": "resonance",
+        "best_component_auc": 1.0
+      }
     }
   },
   "per_dataset": [
@@ -56,12 +322,12 @@
       "resonance_auc": 0.547843481988936,
       "kinematic_auc": 0.5474795138444799,
       "info_geometry_auc": 0.5540199520473545,
-      "oracle_f1": 0.12565069107880095,
-      "oracle_precision": 0.07026701465569163,
-      "oracle_recall": 0.5932203389830508,
-      "oracle_threshold": 0.23,
-      "fit_ms": 264.332244000002,
-      "score_ms": 28.805974999954742,
+      "oracle_f1": 0.12666666666666668,
+      "oracle_precision": 0.07024029574861368,
+      "oracle_recall": 0.6440677966101694,
+      "oracle_threshold": 0.2,
+      "fit_ms": 1167.976058000022,
+      "score_ms": 22850.585105999926,
       "progressive_validation": {
         "split_aucs": [
           0.5613283769193425
@@ -72,6 +338,20 @@
         "mean_auc": 0.5613283769193425,
         "mean_f1": 0.4566929133858268,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4290771809868769,
+        "kinematic": 0.19578429381408866,
+        "info_geometry": 0.3751385251990345
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8808597245048625,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -88,12 +368,12 @@
       "resonance_auc": 0.8453800436223396,
       "kinematic_auc": 0.8859237047300235,
       "info_geometry_auc": 0.8156006611897145,
-      "oracle_f1": 0.551829268292683,
-      "oracle_precision": 0.4652956298200514,
-      "oracle_recall": 0.6779026217228464,
-      "oracle_threshold": 0.44,
-      "fit_ms": 52.47674800000368,
-      "score_ms": 2.292478000072151,
+      "oracle_f1": 0.5482388973966309,
+      "oracle_precision": 0.4637305699481865,
+      "oracle_recall": 0.6704119850187266,
+      "oracle_threshold": 0.37,
+      "fit_ms": 433.5129959999904,
+      "score_ms": 3080.8363249998365,
       "progressive_validation": {
         "split_aucs": [
           0.9137132249711416
@@ -104,6 +384,20 @@
         "mean_auc": 0.9137132249711416,
         "mean_f1": 0.9113924050632911,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.20855893079843113,
+        "kinematic": 0.41839826641862365,
+        "info_geometry": 0.3730428027829452
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8374464637510717,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -124,9 +418,19 @@
       "oracle_precision": 0.9280898876404494,
       "oracle_recall": 0.8676470588235294,
       "oracle_threshold": 0.72,
-      "fit_ms": 3348.561104000055,
-      "score_ms": 692.4716600000238,
+      "fit_ms": 3269.3173860006937,
+      "score_ms": 662.5798929999291,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.43398632716919017,
+        "kinematic": 0.0598520012456809,
+        "info_geometry": 0.5061616715851289
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "IMAGE",
+      "oracle_metadata": {
+        "active": false
+      },
       "error": null
     },
     {
@@ -145,9 +449,9 @@
       "oracle_f1": 0.968421052631579,
       "oracle_precision": 0.9745762711864406,
       "oracle_recall": 0.9623430962343096,
-      "oracle_threshold": 0.63,
-      "fit_ms": 37.78903900001751,
-      "score_ms": 0.5848719999903551,
+      "oracle_threshold": 0.66,
+      "fit_ms": 50.9345239997856,
+      "score_ms": 676.5026130005936,
       "progressive_validation": {
         "split_aucs": [
           0.9936647173489279
@@ -158,6 +462,23 @@
         "mean_auc": 0.9936647173489279,
         "mean_f1": 0.9719626168224299,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.38234841981128664,
+        "kinematic": 0.2908525052526412,
+        "info_geometry": 0.3267990749360721
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.040375444459471,
+        "significant_bands": [
+          "baseline",
+          "scan"
+        ],
+        "change_points": 0
       },
       "error": null
     },
@@ -178,9 +499,19 @@
       "oracle_precision": 0.5254237288135594,
       "oracle_recall": 0.566699604743083,
       "oracle_threshold": 0.36,
-      "fit_ms": 515.1522120000891,
-      "score_ms": 74.62201299995286,
+      "fit_ms": 540.4054870004984,
+      "score_ms": 79.62160599981871,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.46680686479247513,
+        "kinematic": 0.0,
+        "info_geometry": 0.5331931352075249
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
       "error": null
     },
     {
@@ -200,8 +531,8 @@
       "oracle_precision": 0.7115384615384616,
       "oracle_recall": 0.8409090909090909,
       "oracle_threshold": 0.48,
-      "fit_ms": 51.80530399991312,
-      "score_ms": 1.767037000035998,
+      "fit_ms": 45.29548299979069,
+      "score_ms": 1.905050000459596,
       "progressive_validation": {
         "split_aucs": [
           0.9588870431893688
@@ -212,6 +543,16 @@
         "mean_auc": 0.9588870431893688,
         "mean_f1": 0.9593023255813954,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4665876861065037,
+        "kinematic": 0.0,
+        "info_geometry": 0.5334123138934964
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -232,18 +573,28 @@
       "oracle_precision": 0.5156695156695157,
       "oracle_recall": 0.776824034334764,
       "oracle_threshold": 0.31,
-      "fit_ms": 50.52327200007767,
-      "score_ms": 2.2496479999745134,
+      "fit_ms": 38.108486000055564,
+      "score_ms": 2.2686520005663624,
       "progressive_validation": {
         "split_aucs": [
           0.5493269230769231
         ],
         "split_f1s": [
-          0.8967032967032967
+          0.8984881209503239
         ],
         "mean_auc": 0.5493269230769231,
-        "mean_f1": 0.8967032967032967,
+        "mean_f1": 0.8984881209503239,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666448050951479,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333551949048522
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -264,8 +615,8 @@
       "oracle_precision": 0.17497556207233628,
       "oracle_recall": 0.408675799086758,
       "oracle_threshold": 0.45,
-      "fit_ms": 282.4604200000067,
-      "score_ms": 36.16853400001219,
+      "fit_ms": 275.08704899992154,
+      "score_ms": 38.81348400045681,
       "progressive_validation": {
         "split_aucs": [
           0.7920989090266634
@@ -276,6 +627,16 @@
         "mean_auc": 0.7920989090266634,
         "mean_f1": 0.5898234683281413,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -296,9 +657,19 @@
       "oracle_precision": 0.1861281826163301,
       "oracle_recall": 0.726649528706084,
       "oracle_threshold": 0.22,
-      "fit_ms": 13669.062894000035,
-      "score_ms": 4187.869022999962,
+      "fit_ms": 13441.63697499971,
+      "score_ms": 4136.152226000377,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.467251231195804,
+        "kinematic": 0.0,
+        "info_geometry": 0.532748768804196
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
       "error": null
     },
     {
@@ -314,22 +685,36 @@
       "resonance_auc": 0.8933911391793788,
       "kinematic_auc": 0.4683609574450961,
       "info_geometry_auc": 0.9484490612809934,
-      "oracle_f1": 0.19974059662775617,
-      "oracle_precision": 0.13253012048192772,
-      "oracle_recall": 0.4052631578947368,
-      "oracle_threshold": 0.5,
-      "fit_ms": 115.32098199995744,
-      "score_ms": 7.419254999945224,
+      "oracle_f1": 0.2004950495049505,
+      "oracle_precision": 0.13106796116504854,
+      "oracle_recall": 0.4263157894736842,
+      "oracle_threshold": 0.44,
+      "fit_ms": 1170.165384000029,
+      "score_ms": 8198.45471500048,
       "progressive_validation": {
         "split_aucs": [
           0.8931433078898516
         ],
         "split_f1s": [
-          0.4942339373970346
+          0.4948805460750853
         ],
         "mean_auc": 0.8931433078898516,
-        "mean_f1": 0.4942339373970346,
+        "mean_f1": 0.4948805460750853,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3465046854466961,
+        "kinematic": 0.34781505470966817,
+        "info_geometry": 0.3056802598436358
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8855501893897273,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -342,26 +727,40 @@
       "n_features": 10,
       "anomaly_ratio": 0.05927411411760527,
       "test_anomaly_ratio": 0.11181118111811181,
-      "ensemble_auc": 0.8752315197626982,
+      "ensemble_auc": 0.8752315197626981,
       "resonance_auc": 0.8805305652415892,
       "kinematic_auc": 0.5696078077880882,
       "info_geometry_auc": 0.9240750137124156,
-      "oracle_f1": 0.4819891616193816,
-      "oracle_precision": 0.37444279346210996,
-      "oracle_recall": 0.6762075134168157,
-      "oracle_threshold": 0.41000000000000003,
-      "fit_ms": 106.88977899997099,
-      "score_ms": 7.368280000036975,
+      "oracle_f1": 0.48453272549658094,
+      "oracle_precision": 0.38095238095238093,
+      "oracle_recall": 0.6654740608228981,
+      "oracle_threshold": 0.35000000000000003,
+      "fit_ms": 1161.9932960002188,
+      "score_ms": 8247.420497000348,
       "progressive_validation": {
         "split_aucs": [
           0.8809360070596112
         ],
         "split_f1s": [
-          0.861077359254759
+          0.8547685001978631
         ],
         "mean_auc": 0.8809360070596112,
-        "mean_f1": 0.861077359254759,
+        "mean_f1": 0.8547685001978631,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3530342506520093,
+        "kinematic": 0.34062918178618673,
+        "info_geometry": 0.306336567561804
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.849077350821278,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -378,12 +777,12 @@
       "resonance_auc": 0.5012351118631674,
       "kinematic_auc": 0.6216116452065005,
       "info_geometry_auc": 0.6950082262668684,
-      "oracle_f1": 0.7049180327868853,
-      "oracle_precision": 0.5816425120772947,
-      "oracle_recall": 0.8945022288261516,
-      "oracle_threshold": 0.28,
-      "fit_ms": 52.21482899992225,
-      "score_ms": 2.8819780000048922,
+      "oracle_f1": 0.7064905226881103,
+      "oracle_precision": 0.5758426966292135,
+      "oracle_recall": 0.9138187221396731,
+      "oracle_threshold": 0.26,
+      "fit_ms": 97.51666900046985,
+      "score_ms": 2773.540860000139,
       "progressive_validation": {
         "split_aucs": [
           0.5663350910834133
@@ -394,6 +793,20 @@
         "mean_auc": 0.5663350910834133,
         "mean_f1": 0.7268292682926829,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.36983411782456793,
+        "kinematic": 0.3063652312552496,
+        "info_geometry": 0.32380065092018256
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.9466269597367162,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -414,8 +827,8 @@
       "oracle_precision": 0.9090909090909091,
       "oracle_recall": 0.30303030303030304,
       "oracle_threshold": 0.86,
-      "fit_ms": 241.78009900003872,
-      "score_ms": 23.307384000077036,
+      "fit_ms": 234.3365789993186,
+      "score_ms": 23.873353999988467,
       "progressive_validation": {
         "split_aucs": [
           0.9666725013127955
@@ -426,6 +839,16 @@
         "mean_auc": 0.9666725013127955,
         "mean_f1": 0.6329113924050633,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.30421391884588667,
+        "kinematic": 0.0,
+        "info_geometry": 0.6957860811541132
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -445,9 +868,9 @@
       "oracle_f1": 0.3125,
       "oracle_precision": 0.21739130434782608,
       "oracle_recall": 0.5555555555555556,
-      "oracle_threshold": 0.47000000000000003,
-      "fit_ms": 27.243118999990656,
-      "score_ms": 0.2963130000352976,
+      "oracle_threshold": 0.41000000000000003,
+      "fit_ms": 33.05380799974955,
+      "score_ms": 93.83986800003186,
       "progressive_validation": {
         "split_aucs": [
           0.8380952380952381
@@ -458,6 +881,20 @@
         "mean_auc": 0.8380952380952381,
         "mean_f1": 0.6666666666666666,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.2279281382961727,
+        "kinematic": 0.3609229249060434,
+        "info_geometry": 0.4111489367977839
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8734545865966991,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -478,9 +915,19 @@
       "oracle_precision": 0.5555555555555556,
       "oracle_recall": 0.7692307692307693,
       "oracle_threshold": 0.63,
-      "fit_ms": 23.152284999923722,
-      "score_ms": 0.3002299999934621,
+      "fit_ms": 17.43012099996122,
+      "score_ms": 0.2504760004740092,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.47807486631016044,
+        "kinematic": 0.0,
+        "info_geometry": 0.5219251336898395
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
       "error": null
     },
     {
@@ -499,9 +946,9 @@
       "oracle_f1": 0.25882352941176473,
       "oracle_precision": 0.23404255319148937,
       "oracle_recall": 0.2894736842105263,
-      "oracle_threshold": 0.5700000000000001,
-      "fit_ms": 78.36024899995664,
-      "score_ms": 4.205949000038345,
+      "oracle_threshold": 0.47000000000000003,
+      "fit_ms": 937.5189410002349,
+      "score_ms": 4893.750666999949,
       "progressive_validation": {
         "split_aucs": [
           0.9049328259240038
@@ -512,6 +959,20 @@
         "mean_auc": 0.9049328259240038,
         "mean_f1": 0.3865546218487395,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3910725646097905,
+        "kinematic": 0.4402616481212492,
+        "info_geometry": 0.16866578726896037
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.824103043664641,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -524,17 +985,27 @@
       "n_features": 1555,
       "anomaly_ratio": 0.1871820956256358,
       "test_anomaly_ratio": 0.31533847472150817,
-      "ensemble_auc": 0.9032112151058387,
+      "ensemble_auc": 0.9032044131251019,
       "resonance_auc": 0.6503254747782554,
       "kinematic_auc": 0.5,
-      "info_geometry_auc": 0.8938754965445938,
+      "info_geometry_auc": 0.8938686945638569,
       "oracle_f1": 0.7741147741147741,
       "oracle_precision": 0.7028824833702882,
       "oracle_recall": 0.8614130434782609,
       "oracle_threshold": 0.48,
-      "fit_ms": 10402.490633999947,
-      "score_ms": 4471.270535999906,
+      "fit_ms": 9310.228280000047,
+      "score_ms": 3569.7690380002314,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.5057491579628751,
+        "kinematic": 0.0,
+        "info_geometry": 0.49425084203712494
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
       "error": null
     },
     {
@@ -550,12 +1021,12 @@
       "resonance_auc": 0.8350891979210563,
       "kinematic_auc": 0.8371611181345695,
       "info_geometry_auc": 0.9601067565669336,
-      "oracle_f1": 0.9098039215686274,
-      "oracle_precision": 0.8992248062015504,
-      "oracle_recall": 0.9206349206349206,
-      "oracle_threshold": 0.5700000000000001,
-      "fit_ms": 34.889357999986714,
-      "score_ms": 0.8610160000444012,
+      "oracle_f1": 0.9090909090909091,
+      "oracle_precision": 0.905511811023622,
+      "oracle_recall": 0.9126984126984127,
+      "oracle_threshold": 0.55,
+      "fit_ms": 37.732283999503125,
+      "score_ms": 534.8690159999023,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -566,6 +1037,20 @@
         "mean_auc": 1.0,
         "mean_f1": 1.0,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3693919699427092,
+        "kinematic": 0.3071654434500543,
+        "info_geometry": 0.32344258660723657
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.9587654392156899,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -586,8 +1071,8 @@
       "oracle_precision": 0.34320288362512874,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.0,
-      "fit_ms": 109.308972000008,
-      "score_ms": 12.67048399995474,
+      "fit_ms": 348.7492779995591,
+      "score_ms": 8266.435843999716,
       "progressive_validation": {
         "split_aucs": [
           0.3127822963209238
@@ -598,6 +1083,20 @@
         "mean_auc": 0.3127822963209238,
         "mean_f1": 0.8322046651617758,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3324932937102327,
+        "kinematic": 0.3684144864485914,
+        "info_geometry": 0.29909221984117584
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8898523999294558,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -618,8 +1117,8 @@
       "oracle_precision": 0.34418604651162793,
       "oracle_recall": 0.74,
       "oracle_threshold": 0.41000000000000003,
-      "fit_ms": 55.4511980000143,
-      "score_ms": 2.461203000052592,
+      "fit_ms": 46.422204000009515,
+      "score_ms": 2.2430460003306507,
       "progressive_validation": {
         "split_aucs": [
           0.6527142857142857
@@ -630,6 +1129,16 @@
         "mean_auc": 0.6527142857142857,
         "mean_f1": 0.757201646090535,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -650,8 +1159,8 @@
       "oracle_precision": 0.6,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.6900000000000001,
-      "fit_ms": 26.57014299995808,
-      "score_ms": 0.33154899995224696,
+      "fit_ms": 20.50653800051805,
+      "score_ms": 0.29682700005650986,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -662,6 +1171,16 @@
         "mean_auc": 1.0,
         "mean_f1": 1.0,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4748698914952294,
+        "kinematic": 0.0,
+        "info_geometry": 0.5251301085047706
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -678,22 +1197,36 @@
       "resonance_auc": 0.6714103398677578,
       "kinematic_auc": 0.855813640908073,
       "info_geometry_auc": 0.8042449446548529,
-      "oracle_f1": 0.7960250149918615,
-      "oracle_precision": 0.7180834621329212,
-      "oracle_recall": 0.8929463770901404,
-      "oracle_threshold": 0.37,
-      "fit_ms": 94.10991900006138,
-      "score_ms": 7.456655000055434,
+      "oracle_f1": 0.7957545948744499,
+      "oracle_precision": 0.722048230504228,
+      "oracle_recall": 0.8862194887564866,
+      "oracle_threshold": 0.33,
+      "fit_ms": 741.6611500002546,
+      "score_ms": 8067.74192300054,
       "progressive_validation": {
         "split_aucs": [
           0.8576802121874212
         ],
         "split_f1s": [
-          0.8393135725429017
+          0.8392647633946031
         ],
         "mean_auc": 0.8576802121874212,
-        "mean_f1": 0.8393135725429017,
+        "mean_f1": 0.8392647633946031,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3411834700595102,
+        "kinematic": 0.3530638744189085,
+        "info_geometry": 0.3057526555215813
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8851733031335963,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -710,22 +1243,36 @@
       "resonance_auc": 0.8901768864602991,
       "kinematic_auc": 0.8470315888798129,
       "info_geometry_auc": 0.8759956905050278,
-      "oracle_f1": 0.45598194130925507,
-      "oracle_precision": 0.5519125683060109,
-      "oracle_recall": 0.38846153846153847,
-      "oracle_threshold": 0.62,
-      "fit_ms": 68.47535299993979,
-      "score_ms": 3.2322320000730542,
+      "oracle_f1": 0.44660194174757284,
+      "oracle_precision": 0.6052631578947368,
+      "oracle_recall": 0.35384615384615387,
+      "oracle_threshold": 0.52,
+      "fit_ms": 684.3934600001376,
+      "score_ms": 3988.6055010001655,
       "progressive_validation": {
         "split_aucs": [
           0.9193767826832555
         ],
         "split_f1s": [
-          0.7096774193548387
+          0.7044025157232704
         ],
         "mean_auc": 0.9193767826832555,
-        "mean_f1": 0.7096774193548387,
+        "mean_f1": 0.7044025157232704,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3599338499731907,
+        "kinematic": 0.3261744253708071,
+        "info_geometry": 0.3138917246560022
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.8290848500183595,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -746,9 +1293,19 @@
       "oracle_precision": 0.6844106463878327,
       "oracle_recall": 0.7714285714285715,
       "oracle_threshold": 0.37,
-      "fit_ms": 647.4453019999373,
-      "score_ms": 84.90929099991718,
+      "fit_ms": 334.6160850005617,
+      "score_ms": 74.98717199996463,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.4683687028745624,
+        "kinematic": 0.0,
+        "info_geometry": 0.5316312971254376
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
       "error": null
     },
     {
@@ -767,10 +1324,24 @@
       "oracle_f1": 0.9743589743589743,
       "oracle_precision": 0.9693877551020408,
       "oracle_recall": 0.979381443298969,
-      "oracle_threshold": 0.5700000000000001,
-      "fit_ms": 716.8922370000246,
-      "score_ms": 74.00760600000922,
+      "oracle_threshold": 0.51,
+      "fit_ms": 527.7679020000505,
+      "score_ms": 4500.846556000397,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.43590665426273845,
+        "kinematic": 0.18267502325736543,
+        "info_geometry": 0.3814183224798961
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8938722202439027,
+        "significant_bands": [],
+        "change_points": 0
+      },
       "error": null
     },
     {
@@ -790,9 +1361,19 @@
       "oracle_precision": 0.1559792027729636,
       "oracle_recall": 0.6,
       "oracle_threshold": 0.35000000000000003,
-      "fit_ms": 331.41585900000337,
-      "score_ms": 20.608587999959127,
+      "fit_ms": 171.8596599994271,
+      "score_ms": 19.459405999441515,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.46784151032140087,
+        "kinematic": 0.0,
+        "info_geometry": 0.5321584896785991
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
       "error": null
     },
     {
@@ -808,12 +1389,12 @@
       "resonance_auc": 0.9170127346597935,
       "kinematic_auc": 0.8975148945737181,
       "info_geometry_auc": 0.9579964991729698,
-      "oracle_f1": 0.7597765363128491,
-      "oracle_precision": 0.6406460296096904,
-      "oracle_recall": 0.9333333333333333,
-      "oracle_threshold": 0.42,
-      "fit_ms": 54.19605600002342,
-      "score_ms": 2.416870000047311,
+      "oracle_f1": 0.7595541401273885,
+      "oracle_precision": 0.6394101876675603,
+      "oracle_recall": 0.9352941176470588,
+      "oracle_threshold": 0.35000000000000003,
+      "fit_ms": 296.84999999972206,
+      "score_ms": 2249.266615999659,
       "progressive_validation": {
         "split_aucs": [
           0.9576291530631842
@@ -824,6 +1405,20 @@
         "mean_auc": 0.9576291530631842,
         "mean_f1": 0.9795918367346939,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3527921673088359,
+        "kinematic": 0.3281736195995696,
+        "info_geometry": 0.31903421309159463
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8343314065854113,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -840,12 +1435,12 @@
       "resonance_auc": 0.9490062861376535,
       "kinematic_auc": 0.3368745369415611,
       "info_geometry_auc": 0.8458846039274994,
-      "oracle_f1": 0.192,
-      "oracle_precision": 0.13953488372093023,
-      "oracle_recall": 0.3076923076923077,
-      "oracle_threshold": 0.46,
-      "fit_ms": 74.1531890000715,
-      "score_ms": 4.09696500003065,
+      "oracle_f1": 0.19245283018867926,
+      "oracle_precision": 0.13636363636363635,
+      "oracle_recall": 0.3269230769230769,
+      "oracle_threshold": 0.39,
+      "fit_ms": 500.1156190000984,
+      "score_ms": 3231.3510029998724,
       "progressive_validation": {
         "split_aucs": [
           0.8757812779027823
@@ -856,6 +1451,20 @@
         "mean_auc": 0.8757812779027823,
         "mean_f1": 0.6355555555555555,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.34067844637957856,
+        "kinematic": 0.361021585038145,
+        "info_geometry": 0.2982999685822765
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8544117364500023,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -872,22 +1481,36 @@
       "resonance_auc": 0.6815671641791046,
       "kinematic_auc": 0.6752835820895522,
       "info_geometry_auc": 0.7046716417910447,
-      "oracle_f1": 0.7352941176470589,
-      "oracle_precision": 0.6067961165048543,
+      "oracle_f1": 0.7429420505200595,
+      "oracle_precision": 0.6172839506172839,
       "oracle_recall": 0.9328358208955224,
-      "oracle_threshold": 0.32,
-      "fit_ms": 36.91902499997468,
-      "score_ms": 0.5863039999667308,
+      "oracle_threshold": 0.3,
+      "fit_ms": 55.37623700001859,
+      "score_ms": 864.6934669995971,
       "progressive_validation": {
         "split_aucs": [
           0.6999229583975346
         ],
         "split_f1s": [
-          0.7801418439716312
+          0.7755102040816326
         ],
         "mean_auc": 0.6999229583975346,
-        "mean_f1": 0.7801418439716312,
+        "mean_f1": 0.7755102040816326,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.37471522736247376,
+        "kinematic": 0.2973026335773519,
+        "info_geometry": 0.32798213906017437
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.9276786408553993,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -904,22 +1527,36 @@
       "resonance_auc": 0.6345445615288444,
       "kinematic_auc": 0.575436573495267,
       "info_geometry_auc": 0.8030998839078405,
-      "oracle_f1": 0.7246995994659546,
-      "oracle_precision": 0.794031597425395,
-      "oracle_recall": 0.6665029469548134,
-      "oracle_threshold": 0.36,
-      "fit_ms": 99.32782700002463,
-      "score_ms": 13.799000999938471,
+      "oracle_f1": 0.7238845144356956,
+      "oracle_precision": 0.7773393461104848,
+      "oracle_recall": 0.6773084479371316,
+      "oracle_threshold": 0.32,
+      "fit_ms": 304.6209669992095,
+      "score_ms": 9102.482899999814,
       "progressive_validation": {
         "split_aucs": [
           0.834710743801653
         ],
         "split_f1s": [
-          0.8111658456486043
+          0.8132231404958677
         ],
         "mean_auc": 0.834710743801653,
-        "mean_f1": 0.8111658456486043,
+        "mean_f1": 0.8132231404958677,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.33766076696046815,
+        "kinematic": 0.3666624930608562,
+        "info_geometry": 0.2956767399786756
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.903161996612308,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -936,12 +1573,12 @@
       "resonance_auc": 0.957854594419272,
       "kinematic_auc": 0.9668724138269954,
       "info_geometry_auc": 0.9942797047462725,
-      "oracle_f1": 0.88,
-      "oracle_precision": 0.8354430379746836,
-      "oracle_recall": 0.9295774647887324,
-      "oracle_threshold": 0.5700000000000001,
-      "fit_ms": 128.9784680000139,
-      "score_ms": 9.39751700002489,
+      "oracle_f1": 0.8783783783783784,
+      "oracle_precision": 0.8441558441558441,
+      "oracle_recall": 0.9154929577464789,
+      "oracle_threshold": 0.52,
+      "fit_ms": 399.83443599976454,
+      "score_ms": 6459.976015999928,
       "progressive_validation": {
         "split_aucs": [
           0.9988249118683901
@@ -952,6 +1589,20 @@
         "mean_auc": 0.9988249118683901,
         "mean_f1": 0.9640287769784173,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3377215931082257,
+        "kinematic": 0.36566341687574105,
+        "info_geometry": 0.29661499001603325
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8965459117932648,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -968,22 +1619,36 @@
       "resonance_auc": 0.994201543198395,
       "kinematic_auc": 0.8853858558314611,
       "info_geometry_auc": 0.9929908531020121,
-      "oracle_f1": 0.949812734082397,
-      "oracle_precision": 0.9491017964071856,
-      "oracle_recall": 0.9505247376311844,
-      "oracle_threshold": 0.56,
-      "fit_ms": 111.6437489999953,
-      "score_ms": 6.874889999949119,
+      "oracle_f1": 0.9500372856077554,
+      "oracle_precision": 0.9451038575667656,
+      "oracle_recall": 0.9550224887556222,
+      "oracle_threshold": 0.46,
+      "fit_ms": 1144.4281240001146,
+      "score_ms": 8070.985131999805,
       "progressive_validation": {
         "split_aucs": [
           0.997689290490801
         ],
         "split_f1s": [
-          0.9856819894498869
+          0.9853328318916886
         ],
         "mean_auc": 0.997689290490801,
-        "mean_f1": 0.9856819894498869,
+        "mean_f1": 0.9853328318916886,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.34196089082680203,
+        "kinematic": 0.35835491810344505,
+        "info_geometry": 0.29968419106975297
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8267978161841993,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -996,26 +1661,40 @@
       "n_features": 3,
       "anomaly_ratio": 0.20753947040892526,
       "test_anomaly_ratio": 0.3436343634363436,
-      "ensemble_auc": 0.7361377599790834,
+      "ensemble_auc": 0.7361377599790833,
       "resonance_auc": 0.5436967871354156,
       "kinematic_auc": 0.17676120956780142,
       "info_geometry_auc": 0.8866775181783367,
-      "oracle_f1": 0.6726686673335557,
-      "oracle_precision": 0.5441467361985255,
-      "oracle_recall": 0.880675203725262,
-      "oracle_threshold": 0.29,
-      "fit_ms": 64.63143000007676,
-      "score_ms": 4.1346660000272095,
+      "oracle_f1": 0.6726666666666666,
+      "oracle_precision": 0.5440330697340043,
+      "oracle_recall": 0.8809662398137369,
+      "oracle_threshold": 0.25,
+      "fit_ms": 772.9861889993117,
+      "score_ms": 4950.129191000087,
       "progressive_validation": {
         "split_aucs": [
           0.740477487985126
         ],
         "split_f1s": [
-          0.8805737449329591
+          0.8813666561214806
         ],
         "mean_auc": 0.740477487985126,
-        "mean_f1": 0.8805737449329591,
+        "mean_f1": 0.8813666561214806,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.29672578295760765,
+        "kinematic": 0.401259168194302,
+        "info_geometry": 0.30201504884809033
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8623429360862761,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1032,12 +1711,12 @@
       "resonance_auc": 0.8855913548128878,
       "kinematic_auc": 0.9359615769461677,
       "info_geometry_auc": 0.8815589353612168,
-      "oracle_f1": 0.46153846153846156,
-      "oracle_precision": 0.375,
-      "oracle_recall": 0.6,
-      "oracle_threshold": 0.72,
-      "fit_ms": 75.22268399998211,
-      "score_ms": 4.138432999980068,
+      "oracle_f1": 0.5,
+      "oracle_precision": 0.6666666666666666,
+      "oracle_recall": 0.4,
+      "oracle_threshold": 0.6,
+      "fit_ms": 1188.9970240008552,
+      "score_ms": 6833.31656900009,
       "progressive_validation": {
         "split_aucs": [
           0.9684684684684685
@@ -1048,6 +1727,20 @@
         "mean_auc": 0.9684684684684685,
         "mean_f1": 0.03076923076923077,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3372746047710281,
+        "kinematic": 0.36549734766589903,
+        "info_geometry": 0.2972280475630729
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.8267390524006846,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1068,9 +1761,19 @@
       "oracle_precision": 0.7236104028556859,
       "oracle_recall": 0.8451459201905897,
       "oracle_threshold": 0.24,
-      "fit_ms": 104.52556599989293,
-      "score_ms": 19.150788000047214,
+      "fit_ms": 78.81914300014614,
+      "score_ms": 17.99947500057897,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.47329338693524653,
+        "kinematic": 0.0,
+        "info_geometry": 0.5267066130647534
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
       "error": null
     },
     {
@@ -1090,9 +1793,19 @@
       "oracle_precision": 0.13513513513513514,
       "oracle_recall": 0.08196721311475409,
       "oracle_threshold": 0.44,
-      "fit_ms": 2038.6252350000404,
-      "score_ms": 526.8399930000669,
+      "fit_ms": 1958.3904880000773,
+      "score_ms": 382.51887099977466,
       "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.6363636363636364,
+        "kinematic": 0.0,
+        "info_geometry": 0.36363636363636365
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
       "error": null
     },
     {
@@ -1111,9 +1824,9 @@
       "oracle_f1": 0.7058823529411765,
       "oracle_precision": 0.5555555555555556,
       "oracle_recall": 0.967741935483871,
-      "oracle_threshold": 0.4,
-      "fit_ms": 33.2248920000211,
-      "score_ms": 0.423260000047776,
+      "oracle_threshold": 0.35000000000000003,
+      "fit_ms": 37.392682999779936,
+      "score_ms": 272.6182639999024,
       "progressive_validation": {
         "split_aucs": [
           0.6571428571428571
@@ -1124,6 +1837,20 @@
         "mean_auc": 0.6571428571428571,
         "mean_f1": 0.9375,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3591818548868693,
+        "kinematic": 0.32690799850437796,
+        "info_geometry": 0.31391014660875277
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8682275717154075,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1140,22 +1867,36 @@
       "resonance_auc": 0.9863604488078541,
       "kinematic_auc": 0.9342449742870499,
       "info_geometry_auc": 0.9766450444132773,
-      "oracle_f1": 0.7211538461538461,
-      "oracle_precision": 0.6521739130434783,
-      "oracle_recall": 0.8064516129032258,
-      "oracle_threshold": 0.65,
-      "fit_ms": 46.64450399991438,
-      "score_ms": 1.4688710000427818,
+      "oracle_f1": 0.7254901960784313,
+      "oracle_precision": 0.6666666666666666,
+      "oracle_recall": 0.7956989247311828,
+      "oracle_threshold": 0.56,
+      "fit_ms": 197.27656199938792,
+      "score_ms": 981.7831640002623,
       "progressive_validation": {
         "split_aucs": [
           0.987987987987988
         ],
         "split_f1s": [
-          0.8888888888888888
+          0.8941176470588236
         ],
         "mean_auc": 0.987987987987988,
-        "mean_f1": 0.8888888888888888,
+        "mean_f1": 0.8941176470588236,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.21066259931645276,
+        "kinematic": 0.41228518766577926,
+        "info_geometry": 0.3770522130177679
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8557338525810407,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1175,9 +1916,9 @@
       "oracle_f1": 0.37037037037037035,
       "oracle_precision": 0.22727272727272727,
       "oracle_recall": 1.0,
-      "oracle_threshold": 0.17,
-      "fit_ms": 35.76670400002513,
-      "score_ms": 1.1070259999996779,
+      "oracle_threshold": 0.14,
+      "fit_ms": 32.92678099933255,
+      "score_ms": 87.98220500011666,
       "progressive_validation": {
         "split_aucs": [
           0.0
@@ -1188,6 +1929,20 @@
         "mean_auc": 0.0,
         "mean_f1": 0.2,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.353483734263991,
+        "kinematic": 0.32587560762806933,
+        "info_geometry": 0.3206406581079396
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.832315262405503,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1204,12 +1959,12 @@
       "resonance_auc": 0.5733428165007113,
       "kinematic_auc": 0.9519914651493598,
       "info_geometry_auc": 0.9539971550497865,
-      "oracle_f1": 0.7755102040816326,
-      "oracle_precision": 0.7916666666666666,
-      "oracle_recall": 0.76,
-      "oracle_threshold": 0.45,
-      "fit_ms": 44.29306600002292,
-      "score_ms": 1.1280850000048304,
+      "oracle_f1": 0.7708333333333334,
+      "oracle_precision": 0.8043478260869565,
+      "oracle_recall": 0.74,
+      "oracle_threshold": 0.4,
+      "fit_ms": 110.75008999978309,
+      "score_ms": 595.3250219999973,
       "progressive_validation": {
         "split_aucs": [
           0.9132410658954762
@@ -1220,6 +1975,22 @@
         "mean_auc": 0.9132410658954762,
         "mean_f1": 0.7647058823529411,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.35042301806576903,
+        "kinematic": 0.3420404704446659,
+        "info_geometry": 0.307536511489565
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8850464111020263,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
       },
       "error": null
     },
@@ -1236,12 +2007,12 @@
       "resonance_auc": 0.6376614832535884,
       "kinematic_auc": 0.4268092105263158,
       "info_geometry_auc": 0.5846889952153109,
-      "oracle_f1": 0.11377245508982035,
-      "oracle_precision": 0.0811965811965812,
-      "oracle_recall": 0.19,
-      "oracle_threshold": 0.44,
-      "fit_ms": 66.17643200002021,
-      "score_ms": 3.668425999990177,
+      "oracle_f1": 0.11764705882352941,
+      "oracle_precision": 0.08171206225680934,
+      "oracle_recall": 0.21,
+      "oracle_threshold": 0.41000000000000003,
+      "fit_ms": 212.24014600011287,
+      "score_ms": 3863.5622310002873,
       "progressive_validation": {
         "split_aucs": [
           0.6108896683673469
@@ -1252,6 +2023,20 @@
         "mean_auc": 0.6108896683673469,
         "mean_f1": 0.4549763033175355,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3551001834761677,
+        "kinematic": 0.33409702683519743,
+        "info_geometry": 0.3108027896886349
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.937561842406733,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1271,9 +2056,9 @@
       "oracle_f1": 0.9,
       "oracle_precision": 0.9,
       "oracle_recall": 0.9,
-      "oracle_threshold": 0.67,
-      "fit_ms": 28.856259000008322,
-      "score_ms": 0.31940500002747285,
+      "oracle_threshold": 0.61,
+      "fit_ms": 33.00263100027223,
+      "score_ms": 202.42335199964145,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -1284,6 +2069,20 @@
         "mean_auc": 1.0,
         "mean_f1": 1.0,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.39840244726148366,
+        "kinematic": 0.25209586726866123,
+        "info_geometry": 0.34950168546985516
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.9044153886791868,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1304,8 +2103,8 @@
       "oracle_precision": 0.8333333333333334,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.7000000000000001,
-      "fit_ms": 42.2592900000609,
-      "score_ms": 0.7026209999594357,
+      "fit_ms": 30.59577600015473,
+      "score_ms": 1.2420259999998962,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -1316,6 +2115,16 @@
         "mean_auc": 1.0,
         "mean_f1": 1.0,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.46410958308081324,
+        "kinematic": 0.0,
+        "info_geometry": 0.5358904169191868
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -1332,12 +2141,12 @@
       "resonance_auc": 0.35718513792674045,
       "kinematic_auc": 0.21752354503537086,
       "info_geometry_auc": 0.7314219819623108,
-      "oracle_f1": 0.2025741466144376,
-      "oracle_precision": 0.11830065359477124,
+      "oracle_f1": 0.20302860347728546,
+      "oracle_precision": 0.11861074705111402,
       "oracle_recall": 0.7042801556420234,
-      "oracle_threshold": 0.25,
-      "fit_ms": 46.73257800004649,
-      "score_ms": 1.5105589999393487,
+      "oracle_threshold": 0.21,
+      "fit_ms": 274.6861750001699,
+      "score_ms": 1702.754946000823,
       "progressive_validation": {
         "split_aucs": [
           0.41909682238336815
@@ -1348,6 +2157,20 @@
         "mean_auc": 0.41909682238336815,
         "mean_f1": 0.6675427069645203,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.33949631332688224,
+        "kinematic": 0.35401053171622426,
+        "info_geometry": 0.30649315495689344
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.83924206774783,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1368,8 +2191,8 @@
       "oracle_precision": 0.5555555555555556,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.45,
-      "fit_ms": 24.4936990000042,
-      "score_ms": 0.29754499996670347,
+      "fit_ms": 19.422961999225663,
+      "score_ms": 0.2333959992029122,
       "progressive_validation": {
         "split_aucs": [
           1.0
@@ -1380,6 +2203,16 @@
         "mean_auc": 1.0,
         "mean_f1": 1.0,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -1400,8 +2233,8 @@
       "oracle_precision": 0.3821138211382114,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.0,
-      "fit_ms": 31.660952999914116,
-      "score_ms": 0.5616390000113824,
+      "fit_ms": 31.305835000239313,
+      "score_ms": 0.6362499998431304,
       "progressive_validation": {
         "split_aucs": [
           0.7374999999999999
@@ -1412,6 +2245,16 @@
         "mean_auc": 0.7374999999999999,
         "mean_f1": 0.95,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.46733849199208205,
+        "kinematic": 0.0,
+        "info_geometry": 0.532661508007918
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -1432,8 +2275,8 @@
       "oracle_precision": 0.5090361445783133,
       "oracle_recall": 1.0,
       "oracle_threshold": 0.0,
-      "fit_ms": 40.31864900002802,
-      "score_ms": 0.872847999971782,
+      "fit_ms": 75.06205200024851,
+      "score_ms": 1410.9769080005208,
       "progressive_validation": {
         "split_aucs": [
           0.2783882783882784
@@ -1444,6 +2287,20 @@
         "mean_auc": 0.2783882783882784,
         "mean_f1": 0.7035830618892508,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3647454088138337,
+        "kinematic": 0.32690082440151574,
+        "info_geometry": 0.30835376678465054
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8407673896228366,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1464,8 +2321,8 @@
       "oracle_precision": 0.9238237490664675,
       "oracle_recall": 0.9519778359242728,
       "oracle_threshold": 0.37,
-      "fit_ms": 224.45106099996792,
-      "score_ms": 44.35028800003238,
+      "fit_ms": 230.51731099985773,
+      "score_ms": 47.211503000653465,
       "progressive_validation": {
         "split_aucs": [
           0.9700156139334234
@@ -1476,6 +2333,16 @@
         "mean_auc": 0.9700156139334234,
         "mean_f1": 0.8367952522255193,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4672121083737955,
+        "kinematic": 0.0,
+        "info_geometry": 0.5327878916262045
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -1492,22 +2359,36 @@
       "resonance_auc": 0.7517165563455185,
       "kinematic_auc": 0.8512706724445112,
       "info_geometry_auc": 0.8582036903297419,
-      "oracle_f1": 0.5899957246686618,
-      "oracle_precision": 0.5203619909502263,
-      "oracle_recall": 0.6811451135241856,
-      "oracle_threshold": 0.47000000000000003,
-      "fit_ms": 393.40459699997155,
-      "score_ms": 35.13953499998479,
+      "oracle_f1": 0.5885810243492863,
+      "oracle_precision": 0.5120525931336742,
+      "oracle_recall": 0.6920039486673247,
+      "oracle_threshold": 0.41000000000000003,
+      "fit_ms": 1344.2679149993637,
+      "score_ms": 21620.007510000505,
       "progressive_validation": {
         "split_aucs": [
           0.9015006356929052
         ],
         "split_f1s": [
-          0.8292682926829268
+          0.8287841191066998
         ],
         "mean_auc": 0.9015006356929052,
-        "mean_f1": 0.8292682926829268,
+        "mean_f1": 0.8287841191066998,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.36512565592824014,
+        "kinematic": 0.31572533554685156,
+        "info_geometry": 0.31914900852490824
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.883410579148187,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1520,26 +2401,40 @@
       "n_features": 4,
       "anomaly_ratio": 0.09479449691637555,
       "test_anomaly_ratio": 0.17311731173117312,
-      "ensemble_auc": 0.48424996862752334,
-      "resonance_auc": 0.49031530247399574,
-      "kinematic_auc": 0.4660007247111985,
-      "info_geometry_auc": 0.5005766177367825,
-      "oracle_f1": 0.29521616781785626,
-      "oracle_precision": 0.17316926770708282,
+      "ensemble_auc": 0.4823245090731439,
+      "resonance_auc": 0.4856430044128287,
+      "kinematic_auc": 0.4701545384444897,
+      "info_geometry_auc": 0.49663979114454904,
+      "oracle_f1": 0.2954429083461341,
+      "oracle_precision": 0.17332532291979574,
       "oracle_recall": 1.0,
-      "oracle_threshold": 0.13,
-      "fit_ms": 69.69816499997705,
-      "score_ms": 4.561984000019947,
+      "oracle_threshold": 0.12,
+      "fit_ms": 1028.1386340002427,
+      "score_ms": 7443.4153859992875,
       "progressive_validation": {
         "split_aucs": [
-          0.45510959160734354
+          0.511817074832249
         ],
         "split_f1s": [
           0.9269994632313473
         ],
-        "mean_auc": 0.45510959160734354,
+        "mean_auc": 0.511817074832249,
         "mean_f1": 0.9269994632313473,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.1948065810325882,
+        "kinematic": 0.45873246864815037,
+        "info_geometry": 0.34646095031926144
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.849455818133416,
+        "significant_bands": [],
+        "change_points": 0
       },
       "error": null
     },
@@ -1570,18 +2465,28 @@
       "oracle_precision": 0.6054054054054054,
       "oracle_recall": 0.5114155251141552,
       "oracle_threshold": 0.55,
-      "fit_ms": 228.23375000007218,
-      "score_ms": 27.232779999962986,
+      "fit_ms": 271.6304150008,
+      "score_ms": 29.31592400000227,
       "progressive_validation": {
         "split_aucs": [
           0.8255433403805497
         ],
         "split_f1s": [
-          0.6051502145922747
+          0.6029723991507431
         ],
         "mean_auc": 0.8255433403805497,
-        "mean_f1": 0.6051502145922747,
+        "mean_f1": 0.6029723991507431,
         "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4667058342163517,
+        "kinematic": 0.0,
+        "info_geometry": 0.5332941657836483
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
       },
       "error": null
     },
@@ -1594,6 +2499,609 @@
       "name": "MIT-BIH",
       "category": "medical",
       "error": "MIT-BIH: data source unavailable. wfdb library required: pip install wfdb Add 'wfdb' to pyproject.toml [project.optional-dependencies.medical]"
+    },
+    {
+      "name": "USGS_Earthquake",
+      "category": "environmental",
+      "n_total": 1660,
+      "n_train": 724,
+      "n_test": 936,
+      "n_features": 11,
+      "anomaly_ratio": 0.12710843373493977,
+      "test_anomaly_ratio": 0.22542735042735043,
+      "ensemble_auc": 0.9167641771531296,
+      "resonance_auc": 0.9212289589802256,
+      "kinematic_auc": 0.8444680503350219,
+      "info_geometry_auc": 0.8950155254126492,
+      "oracle_f1": 0.7375565610859729,
+      "oracle_precision": 0.7056277056277056,
+      "oracle_recall": 0.7725118483412322,
+      "oracle_threshold": 0.37,
+      "fit_ms": 110.16629000005196,
+      "score_ms": 744.9626870002248,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9384941675503712
+        ],
+        "split_f1s": [
+          0.6666666666666666
+        ],
+        "mean_auc": 0.9384941675503712,
+        "mean_f1": 0.6666666666666666,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3530947948513041,
+        "kinematic": 0.34005414400162204,
+        "info_geometry": 0.3068510611470738
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8269876766144294,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "NOAA_Weather",
+      "category": "environmental",
+      "n_total": 17472,
+      "n_train": 8424,
+      "n_test": 9048,
+      "n_features": 8,
+      "anomaly_ratio": 0.03571428571428571,
+      "test_anomaly_ratio": 0.06896551724137931,
+      "ensemble_auc": 0.9308154205323009,
+      "resonance_auc": 0.9248936950592934,
+      "kinematic_auc": 0.7030429123444614,
+      "info_geometry_auc": 0.9706721637811381,
+      "oracle_f1": 0.6337792642140468,
+      "oracle_precision": 0.6625874125874126,
+      "oracle_recall": 0.6073717948717948,
+      "oracle_threshold": 0.42,
+      "fit_ms": 1164.1194960002395,
+      "score_ms": 8596.931548999237,
+      "progressive_validation": {
+        "split_aucs": [
+          0.7793813063539312
+        ],
+        "split_f1s": [
+          0.72648835202761
+        ],
+        "mean_auc": 0.7793813063539312,
+        "mean_f1": 0.72648835202761,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.34426195842226176,
+        "kinematic": 0.350754155544413,
+        "info_geometry": 0.3049838860333252
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8594606070697965,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "Wildfire",
+      "category": "environmental",
+      "n_total": 58703,
+      "n_train": 5983,
+      "n_test": 9999,
+      "n_features": 7,
+      "anomaly_ratio": 0.4016319438529547,
+      "test_anomaly_ratio": 0.573057305730573,
+      "ensemble_auc": 0.834098744264937,
+      "resonance_auc": 0.7867469401754685,
+      "kinematic_auc": 0.7330888662409341,
+      "info_geometry_auc": 0.8151646453162681,
+      "oracle_f1": 0.8164758269720102,
+      "oracle_precision": 0.749926964650891,
+      "oracle_recall": 0.8959860383944154,
+      "oracle_threshold": 0.3,
+      "fit_ms": 796.0291109993705,
+      "score_ms": 8624.873157000366,
+      "progressive_validation": {
+        "split_aucs": [
+          0.8327161917452508
+        ],
+        "split_f1s": [
+          0.9342825848849945
+        ],
+        "mean_auc": 0.8327161917452508,
+        "mean_f1": 0.9342825848849945,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.34371324733789943,
+        "kinematic": 0.3473601865331661,
+        "info_geometry": 0.30892656612893454
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8743596921644704,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "USGS_Geochemistry",
+      "category": "environmental",
+      "error": "USGSGeochemistry: data source unavailable. URL: https://mrdata.usgs.gov/geochem/. USGS MRData API requires bulk download"
+    },
+    {
+      "name": "NOAA_Buoy",
+      "category": "ocean",
+      "n_total": 19669,
+      "n_train": 7076,
+      "n_test": 9999,
+      "n_features": 9,
+      "anomaly_ratio": 0.2804921449997458,
+      "test_anomaly_ratio": 0.4381438143814381,
+      "ensemble_auc": 0.9675466993178821,
+      "resonance_auc": 0.8297530258863215,
+      "kinematic_auc": 0.9616564708815348,
+      "info_geometry_auc": 0.9181427755001147,
+      "oracle_f1": 0.8930635838150289,
+      "oracle_precision": 0.8704225352112676,
+      "oracle_recall": 0.9169139465875371,
+      "oracle_threshold": 0.4,
+      "fit_ms": 699.7925350005971,
+      "score_ms": 14398.817205999876,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9659011694191993
+        ],
+        "split_f1s": [
+          0.8190224570673712
+        ],
+        "mean_auc": 0.9659011694191993,
+        "mean_f1": 0.8190224570673712,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3381605742985037,
+        "kinematic": 0.36360594983193495,
+        "info_geometry": 0.2982334758695613
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8996088978524986,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "NOAA_StormEvents",
+      "category": "climate",
+      "error": "NOAAStormEvents: data source unavailable. URL: https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/. No storm event data downloaded for years 2021-2026"
+    },
+    {
+      "name": "NOAA_GSOD",
+      "category": "climate",
+      "n_total": 1095,
+      "n_train": 499,
+      "n_test": 596,
+      "n_features": 15,
+      "anomaly_ratio": 0.08858447488584476,
+      "test_anomaly_ratio": 0.16275167785234898,
+      "ensemble_auc": 0.9866950395636633,
+      "resonance_auc": 0.8813296696485755,
+      "kinematic_auc": 0.933826415718034,
+      "info_geometry_auc": 0.9828109827903229,
+      "oracle_f1": 0.883248730964467,
+      "oracle_precision": 0.87,
+      "oracle_recall": 0.8969072164948454,
+      "oracle_threshold": 0.48,
+      "fit_ms": 78.4705659998508,
+      "score_ms": 1246.7373790004785,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9868659420289855
+        ],
+        "split_f1s": [
+          0.9746192893401016
+        ],
+        "mean_auc": 0.9868659420289855,
+        "mean_f1": 0.9746192893401016,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.35635550798294957,
+        "kinematic": 0.33093698478303923,
+        "info_geometry": 0.31270750723401125
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.9424442489677161,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "NOAA_ERDDAP",
+      "category": "climate",
+      "error": "NOAA-ERDDAP-ssh: data source unavailable. URL: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisSSH1day.csv?sla[(2026-02-23T00:00:00Z)][(20.0):(50.0)][(-130.0):(-60.0)]. HTTP Error 404: Not Found"
+    },
+    {
+      "name": "EPA_AirQuality",
+      "category": "air_quality",
+      "n_total": 847370,
+      "n_train": 9902,
+      "n_test": 9999,
+      "n_features": 8,
+      "anomaly_ratio": 0.009797373048373201,
+      "test_anomaly_ratio": 0.0193019301930193,
+      "ensemble_auc": 0.9946913119703599,
+      "resonance_auc": 0.9800666611010073,
+      "kinematic_auc": 0.8734131265726071,
+      "info_geometry_auc": 0.9985723026718336,
+      "oracle_f1": 0.754257907542579,
+      "oracle_precision": 0.7110091743119266,
+      "oracle_recall": 0.8031088082901554,
+      "oracle_threshold": 0.52,
+      "fit_ms": 1152.6089690005392,
+      "score_ms": 7953.6158450000585,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9955041071063171
+        ],
+        "split_f1s": [
+          0.894878706199461
+        ],
+        "mean_auc": 0.9955041071063171,
+        "mean_f1": 0.894878706199461,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.35584375703171056,
+        "kinematic": 0.3408487823028897,
+        "info_geometry": 0.30330746066539976
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8470904735220938,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "FEMA_Disaster",
+      "category": "disaster",
+      "n_total": 10000,
+      "n_train": 2096,
+      "n_test": 7904,
+      "n_features": 11,
+      "anomaly_ratio": 0.5808,
+      "test_anomaly_ratio": 0.7348178137651822,
+      "ensemble_auc": 0.9947815628088659,
+      "resonance_auc": 0.9929622933884298,
+      "kinematic_auc": 0.5971580805233109,
+      "info_geometry_auc": 0.9997614503816794,
+      "oracle_f1": 0.9975953280659567,
+      "oracle_precision": 0.9952021932830706,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.51,
+      "fit_ms": 41.215878000002704,
+      "score_ms": 7.051082000543829,
+      "progressive_validation": {
+        "split_aucs": [
+          0.983672844902955
+        ],
+        "split_f1s": [
+          0.979176307265155
+        ],
+        "mean_auc": 0.983672844902955,
+        "mean_f1": 0.979176307265155,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.303134840364389,
+        "kinematic": 0.0,
+        "info_geometry": 0.696865159635611
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "FEMA_HazardMitigation",
+      "category": "disaster",
+      "error": "FEMAHazardMitigation: data source unavailable. URL: https://www.fema.gov/api/open/v2/HazardMitigationGrants. OpenFEMA Hazard Mitigation API unavailable"
+    },
+    {
+      "name": "NASA_Exoplanet",
+      "category": "space",
+      "n_total": 5000,
+      "n_train": 1974,
+      "n_test": 3026,
+      "n_features": 8,
+      "anomaly_ratio": 0.2102,
+      "test_anomaly_ratio": 0.34732319894249836,
+      "ensemble_auc": 0.7687116549639283,
+      "resonance_auc": 0.7468975899986752,
+      "kinematic_auc": 0.705056305628154,
+      "info_geometry_auc": 0.753283069770803,
+      "oracle_f1": 0.635429510891903,
+      "oracle_precision": 0.5593342981186686,
+      "oracle_recall": 0.7354900095147479,
+      "oracle_threshold": 0.28,
+      "fit_ms": 275.27234199988015,
+      "score_ms": 2748.9379019998523,
+      "progressive_validation": {
+        "split_aucs": [
+          0.7853792134831461
+        ],
+        "split_f1s": [
+          0.8757763975155279
+        ],
+        "mean_auc": 0.7853792134831461,
+        "mean_f1": 0.8757763975155279,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.35316263703017714,
+        "kinematic": 0.33792065999980414,
+        "info_geometry": 0.3089167029700187
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8426425793600412,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "SolarDynamics",
+      "category": "space",
+      "n_total": 20156,
+      "n_train": 9873,
+      "n_test": 9999,
+      "n_features": 2,
+      "anomaly_ratio": 0.012651319706290931,
+      "test_anomaly_ratio": 0.024902490249024904,
+      "ensemble_auc": 0.9937913706106477,
+      "resonance_auc": 0.9999950571516837,
+      "kinematic_auc": 0.6599777571825765,
+      "info_geometry_auc": 0.9994220986510143,
+      "oracle_f1": 0.7064846416382252,
+      "oracle_precision": 0.6142433234421365,
+      "oracle_recall": 0.8313253012048193,
+      "oracle_threshold": 0.47000000000000003,
+      "fit_ms": 1055.146220000097,
+      "score_ms": 6738.236227000016,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9915807600121006
+        ],
+        "split_f1s": [
+          0.8979591836734694
+        ],
+        "mean_auc": 0.9915807600121006,
+        "mean_f1": 0.8979591836734694,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.27377289191415577,
+        "kinematic": 0.40797843532764955,
+        "info_geometry": 0.3182486727581947
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8190326355847616,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "UCR",
+      "category": "academic",
+      "error": "File is not a zip file"
+    },
+    {
+      "name": "CWRU_Bearing",
+      "category": "academic",
+      "n_total": 594,
+      "n_train": 119,
+      "n_test": 475,
+      "n_features": 1024,
+      "anomaly_ratio": 0.5993265993265994,
+      "test_anomaly_ratio": 0.7494736842105263,
+      "ensemble_auc": 1.0,
+      "resonance_auc": 1.0,
+      "kinematic_auc": 0.5294117647058824,
+      "info_geometry_auc": 1.0,
+      "oracle_f1": 1.0,
+      "oracle_precision": 1.0,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.65,
+      "fit_ms": 1848.742038000637,
+      "score_ms": 627.7239869996265,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.47508300564591394,
+        "kinematic": 0.049833988708172045,
+        "info_geometry": 0.47508300564591394
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "UNKNOWN",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "MSDS",
+      "category": "academic",
+      "n_total": 10000,
+      "n_train": 4750,
+      "n_test": 5250,
+      "n_features": 30,
+      "anomaly_ratio": 0.05,
+      "test_anomaly_ratio": 0.09523809523809523,
+      "ensemble_auc": 1.0,
+      "resonance_auc": 0.9972341052631579,
+      "kinematic_auc": 0.9997894736842106,
+      "info_geometry_auc": 1.0,
+      "oracle_f1": 1.0,
+      "oracle_precision": 1.0,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.56,
+      "fit_ms": 115.69361399961053,
+      "score_ms": 12.848841999584693,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9890072727272727
+        ],
+        "split_f1s": [
+          0.9193717277486911
+        ],
+        "mean_auc": 0.9890072727272727,
+        "mean_f1": 0.9193717277486911,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666631366956268,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333368633043732
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ThreatIntel",
+      "category": "security",
+      "n_total": 835,
+      "n_train": 388,
+      "n_test": 447,
+      "n_features": 18,
+      "anomaly_ratio": 0.06946107784431138,
+      "test_anomaly_ratio": 0.1297539149888143,
+      "ensemble_auc": 0.8142451910291642,
+      "resonance_auc": 0.8934934846201578,
+      "kinematic_auc": 0.5388041840262388,
+      "info_geometry_auc": 0.8109210176402801,
+      "oracle_f1": 0.5413533834586466,
+      "oracle_precision": 0.48,
+      "oracle_recall": 0.6206896551724138,
+      "oracle_threshold": 0.43,
+      "fit_ms": 36.962501999369124,
+      "score_ms": 0.6992109993007034,
+      "progressive_validation": {
+        "split_aucs": [
+          0.829004329004329
+        ],
+        "split_f1s": [
+          0.8549618320610687
+        ],
+        "mean_auc": 0.829004329004329,
+        "mean_f1": 0.8549618320610687,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4707658523195168,
+        "kinematic": 0.0,
+        "info_geometry": 0.5292341476804832
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADRepository",
+      "category": "general",
+      "n_total": 7200,
+      "n_train": 3512,
+      "n_test": 3688,
+      "n_features": 21,
+      "anomaly_ratio": 0.024305555555555556,
+      "test_anomaly_ratio": 0.047451193058568326,
+      "ensemble_auc": 1.0,
+      "resonance_auc": 1.0,
+      "kinematic_auc": 0.8995160831198405,
+      "info_geometry_auc": 1.0,
+      "oracle_f1": 1.0,
+      "oracle_precision": 1.0,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.59,
+      "fit_ms": 91.66514000025927,
+      "score_ms": 5.955028999778733,
+      "progressive_validation": {
+        "split_aucs": [
+          1.0
+        ],
+        "split_f1s": [
+          1.0
+        ],
+        "mean_auc": 1.0,
+        "mean_f1": 1.0,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.30434713868852287,
+        "kinematic": 0.0,
+        "info_geometry": 0.6956528613114771
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "SWaT",
+      "category": "industrial",
+      "error": "SWaT: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT/WADI requires iTrust registration: https://itrust.sutd.edu.sg/itrust-labs-datasets/ Download data and place in data/swat"
+    },
+    {
+      "name": "WADI",
+      "category": "industrial",
+      "error": "WADI: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT/WADI requires iTrust registration: https://itrust.sutd.edu.sg/itrust-labs-datasets/ Download data and place in data/wadi"
     }
   ]
 }

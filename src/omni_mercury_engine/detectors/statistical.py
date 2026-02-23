@@ -1890,26 +1890,25 @@ class MercuryAnomalyDetector(BaseDetector):
         if self._oracle_detector is not None:
             try:
                 oracle_result = self._oracle_detector.detect(data)
-                multiplier = oracle_result.get(
-                    "influence_multiplier", np.ones(len(data))
-                )
-                # The influence_multiplier may be on the influence_vector object
-                if not isinstance(multiplier, np.ndarray):
-                    iv = oracle_result.get("influence_vector")
-                    if iv is not None and hasattr(iv, "influence_multiplier"):
-                        scalar = float(iv.influence_multiplier)
-                        multiplier = np.full(len(data), scalar)
-                    else:
-                        multiplier = np.ones(len(data))
+                # Extract influence multiplier from the influence_vector object
+                # (Oracle returns per-signal analysis, not per-sample)
+                iv = oracle_result.get("influence_vector")
+                if iv is not None and hasattr(iv, "influence_multiplier"):
+                    scalar = float(iv.influence_multiplier)
+                    multiplier = np.full(len(data), scalar)
+                else:
+                    multiplier = np.ones(len(data))
                 combined_scores = combined_scores * multiplier
                 oracle_meta = {
                     "active": True,
                     "domain": getattr(
-                        self._oracle_detector, "_domain", "unknown"
+                        getattr(self._oracle_detector, "_oracle_config", None),
+                        "domain",
+                        "unknown",
                     ),
                     "mean_multiplier": float(np.mean(multiplier)),
                     "significant_bands": [
-                        b.band_name
+                        b.band_label
                         for b in oracle_result.get("band_results", [])
                         if getattr(b, "is_significant", False)
                     ],
