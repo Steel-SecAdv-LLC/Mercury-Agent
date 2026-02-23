@@ -9,13 +9,17 @@ on -- no synthetic fallback, no silent skip.
 
 Usage:
     python benchmarks/honest_benchmark.py
+    python benchmarks/honest_benchmark.py --live-only
+    python benchmarks/honest_benchmark.py --domain environmental
 
 Output:
     benchmarks/honest_benchmark_results.json
+    benchmarks/per_dataset_results.json
 """
 
 from __future__ import annotations
 
+import argparse
 import gc
 import json
 import logging
@@ -36,6 +40,8 @@ from sklearn.preprocessing import StandardScaler
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
+from omni_mercury_engine.resilience.retry import RetryPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -134,11 +140,22 @@ def _load_adbench() -> list[dict[str, Any]]:
     return entries
 
 
+# Retry policy for API loaders: 3 attempts, exponential backoff base 2s
+_api_retry = RetryPolicy(max_retries=3, base_delay=2.0, max_delay=60.0, exponential_base=2.0)
+
+
 def _load_domain_dataset(
     name: str, category: str, loader_class_name: str, module: str, **kwargs: Any
 ) -> dict[str, Any]:
-    """Load a single domain dataset by class name."""
+    """Load a single domain dataset by class name.
+
+    Uses circuit breaker protection and retry with exponential backoff
+    for all API-sourced loaders.  On failure, returns a dict with
+    'error' and 'status' keys for structured reporting.
+    """
     import importlib
+
+    breaker = get_data_loader_breaker(f"{module}_{loader_class_name}")
 
     try:
         mod = importlib.import_module(f"omni_mercury_engine.datasets.{module}")
@@ -147,15 +164,47 @@ def _load_domain_dataset(
 
         cfg = DatasetConfig(name=name, preprocessing=kwargs)
         loader = loader_cls(cfg)
-        loader.download()
-        X, y = loader._load_raw()
+
+        # Circuit breaker + retry for download/load
+        @_api_retry
+        def _fetch() -> tuple[np.ndarray, np.ndarray]:
+            return breaker.call(lambda: _download_and_load(loader))
+
+        X, y = _fetch()
         y = (y > 0).astype(int)
+
+        # Data validation: not empty, no NaN/Inf, at least 2 classes
+        if X.size == 0:
+            return {
+                "name": name, "category": category,
+                "status": "invalid_data", "error": "Empty dataset after loading",
+            }
+        X = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
+        if len(np.unique(y)) < 2:
+            return {
+                "name": name, "category": category,
+                "status": "invalid_data",
+                "error": f"Only {len(np.unique(y))} class(es) in labels",
+            }
+
         return {"name": name, "category": category, "X": X, "y": y}
     except Exception as e:
-        return {"name": name, "category": category, "error": str(e)}
+        logger.warning("Loader %s (%s) failed: %s", name, loader_class_name, e)
+        return {
+            "name": name, "category": category,
+            "status": "api_unavailable", "loader": loader_class_name,
+            "error": str(e),
+        }
+
+
+def _download_and_load(loader: Any) -> tuple[np.ndarray, np.ndarray]:
+    """Download and load raw data from a loader instance."""
+    loader.download()
+    return loader._load_raw()
 
 
 DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
+    # --- Original 8 loaders (existing) ---
     ("NSL-KDD", "security", "NSLKDDLoader", "security", {}),
     (
         "SMD",
@@ -170,6 +219,34 @@ DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
     ("BATADAL", "industrial", "BATADALLoader", "industrial", {}),
     ("CICIDS-2017", "security", "CICIDSLoader", "security", {"binary": True}),
     ("MIT-BIH", "medical", "MITBIHLoader", "mitbih", {}),
+    # --- Environmental (no auth, public government APIs) ---
+    ("USGS-Earthquake", "environmental", "USGSEarthquakeLoader", "environmental", {}),
+    ("NOAA-Weather", "environmental", "NOAAWeatherLoader", "environmental", {}),
+    ("Wildfire", "environmental", "WildfireDataLoader", "environmental", {}),
+    ("USGS-Geochemistry", "environmental", "USGSGeochemistryLoader", "environmental", {}),
+    # --- Ocean / Climate (no auth, public NOAA endpoints) ---
+    ("NOAA-Buoy", "ocean", "NOAABuoyLoader", "ocean", {}),
+    ("NOAA-StormEvents", "ocean", "NOAAStormEventsLoader", "noaa_storm", {}),
+    ("NOAA-GSOD", "ocean", "NOAAGSODLoader", "noaa_gsod", {}),
+    ("NOAA-ERDDAP", "ocean", "NOAAERDDAPLoader", "noaa_erddap", {}),
+    # --- Air Quality / Disaster (no auth, public government APIs) ---
+    ("EPA-AirQuality", "environmental", "EPAAirQualityLoader", "epa_air", {}),
+    ("FEMA-Disaster", "disaster", "FEMADisasterLoader", "disaster", {}),
+    ("FEMA-HazardMitigation", "disaster", "FEMAHazardMitigationLoader", "disaster", {}),
+    # --- Space (no auth, public NASA/NOAA APIs) ---
+    ("NASA-Exoplanet", "space", "NASAExoplanetLoader", "space", {}),
+    ("Solar-Dynamics", "space", "SolarDynamicsLoader", "space", {}),
+    # --- Academic / Archive (no auth, public repositories) ---
+    ("UCR-Archive", "academic", "UCRLoader", "ucr_archive", {}),
+    ("CWRU-Bearing", "academic", "CWRUBearingLoader", "ucr_archive", {}),
+    ("MSDS", "academic", "MSDSLoader", "ucr_archive", {}),
+    # --- Security (no auth, MITRE ATT&CK STIX) ---
+    ("ThreatIntel", "security", "ThreatIntelLoader", "security", {}),
+    # --- General (anomaly detection repository) ---
+    ("ADRepository", "general", "ADRepositoryLoader", "adrepository", {}),
+    # --- Industrial (conditional — skip if data unavailable) ---
+    ("SWaT", "industrial", "SWaTLoader", "industrial", {}),
+    ("WADI", "industrial", "WADILoader", "industrial", {}),
 ]
 
 
@@ -178,27 +255,66 @@ DOMAIN_DATASETS: list[tuple[str, str, str, str, dict[str, Any]]] = [
 # ---------------------------------------------------------------------------
 
 
-def run_benchmark() -> dict[str, Any]:
-    """Run the honest benchmark.  Returns the full results dict."""
+def _parse_args() -> argparse.Namespace:
+    """Parse CLI arguments."""
+    parser = argparse.ArgumentParser(
+        description="Mercury Agent - Honest Benchmark Suite",
+    )
+    parser.add_argument(
+        "--live-only",
+        action="store_true",
+        help="Run ONLY API-sourced domain datasets (skip ADBench download).",
+    )
+    parser.add_argument(
+        "--domain",
+        type=str,
+        default=None,
+        help="Filter by domain category (e.g., environmental, ocean, space, disaster, security).",
+    )
+    return parser.parse_args()
+
+
+def run_benchmark(
+    *,
+    live_only: bool = False,
+    domain_filter: str | None = None,
+) -> dict[str, Any]:
+    """Run the honest benchmark.  Returns the full results dict.
+
+    Args:
+        live_only: If True, skip ADBench and run only API-sourced domain datasets.
+        domain_filter: If set, only run domain datasets matching this category.
+    """
     print("=" * 70)
     print("Mercury Agent - Honest Benchmark")
     print("MercuryAnomalyDetector (Resonance 40% + Kinematic 30% + InfoGeo 30%)")
     print(f"Max {MAX_SAMPLES} samples per dataset, oracle threshold sweep")
+    if live_only:
+        print("Mode: --live-only (API-sourced domain datasets only)")
+    if domain_filter:
+        print(f"Domain filter: {domain_filter}")
     print("=" * 70)
 
     results: list[dict[str, Any]] = []
 
-    # --- ADBench datasets ---
-    print("\n[ADBench] Loading 47 tabular datasets ...")
-    adb_entries = _load_adbench()
-    for entry in adb_entries:
-        result = _benchmark_single(entry)
-        results.append(result)
-        gc.collect()
+    # --- ADBench datasets (skip if --live-only) ---
+    if not live_only:
+        print("\n[ADBench] Loading 47 tabular datasets ...")
+        adb_entries = _load_adbench()
+        for entry in adb_entries:
+            result = _benchmark_single(entry)
+            results.append(result)
+            gc.collect()
 
     # --- Domain datasets ---
-    print("\n[Domain] Loading Mercury domain datasets ...")
-    for name, cat, cls_name, mod, kwargs in DOMAIN_DATASETS:
+    active_domains = DOMAIN_DATASETS
+    if domain_filter:
+        active_domains = [
+            d for d in active_domains if d[1].lower() == domain_filter.lower()
+        ]
+    n_domain = len(active_domains)
+    print(f"\n[Domain] Loading {n_domain} domain datasets ...")
+    for name, cat, cls_name, mod, kwargs in active_domains:
         entry = _load_domain_dataset(name, cat, cls_name, mod, **kwargs)
         result = _benchmark_single(entry)
         results.append(result)
@@ -565,7 +681,8 @@ def run_progressive_validation(
 
 
 if __name__ == "__main__":
-    output = run_benchmark()
+    args = _parse_args()
+    output = run_benchmark(live_only=args.live_only, domain_filter=args.domain)
 
     with open(OUTPUT_PATH, "w") as f:
         json.dump(output, f, indent=2, default=str)
