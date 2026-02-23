@@ -393,10 +393,47 @@ async def check_disk() -> dict[str, Any]:
         }
 
 
+# Backend health checks (database, cache)
+async def check_database() -> dict[str, Any]:
+    """Check database backend health."""
+    try:
+        from omni_mercury_engine.integrations.backends import get_backends
+
+        backends = get_backends()
+        raw = await backends.database.health_check()
+        healthy = raw.get("healthy", True)
+        return {
+            "status": "up" if healthy else "degraded",
+            "message": f"Database backend {'operational' if healthy else 'degraded'}",
+            "details": raw,
+        }
+    except Exception as exc:
+        return {"status": "down", "message": f"Database check failed: {exc}"}
+
+
+async def check_cache() -> dict[str, Any]:
+    """Check cache backend health."""
+    try:
+        from omni_mercury_engine.integrations.backends import get_backends
+
+        backends = get_backends()
+        raw = await backends.cache.health_check()
+        healthy = raw.get("healthy", True)
+        return {
+            "status": "up" if healthy else "degraded",
+            "message": f"Cache backend {'operational' if healthy else 'degraded'}",
+            "details": raw,
+        }
+    except Exception as exc:
+        return {"status": "down", "message": f"Cache check failed: {exc}"}
+
+
 # Register default checks
 _health_checker.add_check("self", check_self, critical=True, tags=["core"])
 _health_checker.add_check("memory", check_memory, critical=False, tags=["system"])
 _health_checker.add_check("disk", check_disk, critical=False, tags=["system"])
+_health_checker.add_check("database", check_database, critical=False, tags=["backend"])
+_health_checker.add_check("cache", check_cache, critical=False, tags=["backend"])
 
 
 # FastAPI Router
