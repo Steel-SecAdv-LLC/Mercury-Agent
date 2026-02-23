@@ -385,7 +385,8 @@ class BaseDetector(ABC):
 
     @abstractmethod
     def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
     ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract features for ML fusion.
 
@@ -644,7 +645,8 @@ class BaseModel(ABC):
 
     @abstractmethod
     def extract_features(
-        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
     ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract features for ML fusion.
 

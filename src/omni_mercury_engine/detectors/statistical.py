@@ -244,7 +244,8 @@ class MercuryAnomalyDetector(BaseDetector):
                 )
 
                 inferred, confidence = SpectralDomainOracle._infer_oracle_domain(
-                    arr, self._data_type.value,
+                    arr,
+                    self._data_type.value,
                 )
                 self._inferred_oracle_domain = inferred
                 self._oracle_domain_confidence = confidence
@@ -626,10 +627,12 @@ class MercuryAnomalyDetector(BaseDetector):
         # Restore Oracle reference statistics (Part 10)
         if oracle_ref_stats is not None:
             det._inferred_oracle_domain = oracle_ref_stats.get(
-                "inferred_oracle_domain", "environmental",
+                "inferred_oracle_domain",
+                "environmental",
             )
             det._oracle_domain_confidence = oracle_ref_stats.get(
-                "oracle_domain_confidence", 0.0,
+                "oracle_domain_confidence",
+                0.0,
             )
             logger.info(
                 "from_statistics: restored Oracle domain=%s (confidence=%.2f)",

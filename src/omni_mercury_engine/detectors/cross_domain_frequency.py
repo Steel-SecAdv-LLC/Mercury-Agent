@@ -67,9 +67,7 @@ CORRELATION_ALERT_THRESHOLDS: dict[str, float] = {
 }
 
 # Human-assessment disclaimer required on all outputs
-_HUMAN_ASSESSMENT_DISCLAIMER = (
-    "Correlated spectral anomaly detected -- requires human assessment."
-)
+_HUMAN_ASSESSMENT_DISCLAIMER = "Correlated spectral anomaly detected -- requires human assessment."
 
 
 # ---------------------------------------------------------------------------
@@ -228,7 +226,11 @@ class CrossDomainFrequencyCorrelator:
                 iv_b = oracle_results[domain_b]
 
                 correlation = self._correlate_pair(
-                    domain_a, iv_a, domain_b, iv_b, timestamp,
+                    domain_a,
+                    iv_a,
+                    domain_b,
+                    iv_b,
+                    timestamp,
                 )
                 if correlation is not None:
                     results.append(correlation)
@@ -240,8 +242,7 @@ class CrossDomainFrequencyCorrelator:
             )
         else:
             logger.debug(
-                "Cross-domain analysis: no significant correlations "
-                "across %d domain(s).",
+                "Cross-domain analysis: no significant correlations " "across %d domain(s).",
                 len(domains),
             )
 
@@ -310,9 +311,7 @@ class CrossDomainFrequencyCorrelator:
             weighted_score += pair_score * weight
             total_weight += weight
 
-        correlation_score = (
-            weighted_score / total_weight if total_weight > 0 else 0.0
-        )
+        correlation_score = weighted_score / total_weight if total_weight > 0 else 0.0
         correlation_score = float(np.clip(correlation_score, 0.0, 1.0))
 
         # Determine alert level
@@ -387,14 +386,12 @@ class CrossDomainFrequencyCorrelator:
             for label in schumann_labels
         )
         space_schumann_active = any(
-            space_iv.band_scores.get(label, 0.0) >= self.min_band_score
-            for label in schumann_labels
+            space_iv.band_scores.get(label, 0.0) >= self.min_band_score for label in schumann_labels
         )
 
         if not (env_schumann_active or space_schumann_active):
             logger.debug(
-                "Schumann/seismic check: no Schumann-band anomalies "
-                "detected in either domain.",
+                "Schumann/seismic check: no Schumann-band anomalies " "detected in either domain.",
             )
             return None
 

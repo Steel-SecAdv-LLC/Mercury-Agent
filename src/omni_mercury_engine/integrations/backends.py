@@ -59,14 +59,14 @@ logger = logging.getLogger(__name__)
 # Cache TTL by domain (seconds) — used for API response caching
 # ---------------------------------------------------------------------------
 CACHE_TTL_SECONDS: dict[str, int] = {
-    "environmental": 300,    # 5 min  — sensor data refreshes frequently
-    "ocean": 600,            # 10 min — buoy data update cadence
-    "climate": 3600,         # 1 hour — climate data is slower-moving
-    "financial": 900,        # 15 min — market data window
-    "security": 60,          # 1 min  — threat intel must be fresh
-    "space": 1800,           # 30 min — solar/exoplanet cadence
-    "medical": 3600,         # 1 hour — clinical data batches
-    "default": 600,          # 10 min — safe fallback
+    "environmental": 300,  # 5 min  — sensor data refreshes frequently
+    "ocean": 600,  # 10 min — buoy data update cadence
+    "climate": 3600,  # 1 hour — climate data is slower-moving
+    "financial": 900,  # 15 min — market data window
+    "security": 60,  # 1 min  — threat intel must be fresh
+    "space": 1800,  # 30 min — solar/exoplanet cadence
+    "medical": 3600,  # 1 hour — clinical data batches
+    "default": 600,  # 10 min — safe fallback
 }
 
 

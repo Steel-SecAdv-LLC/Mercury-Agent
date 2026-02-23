@@ -199,13 +199,16 @@ def _load_domain_dataset(
         # Data validation: not empty, no NaN/Inf, at least 2 classes
         if X.size == 0:
             return {
-                "name": name, "category": category,
-                "status": "invalid_data", "error": "Empty dataset after loading",
+                "name": name,
+                "category": category,
+                "status": "invalid_data",
+                "error": "Empty dataset after loading",
             }
         X = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
         if len(np.unique(y)) < 2:
             return {
-                "name": name, "category": category,
+                "name": name,
+                "category": category,
                 "status": "invalid_data",
                 "error": f"Only {len(np.unique(y))} class(es) in labels",
             }
@@ -214,8 +217,10 @@ def _load_domain_dataset(
     except Exception as e:
         logger.warning("Loader %s (%s) failed: %s", name, loader_class_name, e)
         return {
-            "name": name, "category": category,
-            "status": "api_unavailable", "loader": loader_class_name,
+            "name": name,
+            "category": category,
+            "status": "api_unavailable",
+            "loader": loader_class_name,
             "error": str(e),
         }
 
@@ -332,9 +337,7 @@ def run_benchmark(
     # --- Domain datasets ---
     active_domains = DOMAIN_DATASETS
     if domain_filter:
-        active_domains = [
-            d for d in active_domains if d[1].lower() == domain_filter.lower()
-        ]
+        active_domains = [d for d in active_domains if d[1].lower() == domain_filter.lower()]
     n_domain = len(active_domains)
     print(f"\n[Domain] Loading {n_domain} domain datasets ...")
     for name, cat, cls_name, mod, kwargs in active_domains:
@@ -755,9 +758,11 @@ if __name__ == "__main__":
                 "recall": entry.get("oracle_recall"),
             },
             "progressive_validation": progressive_block,
-            "duration_seconds": round(
-                ((entry.get("fit_ms", 0) or 0) + (entry.get("score_ms", 0) or 0)) / 1000, 3
-            ) if entry.get("fit_ms") else None,
+            "duration_seconds": (
+                round(((entry.get("fit_ms", 0) or 0) + (entry.get("score_ms", 0) or 0)) / 1000, 3)
+                if entry.get("fit_ms")
+                else None
+            ),
         }
         if entry.get("error"):
             ds_entry["error"] = entry["error"]
