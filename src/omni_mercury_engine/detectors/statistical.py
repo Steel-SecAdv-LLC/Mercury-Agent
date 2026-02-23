@@ -236,6 +236,42 @@ class MercuryAnomalyDetector(BaseDetector):
 
         self._is_fitted = True
 
+        # --- Oracle initialization (for temporal data) ---
+        self._oracle_detector = None
+        self._oracle_metadata: dict[str, Any] = {"active": False}
+
+        if self._data_type == DataCharacteristics.TEMPORAL:
+            try:
+                from omni_mercury_engine.detectors.spectral_domain_oracle import (
+                    SpectralDomainOracle,
+                    SpectralDomainOracleConfig,
+                )
+                from omni_mercury_engine.core.config import (
+                    ORACLE_DOMAIN_POLICY,
+                    OracleActivation,
+                )
+
+                oracle_mode = OracleActivation.AUTO
+                oracle_domain = "environmental"  # Default; inferred later
+
+                should_init = (
+                    oracle_mode == OracleActivation.ENABLED
+                    or (
+                        oracle_mode == OracleActivation.AUTO
+                        and ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled")
+                        != "disabled"
+                    )
+                )
+
+                if should_init:
+                    config = SpectralDomainOracleConfig(domain=oracle_domain)
+                    self._oracle_detector = SpectralDomainOracle(config)
+                    self._oracle_detector.fit(arr)
+                    logger.info("Oracle fitted: domain=%s", oracle_domain)
+            except Exception as exc:
+                logger.debug("Oracle init skipped: %s", exc)
+                self._oracle_detector = None
+
         # --- Unsupervised adaptive weighting (Task 1) ---
         self._adaptive_weights = self._compute_unsupervised_adaptive_weights(arr)
         logger.info(
@@ -1677,6 +1713,41 @@ class MercuryAnomalyDetector(BaseDetector):
         # --- Ensemble (weighted average) ---
         weights = self._adaptive_weights
         combined_scores = weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
+
+        # --- Oracle spectral influence ---
+        oracle_meta: dict[str, Any] = {"active": False}
+        if self._oracle_detector is not None:
+            try:
+                oracle_result = self._oracle_detector.detect(data)
+                multiplier = oracle_result.get(
+                    "influence_multiplier", np.ones(len(data))
+                )
+                # The influence_multiplier may be on the influence_vector object
+                if not isinstance(multiplier, np.ndarray):
+                    iv = oracle_result.get("influence_vector")
+                    if iv is not None and hasattr(iv, "influence_multiplier"):
+                        scalar = float(iv.influence_multiplier)
+                        multiplier = np.full(len(data), scalar)
+                    else:
+                        multiplier = np.ones(len(data))
+                combined_scores = combined_scores * multiplier
+                oracle_meta = {
+                    "active": True,
+                    "domain": getattr(
+                        self._oracle_detector, "_domain", "unknown"
+                    ),
+                    "mean_multiplier": float(np.mean(multiplier)),
+                    "significant_bands": [
+                        b.band_name
+                        for b in oracle_result.get("band_results", [])
+                        if getattr(b, "is_significant", False)
+                    ],
+                    "change_points": oracle_result.get("n_change_points", 0),
+                }
+            except Exception as exc:
+                logger.debug("Oracle detect failed: %s", exc)
+        self._oracle_metadata = oracle_meta
+
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
         # Score flip for detected ensemble inversion (Task 4)
@@ -1736,6 +1807,7 @@ class MercuryAnomalyDetector(BaseDetector):
             "detector_type": "statistical",
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
+            "oracle_metadata": oracle_meta,
         }
 
     # =====================================================================
