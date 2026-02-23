@@ -26,6 +26,7 @@ import logging
 import subprocess
 import sys
 import time
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -67,6 +68,28 @@ def _git_commit() -> str:
         )
     except Exception:
         return "unknown"
+
+
+def _git_branch() -> str:
+    try:
+        return (
+            subprocess.check_output(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL
+            )
+            .decode()
+            .strip()
+        )
+    except Exception:
+        return "unknown"
+
+
+def _mercury_version() -> str:
+    try:
+        from omni_mercury_engine import __version__
+
+        return str(__version__)
+    except Exception:
+        return "0.0.0-dev"
 
 
 def _cap_stratified(X: np.ndarray, y: np.ndarray, max_n: int) -> tuple[np.ndarray, np.ndarray]:
@@ -690,38 +713,98 @@ if __name__ == "__main__":
     print(f"\nResults saved to {OUTPUT_PATH}")
 
     # -----------------------------------------------------------------------
-    # Per-dataset results for human review (Task 12)
+    # Structured per-dataset results (Part 9 schema)
     # Do NOT overwrite honest_benchmark_results.json — this is a SEPARATE file.
     # -----------------------------------------------------------------------
     BENCHMARKS_DIR = Path(__file__).parent
     per_dataset_path = BENCHMARKS_DIR / "per_dataset_results.json"
-    per_dataset: dict[str, Any] = {
-        "timestamp": datetime.now(UTC).isoformat(),
-        "datasets": {},
-    }
+
     all_results: list[dict[str, Any]] = output.get("per_dataset", [])
+    summary = output.get("summary", {})
+
+    # Build structured datasets array
+    structured_datasets: list[dict[str, Any]] = []
     for entry in all_results:
         name = entry.get("name", "unknown")
-        per_dataset["datasets"][name] = {
-            "auc": entry.get("ensemble_auc", None),
-            "f1": entry.get("oracle_f1", None),
-            "precision": entry.get("oracle_precision", None),
-            "recall": entry.get("oracle_recall", None),
-            "n_samples": entry.get("n_samples", None),
-            "oracle_active": entry.get("oracle_active", False),
+        status = "success"
+        if entry.get("error"):
+            status = entry.get("status", "api_unavailable")
+
+        prog = entry.get("progressive_validation")
+        progressive_block = None
+        if prog:
+            progressive_block = {
+                "mean_auc": prog.get("mean_auc"),
+                "temporal_leakage_detected": prog.get("temporal_leakage_detected", False),
+            }
+
+        ds_entry: dict[str, Any] = {
+            "name": name,
+            "domain": entry.get("category", "unknown"),
+            "loader": entry.get("loader", ""),
+            "status": status,
+            "n_samples": entry.get("n_total") or entry.get("n_test"),
+            "n_features": entry.get("n_features"),
+            "anomaly_ratio": entry.get("anomaly_ratio"),
+            "detected_data_type": entry.get("detected_data_type"),
+            "inferred_oracle_domain": entry.get("inferred_oracle_domain"),
+            "metrics": {
+                "auc": entry.get("ensemble_auc"),
+                "f1": entry.get("oracle_f1"),
+                "precision": entry.get("oracle_precision"),
+                "recall": entry.get("oracle_recall"),
+            },
+            "progressive_validation": progressive_block,
+            "duration_seconds": round(
+                ((entry.get("fit_ms", 0) or 0) + (entry.get("score_ms", 0) or 0)) / 1000, 3
+            ) if entry.get("fit_ms") else None,
         }
+        if entry.get("error"):
+            ds_entry["error"] = entry["error"]
+        structured_datasets.append(ds_entry)
+
+    # Count statuses
+    n_success = sum(1 for d in structured_datasets if d["status"] == "success")
+    n_unavailable = sum(1 for d in structured_datasets if d["status"] == "api_unavailable")
+    n_invalid = sum(1 for d in structured_datasets if d["status"] == "invalid_data")
+
+    structured_output: dict[str, Any] = {
+        "run_metadata": {
+            "run_id": str(uuid.uuid4()),
+            "timestamp": datetime.now(UTC).isoformat(),
+            "git_sha": _git_commit(),
+            "git_branch": _git_branch(),
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+            "mercury_version": _mercury_version(),
+            "config": {
+                "max_samples_per_dataset": MAX_SAMPLES,
+                "n_thresholds": N_THRESHOLDS,
+                "detector": "MercuryAnomalyDetector",
+                "ensemble_weights": {"resonance": 0.4, "kinematic": 0.3, "info_geometry": 0.3},
+                "live_only": args.live_only,
+                "domain_filter": args.domain,
+            },
+        },
+        "summary": {
+            "total_datasets": len(structured_datasets),
+            "active_datasets": n_success,
+            "api_unavailable": n_unavailable,
+            "invalid_data": n_invalid,
+            "mean_auc": summary.get("mean_auc"),
+            "mean_f1": summary.get("mean_oracle_f1"),
+        },
+        "datasets": structured_datasets,
+    }
+
+    with open(per_dataset_path, "w") as f:
+        json.dump(structured_output, f, indent=2, default=str)
 
     # Flag datasets that still have AUC < 0.5
     inverted = [
-        name
-        for name, m in per_dataset["datasets"].items()
-        if m["auc"] is not None and m["auc"] < 0.5
+        d["name"]
+        for d in structured_datasets
+        if d["metrics"]["auc"] is not None and d["metrics"]["auc"] < 0.5
     ]
-    per_dataset["inverted_datasets"] = inverted
-    per_dataset["n_inverted"] = len(inverted)
-
-    with open(per_dataset_path, "w") as f:
-        json.dump(per_dataset, f, indent=2)
 
     if inverted:
         print(f"\n  {len(inverted)} datasets still have AUC < 0.5: {inverted}")
