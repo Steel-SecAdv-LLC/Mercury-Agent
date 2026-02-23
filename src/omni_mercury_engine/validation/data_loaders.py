@@ -18,15 +18,30 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+import warnings
+
+warnings.warn(
+    "validation.data_loaders is deprecated. Use datasets/ module directly. "
+    "This module will be removed in v2.0.  Canonical loaders live in "
+    "omni_mercury_engine.datasets.{security,environmental,medical,space,ocean}.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 """
-Real-World Dataset Loaders
+Real-World Dataset Loaders (DEPRECATED)
 
-Provides standardized data loaders for validation:
-- NSL-KDD: Network intrusion detection dataset
-- USGS Earthquake: Seismic event data from USGS API
-- MIMIC-III: Medical ICU data (IRB placeholder simulation)
+This module is deprecated.  Use the canonical loaders in
+omni_mercury_engine.datasets/ instead:
 
-All loaders implement the DatasetLoader protocol for consistent interface.
+  validation.NSLKDDLoader          -> datasets.security.NSLKDDLoader
+  validation.USGSEarthquakeLoader  -> datasets.environmental.USGSEarthquakeLoader
+  validation.MIMICLoader           -> (no canonical equivalent yet - retained here)
+  validation.NOAASpaceWeatherLoader -> datasets.space.SolarDynamicsLoader
+  validation.NOAAHurricaneLoader   -> datasets.noaa_storm.NOAAStormEventsLoader
+  validation.NOAAOceanLoader       -> datasets.ocean.NOAABuoyLoader
+
+This module will be removed in v2.0.
 """
 
 import hashlib
