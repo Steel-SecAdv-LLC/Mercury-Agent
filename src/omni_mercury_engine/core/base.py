@@ -384,14 +384,18 @@ class BaseDetector(ABC):
         pass
 
     @abstractmethod
-    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+    def extract_features(
+        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract features for ML fusion.
 
         Args:
             data: Input data array or tensor.
 
         Returns:
-            Feature tensor of shape [batch_size, feature_dim].
+            Feature array or tensor of shape [batch_size, feature_dim].
+            Subclasses may return either np.ndarray or torch.Tensor;
+            the fusion layer handles conversion.
 
         Note:
             Features should be normalized and suitable for neural network input.
@@ -639,14 +643,18 @@ class BaseModel(ABC):
         pass
 
     @abstractmethod
-    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+    def extract_features(
+        self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract features for ML fusion.
 
         Args:
             data: Input data array or tensor.
 
         Returns:
-            Feature tensor of shape [batch_size, feature_dim].
+            Feature array or tensor of shape [batch_size, feature_dim].
+            Subclasses may return either np.ndarray or torch.Tensor;
+            the fusion layer handles conversion.
         """
         pass
 

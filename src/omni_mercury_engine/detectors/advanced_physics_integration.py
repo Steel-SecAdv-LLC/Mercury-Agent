@@ -859,7 +859,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             except Exception as e:
                 logger.warning(f"Failed to extract UI/UX features: {e}")
 
-        # Extract Oracle features (returns torch.Tensor per BaseDetector contract)
+        # Extract Oracle features (may return np.ndarray or torch.Tensor)
         if self._oracle_detector is not None and oracle_result is not None:
             try:
                 if data_type in ["time_series", "mixed"]:
@@ -872,10 +872,21 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         if not feature_parts:
             return torch.zeros(1, 64)
 
+        # Normalize all features to torch.Tensor at the fusion boundary
+        torch_parts: list[torch.Tensor] = []
+        for feat in feature_parts:
+            if isinstance(feat, np.ndarray):
+                feat = torch.from_numpy(feat).float()
+            elif isinstance(feat, torch.Tensor):
+                feat = feat.float()
+            else:
+                raise TypeError(f"Unexpected feature type: {type(feat)}")
+            torch_parts.append(feat)
+
         # Concatenate all features
         # Handle different batch sizes by taking first sample
         aligned_features = []
-        for feat in feature_parts:
+        for feat in torch_parts:
             if feat.dim() == 1:
                 aligned_features.append(feat.unsqueeze(0))
             else:
