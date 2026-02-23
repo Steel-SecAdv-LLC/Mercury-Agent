@@ -31,6 +31,31 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Domain-specific TTL policy (seconds).  Used by get_domain_ttl()
+# to apply appropriate cache lifetimes per data domain.
+DOMAIN_TTL: dict[str, int] = {
+    "environmental": 300,   # 5 min – data refreshes frequently
+    "security": 60,         # 1 min – threat data must be fresh
+    "climate": 3600,        # 1 hour – climate data is slow-changing
+    "medical": 600,         # 10 min
+    "space": 1800,          # 30 min
+    "financial": 120,       # 2 min – markets move fast
+    "industrial": 600,      # 10 min
+    "default": 600,         # 10 min fallback
+}
+
+
+def get_domain_ttl(domain: str) -> int:
+    """Return cache TTL in seconds for a given data domain.
+
+    Args:
+        domain: Data domain name (e.g., "environmental", "security").
+
+    Returns:
+        TTL in seconds.
+    """
+    return DOMAIN_TTL.get(domain, DOMAIN_TTL["default"])
+
 
 @dataclass
 class CacheEntry:

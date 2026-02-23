@@ -872,10 +872,20 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         if not feature_parts:
             return torch.zeros(1, 64)
 
+        # Normalize feature types: np.ndarray -> torch.Tensor
+        normalized_parts: list[torch.Tensor] = []
+        for raw in feature_parts:
+            if isinstance(raw, np.ndarray):
+                normalized_parts.append(torch.from_numpy(raw).float())
+            elif isinstance(raw, torch.Tensor):
+                normalized_parts.append(raw.float())
+            else:
+                raise TypeError(f"Unexpected feature type: {type(raw)}")
+
         # Concatenate all features
         # Handle different batch sizes by taking first sample
         aligned_features = []
-        for feat in feature_parts:
+        for feat in normalized_parts:
             if feat.dim() == 1:
                 aligned_features.append(feat.unsqueeze(0))
             else:

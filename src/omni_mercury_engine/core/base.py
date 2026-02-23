@@ -384,14 +384,18 @@ class BaseDetector(ABC):
         pass
 
     @abstractmethod
-    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+    def extract_features(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract features for ML fusion.
 
         Args:
-            data: Input data array or tensor.
+            data: Input data array, tensor, or dict of heterogeneous inputs.
 
         Returns:
-            Feature tensor of shape [batch_size, feature_dim].
+            Feature array or tensor of shape ``[batch_size, feature_dim]``.
+            Callers must handle both ``np.ndarray`` and ``torch.Tensor``.
 
         Note:
             Features should be normalized and suitable for neural network input.
