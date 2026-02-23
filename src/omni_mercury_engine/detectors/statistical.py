@@ -150,6 +150,10 @@ class MercuryAnomalyDetector(BaseDetector):
         self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
         self._weight_source: str = "default"
 
+        # Oracle detector (set during fit if data is temporal)
+        self._oracle_detector: Any = None
+        self._oracle_metadata: dict[str, Any] = {"active": False}
+
     # =====================================================================
     # fit()
     # =====================================================================
