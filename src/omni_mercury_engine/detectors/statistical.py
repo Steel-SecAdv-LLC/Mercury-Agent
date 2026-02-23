@@ -244,7 +244,6 @@ class MercuryAnomalyDetector(BaseDetector):
             try:
                 from omni_mercury_engine.detectors.spectral_domain_oracle import (
                     SpectralDomainOracle,
-                    SpectralDomainOracleConfig,
                 )
                 from omni_mercury_engine.core.config import (
                     ORACLE_DOMAIN_POLICY,
@@ -264,8 +263,8 @@ class MercuryAnomalyDetector(BaseDetector):
                 )
 
                 if should_init:
-                    config = SpectralDomainOracleConfig(domain=oracle_domain)
-                    self._oracle_detector = SpectralDomainOracle(config)
+                    oracle_cfg = {"domain": oracle_domain}
+                    self._oracle_detector = SpectralDomainOracle(oracle_cfg)
                     self._oracle_detector.fit(arr)
                     logger.info("Oracle fitted: domain=%s", oracle_domain)
             except Exception as exc:
@@ -546,20 +545,38 @@ class MercuryAnomalyDetector(BaseDetector):
             return None
         try:
             oracle = self._oracle_detector
+            oc = oracle._oracle_config
             ref_stats: dict[str, Any] = {
-                "domain": getattr(oracle, "_domain", "environmental"),
+                "domain": getattr(oc, "domain", "environmental"),
                 "threshold": getattr(oracle, "threshold", 0.5),
                 "is_fitted": getattr(oracle, "_is_fitted", False),
             }
-            # Export reference power spectrum if available
-            if hasattr(oracle, "_ref_mean_power"):
-                ref_mean = oracle._ref_mean_power
-                if isinstance(ref_mean, np.ndarray):
-                    ref_stats["ref_mean_power"] = ref_mean.tolist()
-            if hasattr(oracle, "_ref_std_power"):
-                ref_std = oracle._ref_std_power
-                if isinstance(ref_std, np.ndarray):
-                    ref_stats["ref_std_power"] = ref_std.tolist()
+            # Export per-band reference statistics
+            if hasattr(oracle, "_ref_band_means") and oracle._ref_band_means:
+                ref_stats["ref_band_means"] = {
+                    k: float(v) for k, v in oracle._ref_band_means.items()
+                }
+            if hasattr(oracle, "_ref_band_stds") and oracle._ref_band_stds:
+                ref_stats["ref_band_stds"] = {
+                    k: float(v) for k, v in oracle._ref_band_stds.items()
+                }
+            # Export full-spectrum reference
+            if hasattr(oracle, "_ref_full_spectrum_mean"):
+                v = oracle._ref_full_spectrum_mean
+                if isinstance(v, np.ndarray):
+                    ref_stats["ref_full_spectrum_mean"] = v.tolist()
+            if hasattr(oracle, "_ref_full_spectrum_std"):
+                v = oracle._ref_full_spectrum_std
+                if isinstance(v, np.ndarray):
+                    ref_stats["ref_full_spectrum_std"] = v.tolist()
+            if hasattr(oracle, "_ref_spectral_entropy_mean"):
+                ref_stats["ref_spectral_entropy_mean"] = float(
+                    oracle._ref_spectral_entropy_mean
+                )
+            if hasattr(oracle, "_ref_spectral_entropy_std"):
+                ref_stats["ref_spectral_entropy_std"] = float(
+                    oracle._ref_spectral_entropy_std
+                )
             return ref_stats
         except Exception as exc:
             logger.debug("Failed to export Oracle statistics: %s", exc)
@@ -651,20 +668,30 @@ class MercuryAnomalyDetector(BaseDetector):
             try:
                 from omni_mercury_engine.detectors.spectral_domain_oracle import (
                     SpectralDomainOracle,
-                    SpectralDomainOracleConfig,
                 )
 
                 domain = oracle_ref_stats.get("domain", "environmental")
-                config = SpectralDomainOracleConfig(domain=domain)
-                oracle = SpectralDomainOracle(config)
-                # Restore reference power spectrum
-                if "ref_mean_power" in oracle_ref_stats:
-                    oracle._ref_mean_power = np.asarray(
-                        oracle_ref_stats["ref_mean_power"]
+                oracle = SpectralDomainOracle({"domain": domain})
+                # Restore per-band reference statistics
+                if "ref_band_means" in oracle_ref_stats:
+                    oracle._ref_band_means = oracle_ref_stats["ref_band_means"]
+                if "ref_band_stds" in oracle_ref_stats:
+                    oracle._ref_band_stds = oracle_ref_stats["ref_band_stds"]
+                if "ref_full_spectrum_mean" in oracle_ref_stats:
+                    oracle._ref_full_spectrum_mean = np.asarray(
+                        oracle_ref_stats["ref_full_spectrum_mean"]
                     )
-                if "ref_std_power" in oracle_ref_stats:
-                    oracle._ref_std_power = np.asarray(
-                        oracle_ref_stats["ref_std_power"]
+                if "ref_full_spectrum_std" in oracle_ref_stats:
+                    oracle._ref_full_spectrum_std = np.asarray(
+                        oracle_ref_stats["ref_full_spectrum_std"]
+                    )
+                if "ref_spectral_entropy_mean" in oracle_ref_stats:
+                    oracle._ref_spectral_entropy_mean = float(
+                        oracle_ref_stats["ref_spectral_entropy_mean"]
+                    )
+                if "ref_spectral_entropy_std" in oracle_ref_stats:
+                    oracle._ref_spectral_entropy_std = float(
+                        oracle_ref_stats["ref_spectral_entropy_std"]
                     )
                 oracle._is_fitted = True
                 det._oracle_detector = oracle
