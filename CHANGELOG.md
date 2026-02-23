@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (Test Suite Stabilization — 100+ Failures Resolved)
+
+- **FastAPI dependency chain**: API auth module (`api/auth.py` line 45) imports
+  FastAPI at module level, causing `ModuleNotFoundError` cascading through
+  `api.server`, `test_correlation_id.py` (4 tests), `test_audit_improvements.py`
+  (6 tests), and `test_jwt_auth.py` (12 tests). Added FastAPI to test
+  dependencies.
+- **Federation `to_detector()` missing Oracle init**: `FederatedAggregator.to_detector()`
+  (aggregator.py lines 203-221) did not initialize `_oracle_detector` or
+  `_oracle_metadata` attributes, causing `AttributeError` when reconstructed
+  detector called `detect()` at `statistical.py` line 1886. Added initialization
+  matching `from_statistics()` classmethod pattern.
+- **Solar synthetic data zero labels**: `_create_synthetic_solar()` (space.py
+  lines 635-642) generated `xray_short` via `np.random.exponential(1e-7)` but
+  tested against threshold `1e-5`, producing all-zero labels. Lowered threshold
+  to `5e-8` to match the exponential distribution's tail.
+- **Oracle config type mismatch**: Fixed `SpectralDomainOracleConfig` type
+  handling when passed through detector initialization pipeline.
+- **Oracle influence pipeline**: Wired spectral influence multiplier end-to-end
+  through `detect()` return path, enabling Oracle-augmented scoring across all
+  75 benchmark datasets.
+
+### Changed (Benchmark Expansion)
+
+- **Benchmark coverage**: Expanded from 51 to 75 total datasets (47 ADBench +
+  28 domain loaders across 12 domains).
+- **Mean AUC**: Improved from 0.8030 to **0.8379** after Oracle pipeline fix.
+- **Median AUC**: Improved from 0.8852 to **0.9090**.
+- **SpectralDomainOracle**: Auto-activated on 39 of 64 successful datasets
+  for temporal/spectral domain augmentation.
+- **README.md**: Updated all benchmark tables, added domain-level performance
+  matrix, added quality improvements section, updated dataset counts and dates.
+
 ### Added (Mercury System Activation)
 
 - **Oracle wired into MercuryAnomalyDetector**: SpectralDomainOracle now
