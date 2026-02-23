@@ -161,7 +161,7 @@ def get_backends() -> Backends:
     * ``MERCURY_WEATHER_BACKEND``  → ``"openmeteo"`` (default) or ``"openweathermap"``
     * ``MERCURY_FINANCIAL_BACKEND``→ ``"yahoo"`` (default) or ``"alphavantage"``
     """
-    global _backends  # noqa: PLW0603
+    global _backends
     if _backends is not None:
         return _backends
 
