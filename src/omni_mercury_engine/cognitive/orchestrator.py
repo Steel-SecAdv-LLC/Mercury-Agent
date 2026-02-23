@@ -44,11 +44,13 @@ import numpy as np
 
 from omni_mercury_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner, CaseOutcome
 from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+from omni_mercury_engine.cognitive.cognitive_evolution_engine import CognitiveEvolutionEngine
 from omni_mercury_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
 from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
 from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 from omni_mercury_engine.cognitive.plasticity_engine import AdaptationType, PlasticityEngine
+from omni_mercury_engine.cognitive.predictive_coding import MercuryPredictiveCoding
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 from omni_mercury_engine.utils.logging import LoggerMixin
 
@@ -89,6 +91,13 @@ class CognitiveAnalysisResult:
     # IPB context
     threat_assessment: dict[str, Any] = field(default_factory=dict)
 
+    # Cognitive evolution insights
+    evolution_insights: dict[str, Any] = field(default_factory=dict)
+
+    # Predictive coding
+    prediction_error: float = 0.0
+    predictive_coding_active: bool = False
+
     # Timing
     analysis_time_ms: float = 0.0
 
@@ -107,6 +116,9 @@ class CognitiveAnalysisResult:
             "recommendations": self.recommended_actions,
             "warnings": self.warnings,
             "knowledge_updates": self.knowledge_updates,
+            "evolution_insights": self.evolution_insights,
+            "prediction_error": self.prediction_error,
+            "predictive_coding_active": self.predictive_coding_active,
             "analysis_time_ms": self.analysis_time_ms,
         }
 
@@ -149,6 +161,8 @@ class CognitiveOrchestrator(LoggerMixin):
         enable_ipb: bool = True,
         enable_cbr: bool = True,
         enable_indicators: bool = True,
+        enable_evolution: bool = True,
+        enable_predictive_coding: bool = True,
     ):
         """
         Initialize Cognitive Orchestrator.
@@ -159,6 +173,8 @@ class CognitiveOrchestrator(LoggerMixin):
             enable_ipb: Enable intelligence preparation
             enable_cbr: Enable case-based reasoning
             enable_indicators: Enable indicator development
+            enable_evolution: Enable cognitive evolution engine
+            enable_predictive_coding: Enable predictive coding detector
         """
         # Core components
         self.knowledge_graph = KnowledgeGraph(
@@ -181,6 +197,21 @@ class CognitiveOrchestrator(LoggerMixin):
         self.cbr = CaseBasedReasoner() if enable_cbr else None
         self.indicators = IndicatorDevelopmentSystem() if enable_indicators else None
 
+        # Newly wired cognitive modules (Part 5)
+        self.evolution: CognitiveEvolutionEngine | None = None
+        if enable_evolution:
+            try:
+                self.evolution = CognitiveEvolutionEngine()
+            except Exception as exc:
+                logger.warning("CognitiveEvolutionEngine init failed: %s", exc)
+
+        self.predictive_coding: MercuryPredictiveCoding | None = None
+        if enable_predictive_coding:
+            try:
+                self.predictive_coding = MercuryPredictiveCoding(input_dim=64)
+            except Exception as exc:
+                logger.warning("MercuryPredictiveCoding init failed: %s", exc)
+
         # State
         self._analysis_count = 0
         self._anomaly_history: list[dict[str, Any]] = []
@@ -191,7 +222,8 @@ class CognitiveOrchestrator(LoggerMixin):
         logger.info(
             f"CognitiveOrchestrator initialized ("
             f"plasticity={enable_plasticity}, causal={enable_causal}, "
-            f"ipb={enable_ipb}, cbr={enable_cbr}, indicators={enable_indicators})"
+            f"ipb={enable_ipb}, cbr={enable_cbr}, indicators={enable_indicators}, "
+            f"evolution={enable_evolution}, predictive_coding={enable_predictive_coding})"
         )
 
     def _initialize_core_knowledge(self) -> None:
@@ -405,6 +437,38 @@ class CognitiveOrchestrator(LoggerMixin):
                     "recommendation": "Conduct full IPB assessment",
                 }
 
+        # === STEP 9: COGNITIVE EVOLUTION ENGINE ===
+        # Advisory only — does NOT overwrite detector scores.
+        if self.evolution and anomaly_detected:
+            try:
+                domain_str = context.get("domain", "general")
+                query = (
+                    f"Anomaly detected (score={anomaly_score:.2f}, "
+                    f"severity={severity:.2f}) in domain '{domain_str}'. "
+                    "Assess pattern and recommend investigation."
+                )
+                thought_chain = self.evolution.reason_about(
+                    query=query,
+                    context={"score": anomaly_score, "severity": severity, "domain": domain_str},
+                )
+                result.evolution_insights = {
+                    "reasoning_steps": len(thought_chain.steps),
+                    "conclusion": thought_chain.conclusion,
+                    "confidence": thought_chain.confidence,
+                }
+            except Exception as exc:
+                logger.debug("Cognitive evolution analysis skipped: %s", exc)
+
+        # === STEP 10: PREDICTIVE CODING ===
+        # Advisory only — augments result with prediction error score.
+        if self.predictive_coding and raw_data is not None:
+            try:
+                pc_result = self.predictive_coding.enhance_detection(detection_result)
+                result.prediction_error = float(pc_result.get("prediction_error", 0.0))
+                result.predictive_coding_active = True
+            except Exception as exc:
+                logger.debug("Predictive coding analysis skipped: %s", exc)
+
         # Store in history for future CBR
         self._anomaly_history.append(
             {
@@ -559,5 +623,9 @@ class CognitiveOrchestrator(LoggerMixin):
             stats["indicators"] = self.indicators.get_statistics()
         if self.ipb:
             stats["ipb"] = self.ipb.get_statistics()
+        if self.evolution:
+            stats["cognitive_evolution"] = self.evolution.get_statistics()
+        if self.predictive_coding:
+            stats["predictive_coding"] = self.predictive_coding.get_statistics()
 
         return stats
