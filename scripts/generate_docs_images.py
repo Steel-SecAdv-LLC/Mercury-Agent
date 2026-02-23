@@ -351,50 +351,71 @@ def generate_anomaly_detection_panel(data: dict) -> None:
 def generate_performance_dashboard(data: dict) -> None:
     per_ds = [r for r in data.get("per_dataset", []) if r.get("error") is None]
     summary = data.get("summary", {})
+    domain_summary = data.get("domain_summary", {})
 
     fig, axes = plt.subplots(2, 2, figsize=(20, 14))
     fig.suptitle("Mercury Agent - Performance Dashboard", fontsize=18, fontweight="bold", y=0.97)
 
-    # Top-left: AUC vs anomaly ratio
+    # Top-left: Domain Performance — mean AUC and F1 per domain (from domain_summary)
     ax = axes[0, 0]
-    anom_ratios = [r.get("test_anomaly_ratio", 0) for r in per_ds]
-    aucs = [r.get("ensemble_auc", float("nan")) for r in per_ds]
-    valid = [(ar, a) for ar, a in zip(anom_ratios, aucs) if not np.isnan(a)]
-    if valid:
-        arx, ax_vals = zip(*valid)
-        ax.scatter(
-            arx,
-            ax_vals,
-            c=COLORS["primary"],
-            alpha=0.6,
-            s=40,
-            edgecolors=COLORS["muted"],
-            linewidths=0.5,
-        )
-        ax.set_xlabel("Anomaly Ratio")
-        ax.set_ylabel("Ensemble AUC")
-        ax.set_title("AUC vs Anomaly Ratio")
-        ax.set_ylim(0, 1.05)
+    if domain_summary:
+        domains = sorted(domain_summary.keys())
+        d_aucs = [
+            domain_summary[d].get("stats", {}).get("mean_auc") or 0
+            for d in domains
+        ]
+        d_f1s = [
+            domain_summary[d].get("stats", {}).get("mean_f1") or 0
+            for d in domains
+        ]
+        y_pos = np.arange(len(domains))
+        bar_h = 0.35
+        ax.barh(y_pos - bar_h / 2, d_aucs, bar_h, label="Mean AUC", color=COLORS["primary"])
+        ax.barh(y_pos + bar_h / 2, d_f1s, bar_h, label="Mean F1", color=COLORS["accent"])
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(domains, fontsize=8)
+        ax.set_xlabel("Score")
+        ax.set_title("Domain Performance (AUC & F1)")
+        ax.set_xlim(0, 1.15)
+        ax.legend(fontsize=9, loc="lower right")
+        for i, (auc_v, f1_v) in enumerate(zip(d_aucs, d_f1s)):
+            if auc_v > 0:
+                ax.text(auc_v + 0.01, i - bar_h / 2, f"{auc_v:.3f}", va="center", fontsize=7)
+            if f1_v > 0:
+                ax.text(f1_v + 0.01, i + bar_h / 2, f"{f1_v:.3f}", va="center", fontsize=7)
     else:
         ax.text(0.5, 0.5, "Not measured", ha="center", va="center", transform=ax.transAxes)
-        ax.set_title("AUC vs Anomaly Ratio")
+        ax.set_title("Domain Performance")
 
-    # Top-right: AUC vs n_features
+    # Top-right: Component Heatmap — best component per domain
     ax = axes[0, 1]
-    nf = [r.get("n_features", 0) for r in per_ds]
-    valid2 = [(n, a) for n, a in zip(nf, aucs) if not np.isnan(a)]
-    if valid2:
-        nx, ax2 = zip(*valid2)
-        ax.scatter(
-            nx, ax2, c=COLORS["accent"], alpha=0.6, s=40, edgecolors=COLORS["muted"], linewidths=0.5
-        )
-        ax.set_xlabel("Number of Features")
-        ax.set_ylabel("Ensemble AUC")
-        ax.set_title("AUC vs Dimensionality")
-        ax.set_ylim(0, 1.05)
+    if domain_summary:
+        domains = sorted(domain_summary.keys())
+        components = ["resonance", "kinematic", "info_geometry"]
+        heatmap_data = []
+        for d in domains:
+            row = []
+            comp_aucs = domain_summary[d].get("stats", {}).get("component_mean_aucs", {})
+            for c in components:
+                row.append(comp_aucs.get(c, 0))
+            heatmap_data.append(row)
+        heatmap_arr = np.array(heatmap_data)
+        im = ax.imshow(heatmap_arr, cmap="YlGn", aspect="auto", vmin=0, vmax=1)
+        ax.set_xticks(np.arange(len(components)))
+        ax.set_xticklabels(["Resonance", "Kinematic", "InfoGeo"], fontsize=9)
+        ax.set_yticks(np.arange(len(domains)))
+        ax.set_yticklabels(domains, fontsize=8)
+        for i in range(len(domains)):
+            for j in range(len(components)):
+                val = heatmap_arr[i, j]
+                if val > 0:
+                    text_color = "black" if val > 0.6 else COLORS["text"]
+                    ax.text(j, i, f"{val:.3f}", ha="center", va="center", fontsize=8, color=text_color)
+        fig.colorbar(im, ax=ax, shrink=0.7, label="Mean AUC")
+        ax.set_title("Component AUC by Domain")
     else:
         ax.text(0.5, 0.5, "Not measured", ha="center", va="center", transform=ax.transAxes)
-        ax.set_title("AUC vs Dimensionality")
+        ax.set_title("Component Heatmap")
 
     # Bottom-left: Precision vs Recall scatter
     ax = axes[1, 0]
@@ -421,9 +442,13 @@ def generate_performance_dashboard(data: dict) -> None:
         ax.text(0.5, 0.5, "Not measured", ha="center", va="center", transform=ax.transAxes)
         ax.set_title("Precision vs Recall")
 
-    # Bottom-right: key metrics
+    # Bottom-right: Oracle Status & Key Metrics
     ax = axes[1, 1]
     ax.axis("off")
+    oracle_active = sum(
+        1 for d in domain_summary.values() if d.get("oracle_active_count", 0) > 0
+    )
+    oracle_total = sum(d.get("oracle_active_count", 0) for d in domain_summary.values())
     lines = [
         f"Mean AUC:         {_fmt(summary.get('mean_auc'))}",
         f"Median AUC:       {_fmt(summary.get('median_auc'))}",
@@ -431,20 +456,24 @@ def generate_performance_dashboard(data: dict) -> None:
         f"Mean Oracle F1:   {_fmt(summary.get('mean_oracle_f1'))}",
         f"Median Oracle F1: {_fmt(summary.get('median_oracle_f1'))}",
         "",
+        "ORACLE STATUS",
+        f"  Domains w/ Oracle active: {oracle_active}",
+        f"  Total datasets w/ Oracle: {oracle_total}",
+        "",
         "NOTE: Oracle F1 is an upper bound.",
-        "Threshold was selected per-dataset",
+        "Threshold selected per-dataset",
         "on the test set (101 thresholds).",
     ]
     ax.text(
         0.05,
-        0.90,
+        0.95,
         "\n".join(lines),
         transform=ax.transAxes,
-        fontsize=12,
+        fontsize=11,
         verticalalignment="top",
         family="monospace",
     )
-    ax.set_title("Key Metrics")
+    ax.set_title("Key Metrics & Oracle Status")
 
     _stamp(fig)
     plt.subplots_adjust(wspace=0.30, hspace=0.35, left=0.07, right=0.97, top=0.93, bottom=0.05)
