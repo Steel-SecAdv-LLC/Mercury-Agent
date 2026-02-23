@@ -63,6 +63,20 @@ def _git_commit() -> str:
         return "unknown"
 
 
+def _git_branch() -> str:
+    try:
+        return (
+            subprocess.check_output(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                stderr=subprocess.DEVNULL,
+            )
+            .decode()
+            .strip()
+        )
+    except Exception:
+        return "unknown"
+
+
 def _cap_stratified(X: np.ndarray, y: np.ndarray, max_n: int) -> tuple[np.ndarray, np.ndarray]:
     """Cap dataset to max_n samples with stratified sampling to preserve anomaly ratio."""
     if len(X) <= max_n:
@@ -823,20 +837,46 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------
     BENCHMARKS_DIR = Path(__file__).parent
     per_dataset_path = BENCHMARKS_DIR / "per_dataset_results.json"
-    per_dataset: dict[str, Any] = {
+
+    # Structured run metadata
+    run_metadata = {
+        "run_id": output["metadata"].get("git_commit", "unknown")[:12]
+        + "-"
+        + datetime.now(UTC).strftime("%Y%m%dT%H%M%S"),
         "timestamp": datetime.now(UTC).isoformat(),
+        "git_sha": output["metadata"].get("git_commit", "unknown"),
+        "branch": _git_branch(),
+        "python_version": output["metadata"].get("python_version", "unknown"),
+        "detector": output["metadata"].get("detector", "MercuryAnomalyDetector"),
+    }
+
+    per_dataset: dict[str, Any] = {
+        "run_metadata": run_metadata,
+        "summary": output.get("summary", {}),
+        "domain_summary": output.get("domain_summary", {}),
         "datasets": {},
     }
     all_results: list[dict[str, Any]] = output.get("per_dataset", [])
     for entry in all_results:
         name = entry.get("name", "unknown")
         per_dataset["datasets"][name] = {
+            "category": entry.get("category", "unknown"),
             "auc": entry.get("ensemble_auc", None),
             "f1": entry.get("oracle_f1", None),
             "precision": entry.get("oracle_precision", None),
             "recall": entry.get("oracle_recall", None),
-            "n_samples": entry.get("n_samples", None),
-            "oracle_active": entry.get("oracle_active", False),
+            "n_total": entry.get("n_total", None),
+            "n_train": entry.get("n_train", None),
+            "n_test": entry.get("n_test", None),
+            "n_features": entry.get("n_features", None),
+            "anomaly_ratio": entry.get("anomaly_ratio", None),
+            "adaptive_weights": entry.get("adaptive_weights", None),
+            "weight_source": entry.get("weight_source", None),
+            "data_type": entry.get("data_type", None),
+            "oracle_metadata": entry.get("oracle_metadata", {"active": False}),
+            "fit_ms": entry.get("fit_ms", None),
+            "score_ms": entry.get("score_ms", None),
+            "error": entry.get("error", None),
         }
 
     # Flag datasets that still have AUC < 0.5
@@ -849,7 +889,7 @@ if __name__ == "__main__":
     per_dataset["n_inverted"] = len(inverted)
 
     with open(per_dataset_path, "w") as f:
-        json.dump(per_dataset, f, indent=2)
+        json.dump(per_dataset, f, indent=2, default=str)
 
     if inverted:
         print(f"\n  {len(inverted)} datasets still have AUC < 0.5: {inverted}")

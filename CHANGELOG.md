@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Mercury System Activation)
+
+- **Oracle wired into MercuryAnomalyDetector**: SpectralDomainOracle now
+  integrated into the primary detection pipeline (`statistical.py`). Oracle
+  initialises during `fit()` for temporal data and applies spectral influence
+  multiplier during `detect()`. Oracle metadata included in return dict.
+- **20 new dataset loaders activated**: Environmental (USGS Earthquake, NOAA
+  Weather, Wildfire, USGS Geochemistry), Ocean (NOAA Buoy), Climate (NOAA
+  StormEvents, GSOD, ERDDAP), Air Quality (EPA), Disaster (FEMA x2), Space
+  (NASA Exoplanet, SolarDynamics), Academic (UCR, CWRU Bearing, MSDS),
+  Security (ThreatIntel), General (ADRepository), Industrial (SWaT, WADI).
+  Total benchmark datasets: 75 (47 ADBench + 28 domain).
+- **Domain-level benchmark summary**: Per-domain AUC/F1 aggregation,
+  component performance analysis, Oracle activation tracking. Added to
+  `honest_benchmark_results.json` as `domain_summary`.
+- **Benchmark CLI flags**: `--live-only` skips ADBench; `--domain <name>`
+  filters by category.
+- **Cross-domain frequency correlation module**: New
+  `CrossDomainFrequencyCorrelator` detects overlapping significant frequency
+  bands across concurrent Oracle instances. Outputs correlation only —
+  always states "requires human assessment."
+- **Oracle domain auto-selection**: `_infer_oracle_domain()` uses sample
+  rate estimation, dominant FFT frequency, and feature count heuristics
+  to select appropriate Oracle domain. User-specified domain overrides.
+- **Federation Oracle serialization**: `get_oracle_statistics()` exports
+  Oracle reference state; `from_statistics()` accepts `oracle_ref_stats`
+  for federated Oracle round-trip.
+- **Domain-specific cache TTL**: environmental=300s, security=60s,
+  climate=3600s, default=600s. Added `get_domain_ttl()` to cache stub.
+- **Structured per-dataset output**: `per_dataset_results.json` now
+  includes `run_metadata` (run_id, timestamp, git_sha, branch,
+  python_version), domain_summary, and expanded per-dataset diagnostics
+  (adaptive_weights, weight_source, data_type, oracle_metadata).
+- **Dataset catalog**: `benchmarks/DATASETS.md` documents all 75 active
+  datasets with source, auth, samples, features, anomaly ratio, license.
+
+### Changed (Mercury System Activation)
+
+- **README Phase 7**: Renamed "Superintelligence Bootstrap" to "Cognitive
+  Evolution Engine".
+- **BaseDetector.extract_features()**: Signature updated to accept
+  `dict[str, Any]` input and return `np.ndarray | torch.Tensor`.
+  `_extract_combined_features()` normalises both return types.
+- **validation/data_loaders.py**: Deprecated with module-level warning.
+  Directs users to `datasets/` module. Will be removed in v2.0.
+- **generate_docs_images.py**: Updated performance dashboard to show
+  domain-level AUC/F1 bars, component AUC heatmap, and Oracle status.
+  All data sourced from `honest_benchmark_results.json`.
+
+### Cherry-picked (from devin branch)
+
+- 10 commits salvaged from `devin/1771750539-mercury-strategic-improvements`:
+  strategic improvements, FrequencyDomainOracle implementation,
+  SpectralDomainOracle rename, spectral flux/phase coherence/cepstral
+  analysis, selective inference upgrade, and audit fixes.
+- Fabricated README images (4 PNGs with invented performance metrics)
+  discarded; original dark-themed images restored from master.
+
 ### Fixed
 - **Oracle `extract_features()` type contract**: Now returns `torch.Tensor`
   per `BaseDetector` contract, eliminating runtime crash risk in 5 generic
