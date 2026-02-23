@@ -16,12 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   normal conditioning (Lee et al., 2016). Guarantees Type I error control
   at declared α. SI p-values are 3-10× more conservative, eliminating
   false amplification from selection bias.
+- **README images**: Regenerated with dark theme (#1A1A2E background),
+  real benchmark data from `honest_benchmark_results.json`, and removed
+  duplicate "Test Coverage by Module" chart (Part 0).
+- **BaseDetector return type contract**: `extract_features()` now accepts
+  `Union[np.ndarray, torch.Tensor]` return types. Subclasses (including
+  SpectralDomainOracle) return their native type; normalisation happens at
+  the fusion boundary in `_extract_combined_features()` (Part 8).
 
 ### Renamed
 - **SpectralDomainOracle**: Renamed from `FrequencyDomainOracle` to reflect
   expanded capabilities (spectral flux, phase coherence, cepstral analysis).
   Backward-compatible aliases preserved (`FrequencyDomainOracle`,
   `FrequencyDomainOracleConfig`, `create_frequency_oracle`).
+- **"Superintelligence Bootstrap" → "Cognitive Evolution Engine"** in
+  README Phase table to match actual implementation class (Part 1).
 
 ### Added
 - **Spectral Flux**: Rate-of-spectral-change detection for slow-onset
@@ -38,6 +47,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   auto-disabled for financial, humanitarian; overridable via `oracle_mode`.
 - **Per-dataset benchmark output**: `per_dataset_results.json` for
   individual dataset AUC/F1 verification (separate from aggregate results).
+- **20 dormant loaders activated** (Part 2): USGSEarthquake, NOAAWeather,
+  Wildfire, USGSGeochemistry, NOAABuoy, NOAAStormEvents, NOAAGSOD,
+  NOAAERDDAP, EPAAirQuality, FEMADisaster, FEMAHazardMitigation,
+  NASAExoplanet, SolarDynamics, UCR, CWRUBearing, MSDS, ThreatIntel,
+  ADRepository, SWaT, WADI. All with circuit breaker protection, 30s
+  connect / 120s read timeouts, exponential backoff retry.
+- **Backend wiring** (Part 4): Database (SQLite default / PostgreSQL),
+  Cache (LRU default / Redis), Weather (Open-Meteo default / OpenWeatherMap),
+  Financial (Yahoo Finance default / Alpha Vantage). Schema at
+  `schema/mercury.sql`. Health checks at GET /api/v1/health.
+- **Structured benchmark output** (Part 9): JSON schema with run_metadata,
+  summary, and per-dataset results including progressive validation and
+  Oracle domain inference.
+- **Oracle domain auto-selection** (Part 6): `_infer_oracle_domain()` uses
+  three independent signals (sample rate estimation via zero-crossing,
+  dominant frequency band via FFT, feature count heuristic) with consensus
+  voting and confidence scoring.
+- **Cognitive module wiring** (Part 5): CognitiveEvolutionEngine
+  (chain-of-thought reasoning) and MercuryPredictiveCoding (prediction
+  error analysis) wired into CognitiveOrchestrator as advisory modules.
+  10 cognitive modules now producing output.
+- **Federation Oracle state serialization** (Part 10):
+  `get_oracle_statistics()` export and `oracle_ref_stats` parameter on
+  `from_statistics()` for round-trip Oracle domain preservation.
+- **Cross-domain frequency correlation** (Part 7):
+  `CrossDomainFrequencyCorrelator` for spectral-band overlap detection
+  between concurrent Oracle instances. Schumann Resonance / seismic
+  precursor validation path. Provides CORRELATION only -- never causation
+  or prediction.
+- **CLI flags** for `honest_benchmark.py`: `--live-only` (API-sourced
+  datasets only), `--domain <name>` (filter by domain category).
+
+### Changed
+- **validation/data_loaders.py reconciled** (Part 3): Module-level
+  deprecation warning added. Imports redirect to canonical `datasets/`
+  module. Will be removed in v2.0.
+- **Cache TTL by domain**: environmental 300s, ocean 600s, climate 3600s,
+  financial 900s, security 60s, space 1800s, medical 3600s.
 
 ### Documentation Alignment Audit
 - Repository documentation, metadata, and organizational state audited for
