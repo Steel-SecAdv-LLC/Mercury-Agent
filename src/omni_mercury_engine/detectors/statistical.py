@@ -150,6 +150,10 @@ class MercuryAnomalyDetector(BaseDetector):
         self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
         self._weight_source: str = "default"
 
+        # Oracle domain auto-selection (Part 6)
+        self._inferred_oracle_domain: str = "environmental"
+        self._oracle_domain_confidence: float = 0.0
+
     # =====================================================================
     # fit()
     # =====================================================================
@@ -223,6 +227,31 @@ class MercuryAnomalyDetector(BaseDetector):
         # --- Data type detection (Task 2) ---
         self._data_type = self._detect_data_characteristics(arr)
         logger.info("fit: detected data type=%s", self._data_type.value)
+
+        # --- Oracle domain auto-selection (Part 6) ---
+        # Infer best Oracle domain from data characteristics.  If the user
+        # has explicitly set a domain in config, respect that — auto-
+        # selection is a fallback, not an override.
+        explicit_domain = self.config.get("oracle_domain")
+        if explicit_domain:
+            self._inferred_oracle_domain = explicit_domain
+            self._oracle_domain_confidence = 1.0
+            logger.info("fit: Oracle domain set explicitly: %s", explicit_domain)
+        else:
+            try:
+                from omni_mercury_engine.detectors.spectral_domain_oracle import (
+                    SpectralDomainOracle,
+                )
+
+                inferred, confidence = SpectralDomainOracle._infer_oracle_domain(
+                    arr, self._data_type.value,
+                )
+                self._inferred_oracle_domain = inferred
+                self._oracle_domain_confidence = confidence
+            except Exception as exc:
+                logger.debug("fit: Oracle domain auto-selection failed: %s", exc)
+                self._inferred_oracle_domain = "environmental"
+                self._oracle_domain_confidence = 0.3
 
         # --- InfoGeometry: fit Gaussian manifold ---
         self._fit_info_geometry(arr)

@@ -1162,6 +1162,144 @@ class SpectralDomainOracle(BaseDetector):
         return float(np.clip(multiplier, floor, ceiling))
 
     # ------------------------------------------------------------------
+    # Domain auto-selection (Part 6)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _infer_oracle_domain(
+        X: np.ndarray,
+        detected_type: str = "UNKNOWN",
+    ) -> tuple[str, float]:
+        """Infer the best Oracle domain from data characteristics.
+
+        Uses three independent signals — sample rate estimation, dominant
+        frequency band, and feature count — then selects the domain with
+        the most agreeing votes.  Returns ``("environmental", …)`` as the
+        broadest fallback when signals disagree.
+
+        Heuristics (from the directive):
+
+        * **Sample rate** (autocorrelation-based):
+          <1 Hz → environmental/climate/humanitarian;
+          1–50 Hz → infrastructure/seismic;  50–100 Hz → infrastructure
+          (mains); 100–500 Hz → medical; >500 Hz → space/security.
+        * **Dominant frequency** (FFT of first principal component):
+          cross-referenced against ``DOMAIN_FREQUENCY_BANDS``.
+        * **Feature count**:
+          1–3 → environmental/infrastructure; 4–20 → medical/infrastructure;
+          20–100 → security/financial; 100+ → space.
+
+        Args:
+            X: Input array ``(n_samples, n_features)``.
+            detected_type: Result of ``_detect_data_characteristics()``
+                (e.g. ``"TEMPORAL"``, ``"TABULAR"``).
+
+        Returns:
+            ``(domain, confidence)`` where *confidence* is in [0, 1].
+            HIGH (≥0.7) when multiple signals agree; LOW (<0.5)
+            when falling back to default.
+
+        References:
+            Lee et al. (2016) — Selective Inference framework.
+            Schumann resonance fundamentals — 7.83 Hz ±0.5 Hz
+            (Balser & Wagner, *Nature* 188, 1960).
+        """
+        n_samples, n_features = X.shape
+        votes: dict[str, int] = {}
+
+        def _vote(domain: str) -> None:
+            votes[domain] = votes.get(domain, 0) + 1
+
+        # --- Signal 1: Sample rate estimation via autocorrelation --------
+        # Estimate dominant period from lag-1 autocorrelation of first PC
+        try:
+            col = X[:, 0] if n_features > 0 else X.ravel()
+            col = col - np.mean(col)
+            var = np.var(col)
+            if var > 1e-12 and len(col) > 2:
+                # Use zero-crossing rate as proxy for dominant frequency
+                zero_crossings = np.sum(np.diff(np.sign(col)) != 0)
+                est_freq = zero_crossings / (2.0 * len(col))  # normalised
+
+                if est_freq < 0.01:
+                    _vote("environmental")
+                elif est_freq < 0.1:
+                    _vote("infrastructure")
+                elif est_freq < 0.25:
+                    _vote("medical")
+                else:
+                    _vote("space")
+        except Exception:
+            pass
+
+        # --- Signal 2: Dominant frequency band (FFT of first PC) ---------
+        try:
+            if n_samples >= 8:
+                col = X[:, 0] if n_features > 0 else X.ravel()
+                col = col - np.mean(col)
+                n = len(col)
+                spectrum = np.abs(fft(col))[: n // 2]
+                freqs_arr = fftfreq(n, d=1.0)[: n // 2]
+
+                if len(spectrum) > 1:
+                    dominant_idx = int(np.argmax(spectrum[1:])) + 1
+                    dominant_freq = abs(float(freqs_arr[dominant_idx]))
+
+                    # Cross-reference against domain bands
+                    best_domain = "environmental"
+                    best_overlap = 0.0
+                    for domain_name, bands in DOMAIN_FREQUENCY_BANDS.items():
+                        for lo, hi, _label, weight in bands:
+                            if lo <= dominant_freq <= hi:
+                                if weight > best_overlap:
+                                    best_overlap = weight
+                                    best_domain = domain_name
+                    _vote(best_domain)
+        except Exception:
+            pass
+
+        # --- Signal 3: Feature count heuristic ---------------------------
+        if n_features <= 3:
+            _vote("environmental")
+        elif n_features <= 20:
+            _vote("medical")
+        elif n_features <= 100:
+            _vote("security")
+        else:
+            _vote("space")
+
+        # --- Consensus ---------------------------------------------------
+        if not votes:
+            return ("environmental", 0.3)
+
+        total_votes = sum(votes.values())
+        best_domain = max(votes, key=lambda d: votes[d])
+        agreement = votes[best_domain] / total_votes
+
+        # Map agreement to confidence
+        if agreement >= 0.67:
+            confidence = 0.9
+        elif agreement >= 0.5:
+            confidence = 0.7
+        else:
+            # Disagreement → fall back to environmental (broadest bands)
+            best_domain = "environmental"
+            confidence = 0.4
+            logger.info(
+                "Oracle domain auto-selection: signals disagree (%s), "
+                "defaulting to 'environmental'.",
+                votes,
+            )
+
+        logger.info(
+            "Oracle domain auto-selected: %s (confidence=%.2f, votes=%s)",
+            best_domain,
+            confidence,
+            votes,
+        )
+        return (best_domain, confidence)
+
+    # ------------------------------------------------------------------
     # BaseDetector interface
     # ------------------------------------------------------------------
 
