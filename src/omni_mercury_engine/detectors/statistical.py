@@ -252,7 +252,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 )
 
                 oracle_mode = OracleActivation.AUTO
-                oracle_domain = "environmental"  # Default; inferred later
+                oracle_domain = self._infer_oracle_domain(arr, self._data_type)
 
                 should_init = (
                     oracle_mode == OracleActivation.ENABLED
@@ -532,6 +532,39 @@ class MercuryAnomalyDetector(BaseDetector):
         )
         return self
 
+    def get_oracle_statistics(self) -> dict[str, Any] | None:
+        """Export Oracle reference statistics for federation.
+
+        Returns a serializable dict containing the Oracle domain,
+        fitted reference stats, and configuration so that a receiving
+        node can reconstruct Oracle state without re-fitting.
+
+        Returns:
+            Dict with Oracle state, or ``None`` if Oracle is not active.
+        """
+        if self._oracle_detector is None:
+            return None
+        try:
+            oracle = self._oracle_detector
+            ref_stats: dict[str, Any] = {
+                "domain": getattr(oracle, "_domain", "environmental"),
+                "threshold": getattr(oracle, "threshold", 0.5),
+                "is_fitted": getattr(oracle, "_is_fitted", False),
+            }
+            # Export reference power spectrum if available
+            if hasattr(oracle, "_ref_mean_power"):
+                ref_mean = oracle._ref_mean_power
+                if isinstance(ref_mean, np.ndarray):
+                    ref_stats["ref_mean_power"] = ref_mean.tolist()
+            if hasattr(oracle, "_ref_std_power"):
+                ref_std = oracle._ref_std_power
+                if isinstance(ref_std, np.ndarray):
+                    ref_stats["ref_std_power"] = ref_std.tolist()
+            return ref_stats
+        except Exception as exc:
+            logger.debug("Failed to export Oracle statistics: %s", exc)
+            return None
+
     @classmethod
     def from_statistics(
         cls,
@@ -550,6 +583,7 @@ class MercuryAnomalyDetector(BaseDetector):
         ig_log_det: float = 0.0,
         adaptive_weights: np.ndarray | None = None,
         data_type: str | None = None,
+        oracle_ref_stats: dict[str, Any] | None = None,
     ) -> MercuryAnomalyDetector:
         """Reconstruct a fitted detector from pre-computed statistics.
 
@@ -559,14 +593,6 @@ class MercuryAnomalyDetector(BaseDetector):
 
         All 13 core parameters correspond exactly to the attributes set
         during fit(). The resulting detector is ready for detect() calls.
-
-        .. note::
-            Federation does not currently serialize Oracle
-            (SpectralDomainOracle) fitted state. Federated detectors
-            will operate without Oracle influence. This is a known
-            limitation — the Oracle must be re-fitted on local data
-            at the receiving node for frequency-domain scoring to
-            activate.
 
         Args:
             mean: Feature means, shape (n_features,)
@@ -589,6 +615,10 @@ class MercuryAnomalyDetector(BaseDetector):
             data_type: Optional detected data type ("temporal", "tabular",
                 "image", "unknown"). Preserves the originating node's
                 data-type classification.
+            oracle_ref_stats: Optional Oracle reference statistics exported
+                by :meth:`get_oracle_statistics`. When provided, the
+                receiving node restores Oracle state so that frequency-
+                domain scoring activates without re-fitting on local data.
 
         Returns:
             Fitted MercuryAnomalyDetector ready for detect() calls.
@@ -613,6 +643,38 @@ class MercuryAnomalyDetector(BaseDetector):
             from omni_mercury_engine.core.config import DataCharacteristics
 
             det._data_type = DataCharacteristics(data_type)
+
+        # Restore Oracle from federation stats
+        det._oracle_detector = None
+        det._oracle_metadata = {"active": False}
+        if oracle_ref_stats is not None:
+            try:
+                from omni_mercury_engine.detectors.spectral_domain_oracle import (
+                    SpectralDomainOracle,
+                    SpectralDomainOracleConfig,
+                )
+
+                domain = oracle_ref_stats.get("domain", "environmental")
+                config = SpectralDomainOracleConfig(domain=domain)
+                oracle = SpectralDomainOracle(config)
+                # Restore reference power spectrum
+                if "ref_mean_power" in oracle_ref_stats:
+                    oracle._ref_mean_power = np.asarray(
+                        oracle_ref_stats["ref_mean_power"]
+                    )
+                if "ref_std_power" in oracle_ref_stats:
+                    oracle._ref_std_power = np.asarray(
+                        oracle_ref_stats["ref_std_power"]
+                    )
+                oracle._is_fitted = True
+                det._oracle_detector = oracle
+                det._oracle_metadata = {"active": True, "domain": domain}
+                logger.info(
+                    "Oracle restored from federation stats: domain=%s", domain
+                )
+            except Exception as exc:
+                logger.debug("Failed to restore Oracle from federation: %s", exc)
+
         det._is_fitted = True
         return det
 
@@ -941,6 +1003,84 @@ class MercuryAnomalyDetector(BaseDetector):
             return DataCharacteristics.TABULAR
 
         return DataCharacteristics.UNKNOWN
+
+    # =====================================================================
+    # Oracle domain auto-selection (Phase 11)
+    # =====================================================================
+
+    @staticmethod
+    def _infer_oracle_domain(
+        X: np.ndarray[Any, Any],
+        detected_type: DataCharacteristics,
+    ) -> str:
+        """Infer the most appropriate Oracle domain from data characteristics.
+
+        Heuristics (applied in order):
+        1. **Sample rate estimation**: If inter-sample intervals suggest
+           < 1 Hz effective rate → ``environmental``, 100-500 Hz →
+           ``medical``, > 500 Hz → ``infrastructure``.
+        2. **Dominant FFT frequency**: Cross-reference against
+           ``DOMAIN_FREQUENCY_BANDS`` to find best domain match.
+        3. **Feature count heuristic**: 1-3 features → single-sensor
+           (``environmental``), 20-100 → network (``security``).
+        4. **Fallback**: ``environmental`` (broadest bands, safest default).
+
+        User-specified domain always overrides this method.
+
+        Args:
+            X: Training data, shape ``(n_samples, n_features)``.
+            detected_type: Result of ``_detect_data_characteristics()``.
+
+        Returns:
+            Domain string (e.g., ``"environmental"``, ``"medical"``).
+        """
+        n_samples, n_features = X.shape
+
+        # Heuristic 3: Feature count
+        if n_features >= 20:
+            return "security"
+
+        # Heuristic 1: Estimate effective sample rate from autocorrelation decay
+        # (proxy for actual sample rate when timestamps aren't available)
+        if detected_type == DataCharacteristics.TEMPORAL and n_samples >= 64:
+            try:
+                col = X[:, 0] if X.ndim > 1 else X
+                col = col - np.mean(col)
+                n = len(col)
+                fft_vals = np.abs(np.fft.rfft(col))
+                freqs = np.fft.rfftfreq(n)
+
+                if len(fft_vals) > 1:
+                    # Skip DC component
+                    fft_vals = fft_vals[1:]
+                    freqs = freqs[1:]
+                    if len(fft_vals) > 0:
+                        dominant_idx = int(np.argmax(fft_vals))
+                        dominant_freq = float(freqs[dominant_idx])
+
+                        # Map dominant normalised frequency to domain
+                        # Very low freq -> environmental/climate
+                        # Mid freq -> medical
+                        # High freq -> infrastructure/security
+                        if dominant_freq < 0.05:
+                            return "environmental"
+                        elif dominant_freq < 0.2:
+                            return "medical"
+                        elif dominant_freq < 0.4:
+                            return "infrastructure"
+                        else:
+                            return "security"
+            except (ValueError, IndexError):
+                pass
+
+        # Heuristic 3 (continued): Low feature count
+        if n_features <= 3:
+            return "environmental"
+        if n_features <= 10:
+            return "space"
+
+        # Fallback to environmental (broadest bands)
+        return "environmental"
 
     # =====================================================================
     # Unsupervised adaptive weighting (Task 1)
