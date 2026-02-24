@@ -581,6 +581,13 @@ class MercuryAnomalyDetector(BaseDetector):
                 ref_stats["ref_spectral_entropy_std"] = float(
                     oracle._ref_spectral_entropy_std
                 )
+            # Export noise color estimation (F1 Precision Directive)
+            if hasattr(oracle, "_noise_beta"):
+                ref_stats["noise_beta"] = float(oracle._noise_beta)
+            if hasattr(oracle, "_noise_color"):
+                ref_stats["noise_color"] = str(oracle._noise_color)
+            if hasattr(oracle, "_noise_fit_r2"):
+                ref_stats["noise_fit_r2"] = float(oracle._noise_fit_r2)
             return ref_stats
         except Exception as exc:
             logger.debug("Failed to export Oracle statistics: %s", exc)
@@ -697,6 +704,13 @@ class MercuryAnomalyDetector(BaseDetector):
                     oracle._ref_spectral_entropy_std = float(
                         oracle_ref_stats["ref_spectral_entropy_std"]
                     )
+                # Restore noise color (F1 Precision Directive)
+                if "noise_beta" in oracle_ref_stats:
+                    oracle._noise_beta = float(oracle_ref_stats["noise_beta"])
+                if "noise_color" in oracle_ref_stats:
+                    oracle._noise_color = str(oracle_ref_stats["noise_color"])
+                if "noise_fit_r2" in oracle_ref_stats:
+                    oracle._noise_fit_r2 = float(oracle_ref_stats["noise_fit_r2"])
                 oracle._is_fitted = True
                 det._oracle_detector = oracle
                 det._oracle_metadata = {"active": True, "domain": domain}

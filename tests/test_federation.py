@@ -456,6 +456,7 @@ def test_from_statistics_classmethod(data_a: np.ndarray) -> None:
         ig_log_det=det._ig_log_det,
         adaptive_weights=getattr(det, "_adaptive_weights", None),
         data_type=det._data_type.value if hasattr(det, "_data_type") else None,
+        oracle_ref_stats=det.get_oracle_statistics(),
     )
 
     test = np.random.default_rng(42).standard_normal((10, _N_FEATURES))
