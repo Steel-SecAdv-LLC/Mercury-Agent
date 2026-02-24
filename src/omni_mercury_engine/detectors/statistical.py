@@ -242,28 +242,24 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # --- Oracle initialization (for temporal data) ---
         self._oracle_detector = None
-        self._oracle_metadata: dict[str, Any] = {"active": False}
+        self._oracle_metadata = {"active": False}
 
         if self._data_type == DataCharacteristics.TEMPORAL:
             try:
-                from omni_mercury_engine.detectors.spectral_domain_oracle import (
-                    SpectralDomainOracle,
-                )
                 from omni_mercury_engine.core.config import (
                     ORACLE_DOMAIN_POLICY,
                     OracleActivation,
+                )
+                from omni_mercury_engine.detectors.spectral_domain_oracle import (
+                    SpectralDomainOracle,
                 )
 
                 oracle_mode = OracleActivation.AUTO
                 oracle_domain = self._infer_oracle_domain(arr, self._data_type)
 
-                should_init = (
-                    oracle_mode == OracleActivation.ENABLED
-                    or (
-                        oracle_mode == OracleActivation.AUTO
-                        and ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled")
-                        != "disabled"
-                    )
+                should_init = oracle_mode == OracleActivation.ENABLED or (
+                    oracle_mode == OracleActivation.AUTO
+                    and ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled") != "disabled"
                 )
 
                 if should_init:
@@ -561,9 +557,7 @@ class MercuryAnomalyDetector(BaseDetector):
                     k: float(v) for k, v in oracle._ref_band_means.items()
                 }
             if hasattr(oracle, "_ref_band_stds") and oracle._ref_band_stds:
-                ref_stats["ref_band_stds"] = {
-                    k: float(v) for k, v in oracle._ref_band_stds.items()
-                }
+                ref_stats["ref_band_stds"] = {k: float(v) for k, v in oracle._ref_band_stds.items()}
             # Export full-spectrum reference
             if hasattr(oracle, "_ref_full_spectrum_mean"):
                 v = oracle._ref_full_spectrum_mean
@@ -574,13 +568,9 @@ class MercuryAnomalyDetector(BaseDetector):
                 if isinstance(v, np.ndarray):
                     ref_stats["ref_full_spectrum_std"] = v.tolist()
             if hasattr(oracle, "_ref_spectral_entropy_mean"):
-                ref_stats["ref_spectral_entropy_mean"] = float(
-                    oracle._ref_spectral_entropy_mean
-                )
+                ref_stats["ref_spectral_entropy_mean"] = float(oracle._ref_spectral_entropy_mean)
             if hasattr(oracle, "_ref_spectral_entropy_std"):
-                ref_stats["ref_spectral_entropy_std"] = float(
-                    oracle._ref_spectral_entropy_std
-                )
+                ref_stats["ref_spectral_entropy_std"] = float(oracle._ref_spectral_entropy_std)
             # Export noise color estimation (F1 Precision Directive)
             if hasattr(oracle, "_noise_beta"):
                 ref_stats["noise_beta"] = float(oracle._noise_beta)
@@ -714,9 +704,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 oracle._is_fitted = True
                 det._oracle_detector = oracle
                 det._oracle_metadata = {"active": True, "domain": domain}
-                logger.info(
-                    "Oracle restored from federation stats: domain=%s", domain
-                )
+                logger.info("Oracle restored from federation stats: domain=%s", domain)
             except Exception as exc:
                 logger.debug("Failed to restore Oracle from federation: %s", exc)
 
@@ -1903,6 +1891,7 @@ class MercuryAnomalyDetector(BaseDetector):
         domain = getattr(self, "_benchmark_domain", None)
         if domain:
             from omni_mercury_engine.core.domain_weight_presets import get_domain_preset
+
             prior_weights = np.array(get_domain_preset(domain))
             weights = 0.6 * weights + 0.4 * prior_weights
             weights = weights / weights.sum()
@@ -1934,7 +1923,9 @@ class MercuryAnomalyDetector(BaseDetector):
                 if all(r < -0.2 for r in rho_vals):
                     logger.info(
                         "Inversion guard: %s rhos=[%.3f, %.3f] — zeroing",
-                        comp_name, rho_vals[0], rho_vals[1],
+                        comp_name,
+                        rho_vals[0],
+                        rho_vals[1],
                     )
                     active_weights[wi] = 0.0
             wsum = active_weights.sum()
@@ -2335,9 +2326,7 @@ class MercuryAnomalyDetector(BaseDetector):
     # =====================================================================
 
     @staticmethod
-    def _residual_frequency_filter(
-        scores: np.ndarray, cutoff_quantile: float = 0.75
-    ) -> np.ndarray:
+    def _residual_frequency_filter(scores: np.ndarray, cutoff_quantile: float = 0.75) -> np.ndarray:
         """Apply frequency-domain filtering to the score residual.
 
         Computes the score residual (deviation from moving average),

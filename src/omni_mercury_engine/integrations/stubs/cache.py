@@ -34,14 +34,14 @@ logger = logging.getLogger(__name__)
 # Domain-specific TTL policy (seconds).  Used by get_domain_ttl()
 # to apply appropriate cache lifetimes per data domain.
 DOMAIN_TTL: dict[str, int] = {
-    "environmental": 300,   # 5 min – data refreshes frequently
-    "security": 60,         # 1 min – threat data must be fresh
-    "climate": 3600,        # 1 hour – climate data is slow-changing
-    "medical": 600,         # 10 min
-    "space": 1800,          # 30 min
-    "financial": 120,       # 2 min – markets move fast
-    "industrial": 600,      # 10 min
-    "default": 600,         # 10 min fallback
+    "environmental": 300,  # 5 min - data refreshes frequently
+    "security": 60,  # 1 min - threat data must be fresh
+    "climate": 3600,  # 1 hour - climate data is slow-changing
+    "medical": 600,  # 10 min
+    "space": 1800,  # 30 min
+    "financial": 120,  # 2 min - markets move fast
+    "industrial": 600,  # 10 min
+    "default": 600,  # 10 min fallback
 }
 
 
@@ -111,6 +111,8 @@ class CacheStub:
         >>> value = await cache.get("key")
         >>> await cache.delete("key")
     """
+
+    _CACHE_SECRET_WARNED: bool = False
 
     def __init__(
         self,
@@ -725,6 +727,53 @@ class RedisCache:
             key = "mercury-cache-default-key"
         return hashlib.sha256(key.encode()).digest()
 
+    @staticmethod
+    def _restricted_loads(payload: bytes) -> Any:
+        """Deserialize pickle data using a restricted unpickler.
+
+        Only allows safe built-in types to prevent arbitrary code execution
+        even if HMAC verification is somehow bypassed (defense in depth).
+        """
+        import io
+        import pickle  # nosec B403 - restricted unpickler limits allowed types
+
+        _SAFE_MODULES: dict[str, set[str]] = {
+            "builtins": {
+                "True",
+                "False",
+                "None",
+                "int",
+                "float",
+                "str",
+                "bytes",
+                "list",
+                "dict",
+                "tuple",
+                "set",
+                "frozenset",
+                "complex",
+                "bool",
+                "bytearray",
+                "type",
+                "range",
+                "slice",
+            },
+            "collections": {"OrderedDict", "defaultdict", "deque"},
+            "datetime": {"datetime", "date", "time", "timedelta", "timezone"},
+            "decimal": {"Decimal"},
+            "fractions": {"Fraction"},
+            "uuid": {"UUID"},
+        }
+
+        class _RestrictedUnpickler(pickle.Unpickler):
+            def find_class(self, module: str, name: str) -> Any:
+                allowed = _SAFE_MODULES.get(module)
+                if allowed is not None and name in allowed:
+                    return super().find_class(module, name)
+                raise pickle.UnpicklingError(f"Restricted unpickler blocked: {module}.{name}")
+
+        return _RestrictedUnpickler(io.BytesIO(payload)).load()
+
     def _serialize(self, value: Any) -> str:
         """Serialize value for storage.
 
@@ -737,7 +786,7 @@ class RedisCache:
         else:
             import base64
             import hmac
-            import pickle  # nosec B403 - pickle used for internal cache serialization only
+            import pickle  # nosec B403 - restricted unpickler used on deserialization
 
             payload = pickle.dumps(value)
             sig = hmac.new(self._get_signing_key(), payload, "sha256").hexdigest()
@@ -748,8 +797,8 @@ class RedisCache:
         """Deserialize value from storage.
 
         When using pickle, verifies HMAC signature before deserializing
-        to prevent arbitrary code execution from tampered cache data.
-        For untrusted data sources, use serializer="json" instead.
+        with a restricted unpickler that only allows safe built-in types.
+        This provides defense in depth against arbitrary code execution.
         """
         if data is None:
             return None
@@ -758,7 +807,6 @@ class RedisCache:
         else:
             import base64
             import hmac
-            import pickle  # nosec B403 - pickle used for internal cache serialization only
 
             # Verify HMAC signature before deserializing
             if "." not in data:
@@ -770,7 +818,7 @@ class RedisCache:
             if not hmac.compare_digest(sig, expected_sig):
                 logger.warning("Cache data HMAC verification failed, rejecting")
                 return None
-            return pickle.loads(payload)  # nosec B301 - HMAC-verified data
+            return self._restricted_loads(payload)
 
     async def get(self, key: str) -> Any | None:
         """Get value from cache.

@@ -360,14 +360,8 @@ def generate_performance_dashboard(data: dict) -> None:
     ax = axes[0, 0]
     if domain_summary:
         domains = sorted(domain_summary.keys())
-        d_aucs = [
-            domain_summary[d].get("stats", {}).get("mean_auc") or 0
-            for d in domains
-        ]
-        d_f1s = [
-            domain_summary[d].get("stats", {}).get("mean_f1") or 0
-            for d in domains
-        ]
+        d_aucs = [domain_summary[d].get("stats", {}).get("mean_auc") or 0 for d in domains]
+        d_f1s = [domain_summary[d].get("stats", {}).get("mean_f1") or 0 for d in domains]
         y_pos = np.arange(len(domains))
         bar_h = 0.35
         ax.barh(y_pos - bar_h / 2, d_aucs, bar_h, label="Mean AUC", color=COLORS["primary"])
@@ -410,7 +404,9 @@ def generate_performance_dashboard(data: dict) -> None:
                 val = heatmap_arr[i, j]
                 if val > 0:
                     text_color = "black" if val > 0.6 else COLORS["text"]
-                    ax.text(j, i, f"{val:.3f}", ha="center", va="center", fontsize=8, color=text_color)
+                    ax.text(
+                        j, i, f"{val:.3f}", ha="center", va="center", fontsize=8, color=text_color
+                    )
         fig.colorbar(im, ax=ax, shrink=0.7, label="Mean AUC")
         ax.set_title("Component AUC by Domain")
     else:
@@ -445,9 +441,7 @@ def generate_performance_dashboard(data: dict) -> None:
     # Bottom-right: Oracle Status & Key Metrics
     ax = axes[1, 1]
     ax.axis("off")
-    oracle_active = sum(
-        1 for d in domain_summary.values() if d.get("oracle_active_count", 0) > 0
-    )
+    oracle_active = sum(1 for d in domain_summary.values() if d.get("oracle_active_count", 0) > 0)
     oracle_total = sum(d.get("oracle_active_count", 0) for d in domain_summary.values())
     lines = [
         f"Mean AUC:         {_fmt(summary.get('mean_auc'))}",

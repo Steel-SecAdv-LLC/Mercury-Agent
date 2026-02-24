@@ -20,7 +20,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 # Ensure benchmarks/ is importable for threshold tests
 sys.path.insert(0, str(Path(__file__).parent.parent / "benchmarks"))
@@ -345,11 +344,13 @@ class TestOracleIntegration:
         )
 
         rng = np.random.RandomState(42)
-        oracle = SpectralDomainOracle({
-            "domain": "environmental",
-            "influence_floor": 0.5,
-            "influence_ceiling": 2.0,
-        })
+        oracle = SpectralDomainOracle(
+            {
+                "domain": "environmental",
+                "influence_floor": 0.5,
+                "influence_ceiling": 2.0,
+            }
+        )
         train_data = rng.randn(200)
         oracle.fit(train_data)
 
@@ -414,14 +415,26 @@ class TestOracleInfluenceMultiplier:
         # Create highly significant bands with high z-scores
         bands = [
             FrequencyBandResult(
-                band_label="b1", low_hz=0.0, high_hz=0.5,
-                band_weight=0.5, power_ratio=3.0, z_score=3.0,
-                anomaly_score=0.9, p_value=0.001, is_significant=True,
+                band_label="b1",
+                low_hz=0.0,
+                high_hz=0.5,
+                band_weight=0.5,
+                power_ratio=3.0,
+                z_score=3.0,
+                anomaly_score=0.9,
+                p_value=0.001,
+                is_significant=True,
             ),
             FrequencyBandResult(
-                band_label="b2", low_hz=0.5, high_hz=1.0,
-                band_weight=0.5, power_ratio=2.5, z_score=2.5,
-                anomaly_score=0.8, p_value=0.005, is_significant=True,
+                band_label="b2",
+                low_hz=0.5,
+                high_hz=1.0,
+                band_weight=0.5,
+                power_ratio=2.5,
+                z_score=2.5,
+                anomaly_score=0.8,
+                p_value=0.005,
+                is_significant=True,
             ),
         ]
         # aggregate_score is high
@@ -446,9 +459,15 @@ class TestOracleInfluenceMultiplier:
 
         bands = [
             FrequencyBandResult(
-                band_label="b1", low_hz=0.0, high_hz=0.5,
-                band_weight=0.5, power_ratio=1.0, z_score=0.5,
-                anomaly_score=0.1, p_value=0.8, is_significant=False,
+                band_label="b1",
+                low_hz=0.0,
+                high_hz=0.5,
+                band_weight=0.5,
+                power_ratio=1.0,
+                z_score=0.5,
+                anomaly_score=0.1,
+                p_value=0.8,
+                is_significant=False,
             ),
         ]
         mult = oracle._compute_influence_multiplier(

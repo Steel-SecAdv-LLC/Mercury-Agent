@@ -413,9 +413,9 @@ class CAPAlertGenerator:
         Returns:
             True if valid CAP structure, False otherwise.
         """
-        from defusedxml.ElementTree import fromstring as safe_fromstring
-
         from xml.etree.ElementTree import ParseError
+
+        from defusedxml.ElementTree import fromstring as safe_fromstring
 
         try:
             root = safe_fromstring(xml_string)

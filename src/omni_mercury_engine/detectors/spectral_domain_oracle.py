@@ -1049,9 +1049,7 @@ class SpectralDomainOracle(BaseDetector):
     # Noise color estimation (F1 Precision Directive, Phase 4)
     # ------------------------------------------------------------------
 
-    def _estimate_noise_color(
-        self, psd: np.ndarray, freqs: np.ndarray
-    ) -> tuple[float, str, float]:
+    def _estimate_noise_color(self, psd: np.ndarray, freqs: np.ndarray) -> tuple[float, str, float]:
         """Estimate the noise color exponent (beta) from the PSD.
 
         Fits log(PSD) = -beta * log(freq) + C using linear regression
@@ -1103,7 +1101,7 @@ class SpectralDomainOracle(BaseDetector):
         exp = 1.0 - beta
         if exp == 0:
             return float(np.log(hi / max(lo, 1e-10)))
-        return float((hi ** exp - lo ** exp) / exp)
+        return float((hi**exp - lo**exp) / exp)
 
     # ------------------------------------------------------------------
     # Adaptive alpha (F1 Precision Directive, Phase 5)
@@ -1181,7 +1179,9 @@ class SpectralDomainOracle(BaseDetector):
             if band_center > 0:
                 expected = self._expected_band_power(max(lo, 1e-6), max(hi, 1e-6), self._noise_beta)
                 nyquist = self._oracle_config.sample_rate / 2.0
-                total_expected = self._expected_band_power(1e-6, max(nyquist, 1e-6), self._noise_beta)
+                total_expected = self._expected_band_power(
+                    1e-6, max(nyquist, 1e-6), self._noise_beta
+                )
                 if total_expected > 1e-10 and expected > 1e-10:
                     expected_ratio = expected / total_expected
                     corrected_ratio = power_ratio / max(expected_ratio, 1e-10)
@@ -1313,9 +1313,7 @@ class SpectralDomainOracle(BaseDetector):
 
         # Domain anomaly spectral hint boost (Phase 9)
         if self._noise_beta != 0.0:
-            hints = DOMAIN_ANOMALY_SPECTRAL_HINTS.get(
-                self._oracle_config.domain, {}
-            )
+            hints = DOMAIN_ANOMALY_SPECTRAL_HINTS.get(self._oracle_config.domain, {})
             expected_shift = hints.get("anomaly_beta_shift", 0.0)
             if expected_shift != 0.0 and hasattr(self, "_current_beta"):
                 beta_shift = self._current_beta - self._noise_beta
@@ -1404,7 +1402,9 @@ class SpectralDomainOracle(BaseDetector):
                 )
                 logger.info(
                     "Oracle noise color: beta=%.2f (%s), R²=%.3f",
-                    self._noise_beta, self._noise_color, self._noise_fit_r2,
+                    self._noise_beta,
+                    self._noise_color,
+                    self._noise_fit_r2,
                 )
 
         self._is_fitted = True

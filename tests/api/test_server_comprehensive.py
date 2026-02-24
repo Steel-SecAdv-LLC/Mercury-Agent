@@ -21,7 +21,6 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 

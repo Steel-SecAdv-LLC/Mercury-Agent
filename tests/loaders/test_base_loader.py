@@ -14,18 +14,13 @@ Covers:
 
 from __future__ import annotations
 
-import json
-import os
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from omni_mercury_engine.loaders.base import BaseDomainLoader, _get_mercury_version
-
 
 # =============================================================================
 # Concrete test implementation of the abstract BaseDomainLoader
@@ -118,7 +113,9 @@ class TestSSRFValidation:
         """Test that DNS resolution failures are non-fatal."""
         # A hostname that doesn't resolve should NOT raise
         # (defers to the actual HTTP request)
-        BaseDomainLoader._validate_url("https://this-domain-definitely-does-not-exist-xyz123.com/api")
+        BaseDomainLoader._validate_url(
+            "https://this-domain-definitely-does-not-exist-xyz123.com/api"
+        )
 
 
 # =============================================================================
@@ -228,27 +225,33 @@ class TestFeatureEngineering:
 
     def test_engineer_features_numeric_only(self, loader):
         """Test that only numeric columns are extracted."""
-        df = pd.DataFrame({
-            "num1": [1.0, 2.0, 3.0],
-            "num2": [4.0, 5.0, 6.0],
-            "text": ["a", "b", "c"],
-        })
+        df = pd.DataFrame(
+            {
+                "num1": [1.0, 2.0, 3.0],
+                "num2": [4.0, 5.0, 6.0],
+                "text": ["a", "b", "c"],
+            }
+        )
         features = loader.engineer_features(df)
         assert features.shape == (3, 2)
 
     def test_engineer_features_handles_inf(self, loader):
         """Test that inf values are replaced."""
-        df = pd.DataFrame({
-            "val": [1.0, float("inf"), 3.0],
-        })
+        df = pd.DataFrame(
+            {
+                "val": [1.0, float("inf"), 3.0],
+            }
+        )
         features = loader.engineer_features(df)
         assert np.all(np.isfinite(features))
 
     def test_engineer_features_handles_nan(self, loader):
         """Test that NaN values are filled with median."""
-        df = pd.DataFrame({
-            "val": [1.0, float("nan"), 3.0, 5.0],
-        })
+        df = pd.DataFrame(
+            {
+                "val": [1.0, float("nan"), 3.0, 5.0],
+            }
+        )
         features = loader.engineer_features(df)
         assert np.all(np.isfinite(features))
         # NaN should be replaced with median of [1.0, 3.0, 5.0] = 3.0

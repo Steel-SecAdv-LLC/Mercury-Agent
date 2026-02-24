@@ -23,8 +23,6 @@ import os
 # as the middleware reads the env var at module-load time.
 os.environ["OMNI_RATE_LIMIT_ENABLED"] = "false"
 
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pytest

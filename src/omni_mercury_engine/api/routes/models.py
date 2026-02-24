@@ -136,7 +136,7 @@ class ModelRegistry:
         # Use a secure, user-specific directory instead of world-writable /tmp.
         # Prefer explicit config > env var > XDG data home > ~/.mercury/models.
         default_storage = os.path.join(
-            os.getenv("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+            os.getenv("XDG_DATA_HOME", str(Path("~/.local/share").expanduser())),
             "mercury",
             "models",
         )

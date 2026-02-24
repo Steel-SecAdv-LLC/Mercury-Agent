@@ -471,12 +471,8 @@ def run_benchmark(
             "median_auc": float(np.median(ds["_aucs"])) if ds["_aucs"] else None,
             "std_auc": float(np.std(ds["_aucs"])) if len(ds["_aucs"]) > 1 else 0.0,
             "mean_f1": float(np.mean(ds["_f1s"])) if ds["_f1s"] else None,
-            "mean_precision": (
-                float(np.mean(ds["_precisions"])) if ds["_precisions"] else None
-            ),
-            "mean_recall": (
-                float(np.mean(ds["_recalls"])) if ds["_recalls"] else None
-            ),
+            "mean_precision": (float(np.mean(ds["_precisions"])) if ds["_precisions"] else None),
+            "mean_recall": (float(np.mean(ds["_recalls"])) if ds["_recalls"] else None),
         }
         # Identify best component per domain
         comp_means: dict[str, float] = {}
@@ -623,7 +619,9 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     kinematic_auc = _safe_auc(y_test, kinematic)
     info_geo_auc = _safe_auc(y_test, info_geo)
 
-    oracle_f1, oracle_prec, oracle_rec, oracle_thr, threshold_strategy = _oracle_threshold_f1(y_test, scores)
+    oracle_f1, oracle_prec, oracle_rec, oracle_thr, threshold_strategy = _oracle_threshold_f1(
+        y_test, scores
+    )
 
     status = "OK" if not np.isnan(ensemble_auc) else "NaN"
     print(
@@ -650,9 +648,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     }
     weight_source = getattr(detector, "_weight_source", "unknown")
     data_type_val = getattr(detector, "_data_type", None)
-    data_type_str = (
-        data_type_val.name if hasattr(data_type_val, "name") else str(data_type_val)
-    )
+    data_type_str = data_type_val.name if hasattr(data_type_val, "name") else str(data_type_val)
     oracle_metadata = getattr(detector, "_oracle_metadata", {"active": False})
 
     return {

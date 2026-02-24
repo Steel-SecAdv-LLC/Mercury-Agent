@@ -19,7 +19,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pytest
 
 from omni_mercury_engine.core.detector_registry import (
     DETECTOR_MANIFEST,
@@ -29,7 +28,6 @@ from omni_mercury_engine.core.detector_registry import (
     DetectorRegistry,
     FeatureExtractionResult,
 )
-
 
 # =============================================================================
 # DetectorRegistry Core Operations
@@ -222,8 +220,7 @@ class TestImportValidation:
         """Test that all manifest entries use trusted module paths."""
         for entry in DETECTOR_MANIFEST:
             assert entry.module_path.startswith("omni_mercury_engine."), (
-                f"Manifest entry '{entry.name}' has untrusted module path: "
-                f"{entry.module_path}"
+                f"Manifest entry '{entry.name}' has untrusted module path: " f"{entry.module_path}"
             )
 
     def test_untrusted_module_path_blocked(self):
@@ -265,8 +262,8 @@ class TestImportValidation:
         ):
             # Will fail with ImportError since the module doesn't exist,
             # but should NOT be blocked by the security check
-            count = reg.auto_discover_detectors()
-            # count will be 0 because ImportError, but no security warning
+            reg.auto_discover_detectors()
+            # Result will be 0 because ImportError, but no security warning
             assert "trusted_det" not in reg.list_all()
 
 
@@ -413,7 +410,7 @@ class TestManifestIntegrity:
     def test_manifest_entries_well_formed(self):
         """Test all manifest entries have required fields."""
         for entry in DETECTOR_MANIFEST:
-            assert entry.name, f"Entry missing name"
+            assert entry.name, "Entry missing name"
             assert entry.module_path, f"Entry {entry.name} missing module_path"
             assert entry.class_name, f"Entry {entry.name} missing class_name"
             assert isinstance(entry.category, DetectorCategory)
@@ -430,6 +427,4 @@ class TestManifestIntegrity:
             DetectorCategory.MEDICAL,
             DetectorCategory.SPACE,
         }
-        assert expected.issubset(categories), (
-            f"Missing categories: {expected - categories}"
-        )
+        assert expected.issubset(categories), f"Missing categories: {expected - categories}"

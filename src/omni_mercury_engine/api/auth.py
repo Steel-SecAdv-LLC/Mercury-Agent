@@ -579,7 +579,9 @@ class JWTAuth:
                 issued_at = datetime.fromtimestamp(float(iat))
                 age = (datetime.now() - issued_at).total_seconds()
                 if age > max_token_age_s:
-                    logger.warning("JWT token exceeds maximum age (%d s > %d s)", int(age), max_token_age_s)
+                    logger.warning(
+                        "JWT token exceeds maximum age (%d s > %d s)", int(age), max_token_age_s
+                    )
                     return None
 
             # Parse permissions from payload

@@ -33,7 +33,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -234,10 +234,7 @@ class CrossDomainFrequencyCorrelator:
                             continue
                         # Geometric mean of scores
                         strength = float(
-                            np.sqrt(
-                                max(band_a.anomaly_score, 0)
-                                * max(band_b.anomaly_score, 0)
-                            )
+                            np.sqrt(max(band_a.anomaly_score, 0) * max(band_b.anomaly_score, 0))
                         )
                         overlapping_bands.append(
                             BandOverlap(
@@ -254,16 +251,12 @@ class CrossDomainFrequencyCorrelator:
                         )
 
         significant = [
-            b
-            for b in overlapping_bands
-            if b.correlation_strength >= self.significance_threshold
+            b for b in overlapping_bands if b.correlation_strength >= self.significance_threshold
         ]
 
         # Overall correlation score: mean of significant overlap strengths
         if significant:
-            correlation_score = float(
-                np.mean([b.correlation_strength for b in significant])
-            )
+            correlation_score = float(np.mean([b.correlation_strength for b in significant]))
         else:
             correlation_score = 0.0
 

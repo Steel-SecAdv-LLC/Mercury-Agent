@@ -589,9 +589,8 @@ class TestGOSNNFullIntegration:
     def test_bidirectional_flow(self, full_setup, deterministic_rng):
         """Test bidirectional flow between components."""
         gosnn = full_setup["gosnn"]
-        engine = full_setup["engine"]
 
-        # Engine should be callable and gosnn should accept data
+        # GOSNN should be callable and accept data
         data = deterministic_rng.randn(50, 10)
         # Verify GOSNN can process features and engine can run detection
         if hasattr(gosnn, "forward"):

@@ -571,7 +571,7 @@ class SolarDynamicsLoader(DatasetLoader):
         # Label solar flare events based on X-ray flux.
         # Primary: M-class threshold (1e-5 W/m²) or higher.
         # Fallback: if the observation window has no M-class events (solar quiet),
-        # use statistical outlier detection (>3σ above mean) so the dataset
+        # use statistical outlier detection (>3 sigma above mean) so the dataset
         # still contains labeled anomalies for detector evaluation.
         labels = (features[:, 0] > 1e-5).astype(np.int64)  # M-class or higher
 

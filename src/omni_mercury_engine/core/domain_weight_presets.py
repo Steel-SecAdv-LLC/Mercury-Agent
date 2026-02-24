@@ -46,7 +46,5 @@ DOMAIN_WEIGHT_PRESETS: dict[str, dict[str, float]] = {
 
 def get_domain_preset(domain: str) -> tuple[float, float, float]:
     """Return (resonance, kinematic, info_geometry) weight tuple for domain."""
-    preset = DOMAIN_WEIGHT_PRESETS.get(
-        domain.lower(), DOMAIN_WEIGHT_PRESETS["default"]
-    )
+    preset = DOMAIN_WEIGHT_PRESETS.get(domain.lower(), DOMAIN_WEIGHT_PRESETS["default"])
     return (preset["resonance"], preset["kinematic"], preset["info_geometry"])

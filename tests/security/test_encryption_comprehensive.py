@@ -21,7 +21,6 @@ from omni_mercury_engine.security.encryption import (
     SecureDataHandler,
 )
 
-
 # =============================================================================
 # QuantumResistantEncryption Tests
 # =============================================================================

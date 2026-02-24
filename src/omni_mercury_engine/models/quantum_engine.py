@@ -427,7 +427,9 @@ class QuantumEngine:
             # numpy's Mersenne Twister is predictable; secrets provides OS entropy.
             import secrets as _secrets
 
-            _csprng = np.random.Generator(np.random.SFC64(np.random.SeedSequence(_secrets.randbits(256))))
+            _csprng = np.random.Generator(
+                np.random.SFC64(np.random.SeedSequence(_secrets.randbits(256)))
+            )
             alice_bits = _csprng.integers(0, 2, size=key_length * 2)
             alice_bases = _csprng.integers(0, 2, size=key_length * 2)
 

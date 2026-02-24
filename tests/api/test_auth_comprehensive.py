@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -33,14 +33,12 @@ from omni_mercury_engine.api.auth import (
     AuthorizationError,
     JWTAuth,
     Permission,
-    RequestRateLimiter,
     User,
     get_api_key_store,
     get_rate_limiter,
     require_permission,
     require_role,
 )
-
 
 # =============================================================================
 # User Model Tests
@@ -199,9 +197,7 @@ class TestAPIKeyStore:
     def test_create_key_returns_raw_and_object(self):
         """Test create_key returns raw key string and APIKey object."""
         store = APIKeyStore()
-        raw_key, api_key = store.create_key(
-            name="test", user_id="u1"
-        )
+        raw_key, api_key = store.create_key(name="test", user_id="u1")
         assert isinstance(raw_key, str)
         assert len(raw_key) > 20  # token_urlsafe(32) is ~43 chars
         assert isinstance(api_key, APIKey)
@@ -229,9 +225,7 @@ class TestAPIKeyStore:
     def test_create_key_with_expiry(self):
         """Test key creation with expiry."""
         store = APIKeyStore()
-        _, api_key = store.create_key(
-            name="test", user_id="u1", expires_in_days=7
-        )
+        _, api_key = store.create_key(name="test", user_id="u1", expires_in_days=7)
         assert api_key.expires_at is not None
         assert api_key.is_expired is False
 
@@ -338,9 +332,7 @@ class TestAPIKeyAuth:
     async def test_valid_api_key_returns_user(self):
         """Test valid key returns User and sets request.state.user."""
         store = get_api_key_store()
-        raw_key, api_key = store.create_key(
-            name="valid_test", user_id="test_user_1"
-        )
+        raw_key, api_key = store.create_key(name="valid_test", user_id="test_user_1")
         auth = APIKeyAuth(auto_error=True)
         request = self._make_request(api_key_header=raw_key)
 
@@ -355,9 +347,7 @@ class TestAPIKeyAuth:
         from fastapi import HTTPException
 
         store = get_api_key_store()
-        raw_key, api_key = store.create_key(
-            name="revoked_test", user_id="test_user_2"
-        )
+        raw_key, api_key = store.create_key(name="revoked_test", user_id="test_user_2")
         store.revoke(api_key.key_id)
 
         auth = APIKeyAuth(auto_error=True)
@@ -470,11 +460,12 @@ class TestJWTTokenCreation:
     def test_create_token_success(self):
         """Test creating a JWT token."""
         jwt = pytest.importorskip("jwt")
+        test_key = "test-secret"
 
         token = JWTAuth.create_token(
             user_id="u1",
             username="alice",
-            secret_key="test-secret",
+            secret_key=test_key,
             email="alice@example.com",
             roles=["user", "analyst"],
             permissions=["read", "detect"],
@@ -482,7 +473,7 @@ class TestJWTTokenCreation:
 
         assert isinstance(token, str)
         # Decode to verify structure
-        decoded = jwt.decode(token, "test-secret", algorithms=["HS256"])
+        decoded = jwt.decode(token, test_key, algorithms=["HS256"])
         assert decoded["sub"] == "u1"
         assert decoded["username"] == "alice"
         assert decoded["email"] == "alice@example.com"
@@ -495,27 +486,28 @@ class TestJWTTokenCreation:
     def test_create_token_default_values(self):
         """Test token creation with default roles/permissions."""
         jwt = pytest.importorskip("jwt")
+        test_key = "test-secret"
 
         token = JWTAuth.create_token(
             user_id="u2",
             username="bob",
-            secret_key="test-secret",
+            secret_key=test_key,
         )
 
-        decoded = jwt.decode(token, "test-secret", algorithms=["HS256"])
+        decoded = jwt.decode(token, test_key, algorithms=["HS256"])
         assert decoded["roles"] == ["user"]
         assert decoded["permissions"] == ["read"]
         assert "email" not in decoded
 
     def test_create_token_requires_pyjwt(self):
         """Test that missing PyJWT raises ImportError."""
-        with patch.dict("sys.modules", {"jwt": None}):
-            with pytest.raises(ImportError, match="PyJWT"):
-                JWTAuth.create_token(
-                    user_id="u3",
-                    username="carol",
-                    secret_key="test-secret",
-                )
+        test_key = "test-secret"
+        with patch.dict("sys.modules", {"jwt": None}), pytest.raises(ImportError, match="PyJWT"):
+            JWTAuth.create_token(
+                user_id="u3",
+                username="carol",
+                secret_key=test_key,
+            )
 
 
 # =============================================================================
@@ -529,7 +521,6 @@ class TestRequirePermission:
     @pytest.mark.asyncio
     async def test_permission_granted(self):
         """Test that user with correct permission passes."""
-        from fastapi import HTTPException
 
         @require_permission(Permission.READ)
         async def protected_endpoint(request=None):
@@ -574,6 +565,7 @@ class TestRequireRole:
     @pytest.mark.asyncio
     async def test_role_granted(self):
         """Test that user with correct role passes."""
+
         @require_role("analyst")
         async def analyst_endpoint(request=None):
             return {"ok": True}
@@ -625,15 +617,16 @@ class TestAuthConfig:
 
     def test_custom_config(self):
         """Test AuthConfig with custom values."""
+        test_jwt_secret = "my-secret"
         config = AuthConfig(
             enabled=True,
             methods=[AuthMethod.JWT, AuthMethod.API_KEY],
-            jwt_secret="my-secret",
+            jwt_secret=test_jwt_secret,
             jwt_expiration_hours=48,
         )
         assert config.enabled is True
         assert len(config.methods) == 2
-        assert config.jwt_secret == "my-secret"
+        assert config.jwt_secret == test_jwt_secret
         assert config.jwt_expiration_hours == 48
 
 

@@ -28,7 +28,6 @@ from omni_mercury_engine.integrations.stubs.cache import (
     get_domain_ttl,
 )
 
-
 # =============================================================================
 # HMAC Signing Key Tests
 # =============================================================================
@@ -230,10 +229,13 @@ class TestCacheFactory:
 
     def test_redis_from_env(self):
         """Test Redis cache creation from environment."""
-        with patch.dict(os.environ, {
-            "REDIS_HOST": "test-host",
-            "REDIS_PORT": "6380",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "REDIS_HOST": "test-host",
+                "REDIS_PORT": "6380",
+            },
+        ):
             cache = RedisCache.from_env()
             assert cache.host == "test-host"
             assert cache.port == 6380
