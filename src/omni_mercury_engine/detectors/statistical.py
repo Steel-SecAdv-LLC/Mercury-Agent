@@ -1882,13 +1882,76 @@ class MercuryAnomalyDetector(BaseDetector):
         info_geo = self._compute_info_geometry_score(data)
 
         # --- Ensemble (weighted average) ---
-        weights = self._adaptive_weights
+        weights = self._adaptive_weights.copy()
+
+        # Domain preset blending (F1 Precision Directive, Phase 3):
+        # Blend adaptive weights with domain prior (60% data-driven, 40% domain)
+        domain = getattr(self, "_benchmark_domain", None)
+        if domain:
+            from omni_mercury_engine.core.domain_weight_presets import get_domain_preset
+            prior_weights = np.array(get_domain_preset(domain))
+            weights = 0.6 * weights + 0.4 * prior_weights
+            weights = weights / weights.sum()
+
+        # Pairwise inversion guard (F1 Precision Directive, Phase 2):
+        # If a component is anti-correlated with BOTH other components (Spearman rho < -0.2),
+        # zero its weight. This catches inversions the self-supervised approach misses.
+        if len(data) >= 30:
+            components = [
+                (resonance, "resonance", 0),
+                (kinematic, "kinematic", 1),
+                (info_geo, "info_geometry", 2),
+            ]
+            active_weights = weights.copy()
+            for idx, (comp_scores, comp_name, wi) in enumerate(components):
+                if active_weights[wi] < 0.01:
+                    continue
+                other_idxs = [j for j in range(3) if j != idx]
+                other_scores = [components[j][0] for j in other_idxs]
+                rho_vals = []
+                for other in other_scores:
+                    try:
+                        rho, _ = sp_stats.spearmanr(comp_scores, other)
+                        if np.isnan(rho):
+                            rho = 0.0
+                    except Exception:
+                        rho = 0.0
+                    rho_vals.append(rho)
+                if all(r < -0.2 for r in rho_vals):
+                    logger.info(
+                        "Inversion guard: %s rhos=[%.3f, %.3f] — zeroing",
+                        comp_name, rho_vals[0], rho_vals[1],
+                    )
+                    active_weights[wi] = 0.0
+            wsum = active_weights.sum()
+            if wsum > 0:
+                active_weights = active_weights / wsum
+            else:
+                active_weights = np.array([0.4, 0.0, 0.6])
+            weights = active_weights
+
         combined_scores = weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
+        combined_scores = np.clip(combined_scores, 0.0, 1.0)
+
+        # Unsupervised ensemble flip (F1 Precision Directive, Phase 2):
+        # If median score > 0.80, scores are likely inverted (most points shouldn't be anomalous).
+        if len(combined_scores) >= 50:
+            median_score = float(np.median(combined_scores))
+            if median_score > 0.80:
+                combined_scores = 1.0 - combined_scores
+                logger.info("Ensemble flip: median=%.3f, inverting scores", median_score)
 
         # --- Oracle spectral influence ---
         oracle_meta: dict[str, Any] = {"active": False}
         if self._oracle_detector is not None:
             try:
+                # Dynamic Oracle sensitivity (F1 Precision Directive, Phase 9):
+                # High initial severity → look harder for spectral confirmation
+                initial_severity = float(np.mean(combined_scores))
+                severity_factor = 1.0 + (initial_severity - 0.3) * 2.0
+                severity_factor = float(np.clip(severity_factor, 0.5, 3.0))
+                self._oracle_detector._dynamic_alpha_factor = severity_factor
+
                 oracle_result = self._oracle_detector.detect(data)
                 # Extract influence multiplier from the influence_vector object
                 # (Oracle returns per-signal analysis, not per-sample)
@@ -1919,6 +1982,12 @@ class MercuryAnomalyDetector(BaseDetector):
         self._oracle_metadata = oracle_meta
 
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
+
+        # Residual frequency filter (F1 Precision Directive, Phase 7):
+        # Only apply to temporal-like data where FFT filtering is meaningful.
+        is_temporal_like = data.shape[0] >= max(50, 10 * data.shape[1])
+        if is_temporal_like and len(combined_scores) >= 32:
+            combined_scores = self._residual_frequency_filter(combined_scores)
 
         # Score flip for detected ensemble inversion (Task 4)
         if self._score_flip:
@@ -2250,6 +2319,51 @@ class MercuryAnomalyDetector(BaseDetector):
     # =====================================================================
     # Legacy / helper methods
     # =====================================================================
+
+    @staticmethod
+    def _residual_frequency_filter(
+        scores: np.ndarray, cutoff_quantile: float = 0.75
+    ) -> np.ndarray:
+        """Apply frequency-domain filtering to the score residual.
+
+        Computes the score residual (deviation from moving average),
+        applies a bandpass filter to isolate anomaly-relevant frequencies,
+        and blends the filtered signal back into the scores.
+
+        Args:
+            scores: Raw anomaly scores, shape (n_samples,).
+            cutoff_quantile: Fraction of frequency spectrum to preserve.
+
+        Returns:
+            Filtered scores with noise-suppressed anomaly signal.
+        """
+        if len(scores) < 16:
+            return scores
+
+        kernel_size = max(5, len(scores) // 20)
+        if kernel_size % 2 == 0:
+            kernel_size += 1
+        kernel = np.ones(kernel_size) / kernel_size
+        baseline = np.convolve(scores, kernel, mode="same")
+        residual = scores - baseline
+
+        fft_res = np.fft.rfft(residual)
+        power = np.abs(fft_res) ** 2
+
+        if power.sum() < 1e-10:
+            return scores
+
+        cumulative = np.cumsum(power) / power.sum()
+        low_cut = int(np.searchsorted(cumulative, 0.05))
+        high_cut = int(np.searchsorted(cumulative, cutoff_quantile))
+
+        filtered_fft = np.zeros_like(fft_res)
+        filtered_fft[low_cut:high_cut] = fft_res[low_cut:high_cut]
+
+        filtered_residual = np.fft.irfft(filtered_fft, n=len(residual))
+
+        blended = 0.7 * scores + 0.3 * (baseline + filtered_residual)
+        return np.clip(blended, 0.0, 1.0)
 
     def _compute_iqr_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute continuous IQR-based anomaly scores.
