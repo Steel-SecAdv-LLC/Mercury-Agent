@@ -697,14 +697,31 @@ class RedisCache:
         """Add prefix to key."""
         return f"{self.prefix}{key}"
 
+    _CACHE_SECRET_WARNED = False
+
     @staticmethod
     def _get_signing_key() -> bytes:
-        """Get the HMAC signing key for pickle integrity verification."""
+        """Get the HMAC signing key for pickle integrity verification.
+
+        In production, set MERCURY_CACHE_SECRET to a strong random value.
+        Generate with: ``openssl rand -hex 32``
+        """
         import hashlib
 
         key = os.environ.get("MERCURY_CACHE_SECRET", "")
         if not key:
-            # Derive a stable key from the machine identity
+            is_prod = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
+            if is_prod:
+                raise ValueError(
+                    "MERCURY_CACHE_SECRET environment variable is required in production. "
+                    "Generate with: openssl rand -hex 32"
+                )
+            if not CacheStub._CACHE_SECRET_WARNED:
+                logger.warning(
+                    "MERCURY_CACHE_SECRET not set — using default cache signing key. "
+                    "Set this variable for production deployments."
+                )
+                CacheStub._CACHE_SECRET_WARNED = True
             key = "mercury-cache-default-key"
         return hashlib.sha256(key.encode()).digest()
 

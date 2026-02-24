@@ -18,7 +18,6 @@ import hashlib
 import logging
 import os
 import shutil
-import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -134,10 +133,16 @@ class ModelRegistry:
     def __init__(self, storage_path: str | None = None) -> None:
         self._models: dict[str, Model] = {}
         self._lock = threading.RLock()
-        default_storage = os.path.join(tempfile.gettempdir(), "mercury_models")
+        # Use a secure, user-specific directory instead of world-writable /tmp.
+        # Prefer explicit config > env var > XDG data home > ~/.mercury/models.
+        default_storage = os.path.join(
+            os.getenv("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+            "mercury",
+            "models",
+        )
         resolved_path = storage_path or os.getenv("MODEL_STORAGE_PATH") or default_storage
         self._storage_path = Path(resolved_path)
-        self._storage_path.mkdir(parents=True, exist_ok=True)
+        self._storage_path.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._version_counter: dict[str, int] = {}
 
     def register_model(
@@ -709,14 +714,23 @@ async def add_version(
 
     file_content = None
     if file:
-        file_content = await file.read()
-
+        # Stream-read with size check to prevent memory exhaustion DoS.
         max_size = int(os.getenv("MAX_MODEL_SIZE_MB", "500")) * 1024 * 1024
-        if len(file_content) > max_size:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"Model file exceeds maximum size of {max_size // (1024*1024)} MB",
-            )
+        chunks: list[bytes] = []
+        total = 0
+        chunk_size = 64 * 1024  # 64 KiB
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_size:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"Model file exceeds maximum size of {max_size // (1024 * 1024)} MB",
+                )
+            chunks.append(chunk)
+        file_content = b"".join(chunks)
 
     version = registry.add_version(
         model_id=model_id,

@@ -415,9 +415,11 @@ class CAPAlertGenerator:
         """
         from defusedxml.ElementTree import fromstring as safe_fromstring
 
+        from xml.etree.ElementTree import ParseError
+
         try:
             root = safe_fromstring(xml_string)
-        except Exception:
+        except (ParseError, SyntaxError, ValueError, TypeError):
             return False
 
         # Detect namespace (CAP XML may have xmlns set)

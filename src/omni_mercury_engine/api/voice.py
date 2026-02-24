@@ -219,39 +219,46 @@ class GreetingResponse(BaseModel):
 router = APIRouter(prefix="/api/v1/voice", tags=["Voice Interface"])
 
 
-# Global voice instance (lazy loaded)
+# Global voice instance (lazy loaded) - guarded by lock for thread safety
 _mercury_voice: Any = None
 _narrative_engine: Any = None
+_voice_lock = __import__("threading").Lock()
+_narrative_lock = __import__("threading").Lock()
 
 
 def _get_voice() -> Any:
-    """Get or create Mercury Voice instance."""
+    """Get or create Mercury Voice instance (thread-safe)."""
     global _mercury_voice
 
     if _mercury_voice is None:
-        try:
-            from omni_mercury_engine.narrative.voice import create_mercury_voice
+        with _voice_lock:
+            # Double-checked locking: re-test after acquiring the lock
+            if _mercury_voice is None:
+                try:
+                    from omni_mercury_engine.narrative.voice import create_mercury_voice
 
-            _mercury_voice = create_mercury_voice()
-        except ImportError:
-            logger.warning("Narrative module not available, using fallback")
-            _mercury_voice = _FallbackVoice()
+                    _mercury_voice = create_mercury_voice()
+                except ImportError:
+                    logger.warning("Narrative module not available, using fallback")
+                    _mercury_voice = _FallbackVoice()
 
     return _mercury_voice
 
 
 def _get_narrative_engine() -> Any:
-    """Get or create Narrative Engine instance."""
+    """Get or create Narrative Engine instance (thread-safe)."""
     global _narrative_engine
 
     if _narrative_engine is None:
-        try:
-            from omni_mercury_engine.narrative.engine import NarrativeEngine
+        with _narrative_lock:
+            if _narrative_engine is None:
+                try:
+                    from omni_mercury_engine.narrative.engine import NarrativeEngine
 
-            _narrative_engine = NarrativeEngine()
-        except ImportError:
-            logger.warning("Narrative engine not available")
-            _narrative_engine = None
+                    _narrative_engine = NarrativeEngine()
+                except ImportError:
+                    logger.warning("Narrative engine not available")
+                    _narrative_engine = None
 
     return _narrative_engine
 
