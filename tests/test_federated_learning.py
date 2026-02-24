@@ -19,16 +19,17 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Tests for Federated Learning module.
+Tests for Federated Learning module (canonical API).
 """
 
 import numpy as np
 
-from omni_mercury_engine.federated import (
+from omni_mercury_engine.federated_learning import (
+    AggregationStrategy,
     CISAFederatedCoordinator,
     FederatedAnomalyDetector,
-    FederatedStrategy,
-    PrivacyLevel,
+    SectorConfig,
+    SectorPrivacyLevel,
 )
 
 
@@ -36,80 +37,76 @@ class TestFederatedAnomalyDetector:
     """Tests for Federated Anomaly Detector."""
 
     def test_initialization(self):
-        """Test detector initialization."""
-        detector = FederatedAnomalyDetector()
-        assert detector.strategy == FederatedStrategy.FEDAVG
-        assert detector.privacy_level == PrivacyLevel.DIFFERENTIAL_PRIVACY
-        assert detector.num_clients == 10
+        """Test detector initialization with default and custom parameters."""
+        detector = FederatedAnomalyDetector(model_dim=10)
+        assert detector._model_dim == 10
+        assert detector._use_privacy is True
+        assert detector._aggregation == "fedavg"
 
-    def test_federated_train(self):
-        """Test federated training."""
-        detector = FederatedAnomalyDetector(num_clients=3)
-
-        client_data = {
-            "client1": np.random.randn(100, 5),
-            "client2": np.random.randn(120, 5),
-            "client3": np.random.randn(110, 5),
-        }
-
-        result = detector.federated_train(client_data=client_data, local_epochs=2, num_rounds=3)
-
-        assert "global_model" in result
-        assert result["global_model"] is not None
-        assert "training_history" in result
-        assert len(result["training_history"]["rounds"]) == 3
-        assert result["num_clients"] == 3
-
-    def test_federated_detect(self):
-        """Test federated anomaly detection."""
-        detector = FederatedAnomalyDetector(num_clients=2)
-
-        client_data_train = {"client1": np.random.randn(100, 5), "client2": np.random.randn(100, 5)}
-
-        detector.federated_train(client_data_train, local_epochs=1, num_rounds=2)
-
-        client_data_test = {"client1": np.random.randn(50, 5), "client2": np.random.randn(50, 5)}
-
-        results = detector.federated_detect(client_data_test)
-
-        assert len(results) == 2
-        assert "client1" in results
-        assert "anomaly_scores" in results["client1"]
-        assert results["client1"]["privacy_preserved"]
-
-    def test_differential_privacy(self):
-        """Test differential privacy noise addition."""
+    def test_fit_and_predict(self):
+        """Test full training and prediction cycle."""
         detector = FederatedAnomalyDetector(
-            privacy_level=PrivacyLevel.DIFFERENTIAL_PRIVACY, epsilon=1.0
+            model_dim=5,
+            n_rounds=3,
+            local_epochs=2,
+            use_privacy=False,
         )
 
-        model_update = np.array([0.1, 0.2, 0.3])
-        noisy_update = detector._add_differential_privacy_noise(model_update)
+        detector.add_client("client1", np.random.randn(100, 5))
+        detector.add_client("client2", np.random.randn(120, 5))
+        detector.add_client("client3", np.random.randn(110, 5))
 
-        assert noisy_update.shape == model_update.shape
-        assert not np.allclose(noisy_update, model_update)
+        result = detector.fit()
 
-    def test_federated_averaging(self):
-        """Test FedAvg aggregation."""
-        detector = FederatedAnomalyDetector(strategy=FederatedStrategy.FEDAVG)
-        detector.global_model_weights = np.array([1.0, 2.0, 3.0])
+        assert result.final_weights is not None
+        assert result.n_rounds == 3
+        assert len(result.round_results) == 3
 
-        updates = [np.array([0.1, 0.2, 0.3]), np.array([0.2, 0.3, 0.4])]
-        weights = [100, 200]
+        # Predict on new data
+        predictions = detector.predict(np.random.randn(50, 5))
+        assert predictions.shape == (50,)
+        assert set(np.unique(predictions)).issubset({0, 1})
 
-        aggregated = detector._federated_averaging(updates, weights)
+    def test_decision_function(self):
+        """Test anomaly scoring."""
+        detector = FederatedAnomalyDetector(
+            model_dim=5, n_rounds=2, use_privacy=False
+        )
 
-        assert aggregated.shape == (3,)
+        detector.add_client("client1", np.random.randn(100, 5))
+        detector.add_client("client2", np.random.randn(100, 5))
+        detector.fit()
 
-    def test_personalization(self):
-        """Test model personalization."""
-        detector = FederatedAnomalyDetector()
-        global_model = np.array([1.0, 2.0, 3.0])
-        local_data = np.random.randn(50, 3)
+        scores = detector.decision_function(np.random.randn(50, 5))
+        assert scores.shape == (50,)
+        assert np.all(scores >= 0)
 
-        personalized = detector._personalize_model("client1", global_model, local_data)
+    def test_privacy_report(self):
+        """Test that privacy reporting works when privacy is enabled."""
+        detector = FederatedAnomalyDetector(
+            model_dim=5,
+            n_rounds=2,
+            use_privacy=True,
+            epsilon=1.0,
+            delta=1e-5,
+        )
 
-        assert personalized.shape == global_model.shape
+        detector.add_client("client1", np.random.randn(100, 5))
+        detector.add_client("client2", np.random.randn(100, 5))
+        detector.fit()
+
+        report = detector.get_privacy_report()
+        assert report is not None
+        assert report.epsilon > 0
+
+    def test_no_clients_raises(self):
+        """Test that fit raises when no clients are registered."""
+        detector = FederatedAnomalyDetector(model_dim=5)
+        try:
+            detector.fit()
+            assert False, "Should have raised ValueError"
+        except ValueError:
+            pass
 
 
 class TestCISAFederatedCoordinator:
@@ -117,27 +114,61 @@ class TestCISAFederatedCoordinator:
 
     def test_initialization(self):
         """Test coordinator initialization."""
-        sectors = ["healthcare", "energy", "financial"]
-        coordinator = CISAFederatedCoordinator(sectors)
+        sectors = ["healthcare", "energy", "financial_services"]
+        coordinator = CISAFederatedCoordinator(sectors, model_dim=5)
 
-        assert len(coordinator.sector_detectors) == 3
-        assert "healthcare" in coordinator.sector_detectors
+        assert len(coordinator.sectors) == 3
+        assert coordinator.get_sector_client_count("healthcare") == 0
+
+    def test_add_sector_client(self):
+        """Test adding clients to sectors."""
+        coordinator = CISAFederatedCoordinator(["healthcare", "energy"], model_dim=5)
+
+        coordinator.add_sector_client("healthcare", "hospital1", np.random.randn(100, 5))
+        coordinator.add_sector_client("healthcare", "hospital2", np.random.randn(100, 5))
+        coordinator.add_sector_client("energy", "utility1", np.random.randn(100, 5))
+
+        assert coordinator.get_sector_client_count("healthcare") == 2
+        assert coordinator.get_sector_client_count("energy") == 1
 
     def test_cross_sector_training(self):
         """Test cross-sector federated training."""
         sectors = ["healthcare", "energy"]
-        coordinator = CISAFederatedCoordinator(sectors)
+        coordinator = CISAFederatedCoordinator(sectors, model_dim=5)
 
-        sector_data = {
-            "healthcare": {
-                "hospital1": np.random.randn(100, 5),
-                "hospital2": np.random.randn(100, 5),
-            },
-            "energy": {"utility1": np.random.randn(100, 5), "utility2": np.random.randn(100, 5)},
-        }
+        coordinator.add_sector_client("healthcare", "hospital1", np.random.randn(100, 5))
+        coordinator.add_sector_client("healthcare", "hospital2", np.random.randn(100, 5))
+        coordinator.add_sector_client("energy", "utility1", np.random.randn(100, 5))
+        coordinator.add_sector_client("energy", "utility2", np.random.randn(100, 5))
 
-        results = coordinator.coordinate_cross_sector_training(sector_data, rounds=2)
+        result = coordinator.coordinate_cross_sector_training(rounds=2)
 
-        assert "healthcare" in results
-        assert "energy" in results
-        assert "global_model" in results["healthcare"]
+        assert "healthcare" in result.sector_results
+        assert "energy" in result.sector_results
+        assert result.total_clients == 4
+        assert len(result.participating_sectors) == 2
+        assert result.global_model_weights is not None
+
+    def test_sector_configuration(self):
+        """Test configuring sector-specific privacy."""
+        coordinator = CISAFederatedCoordinator(["healthcare"], model_dim=5)
+
+        config = SectorConfig(
+            sector_name="healthcare",
+            privacy_level=SectorPrivacyLevel.MAXIMUM,
+            epsilon=0.5,
+        )
+        coordinator.configure_sector("healthcare", config)
+
+        stats = coordinator.get_coordination_stats()
+        assert stats["sectors"]["healthcare"]["privacy_level"] == "MAXIMUM"
+        assert stats["sectors"]["healthcare"]["epsilon"] == 0.5
+
+    def test_unknown_sector_raises(self):
+        """Test that adding to an unknown sector raises."""
+        coordinator = CISAFederatedCoordinator(["healthcare"], model_dim=5)
+        try:
+            coordinator.add_sector_client("energy", "x", np.random.randn(10, 5))
+            assert False, "Should have raised ValueError"
+        except ValueError:
+            pass

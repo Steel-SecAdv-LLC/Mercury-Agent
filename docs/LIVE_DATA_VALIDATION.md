@@ -5,7 +5,7 @@
 Mercury's anomaly detection is validated on 51 real-world datasets (47 ADBench tabular
 datasets + 4 domain-specific loaders). Results are measured, not estimated.
 
-**Current measured performance** (from `benchmarks/honest_benchmark_results.json`):
+**Current measured performance** (from `benchmarks/mercury_benchmark_results.json`):
 - Mean AUC: 0.8030
 - Median AUC: 0.8852
 - Mean Oracle F1: 0.5886
@@ -17,10 +17,10 @@ datasets + 4 domain-specific loaders). Results are measured, not estimated.
 # Install dependencies
 pip install -e ".[ml]"
 
-# Run the honest benchmark
-python benchmarks/honest_benchmark.py
+# Run the mercury benchmark
+python benchmarks/mercury_benchmark.py
 
-# Results saved to benchmarks/honest_benchmark_results.json
+# Results saved to benchmarks/mercury_benchmark_results.json
 ```
 
 The benchmark caches downloaded datasets in `~/.omni_mercury/datasets/`.
@@ -46,7 +46,7 @@ Subsequent runs are faster.
 
 ## Calibration Validation
 
-In addition to the unsupervised honest benchmark, a calibration validation harness
+In addition to the unsupervised mercury benchmark, a calibration validation harness
 tests supervised threshold calibration, conformal coverage, and adaptive ensemble
 weights on the same real-world datasets.
 
@@ -80,7 +80,7 @@ from GitHub. If behind a firewall, set `HTTPS_PROXY`:
 
 ```bash
 export HTTPS_PROXY=http://proxy:8080
-python benchmarks/honest_benchmark.py
+python benchmarks/mercury_benchmark.py
 ```
 
 ### Cache corruption
@@ -91,7 +91,7 @@ python benchmarks/honest_benchmark.py
 
 ```bash
 rm -rf ~/.omni_mercury/datasets/
-python benchmarks/honest_benchmark.py
+python benchmarks/mercury_benchmark.py
 ```
 
 ### Out of memory
@@ -99,7 +99,7 @@ python benchmarks/honest_benchmark.py
 **Symptom:** `MemoryError` or killed process during large datasets.
 
 **Fix:** The benchmark caps datasets at 10,000 samples by default (`MAX_SAMPLES`).
-If you're still running out of memory, reduce the value in `honest_benchmark.py`.
+If you're still running out of memory, reduce the value in `mercury_benchmark.py`.
 
 ### CUDA errors
 
@@ -109,7 +109,7 @@ If you're still running out of memory, reduce the value in `honest_benchmark.py`
 from other parts of the stack (PyTorch models, visual detectors). Set:
 
 ```bash
-CUDA_VISIBLE_DEVICES="" python benchmarks/honest_benchmark.py
+CUDA_VISIBLE_DEVICES="" python benchmarks/mercury_benchmark.py
 ```
 
 ### Timeouts in CI

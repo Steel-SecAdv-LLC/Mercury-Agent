@@ -488,7 +488,7 @@ class TestMultiStrategyThreshold:
 
     def test_returns_five_values(self):
         """Should return (f1, prec, rec, thr, strategy_name)."""
-        from honest_benchmark import _oracle_threshold_f1
+        from mercury_benchmark import _oracle_threshold_f1
 
         rng = np.random.RandomState(42)
         scores = rng.rand(100)
@@ -502,7 +502,7 @@ class TestMultiStrategyThreshold:
         assert isinstance(name, str)
 
     def test_perfect_separation_gives_f1_1(self):
-        from honest_benchmark import _oracle_threshold_f1
+        from mercury_benchmark import _oracle_threshold_f1
 
         scores = np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0])
         labels = np.array([0, 0, 0, 0, 1, 1, 1, 1])
@@ -511,7 +511,7 @@ class TestMultiStrategyThreshold:
 
     def test_strategy_name_not_default(self):
         """With real data, strategy should be something other than 'default'."""
-        from honest_benchmark import _oracle_threshold_f1
+        from mercury_benchmark import _oracle_threshold_f1
 
         rng = np.random.RandomState(42)
         n = 200

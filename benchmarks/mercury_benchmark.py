@@ -1,5 +1,5 @@
 """
-Mercury Agent - Honest Benchmark Suite
+Mercury Agent - Mercury Benchmark Suite
 Copyright (C) 2025 Steel Security Advisors LLC (GPL-3.0)
 
 Standalone benchmark that measures MercuryAnomalyDetector performance
@@ -8,10 +8,10 @@ estimated.  If a loader fails the error is recorded and the script moves
 on -- no synthetic fallback, no silent skip.
 
 Usage:
-    python benchmarks/honest_benchmark.py
+    python benchmarks/mercury_benchmark.py
 
 Output:
-    benchmarks/honest_benchmark_results.json
+    benchmarks/mercury_benchmark_results.json
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 MAX_SAMPLES = 10_000
 N_THRESHOLDS = 101
-OUTPUT_PATH = Path(__file__).parent / "honest_benchmark_results.json"
+OUTPUT_PATH = Path(__file__).parent / "mercury_benchmark_results.json"
 
 
 # ---------------------------------------------------------------------------
@@ -342,14 +342,14 @@ def run_benchmark(
     live_only: bool = False,
     domain_filter: str | None = None,
 ) -> dict[str, Any]:
-    """Run the honest benchmark.  Returns the full results dict.
+    """Run the mercury benchmark.  Returns the full results dict.
 
     Args:
         live_only: If True, skip ADBench and run only API-sourced domain datasets.
         domain_filter: If set, only run datasets matching this category.
     """
     print("=" * 70)
-    print("Mercury Agent - Honest Benchmark")
+    print("Mercury Agent - Mercury Benchmark")
     print("MercuryAnomalyDetector (Resonance 40% + Kinematic 30% + InfoGeo 30%)")
     print(f"Max {MAX_SAMPLES} samples per dataset, oracle threshold sweep")
     if live_only:
@@ -845,7 +845,7 @@ def run_progressive_validation(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Mercury Agent Honest Benchmark")
+    parser = argparse.ArgumentParser(description="Mercury Agent Benchmark")
     parser.add_argument(
         "--live-only",
         action="store_true",
@@ -868,7 +868,7 @@ if __name__ == "__main__":
 
     # -----------------------------------------------------------------------
     # Per-dataset results for human review (Task 12)
-    # Do NOT overwrite honest_benchmark_results.json — this is a SEPARATE file.
+    # Do NOT overwrite mercury_benchmark_results.json — this is a SEPARATE file.
     # -----------------------------------------------------------------------
     BENCHMARKS_DIR = Path(__file__).parent
     per_dataset_path = BENCHMARKS_DIR / "per_dataset_results.json"

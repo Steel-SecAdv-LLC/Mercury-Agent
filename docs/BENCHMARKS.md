@@ -28,10 +28,10 @@ unsupervised anomaly detection ensemble — on labeled real-world datasets.
 ## How to Reproduce
 
 ```bash
-python benchmarks/honest_benchmark.py
+python benchmarks/mercury_benchmark.py
 ```
 
-Results are saved to `benchmarks/honest_benchmark_results.json`.
+Results are saved to `benchmarks/mercury_benchmark_results.json`.
 Every number in this document comes from that file.
 
 ## Aggregate Results
@@ -167,7 +167,7 @@ recorded as errors in the results JSON, not replaced with synthetic data.
 
 A separate calibration validation harness measures the effect of supervised threshold
 calibration, conformal coverage, and adaptive ensemble weights on the same datasets.
-Unlike the honest benchmark (unsupervised, normal-only training), the calibration
+Unlike the mercury benchmark (unsupervised, normal-only training), the calibration
 harness uses a labeled 60/20/20 train/calibration/test split with `fit_with_labels()`.
 
 ### How to Reproduce
@@ -275,7 +275,7 @@ fixed defaults, with mean delta of only +0.003 F1.
 
 ## CI Integration
 
-The CI pipeline (`.github/workflows/benchmark.yml`) gates on `honest_benchmark.py`
+The CI pipeline (`.github/workflows/benchmark.yml`) gates on `mercury_benchmark.py`
 (Mercury detector in isolation) with regression thresholds set at 15% margin below
 measured performance:
 

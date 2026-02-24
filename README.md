@@ -153,7 +153,7 @@ Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 do
 - When labeled anomaly data is available (use supervised classifiers)
 - When memory is constrained (use simpler methods)
 
-*Full results: `benchmarks/honest_benchmark_results.json`. Methodology: `docs/BENCHMARKS.md`.*
+*Full results: `benchmarks/mercury_benchmark_results.json`. Methodology: `docs/BENCHMARKS.md`.*
 
 ### Comprehensive Multi-Panel Visualizations
 
@@ -161,7 +161,7 @@ The following consolidated visualizations capture all benchmark metrics in profe
 
 #### Neuro-Symbolic Benchmark Report
 
-Ensemble vs. individual component AUCs across all measured datasets, generated from `honest_benchmark_results.json`:
+Ensemble vs. individual component AUCs across all measured datasets, generated from `mercury_benchmark_results.json`:
 
 ![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
 
@@ -628,7 +628,7 @@ Optimized for both accuracy and interpretability:
 - **Complete**: Implemented and tested
 - **Pending**: Requires real-world dataset validation
 
-> **Note:** Core anomaly detection is benchmarked on 75 real-world datasets (see `benchmarks/honest_benchmark_results.json`). Domain-specific modules may still require validation on their target datasets before production deployment.
+> **Note:** Core anomaly detection is benchmarked on 75 real-world datasets (see `benchmarks/mercury_benchmark_results.json`). Domain-specific modules may still require validation on their target datasets before production deployment.
 
 </details>
 

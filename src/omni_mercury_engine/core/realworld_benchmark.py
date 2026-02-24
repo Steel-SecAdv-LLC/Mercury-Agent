@@ -24,7 +24,7 @@ from __future__ import annotations
 import warnings
 
 warnings.warn(
-    f"{__name__} is deprecated. Use benchmarks/honest_benchmark.py and MercuryAnomalyDetector.",
+    f"{__name__} is deprecated. Use benchmarks/mercury_benchmark.py and MercuryAnomalyDetector.",
     DeprecationWarning,
     stacklevel=2,
 )

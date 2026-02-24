@@ -1,5 +1,5 @@
 # Mercury-Agent Benchmark CI/CD Pipeline
-# Gates on honest_benchmark.py (Mercury detector in isolation); empirical runs as comparison only
+# Gates on mercury_benchmark.py (Mercury detector in isolation); empirical runs as comparison only
 # Copyright (C) 2025 Steel Security Advisors LLC
 
 name: Benchmark Pipeline
@@ -64,7 +64,7 @@ jobs:
   # Benchmark Suite
   # ===========================================================================
   benchmark:
-    name: Run Honest Benchmarks
+    name: Run Mercury Benchmarks
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -98,15 +98,15 @@ jobs:
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov
 
-      - name: Run honest benchmark (gating)
+      - name: Run mercury benchmark (gating)
         id: benchmark
         run: |
-          python benchmarks/honest_benchmark.py
+          python benchmarks/mercury_benchmark.py
 
           python -c "
           import json, sys, os
 
-          with open('benchmarks/honest_benchmark_results.json') as f:
+          with open('benchmarks/mercury_benchmark_results.json') as f:
               data = json.load(f)
 
           mean_auc = data['summary']['mean_auc']
@@ -145,7 +145,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results-${{ github.sha }}
-          path: benchmarks/honest_benchmark_results.json
+          path: benchmarks/mercury_benchmark_results.json
           retention-days: 90
 
       # Comparison baselines — not gating
@@ -200,7 +200,7 @@ jobs:
           import json
           import sys
 
-          with open('current/honest_benchmark_results.json') as f:
+          with open('current/mercury_benchmark_results.json') as f:
               data = json.load(f)
 
           mean_auc = data['summary']['mean_auc']

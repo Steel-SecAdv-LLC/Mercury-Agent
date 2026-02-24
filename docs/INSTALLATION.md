@@ -69,9 +69,9 @@ pytest tests/ -x -k "not mimic and not swat and not wadi"
 ## Running Benchmarks
 
 ```bash
-# Honest benchmark on real datasets (requires ML deps for data loading)
+# Mercury benchmark on real datasets (requires ML deps for data loading)
 pip install -e ".[ml]"
-python benchmarks/honest_benchmark.py
+python benchmarks/mercury_benchmark.py
 ```
 
-Results are written to `benchmarks/honest_benchmark_results.json`.
+Results are written to `benchmarks/mercury_benchmark_results.json`.

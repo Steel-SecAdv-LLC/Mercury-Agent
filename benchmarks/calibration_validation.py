@@ -17,7 +17,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 Resolves math debt items MD-011, MD-003, MD-005 by running calibration,
 cross-validation, and conformal coverage measurement against all
-datasets used in the honest benchmark.
+datasets used in the mercury benchmark.
 
 Usage:
     python benchmarks/calibration_validation.py
@@ -48,12 +48,12 @@ from sklearn.preprocessing import StandardScaler
 # ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-# Import from honest_benchmark (sibling module in benchmarks/)
+# Import from mercury_benchmark (sibling module in benchmarks/)
 _benchmarks_dir = str(Path(__file__).parent)
 if _benchmarks_dir not in sys.path:
     sys.path.insert(0, _benchmarks_dir)
 
-from honest_benchmark import (  # type: ignore[import-untyped]
+from mercury_benchmark import (  # type: ignore[import-untyped]
     DOMAIN_DATASETS,
     _cap_stratified,
     _load_adbench,

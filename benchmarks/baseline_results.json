@@ -1,5 +1,5 @@
 {
-  "_provenance": "Reference comparison values. IsolationForest/LOF/OCSVM/EllipticEnvelope numbers are approximate from published literature, not measured by this benchmark suite. See honest_benchmark_results.json for measured Mercury results.",
+  "_provenance": "Reference comparison values. IsolationForest/LOF/OCSVM/EllipticEnvelope numbers are approximate from published literature, not measured by this benchmark suite. See mercury_benchmark_results.json for measured Mercury results.",
   "description": "Peer comparison baseline results for unsupervised anomaly detection",
   "timestamp": "2026-01-27T01:38:29+00:00",
   "methodology": {

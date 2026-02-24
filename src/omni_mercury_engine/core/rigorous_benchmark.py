@@ -1,6 +1,6 @@
 """DEPRECATED: This module uses sklearn for anomaly detection baselines.
 
-Mercury's production benchmark is benchmarks/honest_benchmark.py.
+Mercury's production benchmark is benchmarks/mercury_benchmark.py.
 Mercury's production detector is MercuryAnomalyDetector in
 detectors/statistical.py. This module is retained for reference
 only and will be removed in a future release.

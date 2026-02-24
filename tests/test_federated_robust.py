@@ -27,21 +27,7 @@ def test_federated_robust_canonical_import() -> None:
     assert FederatedAnomalyDetection is not None
 
 
-def test_federated_robust_compat_import() -> None:
-    from omni_mercury_engine.federated.federated_robust import (
-        FederatedAnomalyDetection,
-    )
-
-    assert FederatedAnomalyDetection is not None
-
-
-def test_federated_robust_package_export_canonical() -> None:
+def test_federated_robust_package_export() -> None:
     from omni_mercury_engine.federated_learning import FederatedAnomalyDetection
-
-    assert FederatedAnomalyDetection is not None
-
-
-def test_federated_robust_package_export_compat() -> None:
-    from omni_mercury_engine.federated import FederatedAnomalyDetection
 
     assert FederatedAnomalyDetection is not None

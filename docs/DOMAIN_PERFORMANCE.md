@@ -4,9 +4,9 @@ Per-domain precision/recall analysis from real benchmark data.
 
 ## Data Source
 
-All metrics sourced from `benchmarks/honest_benchmark_results.json`,
+All metrics sourced from `benchmarks/mercury_benchmark_results.json`,
 specifically the `domain_summary` section. Run
-`python benchmarks/honest_benchmark.py` to regenerate.
+`python benchmarks/mercury_benchmark.py` to regenerate.
 
 ## Domain Summary Schema
 
@@ -156,9 +156,9 @@ Test Data → detect()
 
 **Status: Populated after benchmark run.**
 
-Run `python benchmarks/honest_benchmark.py` to generate results,
+Run `python benchmarks/mercury_benchmark.py` to generate results,
 then `python scripts/generate_docs_images.py` to produce
 visualisations from the measured data.
 
 Every number in the generated charts is traceable to
-`honest_benchmark_results.json`. No hardcoded or aspirational figures.
+`mercury_benchmark_results.json`. No hardcoded or aspirational figures.
