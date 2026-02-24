@@ -179,7 +179,7 @@ Timing scatter plots, AUC distribution histogram, and per-component statistics:
 
 #### Benchmark Summary (All Datasets)
 
-AUC bar chart for all 51 datasets sorted by performance, with mean line:
+AUC bar chart for all datasets sorted by performance, with mean line:
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
@@ -628,7 +628,7 @@ Optimized for both accuracy and interpretability:
 - **Complete**: Implemented and tested
 - **Pending**: Requires real-world dataset validation
 
-> **Note:** Core anomaly detection is benchmarked on 51 real-world datasets (see `benchmarks/honest_benchmark_results.json`). Domain-specific modules may still require validation on their target datasets before production deployment.
+> **Note:** Core anomaly detection is benchmarked on 75 real-world datasets (see `benchmarks/honest_benchmark_results.json`). Domain-specific modules may still require validation on their target datasets before production deployment.
 
 </details>
 
@@ -1114,8 +1114,12 @@ mypy src/
 | Document | Description |
 |----------|-------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Detailed system architecture |
-| [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | REST API endpoints and usage |
 | [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | Benchmark methodology and results |
+| [docs/DOMAIN_PERFORMANCE.md](docs/DOMAIN_PERFORMANCE.md) | Per-domain precision/recall analysis |
+| [docs/MATH_SPEC.md](docs/MATH_SPEC.md) | Mathematical foundations specification |
+| [docs/ORACLE_NOISE_COLOR.md](docs/ORACLE_NOISE_COLOR.md) | Oracle noise color calibration theory |
+| [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Feature roadmap and planned work |
 
 </details>
@@ -1128,6 +1132,8 @@ mypy src/
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [DEPRECATION.md](DEPRECATION.md) | Deprecation notices |
+| [docs/INSTALLATION.md](docs/INSTALLATION.md) | Installation and setup guide |
+| [docs/DATASOURCES.md](docs/DATASOURCES.md) | Data source catalog and APIs |
 
 </details>
 
@@ -1815,7 +1821,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on 51 real datasets (Mean AUC 0.803). Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on 75 real datasets (Mean AUC 0.8379). Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 
