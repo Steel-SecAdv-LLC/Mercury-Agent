@@ -174,6 +174,35 @@ DOMAIN_FREQUENCY_BANDS: dict[str, list[tuple[float, float, str, float]]] = {
 }
 
 
+DOMAIN_ANOMALY_SPECTRAL_HINTS: dict[str, dict[str, Any]] = {
+    "environmental": {
+        "expect_broadband_spike": True,
+        "primary_band": "sub_schumann",
+        "anomaly_beta_shift": -0.5,  # Anomaly whitens the spectrum
+    },
+    "ocean": {
+        "expect_low_freq_shift": True,
+        "primary_band": "infrasound_geophysical",
+        "anomaly_beta_shift": +0.5,  # Anomaly reddens the spectrum
+    },
+    "security": {
+        "expect_narrowband_spike": True,
+        "primary_band": "high_frequency",
+        "anomaly_beta_shift": -1.0,  # Anomaly creates sharp peaks
+    },
+    "space": {
+        "expect_broadband_spike": True,
+        "primary_band": "schumann",
+        "anomaly_beta_shift": -0.5,
+    },
+    "climate": {
+        "expect_low_freq_shift": True,
+        "primary_band": "sub_schumann",
+        "anomaly_beta_shift": +0.3,
+    },
+}
+
+
 def get_domain_frequency_bands(
     domain: str,
 ) -> list[tuple[float, float, str, float]]:
@@ -361,6 +390,11 @@ class SpectralDomainOracle(BaseDetector):
         self._ref_spectral_entropy_std: float = 1.0
         self._ref_full_spectrum_mean: np.ndarray | None = None
         self._ref_full_spectrum_std: np.ndarray | None = None
+
+        # Noise color estimation (from F1 Precision Directive)
+        self._noise_beta: float = 0.0
+        self._noise_color: str = "white"
+        self._noise_fit_r2: float = 0.0
 
     # ------------------------------------------------------------------
     # Band resolution
@@ -1012,6 +1046,101 @@ class SpectralDomainOracle(BaseDetector):
         return float(mad * 1.4826 / np.sqrt(2.0)) + EPSILON
 
     # ------------------------------------------------------------------
+    # Noise color estimation (F1 Precision Directive, Phase 4)
+    # ------------------------------------------------------------------
+
+    def _estimate_noise_color(
+        self, psd: np.ndarray, freqs: np.ndarray
+    ) -> tuple[float, str, float]:
+        """Estimate the noise color exponent (beta) from the PSD.
+
+        Fits log(PSD) = -beta * log(freq) + C using linear regression
+        on the log-log spectrum.
+
+        Noise colors:
+            beta ~ 0  -> white noise  (flat spectrum)
+            beta ~ 1  -> pink noise   (1/f)
+            beta ~ 2  -> brown noise  (1/f^2, Brownian)
+            beta ~ -1 -> blue noise   (f)
+
+        Returns:
+            (beta, color_name, r_squared)
+        """
+        mask = (freqs > 0) & (psd > 0)
+        if mask.sum() < 3:
+            return 0.0, "white", 0.0
+
+        log_f = np.log10(freqs[mask])
+        log_p = np.log10(psd[mask])
+
+        A = np.vstack([log_f, np.ones_like(log_f)]).T
+        result = np.linalg.lstsq(A, log_p, rcond=None)
+        slope = result[0][0]
+        beta = -slope
+
+        fitted = A @ result[0]
+        ss_res = np.sum((log_p - fitted) ** 2)
+        ss_tot = np.sum((log_p - np.mean(log_p)) ** 2)
+        r2 = float(np.clip(1.0 - ss_res / max(ss_tot, 1e-10), 0.0, 1.0))
+
+        if beta < -1.5:
+            color = "violet"
+        elif beta < -0.5:
+            color = "blue"
+        elif beta < 0.5:
+            color = "white"
+        elif beta < 1.5:
+            color = "pink"
+        else:
+            color = "brown"
+
+        return float(beta), color, r2
+
+    def _expected_band_power(self, lo: float, hi: float, beta: float) -> float:
+        """Expected fractional power in [lo, hi] under 1/f^beta model."""
+        if abs(beta - 1.0) < 0.01:
+            return float(np.log(max(hi, 1e-10)) - np.log(max(lo, 1e-10)))
+        exp = 1.0 - beta
+        if exp == 0:
+            return float(np.log(hi / max(lo, 1e-10)))
+        return float((hi ** exp - lo ** exp) / exp)
+
+    # ------------------------------------------------------------------
+    # Adaptive alpha (F1 Precision Directive, Phase 5)
+    # ------------------------------------------------------------------
+
+    def _compute_adaptive_alpha(
+        self, n_samples: int, n_bands: int, noise_color_confidence: float
+    ) -> float:
+        """Adjust significance level based on test power.
+
+        Shorter windows -> less power -> relax alpha.
+        More bands -> multiple testing correction -> tighten alpha.
+
+        Returns:
+            Adjusted alpha in [0.01, 0.20].
+        """
+        base_alpha = self._oracle_config.significance_level
+
+        if n_samples < 50:
+            size_factor = 2.0
+        elif n_samples < 200:
+            size_factor = 1.5
+        elif n_samples < 1000:
+            size_factor = 1.0
+        else:
+            size_factor = 0.8
+
+        testing_factor = 1.0 / (1.0 + 0.1 * n_bands)
+        confidence_factor = 1.0 + 0.5 * (1.0 - noise_color_confidence)
+
+        # Dynamic factor from external caller (severity-based)
+        dynamic = getattr(self, "_dynamic_alpha_factor", 1.0)
+
+        alpha = base_alpha * size_factor * testing_factor * confidence_factor * dynamic
+        return float(np.clip(alpha, 0.01, 0.20))
+
+    # ------------------------------------------------------------------
     # Per-band anomaly scoring
     # ------------------------------------------------------------------
 
@@ -1045,8 +1174,23 @@ class SpectralDomainOracle(BaseDetector):
         observed_mean = float(np.mean(band_power_series))
         power_ratio = observed_mean / (ref_mean + EPSILON)
 
-        # Z-score
-        z_score = (observed_mean - ref_mean) / (ref_std + EPSILON)
+        # Noise color correction: adjust expected power for spectral slope
+        corrected_ratio = power_ratio
+        if self._noise_beta != 0.0:
+            band_center = (lo + hi) / 2.0
+            if band_center > 0:
+                expected = self._expected_band_power(max(lo, 1e-6), max(hi, 1e-6), self._noise_beta)
+                nyquist = self._oracle_config.sample_rate / 2.0
+                total_expected = self._expected_band_power(1e-6, max(nyquist, 1e-6), self._noise_beta)
+                if total_expected > 1e-10 and expected > 1e-10:
+                    expected_ratio = expected / total_expected
+                    corrected_ratio = power_ratio / max(expected_ratio, 1e-10)
+
+        # Z-score (use corrected ratio when noise color is estimated)
+        if self._noise_beta != 0.0:
+            z_score = (corrected_ratio - ref_mean) / (ref_std + EPSILON)
+        else:
+            z_score = (observed_mean - ref_mean) / (ref_std + EPSILON)
         z_anomaly = float(np.clip(abs(z_score) / 3.0, 0.0, 1.0))
 
         # Change-point evidence
@@ -1159,6 +1303,28 @@ class SpectralDomainOracle(BaseDetector):
             * coherence_influence
         ) ** exponent
 
+        # Asymmetric adjustment (F1 Precision Directive, Phase 6):
+        # For life-safety systems, missing an anomaly > false alarm.
+        # Amplification gets 1.5x boost, attenuation gets 0.8x suppression.
+        if multiplier > 1.0:
+            multiplier = 1.0 + (multiplier - 1.0) * 1.5
+        else:
+            multiplier = 1.0 - (1.0 - multiplier) * 0.8
+
+        # Domain anomaly spectral hint boost (Phase 9)
+        if self._noise_beta != 0.0:
+            hints = DOMAIN_ANOMALY_SPECTRAL_HINTS.get(
+                self._oracle_config.domain, {}
+            )
+            expected_shift = hints.get("anomaly_beta_shift", 0.0)
+            if expected_shift != 0.0 and hasattr(self, "_current_beta"):
+                beta_shift = self._current_beta - self._noise_beta
+                shift_alignment = 1.0 - abs(beta_shift - expected_shift) / (
+                    abs(expected_shift) + 1.0
+                )
+                if shift_alignment > 0.5:
+                    multiplier *= 1.0 + 0.3 * shift_alignment
+
         return float(np.clip(multiplier, floor, ceiling))
 
     # ------------------------------------------------------------------
@@ -1226,6 +1392,20 @@ class SpectralDomainOracle(BaseDetector):
         spectra_array = np.array(all_spectra)
         self._ref_full_spectrum_mean = np.mean(spectra_array, axis=0)
         self._ref_full_spectrum_std = np.std(spectra_array, axis=0) + EPSILON
+
+        # Estimate noise color from reference spectrum
+        if len(all_spectra) > 0:
+            ref_psd = np.mean(np.array(all_spectra), axis=0)
+            # Use freqs from last computed frequency matrix
+            _, ref_freqs = self._compute_frequency_matrix(data[-1])
+            if len(ref_psd) == len(ref_freqs):
+                self._noise_beta, self._noise_color, self._noise_fit_r2 = (
+                    self._estimate_noise_color(ref_psd, ref_freqs)
+                )
+                logger.info(
+                    "Oracle noise color: beta=%.2f (%s), R²=%.3f",
+                    self._noise_beta, self._noise_color, self._noise_fit_r2,
+                )
 
         self._is_fitted = True
         logger.info(
@@ -1382,13 +1562,21 @@ class SpectralDomainOracle(BaseDetector):
         # Stage 1: Windowed DFT
         freq_matrix, freqs = self._compute_frequency_matrix(signal)
 
+        # Estimate current noise color for spectral hint comparison
+        mean_spectrum = np.mean(freq_matrix, axis=0)
+        self._current_beta, _, _ = self._estimate_noise_color(mean_spectrum, freqs)
+
         # Stage 2: Parseval validation (uses existing freq_matrix)
         self._validate_parseval_energy(signal, freq_matrix)
 
         # Stage 3: Per-band extraction and scoring
         band_powers = self._extract_band_powers(freq_matrix, freqs)
 
-        alpha = self._oracle_config.significance_level
+        alpha = self._compute_adaptive_alpha(
+            n_samples=len(signal),
+            n_bands=len(self._bands),
+            noise_color_confidence=self._noise_fit_r2,
+        )
         band_results: list[FrequencyBandResult] = []
         band_scores_dict: dict[str, float] = {}
 
@@ -1470,6 +1658,11 @@ class SpectralDomainOracle(BaseDetector):
             "influence_vector": iv,
             "band_results": band_results,
             "detector_type": "spectral_domain_oracle",
+            "noise_color": {
+                "beta": self._noise_beta,
+                "name": self._noise_color,
+                "r_squared": self._noise_fit_r2,
+            },
         }
 
 
