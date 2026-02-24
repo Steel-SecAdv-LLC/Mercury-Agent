@@ -2398,7 +2398,9 @@ class MercuryAnomalyDetector(BaseDetector):
         scores = np.mean(normalized_dist, axis=1)
         return np.clip(scores, 0, 1)
 
-    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+    def extract_features(
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract statistical features for ML fusion.
 
         Args:

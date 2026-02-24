@@ -290,7 +290,7 @@ class TornadoLoader(BaseDomainLoader):
             int(labels.sum()),
             len(labels),
         )
-        return labels
+        return np.asarray(labels)
 
     # ------------------------------------------------------------------
     # Feature engineering

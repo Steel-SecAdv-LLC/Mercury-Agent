@@ -385,7 +385,7 @@ class SepsisLoader(BaseDomainLoader):
             len(labels),
             100.0 * n_positive / max(len(labels), 1),
         )
-        return labels
+        return np.asarray(labels)
 
     # ------------------------------------------------------------------
     # Feature engineering

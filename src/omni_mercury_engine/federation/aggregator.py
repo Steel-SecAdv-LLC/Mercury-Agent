@@ -129,7 +129,7 @@ class FederatedAggregator:
             between = np.zeros_like(global_mean)
             for m, w in zip(means, weights):
                 between = between + (np.asarray(m, dtype=np.float64) - global_mean) ** 2 * w
-            return np.sqrt(np.maximum(within + between, 1e-16))
+            return np.asarray(np.sqrt(np.maximum(within + between, 1e-16)))
 
         # Aggregate means
         global_mean = wavg([s.mean for s in subs])

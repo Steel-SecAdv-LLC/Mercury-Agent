@@ -246,7 +246,7 @@ class EarthquakeLoader(BaseDomainLoader):
             len(labels),
             threshold,
         )
-        return labels
+        return np.asarray(labels)
 
     # ------------------------------------------------------------------
     # Feature engineering

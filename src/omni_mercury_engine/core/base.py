@@ -654,7 +654,9 @@ class BaseModel(ABC):
         """
         pass
 
-    def get_uncertainty(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+    def get_uncertainty(
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Estimate uncertainty for fusion weighting.
 
         Default implementation returns zeros.
