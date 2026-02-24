@@ -25,7 +25,6 @@ Tests for Federated Learning module (canonical API).
 import numpy as np
 
 from omni_mercury_engine.federated_learning import (
-    AggregationStrategy,
     CISAFederatedCoordinator,
     FederatedAnomalyDetector,
     SectorConfig,
@@ -69,9 +68,7 @@ class TestFederatedAnomalyDetector:
 
     def test_decision_function(self):
         """Test anomaly scoring."""
-        detector = FederatedAnomalyDetector(
-            model_dim=5, n_rounds=2, use_privacy=False
-        )
+        detector = FederatedAnomalyDetector(model_dim=5, n_rounds=2, use_privacy=False)
 
         detector.add_client("client1", np.random.randn(100, 5))
         detector.add_client("client2", np.random.randn(100, 5))
@@ -104,7 +101,7 @@ class TestFederatedAnomalyDetector:
         detector = FederatedAnomalyDetector(model_dim=5)
         try:
             detector.fit()
-            assert False, "Should have raised ValueError"
+            raise AssertionError("Should have raised ValueError")
         except ValueError:
             pass
 
@@ -169,6 +166,6 @@ class TestCISAFederatedCoordinator:
         coordinator = CISAFederatedCoordinator(["healthcare"], model_dim=5)
         try:
             coordinator.add_sector_client("energy", "x", np.random.randn(10, 5))
-            assert False, "Should have raised ValueError"
+            raise AssertionError("Should have raised ValueError")
         except ValueError:
             pass
