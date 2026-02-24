@@ -29,6 +29,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through `detect()` return path, enabling Oracle-augmented scoring across all
   75 benchmark datasets.
 
+### Added (F1 Precision Directive — Phases 1-10)
+
+- **Phase 1**: Renamed "Superintelligence Bootstrap" → "Cognitive Evolution Engine"
+- **Phase 2**: Added pairwise Spearman inversion guard (ρ < -0.2) and unsupervised ensemble flip (median > 0.80)
+- **Phase 3**: Created domain-adaptive weight presets (14 domains, 60/40 data-driven/prior blend)
+- **Phase 4**: Implemented noise color estimation via log-log PSD regression (white/pink/brown detection)
+- **Phase 5**: Added adaptive significance alpha based on window size and noise model confidence
+- **Phase 6**: Applied asymmetric influence bias (1.5x amplification boost, 0.8x attenuation suppression)
+- **Phase 7**: Added residual frequency filter via FFT bandpass (70/30 blend ratio)
+- **Phase 8**: Upgraded to multi-strategy threshold selection (percentile, MAD, contamination-aware, linear sweep)
+- **Phase 9**: Added DOMAIN_ANOMALY_SPECTRAL_HINTS and dynamic Oracle sensitivity based on initial severity
+- **Phase 10**: Added 30+ tests for all F1 precision improvements, ORACLE_NOISE_COLOR.md documentation
+
 ### Changed (Benchmark Expansion)
 
 - **Benchmark coverage**: Expanded from 51 to 75 total datasets (47 ADBench +

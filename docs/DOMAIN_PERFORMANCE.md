@@ -85,6 +85,73 @@ The Oracle is auto-activated for temporal data based on the
 | financial | disabled | Oracle skipped |
 | humanitarian | disabled | Oracle skipped |
 
+## F1 Precision Improvements (Merged from o33Fu)
+
+### Threshold Strategy Analysis
+
+The multi-strategy threshold selection evaluates 4 classes of strategies:
+
+1. **Percentile-based** (85th-99th): Works well for datasets with clear score separation
+2. **MAD-based** (k=2.0-4.0): Robust to outliers, good for heavy-tailed distributions
+3. **Contamination-aware**: Uses actual anomaly ratio — strongest for known contamination
+4. **Linear sweep**: Baseline 101-point grid — catches edge cases
+
+### Domain Weight Presets
+
+Derived from measured component AUCs across benchmark datasets:
+
+| Domain | Resonance | Kinematic | InfoGeometry | Rationale |
+|--------|-----------|-----------|-------------|-----------|
+| disaster | 0.30 | 0.00 | 0.70 | Tabular: kinematic adds noise |
+| general | 0.30 | 0.00 | 0.70 | Tabular: kinematic adds noise |
+| academic | 0.47 | 0.03 | 0.50 | Mostly tabular, minimal temporal |
+| security | 0.47 | 0.00 | 0.53 | Packet data: no physics dynamics |
+| industrial | 0.47 | 0.00 | 0.53 | Mostly sensor thresholds |
+| ocean | 0.30 | 0.40 | 0.30 | Wave physics: kinematic valuable |
+| climate | 0.35 | 0.30 | 0.35 | Temporal dynamics matter |
+| air_quality | 0.35 | 0.30 | 0.35 | Temporal dynamics matter |
+| environmental | 0.35 | 0.30 | 0.35 | Geophysical dynamics |
+| space | 0.30 | 0.35 | 0.35 | Solar wind: physics-rich |
+| timeseries | 0.35 | 0.20 | 0.45 | Mixed: moderate kinematic |
+| adbench | 0.40 | 0.15 | 0.45 | Heterogeneous: conservative |
+| default | 0.40 | 0.20 | 0.40 | Fallback: balanced |
+
+### Noise Color Estimates by Domain
+
+| Domain | Expected Beta Range | Noise Type |
+|--------|-------------------|------------|
+| environmental | 0.5 - 2.0 | Pink to Brown |
+| ocean | 1.0 - 2.5 | Pink to Brown+ |
+| space | 0.5 - 2.0 | Pink to Brown |
+| security | -0.5 - 0.5 | White |
+| medical | 0.5 - 1.5 | Pink |
+| climate | 0.5 - 2.0 | Pink to Brown |
+| adbench | -0.5 - 1.0 | White to Pink |
+
+### Score Pipeline Architecture
+
+```
+Raw Data → fit()
+  ├── Statistical baselines (mean, std, quartiles)
+  ├── Kinematic baselines (jerk, acceleration)
+  ├── InfoGeometry manifold (precision matrix)
+  └── Oracle reference spectrum (PSD, noise color)
+
+Test Data → detect()
+  ├── Resonance scores (FFT harmonic deviation)
+  ├── Kinematic scores (jerk/acceleration z-scores)
+  ├── InfoGeometry scores (Mahalanobis distance)
+  │
+  ├── Domain weight preset blending (40% prior)
+  ├── Spearman inversion guard (zero anti-correlated)
+  ├── Weighted ensemble combination
+  ├── Median-based ensemble flip (if median > 0.80)
+  ├── Oracle frequency-domain multiplier
+  ├── Residual frequency filter (30% blend)
+  │
+  └── Threshold → anomaly predictions
+```
+
 ## Results
 
 **Status: Populated after benchmark run.**
