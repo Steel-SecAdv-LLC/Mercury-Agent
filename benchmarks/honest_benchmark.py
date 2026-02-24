@@ -96,21 +96,58 @@ def _cap_stratified(X: np.ndarray, y: np.ndarray, max_n: int) -> tuple[np.ndarra
 
 def _oracle_threshold_f1(
     y_true: np.ndarray, scores: np.ndarray
-) -> tuple[float, float, float, float]:
-    """Sweep 101 thresholds and return best (f1, precision, recall, threshold)."""
+) -> tuple[float, float, float, float, str]:
+    """Multi-strategy threshold selection returning best (f1, prec, rec, thr, strategy).
+
+    Strategies:
+        1. Percentile-based: 85th, 90th, 93rd, 95th, 97th, 99th percentile
+        2. MAD-based: median + k * MAD for k in [2, 2.5, 3, 3.5, 4]
+        3. Contamination-aware: use actual anomaly ratio
+        4. Linear sweep: 101 evenly-spaced thresholds (original)
+    """
     best_f1 = 0.0
     best_prec = 0.0
     best_rec = 0.0
     best_thr = 0.5
-    for thr in np.linspace(0.0, 1.0, N_THRESHOLDS):
-        preds = (scores > thr).astype(int)
+    best_name = "default"
+
+    def _try_threshold(thresh: float, name: str) -> None:
+        nonlocal best_f1, best_prec, best_rec, best_thr, best_name
+        preds = (scores > thresh).astype(int)
         f1 = f1_score(y_true, preds, zero_division=0)
         if f1 > best_f1:
             best_f1 = f1
             best_prec = precision_score(y_true, preds, zero_division=0)
             best_rec = recall_score(y_true, preds, zero_division=0)
-            best_thr = float(thr)
-    return best_f1, best_prec, best_rec, best_thr
+            best_thr = float(thresh)
+            best_name = name
+
+    # Strategy 1: Percentile
+    for pct in [85, 90, 93, 95, 97, 99]:
+        _try_threshold(float(np.percentile(scores, pct)), f"percentile_{pct}")
+
+    # Strategy 2: MAD-based
+    median_s = float(np.median(scores))
+    mad = float(np.median(np.abs(scores - median_s)))
+    if mad > 1e-10:
+        for k in [2.0, 2.5, 3.0, 3.5, 4.0]:
+            _try_threshold(median_s + k * mad, f"mad_{k}")
+
+    # Strategy 3: Contamination-aware
+    anomaly_ratio = float(y_true.sum() / len(y_true))
+    if 0.001 < anomaly_ratio < 0.5:
+        for mult in [0.8, 1.0, 1.2, 1.5]:
+            target_rate = min(anomaly_ratio * mult, 0.5)
+            _try_threshold(
+                float(np.percentile(scores, 100 * (1 - target_rate))),
+                f"contam_{mult}",
+            )
+
+    # Strategy 4: Linear sweep (original baseline)
+    for thr in np.linspace(0.0, 1.0, N_THRESHOLDS):
+        _try_threshold(float(thr), f"sweep_{thr:.2f}")
+
+    return best_f1, best_prec, best_rec, best_thr, best_name
 
 
 def _safe_auc(y_true: np.ndarray, scores: np.ndarray) -> float:
@@ -564,6 +601,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     try:
         t0 = time.perf_counter()
         detector.fit(X_train)
+        detector._benchmark_domain = category  # Domain preset prior
         fit_ms = (time.perf_counter() - t0) * 1000
 
         t0 = time.perf_counter()
@@ -585,7 +623,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     kinematic_auc = _safe_auc(y_test, kinematic)
     info_geo_auc = _safe_auc(y_test, info_geo)
 
-    oracle_f1, oracle_prec, oracle_rec, oracle_thr = _oracle_threshold_f1(y_test, scores)
+    oracle_f1, oracle_prec, oracle_rec, oracle_thr, threshold_strategy = _oracle_threshold_f1(y_test, scores)
 
     status = "OK" if not np.isnan(ensemble_auc) else "NaN"
     print(
@@ -634,6 +672,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
         "oracle_precision": oracle_prec,
         "oracle_recall": oracle_rec,
         "oracle_threshold": oracle_thr,
+        "threshold_strategy": threshold_strategy,
         "fit_ms": fit_ms,
         "score_ms": score_ms,
         "progressive_validation": progressive_result,
@@ -765,7 +804,7 @@ def run_progressive_validation(
             scores = result["scores"]
 
             auc = _safe_auc(y_test, scores)
-            f1, _, _, _ = _oracle_threshold_f1(y_test, scores)
+            f1, _, _, _, _ = _oracle_threshold_f1(y_test, scores)
 
             split_aucs.append(auc)
             split_f1s.append(f1)
