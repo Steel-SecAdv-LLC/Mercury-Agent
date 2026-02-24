@@ -246,7 +246,7 @@ class EarthquakeLoader(BaseDomainLoader):
             len(labels),
             threshold,
         )
-        return labels  # type: ignore[no-any-return]
+        return labels
 
     # ------------------------------------------------------------------
     # Feature engineering

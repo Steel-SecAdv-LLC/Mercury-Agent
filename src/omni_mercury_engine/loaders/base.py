@@ -229,7 +229,7 @@ class BaseDomainLoader(ABC):
         except socket.gaierror:
             # DNS resolution may fail in air-gapped / sandboxed environments;
             # let the actual HTTP request handle networking errors.
-            logger.debug("SSRF check: cannot resolve %r — deferring to fetch", hostname)
+            logger.debug("SSRF check: DNS resolution failed - deferring to fetch")
 
     def _fetch_url(
         self,

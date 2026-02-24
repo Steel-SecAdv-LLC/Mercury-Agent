@@ -2436,7 +2436,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
         if TORCH_AVAILABLE:
             return torch.tensor(features, dtype=torch.float32)
-        return features  # type: ignore[return-value]
+        return features
 
     def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute z-scores.

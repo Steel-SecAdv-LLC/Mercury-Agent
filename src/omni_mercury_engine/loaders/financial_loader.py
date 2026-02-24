@@ -292,7 +292,7 @@ class FinancialLoader(BaseDomainLoader):
             int(labels.sum()),
             len(labels),
         )
-        return labels  # type: ignore[no-any-return]
+        return labels
 
     # ------------------------------------------------------------------
     # Feature engineering

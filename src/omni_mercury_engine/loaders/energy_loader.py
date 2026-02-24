@@ -734,7 +734,7 @@ class EnergyLoader(BaseDomainLoader):
         ramp_len = 16
         ramp_start = max(0, storm_center - ramp_len - 8)
         for j in range(min(ramp_len, storm_center - ramp_start)):
-            t = j / ramp_len  # type: ignore[assignment]
+            t = j / ramp_len
             kp[ramp_start + j] = 2.0 + (float(peak_kp) - 2.0) * t
 
         # Peak: 8 steps (24h)
@@ -841,7 +841,7 @@ class EnergyLoader(BaseDomainLoader):
         demand = df["grid_demand"].values.astype(np.float64)
         supply = df["grid_supply"].values.astype(np.float64)
         labels = (demand > supply).astype(np.int64)
-        return labels  # type: ignore[no-any-return]
+        return labels
 
     # ------------------------------------------------------------------
     # Private helpers -- utilities
@@ -860,7 +860,7 @@ class EnergyLoader(BaseDomainLoader):
             column does not exist.
         """
         if column in df.columns:
-            return pd.to_numeric(df[column], errors="coerce").fillna(0.0).values.astype(np.float64)  # type: ignore[no-any-return]
+            return pd.to_numeric(df[column], errors="coerce").fillna(0.0).values.astype(np.float64)
         return np.zeros(len(df), dtype=np.float64)
 
     @staticmethod

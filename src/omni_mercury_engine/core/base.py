@@ -673,7 +673,7 @@ class BaseModel(ABC):
             return torch.zeros(len(data) if hasattr(data, "__len__") else 1)
         import numpy as np
 
-        return np.zeros(len(data) if hasattr(data, "__len__") else 1)  # type: ignore[return-value]
+        return np.zeros(len(data) if hasattr(data, "__len__") else 1)
 
 
 if TORCH_AVAILABLE:

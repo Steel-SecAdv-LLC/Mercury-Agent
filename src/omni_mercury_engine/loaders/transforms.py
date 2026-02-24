@@ -63,4 +63,4 @@ def prepare_for_detector(
     if X.empty:
         raise ValueError("All rows dropped during cleaning")
 
-    return X.to_numpy(dtype=np.float64)  # type: ignore[no-any-return]
+    return X.to_numpy(dtype=np.float64)
