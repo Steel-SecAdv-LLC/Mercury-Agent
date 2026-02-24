@@ -272,7 +272,7 @@ class WildfireLoader(BaseDomainLoader):
             len(labels),
             threshold,
         )
-        return labels  # type: ignore[no-any-return]
+        return np.asarray(labels)
 
     # ------------------------------------------------------------------
     # Feature engineering
@@ -521,7 +521,7 @@ class WildfireLoader(BaseDomainLoader):
         # Convert to fractional hours since the first detection
         t0 = timestamps.min()
         elapsed = (timestamps - t0).dt.total_seconds().fillna(0.0).values / 3600.0
-        return elapsed.astype(np.float64)  # type: ignore[no-any-return]
+        return np.asarray(elapsed.astype(np.float64))
 
     @staticmethod
     def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

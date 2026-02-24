@@ -41,6 +41,7 @@ import logging
 import re
 import sqlite3
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from abc import ABC, abstractmethod
@@ -458,7 +459,7 @@ class WebSearchRetriever(BaseExternalRetriever):
                 req, timeout=5
             ) as _:
                 self._is_available = True
-        except Exception:
+        except (OSError, urllib.error.URLError, TimeoutError):
             # Network or service unavailable; mark as unavailable
             self._is_available = False
 

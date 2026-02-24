@@ -316,7 +316,7 @@ class MemoryKnowledgeGraph:
             return {
                 "num_nodes": len(self.nodes),
                 "num_edges": len(self.edges),
-                "density": len(self.edges) / (len(self.nodes) ** 2) if self.nodes else 0,
+                "density": len(self.edges) / (len(self.nodes) ** 2) if len(self.nodes) > 1 else 0,
             }
 
 

@@ -423,10 +423,17 @@ class QuantumEngine:
             QKDResult with secure key and protocol statistics
         """
         try:
-            alice_bits = np.random.randint(0, 2, size=key_length * 2)
-            alice_bases = np.random.randint(0, 2, size=key_length * 2)
+            # Use a cryptographically secure RNG for key material generation.
+            # numpy's Mersenne Twister is predictable; secrets provides OS entropy.
+            import secrets as _secrets
 
-            bob_bases = np.random.randint(0, 2, size=key_length * 2)
+            _csprng = np.random.Generator(
+                np.random.SFC64(np.random.SeedSequence(_secrets.randbits(256)))
+            )
+            alice_bits = _csprng.integers(0, 2, size=key_length * 2)
+            alice_bases = _csprng.integers(0, 2, size=key_length * 2)
+
+            bob_bases = _csprng.integers(0, 2, size=key_length * 2)
 
             bob_bits = []
 
@@ -434,7 +441,7 @@ class QuantumEngine:
                 if alice_bases[i] == bob_bases[i]:
                     bob_bits.append(alice_bits[i])
                 else:
-                    bob_bits.append(np.random.randint(0, 2))
+                    bob_bits.append(_csprng.integers(0, 2))
 
             bob_bits_arr = np.array(bob_bits)
 
@@ -443,7 +450,7 @@ class QuantumEngine:
 
             sample_size = min(len(sifted_key) // 2, 50)
             if sample_size > 0:
-                sample_indices = np.random.choice(len(sifted_key), sample_size, replace=False)
+                sample_indices = _csprng.choice(len(sifted_key), sample_size, replace=False)
 
                 alice_sample = sifted_key[sample_indices]
                 bob_sample = bob_bits_arr[matching_bases][sample_indices]

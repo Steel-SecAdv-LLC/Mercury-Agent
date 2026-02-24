@@ -64,6 +64,92 @@ class FusionMode(Enum):
     HYBRID = "hybrid"
 
 
+class DataCharacteristics(Enum):
+    """Detected data characteristics for adaptive component weighting.
+
+    Used by :class:`MercuryAnomalyDetector` to automatically adjust ensemble
+    component weights based on whether data is temporally ordered, unordered
+    tabular, or high-dimensional image-like.
+
+    See Also:
+        - ``MercuryAnomalyDetector._detect_data_characteristics()`` for
+          the detection heuristic.
+        - ``COMPONENT_COMPATIBILITY`` for the weight adjustment matrix.
+    """
+
+    TEMPORAL = "temporal"
+    TABULAR = "tabular"
+    IMAGE = "image"
+    UNKNOWN = "unknown"
+
+
+# Component compatibility matrix: expected relative effectiveness of each
+# ensemble component given detected data characteristics.
+# Values represent multiplicative weight modifiers (1.0 = no change).
+#
+# Rationale:
+#   TEMPORAL  - Kinematics excels (derivatives meaningful); all components useful.
+#   TABULAR   - Kinematics near-random on shuffled rows (AUC ~0.60, see
+#               BENCHMARKS.md line 126-131); InfoGeometry strongest.
+#   IMAGE     - High-dimensional data; Kinematics less useful; Resonance moderate.
+#   UNKNOWN   - Neutral fallback; no adjustment applied.
+COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
+    DataCharacteristics.TEMPORAL: {
+        "resonance": 0.8,
+        "kinematic": 0.9,
+        "infogeo": 0.7,
+    },
+    DataCharacteristics.TABULAR: {
+        "resonance": 0.7,
+        "kinematic": 0.3,
+        "infogeo": 0.8,
+    },
+    DataCharacteristics.IMAGE: {
+        "resonance": 0.6,
+        "kinematic": 0.4,
+        "infogeo": 0.7,
+    },
+    DataCharacteristics.UNKNOWN: {
+        "resonance": 1.0,
+        "kinematic": 1.0,
+        "infogeo": 1.0,
+    },
+}
+
+
+class OracleActivation(Enum):
+    """Oracle activation mode.
+
+    Controls whether the SpectralDomainOracle is active. Can be set
+    explicitly or left at AUTO for domain-aware activation.
+    """
+
+    AUTO = "auto"  # Domain-aware: enabled/disabled per ORACLE_DOMAIN_POLICY
+    ENABLED = "enabled"  # Always enabled regardless of domain
+    DISABLED = "disabled"  # Always disabled regardless of domain
+
+
+# Domain-aware Oracle activation policy.
+#
+# Based on empirical analysis of frequency-domain anomaly signatures:
+#   ENABLED  — Domain has strong spectral signatures (infrastructure faults,
+#              network attack patterns, physiological frequency bands)
+#   NEUTRAL  — Domain may benefit; Oracle runs but influence_multiplier is
+#              dampened (multiplied by 0.5) to reduce false positive risk
+#   DISABLED — Domain anomalies are primarily amplitude/statistical, not
+#              spectral. Oracle would add computation without measurable
+#              improvement.
+ORACLE_DOMAIN_POLICY: dict[str, str] = {
+    "infrastructure": "enabled",  # Mains freq, bearing faults, harmonics
+    "security": "enabled",  # DDoS periodicity, scan burst patterns
+    "medical": "enabled",  # HRV bands, neural oscillations
+    "environmental": "neutral",  # Seismic precursors have weak freq signal
+    "space": "neutral",  # Solar wind has some spectral content
+    "financial": "disabled",  # Anomalies are magnitude-based, not spectral
+    "humanitarian": "disabled",  # Weak frequency signatures
+}
+
+
 @dataclass
 class DetectorConfig:
     """Configuration for individual detectors"""

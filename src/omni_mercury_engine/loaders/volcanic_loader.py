@@ -371,7 +371,7 @@ class VolcanicLoader(BaseDomainLoader):
             int(labels.sum()),
             len(labels),
         )
-        return labels  # type: ignore[no-any-return]
+        return np.asarray(labels)
 
     # ------------------------------------------------------------------
     # Feature engineering

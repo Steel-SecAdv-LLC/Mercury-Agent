@@ -83,7 +83,7 @@ class DifferentialPrivacy:
             noised_arr = clipped + np.random.normal(0, noise_scale, arr.shape)
             if non_negative:
                 noised_arr = np.maximum(noised_arr, 1e-12)
-            return noised_arr  # type: ignore[no-any-return]
+            return np.asarray(noised_arr)
 
         # Noise all vector statistics
         noised.mean = clip_and_noise(noised.mean)

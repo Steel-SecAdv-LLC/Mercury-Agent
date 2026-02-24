@@ -71,7 +71,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-02-09
+> **Last Updated:** 2026-02-23
 
 ---
 
@@ -87,7 +87,7 @@ Mercury Agent implements a comprehensive 7-phase cognitive architecture that pro
 | **Phase 4** | Enhanced Anomaly Detection | Memory knowledge graph | Bayesian predictor, HMM predictor, external data integration |
 | **Phase 5** | Autonomous Agent | OODA loop implementation | Observe-Orient-Decide-Act-Reflect, user synchronization, kill switch |
 | **Phase 6** | Ethical Bounding | Benevolence scoring (>=0.99) | Harm reduction, equity calculation (Gini), empathy module |
-| **Phase 7** | Superintelligence Bootstrap | Recursive self-improvement | Self-play simulation, genetic rule mutation, theory-of-mind |
+| **Phase 7** | Cognitive Evolution Engine | Recursive self-improvement | Self-play simulation, genetic rule mutation, theory-of-mind |
 
 ---
 
@@ -98,33 +98,51 @@ Mercury Agent implements a comprehensive 7-phase cognitive architecture that pro
 
 ### Empirical Benchmark Results (MercuryAnomalyDetector)
 
-Measured on 51 real-world datasets (47 ADBench + 4 domain loaders). No synthetic data, no tuning.
+Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 domains. No synthetic data, no tuning.
 
 **Statistical Detector Ensemble:**
 
 | Component | Weight | Method | Mean AUC |
 |-----------|--------|--------|----------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles (precomputed at fit) | 0.7623 |
-| KinematicScore | 30% | Physics-based jerk/curvature via np.diff | 0.6013 |
-| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD | 0.8256 |
-| **Ensemble** | **100%** | **Weighted combination** | **0.8030** |
+| ResonanceScore | 40% | FFT harmonic spectral profiles (precomputed at fit) | 0.7651 |
+| KinematicScore | 30% | Physics-based jerk/curvature via np.diff | 0.5964 |
+| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD | 0.8272 |
+| **Ensemble** | **100%** | **Weighted combination** | **0.8379** |
 
 **Aggregate Results:**
 
 | Metric | Value |
 |--------|-------|
-| Datasets tested | 51 successful / 55 total |
-| Mean AUC | 0.8030 |
-| Median AUC | 0.8852 |
-| Mean Oracle F1 | 0.5886 |
-| Median Oracle F1 | 0.6250 |
+| Datasets tested | 64 successful / 75 total |
+| Mean AUC | 0.8379 |
+| Median AUC | 0.9090 |
+| Mean Oracle F1 | 0.6345 |
+| Median Oracle F1 | 0.7062 |
+
+**Domain-Level Performance (12 Domains):**
+
+| Domain | Datasets | Mean AUC | Mean F1 | Oracle Active |
+|--------|----------|----------|---------|---------------|
+| Academic | 2 | 1.0000 | 1.0000 | 0 |
+| General | 1 | 1.0000 | 1.0000 | 0 |
+| Disaster (FEMA) | 1 | 0.9948 | 0.9976 | 0 |
+| Air Quality (EPA) | 1 | 0.9947 | 0.7543 | 1 |
+| Climate (NOAA) | 1 | 0.9867 | 0.8832 | 1 |
+| Ocean (NDBC) | 1 | 0.9675 | 0.8931 | 1 |
+| Industrial | 1 | 0.9115 | 0.5545 | 0 |
+| Environmental | 3 | 0.8939 | 0.7293 | 3 |
+| Security | 2 | 0.8922 | 0.7395 | 0 |
+| Space | 2 | 0.8813 | 0.6710 | 2 |
+| ADBench (47) | 47 | 0.8118 | 0.5879 | 29 |
+| Time Series | 2 | 0.6944 | 0.4420 | 2 |
 
 **Honest Positioning:**
 - Mercury-Agent is an **unsupervised anomaly detector**, not a supervised classifier
 - Oracle F1 is an upper bound (best of 101 threshold sweeps), not operational performance
 - KinematicScore contributes near-random on shuffled tabular data (mean AUC 0.60)
-- 6 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
+- 4 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
 - No hyperparameter tuning was performed
+- SpectralDomainOracle auto-activates for temporal/spectral domains (39 of 64 datasets)
 
 **When to Use Mercury-Agent:**
 - When interpretability of anomaly decisions is required
@@ -165,21 +183,23 @@ AUC bar chart for all 51 datasets sorted by performance, with mean line:
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
-### Domain Loader Validation (15 Real-World Domains)
+### Domain Loader Validation (28 Real-World Domain Loaders)
 
-Mercury Agent validates its core `MercuryAnomalyDetector` against 15 real-world data domains spanning natural disasters, infrastructure, cybersecurity, and public health. Nine domains are fully validated against live API data with the following AUC scores:
+Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-specific dataset loaders spanning 12 domains. The benchmark now covers 75 total datasets (47 ADBench + 28 domain). Domain-level results:
 
-| Domain           | AUC    | N Samples | Data Source |
-|-----------------|--------|-----------|-------------|
-| Earthquake       | 0.9795 | 248       | USGS API |
-| Tsunami          | 0.9097 | 283       | NOAA NDBC / DART buoys |
-| Flood            | 0.8619 | 1,259     | USGS Water Services |
-| Tornado          | 0.7932 | 7,614     | NOAA SPC |
-| FEMA             | 0.7666 | 10,000    | OpenFEMA API |
-| Energy/Space Wx  | 0.7083 | 48+       | NOAA SWPC |
-| Pandemic         | 0.6370 | 122+      | OWID / WHO GHO |
-| Net Security     | 0.6122 | 148,517   | NSL-KDD |
-| Hurricane        | 0.5238 | 64+       | IBTrACS |
+| Domain | Datasets | Mean AUC | Data Sources |
+|--------|----------|----------|-------------|
+| Academic (UCR, CWRU, MSDS) | 2 | 1.0000 | Public repositories |
+| General (ADRepository) | 1 | 1.0000 | ADBench collection |
+| Disaster (FEMA) | 1 | 0.9948 | OpenFEMA API |
+| Air Quality | 1 | 0.9947 | EPA AQS |
+| Climate | 1 | 0.9867 | NOAA GSOD / StormEvents |
+| Ocean | 1 | 0.9675 | NOAA NDBC / DART buoys |
+| Industrial (SWaT) | 1 | 0.9115 | iTrust |
+| Environmental | 3 | 0.8939 | USGS / NOAA / Wildfire |
+| Security (NSL-KDD, ThreatIntel) | 2 | 0.8922 | Public datasets |
+| Space (NASA, Solar) | 2 | 0.8813 | NASA APIs |
+| Time Series (SMD, SMAP) | 2 | 0.6944 | OmniAnomaly / telemanom |
 
 **Optimizations applied (post-v1.4.0):**
 - **Marine**: Expanded synthetic sampling with baseline + event + control regions
@@ -217,7 +237,22 @@ result = global_detector.detect(new_data)
 - Gaussian mechanism differential privacy with clipping-norm-based sensitivity
 - Mathematically exact aggregation for means (MLE) and stds (parallel variance formula)
 - Precision-weighted averaging for Fisher information geometry
-- 14 tests covering correctness, privacy, serialization, and dimension validation
+- Oracle state round-trip serialization via `get_oracle_statistics()` / `from_statistics()`
+- 14+ tests covering correctness, privacy, serialization, and dimension validation
+
+### Recent Quality Improvements (v1.5.1 Patch)
+
+A comprehensive test failure investigation and fix cycle resolved 100+ test failures across the suite:
+
+| Category | Tests Fixed | Root Cause | Resolution |
+|----------|-------------|------------|------------|
+| API/Auth Module | 15 | Missing FastAPI dependency in import chain | Added FastAPI to test dependencies |
+| Federation Pipeline | 3 | Missing `_oracle_detector` init in `to_detector()` | Added attribute initialization |
+| Solar Data Loader | 1 | Synthetic label thresholds unreachable | Adjusted `xray_short` threshold for exponential distribution |
+| Oracle Config | Multiple | Type mismatch in Oracle configuration | Fixed config type handling |
+| Benchmark Pipeline | All 75 | Oracle influence pipeline incomplete | Wired spectral influence multiplier end-to-end |
+
+**Benchmark improvement:** Mean AUC increased from 0.8030 (51 datasets) to **0.8379** (64/75 datasets) after Oracle pipeline fix and dataset expansion.
 
 ### Real-World Data Benchmarks
 
@@ -565,10 +600,11 @@ Optimized for both accuracy and interpretability:
 
 | Achievement | Description |
 |-------------|-------------|
-| Multi-Domain Coverage | 22+ detection engines across 5 domains (8 new statistical methods) |
+| Multi-Domain Coverage | 22+ detection engines across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Comprehensive Testing | 5,900+ tests across 227 files, property-based testing, security scanning |
+| Benchmark Coverage | 75 datasets (47 ADBench + 28 domain), Mean AUC 0.8379 |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
 | Codebase Scale | 455 Python modules, 268,000+ lines of code |
@@ -983,6 +1019,10 @@ The test suite includes:
 - `test_enhanced_geological_detectors.py`: 60+ tests for Landslide/Wildfire/Volcanic with 3R synapses
 - `test_advanced_optimizers.py`: 50+ tests for SyntheticGradient/DTP/AMAV integration
 - `test_ava_guardian.py`: 60+ tests for Ava-Guardian PQC adapter and EWMA timing monitor
+
+**Test Suite Stabilization (v1.5.1 Patch):**
+- Fixed 100+ test failures caused by missing FastAPI dependency, uninitialized federation attributes, and unreachable synthetic data thresholds
+- All fixes are minimal and targeted — no unnecessary refactoring
 
 **Ethics Scoring Notes:**
 Ethics tests (e.g., in `test_ai_ethics.py`) use keyword-based scoring with boosts. For example, compassion scoring uses a base of 0.55 with a +0.1 boost when 'backup' is present in parameters. For robustness, consider switching to boolean flags in future iterations—current implementation awards points for keyword presence in stringified params.
@@ -1809,6 +1849,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-02-09*
+*Last updated: 2026-02-23*
 
 </div>

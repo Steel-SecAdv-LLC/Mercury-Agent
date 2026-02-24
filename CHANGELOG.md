@@ -7,6 +7,142 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (Test Suite Stabilization — 100+ Failures Resolved)
+
+- **FastAPI dependency chain**: API auth module (`api/auth.py` line 45) imports
+  FastAPI at module level, causing `ModuleNotFoundError` cascading through
+  `api.server`, `test_correlation_id.py` (4 tests), `test_audit_improvements.py`
+  (6 tests), and `test_jwt_auth.py` (12 tests). Added FastAPI to test
+  dependencies.
+- **Federation `to_detector()` missing Oracle init**: `FederatedAggregator.to_detector()`
+  (aggregator.py lines 203-221) did not initialize `_oracle_detector` or
+  `_oracle_metadata` attributes, causing `AttributeError` when reconstructed
+  detector called `detect()` at `statistical.py` line 1886. Added initialization
+  matching `from_statistics()` classmethod pattern.
+- **Solar synthetic data zero labels**: `_create_synthetic_solar()` (space.py
+  lines 635-642) generated `xray_short` via `np.random.exponential(1e-7)` but
+  tested against threshold `1e-5`, producing all-zero labels. Lowered threshold
+  to `5e-8` to match the exponential distribution's tail.
+- **Oracle config type mismatch**: Fixed `SpectralDomainOracleConfig` type
+  handling when passed through detector initialization pipeline.
+- **Oracle influence pipeline**: Wired spectral influence multiplier end-to-end
+  through `detect()` return path, enabling Oracle-augmented scoring across all
+  75 benchmark datasets.
+
+### Added (F1 Precision Directive — Phases 1-10)
+
+- **Phase 1**: Renamed "Superintelligence Bootstrap" → "Cognitive Evolution Engine"
+- **Phase 2**: Added pairwise Spearman inversion guard (ρ < -0.2) and unsupervised ensemble flip (median > 0.80)
+- **Phase 3**: Created domain-adaptive weight presets (14 domains, 60/40 data-driven/prior blend)
+- **Phase 4**: Implemented noise color estimation via log-log PSD regression (white/pink/brown detection)
+- **Phase 5**: Added adaptive significance alpha based on window size and noise model confidence
+- **Phase 6**: Applied asymmetric influence bias (1.5x amplification boost, 0.8x attenuation suppression)
+- **Phase 7**: Added residual frequency filter via FFT bandpass (70/30 blend ratio)
+- **Phase 8**: Upgraded to multi-strategy threshold selection (percentile, MAD, contamination-aware, linear sweep)
+- **Phase 9**: Added DOMAIN_ANOMALY_SPECTRAL_HINTS and dynamic Oracle sensitivity based on initial severity
+- **Phase 10**: Added 30+ tests for all F1 precision improvements, ORACLE_NOISE_COLOR.md documentation
+
+### Changed (Benchmark Expansion)
+
+- **Benchmark coverage**: Expanded from 51 to 75 total datasets (47 ADBench +
+  28 domain loaders across 12 domains).
+- **Mean AUC**: Improved from 0.8030 to **0.8379** after Oracle pipeline fix.
+- **Median AUC**: Improved from 0.8852 to **0.9090**.
+- **SpectralDomainOracle**: Auto-activated on 39 of 64 successful datasets
+  for temporal/spectral domain augmentation.
+- **README.md**: Updated all benchmark tables, added domain-level performance
+  matrix, added quality improvements section, updated dataset counts and dates.
+
+### Added (Mercury System Activation)
+
+- **Oracle wired into MercuryAnomalyDetector**: SpectralDomainOracle now
+  integrated into the primary detection pipeline (`statistical.py`). Oracle
+  initialises during `fit()` for temporal data and applies spectral influence
+  multiplier during `detect()`. Oracle metadata included in return dict.
+- **20 new dataset loaders activated**: Environmental (USGS Earthquake, NOAA
+  Weather, Wildfire, USGS Geochemistry), Ocean (NOAA Buoy), Climate (NOAA
+  StormEvents, GSOD, ERDDAP), Air Quality (EPA), Disaster (FEMA x2), Space
+  (NASA Exoplanet, SolarDynamics), Academic (UCR, CWRU Bearing, MSDS),
+  Security (ThreatIntel), General (ADRepository), Industrial (SWaT, WADI).
+  Total benchmark datasets: 75 (47 ADBench + 28 domain).
+- **Domain-level benchmark summary**: Per-domain AUC/F1 aggregation,
+  component performance analysis, Oracle activation tracking. Added to
+  `honest_benchmark_results.json` as `domain_summary`.
+- **Benchmark CLI flags**: `--live-only` skips ADBench; `--domain <name>`
+  filters by category.
+- **Cross-domain frequency correlation module**: New
+  `CrossDomainFrequencyCorrelator` detects overlapping significant frequency
+  bands across concurrent Oracle instances. Outputs correlation only —
+  always states "requires human assessment."
+- **Oracle domain auto-selection**: `_infer_oracle_domain()` uses sample
+  rate estimation, dominant FFT frequency, and feature count heuristics
+  to select appropriate Oracle domain. User-specified domain overrides.
+- **Federation Oracle serialization**: `get_oracle_statistics()` exports
+  Oracle reference state; `from_statistics()` accepts `oracle_ref_stats`
+  for federated Oracle round-trip.
+- **Domain-specific cache TTL**: environmental=300s, security=60s,
+  climate=3600s, default=600s. Added `get_domain_ttl()` to cache stub.
+- **Structured per-dataset output**: `per_dataset_results.json` now
+  includes `run_metadata` (run_id, timestamp, git_sha, branch,
+  python_version), domain_summary, and expanded per-dataset diagnostics
+  (adaptive_weights, weight_source, data_type, oracle_metadata).
+- **Dataset catalog**: `benchmarks/DATASETS.md` documents all 75 active
+  datasets with source, auth, samples, features, anomaly ratio, license.
+
+### Changed (Mercury System Activation)
+
+- **README Phase 7**: Renamed "Superintelligence Bootstrap" to "Cognitive
+  Evolution Engine".
+- **BaseDetector.extract_features()**: Signature updated to accept
+  `dict[str, Any]` input and return `np.ndarray | torch.Tensor`.
+  `_extract_combined_features()` normalises both return types.
+- **validation/data_loaders.py**: Deprecated with module-level warning.
+  Directs users to `datasets/` module. Will be removed in v2.0.
+- **generate_docs_images.py**: Updated performance dashboard to show
+  domain-level AUC/F1 bars, component AUC heatmap, and Oracle status.
+  All data sourced from `honest_benchmark_results.json`.
+
+### Cherry-picked (from devin branch)
+
+- 10 commits salvaged from `devin/1771750539-mercury-strategic-improvements`:
+  strategic improvements, FrequencyDomainOracle implementation,
+  SpectralDomainOracle rename, spectral flux/phase coherence/cepstral
+  analysis, selective inference upgrade, and audit fixes.
+- Fabricated README images (4 PNGs with invented performance metrics)
+  discarded; original dark-themed images restored from master.
+
+### Fixed
+- **Oracle `extract_features()` type contract**: Now returns `torch.Tensor`
+  per `BaseDetector` contract, eliminating runtime crash risk in 5 generic
+  callers (detector_registry, gosnn_integration, metrics, gwo_ensemble).
+  Removed all `# type: ignore` suppressions.
+- **Selective Inference upgrade**: Replaced naive z-test with truncated
+  normal conditioning (Lee et al., 2016). Guarantees Type I error control
+  at declared α. SI p-values are 3-10× more conservative, eliminating
+  false amplification from selection bias.
+
+### Renamed
+- **SpectralDomainOracle**: Renamed from `FrequencyDomainOracle` to reflect
+  expanded capabilities (spectral flux, phase coherence, cepstral analysis).
+  Backward-compatible aliases preserved (`FrequencyDomainOracle`,
+  `FrequencyDomainOracleConfig`, `create_frequency_oracle`).
+
+### Added
+- **Spectral Flux**: Rate-of-spectral-change detection for slow-onset
+  anomalies (frequency-domain analog of acceleration).
+- **Phase Coherence**: Inter-band phase relationship monitoring via Welch's
+  method cross-spectral estimation (leading indicator — degrades before
+  amplitude changes).
+- **Cepstral Coefficients**: Harmonic structure analysis via inverse FFT of
+  log power spectrum (rotating machinery faults, quefrency-domain peaks).
+- **Five-signal influence multiplier**: φ-weighted geometric mean now
+  incorporates flux and coherence alongside score, entropy, and breadth.
+- **Domain-aware Oracle auto-activation**: Oracle auto-enabled for
+  infrastructure, security, medical; dampened for environmental, space;
+  auto-disabled for financial, humanitarian; overridable via `oracle_mode`.
+- **Per-dataset benchmark output**: `per_dataset_results.json` for
+  individual dataset AUC/F1 verification (separate from aggregate results).
+
 ### Documentation Alignment Audit
 - Repository documentation, metadata, and organizational state audited for
   accuracy against actual code

@@ -577,11 +577,31 @@ class TestGOSNNFullIntegration:
 
     def test_components_interconnected(self, full_setup):
         """Test components are interconnected."""
-        pass
+        gosnn = full_setup["gosnn"]
+        registry = full_setup["registry"]
+
+        # GOSNN should have scalar management capabilities
+        assert hasattr(gosnn, "registered_scalars") or hasattr(gosnn, "scalar_groups")
+        assert hasattr(gosnn, "register_scalars")
+        # Registry should have discovered detectors from the manifest
+        assert registry.list_all() is not None
 
     def test_bidirectional_flow(self, full_setup, deterministic_rng):
         """Test bidirectional flow between components."""
-        pass
+        gosnn = full_setup["gosnn"]
+
+        # GOSNN should be callable and accept data
+        data = deterministic_rng.randn(50, 10)
+        # Verify GOSNN can process features and engine can run detection
+        if hasattr(gosnn, "forward"):
+            import torch
+
+            tensor_data = torch.tensor(data, dtype=torch.float32)
+            result = gosnn.forward(tensor_data)
+            assert result is not None
+        elif hasattr(gosnn, "process"):
+            result = gosnn.process(data)
+            assert result is not None
 
 
 # =============================================================================

@@ -1,0 +1,2358 @@
+{
+  "run_metadata": {
+    "run_id": "1c40ee8a245e-20260224T053951",
+    "timestamp": "2026-02-24T05:39:51.987000+00:00",
+    "git_sha": "1c40ee8a245edc994d3851eeb7e119ef12e80609",
+    "branch": "claude/merge-mercury-agent-0H8R0",
+    "python_version": "3.11.14",
+    "detector": "MercuryAnomalyDetector"
+  },
+  "summary": {
+    "total_datasets": 75,
+    "successful": 64,
+    "failed": 11,
+    "mean_auc": 0.8276751969037606,
+    "median_auc": 0.9091484066065176,
+    "std_auc": 0.20055587506583683,
+    "mean_oracle_f1": 0.6353581164246052,
+    "median_oracle_f1": 0.7167564067611778
+  },
+  "domain_summary": {
+    "adbench": {
+      "n_datasets": 47,
+      "n_measured": 47,
+      "n_below_random": 4,
+      "n_failed": 0,
+      "oracle_active_count": 29,
+      "stats": {
+        "mean_auc": 0.8182190987073906,
+        "median_auc": 0.8854391057083236,
+        "std_auc": 0.1791036669371011,
+        "mean_f1": 0.5870437222684476,
+        "mean_precision": 0.5229337096058694,
+        "mean_recall": 0.7862223783104141,
+        "component_mean_aucs": {
+          "resonance": 0.7651114705796875,
+          "kinematic": 0.596428885788855,
+          "info_geometry": 0.8272002972860732
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8272002972860732
+      }
+    },
+    "security": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.9016532093081283,
+        "median_auc": 0.9016532093081283,
+        "std_auc": 0.07544099407898186,
+        "mean_f1": 0.739665151709346,
+        "mean_precision": 0.7020177281992132,
+        "mean_recall": 0.787334207299921,
+        "component_mean_aucs": {
+          "resonance": 0.9278483085823301,
+          "kinematic": 0.6148362562853965,
+          "info_geometry": 0.8883757004470447
+        },
+        "best_component": "resonance",
+        "best_component_auc": 0.9278483085823301
+      }
+    },
+    "timeseries": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 1,
+      "n_failed": 0,
+      "oracle_active_count": 2,
+      "stats": {
+        "mean_auc": 0.6912884219678243,
+        "median_auc": 0.6912884219678243,
+        "std_auc": 0.21768734795309472,
+        "mean_f1": 0.44008055346172803,
+        "mean_precision": 0.3442885386308142,
+        "mean_recall": 0.8381046396841065,
+        "component_mean_aucs": {
+          "resonance": 0.6189330484968838,
+          "kinematic": 0.6555146611871728,
+          "info_geometry": 0.6791882941554597
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.6791882941554597
+      }
+    },
+    "industrial": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.9100068923925217,
+        "median_auc": 0.9100068923925217,
+        "std_auc": 0.0,
+        "mean_f1": 0.5657015590200446,
+        "mean_precision": 0.5521739130434783,
+        "mean_recall": 0.5799086757990868,
+        "component_mean_aucs": {
+          "resonance": 0.7256181614542948,
+          "kinematic": 0.6432695069067517,
+          "info_geometry": 0.9177095000143591
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9177095000143591
+      }
+    },
+    "environmental": {
+      "n_datasets": 3,
+      "n_measured": 3,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 3,
+      "stats": {
+        "mean_auc": 0.8954315494276934,
+        "median_auc": 0.9255178548735544,
+        "std_auc": 0.04429179278004044,
+        "mean_f1": 0.7319752087783379,
+        "mean_precision": 0.7155228798739764,
+        "mean_recall": 0.7578378125912231,
+        "component_mean_aucs": {
+          "resonance": 0.8731792816708462,
+          "kinematic": 0.7607376739508639,
+          "info_geometry": 0.8891427534846921
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8891427534846921
+      }
+    },
+    "ocean": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 1,
+      "stats": {
+        "mean_auc": 0.9719084404780233,
+        "median_auc": 0.9719084404780233,
+        "std_auc": 0.0,
+        "mean_f1": 0.9072233267064281,
+        "mean_precision": 0.8953564421190321,
+        "mean_recall": 0.9194089993284084,
+        "component_mean_aucs": {
+          "resonance": 0.8152305263909304,
+          "kinematic": 0.9481181876704575,
+          "info_geometry": 0.9118491618701038
+        },
+        "best_component": "kinematic",
+        "best_component_auc": 0.9481181876704575
+      }
+    },
+    "climate": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 1,
+      "stats": {
+        "mean_auc": 0.9909716339896287,
+        "median_auc": 0.9909716339896287,
+        "std_auc": 0.0,
+        "mean_f1": 0.8983957219251337,
+        "mean_precision": 0.9333333333333333,
+        "mean_recall": 0.865979381443299,
+        "component_mean_aucs": {
+          "resonance": 0.8813296696485755,
+          "kinematic": 0.933826415718034,
+          "info_geometry": 0.9828109827903229
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9828109827903229
+      }
+    },
+    "air_quality": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 1,
+      "stats": {
+        "mean_auc": 0.9979023099952551,
+        "median_auc": 0.9979023099952551,
+        "std_auc": 0.0,
+        "mean_f1": 0.864406779661017,
+        "mean_precision": 0.9503105590062112,
+        "mean_recall": 0.7927461139896373,
+        "component_mean_aucs": {
+          "resonance": 0.9800666611010073,
+          "kinematic": 0.8734131265726071,
+          "info_geometry": 0.9985723026718336
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9985723026718336
+      }
+    },
+    "disaster": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 1,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 8.214518537210529e-08,
+        "median_auc": 8.214518537210529e-08,
+        "std_auc": 0.0,
+        "mean_f1": 0.8471411901983664,
+        "mean_precision": 0.7348178137651822,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 0.9929622933884298,
+          "kinematic": 0.5971580805233109,
+          "info_geometry": 0.9997614503816794
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9997614503816794
+      }
+    },
+    "space": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 2,
+      "stats": {
+        "mean_auc": 0.8859738463788593,
+        "median_auc": 0.8859738463788593,
+        "std_auc": 0.11012588964085207,
+        "mean_f1": 0.7167894451847678,
+        "mean_precision": 0.623849652910293,
+        "mean_recall": 0.8424157642758975,
+        "component_mean_aucs": {
+          "resonance": 0.873446352245279,
+          "kinematic": 0.7016858505020918,
+          "info_geometry": 0.8766307460549758
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8766307460549758
+      }
+    },
+    "academic": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 1.0,
+        "median_auc": 1.0,
+        "std_auc": 0.0,
+        "mean_f1": 1.0,
+        "mean_precision": 1.0,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 0.998617052631579,
+          "kinematic": 0.7646006191950465,
+          "info_geometry": 1.0
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 1.0
+      }
+    },
+    "general": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 1.0,
+        "median_auc": 1.0,
+        "std_auc": 0.0,
+        "mean_f1": 1.0,
+        "mean_precision": 1.0,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 1.0,
+          "kinematic": 0.8995160831198405,
+          "info_geometry": 1.0
+        },
+        "best_component": "resonance",
+        "best_component_auc": 1.0
+      }
+    }
+  },
+  "datasets": {
+    "ADBench-01": {
+      "category": "adbench",
+      "auc": 0.5201357877690131,
+      "f1": 0.11354136288519491,
+      "precision": 0.06022481179746313,
+      "recall": 0.9898305084745763,
+      "n_total": 49534,
+      "n_train": 9695,
+      "n_test": 9999,
+      "n_features": 27,
+      "anomaly_ratio": 0.030443735615940565,
+      "adaptive_weights": {
+        "resonance": 0.4290771809868769,
+        "kinematic": 0.19578429381408866,
+        "info_geometry": 0.3751385251990345
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.2046139351522027,
+        "significant_bands": [
+          "baseline"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 1165.277223999965,
+      "score_ms": 23952.106923999963,
+      "error": null
+    },
+    "ADBench-02": {
+      "category": "adbench",
+      "auc": 0.8854391057083236,
+      "f1": 0.5427910562837317,
+      "precision": 0.4613368283093054,
+      "recall": 0.6591760299625468,
+      "n_total": 7200,
+      "n_train": 3333,
+      "n_test": 3867,
+      "n_features": 6,
+      "anomaly_ratio": 0.07416666666666667,
+      "adaptive_weights": {
+        "resonance": 0.20855893079843113,
+        "kinematic": 0.41839826641862365,
+        "info_geometry": 0.3730428027829452
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8699571710008575,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 432.5831979999748,
+      "score_ms": 3172.3081960003583,
+      "error": null
+    },
+    "ADBench-03": {
+      "category": "adbench",
+      "auc": 0.970670080486253,
+      "f1": 0.8793103448275862,
+      "precision": 0.9026548672566371,
+      "recall": 0.8571428571428571,
+      "n_total": 95329,
+      "n_train": 9755,
+      "n_test": 9999,
+      "n_features": 196,
+      "anomaly_ratio": 0.02443118043827167,
+      "adaptive_weights": {
+        "resonance": 0.43398632716919017,
+        "kinematic": 0.0598520012456809,
+        "info_geometry": 0.5061616715851289
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "IMAGE",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 3201.225083999816,
+      "score_ms": 624.0862570002719,
+      "error": null
+    },
+    "ADBench-04": {
+      "category": "adbench",
+      "auc": 0.9976817822006107,
+      "f1": 0.9769392033542977,
+      "precision": 0.9789915966386554,
+      "recall": 0.9748953974895398,
+      "n_total": 683,
+      "n_train": 222,
+      "n_test": 461,
+      "n_features": 9,
+      "anomaly_ratio": 0.34992679355783307,
+      "adaptive_weights": {
+        "resonance": 0.38234841981128664,
+        "kinematic": 0.2908525052526412,
+        "info_geometry": 0.3267990749360721
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.0605631666892066,
+        "significant_bands": [
+          "baseline",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 50.33226899968213,
+      "score_ms": 740.3516510003101,
+      "error": null
+    },
+    "ADBench-05": {
+      "category": "adbench",
+      "auc": 0.8104275341668008,
+      "f1": 0.5561877667140825,
+      "precision": 0.5346399270738378,
+      "recall": 0.5795454545454546,
+      "n_total": 41188,
+      "n_train": 8873,
+      "n_test": 9999,
+      "n_features": 62,
+      "anomaly_ratio": 0.11265417111780131,
+      "adaptive_weights": {
+        "resonance": 0.46680686479247513,
+        "kinematic": 0.0,
+        "info_geometry": 0.5331931352075249
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 511.4368290001039,
+      "score_ms": 86.42830300004789,
+      "error": null
+    },
+    "ADBench-06": {
+      "category": "adbench",
+      "auc": 0.9576265371102328,
+      "f1": 0.7968337730870713,
+      "precision": 0.7438423645320197,
+      "recall": 0.8579545454545454,
+      "n_total": 1831,
+      "n_train": 827,
+      "n_test": 1004,
+      "n_features": 21,
+      "anomaly_ratio": 0.0961223375204806,
+      "adaptive_weights": {
+        "resonance": 0.4665876861065037,
+        "kinematic": 0.0,
+        "info_geometry": 0.5334123138934964
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 43.161146999864286,
+      "score_ms": 4.707839000275271,
+      "error": null
+    },
+    "ADBench-07": {
+      "category": "adbench",
+      "auc": 0.7851811533813908,
+      "f1": 0.6355996944232238,
+      "precision": 0.49347568208778175,
+      "recall": 0.8927038626609443,
+      "n_total": 2114,
+      "n_train": 824,
+      "n_test": 1290,
+      "n_features": 21,
+      "anomaly_ratio": 0.22043519394512773,
+      "adaptive_weights": {
+        "resonance": 0.4666448050951479,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333551949048522
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 36.500263000107225,
+      "score_ms": 5.316443000083382,
+      "error": null
+    },
+    "ADBench-08": {
+      "category": "adbench",
+      "auc": 0.7661349212148477,
+      "f1": 0.22926829268292684,
+      "precision": 0.14578163771712158,
+      "recall": 0.5365296803652968,
+      "n_total": 202599,
+      "n_train": 9775,
+      "n_test": 9999,
+      "n_features": 39,
+      "anomaly_ratio": 0.022443348683853327,
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 258.87054600025294,
+      "score_ms": 55.1755809997303,
+      "error": null
+    },
+    "ADBench-09": {
+      "category": "adbench",
+      "auc": 0.7029975131328936,
+      "f1": 0.2945205479452055,
+      "precision": 0.18648710340105,
+      "recall": 0.7000856898029134,
+      "n_total": 299285,
+      "n_train": 9379,
+      "n_test": 9999,
+      "n_features": 500,
+      "anomaly_ratio": 0.062041198189017155,
+      "adaptive_weights": {
+        "resonance": 0.467251231195804,
+        "kinematic": 0.0,
+        "info_geometry": 0.532748768804196
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 13439.50202699989,
+      "score_ms": 4354.501366000022,
+      "error": null
+    },
+    "ADBench-10": {
+      "category": "adbench",
+      "auc": 0.9132574273894544,
+      "f1": 0.22200956937799043,
+      "precision": 0.13567251461988303,
+      "recall": 0.6105263157894737,
+      "n_total": 286048,
+      "n_train": 9903,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.009603283365029646,
+      "adaptive_weights": {
+        "resonance": 0.3465046854466961,
+        "kinematic": 0.34781505470966817,
+        "info_geometry": 0.3056802598436358
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9346542922099385,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 1202.9263940003148,
+      "score_ms": 9616.136075999748,
+      "error": null
+    },
+    "ADBench-11": {
+      "category": "adbench",
+      "auc": 0.8984736364077682,
+      "f1": 0.5144901610017889,
+      "precision": 0.4287418008348241,
+      "recall": 0.6431127012522362,
+      "n_total": 619326,
+      "n_train": 9407,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.05927411411760527,
+      "adaptive_weights": {
+        "resonance": 0.3530342506520093,
+        "kinematic": 0.34062918178618673,
+        "info_geometry": 0.306336567561804
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.92712838912281,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 1120.2622739997423,
+      "score_ms": 9635.003563999817,
+      "error": null
+    },
+    "ADBench-12": {
+      "category": "adbench",
+      "auc": 0.7035309668558787,
+      "f1": 0.7030567685589519,
+      "precision": 0.5556514236410699,
+      "recall": 0.9569093610698366,
+      "n_total": 1941,
+      "n_train": 634,
+      "n_test": 1307,
+      "n_features": 27,
+      "anomaly_ratio": 0.3467284904688305,
+      "adaptive_weights": {
+        "resonance": 0.36983411782456793,
+        "kinematic": 0.3063652312552496,
+        "info_geometry": 0.32380065092018256
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.3110329633981472,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 106.10627599999134,
+      "score_ms": 2940.7683119998183,
+      "error": null
+    },
+    "ADBench-13": {
+      "category": "adbench",
+      "auc": 0.9694263526292425,
+      "f1": 0.36666666666666664,
+      "precision": 0.4074074074074074,
+      "recall": 0.3333333333333333,
+      "n_total": 284807,
+      "n_train": 9982,
+      "n_test": 9999,
+      "n_features": 29,
+      "anomaly_ratio": 0.001727485630620034,
+      "adaptive_weights": {
+        "resonance": 0.30421391884588667,
+        "kinematic": 0.0,
+        "info_geometry": 0.6957860811541132
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 236.6875689999688,
+      "score_ms": 39.37141800042809,
+      "error": null
+    },
+    "ADBench-14": {
+      "category": "adbench",
+      "auc": 0.7454153182308523,
+      "f1": 0.2857142857142857,
+      "precision": 0.18181818181818182,
+      "recall": 0.6666666666666666,
+      "n_total": 214,
+      "n_train": 102,
+      "n_test": 112,
+      "n_features": 7,
+      "anomaly_ratio": 0.04205607476635514,
+      "adaptive_weights": {
+        "resonance": 0.2279281382961727,
+        "kinematic": 0.3609229249060434,
+        "info_geometry": 0.4111489367977839
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.9321040854305161,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 34.95735699971192,
+      "score_ms": 113.89757500000997,
+      "error": null
+    },
+    "ADBench-15": {
+      "category": "adbench",
+      "auc": 0.7895927601809956,
+      "f1": 0.6060606060606061,
+      "precision": 0.5,
+      "recall": 0.7692307692307693,
+      "n_total": 80,
+      "n_train": 33,
+      "n_test": 47,
+      "n_features": 19,
+      "anomaly_ratio": 0.1625,
+      "adaptive_weights": {
+        "resonance": 0.47807486631016044,
+        "kinematic": 0.0,
+        "info_geometry": 0.5219251336898395
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 19.363074000011693,
+      "score_ms": 1.9612989999586716,
+      "error": null
+    },
+    "ADBench-16": {
+      "category": "adbench",
+      "auc": 0.984619729814307,
+      "f1": 0.3776595744680851,
+      "precision": 0.23666666666666666,
+      "recall": 0.9342105263157895,
+      "n_total": 567498,
+      "n_train": 9961,
+      "n_test": 9999,
+      "n_features": 3,
+      "anomaly_ratio": 0.003896048972859816,
+      "adaptive_weights": {
+        "resonance": 0.3910725646097905,
+        "kinematic": 0.4402616481212492,
+        "info_geometry": 0.16866578726896037
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.859282434931713,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 945.4539739999746,
+      "score_ms": 5068.447033000211,
+      "error": null
+    },
+    "ADBench-17": {
+      "category": "adbench",
+      "auc": 0.9032282200576807,
+      "f1": 0.775609756097561,
+      "precision": 0.7035398230088495,
+      "recall": 0.8641304347826086,
+      "n_total": 1966,
+      "n_train": 799,
+      "n_test": 1167,
+      "n_features": 1555,
+      "anomaly_ratio": 0.1871820956256358,
+      "adaptive_weights": {
+        "resonance": 0.5057491579628751,
+        "kinematic": 0.0,
+        "info_geometry": 0.49425084203712494
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 8903.498647000106,
+      "score_ms": 3408.9621920002173,
+      "error": null
+    },
+    "ADBench-18": {
+      "category": "adbench",
+      "auc": 0.9492906307065598,
+      "f1": 0.912,
+      "precision": 0.9193548387096774,
+      "recall": 0.9047619047619048,
+      "n_total": 351,
+      "n_train": 112,
+      "n_test": 239,
+      "n_features": 32,
+      "anomaly_ratio": 0.358974358974359,
+      "adaptive_weights": {
+        "resonance": 0.3693919699427092,
+        "kinematic": 0.3071654434500543,
+        "info_geometry": 0.32344258660723657
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.417175213001905,
+        "significant_bands": [
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 40.64879099996688,
+      "score_ms": 552.1574740000688,
+      "error": null
+    },
+    "ADBench-19": {
+      "category": "adbench",
+      "auc": 0.4136644706060874,
+      "f1": 0.5110216599578302,
+      "precision": 0.34320288362512874,
+      "recall": 1.0,
+      "n_total": 6435,
+      "n_train": 2551,
+      "n_test": 3884,
+      "n_features": 36,
+      "anomaly_ratio": 0.20714840714840715,
+      "adaptive_weights": {
+        "resonance": 0.3324932937102327,
+        "kinematic": 0.3684144864485914,
+        "info_geometry": 0.29909221984117584
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.269107639404764,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 342.3104999997122,
+      "score_ms": 8815.62302400016,
+      "error": null
+    },
+    "ADBench-20": {
+      "category": "adbench",
+      "auc": 0.8293333333333334,
+      "f1": 0.4734982332155477,
+      "precision": 0.366120218579235,
+      "recall": 0.67,
+      "n_total": 1600,
+      "n_train": 750,
+      "n_test": 850,
+      "n_features": 32,
+      "anomaly_ratio": 0.0625,
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 47.17239299998255,
+      "score_ms": 5.130239999743935,
+      "error": null
+    },
+    "ADBench-21": {
+      "category": "adbench",
+      "auc": 0.9929577464788732,
+      "f1": 0.8571428571428571,
+      "precision": 0.75,
+      "recall": 1.0,
+      "n_total": 148,
+      "n_train": 71,
+      "n_test": 77,
+      "n_features": 18,
+      "anomaly_ratio": 0.04054054054054054,
+      "adaptive_weights": {
+        "resonance": 0.4748698914952294,
+        "kinematic": 0.0,
+        "info_geometry": 0.5251301085047706
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 21.721178000007058,
+      "score_ms": 2.6750120000542665,
+      "error": null
+    },
+    "ADBench-22": {
+      "category": "adbench",
+      "auc": 0.8566470280746801,
+      "f1": 0.7958561852528946,
+      "precision": 0.7274029280712921,
+      "recall": 0.8785316163751682,
+      "n_total": 19020,
+      "n_train": 6166,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.3516298633017876,
+      "adaptive_weights": {
+        "resonance": 0.3411834700595102,
+        "kinematic": 0.3530638744189085,
+        "info_geometry": 0.3057526555215813
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.959987864563326,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 752.5399280002603,
+      "score_ms": 9405.351283000073,
+      "error": null
+    },
+    "ADBench-23": {
+      "category": "adbench",
+      "auc": 0.9093210432921162,
+      "f1": 0.4153846153846154,
+      "precision": 0.4153846153846154,
+      "recall": 0.4153846153846154,
+      "n_total": 11183,
+      "n_train": 5461,
+      "n_test": 5722,
+      "n_features": 6,
+      "anomaly_ratio": 0.023249575248144506,
+      "adaptive_weights": {
+        "resonance": 0.3599338499731907,
+        "kinematic": 0.3261744253708071,
+        "info_geometry": 0.3138917246560022
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.8632678800146872,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 674.23851500007,
+      "score_ms": 3969.529433000389,
+      "error": null
+    },
+    "ADBench-24": {
+      "category": "adbench",
+      "auc": 0.9405909617612976,
+      "f1": 0.7412398921832885,
+      "precision": 0.701530612244898,
+      "recall": 0.7857142857142857,
+      "n_total": 7603,
+      "n_train": 3451,
+      "n_test": 4152,
+      "n_features": 100,
+      "anomaly_ratio": 0.09206892016309351,
+      "adaptive_weights": {
+        "resonance": 0.4683687028745624,
+        "kinematic": 0.0,
+        "info_geometry": 0.5316312971254376
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 347.35901199928776,
+      "score_ms": 78.63294499929907,
+      "error": null
+    },
+    "ADBench-25": {
+      "category": "adbench",
+      "auc": 0.9998053541511702,
+      "f1": 0.9844559585492227,
+      "precision": 0.9895833333333334,
+      "recall": 0.979381443298969,
+      "n_total": 3062,
+      "n_train": 1482,
+      "n_test": 1580,
+      "n_features": 166,
+      "anomaly_ratio": 0.03167864141084259,
+      "adaptive_weights": {
+        "resonance": 0.43590665426273845,
+        "kinematic": 0.18267502325736543,
+        "info_geometry": 0.3814183224798961
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.361331812839626,
+        "significant_bands": [
+          "baseline",
+          "session",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 515.7383519999712,
+      "score_ms": 4893.9403459999085,
+      "error": null
+    },
+    "ADBench-26": {
+      "category": "adbench",
+      "auc": 0.7128701144887486,
+      "f1": 0.18691588785046728,
+      "precision": 0.11331444759206799,
+      "recall": 0.5333333333333333,
+      "n_total": 5216,
+      "n_train": 2533,
+      "n_test": 2683,
+      "n_features": 64,
+      "anomaly_ratio": 0.028757668711656442,
+      "adaptive_weights": {
+        "resonance": 0.46784151032140087,
+        "kinematic": 0.0,
+        "info_geometry": 0.5321584896785991
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 170.84964099922217,
+      "score_ms": 24.397268000029726,
+      "error": null
+    },
+    "ADBench-27": {
+      "category": "adbench",
+      "auc": 0.9645412792471615,
+      "f1": 0.7676935886761033,
+      "precision": 0.6671490593342981,
+      "recall": 0.903921568627451,
+      "n_total": 5393,
+      "n_train": 2441,
+      "n_test": 2952,
+      "n_features": 10,
+      "anomaly_ratio": 0.09456703133691823,
+      "adaptive_weights": {
+        "resonance": 0.3527921673088359,
+        "kinematic": 0.3281736195995696,
+        "info_geometry": 0.31903421309159463
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8769815760527456,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 299.32324400033394,
+      "score_ms": 2660.180281999601,
+      "error": null
+    },
+    "ADBench-28": {
+      "category": "adbench",
+      "auc": 0.7611668690757163,
+      "f1": 0.20540540540540542,
+      "precision": 0.14285714285714285,
+      "recall": 0.36538461538461536,
+      "n_total": 6870,
+      "n_train": 3357,
+      "n_test": 3513,
+      "n_features": 16,
+      "anomaly_ratio": 0.022707423580786028,
+      "adaptive_weights": {
+        "resonance": 0.34067844637957856,
+        "kinematic": 0.361021585038145,
+        "info_geometry": 0.2982999685822765
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.9032001541375275,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 476.6793310000139,
+      "score_ms": 3602.211346999866,
+      "error": null
+    },
+    "ADBench-29": {
+      "category": "adbench",
+      "auc": 0.7408358208955225,
+      "f1": 0.7430340557275542,
+      "precision": 0.6349206349206349,
+      "recall": 0.8955223880597015,
+      "n_total": 768,
+      "n_train": 250,
+      "n_test": 518,
+      "n_features": 8,
+      "anomaly_ratio": 0.3489583333333333,
+      "adaptive_weights": {
+        "resonance": 0.37471522736247376,
+        "kinematic": 0.2973026335773519,
+        "info_geometry": 0.32798213906017437
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.9779870662682429,
+        "significant_bands": [
+          "elf_upper"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 58.236952000697784,
+      "score_ms": 944.1050219993485,
+      "error": null
+    },
+    "ADBench-30": {
+      "category": "adbench",
+      "auc": 0.7949274424004286,
+      "f1": 0.7568894952251023,
+      "precision": 0.8514426028238183,
+      "recall": 0.681237721021611,
+      "n_total": 6435,
+      "n_train": 2199,
+      "n_test": 4236,
+      "n_features": 36,
+      "anomaly_ratio": 0.3163947163947164,
+      "adaptive_weights": {
+        "resonance": 0.33766076696046815,
+        "kinematic": 0.3666624930608562,
+        "info_geometry": 0.2956767399786756
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.2612560166002342,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 299.89446099989436,
+      "score_ms": 10060.019366999768,
+      "error": null
+    },
+    "ADBench-31": {
+      "category": "adbench",
+      "auc": 0.9997837689079346,
+      "f1": 0.9714285714285714,
+      "precision": 0.9855072463768116,
+      "recall": 0.9577464788732394,
+      "n_total": 5803,
+      "n_train": 2866,
+      "n_test": 2937,
+      "n_features": 36,
+      "anomaly_ratio": 0.0122350508357746,
+      "adaptive_weights": {
+        "resonance": 0.3377215931082257,
+        "kinematic": 0.36566341687574105,
+        "info_geometry": 0.29661499001603325
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.2889167762664044,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 397.5529080007618,
+      "score_ms": 6770.570005000081,
+      "error": null
+    },
+    "ADBench-32": {
+      "category": "adbench",
+      "auc": 0.9986913352325568,
+      "f1": 0.9698099142750652,
+      "precision": 0.9644180874722016,
+      "recall": 0.9752623688155923,
+      "n_total": 49097,
+      "n_train": 9284,
+      "n_test": 9999,
+      "n_features": 9,
+      "anomaly_ratio": 0.0715114976475141,
+      "adaptive_weights": {
+        "resonance": 0.34196089082680203,
+        "kinematic": 0.35835491810344505,
+        "info_geometry": 0.29968419106975297
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8668339177303998,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 1092.6891310000428,
+      "score_ms": 9231.895398999768,
+      "error": null
+    },
+    "ADBench-33": {
+      "category": "adbench",
+      "auc": 0.7959807752105188,
+      "f1": 0.7192270992366412,
+      "precision": 0.6093371059013742,
+      "recall": 0.8774738067520372,
+      "n_total": 245057,
+      "n_train": 7924,
+      "n_test": 9999,
+      "n_features": 3,
+      "anomaly_ratio": 0.20753947040892526,
+      "adaptive_weights": {
+        "resonance": 0.29672578295760765,
+        "kinematic": 0.401259168194302,
+        "info_geometry": 0.30201504884809033
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.889874348869021,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 782.7179870000691,
+      "score_ms": 4923.865361000026,
+      "error": null
+    },
+    "ADBench-34": {
+      "category": "adbench",
+      "auc": 0.9463878326996198,
+      "f1": 0.09375,
+      "precision": 0.05084745762711865,
+      "recall": 0.6,
+      "n_total": 95156,
+      "n_train": 9996,
+      "n_test": 9999,
+      "n_features": 3,
+      "anomaly_ratio": 0.0003152717642607928,
+      "adaptive_weights": {
+        "resonance": 0.3372746047710281,
+        "kinematic": 0.36549734766589903,
+        "info_geometry": 0.2972280475630729
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.8613912419205477,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 1150.7685320002565,
+      "score_ms": 6977.132170999539,
+      "error": null
+    },
+    "ADBench-35": {
+      "category": "adbench",
+      "auc": 0.8191481140823728,
+      "f1": 0.7868852459016393,
+      "precision": 0.7169441723800196,
+      "recall": 0.8719475878499107,
+      "n_total": 4207,
+      "n_train": 1264,
+      "n_test": 2943,
+      "n_features": 57,
+      "anomaly_ratio": 0.39909674352270025,
+      "adaptive_weights": {
+        "resonance": 0.47329338693524653,
+        "kinematic": 0.0,
+        "info_geometry": 0.5267066130647534
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 81.4104609999049,
+      "score_ms": 22.178309000082663,
+      "error": null
+    },
+    "ADBench-36": {
+      "category": "adbench",
+      "auc": 0.501424140768403,
+      "f1": 0.09090909090909091,
+      "precision": 0.10204081632653061,
+      "recall": 0.08196721311475409,
+      "n_total": 3686,
+      "n_train": 1812,
+      "n_test": 1874,
+      "n_features": 400,
+      "anomaly_ratio": 0.016549104720564298,
+      "adaptive_weights": {
+        "resonance": 0.6363636363636364,
+        "kinematic": 0.0,
+        "info_geometry": 0.36363636363636365
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 1895.943812999576,
+      "score_ms": 384.3357489995469,
+      "error": null
+    },
+    "ADBench-37": {
+      "category": "adbench",
+      "auc": 0.9238293444328824,
+      "f1": 0.7297297297297297,
+      "precision": 0.627906976744186,
+      "recall": 0.8709677419354839,
+      "n_total": 340,
+      "n_train": 154,
+      "n_test": 186,
+      "n_features": 9,
+      "anomaly_ratio": 0.09117647058823529,
+      "adaptive_weights": {
+        "resonance": 0.3591818548868693,
+        "kinematic": 0.32690799850437796,
+        "info_geometry": 0.31391014660875277
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.0391917249454752,
+        "significant_bands": [
+          "baseline",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 37.329156999476254,
+      "score_ms": 319.1299979998803,
+      "error": null
+    },
+    "ADBench-38": {
+      "category": "adbench",
+      "auc": 0.9875233754090696,
+      "f1": 0.7741935483870968,
+      "precision": 0.7741935483870968,
+      "recall": 0.7741935483870968,
+      "n_total": 3772,
+      "n_train": 1839,
+      "n_test": 1933,
+      "n_features": 6,
+      "anomaly_ratio": 0.024655355249204668,
+      "adaptive_weights": {
+        "resonance": 0.21066259931645276,
+        "kinematic": 0.41228518766577926,
+        "info_geometry": 0.3770522130177679
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8845870820648327,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 203.27504700071586,
+      "score_ms": 1017.6274109999213,
+      "error": null
+    },
+    "ADBench-39": {
+      "category": "adbench",
+      "auc": 0.4476190476190477,
+      "f1": 0.37037037037037035,
+      "precision": 0.22727272727272727,
+      "recall": 1.0,
+      "n_total": 240,
+      "n_train": 105,
+      "n_test": 135,
+      "n_features": 6,
+      "anomaly_ratio": 0.125,
+      "adaptive_weights": {
+        "resonance": 0.353483734263991,
+        "kinematic": 0.32587560762806933,
+        "info_geometry": 0.3206406581079396
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8658522099244027,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 31.988265000109095,
+      "score_ms": 98.78289200059953,
+      "error": null
+    },
+    "ADBench-40": {
+      "category": "adbench",
+      "auc": 0.9822475106685633,
+      "f1": 0.7843137254901961,
+      "precision": 0.7692307692307693,
+      "recall": 0.8,
+      "n_total": 1456,
+      "n_train": 703,
+      "n_test": 753,
+      "n_features": 12,
+      "anomaly_ratio": 0.034340659340659344,
+      "adaptive_weights": {
+        "resonance": 0.35042301806576903,
+        "kinematic": 0.3420404704446659,
+        "info_geometry": 0.307536511489565
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9127510432610072,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 109.7850340001969,
+      "score_ms": 711.5803750002669,
+      "error": null
+    },
+    "ADBench-41": {
+      "category": "adbench",
+      "auc": 0.5369796650717704,
+      "f1": 0.11495946941783346,
+      "precision": 0.06205250596658711,
+      "recall": 0.78,
+      "n_total": 3443,
+      "n_train": 1671,
+      "n_test": 1772,
+      "n_features": 21,
+      "anomaly_ratio": 0.02904443799012489,
+      "adaptive_weights": {
+        "resonance": 0.3551001834761677,
+        "kinematic": 0.33409702683519743,
+        "info_geometry": 0.3108027896886349
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.3243907180730459,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 210.44708200042805,
+      "score_ms": 4114.91215299975,
+      "error": null
+    },
+    "ADBench-42": {
+      "category": "adbench",
+      "auc": 0.9925233644859813,
+      "f1": 0.8888888888888888,
+      "precision": 1.0,
+      "recall": 0.8,
+      "n_total": 223,
+      "n_train": 106,
+      "n_test": 117,
+      "n_features": 9,
+      "anomaly_ratio": 0.04484304932735426,
+      "adaptive_weights": {
+        "resonance": 0.39840244726148366,
+        "kinematic": 0.25209586726866123,
+        "info_geometry": 0.34950168546985516
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 1.012613078524115,
+        "significant_bands": [
+          "elf_upper",
+          "vlf_environmental"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 33.61903099994379,
+      "score_ms": 219.58787000039592,
+      "error": null
+    },
+    "ADBench-43": {
+      "category": "adbench",
+      "auc": 0.9983240223463687,
+      "f1": 0.9090909090909091,
+      "precision": 0.8333333333333334,
+      "recall": 1.0,
+      "n_total": 367,
+      "n_train": 178,
+      "n_test": 189,
+      "n_features": 30,
+      "anomaly_ratio": 0.027247956403269755,
+      "adaptive_weights": {
+        "resonance": 0.46410958308081324,
+        "kinematic": 0.0,
+        "info_geometry": 0.5358904169191868
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 29.865997999877436,
+      "score_ms": 2.587267000308202,
+      "error": null
+    },
+    "ADBench-44": {
+      "category": "adbench",
+      "auc": 0.5527253559688647,
+      "f1": 0.2188235294117647,
+      "precision": 0.1288981288981289,
+      "recall": 0.7237354085603113,
+      "n_total": 4819,
+      "n_train": 2281,
+      "n_test": 2538,
+      "n_features": 5,
+      "anomaly_ratio": 0.05333056650757419,
+      "adaptive_weights": {
+        "resonance": 0.33949631332688224,
+        "kinematic": 0.35401053171622426,
+        "info_geometry": 0.30649315495689344
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8713936541982639,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 284.23477400065167,
+      "score_ms": 1736.3789840001118,
+      "error": null
+    },
+    "ADBench-45": {
+      "category": "adbench",
+      "auc": 0.9400000000000001,
+      "f1": 0.7142857142857143,
+      "precision": 0.5555555555555556,
+      "recall": 1.0,
+      "n_total": 129,
+      "n_train": 59,
+      "n_test": 70,
+      "n_features": 13,
+      "anomaly_ratio": 0.07751937984496124,
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 20.51444700009597,
+      "score_ms": 2.3842880000302102,
+      "error": null
+    },
+    "ADBench-46": {
+      "category": "adbench",
+      "auc": 0.4829227323628219,
+      "f1": 0.5529411764705883,
+      "precision": 0.3821138211382114,
+      "recall": 1.0,
+      "n_total": 198,
+      "n_train": 75,
+      "n_test": 123,
+      "n_features": 33,
+      "anomaly_ratio": 0.23737373737373738,
+      "adaptive_weights": {
+        "resonance": 0.46733849199208205,
+        "kinematic": 0.0,
+        "info_geometry": 0.532661508007918
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 25.510656999358616,
+      "score_ms": 2.5434279996261466,
+      "error": null
+    },
+    "ADBench-47": {
+      "category": "adbench",
+      "auc": 0.38039633273234025,
+      "f1": 0.6746506986027944,
+      "precision": 0.5090361445783133,
+      "recall": 1.0,
+      "n_total": 1484,
+      "n_train": 488,
+      "n_test": 996,
+      "n_features": 8,
+      "anomaly_ratio": 0.341644204851752,
+      "adaptive_weights": {
+        "resonance": 0.3647454088138337,
+        "kinematic": 0.32690082440151574,
+        "info_geometry": 0.30835376678465054
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.0961036236507038,
+        "significant_bands": [
+          "baseline"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 70.44237799982511,
+      "score_ms": 1602.9490159999114,
+      "error": null
+    },
+    "NSL-KDD": {
+      "category": "security",
+      "auc": 0.9770942033871102,
+      "f1": 0.9420168705828711,
+      "precision": 0.9303512458721105,
+      "recall": 0.953978759427428,
+      "n_total": 148517,
+      "n_train": 5188,
+      "n_test": 9999,
+      "n_features": 41,
+      "anomaly_ratio": 0.4811772389692762,
+      "adaptive_weights": {
+        "resonance": 0.4672121083737955,
+        "kinematic": 0.0,
+        "info_geometry": 0.5327878916262045
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 210.56981399942742,
+      "score_ms": 56.006074000833905,
+      "error": null
+    },
+    "SMD": {
+      "category": "timeseries",
+      "auc": 0.908975769920919,
+      "f1": 0.5849701110162254,
+      "precision": 0.5154251316779533,
+      "recall": 0.6762092793682132,
+      "n_total": 75876,
+      "n_train": 9465,
+      "n_test": 9999,
+      "n_features": 38,
+      "anomaly_ratio": 0.05341609995255417,
+      "adaptive_weights": {
+        "resonance": 0.36512565592824014,
+        "kinematic": 0.31572533554685156,
+        "info_geometry": 0.31914900852490824
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.3219019471032185,
+        "significant_bands": [
+          "baseline",
+          "burst"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 1312.3140790003163,
+      "score_ms": 22965.804057999776,
+      "error": null
+    },
+    "NAB": {
+      "category": "timeseries",
+      "auc": 0.47360107401472956,
+      "f1": 0.2951909959072306,
+      "precision": 0.1731519455836751,
+      "recall": 1.0,
+      "n_total": 69561,
+      "n_train": 9052,
+      "n_test": 9999,
+      "n_features": 4,
+      "anomaly_ratio": 0.09479449691637555,
+      "adaptive_weights": {
+        "resonance": 0.1949049145124655,
+        "kinematic": 0.45859405457570995,
+        "info_geometry": 0.3465010309118246
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8678444741624561,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 1129.1124879999188,
+      "score_ms": 8440.15729900002,
+      "error": null
+    },
+    "SMAP": {
+      "category": "timeseries",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "SMAP/MSL (SMAP): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from OmniAnomaly mirror. Alternative: download from TimeEval HiDrive mirror (https://my.hidrive.com/share/ma4p8w4qqb) and extract train/ and test/ directories to: data/smap_msl"
+    },
+    "MSL": {
+      "category": "timeseries",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "SMAP/MSL (MSL): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from OmniAnomaly mirror. Alternative: download from TimeEval HiDrive mirror (https://my.hidrive.com/share/ma4p8w4qqb) and extract train/ and test/ directories to: data/smap_msl"
+    },
+    "BATADAL": {
+      "category": "industrial",
+      "auc": 0.9100068923925217,
+      "f1": 0.5657015590200446,
+      "precision": 0.5521739130434783,
+      "recall": 0.5799086757990868,
+      "n_total": 12938,
+      "n_train": 6359,
+      "n_test": 6579,
+      "n_features": 43,
+      "anomaly_ratio": 0.016926882052867524,
+      "adaptive_weights": {
+        "resonance": 0.4667058342163517,
+        "kinematic": 0.0,
+        "info_geometry": 0.5332941657836483
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 212.558015000468,
+      "score_ms": 32.73341600015556,
+      "error": null
+    },
+    "CICIDS-2017": {
+      "category": "security",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "CICIDS-2017: data source unavailable. All download sources failed. Place kaggle.json in ~/.kaggle/ or provide local_path."
+    },
+    "MIT-BIH": {
+      "category": "medical",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "MIT-BIH: data source unavailable. wfdb library required: pip install wfdb Add 'wfdb' to pyproject.toml [project.optional-dependencies.medical]"
+    },
+    "USGS_Earthquake": {
+      "category": "environmental",
+      "auc": 0.9255178548735544,
+      "f1": 0.7441860465116279,
+      "precision": 0.6821705426356589,
+      "recall": 0.8186046511627907,
+      "n_total": 1679,
+      "n_train": 732,
+      "n_test": 947,
+      "n_features": 11,
+      "anomaly_ratio": 0.12805241215008933,
+      "adaptive_weights": {
+        "resonance": 0.3548632525906267,
+        "kinematic": 0.3372213555982245,
+        "info_geometry": 0.30791539181114885
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.9006543011099198,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 130.10620800014294,
+      "score_ms": 1005.8551869997245,
+      "error": null
+    },
+    "NOAA_Weather": {
+      "category": "environmental",
+      "auc": 0.9279673314339981,
+      "f1": 0.6394439617723718,
+      "precision": 0.6996197718631179,
+      "recall": 0.5888,
+      "n_total": 17472,
+      "n_train": 8423,
+      "n_test": 9049,
+      "n_features": 8,
+      "anomaly_ratio": 0.035771520146520144,
+      "adaptive_weights": {
+        "resonance": 0.34559613205205075,
+        "kinematic": 0.34804964903685276,
+        "info_geometry": 0.3063542189110966
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9253320561850805,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 979.3587459998889,
+      "score_ms": 8407.524079999348,
+      "error": null
+    },
+    "Wildfire": {
+      "category": "environmental",
+      "auc": 0.8328094619755276,
+      "f1": 0.8122956180510137,
+      "precision": 0.7647783251231527,
+      "recall": 0.8661087866108786,
+      "n_total": 59882,
+      "n_train": 5978,
+      "n_test": 9999,
+      "n_features": 7,
+      "anomaly_ratio": 0.40215757656724893,
+      "adaptive_weights": {
+        "resonance": 0.34249679759671925,
+        "kinematic": 0.34976200182480566,
+        "info_geometry": 0.3077412005784752
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.9217648122444155,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 783.8120559999879,
+      "score_ms": 10006.250967999222,
+      "error": null
+    },
+    "USGS_Geochemistry": {
+      "category": "environmental",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "USGSGeochemistry: data source unavailable. URL: https://mrdata.usgs.gov/geochem/. USGS MRData API requires bulk download"
+    },
+    "NOAA_Buoy": {
+      "category": "ocean",
+      "auc": 0.9719084404780233,
+      "f1": 0.9072233267064281,
+      "precision": 0.8953564421190321,
+      "recall": 0.9194089993284084,
+      "n_total": 19451,
+      "n_train": 6928,
+      "n_test": 9999,
+      "n_features": 9,
+      "anomaly_ratio": 0.28764587938923447,
+      "adaptive_weights": {
+        "resonance": 0.33784865626064225,
+        "kinematic": 0.3641363538002376,
+        "info_geometry": 0.2980149899391201
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9277523840940594,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 836.0030680005366,
+      "score_ms": 9324.185695999404,
+      "error": null
+    },
+    "NOAA_StormEvents": {
+      "category": "climate",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "NOAAStormEvents: data source unavailable. URL: https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/. No storm event data downloaded for years 2021-2026"
+    },
+    "NOAA_GSOD": {
+      "category": "climate",
+      "auc": 0.9909716339896287,
+      "f1": 0.8983957219251337,
+      "precision": 0.9333333333333333,
+      "recall": 0.865979381443299,
+      "n_total": 1095,
+      "n_train": 499,
+      "n_test": 596,
+      "n_features": 15,
+      "anomaly_ratio": 0.08858447488584476,
+      "adaptive_weights": {
+        "resonance": 0.35635550798294957,
+        "kinematic": 0.33093698478303923,
+        "info_geometry": 0.31270750723401125
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.3120757659593147,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 80.96488699993643,
+      "score_ms": 1411.7795840002145,
+      "error": null
+    },
+    "NOAA_ERDDAP": {
+      "category": "climate",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "NOAA-ERDDAP-ssh: data source unavailable. URL: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisSSH1day.csv?sla[(2026-02-24T00:00:00Z)][(20.0):(50.0)][(-130.0):(-60.0)]. HTTP Error 404: Not Found"
+    },
+    "EPA_AirQuality": {
+      "category": "air_quality",
+      "auc": 0.9979023099952551,
+      "f1": 0.864406779661017,
+      "precision": 0.9503105590062112,
+      "recall": 0.7927461139896373,
+      "n_total": 847370,
+      "n_train": 9902,
+      "n_test": 9999,
+      "n_features": 8,
+      "anomaly_ratio": 0.009797373048373201,
+      "adaptive_weights": {
+        "resonance": 0.35584375703171056,
+        "kinematic": 0.3408487823028897,
+        "info_geometry": 0.30330746066539976
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9274262717067147,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 1202.1430710001368,
+      "score_ms": 9354.55743500006,
+      "error": null
+    },
+    "FEMA_Disaster": {
+      "category": "disaster",
+      "auc": 8.214518537210529e-08,
+      "f1": 0.8471411901983664,
+      "precision": 0.7348178137651822,
+      "recall": 1.0,
+      "n_total": 10000,
+      "n_train": 2096,
+      "n_test": 7904,
+      "n_features": 11,
+      "anomaly_ratio": 0.5808,
+      "adaptive_weights": {
+        "resonance": 0.303134840364389,
+        "kinematic": 0.0,
+        "info_geometry": 0.696865159635611
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 39.85862799981987,
+      "score_ms": 10.962446999656095,
+      "error": null
+    },
+    "FEMA_HazardMitigation": {
+      "category": "disaster",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "FEMAHazardMitigation: data source unavailable. URL: https://www.fema.gov/api/open/v2/HazardMitigationGrants. OpenFEMA Hazard Mitigation API unavailable"
+    },
+    "NASA_Exoplanet": {
+      "category": "space",
+      "auc": 0.7758479567380072,
+      "f1": 0.6397117694155324,
+      "precision": 0.5521769177608846,
+      "recall": 0.7602283539486203,
+      "n_total": 5000,
+      "n_train": 1974,
+      "n_test": 3026,
+      "n_features": 8,
+      "anomaly_ratio": 0.2102,
+      "adaptive_weights": {
+        "resonance": 0.35316263703017714,
+        "kinematic": 0.33792065999980414,
+        "info_geometry": 0.3089167029700187
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.911535806038062,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "fit_ms": 289.66299900002923,
+      "score_ms": 3068.5860180001328,
+      "error": null
+    },
+    "SolarDynamics": {
+      "category": "space",
+      "auc": 0.9960997360197114,
+      "f1": 0.7938671209540034,
+      "precision": 0.6955223880597015,
+      "recall": 0.9246031746031746,
+      "n_total": 20156,
+      "n_train": 9871,
+      "n_test": 9999,
+      "n_features": 2,
+      "anomaly_ratio": 0.012849771780115102,
+      "adaptive_weights": {
+        "resonance": 0.2743379504956363,
+        "kinematic": 0.40829113259845284,
+        "info_geometry": 0.31737091690591096
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.855226108467809,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "fit_ms": 1057.9299629998786,
+      "score_ms": 6704.735328999959,
+      "error": null
+    },
+    "UCR": {
+      "category": "academic",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "File is not a zip file"
+    },
+    "CWRU_Bearing": {
+      "category": "academic",
+      "auc": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_total": 594,
+      "n_train": 119,
+      "n_test": 475,
+      "n_features": 1024,
+      "anomaly_ratio": 0.5993265993265994,
+      "adaptive_weights": {
+        "resonance": 0.47508300564591394,
+        "kinematic": 0.049833988708172045,
+        "info_geometry": 0.47508300564591394
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "UNKNOWN",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 1811.760014000356,
+      "score_ms": 603.0581670001993,
+      "error": null
+    },
+    "MSDS": {
+      "category": "academic",
+      "auc": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_total": 10000,
+      "n_train": 4750,
+      "n_test": 5250,
+      "n_features": 30,
+      "anomaly_ratio": 0.05,
+      "adaptive_weights": {
+        "resonance": 0.4666631366956268,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333368633043732
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 113.11519900027633,
+      "score_ms": 20.58730399949127,
+      "error": null
+    },
+    "ThreatIntel": {
+      "category": "security",
+      "auc": 0.8262122152291465,
+      "f1": 0.5373134328358209,
+      "precision": 0.47368421052631576,
+      "recall": 0.6206896551724138,
+      "n_total": 835,
+      "n_train": 388,
+      "n_test": 447,
+      "n_features": 18,
+      "anomaly_ratio": 0.06946107784431138,
+      "adaptive_weights": {
+        "resonance": 0.4707658523195168,
+        "kinematic": 0.0,
+        "info_geometry": 0.5292341476804832
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 30.875802999617008,
+      "score_ms": 2.488484000423341,
+      "error": null
+    },
+    "ADRepository": {
+      "category": "general",
+      "auc": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "n_total": 7200,
+      "n_train": 3512,
+      "n_test": 3688,
+      "n_features": 21,
+      "anomaly_ratio": 0.024305555555555556,
+      "adaptive_weights": {
+        "resonance": 0.30434713868852287,
+        "kinematic": 0.0,
+        "info_geometry": 0.6956528613114771
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": 88.45344300061697,
+      "score_ms": 10.529701999985264,
+      "error": null
+    },
+    "SWaT": {
+      "category": "industrial",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "SWaT: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT/WADI requires iTrust registration: https://itrust.sutd.edu.sg/itrust-labs-datasets/ Download data and place in data/swat"
+    },
+    "WADI": {
+      "category": "industrial",
+      "auc": null,
+      "f1": null,
+      "precision": null,
+      "recall": null,
+      "n_total": null,
+      "n_train": null,
+      "n_test": null,
+      "n_features": null,
+      "anomaly_ratio": null,
+      "adaptive_weights": null,
+      "weight_source": null,
+      "data_type": null,
+      "oracle_metadata": {
+        "active": false
+      },
+      "fit_ms": null,
+      "score_ms": null,
+      "error": "WADI: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT/WADI requires iTrust registration: https://itrust.sutd.edu.sg/itrust-labs-datasets/ Download data and place in data/wadi"
+    }
+  },
+  "inverted_datasets": [
+    "ADBench-19",
+    "ADBench-39",
+    "ADBench-46",
+    "ADBench-47",
+    "NAB",
+    "FEMA_Disaster"
+  ],
+  "n_inverted": 6
+}

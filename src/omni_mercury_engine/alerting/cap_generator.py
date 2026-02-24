@@ -413,11 +413,13 @@ class CAPAlertGenerator:
         Returns:
             True if valid CAP structure, False otherwise.
         """
+        from xml.etree.ElementTree import ParseError
+
         from defusedxml.ElementTree import fromstring as safe_fromstring
 
         try:
             root = safe_fromstring(xml_string)
-        except Exception:
+        except (ParseError, SyntaxError, ValueError, TypeError):
             return False
 
         # Detect namespace (CAP XML may have xmlns set)

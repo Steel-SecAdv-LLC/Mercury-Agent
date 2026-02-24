@@ -342,7 +342,7 @@ class LandslideLoader(BaseDomainLoader):
             int(labels.sum()),
             len(labels),
         )
-        return labels  # type: ignore[no-any-return]
+        return np.asarray(labels)
 
     # ------------------------------------------------------------------
     # Feature engineering (Mercury-native, no sklearn)
@@ -563,7 +563,7 @@ class LandslideLoader(BaseDomainLoader):
         default_code = encoding_map.get("unknown", 0)
         values = df[column].fillna("unknown").astype(str).str.lower().str.strip()
         encoded = values.map(lambda v: encoding_map.get(v, default_code)).values.astype(np.float64)
-        return encoded  # type: ignore[no-any-return]
+        return np.asarray(encoded)
 
     @staticmethod
     def _encode_country(df: pd.DataFrame) -> np.ndarray:
@@ -584,7 +584,7 @@ class LandslideLoader(BaseDomainLoader):
         values = df["country_name"].fillna("unknown").astype(str).str.lower()
         # Use a stable hash modulo a prime for numeric encoding
         codes = values.map(lambda v: sum(ord(c) for c in v) % 997).values.astype(np.float64)
-        return codes  # type: ignore[no-any-return]
+        return np.asarray(codes)
 
     @staticmethod
     def _extract_month(df: pd.DataFrame) -> np.ndarray:

@@ -369,7 +369,17 @@ _cors_allow_credentials = os.getenv("MERCURY_CORS_CREDENTIALS", "false").lower()
 if os.getenv("MERCURY_AGENT_ENV", "").lower() == "production":
     # Production: require explicit origin configuration
     if _cors_origins_env:
-        _allowed_origins = [origin.strip() for origin in _cors_origins_env.split(",")]
+        _raw_origins = [origin.strip() for origin in _cors_origins_env.split(",") if origin.strip()]
+        _allowed_origins: list[str] = []
+        for _origin in _raw_origins:
+            from urllib.parse import urlparse as _urlparse
+
+            _parsed = _urlparse(_origin)
+            # Validate: must have scheme + netloc, no path beyond "/"
+            if _parsed.scheme in ("http", "https") and _parsed.netloc and _parsed.path in ("", "/"):
+                _allowed_origins.append(_origin)
+            else:
+                logger.warning("Ignoring invalid CORS origin: %s", _origin)
     else:
         # Default to same-origin only in production (no CORS)
         _allowed_origins = []

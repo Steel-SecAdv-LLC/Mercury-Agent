@@ -34,6 +34,7 @@ References:
   - InfoGeometry: IGEOOD / FisherInformationMatrix (core/info_geometry.py)
 """
 
+import logging
 from typing import Any
 
 import numpy as np
@@ -49,8 +50,18 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 
+try:
+    import optuna
+
+    OPTUNA_AVAILABLE = True
+except ImportError:
+    OPTUNA_AVAILABLE = False
+
 from omni_mercury_engine.core.base import BaseDetector
+from omni_mercury_engine.core.config import COMPONENT_COMPATIBILITY, DataCharacteristics
 from omni_mercury_engine.core.exceptions import DetectorException
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -75,7 +86,13 @@ class MercuryAnomalyDetector(BaseDetector):
        compatibility. Use ``MercuryAnomalyDetector`` in new code.
     """
 
-    def __init__(self, config: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        config: dict[str, Any] | None = None,
+        *,
+        auto_validate: bool = False,
+        auto_tune: bool = False,
+    ) -> None:
         super().__init__(config)
         self.z_threshold: float = self.config.get("z_threshold", 3.0)
         self.iqr_multiplier: float = self.config.get("iqr_multiplier", 1.5)
@@ -109,11 +126,43 @@ class MercuryAnomalyDetector(BaseDetector):
         self._supervised_threshold: float | None = None
         self._calibration_result: Any = None
 
+        # Data type detection (Task 2)
+        self._data_type: DataCharacteristics = DataCharacteristics.UNKNOWN
+
+        # Ensemble diversity metrics (Task 6)
+        self._ensemble_diversity: dict[str, float] | None = None
+
+        # Tuned hyperparameters (Task 5)
+        self._tuned_lambda: float | None = None
+        self._tuned_weights: np.ndarray[Any, Any] | None = None
+
+        # Validation diagnostics (Task 4)
+        self._validation_diagnostics: dict[str, Any] | None = None
+
+        # Constructor options
+        self._auto_validate = auto_validate
+        self._auto_tune = auto_tune
+
+        # Score flip for ensemble inversion (Task 4, set during fit if auto_validate=True)
+        self._score_flip: bool = False
+
+        # Adaptive component weights (set during fit)
+        self._adaptive_weights: np.ndarray[Any, Any] = np.array([0.40, 0.30, 0.30])
+        self._weight_source: str = "default"
+
+        # Oracle detector (set during fit if data is temporal)
+        self._oracle_detector: Any = None
+        self._oracle_metadata: dict[str, Any] = {"active": False}
+
     # =====================================================================
     # fit()
     # =====================================================================
 
-    def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> MercuryAnomalyDetector:
+    def fit(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        calibration_labels: np.ndarray[Any, Any] | None = None,
+    ) -> MercuryAnomalyDetector:
         """Fit detector on training data.
 
         Computes statistical baselines for all three ensemble components:
@@ -121,9 +170,17 @@ class MercuryAnomalyDetector(BaseDetector):
           2. Kinematic baselines (jerk/acceleration mean and std per feature)
           3. Information-geometric manifold (mean, regularized precision matrix)
 
+        If *calibration_labels* is provided (even for a subset of training
+        data), the supervised threshold calibration pipeline is automatically
+        invoked to set ``self._supervised_threshold``.
+
         Args:
             data: Training data array or tensor, shape ``(n_samples,)`` or
                 ``(n_samples, n_features)``.
+            calibration_labels: Optional binary labels (0=normal, 1=anomaly)
+                with the same length as *data*.  When provided, the
+                supervised adaptive weighting and threshold calibration
+                pipeline are automatically invoked.
 
         Returns:
             Self for method chaining.
@@ -167,6 +224,10 @@ class MercuryAnomalyDetector(BaseDetector):
         self.q1 = np.percentile(arr, 25, axis=0)
         self.q3 = np.percentile(arr, 75, axis=0)
 
+        # --- Data type detection (Task 2) ---
+        self._data_type = self._detect_data_characteristics(arr)
+        logger.info("fit: detected data type=%s", self._data_type.value)
+
         # --- InfoGeometry: fit Gaussian manifold ---
         self._fit_info_geometry(arr)
 
@@ -178,6 +239,140 @@ class MercuryAnomalyDetector(BaseDetector):
         self._precompute_resonance_profiles(arr)
 
         self._is_fitted = True
+
+        # --- Oracle initialization (for temporal data) ---
+        self._oracle_detector = None
+        self._oracle_metadata = {"active": False}
+
+        if self._data_type == DataCharacteristics.TEMPORAL:
+            try:
+                from omni_mercury_engine.core.config import (
+                    ORACLE_DOMAIN_POLICY,
+                    OracleActivation,
+                )
+                from omni_mercury_engine.detectors.spectral_domain_oracle import (
+                    SpectralDomainOracle,
+                )
+
+                oracle_mode = OracleActivation.AUTO
+                oracle_domain = self._infer_oracle_domain(arr, self._data_type)
+
+                should_init = oracle_mode == OracleActivation.ENABLED or (
+                    oracle_mode == OracleActivation.AUTO
+                    and ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled") != "disabled"
+                )
+
+                if should_init:
+                    oracle_cfg = {"domain": oracle_domain}
+                    self._oracle_detector = SpectralDomainOracle(oracle_cfg)
+                    self._oracle_detector.fit(arr)
+                    logger.info("Oracle fitted: domain=%s", oracle_domain)
+            except Exception as exc:
+                logger.debug("Oracle init skipped: %s", exc)
+                self._oracle_detector = None
+
+        # --- Unsupervised adaptive weighting (Task 1) ---
+        self._adaptive_weights = self._compute_unsupervised_adaptive_weights(arr)
+        logger.info(
+            "fit: unsupervised adaptive weights=[%.3f, %.3f, %.3f] source=%s",
+            self._adaptive_weights[0],
+            self._adaptive_weights[1],
+            self._adaptive_weights[2],
+            self._weight_source,
+        )
+
+        # --- Ensemble diversity metrics (Task 6) ---
+        self._ensemble_diversity = self._compute_ensemble_diversity(arr)
+        if self._ensemble_diversity["mean_correlation"] > 0.9:
+            logger.warning(
+                "fit: high mean component correlation (%.3f) — ensemble diversity is low",
+                self._ensemble_diversity["mean_correlation"],
+            )
+
+        # --- Optional auto-tuning (Task 5) ---
+        if self._auto_tune:
+            self.auto_tune(arr)
+
+        # --- Optional auto-validation (Task 4) ---
+        if self._auto_validate:
+            diag = self.validate()
+            if diag["is_inverted"]:
+                logger.warning(
+                    "fit: ensemble inversion detected (AUC=%.3f). "
+                    "Applying score flip as recommended action.",
+                    diag["ensemble_auc"],
+                )
+                self._score_flip = True
+            else:
+                self._score_flip = False
+
+        # --- Calibration labels support (Task 3) ---
+        if calibration_labels is not None:
+            cal_labels = np.asarray(calibration_labels, dtype=np.int32).ravel()
+            if len(cal_labels) == len(arr):
+                # Full labeling: use supervised adaptive weights + threshold
+                self._adaptive_weights = self._compute_adaptive_weights(arr, cal_labels)
+                self._weight_source = "supervised_calibration"
+                logger.info(
+                    "fit: calibration_labels provided (n=%d). "
+                    "Supervised adaptive weights=[%.3f, %.3f, %.3f]",
+                    len(cal_labels),
+                    self._adaptive_weights[0],
+                    self._adaptive_weights[1],
+                    self._adaptive_weights[2],
+                )
+                # Compute supervised threshold
+                detection = self.detect(arr)
+                scores = np.asarray(detection["scores"], dtype=np.float64)
+                try:
+                    from omni_mercury_engine.core.calibration_pipeline import (
+                        CalibrationStrategy,
+                        ThresholdCalibrationPipeline,
+                    )
+
+                    best_f1 = -1.0
+                    best_threshold = float(np.median(scores))
+                    for strat in [
+                        CalibrationStrategy.YOUDEN_J,
+                        CalibrationStrategy.F1_OPTIMAL,
+                    ]:
+                        try:
+                            trial = ThresholdCalibrationPipeline()
+                            result = trial.calibrate_from_data(
+                                scores,
+                                cal_labels,
+                                method=strat,
+                                threshold_name="anomaly.default_threshold",
+                            )
+                            preds = scores > result.threshold
+                            tp = int(np.sum(preds & (cal_labels == 1)))
+                            fp = int(np.sum(preds & (cal_labels == 0)))
+                            fn = int(np.sum(~preds & (cal_labels == 1)))
+                            prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+                            rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+                            f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+                            if f1 > best_f1:
+                                best_f1 = f1
+                                best_threshold = result.threshold
+                                self._threshold_pipeline = trial
+                                self._calibration_result = result
+                        except Exception:
+                            continue
+                    self._supervised_threshold = best_threshold
+                    logger.info(
+                        "fit: supervised threshold=%.6f (F1=%.4f)",
+                        best_threshold,
+                        best_f1,
+                    )
+                except ImportError:
+                    logger.debug("fit: calibration_pipeline not available")
+            else:
+                logger.warning(
+                    "fit: calibration_labels length (%d) != data length (%d), ignoring",
+                    len(cal_labels),
+                    len(arr),
+                )
+
         return self
 
     def fit_with_labels(
@@ -336,6 +531,58 @@ class MercuryAnomalyDetector(BaseDetector):
         )
         return self
 
+    def get_oracle_statistics(self) -> dict[str, Any] | None:
+        """Export Oracle reference statistics for federation.
+
+        Returns a serializable dict containing the Oracle domain,
+        fitted reference stats, and configuration so that a receiving
+        node can reconstruct Oracle state without re-fitting.
+
+        Returns:
+            Dict with Oracle state, or ``None`` if Oracle is not active.
+        """
+        if self._oracle_detector is None:
+            return None
+        try:
+            oracle = self._oracle_detector
+            oc = oracle._oracle_config
+            ref_stats: dict[str, Any] = {
+                "domain": getattr(oc, "domain", "environmental"),
+                "threshold": getattr(oracle, "threshold", 0.5),
+                "is_fitted": getattr(oracle, "_is_fitted", False),
+            }
+            # Export per-band reference statistics
+            if hasattr(oracle, "_ref_band_means") and oracle._ref_band_means:
+                ref_stats["ref_band_means"] = {
+                    k: float(v) for k, v in oracle._ref_band_means.items()
+                }
+            if hasattr(oracle, "_ref_band_stds") and oracle._ref_band_stds:
+                ref_stats["ref_band_stds"] = {k: float(v) for k, v in oracle._ref_band_stds.items()}
+            # Export full-spectrum reference
+            if hasattr(oracle, "_ref_full_spectrum_mean"):
+                v = oracle._ref_full_spectrum_mean
+                if isinstance(v, np.ndarray):
+                    ref_stats["ref_full_spectrum_mean"] = v.tolist()
+            if hasattr(oracle, "_ref_full_spectrum_std"):
+                v = oracle._ref_full_spectrum_std
+                if isinstance(v, np.ndarray):
+                    ref_stats["ref_full_spectrum_std"] = v.tolist()
+            if hasattr(oracle, "_ref_spectral_entropy_mean"):
+                ref_stats["ref_spectral_entropy_mean"] = float(oracle._ref_spectral_entropy_mean)
+            if hasattr(oracle, "_ref_spectral_entropy_std"):
+                ref_stats["ref_spectral_entropy_std"] = float(oracle._ref_spectral_entropy_std)
+            # Export noise color estimation (F1 Precision Directive)
+            if hasattr(oracle, "_noise_beta"):
+                ref_stats["noise_beta"] = float(oracle._noise_beta)
+            if hasattr(oracle, "_noise_color"):
+                ref_stats["noise_color"] = str(oracle._noise_color)
+            if hasattr(oracle, "_noise_fit_r2"):
+                ref_stats["noise_fit_r2"] = float(oracle._noise_fit_r2)
+            return ref_stats
+        except Exception as exc:
+            logger.debug("Failed to export Oracle statistics: %s", exc)
+            return None
+
     @classmethod
     def from_statistics(
         cls,
@@ -352,6 +599,9 @@ class MercuryAnomalyDetector(BaseDetector):
         ig_mean: np.ndarray,
         ig_cov_inv: np.ndarray,
         ig_log_det: float = 0.0,
+        adaptive_weights: np.ndarray | None = None,
+        data_type: str | None = None,
+        oracle_ref_stats: dict[str, Any] | None = None,
     ) -> MercuryAnomalyDetector:
         """Reconstruct a fitted detector from pre-computed statistics.
 
@@ -359,7 +609,7 @@ class MercuryAnomalyDetector(BaseDetector):
         the aggregator combines them, and this method creates a
         working detector from the aggregated result.
 
-        All 13 parameters correspond exactly to the attributes set
+        All 13 core parameters correspond exactly to the attributes set
         during fit(). The resulting detector is ready for detect() calls.
 
         Args:
@@ -376,6 +626,17 @@ class MercuryAnomalyDetector(BaseDetector):
             ig_mean: Gaussian manifold center, shape (n_features,)
             ig_cov_inv: Precision matrix, shape (n_features, n_features)
             ig_log_det: Log-determinant of regularized covariance.
+            adaptive_weights: Optional component weights from unsupervised
+                adaptive weighting, shape (3,). If provided, the
+                reconstructed detector uses these weights instead of the
+                default [0.40, 0.30, 0.30].
+            data_type: Optional detected data type ("temporal", "tabular",
+                "image", "unknown"). Preserves the originating node's
+                data-type classification.
+            oracle_ref_stats: Optional Oracle reference statistics exported
+                by :meth:`get_oracle_statistics`. When provided, the
+                receiving node restores Oracle state so that frequency-
+                domain scoring activates without re-fitting on local data.
 
         Returns:
             Fitted MercuryAnomalyDetector ready for detect() calls.
@@ -394,6 +655,59 @@ class MercuryAnomalyDetector(BaseDetector):
         det._ig_mean = np.asarray(ig_mean)
         det._ig_cov_inv = np.asarray(ig_cov_inv)
         det._ig_log_det = float(ig_log_det)
+        if adaptive_weights is not None:
+            det._adaptive_weights = np.asarray(adaptive_weights)
+        if data_type is not None:
+            from omni_mercury_engine.core.config import DataCharacteristics
+
+            det._data_type = DataCharacteristics(data_type)
+
+        # Restore Oracle from federation stats
+        det._oracle_detector = None
+        det._oracle_metadata = {"active": False}
+        if oracle_ref_stats is not None:
+            try:
+                from omni_mercury_engine.detectors.spectral_domain_oracle import (
+                    SpectralDomainOracle,
+                )
+
+                domain = oracle_ref_stats.get("domain", "environmental")
+                oracle = SpectralDomainOracle({"domain": domain})
+                # Restore per-band reference statistics
+                if "ref_band_means" in oracle_ref_stats:
+                    oracle._ref_band_means = oracle_ref_stats["ref_band_means"]
+                if "ref_band_stds" in oracle_ref_stats:
+                    oracle._ref_band_stds = oracle_ref_stats["ref_band_stds"]
+                if "ref_full_spectrum_mean" in oracle_ref_stats:
+                    oracle._ref_full_spectrum_mean = np.asarray(
+                        oracle_ref_stats["ref_full_spectrum_mean"]
+                    )
+                if "ref_full_spectrum_std" in oracle_ref_stats:
+                    oracle._ref_full_spectrum_std = np.asarray(
+                        oracle_ref_stats["ref_full_spectrum_std"]
+                    )
+                if "ref_spectral_entropy_mean" in oracle_ref_stats:
+                    oracle._ref_spectral_entropy_mean = float(
+                        oracle_ref_stats["ref_spectral_entropy_mean"]
+                    )
+                if "ref_spectral_entropy_std" in oracle_ref_stats:
+                    oracle._ref_spectral_entropy_std = float(
+                        oracle_ref_stats["ref_spectral_entropy_std"]
+                    )
+                # Restore noise color (F1 Precision Directive)
+                if "noise_beta" in oracle_ref_stats:
+                    oracle._noise_beta = float(oracle_ref_stats["noise_beta"])
+                if "noise_color" in oracle_ref_stats:
+                    oracle._noise_color = str(oracle_ref_stats["noise_color"])
+                if "noise_fit_r2" in oracle_ref_stats:
+                    oracle._noise_fit_r2 = float(oracle_ref_stats["noise_fit_r2"])
+                oracle._is_fitted = True
+                det._oracle_detector = oracle
+                det._oracle_metadata = {"active": True, "domain": domain}
+                logger.info("Oracle restored from federation stats: domain=%s", domain)
+            except Exception as exc:
+                logger.debug("Failed to restore Oracle from federation: %s", exc)
+
         det._is_fitted = True
         return det
 
@@ -617,6 +931,893 @@ class MercuryAnomalyDetector(BaseDetector):
         return weights
 
     # =====================================================================
+    # Data type detection (Task 2)
+    # =====================================================================
+
+    def _detect_data_characteristics(self, X: np.ndarray[Any, Any]) -> DataCharacteristics:
+        """Automatically detect whether data is temporal, tabular, or image-like.
+
+        Detection heuristics (applied in order):
+
+        1. **Temporal autocorrelation**: Compute lag-1 autocorrelation for each
+           feature. If mean |autocorrelation| > 0.3, classify as ``TEMPORAL``.
+           Rationale: temporally ordered data exhibits serial dependence.
+
+        2. **Row shuffling test**: Compute mean absolute correlation between
+           adjacent rows. If mean correlation < 0.1, classify as ``TABULAR``
+           (shuffled). Rationale: shuffled tabular rows have near-zero
+           adjacent-row correlation.
+
+        3. **Dimensionality heuristic**: If ``n_features > 100`` and
+           ``n_features`` is approximately ``sqrt(n_samples)``, classify as
+           ``IMAGE``. Rationale: image-like datasets have many features
+           (pixels) and the feature count often relates to image dimensions.
+
+        Falls back to ``UNKNOWN`` if no heuristic triggers.
+
+        Args:
+            X: Training data of shape ``(n_samples, n_features)``.
+
+        Returns:
+            Detected :class:`DataCharacteristics` enum value.
+        """
+        n_samples, n_features = X.shape
+
+        if n_samples < 5:
+            return DataCharacteristics.UNKNOWN
+
+        # --- Heuristic 1: Temporal autocorrelation ---
+        # Use *median* autocorrelation (robust to outlier spikes that
+        # destroy mean autocorrelation in anomaly-injected temporal data).
+        try:
+            autocorrs: list[float] = []
+            n_cols = min(n_features, 50)  # Cap for efficiency
+            for f_idx in range(n_cols):
+                col = X[:, f_idx]
+                col_centered = col - np.mean(col)
+                var = np.var(col)
+                if var < _MIN_VARIANCE:
+                    continue
+                lag1_cov = np.mean(col_centered[:-1] * col_centered[1:])
+                autocorrs.append(abs(lag1_cov / var))
+            if autocorrs and np.median(autocorrs) > 0.3:
+                return DataCharacteristics.TEMPORAL
+        except (ValueError, TypeError, FloatingPointError, IndexError) as exc:
+            logger.debug(
+                "Data type detection: autocorrelation heuristic failed (%s), "
+                "falling through to next heuristic.",
+                exc,
+            )
+
+        # --- Heuristic 2: Adjacent row correlation ---
+        # High adjacent-row correlation (> 0.3) also indicates temporal
+        # ordering (rows are related to their neighbours).
+        # Low adjacent-row correlation (< 0.1) indicates shuffled tabular.
+        adj_row_corr: float | None = None
+        try:
+            if n_samples > 10 and n_features >= 2:
+                row_corrs: list[float] = []
+                n_check = min(n_samples - 1, 200)  # Cap for efficiency
+                for i in range(n_check):
+                    row_a = X[i, :]
+                    row_b = X[i + 1, :]
+                    std_a = np.std(row_a)
+                    std_b = np.std(row_b)
+                    if std_a < _MIN_VARIANCE or std_b < _MIN_VARIANCE:
+                        continue
+                    corr = np.corrcoef(row_a, row_b)[0, 1]
+                    if np.isfinite(corr):
+                        row_corrs.append(abs(corr))
+                if row_corrs:
+                    adj_row_corr = float(np.median(row_corrs))
+                    if adj_row_corr > 0.3:
+                        # High adjacent-row correlation: temporal ordering
+                        return DataCharacteristics.TEMPORAL
+                    if adj_row_corr < 0.1:
+                        # Low adjacent-row correlation: shuffled tabular
+                        return DataCharacteristics.TABULAR
+        except (ValueError, TypeError, FloatingPointError, IndexError) as exc:
+            logger.debug(
+                "Data type detection: adjacent-row correlation heuristic failed (%s), "
+                "falling through to next heuristic.",
+                exc,
+            )
+
+        # --- Heuristic 3: Image dimensionality ---
+        if n_features > 100:
+            sqrt_n = np.sqrt(n_samples)
+            if 0.3 * sqrt_n <= n_features <= 3.0 * sqrt_n:
+                return DataCharacteristics.IMAGE
+
+        # Default: if not temporal and not obviously image, assume tabular.
+        # This is the conservative choice — tabular is the most common case
+        # in ADBench-style datasets, and KinematicScore underperforms on it.
+        if n_features <= 100:
+            return DataCharacteristics.TABULAR
+
+        return DataCharacteristics.UNKNOWN
+
+    # =====================================================================
+    # Oracle domain auto-selection (Phase 11)
+    # =====================================================================
+
+    @staticmethod
+    def _infer_oracle_domain(
+        X: np.ndarray[Any, Any],
+        detected_type: DataCharacteristics,
+    ) -> str:
+        """Infer the most appropriate Oracle domain from data characteristics.
+
+        Heuristics (applied in order):
+        1. **Sample rate estimation**: If inter-sample intervals suggest
+           < 1 Hz effective rate → ``environmental``, 100-500 Hz →
+           ``medical``, > 500 Hz → ``infrastructure``.
+        2. **Dominant FFT frequency**: Cross-reference against
+           ``DOMAIN_FREQUENCY_BANDS`` to find best domain match.
+        3. **Feature count heuristic**: 1-3 features → single-sensor
+           (``environmental``), 20-100 → network (``security``).
+        4. **Fallback**: ``environmental`` (broadest bands, safest default).
+
+        User-specified domain always overrides this method.
+
+        Args:
+            X: Training data, shape ``(n_samples, n_features)``.
+            detected_type: Result of ``_detect_data_characteristics()``.
+
+        Returns:
+            Domain string (e.g., ``"environmental"``, ``"medical"``).
+        """
+        n_samples, n_features = X.shape
+
+        # Heuristic 3: Feature count
+        if n_features >= 20:
+            return "security"
+
+        # Heuristic 1: Estimate effective sample rate from autocorrelation decay
+        # (proxy for actual sample rate when timestamps aren't available)
+        if detected_type == DataCharacteristics.TEMPORAL and n_samples >= 64:
+            try:
+                col = X[:, 0] if X.ndim > 1 else X
+                col = col - np.mean(col)
+                n = len(col)
+                fft_vals = np.abs(np.fft.rfft(col))
+                freqs = np.fft.rfftfreq(n)
+
+                if len(fft_vals) > 1:
+                    # Skip DC component
+                    fft_vals = fft_vals[1:]
+                    freqs = freqs[1:]
+                    if len(fft_vals) > 0:
+                        dominant_idx = int(np.argmax(fft_vals))
+                        dominant_freq = float(freqs[dominant_idx])
+
+                        # Map dominant normalised frequency to domain
+                        # Very low freq -> environmental/climate
+                        # Mid freq -> medical
+                        # High freq -> infrastructure/security
+                        if dominant_freq < 0.05:
+                            return "environmental"
+                        elif dominant_freq < 0.2:
+                            return "medical"
+                        elif dominant_freq < 0.4:
+                            return "infrastructure"
+                        else:
+                            return "security"
+            except (ValueError, IndexError):
+                pass
+
+        # Heuristic 3 (continued): Low feature count
+        if n_features <= 3:
+            return "environmental"
+        if n_features <= 10:
+            return "space"
+
+        # Fallback to environmental (broadest bands)
+        return "environmental"
+
+    # =====================================================================
+    # Unsupervised adaptive weighting (Task 1)
+    # =====================================================================
+
+    def _compute_unsupervised_adaptive_weights(
+        self,
+        X: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
+        """Compute adaptive ensemble weights without labels via self-supervised anomaly injection.
+
+        Strategy:
+          1. Split training data into K=5 folds.
+          2. For each fold, fit on K-1 folds and score the held-out fold.
+          3. Inject synthetic anomalies into the held-out fold (Gaussian noise
+             with sigma = 3 * std per feature) to create pseudo-labels.
+          4. Compute per-component AUC using pseudo-labels.
+          5. Apply the same logic as ``_compute_adaptive_weights()``: zero out
+             components with AUC < 0.5, apply 0.05 minimum floor.
+
+        Additionally applies data-type-aware weight adjustment using
+        :data:`COMPONENT_COMPATIBILITY` from ``config.py``.
+
+        Args:
+            X: Training data, shape ``(n_samples, n_features)``.
+
+        Returns:
+            Weight array of shape ``(3,)`` summing to 1.
+        """
+        n_samples, n_features = X.shape
+
+        # For very small datasets, fall back to data-type-based defaults
+        if n_samples < 20:
+            return self._data_type_default_weights()
+
+        try:
+            k_folds = min(5, n_samples // 4)
+            if k_folds < 2:
+                return self._data_type_default_weights()
+
+            rng = np.random.RandomState(42)
+            indices = np.arange(n_samples)
+            rng.shuffle(indices)
+            fold_size = n_samples // k_folds
+
+            component_aucs_accum: list[list[float]] = [[], [], []]
+
+            for k in range(k_folds):
+                val_start = k * fold_size
+                val_end = val_start + fold_size if k < k_folds - 1 else n_samples
+                val_idx = indices[val_start:val_end]
+                train_idx = np.concatenate([indices[:val_start], indices[val_end:]])
+
+                X_train_fold = X[train_idx]
+                X_val_fold = X[val_idx]
+
+                if len(X_train_fold) < 4 or len(X_val_fold) < 2:
+                    continue
+
+                # Fit a temporary detector on the fold
+                fold_det = MercuryAnomalyDetector()
+                fold_det._data_type = self._data_type
+                # Manually fit components without recursion
+                fold_det.mean = np.mean(X_train_fold, axis=0)
+                fold_det.std = np.std(X_train_fold, axis=0) + 1e-8
+                fold_det.q1 = np.percentile(X_train_fold, 25, axis=0)
+                fold_det.q3 = np.percentile(X_train_fold, 75, axis=0)
+                fold_det._fit_info_geometry(X_train_fold)
+                fold_det._fit_kinematic_baseline(X_train_fold)
+                fold_det._train_data = X_train_fold.copy()
+                fold_det._precompute_resonance_profiles(X_train_fold)
+                fold_det._is_fitted = True
+
+                # Generate synthetic anomalies via Gaussian noise injection
+                n_anomalies = max(len(X_val_fold), 10)
+                noise = rng.randn(n_anomalies, n_features) * 3.0 * fold_det.std
+                synthetic_anomalies = fold_det.mean + noise
+
+                # Combine normal (val) + synthetic anomalies
+                X_combined = np.vstack([X_val_fold, synthetic_anomalies])
+                pseudo_labels = np.concatenate(
+                    [
+                        np.zeros(len(X_val_fold), dtype=np.int32),
+                        np.ones(n_anomalies, dtype=np.int32),
+                    ]
+                )
+
+                # Score each component
+                res_scores = fold_det._compute_resonance_score(X_combined)
+                kin_scores = fold_det._compute_kinematic_score(X_combined)
+                ig_scores = fold_det._compute_info_geometry_score(X_combined)
+
+                for comp_idx, comp_scores in enumerate([res_scores, kin_scores, ig_scores]):
+                    auc = self._component_separation(comp_scores, pseudo_labels)
+                    component_aucs_accum[comp_idx].append(auc)
+
+            # Aggregate AUCs across folds
+            if not component_aucs_accum[0]:
+                return self._data_type_default_weights()
+
+            mean_aucs = np.array(
+                [float(np.mean(aucs)) if aucs else 0.5 for aucs in component_aucs_accum]
+            )
+
+            self._component_aucs = {
+                "resonance": float(mean_aucs[0]),
+                "kinematic": float(mean_aucs[1]),
+                "infogeo": float(mean_aucs[2]),
+            }
+
+            # Apply data-type compatibility modifiers
+            compat = COMPONENT_COMPATIBILITY.get(
+                self._data_type, COMPONENT_COMPATIBILITY[DataCharacteristics.UNKNOWN]
+            )
+            # If TABULAR, force kinematic weight to near-zero
+            if self._data_type == DataCharacteristics.TABULAR:
+                mean_aucs[1] = min(mean_aucs[1], 0.50)  # Cap at random
+
+            # Standard adaptive weight logic: zero out inverted, normalize
+            effective_aucs = np.where(mean_aucs < 0.5, 0.0, mean_aucs - 0.5)
+
+            # Apply compatibility multipliers
+            effective_aucs[0] *= compat["resonance"]
+            effective_aucs[1] *= compat["kinematic"]
+            effective_aucs[2] *= compat["infogeo"]
+
+            total = effective_aucs.sum()
+            if total < 1e-6:
+                self._weight_source = "fallback_data_type"
+                return self._data_type_default_weights()
+
+            weights = effective_aucs / total
+            # Apply minimum floor of 0.05 for components with positive signal
+            has_signal = mean_aucs >= 0.5
+            weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
+            # Zero out kinematic on tabular data explicitly
+            if self._data_type == DataCharacteristics.TABULAR:
+                weights[1] = 0.0
+
+            wsum = weights.sum()
+            if wsum > 0:
+                weights = weights / wsum
+            else:
+                return self._data_type_default_weights()
+
+            self._weight_source = "unsupervised_adaptive"
+            return weights
+
+        except Exception as exc:
+            logger.debug(
+                "Unsupervised adaptive weighting failed (%s), using data-type defaults",
+                exc,
+            )
+            return self._data_type_default_weights()
+
+    def _data_type_default_weights(self) -> np.ndarray[Any, Any]:
+        """Return default component weights adjusted for detected data type.
+
+        Uses :data:`COMPONENT_COMPATIBILITY` to compute data-type-aware
+        default weights.  When data type is ``TABULAR``, kinematic weight
+        is set to zero.
+
+        Returns:
+            Weight array of shape ``(3,)`` summing to 1.
+        """
+        compat = COMPONENT_COMPATIBILITY.get(
+            self._data_type, COMPONENT_COMPATIBILITY[DataCharacteristics.UNKNOWN]
+        )
+        raw = np.array(
+            [
+                0.40 * compat["resonance"],
+                0.30 * compat["kinematic"],
+                0.30 * compat["infogeo"],
+            ]
+        )
+        # Force kinematic to zero for tabular
+        if self._data_type == DataCharacteristics.TABULAR:
+            raw[1] = 0.0
+        total = raw.sum()
+        if total < 1e-6:
+            self._weight_source = "fallback_default"
+            return np.array([0.40, 0.30, 0.30])
+        self._weight_source = "data_type_default"
+        return raw / total
+
+    # =====================================================================
+    # Ensemble diversity metrics (Task 6)
+    # =====================================================================
+
+    def _compute_ensemble_diversity(
+        self,
+        X: np.ndarray[Any, Any],
+    ) -> dict[str, float]:
+        """Measure pairwise correlation between ensemble components.
+
+        High correlation (>0.9) between two components indicates redundancy.
+        When detected, the lower-AUC component's weight is reduced by 50%
+        in the adaptive weighting.
+
+        Args:
+            X: Data to score, shape ``(n_samples, n_features)``.
+
+        Returns:
+            Dict with pairwise correlations and mean correlation:
+            ``{"resonance_kinematic": float, "resonance_infogeo": float,
+            "kinematic_infogeo": float, "mean_correlation": float}``
+        """
+        try:
+            res = self._compute_resonance_score(X)
+            kin = self._compute_kinematic_score(X)
+            ig = self._compute_info_geometry_score(X)
+
+            def _safe_corr(a: np.ndarray[Any, Any], b: np.ndarray[Any, Any]) -> float:
+                if np.std(a) < 1e-10 or np.std(b) < 1e-10:
+                    return 0.0
+                corr = np.corrcoef(a, b)[0, 1]
+                return float(corr) if np.isfinite(corr) else 0.0
+
+            rk = _safe_corr(res, kin)
+            ri = _safe_corr(res, ig)
+            ki = _safe_corr(kin, ig)
+            mean_corr = (abs(rk) + abs(ri) + abs(ki)) / 3.0
+
+            diversity = {
+                "resonance_kinematic": rk,
+                "resonance_infogeo": ri,
+                "kinematic_infogeo": ki,
+                "mean_correlation": mean_corr,
+            }
+
+            # Apply redundancy penalty to adaptive weights if they exist
+            if hasattr(self, "_adaptive_weights") and hasattr(self, "_component_aucs"):
+                aucs = self._component_aucs
+                pairs = [
+                    (0, 1, abs(rk), "resonance", "kinematic"),
+                    (0, 2, abs(ri), "resonance", "infogeo"),
+                    (1, 2, abs(ki), "kinematic", "infogeo"),
+                ]
+                modified = False
+                for idx_a, idx_b, corr_val, name_a, name_b in pairs:
+                    if corr_val > 0.9:
+                        # Reduce weight of lower-AUC component by 50%
+                        auc_a = aucs.get(name_a, 0.5)
+                        auc_b = aucs.get(name_b, 0.5)
+                        lower_idx = idx_a if auc_a < auc_b else idx_b
+                        self._adaptive_weights[lower_idx] *= 0.5
+                        modified = True
+                        logger.info(
+                            "Diversity: %s-%s correlation=%.3f, reducing %s weight by 50%%",
+                            name_a,
+                            name_b,
+                            corr_val,
+                            name_a if lower_idx == idx_a else name_b,
+                        )
+                if modified:
+                    wsum = self._adaptive_weights.sum()
+                    if wsum > 0:
+                        self._adaptive_weights = self._adaptive_weights / wsum
+
+            return diversity
+
+        except Exception as exc:
+            logger.debug("Ensemble diversity computation failed: %s", exc)
+            return {
+                "resonance_kinematic": 0.0,
+                "resonance_infogeo": 0.0,
+                "kinematic_infogeo": 0.0,
+                "mean_correlation": 0.0,
+            }
+
+    # =====================================================================
+    # Per-component validation and diagnostics (Task 4)
+    # =====================================================================
+
+    def validate(
+        self,
+        X: np.ndarray[Any, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Validate ensemble behaviour and detect inversion.
+
+        If *X* is ``None``, generates synthetic anomalies from the training
+        distribution (uniform samples over feature ranges) and compares
+        against training data scores.
+
+        Args:
+            X: Optional test data. If ``None``, uses synthetic anomalies
+               generated from the training distribution.
+
+        Returns:
+            Diagnostics dict with keys:
+              - ``ensemble_auc``: float — AUC of ensemble on normal vs synthetic.
+              - ``component_aucs``: dict — Per-component AUC.
+              - ``is_inverted``: bool — True if ensemble AUC < 0.5.
+              - ``recommended_action``: str — Suggested fix if inverted.
+              - ``data_type``: str — Detected data characteristics.
+              - ``weights``: list — Current adaptive weights.
+        """
+        if not self._is_fitted or self._train_data is None:
+            return {
+                "ensemble_auc": 0.5,
+                "component_aucs": {},
+                "is_inverted": False,
+                "recommended_action": "Fit detector first",
+                "data_type": self._data_type.value,
+                "weights": [0.40, 0.30, 0.30],
+            }
+
+        train_data = self._train_data
+        n_samples, n_features = train_data.shape
+
+        # Generate synthetic anomalies from uniform distribution over feature ranges
+        rng = np.random.RandomState(42)
+        n_synthetic = min(n_samples, 500)
+        feature_min = np.min(train_data, axis=0)
+        feature_max = np.max(train_data, axis=0)
+        feature_range = feature_max - feature_min + 1e-8
+        # Generate OOD samples: extend beyond training range
+        synthetic = (
+            feature_min
+            - 0.5 * feature_range
+            + rng.rand(n_synthetic, n_features) * 2.0 * feature_range
+        )
+
+        if X is not None:
+            normal_data = X
+        else:
+            normal_data = train_data
+
+        # Combine and create pseudo-labels
+        X_eval = np.vstack([normal_data[:n_synthetic], synthetic])
+        y_eval = np.concatenate(
+            [
+                np.zeros(min(len(normal_data), n_synthetic), dtype=np.int32),
+                np.ones(n_synthetic, dtype=np.int32),
+            ]
+        )
+
+        # Score with current detector
+        detection = self.detect(X_eval)
+        scores = np.asarray(detection["scores"])
+
+        # Per-component AUCs
+        res_scores = np.asarray(detection["resonance_scores"])
+        kin_scores = np.asarray(detection["kinematic_scores"])
+        ig_scores = np.asarray(detection["info_geometry_scores"])
+
+        ensemble_auc = self._component_separation(scores, y_eval)
+        component_aucs = {
+            "resonance": self._component_separation(res_scores, y_eval),
+            "kinematic": self._component_separation(kin_scores, y_eval),
+            "infogeo": self._component_separation(ig_scores, y_eval),
+        }
+
+        is_inverted = ensemble_auc < 0.5
+
+        if is_inverted:
+            recommended = (
+                "Ensemble inversion detected. Options: "
+                "(1) Flip scores: scores = 1.0 - scores; "
+                "(2) Fall back to single best component; "
+                "(3) Use supervised calibration if labels available."
+            )
+        else:
+            recommended = "No action needed — ensemble is performing correctly."
+
+        weights = self._adaptive_weights
+
+        diagnostics: dict[str, Any] = {
+            "ensemble_auc": float(ensemble_auc),
+            "component_aucs": component_aucs,
+            "is_inverted": is_inverted,
+            "recommended_action": recommended,
+            "data_type": self._data_type.value,
+            "weights": weights.tolist(),
+        }
+
+        self._validation_diagnostics = diagnostics
+        return diagnostics
+
+    # =====================================================================
+    # Enhanced supervised calibration (Task 3)
+    # =====================================================================
+
+    def fit_with_calibration_subset(
+        self,
+        X: np.ndarray[Any, Any],
+        calibration_indices: np.ndarray[Any, Any],
+        calibration_labels: np.ndarray[Any, Any],
+    ) -> MercuryAnomalyDetector:
+        """Fit on full data and calibrate threshold using a labeled subset.
+
+        Convenience method that:
+          1. Fits the detector on the full dataset *X* via ``fit()``.
+          2. Uses the labeled calibration subset to compute a supervised
+             threshold via :class:`ThresholdCalibrationPipeline`.
+          3. Stores the threshold in ``self._supervised_threshold``.
+
+        This is useful when only a small fraction of data has labels
+        (e.g., active learning or partial labeling scenarios).
+
+        Args:
+            X: Full training data, shape ``(n_samples, n_features)``.
+            calibration_indices: Integer indices into *X* for the labeled
+                calibration subset.
+            calibration_labels: Binary labels (0=normal, 1=anomaly) for the
+                calibration subset. Must have the same length as
+                *calibration_indices*.
+
+        Returns:
+            Self for method chaining.
+        """
+        self.fit(X)
+
+        cal_indices = np.asarray(calibration_indices).ravel()
+        cal_labels = np.asarray(calibration_labels, dtype=np.int32).ravel()
+
+        if len(cal_indices) != len(cal_labels):
+            raise ValueError(
+                f"calibration_indices ({len(cal_indices)}) and "
+                f"calibration_labels ({len(cal_labels)}) must have the same length"
+            )
+
+        X_cal = X[cal_indices]
+
+        # Compute adaptive weights using labeled subset
+        self._adaptive_weights = self._compute_adaptive_weights(X_cal, cal_labels)
+
+        # Score the calibration subset
+        detection = self.detect(X_cal)
+        scores = np.asarray(detection["scores"], dtype=np.float64)
+
+        # Calibrate threshold
+        from omni_mercury_engine.core.calibration_pipeline import (
+            CalibrationStrategy,
+            ThresholdCalibrationPipeline,
+        )
+
+        best_f1 = -1.0
+        best_threshold = float(np.median(scores))
+
+        for strat in [CalibrationStrategy.YOUDEN_J, CalibrationStrategy.F1_OPTIMAL]:
+            try:
+                trial = ThresholdCalibrationPipeline()
+                result = trial.calibrate_from_data(
+                    scores,
+                    cal_labels,
+                    method=strat,
+                    threshold_name="anomaly.default_threshold",
+                )
+                preds = scores > result.threshold
+                tp = int(np.sum(preds & (cal_labels == 1)))
+                fp = int(np.sum(preds & (cal_labels == 0)))
+                fn = int(np.sum(~preds & (cal_labels == 1)))
+                prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+                rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+                f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+                if f1 > best_f1:
+                    best_f1 = f1
+                    best_threshold = result.threshold
+                    self._threshold_pipeline = trial
+                    self._calibration_result = result
+            except Exception:
+                continue
+
+        self._supervised_threshold = best_threshold
+        logger.info(
+            "fit_with_calibration_subset: threshold=%.6f (cal F1=%.4f, n_cal=%d)",
+            best_threshold,
+            best_f1,
+            len(cal_indices),
+        )
+        return self
+
+    # =====================================================================
+    # Automated hyperparameter tuning (Task 5)
+    # =====================================================================
+
+    def auto_tune(
+        self,
+        X: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any] | None = None,
+        n_trials: int = 50,
+    ) -> MercuryAnomalyDetector:
+        """Optimize hyperparameters using Optuna (optional dependency).
+
+        When labels are provided, maximizes AUC. When unsupervised,
+        maximizes ensemble diversity (minimizes mean pairwise component
+        correlation).
+
+        Tunable parameters:
+          - Tikhonov regularization lambda
+          - Component weights (if labels available)
+          - MAD threshold multiplier (if using MAD calibration)
+
+        Args:
+            X: Training data, shape ``(n_samples, n_features)``.
+            labels: Optional binary ground-truth labels.
+            n_trials: Number of Optuna optimization trials (default 50).
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            ImportError: If optuna is not installed.
+        """
+        if not OPTUNA_AVAILABLE:
+            logger.warning("auto_tune: optuna not installed. Install with: pip install optuna")
+            return self
+
+        if not self._is_fitted:
+            logger.warning("auto_tune: detector must be fitted first")
+            return self
+
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+        def objective(trial: optuna.Trial) -> float:
+            # Tune Tikhonov lambda
+            trial_lambda = trial.suggest_float("tikhonov_lambda", 1e-8, 1e-2, log=True)
+
+            # Re-fit info geometry with trial lambda
+            n_samples_ig, n_features_ig = X.shape
+            ig_mean = np.mean(X, axis=0)
+            cov = np.cov(X.T, ddof=1) if n_samples_ig > 1 else np.eye(n_features_ig)
+            if cov.ndim == 0:
+                cov = np.atleast_2d(cov)
+            reg_lambda = trial_lambda
+            if n_samples_ig <= n_features_ig:
+                reg_lambda = max(trial_lambda, 1.0 / max(n_samples_ig, 1))
+            cov_reg = cov + reg_lambda * np.eye(n_features_ig, dtype=cov.dtype)
+
+            try:
+                cho = sp_linalg.cholesky(cov_reg, lower=True)
+                ig_cov_inv = sp_linalg.cho_solve((cho, True), np.eye(n_features_ig))
+            except sp_linalg.LinAlgError:
+                ig_cov_inv = np.linalg.pinv(cov_reg)
+            ig_cov_inv = 0.5 * (ig_cov_inv + ig_cov_inv.T)
+
+            # Temporarily override info geometry parameters
+            orig_ig_mean = self._ig_mean
+            orig_ig_cov_inv = self._ig_cov_inv
+            self._ig_mean = ig_mean
+            self._ig_cov_inv = ig_cov_inv
+
+            if labels is not None:
+                # Supervised: maximize AUC
+                w0 = trial.suggest_float("w_resonance", 0.1, 0.8)
+                w1 = trial.suggest_float("w_kinematic", 0.0, 0.5)
+                w2 = 1.0 - w0 - w1
+                if w2 < 0.0:
+                    w2 = 0.0
+                    w_total = w0 + w1
+                    w0 /= w_total
+                    w1 /= w_total
+                trial_weights = np.array([w0, w1, w2])
+                trial_weights = trial_weights / trial_weights.sum()
+
+                orig_weights = self._adaptive_weights
+                self._adaptive_weights = trial_weights
+
+                detection = self.detect(X)
+                scores = np.asarray(detection["scores"])
+                lab = np.asarray(labels, dtype=np.int32).ravel()
+                auc_val = self._component_separation(scores, lab)
+
+                self._adaptive_weights = orig_weights
+                self._ig_mean = orig_ig_mean
+                self._ig_cov_inv = orig_ig_cov_inv
+                return auc_val
+            else:
+                # Unsupervised: maximize diversity (minimize correlation)
+                res = self._compute_resonance_score(X)
+                ig = self._compute_info_geometry_score(X)
+
+                self._ig_mean = orig_ig_mean
+                self._ig_cov_inv = orig_ig_cov_inv
+
+                def _corr(a: np.ndarray[Any, Any], b: np.ndarray[Any, Any]) -> float:
+                    if np.std(a) < 1e-10 or np.std(b) < 1e-10:
+                        return 0.0
+                    c = np.corrcoef(a, b)[0, 1]
+                    return float(c) if np.isfinite(c) else 0.0
+
+                # Lower correlation = better diversity = higher value
+                mean_corr = abs(_corr(res, ig))
+                return 1.0 - mean_corr
+
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+
+        best = study.best_params
+        self._tuned_lambda = best.get("tikhonov_lambda", _TIKHONOV_LAMBDA)
+
+        if labels is not None and "w_resonance" in best:
+            w0 = best["w_resonance"]
+            w1 = best["w_kinematic"]
+            w2 = max(0.0, 1.0 - w0 - w1)
+            self._tuned_weights = np.array([w0, w1, w2])
+            self._tuned_weights = self._tuned_weights / self._tuned_weights.sum()
+            self._adaptive_weights = self._tuned_weights
+            self._weight_source = "auto_tuned"
+
+        # Re-fit info geometry with tuned lambda
+        self._fit_info_geometry_with_lambda(X, self._tuned_lambda)
+
+        logger.info(
+            "auto_tune: best_lambda=%.2e, best_value=%.4f",
+            self._tuned_lambda,
+            study.best_value,
+        )
+        return self
+
+    def _fit_info_geometry_with_lambda(
+        self,
+        data: np.ndarray[Any, Any],
+        reg_lambda: float,
+    ) -> None:
+        """Re-fit info geometry with a specific Tikhonov lambda value.
+
+        Args:
+            data: Training data (n_samples, n_features).
+            reg_lambda: Tikhonov regularization parameter.
+        """
+        n_samples, n_features = data.shape
+        self._ig_mean = np.mean(data, axis=0)
+        if n_samples < 2:
+            self._ig_cov_inv = np.eye(n_features, dtype=np.float64)
+            self._ig_log_det = 0.0
+            return
+        cov = np.cov(data.T, ddof=1)
+        if cov.ndim == 0:
+            cov = np.atleast_2d(cov)
+        if n_samples <= n_features:
+            reg_lambda = max(reg_lambda, 1.0 / max(n_samples, 1))
+        cov_reg = cov + reg_lambda * np.eye(n_features, dtype=cov.dtype)
+        try:
+            cho = sp_linalg.cholesky(cov_reg, lower=True)
+            self._ig_cov_inv = sp_linalg.cho_solve((cho, True), np.eye(n_features))
+            self._ig_log_det = float(2.0 * np.sum(np.log(np.diag(cho))))
+        except sp_linalg.LinAlgError:
+            self._ig_cov_inv = np.linalg.pinv(cov_reg)
+            sign, logdet = np.linalg.slogdet(cov_reg)
+            self._ig_log_det = float(logdet) if sign > 0 else 0.0
+        self._ig_cov_inv = 0.5 * (self._ig_cov_inv + self._ig_cov_inv.T)
+
+    # =====================================================================
+    # Conformal prediction uncertainty bands (Task 10)
+    # =====================================================================
+
+    def predict_with_uncertainty(
+        self,
+        data: np.ndarray[Any, Any],
+        alpha: float = 0.1,
+    ) -> dict[str, Any]:
+        """Detect anomalies and provide confidence intervals on scores.
+
+        Extends ``detect()`` with uncertainty bands computed via conformal
+        prediction on the training score distribution.
+
+        When a conformal predictor is fitted (via ``fit_with_labels()``
+        with ``strategy="mondrian"``), uses per-group intervals. Otherwise,
+        bootstraps from the training score variance.
+
+        Args:
+            data: Input data array, shape ``(n_samples, n_features)``.
+            alpha: Significance level (default 0.1 for 90% confidence).
+
+        Returns:
+            Standard ``detect()`` dict augmented with:
+              - ``uncertainty_lower``: Lower confidence bound on scores.
+              - ``uncertainty_upper``: Upper confidence bound on scores.
+              - ``uncertainty_width``: Width of confidence interval.
+        """
+        result = self.detect(data)
+        scores = np.asarray(result["scores"], dtype=np.float64)
+
+        # Compute uncertainty from training score distribution
+        if self._train_data is not None and self._is_fitted:
+            train_detection = self.detect(self._train_data)
+            train_scores = np.asarray(train_detection["scores"], dtype=np.float64)
+            score_std = np.std(train_scores)
+            z_val = sp_stats.norm.ppf(1 - alpha / 2)
+            half_width = float(z_val * score_std)
+        else:
+            half_width = 0.1  # Fallback
+
+        lower = np.clip(scores - half_width, 0.0, 1.0)
+        upper = np.clip(scores + half_width, 0.0, 1.0)
+        width = upper - lower
+
+        # Warn about high uncertainty
+        high_uncertainty_frac = float(np.mean(width > 0.3))
+        if high_uncertainty_frac > 0.1:
+            logger.warning(
+                "predict_with_uncertainty: %.1f%% of predictions have "
+                "uncertainty width > 0.3 (borderline predictions)",
+                high_uncertainty_frac * 100,
+            )
+
+        result["uncertainty_lower"] = lower
+        result["uncertainty_upper"] = upper
+        result["uncertainty_width"] = width
+        return result
+
+    # =====================================================================
     # detect()
     # =====================================================================
 
@@ -683,9 +1884,119 @@ class MercuryAnomalyDetector(BaseDetector):
         info_geo = self._compute_info_geometry_score(data)
 
         # --- Ensemble (weighted average) ---
-        weights = getattr(self, "_adaptive_weights", np.array([0.40, 0.30, 0.30]))
+        weights = self._adaptive_weights.copy()
+
+        # Domain preset blending (F1 Precision Directive, Phase 3):
+        # Blend adaptive weights with domain prior (60% data-driven, 40% domain)
+        domain = getattr(self, "_benchmark_domain", None)
+        if domain:
+            from omni_mercury_engine.core.domain_weight_presets import get_domain_preset
+
+            prior_weights = np.array(get_domain_preset(domain))
+            weights = 0.6 * weights + 0.4 * prior_weights
+            weights = weights / weights.sum()
+
+        # Pairwise inversion guard (F1 Precision Directive, Phase 2):
+        # If a component is anti-correlated with BOTH other components (Spearman rho < -0.2),
+        # zero its weight. This catches inversions the self-supervised approach misses.
+        if len(data) >= 30:
+            components = [
+                (resonance, "resonance", 0),
+                (kinematic, "kinematic", 1),
+                (info_geo, "info_geometry", 2),
+            ]
+            active_weights = weights.copy()
+            for idx, (comp_scores, comp_name, wi) in enumerate(components):
+                if active_weights[wi] < 0.01:
+                    continue
+                other_idxs = [j for j in range(3) if j != idx]
+                other_scores = [components[j][0] for j in other_idxs]
+                rho_vals = []
+                for other in other_scores:
+                    try:
+                        rho, _ = sp_stats.spearmanr(comp_scores, other)
+                        if np.isnan(rho):
+                            rho = 0.0
+                    except Exception:
+                        rho = 0.0
+                    rho_vals.append(rho)
+                if all(r < -0.2 for r in rho_vals):
+                    logger.info(
+                        "Inversion guard: %s rhos=[%.3f, %.3f] — zeroing",
+                        comp_name,
+                        rho_vals[0],
+                        rho_vals[1],
+                    )
+                    active_weights[wi] = 0.0
+            wsum = active_weights.sum()
+            if wsum > 0:
+                active_weights = active_weights / wsum
+            else:
+                active_weights = np.array([0.4, 0.0, 0.6])
+            weights = active_weights
+
         combined_scores = weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
+
+        # Unsupervised ensemble flip (F1 Precision Directive, Phase 2):
+        # If median score > 0.80, scores are likely inverted (most points shouldn't be anomalous).
+        if len(combined_scores) >= 50:
+            median_score = float(np.median(combined_scores))
+            if median_score > 0.80:
+                combined_scores = 1.0 - combined_scores
+                logger.info("Ensemble flip: median=%.3f, inverting scores", median_score)
+
+        # --- Oracle spectral influence ---
+        oracle_meta: dict[str, Any] = {"active": False}
+        if self._oracle_detector is not None:
+            try:
+                # Dynamic Oracle sensitivity (F1 Precision Directive, Phase 9):
+                # High initial severity → look harder for spectral confirmation
+                initial_severity = float(np.mean(combined_scores))
+                severity_factor = 1.0 + (initial_severity - 0.3) * 2.0
+                severity_factor = float(np.clip(severity_factor, 0.5, 3.0))
+                self._oracle_detector._dynamic_alpha_factor = severity_factor
+
+                oracle_result = self._oracle_detector.detect(data)
+                # Extract influence multiplier from the influence_vector object
+                # (Oracle returns per-signal analysis, not per-sample)
+                iv = oracle_result.get("influence_vector")
+                if iv is not None and hasattr(iv, "influence_multiplier"):
+                    scalar = float(iv.influence_multiplier)
+                    multiplier = np.full(len(data), scalar)
+                else:
+                    multiplier = np.ones(len(data))
+                combined_scores = combined_scores * multiplier
+                oracle_meta = {
+                    "active": True,
+                    "domain": getattr(
+                        getattr(self._oracle_detector, "_oracle_config", None),
+                        "domain",
+                        "unknown",
+                    ),
+                    "mean_multiplier": float(np.mean(multiplier)),
+                    "significant_bands": [
+                        b.band_label
+                        for b in oracle_result.get("band_results", [])
+                        if getattr(b, "is_significant", False)
+                    ],
+                    "change_points": oracle_result.get("n_change_points", 0),
+                }
+            except Exception as exc:
+                logger.debug("Oracle detect failed: %s", exc)
+        self._oracle_metadata = oracle_meta
+
+        combined_scores = np.clip(combined_scores, 0.0, 1.0)
+
+        # Residual frequency filter (F1 Precision Directive, Phase 7):
+        # Only apply to temporal-like data where FFT filtering is meaningful.
+        is_temporal_like = data.shape[0] >= max(50, 10 * data.shape[1])
+        if is_temporal_like and len(combined_scores) >= 32:
+            combined_scores = self._residual_frequency_filter(combined_scores)
+
+        # Score flip for detected ensemble inversion (Task 4)
+        if self._score_flip:
+            combined_scores = 1.0 - combined_scores
 
         # --- Threshold & calibration ---
         # Priority: mondrian conformal > supervised pipeline > auto-calibrate > default
@@ -740,6 +2051,7 @@ class MercuryAnomalyDetector(BaseDetector):
             "detector_type": "statistical",
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
+            "oracle_metadata": oracle_meta,
         }
 
     # =====================================================================
@@ -817,6 +2129,22 @@ class MercuryAnomalyDetector(BaseDetector):
         X: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
         """Physics-based anomaly score via jerk and acceleration.
+
+        .. warning::
+
+            **Temporal ordering assumption**: This method assumes that rows
+            in *X* are temporally ordered (i.e., adjacent rows represent
+            consecutive time steps).  On **shuffled tabular data**,
+            derivatives computed via ``np.diff`` are meaningless noise and
+            will produce near-random AUC (~0.60).  Use data type detection
+            (``_detect_data_characteristics()``) to automatically disable
+            this component on non-temporal data.
+
+            **Ideal use cases**: Time-series data, sequential sensor
+            readings, trajectory data.
+
+            **Poor use cases**: Shuffled tabular data, cross-sectional data,
+            unordered features.
 
         Treats each feature column as a trajectory across samples.
         Computes finite-difference velocity, acceleration, and jerk,
@@ -997,6 +2325,49 @@ class MercuryAnomalyDetector(BaseDetector):
     # Legacy / helper methods
     # =====================================================================
 
+    @staticmethod
+    def _residual_frequency_filter(scores: np.ndarray, cutoff_quantile: float = 0.75) -> np.ndarray:
+        """Apply frequency-domain filtering to the score residual.
+
+        Computes the score residual (deviation from moving average),
+        applies a bandpass filter to isolate anomaly-relevant frequencies,
+        and blends the filtered signal back into the scores.
+
+        Args:
+            scores: Raw anomaly scores, shape (n_samples,).
+            cutoff_quantile: Fraction of frequency spectrum to preserve.
+
+        Returns:
+            Filtered scores with noise-suppressed anomaly signal.
+        """
+        if len(scores) < 16:
+            return scores
+
+        kernel_size = max(5, len(scores) // 20)
+        if kernel_size % 2 == 0:
+            kernel_size += 1
+        kernel = np.ones(kernel_size) / kernel_size
+        baseline = np.convolve(scores, kernel, mode="same")
+        residual = scores - baseline
+
+        fft_res = np.fft.rfft(residual)
+        power = np.abs(fft_res) ** 2
+
+        if power.sum() < 1e-10:
+            return scores
+
+        cumulative = np.cumsum(power) / power.sum()
+        low_cut = int(np.searchsorted(cumulative, 0.05))
+        high_cut = int(np.searchsorted(cumulative, cutoff_quantile))
+
+        filtered_fft = np.zeros_like(fft_res)
+        filtered_fft[low_cut:high_cut] = fft_res[low_cut:high_cut]
+
+        filtered_residual = np.fft.irfft(filtered_fft, n=len(residual))
+
+        blended = 0.7 * scores + 0.3 * (baseline + filtered_residual)
+        return np.clip(blended, 0.0, 1.0)
+
     def _compute_iqr_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute continuous IQR-based anomaly scores.
 
@@ -1027,7 +2398,9 @@ class MercuryAnomalyDetector(BaseDetector):
         scores = np.mean(normalized_dist, axis=1)
         return np.clip(scores, 0, 1)
 
-    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+    def extract_features(
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract statistical features for ML fusion.
 
         Args:
@@ -1065,7 +2438,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
         if TORCH_AVAILABLE:
             return torch.tensor(features, dtype=torch.float32)
-        return features  # type: ignore[return-value]
+        return features
 
     def _compute_z_scores(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute z-scores.

@@ -568,9 +568,28 @@ class SolarDynamicsLoader(DatasetLoader):
         features = np.array(rows, dtype=np.float32)
         features = np.nan_to_num(features, nan=0.0)
 
-        # Label solar flare events based on X-ray flux
-        # C-class: 1e-6, M-class: 1e-5, X-class: 1e-4
+        # Label solar flare events based on X-ray flux.
+        # Primary: M-class threshold (1e-5 W/m²) or higher.
+        # Fallback: if the observation window has no M-class events (solar quiet),
+        # use statistical outlier detection (>3 sigma above mean) so the dataset
+        # still contains labeled anomalies for detector evaluation.
         labels = (features[:, 0] > 1e-5).astype(np.int64)  # M-class or higher
+
+        if not np.any(labels == 1):
+            # Solar quiet period — use statistical outlier detection
+            xray = features[:, 0]
+            nonzero = xray[xray > 0]
+            if len(nonzero) > 0:
+                mu = np.mean(nonzero)
+                sigma = np.std(nonzero)
+                if sigma > 0:
+                    labels = (xray > mu + 3 * sigma).astype(np.int64)
+                    logger.info(
+                        "Solar quiet period: using 3-sigma outlier labels "
+                        "(threshold=%.2e, n_anomalies=%d)",
+                        mu + 3 * sigma,
+                        labels.sum(),
+                    )
 
         # Apply max_samples limit with stratified sampling to ensure storm events
         if self.config.max_samples and len(features) > self.config.max_samples:

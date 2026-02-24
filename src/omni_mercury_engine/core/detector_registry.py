@@ -577,6 +577,14 @@ DETECTOR_MANIFEST: list[DetectorManifestEntry] = [
         "Unified physics detector with 3R and GOSNN integration",
         tags=["physics", "integrated", "3r", "gosnn", "fusion"],
     ),
+    DetectorManifestEntry(
+        "spectral_domain_oracle",
+        "omni_mercury_engine.detectors.spectral_domain_oracle",
+        "SpectralDomainOracle",
+        DetectorCategory.PHYSICS,
+        "Neuro-symbolic spectral-domain anomaly detection with per-band scoring",
+        tags=["physics", "spectral", "frequency", "neuro-symbolic", "oracle", "humanitarian"],
+    ),
 ]
 
 
@@ -1094,6 +1102,14 @@ class DetectorRegistry:
 
         for entry in DETECTOR_MANIFEST:
             try:
+                # Only allow imports from the omni_mercury_engine package tree
+                # to prevent arbitrary module loading from manifest entries.
+                if not entry.module_path.startswith("omni_mercury_engine."):
+                    logger.warning(
+                        "Blocked detector import from untrusted module path: %s",
+                        entry.module_path,
+                    )
+                    continue
                 module = __import__(entry.module_path, fromlist=[entry.class_name])
                 cls = getattr(module, entry.class_name)
                 self.register(

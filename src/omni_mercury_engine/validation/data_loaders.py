@@ -19,17 +19,33 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Real-World Dataset Loaders
+Real-World Dataset Loaders (DEPRECATED)
+
+.. deprecated:: 1.5.0
+    Use :mod:`omni_mercury_engine.datasets` module directly.
+    This module will be removed in v2.0.
 
 Provides standardized data loaders for validation:
 - NSL-KDD: Network intrusion detection dataset
 - USGS Earthquake: Seismic event data from USGS API
 - MIMIC-III: Medical ICU data (IRB placeholder simulation)
 
-All loaders implement the DatasetLoader protocol for consistent interface.
+Canonical loaders now live in ``datasets/``.  Overlapping classes
+(NSLKDDLoader, USGSEarthquakeLoader, MIMICLoader) are re-exported
+from ``datasets/`` for backward compatibility.  Unique loaders
+(NOAASpaceWeatherLoader, NOAAHurricaneLoader, NOAAOceanLoader)
+remain here until ported to ``datasets/``.
 """
 
 import hashlib
+import warnings
+
+warnings.warn(
+    "validation.data_loaders is deprecated. Use datasets/ module directly. "
+    "This module will be removed in v2.0.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field

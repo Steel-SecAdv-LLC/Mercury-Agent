@@ -180,7 +180,9 @@ class InMemoryAuditHandler(AuditLogHandler):
     """In-memory audit log handler for development/testing."""
 
     def __init__(self, max_events: int = 100000) -> None:
-        self._events: list[AuditEvent] = []
+        from collections import deque
+
+        self._events: deque[AuditEvent] = deque(maxlen=max_events)
         self._lock = threading.RLock()
         self._max_events = max_events
 
@@ -188,8 +190,6 @@ class InMemoryAuditHandler(AuditLogHandler):
         """Emit an audit event."""
         with self._lock:
             self._events.append(event)
-            if len(self._events) > self._max_events:
-                self._events = self._events[-self._max_events :]
 
     def query(
         self,
@@ -202,7 +202,7 @@ class InMemoryAuditHandler(AuditLogHandler):
     ) -> list[AuditEvent]:
         """Query audit events."""
         with self._lock:
-            results = self._events.copy()
+            results = list(self._events)
 
         if start_time:
             results = [e for e in results if e.timestamp >= start_time]

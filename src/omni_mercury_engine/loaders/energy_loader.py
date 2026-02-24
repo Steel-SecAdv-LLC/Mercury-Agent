@@ -841,7 +841,7 @@ class EnergyLoader(BaseDomainLoader):
         demand = df["grid_demand"].values.astype(np.float64)
         supply = df["grid_supply"].values.astype(np.float64)
         labels = (demand > supply).astype(np.int64)
-        return labels  # type: ignore[no-any-return]
+        return np.asarray(labels)
 
     # ------------------------------------------------------------------
     # Private helpers -- utilities
@@ -860,7 +860,9 @@ class EnergyLoader(BaseDomainLoader):
             column does not exist.
         """
         if column in df.columns:
-            return pd.to_numeric(df[column], errors="coerce").fillna(0.0).values.astype(np.float64)  # type: ignore[no-any-return]
+            return np.asarray(
+                pd.to_numeric(df[column], errors="coerce").fillna(0.0).values, dtype=np.float64
+            )
         return np.zeros(len(df), dtype=np.float64)
 
     @staticmethod

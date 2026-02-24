@@ -195,10 +195,12 @@ class APIKeyStore:
         self._keys: dict[str, APIKey] = {}
         self._key_lookup: dict[str, str] = {}  # hash -> key_id
 
-    # Salt for API key hashing - in production, use a secure secret from environment
+    # Salt for API key hashing - in production, MUST be set via environment.
+    # Generate with: openssl rand -hex 32
     _HASH_SALT = os.getenv("API_KEY_HASH_SALT", "mercury-agent-api-key-salt-v1")
-    # Number of PBKDF2 iterations - higher is more secure but slower
-    _HASH_ITERATIONS = int(os.getenv("API_KEY_HASH_ITERATIONS", "100000"))
+    _HASH_SALT_IS_DEFAULT = not os.getenv("API_KEY_HASH_SALT")
+    # PBKDF2 iterations — 260 000 meets OWASP 2024 recommendation for SHA-256.
+    _HASH_ITERATIONS = int(os.getenv("API_KEY_HASH_ITERATIONS", "260000"))
 
     @staticmethod
     def hash_key(key: str) -> str:
@@ -211,8 +213,19 @@ class APIKeyStore:
         Security Note:
             In production, set API_KEY_HASH_SALT environment variable to a
             secure random value. Generate with: `openssl rand -hex 32`
-            Optionally adjust API_KEY_HASH_ITERATIONS (default: 100000).
+            Optionally adjust API_KEY_HASH_ITERATIONS (default: 260000).
         """
+        if APIKeyStore._HASH_SALT_IS_DEFAULT:
+            is_prod = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
+            if is_prod:
+                raise ValueError(
+                    "API_KEY_HASH_SALT environment variable is required in production. "
+                    "Generate with: openssl rand -hex 32"
+                )
+            logger.warning(
+                "Using default API key hash salt. "
+                "Set API_KEY_HASH_SALT for production deployments."
+            )
         return hashlib.pbkdf2_hmac(
             hash_name="sha256",
             password=key.encode(),
@@ -557,6 +570,19 @@ class JWTAuth:
             if not user_id:
                 logger.warning("JWT missing subject claim")
                 return None
+
+            # Enforce maximum token lifetime (default 72 h) to limit
+            # window of exposure for long-lived tokens.
+            max_token_age_s = int(os.getenv("JWT_MAX_TOKEN_AGE_HOURS", "72")) * 3600
+            iat = payload.get("iat")
+            if iat is not None:
+                issued_at = datetime.fromtimestamp(float(iat))
+                age = (datetime.now() - issued_at).total_seconds()
+                if age > max_token_age_s:
+                    logger.warning(
+                        "JWT token exceeds maximum age (%d s > %d s)", int(age), max_token_age_s
+                    )
+                    return None
 
             # Parse permissions from payload
             permission_names = payload.get("permissions", ["read"])

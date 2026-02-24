@@ -638,7 +638,7 @@ class TestDataclasses:
 
 
 class TestIntegration:
-    """Integration tests for superintelligence bootstrap."""
+    """Integration tests for cognitive evolution engine."""
 
     def test_full_improvement_pipeline(self):
         """Test complete improvement pipeline."""

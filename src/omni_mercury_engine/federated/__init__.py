@@ -34,6 +34,13 @@ from typing import Any
 
 import numpy as np
 
+warnings.warn(
+    "omni_mercury_engine.federated is deprecated; "
+    "use omni_mercury_engine.federated_learning instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 # Re-export core federated learning components from the new consolidated module
 # Import the new FederatedAnomalyDetector for reference but don't export it directly
 from omni_mercury_engine.federated_learning import (

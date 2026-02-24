@@ -384,14 +384,18 @@ class BaseDetector(ABC):
         pass
 
     @abstractmethod
-    def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+    def extract_features(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Extract features for ML fusion.
 
         Args:
             data: Input data array or tensor.
 
         Returns:
-            Feature tensor of shape [batch_size, feature_dim].
+            Feature array or tensor of shape ``[batch_size, feature_dim]``.
+            Callers must handle both ``np.ndarray`` and ``torch.Tensor``.
 
         Note:
             Features should be normalized and suitable for neural network input.
@@ -650,7 +654,9 @@ class BaseModel(ABC):
         """
         pass
 
-    def get_uncertainty(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
+    def get_uncertainty(
+        self, data: np.ndarray[Any, Any] | torch.Tensor
+    ) -> np.ndarray[Any, Any] | torch.Tensor:
         """Estimate uncertainty for fusion weighting.
 
         Default implementation returns zeros.
@@ -669,7 +675,7 @@ class BaseModel(ABC):
             return torch.zeros(len(data) if hasattr(data, "__len__") else 1)
         import numpy as np
 
-        return np.zeros(len(data) if hasattr(data, "__len__") else 1)  # type: ignore[return-value]
+        return np.zeros(len(data) if hasattr(data, "__len__") else 1)
 
 
 if TORCH_AVAILABLE:

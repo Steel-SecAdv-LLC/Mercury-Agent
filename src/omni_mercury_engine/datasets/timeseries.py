@@ -566,10 +566,14 @@ class SMAPMSLLoader(DatasetLoader):
                         chan_id = row.get("chan_id", "")
                         anomaly_seqs = row.get("anomaly_sequences", "[]")
                         try:
-                            import ast
+                            import json as _json
 
-                            anomaly_info[chan_id] = ast.literal_eval(anomaly_seqs)
-                        except (SyntaxError, ValueError):
+                            parsed = _json.loads(anomaly_seqs)
+                            # Ensure the parsed value is a list of sequences
+                            if not isinstance(parsed, list):
+                                parsed = []
+                            anomaly_info[chan_id] = parsed
+                        except (ValueError, TypeError):
                             anomaly_info[chan_id] = []
 
         all_features = []
