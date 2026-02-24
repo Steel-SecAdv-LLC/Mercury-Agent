@@ -3,127 +3,110 @@
 **Date:** 2026-02-24
 **Reviewer:** Claude (automated audit)
 **Scope:** All 20 remote branches evaluated against `main` (`e07658e`)
+**Conflict analysis:** Dry-run merges performed for all 5 candidate branches
 
 ---
 
-## Branches to Retain
+## Executive Summary
 
-### RETAIN (High Priority) — PR Candidate
+Of 20 branches audited, **2 merge cleanly into main** and contain substantial unmerged value. **18 should be deleted** — their work is either already in main, superseded, or would produce unresolvable conflicts because main has more complete implementations.
 
-#### `claude/merge-mercury-agent-0H8R0`
+### Merge Architecture
 
-- **Status:** 33 commits ahead, 1 commit behind main
+```
+main (e07658e)
+  │
+  ├─── PR #1: claude/audit-repo-docs-sync-if68l-lrQHe  (merge first)
+  │    14 commits, 67 files, +1,633 / -1,017
+  │    Focus: type safety, test infrastructure, module registration
+  │    Conflict check: 0 conflicts vs main ✓
+  │
+  └─── PR #2: claude/merge-mercury-agent-0H8R0          (merge second)
+       33 commits, 62 files, +15,024 / -536
+       Focus: security hardening, +213 tests, CI fixes, Oracle features
+       Conflict check: 0 conflicts vs main ✓
+                       0 conflicts vs main+lrQHe ✓
+
+Both branches tested in both merge orders — clean in either direction.
+```
+
+**Recommended order: `lrQHe` first, then `0H8R0`.** Rationale: `lrQHe` is infrastructure-focused (type fixes, test deps, module wiring) and creates a cleaner foundation for the larger feature/security PR.
+
+---
+
+## MERGE — 2 Branches (0 conflicts, ready for PR)
+
+### PR #1: `claude/audit-repo-docs-sync-if68l-lrQHe`
+
+- **Status:** 14 commits ahead, 2 behind main
+- **Fork point:** `ee647e1` (between PR #126 and #127)
+- **Merge test:** 0 conflicts — 8 files auto-merged cleanly
+- **Scope:** 67 files, +1,633 / -1,017
+
+**What it delivers:**
+
+| Category | Changes |
+|----------|---------|
+| **Type safety** | 26 mypy errors resolved across 4 detector files (`dimensional`, `directive`, `spatial`, `temporal`) |
+| **Test infrastructure** | Test dependencies declared in `pyproject.toml` optional-dependencies |
+| **Torch guards** | `TORCH_AVAILABLE` guards added to bare `torch.Tensor` isinstance checks |
+| **Loader fix** | CICIDS test loader short-circuited to synthetic mode |
+| **Package consolidation** | `federated_robust` consolidated into `federated_learning` package |
+| **Module registration** | 10+ orphan modules wired into `__init__.py` exports; 14 new smoke tests added |
+| **Scheduler completion** | `HyperbandBracket.mark_complete` and `ASHAScheduler.on_trial_complete` implemented |
+| **Deduplication** | `data/benchmarks` duplicate modules replaced with re-export shims (-937 lines) |
+| **Safety guards** | Numerical safety for conformal prediction and GOSNN ethical gate |
+| **Exception handling** | Narrowed bare `except` to specific exceptions in timeseries and optimization |
+| **Documentation** | Dual Lyapunov constants documented; docs aligned with codebase across 10 files |
+| **Formatting** | ruff and black applied across 23 files |
+
+---
+
+### PR #2: `claude/merge-mercury-agent-0H8R0`
+
+- **Status:** 33 commits ahead, 1 behind main
 - **Fork point:** PR #127 (`6584c25` — federated learning framework)
-- **Recommendation:** Strongest candidate for a new PR to main
+- **Merge test:** 0 conflicts — clean merge
+- **Scope:** 62 files, +15,024 / -536
 
-**Unique unmerged value (13 commits beyond what PR #130 delivered):**
+**What it delivers:**
 
-| Commit | Description |
-|--------|-------------|
-| `0ec7cae` | ci: fix all 18 remaining mypy type errors for clean CI pass |
-| `e998879` | ci: fix mypy unused-ignore errors and CodeQL clear-text logging alert |
-| `70e1a0d` | ci: cure all failing checks — formatting, linting, types, and CodeQL |
-| `8df5747` | tests: comprehensive coverage for security-critical modules (+213 tests) |
-| `d69199c` | security+quality: comprehensive hardening across 15 modules |
-| — | feat: port inversion guard, ensemble flip, domain presets, residual filter, dynamic severity |
-| — | feat: port noise color, adaptive alpha, asymmetric bias, spectral hints into full-power Oracle |
-| — | feat: port multi-strategy threshold selection and domain preset wiring into benchmark |
-| — | feat: port and adapt F1 precision tests for T0biU Oracle API |
-| — | feat: add domain weight presets, noise color docs, docstring rename from o33Fu |
-| — | docs: merge F1 Precision Directive findings into documentation |
-| — | bench: full benchmark with F1 precision improvements and system activation combined |
-| — | fix: federation Oracle serialization includes noise color, fix test_from_statistics |
+| Category | Changes |
+|----------|---------|
+| **Security hardening** | Comprehensive hardening across 15 modules (API auth, routes, server, voice, cache HMAC, encryption) |
+| **Test coverage** | +213 security-critical tests across 9 new test files |
+| **CI stabilization** | All 18 remaining mypy type errors fixed; CodeQL clear-text logging alert resolved; formatting/linting cured |
+| **SpectralDomainOracle** | Full production-grade neuro-symbolic detector (+1,683 lines): Selective Inference, binary segmentation, windowed DFT, spectral flux, phase coherence, cepstral analysis, phi-weighted influence, 7-domain support |
+| **Cross-domain analysis** | New `cross_domain_frequency.py` module (+298 lines) |
+| **F1 Precision Directive** | Inversion guard, ensemble flip, domain presets, residual frequency filter, multi-strategy threshold selection |
+| **Oracle enhancements** | Noise color estimation, adaptive alpha, asymmetric bias, spectral hints, federation serialization |
+| **Benchmark expansion** | 75-dataset results (64 successful, mean AUC 0.8277), domain summary reporting, per-dataset JSON output |
+| **Documentation** | ARCHITECTURE.md, CROSS_DOMAIN_ANALYSIS.md, DATASETS.md, DOMAIN_PERFORMANCE.md, ORACLE_NOISE_COLOR.md |
 
-**Why retain:** Contains substantial security hardening (+213 tests across 15 modules), all mypy errors resolved, CodeQL alerts fixed, and comprehensive CI stabilization. This is production-readiness work not yet in main. Superset of `setup-mercury-agent-T0biU` (shares all 20 of T0biU's commits).
-
----
-
-### RETAIN (Review) — Cherry-Pick Candidates
-
-#### `claude/setup-mercury-agent-o33Fu`
-
-- **Status:** 7 commits ahead, 1 commit behind main
-- **Fork point:** PR #127 (`6584c25`)
-- **Files changed:** 11 files, +2,737 / -351
-
-**Unique commits:**
-
-| Phase | Description |
-|-------|-------------|
-| Phase 1 | Rename Superintelligence Bootstrap to Cognitive Evolution Engine |
-| Phase 2 | Add inversion guard and ensemble flip for below-random datasets |
-| Phase 3 | Add domain-adaptive weight presets |
-| Phase 4-6 | Create Spectral Domain Oracle with noise color calibration |
-| Phase 7 | Add residual frequency filtering for score denoising |
-| Phase 8 | Multi-strategy threshold selection in benchmark |
-| Phase 10 | Tests, docs, benchmarks, and inversion fix refinement |
-
-**Why retain:** Original implementations of Spectral Domain Oracle, noise color calibration, and residual frequency filtering. Some were ported into `0H8R0`, but the original implementations may contain cleaner or alternative approaches worth reviewing before removal.
+**High-churn files (review carefully):**
+- `src/omni_mercury_engine/detectors/statistical.py` — touched in 10+ commits
+- `benchmarks/honest_benchmark.py` — touched in 6 commits
+- `src/omni_mercury_engine/detectors/spectral_domain_oracle.py` — touched in 3 commits
 
 ---
 
-#### `claude/audit-repo-docs-sync-if68l-lrQHe`
+## REMOVE — 18 Branches
 
-- **Status:** 14 commits ahead, 2 commits behind main
-- **Fork point:** `ee647e1` (README image update, between PR #126 and #127)
-- **Files changed:** 67 files, +1,633 / -1,017
+### Conflict-tested and downgraded (3 branches)
 
-**Key unique work:**
+These were initially retained for review but conflict analysis revealed their work is superseded:
 
-- mypy type safety fixes across 4 detector files (26 errors resolved)
-- Test dependencies declared in `pyproject.toml` optional-dependencies
-- `TORCH_AVAILABLE` guards added for optional PyTorch imports
-- CICIDS test loader fixed for synthetic mode
-- `federated_robust` consolidated into `federated_learning` package
-- Orphan modules registered with smoke tests
-- `HyperbandBracket.mark_complete` and `ASHAScheduler.on_trial_complete` implemented
-- Dual Lyapunov constants documented
+| Branch | Conflicts | Why Remove |
+|--------|:-:|---|
+| `claude/setup-mercury-agent-o33Fu` | **8** | Main has a full 500+ LOC SpectralDomainOracle; this branch has a simpler 87-line version. Every conflict resolves to main's side. All features (inversion guard, domain presets, noise color) already ported into `0H8R0`. |
+| `claude/audit-repo-docs-sync-5jj1y` | **20** | Strict subset of `lrQHe` (same base work, fewer commits). `lrQHe` merges cleanly and contains all of `5jj1y`'s unique value. 20 conflicts include modify/delete on 4 `data/benchmarks` files. |
+| `devin/1771750539-mercury-strategic-improvements` | **14** | Architectural divergence: uses different Oracle init pattern (`_inferred_oracle_domain` vs main's `_oracle_detector`). Docs (`ARCHITECTURE.md`, `CROSS_DOMAIN_ANALYSIS.md`, `DATASETS.md`) already exist on main with different content. Code redundant with `0H8R0`. |
 
-**Why retain:** Superset of `audit-repo-docs-sync-if68l` (contains all 5 of its commits + 9 more). Has test infrastructure and type safety improvements that may not overlap with `0H8R0`.
-
----
-
-#### `claude/audit-repo-docs-sync-5jj1y`
-
-- **Status:** 8 commits ahead, 2 commits behind main
-- **Fork point:** `ee647e1` (README image update, between PR #126 and #127)
-- **Files changed:** 48 files, +1,104 / -946
-
-**Key unique work:**
-
-- Numerical safety guards for conformal prediction
-- GOSNN ethical gate safety guards
-- Duplicate `data/benchmarks` implementations replaced with re-export shims
-- Narrowed exception handling in timeseries loader and optimization modules
-- ruff and black formatting fixes
-
-**Why retain:** Conformal prediction safety guards may not overlap with PR #126's calibration work. Worth checking before discarding.
-
----
-
-### RETAIN (Docs Only) — Extract Then Remove
-
-#### `devin/1771750539-mercury-strategic-improvements`
-
-- **Status:** 23 commits ahead, 1 commit behind main
-- **Fork point:** PR #127 (`6584c25`)
-- **Files changed:** 29 files, +7,248 / -377
-
-**Unique documentation artifacts:**
-
-- `ARCHITECTURE.md` — system architecture documentation
-- `CROSS_DOMAIN_ANALYSIS.md` — cross-domain frequency correlation analysis
-- `DATASETS.md` — dataset catalog and descriptions
-
-**Why retain (temporarily):** Devin-authored parallel implementation of strategic improvements (same features as `T0biU`/`0H8R0`, zero shared commits). The code is redundant, but the documentation files may provide unique value worth extracting into main before this branch is removed.
-
----
-
-## Branches to Remove — 15 Total
+### Previously identified for removal (15 branches)
 
 All branches below have had their core work merged into main via PRs #121–#130, are significantly behind main, or are strict subsets of retained branches.
 
-### Ensemble Integration Family (forked from #121, 6 behind main)
+#### Ensemble Integration Family (forked from #121, 6 behind main)
 
 | Branch | Ahead | Reason |
 |--------|:---:|--------|
@@ -133,21 +116,21 @@ All branches below have had their core work merged into main via PRs #121–#130
 | `claude/fix-codeql-alerts-tlKK5` | 28 | Near-identical to 3rQdY + 1 commit. CodeQL redone in later PRs. |
 | `claude/mercury-ensemble-integration-OpCPx` | 4 | Independent reimplementation. Small, 6 behind. |
 
-### Anomaly Detection Replacement (forked from #118, 7 behind main)
+#### Anomaly Detection Replacement (forked from #118, 7 behind main)
 
 | Branch | Ahead | Reason |
 |--------|:---:|--------|
 | `claude/replace-anomaly-detection-1S5P9` | 8 | Core work merged as PR #121. |
 | `claude/validate-ensemble-fix-infrastructure-wJl7g` | 16 | Extends replace branch. Absorbed by later PRs. |
 
-### Early Validation & Baseline (forked from #118, 7 behind main)
+#### Early Validation & Baseline (forked from #118, 7 behind main)
 
 | Branch | Ahead | Reason |
 |--------|:---:|--------|
 | `claude/mercury-agent-validation-LqBB9` | 8 | v1.4 validation. Superseded by v1.5+ work. |
 | `claude/test-mercury-agent-baseline-9LGTm` | 7 | Baseline + cleanup. Superseded by #123+. |
 
-### Calibration & Polish (forked from #125, 4 behind main)
+#### Calibration & Polish (forked from #125, 4 behind main)
 
 | Branch | Ahead | Reason |
 |--------|:---:|--------|
@@ -155,14 +138,14 @@ All branches below have had their core work merged into main via PRs #121–#130
 | `claude/final-polish-pr-AQB4Y` | 2 | 2 README commits. Subset of ocVBf. |
 | `claude/audit-mercury-agent-w45pR` | 7 | Repo-wide audit. Subset of ocVBf. |
 
-### Docs Alignment (forked from #123, 5 behind main)
+#### Docs Alignment (forked from #123, 5 behind main)
 
 | Branch | Ahead | Reason |
 |--------|:---:|--------|
 | `claude/audit-docs-alignment-NaPU8` | 28 | Adaptive weighting reimplemented in PR #130. |
 | `claude/audit-repo-docs-sync-if68l` | 5 | Strict subset of if68l-lrQHe. Redundant. |
 
-### Superseded Setup Branch
+#### Superseded Setup Branch
 
 | Branch | Ahead | Reason |
 |--------|:---:|--------|
