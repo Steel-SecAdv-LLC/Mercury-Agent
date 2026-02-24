@@ -34,7 +34,7 @@ src/omni_mercury_engine/datasets/
 
 ### Benchmark Registration
 
-Each domain dataset is registered in `benchmarks/honest_benchmark.py`
+Each domain dataset is registered in `benchmarks/mercury_benchmark.py`
 via the `DOMAIN_DATASETS` list:
 
 ```python

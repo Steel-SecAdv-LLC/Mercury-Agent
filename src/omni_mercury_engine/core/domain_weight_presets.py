@@ -9,7 +9,7 @@ the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
 These presets encode measured component performance across 11 domains
-from honest_benchmark_results.json (64 datasets, 2026-02-23).
+from mercury_benchmark_results.json (64 datasets, 2026-02-23).
 
 Each preset is the STARTING POINT for adaptive weighting. The
 unsupervised adaptive system still runs and can override these

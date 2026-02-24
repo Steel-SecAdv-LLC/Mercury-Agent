@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate docs/images/ dashboard PNGs from measured benchmark data.
 
-Reads benchmarks/honest_benchmark_results.json as the sole data source.
+Reads benchmarks/mercury_benchmark_results.json as the sole data source.
 Every number on every chart comes from that JSON.  If a metric was not
 measured, the chart section shows "Not measured".
 
@@ -32,7 +32,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-RESULTS_PATH = Path(__file__).parent.parent / "benchmarks" / "honest_benchmark_results.json"
+RESULTS_PATH = Path(__file__).parent.parent / "benchmarks" / "mercury_benchmark_results.json"
 OUTPUT_DIR = Path(__file__).parent.parent / "docs" / "images"
 
 # ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ def _load_data() -> dict:
     if not RESULTS_PATH.exists():
         print(
             f"ERROR: {RESULTS_PATH} not found.\n"
-            "Run 'python benchmarks/honest_benchmark.py' first to generate measured results."
+            "Run 'python benchmarks/mercury_benchmark.py' first to generate measured results."
         )
         sys.exit(1)
     with open(RESULTS_PATH) as f:
@@ -92,7 +92,7 @@ def _stamp(fig: plt.Figure) -> None:
     fig.text(
         0.99,
         0.005,
-        f"Source: honest_benchmark_results.json | {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"Source: mercury_benchmark_results.json | {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         fontsize=6,
         color=COLORS["muted"],
         ha="right",

@@ -67,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Total benchmark datasets: 75 (47 ADBench + 28 domain).
 - **Domain-level benchmark summary**: Per-domain AUC/F1 aggregation,
   component performance analysis, Oracle activation tracking. Added to
-  `honest_benchmark_results.json` as `domain_summary`.
+  `mercury_benchmark_results.json` as `domain_summary`.
 - **Benchmark CLI flags**: `--live-only` skips ADBench; `--domain <name>`
   filters by category.
 - **Cross-domain frequency correlation module**: New
@@ -100,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Directs users to `datasets/` module. Will be removed in v2.0.
 - **generate_docs_images.py**: Updated performance dashboard to show
   domain-level AUC/F1 bars, component AUC heatmap, and Oracle status.
-  All data sourced from `honest_benchmark_results.json`.
+  All data sourced from `mercury_benchmark_results.json`.
 
 ### Cherry-picked (from devin branch)
 
@@ -168,7 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-component Mann-Whitney AUC measured during fit; components with inverted
   signal receive zero weight (replaces fixed 40/30/30 ensemble weighting)
 - 10 real-world domains benchmarked with calibrated F1; results recorded in
-  honest_benchmark_results.json
+  mercury_benchmark_results.json
 
 ### Version Reconciliation
 - All version strings bumped from 1.4.0 → 1.5.1 to match CHANGELOG entries

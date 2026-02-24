@@ -105,14 +105,14 @@ Status: Downloads and evaluates. Uses realKnownCause category. n_total=69,561, a
 Source: `https://earthquake.usgs.gov/fdsnws/event/1/` (GeoJSON API)
 Auth: None
 Loader: `USGSEarthquakeLoader` in `src/omni_mercury_engine/datasets/environmental.py`
-Status: Live API. Not included in honest_benchmark.py suite (API-based, not static dataset).
+Status: Live API. Not included in mercury_benchmark.py suite (API-based, not static dataset).
 
 ### FEMA Disaster Declarations
 
 Source: `https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries`
 Auth: None (public domain, US Government)
 Loader: `FEMADisasterLoader` in `src/omni_mercury_engine/datasets/disaster.py`
-Status: Live API. Not included in honest_benchmark.py suite (API-based, not static dataset).
+Status: Live API. Not included in mercury_benchmark.py suite (API-based, not static dataset).
 
 ## Unavailable — Credential-Gated (not counted in benchmarks)
 
