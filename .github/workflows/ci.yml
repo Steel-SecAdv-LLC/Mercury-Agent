@@ -85,6 +85,14 @@ jobs:
         # F841 (unused variable) is handled by ruff which respects underscore convention
         run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503,E402,E501,F841
 
+      - name: Verify IsolationForest removed from detection path
+        run: |
+          if grep -rn "from sklearn.ensemble import IsolationForest" \
+              src/omni_mercury_engine/detectors/math_arrest/; then
+            echo "ERROR: IsolationForest still present in math_arrest"
+            exit 1
+          fi
+
       - name: Run pydocstyle (docstring checks)
         # Informational only - docstring style enforcement is advisory
         # Many docstrings use alternative valid formatting conventions
@@ -265,6 +273,9 @@ jobs:
             tests/test_streaming_detector.py \
             tests/test_domain_loaders.py \
             tests/test_domain_benchmarks.py \
+            tests/detectors/test_math_arrest.py \
+            tests/detectors/test_math_arrest_extended.py \
+            tests/detectors/test_math_arrest_fusion.py \
             -v \
             --cov=src/omni_mercury_engine \
             --cov-report=xml \

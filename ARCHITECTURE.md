@@ -127,7 +127,43 @@ if self.use_harmonic_features:
     features = np.concatenate([deepface_embedding, harmonic_feats])
 ```
 
-### 3. Quantum-Enhanced Directive Detector (NEW - Deep Integration)
+### 3. Anomaly Math Arrest (21-Probe Ensemble)
+
+The Anomaly Math Arrest replaces IsolationForest with a transparent,
+auditable ensemble of 21 mathematically-independent equation probes.
+
+**Architecture**:
+```
+Input Data (n_samples,) or (n_samples, n_features)
+        │
+        ├──►  Probes 1-21 (parallel equation evaluation)
+        │     Each probe: fit_trajectory() → deviation_score() → [0, 1]
+        │
+        ▼
+   CorrelationAwareDecorrelator
+        │  BFS connected-component detection on Pearson correlation matrix
+        │  Reduces weight for redundant probe clusters
+        ▼
+   PhiWeightedFusion
+        │  weight[rank] = PHI^(-rank) × confidence × decorrelation_multiplier
+        │  Domain affinity reordering for 7 disaster domains
+        ▼
+   arrest_score ∈ [0, 1] per sample
+```
+
+**Fusion Math**:
+- Base weights: `w_i = PHI^(-i) / sum(PHI^(-j))` where PHI = 1.618...
+- Confidence modulation: `w_i *= probe_i.confidence`
+- Decorrelation: Correlated clusters (|r| >= 0.85) share weight via `1/cluster_size`
+- Domain affinity: Probes reordered by domain relevance before weight assignment
+
+**Key Properties**:
+- Every detection traces to a specific mathematical violation
+- All scores normalized to [0, 1] with NaN-free guarantees
+- Fail-open design: uncalibrated decorrelator proceeds with unmodified weights
+- 83 tests covering all probes, fusion, and decorrelation
+
+### 4. Quantum-Enhanced Directive Detector (NEW - Deep Integration)
 
 **New Capabilities**:
 

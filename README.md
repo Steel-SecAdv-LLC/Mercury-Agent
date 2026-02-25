@@ -1255,6 +1255,43 @@ Where:
 
 </details>
 
+<details>
+<summary><strong>Anomaly Math Arrest (21-Probe Ensemble)</strong></summary>
+
+A mathematically-independent equation ensemble that replaces IsolationForest
+with transparent, auditable anomaly detection. Each of the 21 probes detects
+a different anomaly geometry using fundamentally different mathematical
+frameworks:
+
+1. **AdditiveProbe** — Linear trend / level shifts
+2. **HarmonicOscillatorProbe** — Periodicity violations (damped oscillator)
+3. **MomentumProbe** — Sudden acceleration (second differences)
+4. **VarianceAdaptedProbe** — Volatility anomalies (rolling variance)
+5. **EthicalConstrainedProbe** — Boundary violations (percentile envelopes)
+6. **CatalanOptimizedProbe** — Autocorrelation breaks (Catalan-constant AR(1))
+7. **ExponentialDecayProbe** — Signal degradation (optimal-lambda EWMA)
+8. **HelixMultiplicativeProbe** — Multiplicative shocks (log-ratio analysis)
+9. **R3RecursionResonanceProbe** — Nonlinear saturation
+10. **SVDProjectionProbe** — Dimensional collapse (Hankel SVD)
+11. **LyapunovChaosProbe** — Chaos onset (trajectory divergence)
+12. **TopologyHomologyProbe** — Symmetry breaks (central differences)
+13. **FractalSelfSimilarityProbe** — Scale-invariance loss
+14. **ZetaHarmonicProbe** — Phase coherence anomalies
+15. **WavePropagationProbe** — Wave equation violations (smoothed Laplacian)
+16. **QuantumSuperpositionProbe** — Interference pattern breaks
+17. **EnergyMinimizationProbe** — Energy well escapes
+18. **QuantumAnnealingProbe** — Thermodynamic outliers (Boltzmann NLL)
+19. **BoltzmannCouplingProbe** — Coupling structure breaks
+20. **IQRRobustProbe** — Distribution tail anomalies (Tukey fences)
+21. **ModifiedZScoreProbe** — Robust location anomalies (MAD-based)
+
+**Fusion**: Scores are combined via Phi-weighted (golden ratio) fusion with
+confidence modulation and correlation-aware decorrelation. Domain affinity
+maps reorder probe weights for earthquake, tsunami, pandemic, marine,
+geomagnetic, and conflict domains.
+
+</details>
+
 ---
 
 ## Contributing

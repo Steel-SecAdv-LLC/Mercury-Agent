@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Anomaly Math Arrest — 21-Probe Ensemble)
+
+- **Anomaly Math Arrest**: 21-probe mathematically-independent equation ensemble
+  replacing IsolationForest in the detection path. Each probe detects a different
+  anomaly geometry using fundamentally different mathematical frameworks.
+- **Probes 1-8**: Additive, HarmonicOscillator, Momentum, VarianceAdapted,
+  EthicalConstrained, CatalanOptimized, ExponentialDecay, HelixMultiplicative.
+- **Probes 9-21**: R3RecursionResonance, SVDProjection, LyapunovChaos,
+  TopologyHomology, FractalSelfSimilarity, ZetaHarmonic, WavePropagation,
+  QuantumSuperposition, EnergyMinimization, QuantumAnnealing,
+  BoltzmannCoupling, IQRRobust, ModifiedZScore.
+- **PhiWeightedFusion**: Golden-ratio-derived weight fusion with confidence
+  modulation and domain affinity reordering.
+- **CorrelationAwareDecorrelator**: Pairwise Pearson correlation audit with BFS
+  connected component detection to prevent redundant probe clusters from
+  over-weighting. Calibrated automatically during `fit()`.
+- **Domain affinity maps**: 7 domains (earthquake, tsunami, pandemic, marine,
+  geomagnetic, conflict, default) with per-domain probe ranking.
+- **calibrate_decorrelator()**: Explicit correlation audit API.
+- **get_correlation_report()**: Full transparency into redundant pairs, weight
+  multipliers, and effective probe count.
+- **83 new tests**: Core (34), Extended probes 9-21 (43), Fusion + decorrelator (6).
+
+### Removed
+
+- **IsolationForest**: Removed from the primary detection path. Mercury Agent now
+  stands on its own transparent, auditable math via the Anomaly Math Arrest.
+
 ### Fixed (Test Suite Stabilization — 100+ Failures Resolved)
 
 - **FastAPI dependency chain**: API auth module (`api/auth.py` line 45) imports
