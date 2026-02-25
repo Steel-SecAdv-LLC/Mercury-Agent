@@ -110,8 +110,8 @@ class CorrelationAwareDecorrelator:
 
         # Compute correlation matrix for valid columns only
         valid_matrix = score_matrix[:, valid_indices]
-        corr = np.corrcoef(valid_matrix.T)
-        corr = np.nan_to_num(corr, nan=0.0)
+        corr_raw = np.corrcoef(valid_matrix.T)
+        corr: npt.NDArray[np.float64] = np.atleast_2d(np.nan_to_num(corr_raw, nan=0.0))
 
         # Build adjacency for redundant pairs
         adjacency: dict[int, set[int]] = {i: set() for i in range(len(valid_indices))}
@@ -264,10 +264,10 @@ class PhiWeightedFusion:
         score_matrix = np.column_stack([r.deviation_scores[:min_len] for r in probe_results])
 
         # Weighted sum
-        result = score_matrix @ weights
-        result = np.clip(
-            np.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0),
+        fused: npt.NDArray[np.float64] = score_matrix @ weights
+        fused = np.clip(
+            np.nan_to_num(fused, nan=0.0, posinf=0.0, neginf=0.0),
             0.0,
             1.0,
         )
-        return result
+        return fused
