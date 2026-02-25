@@ -20,8 +20,18 @@ from __future__ import annotations
 
 """Tests for Nano-Safeguards micro-anomaly detection."""
 
+import importlib.util
+
 import numpy as np
 import pytest
+
+_torch_available = importlib.util.find_spec("torch") is not None
+
+_skip_no_torch = pytest.mark.skipif(
+    not _torch_available,
+    reason="torch not installed — required for HierarchicalMicroScanner / NanoSafeguardDetector. "
+           "TODO: install torch in CI for full test coverage",
+)
 
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.safeguards.nano_safeguards import (
@@ -71,6 +81,7 @@ class TestNanoSafeguardResult:
         assert len(result.recommended_actions) == 1
 
 
+@_skip_no_torch
 class TestHierarchicalMicroScanner:
     """Tests for HierarchicalMicroScanner."""
 
@@ -142,6 +153,7 @@ class TestResonanceAnalyzer:
         assert result["resonance_score"] == 0.0
 
 
+@_skip_no_torch
 class TestNanoSafeguardDetector:
     """Tests for NanoSafeguardDetector."""
 
@@ -255,6 +267,7 @@ class TestNanoSafeguardDetector:
         assert isinstance(result.recommended_actions, list)
 
 
+@_skip_no_torch
 class TestNanoSafeguardIntegration:
     """Integration tests for nano-safeguards."""
 
@@ -299,6 +312,7 @@ class TestNanoSafeguardIntegration:
             assert 0.0 <= result.confidence <= 1.0
 
 
+@_skip_no_torch
 class TestNanoSafeguardEdgeCases:
     """Edge case tests for nano-safeguards."""
 

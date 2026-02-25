@@ -6,8 +6,18 @@ Tests that all detectors properly support auto-calibration and that the
 calibration system solves the F1=0 problem across all detector types.
 """
 
+import importlib.util
+
 import numpy as np
 import pytest
+
+_torch_available = importlib.util.find_spec("torch") is not None
+
+_skip_no_torch = pytest.mark.skipif(
+    not _torch_available,
+    reason="torch not installed — required for TemporalAnomalyDetector / NeuralProjection / OmniMercuryEngine. "
+           "TODO: install torch in CI for full test coverage",
+)
 
 
 class TestAllDetectorsAutoCalibration:
@@ -57,6 +67,7 @@ class TestAllDetectorsAutoCalibration:
         # Verify calibrated predictions
         assert result_cal["is_anomaly"].sum() > 0
 
+    @_skip_no_torch
     def test_temporal_detector_calibration(self, sample_data):
         """Test TemporalAnomalyDetector auto-calibration."""
         from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
@@ -74,6 +85,7 @@ class TestAllDetectorsAutoCalibration:
         assert "calibration_diagnostics" in result
         assert result["is_anomaly"].sum() >= 0  # May be 0 for random data
 
+    @_skip_no_torch
     def test_dimensional_analyzer_calibration(self, sample_data):
         """Test DimensionalAnalyzer auto-calibration."""
         from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
@@ -207,6 +219,7 @@ class TestCalibratedThresholdMethods:
         pred_ratio = result["is_anomaly"].sum() / len(X)
         assert 0.1 <= pred_ratio <= 0.4  # Allow some variance
 
+    @_skip_no_torch
     def test_diagnose_scores_method(self, bimodal_data):
         """Test detector's diagnose_scores method."""
         from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
@@ -224,6 +237,7 @@ class TestCalibratedThresholdMethods:
         assert diagnostics.n_samples == len(X)
 
 
+@_skip_no_torch
 class TestEngineCalibration:
     """Test engine-level calibration methods."""
 

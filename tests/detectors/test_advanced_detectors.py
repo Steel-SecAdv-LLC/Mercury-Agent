@@ -18,6 +18,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+pytest.importorskip("torch")  # TODO: install torch in CI — see issue "Install torch in CI for full test coverage"
+
 
 # Test data generators
 def generate_synthetic_timeseries(

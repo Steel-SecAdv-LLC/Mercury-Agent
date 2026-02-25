@@ -22,6 +22,18 @@ from __future__ import annotations
 Test detector modules
 """
 
+import importlib.util
+
+import pytest
+
+_torch_available = importlib.util.find_spec("torch") is not None
+
+_skip_no_torch = pytest.mark.skipif(
+    not _torch_available,
+    reason="torch not installed — required for TemporalAnomalyDetector / NeuralProjection. "
+           "TODO: install torch in CI for full test coverage",
+)
+
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
@@ -40,6 +52,7 @@ def test_statistical_detector(sample_data):
     assert len(result["scores"]) == len(sample_data)
 
 
+@_skip_no_torch
 def test_temporal_detector(sample_data):
     """Test temporal anomaly detection"""
     detector = TemporalAnomalyDetector()
@@ -62,6 +75,7 @@ def test_spatial_detector(sample_data):
     assert "distance_scores" in result
 
 
+@_skip_no_torch
 def test_dimensional_detector(sample_data):
     """Test dimensional anomaly detection"""
     detector = DimensionalAnalyzer()

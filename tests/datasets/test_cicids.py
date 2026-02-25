@@ -8,6 +8,9 @@ Tests for CICIDS 2017 dataset loader - REAL network intrusion data.
 from __future__ import annotations
 
 import numpy as np
+import pytest
+
+pytest.importorskip("torch")  # TODO: install torch in CI — see issue "Install torch in CI for full test coverage"
 
 from omni_mercury_engine.datasets import CICIDSLoader, DatasetConfig
 

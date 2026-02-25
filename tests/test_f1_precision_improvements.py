@@ -16,10 +16,20 @@ Tests cover:
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
+
+_torch_available = importlib.util.find_spec("torch") is not None
+
+_skip_no_torch = pytest.mark.skipif(
+    not _torch_available,
+    reason="torch not installed — required for SpectralDomainOracle. "
+           "TODO: install torch in CI for full test coverage",
+)
 
 # Ensure benchmarks/ is importable for threshold tests
 sys.path.insert(0, str(Path(__file__).parent.parent / "benchmarks"))
@@ -80,6 +90,7 @@ class TestDomainWeightPresets:
 # -----------------------------------------------------------------------
 
 
+@_skip_no_torch
 class TestNoiseColorEstimation:
     """Tests for SpectralDomainOracle._estimate_noise_color."""
 
@@ -142,6 +153,7 @@ class TestNoiseColorEstimation:
 # -----------------------------------------------------------------------
 
 
+@_skip_no_torch
 class TestAdaptiveAlpha:
     """Tests for SpectralDomainOracle._compute_adaptive_alpha."""
 
@@ -324,6 +336,7 @@ class TestOracleIntegration:
         result = detector.detect(X_test)
         assert "oracle_metadata" in result
 
+    @_skip_no_torch
     def test_oracle_noise_color_estimated(self):
         """When Oracle is active, noise color should be estimated."""
         from omni_mercury_engine.detectors.spectral_domain_oracle import (
@@ -337,6 +350,7 @@ class TestOracleIntegration:
         assert oracle._noise_color in ("white", "pink", "brown", "blue", "violet")
         assert isinstance(oracle._noise_beta, float)
 
+    @_skip_no_torch
     def test_oracle_multiplier_in_bounds(self):
         """Influence multiplier should stay within configured bounds."""
         from omni_mercury_engine.detectors.spectral_domain_oracle import (
@@ -359,6 +373,7 @@ class TestOracleIntegration:
         iv = result["influence_vector"]
         assert 0.5 <= iv.influence_multiplier <= 2.0
 
+    @_skip_no_torch
     def test_oracle_detect_returns_dict(self):
         """T0biU Oracle returns dict with influence_vector key."""
         from omni_mercury_engine.detectors.spectral_domain_oracle import (
@@ -375,6 +390,7 @@ class TestOracleIntegration:
         assert "band_results" in result
         assert "noise_color" in result
 
+    @_skip_no_torch
     def test_oracle_noise_color_in_detect_result(self):
         """Detection result should include noise_color metadata."""
         from omni_mercury_engine.detectors.spectral_domain_oracle import (
@@ -396,6 +412,7 @@ class TestOracleIntegration:
 # -----------------------------------------------------------------------
 
 
+@_skip_no_torch
 class TestOracleInfluenceMultiplier:
     """Tests for _compute_influence_multiplier."""
 
@@ -526,6 +543,7 @@ class TestMultiStrategyThreshold:
 # -----------------------------------------------------------------------
 
 
+@_skip_no_torch
 class TestSpectralHints:
     """Tests for DOMAIN_ANOMALY_SPECTRAL_HINTS constant."""
 

@@ -1283,6 +1283,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 )
             else:
                 self._weight_source = "unsupervised_adaptive"
+            self._last_adaptive_weights = weights.copy()
             return weights
 
         except Exception as exc:

@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import pytest
 
+# TODO: install pytest-asyncio in CI for full test coverage
+pytest.importorskip("pytest_asyncio")
+
 from omni_mercury_engine.integrations.stubs.database import (
     DatabaseError,
     DatabaseStub,
