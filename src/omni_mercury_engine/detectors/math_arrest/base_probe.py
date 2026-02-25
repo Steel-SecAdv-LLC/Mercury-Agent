@@ -44,6 +44,7 @@ class BaseEquationProbe(ABC):
     def __init__(self, *, min_samples: int = MIN_SAMPLES) -> None:
         self._min_samples = min_samples
         self._is_fitted: bool = False
+        self._fit_quality: float = 0.0
 
     # ------------------------------------------------------------------
     # Abstract interface
