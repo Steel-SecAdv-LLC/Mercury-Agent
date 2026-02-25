@@ -111,6 +111,9 @@ _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
         "BaseVLMDetector",
         "LAVADDetector",
     ),
+    "omni_mercury_engine.detectors.math_revolver.revolver": (
+        "AnomalyMathRevolver",
+    ),
 }
 
 _NAME_TO_MODULE: dict[str, str] = {}
@@ -131,6 +134,7 @@ def __getattr__(name: str) -> object:
 
 __all__ = [
     "AccelerationDynamicsDetector",
+    "AnomalyMathRevolver",
     "AdvancedPhysicsIntegratedDetector",
     "AdversarialAutoencoderDetector",
     "AnomalyCategory",
