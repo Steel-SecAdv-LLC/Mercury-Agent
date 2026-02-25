@@ -1256,7 +1256,7 @@ Where:
 </details>
 
 <details>
-<summary><strong>Anomaly Math Revolver (21-Probe Ensemble)</strong></summary>
+<summary><strong>Anomaly Math Arrest (21-Probe Ensemble)</strong></summary>
 
 A mathematically-independent equation ensemble that replaces IsolationForest
 with transparent, auditable anomaly detection. Each of the 21 probes detects

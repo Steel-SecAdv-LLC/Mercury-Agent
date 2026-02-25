@@ -127,9 +127,9 @@ if self.use_harmonic_features:
     features = np.concatenate([deepface_embedding, harmonic_feats])
 ```
 
-### 3. Anomaly Math Revolver (21-Probe Ensemble)
+### 3. Anomaly Math Arrest (21-Probe Ensemble)
 
-The Anomaly Math Revolver replaces IsolationForest with a transparent,
+The Anomaly Math Arrest replaces IsolationForest with a transparent,
 auditable ensemble of 21 mathematically-independent equation probes.
 
 **Architecture**:
@@ -148,7 +148,7 @@ Input Data (n_samples,) or (n_samples, n_features)
         │  weight[rank] = PHI^(-rank) × confidence × decorrelation_multiplier
         │  Domain affinity reordering for 7 disaster domains
         ▼
-   revolver_score ∈ [0, 1] per sample
+   arrest_score ∈ [0, 1] per sample
 ```
 
 **Fusion Math**:

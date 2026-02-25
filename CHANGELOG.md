@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added (Anomaly Math Revolver — 21-Probe Ensemble)
+### Added (Anomaly Math Arrest — 21-Probe Ensemble)
 
-- **Anomaly Math Revolver**: 21-probe mathematically-independent equation ensemble
+- **Anomaly Math Arrest**: 21-probe mathematically-independent equation ensemble
   replacing IsolationForest in the detection path. Each probe detects a different
   anomaly geometry using fundamentally different mathematical frameworks.
 - **Probes 1-8**: Additive, HarmonicOscillator, Momentum, VarianceAdapted,
@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **IsolationForest**: Removed from the primary detection path. Mercury Agent now
-  stands on its own transparent, auditable math via the Anomaly Math Revolver.
+  stands on its own transparent, auditable math via the Anomaly Math Arrest.
 
 ### Fixed (Test Suite Stabilization — 100+ Failures Resolved)
 

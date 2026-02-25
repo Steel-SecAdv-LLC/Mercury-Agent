@@ -37,8 +37,8 @@ if TYPE_CHECKING:
         ModelException as ModelException,
         OmniAnomalyException as OmniAnomalyException,
     )
-    from omni_mercury_engine.detectors.math_revolver.revolver import (
-        AnomalyMathRevolver as AnomalyMathRevolver,
+    from omni_mercury_engine.detectors.math_arrest.arrest import (
+        AnomalyMathArrest as AnomalyMathArrest,
     )
     from omni_mercury_engine.engine import OmniMercuryEngine as OmniMercuryEngine
 
@@ -71,12 +71,12 @@ def __getattr__(name: str) -> type:
             "ModelException": ModelException,
             "FusionException": FusionException,
         }[name]
-    elif name == "AnomalyMathRevolver":
-        from omni_mercury_engine.detectors.math_revolver.revolver import (
-            AnomalyMathRevolver,
+    elif name == "AnomalyMathArrest":
+        from omni_mercury_engine.detectors.math_arrest.arrest import (
+            AnomalyMathArrest,
         )
 
-        return AnomalyMathRevolver
+        return AnomalyMathArrest
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -85,7 +85,7 @@ __author__ = "Steel Security Advisors LLC"
 __license__ = "GPL-3.0"
 
 __all__ = [
-    "AnomalyMathRevolver",
+    "AnomalyMathArrest",
     "DetectorException",
     "EngineConfig",
     "FusionException",

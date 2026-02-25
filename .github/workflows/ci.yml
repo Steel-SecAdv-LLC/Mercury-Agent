@@ -88,8 +88,8 @@ jobs:
       - name: Verify IsolationForest removed from detection path
         run: |
           if grep -rn "from sklearn.ensemble import IsolationForest" \
-              src/omni_mercury_engine/detectors/math_revolver/; then
-            echo "ERROR: IsolationForest still present in math_revolver"
+              src/omni_mercury_engine/detectors/math_arrest/; then
+            echo "ERROR: IsolationForest still present in math_arrest"
             exit 1
           fi
 
@@ -273,9 +273,9 @@ jobs:
             tests/test_streaming_detector.py \
             tests/test_domain_loaders.py \
             tests/test_domain_benchmarks.py \
-            tests/detectors/test_math_revolver.py \
-            tests/detectors/test_math_revolver_extended.py \
-            tests/detectors/test_math_revolver_fusion.py \
+            tests/detectors/test_math_arrest.py \
+            tests/detectors/test_math_arrest_extended.py \
+            tests/detectors/test_math_arrest_fusion.py \
             -v \
             --cov=src/omni_mercury_engine \
             --cov-report=xml \
