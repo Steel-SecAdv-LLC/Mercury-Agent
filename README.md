@@ -116,6 +116,7 @@ Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 do
 | Datasets tested | 64 successful / 75 total |
 | Mean AUC | 0.8379 |
 | Median AUC | 0.9090 |
+| Mean Operational F1 | TBD — see Task 1 |
 | Mean Oracle F1 | 0.6345 |
 | Median Oracle F1 | 0.7062 |
 

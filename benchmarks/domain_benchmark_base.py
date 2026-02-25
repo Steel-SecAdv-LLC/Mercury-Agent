@@ -26,6 +26,16 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+try:
+    import optuna  # noqa: F401
+    _AUTO_TUNE = True
+except ImportError:
+    _AUTO_TUNE = False
+    logger.info(
+        "optuna not installed — auto_tune disabled. "
+        "Install with: pip install optuna"
+    )
+
 # Benchmarks output directory
 BENCHMARKS_DIR = Path(__file__).parent
 
@@ -180,7 +190,7 @@ def run_domain_benchmark(
                 ground_truth = ground_truth[:min_len]
 
             # Fit and detect
-            detector = MercuryAnomalyDetector()
+            detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
             detector.fit(features)
             detection = detector.detect(features)
 

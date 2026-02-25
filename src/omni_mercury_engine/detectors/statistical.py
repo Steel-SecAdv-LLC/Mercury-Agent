@@ -1145,6 +1145,15 @@ class MercuryAnomalyDetector(BaseDetector):
         """
         n_samples, n_features = X.shape
 
+        # Fast path: kinematic is meaningless on shuffled tabular data
+        if self._data_type == DataCharacteristics.TABULAR:
+            logger.debug(
+                "Tabular data detected: KinematicScore weight forced to 0.0; "
+                "redistributing to Resonance=0.50, InfoGeo=0.50"
+            )
+            self._weight_source = "tabular_fast_path"
+            return np.array([0.50, 0.00, 0.50])
+
         # For very small datasets, fall back to data-type-based defaults
         if n_samples < 20:
             return self._data_type_default_weights()

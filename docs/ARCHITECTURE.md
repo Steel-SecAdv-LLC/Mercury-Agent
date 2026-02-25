@@ -216,3 +216,24 @@ federated = MercuryAnomalyDetector.from_statistics(
 )
 # Oracle restored without re-fitting
 ```
+
+## Evaluation Methodology
+
+Mercury-Agent is an **unsupervised** anomaly detector trained on normal-only
+samples. It has no access to anomaly labels during training.
+
+### Primary Metric: AUC-ROC
+Threshold-free. The only valid comparison metric across detectors and datasets.
+
+### Operational F1
+Threshold selected using training scores only (contamination-percentile method).
+No test labels used. This is the deployable metric.
+
+### Oracle F1 [UPPER BOUND — NOT OPERATIONAL]
+Best F1 achieved by sweeping thresholds over test labels. Reported for
+reference only. Cannot be reproduced in deployment.
+
+### Current Results (ADBench, 47 datasets)
+- Mean AUC-ROC: [from benchmark run]
+- Mean Oracle F1: 0.6345 (upper bound)
+- Mean Operational F1: [from Task 1]

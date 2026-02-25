@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import logging
 import subprocess
 import sys
 import time
@@ -66,6 +67,18 @@ from omni_mercury_engine.core.conformal_prediction import (
     SplitConformalPredictor,
 )
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
+_cal_logger = logging.getLogger(__name__)
+
+try:
+    import optuna  # noqa: F401
+    _AUTO_TUNE = True
+except ImportError:
+    _AUTO_TUNE = False
+    _cal_logger.info(
+        "optuna not installed — auto_tune disabled. "
+        "Install with: pip install optuna"
+    )
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -168,7 +181,7 @@ def run_calibration_validation(
     4. Compute uncalibrated F1 (binary predictions at default 0.5 threshold)
     5. Return comparison metrics
     """
-    detector = MercuryAnomalyDetector()
+    detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
     detector.fit_with_labels(X_train, y_train)
 
     result = detector.detect(X_test)
@@ -247,7 +260,7 @@ def run_conformal_coverage(
     for target in CONFORMAL_COVERAGE_LEVELS:
         try:
             cad = ConformalAnomalyDetector(
-                base_detector=MercuryAnomalyDetector(),
+                base_detector=MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE),
                 coverage=target,
                 calibration_fraction=0.2,
                 method="split",
@@ -307,7 +320,7 @@ def measure_score_based_coverage(
     tests the SplitConformalPredictor directly.
     """
     # Fit detector on training data (unsupervised — no labels)
-    detector = MercuryAnomalyDetector()
+    detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
     detector.fit(X_train)
 
     # Get calibration scores
@@ -350,7 +363,7 @@ def measure_score_based_coverage(
             cross_pred = CrossConformalPredictor(coverage=target, n_folds=5, seed=42)
 
             def _scoring_fn(X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
-                d = MercuryAnomalyDetector()
+                d = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
                 d.fit(X)
                 return d.detect(X)["scores"]
 
@@ -483,7 +496,7 @@ def _run_statistical_weight_analysis(
     The 0.40/0.30/0.30 defaults and adaptive weights are exercised
     during fit_with_labels() via _compute_adaptive_weights().
     """
-    detector = MercuryAnomalyDetector()
+    detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
     detector.fit_with_labels(X_train, y_train)
 
     result = detector.detect(X_test)
@@ -580,7 +593,7 @@ def run_fusion_weight_cv(
     phi_2way_weight = float(PHI / (1.0 + PHI))  # ~0.618
 
     # Fit detector on full training data to get component scores
-    detector = MercuryAnomalyDetector()
+    detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
     detector.fit(X_train)
 
     # Get 3-component scores for training data
@@ -606,7 +619,7 @@ def run_fusion_weight_cv(
     )
 
     # Get adaptive weights for comparison
-    detector_supervised = MercuryAnomalyDetector()
+    detector_supervised = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
     detector_supervised.fit(X_train)
     detector_supervised._adaptive_weights = detector_supervised._compute_adaptive_weights(
         X_train, y_train

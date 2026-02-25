@@ -60,6 +60,16 @@ from sklearn.metrics import (
 
 logger = logging.getLogger(__name__)
 
+try:
+    import optuna  # noqa: F401
+    _AUTO_TUNE = True
+except ImportError:
+    _AUTO_TUNE = False
+    logger.info(
+        "optuna not installed — auto_tune disabled. "
+        "Install with: pip install optuna"
+    )
+
 
 @dataclass
 class DatasetBenchmarkResult:
@@ -173,7 +183,7 @@ class LiveDatasetBenchmarkRunner:
         """Initialize the MercuryAnomalyDetector (Mercury's original ensemble)."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
-        self.detector = MercuryAnomalyDetector()
+        self.detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
         self.detector_name = "MercuryAnomalyDetector"
         logger.info("Initialized MercuryAnomalyDetector (Resonance+Kinematic+InfoGeo)")
 
