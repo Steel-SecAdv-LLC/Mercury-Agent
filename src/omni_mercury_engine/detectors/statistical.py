@@ -1145,14 +1145,12 @@ class MercuryAnomalyDetector(BaseDetector):
         """
         n_samples, n_features = X.shape
 
-        # Fast path: kinematic is meaningless on shuffled tabular data
-        if self._data_type == DataCharacteristics.TABULAR:
+        is_tabular = self._data_type == DataCharacteristics.TABULAR
+        if is_tabular:
             logger.debug(
-                "Tabular data detected: KinematicScore weight forced to 0.0; "
-                "redistributing to Resonance=0.50, InfoGeo=0.50"
+                "Tabular data: KinematicScore excluded from CV; "
+                "running adaptive CV on Resonance and InfoGeo only."
             )
-            self._weight_source = "tabular_fast_path"
-            return np.array([0.50, 0.00, 0.50])
 
         # For very small datasets, fall back to data-type-based defaults
         if n_samples < 20:
@@ -1210,14 +1208,21 @@ class MercuryAnomalyDetector(BaseDetector):
                     ]
                 )
 
-                # Score each component
+                # Score each component (skip kinematic on tabular — it's meaningless)
                 res_scores = fold_det._compute_resonance_score(X_combined)
-                kin_scores = fold_det._compute_kinematic_score(X_combined)
                 ig_scores = fold_det._compute_info_geometry_score(X_combined)
 
-                for comp_idx, comp_scores in enumerate([res_scores, kin_scores, ig_scores]):
-                    auc = self._component_separation(comp_scores, pseudo_labels)
-                    component_aucs_accum[comp_idx].append(auc)
+                component_aucs_accum[0].append(
+                    self._component_separation(res_scores, pseudo_labels)
+                )
+                if not is_tabular:
+                    kin_scores = fold_det._compute_kinematic_score(X_combined)
+                    component_aucs_accum[1].append(
+                        self._component_separation(kin_scores, pseudo_labels)
+                    )
+                component_aucs_accum[2].append(
+                    self._component_separation(ig_scores, pseudo_labels)
+                )
 
             # Aggregate AUCs across folds
             if not component_aucs_accum[0]:
@@ -1259,7 +1264,7 @@ class MercuryAnomalyDetector(BaseDetector):
             has_signal = mean_aucs >= 0.5
             weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
             # Zero out kinematic on tabular data explicitly
-            if self._data_type == DataCharacteristics.TABULAR:
+            if is_tabular:
                 weights[1] = 0.0
 
             wsum = weights.sum()
@@ -1268,7 +1273,16 @@ class MercuryAnomalyDetector(BaseDetector):
             else:
                 return self._data_type_default_weights()
 
-            self._weight_source = "unsupervised_adaptive"
+            if is_tabular:
+                self._weight_source = "unsupervised_adaptive_tabular"
+                logger.debug(
+                    "Tabular adaptive weights after KinematicScore zeroing: "
+                    "Resonance=%.4f, Kinematic=0.0000, InfoGeo=%.4f",
+                    weights[0],
+                    weights[2],
+                )
+            else:
+                self._weight_source = "unsupervised_adaptive"
             return weights
 
         except Exception as exc:

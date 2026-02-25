@@ -488,12 +488,12 @@ class TestMultiStrategyThreshold:
 
     def test_returns_five_values(self):
         """Should return (f1, prec, rec, thr, strategy_name)."""
-        from mercury_benchmark import _oracle_threshold_f1
+        from mercury_benchmark import _oracle_threshold_f1_upper_bound
 
         rng = np.random.RandomState(42)
         scores = rng.rand(100)
         labels = (scores > 0.7).astype(int)
-        result = _oracle_threshold_f1(labels, scores)
+        result = _oracle_threshold_f1_upper_bound(labels, scores)
         assert len(result) == 5
         f1, prec, rec, thr, name = result
         assert 0 <= f1 <= 1
@@ -502,22 +502,22 @@ class TestMultiStrategyThreshold:
         assert isinstance(name, str)
 
     def test_perfect_separation_gives_f1_1(self):
-        from mercury_benchmark import _oracle_threshold_f1
+        from mercury_benchmark import _oracle_threshold_f1_upper_bound
 
         scores = np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0])
         labels = np.array([0, 0, 0, 0, 1, 1, 1, 1])
-        f1, _, _, _, _ = _oracle_threshold_f1(labels, scores)
+        f1, _, _, _, _ = _oracle_threshold_f1_upper_bound(labels, scores)
         assert f1 == 1.0
 
     def test_strategy_name_not_default(self):
         """With real data, strategy should be something other than 'default'."""
-        from mercury_benchmark import _oracle_threshold_f1
+        from mercury_benchmark import _oracle_threshold_f1_upper_bound
 
         rng = np.random.RandomState(42)
         n = 200
         scores = rng.rand(n)
         labels = (scores > 0.8).astype(int)
-        _, _, _, _, strategy = _oracle_threshold_f1(labels, scores)
+        _, _, _, _, strategy = _oracle_threshold_f1_upper_bound(labels, scores)
         assert strategy != "default", f"Strategy should not be default, got {strategy}"
 
 

@@ -687,8 +687,11 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     info_geo_auc = _safe_auc(y_test, info_geo)
 
     # Operational F1 — threshold from train scores only (no test-label leakage)
+    # Use dataset contamination rate (a dataset property, not a threshold signal).
+    # Clamped to [0.01, 0.40] to avoid extreme percentile thresholds.
+    contamination = float(np.clip(anomaly_ratio or 0.05, 0.01, 0.40))
     op_f1, op_prec, op_rec, op_thr, op_strategy = _operational_f1(
-        y_test, scores, train_scores, contamination_rate=anomaly_ratio or 0.05
+        y_test, scores, train_scores, contamination_rate=contamination
     )
 
     # Oracle F1 — UPPER BOUND reference (sweeps test labels)
@@ -738,6 +741,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
         "resonance_auc": resonance_auc,
         "kinematic_auc": kinematic_auc,
         "info_geometry_auc": info_geo_auc,
+        "contamination_rate": round(contamination, 4),
         "operational_f1": op_f1,
         "operational_precision": op_prec,
         "operational_recall": op_rec,
@@ -996,8 +1000,9 @@ def _benchmark_single_ama(entry: dict[str, Any]) -> dict[str, Any]:
         return {"name": name, "category": category, "error": msg}
 
     ensemble_auc = _safe_auc(y_test, scores)
+    ama_contamination = float(np.clip(anomaly_ratio or 0.05, 0.01, 0.40))
     op_f1, op_prec, op_rec, op_thr, op_strategy = _operational_f1(
-        y_test, scores, train_scores, contamination_rate=anomaly_ratio or 0.05
+        y_test, scores, train_scores, contamination_rate=ama_contamination
     )
     oracle_f1, oracle_prec, oracle_rec, oracle_thr, threshold_strategy = (
         _oracle_threshold_f1_upper_bound(y_test, scores)
