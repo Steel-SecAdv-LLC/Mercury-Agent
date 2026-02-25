@@ -14,8 +14,8 @@ name = "mercury_crypto"
 crate-type = ["cdylib"]
 
 [dependencies]
-# PyO3 for Python bindings
-pyo3 = { version = "0.22", features = ["extension-module"] }
+# PyO3 for Python bindings (>=0.24.1 fixes RUSTSEC-2025-0020)
+pyo3 = { version = "0.24", features = ["extension-module"] }
 
 # Core crypto libraries
 ring = "0.17"

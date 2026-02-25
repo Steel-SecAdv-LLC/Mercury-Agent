@@ -51,20 +51,24 @@ CVE-2025-14104
 # - User Interaction: Required (user must install malicious package)
 #
 # Justification for Acceptance:
-# 1. pip is upgraded to >=25.0 in builder stage
-# 2. All packages installed from PyPI with HTTPS verification
-# 3. No untrusted package sources configured
-# 4. Container runs as non-root user limiting symlink attack impact
-# 5. Production containers do not run pip install at runtime
+# 1. pip is upgraded to >=25.1 in builder stage
+# 2. Python 3.12 base image implements PEP 706, so the vulnerable
+#    tar fallback code path is never executed
+# 3. All packages installed from PyPI with HTTPS verification
+# 4. No untrusted package sources configured
+# 5. Container runs as non-root user limiting symlink attack impact
+# 6. Production containers do not run pip install at runtime
 #
 # Mitigations Applied:
-# - pip upgraded to latest version (>=25.0)
+# - pip upgraded to latest version (>=25.1)
+# - Python 3.12 PEP 706 makes vulnerable fallback unreachable
+# - setuptools upgraded to >=78.1.1 (CVE-2025-47273)
 # - HTTPS-only package downloads enforced
 # - No --trusted-host flags used
 # - Non-root execution limits filesystem access
 #
-# Review Date: 2026-01-06
-# Expiry: 2026-04-06
+# Review Date: 2026-02-25
+# Expiry: 2026-05-25
 CVE-2025-8869
 
 # =============================================================================

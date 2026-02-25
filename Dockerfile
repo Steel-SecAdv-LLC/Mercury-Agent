@@ -21,8 +21,10 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Upgrade pip to latest to address CVE-2025-8869 (symlink extraction vulnerability)
-RUN pip install --no-cache-dir --upgrade pip>=25.0 setuptools>=75.0.0 wheel
+# Upgrade pip to latest to address CVE-2025-8869 (path traversal in wheel archives).
+# Python 3.12 implements PEP 706, so the vulnerable tar fallback is never used,
+# but we pin to the latest pip as defense-in-depth.
+RUN pip install --no-cache-dir --upgrade "pip>=25.1" "setuptools>=78.1.1" wheel
 
 # Set working directory for build
 WORKDIR /app
