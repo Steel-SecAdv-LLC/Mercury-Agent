@@ -34,22 +34,12 @@ Coverage targets:
   - Conformal uncertainty bands are within [0, 1]
 """
 
-import importlib.util
-
 import numpy as np
 import pytest
 from sklearn.metrics import roc_auc_score
 
 from omni_mercury_engine.core.config import DataCharacteristics
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
-
-_torch_available = importlib.util.find_spec("torch") is not None
-
-_skip_no_torch = pytest.mark.skipif(
-    not _torch_available,
-    reason="torch not installed — required for SpectralDomainOracle / FrequencyDomainOracle. "
-           "TODO: install torch in CI for full test coverage",
-)
 
 # ---------------------------------------------------------------------------
 # Synthetic dataset generators
@@ -594,7 +584,6 @@ class TestEdgeCasesNewFeatures:
 # ===========================================================================
 
 
-@_skip_no_torch
 class TestFrequencyDomainOracleBandCounts:
     """Verify all 7 domains have the correct number of frequency bands."""
 
@@ -628,7 +617,6 @@ class TestFrequencyDomainOracleBandCounts:
             assert oracle._oracle_config.domain == domain
 
 
-@_skip_no_torch
 class TestFrequencyDomainOracleNyquist:
     """Verify Nyquist filtering excludes bands above sample_rate / 2."""
 
@@ -664,7 +652,6 @@ class TestFrequencyDomainOracleNyquist:
         assert len(oracle._bands) == len(DOMAIN_FREQUENCY_BANDS["medical"])
 
 
-@_skip_no_torch
 class TestFrequencyDomainOracleDetection:
     """Verify detect() returns FrequencyBandResult objects with valid p-values."""
 
@@ -735,7 +722,6 @@ class TestFrequencyDomainOracleDetection:
         )
 
 
-@_skip_no_torch
 class TestFrequencyDomainOracleBinarySegmentation:
     """Verify binary segmentation finds change points in signals with injected mean shifts."""
 
@@ -755,7 +741,6 @@ class TestFrequencyDomainOracleBinarySegmentation:
         assert any(40 <= cp <= 60 for cp in cps), f"Expected CP near 50, got {cps}"
 
 
-@_skip_no_torch
 class TestFrequencyDomainOracleSelectiveInference:
     """Verify SI p-values are correct for genuine CPs and noise."""
 
@@ -782,7 +767,6 @@ class TestFrequencyDomainOracleSelectiveInference:
         assert p > 0.05, f"SI p-value for noise should be > 0.05, got {p}"
 
 
-@_skip_no_torch
 class TestFrequencyDomainOracleFeatures:
     """Verify extract_features returns correct shape and type."""
 
@@ -821,7 +805,6 @@ class TestFrequencyDomainOracleFeatures:
         assert features.dtype == torch.float32
 
 
-@_skip_no_torch
 class TestFrequencyDomainOracleParseval:
     """Verify Parseval validation uses existing matrix, not recomputing FFT."""
 
@@ -849,7 +832,6 @@ class TestFrequencyDomainOracleParseval:
         assert result is True or result is False  # Returns bool
 
 
-@_skip_no_torch
 class TestFrequencyDomainOracleConfig:
     """Verify OracleConfig is constructed exactly once (no double-init bug)."""
 
@@ -884,7 +866,6 @@ class TestFrequencyDomainOracleConfig:
 # ===========================================================================
 
 
-@_skip_no_torch
 class TestExtractFeaturesContract:
     """Verify extract_features returns torch.Tensor per BaseDetector."""
 
@@ -921,7 +902,6 @@ class TestExtractFeaturesContract:
         )
 
 
-@_skip_no_torch
 class TestSelectiveInferenceTruncation:
     """Verify SI produces more conservative p-values than naive z-test."""
 
@@ -1056,7 +1036,6 @@ class TestSelectiveInferenceTruncation:
         )
 
 
-@_skip_no_torch
 class TestSpectralFlux:
     """Verify spectral flux detects rate-of-spectral-change anomalies."""
 
@@ -1110,7 +1089,6 @@ class TestSpectralFlux:
         assert oracle._compute_spectral_flux(fm) == 0.0
 
 
-@_skip_no_torch
 class TestPhaseCoherence:
     """Verify phase coherence detects inter-band relationship breakdown."""
 
@@ -1150,7 +1128,6 @@ class TestPhaseCoherence:
         assert oracle._compute_phase_coherence(empty_powers) == 1.0
 
 
-@_skip_no_torch
 class TestCepstralCoefficients:
     """Verify cepstral analysis detects harmonic structure changes."""
 
@@ -1193,7 +1170,6 @@ class TestCepstralCoefficients:
         assert oracle._compute_cepstral_peak(tiny_matrix) == 1.0
 
 
-@_skip_no_torch
 class TestOracleAutoActivation:
     """Verify domain-aware Oracle activation logic."""
 
@@ -1229,7 +1205,6 @@ class TestOracleAutoActivation:
         assert ORACLE_DOMAIN_POLICY["space"] == "neutral"
 
 
-@_skip_no_torch
 class TestSpectralDomainOracleFeatures:
     """Verify feature extraction shape and dtype."""
 

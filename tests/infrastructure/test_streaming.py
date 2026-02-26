@@ -18,9 +18,6 @@ from unittest.mock import patch
 
 import pytest
 
-# TODO: install pytest-asyncio in CI for full test coverage
-pytest.importorskip("pytest_asyncio")
-
 from omni_mercury_engine.infrastructure.streaming import (
     CircuitBreaker,
     CircuitState,

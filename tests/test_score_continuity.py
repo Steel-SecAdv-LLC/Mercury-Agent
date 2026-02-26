@@ -8,24 +8,13 @@ Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GNU GPL v3
 """
 
-import importlib.util
-
 import numpy as np
 import pytest
-
-_torch_available = importlib.util.find_spec("torch") is not None
-
-_skip_no_torch = pytest.mark.skipif(
-    not _torch_available,
-    reason="torch not installed — required for TemporalAnomalyDetector (nn.LSTM). "
-           "TODO: install torch in CI for full test coverage",
-)
 
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 
 
-@_skip_no_torch
 class TestTemporalSoftNormalization:
     """Test that temporal detector preserves score continuity."""
 
@@ -240,7 +229,6 @@ class TestScoreContinuityRegression:
     at 1.0 would violate.
     """
 
-    @_skip_no_torch
     def test_temporal_extreme_differentiation(self, deterministic_rng):
         """Verify temporal detector differentiates moderate vs extreme anomalies.
 
@@ -302,7 +290,6 @@ class TestScoreContinuityRegression:
 class TestScoreContinuityWithAutoCalibration:
     """Test that soft normalization works correctly with auto-calibration."""
 
-    @_skip_no_torch
     def test_temporal_auto_calibration_with_soft_scores(self, deterministic_rng):
         """Verify auto-calibration works with continuous soft-normalized scores."""
         detector = TemporalAnomalyDetector()

@@ -22,18 +22,8 @@ from __future__ import annotations
 Tests for PR #26 enhancements: DB term, N term, RNG utility, liboqs hooks
 """
 
-import importlib.util
-
 import numpy as np
 import pytest
-
-_torch_available = importlib.util.find_spec("torch") is not None
-
-_skip_no_torch = pytest.mark.skipif(
-    not _torch_available,
-    reason="torch not installed — required for NeuralProjection (DimensionalAnalyzer.fit). "
-           "TODO: install torch in CI for full test coverage",
-)
 
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
@@ -109,7 +99,6 @@ class TestDimensionalDBTerm:
         detector = DimensionalAnalyzer(config={"use_db_term": True})
         assert detector.use_db_term is True
 
-    @_skip_no_torch
     def test_db_term_spectral_signature(self):
         """Test spectral signature computation"""
         detector = DimensionalAnalyzer(config={"use_db_term": True})
@@ -120,7 +109,6 @@ class TestDimensionalDBTerm:
         assert detector.baseline_spectral_signature is not None
         assert len(detector.baseline_spectral_signature) > 0
 
-    @_skip_no_torch
     def test_db_term_detection(self):
         """Test DB term detection"""
         detector = DimensionalAnalyzer(config={"use_db_term": True})
@@ -135,7 +123,6 @@ class TestDimensionalDBTerm:
         if result["db_scores"] is not None:
             assert len(result["db_scores"]) == 10
 
-    @_skip_no_torch
     def test_db_term_disabled(self):
         """Test DB term can be disabled"""
         detector = DimensionalAnalyzer(config={"use_db_term": False})
@@ -240,7 +227,6 @@ class TestLibOQSHooks:
 class TestIntegration:
     """Integration tests for PR #26 enhancements"""
 
-    @_skip_no_torch
     def test_dimensional_with_db_term_full_pipeline(self):
         """Test full pipeline with DB term"""
         rng = DeterministicRNG(seed=42)
@@ -279,7 +265,6 @@ class TestIntegration:
         assert "quantum_scores" in result
         assert "harmonic_score" in result
 
-    @_skip_no_torch
     def test_reproducibility_with_rng(self):
         """Test that RNG provides reproducible results across components"""
         seed = 999

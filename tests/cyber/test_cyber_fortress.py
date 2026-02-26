@@ -21,9 +21,6 @@ from __future__ import annotations
 """Comprehensive tests for Cyber Fortress module."""
 
 import numpy as np
-import pytest
-
-pytest.importorskip("torch")  # TODO: install torch in CI — see issue "Install torch in CI for full test coverage"
 
 from omni_mercury_engine.security.cyber_fortress import (
     CyberFortress,

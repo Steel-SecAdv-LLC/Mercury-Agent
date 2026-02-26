@@ -13,9 +13,6 @@ import time
 
 import pytest
 
-# TODO: install pytest-asyncio in CI for full test coverage
-pytest.importorskip("pytest_asyncio")
-
 from omni_mercury_engine.integrations.stubs.cache import CacheEntry, CacheStub
 
 

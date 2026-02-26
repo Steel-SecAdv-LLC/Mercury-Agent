@@ -28,9 +28,6 @@ Tests for new modules added in Caduceus ⚚'s branch:
 """
 
 import numpy as np
-import pytest
-
-pytest.importorskip("torch")  # TODO: install torch in CI — see issue "Install torch in CI for full test coverage"
 
 
 class TestDriftDetection:

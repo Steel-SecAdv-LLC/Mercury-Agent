@@ -18,9 +18,6 @@ import time
 import numpy as np
 import pytest
 
-# TODO: install fastapi in CI for full test coverage
-pytest.importorskip("fastapi")
-
 
 class TestPIIMaskingFilter:
     """Test PII masking in log messages."""

@@ -28,8 +28,6 @@ import importlib.util
 
 import pytest
 
-pytest.importorskip("torch")  # TODO: install torch in CI — see issue "Install torch in CI for full test coverage"
-
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 
 

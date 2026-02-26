@@ -11,10 +11,6 @@ Comprehensive tests for:
 
 import numpy as np
 import pytest
-
-# TODO: install hypothesis in CI for full test coverage
-pytest.importorskip("hypothesis")
-
 from hypothesis import (
     given,
     settings,

@@ -23,9 +23,6 @@ import pytest
 
 pytest.importorskip("sklearn")
 
-# TODO: install hypothesis in CI for full test coverage
-pytest.importorskip("hypothesis")
-
 import sys
 from pathlib import Path
 

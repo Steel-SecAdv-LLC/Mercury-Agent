@@ -25,9 +25,6 @@ Tests AUROC, AUPRC, F1-max, pixel-level metrics, and PRO score.
 """
 
 import numpy as np
-import pytest
-
-pytest.importorskip("torch")  # TODO: install torch in CI — see issue "Install torch in CI for full test coverage"
 
 
 class TestAUROC:

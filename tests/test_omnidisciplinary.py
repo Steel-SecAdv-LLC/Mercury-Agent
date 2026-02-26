@@ -23,9 +23,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-pytest.importorskip("torch", reason="torch not installed — required for omnidisciplinary modules. "
-                     "TODO: install torch in CI for full test coverage")
-
 
 def test_medical_abms_import():
     """Test ABMS medical module imports correctly"""

@@ -12,14 +12,10 @@ Tests for:
 
 from __future__ import annotations
 
-import importlib.util
 from datetime import UTC, datetime
 
 import numpy as np
 import pytest
-
-# TODO: install pytest-asyncio in CI for full test coverage
-_has_asyncio = importlib.util.find_spec("pytest_asyncio") is not None
 
 
 def _plotly_available() -> bool:
@@ -598,7 +594,6 @@ class TestDistributedProcessor:
         assert stats.throughput_samples_per_sec > 0
         assert stats.total_time_seconds > 0
 
-    @pytest.mark.skipif(not _has_asyncio, reason="pytest-asyncio not installed — TODO: install in CI")
     @pytest.mark.asyncio
     async def test_async_processor(self) -> None:
         """Test async distributed processing."""
