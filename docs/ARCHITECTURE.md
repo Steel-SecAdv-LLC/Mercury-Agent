@@ -233,7 +233,9 @@ No test labels used. This is the deployable metric.
 Best F1 achieved by sweeping thresholds over test labels. Reported for
 reference only. Cannot be reproduced in deployment.
 
-### Current Results (ADBench, 47 datasets)
-- Mean AUC-ROC: [from benchmark run]
-- Mean Oracle F1: 0.6345 (upper bound)
-- Mean Operational F1: [from Task 1]
+### Current Results (64 datasets — 47 ADBench + 17 domain, run 2026-02-26)
+- Mean AUC-ROC: 0.8294
+- Median AUC-ROC: 0.9072
+- Mean Operational F1: 0.5700 (train-percentile threshold, no test labels)
+- Mean Oracle F1: 0.6341 (upper bound — NOT operational)
+- Per-component: Resonance 0.7943, Kinematic 0.6405, InfoGeo 0.8479

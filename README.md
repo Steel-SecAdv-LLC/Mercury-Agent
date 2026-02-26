@@ -13,7 +13,7 @@
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-5900%2B-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-6400%2B-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-85%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
@@ -104,21 +104,21 @@ Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 do
 
 | Component | Weight | Method | Mean AUC |
 |-----------|--------|--------|----------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles (precomputed at fit) | 0.7651 |
-| KinematicScore | 30% | Physics-based jerk/curvature via np.diff | 0.5964 |
-| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD | 0.8272 |
-| **Ensemble** | **100%** | **Weighted combination** | **0.8379** |
+| ResonanceScore | adaptive | FFT harmonic spectral profiles (precomputed at fit) | 0.7943 |
+| KinematicScore | adaptive | Physics-based jerk/curvature via np.diff | 0.6405 |
+| InfoGeometryScore | adaptive | Fisher Information Mahalanobis OOD | 0.8479 |
+| **Ensemble** | **adaptive** | **Weighted combination** | **0.8294** |
 
 **Aggregate Results:**
 
 | Metric | Value |
 |--------|-------|
 | Datasets tested | 64 successful / 75 total |
-| Mean AUC | 0.8379 |
-| Median AUC | 0.9090 |
-| Mean Operational F1 | TBD — see Task 1 |
-| Mean Oracle F1 | 0.6345 |
-| Median Oracle F1 | 0.7062 |
+| Mean AUC | 0.8294 |
+| Median AUC | 0.9072 |
+| Mean Operational F1 | 0.5700 |
+| Mean Oracle F1 [UPPER BOUND] | 0.6341 |
+| Median Oracle F1 [UPPER BOUND] | 0.7168 |
 
 **Domain-Level Performance (12 Domains):**
 
@@ -137,13 +137,23 @@ Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 do
 | ADBench (47) | 47 | 0.8118 | 0.5879 | 29 |
 | Time Series | 2 | 0.6944 | 0.4420 | 2 |
 
+**Mercury vs AnomalyMathArrest (AMA) — 64 datasets:**
+
+| Metric | Mercury | AMA (21-probe) |
+|--------|---------|----------------|
+| Mean AUC | 0.8294 | 0.8064 |
+| Median AUC | 0.9072 | 0.9108 |
+| Mean Operational F1 | 0.5700 | 0.4849 |
+| Datasets won | 29 | 27 |
+| Tied (±0.01 AUC) | 8 | 8 |
+
 **Honest Positioning:**
 - Mercury-Agent is an **unsupervised anomaly detector**, not a supervised classifier
-- Oracle F1 is an upper bound (best of 101 threshold sweeps), not operational performance
-- KinematicScore contributes near-random on shuffled tabular data (mean AUC 0.60)
-- 4 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
-- No hyperparameter tuning was performed
-- SpectralDomainOracle auto-activates for temporal/spectral domains (39 of 64 datasets)
+- Oracle F1 is an upper bound (best of 101 threshold sweeps), **not operational performance**
+- Operational F1 uses a threshold derived from training scores only — no test labels
+- KinematicScore contributes near-random on shuffled tabular data (mean AUC 0.64); automatically zeroed via adaptive CV on tabular inputs
+- 6 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
+- Component weights are set by unsupervised adaptive cross-validation, not fixed
 
 **When to Use Mercury-Agent:**
 - When interpretability of anomaly decisions is required
@@ -155,6 +165,7 @@ Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 do
 - When memory is constrained (use simpler methods)
 
 *Full results: `benchmarks/mercury_benchmark_results.json`. Methodology: `docs/BENCHMARKS.md`.*
+*Benchmark run: 2026-02-26, `python benchmarks/mercury_benchmark.py` (47 ADBench + 17 domain loaders).*
 
 ### Comprehensive Multi-Panel Visualizations
 
