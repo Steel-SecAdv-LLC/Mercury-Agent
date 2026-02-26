@@ -49,16 +49,16 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.core.config import ORACLE_DOMAIN_POLICY, OracleActivation
+from omni_mercury_engine.core.config import SOUND_DOMAIN_POLICY, SoundActivation
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
 from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 from omni_mercury_engine.detectors.acceleration_dynamics import (
     AccelerationDynamicsDetector,
 )
-from omni_mercury_engine.detectors.spectral_domain_oracle import (
+from omni_mercury_engine.detectors.spectral_domain_sound import (
     FrequencyInfluenceVector,
-    SpectralDomainOracle,
+    SpectralDomainSound,
 )
 
 # Import the new advanced detectors
@@ -92,14 +92,14 @@ class PhysicsDetectorType(Enum):
     SPECTRAL_VIBRATION = "spectral_vibration"
     ACCELERATION_DYNAMICS = "acceleration_dynamics"
     UIUX_ANOMALY = "uiux_anomaly"
-    SPECTRAL_ORACLE = "spectral_domain_oracle"  # Primary name
+    SPECTRAL_ORACLE = "spectral_domain_sound"  # Primary name
     ALL = "all"
     # CLI-friendly aliases
     SPECTRAL = "spectral_vibration"  # Alias for SPECTRAL_VIBRATION
     DYNAMICS = "acceleration_dynamics"  # Alias for ACCELERATION_DYNAMICS
     UIUX = "uiux_anomaly"  # Alias for UIUX_ANOMALY
-    ORACLE = "spectral_domain_oracle"  # Short alias
-    FREQUENCY_ORACLE = "spectral_domain_oracle"  # Backward compat
+    ORACLE = "spectral_domain_sound"  # Short alias
+    FREQUENCY_ORACLE = "spectral_domain_sound"  # Backward compat
 
 
 # =============================================================================
@@ -132,7 +132,7 @@ class AdvancedPhysicsConfig:
     dynamics_config: dict[str, Any] = field(default_factory=dict)
     uiux_config: dict[str, Any] = field(default_factory=dict)
     oracle_config: dict[str, Any] = field(default_factory=dict)
-    oracle_mode: OracleActivation = OracleActivation.AUTO
+    oracle_mode: SoundActivation = SoundActivation.AUTO
     use_3r_enhancement: bool = True
     use_gosnn_scaling: bool = True
     fusion_weights: dict[str, float] | None = None
@@ -305,7 +305,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         self._spectral_detector: SpectralVibrationDetector | None = None
         self._dynamics_detector: AccelerationDynamicsDetector | None = None
         self._uiux_detector: UIUXAnomalyDetector | None = None
-        self._oracle_detector: SpectralDomainOracle | None = None
+        self._oracle_detector: SpectralDomainSound | None = None
 
         self._init_detectors()
 
@@ -349,7 +349,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             dynamics_config=config.get("dynamics_config", {}),
             uiux_config=config.get("uiux_config", {}),
             oracle_config=config.get("oracle_config", {}),
-            oracle_mode=OracleActivation(config.get("oracle_mode", OracleActivation.AUTO.value)),
+            oracle_mode=SoundActivation(config.get("oracle_mode", SoundActivation.AUTO.value)),
             use_3r_enhancement=config.get("use_3r_enhancement", True),
             use_gosnn_scaling=config.get("use_gosnn_scaling", True),
             fusion_weights=config.get("fusion_weights"),
@@ -382,12 +382,12 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         oracle_should_init = False
         oracle_domain = cfg.oracle_config.get("domain", "environmental")
 
-        if cfg.oracle_mode == OracleActivation.ENABLED:
+        if cfg.oracle_mode == SoundActivation.ENABLED:
             oracle_should_init = True
-        elif cfg.oracle_mode == OracleActivation.DISABLED:
+        elif cfg.oracle_mode == SoundActivation.DISABLED:
             oracle_should_init = False
-        elif cfg.oracle_mode == OracleActivation.AUTO:
-            policy = ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled")
+        elif cfg.oracle_mode == SoundActivation.AUTO:
+            policy = SOUND_DOMAIN_POLICY.get(oracle_domain, "disabled")
             oracle_should_init = policy in ("enabled", "neutral")
             if policy == "neutral":
                 # Dampen Oracle influence for uncertain domains
@@ -402,16 +402,16 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             or PhysicsDetectorType.ORACLE in enabled
         ):
             oracle_config = {**cfg.oracle_config, "threshold": cfg.threshold}
-            self._oracle_detector = SpectralDomainOracle(oracle_config)
+            self._oracle_detector = SpectralDomainSound(oracle_config)
             logger.info(
-                "SpectralDomainOracle activated: domain=%s, mode=%s, policy=%s",
+                "SpectralDomainSound activated: domain=%s, mode=%s, policy=%s",
                 oracle_domain,
                 cfg.oracle_mode.value,
-                ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled"),
+                SOUND_DOMAIN_POLICY.get(oracle_domain, "disabled"),
             )
         elif not oracle_should_init:
             logger.info(
-                "SpectralDomainOracle disabled: domain=%s, mode=%s",
+                "SpectralDomainSound disabled: domain=%s, mode=%s",
                 oracle_domain,
                 cfg.oracle_mode.value,
             )
@@ -570,7 +570,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                         oracle_result = self._oracle_detector.detect(ts_data)
                         frequency_influence = oracle_result.get("influence_vector")
                     except Exception as e:
-                        logger.warning("SpectralDomainOracle detection failed: %s", e)
+                        logger.warning("SpectralDomainSound detection failed: %s", e)
 
             if "interactions" in data:
                 if self._uiux_detector is not None and self._uiux_detector.is_fitted():

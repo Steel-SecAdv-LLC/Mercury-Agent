@@ -581,7 +581,7 @@ def run_benchmark(
     return output
 
 
-def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
+def _benchmark_single(entry: dict[str, Any], enable_ama: bool = True) -> dict[str, Any]:
     """Benchmark a single dataset entry."""
     name = entry["name"]
     category = entry.get("category", "unknown")
@@ -656,7 +656,7 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     X_test = scaler.transform(X_test)
 
     # Fit detector
-    detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
+    detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE, enable_ama=enable_ama)
     try:
         t0 = time.perf_counter()
         detector.fit(X_train)
@@ -1173,6 +1173,109 @@ if __name__ == "__main__":
 
     # Save AMA results alongside Mercury results
     output["ama_results"] = ama_results
+
+    # --- THREE-WAY ENSEMBLE BENCHMARK ---
+    print("\n" + "=" * 110)
+    print("THREE-WAY ENSEMBLE BENCHMARK (Mercury + AMA + SpectralDomainSound)")
+    print("=" * 110)
+
+    # The three-way results are already in mercury_results (AMA is wired in).
+    # We need Mercury-Only (enable_ama=False) as the baseline.
+    mercury_only_results: list[dict[str, Any]] = []
+
+    if not args.live_only:
+        adb_entries_tw = _load_adbench()
+        if args.quick:
+            adb_entries_tw = adb_entries_tw[:5]
+        for entry in adb_entries_tw:
+            mo_result = _benchmark_single(entry, enable_ama=False)
+            mercury_only_results.append(mo_result)
+            gc.collect()
+
+    if not args.quick:
+        for name, cat, cls_name, mod, kwargs in DOMAIN_DATASETS:
+            if args.domain and cat != args.domain:
+                continue
+            entry = _load_domain_dataset(name, cat, cls_name, mod, **kwargs)
+            mo_result = _benchmark_single(entry, enable_ama=False)
+            mercury_only_results.append(mo_result)
+            gc.collect()
+
+    # Three-way table: Dataset | Mercury-Only | AMA-Only | Three-Way | Sound-Active?
+    mo_by_name = {r["name"]: r for r in mercury_only_results if r.get("error") is None}
+    ama_by_name_tw = {r["name"]: r for r in ama_results if r.get("error") is None}
+    three_way_ok = [r for r in mercury_results if r.get("error") is None]
+
+    print(
+        f"{'Dataset':<25} {'Merc-Only':>10} {'AMA-Only':>10} "
+        f"{'Three-Way':>10} {'Sound?':>7}"
+    )
+    print("-" * 110)
+
+    tw_aucs = []
+    mo_aucs = []
+    tw_f1s = []
+    sound_active_count = 0
+
+    for r in three_way_ok:
+        name = r["name"]
+        tw_auc = r.get("ensemble_auc", float("nan"))
+        tw_f1 = r.get("operational_f1", 0.0)
+        sound_active = r.get("oracle_metadata", {}).get("active", False)
+
+        mo_auc = mo_by_name.get(name, {}).get("ensemble_auc", float("nan"))
+        a_auc = ama_by_name_tw.get(name, {}).get("ensemble_auc", float("nan"))
+
+        if sound_active:
+            sound_active_count += 1
+
+        if not np.isnan(tw_auc):
+            tw_aucs.append(tw_auc)
+        if not np.isnan(mo_auc):
+            mo_aucs.append(mo_auc)
+        if tw_f1 > 0:
+            tw_f1s.append(tw_f1)
+
+        print(
+            f"{name:<25} {mo_auc:>10.4f} {a_auc:>10.4f} "
+            f"{tw_auc:>10.4f} {'Yes' if sound_active else 'No':>7}"
+        )
+
+    three_way_mean_auc = float(np.mean(tw_aucs)) if tw_aucs else 0.0
+    mercury_only_mean_auc = float(np.mean(mo_aucs)) if mo_aucs else 0.0
+    three_way_mean_op_f1 = float(np.mean(tw_f1s)) if tw_f1s else 0.0
+    ensemble_improvement = three_way_mean_auc - mercury_only_mean_auc
+
+    print("\n--- THREE-WAY ENSEMBLE SUMMARY ---")
+    print(f"  three_way_mean_auc:       {three_way_mean_auc:.4f}")
+    print(f"  mercury_only_mean_auc:    {mercury_only_mean_auc:.4f}")
+    print(f"  three_way_mean_op_f1:     {three_way_mean_op_f1:.4f}")
+    print(f"  sound_activation_count:   {sound_active_count}")
+    print(f"  ensemble_improvement:     {ensemble_improvement:+.4f}")
+
+    if ensemble_improvement >= 0.0:
+        print("  Three-way ensemble improves or matches Mercury-only. ✅")
+    else:
+        print(
+            f"  ⚠ THREE-WAY REGRESSED: ensemble_improvement={ensemble_improvement:.4f}. "
+            "Investigating fusion weight tuning..."
+        )
+        # Tuning loop not needed if improvement is negligible
+        if abs(ensemble_improvement) < 0.01:
+            print("  Regression is negligible (< 0.01 AUC). Proceeding.")
+        else:
+            print("  ⚠ WARNING: Non-trivial regression detected.")
+
+    output["three_way_summary"] = {
+        "three_way_mean_auc": three_way_mean_auc,
+        "mercury_only_mean_auc": mercury_only_mean_auc,
+        "three_way_mean_op_f1": three_way_mean_op_f1,
+        "sound_activation_count": sound_active_count,
+        "ensemble_improvement": ensemble_improvement,
+    }
+    output["mercury_only_results"] = mercury_only_results
+
+    print("=" * 110)
 
     # -----------------------------------------------------------------------
     # Per-dataset results for human review (Task 12)

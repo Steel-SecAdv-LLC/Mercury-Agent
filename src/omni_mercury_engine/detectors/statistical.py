@@ -92,6 +92,7 @@ class MercuryAnomalyDetector(BaseDetector):
         *,
         auto_validate: bool = False,
         auto_tune: bool = False,
+        enable_ama: bool = True,
     ) -> None:
         super().__init__(config)
         self.z_threshold: float = self.config.get("z_threshold", 3.0)
@@ -153,6 +154,12 @@ class MercuryAnomalyDetector(BaseDetector):
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
         self._oracle_metadata: dict[str, Any] = {"active": False}
+
+        # AnomalyMathArrest integration (Task 2)
+        self._ama_detector: Any = None
+        self._ama_weight: float = 0.40  # overridden by adaptive CV
+        self._mercury_weight: float = 0.60  # overridden by adaptive CV
+        self.enable_ama: bool = enable_ama
 
     # =====================================================================
     # fit()
@@ -244,32 +251,149 @@ class MercuryAnomalyDetector(BaseDetector):
         self._oracle_detector = None
         self._oracle_metadata = {"active": False}
 
-        if self._data_type == DataCharacteristics.TEMPORAL:
+        sound_eligible = (
+            self._data_type == DataCharacteristics.TEMPORAL
+            or (arr.shape[0] >= 128 and arr.shape[1] <= 50)
+        )
+        if sound_eligible:
+            logger.info(
+                "SpectralDomainSound eligible: temporal=%s n_samples=%d n_features=%d",
+                self._data_type == DataCharacteristics.TEMPORAL,
+                arr.shape[0],
+                arr.shape[1],
+            )
             try:
                 from omni_mercury_engine.core.config import (
-                    ORACLE_DOMAIN_POLICY,
-                    OracleActivation,
+                    SOUND_DOMAIN_POLICY,
+                    SoundActivation,
                 )
-                from omni_mercury_engine.detectors.spectral_domain_oracle import (
-                    SpectralDomainOracle,
+                from omni_mercury_engine.detectors.spectral_domain_sound import (
+                    SpectralDomainSound,
                 )
 
-                oracle_mode = OracleActivation.AUTO
+                oracle_mode = SoundActivation.AUTO
                 oracle_domain = self._infer_oracle_domain(arr, self._data_type)
 
-                should_init = oracle_mode == OracleActivation.ENABLED or (
-                    oracle_mode == OracleActivation.AUTO
-                    and ORACLE_DOMAIN_POLICY.get(oracle_domain, "disabled") != "disabled"
+                _domain_key = oracle_domain or "unknown"
+                policy = SOUND_DOMAIN_POLICY.get(_domain_key, "neutral")
+                if _domain_key not in SOUND_DOMAIN_POLICY:
+                    logger.debug(
+                        "SpectralDomainSound: domain %r not in policy map — "
+                        "defaulting to 'neutral'",
+                        _domain_key,
+                    )
+
+                should_init = oracle_mode == SoundActivation.ENABLED or (
+                    oracle_mode == SoundActivation.AUTO
+                    and policy != "disabled"
                 )
 
                 if should_init:
                     oracle_cfg = {"domain": oracle_domain}
-                    self._oracle_detector = SpectralDomainOracle(oracle_cfg)
+                    self._oracle_detector = SpectralDomainSound(oracle_cfg)
                     self._oracle_detector.fit(arr)
-                    logger.info("Oracle fitted: domain=%s", oracle_domain)
+                    logger.info("SpectralDomainSound fitted: domain=%s", oracle_domain)
             except Exception as exc:
-                logger.debug("Oracle init skipped: %s", exc)
+                logger.debug("SpectralDomainSound init skipped: %s", exc)
                 self._oracle_detector = None
+
+        # --- AnomalyMathArrest integration (Task 2) ---
+        try:
+            from omni_mercury_engine.detectors.math_arrest.arrest import (
+                AnomalyMathArrest,
+            )
+            if self.enable_ama:
+                self._ama_detector = AnomalyMathArrest()
+                self._ama_detector.fit(arr)
+                logger.info("AnomalyMathArrest fitted: %d probes active",
+                            len(self._ama_detector._probes))
+            else:
+                self._ama_detector = None
+        except Exception as exc:
+            logger.warning("AnomalyMathArrest fit failed: %s — proceeding without AMA", exc)
+            self._ama_detector = None
+
+        # --- AMA fusion weight estimation via CV AUC ---
+        if self._ama_detector is not None:
+            try:
+                n_folds = 3
+                folds = np.array_split(arr, n_folds)  # deterministic, no shuffle
+
+                mercury_aucs, ama_aucs = [], []
+                contamination_est = getattr(self, "_contamination_rate", 0.05)
+
+                for i in range(n_folds):
+                    val_fold = folds[i]
+                    train_folds = np.vstack([folds[j] for j in range(n_folds) if j != i])
+
+                    # --- Mercury AUC on this fold ---
+                    temp_mercury = MercuryAnomalyDetector(auto_validate=False, enable_ama=False)
+                    temp_mercury.fit(train_folds)
+                    fold_mercury_scores = temp_mercury.detect(val_fold)["scores"]
+
+                    # --- AMA AUC on this fold ---
+                    temp_ama = AnomalyMathArrest()
+                    temp_ama.fit(train_folds)
+                    fold_ama_scores = temp_ama.detect(val_fold)
+                    fold_ama_scores = np.clip(fold_ama_scores, 0.0, 1.0)
+
+                    # Pseudo-labels: top contamination_est fraction = anomaly.
+                    threshold = np.percentile(
+                        fold_mercury_scores,
+                        100.0 * (1.0 - contamination_est),
+                    )
+                    pseudo_labels = (fold_mercury_scores >= threshold).astype(int)
+
+                    def _auc_from_scores(scores, labels):
+                        """Compute AUC-ROC from continuous scores and binary labels."""
+                        if labels.sum() == 0 or labels.sum() == len(labels):
+                            return 0.5  # degenerate fold
+                        order = np.argsort(scores)[::-1]
+                        labels_sorted = labels[order]
+                        n_pos = labels_sorted.sum()
+                        n_neg = len(labels_sorted) - n_pos
+                        if n_pos == 0 or n_neg == 0:
+                            return 0.5
+                        tp = np.cumsum(labels_sorted)
+                        fp = np.cumsum(1 - labels_sorted)
+                        tpr = tp / n_pos
+                        fpr = fp / n_neg
+                        _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+                        return float(_trapz(tpr, fpr))
+
+                    mercury_aucs.append(_auc_from_scores(fold_mercury_scores, pseudo_labels))
+                    ama_aucs.append(_auc_from_scores(fold_ama_scores, pseudo_labels))
+
+                mercury_auc = float(np.mean(mercury_aucs))
+                ama_auc     = float(np.mean(ama_aucs))
+                total       = mercury_auc + ama_auc
+
+                if total > 1e-9:
+                    alpha = float(np.clip(mercury_auc / total, 0.30, 0.70))
+                    beta  = float(np.clip(ama_auc / total, 0.30, 0.70))
+                    # Re-normalize after clamping so they still sum to 1.0
+                    s = alpha + beta
+                    alpha /= s
+                    beta  /= s
+                else:
+                    alpha, beta = 0.60, 0.40
+
+                self._mercury_weight = alpha
+                self._ama_weight     = beta
+                logger.info(
+                    "Three-way fusion weights: Mercury=%.3f AMA=%.3f "
+                    "Sound=multiplier (mercury_cv_auc=%.3f, ama_cv_auc=%.3f)",
+                    alpha, beta, mercury_auc, ama_auc,
+                )
+
+            except Exception as exc:
+                logger.warning(
+                    "AMA fusion CV failed: %s — using default weights "
+                    "Mercury=0.60 AMA=0.40",
+                    exc,
+                )
+                self._mercury_weight = 0.60
+                self._ama_weight     = 0.40
 
         # --- Unsupervised adaptive weighting (Task 1) ---
         self._adaptive_weights = self._compute_unsupervised_adaptive_weights(arr)
@@ -667,12 +791,12 @@ class MercuryAnomalyDetector(BaseDetector):
         det._oracle_metadata = {"active": False}
         if oracle_ref_stats is not None:
             try:
-                from omni_mercury_engine.detectors.spectral_domain_oracle import (
-                    SpectralDomainOracle,
+                from omni_mercury_engine.detectors.spectral_domain_sound import (
+                    SpectralDomainSound,
                 )
 
                 domain = oracle_ref_stats.get("domain", "environmental")
-                oracle = SpectralDomainOracle({"domain": domain})
+                oracle = SpectralDomainSound({"domain": domain})
                 # Restore per-band reference statistics
                 if "ref_band_means" in oracle_ref_stats:
                     oracle._ref_band_means = oracle_ref_stats["ref_band_means"]
@@ -1970,6 +2094,26 @@ class MercuryAnomalyDetector(BaseDetector):
                 combined_scores = 1.0 - combined_scores
                 logger.info("Ensemble flip: median=%.3f, inverting scores", median_score)
 
+        # --- AnomalyMathArrest fusion ---
+        if self._ama_detector is not None:
+            try:
+                ama_scores = self._ama_detector.detect(data)
+                ama_scores = np.clip(ama_scores, 0.0, 1.0)
+                combined_scores = (
+                    self._mercury_weight * combined_scores
+                    + self._ama_weight * ama_scores
+                )
+                combined_scores = np.clip(combined_scores, 0.0, 1.0)
+                logger.debug(
+                    "AMA fusion: mercury_w=%.3f ama_w=%.3f "
+                    "ama_score_mean=%.3f",
+                    self._mercury_weight,
+                    self._ama_weight,
+                    float(np.mean(ama_scores)),
+                )
+            except Exception as exc:
+                logger.warning("AMA detect failed: %s — using Mercury-only score", exc)
+
         # --- Oracle spectral influence ---
         oracle_meta: dict[str, Any] = {"active": False}
         if self._oracle_detector is not None:
@@ -2076,6 +2220,9 @@ class MercuryAnomalyDetector(BaseDetector):
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
             "oracle_metadata": oracle_meta,
+            "ama_active":       self._ama_detector is not None,
+            "mercury_weight":   self._mercury_weight,
+            "ama_weight":       self._ama_weight,
         }
 
     # =====================================================================

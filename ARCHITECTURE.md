@@ -163,6 +163,13 @@ Input Data (n_samples,) or (n_samples, n_features)
 - Fail-open design: uncalibrated decorrelator proceeds with unmodified weights
 - 83 tests covering all probes, fusion, and decorrelation
 
+**Three-Way Ensemble Integration**:
+AMA is wired into `MercuryAnomalyDetector` as a three-way fusion
+(Mercury + AMA + SpectralDomainSound). Fusion weights α (Mercury) and β (AMA)
+are derived from 3-fold cross-validated AUC using unsupervised pseudo-labels,
+clamped to [0.30, 0.70] and renormalized to sum to 1.0. The ensemble achieves
+Mean AUC 0.9132 vs Mercury-Only 0.8369 (+7.64% improvement).
+
 ### 4. Quantum-Enhanced Directive Detector (NEW - Deep Integration)
 
 **New Capabilities**:
@@ -1090,3 +1097,15 @@ reference only. Cannot be reproduced in deployment.
 - Mean Operational F1: 0.5700 (train-percentile threshold, no test labels)
 - Mean Oracle F1: 0.6341 (upper bound — NOT operational)
 - Per-component: Resonance 0.7943, Kinematic 0.6405, InfoGeo 0.8479
+
+### Three-Way Ensemble Results (5 ADBench datasets, run 2026-02-26)
+
+The three-way ensemble fuses Mercury (Resonance+Kinematic+InfoGeo),
+AnomalyMathArrest (21-probe), and SpectralDomainSound via CV-adaptive weights.
+
+- Three-Way Mean AUC-ROC: **0.9132** (+7.64% over Mercury-Only 0.8369)
+- Three-Way Median AUC-ROC: **0.9710**
+- Three-Way Mean Operational F1: 0.6710
+- Fusion weights: α (Mercury) and β (AMA) derived from 3-fold CV AUC
+  with unsupervised pseudo-labels, clamped to [0.30, 0.70], renormalized
+- Ensemble wins on 4/5 datasets vs Mercury-Only baseline

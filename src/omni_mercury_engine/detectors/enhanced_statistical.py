@@ -169,7 +169,7 @@ class MADDetector:
 
 class LOFDetector:
     """
-    Local Outlier Factor (LOF) detector.
+    Local Outlier Factor (LOF) detector — Mercury-native (cKDTree).
 
     LOF measures local density deviation compared to neighbors.
     Points with significantly lower density are anomalies.
@@ -178,6 +178,7 @@ class LOFDetector:
     - Detects local anomalies (not just global)
     - Works with non-uniform density distributions
     - No assumption about data distribution
+    - O(n log n) via cKDTree — no O(n²) pairwise matrix
     """
 
     def __init__(
@@ -187,72 +188,76 @@ class LOFDetector:
         metric: str = "minkowski",
         p: int = 2,
     ):
-        """
-        Initialize LOF detector.
-
-        Args:
-            n_neighbors: Number of neighbors for LOF calculation
-            contamination: Expected proportion of anomalies
-            metric: Distance metric
-            p: Power parameter for Minkowski metric
-        """
         self.n_neighbors = n_neighbors
         self.contamination = contamination
         self.metric = metric
         self.p = p
-        self._lof = None
+        self._X_train: np.ndarray | None = None
+        self._tree = None
+        self._k_dist: np.ndarray | None = None
+        self._knn_idx: np.ndarray | None = None
+        self._lrd: np.ndarray | None = None
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> LOFDetector:
-        """Fit the LOF detector."""
-        try:
-            from sklearn.neighbors import LocalOutlierFactor
+        """Fit the LOF detector using cKDTree."""
+        from scipy.spatial import cKDTree
 
-            self._lof = LocalOutlierFactor(
-                n_neighbors=min(self.n_neighbors, len(X) - 1),
-                contamination=self.contamination,
-                metric=self.metric,
-                p=self.p,
-                novelty=True,
-            )
-            assert self._lof is not None
-            self._lof.fit(X)
-            self._fitted = True
-        except ImportError:
-            raise DetectorException("scikit-learn required for LOF detection")
+        X = np.asarray(X, dtype=np.float64)
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
 
+        self._X_train = X.copy()
+        n = len(X)
+        k = min(self.n_neighbors, n - 1)
+
+        tree = cKDTree(X)
+        # query k+1 to include self; drop column 0 (distance to self = 0)
+        dists_all, idx_all = tree.query(X, k=k + 1, p=self.p)
+        dists = dists_all[:, 1:]   # shape (n, k) — exclude self
+        idx = idx_all[:, 1:]       # shape (n, k)
+
+        self._k_dist = dists[:, -1]  # kth-neighbor distance per point
+        self._knn_idx = idx
+
+        # Reachability distances and local reachability densities (LRD)
+        reach = np.maximum(dists, self._k_dist[idx])  # (n, k)
+        self._lrd = 1.0 / (np.mean(reach, axis=1) + 1e-10)
+
+        self._tree = tree
+        self._fitted = True
         return self
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using LOF."""
-        if not self._fitted or self._lof is None:
+        if not self._fitted or self._tree is None:
             raise DetectorException("LOFDetector must be fitted before detection")
 
-        X = np.asarray(X)
+        X = np.asarray(X, dtype=np.float64)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        # Get LOF scores (negative = more anomalous)
-        raw_scores = -self._lof.decision_function(X)
+        k = min(self.n_neighbors, len(self._X_train) - 1)
 
-        # Normalize to [0, 1]
-        min_score, max_score = raw_scores.min(), raw_scores.max()
-        if max_score - min_score > 1e-8:
-            scores = (raw_scores - min_score) / (max_score - min_score)
-        else:
-            scores = np.full_like(raw_scores, 0.5)
+        dists, idx = self._tree.query(X, k=k, p=self.p)
+        reach = np.maximum(dists, self._k_dist[idx])  # (n_q, k)
+        lrd_q = 1.0 / (np.mean(reach, axis=1) + 1e-10)
 
-        # Prediction
-        predictions = self._lof.predict(X)
-        is_anomaly = predictions == -1
+        lof = np.mean(self._lrd[idx] / (lrd_q[:, np.newaxis] + 1e-10), axis=1)
+
+        # Normalize to [0, 1]: LOF=1 is normal, higher is anomalous.
+        lof_max = np.max(lof)
+        scores = np.clip((lof - 1.0) / (lof_max - 1.0 + 1e-10), 0.0, 1.0)
+        threshold = np.percentile(scores, 100.0 * (1.0 - self.contamination))
+        is_anomaly = scores > threshold
 
         return AnomalyResult(
             is_anomaly=is_anomaly,
             scores=scores,
-            method="lof",
-            threshold=float(self._lof.offset_),
+            method="lof_mercury_native",
+            threshold=float(threshold),
             details={
-                "raw_scores": raw_scores,
+                "raw_lof": lof,
                 "n_neighbors": self.n_neighbors,
             },
         )
@@ -260,7 +265,7 @@ class LOFDetector:
 
 class DBSCANDetector:
     """
-    DBSCAN-based anomaly detector.
+    DBSCAN-based anomaly detector — Mercury-native (cKDTree).
 
     Points not belonging to any cluster are labeled as anomalies.
 
@@ -268,6 +273,7 @@ class DBSCANDetector:
     - No assumption about cluster shape
     - Automatically finds number of clusters
     - Robust to noise
+    - sklearn-free: uses scipy.spatial.cKDTree
     """
 
     def __init__(
@@ -276,119 +282,109 @@ class DBSCANDetector:
         min_samples: int = 5,
         metric: str = "euclidean",
         auto_eps: bool = True,
+        contamination: float = 0.1,
     ):
-        """
-        Initialize DBSCAN detector.
-
-        Args:
-            eps: Maximum distance between points in a cluster
-            min_samples: Minimum points to form a dense region
-            metric: Distance metric
-            auto_eps: Automatically determine eps from data
-        """
         self.eps = eps
         self.min_samples = min_samples
         self.metric = metric
         self.auto_eps = auto_eps
-        self._fitted_eps: float | None = None
-        self._reference_data: np.ndarray | None = None
+        self.contamination = contamination
+        self._auto_eps_value: float | None = None
+        self._eps_used: float | None = None
+        self._tree = None
+        self._labels: np.ndarray | None = None
         self._fitted = False
 
     def _estimate_eps(self, X: NDArray[np.float64]) -> float:
-        """Estimate optimal eps using k-distance graph."""
-        from sklearn.neighbors import NearestNeighbors
+        """Estimate optimal eps using k-distance graph via cKDTree."""
+        from scipy.spatial import cKDTree
 
         k = min(self.min_samples, len(X) - 1)
-        nn = NearestNeighbors(n_neighbors=k)
-        nn.fit(X)
-        distances, _ = nn.kneighbors(X)
-
-        # Use the knee point of sorted k-distances
-        k_distances = np.sort(distances[:, -1])
-        # Simple knee detection: maximum curvature
-        gradients = np.gradient(k_distances)
-        knee_idx = np.argmax(gradients)
-
-        return float(k_distances[knee_idx])
+        tree = cKDTree(X)
+        dists, _ = tree.query(X, k=k + 1)
+        knn_dists = np.sort(dists[:, -1])
+        # Knee detection: largest gap in sorted k-distances
+        gaps = np.diff(knn_dists)
+        return float(knn_dists[np.argmax(gaps) + 1])
 
     def fit(self, X: NDArray[np.float64]) -> DBSCANDetector:
         """Fit the DBSCAN detector."""
-        X = np.asarray(X)
+        from scipy.spatial import cKDTree
+
+        X = np.asarray(X, dtype=np.float64)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        if self.auto_eps and self.eps is None:
-            self._fitted_eps = self._estimate_eps(X)
-        else:
-            self._fitted_eps = self.eps or 0.5
+        self._X_train = X.copy()
 
-        self._reference_data = X
+        if self.auto_eps and self.eps is None:
+            eps = self._estimate_eps(X)
+        else:
+            eps = self.eps or 0.5
+        self._eps_used = eps
+
+        tree = cKDTree(X)
+        labels = np.full(len(X), -1, dtype=int)
+        visited = np.zeros(len(X), dtype=bool)
+        cluster_id = 0
+        for i in range(len(X)):
+            if visited[i]:
+                continue
+            visited[i] = True
+            neighbors = tree.query_ball_point(X[i], eps)
+            if len(neighbors) < self.min_samples:
+                labels[i] = -1  # noise
+                continue
+            labels[i] = cluster_id
+            queue = list(neighbors)
+            while queue:
+                j = queue.pop()
+                if not visited[j]:
+                    visited[j] = True
+                    j_neighbors = tree.query_ball_point(X[j], eps)
+                    if len(j_neighbors) >= self.min_samples:
+                        queue.extend(j_neighbors)
+                if labels[j] == -1:
+                    labels[j] = cluster_id
+            cluster_id += 1
+        self._labels = labels
+        self._tree = tree
         self._fitted = True
         return self
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using DBSCAN."""
-        if not self._fitted:
+        if not self._fitted or self._tree is None:
             raise DetectorException("DBSCANDetector must be fitted before detection")
 
-        try:
-            from sklearn.cluster import DBSCAN
-        except ImportError:
-            raise DetectorException("scikit-learn required for DBSCAN detection")
-
-        X = np.asarray(X)
+        X = np.asarray(X, dtype=np.float64)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        # Run DBSCAN
-        dbscan = DBSCAN(
-            eps=self._fitted_eps,
-            min_samples=self.min_samples,
-            metric=self.metric,
-        )
-        labels = dbscan.fit_predict(X)
-
-        # Noise points (label=-1) are anomalies
-        is_anomaly = labels == -1
-
-        # Score based on distance to nearest core point
-        scores = np.zeros(len(X))
-        core_mask = np.isin(np.arange(len(X)), dbscan.core_sample_indices_)
-
-        assert self._fitted_eps is not None
-        if np.any(core_mask):
-            core_points = X[core_mask]
-            for i, point in enumerate(X):
-                if is_anomaly[i]:
-                    # Distance to nearest core point
-                    distances = np.linalg.norm(core_points - point, axis=1)
-                    min_dist = np.min(distances)
-                    scores[i] = min(1.0, min_dist / (self._fitted_eps * 3))
-                else:
-                    scores[i] = 0.0
-        else:
-            # No core points found - all could be anomalies
-            scores = np.ones(len(X)) * 0.5
+        dists, _ = self._tree.query(X, k=1)
+        scores = np.clip(dists.ravel() / (self._eps_used + 1e-10), 0.0, 1.0)
+        threshold = np.percentile(scores, 100.0 * (1.0 - self.contamination))
+        is_anomaly = scores > threshold
 
         return AnomalyResult(
             is_anomaly=is_anomaly,
             scores=scores,
-            method="dbscan",
-            threshold=self._fitted_eps,
+            method="dbscan_mercury_native",
+            threshold=float(threshold),
             details={
-                "labels": labels,
-                "n_clusters": len(set(labels)) - (1 if -1 in labels else 0),
-                "n_noise": np.sum(is_anomaly),
-                "eps": self._fitted_eps,
+                "n_clusters": int(self._labels.max() + 1) if self._labels.max() >= 0 else 0,
+                "n_noise": int(np.sum(self._labels == -1)),
+                "eps": self._eps_used,
             },
         )
 
 
 class MCDDetector:
     """
-    Minimum Covariance Determinant (MCD) based detector.
+    Minimum Covariance Determinant (MCD) based detector — Mercury-native.
 
-    Uses robust covariance estimation for Mahalanobis distance.
+    Uses iterative reweighted covariance estimation for Mahalanobis distance.
+    sklearn-free: numpy + scipy only.
 
     Advantages:
     - Robust to outliers in training data
@@ -402,78 +398,83 @@ class MCDDetector:
         contamination: float = 0.1,
         random_state: int = 42,
     ):
-        """
-        Initialize MCD detector.
-
-        Args:
-            support_fraction: Proportion of data for robust estimation
-            contamination: Expected proportion of anomalies
-            random_state: Random seed
-        """
         self.support_fraction = support_fraction
         self.contamination = contamination
         self.random_state = random_state
-        self._mcd = None
-        self._threshold: float | None = None
+        self._location: np.ndarray | None = None
+        self._precision: np.ndarray | None = None
+        self._mahal_threshold: float | None = None
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> MCDDetector:
-        """Fit the MCD detector."""
-        try:
-            from sklearn.covariance import MinCovDet
-        except ImportError:
-            raise DetectorException("scikit-learn required for MCD detection")
-
-        X = np.asarray(X)
+        """Fit the MCD detector via iterative reweighted covariance."""
+        X = np.asarray(X, dtype=np.float64)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        mcd = MinCovDet(
-            support_fraction=self.support_fraction,
-            random_state=self.random_state,
-        )
-        mcd.fit(X)
-        self._mcd = mcd
+        n, p = X.shape
+        h = max(int(0.75 * n), p + 1)
 
-        # Compute threshold from training data
-        distances = mcd.mahalanobis(X)
-        self._threshold = float(np.percentile(distances, (1 - self.contamination) * 100))
+        # Initial robust center
+        center = np.median(X, axis=0)
+        dists = np.linalg.norm(X - center, axis=1)
+        h_idx = np.argsort(dists)[:h]
+        X_h = X[h_idx]
 
+        mu = center
+        cov = np.cov(X_h.T) + np.eye(p) * 1e-6
+        if cov.ndim == 0:
+            cov = np.array([[float(cov) + 1e-6]])
+        cov_inv = np.linalg.inv(cov)
+
+        for _ in range(2):
+            mu = np.mean(X_h, axis=0)
+            cov = np.cov(X_h.T) + np.eye(p) * 1e-6
+            if cov.ndim == 0:
+                cov = np.array([[float(cov) + 1e-6]])
+            cov_inv = np.linalg.inv(cov)
+            diff = X - mu
+            mah = np.einsum("ij,jk,ik->i", diff, cov_inv, diff)
+            thresh = float(np.percentile(mah, 100.0 * (1.0 - self.contamination)))
+            h_idx = np.where(mah <= thresh)[0][:h]
+            if len(h_idx) < p + 1:
+                break
+            X_h = X[h_idx]
+
+        self._location = mu
+        self._precision = cov_inv
+        self._mahal_threshold = thresh
         self._fitted = True
         return self
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using MCD."""
-        if not self._fitted or self._mcd is None:
+        if not self._fitted or self._precision is None:
             raise DetectorException("MCDDetector must be fitted before detection")
 
-        X = np.asarray(X)
+        X = np.asarray(X, dtype=np.float64)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        # Mahalanobis distances
-        distances = self._mcd.mahalanobis(X)
+        diff = X - self._location
+        mah = np.einsum("ij,jk,ik->i", diff, self._precision, diff)
+        scores = np.clip(mah / (self._mahal_threshold * 3.0 + 1e-10), 0.0, 1.0)
 
-        # Normalize scores
-        max_dist = max(distances.max(), self._threshold * 2)
-        scores = np.clip(distances / max_dist, 0, 1)
-
-        is_anomaly = distances > self._threshold
+        is_anomaly = mah > self._mahal_threshold
 
         # Chi-squared based p-values
         n_features = X.shape[1]
-        p_values = 1 - stats.chi2.cdf(distances, df=n_features)
+        p_values = 1 - stats.chi2.cdf(np.maximum(mah, 0.0), df=n_features)
 
         return AnomalyResult(
             is_anomaly=is_anomaly,
             scores=scores,
-            method="mcd",
-            threshold=self._threshold,
+            method="mcd_mercury_native",
+            threshold=self._mahal_threshold,
             confidence=1 - p_values,
             details={
-                "mahalanobis_distances": distances,
-                "robust_location": self._mcd.location_,
-                "robust_covariance": self._mcd.covariance_,
+                "mahalanobis_distances": mah,
+                "robust_location": self._location,
                 "p_values": p_values,
             },
         )

@@ -410,11 +410,10 @@ class TemporalLagFeatureExtractor:
 
 
 class SVMRFEnsembleClassifier:
-    """Ensemble classifier combining SVM and Random Forest for landslide detection.
+    """Ensemble classifier for landslide detection — Mercury-native.
 
-    Provides robust classification by combining:
-    - SVM: Good for high-dimensional feature spaces
-    - Random Forest: Handles non-linear relationships and provides feature importance
+    Replaces sklearn SVM + RandomForest with Fisher Linear Discriminant
+    projection for class probability estimation. sklearn-free (numpy only).
     """
 
     def __init__(
@@ -423,35 +422,21 @@ class SVMRFEnsembleClassifier:
         rf_n_estimators: int = 100,
         ensemble_weights: tuple[float, float] = (0.4, 0.6),
     ):
-        """Initialize ensemble classifier.
-
-        Args:
-            svm_kernel: SVM kernel type ('rbf', 'linear', 'poly')
-            rf_n_estimators: Number of trees in Random Forest
-            ensemble_weights: Weights for (SVM, RF) predictions
-        """
-        try:
-            from sklearn.ensemble import RandomForestClassifier
-            from sklearn.preprocessing import StandardScaler
-            from sklearn.svm import SVC
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
-
-        self.svm = SVC(kernel=svm_kernel, probability=True, random_state=42)
-        self.rf = RandomForestClassifier(n_estimators=rf_n_estimators, random_state=42)
-        self.scaler = StandardScaler()
         self.ensemble_weights = ensemble_weights
         self.is_fitted = False
         self.logger = logging.getLogger(__name__)
+        self._mean: np.ndarray | None = None
+        self._std: np.ndarray | None = None
+        self._classes: np.ndarray | None = None
+        self._w_vectors: dict[int, np.ndarray] = {}
+        self._feature_importances: np.ndarray | None = None
 
     def fit(
         self,
         X: np.ndarray[Any, Any],
         y: np.ndarray[Any, Any],
     ) -> SVMRFEnsembleClassifier:
-        """Fit both classifiers on training data.
+        """Fit using Fisher Linear Discriminant projection per class (OVR).
 
         Args:
             X: Training features
@@ -460,48 +445,64 @@ class SVMRFEnsembleClassifier:
         Returns:
             Self for chaining
         """
-        X_scaled = self.scaler.fit_transform(X)
-        self.svm.fit(X_scaled, y)
-        self.rf.fit(X_scaled, y)
+        self._mean = np.mean(X, axis=0)
+        self._std = np.std(X, axis=0) + 1e-10
+        X_scaled = (X - self._mean) / self._std
+
+        self._classes = np.unique(y)
+        p = X_scaled.shape[1]
+
+        for cls in self._classes:
+            mask_pos = y == cls
+            mask_neg = ~mask_pos
+            if mask_pos.sum() == 0 or mask_neg.sum() == 0:
+                self._w_vectors[int(cls)] = np.zeros(p)
+                continue
+            mu_1 = np.mean(X_scaled[mask_pos], axis=0)
+            mu_0 = np.mean(X_scaled[mask_neg], axis=0)
+            cov_1 = np.cov(X_scaled[mask_pos].T) if mask_pos.sum() > 1 else np.eye(p) * 1e-6
+            cov_0 = np.cov(X_scaled[mask_neg].T) if mask_neg.sum() > 1 else np.eye(p) * 1e-6
+            if cov_1.ndim == 0:
+                cov_1 = np.array([[float(cov_1)]])
+            if cov_0.ndim == 0:
+                cov_0 = np.array([[float(cov_0)]])
+            sigma = (cov_0 + cov_1) / 2.0 + np.eye(p) * 1e-6
+            w = np.linalg.solve(sigma, mu_1 - mu_0)
+            self._w_vectors[int(cls)] = w
+
+        importances = np.var(X_scaled, axis=0)
+        self._feature_importances = importances / (importances.sum() + 1e-10)
+
         self.is_fitted = True
-        self.logger.info(f"SVMRFEnsembleClassifier fitted on {len(y)} samples")
+        self.logger.info(f"SVMRFEnsembleClassifier fitted on {len(y)} samples (Mercury-native)")
         return self
 
     def predict_proba(
         self,
         X: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Predict class probabilities using ensemble.
-
-        Args:
-            X: Input features
-
-        Returns:
-            Ensemble probability predictions
-        """
+        """Predict class probabilities using Fisher projection + softmax."""
         if not self.is_fitted:
-            # Return default probabilities if not fitted
             return np.array([[0.5, 0.5]] * len(X))
 
-        X_scaled = self.scaler.transform(X)
+        X_scaled = (X - self._mean) / self._std
+        n_classes = len(self._classes)
 
-        svm_proba = self.svm.predict_proba(X_scaled)
-        rf_proba = self.rf.predict_proba(X_scaled)
+        logits = np.zeros((len(X), n_classes))
+        for i, cls in enumerate(self._classes):
+            w = self._w_vectors.get(int(cls), np.zeros(X_scaled.shape[1]))
+            logits[:, i] = X_scaled @ w
 
-        # Weighted ensemble
-        ensemble_proba = self.ensemble_weights[0] * svm_proba + self.ensemble_weights[1] * rf_proba
-
-        return ensemble_proba
+        logits -= logits.max(axis=1, keepdims=True)
+        exp_logits = np.exp(logits)
+        proba = exp_logits / (exp_logits.sum(axis=1, keepdims=True) + 1e-10)
+        return proba
 
     def get_feature_importance(self) -> np.ndarray[Any, Any]:
-        """Get feature importance from Random Forest.
-
-        Returns:
-            Feature importance array
-        """
-        if not self.is_fitted:
+        """Get variance-based feature importance."""
+        if not self.is_fitted or self._feature_importances is None:
             return np.array([])
-        return self.rf.feature_importances_
+        return self._feature_importances
 
 
 class LandslideDetector:

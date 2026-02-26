@@ -11,7 +11,7 @@ Cross-Domain Frequency Correlation Module
 ==========================================
 
 Detects overlapping significant frequency bands across concurrent
-SpectralDomainOracle instances running on different data domains (e.g.,
+SpectralDomainSound instances running on different data domains (e.g.,
 seismic + solar, environmental + infrastructure).
 
 **CRITICAL**: This module provides CORRELATION, not causation, not
@@ -117,7 +117,7 @@ def _extract_bands_from_influence_vector(
 
     # We need the band definitions to get Hz ranges
     try:
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
             get_domain_frequency_bands,
         )
 
@@ -164,7 +164,7 @@ class CrossDomainFrequencyCorrelator:
     """Detect overlapping significant frequency bands across domains.
 
     This module takes a dict of ``{domain: FrequencyInfluenceVector}``
-    from concurrent SpectralDomainOracle instances and identifies
+    from concurrent SpectralDomainSound instances and identifies
     frequency bands that are simultaneously anomalous in multiple
     domains.
 

@@ -81,14 +81,14 @@ class TestDomainWeightPresets:
 
 
 class TestNoiseColorEstimation:
-    """Tests for SpectralDomainOracle._estimate_noise_color."""
+    """Tests for SpectralDomainSound._estimate_noise_color."""
 
     def _make_oracle(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
-            SpectralDomainOracle,
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
+            SpectralDomainSound,
         )
 
-        return SpectralDomainOracle({"domain": "environmental"})
+        return SpectralDomainSound({"domain": "environmental"})
 
     def test_white_noise(self):
         """White noise should have beta close to 0."""
@@ -143,14 +143,14 @@ class TestNoiseColorEstimation:
 
 
 class TestAdaptiveAlpha:
-    """Tests for SpectralDomainOracle._compute_adaptive_alpha."""
+    """Tests for SpectralDomainSound._compute_adaptive_alpha."""
 
     def _make_oracle(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
-            SpectralDomainOracle,
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
+            SpectralDomainSound,
         )
 
-        return SpectralDomainOracle({"domain": "environmental", "significance_level": 0.05})
+        return SpectralDomainSound({"domain": "environmental", "significance_level": 0.05})
 
     def test_short_window_relaxes_alpha(self):
         oracle = self._make_oracle()
@@ -326,25 +326,25 @@ class TestOracleIntegration:
 
     def test_oracle_noise_color_estimated(self):
         """When Oracle is active, noise color should be estimated."""
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
-            SpectralDomainOracle,
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
+            SpectralDomainSound,
         )
 
         rng = np.random.RandomState(42)
         signal = rng.randn(500)
-        oracle = SpectralDomainOracle({"domain": "environmental"})
+        oracle = SpectralDomainSound({"domain": "environmental"})
         oracle.fit(signal)
         assert oracle._noise_color in ("white", "pink", "brown", "blue", "violet")
         assert isinstance(oracle._noise_beta, float)
 
     def test_oracle_multiplier_in_bounds(self):
         """Influence multiplier should stay within configured bounds."""
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
-            SpectralDomainOracle,
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
+            SpectralDomainSound,
         )
 
         rng = np.random.RandomState(42)
-        oracle = SpectralDomainOracle(
+        oracle = SpectralDomainSound(
             {
                 "domain": "environmental",
                 "influence_floor": 0.5,
@@ -361,12 +361,12 @@ class TestOracleIntegration:
 
     def test_oracle_detect_returns_dict(self):
         """T0biU Oracle returns dict with influence_vector key."""
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
-            SpectralDomainOracle,
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
+            SpectralDomainSound,
         )
 
         rng = np.random.RandomState(42)
-        oracle = SpectralDomainOracle({"domain": "environmental"})
+        oracle = SpectralDomainSound({"domain": "environmental"})
         oracle.fit(rng.randn(200))
         result = oracle.detect(rng.randn(100))
         assert isinstance(result, dict)
@@ -377,12 +377,12 @@ class TestOracleIntegration:
 
     def test_oracle_noise_color_in_detect_result(self):
         """Detection result should include noise_color metadata."""
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
-            SpectralDomainOracle,
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
+            SpectralDomainSound,
         )
 
         rng = np.random.RandomState(42)
-        oracle = SpectralDomainOracle({"domain": "environmental"})
+        oracle = SpectralDomainSound({"domain": "environmental"})
         oracle.fit(rng.randn(200))
         result = oracle.detect(rng.randn(100))
         nc = result["noise_color"]
@@ -400,12 +400,12 @@ class TestOracleInfluenceMultiplier:
     """Tests for _compute_influence_multiplier."""
 
     def test_significant_bands_increase_multiplier(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
             FrequencyBandResult,
-            SpectralDomainOracle,
+            SpectralDomainSound,
         )
 
-        oracle = SpectralDomainOracle({"domain": "environmental"})
+        oracle = SpectralDomainSound({"domain": "environmental"})
         oracle._noise_beta = 0.0
         oracle._current_beta = 0.0
         # Set reference entropy stats
@@ -446,12 +446,12 @@ class TestOracleInfluenceMultiplier:
         assert mult > 1.0, f"Significant bands should amplify, got {mult}"
 
     def test_no_significant_bands_attenuate(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
             FrequencyBandResult,
-            SpectralDomainOracle,
+            SpectralDomainSound,
         )
 
-        oracle = SpectralDomainOracle({"domain": "environmental"})
+        oracle = SpectralDomainSound({"domain": "environmental"})
         oracle._noise_beta = 0.0
         oracle._current_beta = 0.0
         oracle._ref_spectral_entropy_mean = 2.0
@@ -530,7 +530,7 @@ class TestSpectralHints:
     """Tests for DOMAIN_ANOMALY_SPECTRAL_HINTS constant."""
 
     def test_five_domains_defined(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
             DOMAIN_ANOMALY_SPECTRAL_HINTS,
         )
 
@@ -539,7 +539,7 @@ class TestSpectralHints:
             assert domain in DOMAIN_ANOMALY_SPECTRAL_HINTS
 
     def test_each_hint_has_anomaly_beta_shift(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_sound import (
             DOMAIN_ANOMALY_SPECTRAL_HINTS,
         )
 

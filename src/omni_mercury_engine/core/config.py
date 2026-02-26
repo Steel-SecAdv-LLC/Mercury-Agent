@@ -117,37 +117,44 @@ COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
 }
 
 
-class OracleActivation(Enum):
-    """Oracle activation mode.
+class SoundActivation(Enum):
+    """Sound activation mode.
 
-    Controls whether the SpectralDomainOracle is active. Can be set
+    Controls whether the SpectralDomainSound is active. Can be set
     explicitly or left at AUTO for domain-aware activation.
     """
 
-    AUTO = "auto"  # Domain-aware: enabled/disabled per ORACLE_DOMAIN_POLICY
+    AUTO = "auto"  # Domain-aware: enabled/disabled per SOUND_DOMAIN_POLICY
     ENABLED = "enabled"  # Always enabled regardless of domain
     DISABLED = "disabled"  # Always disabled regardless of domain
 
 
-# Domain-aware Oracle activation policy.
+# Backward compatibility — remove after one release cycle
+OracleActivation = SoundActivation
+
+
+# Domain-aware Sound activation policy.
 #
 # Based on empirical analysis of frequency-domain anomaly signatures:
 #   ENABLED  — Domain has strong spectral signatures (infrastructure faults,
 #              network attack patterns, physiological frequency bands)
-#   NEUTRAL  — Domain may benefit; Oracle runs but influence_multiplier is
+#   NEUTRAL  — Domain may benefit; Sound runs but influence_multiplier is
 #              dampened (multiplied by 0.5) to reduce false positive risk
 #   DISABLED — Domain anomalies are primarily amplitude/statistical, not
-#              spectral. Oracle would add computation without measurable
+#              spectral. Sound would add computation without measurable
 #              improvement.
-ORACLE_DOMAIN_POLICY: dict[str, str] = {
-    "infrastructure": "enabled",  # Mains freq, bearing faults, harmonics
-    "security": "enabled",  # DDoS periodicity, scan burst patterns
-    "medical": "enabled",  # HRV bands, neural oscillations
-    "environmental": "neutral",  # Seismic precursors have weak freq signal
-    "space": "neutral",  # Solar wind has some spectral content
-    "financial": "disabled",  # Anomalies are magnitude-based, not spectral
-    "humanitarian": "disabled",  # Weak frequency signatures
+SOUND_DOMAIN_POLICY: dict[str, str] = {
+    "infrastructure": "enabled",   # Mains freq, bearing faults, harmonics
+    "security":       "enabled",   # DDoS periodicity, scan burst patterns
+    "medical":        "enabled",   # HRV bands, neural oscillations
+    "environmental":  "enabled",   # Seismic/tsunami precursors — NOW ENABLED
+    "space":          "enabled",   # Solar wind spectral content — NOW ENABLED
+    "humanitarian":   "enabled",   # Crisis signals have spectral signatures — NOW ENABLED
+    "financial":      "neutral",   # Magnitude-based; spectral adds limited value
 }
+
+# Backward compatibility — remove after one release cycle
+ORACLE_DOMAIN_POLICY = SOUND_DOMAIN_POLICY
 
 
 @dataclass

@@ -97,7 +97,7 @@ class TestEnhancedStatisticalDetectors:
         detector.fit(data)
         result = detector.detect(data)
 
-        assert result.method == "lof"
+        assert result.method == "lof_mercury_native"
         assert len(result.scores) == len(data)
         assert np.all((result.scores >= 0) & (result.scores <= 1))
 
@@ -111,7 +111,7 @@ class TestEnhancedStatisticalDetectors:
         detector.fit(data)
         result = detector.detect(data)
 
-        assert result.method == "dbscan"
+        assert result.method == "dbscan_mercury_native"
         assert "n_clusters" in result.details
         assert "n_noise" in result.details
 
@@ -125,7 +125,7 @@ class TestEnhancedStatisticalDetectors:
         detector.fit(data)
         result = detector.detect(data)
 
-        assert result.method == "mcd"
+        assert result.method == "mcd_mercury_native"
         assert "mahalanobis_distances" in result.details
         assert "p_values" in result.details
 

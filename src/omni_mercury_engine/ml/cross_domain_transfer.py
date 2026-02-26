@@ -37,6 +37,16 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+import warnings
+
+warnings.warn(
+    f"{__name__} uses sklearn for transfer learning. "
+    "This module is scheduled for Mercury-native replacement. "
+    "See GitHub issue #TBD (cross_domain_transfer sklearn replacement).",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 # Optional imports
 try:
     import torch

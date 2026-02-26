@@ -27,6 +27,16 @@ import logging
 import threading
 import time
 from abc import ABC, abstractmethod
+import warnings
+
+warnings.warn(
+    f"{__name__} uses sklearn for online learning. "
+    "This module is scheduled for Mercury-native replacement. "
+    "See GitHub issue #TBD (online_learning sklearn replacement).",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from collections import deque
 from dataclasses import dataclass, field
 from enum import StrEnum

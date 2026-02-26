@@ -28,6 +28,16 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
+import warnings
+
+warnings.warn(
+    f"{__name__} uses sklearn for concept drift evaluation. "
+    "This module is scheduled for Mercury-native replacement. "
+    "See GitHub issue #TBD (concept_drift_evaluation sklearn replacement).",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 import numpy as np
 from scipy import stats
 

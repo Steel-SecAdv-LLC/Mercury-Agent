@@ -437,7 +437,7 @@ def test_aggregator_rejects_dimension_mismatch() -> None:
 
 def test_from_statistics_classmethod(data_a: np.ndarray) -> None:
     """Verify from_statistics produces a working detector."""
-    det = MercuryAnomalyDetector()
+    det = MercuryAnomalyDetector(enable_ama=False)
     det.fit(data_a)
 
     reconstructed = MercuryAnomalyDetector.from_statistics(
