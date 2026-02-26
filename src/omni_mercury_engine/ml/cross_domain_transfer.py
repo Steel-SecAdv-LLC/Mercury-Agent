@@ -42,7 +42,7 @@ import warnings
 warnings.warn(
     f"{__name__} uses sklearn for transfer learning. "
     "This module is scheduled for Mercury-native replacement. "
-    "See GitHub issue #TBD (cross_domain_transfer sklearn replacement).",
+    "PENDING: GitHub issue for cross_domain_transfer sklearn replacement — requires PAT with repo write scope.",
     DeprecationWarning,
     stacklevel=2,
 )

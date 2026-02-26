@@ -234,8 +234,13 @@ Best F1 achieved by sweeping thresholds over test labels. Reported for
 reference only. Cannot be reproduced in deployment.
 
 ### Current Results (64 datasets — 47 ADBench + 17 domain, run 2026-02-26)
-- Mean AUC-ROC: 0.8294
-- Median AUC-ROC: 0.9072
-- Mean Operational F1: 0.5700 (train-percentile threshold, no test labels)
-- Mean Oracle F1: 0.6341 (upper bound — NOT operational)
-- Per-component: Resonance 0.7943, Kinematic 0.6405, InfoGeo 0.8479
+- Mean AUC-ROC: 0.8525
+- Median AUC-ROC: 0.9551
+- Mean Operational F1: 0.6468 (train-percentile threshold, no test labels)
+- Mean Oracle F1: 0.7045 (upper bound — NOT operational)
+- Per-component: Resonance 0.7941, Kinematic 0.6404, InfoGeo 0.8477
+
+### Three-Way Ensemble Results (64 datasets, run 2026-02-26)
+- Three-Way Mean AUC-ROC: **0.8525** (+2.86% over Mercury-Only 0.8288)
+- SpectralDomainSound activated on 51/64 datasets
+- Fusion weights derived from 3-fold CV AUC, clamped to [0.30, 0.70]

@@ -117,22 +117,32 @@ class TestLandslideDetector:
         assert result is not None
 
     def test_svm_classifier_exists(self, landslide_detector):
-        """Test SVM classifier is initialized (via ml_ensemble or directly)."""
-        has_svm = hasattr(landslide_detector, "svm_classifier") or (
+        """Test ML ensemble classifier is initialized.
+
+        SVMRFEnsembleClassifier now uses Fisher Linear Discriminant internally
+        (sklearn-free). The test verifies the ensemble object exists and has
+        the Fisher LDA weight vectors dict (_w_vectors).
+        """
+        has_ensemble = (
             hasattr(landslide_detector, "ml_ensemble")
             and landslide_detector.ml_ensemble is not None
-            and hasattr(landslide_detector.ml_ensemble, "svm")
+            and hasattr(landslide_detector.ml_ensemble, "_w_vectors")
         )
-        assert has_svm or landslide_detector.enable_ml_ensemble is False
+        assert has_ensemble or landslide_detector.enable_ml_ensemble is False
 
     def test_rf_classifier_exists(self, landslide_detector):
-        """Test Random Forest classifier is initialized (via ml_ensemble or directly)."""
-        has_rf = hasattr(landslide_detector, "rf_classifier") or (
+        """Test ML ensemble has feature importance capability.
+
+        SVMRFEnsembleClassifier now uses Fisher Linear Discriminant internally
+        (sklearn-free). The test verifies the ensemble object exists and tracks
+        feature importances via _feature_importances attribute.
+        """
+        has_ensemble = (
             hasattr(landslide_detector, "ml_ensemble")
             and landslide_detector.ml_ensemble is not None
-            and hasattr(landslide_detector.ml_ensemble, "rf")
+            and hasattr(landslide_detector.ml_ensemble, "_feature_importances")
         )
-        assert has_rf or landslide_detector.enable_ml_ensemble is False
+        assert has_ensemble or landslide_detector.enable_ml_ensemble is False
 
     def test_temporal_lag_features(self, landslide_detector, deterministic_rng):
         """Test temporal lag feature extraction."""

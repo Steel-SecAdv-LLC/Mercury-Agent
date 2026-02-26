@@ -33,7 +33,7 @@ import warnings
 warnings.warn(
     f"{__name__} uses sklearn for concept drift evaluation. "
     "This module is scheduled for Mercury-native replacement. "
-    "See GitHub issue #TBD (concept_drift_evaluation sklearn replacement).",
+    "PENDING: GitHub issue for concept_drift_evaluation sklearn replacement — requires PAT with repo write scope.",
     DeprecationWarning,
     stacklevel=2,
 )

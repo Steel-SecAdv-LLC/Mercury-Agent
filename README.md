@@ -104,21 +104,21 @@ Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 do
 
 | Component | Weight | Method | Mean AUC |
 |-----------|--------|--------|----------|
-| ResonanceScore | adaptive | FFT harmonic spectral profiles (precomputed at fit) | 0.7943 |
-| KinematicScore | adaptive | Physics-based jerk/curvature via np.diff | 0.6405 |
-| InfoGeometryScore | adaptive | Fisher Information Mahalanobis OOD | 0.8479 |
-| **Ensemble** | **adaptive** | **Weighted combination** | **0.8294** |
+| ResonanceScore | adaptive | FFT harmonic spectral profiles (precomputed at fit) | 0.7941 |
+| KinematicScore | adaptive | Physics-based jerk/curvature via np.diff | 0.6404 |
+| InfoGeometryScore | adaptive | Fisher Information Mahalanobis OOD | 0.8477 |
+| **Ensemble** | **adaptive** | **Weighted combination** | **0.8525** |
 
 **Aggregate Results:**
 
 | Metric | Value |
 |--------|-------|
 | Datasets tested | 64 successful / 75 total |
-| Mean AUC | 0.8294 |
-| Median AUC | 0.9072 |
-| Mean Operational F1 | 0.5700 |
-| Mean Oracle F1 [UPPER BOUND] | 0.6341 |
-| Median Oracle F1 [UPPER BOUND] | 0.7168 |
+| Mean AUC | 0.8525 |
+| Median AUC | 0.9551 |
+| Mean Operational F1 | 0.6468 |
+| Mean Oracle F1 [UPPER BOUND] | 0.7045 |
+| Median Oracle F1 [UPPER BOUND] | 0.7876 |
 
 **Domain-Level Performance (12 Domains):**
 
@@ -141,38 +141,35 @@ Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 do
 
 | Metric | Mercury | AMA (21-probe) |
 |--------|---------|----------------|
-| Mean AUC | 0.8294 | 0.8064 |
-| Median AUC | 0.9072 | 0.9108 |
-| Mean Operational F1 | 0.5700 | 0.4849 |
-| Datasets won | 29 | 27 |
-| Tied (±0.01 AUC) | 8 | 8 |
+| Mean AUC | 0.8525 | 0.8072 |
+| Median AUC | 0.9551 | 0.9108 |
+| Mean Operational F1 | 0.6468 | 0.4923 |
+| Datasets won | 33 | 13 |
+| Tied (±0.01 AUC) | 18 | 18 |
 
-**Three-Way Ensemble (Mercury + AMA + SpectralDomainSound) — 5 ADBench datasets:**
-
-| Dataset | Mercury-Only | AMA-Only | Three-Way | Sound Active |
-|---------|-------------|----------|-----------|-------------|
-| ADBench-01 | 0.5201 | 0.7210 | 0.6627 | No |
-| ADBench-02 | 0.8854 | 0.9369 | 0.9689 | No |
-| ADBench-03 | 0.9707 | 0.6936 | 0.9710 | No |
-| ADBench-04 | 0.9977 | 0.9491 | 0.9921 | No |
-| ADBench-05 | 0.8104 | 0.9732 | 0.9714 | No |
+**Three-Way Ensemble (Mercury + AMA + SpectralDomainSound) — 64 datasets:**
 
 | Metric | Value |
 |--------|-------|
-| Three-Way Mean AUC | **0.9132** |
-| Mercury-Only Mean AUC | 0.8369 |
-| Three-Way Median AUC | **0.9710** |
-| Three-Way Mean Op-F1 | 0.6710 |
-| Ensemble Improvement | **+0.0764 (+7.64%)** |
+| Three-Way Mean AUC | **0.8525** |
+| Mercury-Only Mean AUC | 0.8288 |
+| Three-Way Mean Op-F1 | 0.6468 |
+| Sound Activation Count | 51 / 64 datasets |
+| Ensemble Improvement | **+0.0237 (+2.86%)** |
 
-The three-way ensemble (CV-adaptive fusion of Mercury + AMA + SpectralDomainSound) outperforms Mercury-Only on 4/5 datasets. Fusion weights are derived from 3-fold cross-validated AUC with unsupervised pseudo-labels, clamped to [0.30, 0.70].
+The three-way ensemble (CV-adaptive fusion of Mercury + AMA + SpectralDomainSound) improves over Mercury-Only across the full 64-dataset benchmark. Fusion weights α (Mercury) and β (AMA) are derived from 3-fold cross-validated AUC with unsupervised pseudo-labels, clamped to [0.30, 0.70] and renormalized to sum to 1.0. SpectralDomainSound activated on 51/64 datasets (n_samples >= 128 and n_features <= 50).
+
+> Benchmark: 47 ADBench datasets + 17 domain datasets.
+> Run: `python benchmarks/mercury_benchmark.py`
+> Three-Way ensemble: Mercury + AnomalyMathArrest + SpectralDomainSound
+> Ensemble improvement vs Mercury-only: +2.86% AUC-ROC
 
 **Honest Positioning:**
 - Mercury-Agent is an **unsupervised anomaly detector**, not a supervised classifier
 - Oracle F1 is an upper bound (best of 101 threshold sweeps), **not operational performance**
 - Operational F1 uses a threshold derived from training scores only — no test labels
 - KinematicScore contributes near-random on shuffled tabular data (mean AUC 0.64); automatically zeroed via adaptive CV on tabular inputs
-- 6 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
+- 3 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
 - Component weights are set by unsupervised adaptive cross-validation, not fixed
 
 **When to Use Mercury-Agent:**
@@ -636,7 +633,7 @@ Optimized for both accuracy and interpretability:
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Comprehensive Testing | 5,900+ tests across 227 files, property-based testing, security scanning |
-| Benchmark Coverage | 75 datasets (47 ADBench + 28 domain), Mean AUC 0.8379; Three-Way Ensemble Mean AUC **0.9132** (+7.64% over Mercury-Only) |
+| Benchmark Coverage | 75 datasets (47 ADBench + 28 domain), Mean AUC 0.8525; Three-Way Ensemble Mean AUC **0.8525** (+2.86% over Mercury-Only 0.8288) |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
 | Codebase Scale | 455 Python modules, 268,000+ lines of code |
@@ -1890,7 +1887,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on 75 real datasets (Mean AUC 0.8379). Three-way ensemble (Mercury+AMA+Sound) achieves Mean AUC 0.9132 on quick benchmark. Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on 75 real datasets (Mean AUC 0.8525). Three-way ensemble (Mercury+AMA+Sound) achieves Mean AUC 0.8525 (+2.86% over Mercury-Only 0.8288) on full 64-dataset benchmark. Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 

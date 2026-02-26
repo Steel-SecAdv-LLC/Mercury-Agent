@@ -32,7 +32,7 @@ import warnings
 warnings.warn(
     f"{__name__} uses sklearn for online learning. "
     "This module is scheduled for Mercury-native replacement. "
-    "See GitHub issue #TBD (online_learning sklearn replacement).",
+    "PENDING: GitHub issue for online_learning sklearn replacement — requires PAT with repo write scope.",
     DeprecationWarning,
     stacklevel=2,
 )
