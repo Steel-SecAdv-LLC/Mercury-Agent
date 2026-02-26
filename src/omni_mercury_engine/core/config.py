@@ -111,7 +111,7 @@ COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
     },
     DataCharacteristics.UNKNOWN: {
         "resonance": 1.0,
-        "kinematic": 1.0,
+        "kinematic": 0.5,
         "infogeo": 1.0,
     },
 }

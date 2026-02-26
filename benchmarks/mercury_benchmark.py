@@ -1246,12 +1246,32 @@ if __name__ == "__main__":
     three_way_mean_op_f1 = float(np.mean(tw_f1s)) if tw_f1s else 0.0
     ensemble_improvement = three_way_mean_auc - mercury_only_mean_auc
 
+    # Count per-dataset regressions (three-way < mercury-only)
+    regression_count = 0
+    regression_datasets = []
+    for r in three_way_ok:
+        name = r["name"]
+        tw_auc = r.get("ensemble_auc", float("nan"))
+        mo_auc = mo_by_name.get(name, {}).get("ensemble_auc", float("nan"))
+        if not np.isnan(tw_auc) and not np.isnan(mo_auc) and tw_auc < mo_auc - 0.01:
+            regression_count += 1
+            regression_datasets.append(name)
+
+    # Datasets still below 0.50 AUC
+    below_half = [
+        r["name"] for r in three_way_ok
+        if r.get("ensemble_auc", 1.0) < 0.50
+    ]
+
     print("\n--- THREE-WAY ENSEMBLE SUMMARY ---")
     print(f"  three_way_mean_auc:       {three_way_mean_auc:.4f}")
     print(f"  mercury_only_mean_auc:    {mercury_only_mean_auc:.4f}")
     print(f"  three_way_mean_op_f1:     {three_way_mean_op_f1:.4f}")
     print(f"  sound_activation_count:   {sound_active_count}")
     print(f"  ensemble_improvement:     {ensemble_improvement:+.4f}")
+    print(f"  per_dataset_regressions:  {regression_count}")
+    if regression_datasets:
+        print(f"  regressed_datasets:       {regression_datasets}")
 
     if ensemble_improvement >= 0.0:
         print("  Three-way ensemble improves or matches Mercury-only. ✅")
@@ -1266,12 +1286,17 @@ if __name__ == "__main__":
         else:
             print("  ⚠ WARNING: Non-trivial regression detected.")
 
+    if below_half:
+        print(f"\n  {len(below_half)} datasets still have AUC < 0.5: {below_half}")
+
     output["three_way_summary"] = {
         "three_way_mean_auc": three_way_mean_auc,
         "mercury_only_mean_auc": mercury_only_mean_auc,
         "three_way_mean_op_f1": three_way_mean_op_f1,
         "sound_activation_count": sound_active_count,
         "ensemble_improvement": ensemble_improvement,
+        "per_dataset_regressions": regression_count,
+        "datasets_below_half": below_half,
     }
     output["mercury_only_results"] = mercury_only_results
 

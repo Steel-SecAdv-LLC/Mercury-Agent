@@ -369,9 +369,13 @@ class MercuryAnomalyDetector(BaseDetector):
                 total       = mercury_auc + ama_auc
 
                 if total > 1e-9:
-                    alpha = float(np.clip(mercury_auc / total, 0.30, 0.70))
-                    beta  = float(np.clip(ama_auc / total, 0.30, 0.70))
-                    # Re-normalize after clamping so they still sum to 1.0
+                    # Widen clamp from [0.30, 0.70] to [0.15, 0.85].
+                    # This gives the CV more dynamic range to down-
+                    # weight a poor component while still preserving
+                    # enough contribution for ensemble diversity
+                    # (the key driver of synergistic AUC gains).
+                    alpha = float(np.clip(mercury_auc / total, 0.15, 0.85))
+                    beta  = float(np.clip(ama_auc / total, 0.15, 0.85))
                     s = alpha + beta
                     alpha /= s
                     beta  /= s
@@ -2080,22 +2084,31 @@ class MercuryAnomalyDetector(BaseDetector):
             if wsum > 0:
                 active_weights = active_weights / wsum
             else:
-                active_weights = np.array([0.4, 0.0, 0.6])
+                # Fallback: use data-type-aware defaults instead of
+                # hardcoded weights.
+                active_weights = self._data_type_default_weights()
             weights = active_weights
 
         combined_scores = weights[0] * resonance + weights[1] * kinematic + weights[2] * info_geo
         combined_scores = np.clip(combined_scores, 0.0, 1.0)
 
-        # Unsupervised ensemble flip (F1 Precision Directive, Phase 2):
-        # If median score > 0.80, scores are likely inverted (most points shouldn't be anomalous).
-        if len(combined_scores) >= 50:
-            median_score = float(np.median(combined_scores))
-            if median_score > 0.80:
-                combined_scores = 1.0 - combined_scores
-                logger.info("Ensemble flip: median=%.3f, inverting scores", median_score)
-
         # --- AnomalyMathArrest fusion ---
-        if self._ama_detector is not None:
+        # Applied BEFORE the ensemble flip so that both Mercury and
+        # AMA are in the same (unflipped) polarity.
+        #
+        # IMPORTANT: Skip AMA fusion when _score_flip is True.
+        # _score_flip means validate() detected that the Mercury
+        # ensemble is inverted.  AMA is in *correct* polarity, so
+        # mixing inverted Mercury + correct AMA produces a garbled
+        # signal that even the subsequent flip cannot fix (flipping
+        # a mixed-polarity blend is not equivalent to flipping each
+        # component individually).  In this case, keep pure Mercury
+        # scores and let _score_flip correct them later.
+        if (
+            self._ama_detector is not None
+            and self._ama_weight > 0
+            and not self._score_flip
+        ):
             try:
                 ama_scores = self._ama_detector.detect(data)
                 ama_scores = np.clip(ama_scores, 0.0, 1.0)
@@ -2113,6 +2126,23 @@ class MercuryAnomalyDetector(BaseDetector):
                 )
             except Exception as exc:
                 logger.warning("AMA detect failed: %s — using Mercury-only score", exc)
+        elif self._score_flip and self._ama_detector is not None:
+            logger.info(
+                "AMA fusion skipped: Mercury is inverted (_score_flip=True), "
+                "polarity mismatch would corrupt the blend"
+            )
+
+        # Unsupervised ensemble flip (F1 Precision Directive, Phase 2):
+        # Applied AFTER AMA fusion so both components share the same
+        # polarity when the flip is evaluated.
+        # IMPORTANT: Skip if _score_flip is already set by validate() to
+        # avoid a double-flip (both corrections cancel out, restoring the
+        # original inverted scores).
+        if not self._score_flip and len(combined_scores) >= 50:
+            median_score = float(np.median(combined_scores))
+            if median_score > 0.80:
+                combined_scores = 1.0 - combined_scores
+                logger.info("Ensemble flip: median=%.3f, inverting scores", median_score)
 
         # --- Oracle spectral influence ---
         oracle_meta: dict[str, Any] = {"active": False}
