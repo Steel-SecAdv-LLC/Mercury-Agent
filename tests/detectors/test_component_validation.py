@@ -1174,35 +1174,35 @@ class TestOracleAutoActivation:
     """Verify domain-aware Oracle activation logic."""
 
     def test_auto_enables_infrastructure(self) -> None:
-        from omni_mercury_engine.core.config import SOUND_DOMAIN_POLICY
+        from omni_mercury_engine.core.config import _sound_activation
 
-        assert SOUND_DOMAIN_POLICY["infrastructure"] == "enabled"
+        assert _sound_activation("infrastructure") == "enabled"
 
     def test_auto_enables_security(self) -> None:
-        from omni_mercury_engine.core.config import SOUND_DOMAIN_POLICY
+        from omni_mercury_engine.core.config import _sound_activation
 
-        assert SOUND_DOMAIN_POLICY["security"] == "enabled"
+        assert _sound_activation("security") == "enabled"
 
     def test_auto_enables_medical(self) -> None:
-        from omni_mercury_engine.core.config import SOUND_DOMAIN_POLICY
+        from omni_mercury_engine.core.config import _sound_activation
 
-        assert SOUND_DOMAIN_POLICY["medical"] == "enabled"
+        assert _sound_activation("medical") == "enabled"
 
     def test_auto_disables_financial(self) -> None:
-        from omni_mercury_engine.core.config import SOUND_DOMAIN_POLICY
+        from omni_mercury_engine.core.config import _sound_activation
 
-        assert SOUND_DOMAIN_POLICY["financial"] == "neutral"
+        assert _sound_activation("financial") == "neutral"
 
     def test_auto_enables_humanitarian(self) -> None:
-        from omni_mercury_engine.core.config import SOUND_DOMAIN_POLICY
+        from omni_mercury_engine.core.config import _sound_activation
 
-        assert SOUND_DOMAIN_POLICY["humanitarian"] == "enabled"
+        assert _sound_activation("humanitarian") == "enabled"
 
     def test_environmental_space_enabled(self) -> None:
-        from omni_mercury_engine.core.config import SOUND_DOMAIN_POLICY
+        from omni_mercury_engine.core.config import _sound_activation
 
-        assert SOUND_DOMAIN_POLICY["environmental"] == "enabled"
-        assert SOUND_DOMAIN_POLICY["space"] == "enabled"
+        assert _sound_activation("environmental") == "enabled"
+        assert _sound_activation("space") == "enabled"
 
 
 class TestSpectralDomainSoundFeatures:

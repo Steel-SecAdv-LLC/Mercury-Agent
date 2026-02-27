@@ -143,18 +143,35 @@ OracleActivation = SoundActivation
 #   DISABLED — Domain anomalies are primarily amplitude/statistical, not
 #              spectral. Sound would add computation without measurable
 #              improvement.
-SOUND_DOMAIN_POLICY: dict[str, str] = {
-    "infrastructure": "enabled",   # Mains freq, bearing faults, harmonics
-    "security":       "enabled",   # DDoS periodicity, scan burst patterns
-    "medical":        "enabled",   # HRV bands, neural oscillations
-    "environmental":  "enabled",   # Seismic/tsunami precursors — NOW ENABLED
-    "space":          "enabled",   # Solar wind spectral content — NOW ENABLED
-    "humanitarian":   "enabled",   # Crisis signals have spectral signatures — NOW ENABLED
-    "financial":      "neutral",   # Magnitude-based; spectral adds limited value
+#
+# sound_weight: additive contribution weight for bidirectional Sound (Option F).
+#   Higher weight for domains with strong spectral signal.
+SOUND_DOMAIN_POLICY: dict[str, dict[str, Any]] = {
+    "infrastructure": {"activation": "enabled",  "sound_weight": 0.20},
+    "security":       {"activation": "enabled",  "sound_weight": 0.15},
+    "medical":        {"activation": "enabled",  "sound_weight": 0.20},
+    "environmental":  {"activation": "enabled",  "sound_weight": 0.15},
+    "space":          {"activation": "enabled",  "sound_weight": 0.15},
+    "humanitarian":   {"activation": "enabled",  "sound_weight": 0.12},
+    "financial":      {"activation": "neutral",  "sound_weight": 0.05},
+    "timeseries":     {"activation": "enabled",  "sound_weight": 0.15},
+    "adbench":        {"activation": "neutral",  "sound_weight": 0.08},
+    "tabular":        {"activation": "neutral",  "sound_weight": 0.08},
+    "unknown":        {"activation": "neutral",  "sound_weight": 0.10},
 }
 
 # Backward compatibility — remove after one release cycle
 ORACLE_DOMAIN_POLICY = SOUND_DOMAIN_POLICY
+
+
+def _sound_activation(domain: str) -> str:
+    """Return activation string for domain, defaulting to 'neutral'."""
+    return SOUND_DOMAIN_POLICY.get(domain, {}).get("activation", "neutral")
+
+
+def _sound_weight(domain: str) -> float:
+    """Return additive contribution weight for domain, defaulting to 0.10."""
+    return SOUND_DOMAIN_POLICY.get(domain, {}).get("sound_weight", 0.10)
 
 
 @dataclass

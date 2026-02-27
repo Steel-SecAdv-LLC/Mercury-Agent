@@ -106,6 +106,36 @@ MercuryAnomalyDetector.detect(data)
 
 User-specified domain always overrides.
 
+### AMA Structural Improvements (v1.5.0)
+
+**Per-Feature Probe Aggregation (Option A)**: `BaseEquationProbe.per_feature_scores()`
+scores each feature column independently and aggregates via max-pooling.
+PCA reduction triggers for n_features > 50. Used in `detect()` and
+`calibrate_decorrelator()`.
+
+**Geometry Routing (Option B)**: `geometry_classifier.classify_geometry()` detects
+anomaly geometry types (temporal, point, distributional, collective) via
+autocorrelation, kurtosis, variance ratio, and density heuristics.
+`probes_for_geometries()` maps to probe subsets. Minimum probe set:
+IQRRobustProbe, SVDProjectionProbe, VarianceAdaptedProbe.
+
+**Independent Pseudo-Labels (Option C)**: AMA fusion weight estimation uses
+`detect_per_probe()` max-consensus pseudo-labels instead of Mercury's own
+scores, breaking circular dependency in cross-validated AUC estimation.
+
+**Otsu Threshold Calibration (Option D)**: `core/threshold.py` implements
+`otsu_threshold()` and `adaptive_threshold()` cascade: Otsu → MAD → contamination
+percentile → fallback 0.5. Activates when domain hint or prefer_recall is set.
+
+**Domain-Aware Probe Presets (Option E)**: Seven domain-typed probe configurations
+in `PROBE_PRESETS`: infrastructure, medical, humanitarian, security,
+environmental, financial, tabular. Top-down prior complements bottom-up
+geometry routing.
+
+**Bidirectional Sound (Option F)**: `SOUND_DOMAIN_POLICY` uses dict-of-dicts with
+per-domain activation and sound_weight. Bidirectional fusion: additive path when
+multiplier > 1 (anomaly rescue), multiplicative when ≤ 1 (normal suppression).
+
 ### Oracle Domain Policy
 
 From `core/config.py`:

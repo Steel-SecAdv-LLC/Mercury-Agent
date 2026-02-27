@@ -155,6 +155,63 @@ PROBE_PRESETS: dict[str, list[str]] = {
         "IQRRobustProbe",
     ],
     "forensic": _ALL_PROBE_NAMES,
+    # Domain-semantic presets (top-down prior, complements geometry routing)
+    "infrastructure": [
+        "HarmonicOscillatorProbe",
+        "WavePropagationProbe",
+        "ZetaHarmonicProbe",
+        "MomentumProbe",
+        "IQRRobustProbe",
+        "LyapunovChaosProbe",
+    ],
+    "medical": [
+        "HarmonicOscillatorProbe",
+        "WavePropagationProbe",
+        "VarianceAdaptedProbe",
+        "BoltzmannCouplingProbe",
+        "IQRRobustProbe",
+        "R3RecursionResonanceProbe",
+    ],
+    "humanitarian": [
+        "IQRRobustProbe",
+        "ModifiedZScoreProbe",
+        "SVDProjectionProbe",
+        "EthicalConstrainedProbe",
+        "AdditiveProbe",
+        "TopologyHomologyProbe",
+    ],
+    "security": [
+        "R3RecursionResonanceProbe",
+        "BoltzmannCouplingProbe",
+        "LyapunovChaosProbe",
+        "IQRRobustProbe",
+        "SVDProjectionProbe",
+        "QuantumAnnealingProbe",
+    ],
+    "environmental": [
+        "WavePropagationProbe",
+        "HarmonicOscillatorProbe",
+        "FractalSelfSimilarityProbe",
+        "LyapunovChaosProbe",
+        "EnergyMinimizationProbe",
+        "IQRRobustProbe",
+    ],
+    "financial": [
+        "IQRRobustProbe",
+        "ModifiedZScoreProbe",
+        "SVDProjectionProbe",
+        "ExponentialDecayProbe",
+        "VarianceAdaptedProbe",
+    ],
+    "tabular": [
+        "IQRRobustProbe",
+        "ModifiedZScoreProbe",
+        "VarianceAdaptedProbe",
+        "SVDProjectionProbe",
+        "AdditiveProbe",
+        "EthicalConstrainedProbe",
+        "BoltzmannCouplingProbe",
+    ],
 }
 
 
@@ -181,14 +238,24 @@ class AnomalyMathArrest:
         domain: str = "default",
         threshold: float = 0.5,
         probes: str | list[str] | list[BaseEquationProbe] | None = None,
+        *,
+        geometry_routing: bool = False,
     ) -> None:
         self._domain = domain
         self.threshold = threshold
+        self._user_probe_spec = probes  # raw value from caller
         self._probes: list[BaseEquationProbe] = self._resolve_probes(probes)
         self._fusion = PhiWeightedFusion(n_probes=len(self._probes))
         self._decorrelator = CorrelationAwareDecorrelator()
         self._is_fitted: bool = False
         self._fit_qualities: dict[str, float] = {}
+        self._geometry_routing: bool = geometry_routing
+        self._detected_geometries: list[str] = []
+
+    @property
+    def detected_geometries(self) -> list[str]:
+        """Geometry types detected during fit (empty before fit)."""
+        return list(self._detected_geometries)
 
     @staticmethod
     def _resolve_probes(
@@ -244,6 +311,29 @@ class AnomalyMathArrest:
         if n < MIN_SAMPLES:
             raise ValueError(f"AnomalyMathArrest requires at least {MIN_SAMPLES} samples, got {n}.")
 
+        # Option B: geometry-routing probe selection
+        if self._geometry_routing and self._user_probe_spec is None:
+            from omni_mercury_engine.detectors.math_arrest.geometry_classifier import (
+                classify_geometry,
+                probes_for_geometries,
+            )
+            geometries = classify_geometry(data)
+            self._detected_geometries = geometries
+            probe_spec = probes_for_geometries(geometries)
+            if probe_spec != ["all"]:
+                # Replace probe list with geometry-selected subset
+                self._probes = [
+                    _PROBE_REGISTRY[name]()
+                    for name in probe_spec
+                    if name in _PROBE_REGISTRY
+                ]
+                self._fusion = PhiWeightedFusion(n_probes=len(self._probes))
+                logger.info(
+                    "Geometry routing: %s -> %d probes selected",
+                    geometries,
+                    len(self._probes),
+                )
+
         for probe in self._probes:
             try:
                 probe.fit_trajectory(data)
@@ -291,20 +381,40 @@ class AnomalyMathArrest:
             raise RuntimeError("AnomalyMathArrest has not been fitted. Call fit() first.")
 
         n_samples = data.shape[0]
+        is_multivariate = data.ndim == 2 and data.shape[1] > 1
         results: list[ProbeResult] = []
 
         for probe in self._probes:
             if not probe.is_fitted:
                 continue
             try:
-                result = probe.deviation_score(data)
-                results.append(result)
-            except (RuntimeError, ValueError) as exc:
-                logger.warning(
-                    "Probe %s failed during detection: %s",
-                    type(probe).__name__,
-                    exc,
+                # Option A: use per-feature analysis for multivariate data.
+                # Falls back to deviation_score for univariate or on failure.
+                if is_multivariate:
+                    pf_scores = probe.per_feature_scores(data)
+                    result = ProbeResult(
+                        probe_name=type(probe).__name__,
+                        deviation_scores=pf_scores,
+                        confidence=probe._fit_quality,
+                        trajectory_fit_quality=probe._fit_quality,
+                        anomaly_geometry="per_feature_max",
+                    )
+                else:
+                    result = probe.deviation_score(data)
+            except Exception as exc:
+                logger.debug(
+                    "Probe %s per_feature_scores failed: %s — falling back",
+                    type(probe).__name__, exc,
                 )
+                try:
+                    result = probe.deviation_score(data)
+                except Exception as exc2:
+                    logger.warning(
+                        "Probe %s deviation_score also failed: %s",
+                        type(probe).__name__, exc2,
+                    )
+                    continue
+            results.append(result)
 
         if not results:
             return np.zeros(n_samples, dtype=np.float64)
@@ -317,6 +427,38 @@ class AnomalyMathArrest:
             affinity_order=affinity_order,
             decorrelator=self._decorrelator,
         )
+
+    def detect_per_probe(
+        self, data: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        """Return per-probe anomaly scores without fusion.
+
+        Returns:
+            Array of shape ``(n_samples, n_active_probes)`` with each
+            column being one probe's raw deviation scores in [0, 1].
+            Probes that failed to score return a column of 0.5 (uncertain).
+        """
+        if not self._is_fitted:
+            raise RuntimeError(
+                "AnomalyMathArrest has not been fitted. Call fit() first."
+            )
+        n_samples = data.shape[0]
+        n_probes = len(self._probes)
+        score_matrix = np.full((n_samples, n_probes), 0.5, dtype=np.float64)
+
+        for col_idx, probe in enumerate(self._probes):
+            if not probe.is_fitted:
+                continue
+            try:
+                result = probe.deviation_score(data)
+                probe_scores = np.clip(
+                    result.deviation_scores[:n_samples], 0.0, 1.0
+                )
+                score_matrix[: len(probe_scores), col_idx] = probe_scores
+            except Exception:
+                pass  # leave column at 0.5 (uncertain)
+
+        return score_matrix
 
     def predict(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.int32]:
         """Binary classification: 0=normal, 1=anomaly.
@@ -397,15 +539,34 @@ class AnomalyMathArrest:
             )
             return {}
 
+        # Option A: build score matrix using per-feature scores so that
+        # redundancy detection reflects actual probe diversity, not the
+        # artificial correlation from column-mean collapse.
+        use_per_feature = data.ndim == 2 and data.shape[1] > 1
+
         results: list[ProbeResult] = []
         for probe in self._probes:
             if not probe.is_fitted:
                 continue
             try:
-                result = probe.deviation_score(data)
-                results.append(result)
+                if use_per_feature:
+                    pf = probe.per_feature_scores(data)
+                    results.append(ProbeResult(
+                        probe_name=type(probe).__name__,
+                        deviation_scores=pf,
+                        confidence=probe._fit_quality,
+                        trajectory_fit_quality=probe._fit_quality,
+                        anomaly_geometry="per_feature_max",
+                    ))
+                else:
+                    result = probe.deviation_score(data)
+                    results.append(result)
             except (RuntimeError, ValueError):
-                continue
+                try:
+                    result = probe.deviation_score(data)
+                    results.append(result)
+                except (RuntimeError, ValueError):
+                    continue
 
         if not results:
             return {}
@@ -442,6 +603,9 @@ class AnomalyMathArrest:
             "weight_multipliers": self._decorrelator.weight_multipliers,
             "effective_probe_count": self._decorrelator.effective_probe_count,
         }
+
+    # Alias for backward compatibility
+    redundancy_report = get_correlation_report
 
     def get_geometry_report(self, data: npt.NDArray[np.float64]) -> list[dict[str, Any]]:
         """Return per-probe anomaly geometry labels and scores.

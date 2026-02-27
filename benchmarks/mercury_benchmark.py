@@ -111,26 +111,25 @@ def _operational_f1(
     train_scores: np.ndarray,
     contamination_rate: float = 0.05,
 ) -> tuple[float, float, float, float, str]:
-    """F1 using threshold derived from train scores ONLY. No test-label access.
+    """F1 using label-free threshold cascade. No test-label access.
 
-    Threshold strategies (train_scores only, never y_test):
-        Primary: percentile-based from training score distribution.
-
-    Args:
-        y_test: True labels for evaluation only (not used for threshold selection).
-        test_scores: Anomaly scores on test data.
-        train_scores: Anomaly scores on training data (used for threshold).
-        contamination_rate: Expected anomaly fraction (default 0.05).
-
-    Returns:
-        Tuple of (f1, precision, recall, threshold, strategy_name).
+    Strategy cascade (train_scores only, never y_test):
+    1. Otsu on test scores (label-free, preferred)
+    2. MAD on train scores (robust fallback)
+    3. Contamination percentile from train scores (last resort)
     """
-    threshold = float(np.percentile(train_scores, 100 * (1 - contamination_rate)))
-    preds = (test_scores > threshold).astype(int)
+    from omni_mercury_engine.core.threshold import adaptive_threshold
+
+    thr, method = adaptive_threshold(
+        test_scores,
+        contamination_hint=contamination_rate,
+        prefer_recall=False,
+    )
+    preds = (test_scores > thr).astype(int)
     f1 = f1_score(y_test, preds, zero_division=0)
     prec = precision_score(y_test, preds, zero_division=0)
     rec = recall_score(y_test, preds, zero_division=0)
-    return float(f1), float(prec), float(rec), threshold, "train_percentile"
+    return float(f1), float(prec), float(rec), thr, f"adaptive_{method}"
 
 
 def _oracle_threshold_f1_upper_bound(

@@ -632,7 +632,7 @@ Optimized for both accuracy and interpretability:
 | Multi-Domain Coverage | 22+ detection engines across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 5,900+ tests across 227 files, property-based testing, security scanning |
+| Comprehensive Testing | 6,400+ tests across 230+ files, property-based testing, security scanning |
 | Benchmark Coverage | 75 datasets (47 ADBench + 28 domain), Mean AUC 0.8525; Three-Way Ensemble Mean AUC **0.8525** (+2.86% over Mercury-Only 0.8288) |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
@@ -1318,6 +1318,15 @@ frameworks:
 confidence modulation and correlation-aware decorrelation. Domain affinity
 maps reorder probe weights for earthquake, tsunami, pandemic, marine,
 geomagnetic, and conflict domains.
+
+**Structural Improvements (v1.5.0)**:
+
+- **Per-Feature Probe Aggregation (Option A)**: Each probe scores features independently via max-pooling instead of column-mean collapse, preventing single-feature anomalies from being diluted.
+- **Geometry Routing (Option B)**: Automatic anomaly geometry classification (temporal, point, distributional, collective) selects optimal probe subsets, reducing compute on specialized data.
+- **Independent Pseudo-Labels (Option C)**: AMA uses max-probe consensus for CV pseudo-labels rather than Mercury's scores, breaking circular dependency in fusion weight estimation.
+- **Otsu Threshold Calibration (Option D)**: Label-free threshold selection via Otsu's method with MAD fallback cascade, replacing arbitrary 0.5 default when domain context is available.
+- **Domain-Aware Probe Presets (Option E)**: Seven domain-typed probe configurations (infrastructure, medical, humanitarian, security, environmental, financial, tabular) provide top-down probe selection.
+- **Bidirectional Sound Contribution (Option F)**: SpectralDomainSound uses additive fusion when amplifying (multiplier > 1) and multiplicative when suppressing (multiplier ≤ 1), preventing score cancellation.
 
 </details>
 

@@ -49,7 +49,7 @@ import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
-from omni_mercury_engine.core.config import SOUND_DOMAIN_POLICY, SoundActivation
+from omni_mercury_engine.core.config import SoundActivation, _sound_activation
 from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.core.three_r.engines import RecursionEngine, ResonanceEngine
 from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
@@ -387,7 +387,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
         elif cfg.oracle_mode == SoundActivation.DISABLED:
             oracle_should_init = False
         elif cfg.oracle_mode == SoundActivation.AUTO:
-            policy = SOUND_DOMAIN_POLICY.get(oracle_domain, "disabled")
+            policy = _sound_activation(oracle_domain)
             oracle_should_init = policy in ("enabled", "neutral")
             if policy == "neutral":
                 # Dampen Oracle influence for uncertain domains
@@ -407,7 +407,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
                 "SpectralDomainSound activated: domain=%s, mode=%s, policy=%s",
                 oracle_domain,
                 cfg.oracle_mode.value,
-                SOUND_DOMAIN_POLICY.get(oracle_domain, "disabled"),
+                _sound_activation(oracle_domain),
             )
         elif not oracle_should_init:
             logger.info(
