@@ -42,16 +42,86 @@ from urllib.request import urlretrieve
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
+
+# ---------------------------------------------------------------------------
+# Native replacements for sklearn metrics/preprocessing (no sklearn import)
+# ---------------------------------------------------------------------------
+def _native_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Trapezoidal AUC-ROC. No sklearn dependency."""
+    desc_idx = np.argsort(y_score)[::-1]
+    y_true_s = y_true[desc_idx]
+    y_score_s = y_score[desc_idx]
+    distinct_idx = np.where(np.diff(y_score_s, prepend=np.inf))[0]
+    tps = np.cumsum(y_true_s)[distinct_idx]
+    fps = distinct_idx + 1 - tps
+    tps = np.concatenate([[0], tps])
+    fps = np.concatenate([[0], fps])
+    fpr = fps / (fps[-1] + 1e-12)
+    tpr = tps / (tps[-1] + 1e-12)
+    _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    return float(_trapz(tpr, fpr))
+
+
+def _precision_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    tp = int(np.sum((y_pred == 1) & (y_true == 1)))
+    fp = int(np.sum((y_pred == 1) & (y_true == 0)))
+    return tp / (tp + fp) if (tp + fp) > 0 else 0.0
+
+
+def _recall_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    tp = int(np.sum((y_pred == 1) & (y_true == 1)))
+    fn = int(np.sum((y_pred == 0) & (y_true == 1)))
+    return tp / (tp + fn) if (tp + fn) > 0 else 0.0
+
+
+def _f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    p = _precision_score(y_true, y_pred)
+    r = _recall_score(y_true, y_pred)
+    return 2 * p * r / (p + r) if (p + r) > 0 else 0.0
+
+
+def _label_encode(series: pd.Series) -> np.ndarray:
+    """Integer-encode categorical series. No sklearn dependency."""
+    cats = {v: i for i, v in enumerate(sorted(series.unique()))}
+    return series.map(cats).to_numpy(dtype=np.int64)
+
+
+def _standard_scale(X: np.ndarray) -> np.ndarray:
+    """Z-score normalization. No sklearn dependency."""
+    mu = X.mean(axis=0)
+    sigma = X.std(axis=0) + 1e-8
+    return (X - mu) / sigma
+
+
+class _StratifiedKFold:
+    """Minimal stratified k-fold. No sklearn dependency."""
+
+    def __init__(self, n_splits: int = 5, shuffle: bool = True, random_state: int = 42):
+        self.n_splits = n_splits
+        self.shuffle = shuffle
+        self.rng = np.random.RandomState(random_state)
+
+    def split(self, X: np.ndarray, y: np.ndarray):  # type: ignore[no-untyped-def]
+        classes = np.unique(y)
+        class_indices = {c: np.where(y == c)[0] for c in classes}
+        if self.shuffle:
+            for c in classes:
+                self.rng.shuffle(class_indices[c])
+        folds: list[list[int]] = [[] for _ in range(self.n_splits)]
+        for c in classes:
+            idx = class_indices[c]
+            for i, ix in enumerate(idx):
+                folds[i % self.n_splits].append(ix)
+        for fold_idx in range(self.n_splits):
+            test = np.array(folds[fold_idx])
+            train = np.concatenate(
+                [np.array(folds[j]) for j in range(self.n_splits) if j != fold_idx]
+            )
+            yield train, test
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -122,8 +192,8 @@ def compute_fairlearn_bias_metrics(
         metric_frame = MetricFrame(
             metrics={
                 "selection_rate": selection_rate,
-                "precision": lambda y_t, y_p: precision_score(y_t, y_p, zero_division=0),
-                "recall": lambda y_t, y_p: recall_score(y_t, y_p, zero_division=0),
+                "precision": lambda y_t, y_p: _precision_score(y_t, y_p),
+                "recall": lambda y_t, y_p: _recall_score(y_t, y_p),
             },
             y_true=y_true,
             y_pred=y_pred,
@@ -262,21 +332,23 @@ class NSLKDDBenchmark:
             return "real-sklearn-kddcup99"
         return "real-kdd"
 
-    def _load_via_sklearn(self) -> pd.DataFrame:
-        """Load KDD Cup 99 data via sklearn (verified working, no external network required)."""
-        from sklearn.datasets import fetch_kddcup99
-        import warnings
+    def _load_via_direct_download(self) -> pd.DataFrame:
+        """Load KDD Cup 99 (10%) directly via urllib. No sklearn dependency."""
+        import gzip
+        import io
+        import urllib.request
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            data = fetch_kddcup99(subset="SA", percent10=True, as_frame=True)
-        df = data.frame.copy()
-        # Decode byte-string columns (sklearn returns b'tcp', b'normal.', etc.)
-        for col in df.select_dtypes(include="object").columns:
-            df[col] = df[col].apply(lambda x: x.decode("utf-8") if isinstance(x, bytes) else x)
-        df.columns = self.COLUMN_NAMES  # 42 cols match exactly
+        url = self.KDD_URL
+        logger.info("Loading KDD Cup 99 directly from %s ...", url)
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            raw = gzip.decompress(resp.read())
+        df = pd.read_csv(
+            io.StringIO(raw.decode("utf-8")),
+            names=self.COLUMN_NAMES,
+            header=None,
+        )
         self._use_synthetic = False
-        self._sklearn_source = True
+        self._sklearn_source = False
         return df
 
     def _download_data(self) -> pd.DataFrame | Path:
@@ -287,14 +359,17 @@ class NSLKDDBenchmark:
         2. URL downloads (may 403/404)
         3. Synthetic fallback
         """
-        # 1. Try sklearn (verified working, no external network required)
+        # 1. Try direct download (no sklearn dependency)
         try:
-            logger.info("Loading KDD Cup 99 via sklearn.datasets.fetch_kddcup99...")
-            return self._load_via_sklearn()
-        except Exception as e:
-            logger.warning("sklearn kddcup99 failed (%s), trying URLs...", e)
+            return self._load_via_direct_download()
+        except Exception as exc:
+            logger.warning(
+                "Direct KDD Cup 99 download failed (%s: %s), trying cached/mirror...",
+                type(exc).__name__,
+                exc,
+            )
 
-        # 2. Try URL downloads (may 403/404)
+        # 2. Try cached file or mirror URL downloads
         cache_file = self.cache_dir / "kddcup.data_10_percent.gz"
 
         if cache_file.exists():
@@ -312,11 +387,22 @@ class NSLKDDBenchmark:
                 logger.warning(f"Failed to download from {url}: {e}")
                 continue
 
-        # 3. Synthetic fallback
-        logger.warning(
-            "WARNING: Using synthetic fallback — results do NOT reflect " "real-world performance"
+        # 3. Synthetic fallback — loudly warn
+        import warnings as _w
+
+        _w.warn(
+            "KDD Cup 99: using SYNTHETIC fallback data. "
+            "All benchmark metrics from this run are INVALID for "
+            "real-world performance assessment.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        logger.error(
+            "KDD CUP 99 SYNTHETIC FALLBACK ACTIVE — benchmark metrics invalid. "
+            "Direct download and all mirror URLs failed.",
         )
         self._use_synthetic = True
+        self._synthetic_reason = "all_download_sources_failed"
         return self._generate_synthetic_data()
 
     def _generate_synthetic_data(self, n_samples: int = 10000) -> pd.DataFrame:
@@ -384,7 +470,7 @@ class NSLKDDBenchmark:
         try:
             result = self._download_data()
             if isinstance(result, pd.DataFrame):
-                # Returned directly from sklearn or synthetic fallback
+                # Returned directly from download or synthetic fallback
                 self._data = result
                 logger.info(f"Loaded {len(self._data)} samples from {self._data_source_label}")
             else:
@@ -413,19 +499,17 @@ class NSLKDDBenchmark:
 
         df["is_attack"] = df["label"].apply(lambda x: 0 if x == "normal." else 1)
 
-        protocol_encoded = LabelEncoder().fit_transform(df["protocol_type"])
+        protocol_encoded = _label_encode(df["protocol_type"])
 
         categorical_cols = ["protocol_type", "service", "flag"]
         for col in categorical_cols:
-            le = LabelEncoder()
-            df[col] = le.fit_transform(df[col].astype(str))
+            df[col] = _label_encode(df[col].astype(str))
 
         feature_cols = [c for c in df.columns if c not in ["label", "is_attack"]]
         X = df[feature_cols].values.astype(np.float32)
         y = df["is_attack"].values
 
-        scaler = StandardScaler()
-        X = scaler.fit_transform(X)
+        X = _standard_scale(X)
 
         return X, y, protocol_encoded
 
@@ -449,7 +533,7 @@ class NSLKDDBenchmark:
         df = self.load_data(max_samples)
         X, y, protocol_type = self.preprocess(df)
 
-        skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
+        skf = _StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
 
         all_y_true = []
         all_y_pred = []
@@ -481,12 +565,12 @@ class NSLKDDBenchmark:
         all_y_scores = np.array(all_y_scores)
         all_protocols = np.array(all_protocols)
 
-        precision = precision_score(all_y_true, all_y_pred, zero_division=0)
-        recall = recall_score(all_y_true, all_y_pred, zero_division=0)
-        f1 = f1_score(all_y_true, all_y_pred, zero_division=0)
+        precision = _precision_score(all_y_true, all_y_pred)
+        recall = _recall_score(all_y_true, all_y_pred)
+        f1 = _f1_score(all_y_true, all_y_pred)
 
         try:
-            roc_auc = roc_auc_score(all_y_true, all_y_scores)
+            roc_auc = _native_auc(all_y_true, all_y_scores)
         except ValueError:
             roc_auc = 0.5
 
@@ -587,7 +671,7 @@ def run_all_benchmarks() -> dict[str, Any]:
     print(f"  Average ROC-AUC: {results['summary']['avg_roc_auc']:.4f}")
     print(f"  Total Runtime: {results['summary']['total_runtime_seconds']:.2f}s")
     print(f"  Bias Checks Passed: {results['summary']['all_bias_checks_passed']}")
-    print(f"  Note: MIMIC-III moved to benchmarks/credentialed_benchmarks.py")
+    print("  Note: MIMIC-III moved to benchmarks/credentialed_benchmarks.py")
 
     return results
 

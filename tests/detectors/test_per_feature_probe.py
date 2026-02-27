@@ -3,6 +3,10 @@
 import numpy as np
 
 from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
+from omni_mercury_engine.detectors.math_arrest.base_probe import (
+    BaseEquationProbe,
+    ProbeResult,
+)
 from omni_mercury_engine.detectors.math_arrest.probes.iqr_robust import IQRRobustProbe
 from omni_mercury_engine.detectors.math_arrest.probes.variance_adapted import (
     VarianceAdaptedProbe,
@@ -72,3 +76,28 @@ def test_per_feature_high_dimensional_uses_pca() -> None:
     scores = probe.per_feature_scores(X)
     assert scores.shape == (100,)
     assert not np.any(np.isnan(scores))
+
+
+def test_per_feature_scores_short_return_padded() -> None:
+    """Probe returning fewer scores than n_samples must be padded, not crash."""
+
+    class ShortProbe(BaseEquationProbe):
+        """Probe that deliberately returns fewer scores than n_samples."""
+
+        def deviation_score(self, data: np.ndarray) -> ProbeResult:  # type: ignore[override]
+            n = max(1, len(data) // 2)
+            return ProbeResult(deviation_scores=np.zeros(n))
+
+        def fit_trajectory(self, data: np.ndarray) -> None:  # type: ignore[override]
+            self._is_fitted = True
+            self._fit_quality = 1.0
+
+    probe = ShortProbe()
+    probe.fit_trajectory(np.random.randn(100))
+    X = np.random.randn(100, 5)
+    result = probe.per_feature_scores(X)
+    assert len(result) == 100, (
+        f"per_feature_scores must return n_samples scores even if probe "
+        f"returns fewer; got {len(result)}"
+    )
+    assert np.all(result >= 0.0) and np.all(result <= 1.0)

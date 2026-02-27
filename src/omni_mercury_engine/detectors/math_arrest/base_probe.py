@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Centralized constants
@@ -168,7 +171,22 @@ class BaseEquationProbe(ABC):
         # Univariate: direct path, no overhead
         if n_features == 1:
             result = self.deviation_score(arr)
-            return np.clip(result.deviation_scores[:n_samples], 0.0, 1.0)
+            raw_scores = result.deviation_scores
+            if len(raw_scores) < n_samples:
+                logger.warning(
+                    "%s.per_feature_scores: probe returned %d scores, "
+                    "expected %d. Padding with 0.5 (neutral anomaly score).",
+                    self.__class__.__name__,
+                    len(raw_scores),
+                    n_samples,
+                )
+                raw_scores = np.pad(
+                    raw_scores,
+                    (0, n_samples - len(raw_scores)),
+                    mode="constant",
+                    constant_values=0.5,
+                )
+            return np.clip(raw_scores[:n_samples], 0.0, 1.0)
 
         # High-dimensional: PCA reduction before per-column analysis
         if n_features > _MAX_FEATURES:
@@ -179,7 +197,22 @@ class BaseEquationProbe(ABC):
                 n_features = k
             except np.linalg.LinAlgError:
                 # SVD failed — fall back to column-mean collapse
-                return np.clip(self.deviation_score(arr).deviation_scores[:n_samples], 0.0, 1.0)
+                fallback = self.deviation_score(arr).deviation_scores
+                if len(fallback) < n_samples:
+                    logger.warning(
+                        "%s.per_feature_scores: SVD fallback returned %d scores, "
+                        "expected %d. Padding with 0.5.",
+                        self.__class__.__name__,
+                        len(fallback),
+                        n_samples,
+                    )
+                    fallback = np.pad(
+                        fallback,
+                        (0, n_samples - len(fallback)),
+                        mode="constant",
+                        constant_values=0.5,
+                    )
+                return np.clip(fallback[:n_samples], 0.0, 1.0)
 
         # Per-feature scoring: each column is a 1D sequence
         col_scores = np.zeros((n_samples, n_features), dtype=np.float64)

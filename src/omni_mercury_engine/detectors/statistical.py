@@ -406,17 +406,33 @@ class MercuryAnomalyDetector(BaseDetector):
                 total = mercury_auc + ama_auc
 
                 if total > 1e-9:
-                    # Widen clamp from [0.30, 0.70] to [0.15, 0.85].
-                    # This gives the CV more dynamic range to down-
-                    # weight a poor component while still preserving
-                    # enough contribution for ensemble diversity
-                    # (the key driver of synergistic AUC gains).
+                    # Clamp range: [0.15, 0.85].
+                    # Empirically widened from [0.30, 0.70] (PR #134, c7be383).
+                    # Wider range: more CV dynamic range to down-weight poor
+                    # components. Minimum (0.15): preserves ensemble diversity
+                    # — key AUC synergy driver.
+                    # Validation: improvement +0.024 -> +0.044 across 64 datasets.
                     alpha = float(np.clip(mercury_auc / total, 0.15, 0.85))
                     beta = float(np.clip(ama_auc / total, 0.15, 0.85))
                     s = alpha + beta
                     alpha /= s
                     beta /= s
                 else:
+                    # Near-zero total AUC — CV failed to produce meaningful
+                    # weights. Fall back to conservative priors.
+                    logger.warning(
+                        "AMA CV fusion produced near-zero total AUC "
+                        "(mercury_cv_auc=%.6f, ama_cv_auc=%.6f, total=%.2e); "
+                        "falling back to default weights Mercury=0.60, AMA=0.40. "
+                        "Check data quality or reduce CV folds.",
+                        mercury_auc,
+                        ama_auc,
+                        total,
+                    )
+                    # Increment fallback counter for programmatic observability.
+                    self._ama_cv_fallback_count: int = (
+                        getattr(self, "_ama_cv_fallback_count", 0) + 1
+                    )
                     alpha, beta = 0.60, 0.40
 
                 self._mercury_weight = alpha
@@ -2166,6 +2182,12 @@ class MercuryAnomalyDetector(BaseDetector):
                 "AMA fusion skipped: Mercury is inverted (_score_flip=True), "
                 "polarity mismatch would corrupt the blend"
             )
+            # Reflect that AMA did not contribute — prevent metadata lie.
+            self._ama_fusion_skipped: bool = True
+            self._ama_fusion_skipped_reason: str = (
+                "Mercury inverted (_score_flip=True); AMA fusion skipped "
+                "to prevent polarity mismatch corrupting the blended score."
+            )
 
         # Unsupervised ensemble flip (F1 Precision Directive, Phase 2):
         # Applied AFTER AMA fusion so both components share the same
@@ -2354,7 +2376,13 @@ class MercuryAnomalyDetector(BaseDetector):
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,
             "oracle_metadata": oracle_meta,
-            "ama_active": self._ama_detector is not None,
+            # Build AMA metadata honestly — reflect actual fusion outcome.
+            "ama_active": (
+                getattr(self, "_ama_fusion_skipped", False) is False
+                and self._ama_detector is not None
+            ),
+            "ama_fusion_skipped": getattr(self, "_ama_fusion_skipped", False),
+            "ama_fusion_skipped_reason": getattr(self, "_ama_fusion_skipped_reason", None),
             "mercury_weight": self._mercury_weight,
             "ama_weight": self._ama_weight,
             # Option F: Sound bidirectional metadata

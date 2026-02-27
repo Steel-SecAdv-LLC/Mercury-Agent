@@ -27,8 +27,61 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-from sklearn.preprocessing import StandardScaler
+
+
+# ---------------------------------------------------------------------------
+# Native replacements for sklearn metrics/preprocessing (no sklearn import)
+# ---------------------------------------------------------------------------
+def _native_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Trapezoidal AUC-ROC. No sklearn dependency."""
+    desc_idx = np.argsort(y_score)[::-1]
+    y_true_s = y_true[desc_idx]
+    y_score_s = y_score[desc_idx]
+    distinct_idx = np.where(np.diff(y_score_s, prepend=np.inf))[0]
+    tps = np.cumsum(y_true_s)[distinct_idx]
+    fps = distinct_idx + 1 - tps
+    tps = np.concatenate([[0], tps])
+    fps = np.concatenate([[0], fps])
+    fpr = fps / (fps[-1] + 1e-12)
+    tpr = tps / (tps[-1] + 1e-12)
+    _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    return float(_trapz(tpr, fpr))
+
+
+def _precision_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    tp = int(np.sum((y_pred == 1) & (y_true == 1)))
+    fp = int(np.sum((y_pred == 1) & (y_true == 0)))
+    return tp / (tp + fp) if (tp + fp) > 0 else 0.0
+
+
+def _recall_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    tp = int(np.sum((y_pred == 1) & (y_true == 1)))
+    fn = int(np.sum((y_pred == 0) & (y_true == 1)))
+    return tp / (tp + fn) if (tp + fn) > 0 else 0.0
+
+
+def _f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    p = _precision_score(y_true, y_pred)
+    r = _recall_score(y_true, y_pred)
+    return 2 * p * r / (p + r) if (p + r) > 0 else 0.0
+
+
+class _StandardScaler:
+    """Z-score normalization with separate fit/transform. No sklearn dependency."""
+
+    def __init__(self) -> None:
+        self.mean_: np.ndarray | None = None
+        self.scale_: np.ndarray | None = None
+
+    def fit_transform(self, X: np.ndarray) -> np.ndarray:
+        self.mean_ = X.mean(axis=0)
+        self.scale_ = X.std(axis=0) + 1e-8
+        return (X - self.mean_) / self.scale_
+
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        assert self.mean_ is not None, "Must call fit_transform before transform"
+        return (X - self.mean_) / self.scale_
+
 
 # ---------------------------------------------------------------------------
 # Ensure src/ is on the path
@@ -124,9 +177,9 @@ def _operational_f1(
         prefer_recall=False,
     )
     preds = (test_scores > thr).astype(int)
-    f1 = f1_score(y_test, preds, zero_division=0)
-    prec = precision_score(y_test, preds, zero_division=0)
-    rec = recall_score(y_test, preds, zero_division=0)
+    f1 = _f1_score(y_test, preds)
+    prec = _precision_score(y_test, preds)
+    rec = _recall_score(y_test, preds)
     return float(f1), float(prec), float(rec), thr, f"adaptive_{method}"
 
 
@@ -153,11 +206,11 @@ def _oracle_threshold_f1_upper_bound(
     def _try_threshold(thresh: float, name: str) -> None:
         nonlocal best_f1, best_prec, best_rec, best_thr, best_name
         preds = (scores > thresh).astype(int)
-        f1 = f1_score(y_true, preds, zero_division=0)
+        f1 = _f1_score(y_true, preds)
         if f1 > best_f1:
             best_f1 = f1
-            best_prec = precision_score(y_true, preds, zero_division=0)
-            best_rec = recall_score(y_true, preds, zero_division=0)
+            best_prec = _precision_score(y_true, preds)
+            best_rec = _recall_score(y_true, preds)
             best_thr = float(thresh)
             best_name = name
 
@@ -191,7 +244,7 @@ def _oracle_threshold_f1_upper_bound(
 
 def _safe_auc(y_true: np.ndarray, scores: np.ndarray) -> float:
     try:
-        return float(roc_auc_score(y_true, scores))
+        return float(_native_auc(y_true, scores))
     except ValueError:
         return float("nan")
 
@@ -645,7 +698,7 @@ def _benchmark_single(entry: dict[str, Any], enable_ama: bool = True) -> dict[st
     X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
 
     # StandardScaler fit on train, transform test
-    scaler = StandardScaler()
+    scaler = _StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
@@ -975,7 +1028,7 @@ def _benchmark_single_ama(entry: dict[str, Any]) -> dict[str, Any]:
     X_train = np.nan_to_num(X_train, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
     X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
 
-    scaler = StandardScaler()
+    scaler = _StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
