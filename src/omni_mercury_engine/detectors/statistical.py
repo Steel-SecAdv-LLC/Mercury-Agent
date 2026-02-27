@@ -390,9 +390,7 @@ class MercuryAnomalyDetector(BaseDetector):
                         fp = np.cumsum(1 - labels_sorted)
                         tpr = tp / n_pos
                         fpr = fp / n_neg
-                        _trapz_fn = getattr(np, "trapezoid", None) or getattr(
-                            np, "trapz", None
-                        )
+                        _trapz_fn = getattr(np, "trapezoid", None) or getattr(np, "trapz", None)
                         if _trapz_fn is None:
                             return 0.5
                         return float(_trapz_fn(tpr, fpr))
