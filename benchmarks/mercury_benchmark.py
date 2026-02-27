@@ -35,20 +35,18 @@ from sklearn.preprocessing import StandardScaler
 # ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 logger = logging.getLogger(__name__)
 
 try:
     import optuna  # noqa: F401
+
     _AUTO_TUNE = True
 except ImportError:
     _AUTO_TUNE = False
-    logger.info(
-        "optuna not installed — auto_tune disabled. "
-        "Install with: pip install optuna"
-    )
+    logger.info("optuna not installed — auto_tune disabled. " "Install with: pip install optuna")
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -448,10 +446,7 @@ def run_benchmark(
     }
 
     # Flag datasets with low operational F1
-    low_op_f1_datasets = [
-        r["name"] for r in successful
-        if r.get("operational_f1", 0) < 0.20
-    ]
+    low_op_f1_datasets = [r["name"] for r in successful if r.get("operational_f1", 0) < 0.20]
     if low_op_f1_datasets:
         for ds_name in low_op_f1_datasets:
             print(f"  ⚠ LOW OP-F1: {ds_name} — requires domain investigation or loader review")
@@ -655,7 +650,9 @@ def _benchmark_single(entry: dict[str, Any], enable_ama: bool = True) -> dict[st
     X_test = scaler.transform(X_test)
 
     # Fit detector
-    detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE, enable_ama=enable_ama)
+    detector = MercuryAnomalyDetector(
+        auto_validate=True, auto_tune=_AUTO_TUNE, enable_ama=enable_ama
+    )
     try:
         t0 = time.perf_counter()
         detector.fit(X_train)
@@ -1089,10 +1086,16 @@ def _print_comparison_table(
 
     # Aggregated stats
     ama_ok = [r for r in ama_results if r.get("error") is None]
-    ama_aucs = [r["ensemble_auc"] for r in ama_ok if not np.isnan(r.get("ensemble_auc", float("nan")))]
+    ama_aucs = [
+        r["ensemble_auc"] for r in ama_ok if not np.isnan(r.get("ensemble_auc", float("nan")))
+    ]
     ama_op_f1s = [r["operational_f1"] for r in ama_ok if r.get("operational_f1", 0) > 0]
 
-    m_aucs = [r["ensemble_auc"] for r in merc_successful if not np.isnan(r.get("ensemble_auc", float("nan")))]
+    m_aucs = [
+        r["ensemble_auc"]
+        for r in merc_successful
+        if not np.isnan(r.get("ensemble_auc", float("nan")))
+    ]
     m_op_f1s = [r["operational_f1"] for r in merc_successful if r.get("operational_f1", 0) > 0]
 
     print("\n--- AGGREGATE SUMMARY ---")
@@ -1133,9 +1136,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    output = run_benchmark(
-        live_only=args.live_only, domain_filter=args.domain, quick=args.quick
-    )
+    output = run_benchmark(live_only=args.live_only, domain_filter=args.domain, quick=args.quick)
 
     with open(OUTPUT_PATH, "w") as f:
         json.dump(output, f, indent=2, default=str)
@@ -1205,10 +1206,7 @@ if __name__ == "__main__":
     ama_by_name_tw = {r["name"]: r for r in ama_results if r.get("error") is None}
     three_way_ok = [r for r in mercury_results if r.get("error") is None]
 
-    print(
-        f"{'Dataset':<25} {'Merc-Only':>10} {'AMA-Only':>10} "
-        f"{'Three-Way':>10} {'Sound?':>7}"
-    )
+    print(f"{'Dataset':<25} {'Merc-Only':>10} {'AMA-Only':>10} " f"{'Three-Way':>10} {'Sound?':>7}")
     print("-" * 110)
 
     tw_aucs = []
@@ -1257,10 +1255,7 @@ if __name__ == "__main__":
             regression_datasets.append(name)
 
     # Datasets still below 0.50 AUC
-    below_half = [
-        r["name"] for r in three_way_ok
-        if r.get("ensemble_auc", 1.0) < 0.50
-    ]
+    below_half = [r["name"] for r in three_way_ok if r.get("ensemble_auc", 1.0) < 0.50]
 
     print("\n--- THREE-WAY ENSEMBLE SUMMARY ---")
     print(f"  three_way_mean_auc:       {three_way_mean_auc:.4f}")

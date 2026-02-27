@@ -139,9 +139,7 @@ class BaseEquationProbe(ABC):
             return np.mean(data, axis=1).astype(np.float64)
         return data.astype(np.float64)
 
-    def per_feature_scores(
-        self, data: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def per_feature_scores(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Compute per-sample anomaly scores via per-feature analysis.
 
         For multivariate data (n_samples, n_features), scores each feature
@@ -181,9 +179,7 @@ class BaseEquationProbe(ABC):
                 n_features = k
             except np.linalg.LinAlgError:
                 # SVD failed — fall back to column-mean collapse
-                return np.clip(
-                    self.deviation_score(arr).deviation_scores[:n_samples], 0.0, 1.0
-                )
+                return np.clip(self.deviation_score(arr).deviation_scores[:n_samples], 0.0, 1.0)
 
         # Per-feature scoring: each column is a 1D sequence
         col_scores = np.zeros((n_samples, n_features), dtype=np.float64)

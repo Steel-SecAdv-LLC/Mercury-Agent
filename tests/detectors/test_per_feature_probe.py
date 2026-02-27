@@ -1,6 +1,7 @@
 """Option A: per-feature probe aggregation tests."""
+
 import numpy as np
-import pytest
+
 from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
 from omni_mercury_engine.detectors.math_arrest.probes.iqr_robust import IQRRobustProbe
 from omni_mercury_engine.detectors.math_arrest.probes.variance_adapted import (

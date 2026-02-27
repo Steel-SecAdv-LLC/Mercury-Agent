@@ -486,10 +486,11 @@ class SVMRFEnsembleClassifier:
             return np.array([[0.5, 0.5]] * len(X))
 
         X_scaled = (X - self._mean) / self._std
-        n_classes = len(self._classes)
+        classes = self._classes if self._classes is not None else np.array([0, 1])
+        n_classes = len(classes)
 
         logits = np.zeros((len(X), n_classes))
-        for i, cls in enumerate(self._classes):
+        for i, cls in enumerate(classes):
             w = self._w_vectors.get(int(cls), np.zeros(X_scaled.shape[1]))
             logits[:, i] = X_scaled @ w
 

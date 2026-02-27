@@ -26,8 +26,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from abc import ABC, abstractmethod
 import warnings
+from abc import ABC, abstractmethod
 
 warnings.warn(
     f"{__name__} uses sklearn for online learning. "

@@ -402,8 +402,7 @@ class NOAABuoyLoader(DatasetLoader):
         anomaly_ratio = float(labels.mean())
         if anomaly_ratio > 0.20:
             logger.warning(
-                "Ocean: anomaly ratio %.1f%% > 20%%. "
-                "Tightening z-score threshold.",
+                "Ocean: anomaly ratio %.1f%% > 20%%. " "Tightening z-score threshold.",
                 anomaly_ratio * 100,
             )
             zscore_anomaly = np.nanmax(z_scores, axis=1) > (self.anomaly_std + 1.0)

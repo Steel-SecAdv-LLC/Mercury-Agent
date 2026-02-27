@@ -58,13 +58,11 @@ logger = logging.getLogger(__name__)
 
 try:
     import optuna  # noqa: F401
+
     _AUTO_TUNE = True
 except ImportError:
     _AUTO_TUNE = False
-    logger.info(
-        "optuna not installed — auto_tune disabled. "
-        "Install with: pip install optuna"
-    )
+    logger.info("optuna not installed — auto_tune disabled. " "Install with: pip install optuna")
 
 CACHE_DIR = Path.home() / ".omni_mercury" / "datasets"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -268,15 +266,14 @@ class NSLKDDBenchmark:
         """Load KDD Cup 99 data via sklearn (verified working, no external network required)."""
         from sklearn.datasets import fetch_kddcup99
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            data = fetch_kddcup99(subset='SA', percent10=True, as_frame=True)
+            data = fetch_kddcup99(subset="SA", percent10=True, as_frame=True)
         df = data.frame.copy()
         # Decode byte-string columns (sklearn returns b'tcp', b'normal.', etc.)
-        for col in df.select_dtypes(include='object').columns:
-            df[col] = df[col].apply(
-                lambda x: x.decode('utf-8') if isinstance(x, bytes) else x
-            )
+        for col in df.select_dtypes(include="object").columns:
+            df[col] = df[col].apply(lambda x: x.decode("utf-8") if isinstance(x, bytes) else x)
         df.columns = self.COLUMN_NAMES  # 42 cols match exactly
         self._use_synthetic = False
         self._sklearn_source = True
@@ -317,8 +314,7 @@ class NSLKDDBenchmark:
 
         # 3. Synthetic fallback
         logger.warning(
-            "WARNING: Using synthetic fallback — results do NOT reflect "
-            "real-world performance"
+            "WARNING: Using synthetic fallback — results do NOT reflect " "real-world performance"
         )
         self._use_synthetic = True
         return self._generate_synthetic_data()

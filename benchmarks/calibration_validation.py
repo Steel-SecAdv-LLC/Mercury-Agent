@@ -72,12 +72,12 @@ _cal_logger = logging.getLogger(__name__)
 
 try:
     import optuna  # noqa: F401
+
     _AUTO_TUNE = True
 except ImportError:
     _AUTO_TUNE = False
     _cal_logger.info(
-        "optuna not installed — auto_tune disabled. "
-        "Install with: pip install optuna"
+        "optuna not installed — auto_tune disabled. " "Install with: pip install optuna"
     )
 
 # ---------------------------------------------------------------------------

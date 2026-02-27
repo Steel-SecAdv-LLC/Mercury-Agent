@@ -139,7 +139,8 @@ def classify_geometry(
                 detected.append("temporal")
                 logger.debug(
                     "Geometry: TEMPORAL detected (mean |autocorr|=%.3f > %.2f)",
-                    float(np.mean(autocorrs)), autocorr_threshold,
+                    float(np.mean(autocorrs)),
+                    autocorr_threshold,
                 )
         except Exception as exc:
             logger.debug("Temporal geometry test failed: %s", exc)
@@ -158,7 +159,8 @@ def classify_geometry(
             detected.append("point")
             logger.debug(
                 "Geometry: POINT detected (max kurtosis=%.2f > %.1f)",
-                float(np.max(kurtoses)), kurtosis_threshold,
+                float(np.max(kurtoses)),
+                kurtosis_threshold,
             )
     except Exception as exc:
         logger.debug("Point geometry test failed: %s", exc)
@@ -173,7 +175,8 @@ def classify_geometry(
                 detected.append("distributional")
                 logger.debug(
                     "Geometry: DISTRIBUTIONAL detected (variance ratio=%.2f > %.1f)",
-                    ratio, variance_ratio_threshold,
+                    ratio,
+                    variance_ratio_threshold,
                 )
     except Exception as exc:
         logger.debug("Distributional geometry test failed: %s", exc)
@@ -192,14 +195,13 @@ def classify_geometry(
             if global_std < 1e-10:
                 global_std = 1.0
             # Fraction of samples NOT in a dense cluster (far from neighbors)
-            isolation_fraction = float(
-                np.mean(avg_nn_dists > 1.5 * global_std)
-            )
+            isolation_fraction = float(np.mean(avg_nn_dists > 1.5 * global_std))
             if isolation_fraction < cluster_density_threshold:
                 detected.append("collective")
                 logger.debug(
                     "Geometry: COLLECTIVE detected (isolation_fraction=%.3f < %.2f)",
-                    isolation_fraction, cluster_density_threshold,
+                    isolation_fraction,
+                    cluster_density_threshold,
                 )
         except Exception as exc:
             logger.debug("Collective geometry test failed: %s", exc)

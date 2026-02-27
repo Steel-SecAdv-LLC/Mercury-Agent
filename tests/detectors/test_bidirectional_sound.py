@@ -1,12 +1,11 @@
 """Option F: bidirectional SpectralDomainSound contribution tests."""
+
 import numpy as np
-import pytest
+
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 
-def _make_temporal_data(
-    n: int = 300, n_features: int = 3, seed: int = 0
-) -> np.ndarray:
+def _make_temporal_data(n: int = 300, n_features: int = 3, seed: int = 0) -> np.ndarray:
     """Generate strongly autocorrelated temporal data (AR(1))."""
     rng = np.random.RandomState(seed)
     X = np.zeros((n, n_features))
@@ -33,9 +32,7 @@ def test_sound_amplified_plus_suppressed_equals_n_samples() -> None:
     result = det.detect(X)
     if result.get("sound_active", False):
         n_total = result["sound_n_amplified"] + result["sound_n_suppressed"]
-        assert n_total == len(X), (
-            f"amplified+suppressed={n_total} != n_samples={len(X)}"
-        )
+        assert n_total == len(X), f"amplified+suppressed={n_total} != n_samples={len(X)}"
 
 
 def test_sound_additive_can_lift_low_scores() -> None:
@@ -49,15 +46,17 @@ def test_sound_additive_can_lift_low_scores() -> None:
     scores = result["scores"]
 
     # The result must be valid scores in [0, 1]
-    assert np.all(scores >= 0.0) and np.all(scores <= 1.0), \
-        "All scores must be in [0, 1] after bidirectional Sound"
+    assert np.all(scores >= 0.0) and np.all(
+        scores <= 1.0
+    ), "All scores must be in [0, 1] after bidirectional Sound"
 
 
 def test_sound_weight_is_domain_typed() -> None:
     """Infrastructure domain must get higher sound_weight than tabular."""
     from omni_mercury_engine.core.config import _sound_weight
+
     infra_w = _sound_weight("infrastructure")
     tabular_w = _sound_weight("tabular")
-    assert infra_w > tabular_w, (
-        f"Infrastructure sound_weight ({infra_w}) must exceed tabular ({tabular_w})"
-    )
+    assert (
+        infra_w > tabular_w
+    ), f"Infrastructure sound_weight ({infra_w}) must exceed tabular ({tabular_w})"

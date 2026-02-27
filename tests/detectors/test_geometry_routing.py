@@ -1,11 +1,12 @@
 """Option B: geometry routing tests."""
+
 import numpy as np
-import pytest
+
+from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
 from omni_mercury_engine.detectors.math_arrest.geometry_classifier import (
     classify_geometry,
     probes_for_geometries,
 )
-from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
 
 
 def test_classify_temporal_autocorrelated() -> None:
@@ -24,6 +25,7 @@ def test_classify_point_heavy_tail() -> None:
     """Heavy-tailed distribution must be classified as point geometry."""
     rng = np.random.RandomState(1)
     from scipy.stats import t as t_dist
+
     x = t_dist.rvs(df=2, size=(300, 5), random_state=rng)  # df=2 -> very heavy tails
     geometries = classify_geometry(x)
     assert "point" in geometries, f"Expected 'point' in {geometries}"
@@ -32,11 +34,13 @@ def test_classify_point_heavy_tail() -> None:
 def test_classify_distributional_heterogeneous_variance() -> None:
     """Features with very different variances must trigger distributional."""
     rng = np.random.RandomState(2)
-    x = np.column_stack([
-        rng.randn(200) * 100,
-        rng.randn(200) * 0.01,
-        rng.randn(200),
-    ])
+    x = np.column_stack(
+        [
+            rng.randn(200) * 100,
+            rng.randn(200) * 0.01,
+            rng.randn(200),
+        ]
+    )
     geometries = classify_geometry(x)
     assert "distributional" in geometries, f"Expected 'distributional' in {geometries}"
 
@@ -54,9 +58,9 @@ def test_probes_for_known_geometry_includes_minimum_set() -> None:
     for geom in ["point", "distributional", "collective", "temporal"]:
         probes = probes_for_geometries([geom])
         for must_have in MINIMUM_PROBE_SET:
-            assert must_have in probes, (
-                f"Minimum probe {must_have} missing from {geom} probe list: {probes}"
-            )
+            assert (
+                must_have in probes
+            ), f"Minimum probe {must_have} missing from {geom} probe list: {probes}"
 
 
 def test_geometry_routing_selects_fewer_probes_on_tabular() -> None:
@@ -65,11 +69,13 @@ def test_geometry_routing_selects_fewer_probes_on_tabular() -> None:
     rng = np.random.RandomState(42)
     # Heterogeneous variance: feature 0 std=100, feature 1 std=0.01
     # This triggers DISTRIBUTIONAL and possibly POINT but not TEMPORAL
-    X = np.column_stack([
-        rng.randn(300) * 100,
-        rng.randn(300) * 0.01,
-        rng.randn(300),
-    ])
+    X = np.column_stack(
+        [
+            rng.randn(300) * 100,
+            rng.randn(300) * 0.01,
+            rng.randn(300),
+        ]
+    )
     ama = AnomalyMathArrest(geometry_routing=True)
     ama.fit(X)
     n_active = len(ama._probes)

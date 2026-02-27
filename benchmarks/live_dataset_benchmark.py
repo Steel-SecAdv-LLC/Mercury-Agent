@@ -62,13 +62,11 @@ logger = logging.getLogger(__name__)
 
 try:
     import optuna  # noqa: F401
+
     _AUTO_TUNE = True
 except ImportError:
     _AUTO_TUNE = False
-    logger.info(
-        "optuna not installed — auto_tune disabled. "
-        "Install with: pip install optuna"
-    )
+    logger.info("optuna not installed — auto_tune disabled. " "Install with: pip install optuna")
 
 
 @dataclass

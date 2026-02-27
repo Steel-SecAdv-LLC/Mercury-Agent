@@ -21,7 +21,6 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
-
 # Number of histogram bins for Otsu computation.
 # 256 bins gives <0.4% resolution error on [0, 1] scores.
 _OTSU_BINS: int = 256
@@ -76,8 +75,8 @@ def otsu_threshold(scores: npt.NDArray[np.float64]) -> float:
     hist_norm = hist_f / total  # normalized to probability mass
 
     # Cumulative sums for vectorized between-class variance computation
-    w0 = np.cumsum(hist_norm)          # weight of class 0 (below threshold)
-    w1 = 1.0 - w0                      # weight of class 1 (above threshold)
+    w0 = np.cumsum(hist_norm)  # weight of class 0 (below threshold)
+    w1 = 1.0 - w0  # weight of class 1 (above threshold)
 
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
     cumsum_mu = np.cumsum(hist_norm * bin_centers)

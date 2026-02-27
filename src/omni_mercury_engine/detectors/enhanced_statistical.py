@@ -214,8 +214,8 @@ class LOFDetector:
         tree = cKDTree(X)
         # query k+1 to include self; drop column 0 (distance to self = 0)
         dists_all, idx_all = tree.query(X, k=k + 1, p=self.p)
-        dists = dists_all[:, 1:]   # shape (n, k) — exclude self
-        idx = idx_all[:, 1:]       # shape (n, k)
+        dists = dists_all[:, 1:]  # shape (n, k) — exclude self
+        idx = idx_all[:, 1:]  # shape (n, k)
 
         self._k_dist = dists[:, -1]  # kth-neighbor distance per point
         self._knn_idx = idx
@@ -449,7 +449,7 @@ class MCDDetector:
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
         """Detect anomalies using MCD."""
-        if not self._fitted or self._precision is None:
+        if not self._fitted or self._precision is None or self._location is None:
             raise DetectorException("MCDDetector must be fitted before detection")
 
         X = np.asarray(X, dtype=np.float64)
@@ -458,9 +458,10 @@ class MCDDetector:
 
         diff = X - self._location
         mah = np.einsum("ij,jk,ik->i", diff, self._precision, diff)
-        scores = np.clip(mah / (self._mahal_threshold * 3.0 + 1e-10), 0.0, 1.0)
+        mahal_thr = self._mahal_threshold if self._mahal_threshold is not None else 1.0
+        scores = np.clip(mah / (mahal_thr * 3.0 + 1e-10), 0.0, 1.0)
 
-        is_anomaly = mah > self._mahal_threshold
+        is_anomaly = mah > mahal_thr
 
         # Chi-squared based p-values
         n_features = X.shape[1]
@@ -470,7 +471,7 @@ class MCDDetector:
             is_anomaly=is_anomaly,
             scores=scores,
             method="mcd_mercury_native",
-            threshold=self._mahal_threshold,
+            threshold=mahal_thr,
             confidence=1 - p_values,
             details={
                 "mahalanobis_distances": mah,

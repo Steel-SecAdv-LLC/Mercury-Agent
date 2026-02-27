@@ -5,7 +5,6 @@ SPDX-License-Identifier: GPL-3.0-only
 """
 
 import numpy as np
-import pytest
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -44,9 +43,7 @@ def test_fusion_weights_are_data_driven() -> None:
 
     # Weights must not be identical across structurally different datasets.
     # Tolerance of 1e-3 allows for near-ties on simple synthetic data.
-    assert not (
-        abs(w_a[0] - w_b[0]) < 1e-3 and abs(w_a[1] - w_b[1]) < 1e-3
-    ), (
+    assert not (abs(w_a[0] - w_b[0]) < 1e-3 and abs(w_a[1] - w_b[1]) < 1e-3), (
         f"Fusion weights are identical across different datasets: "
         f"A={w_a}, B={w_b}. This indicates hardcoded defaults, "
         f"not adaptive CV."

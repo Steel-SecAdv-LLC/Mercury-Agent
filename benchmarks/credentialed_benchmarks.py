@@ -38,13 +38,11 @@ logger = logging.getLogger(__name__)
 
 try:
     import optuna  # noqa: F401
+
     _AUTO_TUNE = True
 except ImportError:
     _AUTO_TUNE = False
-    logger.info(
-        "optuna not installed — auto_tune disabled. "
-        "Install with: pip install optuna"
-    )
+    logger.info("optuna not installed — auto_tune disabled. " "Install with: pip install optuna")
 
 CACHE_DIR = Path.home() / ".omni_mercury" / "datasets"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -93,9 +91,7 @@ def compute_fairlearn_bias_metrics(
             sensitive_features=sensitive_features,
         )
 
-        dpd = demographic_parity_difference(
-            y_true, y_pred, sensitive_features=sensitive_features
-        )
+        dpd = demographic_parity_difference(y_true, y_pred, sensitive_features=sensitive_features)
         bias_metrics["demographic_parity_difference"] = float(dpd)
 
         by_group = metric_frame.by_group
@@ -339,5 +335,7 @@ if __name__ == "__main__":
     print("\n[1/1] Running MIMIC-III Demo Benchmark...")
     mimic = MIMICDemoBenchmark()
     result = mimic.run_benchmark()
-    print(f"  MIMIC-III Demo: F1={result.f1:.4f} AUC={result.roc_auc:.4f} "
-          f"Source={result.data_source}")
+    print(
+        f"  MIMIC-III Demo: F1={result.f1:.4f} AUC={result.roc_auc:.4f} "
+        f"Source={result.data_source}"
+    )

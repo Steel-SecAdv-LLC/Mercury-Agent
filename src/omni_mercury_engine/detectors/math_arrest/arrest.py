@@ -317,15 +317,14 @@ class AnomalyMathArrest:
                 classify_geometry,
                 probes_for_geometries,
             )
+
             geometries = classify_geometry(data)
-            self._detected_geometries = geometries
+            self._detected_geometries = list(geometries)
             probe_spec = probes_for_geometries(geometries)
             if probe_spec != ["all"]:
                 # Replace probe list with geometry-selected subset
                 self._probes = [
-                    _PROBE_REGISTRY[name]()
-                    for name in probe_spec
-                    if name in _PROBE_REGISTRY
+                    _PROBE_REGISTRY[name]() for name in probe_spec if name in _PROBE_REGISTRY
                 ]
                 self._fusion = PhiWeightedFusion(n_probes=len(self._probes))
                 logger.info(
@@ -404,14 +403,16 @@ class AnomalyMathArrest:
             except Exception as exc:
                 logger.debug(
                     "Probe %s per_feature_scores failed: %s — falling back",
-                    type(probe).__name__, exc,
+                    type(probe).__name__,
+                    exc,
                 )
                 try:
                     result = probe.deviation_score(data)
                 except Exception as exc2:
                     logger.warning(
                         "Probe %s deviation_score also failed: %s",
-                        type(probe).__name__, exc2,
+                        type(probe).__name__,
+                        exc2,
                     )
                     continue
             results.append(result)
@@ -428,9 +429,7 @@ class AnomalyMathArrest:
             decorrelator=self._decorrelator,
         )
 
-    def detect_per_probe(
-        self, data: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def detect_per_probe(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Return per-probe anomaly scores without fusion.
 
         Returns:
@@ -439,9 +438,7 @@ class AnomalyMathArrest:
             Probes that failed to score return a column of 0.5 (uncertain).
         """
         if not self._is_fitted:
-            raise RuntimeError(
-                "AnomalyMathArrest has not been fitted. Call fit() first."
-            )
+            raise RuntimeError("AnomalyMathArrest has not been fitted. Call fit() first.")
         n_samples = data.shape[0]
         n_probes = len(self._probes)
         score_matrix = np.full((n_samples, n_probes), 0.5, dtype=np.float64)
@@ -451,9 +448,7 @@ class AnomalyMathArrest:
                 continue
             try:
                 result = probe.deviation_score(data)
-                probe_scores = np.clip(
-                    result.deviation_scores[:n_samples], 0.0, 1.0
-                )
+                probe_scores = np.clip(result.deviation_scores[:n_samples], 0.0, 1.0)
                 score_matrix[: len(probe_scores), col_idx] = probe_scores
             except Exception:
                 pass  # leave column at 0.5 (uncertain)
@@ -551,13 +546,15 @@ class AnomalyMathArrest:
             try:
                 if use_per_feature:
                     pf = probe.per_feature_scores(data)
-                    results.append(ProbeResult(
-                        probe_name=type(probe).__name__,
-                        deviation_scores=pf,
-                        confidence=probe._fit_quality,
-                        trajectory_fit_quality=probe._fit_quality,
-                        anomaly_geometry="per_feature_max",
-                    ))
+                    results.append(
+                        ProbeResult(
+                            probe_name=type(probe).__name__,
+                            deviation_scores=pf,
+                            confidence=probe._fit_quality,
+                            trajectory_fit_quality=probe._fit_quality,
+                            anomaly_geometry="per_feature_max",
+                        )
+                    )
                 else:
                     result = probe.deviation_score(data)
                     results.append(result)

@@ -1,6 +1,7 @@
 """Tests for Otsu / adaptive threshold selection (Option D)."""
+
 import numpy as np
-import pytest
+
 from omni_mercury_engine.core.threshold import adaptive_threshold, otsu_threshold
 
 
