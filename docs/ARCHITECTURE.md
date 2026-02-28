@@ -273,4 +273,4 @@ reference only. Cannot be reproduced in deployment.
 ### Three-Way Ensemble Results (64 datasets, run 2026-02-26)
 - Three-Way Mean AUC-ROC: **0.8525** (+2.86% over Mercury-Only 0.8288)
 - SpectralDomainSound activated on 51/64 datasets
-- Fusion weights derived from 3-fold CV AUC, clamped to [0.15, 0.85] (widened from [0.30, 0.70] in PR #134)
+- Fusion weights derived from 3-fold CV AUC, clamped to [0.15, 0.85]

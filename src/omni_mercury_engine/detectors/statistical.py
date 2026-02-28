@@ -320,14 +320,17 @@ class MercuryAnomalyDetector(BaseDetector):
                     geometry_routing=(ama_probes is None),
                 )
                 self._ama_detector.fit(arr)
+                self._ama_initialized = True
                 logger.info(
                     "AnomalyMathArrest fitted: %d probes active", len(self._ama_detector._probes)
                 )
             else:
                 self._ama_detector = None
+                self._ama_initialized = False
         except Exception as exc:
             logger.warning("AnomalyMathArrest fit failed: %s — proceeding without AMA", exc)
             self._ama_detector = None
+            self._ama_initialized = False
 
         # --- AMA fusion weight estimation via CV AUC ---
         if self._ama_detector is not None:
@@ -407,7 +410,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
                 if total > 1e-9:
                     # Clamp range: [0.15, 0.85].
-                    # Empirically widened from [0.30, 0.70] (PR #134, c7be383).
+                    # PR #134, c7be383.
                     # Wider range: more CV dynamic range to down-weight poor
                     # components. Minimum (0.15): preserves ensemble diversity
                     # — key AUC synergy driver.
@@ -2378,8 +2381,8 @@ class MercuryAnomalyDetector(BaseDetector):
             "oracle_metadata": oracle_meta,
             # Build AMA metadata honestly — reflect actual fusion outcome.
             "ama_active": (
-                getattr(self, "_ama_fusion_skipped", False) is False
-                and self._ama_detector is not None
+                not getattr(self, "_ama_fusion_skipped", False)
+                and getattr(self, "_ama_initialized", False)
             ),
             "ama_fusion_skipped": getattr(self, "_ama_fusion_skipped", False),
             "ama_fusion_skipped_reason": getattr(self, "_ama_fusion_skipped_reason", None),

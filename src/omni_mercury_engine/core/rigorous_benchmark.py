@@ -402,15 +402,13 @@ class RigorousBenchmarkHarness:
         """
         try:
             from omni_mercury_engine.ml._native_utils import (
+                NativeStratifiedKFold as StratifiedKFold,
                 native_average_precision_score as average_precision_score,
                 native_brier_score_loss as brier_score_loss,
                 native_f1_score as f1_score,
                 native_precision_score as precision_score,
                 native_recall_score as recall_score,
                 native_roc_auc_score as roc_auc_score,
-            )
-            from omni_mercury_engine.ml._native_utils import (
-                NativeStratifiedKFold as StratifiedKFold,
             )
         except ImportError as e:
             raise ImportError(

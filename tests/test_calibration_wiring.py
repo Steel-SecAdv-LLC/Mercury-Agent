@@ -32,29 +32,40 @@ class TestCalibrationWiring:
     def test_default_threshold_mercury_only_minimal_positives(
         self, separated_data: tuple[np.ndarray, np.ndarray]
     ) -> None:
-        """Mercury-only (no AMA): default threshold yields few positives."""
+        """Mercury-only (no AMA): default threshold yields very few positives.
+
+        Bound < 20: Mercury's statistical core uses a conservative percentile
+        threshold (typically ~95th pctile). With 250 samples and clear
+        separation, the unsupervised detector should flag roughly 5-15 points.
+        A ceiling of 20 ensures we catch threshold drift without AMA noise.
+        """
         X, y = separated_data
         det = MercuryAnomalyDetector(enable_ama=False)
         det.fit(X)
         r = det.detect(X)
         preds = r["is_anomaly"]
-        assert np.sum(preds) < 80, (
-            f"Mercury-only: default threshold should produce few positives, "
+        assert np.sum(preds) < 20, (
+            f"Mercury-only: default threshold should produce very few positives, "
             f"got {int(np.sum(preds))}/250"
         )
 
     def test_default_threshold_three_way_ensemble_bounded_positives(
         self, separated_data: tuple[np.ndarray, np.ndarray]
     ) -> None:
-        """Three-way ensemble (AMA active): default threshold positive count is bounded."""
+        """Three-way ensemble (AMA active): default threshold positive count is bounded.
+
+        Bound < 60: AMA fusion can amplify borderline samples, pushing
+        positives above the Mercury-only count. With 50 true anomalies
+        in the synthetic data and a conservative AMA weight, the ensemble
+        should flag at most ~50-55 samples. A ceiling of 60 catches
+        weight-clamp or fusion regressions without being too tight.
+        """
         X, y = separated_data
         det = MercuryAnomalyDetector(enable_ama=True)
         det.fit(X)
         r = det.detect(X)
         preds = r["is_anomaly"]
-        # Ensemble may produce more positives due to AMA fusion;
-        # but total should still be bounded well below the full dataset.
-        assert np.sum(preds) < 200, (
+        assert np.sum(preds) < 60, (
             f"Ensemble: default threshold should not flag most samples, "
             f"got {int(np.sum(preds))}/250"
         )

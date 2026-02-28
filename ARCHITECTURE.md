@@ -167,7 +167,7 @@ Input Data (n_samples,) or (n_samples, n_features)
 AMA is wired into `MercuryAnomalyDetector` as a three-way fusion
 (Mercury + AMA + SpectralDomainSound). Fusion weights α (Mercury) and β (AMA)
 are derived from 3-fold cross-validated AUC using unsupervised pseudo-labels,
-clamped to **[0.15, 0.85]** (widened from [0.30, 0.70] in PR #134, commit c7be383) and renormalized to sum to 1.0. The wider range gives cross-validated AUC more dynamic range to down-weight a poor component while the minimum (0.15) preserves enough contribution for ensemble diversity — the primary driver of synergistic AUC gains. Empirical validation showed this widening nearly doubled ensemble improvement from +0.024 to +0.044 across 64 benchmark datasets. The ensemble achieves
+clamped to **[0.15, 0.85]** and renormalized to sum to 1.0. The wider range gives cross-validated AUC more dynamic range to down-weight a poor component while the minimum (0.15) preserves enough contribution for ensemble diversity — the primary driver of synergistic AUC gains. Empirical validation showed this widening nearly doubled ensemble improvement from +0.024 to +0.044 across 64 benchmark datasets. The ensemble achieves
 Mean AUC 0.8525 vs Mercury-Only 0.8288 (+2.86% improvement) on full 64-dataset benchmark.
 
 ### 4. Quantum-Enhanced Directive Detector (NEW - Deep Integration)
@@ -1107,11 +1107,11 @@ AnomalyMathArrest (21-probe), and SpectralDomainSound via CV-adaptive weights.
 - Three-Way Mean Operational F1: 0.6468
 - SpectralDomainSound activated on 51/64 datasets
 - Fusion weights: α (Mercury) and β (AMA) derived from 3-fold CV AUC
-  with unsupervised pseudo-labels, clamped to [0.15, 0.85] (widened from [0.30, 0.70] in PR #134), renormalized
+  with unsupervised pseudo-labels, clamped to [0.15, 0.85], renormalized
 
 **Fusion Weight Derivation**
 α (Mercury) and β (AMA) are derived from 3-fold CV on the COMBINED
 mercury_score AUC and AMA score AUC respectively. Both components
 are evaluated on identical held-out folds using identical
 pseudo-labels derived from score percentile (not test labels).
-Weights are clamped to [0.15, 0.85] (widened from [0.30, 0.70] in PR #134) and renormalized to sum to 1.0.
+Weights are clamped to [0.15, 0.85] and renormalized to sum to 1.0.

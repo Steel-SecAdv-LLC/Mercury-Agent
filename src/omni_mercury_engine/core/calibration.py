@@ -480,9 +480,9 @@ def evaluate_calibration(
     """
     try:
         from omni_mercury_engine.ml._native_utils import (
+            native_brier_score_loss as brier_score_loss,
             native_calibration_curve as calibration_curve,
         )
-        from omni_mercury_engine.ml._native_utils import native_brier_score_loss as brier_score_loss
     except ImportError as e:
         raise ImportError(
             "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"

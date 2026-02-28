@@ -173,7 +173,7 @@ class NativeStandardScaler:
         self.mean_: np.ndarray | None = None
         self.scale_: np.ndarray | None = None
 
-    def fit(self, X: np.ndarray) -> "NativeStandardScaler":
+    def fit(self, X: np.ndarray) -> NativeStandardScaler:
         X = np.asarray(X, dtype=np.float64)
         self.mean_ = X.mean(axis=0)
         self.scale_ = X.std(axis=0) + 1e-8
@@ -195,7 +195,7 @@ class NativeLabelEncoder:
         self.classes_: np.ndarray | None = None
         self._mapping: dict[Any, int] = {}
 
-    def fit(self, y: np.ndarray) -> "NativeLabelEncoder":
+    def fit(self, y: np.ndarray) -> NativeLabelEncoder:
         self.classes_ = np.unique(y)
         self._mapping = {v: i for i, v in enumerate(self.classes_)}
         return self
@@ -232,7 +232,7 @@ class NativeKFold:
 
     def split(
         self, X: np.ndarray, y: np.ndarray | None = None
-    ) -> "Iterator[tuple[np.ndarray, np.ndarray]]":
+    ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         n = len(X)
         indices = np.arange(n)
         if self.shuffle:
@@ -255,7 +255,7 @@ class NativeStratifiedKFold:
         self.shuffle = shuffle
         self.rng = np.random.RandomState(random_state)
 
-    def split(self, X: np.ndarray, y: np.ndarray) -> "Iterator[tuple[np.ndarray, np.ndarray]]":
+    def split(self, X: np.ndarray, y: np.ndarray) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         classes = np.unique(y)
         class_indices = {c: np.where(y == c)[0] for c in classes}
         if self.shuffle:
@@ -341,7 +341,7 @@ class NativeLogisticRegression:
         z = np.clip(z, -500, 500)
         return 1.0 / (1.0 + np.exp(-z))
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "NativeLogisticRegression":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> NativeLogisticRegression:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64).ravel()
         self.classes_ = np.unique(y)
@@ -419,7 +419,7 @@ class NativeSGDClassifier:
 
     def partial_fit(
         self, X: np.ndarray, y: np.ndarray, classes: np.ndarray | None = None
-    ) -> "NativeSGDClassifier":
+    ) -> NativeSGDClassifier:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64).ravel()
         if self.coef_ is None:
@@ -447,7 +447,7 @@ class NativeSGDClassifier:
         self._fitted = True
         return self
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "NativeSGDClassifier":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> NativeSGDClassifier:
         if not self.warm_start:
             self.coef_ = None
         return self.partial_fit(X, y)
@@ -493,7 +493,7 @@ class NativePassiveAggressiveClassifier:
 
     def partial_fit(
         self, X: np.ndarray, y: np.ndarray, classes: np.ndarray | None = None
-    ) -> "NativePassiveAggressiveClassifier":
+    ) -> NativePassiveAggressiveClassifier:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64).ravel()
         # Convert {0,1} to {-1,+1}
@@ -517,7 +517,7 @@ class NativePassiveAggressiveClassifier:
 
         return self
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "NativePassiveAggressiveClassifier":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> NativePassiveAggressiveClassifier:
         if not self.warm_start:
             self.coef_ = None
         return self.partial_fit(X, y)
@@ -551,7 +551,7 @@ class NativeGradientBoostingClassifier:
         self.stumps: list[tuple[int, float, float, float]] = []
         self.init_pred: float = 0.0
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "NativeGradientBoostingClassifier":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> NativeGradientBoostingClassifier:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64).ravel()
         p = np.mean(y)
@@ -624,7 +624,7 @@ class NativePCA:
         self.mean_: np.ndarray | None = None
         self.explained_variance_ratio_: np.ndarray | None = None
 
-    def fit(self, X: np.ndarray) -> "NativePCA":
+    def fit(self, X: np.ndarray) -> NativePCA:
         X = np.asarray(X, dtype=np.float64)
         self.mean_ = X.mean(axis=0)
         X_centered = X - self.mean_
@@ -657,7 +657,7 @@ class NativeKMeans:
         self.cluster_centers_: np.ndarray | None = None
         self.labels_: np.ndarray | None = None
 
-    def fit(self, X: np.ndarray) -> "NativeKMeans":
+    def fit(self, X: np.ndarray) -> NativeKMeans:
         X = np.asarray(X, dtype=np.float64)
         best_inertia = float("inf")
         for _ in range(self.n_init):
@@ -705,7 +705,7 @@ class NativeGaussianMixture:
         self.covariances_: np.ndarray | None = None
         self.weights_: np.ndarray | None = None
 
-    def fit(self, X: np.ndarray) -> "NativeGaussianMixture":
+    def fit(self, X: np.ndarray) -> NativeGaussianMixture:
         X = np.asarray(X, dtype=np.float64)
         n, d = X.shape
         # Initialize with random points
@@ -791,7 +791,7 @@ class NativeIsotonicRegression:
         self._x: np.ndarray | None = None
         self._y: np.ndarray | None = None
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "NativeIsotonicRegression":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> NativeIsotonicRegression:
         X = np.asarray(X, dtype=np.float64).ravel()
         y = np.asarray(y, dtype=np.float64).ravel()
         order = np.argsort(X)
@@ -844,7 +844,7 @@ class NativeNearestNeighbors:
         self.metric = metric
         self._data: np.ndarray | None = None
 
-    def fit(self, X: np.ndarray) -> "NativeNearestNeighbors":
+    def fit(self, X: np.ndarray) -> NativeNearestNeighbors:
         self._data = np.asarray(X, dtype=np.float64)
         return self
 

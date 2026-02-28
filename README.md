@@ -157,7 +157,7 @@ Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 do
 | Sound Activation Count | 51 / 64 datasets |
 | Ensemble Improvement | **+0.0237 (+2.86%)** |
 
-The three-way ensemble (CV-adaptive fusion of Mercury + AMA + SpectralDomainSound) improves over Mercury-Only across the full 64-dataset benchmark. Fusion weights α (Mercury) and β (AMA) are derived from 3-fold cross-validated AUC with unsupervised pseudo-labels, clamped to **[0.15, 0.85]** (widened from [0.30, 0.70] in PR #134, commit c7be383) and renormalized to sum to 1.0. The wider range gives cross-validated AUC more dynamic range to down-weight a poor component while the minimum (0.15) preserves enough contribution for ensemble diversity — the primary driver of synergistic AUC gains. SpectralDomainSound activated on 51/64 datasets (n_samples >= 128 and n_features <= 50).
+The three-way ensemble (CV-adaptive fusion of Mercury + AMA + SpectralDomainSound) improves over Mercury-Only across the full 64-dataset benchmark. Fusion weights α (Mercury) and β (AMA) are derived from 3-fold cross-validated AUC with unsupervised pseudo-labels, clamped to **[0.15, 0.85]** and renormalized to sum to 1.0. The wider range gives cross-validated AUC more dynamic range to down-weight a poor component while the minimum (0.15) preserves enough contribution for ensemble diversity — the primary driver of synergistic AUC gains. SpectralDomainSound activated on 51/64 datasets (n_samples >= 128 and n_features <= 50).
 
 > Benchmark: 47 ADBench datasets + 17 domain datasets.
 > Run: `python benchmarks/mercury_benchmark.py`
