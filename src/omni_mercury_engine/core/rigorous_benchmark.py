@@ -208,7 +208,7 @@ def stratified_split(
         ) from e
 
     set_all_seeds(seed)
-    return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)  # type: ignore[no-any-return]
+    return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)
 
 
 def compute_event_metrics(
@@ -613,7 +613,7 @@ def run_baseline_benchmarks(
     from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
     # Stub classes for sklearn anomaly detection baselines (not available without sklearn)
-    class OneClassSVM:  # type: ignore[no-redef]
+    class OneClassSVM:
         """Stub for sklearn.svm.OneClassSVM — records 'unavailable' for this baseline."""
 
         def __init__(self, **kwargs: Any) -> None:
@@ -628,7 +628,7 @@ def run_baseline_benchmarks(
         def decision_function(self, X: np.ndarray) -> np.ndarray:
             raise NotImplementedError("OneClassSVM requires scikit-learn")
 
-    class LocalOutlierFactor:  # type: ignore[no-redef]
+    class LocalOutlierFactor:
         """Stub for sklearn.neighbors.LocalOutlierFactor — records 'unavailable' for this baseline."""
 
         def __init__(self, **kwargs: Any) -> None:
@@ -643,7 +643,7 @@ def run_baseline_benchmarks(
         def decision_function(self, X: np.ndarray) -> np.ndarray:
             raise NotImplementedError("LocalOutlierFactor requires scikit-learn")
 
-    class EllipticEnvelope:  # type: ignore[no-redef]
+    class EllipticEnvelope:
         """Stub for sklearn.covariance.EllipticEnvelope — records 'unavailable' for this baseline."""
 
         def __init__(self, **kwargs: Any) -> None:

@@ -124,8 +124,6 @@ from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 # Runtime pipeline modules - always imported (required for core functionality)
 from omni_mercury_engine.ml.drift import DriftResult, EnsembleDriftDetector
 from omni_mercury_engine.ml.fairness import BiasAuditConfig, FairnessAuditor, FairnessReport
-from omni_mercury_engine.ml.fusion_network import OmniFusionModel
-from omni_mercury_engine.ml.inference import FusionInference
 from omni_mercury_engine.ml.optimization import OptimizationConfig, ParallelExecutor
 from omni_mercury_engine.utils.logging import LoggerMixin
 
@@ -743,6 +741,9 @@ class OmniMercuryEngine(LoggerMixin):
             produce suboptimal results.
         """
         if self.mode == "fusion":
+            from omni_mercury_engine.ml.fusion_network import OmniFusionModel
+            from omni_mercury_engine.ml.inference import FusionInference
+
             self.fusion_model = OmniFusionModel()
             self.fusion_model.to(self.device)
             self.fusion_inference = FusionInference(

@@ -25,6 +25,7 @@ CLI smoke tests to boost coverage
 import tempfile
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from omni_mercury_engine.cli import main
@@ -80,6 +81,8 @@ def test_detect_with_sample_data():
 
     try:
         result = runner.invoke(main, ["detect", "--input", data_file, "--detector", "statistical"])
+        if result.exception and "PyTorch" in str(result.exception):
+            pytest.skip("detect CLI requires PyTorch for engine init")
         assert result.exit_code == 0 or "Error" in result.output
     finally:
         Path(data_file).unlink()

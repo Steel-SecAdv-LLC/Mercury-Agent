@@ -30,9 +30,16 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import torch
 
 from omni_mercury_engine.core.base import BaseModel
+
+try:
+    import torch
+
+    _TORCH_AVAILABLE = True
+except ImportError:
+    torch = None
+    _TORCH_AVAILABLE = False
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -127,7 +134,7 @@ class FoundationModelConfig:
     """
 
     model_name: str = "default"
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = "cuda" if _TORCH_AVAILABLE and torch.cuda.is_available() else "cpu"
     batch_size: int = 32
     context_length: int = 512
     prediction_length: int = 24
@@ -162,6 +169,10 @@ class BaseFoundationModel(BaseModel):
 
         super().__init__(config if isinstance(config, dict) else vars(self.foundation_config))
 
+        if not _TORCH_AVAILABLE:
+            raise ImportError(
+                "Foundation model adapters require PyTorch. " "Install with: pip install torch"
+            )
         self.device = torch.device(self.foundation_config.device)
         self._model: Any = None
         self._is_initialized = False

@@ -176,6 +176,7 @@ class PlattScaling:
         self.model.fit(X, y_true)
         self._fitted = True
 
+        assert self.model.coef_ is not None
         logger.debug(
             f"PlattScaling fitted: coef={self.model.coef_[0, 0]:.4f}, "
             f"intercept={self.model.intercept_[0]:.4f}"

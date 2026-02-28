@@ -61,7 +61,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-import torch
 from scipy.fft import fft, fftfreq
 from scipy.stats import norm, truncnorm
 
@@ -70,6 +69,14 @@ from omni_mercury_engine.core.centralized_constants import (
     MATH,
 )
 from omni_mercury_engine.core.exceptions import DetectorException
+
+try:
+    import torch
+
+    _TORCH_AVAILABLE = True
+except ImportError:
+    torch = None
+    _TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -1345,7 +1352,7 @@ class SpectralDomainSound(BaseDetector):
         Returns:
             Self for method chaining.
         """
-        if isinstance(data, torch.Tensor):
+        if _TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if not isinstance(data, np.ndarray):
@@ -1441,7 +1448,7 @@ class SpectralDomainSound(BaseDetector):
         if not self._is_fitted:
             raise DetectorException("SpectralDomainSound must be fitted before detection.")
 
-        if isinstance(data, torch.Tensor):
+        if _TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if not isinstance(data, np.ndarray):
@@ -1473,7 +1480,7 @@ class SpectralDomainSound(BaseDetector):
     def extract_features(
         self,
         data: np.ndarray | Any,
-    ) -> torch.Tensor:
+    ) -> Any:
         """Extract per-band spectral features as torch.Tensor.
 
         Returns ``[batch, n_bands + 7]`` features:
@@ -1506,7 +1513,7 @@ class SpectralDomainSound(BaseDetector):
         Returns:
             Feature tensor of shape ``(N, n_bands + 7)``, dtype float32.
         """
-        if isinstance(data, torch.Tensor):
+        if _TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if not isinstance(data, np.ndarray):
@@ -1539,7 +1546,9 @@ class SpectralDomainSound(BaseDetector):
             features_list.append(feat)
 
         features_np = np.array(features_list, dtype=np.float32)
-        return torch.from_numpy(features_np)
+        if _TORCH_AVAILABLE:
+            return torch.from_numpy(features_np)
+        return features_np
 
     # ------------------------------------------------------------------
     # Single-sample detection

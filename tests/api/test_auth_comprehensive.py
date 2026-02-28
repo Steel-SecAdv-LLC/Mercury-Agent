@@ -23,6 +23,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("fastapi", reason="API tests require fastapi")
+
 from omni_mercury_engine.api.auth import (
     APIKey,
     APIKeyAuth,

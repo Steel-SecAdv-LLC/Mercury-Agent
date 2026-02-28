@@ -9,9 +9,12 @@ All implementations use only numpy and scipy.
 from __future__ import annotations
 
 import copy
+import itertools
 import logging
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 import numpy as np
 
@@ -639,6 +642,10 @@ class NativePCA:
         assert self.mean_ is not None and self.components_ is not None
         return (np.asarray(X, dtype=np.float64) - self.mean_) @ self.components_.T
 
+    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        assert self.mean_ is not None and self.components_ is not None
+        return np.asarray(X, dtype=np.float64) @ self.components_ + self.mean_
+
     def fit_transform(self, X: np.ndarray) -> np.ndarray:
         self.fit(X)
         return self.transform(X)
@@ -691,7 +698,8 @@ class NativeKMeans:
 
     def fit_predict(self, X: np.ndarray) -> np.ndarray:
         self.fit(X)
-        return self.labels_  # type: ignore[return-value]
+        assert self.labels_ is not None
+        return self.labels_
 
 
 class NativeGaussianMixture:
@@ -863,7 +871,7 @@ class NativeNearestNeighbors:
 
 
 def native_calibration_curve(
-    y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10
+    y_true: np.ndarray, y_prob: np.ndarray, n_bins: int = 10, strategy: str = "uniform"
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calibration curve (reliability diagram data)."""
     y_true = np.asarray(y_true, dtype=np.float64).ravel()
@@ -871,7 +879,7 @@ def native_calibration_curve(
     bins = np.linspace(0, 1, n_bins + 1)
     bin_true: list[float] = []
     bin_pred: list[float] = []
-    for lo, hi in zip(bins[:-1], bins[1:]):
+    for lo, hi in itertools.pairwise(bins):
         mask = (y_prob >= lo) & (y_prob < hi)
         if mask.sum() > 0:
             bin_true.append(float(np.mean(y_true[mask])))
@@ -879,7 +887,9 @@ def native_calibration_curve(
     return np.array(bin_true), np.array(bin_pred)
 
 
-def native_mutual_info_classif(X: np.ndarray, y: np.ndarray) -> np.ndarray:
+def native_mutual_info_classif(
+    X: np.ndarray, y: np.ndarray, random_state: int | None = None
+) -> np.ndarray:
     """Approximate mutual information via histogram binning."""
     X = np.asarray(X, dtype=np.float64)
     y = np.asarray(y).ravel()

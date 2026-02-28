@@ -990,6 +990,9 @@ class AutoThresholdOptimizer:
                 gmm.fit(scores.reshape(-1, 1))
 
             # Get means and identify normal vs anomaly component
+            assert gmm.means_ is not None
+            assert gmm.weights_ is not None
+            assert gmm.covariances_ is not None
             means = gmm.means_.flatten()
             if means[0] < means[1]:
                 normal_idx, anomaly_idx = 0, 1

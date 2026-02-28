@@ -22,6 +22,9 @@ import os
 from unittest.mock import patch
 
 import pytest
+
+pytest.importorskip("fastapi", reason="API tests require fastapi")
+
 from fastapi.testclient import TestClient
 
 

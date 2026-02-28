@@ -36,6 +36,8 @@ Coverage targets:
 
 import numpy as np
 import pytest
+
+sklearn = pytest.importorskip("sklearn", reason="test requires scikit-learn")
 from sklearn.metrics import roc_auc_score
 
 from omni_mercury_engine.core.config import DataCharacteristics
