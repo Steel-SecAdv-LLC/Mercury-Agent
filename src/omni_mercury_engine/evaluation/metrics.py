@@ -108,11 +108,10 @@ def compute_auc_roc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any])
         return 0.5
 
     try:
-        from sklearn.metrics import roc_auc_score
+        from omni_mercury_engine.ml._native_utils import native_roc_auc_score
 
-        return float(roc_auc_score(y_true, y_score))
-    except ImportError:
-        # Fallback implementation without sklearn
+        return float(native_roc_auc_score(y_true, y_score))
+    except Exception:
         return _auc_roc_numpy(y_true, y_score)
 
 
@@ -155,10 +154,10 @@ def compute_auc_pr(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) 
         AUC-PR score in [0, 1]
     """
     try:
-        from sklearn.metrics import average_precision_score
+        from omni_mercury_engine.ml._native_utils import native_average_precision_score
 
-        return float(average_precision_score(y_true, y_score))
-    except ImportError:
+        return float(native_average_precision_score(y_true, y_score))
+    except Exception:
         return _auc_pr_numpy(y_true, y_score)
 
 

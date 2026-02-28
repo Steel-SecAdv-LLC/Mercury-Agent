@@ -217,7 +217,7 @@ class CrossConformalPredictor:
             Self for method chaining
         """
         try:
-            from sklearn.model_selection import KFold
+            from omni_mercury_engine.ml._native_utils import NativeKFold as KFold
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -1001,8 +1001,6 @@ def add_conformal_to_detector(
         ValueError: If no valid scoring method can be found.
 
     Example:
-        >>> from sklearn.ensemble import IsolationForest
-        >>> detector = IsolationForest().fit(X_train)
         >>> conformal, threshold = add_conformal_to_detector(detector, X_cal)
     """
     # Get calibration scores with robust fallback cascade

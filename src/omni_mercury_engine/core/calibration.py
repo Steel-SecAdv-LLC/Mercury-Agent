@@ -138,7 +138,7 @@ class PlattScaling:
             max_iter: Maximum iterations for convergence
         """
         try:
-            from sklearn.linear_model import LogisticRegression
+            from omni_mercury_engine.ml._native_utils import NativeLogisticRegression as LogisticRegression
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -216,7 +216,7 @@ class IsotonicCalibration:
             out_of_bounds: How to handle out-of-bounds values ("clip", "nan")
         """
         try:
-            from sklearn.isotonic import IsotonicRegression
+            from omni_mercury_engine.ml._native_utils import NativeIsotonicRegression as IsotonicRegression
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -318,7 +318,7 @@ class TemperatureScaling:
         logits = self._logit(y_prob)
 
         try:
-            from sklearn.metrics import log_loss
+            from omni_mercury_engine.ml._native_utils import native_log_loss as log_loss
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -413,7 +413,7 @@ class CalibrationEnsemble:
             calibrated = calibrator.calibrate(y_prob_val)
 
             try:
-                from sklearn.metrics import brier_score_loss
+                from omni_mercury_engine.ml._native_utils import native_brier_score_loss as brier_score_loss
             except ImportError as e:
                 raise ImportError(
                     "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -473,8 +473,8 @@ def evaluate_calibration(
         CalibrationResult with before/after metrics
     """
     try:
-        from sklearn.calibration import calibration_curve
-        from sklearn.metrics import brier_score_loss
+        from omni_mercury_engine.ml._native_utils import native_calibration_curve as calibration_curve
+        from omni_mercury_engine.ml._native_utils import native_brier_score_loss as brier_score_loss
     except ImportError as e:
         raise ImportError(
             "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -554,8 +554,6 @@ def calibrate_detector(
         all score extraction methods fail.
 
     Example:
-        >>> from sklearn.ensemble import IsolationForest
-        >>> detector = IsolationForest().fit(X_train)
         >>> calibrator, result = calibrate_detector(detector, X_cal, y_cal)
     """
     # Get uncalibrated predictions with robust fallback

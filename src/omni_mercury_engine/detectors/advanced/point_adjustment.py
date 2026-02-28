@@ -194,7 +194,7 @@ def compute_adjusted_metrics(
     # ROC-AUC if scores provided
     if scores is not None:
         try:
-            from sklearn.metrics import roc_auc_score
+            from omni_mercury_engine.ml._native_utils import native_roc_auc_score as roc_auc_score
 
             # Use original labels for AUC (not affected by point-adjustment)
             metrics["roc_auc"] = float(roc_auc_score(labels, scores))

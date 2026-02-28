@@ -193,7 +193,7 @@ class NovelClassDiscovery:
         """
         features = self.extract_anomaly_features(images, masks)
 
-        from sklearn.cluster import KMeans
+        from omni_mercury_engine.ml._native_utils import NativeKMeans as KMeans
 
         kmeans = KMeans(n_clusters=self.num_clusters, random_state=42)
         class_assignments = kmeans.fit_predict(features)

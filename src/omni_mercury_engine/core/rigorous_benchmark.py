@@ -201,7 +201,7 @@ def stratified_split(
         X_train, X_test, y_train, y_test
     """
     try:
-        from sklearn.model_selection import train_test_split
+        from omni_mercury_engine.ml._native_utils import native_train_test_split as train_test_split
     except ImportError as e:
         raise ImportError(
             "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -309,7 +309,7 @@ def point_adjusted_f1(
         Point-adjusted F1 score
     """
     try:
-        from sklearn.metrics import f1_score
+        from omni_mercury_engine.ml._native_utils import native_f1_score as f1_score
     except ImportError as e:
         raise ImportError(
             "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -401,15 +401,15 @@ class RigorousBenchmarkHarness:
             BenchmarkResult with all metrics and statistics
         """
         try:
-            from sklearn.metrics import (
-                average_precision_score,
-                brier_score_loss,
-                f1_score,
-                precision_score,
-                recall_score,
-                roc_auc_score,
+            from omni_mercury_engine.ml._native_utils import (
+                native_average_precision_score as average_precision_score,
+                native_brier_score_loss as brier_score_loss,
+                native_f1_score as f1_score,
+                native_precision_score as precision_score,
+                native_recall_score as recall_score,
+                native_roc_auc_score as roc_auc_score,
             )
-            from sklearn.model_selection import StratifiedKFold
+            from omni_mercury_engine.ml._native_utils import NativeStratifiedKFold as StratifiedKFold
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -610,11 +610,41 @@ def run_baseline_benchmarks(
     Returns:
         Dictionary mapping detector name to BenchmarkResult
     """
-    from sklearn.covariance import EllipticEnvelope
-    from sklearn.neighbors import LocalOutlierFactor
-    from sklearn.svm import OneClassSVM
-
     from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
+    # Stub classes for sklearn anomaly detection baselines (not available without sklearn)
+    class OneClassSVM:  # type: ignore[no-redef]
+        """Stub for sklearn.svm.OneClassSVM — records 'unavailable' for this baseline."""
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+            raise NotImplementedError("OneClassSVM requires scikit-learn")
+        def predict(self, X: np.ndarray) -> np.ndarray:
+            raise NotImplementedError("OneClassSVM requires scikit-learn")
+        def decision_function(self, X: np.ndarray) -> np.ndarray:
+            raise NotImplementedError("OneClassSVM requires scikit-learn")
+
+    class LocalOutlierFactor:  # type: ignore[no-redef]
+        """Stub for sklearn.neighbors.LocalOutlierFactor — records 'unavailable' for this baseline."""
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+            raise NotImplementedError("LocalOutlierFactor requires scikit-learn")
+        def predict(self, X: np.ndarray) -> np.ndarray:
+            raise NotImplementedError("LocalOutlierFactor requires scikit-learn")
+        def decision_function(self, X: np.ndarray) -> np.ndarray:
+            raise NotImplementedError("LocalOutlierFactor requires scikit-learn")
+
+    class EllipticEnvelope:  # type: ignore[no-redef]
+        """Stub for sklearn.covariance.EllipticEnvelope — records 'unavailable' for this baseline."""
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
+            raise NotImplementedError("EllipticEnvelope requires scikit-learn")
+        def predict(self, X: np.ndarray) -> np.ndarray:
+            raise NotImplementedError("EllipticEnvelope requires scikit-learn")
+        def decision_function(self, X: np.ndarray) -> np.ndarray:
+            raise NotImplementedError("EllipticEnvelope requires scikit-learn")
 
     harness = RigorousBenchmarkHarness(n_folds=n_folds, seed=seed)
     results = {}

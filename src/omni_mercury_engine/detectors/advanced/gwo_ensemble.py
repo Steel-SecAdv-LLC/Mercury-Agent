@@ -216,14 +216,6 @@ class GWOEnsembleDetector:
     to maximize detection performance on validation data.
 
     Example:
-        >>> from sklearn.ensemble import IsolationForest
-        >>> from sklearn.neighbors import LocalOutlierFactor
-        >>>
-        >>> detectors = [
-        ...     IsolationForest(contamination=0.1),
-        ...     LocalOutlierFactor(novelty=True),
-        ... ]
-        >>>
         >>> ensemble = GWOEnsembleDetector(detectors)
         >>> ensemble.fit(X_train, y_val)  # y_val for weight optimization
         >>> scores = ensemble.predict(X_test)

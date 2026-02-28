@@ -29,9 +29,8 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
 warnings.warn(
-    f"{__name__} uses sklearn for concept drift evaluation. "
-    "This module is scheduled for Mercury-native replacement. "
-    "PENDING: GitHub issue for concept_drift_evaluation sklearn replacement — requires PAT with repo write scope.",
+    f"{__name__} previously required sklearn for concept drift evaluation. "
+    "Now uses Mercury-native implementations.",
     DeprecationWarning,
     stacklevel=2,
 )
@@ -943,11 +942,10 @@ class ConceptDriftEvaluator:
             # Clone or reuse model
             if clone_model:
                 try:
-                    from sklearn.base import clone
+                    from omni_mercury_engine.ml._native_utils import native_clone
 
-                    current_model = clone(model)
+                    current_model = native_clone(model)
                 except (ImportError, TypeError):
-                    # If sklearn not available or model not clonable, use original
                     current_model = model
 
             # Train
@@ -980,18 +978,13 @@ class ConceptDriftEvaluator:
             inference_time = time.time() - inference_start
 
             # Calculate metrics
-            try:
-                from sklearn.metrics import (
-                    accuracy_score,
-                    f1_score,
-                    precision_score,
-                    recall_score,
-                    roc_auc_score,
-                )
-            except ImportError as e:
-                raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-                ) from e
+            from omni_mercury_engine.ml._native_utils import (
+                native_accuracy_score as accuracy_score,
+                native_f1_score as f1_score,
+                native_precision_score as precision_score,
+                native_recall_score as recall_score,
+                native_roc_auc_score as roc_auc_score,
+            )
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
