@@ -460,6 +460,7 @@ class NanoSafeguardDetector(BaseDetector):
 
             micro_rate = micro_anomaly_count / total_elements
 
+            assert pca.explained_variance_ratio_ is not None
             explained_variance = np.sum(pca.explained_variance_ratio_)
             unexplained_score = 1.0 - explained_variance
 

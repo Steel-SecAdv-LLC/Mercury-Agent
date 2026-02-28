@@ -1379,8 +1379,8 @@ class FewShotLearner:
             all_true.extend(episode.query_y.tolist())
 
         # Aggregate metrics
-        all_preds = np.array(all_preds)  # type: ignore[assignment, unused-ignore]
-        all_true = np.array(all_true)  # type: ignore[assignment, unused-ignore]
+        all_preds_arr = np.array(all_preds)
+        all_true_arr = np.array(all_true)
 
         # Handle binary classification
         avg_precision = 0.0
@@ -1395,10 +1395,10 @@ class FewShotLearner:
             )
 
             avg_precision = precision_score(
-                all_true, all_preds, average="weighted", zero_division=0
+                all_true_arr, all_preds_arr, average="weighted", zero_division=0
             )
-            avg_recall = recall_score(all_true, all_preds, average="weighted", zero_division=0)
-            avg_f1 = f1_score(all_true, all_preds, average="weighted", zero_division=0)
+            avg_recall = recall_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
+            avg_f1 = f1_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
         except ImportError:
             pass
 
