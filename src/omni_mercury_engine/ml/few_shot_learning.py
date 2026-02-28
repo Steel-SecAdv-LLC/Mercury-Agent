@@ -1397,7 +1397,9 @@ class FewShotLearner:
             avg_precision = precision_score(
                 all_true_arr, all_preds_arr, average="weighted", zero_division=0
             )
-            avg_recall = recall_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
+            avg_recall = recall_score(
+                all_true_arr, all_preds_arr, average="weighted", zero_division=0
+            )
             avg_f1 = f1_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
         except ImportError:
             pass
