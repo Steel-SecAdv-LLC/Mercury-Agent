@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import copy
 import logging
+from collections.abc import Iterator
 from typing import Any
 
 import numpy as np
@@ -40,7 +41,7 @@ def native_roc_auc_score(y_true: np.ndarray, y_score: np.ndarray) -> float:
     fps = np.concatenate([[0], fps])
     fpr = fps / fps[-1] if fps[-1] > 0 else fps
     tpr = tps / tps[-1] if tps[-1] > 0 else tps
-    _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    _trapz: Any = getattr(np, "trapezoid", getattr(np, "trapz", None))
     return float(_trapz(tpr, fpr))
 
 
@@ -223,9 +224,15 @@ class NativeKFold:
     def __init__(self, n_splits: int = 5, shuffle: bool = False, random_state: int | None = None):
         self.n_splits = n_splits
         self.shuffle = shuffle
-        self.rng = np.random.RandomState(random_state) if random_state is not None else np.random.RandomState()
+        self.rng = (
+            np.random.RandomState(random_state)
+            if random_state is not None
+            else np.random.RandomState()
+        )
 
-    def split(self, X: np.ndarray, y: np.ndarray | None = None):
+    def split(
+        self, X: np.ndarray, y: np.ndarray | None = None
+    ) -> "Iterator[tuple[np.ndarray, np.ndarray]]":
         n = len(X)
         indices = np.arange(n)
         if self.shuffle:
@@ -248,7 +255,7 @@ class NativeStratifiedKFold:
         self.shuffle = shuffle
         self.rng = np.random.RandomState(random_state)
 
-    def split(self, X: np.ndarray, y: np.ndarray):
+    def split(self, X: np.ndarray, y: np.ndarray) -> "Iterator[tuple[np.ndarray, np.ndarray]]":
         classes = np.unique(y)
         class_indices = {c: np.where(y == c)[0] for c in classes}
         if self.shuffle:
@@ -261,7 +268,9 @@ class NativeStratifiedKFold:
                 folds[i % self.n_splits].append(ix)
         for fold_idx in range(self.n_splits):
             test = np.array(folds[fold_idx])
-            train = np.concatenate([np.array(folds[j]) for j in range(self.n_splits) if j != fold_idx])
+            train = np.concatenate(
+                [np.array(folds[j]) for j in range(self.n_splits) if j != fold_idx]
+            )
             yield train, test
 
     def get_n_splits(self) -> int:
@@ -325,7 +334,7 @@ class NativeLogisticRegression:
         self.solver = solver  # accepted for sklearn API compat
         self.rng = np.random.RandomState(random_state)
         self.coef_: np.ndarray | None = None
-        self.intercept_: float = 0.0
+        self.intercept_: np.ndarray = np.array([0.0])
         self.classes_: np.ndarray | None = None
 
     def _sigmoid(self, z: np.ndarray) -> np.ndarray:
@@ -346,7 +355,7 @@ class NativeLogisticRegression:
             pred = self._sigmoid(z)
             error = pred - y
             grad_w = (X.T @ error) / n + reg * w
-            grad_b = np.mean(error)
+            grad_b = float(np.mean(error))
             w -= self.lr * grad_w
             b -= self.lr * grad_b
             if np.linalg.norm(grad_w) < self.tol:
@@ -361,7 +370,7 @@ class NativeLogisticRegression:
         return self.coef_.ravel()
 
     def _b(self) -> float:
-        return float(self.intercept_[0]) if isinstance(self.intercept_, np.ndarray) else float(self.intercept_)
+        return float(self.intercept_[0])
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         proba = self.predict_proba(X)
@@ -408,7 +417,9 @@ class NativeSGDClassifier:
         z = np.clip(z, -500, 500)
         return 1.0 / (1.0 + np.exp(-z))
 
-    def partial_fit(self, X: np.ndarray, y: np.ndarray, classes: np.ndarray | None = None) -> "NativeSGDClassifier":
+    def partial_fit(
+        self, X: np.ndarray, y: np.ndarray, classes: np.ndarray | None = None
+    ) -> "NativeSGDClassifier":
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64).ravel()
         if self.coef_ is None:
@@ -431,7 +442,7 @@ class NativeSGDClassifier:
                 grad_w += self.alpha * np.sign(self.coef_)
 
             self.coef_ -= self.eta0 * grad_w
-            self.intercept_ -= self.eta0 * np.mean(error)
+            self.intercept_ -= self.eta0 * float(np.mean(error))
 
         self._fitted = True
         return self
@@ -480,7 +491,9 @@ class NativePassiveAggressiveClassifier:
         self.coef_: np.ndarray | None = None
         self.intercept_: float = 0.0
 
-    def partial_fit(self, X: np.ndarray, y: np.ndarray, classes: np.ndarray | None = None) -> "NativePassiveAggressiveClassifier":
+    def partial_fit(
+        self, X: np.ndarray, y: np.ndarray, classes: np.ndarray | None = None
+    ) -> "NativePassiveAggressiveClassifier":
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64).ravel()
         # Convert {0,1} to {-1,+1}
@@ -550,7 +563,9 @@ class NativeGradientBoostingClassifier:
             prob = 1.0 / (1.0 + np.exp(-np.clip(F, -500, 500)))
             residuals = y - prob
             # Find best stump
-            best_feature, best_threshold, best_left, best_right = self._find_best_stump(X, residuals)
+            best_feature, best_threshold, best_left, best_right = self._find_best_stump(
+                X, residuals
+            )
             self.stumps.append((best_feature, best_threshold, best_left, best_right))
             mask = X[:, best_feature] <= best_threshold
             F[mask] += self.learning_rate * best_left
@@ -632,7 +647,9 @@ class NativePCA:
 class NativeKMeans:
     """K-means clustering (Lloyd's algorithm)."""
 
-    def __init__(self, n_clusters: int = 8, max_iter: int = 300, random_state: int = 42, n_init: int = 3):
+    def __init__(
+        self, n_clusters: int = 8, max_iter: int = 300, random_state: int = 42, n_init: int = 3
+    ):
         self.n_clusters = n_clusters
         self.max_iter = max_iter
         self.n_init = n_init
@@ -648,14 +665,18 @@ class NativeKMeans:
             for _ in range(self.max_iter):
                 dists = np.linalg.norm(X[:, None, :] - centers[None, :, :], axis=2)
                 labels = np.argmin(dists, axis=1)
-                new_centers = np.array([
-                    X[labels == k].mean(axis=0) if np.any(labels == k) else centers[k]
-                    for k in range(self.n_clusters)
-                ])
+                new_centers = np.array(
+                    [
+                        X[labels == k].mean(axis=0) if np.any(labels == k) else centers[k]
+                        for k in range(self.n_clusters)
+                    ]
+                )
                 if np.allclose(centers, new_centers):
                     break
                 centers = new_centers
-            inertia = sum(np.sum((X[labels == k] - centers[k]) ** 2) for k in range(self.n_clusters))
+            inertia = sum(
+                np.sum((X[labels == k] - centers[k]) ** 2) for k in range(self.n_clusters)
+            )
             if inertia < best_inertia:
                 best_inertia = inertia
                 self.cluster_centers_ = centers.copy()
@@ -708,6 +729,9 @@ class NativeGaussianMixture:
         return self
 
     def _compute_responsibilities(self, X: np.ndarray) -> np.ndarray:
+        assert (
+            self.means_ is not None and self.covariances_ is not None and self.weights_ is not None
+        )
         n = len(X)
         log_resp = np.zeros((n, self.n_components))
         for k in range(self.n_components):
@@ -738,6 +762,9 @@ class NativeGaussianMixture:
 
     def score_samples(self, X: np.ndarray) -> np.ndarray:
         """Log-likelihood per sample."""
+        assert (
+            self.means_ is not None and self.covariances_ is not None and self.weights_ is not None
+        )
         X = np.asarray(X, dtype=np.float64)
         n = len(X)
         log_probs = np.zeros((n, self.n_components))
@@ -745,13 +772,19 @@ class NativeGaussianMixture:
             log_probs[:, k] = self._log_gaussian(X, self.means_[k], self.covariances_[k])
             log_probs[:, k] += np.log(self.weights_[k] + 1e-12)
         max_log = log_probs.max(axis=1, keepdims=True)
-        return (max_log.ravel() + np.log(np.sum(np.exp(log_probs - max_log), axis=1)))
+        return max_log.ravel() + np.log(np.sum(np.exp(log_probs - max_log), axis=1))
 
 
 class NativeIsotonicRegression:
     """Isotonic regression via pool-adjacent-violators algorithm."""
 
-    def __init__(self, out_of_bounds: str = "clip", y_min: float | None = None, y_max: float | None = None, **kwargs: Any):
+    def __init__(
+        self,
+        out_of_bounds: str = "clip",
+        y_min: float | None = None,
+        y_max: float | None = None,
+        **kwargs: Any,
+    ):
         self.out_of_bounds = out_of_bounds
         self.y_min = y_min
         self.y_max = y_max
@@ -815,7 +848,9 @@ class NativeNearestNeighbors:
         self._data = np.asarray(X, dtype=np.float64)
         return self
 
-    def kneighbors(self, X: np.ndarray, n_neighbors: int | None = None) -> tuple[np.ndarray, np.ndarray]:
+    def kneighbors(
+        self, X: np.ndarray, n_neighbors: int | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         assert self._data is not None
         X = np.asarray(X, dtype=np.float64)
         k = n_neighbors or self.n_neighbors

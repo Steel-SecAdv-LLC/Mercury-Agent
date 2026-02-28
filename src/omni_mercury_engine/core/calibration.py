@@ -138,7 +138,9 @@ class PlattScaling:
             max_iter: Maximum iterations for convergence
         """
         try:
-            from omni_mercury_engine.ml._native_utils import NativeLogisticRegression as LogisticRegression
+            from omni_mercury_engine.ml._native_utils import (
+                NativeLogisticRegression as LogisticRegression,
+            )
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -216,7 +218,9 @@ class IsotonicCalibration:
             out_of_bounds: How to handle out-of-bounds values ("clip", "nan")
         """
         try:
-            from omni_mercury_engine.ml._native_utils import NativeIsotonicRegression as IsotonicRegression
+            from omni_mercury_engine.ml._native_utils import (
+                NativeIsotonicRegression as IsotonicRegression,
+            )
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -413,7 +417,9 @@ class CalibrationEnsemble:
             calibrated = calibrator.calibrate(y_prob_val)
 
             try:
-                from omni_mercury_engine.ml._native_utils import native_brier_score_loss as brier_score_loss
+                from omni_mercury_engine.ml._native_utils import (
+                    native_brier_score_loss as brier_score_loss,
+                )
             except ImportError as e:
                 raise ImportError(
                     "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -473,7 +479,9 @@ def evaluate_calibration(
         CalibrationResult with before/after metrics
     """
     try:
-        from omni_mercury_engine.ml._native_utils import native_calibration_curve as calibration_curve
+        from omni_mercury_engine.ml._native_utils import (
+            native_calibration_curve as calibration_curve,
+        )
         from omni_mercury_engine.ml._native_utils import native_brier_score_loss as brier_score_loss
     except ImportError as e:
         raise ImportError(

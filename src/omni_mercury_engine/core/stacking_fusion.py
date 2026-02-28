@@ -100,7 +100,9 @@ class StackingFusion:
         """
         if meta_learner is None:
             try:
-                from omni_mercury_engine.ml._native_utils import NativeLogisticRegression as LogisticRegression
+                from omni_mercury_engine.ml._native_utils import (
+                    NativeLogisticRegression as LogisticRegression,
+                )
             except ImportError as e:
                 raise ImportError(
                     "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -158,7 +160,9 @@ class StackingFusion:
 
         # Import sklearn functions needed for cross-validation
         try:
-            from omni_mercury_engine.ml._native_utils import native_cross_val_predict as cross_val_predict
+            from omni_mercury_engine.ml._native_utils import (
+                native_cross_val_predict as cross_val_predict,
+            )
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"

@@ -308,7 +308,11 @@ class MetricsCalculator:
         y_pred_adjusted = self._point_adjust(y_true, y_pred)
         if np.sum(y_pred_adjusted) > 0:
             try:
-                from omni_mercury_engine.ml._native_utils import native_f1_score as f1_score, native_precision_score as precision_score, native_recall_score as recall_score
+                from omni_mercury_engine.ml._native_utils import (
+                    native_f1_score as f1_score,
+                    native_precision_score as precision_score,
+                    native_recall_score as recall_score,
+                )
             except ImportError as e:
                 raise ImportError(
                     "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -355,7 +359,9 @@ class MetricsCalculator:
     ) -> None:
         """Compute calibration metrics."""
         try:
-            from omni_mercury_engine.ml._native_utils import native_brier_score_loss as brier_score_loss
+            from omni_mercury_engine.ml._native_utils import (
+                native_brier_score_loss as brier_score_loss,
+            )
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"

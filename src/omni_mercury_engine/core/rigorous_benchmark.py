@@ -409,7 +409,9 @@ class RigorousBenchmarkHarness:
                 native_recall_score as recall_score,
                 native_roc_auc_score as roc_auc_score,
             )
-            from omni_mercury_engine.ml._native_utils import NativeStratifiedKFold as StratifiedKFold
+            from omni_mercury_engine.ml._native_utils import (
+                NativeStratifiedKFold as StratifiedKFold,
+            )
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -615,34 +617,46 @@ def run_baseline_benchmarks(
     # Stub classes for sklearn anomaly detection baselines (not available without sklearn)
     class OneClassSVM:  # type: ignore[no-redef]
         """Stub for sklearn.svm.OneClassSVM — records 'unavailable' for this baseline."""
+
         def __init__(self, **kwargs: Any) -> None:
             pass
+
         def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             raise NotImplementedError("OneClassSVM requires scikit-learn")
+
         def predict(self, X: np.ndarray) -> np.ndarray:
             raise NotImplementedError("OneClassSVM requires scikit-learn")
+
         def decision_function(self, X: np.ndarray) -> np.ndarray:
             raise NotImplementedError("OneClassSVM requires scikit-learn")
 
     class LocalOutlierFactor:  # type: ignore[no-redef]
         """Stub for sklearn.neighbors.LocalOutlierFactor — records 'unavailable' for this baseline."""
+
         def __init__(self, **kwargs: Any) -> None:
             pass
+
         def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             raise NotImplementedError("LocalOutlierFactor requires scikit-learn")
+
         def predict(self, X: np.ndarray) -> np.ndarray:
             raise NotImplementedError("LocalOutlierFactor requires scikit-learn")
+
         def decision_function(self, X: np.ndarray) -> np.ndarray:
             raise NotImplementedError("LocalOutlierFactor requires scikit-learn")
 
     class EllipticEnvelope:  # type: ignore[no-redef]
         """Stub for sklearn.covariance.EllipticEnvelope — records 'unavailable' for this baseline."""
+
         def __init__(self, **kwargs: Any) -> None:
             pass
+
         def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             raise NotImplementedError("EllipticEnvelope requires scikit-learn")
+
         def predict(self, X: np.ndarray) -> np.ndarray:
             raise NotImplementedError("EllipticEnvelope requires scikit-learn")
+
         def decision_function(self, X: np.ndarray) -> np.ndarray:
             raise NotImplementedError("EllipticEnvelope requires scikit-learn")
 
