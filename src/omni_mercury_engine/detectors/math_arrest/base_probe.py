@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Centralized constants
@@ -138,6 +141,92 @@ class BaseEquationProbe(ABC):
         if data.ndim == 2:
             return np.mean(data, axis=1).astype(np.float64)
         return data.astype(np.float64)
+
+    def per_feature_scores(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Compute per-sample anomaly scores via per-feature analysis.
+
+        For multivariate data (n_samples, n_features), scores each feature
+        column independently via ``deviation_score`` and aggregates via
+        max-pooling: score[i] = max over features of column_score[i, j].
+
+        For univariate data or (n_samples, 1), falls back to
+        ``deviation_score`` directly (no overhead).
+
+        For data with n_features > 50, reduces via PCA to 10 components
+        before per-column analysis to keep compute bounded.
+
+        Args:
+            data: Input array of shape (n_samples,) or (n_samples, n_features).
+
+        Returns:
+            1-D array of shape (n_samples,) with scores in [0, 1].
+        """
+        _MAX_FEATURES: int = 50
+        _PCA_COMPONENTS: int = 10
+
+        self._validate_fitted()
+        arr = np.atleast_2d(data)
+        n_samples, n_features = arr.shape
+
+        # Univariate: direct path, no overhead
+        if n_features == 1:
+            result = self.deviation_score(arr)
+            raw_scores = result.deviation_scores
+            if len(raw_scores) < n_samples:
+                logger.warning(
+                    "%s.per_feature_scores: probe returned %d scores, "
+                    "expected %d. Padding with 0.5 (neutral anomaly score).",
+                    self.__class__.__name__,
+                    len(raw_scores),
+                    n_samples,
+                )
+                raw_scores = np.pad(
+                    raw_scores,
+                    (0, n_samples - len(raw_scores)),
+                    mode="constant",
+                    constant_values=0.5,
+                )
+            return np.clip(raw_scores[:n_samples], 0.0, 1.0)
+
+        # High-dimensional: PCA reduction before per-column analysis
+        if n_features > _MAX_FEATURES:
+            k = min(_PCA_COMPONENTS, n_features, n_samples - 1)
+            try:
+                U, s, _Vt = np.linalg.svd(arr - arr.mean(axis=0), full_matrices=False)
+                arr = U[:, :k] * s[:k]  # (n_samples, k) projected data
+                n_features = k
+            except np.linalg.LinAlgError:
+                # SVD failed — fall back to column-mean collapse
+                fallback = self.deviation_score(arr).deviation_scores
+                if len(fallback) < n_samples:
+                    logger.warning(
+                        "%s.per_feature_scores: SVD fallback returned %d scores, "
+                        "expected %d. Padding with 0.5.",
+                        self.__class__.__name__,
+                        len(fallback),
+                        n_samples,
+                    )
+                    fallback = np.pad(
+                        fallback,
+                        (0, n_samples - len(fallback)),
+                        mode="constant",
+                        constant_values=0.5,
+                    )
+                return np.clip(fallback[:n_samples], 0.0, 1.0)
+
+        # Per-feature scoring: each column is a 1D sequence
+        col_scores = np.zeros((n_samples, n_features), dtype=np.float64)
+        for j in range(n_features):
+            col = arr[:, j : j + 1]  # keep 2D shape for deviation_score
+            try:
+                result = self.deviation_score(col)
+                col_score = result.deviation_scores
+                col_scores[: len(col_score), j] = np.clip(col_score, 0.0, 1.0)
+            except Exception:
+                col_scores[:, j] = 0.5  # uncertain on failure
+
+        # Max-pooling: take the worst-case anomaly signal across features
+        return np.max(col_scores, axis=1)
 
     @staticmethod
     def _normalize_scores(

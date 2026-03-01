@@ -31,14 +31,6 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from omni_mercury_engine.detectors.advanced.adversarial_ae import (
-    AdversarialAEConfig,
-    AdversarialAutoencoderDetector,
-)
-from omni_mercury_engine.detectors.advanced.contrastive_detector import (
-    ContrastiveConfig,
-    ContrastiveLearningDetector,
-)
 from omni_mercury_engine.detectors.advanced.copod_detector import (
     COPODConfig,
     COPODDetector,
@@ -46,10 +38,6 @@ from omni_mercury_engine.detectors.advanced.copod_detector import (
 from omni_mercury_engine.detectors.advanced.gwo_ensemble import (
     GWOEnsembleConfig,
     GWOEnsembleDetector,
-)
-from omni_mercury_engine.detectors.advanced.multi_scale_transformer import (
-    MultiScaleTransformerConfig,
-    MultiScaleTransformerDetector,
 )
 from omni_mercury_engine.detectors.advanced.point_adjustment import (
     PointAdjustmentEvaluator,
@@ -59,6 +47,23 @@ from omni_mercury_engine.detectors.advanced.point_adjustment import (
     find_anomaly_segments,
 )
 
+# Torch-dependent detectors — lazy import to avoid hard torch dependency
+try:
+    from omni_mercury_engine.detectors.advanced.adversarial_ae import (
+        AdversarialAEConfig,
+        AdversarialAutoencoderDetector,
+    )
+    from omni_mercury_engine.detectors.advanced.contrastive_detector import (
+        ContrastiveConfig,
+        ContrastiveLearningDetector,
+    )
+    from omni_mercury_engine.detectors.advanced.multi_scale_transformer import (
+        MultiScaleTransformerConfig,
+        MultiScaleTransformerDetector,
+    )
+except ImportError:
+    pass  # torch not installed; classes unavailable
+
 # Type alias for detector types
 DetectorType = Literal["timeseries", "industrial", "contrastive", "copod", "ensemble", "fast"]
 
@@ -67,13 +72,7 @@ def create_detector(
     detector_type: DetectorType,
     input_dim: int = 38,
     **kwargs: Any,
-) -> (
-    MultiScaleTransformerDetector
-    | AdversarialAutoencoderDetector
-    | ContrastiveLearningDetector
-    | COPODDetector
-    | GWOEnsembleDetector
-):
+) -> Any:
     """
     Factory function to create optimized detectors for specific use cases.
 
@@ -97,10 +96,22 @@ def create_detector(
         >>> result = detector.detect(X_test)
     """
     if detector_type == "timeseries":
+        from omni_mercury_engine.detectors.advanced.multi_scale_transformer import (
+            MultiScaleTransformerDetector,
+        )
+
         return MultiScaleTransformerDetector(input_dim=input_dim, **kwargs)
     elif detector_type == "industrial":
+        from omni_mercury_engine.detectors.advanced.adversarial_ae import (
+            AdversarialAutoencoderDetector,
+        )
+
         return AdversarialAutoencoderDetector(input_dim=input_dim, **kwargs)
     elif detector_type == "contrastive":
+        from omni_mercury_engine.detectors.advanced.contrastive_detector import (
+            ContrastiveLearningDetector,
+        )
+
         return ContrastiveLearningDetector(input_dim=input_dim, **kwargs)
     elif detector_type in ("copod", "fast"):
         return COPODDetector(**kwargs)

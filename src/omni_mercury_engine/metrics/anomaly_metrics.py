@@ -70,14 +70,10 @@ def compute_auroc(
         return 0.5
 
     try:
-        from sklearn.metrics import roc_auc_score
+        from omni_mercury_engine.ml._native_utils import native_roc_auc_score
 
-        return float(roc_auc_score(y_true, y_score))
-    except ImportError:
-        # Manual computation
-        return _manual_auroc(y_true, y_score)
-    except ValueError:
-        # sklearn raises ValueError for edge cases; fall back to manual
+        return float(native_roc_auc_score(y_true, y_score))
+    except (ImportError, ValueError):
         return _manual_auroc(y_true, y_score)
 
 
@@ -118,11 +114,10 @@ def compute_auprc(
     y_score = _to_numpy(y_score).flatten()
 
     try:
-        from sklearn.metrics import average_precision_score
+        from omni_mercury_engine.ml._native_utils import native_average_precision_score
 
-        return float(average_precision_score(y_true, y_score))
+        return float(native_average_precision_score(y_true, y_score))
     except ImportError:
-        # Manual computation
         return _manual_auprc(y_true, y_score)
 
 

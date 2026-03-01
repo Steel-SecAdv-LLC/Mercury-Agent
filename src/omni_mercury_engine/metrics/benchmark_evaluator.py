@@ -32,9 +32,15 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 
 from omni_mercury_engine.metrics.anomaly_metrics import AnomalyMetrics
+
+try:
+    import torch
+
+    _TORCH_AVAILABLE = True
+except ImportError:
+    _TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +176,7 @@ class BenchmarkEvaluator:
                 score = result.get("scores", result.get("score", 0.0))
                 if isinstance(score, np.ndarray):
                     score = score.mean()
-                elif isinstance(score, torch.Tensor):
+                elif _TORCH_AVAILABLE and isinstance(score, torch.Tensor):
                     score = score.mean().item()
 
                 all_scores.append(float(score))

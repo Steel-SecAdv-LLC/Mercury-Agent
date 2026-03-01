@@ -27,6 +27,7 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from omni_mercury_engine.cli import main
@@ -64,6 +65,8 @@ def test_detect_with_json_input():
 
     try:
         result = runner.invoke(main, ["detect", "--input", data_file, "--detector", "temporal"])
+        if result.exception and "PyTorch" in str(result.exception):
+            pytest.skip("detect CLI requires PyTorch for temporal detector")
         assert result.exit_code == 0 or "error" in result.output.lower()
     finally:
         Path(data_file).unlink()
@@ -85,6 +88,8 @@ def test_detect_with_output_file():
             main,
             ["detect", "--input", data_file, "--detector", "statistical", "--output", output_file],
         )
+        if result.exception and "PyTorch" in str(result.exception):
+            pytest.skip("detect CLI requires PyTorch for engine init")
         assert result.exit_code == 0 or "error" in result.output.lower()
     finally:
         Path(data_file).unlink()

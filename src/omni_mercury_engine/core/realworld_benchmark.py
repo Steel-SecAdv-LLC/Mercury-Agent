@@ -514,15 +514,15 @@ class RealWorldBenchmarkRunner:
         )
 
         # Stratified K-fold
-        from sklearn.metrics import (
-            average_precision_score,
-            brier_score_loss,
-            f1_score,
-            precision_score,
-            recall_score,
-            roc_auc_score,
+        from omni_mercury_engine.ml._native_utils import (
+            NativeStratifiedKFold as StratifiedKFold,
+            native_average_precision_score as average_precision_score,
+            native_brier_score_loss as brier_score_loss,
+            native_f1_score as f1_score,
+            native_precision_score as precision_score,
+            native_recall_score as recall_score,
+            native_roc_auc_score as roc_auc_score,
         )
-        from sklearn.model_selection import StratifiedKFold
 
         skf = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)
 
@@ -607,16 +607,16 @@ class RealWorldBenchmarkRunner:
 
         # Aggregate results
         metrics = BenchmarkMetrics(
-            roc_auc=np.mean([f["roc_auc"] for f in fold_results]),
-            pr_auc=np.mean([f["pr_auc"] for f in fold_results]),
-            f1=np.mean([f["f1"] for f in fold_results]),
-            precision=np.mean([f["precision"] for f in fold_results]),
-            recall=np.mean([f["recall"] for f in fold_results]),
-            brier_score=np.mean([f["brier_score"] for f in fold_results]),
-            event_f1=np.mean([f["event_f1"] for f in fold_results]),
-            time_to_detection=np.mean([f["time_to_detection"] for f in fold_results]),
-            fit_time_ms=np.mean([f["fit_time_ms"] for f in fold_results]),
-            predict_time_ms=np.mean([f["predict_time_ms"] for f in fold_results]),
+            roc_auc=float(np.mean([f["roc_auc"] for f in fold_results])),
+            pr_auc=float(np.mean([f["pr_auc"] for f in fold_results])),
+            f1=float(np.mean([f["f1"] for f in fold_results])),
+            precision=float(np.mean([f["precision"] for f in fold_results])),
+            recall=float(np.mean([f["recall"] for f in fold_results])),
+            brier_score=float(np.mean([f["brier_score"] for f in fold_results])),
+            event_f1=float(np.mean([f["event_f1"] for f in fold_results])),
+            time_to_detection=float(np.mean([f["time_to_detection"] for f in fold_results])),
+            fit_time_ms=float(np.mean([f["fit_time_ms"] for f in fold_results])),
+            predict_time_ms=float(np.mean([f["predict_time_ms"] for f in fold_results])),
         )
 
         # Compute confidence intervals

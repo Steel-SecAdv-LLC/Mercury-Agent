@@ -26,7 +26,16 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import warnings
 from abc import ABC, abstractmethod
+
+warnings.warn(
+    f"{__name__} previously required sklearn for online learning. "
+    "Now uses Mercury-native implementations.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from collections import deque
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -296,9 +305,9 @@ class SGDOnlineLearner(OnlineLearner):
             warm_start: Reuse weights from previous fit
         """
         try:
-            from sklearn.linear_model import SGDClassifier
+            from omni_mercury_engine.ml._native_utils import NativeSGDClassifier
 
-            self.model = SGDClassifier(
+            self.model = NativeSGDClassifier(
                 loss=loss,
                 penalty=penalty,
                 alpha=alpha,
@@ -310,7 +319,7 @@ class SGDOnlineLearner(OnlineLearner):
                 random_state=42,
             )
         except ImportError:
-            raise RuntimeError("sklearn required for SGDOnlineLearner")
+            raise RuntimeError("_native_utils required for SGDOnlineLearner")
 
         self._fitted = False
         self._classes = np.array([0, 1])
@@ -358,9 +367,9 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
             fit_intercept: Whether to fit intercept
         """
         try:
-            from sklearn.linear_model import PassiveAggressiveClassifier
+            from omni_mercury_engine.ml._native_utils import NativePassiveAggressiveClassifier
 
-            self.model = PassiveAggressiveClassifier(
+            self.model = NativePassiveAggressiveClassifier(
                 C=C,
                 fit_intercept=fit_intercept,
                 warm_start=True,
@@ -369,7 +378,7 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
                 random_state=42,
             )
         except ImportError:
-            raise RuntimeError("sklearn required for PassiveAggressiveOnlineLearner")
+            raise RuntimeError("_native_utils required for PassiveAggressiveOnlineLearner")
 
         self._fitted = False
         self._classes = np.array([0, 1])

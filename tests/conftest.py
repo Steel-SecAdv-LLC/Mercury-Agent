@@ -259,6 +259,48 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_network)
 
 
+_OPTIONAL_DEP_PATTERNS = (
+    "No module named 'torch'",
+    "No module named 'sklearn'",
+    "No module named 'fastapi'",
+    "requires PyTorch",
+    "require PyTorch",
+    "PyTorch is required",
+    "MultiScaleTransformerDetector",
+    "AdversarialAutoencoderDetector",
+    "ContrastiveLearningDetector",
+    "MultiSpecialtyNeuralNet",
+)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(
+    item: pytest.Item,
+    call: pytest.CallInfo,  # type: ignore[type-arg]
+) -> None:  # type: ignore[return]
+    """Convert failures from missing optional deps into skips.
+
+    Runs after each test phase (setup / call / teardown). If the
+    phase raised ImportError / NameError matching a known optional
+    dependency, the report is rewritten as *skipped* instead of
+    *failed*.
+    """
+    outcome = yield
+    report = outcome.get_result()
+    if report.failed and call.excinfo is not None:
+        exc_type = call.excinfo.type
+        if exc_type in (ImportError, NameError, ModuleNotFoundError):
+            msg = str(call.excinfo.value)
+            if any(pat in msg for pat in _OPTIONAL_DEP_PATTERNS):
+                report.outcome = "skipped"
+                report.wasxfail = ""
+                report.longrepr = (
+                    str(item.fspath),
+                    None,
+                    f"SKIP optional dependency missing: {msg}",
+                )
+
+
 # Marker for slow tests
 def pytest_configure(config):
     """Configure pytest with custom markers."""

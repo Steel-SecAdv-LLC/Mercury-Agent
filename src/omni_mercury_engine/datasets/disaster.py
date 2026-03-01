@@ -625,7 +625,15 @@ class FEMAHazardMitigationLoader(DatasetLoader):
             rows.append(row)
 
         features = np.array(rows, dtype=np.float32)
-        labels = (features[:, 0] > 500000).astype(np.int64)
+        # Anomaly: projects with unusually high cost (top 5th percentile) AND
+        # non-standard project type (type code not in the three most common).
+        # This reflects genuine outliers in the mitigation project dataset,
+        # not just "expensive" projects which may be routine large-scale work.
+        cost_threshold = float(np.percentile(features[:, 0], 95))
+        type_codes = features[:, 2].astype(int).clip(0, 1000)
+        top_types = np.argsort(np.bincount(type_codes, minlength=1))[-3:]
+        type_is_rare = ~np.isin(type_codes, top_types)
+        labels = ((features[:, 0] > cost_threshold) & type_is_rare).astype(np.int64)
         return features, labels
 
     def _create_synthetic_mitigation(self) -> bool:
@@ -665,15 +673,18 @@ class FEMAHazardMitigationLoader(DatasetLoader):
             ]
             features.append(feature_vec)
 
-            # Label high-value projects
-            is_major = project_amount > 500000
-            labels.append(1 if is_major else 0)
+            labels.append(0)  # placeholder, re-labeled below
 
-        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
-        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
+        feat_arr = np.array(features, dtype=np.float32)
+        # Consistent labeling: top 5th percentile cost AND rare project type
+        cost_threshold = float(np.percentile(feat_arr[:, 0], 95))
+        type_codes = feat_arr[:, 4].astype(int).clip(0, 1000)
+        top_types = np.argsort(np.bincount(type_codes, minlength=1))[-3:]
+        type_is_rare = ~np.isin(type_codes, top_types)
+        labels_arr = ((feat_arr[:, 0] > cost_threshold) & type_is_rare).astype(np.int64)
 
         save_path = self.data_path / "synthetic_hazard_mitigation.npz"
-        np.savez_compressed(save_path, features=features, labels=labels)
+        np.savez_compressed(save_path, features=feat_arr, labels=labels_arr)
 
         logger.info(f"Generated {n_samples} synthetic mitigation projects")
         return True

@@ -398,6 +398,16 @@ class NOAABuoyLoader(DatasetLoader):
         zscore_anomaly = np.nanmax(z_scores, axis=1) > self.anomaly_std
         labels = (zscore_anomaly | iqr_anomaly | roc_anomaly).astype(np.int64)
 
+        # Enforce anomaly ratio [5%, 20%] — tighten if too many anomalies
+        anomaly_ratio = float(labels.mean())
+        if anomaly_ratio > 0.20:
+            logger.warning(
+                "Ocean: anomaly ratio %.1f%% > 20%%. " "Tightening z-score threshold.",
+                anomaly_ratio * 100,
+            )
+            zscore_anomaly = np.nanmax(z_scores, axis=1) > (self.anomaly_std + 1.0)
+            labels = (zscore_anomaly | iqr_anomaly | roc_anomaly).astype(np.int64)
+
         # Log anomaly statistics
         logger.info(
             f"Anomaly detection: {labels.sum()} anomalies found ({labels.mean():.1%} of data). "
@@ -470,6 +480,10 @@ class NOAABuoyLoader(DatasetLoader):
         # Label based on z-scores
         z_scores = np.abs((features - features.mean(axis=0)) / (features.std(axis=0) + 1e-8))
         labels = (z_scores.max(axis=1) > self.anomaly_std).astype(np.int64)
+
+        # Enforce anomaly ratio <= 20% on synthetic data
+        if float(labels.mean()) > 0.20:
+            labels = (z_scores.max(axis=1) > (self.anomaly_std + 1.0)).astype(np.int64)
 
         self._features = features.astype(np.float32)
         self._labels = labels

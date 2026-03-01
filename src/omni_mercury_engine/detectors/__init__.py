@@ -70,9 +70,9 @@ _LAZY_IMPORTS: dict[str, tuple[str, ...]] = {
         "create_spectral_detector",
         "create_uiux_detector",
     ),
-    "omni_mercury_engine.detectors.spectral_domain_oracle": (
-        "SpectralDomainOracle",
-        "SpectralDomainOracleConfig",
+    "omni_mercury_engine.detectors.spectral_domain_sound": (
+        "SpectralDomainSound",
+        "SpectralDomainSoundConfig",
         "FrequencyDomainOracle",
         "FrequencyDomainOracleConfig",
         "FrequencyInfluenceVector",
@@ -165,8 +165,8 @@ __all__ = [
     "SigmaDirectiveDetector",
     "SpatialAnomalyDetector",
     "SpectralAnalysisMode",
-    "SpectralDomainOracle",
-    "SpectralDomainOracleConfig",
+    "SpectralDomainSound",
+    "SpectralDomainSoundConfig",
     "SpectralVibrationDetector",
     "StatisticalAnomalyDetector",
     "TemporalAnomalyDetector",

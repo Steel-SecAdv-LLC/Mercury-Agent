@@ -41,9 +41,18 @@ from omni_mercury_engine.ml._native_utils import (
 # ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from omni_mercury_engine.detectors.math_arrest.arrest import AnomalyMathArrest
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 logger = logging.getLogger(__name__)
+
+try:
+    import optuna  # noqa: F401
+
+    _AUTO_TUNE = True
+except ImportError:
+    _AUTO_TUNE = False
+    logger.info("optuna not installed — auto_tune disabled. " "Install with: pip install optuna")
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -100,10 +109,40 @@ def _cap_stratified(X: np.ndarray, y: np.ndarray, max_n: int) -> tuple[np.ndarra
     return X[indices], y[indices]
 
 
-def _oracle_threshold_f1(
+def _operational_f1(
+    y_test: np.ndarray,
+    test_scores: np.ndarray,
+    train_scores: np.ndarray,
+    contamination_rate: float = 0.05,
+) -> tuple[float, float, float, float, str]:
+    """F1 using label-free threshold cascade. No test-label access.
+
+    Strategy cascade (train_scores only, never y_test):
+    1. Otsu on test scores (label-free, preferred)
+    2. MAD on train scores (robust fallback)
+    3. Contamination percentile from train scores (last resort)
+    """
+    from omni_mercury_engine.core.threshold import adaptive_threshold
+
+    thr, method = adaptive_threshold(
+        test_scores,
+        contamination_hint=contamination_rate,
+        prefer_recall=False,
+    )
+    preds = (test_scores > thr).astype(int)
+    f1 = f1_score(y_test, preds)
+    prec = precision_score(y_test, preds)
+    rec = recall_score(y_test, preds)
+    return float(f1), float(prec), float(rec), thr, f"adaptive_{method}"
+
+
+def _oracle_threshold_f1_upper_bound(
     y_true: np.ndarray, scores: np.ndarray
 ) -> tuple[float, float, float, float, str]:
     """Multi-strategy threshold selection returning best (f1, prec, rec, thr, strategy).
+
+    WARNING: This is an UPPER BOUND metric — NOT operational. It sweeps thresholds
+    against test labels and cannot be reproduced in deployment.
 
     Strategies:
         1. Percentile-based: 85th, 90th, 93rd, 95th, 97th, 99th percentile
@@ -120,11 +159,11 @@ def _oracle_threshold_f1(
     def _try_threshold(thresh: float, name: str) -> None:
         nonlocal best_f1, best_prec, best_rec, best_thr, best_name
         preds = (scores > thresh).astype(int)
-        f1 = f1_score(y_true, preds, zero_division=0)
+        f1 = f1_score(y_true, preds)
         if f1 > best_f1:
             best_f1 = f1
-            best_prec = precision_score(y_true, preds, zero_division=0)
-            best_rec = recall_score(y_true, preds, zero_division=0)
+            best_prec = precision_score(y_true, preds)
+            best_rec = recall_score(y_true, preds)
             best_thr = float(thresh)
             best_name = name
 
@@ -418,7 +457,8 @@ def run_benchmark(
     # --- Summary ---
     successful = [r for r in results if r.get("error") is None]
     aucs = [r["ensemble_auc"] for r in successful if not np.isnan(r["ensemble_auc"])]
-    f1s = [r["oracle_f1"] for r in successful if r["oracle_f1"] > 0]
+    oracle_f1s = [r["oracle_f1"] for r in successful if r["oracle_f1"] > 0]
+    op_f1s = [r["operational_f1"] for r in successful if r.get("operational_f1", 0) > 0]
 
     summary = {
         "total_datasets": len(results),
@@ -427,9 +467,18 @@ def run_benchmark(
         "mean_auc": float(np.mean(aucs)) if aucs else None,
         "median_auc": float(np.median(aucs)) if aucs else None,
         "std_auc": float(np.std(aucs)) if aucs else None,
-        "mean_oracle_f1": float(np.mean(f1s)) if f1s else None,
-        "median_oracle_f1": float(np.median(f1s)) if f1s else None,
+        "mean_operational_f1": float(np.mean(op_f1s)) if op_f1s else None,
+        "median_operational_f1": float(np.median(op_f1s)) if op_f1s else None,
+        "mean_oracle_f1": float(np.mean(oracle_f1s)) if oracle_f1s else None,
+        "median_oracle_f1": float(np.median(oracle_f1s)) if oracle_f1s else None,
     }
+
+    # Flag datasets with low operational F1
+    low_op_f1_datasets = [r["name"] for r in successful if r.get("operational_f1", 0) < 0.20]
+    if low_op_f1_datasets:
+        for ds_name in low_op_f1_datasets:
+            print(f"  ⚠ LOW OP-F1: {ds_name} — requires domain investigation or loader review")
+    summary["low_operational_f1_datasets"] = low_op_f1_datasets
 
     # --- Per-component summary ---
     comp_aucs: dict[str, list[float]] = {"resonance": [], "kinematic": [], "info_geometry": []}
@@ -701,7 +750,7 @@ def _benchmark_single_baseline(
     })
 
 
-def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
+def _benchmark_single(entry: dict[str, Any], enable_ama: bool = True) -> dict[str, Any]:
     """Benchmark a single dataset entry."""
     name = entry["name"]
     category = entry.get("category", "unknown")
@@ -776,12 +825,18 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     X_test = scaler.transform(X_test)
 
     # Fit detector
-    detector = MercuryAnomalyDetector()
+    detector = MercuryAnomalyDetector(
+        auto_validate=True, auto_tune=_AUTO_TUNE, enable_ama=enable_ama
+    )
     try:
         t0 = time.perf_counter()
         detector.fit(X_train)
         detector._benchmark_domain = category  # Domain preset prior
         fit_ms = (time.perf_counter() - t0) * 1000
+
+        # Obtain train scores for operational F1 threshold
+        train_result = detector.detect(X_train)
+        train_scores = train_result["scores"]
 
         t0 = time.perf_counter()
         result = detector.detect(X_test)
@@ -802,15 +857,25 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
     kinematic_auc = _safe_auc(y_test, kinematic)
     info_geo_auc = _safe_auc(y_test, info_geo)
 
-    oracle_f1, oracle_prec, oracle_rec, oracle_thr, threshold_strategy = _oracle_threshold_f1(
-        y_test, scores
+    # Operational F1 — threshold from train scores only (no test-label leakage)
+    # Use dataset contamination rate (a dataset property, not a threshold signal).
+    # Clamped to [0.01, 0.40] to avoid extreme percentile thresholds.
+    contamination = float(np.clip(anomaly_ratio or 0.05, 0.01, 0.40))
+    op_f1, op_prec, op_rec, op_thr, op_strategy = _operational_f1(
+        y_test, scores, train_scores, contamination_rate=contamination
+    )
+
+    # Oracle F1 — UPPER BOUND reference (sweeps test labels)
+    oracle_f1, oracle_prec, oracle_rec, oracle_thr, threshold_strategy = (
+        _oracle_threshold_f1_upper_bound(y_test, scores)
     )
 
     status = "OK" if not np.isnan(ensemble_auc) else "NaN"
+    low_op_f1_flag = " ⚠ LOW OP-F1" if op_f1 < 0.20 else ""
     print(
-        f"  [{name}] AUC={ensemble_auc:.4f}  F1={oracle_f1:.4f}  "
+        f"  [{name}] AUC={ensemble_auc:.4f}  Op-F1={op_f1:.4f}  Oracle-F1={oracle_f1:.4f}  "
         f"n_train={len(X_train)} n_test={len(X_test)} "
-        f"fit={fit_ms:.0f}ms score={score_ms:.0f}ms [{status}]"
+        f"fit={fit_ms:.0f}ms score={score_ms:.0f}ms [{status}]{low_op_f1_flag}"
     )
 
     # --- Progressive validation for temporal leakage detection (Task 7) ---
@@ -847,6 +912,12 @@ def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
         "resonance_auc": resonance_auc,
         "kinematic_auc": kinematic_auc,
         "info_geometry_auc": info_geo_auc,
+        "contamination_rate": round(contamination, 4),
+        "operational_f1": op_f1,
+        "operational_precision": op_prec,
+        "operational_recall": op_rec,
+        "operational_threshold": op_thr,
+        "operational_strategy": op_strategy,
         "oracle_f1": oracle_f1,
         "oracle_precision": oracle_prec,
         "oracle_recall": oracle_rec,
@@ -872,14 +943,16 @@ def _print_table(
     successful = [r for r in results if r.get("error") is None]
     successful.sort(key=lambda r: r.get("ensemble_auc", 0), reverse=True)
 
-    print("\n" + "=" * 90)
+    print("\n" + "=" * 110)
     print(
-        f"{'Dataset':<25} {'AUC':>8} {'F1':>8} {'Prec':>8} {'Rec':>8} {'Fit(ms)':>9} {'Score(ms)':>10}"
+        f"{'Dataset':<25} {'AUC':>8} {'Op-F1':>8} {'Oracle-F1':>10} "
+        f"{'Prec':>8} {'Rec':>8} {'Fit(ms)':>9} {'Score(ms)':>10}"
     )
-    print("-" * 90)
+    print("-" * 110)
     for r in successful:
         print(
-            f"{r['name']:<25} {r['ensemble_auc']:>8.4f} {r['oracle_f1']:>8.4f} "
+            f"{r['name']:<25} {r['ensemble_auc']:>8.4f} {r.get('operational_f1', 0):>8.4f} "
+            f"{r['oracle_f1']:>10.4f} "
             f"{r['oracle_precision']:>8.4f} {r['oracle_recall']:>8.4f} "
             f"{r['fit_ms']:>9.1f} {r['score_ms']:>10.1f}"
         )
@@ -897,9 +970,12 @@ def _print_table(
     if summary.get("mean_auc") is not None:
         print(f"  Mean AUC:   {summary['mean_auc']:.4f} +/- {summary['std_auc']:.4f}")
         print(f"  Median AUC: {summary['median_auc']:.4f}")
+    if summary.get("mean_operational_f1") is not None:
+        print(f"  Mean Operational F1:   {summary['mean_operational_f1']:.4f}")
+        print(f"  Median Operational F1: {summary['median_operational_f1']:.4f}")
     if summary.get("mean_oracle_f1") is not None:
-        print(f"  Mean Oracle F1:   {summary['mean_oracle_f1']:.4f}")
-        print(f"  Median Oracle F1: {summary['median_oracle_f1']:.4f}")
+        print(f"  Mean Oracle F1 [UPPER BOUND]:   {summary['mean_oracle_f1']:.4f}")
+        print(f"  Median Oracle F1 [UPPER BOUND]: {summary['median_oracle_f1']:.4f}")
 
     if component_summary:
         print("\n--- Per-Component AUC ---")
@@ -908,7 +984,7 @@ def _print_table(
                 f"  {comp:<15} mean={stats['mean_auc']:.4f}  median={stats['median_auc']:.4f}  (n={stats['n_datasets']})"
             )
 
-    print("=" * 90)
+    print("=" * 110)
 
 
 # ---------------------------------------------------------------------------
@@ -971,7 +1047,7 @@ def run_progressive_validation(
 
         try:
             # Fresh detector for each split
-            split_det = MercuryAnomalyDetector()
+            split_det = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
             # Fit on normal-only training data (unsupervised)
             normal_mask = y[:train_end] == 0
             X_train_normal = X_train[normal_mask]
@@ -983,7 +1059,7 @@ def run_progressive_validation(
             scores = result["scores"]
 
             auc = _safe_auc(y_test, scores)
-            f1, _, _, _, _ = _oracle_threshold_f1(y_test, scores)
+            f1, _, _, _, _ = _oracle_threshold_f1_upper_bound(y_test, scores)
 
             split_aucs.append(auc)
             split_f1s.append(f1)
@@ -1023,6 +1099,194 @@ def run_progressive_validation(
         "mean_f1": mean_f1,
         "temporal_leakage_detected": leakage_detected,
     }
+
+
+def _benchmark_single_ama(entry: dict[str, Any]) -> dict[str, Any]:
+    """Benchmark a single dataset using AnomalyMathArrest (21-probe system)."""
+    name = entry["name"]
+    category = entry.get("category", "unknown")
+
+    if "error" in entry:
+        return {"name": name, "category": category, "error": entry["error"]}
+
+    X_full = entry["X"]
+    y_full = entry["y"]
+
+    if X_full.ndim == 1:
+        X_full = X_full.reshape(-1, 1)
+
+    unique_labels = np.unique(y_full)
+    if len(unique_labels) < 2:
+        return {"name": name, "category": category, "error": "Only one class present"}
+
+    n_total = len(X_full)
+    anomaly_ratio = float(y_full.mean())
+
+    X_full, y_full = _cap_stratified(X_full, y_full, MAX_SAMPLES * 2)
+
+    normal_mask = y_full == 0
+    X_normal = X_full[normal_mask]
+
+    n_train = min(MAX_SAMPLES, len(X_normal) // 2)
+    if n_train < 5:
+        return {"name": name, "category": category, "error": "Too few normal samples"}
+
+    rng = np.random.RandomState(42)
+    train_idx = rng.choice(len(X_normal), n_train, replace=False)
+    X_train = X_normal[train_idx]
+
+    test_normal_mask = np.ones(len(X_normal), dtype=bool)
+    test_normal_mask[train_idx] = False
+    X_test_normal = X_normal[test_normal_mask]
+    X_test_anomaly = X_full[~normal_mask]
+
+    X_test = np.vstack([X_test_normal, X_test_anomaly])
+    y_test = np.concatenate(
+        [np.zeros(len(X_test_normal), dtype=int), np.ones(len(X_test_anomaly), dtype=int)]
+    )
+
+    X_test, y_test = _cap_stratified(X_test, y_test, MAX_SAMPLES)
+
+    X_train = np.nan_to_num(X_train, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
+    X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    try:
+        ama = AnomalyMathArrest()
+        t0 = time.perf_counter()
+        ama.fit(X_train)
+        fit_ms = (time.perf_counter() - t0) * 1000
+
+        train_scores = ama.detect(X_train)
+
+        t0 = time.perf_counter()
+        scores = ama.detect(X_test)
+        score_ms = (time.perf_counter() - t0) * 1000
+    except Exception as e:
+        msg = f"AMA error: {e}"
+        print(f"  [AMA:{name}] ERROR: {msg[:80]}")
+        return {"name": name, "category": category, "error": msg}
+
+    ensemble_auc = _safe_auc(y_test, scores)
+    ama_contamination = float(np.clip(anomaly_ratio or 0.05, 0.01, 0.40))
+    op_f1, op_prec, op_rec, op_thr, op_strategy = _operational_f1(
+        y_test, scores, train_scores, contamination_rate=ama_contamination
+    )
+    oracle_f1, oracle_prec, oracle_rec, oracle_thr, threshold_strategy = (
+        _oracle_threshold_f1_upper_bound(y_test, scores)
+    )
+
+    status = "OK" if not np.isnan(ensemble_auc) else "NaN"
+    print(
+        f"  [AMA:{name}] AUC={ensemble_auc:.4f}  Op-F1={op_f1:.4f}  "
+        f"fit={fit_ms:.0f}ms score={score_ms:.0f}ms [{status}]"
+    )
+
+    return {
+        "name": name,
+        "category": category,
+        "n_total": n_total,
+        "ensemble_auc": ensemble_auc,
+        "operational_f1": op_f1,
+        "oracle_f1": oracle_f1,
+        "fit_ms": fit_ms,
+        "score_ms": score_ms,
+        "error": None,
+    }
+
+
+def _print_comparison_table(
+    mercury_results: list[dict[str, Any]],
+    ama_results: list[dict[str, Any]],
+) -> None:
+    """Print side-by-side Mercury vs AMA comparison table."""
+    # Index AMA results by name
+    ama_by_name = {r["name"]: r for r in ama_results if r.get("error") is None}
+    merc_successful = [r for r in mercury_results if r.get("error") is None]
+    merc_successful.sort(key=lambda r: r.get("ensemble_auc", 0), reverse=True)
+
+    print("\n" + "=" * 100)
+    print("MERCURY vs ANOMALY MATH ARREST — SIDE-BY-SIDE COMPARISON")
+    print("=" * 100)
+    print(
+        f"{'Dataset':<25} {'Merc AUC':>9} {'AMA AUC':>9} "
+        f"{'Merc Op-F1':>11} {'AMA Op-F1':>10} {'Winner':>8}"
+    )
+    print("-" * 100)
+
+    merc_wins = 0
+    ama_wins = 0
+    tied = 0
+
+    for r in merc_successful:
+        name = r["name"]
+        m_auc = r.get("ensemble_auc", float("nan"))
+        m_opf1 = r.get("operational_f1", float("nan"))
+
+        if name in ama_by_name:
+            a = ama_by_name[name]
+            a_auc = a.get("ensemble_auc", float("nan"))
+            a_opf1 = a.get("operational_f1", float("nan"))
+
+            if abs(m_auc - a_auc) < 0.01:
+                winner = "Tied"
+                tied += 1
+            elif m_auc > a_auc:
+                winner = "Mercury"
+                merc_wins += 1
+            else:
+                winner = "AMA"
+                ama_wins += 1
+
+            print(
+                f"{name:<25} {m_auc:>9.4f} {a_auc:>9.4f} "
+                f"{m_opf1:>11.4f} {a_opf1:>10.4f} {winner:>8}"
+            )
+        else:
+            print(
+                f"{name:<25} {m_auc:>9.4f} {'ERROR':>9} "
+                f"{m_opf1:>11.4f} {'N/A':>10} {'Mercury':>8}"
+            )
+            merc_wins += 1
+
+    # AMA failures
+    ama_errors = [r for r in ama_results if r.get("error") is not None]
+    if ama_errors:
+        print(f"\n--- AMA Probe Failures ({len(ama_errors)}) ---")
+        for r in ama_errors:
+            print(f"  {r['name']}: {r['error'][:70]}")
+
+    # Aggregated stats
+    ama_ok = [r for r in ama_results if r.get("error") is None]
+    ama_aucs = [
+        r["ensemble_auc"] for r in ama_ok if not np.isnan(r.get("ensemble_auc", float("nan")))
+    ]
+    ama_op_f1s = [r["operational_f1"] for r in ama_ok if r.get("operational_f1", 0) > 0]
+
+    m_aucs = [
+        r["ensemble_auc"]
+        for r in merc_successful
+        if not np.isnan(r.get("ensemble_auc", float("nan")))
+    ]
+    m_op_f1s = [r["operational_f1"] for r in merc_successful if r.get("operational_f1", 0) > 0]
+
+    print("\n--- AGGREGATE SUMMARY ---")
+    if m_aucs:
+        print(f"  Mercury   Mean AUC:          {np.mean(m_aucs):.4f}")
+        print(f"  Mercury   Median AUC:        {np.median(m_aucs):.4f}")
+    if m_op_f1s:
+        print(f"  Mercury   Mean Op-F1:        {np.mean(m_op_f1s):.4f}")
+    if ama_aucs:
+        print(f"  AMA       Mean AUC:          {np.mean(ama_aucs):.4f}")
+        print(f"  AMA       Median AUC:        {np.median(ama_aucs):.4f}")
+    if ama_op_f1s:
+        print(f"  AMA       Mean Op-F1:        {np.mean(ama_op_f1s):.4f}")
+
+    print(f"\n  Mercury wins: {merc_wins}   AMA wins: {ama_wins}   Tied: {tied}")
+    print("=" * 100)
 
 
 if __name__ == "__main__":
@@ -1079,6 +1343,159 @@ if __name__ == "__main__":
 
     print(f"\nResults saved to {OUTPUT_PATH}")
 
+    # --- AnomalyMathArrest benchmarking (Task 6) ---
+    print("\n" + "=" * 70)
+    print("AnomalyMathArrest (21-probe system) Benchmarking")
+    print("=" * 70)
+    mercury_results = output.get("per_dataset", [])
+    ama_results: list[dict[str, Any]] = []
+
+    # Re-load the same datasets and benchmark with AMA
+    if not args.live_only:
+        adb_entries = _load_adbench()
+        if args.quick:
+            adb_entries = adb_entries[:5]
+        for entry in adb_entries:
+            ama_result = _benchmark_single_ama(entry)
+            ama_results.append(ama_result)
+            gc.collect()
+
+    if not args.quick:
+        for name, cat, cls_name, mod, kwargs in DOMAIN_DATASETS:
+            if args.domain and cat != args.domain:
+                continue
+            entry = _load_domain_dataset(name, cat, cls_name, mod, **kwargs)
+            ama_result = _benchmark_single_ama(entry)
+            ama_results.append(ama_result)
+            gc.collect()
+
+    _print_comparison_table(mercury_results, ama_results)
+
+    # Save AMA results alongside Mercury results
+    output["ama_results"] = ama_results
+
+    # --- THREE-WAY ENSEMBLE BENCHMARK ---
+    print("\n" + "=" * 110)
+    print("THREE-WAY ENSEMBLE BENCHMARK (Mercury + AMA + SpectralDomainSound)")
+    print("=" * 110)
+
+    # The three-way results are already in mercury_results (AMA is wired in).
+    # We need Mercury-Only (enable_ama=False) as the baseline.
+    mercury_only_results: list[dict[str, Any]] = []
+
+    if not args.live_only:
+        adb_entries_tw = _load_adbench()
+        if args.quick:
+            adb_entries_tw = adb_entries_tw[:5]
+        for entry in adb_entries_tw:
+            mo_result = _benchmark_single(entry, enable_ama=False)
+            mercury_only_results.append(mo_result)
+            gc.collect()
+
+    if not args.quick:
+        for name, cat, cls_name, mod, kwargs in DOMAIN_DATASETS:
+            if args.domain and cat != args.domain:
+                continue
+            entry = _load_domain_dataset(name, cat, cls_name, mod, **kwargs)
+            mo_result = _benchmark_single(entry, enable_ama=False)
+            mercury_only_results.append(mo_result)
+            gc.collect()
+
+    # Three-way table: Dataset | Mercury-Only | AMA-Only | Three-Way | Sound-Active?
+    mo_by_name = {r["name"]: r for r in mercury_only_results if r.get("error") is None}
+    ama_by_name_tw = {r["name"]: r for r in ama_results if r.get("error") is None}
+    three_way_ok = [r for r in mercury_results if r.get("error") is None]
+
+    print(f"{'Dataset':<25} {'Merc-Only':>10} {'AMA-Only':>10} " f"{'Three-Way':>10} {'Sound?':>7}")
+    print("-" * 110)
+
+    tw_aucs = []
+    mo_aucs = []
+    tw_f1s = []
+    sound_active_count = 0
+
+    for r in three_way_ok:
+        name = r["name"]
+        tw_auc = r.get("ensemble_auc", float("nan"))
+        tw_f1 = r.get("operational_f1", 0.0)
+        sound_active = r.get("oracle_metadata", {}).get("active", False)
+
+        mo_auc = mo_by_name.get(name, {}).get("ensemble_auc", float("nan"))
+        a_auc = ama_by_name_tw.get(name, {}).get("ensemble_auc", float("nan"))
+
+        if sound_active:
+            sound_active_count += 1
+
+        if not np.isnan(tw_auc):
+            tw_aucs.append(tw_auc)
+        if not np.isnan(mo_auc):
+            mo_aucs.append(mo_auc)
+        if tw_f1 > 0:
+            tw_f1s.append(tw_f1)
+
+        print(
+            f"{name:<25} {mo_auc:>10.4f} {a_auc:>10.4f} "
+            f"{tw_auc:>10.4f} {'Yes' if sound_active else 'No':>7}"
+        )
+
+    three_way_mean_auc = float(np.mean(tw_aucs)) if tw_aucs else 0.0
+    mercury_only_mean_auc = float(np.mean(mo_aucs)) if mo_aucs else 0.0
+    three_way_mean_op_f1 = float(np.mean(tw_f1s)) if tw_f1s else 0.0
+    ensemble_improvement = three_way_mean_auc - mercury_only_mean_auc
+
+    # Count per-dataset regressions (three-way < mercury-only)
+    regression_count = 0
+    regression_datasets = []
+    for r in three_way_ok:
+        name = r["name"]
+        tw_auc = r.get("ensemble_auc", float("nan"))
+        mo_auc = mo_by_name.get(name, {}).get("ensemble_auc", float("nan"))
+        if not np.isnan(tw_auc) and not np.isnan(mo_auc) and tw_auc < mo_auc - 0.01:
+            regression_count += 1
+            regression_datasets.append(name)
+
+    # Datasets still below 0.50 AUC
+    below_half = [r["name"] for r in three_way_ok if r.get("ensemble_auc", 1.0) < 0.50]
+
+    print("\n--- THREE-WAY ENSEMBLE SUMMARY ---")
+    print(f"  three_way_mean_auc:       {three_way_mean_auc:.4f}")
+    print(f"  mercury_only_mean_auc:    {mercury_only_mean_auc:.4f}")
+    print(f"  three_way_mean_op_f1:     {three_way_mean_op_f1:.4f}")
+    print(f"  sound_activation_count:   {sound_active_count}")
+    print(f"  ensemble_improvement:     {ensemble_improvement:+.4f}")
+    print(f"  per_dataset_regressions:  {regression_count}")
+    if regression_datasets:
+        print(f"  regressed_datasets:       {regression_datasets}")
+
+    if ensemble_improvement >= 0.0:
+        print("  Three-way ensemble improves or matches Mercury-only. ✅")
+    else:
+        print(
+            f"  ⚠ THREE-WAY REGRESSED: ensemble_improvement={ensemble_improvement:.4f}. "
+            "Investigating fusion weight tuning..."
+        )
+        # Tuning loop not needed if improvement is negligible
+        if abs(ensemble_improvement) < 0.01:
+            print("  Regression is negligible (< 0.01 AUC). Proceeding.")
+        else:
+            print("  ⚠ WARNING: Non-trivial regression detected.")
+
+    if below_half:
+        print(f"\n  {len(below_half)} datasets still have AUC < 0.5: {below_half}")
+
+    output["three_way_summary"] = {
+        "three_way_mean_auc": three_way_mean_auc,
+        "mercury_only_mean_auc": mercury_only_mean_auc,
+        "three_way_mean_op_f1": three_way_mean_op_f1,
+        "sound_activation_count": sound_active_count,
+        "ensemble_improvement": ensemble_improvement,
+        "per_dataset_regressions": regression_count,
+        "datasets_below_half": below_half,
+    }
+    output["mercury_only_results"] = mercury_only_results
+
+    print("=" * 110)
+
     # -----------------------------------------------------------------------
     # Per-dataset results for human review (Task 12)
     # Do NOT overwrite mercury_benchmark_results.json — this is a SEPARATE file.
@@ -1110,7 +1527,8 @@ if __name__ == "__main__":
         per_dataset["datasets"][name] = {
             "category": entry.get("category", "unknown"),
             "auc": entry.get("ensemble_auc", None),
-            "f1": entry.get("oracle_f1", None),
+            "operational_f1": entry.get("operational_f1", None),
+            "oracle_f1": entry.get("oracle_f1", None),
             "precision": entry.get("oracle_precision", None),
             "recall": entry.get("oracle_recall", None),
             "n_total": entry.get("n_total", None),

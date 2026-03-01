@@ -359,14 +359,37 @@ def evaluate_detector(
     Returns:
         Dictionary with precision, recall, f1, auc_roc, auc_pr
     """
-    from sklearn.metrics import (
-        average_precision_score,
-        f1_score,
-        precision_recall_curve,
-        precision_score,
-        recall_score,
-        roc_auc_score,
+    from omni_mercury_engine.ml._native_utils import (
+        native_average_precision_score as average_precision_score,
+        native_f1_score as f1_score,
+        native_precision_score as precision_score,
+        native_recall_score as recall_score,
+        native_roc_auc_score as roc_auc_score,
     )
+
+    def precision_recall_curve(
+        y_true: np.ndarray, y_scores: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Inline replacement for sklearn.metrics.precision_recall_curve."""
+        desc_score_indices = np.argsort(y_scores)[::-1]
+        y_scores_sorted = y_scores[desc_score_indices]
+        y_true_sorted = y_true[desc_score_indices]
+
+        distinct_value_indices = np.where(np.diff(y_scores_sorted))[0]
+        threshold_indices = np.concatenate([distinct_value_indices, [len(y_true_sorted) - 1]])
+
+        tps = np.cumsum(y_true_sorted)[threshold_indices]
+        fps = threshold_indices + 1 - tps
+
+        precision = tps / (tps + fps)
+        recall = tps / tps[-1] if tps[-1] > 0 else tps
+
+        # Add sentinel values
+        precision = np.concatenate([precision, [1.0]])
+        recall = np.concatenate([recall, [0.0]])
+        thresholds = y_scores_sorted[threshold_indices]
+
+        return precision, recall, thresholds
 
     # Handle edge cases
     if len(np.unique(y_true)) < 2:

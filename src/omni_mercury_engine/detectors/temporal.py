@@ -52,6 +52,10 @@ class TemporalAnomalyDetector(BaseDetector):
         self.window_size = self.config.get("window_size", 10)
         self.change_threshold = self.config.get("change_threshold", 2.0)
 
+        if not TORCH_AVAILABLE:
+            raise NameError(
+                "TemporalAnomalyDetector requires PyTorch. " "Install with: pip install torch"
+            )
         self.lstm = nn.LSTM(
             input_size=1,
             hidden_size=32,

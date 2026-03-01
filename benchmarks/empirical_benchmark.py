@@ -115,6 +115,18 @@ from sklearn.svm import OneClassSVM
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
+_emp_logger = logging.getLogger(__name__)
+
+try:
+    import optuna  # noqa: F401
+
+    _AUTO_TUNE = True
+except ImportError:
+    _AUTO_TUNE = False
+    _emp_logger.info(
+        "optuna not installed — auto_tune disabled. " "Install with: pip install optuna"
+    )
+
 # AdaptiveAnomalyDetector removed — Mercury uses MercuryAnomalyDetector only
 ADAPTIVE_DETECTOR_AVAILABLE = False
 
@@ -1743,7 +1755,7 @@ class OmniMercuryDetector:
 
     def __init__(self, contamination: float = 0.1, **kwargs: Any) -> None:
         self.contamination = contamination
-        self._detector = MercuryAnomalyDetector()
+        self._detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
         self._scores: np.ndarray | None = None
 
     def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> "OmniMercuryDetector":

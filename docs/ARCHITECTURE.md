@@ -106,6 +106,36 @@ MercuryAnomalyDetector.detect(data)
 
 User-specified domain always overrides.
 
+### AMA Structural Improvements (v1.5.0)
+
+**Per-Feature Probe Aggregation (Option A)**: `BaseEquationProbe.per_feature_scores()`
+scores each feature column independently and aggregates via max-pooling.
+PCA reduction triggers for n_features > 50. Used in `detect()` and
+`calibrate_decorrelator()`.
+
+**Geometry Routing (Option B)**: `geometry_classifier.classify_geometry()` detects
+anomaly geometry types (temporal, point, distributional, collective) via
+autocorrelation, kurtosis, variance ratio, and density heuristics.
+`probes_for_geometries()` maps to probe subsets. Minimum probe set:
+IQRRobustProbe, SVDProjectionProbe, VarianceAdaptedProbe.
+
+**Independent Pseudo-Labels (Option C)**: AMA fusion weight estimation uses
+`detect_per_probe()` max-consensus pseudo-labels instead of Mercury's own
+scores, breaking circular dependency in cross-validated AUC estimation.
+
+**Otsu Threshold Calibration (Option D)**: `core/threshold.py` implements
+`otsu_threshold()` and `adaptive_threshold()` cascade: Otsu → MAD → contamination
+percentile → fallback 0.5. Activates when domain hint or prefer_recall is set.
+
+**Domain-Aware Probe Presets (Option E)**: Seven domain-typed probe configurations
+in `PROBE_PRESETS`: infrastructure, medical, humanitarian, security,
+environmental, financial, tabular. Top-down prior complements bottom-up
+geometry routing.
+
+**Bidirectional Sound (Option F)**: `SOUND_DOMAIN_POLICY` uses dict-of-dicts with
+per-domain activation and sound_weight. Bidirectional fusion: additive path when
+multiplier > 1 (anomaly rescue), multiplicative when ≤ 1 (normal suppression).
+
 ### Oracle Domain Policy
 
 From `core/config.py`:
@@ -216,3 +246,31 @@ federated = MercuryAnomalyDetector.from_statistics(
 )
 # Oracle restored without re-fitting
 ```
+
+## Evaluation Methodology
+
+Mercury-Agent is an **unsupervised** anomaly detector trained on normal-only
+samples. It has no access to anomaly labels during training.
+
+### Primary Metric: AUC-ROC
+Threshold-free. The only valid comparison metric across detectors and datasets.
+
+### Operational F1
+Threshold selected using training scores only (contamination-percentile method).
+No test labels used. This is the deployable metric.
+
+### Oracle F1 [UPPER BOUND — NOT OPERATIONAL]
+Best F1 achieved by sweeping thresholds over test labels. Reported for
+reference only. Cannot be reproduced in deployment.
+
+### Current Results (64 datasets — 47 ADBench + 17 domain, run 2026-02-26)
+- Mean AUC-ROC: 0.8525
+- Median AUC-ROC: 0.9551
+- Mean Operational F1: 0.6468 (train-percentile threshold, no test labels)
+- Mean Oracle F1: 0.7045 (upper bound — NOT operational)
+- Per-component: Resonance 0.7941, Kinematic 0.6404, InfoGeo 0.8477
+
+### Three-Way Ensemble Results (64 datasets, run 2026-02-26)
+- Three-Way Mean AUC-ROC: **0.8525** (+2.86% over Mercury-Only 0.8288)
+- SpectralDomainSound activated on 51/64 datasets
+- Fusion weights derived from 3-fold CV AUC, clamped to [0.15, 0.85]

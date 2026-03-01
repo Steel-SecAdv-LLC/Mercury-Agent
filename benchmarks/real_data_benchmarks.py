@@ -42,19 +42,97 @@ from urllib.request import urlretrieve
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
+
+# ---------------------------------------------------------------------------
+# Native replacements for sklearn metrics/preprocessing (no sklearn import)
+# ---------------------------------------------------------------------------
+def _native_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Trapezoidal AUC-ROC. No sklearn dependency."""
+    desc_idx = np.argsort(y_score)[::-1]
+    y_true_s = y_true[desc_idx]
+    y_score_s = y_score[desc_idx]
+    distinct_idx = np.where(np.diff(y_score_s, prepend=np.inf))[0]
+    tps = np.cumsum(y_true_s)[distinct_idx]
+    fps = distinct_idx + 1 - tps
+    tps = np.concatenate([[0], tps])
+    fps = np.concatenate([[0], fps])
+    fpr = fps / (fps[-1] + 1e-12)
+    tpr = tps / (tps[-1] + 1e-12)
+    _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    return float(_trapz(tpr, fpr))
+
+
+def _precision_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    tp = int(np.sum((y_pred == 1) & (y_true == 1)))
+    fp = int(np.sum((y_pred == 1) & (y_true == 0)))
+    return tp / (tp + fp) if (tp + fp) > 0 else 0.0
+
+
+def _recall_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    tp = int(np.sum((y_pred == 1) & (y_true == 1)))
+    fn = int(np.sum((y_pred == 0) & (y_true == 1)))
+    return tp / (tp + fn) if (tp + fn) > 0 else 0.0
+
+
+def _f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    p = _precision_score(y_true, y_pred)
+    r = _recall_score(y_true, y_pred)
+    return 2 * p * r / (p + r) if (p + r) > 0 else 0.0
+
+
+def _label_encode(series: pd.Series) -> np.ndarray:
+    """Integer-encode categorical series. No sklearn dependency."""
+    cats = {v: i for i, v in enumerate(sorted(series.unique()))}
+    return series.map(cats).to_numpy(dtype=np.int64)
+
+
+def _standard_scale(X: np.ndarray) -> np.ndarray:
+    """Z-score normalization. No sklearn dependency."""
+    mu = X.mean(axis=0)
+    sigma = X.std(axis=0) + 1e-8
+    return (X - mu) / sigma
+
+
+class _StratifiedKFold:
+    """Minimal stratified k-fold. No sklearn dependency."""
+
+    def __init__(self, n_splits: int = 5, shuffle: bool = True, random_state: int = 42):
+        self.n_splits = n_splits
+        self.shuffle = shuffle
+        self.rng = np.random.RandomState(random_state)
+
+    def split(self, X: np.ndarray, y: np.ndarray):  # type: ignore[no-untyped-def]
+        classes = np.unique(y)
+        class_indices = {c: np.where(y == c)[0] for c in classes}
+        if self.shuffle:
+            for c in classes:
+                self.rng.shuffle(class_indices[c])
+        folds: list[list[int]] = [[] for _ in range(self.n_splits)]
+        for c in classes:
+            idx = class_indices[c]
+            for i, ix in enumerate(idx):
+                folds[i % self.n_splits].append(ix)
+        for fold_idx in range(self.n_splits):
+            test = np.array(folds[fold_idx])
+            train = np.concatenate(
+                [np.array(folds[j]) for j in range(self.n_splits) if j != fold_idx]
+            )
+            yield train, test
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+try:
+    import optuna  # noqa: F401
+
+    _AUTO_TUNE = True
+except ImportError:
+    _AUTO_TUNE = False
+    logger.info("optuna not installed — auto_tune disabled. " "Install with: pip install optuna")
 
 CACHE_DIR = Path.home() / ".omni_mercury" / "datasets"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -114,8 +192,8 @@ def compute_fairlearn_bias_metrics(
         metric_frame = MetricFrame(
             metrics={
                 "selection_rate": selection_rate,
-                "precision": lambda y_t, y_p: precision_score(y_t, y_p, zero_division=0),
-                "recall": lambda y_t, y_p: recall_score(y_t, y_p, zero_division=0),
+                "precision": lambda y_t, y_p: _precision_score(y_t, y_p),
+                "recall": lambda y_t, y_p: _recall_score(y_t, y_p),
             },
             y_true=y_true,
             y_pred=y_pred,
@@ -244,9 +322,54 @@ class NSLKDDBenchmark:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._data: pd.DataFrame | None = None
         self._use_synthetic = False
+        self._sklearn_source = False
 
-    def _download_data(self) -> Path:
-        """Download KDD Cup 99 data with retry logic."""
+    @property
+    def _data_source_label(self) -> str:
+        if self._use_synthetic:
+            return "synthetic-fallback"
+        if self._sklearn_source:
+            return "real-sklearn-kddcup99"
+        return "real-kdd"
+
+    def _load_via_direct_download(self) -> pd.DataFrame:
+        """Load KDD Cup 99 (10%) directly via urllib. No sklearn dependency."""
+        import gzip
+        import io
+        import urllib.request
+
+        url = self.KDD_URL
+        logger.info("Loading KDD Cup 99 directly from %s ...", url)
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            raw = gzip.decompress(resp.read())
+        df = pd.read_csv(
+            io.StringIO(raw.decode("utf-8")),
+            names=self.COLUMN_NAMES,
+            header=None,
+        )
+        self._use_synthetic = False
+        self._sklearn_source = False
+        return df
+
+    def _download_data(self) -> pd.DataFrame | Path:
+        """Download KDD Cup 99 data with retry logic.
+
+        Priority:
+        1. sklearn (verified working, no external network required)
+        2. URL downloads (may 403/404)
+        3. Synthetic fallback
+        """
+        # 1. Try direct download (no sklearn dependency)
+        try:
+            return self._load_via_direct_download()
+        except Exception as exc:
+            logger.warning(
+                "Direct KDD Cup 99 download failed (%s: %s), trying cached/mirror...",
+                type(exc).__name__,
+                exc,
+            )
+
+        # 2. Try cached file or mirror URL downloads
         cache_file = self.cache_dir / "kddcup.data_10_percent.gz"
 
         if cache_file.exists():
@@ -264,7 +387,23 @@ class NSLKDDBenchmark:
                 logger.warning(f"Failed to download from {url}: {e}")
                 continue
 
-        raise RuntimeError("Failed to download NSL-KDD data from all sources")
+        # 3. Synthetic fallback — loudly warn
+        import warnings as _w
+
+        _w.warn(
+            "KDD Cup 99: using SYNTHETIC fallback data. "
+            "All benchmark metrics from this run are INVALID for "
+            "real-world performance assessment.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        logger.error(
+            "KDD CUP 99 SYNTHETIC FALLBACK ACTIVE — benchmark metrics invalid. "
+            "Direct download and all mirror URLs failed.",
+        )
+        self._use_synthetic = True
+        self._synthetic_reason = "all_download_sources_failed"
+        return self._generate_synthetic_data()
 
     def _generate_synthetic_data(self, n_samples: int = 10000) -> pd.DataFrame:
         """Generate synthetic NSL-KDD-like data for fallback."""
@@ -329,11 +468,17 @@ class NSLKDDBenchmark:
     def load_data(self, max_samples: int | None = 50000) -> pd.DataFrame:
         """Load NSL-KDD data from cache or download."""
         try:
-            cache_file = self._download_data()
-            with gzip.open(cache_file, "rt") as f:
-                self._data = pd.read_csv(f, names=self.COLUMN_NAMES, header=None)
-            self._use_synthetic = False
-            logger.info(f"Loaded {len(self._data)} samples from real NSL-KDD data")
+            result = self._download_data()
+            if isinstance(result, pd.DataFrame):
+                # Returned directly from download or synthetic fallback
+                self._data = result
+                logger.info(f"Loaded {len(self._data)} samples from {self._data_source_label}")
+            else:
+                # Returned a Path to a gzip file
+                with gzip.open(result, "rt") as f:
+                    self._data = pd.read_csv(f, names=self.COLUMN_NAMES, header=None)
+                self._use_synthetic = False
+                logger.info(f"Loaded {len(self._data)} samples from real NSL-KDD data")
         except Exception as e:
             logger.warning(f"Failed to load real data: {e}. Using synthetic fallback.")
             self._data = self._generate_synthetic_data(max_samples or 10000)
@@ -354,19 +499,17 @@ class NSLKDDBenchmark:
 
         df["is_attack"] = df["label"].apply(lambda x: 0 if x == "normal." else 1)
 
-        protocol_encoded = LabelEncoder().fit_transform(df["protocol_type"])
+        protocol_encoded = _label_encode(df["protocol_type"])
 
         categorical_cols = ["protocol_type", "service", "flag"]
         for col in categorical_cols:
-            le = LabelEncoder()
-            df[col] = le.fit_transform(df[col].astype(str))
+            df[col] = _label_encode(df[col].astype(str))
 
         feature_cols = [c for c in df.columns if c not in ["label", "is_attack"]]
         X = df[feature_cols].values.astype(np.float32)
         y = df["is_attack"].values
 
-        scaler = StandardScaler()
-        X = scaler.fit_transform(X)
+        X = _standard_scale(X)
 
         return X, y, protocol_encoded
 
@@ -390,7 +533,7 @@ class NSLKDDBenchmark:
         df = self.load_data(max_samples)
         X, y, protocol_type = self.preprocess(df)
 
-        skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
+        skf = _StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
 
         all_y_true = []
         all_y_pred = []
@@ -401,7 +544,7 @@ class NSLKDDBenchmark:
             X_train, X_test = X[train_idx], X[test_idx]
             y_test = y[test_idx]
 
-            detector = MercuryAnomalyDetector()
+            detector = MercuryAnomalyDetector(auto_validate=True, auto_tune=_AUTO_TUNE)
             # Train on normal samples only (unsupervised)
             y_train = y[train_idx]
             normal_mask = y_train == 0
@@ -422,12 +565,12 @@ class NSLKDDBenchmark:
         all_y_scores = np.array(all_y_scores)
         all_protocols = np.array(all_protocols)
 
-        precision = precision_score(all_y_true, all_y_pred, zero_division=0)
-        recall = recall_score(all_y_true, all_y_pred, zero_division=0)
-        f1 = f1_score(all_y_true, all_y_pred, zero_division=0)
+        precision = _precision_score(all_y_true, all_y_pred)
+        recall = _recall_score(all_y_true, all_y_pred)
+        f1 = _f1_score(all_y_true, all_y_pred)
 
         try:
-            roc_auc = roc_auc_score(all_y_true, all_y_scores)
+            roc_auc = _native_auc(all_y_true, all_y_scores)
         except ValueError:
             roc_auc = 0.5
 
@@ -451,7 +594,7 @@ class NSLKDDBenchmark:
             f1=float(f1),
             roc_auc=float(roc_auc),
             runtime_seconds=runtime,
-            data_source="synthetic-fallback" if self._use_synthetic else "real-kdd",
+            data_source=self._data_source_label,
             bias_metrics=bias_metrics,
             metadata={
                 "n_folds": n_folds,
@@ -460,228 +603,8 @@ class NSLKDDBenchmark:
         )
 
 
-class MIMICDemoBenchmark:
-    """
-    MIMIC-III Demo Benchmark for Medical Anomaly Detection.
-
-    Uses simulated vital signs data based on MIMIC-III patterns.
-    Note: Full MIMIC-III requires credentialed access from PhysioNet.
-
-    For production use, obtain credentials at:
-    https://physionet.org/content/mimiciii-demo/
-
-    Citation:
-    Johnson, A. E. W., et al. (2016). MIMIC-III, a freely accessible
-    critical care database. Scientific Data, 3, 160035.
-    """
-
-    VITAL_SIGNS = ["heart_rate", "sbp", "dbp", "resp_rate", "spo2", "temperature"]
-
-    NORMAL_RANGES = {
-        "heart_rate": (60, 100),
-        "sbp": (90, 140),
-        "dbp": (60, 90),
-        "resp_rate": (12, 20),
-        "spo2": (95, 100),
-        "temperature": (36.1, 37.2),
-    }
-
-    SEPSIS_INDICATORS = {
-        "heart_rate": (100, 140),
-        "sbp": (70, 90),
-        "dbp": (40, 60),
-        "resp_rate": (22, 35),
-        "spo2": (88, 94),
-        "temperature": (38.0, 40.0),
-    }
-
-    def __init__(self, cache_dir: Path | None = None) -> None:
-        self.cache_dir = cache_dir or CACHE_DIR
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-
-    def _generate_patient_data(
-        self,
-        n_patients: int = 1000,
-        sepsis_ratio: float = 0.15,
-        time_steps: int = 24,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Generate synthetic patient vital signs data.
-
-        Simulates MIMIC-III-like ICU monitoring data with:
-        - Normal patients: vital signs within normal ranges
-        - Sepsis patients: vital signs showing sepsis indicators
-
-        Args:
-            n_patients: Number of patients to simulate
-            sepsis_ratio: Proportion of sepsis cases
-            time_steps: Number of hourly measurements per patient
-
-        Returns:
-            Tuple of (features, labels, age_groups for bias analysis)
-        """
-        rng = np.random.default_rng(42)
-
-        n_sepsis = int(n_patients * sepsis_ratio)
-        n_normal = n_patients - n_sepsis
-
-        all_features = []
-        all_labels = []
-        all_ages = []
-
-        for _ in range(n_normal):
-            patient_data = []
-            for vital in self.VITAL_SIGNS:
-                low, high = self.NORMAL_RANGES[vital]
-                mean = (low + high) / 2
-                std = (high - low) / 6
-                values = rng.normal(mean, std, time_steps)
-                values = np.clip(values, low * 0.9, high * 1.1)
-                patient_data.extend(
-                    [
-                        np.mean(values),
-                        np.std(values),
-                        np.min(values),
-                        np.max(values),
-                        values[-1] - values[0],
-                    ]
-                )
-
-            all_features.append(patient_data)
-            all_labels.append(0)
-            all_ages.append(rng.choice(["young", "middle", "elderly"], p=[0.2, 0.5, 0.3]))
-
-        for _ in range(n_sepsis):
-            patient_data = []
-            for vital in self.VITAL_SIGNS:
-                low, high = self.SEPSIS_INDICATORS[vital]
-                mean = (low + high) / 2
-                std = (high - low) / 4
-                values = rng.normal(mean, std, time_steps)
-
-                trend = np.linspace(0, rng.uniform(0.1, 0.3) * mean, time_steps)
-                if vital in ["heart_rate", "resp_rate", "temperature"]:
-                    values += trend
-                else:
-                    values -= trend
-
-                patient_data.extend(
-                    [
-                        np.mean(values),
-                        np.std(values),
-                        np.min(values),
-                        np.max(values),
-                        values[-1] - values[0],
-                    ]
-                )
-
-            all_features.append(patient_data)
-            all_labels.append(1)
-            all_ages.append(rng.choice(["young", "middle", "elderly"], p=[0.1, 0.3, 0.6]))
-
-        X = np.array(all_features, dtype=np.float32)
-        y = np.array(all_labels)
-        ages = np.array(all_ages)
-
-        shuffle_idx = rng.permutation(len(X))
-        return X[shuffle_idx], y[shuffle_idx], ages[shuffle_idx]
-
-    def run_benchmark(
-        self,
-        n_patients: int = 2000,
-        sepsis_ratio: float = 0.15,
-        n_folds: int = 5,
-    ) -> BenchmarkResult:
-        """
-        Run MIMIC-III demo benchmark with cross-validation and bias analysis.
-
-        Args:
-            n_patients: Number of patients to simulate
-            sepsis_ratio: Proportion of sepsis cases
-            n_folds: Number of cross-validation folds
-
-        Returns:
-            BenchmarkResult with metrics and bias analysis
-        """
-        start_time = time.time()
-
-        X, y, age_groups = self._generate_patient_data(n_patients, sepsis_ratio)
-
-        scaler = StandardScaler()
-        X = scaler.fit_transform(X)
-
-        skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
-
-        all_y_true = []
-        all_y_pred = []
-        all_y_scores = []
-        all_ages = []
-
-        for fold, (train_idx, test_idx) in enumerate(skf.split(X, y)):
-            X_train, X_test = X[train_idx], X[test_idx]
-            y_test = y[test_idx]
-
-            detector = MercuryAnomalyDetector()
-            # Train on normal samples only (unsupervised)
-            y_train = y[train_idx]
-            normal_mask = y_train == 0
-            X_train_normal = X_train[normal_mask] if normal_mask.sum() > 0 else X_train
-            detector.fit(X_train_normal)
-
-            result = detector.detect(X_test)
-            y_scores = result["scores"]
-            y_pred = result["is_anomaly"].astype(int)
-
-            all_y_true.extend(y_test)
-            all_y_pred.extend(y_pred)
-            all_y_scores.extend(y_scores)
-            all_ages.extend(age_groups[test_idx])
-
-        all_y_true = np.array(all_y_true)
-        all_y_pred = np.array(all_y_pred)
-        all_y_scores = np.array(all_y_scores)
-        all_ages = np.array(all_ages)
-
-        precision = precision_score(all_y_true, all_y_pred, zero_division=0)
-        recall = recall_score(all_y_true, all_y_pred, zero_division=0)
-        f1 = f1_score(all_y_true, all_y_pred, zero_division=0)
-
-        try:
-            roc_auc = roc_auc_score(all_y_true, all_y_scores)
-        except ValueError:
-            roc_auc = 0.5
-
-        bias_metrics = compute_fairlearn_bias_metrics(
-            all_y_true,
-            all_y_pred,
-            sensitive_features=all_ages,
-            feature_name="age_group",
-        )
-
-        runtime = time.time() - start_time
-
-        return BenchmarkResult(
-            dataset_name="MIMIC-III Demo",
-            domain="medical",
-            num_samples=len(X),
-            num_features=X.shape[1],
-            anomaly_ratio=float(np.mean(y)),
-            precision=float(precision),
-            recall=float(recall),
-            f1=float(f1),
-            roc_auc=float(roc_auc),
-            runtime_seconds=runtime,
-            data_source="synthetic-mimic-demo",
-            bias_metrics=bias_metrics,
-            metadata={
-                "n_folds": n_folds,
-                "model": "MercuryAnomalyDetector",
-                "sepsis_ratio": sepsis_ratio,
-                "vital_signs": self.VITAL_SIGNS,
-                "note": "Simulated data based on MIMIC-III patterns. "
-                "Full dataset requires PhysioNet credentials.",
-            },
-        )
+# MIMIC-III moved to benchmarks/credentialed_benchmarks.py
+# Requires PhysioNet credentialed access. See docs/DATASOURCES.md.
 
 
 def run_all_benchmarks() -> dict[str, Any]:
@@ -696,7 +619,9 @@ def run_all_benchmarks() -> dict[str, Any]:
         "summary": {},
     }
 
-    print("\n[1/2] Running NSL-KDD Security Benchmark...")
+    # MIMIC-III moved to benchmarks/credentialed_benchmarks.py
+
+    print("\n[1/1] Running NSL-KDD Security Benchmark...")
     nsl_benchmark = NSLKDDBenchmark()
     nsl_result = nsl_benchmark.run_benchmark(max_samples=50000, n_folds=5)
     results["benchmarks"]["nsl_kdd"] = {
@@ -726,45 +651,15 @@ def run_all_benchmarks() -> dict[str, Any]:
         dpd = nsl_result.bias_metrics.get("demographic_parity_difference", "N/A")
         print(f"  Demographic Parity Diff: {dpd}")
 
-    print("\n[2/2] Running MIMIC-III Demo Medical Benchmark...")
-    mimic_benchmark = MIMICDemoBenchmark()
-    mimic_result = mimic_benchmark.run_benchmark(n_patients=2000, n_folds=5)
-    results["benchmarks"]["mimic_demo"] = {
-        "dataset_name": mimic_result.dataset_name,
-        "domain": mimic_result.domain,
-        "num_samples": mimic_result.num_samples,
-        "num_features": mimic_result.num_features,
-        "anomaly_ratio": mimic_result.anomaly_ratio,
-        "precision": mimic_result.precision,
-        "recall": mimic_result.recall,
-        "f1": mimic_result.f1,
-        "roc_auc": mimic_result.roc_auc,
-        "runtime_seconds": mimic_result.runtime_seconds,
-        "data_source": mimic_result.data_source,
-        "bias_metrics": mimic_result.bias_metrics,
-        "metadata": mimic_result.metadata,
-    }
-    print(f"  Dataset: {mimic_result.dataset_name}")
-    print(f"  Samples: {mimic_result.num_samples}, Features: {mimic_result.num_features}")
-    print(f"  Precision: {mimic_result.precision:.4f}")
-    print(f"  Recall: {mimic_result.recall:.4f}")
-    print(f"  F1 Score: {mimic_result.f1:.4f}")
-    print(f"  ROC-AUC: {mimic_result.roc_auc:.4f}")
-    print(f"  Runtime: {mimic_result.runtime_seconds:.2f}s")
-    print(f"  Data Source: {mimic_result.data_source}")
-    if mimic_result.bias_metrics:
-        dpd = mimic_result.bias_metrics.get("demographic_parity_difference", "N/A")
-        print(f"  Demographic Parity Diff: {dpd}")
-
     results["summary"] = {
-        "total_benchmarks": 2,
-        "avg_f1": (nsl_result.f1 + mimic_result.f1) / 2,
-        "avg_roc_auc": (nsl_result.roc_auc + mimic_result.roc_auc) / 2,
-        "total_runtime_seconds": nsl_result.runtime_seconds + mimic_result.runtime_seconds,
-        "all_bias_checks_passed": all(
-            abs(r.bias_metrics.get("demographic_parity_difference", 0)) <= 0.1
-            for r in [nsl_result, mimic_result]
-            if r.bias_metrics
+        "total_benchmarks": 1,
+        "avg_f1": nsl_result.f1,
+        "avg_roc_auc": nsl_result.roc_auc,
+        "total_runtime_seconds": nsl_result.runtime_seconds,
+        "all_bias_checks_passed": (
+            abs(nsl_result.bias_metrics.get("demographic_parity_difference", 0)) <= 0.1
+            if nsl_result.bias_metrics
+            else True
         ),
     }
 
@@ -776,6 +671,7 @@ def run_all_benchmarks() -> dict[str, Any]:
     print(f"  Average ROC-AUC: {results['summary']['avg_roc_auc']:.4f}")
     print(f"  Total Runtime: {results['summary']['total_runtime_seconds']:.2f}s")
     print(f"  Bias Checks Passed: {results['summary']['all_bias_checks_passed']}")
+    print("  Note: MIMIC-III moved to benchmarks/credentialed_benchmarks.py")
 
     return results
 

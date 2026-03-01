@@ -111,43 +111,67 @@ COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
     },
     DataCharacteristics.UNKNOWN: {
         "resonance": 1.0,
-        "kinematic": 1.0,
+        "kinematic": 0.5,
         "infogeo": 1.0,
     },
 }
 
 
-class OracleActivation(Enum):
-    """Oracle activation mode.
+class SoundActivation(Enum):
+    """Sound activation mode.
 
-    Controls whether the SpectralDomainOracle is active. Can be set
+    Controls whether the SpectralDomainSound is active. Can be set
     explicitly or left at AUTO for domain-aware activation.
     """
 
-    AUTO = "auto"  # Domain-aware: enabled/disabled per ORACLE_DOMAIN_POLICY
+    AUTO = "auto"  # Domain-aware: enabled/disabled per SOUND_DOMAIN_POLICY
     ENABLED = "enabled"  # Always enabled regardless of domain
     DISABLED = "disabled"  # Always disabled regardless of domain
 
 
-# Domain-aware Oracle activation policy.
+# Backward compatibility — remove after one release cycle
+OracleActivation = SoundActivation
+
+
+# Domain-aware Sound activation policy.
 #
 # Based on empirical analysis of frequency-domain anomaly signatures:
 #   ENABLED  — Domain has strong spectral signatures (infrastructure faults,
 #              network attack patterns, physiological frequency bands)
-#   NEUTRAL  — Domain may benefit; Oracle runs but influence_multiplier is
+#   NEUTRAL  — Domain may benefit; Sound runs but influence_multiplier is
 #              dampened (multiplied by 0.5) to reduce false positive risk
 #   DISABLED — Domain anomalies are primarily amplitude/statistical, not
-#              spectral. Oracle would add computation without measurable
+#              spectral. Sound would add computation without measurable
 #              improvement.
-ORACLE_DOMAIN_POLICY: dict[str, str] = {
-    "infrastructure": "enabled",  # Mains freq, bearing faults, harmonics
-    "security": "enabled",  # DDoS periodicity, scan burst patterns
-    "medical": "enabled",  # HRV bands, neural oscillations
-    "environmental": "neutral",  # Seismic precursors have weak freq signal
-    "space": "neutral",  # Solar wind has some spectral content
-    "financial": "disabled",  # Anomalies are magnitude-based, not spectral
-    "humanitarian": "disabled",  # Weak frequency signatures
+#
+# sound_weight: additive contribution weight for bidirectional Sound (Option F).
+#   Higher weight for domains with strong spectral signal.
+SOUND_DOMAIN_POLICY: dict[str, dict[str, Any]] = {
+    "infrastructure": {"activation": "enabled", "sound_weight": 0.20},
+    "security": {"activation": "enabled", "sound_weight": 0.15},
+    "medical": {"activation": "enabled", "sound_weight": 0.20},
+    "environmental": {"activation": "enabled", "sound_weight": 0.15},
+    "space": {"activation": "enabled", "sound_weight": 0.15},
+    "humanitarian": {"activation": "enabled", "sound_weight": 0.12},
+    "financial": {"activation": "neutral", "sound_weight": 0.05},
+    "timeseries": {"activation": "enabled", "sound_weight": 0.15},
+    "adbench": {"activation": "neutral", "sound_weight": 0.08},
+    "tabular": {"activation": "neutral", "sound_weight": 0.08},
+    "unknown": {"activation": "neutral", "sound_weight": 0.10},
 }
+
+# Backward compatibility — remove after one release cycle
+ORACLE_DOMAIN_POLICY = SOUND_DOMAIN_POLICY
+
+
+def _sound_activation(domain: str) -> str:
+    """Return activation string for domain, defaulting to 'neutral'."""
+    return str(SOUND_DOMAIN_POLICY.get(domain, {}).get("activation", "neutral"))
+
+
+def _sound_weight(domain: str) -> float:
+    """Return additive contribution weight for domain, defaulting to 0.10."""
+    return float(SOUND_DOMAIN_POLICY.get(domain, {}).get("sound_weight", 0.10))
 
 
 @dataclass

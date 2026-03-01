@@ -11,6 +11,9 @@ Comprehensive tests for:
 
 import numpy as np
 import pytest
+
+pytest.importorskip("hypothesis", reason="test requires hypothesis")
+
 from hypothesis import (
     given,
     settings,

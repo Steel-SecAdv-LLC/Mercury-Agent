@@ -176,7 +176,9 @@ class GreyWolfOptimizer:
             X_selected = X[:, mask]
 
             try:
-                from sklearn.model_selection import cross_val_score
+                from omni_mercury_engine.ml._native_utils import (
+                    native_cross_val_score as cross_val_score,
+                )
 
                 scores = cross_val_score(clf, X_selected, y, cv=3)
                 return 1.0 - float(np.mean(scores))

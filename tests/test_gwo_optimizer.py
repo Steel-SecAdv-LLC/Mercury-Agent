@@ -3,16 +3,13 @@ Tests for Grey Wolf Optimizer.
 
 Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
+Licensed under GNU GPL v3
 """
-
-import pytest
-
-pytest.importorskip("sklearn")
 
 import numpy as np
 import pytest
-from sklearn.tree import DecisionTreeClassifier
 
+from omni_mercury_engine.ml._native_utils import NativeLogisticRegression
 from omni_mercury_engine.ml.gwo_optimizer import GreyWolfOptimizer
 from omni_mercury_engine.utils.rng import DeterministicRNG
 
@@ -145,13 +142,13 @@ class TestGreyWolfOptimizer:
         assert best_score1 == pytest.approx(best_score2)
 
     def test_select_features_basic(self) -> None:
-        """Test basic feature selection."""
+        """Test basic feature selection with native classifier."""
         np.random.seed(42)
         X = np.random.randn(100, 10)
         y = (X[:, 0] + X[:, 1] > 0).astype(int)
 
         gwo = GreyWolfOptimizer(n_wolves=5, max_iter=5)
-        clf = DecisionTreeClassifier(max_depth=3, random_state=42)
+        clf = NativeLogisticRegression(max_iter=200)
 
         mask = gwo.select_features(X, y, clf, n_features=3)
 
@@ -166,7 +163,7 @@ class TestGreyWolfOptimizer:
         y = np.random.randint(0, 2, 50)
 
         gwo = GreyWolfOptimizer(n_wolves=3, max_iter=3)
-        clf = DecisionTreeClassifier(max_depth=2, random_state=42)
+        clf = NativeLogisticRegression(max_iter=200)
 
         mask = gwo.select_features(X, y, clf, n_features=5)
 
@@ -179,7 +176,7 @@ class TestGreyWolfOptimizer:
         y = np.random.randint(0, 2, 50)
 
         gwo = GreyWolfOptimizer(n_wolves=3, max_iter=3)
-        clf = DecisionTreeClassifier(max_depth=2, random_state=42)
+        clf = NativeLogisticRegression(max_iter=200)
 
         mask = gwo.select_features(X, y, clf, n_features=1)
 

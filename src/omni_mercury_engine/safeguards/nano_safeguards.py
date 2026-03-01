@@ -442,7 +442,7 @@ class NanoSafeguardDetector(BaseDetector):
             return 0.0
 
         try:
-            from sklearn.decomposition import PCA
+            from omni_mercury_engine.ml._native_utils import NativePCA as PCA
 
             target_dim = min(self.target_dim, data_2d.shape[1] - 1, data_2d.shape[0] - 1)
             if target_dim < 1:
@@ -460,6 +460,7 @@ class NanoSafeguardDetector(BaseDetector):
 
             micro_rate = micro_anomaly_count / total_elements
 
+            assert pca.explained_variance_ratio_ is not None
             explained_variance = np.sum(pca.explained_variance_ratio_)
             unexplained_score = 1.0 - explained_variance
 

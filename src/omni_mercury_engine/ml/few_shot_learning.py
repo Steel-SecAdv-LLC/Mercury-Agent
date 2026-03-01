@@ -1379,8 +1379,8 @@ class FewShotLearner:
             all_true.extend(episode.query_y.tolist())
 
         # Aggregate metrics
-        all_preds = np.array(all_preds)  # type: ignore[assignment, unused-ignore]
-        all_true = np.array(all_true)  # type: ignore[assignment, unused-ignore]
+        all_preds_arr = np.array(all_preds)
+        all_true_arr = np.array(all_true)
 
         # Handle binary classification
         avg_precision = 0.0
@@ -1388,13 +1388,19 @@ class FewShotLearner:
         avg_f1 = 0.0
 
         try:
-            from sklearn.metrics import f1_score, precision_score, recall_score
+            from omni_mercury_engine.ml._native_utils import (
+                native_f1_score as f1_score,
+                native_precision_score as precision_score,
+                native_recall_score as recall_score,
+            )
 
             avg_precision = precision_score(
-                all_true, all_preds, average="weighted", zero_division=0
+                all_true_arr, all_preds_arr, average="weighted", zero_division=0
             )
-            avg_recall = recall_score(all_true, all_preds, average="weighted", zero_division=0)
-            avg_f1 = f1_score(all_true, all_preds, average="weighted", zero_division=0)
+            avg_recall = recall_score(
+                all_true_arr, all_preds_arr, average="weighted", zero_division=0
+            )
+            avg_f1 = f1_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
         except ImportError:
             pass
 
@@ -1486,7 +1492,11 @@ class FewShotLearner:
             avg_f1 = 0.0
 
             try:
-                from sklearn.metrics import f1_score, precision_score, recall_score
+                from omni_mercury_engine.ml._native_utils import (
+                    native_f1_score as f1_score,
+                    native_precision_score as precision_score,
+                    native_recall_score as recall_score,
+                )
 
                 avg_precision = precision_score(
                     all_true_arr, all_preds_arr, average="weighted", zero_division=0

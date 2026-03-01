@@ -156,6 +156,16 @@ Issue: Requires credentialed access and CITI training.
 To access: https://mimic.physionet.org/gettingstarted/access/
 Loader: `MIMICLoader` in `src/omni_mercury_engine/datasets/medical.py`
 
+## Credentialed Datasets
+
+### MIMIC-III (PhysioNet)
+Benchmark: `benchmarks/credentialed_benchmarks.py`
+Access: https://physionet.org/content/mimiciii/
+Steps:
+1. Complete PhysioNet credentialing (CITI training required)
+2. Download `NOTEEVENTS.csv.gz` and place in `~/.cache/mercury_agent/mimic/`
+3. Run: `python benchmarks/credentialed_benchmarks.py`
+
 ---
 
 ## Real-World Domain API Reference

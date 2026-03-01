@@ -24,7 +24,7 @@ Spectral Domain Oracle — Full-Power Neuro-Symbolic Implementation.
 A production-grade spectral-domain anomaly detection system covering
 amplitude, phase, entropy, and harmonic structure analysis. Runs
 parallel to all time-domain detectors and produces a
-:class:`~omni_mercury_engine.detectors.spectral_domain_oracle.FrequencyInfluenceVector`
+:class:`~omni_mercury_engine.detectors.spectral_domain_sound.FrequencyInfluenceVector`
 that modulates fusion-layer scoring.
 
 Capabilities:
@@ -45,8 +45,8 @@ Capabilities:
 7. **φ-weighted influence multiplier** — five-signal geometric mean
    (score, entropy, breadth, flux, coherence) with golden ratio weighting.
 8. **Domain-aware auto-activation** — enabled/neutral/disabled per
-   :data:`~omni_mercury_engine.core.config.ORACLE_DOMAIN_POLICY` (overridable
-   via :class:`~omni_mercury_engine.core.config.OracleActivation`).
+   :data:`~omni_mercury_engine.core.config.SOUND_DOMAIN_POLICY` (overridable
+   via :class:`~omni_mercury_engine.core.config.SoundActivation`).
 
 Supported domains (7):
     environmental (8 bands), medical (9 bands),
@@ -61,7 +61,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-import torch
 from scipy.fft import fft, fftfreq
 from scipy.stats import norm, truncnorm
 
@@ -70,6 +69,13 @@ from omni_mercury_engine.core.centralized_constants import (
     MATH,
 )
 from omni_mercury_engine.core.exceptions import DetectorException
+
+try:
+    import torch
+
+    _TORCH_AVAILABLE = True
+except ImportError:
+    _TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -279,8 +285,8 @@ class FrequencyInfluenceVector:
 
 
 @dataclass
-class SpectralDomainOracleConfig:
-    """Configuration for SpectralDomainOracle.
+class SpectralDomainSoundConfig:
+    """Configuration for SpectralDomainSound.
 
     Attributes:
         domain: Application domain for band selection.
@@ -314,16 +320,16 @@ class SpectralDomainOracleConfig:
 
 def create_spectral_oracle(
     config: dict[str, Any] | None = None,
-) -> SpectralDomainOracle:
-    """Factory function for SpectralDomainOracle.
+) -> SpectralDomainSound:
+    """Factory function for SpectralDomainSound.
 
     Args:
         config: Optional configuration dictionary.
 
     Returns:
-        Configured SpectralDomainOracle instance.
+        Configured SpectralDomainSound instance.
     """
-    return SpectralDomainOracle(config)
+    return SpectralDomainSound(config)
 
 
 # =============================================================================
@@ -331,7 +337,7 @@ def create_spectral_oracle(
 # =============================================================================
 
 
-class SpectralDomainOracle(BaseDetector):
+class SpectralDomainSound(BaseDetector):
     """Full-power neuro-symbolic spectral-domain anomaly detection Oracle.
 
     The Oracle decomposes a signal into domain-specific frequency bands
@@ -353,7 +359,7 @@ class SpectralDomainOracle(BaseDetector):
 
     Example::
 
-        oracle = SpectralDomainOracle({"domain": "medical", "sample_rate": 256.0})
+        oracle = SpectralDomainSound({"domain": "medical", "sample_rate": 256.0})
         oracle.fit(training_signals)       # (N, T) array
         result = oracle.detect(test_signal) # (T,) array
         iv = result["influence_vector"]     # FrequencyInfluenceVector
@@ -365,7 +371,7 @@ class SpectralDomainOracle(BaseDetector):
         cfg = config or {}
         domain = cfg.get("domain", "environmental")
 
-        self._oracle_config = SpectralDomainOracleConfig(
+        self._oracle_config = SpectralDomainSoundConfig(
             domain=domain,
             sample_rate=cfg.get("sample_rate", 1000.0),
             threshold=self.threshold,
@@ -1332,7 +1338,7 @@ class SpectralDomainOracle(BaseDetector):
     def fit(
         self,
         data: np.ndarray | Any,
-    ) -> SpectralDomainOracle:
+    ) -> SpectralDomainSound:
         """Fit the Oracle on reference/training signals.
 
         Computes per-band reference means/stds, reference spectral
@@ -1345,7 +1351,7 @@ class SpectralDomainOracle(BaseDetector):
         Returns:
             Self for method chaining.
         """
-        if isinstance(data, torch.Tensor):
+        if _TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if not isinstance(data, np.ndarray):
@@ -1355,7 +1361,7 @@ class SpectralDomainOracle(BaseDetector):
             data = data.reshape(1, -1)
 
         if data.size == 0:
-            raise DetectorException("Cannot fit SpectralDomainOracle with empty data.")
+            raise DetectorException("Cannot fit SpectralDomainSound with empty data.")
 
         # Collect per-band power statistics and spectral entropy
         band_powers_all: dict[str, list[np.ndarray]] = {label: [] for _, _, label, _ in self._bands}
@@ -1409,7 +1415,7 @@ class SpectralDomainOracle(BaseDetector):
 
         self._is_fitted = True
         logger.info(
-            "SpectralDomainOracle fitted on %d samples, domain=%s, " "bands=%d (Nyquist=%.1f Hz)",
+            "SpectralDomainSound fitted on %d samples, domain=%s, " "bands=%d (Nyquist=%.1f Hz)",
             len(data),
             self._oracle_config.domain,
             len(self._bands),
@@ -1439,9 +1445,9 @@ class SpectralDomainOracle(BaseDetector):
               ``band_results``, ``detector_type``
         """
         if not self._is_fitted:
-            raise DetectorException("SpectralDomainOracle must be fitted before detection.")
+            raise DetectorException("SpectralDomainSound must be fitted before detection.")
 
-        if isinstance(data, torch.Tensor):
+        if _TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if not isinstance(data, np.ndarray):
@@ -1467,13 +1473,13 @@ class SpectralDomainOracle(BaseDetector):
             "influence_vector": results[0]["influence_vector"],
             "band_results": results[0]["band_results"],
             "per_sample_results": results,
-            "detector_type": "spectral_domain_oracle",
+            "detector_type": "spectral_domain_sound",
         }
 
     def extract_features(
         self,
         data: np.ndarray | Any,
-    ) -> torch.Tensor:
+    ) -> Any:
         """Extract per-band spectral features as torch.Tensor.
 
         Returns ``[batch, n_bands + 7]`` features:
@@ -1506,7 +1512,7 @@ class SpectralDomainOracle(BaseDetector):
         Returns:
             Feature tensor of shape ``(N, n_bands + 7)``, dtype float32.
         """
-        if isinstance(data, torch.Tensor):
+        if _TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
         if not isinstance(data, np.ndarray):
@@ -1539,7 +1545,9 @@ class SpectralDomainOracle(BaseDetector):
             features_list.append(feat)
 
         features_np = np.array(features_list, dtype=np.float32)
-        return torch.from_numpy(features_np)
+        if _TORCH_AVAILABLE:
+            return torch.from_numpy(features_np)
+        return features_np
 
     # ------------------------------------------------------------------
     # Single-sample detection
@@ -1657,7 +1665,7 @@ class SpectralDomainOracle(BaseDetector):
             "is_anomaly": aggregate_score > self.threshold,
             "influence_vector": iv,
             "band_results": band_results,
-            "detector_type": "spectral_domain_oracle",
+            "detector_type": "spectral_domain_sound",
             "noise_color": {
                 "beta": self._noise_beta,
                 "name": self._noise_color,
@@ -1670,14 +1678,18 @@ class SpectralDomainOracle(BaseDetector):
 # Backward-compatible aliases (Task 9)
 # =============================================================================
 # These aliases ensure that existing code importing the old names continues
-# to work after the rename.  New code should use SpectralDomainOracle,
-# SpectralDomainOracleConfig, and create_spectral_oracle.
+# to work after the rename.  New code should use SpectralDomainSound,
+# SpectralDomainSoundConfig, and create_spectral_oracle.
 
-FrequencyDomainOracle = SpectralDomainOracle
-"""Deprecated alias for :class:`SpectralDomainOracle`."""
+FrequencyDomainOracle = SpectralDomainSound
+"""Deprecated alias for :class:`SpectralDomainSound`."""
 
-FrequencyDomainOracleConfig = SpectralDomainOracleConfig
-"""Deprecated alias for :class:`SpectralDomainOracleConfig`."""
+FrequencyDomainOracleConfig = SpectralDomainSoundConfig
+"""Deprecated alias for :class:`SpectralDomainSoundConfig`."""
 
 create_frequency_oracle = create_spectral_oracle
 """Deprecated alias for :func:`create_spectral_oracle`."""
+
+# Backward compatibility — remove after one release cycle
+SpectralDomainOracle = SpectralDomainSound
+SpectralDomainOracleConfig = SpectralDomainSoundConfig

@@ -26,6 +26,9 @@ os.environ["OMNI_RATE_LIMIT_ENABLED"] = "false"
 
 import numpy as np
 import pytest
+
+pytest.importorskip("fastapi", reason="API tests require fastapi")
+
 from fastapi.testclient import TestClient
 
 
