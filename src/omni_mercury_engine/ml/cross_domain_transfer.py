@@ -37,6 +37,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _warn_deprecated_module() -> None:
+    import warnings
+
+    warnings.warn(
+        f"{__name__} previously required sklearn. "
+        "Now uses Mercury-native implementations. "
+        "Module will be removed in a future release — see issue #NNN.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 # Optional imports
 try:
     import torch
@@ -1498,6 +1511,7 @@ class CrossDomainTransferLearner:
             normalize: Normalize features before adaptation
             verbose: Print progress information
         """
+        _warn_deprecated_module()
         self.method = method
         self.feature_alignment = feature_alignment
         self.normalize = normalize

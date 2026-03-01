@@ -1,26 +1,13 @@
-"""DEPRECATED: This module uses sklearn for anomaly detection baselines.
+"""Mercury Agent - Formal Benchmark Harness (sklearn-free).
 
-Mercury's production benchmark is benchmarks/mercury_benchmark.py.
-Mercury's production detector is MercuryAnomalyDetector in
-detectors/statistical.py. This module is retained for reference
-only and will be removed in a future release.
+Rigorous benchmark harness for anomaly detection evaluation.
+All baselines use Mercury-native implementations.
 
-Do not import this module in production or benchmark code paths.
-
-Original: Rigorous Benchmark Harness.
 Copyright (C) 2025 Steel Security Advisors LLC
 License: GPL-3.0-or-later
 """
 
 from __future__ import annotations
-
-import warnings
-
-warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
-    DeprecationWarning,
-    stacklevel=2,
-)
 
 import logging
 import time
@@ -29,6 +16,21 @@ from typing import Any, Protocol
 
 import numpy as np
 from scipy import stats
+
+from omni_mercury_engine.ml._native_utils import (
+    NativeEllipticEnvelope,
+    NativeLocalOutlierFactor,
+    NativeOneClassSVM,
+    NativeStandardScaler,
+    NativeStratifiedKFold,
+    native_brier_score_loss,
+    native_average_precision_score,
+    native_f1_score,
+    native_precision_score,
+    native_recall_score,
+    native_roc_auc_score,
+    native_train_test_split,
+)
 
 # Fixed seed for reproducibility
 GLOBAL_SEED = 42
@@ -200,15 +202,8 @@ def stratified_split(
     Returns:
         X_train, X_test, y_train, y_test
     """
-    try:
-        from sklearn.model_selection import train_test_split
-    except ImportError as e:
-        raise ImportError(
-            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-        ) from e
-
     set_all_seeds(seed)
-    return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)  # type: ignore[no-any-return]
+    return native_train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)
 
 
 def compute_event_metrics(
@@ -308,13 +303,6 @@ def point_adjusted_f1(
     Returns:
         Point-adjusted F1 score
     """
-    try:
-        from sklearn.metrics import f1_score
-    except ImportError as e:
-        raise ImportError(
-            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-        ) from e
-
     # Get anomaly segments
     adjusted_pred = np.zeros_like(y_pred)
 
@@ -341,7 +329,7 @@ def point_adjusted_f1(
         if y_pred[i] == 1 and y_true[i] == 0:
             adjusted_pred[i] = 1
 
-    return float(f1_score(y_true, adjusted_pred, zero_division=1.0))  # type: ignore[no-any-return, unused-ignore]
+    return native_f1_score(y_true, adjusted_pred, zero_division=1.0)
 
 
 class RigorousBenchmarkHarness:
@@ -400,21 +388,6 @@ class RigorousBenchmarkHarness:
         Returns:
             BenchmarkResult with all metrics and statistics
         """
-        try:
-            from sklearn.metrics import (
-                average_precision_score,
-                brier_score_loss,
-                f1_score,
-                precision_score,
-                recall_score,
-                roc_auc_score,
-            )
-            from sklearn.model_selection import StratifiedKFold
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
-
         set_all_seeds(self.seed)
 
         result = BenchmarkResult(
@@ -424,8 +397,8 @@ class RigorousBenchmarkHarness:
             seed=self.seed,
         )
 
-        # Stratified K-fold
-        skf = StratifiedKFold(
+        # Stratified K-fold (native)
+        skf = NativeStratifiedKFold(
             n_splits=self.n_folds,
             shuffle=True,
             random_state=self.seed,
@@ -464,7 +437,7 @@ class RigorousBenchmarkHarness:
             if not np.array_equal(y_pred, y_pred.astype(int)):
                 y_pred = (y_pred > 0.5).astype(int)
 
-            # Handle sklearn's -1/1 convention for anomaly detectors
+            # Handle -1/1 convention for anomaly detectors
             if set(np.unique(y_pred)) == {-1, 1}:
                 y_pred = (y_pred == -1).astype(int)
 
@@ -474,21 +447,21 @@ class RigorousBenchmarkHarness:
 
             # Compute metrics
             try:
-                result.roc_auc.values.append(roc_auc_score(y_test, y_proba))
+                result.roc_auc.values.append(native_roc_auc_score(y_test, y_proba))
             except ValueError:
                 result.roc_auc.values.append(0.5)
 
-            result.f1.values.append(f1_score(y_test, y_pred, zero_division=0.0))
-            result.precision.values.append(precision_score(y_test, y_pred, zero_division=0.0))
-            result.recall.values.append(recall_score(y_test, y_pred, zero_division=0.0))
+            result.f1.values.append(native_f1_score(y_test, y_pred, zero_division=0.0))
+            result.precision.values.append(native_precision_score(y_test, y_pred, zero_division=0.0))
+            result.recall.values.append(native_recall_score(y_test, y_pred, zero_division=0.0))
 
             try:
-                result.brier.values.append(brier_score_loss(y_test, y_proba))
+                result.brier.values.append(native_brier_score_loss(y_test, y_proba))
             except ValueError:
                 result.brier.values.append(0.25)
 
             try:
-                result.pr_auc.values.append(average_precision_score(y_test, y_proba))
+                result.pr_auc.values.append(native_average_precision_score(y_test, y_proba))
             except ValueError:
                 result.pr_auc.values.append(0.0)
 
@@ -610,10 +583,6 @@ def run_baseline_benchmarks(
     Returns:
         Dictionary mapping detector name to BenchmarkResult
     """
-    from sklearn.covariance import EllipticEnvelope
-    from sklearn.neighbors import LocalOutlierFactor
-    from sklearn.svm import OneClassSVM
-
     from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
     harness = RigorousBenchmarkHarness(n_folds=n_folds, seed=seed)
@@ -633,41 +602,42 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             result = self.detector.detect(X)
-            return np.asarray(result["is_anomaly"].astype(int))  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(result["is_anomaly"].astype(int))
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             result = self.detector.detect(X)
-            return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray(result["scores"])
 
     results["Mercury-Agent"] = harness.benchmark_detector(
         MercuryWrapper(), X, y, "Mercury-Agent", dataset_name
     )
 
-    # One-Class SVM
+    # One-Class SVM (native)
     class OCSVMWrapper:
         def __init__(self) -> None:
-            self.model = OneClassSVM(kernel="rbf", nu=contamination)
+            self.model = NativeOneClassSVM(kernel="rbf", nu=contamination)
 
         def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             self.model.fit(X)
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray((preds == -1).astype(int))
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
-            scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
+            rng = scores.max() - scores.min()
+            scores = (scores - scores.min()) / (rng + 1e-10)
+            return np.asarray(scores)
 
     results["OneClassSVM"] = harness.benchmark_detector(
         OCSVMWrapper(), X, y, "OneClassSVM", dataset_name
     )
 
-    # Local Outlier Factor
+    # Local Outlier Factor (native)
     class LOFWrapper:
         def __init__(self) -> None:
-            self.model = LocalOutlierFactor(
+            self.model = NativeLocalOutlierFactor(
                 n_neighbors=20,
                 contamination=contamination,
                 novelty=True,
@@ -678,19 +648,20 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray((preds == -1).astype(int))
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
-            scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
+            rng = scores.max() - scores.min()
+            scores = (scores - scores.min()) / (rng + 1e-10)
+            return np.asarray(scores)
 
     results["LOF"] = harness.benchmark_detector(LOFWrapper(), X, y, "LOF", dataset_name)
 
-    # Elliptic Envelope
+    # Elliptic Envelope (native)
     class EEWrapper:
         def __init__(self) -> None:
-            self.model = EllipticEnvelope(
+            self.model = NativeEllipticEnvelope(
                 contamination=contamination,
                 random_state=seed,
             )
@@ -698,9 +669,8 @@ def run_baseline_benchmarks(
         def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
             try:
                 self.model.fit(X)
-            except ValueError:
-                # Fallback for singular covariance
-                self.model = EllipticEnvelope(
+            except (ValueError, np.linalg.LinAlgError):
+                self.model = NativeEllipticEnvelope(
                     contamination=contamination,
                     random_state=seed,
                     support_fraction=0.9,
@@ -709,12 +679,13 @@ def run_baseline_benchmarks(
 
         def predict(self, X: np.ndarray) -> np.ndarray:
             preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))  # type: ignore[no-any-return, unused-ignore]
+            return np.asarray((preds == -1).astype(int))
 
         def predict_proba(self, X: np.ndarray) -> np.ndarray:
             scores = -self.model.decision_function(X)
-            scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
+            rng = scores.max() - scores.min()
+            scores = (scores - scores.min()) / (rng + 1e-10)
+            return np.asarray(scores)
 
     results["EllipticEnvelope"] = harness.benchmark_detector(
         EEWrapper(), X, y, "EllipticEnvelope", dataset_name

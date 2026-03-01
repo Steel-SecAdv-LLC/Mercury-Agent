@@ -46,6 +46,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _warn_deprecated_module() -> None:
+    import warnings
+
+    warnings.warn(
+        f"{__name__} previously required sklearn. "
+        "Now uses Mercury-native implementations. "
+        "Module will be removed in a future release — see issue #NNN.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 class TemporalSplitStrategy(StrEnum):
     """Strategies for temporal train/test splitting."""
 
@@ -847,6 +859,7 @@ class ConceptDriftEvaluator:
             retrain_on_drift: Whether to retrain when drift detected
             verbose: Print progress information
         """
+        _warn_deprecated_module()
         self.n_splits = n_splits
         self.strategy = strategy
         self.detect_drift = detect_drift

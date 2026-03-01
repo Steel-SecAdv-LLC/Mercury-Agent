@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Mercury Agent — Claude Code stop hook
+# Dynamically resolves tracking branch for commit log comparison.
+# Copyright (C) 2025 Steel Security Advisors LLC (GPL-3.0-only)
+
+set -uo pipefail
+
+# Resolve the upstream tracking branch dynamically
+BRANCH=""
+if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null); then
+    BRANCH="${upstream#origin/}"
+fi
+
+if [ -n "$BRANCH" ] && git ls-remote --exit-code origin "$BRANCH" >/dev/null 2>&1; then
+    echo "[stop hook] Commits since origin/$BRANCH:"
+    git log --oneline "origin/$BRANCH"..HEAD
+else
+    # Remote branch not yet pushed — compare against main
+    echo "[stop hook] Remote branch not found; comparing against origin/main:"
+    git log --oneline origin/main..HEAD
+fi

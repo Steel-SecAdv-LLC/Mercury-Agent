@@ -27,8 +27,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-from sklearn.preprocessing import StandardScaler
+
+from omni_mercury_engine.ml._native_utils import (
+    NativeStandardScaler as StandardScaler,
+    native_f1_score as f1_score,
+    native_precision_score as precision_score,
+    native_recall_score as recall_score,
+    native_roc_auc_score as roc_auc_score,
+)
 
 # ---------------------------------------------------------------------------
 # Ensure src/ is on the path
@@ -341,12 +347,18 @@ def run_benchmark(
     *,
     live_only: bool = False,
     domain_filter: str | None = None,
+    quick: bool = False,
+    no_comparison: bool = False,
+    quick_domain: bool = False,
 ) -> dict[str, Any]:
     """Run the mercury benchmark.  Returns the full results dict.
 
     Args:
         live_only: If True, skip ADBench and run only API-sourced domain datasets.
         domain_filter: If set, only run datasets matching this category.
+        quick: If True, reduce ADBench to the first 5 datasets for fast CI.
+        no_comparison: If True, skip AMA-only and Mercury-only baseline runs.
+        quick_domain: If True, run only the first 3 domain datasets.
     """
     print("=" * 70)
     print("Mercury Agent - Mercury Benchmark")
@@ -356,22 +368,46 @@ def run_benchmark(
         print("  Mode: --live-only (ADBench skipped)")
     if domain_filter:
         print(f"  Filter: --domain {domain_filter}")
+    if quick:
+        print("  Mode: --quick (reduced ADBench count)")
+    if no_comparison:
+        print("  Mode: --no-comparison (skip baseline comparison passes)")
+    if quick_domain:
+        print("  Mode: --quick-domain (reduced domain count)")
     print("=" * 70)
+
+    if no_comparison:
+        logger.info("[--no-comparison] Skipping AMA-only and Mercury-only baseline runs.")
+        print("[--no-comparison] Skipping AMA-only and Mercury-only baseline runs.")
 
     results: list[dict[str, Any]] = []
 
     # --- ADBench datasets ---
     if not live_only:
-        print("\n[ADBench] Loading 47 tabular datasets ...")
         adb_entries = _load_adbench()
+        if quick:
+            adb_entries = adb_entries[:5]
+            print(f"\n[ADBench] Loading {len(adb_entries)}/47 tabular datasets (--quick) ...")
+        else:
+            print("\n[ADBench] Loading 47 tabular datasets ...")
         for entry in adb_entries:
             result = _benchmark_single(entry)
             results.append(result)
+            if not no_comparison:
+                _run_comparison_passes(entry, results)
             gc.collect()
 
     # --- Domain datasets ---
-    print("\n[Domain] Loading Mercury domain datasets ...")
-    for name, cat, cls_name, mod, kwargs in DOMAIN_DATASETS:
+    domain_list = list(DOMAIN_DATASETS)
+    if quick_domain:
+        domain_list = domain_list[:3]
+        print(
+            f"\n[--quick-domain] Running {len(domain_list)}/{len(DOMAIN_DATASETS)}"
+            " domain datasets for CI coverage."
+        )
+    else:
+        print("\n[Domain] Loading Mercury domain datasets ...")
+    for name, cat, cls_name, mod, kwargs in domain_list:
         if domain_filter and cat != domain_filter:
             continue
         entry = _load_domain_dataset(name, cat, cls_name, mod, **kwargs)
@@ -516,6 +552,153 @@ def run_benchmark(
     _print_table(results, summary, component_summary)
 
     return output
+
+
+def _run_comparison_passes(entry: dict[str, Any], results: list[dict[str, Any]]) -> None:
+    """Run AMA-only and Mercury-only baseline passes for comparison.
+
+    These additional passes allow measuring the isolated contribution of each
+    component.  Skipped when --no-comparison is set.
+    """
+    if "error" in entry:
+        return
+    # AMA-only pass
+    _benchmark_single_ama(entry, results)
+    # Mercury-only baseline (AMA disabled)
+    _benchmark_single_baseline(entry, results)
+
+
+def _benchmark_single_ama(entry: dict[str, Any], results: list[dict[str, Any]]) -> None:
+    """Benchmark a single dataset using AMA-only scoring."""
+    name = entry["name"]
+    category = entry.get("category", "unknown")
+
+    if "error" in entry:
+        return
+
+    X_full = entry["X"]
+    y_full = entry["y"]
+    if X_full.ndim == 1:
+        X_full = X_full.reshape(-1, 1)
+    if len(np.unique(y_full)) < 2:
+        return
+
+    X_full, y_full = _cap_stratified(X_full, y_full, MAX_SAMPLES * 2)
+    normal_mask = y_full == 0
+    X_normal = X_full[normal_mask]
+    n_train = min(MAX_SAMPLES, len(X_normal) // 2)
+    if n_train < 5:
+        return
+
+    rng = np.random.RandomState(42)
+    train_idx = rng.choice(len(X_normal), n_train, replace=False)
+    X_train = X_normal[train_idx]
+    test_normal_mask = np.ones(len(X_normal), dtype=bool)
+    test_normal_mask[train_idx] = False
+    X_test = np.vstack([X_normal[test_normal_mask], X_full[~normal_mask]])
+    y_test = np.concatenate([
+        np.zeros(int(test_normal_mask.sum()), dtype=int),
+        np.ones(int((~normal_mask).sum()), dtype=int),
+    ])
+    X_test, y_test = _cap_stratified(X_test, y_test, MAX_SAMPLES)
+    X_train = np.nan_to_num(X_train, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
+    X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    detector = MercuryAnomalyDetector()
+    try:
+        detector.fit(X_train)
+        result_det = detector.detect(X_test)
+    except Exception as e:
+        logger.debug("AMA-only pass failed for %s: %s", name, e)
+        return
+
+    scores = result_det["scores"]
+    auc = _safe_auc(y_test, scores)
+    f1, prec, rec, thr, strat = _oracle_threshold_f1(y_test, scores)
+
+    results.append({
+        "name": f"{name} [AMA-only]",
+        "category": category,
+        "ensemble_auc": auc,
+        "oracle_f1": f1,
+        "oracle_precision": prec,
+        "oracle_recall": rec,
+        "pass_type": "ama_only",
+        "error": None,
+    })
+
+
+def _benchmark_single_baseline(
+    entry: dict[str, Any], results: list[dict[str, Any]]
+) -> None:
+    """Benchmark a single dataset using Mercury-only baseline (AMA disabled)."""
+    name = entry["name"]
+    category = entry.get("category", "unknown")
+
+    if "error" in entry:
+        return
+
+    X_full = entry["X"]
+    y_full = entry["y"]
+    if X_full.ndim == 1:
+        X_full = X_full.reshape(-1, 1)
+    if len(np.unique(y_full)) < 2:
+        return
+
+    X_full, y_full = _cap_stratified(X_full, y_full, MAX_SAMPLES * 2)
+    normal_mask = y_full == 0
+    X_normal = X_full[normal_mask]
+    n_train = min(MAX_SAMPLES, len(X_normal) // 2)
+    if n_train < 5:
+        return
+
+    rng = np.random.RandomState(42)
+    train_idx = rng.choice(len(X_normal), n_train, replace=False)
+    X_train = X_normal[train_idx]
+    test_normal_mask = np.ones(len(X_normal), dtype=bool)
+    test_normal_mask[train_idx] = False
+    X_test = np.vstack([X_normal[test_normal_mask], X_full[~normal_mask]])
+    y_test = np.concatenate([
+        np.zeros(int(test_normal_mask.sum()), dtype=int),
+        np.ones(int((~normal_mask).sum()), dtype=int),
+    ])
+    X_test, y_test = _cap_stratified(X_test, y_test, MAX_SAMPLES)
+    X_train = np.nan_to_num(X_train, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
+    X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    detector = MercuryAnomalyDetector()
+    try:
+        detector.fit(X_train)
+        # Disable AMA for baseline measurement
+        if hasattr(detector, "_ama_enabled"):
+            detector._ama_enabled = False
+        result_det = detector.detect(X_test)
+    except Exception as e:
+        logger.debug("Mercury-only baseline failed for %s: %s", name, e)
+        return
+
+    scores = result_det["scores"]
+    auc = _safe_auc(y_test, scores)
+    f1, prec, rec, thr, strat = _oracle_threshold_f1(y_test, scores)
+
+    results.append({
+        "name": f"{name} [Mercury-only]",
+        "category": category,
+        "ensemble_auc": auc,
+        "oracle_f1": f1,
+        "oracle_precision": prec,
+        "oracle_recall": rec,
+        "pass_type": "mercury_only_baseline",
+        "error": None,
+    })
 
 
 def _benchmark_single(entry: dict[str, Any]) -> dict[str, Any]:
@@ -857,9 +1040,39 @@ if __name__ == "__main__":
         default=None,
         help="Filter by category (e.g., --domain environmental)",
     )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        default=False,
+        help="Reduce ADBench to the first 5 datasets for fast CI runs.",
+    )
+    parser.add_argument(
+        "--no-comparison",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip AMA-only and Mercury-only baseline runs. "
+            "Use for CI smoke checks where runtime is constrained."
+        ),
+    )
+    parser.add_argument(
+        "--quick-domain",
+        action="store_true",
+        default=False,
+        help=(
+            "Run only the first 3 domain datasets (representative sample). "
+            "Complements --quick for CI runs that need domain coverage."
+        ),
+    )
     args = parser.parse_args()
 
-    output = run_benchmark(live_only=args.live_only, domain_filter=args.domain)
+    output = run_benchmark(
+        live_only=args.live_only,
+        domain_filter=args.domain,
+        quick=args.quick,
+        no_comparison=args.no_comparison,
+        quick_domain=args.quick_domain,
+    )
 
     with open(OUTPUT_PATH, "w") as f:
         json.dump(output, f, indent=2, default=str)

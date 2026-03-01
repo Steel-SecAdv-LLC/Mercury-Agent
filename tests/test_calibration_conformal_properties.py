@@ -1,5 +1,5 @@
 """
-Mercury Agent - Property-Based Tests for Caduceus ⚚ Enhancements
+Mercury Agent - Calibration & Conformal Prediction Property Tests
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -53,7 +53,7 @@ from omni_mercury_engine.core.conformal_prediction import (
     AdaptiveConformalInference,
     SplitConformalPredictor,
 )
-from omni_mercury_engine.core.rigorous_benchmark import (
+from omni_mercury_engine.core.formal_benchmark import (
     MetricResult,
     RigorousBenchmarkHarness,
     compute_event_metrics,
