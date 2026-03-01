@@ -22,14 +22,15 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sklearn.metrics import (
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
+
+from omni_mercury_engine.ml._native_utils import (
+    NativeStandardScaler as StandardScaler,
+    NativeStratifiedKFold as StratifiedKFold,
+    native_f1_score as f1_score,
+    native_precision_score as precision_score,
+    native_recall_score as recall_score,
+    native_roc_auc_score as roc_auc_score,
 )
-from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 

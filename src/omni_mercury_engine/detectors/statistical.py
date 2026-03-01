@@ -2187,6 +2187,9 @@ class MercuryAnomalyDetector(BaseDetector):
             )
             # Reflect that AMA did not contribute — prevent metadata lie.
             self._ama_fusion_skipped: bool = True
+            self._n_ama_excluded_due_to_inversion: int = (
+                getattr(self, "_n_ama_excluded_due_to_inversion", 0) + 1
+            )
             self._ama_fusion_skipped_reason: str = (
                 "Mercury inverted (_score_flip=True); AMA fusion skipped "
                 "to prevent polarity mismatch corrupting the blended score."
@@ -2386,6 +2389,7 @@ class MercuryAnomalyDetector(BaseDetector):
             ),
             "ama_fusion_skipped": getattr(self, "_ama_fusion_skipped", False),
             "ama_fusion_skipped_reason": getattr(self, "_ama_fusion_skipped_reason", None),
+            "n_ama_excluded_due_to_inversion": getattr(self, "_n_ama_excluded_due_to_inversion", 0),
             "mercury_weight": self._mercury_weight,
             "ama_weight": self._ama_weight,
             # Option F: Sound bidirectional metadata

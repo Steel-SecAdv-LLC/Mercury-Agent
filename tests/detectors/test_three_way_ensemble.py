@@ -79,6 +79,20 @@ def test_ama_active_false_when_score_flip_set() -> None:
     assert result.get("ama_fusion_skipped_reason") is not None
 
 
+def test_n_ama_excluded_due_to_inversion_counter() -> None:
+    """Inversion exclusion counter must increment on each detect() when _score_flip is True."""
+    detector = MercuryAnomalyDetector(enable_ama=True)
+    detector._score_flip = True
+    X = np.random.randn(200, 10)
+    detector.fit(X)
+
+    result1 = detector.detect(X)
+    assert result1["n_ama_excluded_due_to_inversion"] == 1
+
+    result2 = detector.detect(X)
+    assert result2["n_ama_excluded_due_to_inversion"] == 2
+
+
 def test_cv_weight_fallback_logged(caplog: pytest.LogCaptureFixture) -> None:
     """Fallback to default weights must be logged at WARNING level."""
     detector = MercuryAnomalyDetector(enable_ama=True)
