@@ -1,7 +1,7 @@
 """
 Numerical correctness tests for _native_utils.py native implementations.
 Each test compares native output against a known-good reference computed
-from scipy or numpy directly (not sklearn) using a fixed random seed.
+from scipy or numpy directly (Mercury-native, not external libraries) using a fixed random seed.
 
 Copyright (C) 2025 Steel Security Advisors LLC
 License: GPL-3.0-or-later

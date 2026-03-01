@@ -194,7 +194,10 @@ class TestIntegrationWithEngine:
 
     def test_multiple_datasets_benchmark(self):
         """Test benchmarking across multiple ADRepository datasets."""
-        from sklearn.metrics import roc_auc_score
+        from omni_mercury_engine.ml._native_utils import (
+            NativeOneClassSVM,
+            native_roc_auc_score,
+        )
 
         datasets_to_test = ["thyroid", "backdoor", "campaign"]
         results = {}
@@ -209,15 +212,13 @@ class TestIntegrationWithEngine:
             loader._create_synthetic_fallback()
             X, y = loader.load_data()
 
-            # Simple detector test
-            from sklearn.ensemble import IsolationForest
-
-            clf = IsolationForest(random_state=42, contamination=0.1)
+            # Simple detector test using Mercury-native One-Class SVM
+            clf = NativeOneClassSVM(nu=0.1, random_state=42)
             clf.fit(X)
-            scores = -clf.score_samples(X)
+            scores = -clf.decision_function(X)
 
             if len(np.unique(y)) > 1:
-                auc = roc_auc_score(y, scores)
+                auc = native_roc_auc_score(y, scores)
                 results[name] = auc
 
         # All datasets should produce valid AUC scores

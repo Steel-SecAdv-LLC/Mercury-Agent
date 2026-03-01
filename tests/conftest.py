@@ -261,7 +261,6 @@ def pytest_collection_modifyitems(config, items):
 
 _OPTIONAL_DEP_PATTERNS = (
     "No module named 'torch'",
-    "No module named 'sklearn'",
     "No module named 'fastapi'",
     "requires PyTorch",
     "require PyTorch",

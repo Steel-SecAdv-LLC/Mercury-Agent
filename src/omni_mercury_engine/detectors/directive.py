@@ -26,7 +26,7 @@ warnings.warn(
     stacklevel=2,
 )
 
-"""DEPRECATED: This module uses sklearn (PCA) for anomaly detection.
+"""DEPRECATED: This module previously used PCA for anomaly detection.
 Mercury's production detector is MercuryAnomalyDetector in
 detectors/statistical.py. This module is retained for reference only.
 

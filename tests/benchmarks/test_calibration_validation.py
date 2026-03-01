@@ -25,8 +25,6 @@ sys.path.insert(0, str(_project_root / "src"))
 sys.path.insert(0, str(_project_root / "benchmarks"))
 sys.path.insert(0, str(_project_root))
 
-sklearn = pytest.importorskip("sklearn")
-
 from calibration_validation import (  # type: ignore[import-untyped]
     run_calibration_validation,
     run_conformal_coverage,

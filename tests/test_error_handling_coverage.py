@@ -177,7 +177,7 @@ class TestDirectiveDetectorErrorHandling:
 
 
 class _MockClassifier:
-    """Minimal sklearn-compatible classifier for testing GWO without sklearn."""
+    """Minimal ML-compatible classifier for testing GWO without external dependencies."""
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> _MockClassifier:
         return self
@@ -201,7 +201,7 @@ class TestGWOOptimizerErrorHandling:
     def test_cross_val_failure_logs_and_returns_default(self, caplog):
         """Test that GWO select_features returns valid mask even when cross-val fails.
 
-        When sklearn is unavailable, the ImportError is caught inside the
+        When external ML libraries are unavailable, the ImportError is caught inside the
         objective function's try/except, logged, and returns default fitness.
         GWO still produces a valid feature mask.
         """
@@ -212,8 +212,8 @@ class TestGWOOptimizerErrorHandling:
         X = np.random.randn(20, 10)
         y = np.array([0] * 10 + [1] * 10)
 
-        # Use mock classifier — if sklearn is missing, the import inside
-        # select_features fails gracefully; if sklearn IS available,
+        # Use mock classifier — if native ML utilities are missing, the import inside
+        # select_features fails gracefully; if native ML utilities ARE available,
         # cross_val_score will use the mock's fit/score methods.
         clf = _MockClassifier()
 
@@ -330,8 +330,8 @@ class TestCrossValidationErrorHandling:
         """Test GWO handles insufficient samples for cross-validation.
 
         With only 6 samples, 3-fold CV has 2 samples per fold which may
-        trigger failures. When sklearn is missing, the ImportError is caught
-        gracefully. Either way, GWO must return a valid boolean mask.
+        trigger failures. When native ML utilities are missing, the ImportError
+        is caught gracefully. Either way, GWO must return a valid boolean mask.
         """
         from omni_mercury_engine.ml.gwo_optimizer import GreyWolfOptimizer
 

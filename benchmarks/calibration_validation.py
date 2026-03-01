@@ -40,9 +40,15 @@ from typing import Any
 
 import numpy as np
 from scipy.optimize import minimize
-from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
-from sklearn.preprocessing import StandardScaler
+from omni_mercury_engine.ml._native_utils import (
+    NativeStandardScaler as StandardScaler,
+    NativeStratifiedKFold as StratifiedKFold,
+    native_f1_score as f1_score,
+    native_precision_score as precision_score,
+    native_recall_score as recall_score,
+    native_roc_auc_score as roc_auc_score,
+    native_train_test_split,
+)
 
 # ---------------------------------------------------------------------------
 # Ensure src/ is on the path
@@ -126,23 +132,19 @@ def _stratified_split(
 
     # First split: 60% train, 40% rest
     try:
-        sss1 = StratifiedShuffleSplit(n_splits=1, test_size=0.4, random_state=rng.randint(0, 2**31))
-        train_idx, rest_idx = next(sss1.split(X, y))
+        X_train, X_rest, y_train, y_rest = native_train_test_split(
+            X, y, test_size=0.4, random_state=rng.randint(0, 2**31), stratify=y
+        )
     except ValueError:
         return None
-
-    X_train, y_train = X[train_idx], y[train_idx]
-    X_rest, y_rest = X[rest_idx], y[rest_idx]
 
     # Second split: 50/50 of remaining = 20%/20% of total
     try:
-        sss2 = StratifiedShuffleSplit(n_splits=1, test_size=0.5, random_state=rng.randint(0, 2**31))
-        cal_idx, test_idx = next(sss2.split(X_rest, y_rest))
+        X_cal, X_test, y_cal, y_test = native_train_test_split(
+            X_rest, y_rest, test_size=0.5, random_state=rng.randint(0, 2**31), stratify=y_rest
+        )
     except ValueError:
         return None
-
-    X_cal, y_cal = X_rest[cal_idx], y_rest[cal_idx]
-    X_test, y_test = X_rest[test_idx], y_rest[test_idx]
 
     # Verify minimum samples per class in each split
     for split_y, split_name in [

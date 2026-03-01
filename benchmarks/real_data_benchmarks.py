@@ -47,10 +47,10 @@ from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 
 # ---------------------------------------------------------------------------
-# Native replacements for sklearn metrics/preprocessing (no sklearn import)
+# Mercury-native metrics/preprocessing
 # ---------------------------------------------------------------------------
 def _native_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
-    """Trapezoidal AUC-ROC. No sklearn dependency."""
+    """Trapezoidal AUC-ROC. Mercury-native."""
     desc_idx = np.argsort(y_score)[::-1]
     y_true_s = y_true[desc_idx]
     y_score_s = y_score[desc_idx]
@@ -84,20 +84,20 @@ def _f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 
 def _label_encode(series: pd.Series) -> np.ndarray:
-    """Integer-encode categorical series. No sklearn dependency."""
+    """Integer-encode categorical series. Mercury-native."""
     cats = {v: i for i, v in enumerate(sorted(series.unique()))}
     return series.map(cats).to_numpy(dtype=np.int64)
 
 
 def _standard_scale(X: np.ndarray) -> np.ndarray:
-    """Z-score normalization. No sklearn dependency."""
+    """Z-score normalization. Mercury-native."""
     mu = X.mean(axis=0)
     sigma = X.std(axis=0) + 1e-8
     return (X - mu) / sigma
 
 
 class _StratifiedKFold:
-    """Minimal stratified k-fold. No sklearn dependency."""
+    """Minimal stratified k-fold. Mercury-native."""
 
     def __init__(self, n_splits: int = 5, shuffle: bool = True, random_state: int = 42):
         self.n_splits = n_splits
@@ -322,18 +322,18 @@ class NSLKDDBenchmark:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self._data: pd.DataFrame | None = None
         self._use_synthetic = False
-        self._sklearn_source = False
+        self._direct_download_source = False
 
     @property
     def _data_source_label(self) -> str:
         if self._use_synthetic:
             return "synthetic-fallback"
-        if self._sklearn_source:
-            return "real-sklearn-kddcup99"
+        if self._direct_download_source:
+            return "real-direct-kddcup99"
         return "real-kdd"
 
     def _load_via_direct_download(self) -> pd.DataFrame:
-        """Load KDD Cup 99 (10%) directly via urllib. No sklearn dependency."""
+        """Load KDD Cup 99 (10%) directly via urllib. Mercury-native."""
         import gzip
         import io
         import urllib.request
@@ -348,18 +348,18 @@ class NSLKDDBenchmark:
             header=None,
         )
         self._use_synthetic = False
-        self._sklearn_source = False
+        self._direct_download_source = False
         return df
 
     def _download_data(self) -> pd.DataFrame | Path:
         """Download KDD Cup 99 data with retry logic.
 
         Priority:
-        1. sklearn (verified working, no external network required)
-        2. URL downloads (may 403/404)
+        1. Direct download via urllib
+        2. URL mirrors (may 403/404)
         3. Synthetic fallback
         """
-        # 1. Try direct download (no sklearn dependency)
+        # 1. Try direct download
         try:
             return self._load_via_direct_download()
         except Exception as exc:

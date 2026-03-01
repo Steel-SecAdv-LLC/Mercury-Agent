@@ -30,7 +30,7 @@ import warnings
 from abc import ABC, abstractmethod
 
 warnings.warn(
-    f"{__name__} previously required sklearn for online learning. "
+    f"{__name__} previously used external ML libraries for online learning. "
     "Now uses Mercury-native implementations.",
     DeprecationWarning,
     stacklevel=2,
@@ -283,7 +283,7 @@ class SGDOnlineLearner(OnlineLearner):
     """
     Stochastic Gradient Descent based online learner.
 
-    Wraps sklearn's SGDClassifier for online anomaly detection.
+    Wraps NativeSGDClassifier for online anomaly detection.
     """
 
     def __init__(

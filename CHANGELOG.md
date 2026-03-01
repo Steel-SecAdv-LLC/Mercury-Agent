@@ -224,11 +224,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **sklearn dependency from core detectors**: `MercuryAnomalyDetector`,
-  `DimensionalAnalyzer`, and `SpatialAnomalyDetector` no longer import sklearn.
+- **External ML library dependency from core detectors**: `MercuryAnomalyDetector`,
+  `DimensionalAnalyzer`, and `SpatialAnomalyDetector` now use Mercury-native implementations.
   PCA replaced with numpy SVD; LOF replaced with scipy KDTree implementation.
-- All remaining top-level sklearn imports in `src/` converted to lazy imports.
-  sklearn is now a true optional dependency (`pip install mercury-agent[ml]`).
+- All external ML library imports replaced with Mercury-native utilities in `_native_utils.py`.
+  Mercury is fully self-contained — no external ML libraries required.
 - Deleted stale benchmark PNG artifacts from `benchmarks/`
 
 ### Fixed

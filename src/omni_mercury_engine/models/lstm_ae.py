@@ -370,7 +370,7 @@ def evaluate_detector(
     def precision_recall_curve(
         y_true: np.ndarray, y_scores: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Inline replacement for sklearn.metrics.precision_recall_curve."""
+        """Native implementation of precision_recall_curve."""
         desc_score_indices = np.argsort(y_scores)[::-1]
         y_scores_sorted = y_scores[desc_score_indices]
         y_true_sorted = y_true[desc_score_indices]

@@ -324,7 +324,7 @@ class FeatureSelector:
             scores = mutual_info_classif(X, y_discrete, random_state=42)
             return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
         except ImportError:
-            logger.warning("sklearn not available, falling back to variance")
+            logger.warning("Native mutual_info not available, falling back to variance")
             return np.asarray(np.var(X, axis=0))  # type: ignore[no-any-return, unused-ignore]
 
     def _compute_correlation_scores(self, X: np.ndarray) -> np.ndarray:

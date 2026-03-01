@@ -1,8 +1,8 @@
 """
-Mercury Agent - Native ML Utilities (sklearn-free)
+Mercury Agent - Native ML Utilities (Mercury-native)
 Copyright (C) 2025 Steel Security Advisors LLC (GPL-3.0)
 
-Drop-in replacements for sklearn utilities used across Mercury.
+Drop-in replacements for external ML library utilities used across Mercury.
 All implementations use only numpy and scipy.
 """
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def native_roc_auc_score(y_true: np.ndarray, y_score: np.ndarray) -> float:
-    """Trapezoidal AUC-ROC (sklearn-compatible threshold indexing)."""
+    """Trapezoidal AUC-ROC (standard ML API-compatible threshold indexing)."""
     y_true = np.asarray(y_true, dtype=np.float64).ravel()
     y_score = np.asarray(y_score, dtype=np.float64).ravel()
     if len(np.unique(y_true)) < 2:
@@ -35,7 +35,7 @@ def native_roc_auc_score(y_true: np.ndarray, y_score: np.ndarray) -> float:
     desc_idx = np.argsort(y_score, kind="mergesort")[::-1]
     y_true_s = y_true[desc_idx]
     y_score_s = y_score[desc_idx]
-    # Use last position of each tied-score group (sklearn convention)
+    # Use last position of each tied-score group (standard convention)
     distinct_value_indices = np.where(np.diff(y_score_s))[0]
     threshold_idxs = np.r_[distinct_value_indices, len(y_true_s) - 1]
     tps = np.cumsum(y_true_s)[threshold_idxs]
@@ -49,7 +49,7 @@ def native_roc_auc_score(y_true: np.ndarray, y_score: np.ndarray) -> float:
 
 
 def native_average_precision_score(y_true: np.ndarray, y_score: np.ndarray) -> float:
-    """Average precision (area under precision-recall curve, sklearn-compatible)."""
+    """Average precision (area under precision-recall curve, standard ML API-compatible)."""
     y_true = np.asarray(y_true, dtype=np.float64).ravel()
     y_score = np.asarray(y_score, dtype=np.float64).ravel()
     desc_idx = np.argsort(y_score, kind="mergesort")[::-1]
@@ -162,6 +162,31 @@ def native_brier_score_loss(y_true: np.ndarray, y_prob: np.ndarray) -> float:
     y_true = np.asarray(y_true, dtype=np.float64).ravel()
     y_prob = np.asarray(y_prob, dtype=np.float64).ravel()
     return float(np.mean((y_true - y_prob) ** 2))
+
+
+def native_confusion_matrix(
+    y_true: np.ndarray, y_pred: np.ndarray, *, labels: np.ndarray | None = None
+) -> np.ndarray:
+    """Confusion matrix for binary/multiclass classification.
+
+    Returns a (C, C) matrix where element (i, j) is the count of samples
+    with true label *labels[i]* predicted as *labels[j]*.
+    """
+    y_true = np.asarray(y_true).ravel()
+    y_pred = np.asarray(y_pred).ravel()
+    if labels is None:
+        labels = np.unique(np.concatenate([y_true, y_pred]))
+    else:
+        labels = np.asarray(labels)
+    n = len(labels)
+    label_to_idx = {int(lbl): i for i, lbl in enumerate(labels)}
+    cm = np.zeros((n, n), dtype=np.int64)
+    for t, p in zip(y_true, y_pred):
+        ti = label_to_idx.get(int(t))
+        pi = label_to_idx.get(int(p))
+        if ti is not None and pi is not None:
+            cm[ti, pi] += 1
+    return cm
 
 
 # ---------------------------------------------------------------------------
@@ -334,7 +359,7 @@ class NativeLogisticRegression:
         self.C = C
         self.lr = learning_rate
         self.tol = tol
-        self.solver = solver  # accepted for sklearn API compat
+        self.solver = solver  # accepted for standard ML API compat
         self.rng = np.random.RandomState(random_state)
         self.coef_: np.ndarray | None = None
         self.intercept_: np.ndarray = np.array([0.0])
@@ -363,7 +388,7 @@ class NativeLogisticRegression:
             b -= self.lr * grad_b
             if np.linalg.norm(grad_w) < self.tol:
                 break
-        # Store in sklearn-compatible shapes: coef_ is (1, d), intercept_ is (1,)
+        # Store in standard ML API-compatible shapes: coef_ is (1, d), intercept_ is (1,)
         self.coef_ = w.reshape(1, -1)
         self.intercept_ = np.array([b])
         return self
@@ -983,7 +1008,7 @@ def native_clone(estimator: Any) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Native anomaly detection baselines (sklearn-free)
+# Native anomaly detection baselines (Mercury-native)
 # ---------------------------------------------------------------------------
 
 

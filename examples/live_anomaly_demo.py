@@ -45,7 +45,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sklearn.ensemble import IsolationForest
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 BANNER = """
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -96,11 +96,8 @@ class LiveAnomalyDetector:
     def __init__(self, domain: str = "security", contamination: float = 0.1) -> None:
         self.domain = domain
         self.contamination = contamination
-        self.model = IsolationForest(
-            n_estimators=100,
+        self.model = MercuryAnomalyDetector(
             contamination=contamination,
-            random_state=42,
-            n_jobs=-1,
         )
         self._is_fitted = False
         self._detection_history: list[AnomalyDetection] = []
@@ -337,14 +334,9 @@ class LiveAnomalyDetector:
         for i, (data, ground_truth) in enumerate(
             self._generate_stream_data(n_samples=n_samples, anomaly_ratio=0.15)
         ):
-            raw_score = -self.model.score_samples(data.reshape(1, -1))[0]
-            anomaly_score = (raw_score - raw_score.min()) / (
-                raw_score.max() - raw_score.min() + 1e-8
-            )
-            anomaly_score = float(np.clip(raw_score / 0.5, 0, 1))
-
-            prediction = self.model.predict(data.reshape(1, -1))[0]
-            is_anomaly = prediction == -1
+            result = self.model.detect(data.reshape(1, -1))
+            anomaly_score = float(result["scores"][0])
+            is_anomaly = bool(result["is_anomaly"][0])
 
             confidence = (
                 min(0.99, 0.7 + anomaly_score * 0.3)

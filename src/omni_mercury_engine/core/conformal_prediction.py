@@ -1072,7 +1072,7 @@ def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
     try:
         predictions = detector.predict(X)
 
-        # Handle sklearn convention (-1 = anomaly)
+        # Handle anomaly detector convention (-1 = anomaly)
         if hasattr(detector, "contamination"):
             # Isolation Forest / LOF convention
             scores = np.where(predictions == -1, 0.75, 0.25)

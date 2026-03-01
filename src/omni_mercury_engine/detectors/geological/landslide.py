@@ -412,8 +412,8 @@ class TemporalLagFeatureExtractor:
 class SVMRFEnsembleClassifier:
     """Ensemble classifier for landslide detection — Mercury-native.
 
-    Replaces sklearn SVM + RandomForest with Fisher Linear Discriminant
-    projection for class probability estimation. sklearn-free (numpy only).
+    Replaces SVM + RandomForest with Fisher Linear Discriminant
+    projection for class probability estimation. Mercury-native (numpy only).
     """
 
     def __init__(

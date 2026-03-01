@@ -972,7 +972,7 @@ class AutoThresholdOptimizer:
                 NativeGaussianMixture as GaussianMixture,
             )
         except ImportError:
-            logger.warning("sklearn not available for GMM, falling back to percentile")
+            logger.warning("Native GMM not available, falling back to percentile")
             return self._percentile_threshold(scores, contamination, fixed_threshold)
 
         if len(scores) < 20:

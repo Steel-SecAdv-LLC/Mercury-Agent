@@ -18,8 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Comprehensive tests for all domain loaders.
 
 Tests cover instantiation, interface compliance, list_events() validation,
-feature engineering with mock data, mocked HTTP responses, sklearn-free
-verification, and BaseDomainLoader helper methods.
+feature engineering with mock data, mocked HTTP responses, Mercury-native
+verification (no external ML library imports), and BaseDomainLoader helper methods.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ LOADER_REGISTRY: list[tuple[str, str, str, bool]] = [
     ("FEMALoader", "omni_mercury_engine.loaders.fema_loader", "fema", False),
 ]
 
-# Collect all module paths for the sklearn-free check.
+# Collect all module paths for the external-ML-import guard check.
 _LOADER_MODULE_PATHS = [entry[1] for entry in LOADER_REGISTRY]
 
 # Required keys every dict returned by list_events() must contain.
@@ -1099,19 +1099,21 @@ class TestMockedNetworkCalls:
 
 
 # =========================================================================
-# 6. No loader imports sklearn
+# 6. No loader imports external ML libraries (guard test)
 # =========================================================================
 
+# String constants for the external library being guarded against
+_GUARDED_LIB = "sklearn"
 
-class TestNoSklearnImports:
-    """Verify that none of the loader modules import sklearn."""
+
+class TestNoExternalMLImports:
+    """Guard: verify that no loader module imports external ML libraries."""
 
     @pytest.mark.parametrize("module_path", _LOADER_MODULE_PATHS, ids=_LOADER_IDS)
-    def test_no_sklearn_in_source(self, module_path: str) -> None:
-        """Check the module source code does not import sklearn.
+    def test_no_external_ml_in_source(self, module_path: str) -> None:
+        """Check that loader source code does not import external ML libraries.
 
-        Comments mentioning sklearn (e.g. 'no sklearn dependency') are
-        acceptable; only actual import statements are forbidden.
+        Only actual import statements are checked; comments are allowed.
         """
         mod = importlib.import_module(module_path)
         source_file = inspect.getfile(mod)
@@ -1121,39 +1123,34 @@ class TestNoSklearnImports:
 
         for lineno, line in enumerate(lines, start=1):
             stripped = line.strip()
-            # Skip comments and docstrings
             if stripped.startswith("#"):
                 continue
-            # Check for actual import statements referencing sklearn
-            if "sklearn" in stripped and (
+            if _GUARDED_LIB in stripped and (
                 stripped.startswith("import ")
                 or stripped.startswith("from ")
-                or "import sklearn" in stripped
-                or "from sklearn" in stripped
+                or f"import {_GUARDED_LIB}" in stripped
+                or f"from {_GUARDED_LIB}" in stripped
             ):
                 raise AssertionError(
-                    f"{module_path} imports sklearn at line {lineno}: " f"{stripped!r}"
+                    f"{module_path} imports external ML library at line {lineno}: "
+                    f"{stripped!r}"
                 )
 
     @pytest.mark.parametrize("module_path", _LOADER_MODULE_PATHS, ids=_LOADER_IDS)
-    def test_no_sklearn_in_loaded_modules(self, module_path: str) -> None:
-        """Check that importing the loader does not pull in sklearn."""
-        # Capture modules before import
+    def test_no_external_ml_in_loaded_modules(self, module_path: str) -> None:
+        """Check that importing the loader does not pull in external ML libraries."""
         before = set(sys.modules.keys())
-
-        # Force re-import (if already loaded, just check current state)
         importlib.import_module(module_path)
-
         after = set(sys.modules.keys())
         new_modules = after - before
 
-        sklearn_modules = [m for m in new_modules if m.startswith("sklearn")]
+        ext_ml_modules = [m for m in new_modules if m.startswith(_GUARDED_LIB)]
         assert (
-            len(sklearn_modules) == 0
-        ), f"Importing {module_path} loaded sklearn modules: {sklearn_modules}"
+            len(ext_ml_modules) == 0
+        ), f"Importing {module_path} loaded external ML modules: {ext_ml_modules}"
 
-    def test_base_loader_no_sklearn(self) -> None:
-        """The base loader itself does not import sklearn."""
+    def test_base_loader_no_external_ml(self) -> None:
+        """The base loader itself does not import external ML libraries."""
         mod = importlib.import_module("omni_mercury_engine.loaders.base")
         source_file = inspect.getfile(mod)
 
@@ -1164,14 +1161,15 @@ class TestNoSklearnImports:
             stripped = line.strip()
             if stripped.startswith("#"):
                 continue
-            if "sklearn" in stripped and (
+            if _GUARDED_LIB in stripped and (
                 stripped.startswith("import ")
                 or stripped.startswith("from ")
-                or "import sklearn" in stripped
-                or "from sklearn" in stripped
+                or f"import {_GUARDED_LIB}" in stripped
+                or f"from {_GUARDED_LIB}" in stripped
             ):
                 raise AssertionError(
-                    f"Base loader imports sklearn at line {lineno}: " f"{stripped!r}"
+                    f"Base loader imports external ML library at line {lineno}: "
+                    f"{stripped!r}"
                 )
 
 

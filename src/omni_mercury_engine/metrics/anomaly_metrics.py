@@ -78,7 +78,7 @@ def compute_auroc(
 
 
 def _manual_auroc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
-    """Manual AUROC computation without sklearn."""
+    """Manual AUROC computation natively."""
     n_pos = y_true.sum()
     n_neg = len(y_true) - n_pos
 

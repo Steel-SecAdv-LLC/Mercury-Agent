@@ -164,7 +164,7 @@ class PlattScaling:
         Returns:
             Self for method chaining
         """
-        # Reshape for sklearn
+        # Reshape for calibration model input
         X = y_prob.reshape(-1, 1)
 
         # Handle edge cases

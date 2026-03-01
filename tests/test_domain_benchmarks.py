@@ -16,8 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/.
 
 Tests for the domain benchmark base infrastructure:
-  - compute_auc (trapezoidal AUC-ROC without sklearn)
-  - compute_f1_precision_recall (F1 / precision / recall without sklearn)
+  - compute_auc (trapezoidal AUC-ROC Mercury-native)
+  - compute_f1_precision_recall (F1 / precision / recall Mercury-native)
   - run_domain_benchmark (end-to-end with a mock loader)
 """
 

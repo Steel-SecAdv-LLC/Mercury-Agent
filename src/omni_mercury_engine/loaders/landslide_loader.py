@@ -34,7 +34,7 @@ _QUERY_URL = (
 )
 
 # ---------------------------------------------------------------------------
-# Category and trigger encoding maps (Mercury-native, no sklearn)
+# Category and trigger encoding maps (Mercury-native)
 # ---------------------------------------------------------------------------
 _CATEGORY_ENCODING: dict[str, int] = {
     "landslide": 1,
@@ -139,7 +139,7 @@ class LandslideLoader(BaseDomainLoader):
     for anomaly detection: event category, trigger type, fatality/injury
     counts, landslide size, geographic location, and temporal features.
 
-    All math is Mercury-native (numpy only, no sklearn).
+    All math is Mercury-native (numpy only).
     """
 
     DOMAIN: str = "landslide"
@@ -345,7 +345,7 @@ class LandslideLoader(BaseDomainLoader):
         return np.asarray(labels)
 
     # ------------------------------------------------------------------
-    # Feature engineering (Mercury-native, no sklearn)
+    # Feature engineering (Mercury-native)
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
@@ -367,7 +367,7 @@ class LandslideLoader(BaseDomainLoader):
         9. **month** -- month of year (1--12).
         10. **day_of_year** -- day of year (1--366).
 
-        All encoding is done with Mercury-native math (no sklearn).
+        All encoding is done with Mercury-native math (Mercury-native).
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
@@ -428,7 +428,7 @@ class LandslideLoader(BaseDomainLoader):
         # 10. Day of year (1-366)
         features[:, 9] = self._extract_day_of_year(df)
 
-        # Clean up non-finite values (Mercury-native, no sklearn)
+        # Clean up non-finite values (Mercury-native)
         features = np.where(np.isinf(features), np.nan, features)
         for col_idx in range(features.shape[1]):
             col = features[:, col_idx]
@@ -547,7 +547,7 @@ class LandslideLoader(BaseDomainLoader):
     ) -> np.ndarray:
         """Encode a categorical column to numeric values using a fixed map.
 
-        Mercury-native encoding: direct dictionary lookup, no sklearn.
+        Mercury-native encoding: direct dictionary lookup.
 
         Args:
             df: DataFrame containing the column.
@@ -570,7 +570,7 @@ class LandslideLoader(BaseDomainLoader):
         """Encode country/admin division to a stable numeric code.
 
         Uses a deterministic hash to produce consistent numeric IDs for
-        each unique country name.  Mercury-native (no sklearn).
+        each unique country name.  Mercury-native (Mercury-native).
 
         Args:
             df: DataFrame with optional ``country_name`` column.

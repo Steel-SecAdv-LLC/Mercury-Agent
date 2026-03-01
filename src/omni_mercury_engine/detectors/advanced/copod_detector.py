@@ -273,7 +273,7 @@ class COPODDetector:
         return scores
 
     def decision_function(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
-        """Alias for predict (sklearn compatibility)."""
+        """Alias for predict (standard ML compatibility)."""
         return self.predict(X)
 
     def detect(
@@ -332,7 +332,7 @@ class COPODDetector:
     def fit_predict(
         self, X: NDArray[np.float64], y: NDArray[np.float64] | None = None
     ) -> NDArray[np.float64]:
-        """Fit and predict (sklearn compatibility)."""
+        """Fit and predict (standard ML compatibility)."""
         self.fit(X, y)
         return self.predict(X)
 

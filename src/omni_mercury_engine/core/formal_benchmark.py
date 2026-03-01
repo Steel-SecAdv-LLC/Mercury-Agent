@@ -1,4 +1,4 @@
-"""Mercury Agent - Formal Benchmark Harness (sklearn-free).
+"""Mercury Agent - Formal Benchmark Harness (Mercury-native).
 
 Rigorous benchmark harness for anomaly detection evaluation.
 All baselines use Mercury-native implementations.

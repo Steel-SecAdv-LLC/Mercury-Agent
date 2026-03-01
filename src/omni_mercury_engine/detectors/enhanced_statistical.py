@@ -1,7 +1,7 @@
-"""DEPRECATED: This module uses sklearn (LOF, DBSCAN, MinCovDet, NearestNeighbors)
-for anomaly detection. Mercury's production detector is MercuryAnomalyDetector
-in detectors/statistical.py. This module is retained for reference only and will
-be removed in a future release.
+"""DEPRECATED: This module previously used external ML libraries (LOF, DBSCAN,
+MinCovDet, NearestNeighbors) for anomaly detection. Mercury's production detector
+is MercuryAnomalyDetector in detectors/statistical.py. This module is retained
+for reference only and will be removed in a future release.
 
 Do not import this module in production or benchmark code paths.
 
@@ -273,7 +273,7 @@ class DBSCANDetector:
     - No assumption about cluster shape
     - Automatically finds number of clusters
     - Robust to noise
-    - sklearn-free: uses scipy.spatial.cKDTree
+    - Mercury-native: uses scipy.spatial.cKDTree
     """
 
     def __init__(
@@ -384,7 +384,7 @@ class MCDDetector:
     Minimum Covariance Determinant (MCD) based detector — Mercury-native.
 
     Uses iterative reweighted covariance estimation for Mahalanobis distance.
-    sklearn-free: numpy + scipy only.
+    Mercury-native: numpy + scipy only.
 
     Advantages:
     - Robust to outliers in training data

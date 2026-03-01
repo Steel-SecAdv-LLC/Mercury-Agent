@@ -120,7 +120,7 @@ class TestLandslideDetector:
         """Test ML ensemble classifier is initialized.
 
         SVMRFEnsembleClassifier now uses Fisher Linear Discriminant internally
-        (sklearn-free). The test verifies the ensemble object exists and has
+        (Mercury-native). The test verifies the ensemble object exists and has
         the Fisher LDA weight vectors dict (_w_vectors).
         """
         has_ensemble = (
@@ -134,7 +134,7 @@ class TestLandslideDetector:
         """Test ML ensemble has feature importance capability.
 
         SVMRFEnsembleClassifier now uses Fisher Linear Discriminant internally
-        (sklearn-free). The test verifies the ensemble object exists and tracks
+        (Mercury-native). The test verifies the ensemble object exists and tracks
         feature importances via _feature_importances attribute.
         """
         has_ensemble = (

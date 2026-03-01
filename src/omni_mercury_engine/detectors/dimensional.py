@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 
 
 class _NativePCA:
-    """Minimal PCA via truncated SVD (no sklearn dependency).
+    """Minimal PCA via truncated SVD (Mercury-native).
 
     Supports fit / transform / inverse_transform with the same API surface
     that DimensionalAnalyzer requires.

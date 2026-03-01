@@ -1847,8 +1847,8 @@ Mercury-Agent benchmarks use the following publicly available datasets:
 | SMD | Su et al., "Robust Anomaly Detection for Multivariate Time Series", KDD 2019 | [OmniAnomaly](https://github.com/NetManAIOps/OmniAnomaly) |
 | SMAP/MSL | Hundman et al., "Detecting Spacecraft Anomalies Using LSTMs", KDD 2018 | [telemanom](https://github.com/khundman/telemanom) / [Kaggle](https://www.kaggle.com/datasets/patrickfleith/nasa-anomaly-detection-dataset-smap-msl) |
 | BATADAL | Taormina et al., "Battle of the Attack Detection Algorithms", ASCE 2018 | [GitHub](https://github.com/SYChen123/Baseline-outlier-detection-algorithms-on-BATADAL-dataset) |
-| Covtype | Blackard & Dean, 1999; UCI ML Repository | [sklearn.datasets](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_covtype.html) |
-| KDDCup99 | Tavallaee et al., IEEE 2009 (NSL-KDD variant) | [sklearn.datasets](https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_kddcup99.html) |
+| Covtype | Blackard & Dean, 1999; UCI ML Repository | [UCI ML Repository](https://archive.ics.uci.edu/dataset/31/covertype) |
+| KDDCup99 | Tavallaee et al., IEEE 2009 (NSL-KDD variant) | [UCI ML Repository](https://archive.ics.uci.edu/dataset/119/kdd+cup+1999+data) |
 
 ### Data Source Transparency
 

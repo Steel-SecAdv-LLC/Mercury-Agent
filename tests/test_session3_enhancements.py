@@ -330,34 +330,34 @@ class TestRealWorldBenchmark:
         assert X.shape == (1000, 43)
         assert 0.05 < np.mean(y) < 0.15  # ~10% attacks
 
-    def test_benchmark_runner_sklearn_detector(self):
-        """Test benchmark with sklearn detector - verifies fail-closed behavior without real data."""
-        from sklearn.ensemble import IsolationForest
-
+    def test_benchmark_runner_native_detector(self):
+        """Test benchmark with native detector - verifies fail-closed behavior without real data."""
         from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         runner = RealWorldBenchmarkRunner(n_folds=3, seed=SEED)
 
-        # Wrapper for sklearn
-        class IFWrapper:
+        # Wrapper for MercuryAnomalyDetector
+        class DetectorWrapper:
             def __init__(self):
-                self.model = IsolationForest(n_estimators=50, random_state=SEED)
+                self.model = MercuryAnomalyDetector()
 
             def fit(self, X, y=None):
                 self.model.fit(X)
 
             def predict(self, X):
-                return (self.model.predict(X) == -1).astype(int)
+                result = self.model.detect(X)
+                return result["is_anomaly"].astype(int)
 
             def predict_proba(self, X):
-                scores = -self.model.score_samples(X)
-                scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
+                result = self.model.detect(X)
+                scores = result["scores"]
                 return np.column_stack([1 - scores, scores])
 
         # Test fail-closed behavior: without real data, should raise RuntimeError
         # This validates the Civilization-First principle of no synthetic data for validation
         with pytest.raises(RuntimeError, match="REAL DATA REQUIRED"):
-            runner.run_benchmark(IFWrapper(), "SMD", "IsolationForest")
+            runner.run_benchmark(DetectorWrapper(), "SMD", "MercuryDetector")
 
     def test_benchmark_with_neurosymbolic_hub(self):
         """Test benchmark with neuro-symbolic hub - verifies fail-closed behavior without real data."""

@@ -281,7 +281,6 @@ module = [
     "oqs",
     "oqs.*",
     "scipy.*",
-    "sklearn.*",
     "matplotlib.*",
     "plotly.*",
     "mammoth.*",

@@ -39,7 +39,7 @@ BENCHMARKS_DIR = Path(__file__).parent
 
 
 def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
-    """Compute AUC-ROC without sklearn.
+    """Compute AUC-ROC (Mercury-native).
 
     Uses the trapezoidal rule on the ROC curve computed by sorting
     scores and sweeping thresholds.
@@ -77,7 +77,7 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     fpr = fps / n_neg
 
     # Collapse tied scores: only keep the last point in each group
-    # of identical scores (matching sklearn roc_curve behaviour).
+    # of identical scores (matching standard roc_curve behaviour).
     distinct = np.concatenate([np.where(np.diff(y_scores_sorted))[0], [len(y_scores_sorted) - 1]])
     tpr = tpr[distinct]
     fpr = fpr[distinct]
@@ -93,7 +93,7 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
 
 
 def compute_f1_precision_recall(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
-    """Compute F1, precision, and recall without sklearn.
+    """Compute F1, precision, and recall (Mercury-native).
 
     Args:
         y_true: Binary ground truth labels.

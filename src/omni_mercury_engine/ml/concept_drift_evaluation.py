@@ -50,7 +50,7 @@ def _warn_deprecated_module() -> None:
     import warnings
 
     warnings.warn(
-        f"{__name__} previously required sklearn. "
+        f"{__name__} previously used external ML libraries. "
         "Now uses Mercury-native implementations. "
         "Module will be removed in a future release — see issue #NNN.",
         DeprecationWarning,

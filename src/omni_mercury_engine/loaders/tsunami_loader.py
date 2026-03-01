@@ -566,7 +566,7 @@ class TsunamiLoader(BaseDomainLoader):
 
 
 # ---------------------------------------------------------------------------
-# Pure-numpy helper functions (no sklearn dependency)
+# Pure-numpy helper functions (Mercury-native)
 # ---------------------------------------------------------------------------
 
 

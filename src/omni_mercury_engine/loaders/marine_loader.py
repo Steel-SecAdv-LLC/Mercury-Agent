@@ -801,7 +801,7 @@ class MarineLoader(BaseDomainLoader):
 
 
 # ---------------------------------------------------------------------------
-# Pure-function helpers (no sklearn dependency)
+# Pure-function helpers (Mercury-native)
 # ---------------------------------------------------------------------------
 
 

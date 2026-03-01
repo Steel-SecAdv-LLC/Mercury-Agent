@@ -561,7 +561,7 @@ class RealWorldBenchmarkRunner:
 
             predict_time = (time.perf_counter() - predict_start) * 1000
 
-            # Handle sklearn's -1/1 convention
+            # Handle anomaly detector -1/1 convention
             if set(np.unique(y_pred)) == {-1, 1}:
                 y_pred = (y_pred == -1).astype(int)
 

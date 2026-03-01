@@ -49,13 +49,13 @@ import numpy as np
 # Add src to path for development
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
+from omni_mercury_engine.ml._native_utils import (
+    native_accuracy_score as accuracy_score,
+    native_average_precision_score as average_precision_score,
+    native_f1_score as f1_score,
+    native_precision_score as precision_score,
+    native_recall_score as recall_score,
+    native_roc_auc_score as roc_auc_score,
 )
 
 logger = logging.getLogger(__name__)

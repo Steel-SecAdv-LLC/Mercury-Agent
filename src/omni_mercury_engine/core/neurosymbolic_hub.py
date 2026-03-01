@@ -1172,7 +1172,7 @@ class NeuroSymbolicHub:
         return results
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Get anomaly probabilities (for sklearn compatibility)."""
+        """Get anomaly probabilities (standard ML interface)."""
         results = self.predict(X, return_explanations=False)
         scores = np.array([r.anomaly_score for r in results])
         return np.column_stack([1 - scores, scores])

@@ -64,7 +64,7 @@ class ModelFramework(StrEnum):
     PYTORCH = "pytorch"
     ONNX = "onnx"
     TENSORFLOW = "tensorflow"
-    SKLEARN = "sklearn"
+    NATIVE_ML = "native_ml"
     CUSTOM = "custom"
 
 

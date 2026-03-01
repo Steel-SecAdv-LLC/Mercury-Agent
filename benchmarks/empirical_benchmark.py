@@ -24,9 +24,9 @@ anomaly detection capabilities against established near-peer systems using
 publicly available datasets.
 
 Datasets Used:
-- sklearn breast_cancer (medical domain proxy)
-- sklearn digits (pattern recognition)
-- sklearn fetch_covtype (environmental/sensor data)
+- UCI breast_cancer (medical domain proxy)
+- UCI digits (pattern recognition)
+- UCI covtype (environmental/sensor data)
 - KDDCup99 subset (cybersecurity)
 - SMD (Server Machine Dataset) - time-series
 - SMAP (Soil Moisture Active Passive) - time-series
@@ -34,10 +34,10 @@ Datasets Used:
 - SWaT (Secure Water Treatment) - time-series
 
 Near-Peer Baselines:
-- Isolation Forest (sklearn)
-- One-Class SVM (sklearn)
-- Local Outlier Factor (sklearn)
-- Elliptic Envelope (sklearn)
+- Isolation Forest (Mercury-native)
+- One-Class SVM (Mercury-native)
+- Local Outlier Factor (Mercury-native)
+- Elliptic Envelope (Mercury-native)
 - TranAD (SOTA transformer-based)
 - MAAT (SOTA Mamba-based)
 
@@ -99,19 +99,20 @@ KNOWN_CHECKSUMS: dict[str, str | None] = {
     "smd:machine-1-1.txt": None,  # Populate with actual hashes when available
     "batadal:dataset03.csv": None,
 }
-from sklearn.covariance import EllipticEnvelope
-from sklearn.datasets import fetch_covtype, fetch_kddcup99, load_breast_cancer, load_digits
-from sklearn.metrics import (
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
+from omni_mercury_engine.ml._native_utils import (
+    NativeEllipticEnvelope as EllipticEnvelope,
+    NativeKFold as KFold,
+    NativeLocalOutlierFactor as LocalOutlierFactor,
+    NativeOneClassSVM as OneClassSVM,
+    NativeStandardScaler as StandardScaler,
+    NativeStratifiedKFold as StratifiedKFold,
+    native_confusion_matrix as confusion_matrix,
+    native_f1_score as f1_score,
+    native_precision_score as precision_score,
+    native_recall_score as recall_score,
+    native_roc_auc_score as roc_auc_score,
+    native_train_test_split as train_test_split,
 )
-from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import OneClassSVM
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -130,7 +131,7 @@ except ImportError:
 # AdaptiveAnomalyDetector removed — Mercury uses MercuryAnomalyDetector only
 ADAPTIVE_DETECTOR_AVAILABLE = False
 
-# Suppress expected warnings from sklearn/numpy during benchmark model fitting.
+# Suppress expected warnings from numpy during benchmark model fitting.
 # Scoped to specific categories rather than blanket suppression.
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -178,11 +179,11 @@ def fetch_with_retry(
     """
     Fetch a dataset with exponential backoff retry logic.
 
-    Handles intermittent HTTP 403 errors from sklearn's data servers (OpenML, UCI)
+    Handles intermittent HTTP 403 errors from data servers (OpenML, UCI)
     which can rate-limit or block CI IPs temporarily.
 
     Args:
-        fetch_func: The sklearn fetch function to call (e.g., fetch_covtype)
+        fetch_func: The fetch function to call (e.g., a dataset downloader)
         dataset_name: Name of the dataset for logging
         max_retries: Maximum number of retry attempts (default: 5)
         base_delay: Base delay in seconds for exponential backoff (default: 2.0)
@@ -242,7 +243,7 @@ def fetch_from_mirror(
     """
     Fetch dataset from a mirror URL with browser-like headers.
 
-    Used as fallback when sklearn's fetch functions fail due to HTTP 403 errors
+    Used as fallback when direct dataset downloads fail due to HTTP 403 errors
     from rate-limiting or anti-bot measures on OpenML/Figshare servers.
 
     Args:
@@ -752,14 +753,72 @@ class KFoldResult:
     aggregated_confusion_matrix: np.ndarray
 
 
-def prepare_breast_cancer_dataset() -> DatasetInfo:
-    """
-    Prepare breast cancer dataset for anomaly detection.
-    Malignant samples (minority class) treated as anomalies.
-    """
-    data = load_breast_cancer()
-    X, y = data.data, data.target
+def _load_breast_cancer_native() -> tuple[np.ndarray, np.ndarray]:
+    """Load Wisconsin Breast Cancer (diagnostic) from UCI via urllib.
 
+    Falls back to synthetic data with matching dimensions (569 x 30).
+    """
+    try:
+        import csv
+        import urllib.request
+
+        url = "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            raw = resp.read().decode("utf-8")
+        reader = csv.reader(io.StringIO(raw))
+        rows = list(reader)
+        # Columns: ID, Diagnosis (M/B), 30 features
+        X = np.array([[float(v) for v in row[2:]] for row in rows if len(row) >= 32])
+        y = np.array([0 if row[1] == "M" else 1 for row in rows if len(row) >= 32])
+        logger.info(f"Loaded breast cancer from UCI ({len(X)} samples)")
+        return X, y
+    except Exception as exc:
+        logger.warning(f"UCI breast cancer download failed ({exc}), using synthetic fallback")
+        rng = np.random.RandomState(42)
+        n_normal, n_anom = 357, 212
+        X_normal = rng.randn(n_normal, 30) * 1.0
+        X_anom = rng.randn(n_anom, 30) * 1.5 + 2.0
+        X = np.vstack([X_normal, X_anom])
+        y = np.concatenate([np.ones(n_normal), np.zeros(n_anom)])
+        return X, y
+
+
+def _load_digits_native() -> tuple[np.ndarray, np.ndarray]:
+    """Load optical digits dataset from UCI via urllib.
+
+    Falls back to synthetic data with matching dimensions (1797 x 64).
+    """
+    try:
+        import urllib.request
+
+        url_tra = "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tra"
+        url_tes = "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tes"
+        rows = []
+        for url in [url_tra, url_tes]:
+            with urllib.request.urlopen(url, timeout=30) as resp:
+                for line in resp.read().decode("utf-8").strip().split("\n"):
+                    parts = line.strip().split(",")
+                    if len(parts) == 65:
+                        rows.append([float(v) for v in parts])
+        data = np.array(rows)
+        X, y = data[:, :-1], data[:, -1].astype(int)
+        logger.info(f"Loaded digits from UCI ({len(X)} samples)")
+        return X, y
+    except Exception as exc:
+        logger.warning(f"UCI digits download failed ({exc}), using synthetic fallback")
+        rng = np.random.RandomState(43)
+        X = rng.randint(0, 17, size=(1797, 64)).astype(float)
+        y = rng.randint(0, 10, size=1797)
+        return X, y
+
+
+def prepare_breast_cancer_dataset() -> DatasetInfo:
+    """Prepare breast cancer dataset for anomaly detection.
+
+    Malignant samples (minority class) treated as anomalies.
+    Loads from UCI directly (no external ML library required).
+    """
+    X, y = _load_breast_cancer_native()
     y_anomaly = 1 - y
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -782,13 +841,12 @@ def prepare_breast_cancer_dataset() -> DatasetInfo:
 
 
 def prepare_digits_dataset() -> DatasetInfo:
-    """
-    Prepare digits dataset for anomaly detection.
-    Digit '8' treated as anomaly (unusual shape).
-    """
-    data = load_digits()
-    X, y = data.data, data.target
+    """Prepare digits dataset for anomaly detection.
 
+    Digit '8' treated as anomaly (unusual shape).
+    Loads from UCI directly (no external ML library required).
+    """
+    X, y = _load_digits_native()
     y_anomaly = (y == 8).astype(int)
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -816,29 +874,11 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     Rare cover type (type 4) treated as anomaly.
 
     Uses retry logic with exponential backoff for HTTP errors.
-    Falls back to UCI mirror if sklearn fetch fails (HTTP 403).
+    Falls back to UCI mirror if direct download fails (HTTP 403).
     Falls back to synthetic data only as last resort.
     """
     X, y = None, None
     source = "synthetic"
-
-    # Try sklearn's fetch_covtype first (uses OpenML/Figshare)
-    data = fetch_with_retry(
-        fetch_covtype,
-        "covtype",
-        max_retries=3,
-        base_delay=2.0,
-        as_frame=False,
-    )
-
-    if data is not None:
-        try:
-            X, y = data.data, data.target
-            source = "sklearn"
-            logger.info("Successfully loaded covtype from sklearn (OpenML)")
-        except Exception as e:
-            logger.warning(f"Error processing sklearn covtype data: {e}")
-            X, y = None, None
 
     # Fallback: Try UCI mirror with browser headers
     if X is None:
@@ -884,7 +924,7 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
 
     # Last resort: synthetic data
     logger.warning(
-        "FALLBACK: All covtype sources failed (sklearn + UCI mirror). "
+        "FALLBACK: All covtype sources failed (UCI mirror). "
         "Using synthetic data - benchmark results may differ from real dataset."
     )
     X, y = _generate_synthetic_time_series(
@@ -914,37 +954,13 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     Attack traffic treated as anomaly.
 
     Uses retry logic with exponential backoff for HTTP errors.
-    Falls back to NSL-KDD from GitHub if sklearn fetch fails (HTTP 403).
     Falls back to synthetic data only as last resort.
     """
     X_numeric, y_anomaly = None, None
     source = "synthetic"
     dataset_name = "kddcup99"
 
-    # Try sklearn's fetch_kddcup99 first
-    data = fetch_with_retry(
-        fetch_kddcup99,
-        "KDDCup99",
-        max_retries=3,
-        base_delay=2.0,
-        subset="SA",
-        percent10=True,
-        as_frame=False,
-    )
-
-    if data is not None:
-        try:
-            X, y = data.data, data.target
-            numeric_mask = np.array([isinstance(x[0], (int, float, np.number)) for x in X[:1].T])
-            X_numeric = X[:, numeric_mask].astype(float)
-            y_anomaly = (y != b"normal.").astype(int)
-            source = "sklearn"
-            logger.info("Successfully loaded KDDCup99 from sklearn")
-        except Exception as e:
-            logger.warning(f"Error processing sklearn KDDCup99 data: {e}")
-            X_numeric, y_anomaly = None, None
-
-    # Fallback: Try NSL-KDD from GitHub (improved version of KDDCup99)
+    # Try NSL-KDD from GitHub (improved version of KDDCup99)
     if X_numeric is None:
         logger.info("Trying NSL-KDD from GitHub as KDDCup99 alternative...")
         nsl_url = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain%2B.txt"
@@ -1454,7 +1470,7 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
 
 class TranADDetector:
     """
-    Wrapper for TranAD SOTA model to match sklearn interface.
+    Wrapper for TranAD SOTA model to match standard anomaly detector interface.
 
     TranAD uses transformer architecture with adversarial training
     for time-series anomaly detection.
@@ -1597,7 +1613,7 @@ class TranADDetector:
 
 class MAATDetector:
     """
-    Wrapper for MAAT SOTA model to match sklearn interface.
+    Wrapper for MAAT SOTA model to match standard anomaly detector interface.
 
     MAAT combines Mamba SSM with sparse attention for efficient
     long-sequence anomaly detection.
@@ -1748,7 +1764,7 @@ class FallbackStrategy:
 class OmniMercuryDetector:
     """Benchmark wrapper around MercuryAnomalyDetector.
 
-    Exposes the sklearn-compatible interface (fit/predict/decision_function)
+    Exposes the standard anomaly detector interface (fit/predict/decision_function)
     expected by the benchmark harness while delegating all detection to
     Mercury's original ensemble (Resonance 40% + Kinematic 30% + InfoGeo 30%).
     """
@@ -1765,7 +1781,7 @@ class OmniMercuryDetector:
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict anomaly labels (-1 = anomaly, 1 = normal, sklearn convention)."""
+        """Predict anomaly labels (-1 = anomaly, 1 = normal, standard convention)."""
         X_clean = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
         result = self._detector.detect(X_clean)
         self._scores = result["scores"]
@@ -1799,9 +1815,9 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray
         # Use average_precision_score for correct PR-AUC calculation
         # This properly handles the precision-recall curve ordering and avoids
         # negative values from np.trapz on unsorted recall values
-        from sklearn.metrics import average_precision_score
+        from omni_mercury_engine.ml._native_utils import native_average_precision_score
 
-        pr_auc = average_precision_score(y_true, y_scores)
+        pr_auc = native_average_precision_score(y_true, y_scores)
     except ValueError as e:
         # Single class present or invalid input
         logger.debug(f"PR-AUC calculation failed (single class or invalid input): {e}")
@@ -1921,8 +1937,6 @@ def benchmark_detector_kfold(
         # This ensures higher scores = more anomalous regardless of detector convention
         try:
             train_scores = detector.decision_function(X_train)
-            from sklearn.metrics import roc_auc_score
-
             # Check if scores need inversion (AUC < 0.5 means scores are inverted)
             if len(np.unique(y_train)) >= 2:
                 train_auc = roc_auc_score(y_train, train_scores)
@@ -2075,7 +2089,7 @@ def run_full_benchmark(
     print("Loading datasets...")
     print("-" * 40)
 
-    # Standard sklearn datasets
+    # Standard benchmark datasets
     bc_data = prepare_breast_cancer_dataset()
     datasets.append(bc_data)
     print(
@@ -2360,7 +2374,7 @@ def generate_honest_assessment(
     """Generate honest assessment of Mercury-Agent performance."""
     assessment: dict[str, Any] = {
         "methodology_notes": [
-            "Benchmarks use publicly available sklearn datasets",
+            "Benchmarks use publicly available UCI/OpenML datasets",
             "Anomaly labels derived from minority class designation",
             "All detectors use same train/test splits for fair comparison",
             "Contamination parameter set based on actual anomaly ratio",

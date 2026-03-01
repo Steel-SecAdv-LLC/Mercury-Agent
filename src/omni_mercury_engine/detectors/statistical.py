@@ -79,7 +79,7 @@ class MercuryAnomalyDetector(BaseDetector):
       - InfoGeometryScore (30%): Fisher Information OOD detection
 
     All methods are deterministic after ``fit()``, produce continuous
-    scores in [0, 1], and require only numpy/scipy (no sklearn).
+    scores in [0, 1], and require only numpy/scipy (Mercury-native).
 
     .. deprecated:: 1.6
        ``StatisticalAnomalyDetector`` is an alias retained for backward

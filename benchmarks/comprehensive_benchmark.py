@@ -33,7 +33,11 @@ import time
 from typing import Any
 
 import numpy as np
-from sklearn.metrics import f1_score, precision_score, recall_score
+from omni_mercury_engine.ml._native_utils import (
+    native_f1_score as f1_score,
+    native_precision_score as precision_score,
+    native_recall_score as recall_score,
+)
 
 from benchmarks.real_data_benchmarks import (
     MIMICDemoBenchmark,
@@ -157,7 +161,7 @@ def benchmark_cosmic_ray_detection() -> dict[str, Any]:
     z_scores = np.abs((data - mean_energy) / (std_energy + 1e-8))
     y_pred = (np.max(z_scores, axis=1) > threshold).astype(int)
 
-    # Compute real metrics using sklearn
+    # Compute real metrics using native utilities
     precision = precision_score(y_true, y_pred, zero_division=0)
     recall = recall_score(y_true, y_pred, zero_division=0)
     f1 = f1_score(y_true, y_pred, zero_division=0)
