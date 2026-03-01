@@ -40,7 +40,6 @@ try:
 
     _TORCH_AVAILABLE = True
 except ImportError:
-    torch = None
     _TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
