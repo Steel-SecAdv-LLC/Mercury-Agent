@@ -611,12 +611,12 @@ def _run_comparison_passes(entry: dict[str, Any], results: list[dict[str, Any]])
     if "error" in entry:
         return
     # AMA-only pass
-    _benchmark_single_ama(entry, results)
+    _benchmark_single_ama_comparison(entry, results)
     # Mercury-only baseline (AMA disabled)
     _benchmark_single_baseline(entry, results)
 
 
-def _benchmark_single_ama(entry: dict[str, Any], results: list[dict[str, Any]]) -> None:
+def _benchmark_single_ama_comparison(entry: dict[str, Any], results: list[dict[str, Any]]) -> None:
     """Benchmark a single dataset using AMA-only scoring."""
     name = entry["name"]
     category = entry.get("category", "unknown")
