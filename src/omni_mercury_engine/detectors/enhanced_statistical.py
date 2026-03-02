@@ -201,6 +201,8 @@ class LOFDetector:
 
     def fit(self, X: NDArray[np.float64]) -> LOFDetector:
         """Fit the LOF detector."""
+        from scipy.spatial import cKDTree
+
         from omni_mercury_engine.ml.mercury_ml import LocalOutlierFactor
 
         self._lof = LocalOutlierFactor(
@@ -304,7 +306,7 @@ class DBSCANDetector:
 
     def _estimate_eps(self, X: NDArray[np.float64]) -> float:
         """Estimate optimal eps using k-distance graph."""
-        from omni_mercury_engine.ml.mercury_ml import NearestNeighbors
+        from scipy.spatial import cKDTree
 
         k = min(self.min_samples, len(X) - 1)
         tree = cKDTree(X)

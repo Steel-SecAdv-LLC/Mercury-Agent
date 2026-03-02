@@ -359,7 +359,7 @@ class TestRealWorldBenchmark:
         # Test fail-closed behavior: without real data, should raise RuntimeError
         # This validates the Civilization-First principle of no synthetic data for validation
         with pytest.raises(RuntimeError, match="REAL DATA REQUIRED"):
-            runner.run_benchmark(DetectorWrapper(), "SMD", "MercuryDetector")
+            runner.run_benchmark(IFWrapper(), "SMD", "MercuryDetector")
 
     def test_benchmark_with_neurosymbolic_hub(self):
         """Test benchmark with neuro-symbolic hub - verifies fail-closed behavior without real data."""

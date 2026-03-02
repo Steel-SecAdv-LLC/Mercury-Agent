@@ -178,6 +178,8 @@ class FeatureExtractionResult:
         """Convert features to PyTorch tensor."""
         if self.features is None:
             return None
+        if torch is None:
+            raise ImportError("PyTorch is required for to_tensor()")
         if isinstance(self.features, torch.Tensor):
             return self.features.to(device)
         return torch.tensor(self.features, dtype=torch.float32, device=device)

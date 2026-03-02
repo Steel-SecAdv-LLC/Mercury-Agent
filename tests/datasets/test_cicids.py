@@ -347,12 +347,14 @@ class TestCICIDSIntegration:
         X_processed = loader.preprocess(X)
 
         # Train and evaluate
-        clf = NativeOneClassSVM(nu=0.2, random_state=42)
+        from omni_mercury_engine.ml.mercury_ml import OneClassSVM, roc_auc_score
+
+        clf = OneClassSVM(nu=0.2, random_state=42)
         clf.fit(X_processed)
         scores = -clf.decision_function(X_processed)
 
         if len(np.unique(y)) > 1:
-            auc = native_roc_auc_score(y, scores)
+            auc = roc_auc_score(y, scores)
             # Should achieve reasonable performance even on synthetic
             assert 0.0 <= auc <= 1.0
 

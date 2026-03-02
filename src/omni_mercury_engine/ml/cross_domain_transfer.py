@@ -1671,7 +1671,7 @@ class CrossDomainTransferLearner:
             cls_mask = target_data.y == cls
             cls_preds = target_preds[cls_mask]
             cls_true = target_data.y[cls_mask]
-            cls_f1 = f1_score(cls_true, cls_preds, average="binary", pos_label=cls, zero_division=0)
+            cls_f1 = f1_score(cls_true, cls_preds, average="binary", zero_division=0)
             class_f1_scores[str(cls)] = float(cls_f1)
 
         # Transfer ratio

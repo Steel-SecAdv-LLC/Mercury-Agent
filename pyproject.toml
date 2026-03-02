@@ -62,9 +62,8 @@ dependencies = [
 
 [project.optional-dependencies]
 # Core ML stack -- PyTorch and supporting libraries.
-# Core ML stack -- PyTorch and supporting libraries.
 # All ML primitives (metrics, calibration, anomaly detection) use Mercury-native
-# implementations in omni_mercury_engine.ml.mercury_ml.  No sklearn dependency.
+# implementations in omni_mercury_engine.ml.mercury_ml.  Mercury-native only.
 ml = [
     "torch>=2.2.0",
     "torchvision>=0.17.0",

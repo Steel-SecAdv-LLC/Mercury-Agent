@@ -217,6 +217,8 @@ class TestIntegrationWithEngine:
             scores = -clf.decision_function(X)
 
             if len(np.unique(y)) > 1:
+                from omni_mercury_engine.ml.mercury_ml import roc_auc_score as native_roc_auc_score
+
                 auc = native_roc_auc_score(y, scores)
                 results[name] = auc
 

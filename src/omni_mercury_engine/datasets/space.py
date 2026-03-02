@@ -373,16 +373,12 @@ class NASAExoplanetLoader(DatasetLoader):
             params = {
                 "orbital_period": np.random.lognormal(2, 1.5),  # days
                 "planet_radius": np.random.lognormal(0, 0.8),  # Earth radii
+                "planet_mass": np.random.lognormal(1, 1.2),  # Earth masses
                 "stellar_mass": np.random.lognormal(0, 0.3),  # Solar masses
                 "stellar_radius": np.random.lognormal(0, 0.3),  # Solar radii
                 "stellar_temp": np.random.normal(5500, 800),  # Kelvin
-                "transit_depth": np.random.exponential(0.001),  # fraction
-                "transit_duration": np.random.lognormal(1, 0.5),  # hours
-                "insolation_flux": np.random.lognormal(0, 1),  # Earth flux
-                "equilibrium_temp": np.random.normal(500, 300),  # Kelvin
                 "eccentricity": np.random.beta(1, 5),  # 0-1
                 "semi_major_axis": np.random.lognormal(-0.5, 1),  # AU
-                "inclination": np.random.uniform(80, 90),  # degrees
             }
 
             feature_vec = [params[f] for f in self.FEATURE_NAMES]
@@ -392,7 +388,7 @@ class NASAExoplanetLoader(DatasetLoader):
             is_anomaly = (
                 params["planet_radius"] > 5  # Very large planet
                 or params["orbital_period"] < 0.5  # Ultra-short period
-                or params["equilibrium_temp"] > 2000  # Very hot
+                or params["planet_mass"] > 50  # Very massive planet
                 or params["eccentricity"] > 0.8  # Highly eccentric
             )
             labels.append(1 if is_anomaly else 0)

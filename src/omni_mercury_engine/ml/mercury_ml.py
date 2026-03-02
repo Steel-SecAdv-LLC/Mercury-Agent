@@ -1,10 +1,10 @@
-"""Mercury-native ML primitives — zero sklearn dependency.
+"""Mercury-native ML primitives — original Mercury Agent implementations.
 
 This module provides Mercury's own implementations of common ML utilities,
 metrics, model selection, preprocessing, and anomaly detection components.
 Every function here uses only numpy and scipy (standard numerical libs).
 
-NO sklearn. If Mercury fails, it fails. Period.
+Mercury is original in design. If Mercury fails, it fails. Period.
 """
 
 from __future__ import annotations
@@ -206,7 +206,8 @@ def roc_auc_score(y_true: NDArray, y_score: NDArray) -> float:
     tpr = np.concatenate([[0.0], tpr])
     fpr = np.concatenate([[0.0], fpr])
 
-    return float(np.trapz(tpr, fpr))
+    _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    return float(_trapz(tpr, fpr))
 
 
 def average_precision_score(y_true: NDArray, y_score: NDArray) -> float:
@@ -494,7 +495,7 @@ def cross_val_score(
 
 
 def clone(estimator: Any) -> Any:
-    """Deep-copy an estimator (Mercury-native replacement for sklearn.base.clone)."""
+    """Deep-copy an estimator (Mercury-native clone)."""
     return copy.deepcopy(estimator)
 
 
@@ -822,7 +823,7 @@ class IsolationForest:
         return scores
 
     def decision_function(self, X: NDArray) -> NDArray:
-        """Compute decision function (negative = more anomalous, like sklearn)."""
+        """Compute decision function (negative = more anomalous, standard convention)."""
         X = np.asarray(X, dtype=np.float64)
         return -(self._raw_score(X) - self._offset)
 

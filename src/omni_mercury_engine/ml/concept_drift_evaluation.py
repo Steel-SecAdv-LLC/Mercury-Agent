@@ -985,14 +985,13 @@ class ConceptDriftEvaluator:
             inference_time = time.time() - inference_start
 
             # Calculate metrics
-            try:
-                from omni_mercury_engine.ml.mercury_ml import (
-                    accuracy_score,
-                    f1_score,
-                    precision_score,
-                    recall_score,
-                    roc_auc_score,
-                )
+            from omni_mercury_engine.ml.mercury_ml import (
+                accuracy_score,
+                f1_score,
+                precision_score,
+                recall_score,
+                roc_auc_score,
+            )
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")

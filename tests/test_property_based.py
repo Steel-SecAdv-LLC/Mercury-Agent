@@ -407,6 +407,7 @@ class TestDetectorRegistryProperties:
     """Property-based tests for DetectorRegistry invariants."""
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
+    @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch required for aggregate_features")
     @given(npst.arrays(dtype=np.float64, shape=st.integers(min_value=10, max_value=100)))
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_aggregate_features_produces_128d_output(self, features: np.ndarray[Any, Any]):
