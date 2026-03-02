@@ -204,12 +204,11 @@ class TestConceptDriftEvaluation:
 
     def test_concept_drift_evaluator(self, drift_data):
         """Test full concept drift evaluation."""
-        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
-
         from omni_mercury_engine.ml.concept_drift_evaluation import (
             ConceptDriftEvaluator,
             TemporalSplitStrategy,
         )
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         X, y, timestamps = drift_data
 
@@ -437,9 +436,8 @@ class TestExplainability:
 
     def test_shap_explainer_local(self, synthetic_data):
         """Test local SHAP explanations."""
-        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
-
         from omni_mercury_engine.ml.explainability import SHAPExplainer
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         X, y = synthetic_data
 
@@ -457,9 +455,8 @@ class TestExplainability:
 
     def test_shap_explainer_global(self, synthetic_data):
         """Test global SHAP explanations."""
-        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
-
         from omni_mercury_engine.ml.explainability import SHAPExplainer
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         X, y = synthetic_data
 
@@ -477,9 +474,8 @@ class TestExplainability:
 
     def test_counterfactual_explainer(self, synthetic_data):
         """Test counterfactual explanations."""
-        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
-
         from omni_mercury_engine.ml.explainability import CounterfactualExplainer
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         X, y = synthetic_data
 
@@ -511,12 +507,11 @@ class TestActiveLearning:
 
     def test_uncertainty_sampler(self, synthetic_data):
         """Test uncertainty-based sampling."""
-        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
-
         from omni_mercury_engine.ml.active_learning import (
             SamplingStrategy,
             UncertaintySampler,
         )
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         X, y = synthetic_data
 
@@ -543,9 +538,8 @@ class TestActiveLearning:
 
     def test_hybrid_sampler(self, synthetic_data):
         """Test hybrid uncertainty + diversity sampling."""
-        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
-
         from omni_mercury_engine.ml.active_learning import HybridSampler
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         X, y = synthetic_data
 
@@ -560,13 +554,12 @@ class TestActiveLearning:
 
     def test_active_learner(self, synthetic_data):
         """Test full active learning loop."""
-        from omni_mercury_engine.ml.mercury_ml import LogisticRegression
-
         from omni_mercury_engine.ml.active_learning import (
             ActiveLearner,
             LabeledSample,
             LabelType,
         )
+        from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
         X, y = synthetic_data
 

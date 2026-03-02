@@ -429,7 +429,7 @@ class SVMRFEnsembleClassifier:
             rf_n_estimators: Number of trees in Random Forest
             ensemble_weights: Weights for (SVM, RF) predictions
         """
-        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier, StandardScaler, SVC
+        from omni_mercury_engine.ml.mercury_ml import SVC, RandomForestClassifier, StandardScaler
 
         self.svm = SVC(kernel=svm_kernel, probability=True, random_state=42)
         self.rf = RandomForestClassifier(n_estimators=rf_n_estimators, random_state=42)

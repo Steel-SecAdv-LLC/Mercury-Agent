@@ -10,7 +10,8 @@ Copyright (C) 2025 Steel Security Advisors LLC (GPL-3.0-only)
 from __future__ import annotations
 
 # Re-export everything from the canonical module under both old and new names.
-from omni_mercury_engine.ml.mercury_ml import (  # noqa: F401
+from omni_mercury_engine.ml.mercury_ml import (
+    PCA,
     EllipticEnvelope,
     GaussianMixture,
     GradientBoostingClassifier,
@@ -22,7 +23,6 @@ from omni_mercury_engine.ml.mercury_ml import (  # noqa: F401
     LogisticRegression,
     NearestNeighbors,
     OneClassSVM,
-    PCA,
     PassiveAggressiveClassifier,
     SGDClassifier,
     StandardScaler,

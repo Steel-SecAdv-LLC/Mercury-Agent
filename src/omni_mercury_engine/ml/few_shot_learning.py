@@ -1378,10 +1378,6 @@ class FewShotLearner:
             all_preds.extend(preds.tolist())
             all_true.extend(episode.query_y.tolist())
 
-        # Aggregate metrics
-        all_preds_arr = np.array(all_preds)
-        all_true_arr = np.array(all_true)
-
         # Handle binary classification
         avg_precision = 0.0
         avg_recall = 0.0
@@ -1389,11 +1385,13 @@ class FewShotLearner:
 
         from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
 
+        all_true_arr = np.array(all_true)
+        all_preds_arr = np.array(all_preds)
         avg_precision = precision_score(
-            all_true, all_preds, average="weighted", zero_division=0
+            all_true_arr, all_preds_arr, average="weighted", zero_division=0
         )
-        avg_recall = recall_score(all_true, all_preds, average="weighted", zero_division=0)
-        avg_f1 = f1_score(all_true, all_preds, average="weighted", zero_division=0)
+        avg_recall = recall_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
+        avg_f1 = f1_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
 
         # Calculate confidence interval
         accs = np.array(episode_accuracies)

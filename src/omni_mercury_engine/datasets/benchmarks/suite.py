@@ -613,4 +613,3 @@ def mercury_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     detector.fit(features)
     result = detector.detect(features)
     return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
-

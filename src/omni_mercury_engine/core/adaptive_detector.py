@@ -478,9 +478,9 @@ class AdaptiveAnomalyDetector:
         self._temporal_transformer = TemporalPatternDetector()
 
         # Backend detectors (initialized during fit)
-        self._isolation_forest = None
-        self._lof_detector = None
-        self._elliptic_envelope = None
+        self._isolation_forest: Any = None
+        self._lof_detector: Any = None
+        self._elliptic_envelope: Any = None
 
         # State
         self._profile: DatasetProfile = DatasetProfile.GENERIC
@@ -611,7 +611,11 @@ class AdaptiveAnomalyDetector:
         """Fit backend detectors based on current profile."""
         import warnings
 
-        from omni_mercury_engine.ml.mercury_ml import EllipticEnvelope, IsolationForest, LocalOutlierFactor
+        from omni_mercury_engine.ml.mercury_ml import (
+            EllipticEnvelope,
+            IsolationForest,
+            LocalOutlierFactor,
+        )
 
         n_samples = X.shape[0]
 

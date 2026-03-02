@@ -331,7 +331,7 @@ class TestCICIDSIntegration:
 
     def test_cicids_benchmark(self):
         """Test benchmarking CICIDS with Isolation Forest."""
-        from omni_mercury_engine.ml.mercury_ml import IsolationForest, roc_auc_score
+        from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
         config = DatasetConfig(
             name="cicids",
@@ -347,7 +347,7 @@ class TestCICIDSIntegration:
         X_processed = loader.preprocess(X)
 
         # Train and evaluate
-        from omni_mercury_engine.ml.mercury_ml import OneClassSVM, roc_auc_score
+        from omni_mercury_engine.ml.mercury_ml import OneClassSVM
 
         clf = OneClassSVM(nu=0.2, random_state=42)
         clf.fit(X_processed)

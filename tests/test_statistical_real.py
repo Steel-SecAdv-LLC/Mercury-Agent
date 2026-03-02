@@ -300,10 +300,7 @@ class TestAnomalyAccuracy:
 
         # Mercury should give outlier higher or equal score
         # (equal is acceptable when both are at boundary threshold)
-        assert (
-            outlier_result["scores"][0]
-            >= normal_result["scores"][0]
-        )
+        assert outlier_result["scores"][0] >= normal_result["scores"][0]
 
     def test_multivariate_anomaly_detection(self):
         """Should detect anomalies in multivariate data."""

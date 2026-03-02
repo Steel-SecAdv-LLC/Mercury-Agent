@@ -15,8 +15,6 @@ unit tests might miss.
 """
 
 # Import modules to test
-import pytest
-
 import sys
 from pathlib import Path
 
@@ -31,7 +29,6 @@ from hypothesis import (
     strategies as st,
 )
 from hypothesis.extra.numpy import arrays
-from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 

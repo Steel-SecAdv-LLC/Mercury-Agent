@@ -644,10 +644,12 @@ def _benchmark_single_ama(entry: dict[str, Any], results: list[dict[str, Any]]) 
     test_normal_mask = np.ones(len(X_normal), dtype=bool)
     test_normal_mask[train_idx] = False
     X_test = np.vstack([X_normal[test_normal_mask], X_full[~normal_mask]])
-    y_test = np.concatenate([
-        np.zeros(int(test_normal_mask.sum()), dtype=int),
-        np.ones(int((~normal_mask).sum()), dtype=int),
-    ])
+    y_test = np.concatenate(
+        [
+            np.zeros(int(test_normal_mask.sum()), dtype=int),
+            np.ones(int((~normal_mask).sum()), dtype=int),
+        ]
+    )
     X_test, y_test = _cap_stratified(X_test, y_test, MAX_SAMPLES)
     X_train = np.nan_to_num(X_train, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
     X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
@@ -668,21 +670,21 @@ def _benchmark_single_ama(entry: dict[str, Any], results: list[dict[str, Any]]) 
     auc = _safe_auc(y_test, scores)
     f1, prec, rec, thr, strat = _oracle_threshold_f1(y_test, scores)
 
-    results.append({
-        "name": f"{name} [AMA-only]",
-        "category": category,
-        "ensemble_auc": auc,
-        "oracle_f1": f1,
-        "oracle_precision": prec,
-        "oracle_recall": rec,
-        "pass_type": "ama_only",
-        "error": None,
-    })
+    results.append(
+        {
+            "name": f"{name} [AMA-only]",
+            "category": category,
+            "ensemble_auc": auc,
+            "oracle_f1": f1,
+            "oracle_precision": prec,
+            "oracle_recall": rec,
+            "pass_type": "ama_only",
+            "error": None,
+        }
+    )
 
 
-def _benchmark_single_baseline(
-    entry: dict[str, Any], results: list[dict[str, Any]]
-) -> None:
+def _benchmark_single_baseline(entry: dict[str, Any], results: list[dict[str, Any]]) -> None:
     """Benchmark a single dataset using Mercury-only baseline (AMA disabled)."""
     name = entry["name"]
     category = entry.get("category", "unknown")
@@ -710,10 +712,12 @@ def _benchmark_single_baseline(
     test_normal_mask = np.ones(len(X_normal), dtype=bool)
     test_normal_mask[train_idx] = False
     X_test = np.vstack([X_normal[test_normal_mask], X_full[~normal_mask]])
-    y_test = np.concatenate([
-        np.zeros(int(test_normal_mask.sum()), dtype=int),
-        np.ones(int((~normal_mask).sum()), dtype=int),
-    ])
+    y_test = np.concatenate(
+        [
+            np.zeros(int(test_normal_mask.sum()), dtype=int),
+            np.ones(int((~normal_mask).sum()), dtype=int),
+        ]
+    )
     X_test, y_test = _cap_stratified(X_test, y_test, MAX_SAMPLES)
     X_train = np.nan_to_num(X_train, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
     X_test = np.nan_to_num(X_test, nan=0.0, posinf=1e10, neginf=-1e10).astype(np.float64)
@@ -737,16 +741,18 @@ def _benchmark_single_baseline(
     auc = _safe_auc(y_test, scores)
     f1, prec, rec, thr, strat = _oracle_threshold_f1(y_test, scores)
 
-    results.append({
-        "name": f"{name} [Mercury-only]",
-        "category": category,
-        "ensemble_auc": auc,
-        "oracle_f1": f1,
-        "oracle_precision": prec,
-        "oracle_recall": rec,
-        "pass_type": "mercury_only_baseline",
-        "error": None,
-    })
+    results.append(
+        {
+            "name": f"{name} [Mercury-only]",
+            "category": category,
+            "ensemble_auc": auc,
+            "oracle_f1": f1,
+            "oracle_precision": prec,
+            "oracle_recall": rec,
+            "pass_type": "mercury_only_baseline",
+            "error": None,
+        }
+    )
 
 
 def _benchmark_single(entry: dict[str, Any], enable_ama: bool = True) -> dict[str, Any]:

@@ -454,6 +454,8 @@ module = [
 disallow_untyped_decorators = false
 # torch.nn.Module methods return Any; allow returning these
 warn_return_any = false
+# Mercury-native ML primitives use bare NDArray for generality
+disallow_any_generics = false
 
 
 # Report generator uses untyped reportlab library

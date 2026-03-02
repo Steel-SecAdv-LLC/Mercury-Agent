@@ -36,10 +36,10 @@ Coverage targets:
 
 import numpy as np
 import pytest
-from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
 from omni_mercury_engine.core.config import DataCharacteristics
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
 # ---------------------------------------------------------------------------
 # Synthetic dataset generators

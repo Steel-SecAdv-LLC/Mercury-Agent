@@ -332,7 +332,6 @@ class TestRealWorldBenchmark:
 
     def test_benchmark_runner_mercury_detector(self):
         """Test benchmark with Mercury-native detector - verifies fail-closed behavior without real data."""
-        from omni_mercury_engine.ml.mercury_ml import IsolationForest
 
         from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector

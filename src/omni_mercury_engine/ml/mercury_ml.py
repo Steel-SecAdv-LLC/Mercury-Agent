@@ -11,14 +11,14 @@ from __future__ import annotations
 
 import copy
 import logging
-import warnings
-from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy import stats as sp_stats
 from scipy.spatial.distance import cdist
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +93,7 @@ def f1_score(
     return 2.0 * p * r / (p + r)
 
 
-def confusion_matrix(
-    y_true: NDArray, y_pred: NDArray, *, labels: NDArray | None = None
-) -> NDArray:
+def confusion_matrix(y_true: NDArray, y_pred: NDArray, *, labels: NDArray | None = None) -> NDArray:
     """Compute confusion matrix.
 
     Parameters
@@ -121,7 +119,7 @@ def confusion_matrix(
     else:
         labels = np.asarray(labels)
 
-    label_to_idx = {int(l): i for i, l in enumerate(labels)}
+    label_to_idx = {int(lab): i for i, lab in enumerate(labels)}
     n = len(labels)
     cm = np.zeros((n, n), dtype=np.int64)
     for t, p in zip(y_true, y_pred):
@@ -132,17 +130,13 @@ def confusion_matrix(
     return cm
 
 
-def _precision_binary(
-    y_true: NDArray, y_pred: NDArray, label: int, zero_division: float
-) -> float:
+def _precision_binary(y_true: NDArray, y_pred: NDArray, label: int, zero_division: float) -> float:
     tp = float(np.sum((y_pred == label) & (y_true == label)))
     fp = float(np.sum((y_pred == label) & (y_true != label)))
     return tp / (tp + fp) if (tp + fp) > 0 else zero_division
 
 
-def _recall_binary(
-    y_true: NDArray, y_pred: NDArray, label: int, zero_division: float
-) -> float:
+def _recall_binary(y_true: NDArray, y_pred: NDArray, label: int, zero_division: float) -> float:
     tp = float(np.sum((y_pred == label) & (y_true == label)))
     fn = float(np.sum((y_pred != label) & (y_true == label)))
     return tp / (tp + fn) if (tp + fn) > 0 else zero_division
@@ -206,7 +200,8 @@ def roc_auc_score(y_true: NDArray, y_score: NDArray) -> float:
     tpr = np.concatenate([[0.0], tpr])
     fpr = np.concatenate([[0.0], fpr])
 
-    _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    _trapz = getattr(np, "trapezoid", None) or getattr(np, "trapz", None)
+    assert _trapz is not None, "numpy has neither trapezoid nor trapz"
     return float(_trapz(tpr, fpr))
 
 
@@ -229,9 +224,7 @@ def average_precision_score(y_true: NDArray, y_score: NDArray) -> float:
     return float(np.sum(precision * recall_change))
 
 
-def precision_recall_curve(
-    y_true: NDArray, y_score: NDArray
-) -> tuple[NDArray, NDArray, NDArray]:
+def precision_recall_curve(y_true: NDArray, y_score: NDArray) -> tuple[NDArray, NDArray, NDArray]:
     """Compute precision-recall pairs for different probability thresholds."""
     y_true = np.asarray(y_true).ravel()
     y_score = np.asarray(y_score).ravel()
@@ -330,9 +323,7 @@ class KFold:
         self.shuffle = shuffle
         self.random_state = random_state
 
-    def split(
-        self, X: NDArray, y: NDArray | None = None
-    ) -> list[tuple[NDArray, NDArray]]:
+    def split(self, X: NDArray, y: NDArray | None = None) -> list[tuple[NDArray, NDArray]]:
         n = len(X)
         indices = np.arange(n)
         if self.shuffle:
@@ -369,9 +360,7 @@ class StratifiedKFold:
         self.shuffle = shuffle
         self.random_state = random_state
 
-    def split(
-        self, X: NDArray, y: NDArray
-    ) -> list[tuple[NDArray, NDArray]]:
+    def split(self, X: NDArray, y: NDArray) -> list[tuple[NDArray, NDArray]]:
         y = np.asarray(y)
         classes = np.unique(y)
         rng = np.random.RandomState(self.random_state) if self.shuffle else None
@@ -577,7 +566,7 @@ class PCA:
         _U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
         self.components_ = Vt[: self.n_components]
         # Explained variance
-        explained_var = (S ** 2) / (n_samples - 1)
+        explained_var = (S**2) / (n_samples - 1)
         self.explained_variance_ = explained_var[: self.n_components]
         total_var = explained_var.sum()
         if total_var > 0:
@@ -957,12 +946,9 @@ class LocalOutlierFactor:
         self.offset_ = -float(np.percentile(lof_scores, 100 * (1 - self.contamination)))
         return self
 
-    def _compute_lrd(
-        self, dists: NDArray, k_indices: NDArray, k_distances: NDArray
-    ) -> NDArray:
+    def _compute_lrd(self, dists: NDArray, k_indices: NDArray, k_distances: NDArray) -> NDArray:
         """Compute local reachability density."""
         n = len(k_indices)
-        k = k_indices.shape[1]
         lrd = np.zeros(n)
 
         for i in range(n):
@@ -1011,7 +997,6 @@ class LocalOutlierFactor:
             dists = cdist(X, self._X_train, metric=self.metric)
 
         k_idx = np.argsort(dists, axis=1)[:, :k]
-        k_dists = np.take_along_axis(dists, k_idx, axis=1)
 
         lof = np.zeros(len(X))
         for i in range(len(X)):
@@ -1061,9 +1046,7 @@ class EllipticEnvelope:
         self._threshold = float(np.percentile(distances, 100 * (1 - self.contamination)))
         return self
 
-    def _robust_estimate(
-        self, X: NDArray, n_support: int
-    ) -> tuple[NDArray, NDArray]:
+    def _robust_estimate(self, X: NDArray, n_support: int) -> tuple[NDArray, NDArray]:
         """Simple robust location/scatter estimation using C-step."""
         rng = np.random.RandomState(self.random_state)
         n, d = X.shape
@@ -1134,7 +1117,6 @@ class MinCovDet:
         X = np.asarray(X, dtype=np.float64)
         n, d = X.shape
         sf = self.support_fraction or max((n + d + 1) / (2 * n), 0.5)
-        n_support = max(d + 1, int(n * sf))
 
         ee = EllipticEnvelope(support_fraction=sf, random_state=self.random_state)
         ee.fit(X)
@@ -1246,7 +1228,7 @@ class LogisticRegression:
             z = X @ weights + bias
             z = np.clip(z, -500, 500)
             log_likelihood = np.sum(y_bin * z - np.log1p(np.exp(z)))
-            reg = 0.5 / self.C * np.sum(weights ** 2)
+            reg = 0.5 / self.C * np.sum(weights**2)
             return -(log_likelihood - reg)
 
         def gradient(w: NDArray) -> NDArray:
@@ -1313,9 +1295,7 @@ class SGDClassifier:
         self._classes: NDArray | None = None
         self._t: int = 0
 
-    def partial_fit(
-        self, X: NDArray, y: NDArray, classes: NDArray | None = None
-    ) -> SGDClassifier:
+    def partial_fit(self, X: NDArray, y: NDArray, classes: NDArray | None = None) -> SGDClassifier:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         if classes is not None:
@@ -1598,9 +1578,7 @@ class SVC:
 class _DecisionStump:
     """Simple decision tree (stump or shallow) for gradient boosting / RF."""
 
-    def __init__(
-        self, max_depth: int = 3, rng: np.random.RandomState | None = None
-    ) -> None:
+    def __init__(self, max_depth: int = 3, rng: np.random.RandomState | None = None) -> None:
         self.max_depth = max_depth
         self.rng = rng or np.random.RandomState()
         self.feature: int = 0
@@ -1631,12 +1609,10 @@ class _DecisionStump:
                 right_mask = ~left_mask
                 if not np.any(left_mask) or not np.any(right_mask):
                     continue
-                var_reduction = (
-                    np.var(y)
-                    - (np.sum(left_mask) * np.var(y[left_mask])
-                       + np.sum(right_mask) * np.var(y[right_mask]))
-                    / len(y)
-                )
+                var_reduction = np.var(y) - (
+                    np.sum(left_mask) * np.var(y[left_mask])
+                    + np.sum(right_mask) * np.var(y[right_mask])
+                ) / len(y)
                 if var_reduction > best_gain:
                     best_gain = var_reduction
                     self.feature = int(f)
@@ -1713,10 +1689,9 @@ class GaussianMixture:
                     continue
                 self.means_[k] = (resp[:, k : k + 1].T @ X / nk[k]).ravel()
                 diff = X - self.means_[k]
-                self.covariances_[k] = (
-                    (resp[:, k : k + 1] * diff).T @ diff / nk[k]
-                    + np.eye(d) * 1e-6
-                )
+                self.covariances_[k] = (resp[:, k : k + 1] * diff).T @ diff / nk[k] + np.eye(
+                    d
+                ) * 1e-6
 
             # Check convergence
             ll = np.sum(np.log(np.sum(resp, axis=1) + 1e-300))
@@ -1729,7 +1704,9 @@ class GaussianMixture:
     def _e_step(self, X: NDArray) -> NDArray:
         n = len(X)
         resp = np.zeros((n, self.n_components))
-        assert self.means_ is not None and self.covariances_ is not None
+        assert (
+            self.means_ is not None and self.covariances_ is not None and self.weights_ is not None
+        )
         for k in range(self.n_components):
             try:
                 resp[:, k] = self.weights_[k] * sp_stats.multivariate_normal.pdf(
@@ -1746,9 +1723,7 @@ class GaussianMixture:
 # =====================================================================
 
 
-def mutual_info_classif(
-    X: NDArray, y: NDArray, *, random_state: int | None = None
-) -> NDArray:
+def mutual_info_classif(X: NDArray, y: NDArray, *, random_state: int | None = None) -> NDArray:
     """Estimate mutual information between features and discrete target.
 
     Uses a histogram-based approximation.

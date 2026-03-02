@@ -63,9 +63,8 @@ except ImportError:
 
 from omni_mercury_engine.ml.mercury_ml import (
     GradientBoostingClassifier,
-    LogisticRegression,
-    StandardScaler,
     LabelEncoder,
+    StandardScaler,
     accuracy_score,
     f1_score,
     precision_score,

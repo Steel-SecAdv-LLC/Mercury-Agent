@@ -27,7 +27,6 @@ class DecisionTreeClassifier:
     def fit(self, X, y):
         self._classes = np.unique(y)
         best_score, best_feat, best_thr = -1, 0, 0.0
-        rng = np.random.RandomState(self.random_state)
         for f in range(X.shape[1]):
             thresholds = np.percentile(X[:, f], np.linspace(10, 90, 9))
             for t in thresholds:

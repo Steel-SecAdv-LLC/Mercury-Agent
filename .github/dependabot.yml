@@ -31,7 +31,7 @@ updates:
     # Group security updates for faster review
     groups:
       security-updates:
-        applies-to: security-updates
+        apply-to: security-updates
         patterns:
           - "*"
       ml-dependencies:

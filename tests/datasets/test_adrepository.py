@@ -194,7 +194,6 @@ class TestIntegrationWithEngine:
 
     def test_multiple_datasets_benchmark(self):
         """Test benchmarking across multiple ADRepository datasets."""
-        from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
         datasets_to_test = ["thyroid", "backdoor", "campaign"]
         results = {}

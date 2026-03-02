@@ -362,7 +362,6 @@ def evaluate_detector(
     from omni_mercury_engine.ml.mercury_ml import (
         average_precision_score,
         f1_score,
-        precision_recall_curve,
         precision_score,
         recall_score,
         roc_auc_score,

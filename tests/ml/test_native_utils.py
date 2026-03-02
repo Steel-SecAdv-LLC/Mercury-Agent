@@ -8,7 +8,6 @@ License: GPL-3.0-or-later
 """
 
 import numpy as np
-import pytest
 
 from omni_mercury_engine.ml._native_utils import (
     NativeKFold,
@@ -19,7 +18,6 @@ from omni_mercury_engine.ml._native_utils import (
     native_roc_auc_score,
     native_train_test_split,
 )
-
 
 RNG = np.random.RandomState(42)
 

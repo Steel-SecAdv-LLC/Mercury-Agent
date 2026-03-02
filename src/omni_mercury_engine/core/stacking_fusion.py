@@ -100,6 +100,7 @@ class StackingFusion:
         """
         if meta_learner is None:
             from omni_mercury_engine.ml.mercury_ml import LogisticRegression
+
             meta_learner = LogisticRegression(
                 solver="lbfgs",
                 max_iter=1000,

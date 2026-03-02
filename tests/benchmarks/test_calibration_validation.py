@@ -17,7 +17,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 # Ensure src/ and benchmarks/ are on the path
 _project_root = Path(__file__).parent.parent.parent

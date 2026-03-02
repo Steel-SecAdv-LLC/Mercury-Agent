@@ -790,8 +790,12 @@ def _load_digits_native() -> tuple[np.ndarray, np.ndarray]:
     try:
         import urllib.request
 
-        url_tra = "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tra"
-        url_tes = "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tes"
+        url_tra = (
+            "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tra"
+        )
+        url_tes = (
+            "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tes"
+        )
         rows = []
         for url in [url_tra, url_tes]:
             with urllib.request.urlopen(url, timeout=30) as resp:
@@ -1815,7 +1819,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray
         # negative values from np.trapz on unsorted recall values
         from omni_mercury_engine.ml.mercury_ml import average_precision_score
 
-        pr_auc = native_average_precision_score(y_true, y_scores)
+        pr_auc = average_precision_score(y_true, y_scores)
     except ValueError as e:
         # Single class present or invalid input
         logger.debug(f"PR-AUC calculation failed (single class or invalid input): {e}")

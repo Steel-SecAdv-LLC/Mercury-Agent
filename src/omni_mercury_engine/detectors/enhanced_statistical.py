@@ -366,8 +366,6 @@ class DBSCANDetector:
         if not self._fitted or self._tree is None:
             raise DetectorException("DBSCANDetector must be fitted before detection")
 
-        from omni_mercury_engine.ml.mercury_ml import DBSCAN
-
         X = np.asarray(X)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
@@ -419,7 +417,6 @@ class MCDDetector:
 
     def fit(self, X: NDArray[np.float64]) -> MCDDetector:
         """Fit the MCD detector."""
-        from omni_mercury_engine.ml.mercury_ml import MinCovDet
 
         X = np.asarray(X)
         if X.ndim == 1:

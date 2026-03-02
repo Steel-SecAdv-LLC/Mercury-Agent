@@ -303,6 +303,7 @@ class MetricsCalculator:
         y_pred_adjusted = self._point_adjust(y_true, y_pred)
         if np.sum(y_pred_adjusted) > 0:
             from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
+
             metrics.pa_precision = float(precision_score(y_true, y_pred_adjusted, zero_division=0))
             metrics.pa_recall = float(recall_score(y_true, y_pred_adjusted, zero_division=0))
             metrics.pa_f1 = float(f1_score(y_true, y_pred_adjusted, zero_division=0))

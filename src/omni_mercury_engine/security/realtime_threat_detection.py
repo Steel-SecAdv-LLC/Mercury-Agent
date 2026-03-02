@@ -96,9 +96,13 @@ class RealTimeThreatDetector(LoggerMixin):
         self.contamination = contamination
         self.n_estimators = n_estimators
 
-        self.detectors = {}
+        self.detectors: dict[str, Any] = {}
 
-        from omni_mercury_engine.ml.mercury_ml import EllipticEnvelope, IsolationForest, LocalOutlierFactor
+        from omni_mercury_engine.ml.mercury_ml import (
+            EllipticEnvelope,
+            IsolationForest,
+            LocalOutlierFactor,
+        )
 
         if enable_isolation_forest:
             self.detectors["isolation_forest"] = IsolationForest(

@@ -11,7 +11,6 @@ Licensed under GNU GPL v3
 import numpy as np
 import pytest
 
-from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.ml._native_utils import native_roc_auc_score
 
@@ -52,42 +51,6 @@ def _make_blobs_data(
 
     idx = rng.permutation(len(X))
     return X[idx], y[idx]
-
-
-def make_classification(
-    n_samples=100,
-    n_features=20,
-    n_informative=2,
-    n_redundant=0,
-    n_classes=2,
-    weights=None,
-    random_state=None,
-):
-    """Generate a synthetic binary classification dataset."""
-    rng = np.random.RandomState(random_state)
-    n_informative = min(n_informative, n_features)
-    X = rng.randn(n_samples, n_features)
-    coef = rng.randn(n_informative)
-    logits = X[:, :n_informative] @ coef
-    probs = 1 / (1 + np.exp(-logits))
-    if weights is not None and len(weights) >= 2:
-        threshold = np.percentile(probs, weights[0] * 100)
-    else:
-        threshold = 0.5
-    y = (probs > threshold).astype(int)
-    return X, y
-
-
-def make_blobs(n_samples=100, centers=None, cluster_std=1.0, random_state=None):
-    """Generate synthetic clustered data."""
-    rng = np.random.RandomState(random_state)
-    if centers is None:
-        centers = [[0, 0]]
-    centers = np.array(centers)
-    n_features = centers.shape[1]
-    X = rng.randn(n_samples, n_features) * cluster_std + centers[0]
-    y = np.zeros(n_samples, dtype=int)
-    return X, y
 
 
 def make_classification(

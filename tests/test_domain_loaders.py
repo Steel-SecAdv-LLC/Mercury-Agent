@@ -1132,8 +1132,7 @@ class TestNoExternalMLImports:
                 or f"from {_GUARDED_LIB}" in stripped
             ):
                 raise AssertionError(
-                    f"{module_path} imports external ML library at line {lineno}: "
-                    f"{stripped!r}"
+                    f"{module_path} imports external ML library at line {lineno}: " f"{stripped!r}"
                 )
 
     @pytest.mark.parametrize("module_path", _LOADER_MODULE_PATHS, ids=_LOADER_IDS)
@@ -1168,8 +1167,7 @@ class TestNoExternalMLImports:
                 or f"from {_GUARDED_LIB}" in stripped
             ):
                 raise AssertionError(
-                    f"Base loader imports external ML library at line {lineno}: "
-                    f"{stripped!r}"
+                    f"Base loader imports external ML library at line {lineno}: " f"{stripped!r}"
                 )
 
 
