@@ -44,7 +44,6 @@ class ModelType(StrEnum):
     TEMPORAL = "temporal"
     NEUROSYMBOLIC = "neurosymbolic"
     LSTM_AE = "lstm_autoencoder"
-    ISOLATION_FOREST = "isolation_forest"
     CUSTOM = "custom"
 
 

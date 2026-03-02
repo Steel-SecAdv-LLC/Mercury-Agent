@@ -283,8 +283,8 @@ class TestAnomalyAccuracy:
         outlier_above_median = np.mean(outlier_scores > median_score)
         assert outlier_above_median >= 0.8
 
-    def test_isolation_forest_scores(self):
-        """Isolation forest scores should identify outliers."""
+    def test_combined_scores_identify_outliers(self):
+        """Combined scores should identify outliers."""
         np.random.seed(42)
         detector = MercuryAnomalyDetector()
         train_data = np.random.randn(200, 2)
@@ -298,11 +298,11 @@ class TestAnomalyAccuracy:
         normal_result = detector.detect(normal_point)
         outlier_result = detector.detect(outlier_point)
 
-        # Isolation forest should give outlier higher or equal score
+        # Mercury should give outlier higher or equal score
         # (equal is acceptable when both are at boundary threshold)
         assert (
-            outlier_result["isolation_forest_scores"][0]
-            >= normal_result["isolation_forest_scores"][0]
+            outlier_result["scores"][0]
+            >= normal_result["scores"][0]
         )
 
     def test_multivariate_anomaly_detection(self):

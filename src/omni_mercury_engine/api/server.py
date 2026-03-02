@@ -415,7 +415,6 @@ class DetectionMethod(StrEnum):
 
     ZSCORE = "zscore"
     IQR = "iqr"
-    ISOLATION_FOREST = "isolation_forest"
 
 
 class SeverityLevel(StrEnum):

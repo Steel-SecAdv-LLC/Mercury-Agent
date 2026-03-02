@@ -73,8 +73,6 @@ Run anomaly detection. Returns a dictionary with the following keys:
 | `calibration_diagnostics` | `dict\|None` | Diagnostics when auto-calibrated |
 | `detector_type` | `str` | Always `"statistical"` |
 | `iqr_flags` | `ndarray[bool]` | Legacy boolean IQR anomalies |
-| `isolation_forest_scores` | `ndarray` | DEPRECATED — alias for `scores` |
-| `isolation_forest_flags` | `ndarray[bool]` | DEPRECATED — alias for `is_anomaly` |
 
 ### Auto-Calibration
 

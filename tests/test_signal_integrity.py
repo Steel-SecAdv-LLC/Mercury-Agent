@@ -136,28 +136,6 @@ class TestContinuousScores:
 
         assert len(unique_iqr) >= 2, "IQR scores should have variance"
 
-    def test_isolation_forest_scores_continuous(
-        self,
-        detector: MercuryAnomalyDetector,
-        toy_data: tuple[np.ndarray, np.ndarray],
-    ) -> None:
-        """Verify isolation_forest_scores key exists and is continuous.
-
-        Note: isolation_forest_scores is now an alias for the resonance score
-        (backward compatibility). It should still be continuous [0, 1].
-        """
-        X, _ = toy_data
-        detector.fit(X)
-        result = detector.detect(X)
-
-        assert "isolation_forest_scores" in result, "Missing isolation_forest_scores key"
-        if_scores = result["isolation_forest_scores"]
-
-        unique_if = np.unique(if_scores)
-        assert (
-            len(unique_if) > 5
-        ), f"IF scores should be continuous, got {len(unique_if)} unique values"
-
     def test_backward_compatibility(
         self,
         detector: MercuryAnomalyDetector,
@@ -169,7 +147,6 @@ class TestContinuousScores:
         result = detector.detect(X)
 
         assert "iqr_flags" in result, "Missing legacy key: iqr_flags"
-        assert "isolation_forest_flags" in result, "Missing legacy key: isolation_forest_flags"
         assert "is_anomaly" in result, "Missing key: is_anomaly"
         assert "scores" in result, "Missing key: scores"
         assert "z_scores" in result, "Missing key: z_scores"

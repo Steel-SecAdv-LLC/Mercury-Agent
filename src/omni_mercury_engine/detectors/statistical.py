@@ -2062,8 +2062,6 @@ class MercuryAnomalyDetector(BaseDetector):
               - kinematic_scores: Physics dynamics scores [0, 1]
               - info_geometry_scores: Fisher OOD scores [0, 1]
               - iqr_flags: Legacy boolean IQR anomalies
-              - isolation_forest_scores: DEPRECATED alias for scores (backward compat)
-              - isolation_forest_flags: DEPRECATED alias for is_anomaly (backward compat)
               - detector_type: ``"statistical"``
               - threshold: Effective threshold (may be calibrated)
               - calibration_diagnostics: Diagnostics if auto-calibrated
@@ -2372,12 +2370,8 @@ class MercuryAnomalyDetector(BaseDetector):
                 "kinematic": kinematic,
                 "info_geometry": info_geo,
             },
-            # DEPRECATED: will be removed in v2.0 - use "scores" instead
-            "isolation_forest_scores": combined_scores,
             # Legacy keys
             "iqr_flags": iqr_anomalies,
-            # DEPRECATED: will be removed in v2.0 - use "is_anomaly" instead
-            "isolation_forest_flags": is_anomaly,
             "detector_type": "statistical",
             "threshold": effective_threshold,
             "calibration_diagnostics": calibration_diagnostics,

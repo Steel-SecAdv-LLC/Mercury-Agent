@@ -614,6 +614,3 @@ def mercury_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     result = detector.detect(features)
     return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
 
-
-# DEPRECATED: remove in v2.0
-isolation_forest_baseline = mercury_baseline
