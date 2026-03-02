@@ -753,7 +753,7 @@ class AdaptiveAnomalyDetector:
                 ee.fit(X)
 
             # Get decision scores (negative = anomaly convention)
-            scores = -ee.decision_function(X)
+            scores = np.asarray(-ee.decision_function(X), dtype=np.float64)
             predictions = (ee.predict(X) == -1).astype(np.int32)
 
             # Check if EllipticEnvelope produced meaningful predictions
@@ -859,7 +859,7 @@ class AdaptiveAnomalyDetector:
             iso.fit(X)
 
             # Get decision scores (negative = anomaly convention)
-            scores = -iso.decision_function(X)  # Flip so higher = more anomalous
+            scores = np.asarray(-iso.decision_function(X), dtype=np.float64)
             predictions = (iso.predict(X) == -1).astype(np.int32)
 
             # Compute threshold from scores at the decision boundary

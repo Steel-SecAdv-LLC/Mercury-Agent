@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # =====================================================================
 
 
-def accuracy_score(y_true: NDArray, y_pred: NDArray) -> float:
+def accuracy_score(y_true: NDArray[np.number[Any]], y_pred: NDArray[np.number[Any]]) -> float:
     """Compute classification accuracy."""
     y_true = np.asarray(y_true).ravel()
     y_pred = np.asarray(y_pred).ravel()
@@ -35,8 +35,8 @@ def accuracy_score(y_true: NDArray, y_pred: NDArray) -> float:
 
 
 def precision_score(
-    y_true: NDArray,
-    y_pred: NDArray,
+    y_true: NDArray[np.number[Any]],
+    y_pred: NDArray[np.number[Any]],
     *,
     zero_division: float = 0.0,
     average: str = "binary",
@@ -57,8 +57,8 @@ def precision_score(
 
 
 def recall_score(
-    y_true: NDArray,
-    y_pred: NDArray,
+    y_true: NDArray[np.number[Any]],
+    y_pred: NDArray[np.number[Any]],
     *,
     zero_division: float = 0.0,
     average: str = "binary",
@@ -79,8 +79,8 @@ def recall_score(
 
 
 def f1_score(
-    y_true: NDArray,
-    y_pred: NDArray,
+    y_true: NDArray[np.number[Any]],
+    y_pred: NDArray[np.number[Any]],
     *,
     zero_division: float = 0.0,
     average: str = "binary",
@@ -93,7 +93,12 @@ def f1_score(
     return 2.0 * p * r / (p + r)
 
 
-def confusion_matrix(y_true: NDArray, y_pred: NDArray, *, labels: NDArray | None = None) -> NDArray:
+def confusion_matrix(
+    y_true: NDArray[np.number[Any]],
+    y_pred: NDArray[np.number[Any]],
+    *,
+    labels: NDArray[np.number[Any]] | None = None,
+) -> NDArray[np.number[Any]]:
     """Compute confusion matrix.
 
     Parameters
@@ -108,7 +113,7 @@ def confusion_matrix(y_true: NDArray, y_pred: NDArray, *, labels: NDArray | None
 
     Returns
     -------
-    NDArray of shape (n_classes, n_classes)
+    NDArray[np.number[Any]] of shape (n_classes, n_classes)
         Entry *C[i, j]* is the number of samples with true label *labels[i]*
         and predicted label *labels[j]*.
     """
@@ -130,21 +135,31 @@ def confusion_matrix(y_true: NDArray, y_pred: NDArray, *, labels: NDArray | None
     return cm
 
 
-def _precision_binary(y_true: NDArray, y_pred: NDArray, label: int, zero_division: float) -> float:
+def _precision_binary(
+    y_true: NDArray[np.number[Any]],
+    y_pred: NDArray[np.number[Any]],
+    label: int,
+    zero_division: float,
+) -> float:
     tp = float(np.sum((y_pred == label) & (y_true == label)))
     fp = float(np.sum((y_pred == label) & (y_true != label)))
     return tp / (tp + fp) if (tp + fp) > 0 else zero_division
 
 
-def _recall_binary(y_true: NDArray, y_pred: NDArray, label: int, zero_division: float) -> float:
+def _recall_binary(
+    y_true: NDArray[np.number[Any]],
+    y_pred: NDArray[np.number[Any]],
+    label: int,
+    zero_division: float,
+) -> float:
     tp = float(np.sum((y_pred == label) & (y_true == label)))
     fn = float(np.sum((y_pred != label) & (y_true == label)))
     return tp / (tp + fn) if (tp + fn) > 0 else zero_division
 
 
 def _weighted_metric(
-    y_true: NDArray,
-    y_pred: NDArray,
+    y_true: NDArray[np.number[Any]],
+    y_pred: NDArray[np.number[Any]],
     metric_fn: Any,
     zero_division: float,
 ) -> float:
@@ -162,7 +177,7 @@ def _weighted_metric(
 # =====================================================================
 
 
-def roc_auc_score(y_true: NDArray, y_score: NDArray) -> float:
+def roc_auc_score(y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[Any]]) -> float:
     """Compute Area Under the ROC Curve using the trapezoidal rule.
 
     Equivalent to the Wilcoxon-Mann-Whitney statistic.
@@ -205,7 +220,9 @@ def roc_auc_score(y_true: NDArray, y_score: NDArray) -> float:
     return float(_trapz(tpr, fpr))
 
 
-def average_precision_score(y_true: NDArray, y_score: NDArray) -> float:
+def average_precision_score(
+    y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[Any]]
+) -> float:
     """Compute Average Precision (area under precision-recall curve)."""
     y_true = np.asarray(y_true).ravel()
     y_score = np.asarray(y_score).ravel()
@@ -224,7 +241,9 @@ def average_precision_score(y_true: NDArray, y_score: NDArray) -> float:
     return float(np.sum(precision * recall_change))
 
 
-def precision_recall_curve(y_true: NDArray, y_score: NDArray) -> tuple[NDArray, NDArray, NDArray]:
+def precision_recall_curve(
+    y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[Any]]
+) -> tuple[NDArray[np.number[Any]], NDArray[np.number[Any]], NDArray[np.number[Any]]]:
     """Compute precision-recall pairs for different probability thresholds."""
     y_true = np.asarray(y_true).ravel()
     y_score = np.asarray(y_score).ravel()
@@ -255,14 +274,16 @@ def precision_recall_curve(y_true: NDArray, y_score: NDArray) -> tuple[NDArray, 
     return precisions, recalls, thresholds
 
 
-def brier_score_loss(y_true: NDArray, y_prob: NDArray) -> float:
+def brier_score_loss(y_true: NDArray[np.number[Any]], y_prob: NDArray[np.number[Any]]) -> float:
     """Compute Brier score (mean squared error of predicted probabilities)."""
     y_true = np.asarray(y_true, dtype=np.float64).ravel()
     y_prob = np.asarray(y_prob, dtype=np.float64).ravel()
     return float(np.mean((y_prob - y_true) ** 2))
 
 
-def log_loss(y_true: NDArray, y_prob: NDArray, *, eps: float = 1e-15) -> float:
+def log_loss(
+    y_true: NDArray[np.number[Any]], y_prob: NDArray[np.number[Any]], *, eps: float = 1e-15
+) -> float:
     """Compute log loss (cross-entropy loss)."""
     y_true = np.asarray(y_true, dtype=np.float64).ravel()
     y_prob = np.asarray(y_prob, dtype=np.float64).ravel()
@@ -271,12 +292,12 @@ def log_loss(y_true: NDArray, y_prob: NDArray, *, eps: float = 1e-15) -> float:
 
 
 def calibration_curve(
-    y_true: NDArray,
-    y_prob: NDArray,
+    y_true: NDArray[np.number[Any]],
+    y_prob: NDArray[np.number[Any]],
     *,
     n_bins: int = 10,
     strategy: str = "uniform",
-) -> tuple[NDArray, NDArray]:
+) -> tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]:
     """Compute calibration curve (reliability diagram data).
 
     Returns (fraction_of_positives, mean_predicted_value) per bin.
@@ -323,7 +344,9 @@ class KFold:
         self.shuffle = shuffle
         self.random_state = random_state
 
-    def split(self, X: NDArray, y: NDArray | None = None) -> list[tuple[NDArray, NDArray]]:
+    def split(
+        self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]] | None = None
+    ) -> list[tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]]:
         n = len(X)
         indices = np.arange(n)
         if self.shuffle:
@@ -333,7 +356,7 @@ class KFold:
         fold_sizes = np.full(self.n_splits, n // self.n_splits, dtype=int)
         fold_sizes[: n % self.n_splits] += 1
 
-        folds: list[tuple[NDArray, NDArray]] = []
+        folds: list[tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]] = []
         current = 0
         for size in fold_sizes:
             test_idx = indices[current : current + size]
@@ -360,12 +383,14 @@ class StratifiedKFold:
         self.shuffle = shuffle
         self.random_state = random_state
 
-    def split(self, X: NDArray, y: NDArray) -> list[tuple[NDArray, NDArray]]:
+    def split(
+        self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]
+    ) -> list[tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]]:
         y = np.asarray(y)
         classes = np.unique(y)
         rng = np.random.RandomState(self.random_state) if self.shuffle else None
 
-        class_indices: dict[Any, NDArray] = {}
+        class_indices: dict[Any, NDArray[np.number[Any]]] = {}
         for c in classes:
             idx = np.where(y == c)[0]
             if rng is not None:
@@ -375,15 +400,15 @@ class StratifiedKFold:
         # Assign each class's indices to folds in round-robin
         fold_indices: list[list[int]] = [[] for _ in range(self.n_splits)]
         for c in classes:
-            idx = class_indices[c]
-            fold_sizes = np.full(self.n_splits, len(idx) // self.n_splits, dtype=int)
-            fold_sizes[: len(idx) % self.n_splits] += 1
+            c_idx = class_indices[c]
+            fold_sizes = np.full(self.n_splits, len(c_idx) // self.n_splits, dtype=int)
+            fold_sizes[: len(c_idx) % self.n_splits] += 1
             current = 0
             for i, size in enumerate(fold_sizes):
-                fold_indices[i].extend(idx[current : current + size].tolist())
+                fold_indices[i].extend(c_idx[current : current + size].tolist())
                 current += size
 
-        folds: list[tuple[NDArray, NDArray]] = []
+        folds: list[tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]] = []
         all_indices = np.arange(len(y))
         for fi in fold_indices:
             test_idx = np.array(fi, dtype=int)
@@ -395,13 +420,18 @@ class StratifiedKFold:
 
 
 def train_test_split(
-    X: NDArray,
-    y: NDArray,
+    X: NDArray[np.number[Any]],
+    y: NDArray[np.number[Any]],
     *,
     test_size: float = 0.25,
     random_state: int | None = None,
-    stratify: NDArray | None = None,
-) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+    stratify: NDArray[np.number[Any]] | None = None,
+) -> tuple[
+    NDArray[np.number[Any]],
+    NDArray[np.number[Any]],
+    NDArray[np.number[Any]],
+    NDArray[np.number[Any]],
+]:
     """Split arrays into random train and test subsets."""
     n = len(X)
     rng = np.random.RandomState(random_state)
@@ -431,12 +461,12 @@ def train_test_split(
 
 def cross_val_predict(
     estimator: Any,
-    X: NDArray,
-    y: NDArray,
+    X: NDArray[np.number[Any]],
+    y: NDArray[np.number[Any]],
     *,
     cv: int = 5,
     method: str = "predict",
-) -> NDArray:
+) -> NDArray[np.number[Any]]:
     """Generate cross-validated predictions."""
     kf = KFold(n_splits=cv, shuffle=True, random_state=42)
     predictions = None
@@ -465,11 +495,11 @@ def cross_val_predict(
 
 def cross_val_score(
     estimator: Any,
-    X: NDArray,
-    y: NDArray,
+    X: NDArray[np.number[Any]],
+    y: NDArray[np.number[Any]],
     *,
     cv: int = 5,
-) -> NDArray:
+) -> NDArray[np.number[Any]]:
     """Evaluate estimator by cross-validation, returning per-fold accuracy."""
     kf = KFold(n_splits=cv, shuffle=True, random_state=42)
     scores: list[float] = []
@@ -497,24 +527,24 @@ class StandardScaler:
     """Standardize features by removing the mean and scaling to unit variance."""
 
     def __init__(self) -> None:
-        self.mean_: NDArray | None = None
-        self.scale_: NDArray | None = None
+        self.mean_: NDArray[np.number[Any]] | None = None
+        self.scale_: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray) -> StandardScaler:
+    def fit(self, X: NDArray[np.number[Any]]) -> StandardScaler:
         X = np.asarray(X, dtype=np.float64)
         self.mean_ = X.mean(axis=0)
         self.scale_ = X.std(axis=0)
         self.scale_[self.scale_ == 0] = 1.0
         return self
 
-    def transform(self, X: NDArray) -> NDArray:
+    def transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self.mean_ is not None and self.scale_ is not None
         return (np.asarray(X, dtype=np.float64) - self.mean_) / self.scale_
 
-    def fit_transform(self, X: NDArray) -> NDArray:
+    def fit_transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         return self.fit(X).transform(X)
 
-    def inverse_transform(self, X: NDArray) -> NDArray:
+    def inverse_transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self.mean_ is not None and self.scale_ is not None
         return np.asarray(X, dtype=np.float64) * self.scale_ + self.mean_
 
@@ -523,22 +553,22 @@ class LabelEncoder:
     """Encode target labels with value between 0 and n_classes-1."""
 
     def __init__(self) -> None:
-        self.classes_: NDArray | None = None
+        self.classes_: NDArray[np.number[Any]] | None = None
 
-    def fit(self, y: NDArray) -> LabelEncoder:
+    def fit(self, y: NDArray[np.number[Any]]) -> LabelEncoder:
         self.classes_ = np.unique(y)
         return self
 
-    def transform(self, y: NDArray) -> NDArray:
+    def transform(self, y: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self.classes_ is not None
         y = np.asarray(y)
         mapping = {c: i for i, c in enumerate(self.classes_)}
         return np.array([mapping[v] for v in y], dtype=int)
 
-    def fit_transform(self, y: NDArray) -> NDArray:
+    def fit_transform(self, y: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         return self.fit(y).transform(y)
 
-    def inverse_transform(self, y: NDArray) -> NDArray:
+    def inverse_transform(self, y: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self.classes_ is not None
         return self.classes_[np.asarray(y, dtype=int)]
 
@@ -553,12 +583,12 @@ class PCA:
 
     def __init__(self, n_components: int = 2) -> None:
         self.n_components = n_components
-        self.components_: NDArray | None = None
-        self.mean_: NDArray | None = None
-        self.explained_variance_: NDArray | None = None
-        self.explained_variance_ratio_: NDArray | None = None
+        self.components_: NDArray[np.number[Any]] | None = None
+        self.mean_: NDArray[np.number[Any]] | None = None
+        self.explained_variance_: NDArray[np.number[Any]] | None = None
+        self.explained_variance_ratio_: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray) -> PCA:
+    def fit(self, X: NDArray[np.number[Any]]) -> PCA:
         X = np.asarray(X, dtype=np.float64)
         n_samples = X.shape[0]
         self.mean_ = X.mean(axis=0)
@@ -575,14 +605,14 @@ class PCA:
             self.explained_variance_ratio_ = np.zeros(self.n_components)
         return self
 
-    def transform(self, X: NDArray) -> NDArray:
+    def transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self.mean_ is not None and self.components_ is not None
         return (np.asarray(X, dtype=np.float64) - self.mean_) @ self.components_.T
 
-    def fit_transform(self, X: NDArray) -> NDArray:
+    def fit_transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         return self.fit(X).transform(X)
 
-    def inverse_transform(self, X_reduced: NDArray) -> NDArray:
+    def inverse_transform(self, X_reduced: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self.mean_ is not None and self.components_ is not None
         return np.asarray(X_reduced, dtype=np.float64) @ self.components_ + self.mean_
 
@@ -607,11 +637,11 @@ class KMeans:
         self.max_iter = max_iter
         self.tol = tol
         self.random_state = random_state
-        self.cluster_centers_: NDArray | None = None
-        self.labels_: NDArray | None = None
+        self.cluster_centers_: NDArray[np.number[Any]] | None = None
+        self.labels_: NDArray[np.number[Any]] | None = None
         self.inertia_: float = 0.0
 
-    def fit(self, X: NDArray) -> KMeans:
+    def fit(self, X: NDArray[np.number[Any]]) -> KMeans:
         X = np.asarray(X, dtype=np.float64)
         rng = np.random.RandomState(self.random_state)
         n_samples = X.shape[0]
@@ -643,12 +673,12 @@ class KMeans:
         self.inertia_ = float(np.sum(np.min(dists, axis=1) ** 2))
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self.cluster_centers_ is not None
         dists = cdist(np.asarray(X, dtype=np.float64), self.cluster_centers_)
         return np.argmin(dists, axis=1)
 
-    def fit_predict(self, X: NDArray) -> NDArray:
+    def fit_predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         self.fit(X)
         assert self.labels_ is not None
         return self.labels_
@@ -666,10 +696,10 @@ class DBSCAN:
         self.eps = eps
         self.min_samples = min_samples
         self.metric = metric
-        self.labels_: NDArray | None = None
-        self.core_sample_indices_: NDArray | None = None
+        self.labels_: NDArray[np.number[Any]] | None = None
+        self.core_sample_indices_: NDArray[np.number[Any]] | None = None
 
-    def fit_predict(self, X: NDArray) -> NDArray:
+    def fit_predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         X = np.asarray(X, dtype=np.float64)
         n = len(X)
         dists = cdist(X, X, metric=self.metric)
@@ -721,15 +751,15 @@ class NearestNeighbors:
         self.n_neighbors = n_neighbors
         self.metric = metric
         self.algorithm = algorithm
-        self._X: NDArray | None = None
+        self._X: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray) -> NearestNeighbors:
+    def fit(self, X: NDArray[np.number[Any]]) -> NearestNeighbors:
         self._X = np.asarray(X, dtype=np.float64)
         return self
 
     def kneighbors(
-        self, X: NDArray | None = None, n_neighbors: int | None = None
-    ) -> tuple[NDArray, NDArray]:
+        self, X: NDArray[np.number[Any]] | None = None, n_neighbors: int | None = None
+    ) -> tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]:
         assert self._X is not None
         if X is None:
             X = self._X
@@ -771,7 +801,7 @@ class IsolationForest:
         self._n_samples: int = 0
         self._offset: float = 0.0
 
-    def fit(self, X: NDArray, y: Any = None) -> IsolationForest:
+    def fit(self, X: NDArray[np.number[Any]], y: Any = None) -> IsolationForest:
         X = np.asarray(X, dtype=np.float64)
         n_samples = X.shape[0]
         self._n_samples = n_samples
@@ -799,7 +829,7 @@ class IsolationForest:
 
         return self
 
-    def _raw_score(self, X: NDArray) -> NDArray:
+    def _raw_score(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Compute raw anomaly scores (higher = more anomalous)."""
         avg_path = np.zeros(len(X))
         for tree in self._trees:
@@ -811,17 +841,17 @@ class IsolationForest:
         scores = 2.0 ** (-avg_path / max(c_n, 1e-10))
         return scores
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Compute decision function (negative = more anomalous, standard convention)."""
         X = np.asarray(X, dtype=np.float64)
         return -(self._raw_score(X) - self._offset)
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Predict: -1 for anomalies, 1 for inliers."""
         scores = self.decision_function(X)
         return np.where(scores < 0, -1, 1)
 
-    def score_samples(self, X: NDArray) -> NDArray:
+    def score_samples(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Return anomaly scores (negative = more anomalous)."""
         return -self._raw_score(np.asarray(X, dtype=np.float64))
 
@@ -839,7 +869,7 @@ class _ITree:
         self.size: int = 0
         self.is_leaf: bool = True
 
-    def fit(self, X: NDArray, depth: int = 0) -> None:
+    def fit(self, X: NDArray[np.number[Any]], depth: int = 0) -> None:
         self.size = len(X)
         if depth >= self.max_depth or len(X) <= 1:
             self.is_leaf = True
@@ -865,7 +895,7 @@ class _ITree:
         self.left.fit(X[left_mask], depth + 1)
         self.right.fit(X[right_mask], depth + 1)
 
-    def path_lengths(self, X: NDArray, depth: int = 0) -> NDArray:
+    def path_lengths(self, X: NDArray[np.number[Any]], depth: int = 0) -> NDArray[np.floating[Any]]:
         if self.is_leaf:
             return np.full(len(X), depth + _expected_path_length(self.size))
 
@@ -909,14 +939,14 @@ class LocalOutlierFactor:
         self.p = p
         self.novelty = novelty
         self.n_jobs = n_jobs
-        self._X_train: NDArray | None = None
-        self._lrd: NDArray | None = None
-        self._k_distances: NDArray | None = None
-        self._k_indices: NDArray | None = None
+        self._X_train: NDArray[np.number[Any]] | None = None
+        self._lrd: NDArray[np.number[Any]] | None = None
+        self._k_distances: NDArray[np.number[Any]] | None = None
+        self._k_indices: NDArray[np.number[Any]] | None = None
         self.offset_: float = 0.0
-        self.negative_outlier_factor_: NDArray | None = None
+        self.negative_outlier_factor_: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray, y: Any = None) -> LocalOutlierFactor:
+    def fit(self, X: NDArray[np.number[Any]], y: Any = None) -> LocalOutlierFactor:
         X = np.asarray(X, dtype=np.float64)
         self._X_train = X
         n = len(X)
@@ -946,7 +976,12 @@ class LocalOutlierFactor:
         self.offset_ = -float(np.percentile(lof_scores, 100 * (1 - self.contamination)))
         return self
 
-    def _compute_lrd(self, dists: NDArray, k_indices: NDArray, k_distances: NDArray) -> NDArray:
+    def _compute_lrd(
+        self,
+        dists: NDArray[np.number[Any]],
+        k_indices: NDArray[np.number[Any]],
+        k_distances: NDArray[np.number[Any]],
+    ) -> NDArray[np.number[Any]]:
         """Compute local reachability density."""
         n = len(k_indices)
         lrd = np.zeros(n)
@@ -961,7 +996,9 @@ class LocalOutlierFactor:
 
         return lrd
 
-    def _compute_lof(self, k_indices: NDArray, lrd: NDArray) -> NDArray:
+    def _compute_lof(
+        self, k_indices: NDArray[np.number[Any]], lrd: NDArray[np.number[Any]]
+    ) -> NDArray[np.number[Any]]:
         """Compute LOF scores."""
         n = len(k_indices)
         lof = np.zeros(n)
@@ -970,23 +1007,23 @@ class LocalOutlierFactor:
             lof[i] = np.mean(neighbor_lrd) / max(lrd[i], 1e-10)
         return lof
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Compute decision function for new samples (shift by offset)."""
         X = np.asarray(X, dtype=np.float64)
         assert self._X_train is not None and self._lrd is not None
         lof_scores = self._score_samples(X)
         return -lof_scores - self.offset_
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Predict: -1 for anomalies, 1 for inliers."""
         scores = self.decision_function(X)
         return np.where(scores < 0, -1, 1)
 
-    def score_samples(self, X: NDArray) -> NDArray:
+    def score_samples(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Return opposite of LOF scores (higher = more normal)."""
         return -self._score_samples(np.asarray(X, dtype=np.float64))
 
-    def _score_samples(self, X: NDArray) -> NDArray:
+    def _score_samples(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Compute raw LOF scores for new data."""
         assert self._X_train is not None and self._lrd is not None and self._k_distances is not None
         k = self._k_distances.shape[1]
@@ -1023,11 +1060,11 @@ class EllipticEnvelope:
         self.contamination = contamination
         self.random_state = random_state
         self.support_fraction = support_fraction
-        self._mean: NDArray | None = None
-        self._cov_inv: NDArray | None = None
+        self._mean: NDArray[np.number[Any]] | None = None
+        self._cov_inv: NDArray[np.number[Any]] | None = None
         self._threshold: float = 0.0
 
-    def fit(self, X: NDArray, y: Any = None) -> EllipticEnvelope:
+    def fit(self, X: NDArray[np.number[Any]], y: Any = None) -> EllipticEnvelope:
         X = np.asarray(X, dtype=np.float64)
         n, d = X.shape
 
@@ -1046,7 +1083,9 @@ class EllipticEnvelope:
         self._threshold = float(np.percentile(distances, 100 * (1 - self.contamination)))
         return self
 
-    def _robust_estimate(self, X: NDArray, n_support: int) -> tuple[NDArray, NDArray]:
+    def _robust_estimate(
+        self, X: NDArray[np.number[Any]], n_support: int
+    ) -> tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]:
         """Simple robust location/scatter estimation using C-step."""
         rng = np.random.RandomState(self.random_state)
         n, d = X.shape
@@ -1080,21 +1119,21 @@ class EllipticEnvelope:
 
         return mean, np.linalg.inv(cov)
 
-    def _mahalanobis(self, X: NDArray) -> NDArray:
+    def _mahalanobis(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self._mean is not None and self._cov_inv is not None
         diff = X - self._mean
         return np.sqrt(np.sum(diff @ self._cov_inv * diff, axis=1))
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Negative Mahalanobis distance (higher = more normal)."""
         return -self._mahalanobis(np.asarray(X, dtype=np.float64))
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Predict: -1 for anomalies, 1 for inliers."""
         distances = self._mahalanobis(np.asarray(X, dtype=np.float64))
         return np.where(distances > self._threshold, -1, 1)
 
-    def mahalanobis(self, X: NDArray) -> NDArray:
+    def mahalanobis(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Compute Mahalanobis distances."""
         return self._mahalanobis(np.asarray(X, dtype=np.float64))
 
@@ -1109,11 +1148,11 @@ class MinCovDet:
     ) -> None:
         self.support_fraction = support_fraction
         self.random_state = random_state
-        self.location_: NDArray | None = None
-        self.covariance_: NDArray | None = None
-        self._cov_inv: NDArray | None = None
+        self.location_: NDArray[np.number[Any]] | None = None
+        self.covariance_: NDArray[np.number[Any]] | None = None
+        self._cov_inv: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray) -> MinCovDet:
+    def fit(self, X: NDArray[np.number[Any]]) -> MinCovDet:
         X = np.asarray(X, dtype=np.float64)
         n, d = X.shape
         sf = self.support_fraction or max((n + d + 1) / (2 * n), 0.5)
@@ -1126,7 +1165,7 @@ class MinCovDet:
         self._cov_inv = ee._cov_inv
         return self
 
-    def mahalanobis(self, X: NDArray) -> NDArray:
+    def mahalanobis(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self.location_ is not None and self._cov_inv is not None
         diff = np.asarray(X, dtype=np.float64) - self.location_
         return np.sum(diff @ self._cov_inv * diff, axis=1)
@@ -1149,12 +1188,12 @@ class OneClassSVM:
         self.nu = nu
         self.gamma = gamma
         self.random_state = random_state
-        self._center: NDArray | None = None
+        self._center: NDArray[np.number[Any]] | None = None
         self._scale: float = 1.0
         self._threshold: float = 0.0
-        self._X_train: NDArray | None = None
+        self._X_train: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray, y: Any = None) -> OneClassSVM:
+    def fit(self, X: NDArray[np.number[Any]], y: Any = None) -> OneClassSVM:
         X = np.asarray(X, dtype=np.float64)
         self._X_train = X
         self._center = X.mean(axis=0)
@@ -1168,7 +1207,7 @@ class OneClassSVM:
         self._threshold = float(np.percentile(scores, 100 * self.nu))
         return self
 
-    def _compute_scores(self, X: NDArray) -> NDArray:
+    def _compute_scores(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Compute distance-based anomaly scores using RBF kernel."""
         assert self._X_train is not None
         # Average RBF kernel similarity to training data
@@ -1176,11 +1215,11 @@ class OneClassSVM:
         K = np.exp(-self._scale * dists_sq)
         return -np.mean(K, axis=1)  # Negative = more anomalous
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         X = np.asarray(X, dtype=np.float64)
         return -(self._compute_scores(X) - self._threshold)
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         scores = self.decision_function(X)
         return np.where(scores < 0, -1, 1)
 
@@ -1205,11 +1244,11 @@ class LogisticRegression:
         self.max_iter = max_iter
         self.C = C
         self.random_state = random_state
-        self.coef_: NDArray | None = None
-        self.intercept_: NDArray | None = None
-        self.classes_: NDArray | None = None
+        self.coef_: NDArray[np.number[Any]] | None = None
+        self.intercept_: NDArray[np.number[Any]] | None = None
+        self.classes_: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray, y: NDArray) -> LogisticRegression:
+    def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> LogisticRegression:
         from scipy.optimize import minimize
 
         X = np.asarray(X, dtype=np.float64)
@@ -1223,7 +1262,7 @@ class LogisticRegression:
         # w = [weights..., bias]
         w0 = np.zeros(n_features + 1)
 
-        def objective(w: NDArray) -> float:
+        def objective(w: NDArray[np.number[Any]]) -> float:
             weights, bias = w[:-1], w[-1]
             z = X @ weights + bias
             z = np.clip(z, -500, 500)
@@ -1231,7 +1270,7 @@ class LogisticRegression:
             reg = 0.5 / self.C * np.sum(weights**2)
             return -(log_likelihood - reg)
 
-        def gradient(w: NDArray) -> NDArray:
+        def gradient(w: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
             weights, bias = w[:-1], w[-1]
             z = X @ weights + bias
             z = np.clip(z, -500, 500)
@@ -1252,12 +1291,12 @@ class LogisticRegression:
         self.intercept_ = np.array([result.x[-1]])
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         prob = self.predict_proba(X)
         assert self.classes_ is not None
         return self.classes_[(prob[:, 1] >= 0.5).astype(int)]
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self.coef_ is not None and self.intercept_ is not None
         X = np.asarray(X, dtype=np.float64)
         z = X @ self.coef_.T + self.intercept_
@@ -1290,12 +1329,17 @@ class SGDClassifier:
         self.max_iter = max_iter
         self.tol = tol
         self.random_state = random_state
-        self._w: NDArray | None = None
+        self._w: NDArray[np.number[Any]] | None = None
         self._b: float = 0.0
-        self._classes: NDArray | None = None
+        self._classes: NDArray[np.number[Any]] | None = None
         self._t: int = 0
 
-    def partial_fit(self, X: NDArray, y: NDArray, classes: NDArray | None = None) -> SGDClassifier:
+    def partial_fit(
+        self,
+        X: NDArray[np.number[Any]],
+        y: NDArray[np.number[Any]],
+        classes: NDArray[np.number[Any]] | None = None,
+    ) -> SGDClassifier:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         if classes is not None:
@@ -1328,20 +1372,20 @@ class SGDClassifier:
 
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self._w is not None and self._classes is not None
         X = np.asarray(X, dtype=np.float64)
         scores = X @ self._w + self._b
         return self._classes[(scores >= 0).astype(int)]
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self._w is not None
         X = np.asarray(X, dtype=np.float64)
         z = X @ self._w + self._b
         p1 = 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))
         return np.column_stack([1 - p1, p1])
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self._w is not None
         return np.asarray(X, dtype=np.float64) @ self._w + self._b
 
@@ -1364,12 +1408,15 @@ class PassiveAggressiveClassifier:
         self.max_iter = max_iter
         self.tol = tol
         self.random_state = random_state
-        self._w: NDArray | None = None
+        self._w: NDArray[np.number[Any]] | None = None
         self._b: float = 0.0
-        self._classes: NDArray | None = None
+        self._classes: NDArray[np.number[Any]] | None = None
 
     def partial_fit(
-        self, X: NDArray, y: NDArray, classes: NDArray | None = None
+        self,
+        X: NDArray[np.number[Any]],
+        y: NDArray[np.number[Any]],
+        classes: NDArray[np.number[Any]] | None = None,
     ) -> PassiveAggressiveClassifier:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
@@ -1396,12 +1443,12 @@ class PassiveAggressiveClassifier:
 
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self._w is not None and self._classes is not None
         scores = np.asarray(X, dtype=np.float64) @ self._w + self._b
         return self._classes[(scores >= 0).astype(int)]
 
-    def decision_function(self, X: NDArray) -> NDArray:
+    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self._w is not None
         return np.asarray(X, dtype=np.float64) @ self._w + self._b
 
@@ -1430,9 +1477,11 @@ class GradientBoostingClassifier:
         self.random_state = random_state
         self._stumps: list[_DecisionStump] = []
         self._init_pred: float = 0.0
-        self.classes_: NDArray | None = None
+        self.classes_: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray, y: NDArray) -> GradientBoostingClassifier:
+    def fit(
+        self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]
+    ) -> GradientBoostingClassifier:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         self.classes_ = np.unique(y)
@@ -1459,12 +1508,12 @@ class GradientBoostingClassifier:
 
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         proba = self.predict_proba(X)
         assert self.classes_ is not None
         return self.classes_[(proba[:, 1] >= 0.5).astype(int)]
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         X = np.asarray(X, dtype=np.float64)
         F = np.full(len(X), self._init_pred)
         for stump in self._stumps:
@@ -1486,9 +1535,9 @@ class RandomForestClassifier:
         self.max_depth = max_depth or 10
         self.random_state = random_state
         self._trees: list[_DecisionStump] = []
-        self.classes_: NDArray | None = None
+        self.classes_: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray, y: NDArray) -> RandomForestClassifier:
+    def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> RandomForestClassifier:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         self.classes_ = np.unique(y)
@@ -1504,12 +1553,12 @@ class RandomForestClassifier:
             self._trees.append(tree)
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         proba = self.predict_proba(X)
         assert self.classes_ is not None
         return self.classes_[np.argmax(proba, axis=1)]
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         X = np.asarray(X, dtype=np.float64)
         assert self.classes_ is not None
         n_classes = len(self.classes_)
@@ -1538,13 +1587,13 @@ class SVC:
         self.probability = probability
         self.random_state = random_state
         self.C = C
-        self._X_train: NDArray | None = None
-        self._y_train: NDArray | None = None
-        self._alpha: NDArray | None = None
+        self._X_train: NDArray[np.number[Any]] | None = None
+        self._y_train: NDArray[np.number[Any]] | None = None
+        self._alpha: NDArray[np.number[Any]] | None = None
         self._gamma: float = 1.0
-        self.classes_: NDArray | None = None
+        self.classes_: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray, y: NDArray) -> SVC:
+    def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> SVC:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         self._X_train = X
@@ -1555,12 +1604,12 @@ class SVC:
         # Simplified: store training data and use kernel-weighted voting
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         proba = self.predict_proba(X)
         assert self.classes_ is not None
         return self.classes_[np.argmax(proba, axis=1)]
 
-    def predict_proba(self, X: NDArray) -> NDArray:
+    def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self._X_train is not None and self._y_train is not None
         X = np.asarray(X, dtype=np.float64)
         K = np.exp(-self._gamma * cdist(X, self._X_train, metric="sqeuclidean"))
@@ -1588,7 +1637,7 @@ class _DecisionStump:
         self.right: _DecisionStump | None = None
         self.is_leaf: bool = True
 
-    def fit(self, X: NDArray, y: NDArray, depth: int = 0) -> None:
+    def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]], depth: int = 0) -> None:
         self.value = float(np.mean(y))
         if depth >= self.max_depth or len(X) <= 2 or np.std(y) < 1e-10:
             self.is_leaf = True
@@ -1629,7 +1678,7 @@ class _DecisionStump:
         self.left.fit(X[left_mask], y[left_mask], depth + 1)
         self.right.fit(X[~left_mask], y[~left_mask], depth + 1)
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         if self.is_leaf:
             return np.full(len(X), self.value)
         col = X[:, self.feature]
@@ -1661,11 +1710,11 @@ class GaussianMixture:
         self.max_iter = max_iter
         self.tol = tol
         self.random_state = random_state
-        self.means_: NDArray | None = None
-        self.covariances_: NDArray | None = None
-        self.weights_: NDArray | None = None
+        self.means_: NDArray[np.number[Any]] | None = None
+        self.covariances_: NDArray[np.number[Any]] | None = None
+        self.weights_: NDArray[np.number[Any]] | None = None
 
-    def fit(self, X: NDArray) -> GaussianMixture:
+    def fit(self, X: NDArray[np.number[Any]]) -> GaussianMixture:
         X = np.asarray(X, dtype=np.float64)
         n, d = X.shape
         rng = np.random.RandomState(self.random_state)
@@ -1701,7 +1750,7 @@ class GaussianMixture:
 
         return self
 
-    def _e_step(self, X: NDArray) -> NDArray:
+    def _e_step(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         n = len(X)
         resp = np.zeros((n, self.n_components))
         assert (
@@ -1723,7 +1772,9 @@ class GaussianMixture:
 # =====================================================================
 
 
-def mutual_info_classif(X: NDArray, y: NDArray, *, random_state: int | None = None) -> NDArray:
+def mutual_info_classif(
+    X: NDArray[np.number[Any]], y: NDArray[np.number[Any]], *, random_state: int | None = None
+) -> NDArray[np.number[Any]]:
     """Estimate mutual information between features and discrete target.
 
     Uses a histogram-based approximation.
@@ -1748,7 +1799,7 @@ def mutual_info_classif(X: NDArray, y: NDArray, *, random_state: int | None = No
         if len(bins) <= 1:
             mi[f] = 0.0
             continue
-        x_binned = np.digitize(col, bins[1:-1])
+        x_binned = np.digitize(np.asarray(col, dtype=np.float64), bins[1:-1])
 
         # Compute MI via contingency table
         x_vals = np.unique(x_binned)
@@ -1782,10 +1833,10 @@ class IsotonicRegression:
         self.y_min = y_min
         self.y_max = y_max
         self.out_of_bounds = out_of_bounds
-        self._x: NDArray | None = None
-        self._y: NDArray | None = None
+        self._x: NDArray[np.floating[Any]] | None = None
+        self._y: NDArray[np.floating[Any]] | None = None
 
-    def fit(self, X: NDArray, y: NDArray) -> IsotonicRegression:
+    def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> IsotonicRegression:
         X = np.asarray(X, dtype=np.float64).ravel()
         y = np.asarray(y, dtype=np.float64).ravel()
 
@@ -1831,7 +1882,7 @@ class IsotonicRegression:
         self._y = result
         return self
 
-    def predict(self, X: NDArray) -> NDArray:
+    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         assert self._x is not None and self._y is not None
         X = np.asarray(X, dtype=np.float64).ravel()
         result = np.interp(X, self._x, self._y)
