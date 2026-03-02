@@ -1,7 +1,7 @@
-"""DEPRECATED: This module previously used external ML libraries (LOF, DBSCAN,
-MinCovDet, NearestNeighbors) for anomaly detection. Mercury's production detector
-is MercuryAnomalyDetector in detectors/statistical.py. This module is retained
-for reference only and will be removed in a future release.
+"""Enhanced statistical anomaly detection using Mercury-native ML primitives.
+
+Provides LOF, DBSCAN, and MCD-based detectors built on Mercury's own
+implementations in omni_mercury_engine.ml.mercury_ml.
 
 Do not import this module in production or benchmark code paths.
 
@@ -200,12 +200,19 @@ class LOFDetector:
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> LOFDetector:
-        """Fit the LOF detector using cKDTree."""
-        from scipy.spatial import cKDTree
+        """Fit the LOF detector."""
+        from omni_mercury_engine.ml.mercury_ml import LocalOutlierFactor
 
-        X = np.asarray(X, dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
+        self._lof = LocalOutlierFactor(
+            n_neighbors=min(self.n_neighbors, len(X) - 1),
+            contamination=self.contamination,
+            metric=self.metric,
+            p=self.p,
+            novelty=True,
+        )
+        assert self._lof is not None
+        self._lof.fit(X)
+        self._fitted = True
 
         self._X_train = X.copy()
         n = len(X)
@@ -296,8 +303,8 @@ class DBSCANDetector:
         self._fitted = False
 
     def _estimate_eps(self, X: NDArray[np.float64]) -> float:
-        """Estimate optimal eps using k-distance graph via cKDTree."""
-        from scipy.spatial import cKDTree
+        """Estimate optimal eps using k-distance graph."""
+        from omni_mercury_engine.ml.mercury_ml import NearestNeighbors
 
         k = min(self.min_samples, len(X) - 1)
         tree = cKDTree(X)
@@ -357,7 +364,9 @@ class DBSCANDetector:
         if not self._fitted or self._tree is None:
             raise DetectorException("DBSCANDetector must be fitted before detection")
 
-        X = np.asarray(X, dtype=np.float64)
+        from omni_mercury_engine.ml.mercury_ml import DBSCAN
+
+        X = np.asarray(X)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
@@ -407,8 +416,10 @@ class MCDDetector:
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> MCDDetector:
-        """Fit the MCD detector via iterative reweighted covariance."""
-        X = np.asarray(X, dtype=np.float64)
+        """Fit the MCD detector."""
+        from omni_mercury_engine.ml.mercury_ml import MinCovDet
+
+        X = np.asarray(X)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 

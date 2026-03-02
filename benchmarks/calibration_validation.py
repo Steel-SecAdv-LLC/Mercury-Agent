@@ -40,14 +40,14 @@ from typing import Any
 
 import numpy as np
 from scipy.optimize import minimize
-from omni_mercury_engine.ml._native_utils import (
-    NativeStandardScaler as StandardScaler,
-    NativeStratifiedKFold as StratifiedKFold,
-    native_f1_score as f1_score,
-    native_precision_score as precision_score,
-    native_recall_score as recall_score,
-    native_roc_auc_score as roc_auc_score,
-    native_train_test_split,
+from omni_mercury_engine.ml.mercury_ml import (
+    StandardScaler,
+    StratifiedKFold,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    train_test_split,
 )
 
 # ---------------------------------------------------------------------------
@@ -132,7 +132,7 @@ def _stratified_split(
 
     # First split: 60% train, 40% rest
     try:
-        X_train, X_rest, y_train, y_rest = native_train_test_split(
+        X_train, X_rest, y_train, y_rest = train_test_split(
             X, y, test_size=0.4, random_state=rng.randint(0, 2**31), stratify=y
         )
     except ValueError:
@@ -140,7 +140,7 @@ def _stratified_split(
 
     # Second split: 50/50 of remaining = 20%/20% of total
     try:
-        X_cal, X_test, y_cal, y_test = native_train_test_split(
+        X_cal, X_test, y_cal, y_test = train_test_split(
             X_rest, y_rest, test_size=0.5, random_state=rng.randint(0, 2**31), stratify=y_rest
         )
     except ValueError:

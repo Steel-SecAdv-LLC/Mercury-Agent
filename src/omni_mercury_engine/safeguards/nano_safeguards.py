@@ -441,9 +441,9 @@ class NanoSafeguardDetector(BaseDetector):
         if data_2d.shape[0] < self.target_dim or data_2d.shape[1] < 2:
             return 0.0
 
-        try:
-            from omni_mercury_engine.ml._native_utils import NativePCA as PCA
+        from omni_mercury_engine.ml.mercury_ml import PCA
 
+        try:
             target_dim = min(self.target_dim, data_2d.shape[1] - 1, data_2d.shape[0] - 1)
             if target_dim < 1:
                 return 0.0

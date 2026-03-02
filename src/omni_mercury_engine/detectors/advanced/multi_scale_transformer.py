@@ -452,7 +452,7 @@ class MultiScaleTransformerDetector:
     """
     Multi-Scale Transformer Detector for Time-Series Anomaly Detection.
 
-    Provides standard ML interface with fit/predict methods.
+    Provides Mercury-compatible interface with fit/predict methods.
 
     Example:
         >>> detector = MultiScaleTransformerDetector(input_dim=38)

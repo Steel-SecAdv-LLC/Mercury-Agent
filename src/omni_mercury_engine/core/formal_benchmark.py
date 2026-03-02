@@ -1,4 +1,4 @@
-"""Mercury Agent - Formal Benchmark Harness (Mercury-native).
+"""Rigorous benchmark harness using Mercury-native ML primitives.
 
 Rigorous benchmark harness for anomaly detection evaluation.
 All baselines use Mercury-native implementations.
@@ -202,6 +202,8 @@ def stratified_split(
     Returns:
         X_train, X_test, y_train, y_test
     """
+    from omni_mercury_engine.ml.mercury_ml import train_test_split
+
     set_all_seeds(seed)
     return native_train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)
 
@@ -303,6 +305,8 @@ def point_adjusted_f1(
     Returns:
         Point-adjusted F1 score
     """
+    from omni_mercury_engine.ml.mercury_ml import f1_score
+
     # Get anomaly segments
     adjusted_pred = np.zeros_like(y_pred)
 
@@ -388,6 +392,16 @@ class RigorousBenchmarkHarness:
         Returns:
             BenchmarkResult with all metrics and statistics
         """
+        from omni_mercury_engine.ml.mercury_ml import (
+            StratifiedKFold,
+            average_precision_score,
+            brier_score_loss,
+            f1_score,
+            precision_score,
+            recall_score,
+            roc_auc_score,
+        )
+
         set_all_seeds(self.seed)
 
         result = BenchmarkResult(
@@ -583,6 +597,8 @@ def run_baseline_benchmarks(
     Returns:
         Dictionary mapping detector name to BenchmarkResult
     """
+    from omni_mercury_engine.ml.mercury_ml import EllipticEnvelope, LocalOutlierFactor, OneClassSVM
+
     from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
     harness = RigorousBenchmarkHarness(n_folds=n_folds, seed=seed)

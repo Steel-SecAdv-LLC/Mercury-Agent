@@ -26,9 +26,7 @@ warnings.warn(
     stacklevel=2,
 )
 
-"""DEPRECATED: This module previously used PCA for anomaly detection.
-Mercury's production detector is MercuryAnomalyDetector in
-detectors/statistical.py. This module is retained for reference only.
+"""Sigma directive-based anomaly detection with Mercury-native PCA.
 
 Original: Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
 
@@ -731,9 +729,9 @@ class SigmaDirectiveDetector(BaseDetector):
 
         target_dim = max(1, min(3, data_2d.shape[1] // 2))
 
-        try:
-            from omni_mercury_engine.ml._native_utils import NativePCA as PCA
+        from omni_mercury_engine.ml.mercury_ml import PCA
 
+        try:
             pca = PCA(n_components=target_dim)
             downsampled = pca.fit_transform(data_2d)
 

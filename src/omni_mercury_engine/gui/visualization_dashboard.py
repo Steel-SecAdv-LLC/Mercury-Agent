@@ -466,15 +466,11 @@ class AnomalyVisualizer:
         """
         # Reduce to 3D if needed
         if data.shape[1] > 3:
-            try:
-                from omni_mercury_engine.ml._native_utils import NativePCA as PCA
+            from omni_mercury_engine.ml.mercury_ml import PCA
 
-                pca = PCA(n_components=3)
-                data_3d = pca.fit_transform(data)
-                axis_labels = ["PC1", "PC2", "PC3"]
-            except ImportError:
-                data_3d = data[:, :3]
-                axis_labels = ["Feature 1", "Feature 2", "Feature 3"]
+            pca = PCA(n_components=3)
+            data_3d = pca.fit_transform(data)
+            axis_labels = ["PC1", "PC2", "PC3"]
         else:
             data_3d = (
                 data[:, :3]

@@ -76,7 +76,7 @@ except ImportError:
 
 
 class _NativeLOF:
-    """Local Outlier Factor via scipy KDTree (Mercury-native).
+    """Local Outlier Factor via scipy KDTree.
 
     Implements LOF as defined by Breunig et al. (2000).  Only the
     ``fit`` / ``decision_function`` surface used by SpatialAnomalyDetector
@@ -120,7 +120,7 @@ class _NativeLOF:
         neighbor_lrd = self._lrd[idx]
         mean_neighbor_lrd = neighbor_lrd.mean(axis=1)
         lof = mean_neighbor_lrd / np.maximum(lrd_query, 1e-10)
-        # decision_function returns negative for outliers (standard convention)
+        # decision_function returns negative for outliers
         return -(lof - 1.0)
 
 

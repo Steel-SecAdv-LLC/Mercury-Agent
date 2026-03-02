@@ -26,7 +26,7 @@ warnings.warn(
     stacklevel=2,
 )
 
-"""DEPRECATED: This module previously used KMeans for anomaly detection.
+"""Novel class discovery using Mercury-native KMeans clustering.
 
 Mercury's production detector is MercuryAnomalyDetector in
 detectors/statistical.py. This module is retained for reference
@@ -193,7 +193,7 @@ class NovelClassDiscovery:
         """
         features = self.extract_anomaly_features(images, masks)
 
-        from omni_mercury_engine.ml._native_utils import NativeKMeans as KMeans
+        from omni_mercury_engine.ml.mercury_ml import KMeans
 
         kmeans = KMeans(n_clusters=self.num_clusters, random_state=42)
         class_assignments = kmeans.fit_predict(features)

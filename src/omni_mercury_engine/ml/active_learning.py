@@ -502,12 +502,9 @@ class QueryByCommitteeSampler(BaseSampler):
             y_boot = y_labeled[indices]
 
             # Clone and train model
-            try:
-                from omni_mercury_engine.ml._native_utils import native_clone as clone
+            from omni_mercury_engine.ml.mercury_ml import clone
 
-                model = clone(base_model)
-            except ImportError:
-                model = base_model
+            model = clone(base_model)
 
             model.fit(X_boot, y_boot)
             committee.append(model)

@@ -878,9 +878,7 @@ class NeuroSymbolicHub:
             # Train meta-learner
             meta_features = np.column_stack([neural_scores, symbolic_scores])
 
-            from omni_mercury_engine.ml._native_utils import (
-                NativeLogisticRegression as LogisticRegression,
-            )
+            from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
             meta_learner = LogisticRegression(solver="lbfgs", max_iter=1000, random_state=self.seed)
             meta_learner.fit(meta_features, y)
@@ -1172,7 +1170,7 @@ class NeuroSymbolicHub:
         return results
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        """Get anomaly probabilities (standard ML interface)."""
+        """Get anomaly probabilities."""
         results = self.predict(X, return_explanations=False)
         scores = np.array([r.anomaly_score for r in results])
         return np.column_stack([1 - scores, scores])

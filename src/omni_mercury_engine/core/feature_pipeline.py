@@ -310,22 +310,16 @@ class FeatureSelector:
 
     def _compute_mutual_info(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Compute mutual information scores for each feature."""
-        try:
-            from omni_mercury_engine.ml._native_utils import (
-                native_mutual_info_classif as mutual_info_classif,
-            )
+        from omni_mercury_engine.ml.mercury_ml import mutual_info_classif
 
-            # Handle continuous targets by discretizing
-            if len(np.unique(y)) > 10:
-                y_discrete = np.digitize(y, np.percentile(y, [25, 50, 75]))
-            else:
-                y_discrete = y
+        # Handle continuous targets by discretizing
+        if len(np.unique(y)) > 10:
+            y_discrete = np.digitize(y, np.percentile(y, [25, 50, 75]))
+        else:
+            y_discrete = y
 
-            scores = mutual_info_classif(X, y_discrete, random_state=42)
-            return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
-        except ImportError:
-            logger.warning("Native mutual_info not available, falling back to variance")
-            return np.asarray(np.var(X, axis=0))  # type: ignore[no-any-return, unused-ignore]
+        scores = mutual_info_classif(X, y_discrete, random_state=42)
+        return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
 
     def _compute_correlation_scores(self, X: np.ndarray) -> np.ndarray:
         """Compute correlation-based scores (inverse of mean correlation)."""

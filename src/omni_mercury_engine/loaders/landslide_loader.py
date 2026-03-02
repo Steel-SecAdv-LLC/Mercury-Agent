@@ -367,7 +367,7 @@ class LandslideLoader(BaseDomainLoader):
         9. **month** -- month of year (1--12).
         10. **day_of_year** -- day of year (1--366).
 
-        All encoding is done with Mercury-native math (Mercury-native).
+        All encoding is done with Mercury-native math .
 
         Args:
             raw_data: DataFrame from :meth:`fetch_realtime` or
@@ -570,7 +570,7 @@ class LandslideLoader(BaseDomainLoader):
         """Encode country/admin division to a stable numeric code.
 
         Uses a deterministic hash to produce consistent numeric IDs for
-        each unique country name.  Mercury-native (Mercury-native).
+        each unique country name.  Mercury-native .
 
         Args:
             df: DataFrame with optional ``country_name`` column.

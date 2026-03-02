@@ -967,13 +967,7 @@ class AutoThresholdOptimizer:
         Fits a 2-component GMM and uses the intersection point
         as the threshold. Fallback to percentile if GMM fails.
         """
-        try:
-            from omni_mercury_engine.ml._native_utils import (
-                NativeGaussianMixture as GaussianMixture,
-            )
-        except ImportError:
-            logger.warning("Native GMM not available, falling back to percentile")
-            return self._percentile_threshold(scores, contamination, fixed_threshold)
+        from omni_mercury_engine.ml.mercury_ml import GaussianMixture
 
         if len(scores) < 20:
             return self._percentile_threshold(scores, contamination, fixed_threshold)

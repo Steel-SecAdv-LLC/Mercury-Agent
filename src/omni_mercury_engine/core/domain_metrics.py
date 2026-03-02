@@ -219,19 +219,14 @@ class MetricsCalculator:
         y_prob: np.ndarray | None,
     ) -> None:
         """Compute standard classification metrics."""
-        try:
-            from omni_mercury_engine.ml._native_utils import (
-                native_accuracy_score as accuracy_score,
-                native_average_precision_score as average_precision_score,
-                native_f1_score as f1_score,
-                native_precision_score as precision_score,
-                native_recall_score as recall_score,
-                native_roc_auc_score as roc_auc_score,
-            )
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
+        from omni_mercury_engine.ml.mercury_ml import (
+            accuracy_score,
+            average_precision_score,
+            f1_score,
+            precision_score,
+            recall_score,
+            roc_auc_score,
+        )
 
         try:
             metrics.accuracy = float(accuracy_score(y_true, y_pred))
@@ -307,16 +302,7 @@ class MetricsCalculator:
         # Point-adjusted metrics
         y_pred_adjusted = self._point_adjust(y_true, y_pred)
         if np.sum(y_pred_adjusted) > 0:
-            try:
-                from omni_mercury_engine.ml._native_utils import (
-                    native_f1_score as f1_score,
-                    native_precision_score as precision_score,
-                    native_recall_score as recall_score,
-                )
-            except ImportError as e:
-                raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-                ) from e
+            from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
             metrics.pa_precision = float(precision_score(y_true, y_pred_adjusted, zero_division=0))
             metrics.pa_recall = float(recall_score(y_true, y_pred_adjusted, zero_division=0))
             metrics.pa_f1 = float(f1_score(y_true, y_pred_adjusted, zero_division=0))
@@ -358,14 +344,7 @@ class MetricsCalculator:
         y_prob: np.ndarray,
     ) -> None:
         """Compute calibration metrics."""
-        try:
-            from omni_mercury_engine.ml._native_utils import (
-                native_brier_score_loss as brier_score_loss,
-            )
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
+        from omni_mercury_engine.ml.mercury_ml import brier_score_loss
 
         try:
             # Brier score

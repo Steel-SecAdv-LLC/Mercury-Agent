@@ -25,16 +25,15 @@ publicly available datasets.
 
 Datasets Used:
 - UCI breast_cancer (medical domain proxy)
-- UCI digits (pattern recognition)
+- UCI optdigits (pattern recognition)
 - UCI covtype (environmental/sensor data)
-- KDDCup99 subset (cybersecurity)
+- KDDCup99 / NSL-KDD subset (cybersecurity)
 - SMD (Server Machine Dataset) - time-series
 - SMAP (Soil Moisture Active Passive) - time-series
 - MSL (Mars Science Laboratory) - time-series
 - SWaT (Secure Water Treatment) - time-series
 
 Near-Peer Baselines:
-- Isolation Forest (Mercury-native)
 - One-Class SVM (Mercury-native)
 - Local Outlier Factor (Mercury-native)
 - Elliptic Envelope (Mercury-native)
@@ -99,19 +98,19 @@ KNOWN_CHECKSUMS: dict[str, str | None] = {
     "smd:machine-1-1.txt": None,  # Populate with actual hashes when available
     "batadal:dataset03.csv": None,
 }
-from omni_mercury_engine.ml._native_utils import (
-    NativeEllipticEnvelope as EllipticEnvelope,
-    NativeKFold as KFold,
-    NativeLocalOutlierFactor as LocalOutlierFactor,
-    NativeOneClassSVM as OneClassSVM,
-    NativeStandardScaler as StandardScaler,
-    NativeStratifiedKFold as StratifiedKFold,
-    native_confusion_matrix as confusion_matrix,
-    native_f1_score as f1_score,
-    native_precision_score as precision_score,
-    native_recall_score as recall_score,
-    native_roc_auc_score as roc_auc_score,
-    native_train_test_split as train_test_split,
+from omni_mercury_engine.ml.mercury_ml import (
+    EllipticEnvelope,
+    KFold,
+    LocalOutlierFactor,
+    OneClassSVM,
+    StandardScaler,
+    StratifiedKFold,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    train_test_split,
 )
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
@@ -183,7 +182,7 @@ def fetch_with_retry(
     which can rate-limit or block CI IPs temporarily.
 
     Args:
-        fetch_func: The fetch function to call (e.g., a dataset downloader)
+        fetch_func: The fetch function to call
         dataset_name: Name of the dataset for logging
         max_retries: Maximum number of retry attempts (default: 5)
         base_delay: Base delay in seconds for exponential backoff (default: 2.0)
@@ -243,8 +242,8 @@ def fetch_from_mirror(
     """
     Fetch dataset from a mirror URL with browser-like headers.
 
-    Used as fallback when direct dataset downloads fail due to HTTP 403 errors
-    from rate-limiting or anti-bot measures on OpenML/Figshare servers.
+    Fetches dataset files with browser-like headers and retry logic to handle
+    rate-limiting or anti-bot measures on dataset servers.
 
     Args:
         url: Direct URL to the dataset file
@@ -753,8 +752,48 @@ class KFoldResult:
     aggregated_confusion_matrix: np.ndarray
 
 
-def _load_breast_cancer_native() -> tuple[np.ndarray, np.ndarray]:
-    """Load Wisconsin Breast Cancer (diagnostic) from UCI via urllib.
+def prepare_breast_cancer_dataset() -> DatasetInfo:
+    """
+    Prepare breast cancer dataset for anomaly detection.
+    Malignant samples (minority class) treated as anomalies.
+
+    Downloads WDBC data directly from the UCI ML Repository. Falls back to
+    synthetic data if the download fails.
+    """
+    X, y = None, None
+
+    # Fetch WDBC data directly from UCI ML Repository
+    url = (
+        "https://archive.ics.uci.edu/ml/machine-learning-databases/"
+        "breast-cancer-wisconsin/wdbc.data"
+    )
+    content = fetch_from_mirror(url, "breast_cancer_wdbc")
+    if content is not None:
+        try:
+            lines = content.decode("utf-8").strip().split("\n")
+            data_list, target_list = [], []
+            for line in lines:
+                parts = line.strip().split(",")
+                if len(parts) >= 32:
+                    # Col 1 = diagnosis (M/B), cols 2-31 = 30 features
+                    target_list.append(0 if parts[1] == "M" else 1)
+                    data_list.append([float(x) for x in parts[2:32]])
+            X = np.array(data_list)
+            y = np.array(target_list)
+            logger.info(f"Loaded breast cancer WDBC from UCI ({len(X)} samples)")
+        except Exception as e:
+            logger.warning(f"Error parsing UCI breast cancer data: {e}")
+            X, y = None, None
+
+    # Synthetic fallback
+    if X is None or y is None:
+        logger.warning("Using synthetic breast cancer data (UCI fetch failed)")
+        rng = np.random.RandomState(42)
+        n_benign, n_malignant = 357, 212
+        n = n_benign + n_malignant
+        X = rng.randn(n, 30)
+        X[n_benign:] += 0.8  # Shift malignant cluster
+        y = np.concatenate([np.ones(n_benign, dtype=int), np.zeros(n_malignant, dtype=int)])
 
     Falls back to synthetic data with matching dimensions (569 x 30).
     """
@@ -841,7 +880,45 @@ def prepare_breast_cancer_dataset() -> DatasetInfo:
 
 
 def prepare_digits_dataset() -> DatasetInfo:
-    """Prepare digits dataset for anomaly detection.
+    """
+    Prepare digits dataset for anomaly detection.
+    Digit '8' treated as anomaly (unusual shape).
+
+    Downloads optdigits data directly from UCI ML Repository. Falls back to
+    synthetic data if the download fails.
+    """
+    X_all: list[list[float]] = []
+    y_all: list[int] = []
+
+    # Fetch optdigits training + test sets from UCI
+    for suffix, tag in [("optdigits.tra", "train"), ("optdigits.tes", "test")]:
+        url = (
+            "https://archive.ics.uci.edu/ml/machine-learning-databases/"
+            f"optdigits/{suffix}"
+        )
+        content = fetch_from_mirror(url, f"optdigits_{tag}")
+        if content is not None:
+            try:
+                for line in content.decode("utf-8").strip().split("\n"):
+                    parts = line.strip().split(",")
+                    if len(parts) == 65:  # 64 features + 1 label
+                        X_all.append([float(x) for x in parts[:64]])
+                        y_all.append(int(parts[64]))
+            except Exception as e:
+                logger.warning(f"Error parsing UCI optdigits {tag}: {e}")
+
+    if X_all:
+        X = np.array(X_all)
+        y = np.array(y_all)
+        logger.info(f"Loaded optdigits from UCI ({len(X)} samples)")
+    else:
+        # Synthetic fallback: 64-feature digit-like data
+        logger.warning("Using synthetic digits data (UCI fetch failed)")
+        rng = np.random.RandomState(42)
+        n_per_class = 180
+        n = n_per_class * 10
+        X = np.clip(rng.randn(n, 64) * 4 + 8, 0, 16)
+        y = np.repeat(np.arange(10), n_per_class)
 
     Digit '8' treated as anomaly (unusual shape).
     Loads from UCI directly (no external ML library required).
@@ -874,27 +951,25 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     Rare cover type (type 4) treated as anomaly.
 
     Uses retry logic with exponential backoff for HTTP errors.
-    Falls back to UCI mirror if direct download fails (HTTP 403).
     Falls back to synthetic data only as last resort.
     """
     X, y = None, None
     source = "synthetic"
 
-    # Fallback: Try UCI mirror with browser headers
-    if X is None:
-        logger.info("Trying UCI mirror for covtype dataset...")
-        uci_url = "https://archive.ics.uci.edu/static/public/31/data.csv"
-        content = fetch_from_mirror(uci_url, "covtype")
-        if content is not None:
-            try:
-                df = pd.read_csv(io.BytesIO(content))
-                X = df.iloc[:, :-1].values.astype(float)
-                y = df.iloc[:, -1].values.astype(int)
-                source = "uci_mirror"
-                logger.info(f"Successfully loaded covtype from UCI mirror ({len(X)} samples)")
-            except Exception as e:
-                logger.warning(f"Error parsing UCI covtype data: {e}")
-                X, y = None, None
+    # Try UCI archive directly
+    logger.info("Fetching covtype dataset from UCI archive...")
+    uci_url = "https://archive.ics.uci.edu/static/public/31/data.csv"
+    content = fetch_from_mirror(uci_url, "covtype")
+    if content is not None:
+        try:
+            df = pd.read_csv(io.BytesIO(content))
+            X = df.iloc[:, :-1].values.astype(float)
+            y = df.iloc[:, -1].values.astype(int)
+            source = "uci_archive"
+            logger.info(f"Successfully loaded covtype from UCI archive ({len(X)} samples)")
+        except Exception as e:
+            logger.warning(f"Error parsing UCI covtype data: {e}")
+            X, y = None, None
 
     # Process real data if available
     if X is not None and y is not None:
@@ -924,7 +999,7 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
 
     # Last resort: synthetic data
     logger.warning(
-        "FALLBACK: All covtype sources failed (UCI mirror). "
+        "FALLBACK: All covtype sources failed (UCI archive). "
         "Using synthetic data - benchmark results may differ from real dataset."
     )
     X, y = _generate_synthetic_time_series(
@@ -954,13 +1029,14 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     Attack traffic treated as anomaly.
 
     Uses retry logic with exponential backoff for HTTP errors.
-    Falls back to synthetic data only as last resort.
+    Downloads NSL-KDD from GitHub. Falls back to synthetic data only
+    as last resort.
     """
     X_numeric, y_anomaly = None, None
     source = "synthetic"
-    dataset_name = "kddcup99"
+    dataset_name = "nsl_kdd"
 
-    # Try NSL-KDD from GitHub (improved version of KDDCup99)
+    # Fetch NSL-KDD from GitHub (improved version of original KDDCup99)
     if X_numeric is None:
         logger.info("Trying NSL-KDD from GitHub as KDDCup99 alternative...")
         nsl_url = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain%2B.txt"
@@ -1470,7 +1546,7 @@ def prepare_swat_dataset(n_samples: int = 5000, window_size: int = 10) -> Datase
 
 class TranADDetector:
     """
-    Wrapper for TranAD SOTA model to match standard anomaly detector interface.
+    Wrapper for TranAD SOTA model with fit/predict interface.
 
     TranAD uses transformer architecture with adversarial training
     for time-series anomaly detection.
@@ -1613,7 +1689,7 @@ class TranADDetector:
 
 class MAATDetector:
     """
-    Wrapper for MAAT SOTA model to match standard anomaly detector interface.
+    Wrapper for MAAT SOTA model with fit/predict interface.
 
     MAAT combines Mamba SSM with sparse attention for efficient
     long-sequence anomaly detection.
@@ -1764,7 +1840,7 @@ class FallbackStrategy:
 class OmniMercuryDetector:
     """Benchmark wrapper around MercuryAnomalyDetector.
 
-    Exposes the standard anomaly detector interface (fit/predict/decision_function)
+    Exposes the standard interface (fit/predict/decision_function)
     expected by the benchmark harness while delegating all detection to
     Mercury's original ensemble (Resonance 40% + Kinematic 30% + InfoGeo 30%).
     """
@@ -1781,7 +1857,7 @@ class OmniMercuryDetector:
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict anomaly labels (-1 = anomaly, 1 = normal, standard convention)."""
+        """Predict anomaly labels (-1 = anomaly, 1 = normal)."""
         X_clean = np.nan_to_num(X, nan=0.0, posinf=1e10, neginf=-1e10)
         result = self._detector.detect(X_clean)
         self._scores = result["scores"]
@@ -1815,7 +1891,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray
         # Use average_precision_score for correct PR-AUC calculation
         # This properly handles the precision-recall curve ordering and avoids
         # negative values from np.trapz on unsorted recall values
-        from omni_mercury_engine.ml._native_utils import native_average_precision_score
+        from omni_mercury_engine.ml.mercury_ml import average_precision_score
 
         pr_auc = native_average_precision_score(y_true, y_scores)
     except ValueError as e:
@@ -1937,6 +2013,7 @@ def benchmark_detector_kfold(
         # This ensures higher scores = more anomalous regardless of detector convention
         try:
             train_scores = detector.decision_function(X_train)
+
             # Check if scores need inversion (AUC < 0.5 means scores are inverted)
             if len(np.unique(y_train)) >= 2:
                 train_auc = roc_auc_score(y_train, train_scores)
@@ -2374,7 +2451,7 @@ def generate_honest_assessment(
     """Generate honest assessment of Mercury-Agent performance."""
     assessment: dict[str, Any] = {
         "methodology_notes": [
-            "Benchmarks use publicly available UCI/OpenML datasets",
+            "Benchmarks use publicly available datasets (UCI ML Repository)",
             "Anomaly labels derived from minority class designation",
             "All detectors use same train/test splits for fair comparison",
             "Contamination parameter set based on actual anomaly ratio",
@@ -2448,7 +2525,7 @@ def save_results(results: dict[str, Any], output_path: Path | str) -> None:
 
         f.write("## Methodology\n\n")
         f.write("This benchmark compares Mercury-Agent against established anomaly detection ")
-        f.write("algorithms using publicly available datasets from scikit-learn.\n\n")
+        f.write("algorithms using publicly available datasets (UCI ML Repository).\n\n")
 
         f.write("### Datasets\n\n")
         for dataset in results["methodology"]["datasets"]:

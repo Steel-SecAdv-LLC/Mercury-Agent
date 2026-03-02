@@ -14,6 +14,57 @@ from omni_mercury_engine.ml.gwo_optimizer import GreyWolfOptimizer
 from omni_mercury_engine.utils.rng import DeterministicRNG
 
 
+class DecisionTreeClassifier:
+    """Minimal decision-tree-like classifier for tests (numpy-only replacement)."""
+
+    def __init__(self, max_depth=3, random_state=None):
+        self.max_depth = max_depth
+        self.random_state = random_state
+        self._feature = None
+        self._threshold = None
+        self._classes = None
+
+    def fit(self, X, y):
+        self._classes = np.unique(y)
+        best_score, best_feat, best_thr = -1, 0, 0.0
+        rng = np.random.RandomState(self.random_state)
+        for f in range(X.shape[1]):
+            thresholds = np.percentile(X[:, f], np.linspace(10, 90, 9))
+            for t in thresholds:
+                pred = (X[:, f] > t).astype(int)
+                score = np.mean(pred == y)
+                score = max(score, 1 - score)
+                if score > best_score:
+                    best_score, best_feat, best_thr = score, f, t
+        self._feature = best_feat
+        self._threshold = best_thr
+        # Determine which side maps to which class
+        left = y[X[:, self._feature] <= self._threshold]
+        right = y[X[:, self._feature] > self._threshold]
+        self._left_class = int(np.round(np.mean(left))) if len(left) > 0 else 0
+        self._right_class = int(np.round(np.mean(right))) if len(right) > 0 else 1
+        return self
+
+    def predict(self, X):
+        result = np.where(
+            X[:, self._feature] > self._threshold,
+            self._right_class,
+            self._left_class,
+        )
+        return result
+
+    def score(self, X, y):
+        return float(np.mean(self.predict(X) == y))
+
+    def get_params(self, deep=True):
+        return {"max_depth": self.max_depth, "random_state": self.random_state}
+
+    def set_params(self, **params):
+        for k, v in params.items():
+            setattr(self, k, v)
+        return self
+
+
 class TestGreyWolfOptimizer:
     """Tests for GreyWolfOptimizer class."""
 

@@ -330,15 +330,17 @@ class TestRealWorldBenchmark:
         assert X.shape == (1000, 43)
         assert 0.05 < np.mean(y) < 0.15  # ~10% attacks
 
-    def test_benchmark_runner_native_detector(self):
-        """Test benchmark with native detector - verifies fail-closed behavior without real data."""
+    def test_benchmark_runner_mercury_detector(self):
+        """Test benchmark with Mercury-native detector - verifies fail-closed behavior without real data."""
+        from omni_mercury_engine.ml.mercury_ml import IsolationForest
+
         from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         runner = RealWorldBenchmarkRunner(n_folds=3, seed=SEED)
 
-        # Wrapper for MercuryAnomalyDetector
-        class DetectorWrapper:
+        # Wrapper for IsolationForest
+        class IFWrapper:
             def __init__(self):
                 self.model = MercuryAnomalyDetector()
 

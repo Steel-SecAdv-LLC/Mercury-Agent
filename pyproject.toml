@@ -62,10 +62,10 @@ dependencies = [
 
 [project.optional-dependencies]
 # Core ML stack -- PyTorch and supporting libraries.
-# scikit-learn is optional: needed for cross-domain transfer, calibration,
-# and baseline benchmarking.  Core anomaly detection uses Mercury-native math.
+# Core ML stack -- PyTorch and supporting libraries.
+# All ML primitives (metrics, calibration, anomaly detection) use Mercury-native
+# implementations in omni_mercury_engine.ml.mercury_ml.  No sklearn dependency.
 ml = [
-    "scikit-learn>=1.3.0",
     "torch>=2.2.0",
     "torchvision>=0.17.0",
     "pytorch-lightning>=2.0.0",
@@ -125,7 +125,6 @@ llm = [
 # Drift detection (Alibi-Detect compatible)
 drift = [
     "scipy>=1.10.0",
-    "scikit-learn>=1.3.0",
 ]
 
 # Fairness and bias mitigation

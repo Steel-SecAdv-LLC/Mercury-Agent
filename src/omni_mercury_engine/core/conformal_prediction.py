@@ -216,12 +216,7 @@ class CrossConformalPredictor:
         Returns:
             Self for method chaining
         """
-        try:
-            from omni_mercury_engine.ml._native_utils import NativeKFold as KFold
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
+        from omni_mercury_engine.ml.mercury_ml import KFold
 
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)
 
@@ -989,7 +984,7 @@ def add_conformal_to_detector(
     detector type, enabling conformal prediction regardless of detector API.
 
     Args:
-        detector: Fitted anomaly detector (any scikit-learn compatible).
+        detector: Fitted anomaly detector (any Mercury-compatible).
         X_cal: Calibration data for conformal threshold estimation.
         coverage: Target coverage level (default 0.95 = 95% coverage).
         method: Conformal method ("split" or "cross").
@@ -1001,6 +996,8 @@ def add_conformal_to_detector(
         ValueError: If no valid scoring method can be found.
 
     Example:
+        >>> from omni_mercury_engine.ml.mercury_ml import IsolationForest
+        >>> detector = IsolationForest().fit(X_train)
         >>> conformal, threshold = add_conformal_to_detector(detector, X_cal)
     """
     # Get calibration scores with robust fallback cascade
@@ -1072,7 +1069,7 @@ def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
     try:
         predictions = detector.predict(X)
 
-        # Handle anomaly detector convention (-1 = anomaly)
+        # Handle convention (-1 = anomaly)
         if hasattr(detector, "contamination"):
             # Isolation Forest / LOF convention
             scores = np.where(predictions == -1, 0.75, 0.25)

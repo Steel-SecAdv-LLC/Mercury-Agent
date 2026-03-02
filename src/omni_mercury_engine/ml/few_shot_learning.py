@@ -1387,22 +1387,13 @@ class FewShotLearner:
         avg_recall = 0.0
         avg_f1 = 0.0
 
-        try:
-            from omni_mercury_engine.ml._native_utils import (
-                native_f1_score as f1_score,
-                native_precision_score as precision_score,
-                native_recall_score as recall_score,
-            )
+        from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
 
-            avg_precision = precision_score(
-                all_true_arr, all_preds_arr, average="weighted", zero_division=0
-            )
-            avg_recall = recall_score(
-                all_true_arr, all_preds_arr, average="weighted", zero_division=0
-            )
-            avg_f1 = f1_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
-        except ImportError:
-            pass
+        avg_precision = precision_score(
+            all_true, all_preds, average="weighted", zero_division=0
+        )
+        avg_recall = recall_score(all_true, all_preds, average="weighted", zero_division=0)
+        avg_f1 = f1_score(all_true, all_preds, average="weighted", zero_division=0)
 
         # Calculate confidence interval
         accs = np.array(episode_accuracies)
@@ -1491,22 +1482,15 @@ class FewShotLearner:
             avg_recall = 0.0
             avg_f1 = 0.0
 
-            try:
-                from omni_mercury_engine.ml._native_utils import (
-                    native_f1_score as f1_score,
-                    native_precision_score as precision_score,
-                    native_recall_score as recall_score,
-                )
+            from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
 
-                avg_precision = precision_score(
-                    all_true_arr, all_preds_arr, average="weighted", zero_division=0
-                )
-                avg_recall = recall_score(
-                    all_true_arr, all_preds_arr, average="weighted", zero_division=0
-                )
-                avg_f1 = f1_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
-            except ImportError:
-                pass
+            avg_precision = precision_score(
+                all_true_arr, all_preds_arr, average="weighted", zero_division=0
+            )
+            avg_recall = recall_score(
+                all_true_arr, all_preds_arr, average="weighted", zero_division=0
+            )
+            avg_f1 = f1_score(all_true_arr, all_preds_arr, average="weighted", zero_division=0)
 
             # Confidence interval
             accs = np.array(episode_accuracies)

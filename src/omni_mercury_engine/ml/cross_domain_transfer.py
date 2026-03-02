@@ -61,7 +61,19 @@ except ImportError:
     torch = None  # type: ignore[assignment, unused-ignore]
     nn = None  # type: ignore[assignment, unused-ignore]
 
-SKLEARN_AVAILABLE = True  # Native implementations always available
+SKLEARN_AVAILABLE = True
+
+from omni_mercury_engine.ml.mercury_ml import (
+    GradientBoostingClassifier,
+    LogisticRegression,
+    StandardScaler,
+    LabelEncoder,
+    accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 
 class DomainAdaptationMethod(StrEnum):
@@ -405,9 +417,7 @@ class MMDAdapter(BaseDomainAdapter):
         # Transform and train classifier
         source_X_proj = self.transform(source_X, "source")
 
-        from omni_mercury_engine.ml._native_utils import NativeGradientBoostingClassifier
-
-        self._classifier = NativeGradientBoostingClassifier(
+        self._classifier = GradientBoostingClassifier(
             n_estimators=100, max_depth=5, random_state=42
         )
 
@@ -535,13 +545,12 @@ class CORALAdapter(BaseDomainAdapter):
         self.coloring_matrix = self._compute_cov_sqrt(source_cov)
 
         # Train classifier on source domain
-        from omni_mercury_engine.ml._native_utils import NativeGradientBoostingClassifier
-
-        self._classifier = NativeGradientBoostingClassifier(
+        self._classifier = GradientBoostingClassifier(
             n_estimators=100, max_depth=5, random_state=42
         )
 
-        self._classifier.fit(source_X, source_y)
+        if self._classifier is not None:
+            self._classifier.fit(source_X, source_y)
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
         """Transform target features to source-aligned space."""
@@ -651,9 +660,7 @@ class SubspaceAlignmentAdapter(BaseDomainAdapter):
         # Train classifier on projected source data
         source_proj = (source_X - self.source_mean) @ self.source_basis
 
-        from omni_mercury_engine.ml._native_utils import NativeGradientBoostingClassifier
-
-        self._classifier = NativeGradientBoostingClassifier(
+        self._classifier = GradientBoostingClassifier(
             n_estimators=100, max_depth=5, random_state=42
         )
 
@@ -1052,9 +1059,7 @@ class JDAAdapter(BaseDomainAdapter):
 
         # Train final classifier
         source_proj = source_X_norm @ self.projection_matrix
-        from omni_mercury_engine.ml._native_utils import NativeGradientBoostingClassifier
-
-        self._classifier = NativeGradientBoostingClassifier(
+        self._classifier = GradientBoostingClassifier(
             n_estimators=100, max_depth=5, random_state=42
         )
         self._classifier.fit(source_proj, source_y)
@@ -1191,9 +1196,7 @@ class TCAAdapter(BaseDomainAdapter):
         K_source = K[:n_s]
         source_proj = K_source @ self.transformation
 
-        from omni_mercury_engine.ml._native_utils import NativeGradientBoostingClassifier
-
-        self._classifier = NativeGradientBoostingClassifier(
+        self._classifier = GradientBoostingClassifier(
             n_estimators=100, max_depth=5, random_state=42
         )
         self._classifier.fit(source_proj, source_y)
@@ -1334,9 +1337,7 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         self.target_y_propagated = self._propagate_labels(source_y, self.transport_plan)
 
         # Train classifier on transported source data for out-of-sample prediction
-        from omni_mercury_engine.ml._native_utils import NativeGradientBoostingClassifier
-
-        self._classifier = NativeGradientBoostingClassifier(
+        self._classifier = GradientBoostingClassifier(
             n_estimators=100, max_depth=5, random_state=42
         )
 
@@ -1541,17 +1542,16 @@ class CrossDomainTransferLearner:
 
         # Normalize
         if self.normalize:
-            from omni_mercury_engine.ml._native_utils import NativeStandardScaler
-
-            self.scaler = NativeStandardScaler()
+            self.scaler = StandardScaler()
             source_X = self.scaler.fit_transform(source_X)
             target_X = self.scaler.transform(target_X)
 
         # Encode labels
-        from omni_mercury_engine.ml._native_utils import NativeLabelEncoder
-
-        self.label_encoder = NativeLabelEncoder()
-        source_y = self.label_encoder.fit_transform(source_data.y)
+        if SKLEARN_AVAILABLE:
+            self.label_encoder = LabelEncoder()
+            source_y = self.label_encoder.fit_transform(source_data.y)
+        else:
+            source_y = source_data.y
 
         # Compute MMD before adaptation
         mmd_adapter = MMDAdapter()
@@ -1616,14 +1616,6 @@ class CrossDomainTransferLearner:
             TransferResult with comprehensive metrics
         """
         start_time = time.time()
-
-        from omni_mercury_engine.ml._native_utils import (
-            native_accuracy_score as accuracy_score,
-            native_f1_score as f1_score,
-            native_precision_score as precision_score,
-            native_recall_score as recall_score,
-            native_roc_auc_score as roc_auc_score,
-        )
 
         # Fit the model
         self.fit(source_data, target_data, target_data.y)

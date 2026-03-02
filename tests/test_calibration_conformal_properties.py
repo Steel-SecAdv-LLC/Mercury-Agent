@@ -14,6 +14,12 @@ These tests verify mathematical invariants and edge cases that
 unit tests might miss.
 """
 
+# Import modules to test
+import pytest
+
+import sys
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -25,6 +31,9 @@ from hypothesis import (
     strategies as st,
 )
 from hypothesis.extra.numpy import arrays
+from omni_mercury_engine.ml.mercury_ml import LogisticRegression
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from omni_mercury_engine.core.benevolence_optimization import (
     BENEVOLENCE_THRESHOLD,

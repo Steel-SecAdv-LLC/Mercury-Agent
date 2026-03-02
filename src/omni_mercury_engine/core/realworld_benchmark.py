@@ -514,14 +514,14 @@ class RealWorldBenchmarkRunner:
         )
 
         # Stratified K-fold
-        from omni_mercury_engine.ml._native_utils import (
-            NativeStratifiedKFold as StratifiedKFold,
-            native_average_precision_score as average_precision_score,
-            native_brier_score_loss as brier_score_loss,
-            native_f1_score as f1_score,
-            native_precision_score as precision_score,
-            native_recall_score as recall_score,
-            native_roc_auc_score as roc_auc_score,
+        from omni_mercury_engine.ml.mercury_ml import (
+            StratifiedKFold,
+            average_precision_score,
+            brier_score_loss,
+            f1_score,
+            precision_score,
+            recall_score,
+            roc_auc_score,
         )
 
         skf = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)
@@ -561,7 +561,7 @@ class RealWorldBenchmarkRunner:
 
             predict_time = (time.perf_counter() - predict_start) * 1000
 
-            # Handle anomaly detector -1/1 convention
+            # Handle -1/1 convention for anomaly detectors
             if set(np.unique(y_pred)) == {-1, 1}:
                 y_pred = (y_pred == -1).astype(int)
 

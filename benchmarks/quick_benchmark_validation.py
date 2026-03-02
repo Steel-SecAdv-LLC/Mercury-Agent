@@ -23,7 +23,7 @@ Validates that optimized configurations (from comprehensive_equation_optimizatio
 improve performance compared to baseline configurations.
 
 Quick validation on synthetic data - comprehensive benchmarks on actual repos
-(requests/flask/numpy/pandas/scikit-learn) can be done separately if needed.
+(requests/flask/numpy/pandas) can be done separately if needed.
 """
 
 import json
@@ -192,7 +192,7 @@ def main() -> None:
     print("=" * 70)
     print()
     print("NOTE: This is a quick validation on synthetic data.")
-    print("Comprehensive benchmarks on actual repos (requests/flask/numpy/pandas/scikit-learn)")
+    print("Comprehensive benchmarks on actual repos (requests/flask/numpy/pandas)")
     print("can be performed separately for production deployment validation.")
 
     validation_results = {

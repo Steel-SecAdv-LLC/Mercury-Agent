@@ -24,7 +24,7 @@ pip install -e ".[all]"
 | Profile | Command | Includes |
 |---------|---------|----------|
 | **Core** | `pip install -e .` | numpy, scipy, pandas, MercuryAnomalyDetector |
-| **ML** | `pip install -e ".[ml]"` | Core + PyTorch, scikit-learn, torchvision |
+| **ML** | `pip install -e ".[ml]"` | Core + PyTorch, torchvision |
 | **Visual** | `pip install -e ".[visual]"` | ML + visual anomaly detectors |
 | **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate |
 | **API** | `pip install -e ".[api]"` | FastAPI, uvicorn |
@@ -38,8 +38,9 @@ The core anomaly detection path (`MercuryAnomalyDetector`) requires only:
 - `numpy >= 1.24.0`
 - `scipy >= 1.10.0`
 
-scikit-learn is **not** required for core detection. It is an optional dependency
-used for cross-domain transfer, calibration baselines, and benchmark comparisons.
+scikit-learn is **not** used anywhere in Mercury Agent. All ML primitives —
+metrics, calibration, anomaly detection, cross-validation — use Mercury-native
+implementations in `omni_mercury_engine.ml.mercury_ml`.
 
 ## Verify Installation
 

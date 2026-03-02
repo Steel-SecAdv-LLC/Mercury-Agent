@@ -422,6 +422,18 @@ class SVMRFEnsembleClassifier:
         rf_n_estimators: int = 100,
         ensemble_weights: tuple[float, float] = (0.4, 0.6),
     ):
+        """Initialize ensemble classifier.
+
+        Args:
+            svm_kernel: SVM kernel type ('rbf', 'linear', 'poly')
+            rf_n_estimators: Number of trees in Random Forest
+            ensemble_weights: Weights for (SVM, RF) predictions
+        """
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier, StandardScaler, SVC
+
+        self.svm = SVC(kernel=svm_kernel, probability=True, random_state=42)
+        self.rf = RandomForestClassifier(n_estimators=rf_n_estimators, random_state=42)
+        self.scaler = StandardScaler()
         self.ensemble_weights = ensemble_weights
         self.is_fitted = False
         self.logger = logging.getLogger(__name__)

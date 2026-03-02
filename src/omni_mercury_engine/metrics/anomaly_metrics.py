@@ -69,16 +69,13 @@ def compute_auroc(
     if len(unique_labels) < 2:
         return 0.5
 
-    try:
-        from omni_mercury_engine.ml._native_utils import native_roc_auc_score
+    from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
-        return float(native_roc_auc_score(y_true, y_score))
-    except (ImportError, ValueError):
-        return _manual_auroc(y_true, y_score)
+    return float(roc_auc_score(y_true, y_score))
 
 
 def _manual_auroc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
-    """Manual AUROC computation natively."""
+    """Manual AUROC computation using Wilcoxon-Mann-Whitney statistic."""
     n_pos = y_true.sum()
     n_neg = len(y_true) - n_pos
 
@@ -113,12 +110,9 @@ def compute_auprc(
     y_true = _to_numpy(y_true).flatten()
     y_score = _to_numpy(y_score).flatten()
 
-    try:
-        from omni_mercury_engine.ml._native_utils import native_average_precision_score
+    from omni_mercury_engine.ml.mercury_ml import average_precision_score
 
-        return float(native_average_precision_score(y_true, y_score))
-    except ImportError:
-        return _manual_auprc(y_true, y_score)
+    return float(average_precision_score(y_true, y_score))
 
 
 def _manual_auprc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:

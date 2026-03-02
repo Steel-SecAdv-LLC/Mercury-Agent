@@ -39,7 +39,7 @@ BENCHMARKS_DIR = Path(__file__).parent
 
 
 def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
-    """Compute AUC-ROC (Mercury-native).
+    """Compute AUC-ROC using Mercury-native trapezoidal integration.
 
     Uses the trapezoidal rule on the ROC curve computed by sorting
     scores and sweeping thresholds.
@@ -93,7 +93,7 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
 
 
 def compute_f1_precision_recall(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
-    """Compute F1, precision, and recall (Mercury-native).
+    """Compute F1, precision, and recall using Mercury-native implementations.
 
     Args:
         y_true: Binary ground truth labels.

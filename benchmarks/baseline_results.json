@@ -10,28 +10,28 @@
   },
   "baselines": {
     "IsolationForest": {
-      "description": "IsolationForest - tree-based isolation (Mercury-native)",
+      "description": "IsolationForest - tree-based isolation",
       "mean_roc_auc": 0.82,
       "mean_f1": 0.75,
       "strengths": ["Fast training", "Handles high dimensions", "No assumptions on data distribution"],
       "limitations": ["No interpretability", "Sensitive to contamination parameter"]
     },
     "LocalOutlierFactor": {
-      "description": "LocalOutlierFactor - density-based (Mercury-native)",
+      "description": "LocalOutlierFactor - density-based",
       "mean_roc_auc": 0.78,
       "mean_f1": 0.70,
       "strengths": ["Good for local anomalies", "No training phase in novelty mode"],
       "limitations": ["Slow on large datasets", "Sensitive to n_neighbors"]
     },
     "OneClassSVM": {
-      "description": "OneClassSVM - kernel-based boundary (Mercury-native)",
+      "description": "OneClassSVM - kernel-based boundary",
       "mean_roc_auc": 0.75,
       "mean_f1": 0.68,
       "strengths": ["Robust to outliers in training", "Flexible kernel choice"],
       "limitations": ["Slow on large datasets", "Requires kernel tuning"]
     },
     "EllipticEnvelope": {
-      "description": "EllipticEnvelope - Gaussian assumption (Mercury-native)",
+      "description": "EllipticEnvelope - Gaussian assumption",
       "mean_roc_auc": 0.72,
       "mean_f1": 0.65,
       "strengths": ["Fast", "Works well for Gaussian data"],

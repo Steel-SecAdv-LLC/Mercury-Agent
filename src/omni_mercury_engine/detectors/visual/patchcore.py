@@ -266,9 +266,7 @@ class PatchCoreDetector(BaseVisualDetector):
 
         except ImportError:
             logger.warning("FAISS not available, using Mercury-native NearestNeighbors")
-            from omni_mercury_engine.ml._native_utils import (
-                NativeNearestNeighbors as NearestNeighbors,
-            )
+            from omni_mercury_engine.ml.mercury_ml import NearestNeighbors
 
             self._nn_index = NearestNeighbors(
                 n_neighbors=self.patchcore_config.num_neighbors,
@@ -298,7 +296,7 @@ class PatchCoreDetector(BaseVisualDetector):
                 distances, indices = self._nn_index.search(query_np, k)
                 return distances, indices
         except (ImportError, AttributeError):
-            pass  # faiss not available, fall back to native NearestNeighbors
+            pass  # faiss not available, fall back to Mercury NearestNeighbors
 
         # Native NearestNeighbors fallback
         distances, indices = self._nn_index.kneighbors(query_np, n_neighbors=k)

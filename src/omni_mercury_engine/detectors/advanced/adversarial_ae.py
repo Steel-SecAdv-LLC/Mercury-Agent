@@ -396,7 +396,7 @@ class AdversarialAutoencoderDetector:
     """
     Adversarial Autoencoder Detector for Industrial Control Systems.
 
-    Provides standard ML interface with fit/predict methods.
+    Provides Mercury-compatible interface with fit/predict methods.
 
     Example:
         >>> detector = AdversarialAutoencoderDetector(input_dim=51)

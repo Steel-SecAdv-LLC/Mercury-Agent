@@ -330,11 +330,8 @@ class TestCICIDSIntegration:
         assert "is_anomaly" in result
 
     def test_cicids_benchmark(self):
-        """Test benchmarking CICIDS with native detector."""
-        from omni_mercury_engine.ml._native_utils import (
-            NativeOneClassSVM,
-            native_roc_auc_score,
-        )
+        """Test benchmarking CICIDS with Isolation Forest."""
+        from omni_mercury_engine.ml.mercury_ml import IsolationForest, roc_auc_score
 
         config = DatasetConfig(
             name="cicids",

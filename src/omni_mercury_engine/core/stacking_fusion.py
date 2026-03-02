@@ -1,4 +1,4 @@
-"""DEPRECATED: This module previously used external ML libraries for anomaly detection.
+"""Stacking fusion using Mercury-native LogisticRegression and cross-validation.
 
 Mercury's production detector is MercuryAnomalyDetector in
 detectors/statistical.py. This module is retained for reference
@@ -99,14 +99,7 @@ class StackingFusion:
             seed: Random seed
         """
         if meta_learner is None:
-            try:
-                from omni_mercury_engine.ml._native_utils import (
-                    NativeLogisticRegression as LogisticRegression,
-                )
-            except ImportError as e:
-                raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-                ) from e
+            from omni_mercury_engine.ml.mercury_ml import LogisticRegression
             meta_learner = LogisticRegression(
                 solver="lbfgs",
                 max_iter=1000,
@@ -158,15 +151,8 @@ class StackingFusion:
 
         np.random.seed(self.seed)
 
-        # Import native cross-validation utilities
-        try:
-            from omni_mercury_engine.ml._native_utils import (
-                native_cross_val_predict as cross_val_predict,
-            )
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires Mercury native ML utilities."
-            ) from e
+        # Import cross-validation function
+        from omni_mercury_engine.ml.mercury_ml import cross_val_predict
 
         # Generate out-of-fold predictions for each detector
         meta_features = []

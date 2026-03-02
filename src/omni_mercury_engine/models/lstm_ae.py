@@ -359,12 +359,13 @@ def evaluate_detector(
     Returns:
         Dictionary with precision, recall, f1, auc_roc, auc_pr
     """
-    from omni_mercury_engine.ml._native_utils import (
-        native_average_precision_score as average_precision_score,
-        native_f1_score as f1_score,
-        native_precision_score as precision_score,
-        native_recall_score as recall_score,
-        native_roc_auc_score as roc_auc_score,
+    from omni_mercury_engine.ml.mercury_ml import (
+        average_precision_score,
+        f1_score,
+        precision_recall_curve,
+        precision_score,
+        recall_score,
+        roc_auc_score,
     )
 
     def precision_recall_curve(

@@ -107,12 +107,9 @@ def compute_auc_roc(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any])
     if n_pos == 0 or n_neg == 0:
         return 0.5
 
-    try:
-        from omni_mercury_engine.ml._native_utils import native_roc_auc_score
+    from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
-        return float(native_roc_auc_score(y_true, y_score))
-    except Exception:
-        return _auc_roc_numpy(y_true, y_score)
+    return float(roc_auc_score(y_true, y_score))
 
 
 def _auc_roc_numpy(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:
@@ -153,12 +150,9 @@ def compute_auc_pr(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) 
     Returns:
         AUC-PR score in [0, 1]
     """
-    try:
-        from omni_mercury_engine.ml._native_utils import native_average_precision_score
+    from omni_mercury_engine.ml.mercury_ml import average_precision_score
 
-        return float(native_average_precision_score(y_true, y_score))
-    except Exception:
-        return _auc_pr_numpy(y_true, y_score)
+    return float(average_precision_score(y_true, y_score))
 
 
 def _auc_pr_numpy(y_true: np.ndarray[Any, Any], y_score: np.ndarray[Any, Any]) -> float:

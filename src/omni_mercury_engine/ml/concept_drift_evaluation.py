@@ -948,10 +948,11 @@ class ConceptDriftEvaluator:
             # Clone or reuse model
             if clone_model:
                 try:
-                    from omni_mercury_engine.ml._native_utils import native_clone
+                    from omni_mercury_engine.ml.mercury_ml import clone
 
-                    current_model = native_clone(model)
-                except (ImportError, TypeError):
+                    current_model = clone(model)
+                except TypeError:
+                    # If model not clonable, use original
                     current_model = model
 
             # Train
@@ -984,13 +985,14 @@ class ConceptDriftEvaluator:
             inference_time = time.time() - inference_start
 
             # Calculate metrics
-            from omni_mercury_engine.ml._native_utils import (
-                native_accuracy_score as accuracy_score,
-                native_f1_score as f1_score,
-                native_precision_score as precision_score,
-                native_recall_score as recall_score,
-                native_roc_auc_score as roc_auc_score,
-            )
+            try:
+                from omni_mercury_engine.ml.mercury_ml import (
+                    accuracy_score,
+                    f1_score,
+                    precision_score,
+                    recall_score,
+                    roc_auc_score,
+                )
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")

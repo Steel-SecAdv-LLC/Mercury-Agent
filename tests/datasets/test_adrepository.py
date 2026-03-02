@@ -194,10 +194,7 @@ class TestIntegrationWithEngine:
 
     def test_multiple_datasets_benchmark(self):
         """Test benchmarking across multiple ADRepository datasets."""
-        from omni_mercury_engine.ml._native_utils import (
-            NativeOneClassSVM,
-            native_roc_auc_score,
-        )
+        from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
         datasets_to_test = ["thyroid", "backdoor", "campaign"]
         results = {}
@@ -212,8 +209,10 @@ class TestIntegrationWithEngine:
             loader._create_synthetic_fallback()
             X, y = loader.load_data()
 
-            # Simple detector test using Mercury-native One-Class SVM
-            clf = NativeOneClassSVM(nu=0.1, random_state=42)
+            # Simple detector test
+            from omni_mercury_engine.ml.mercury_ml import IsolationForest
+
+            clf = IsolationForest(random_state=42, contamination=0.1)
             clf.fit(X)
             scores = -clf.decision_function(X)
 

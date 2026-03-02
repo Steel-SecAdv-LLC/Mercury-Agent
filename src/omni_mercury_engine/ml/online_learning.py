@@ -283,7 +283,7 @@ class SGDOnlineLearner(OnlineLearner):
     """
     Stochastic Gradient Descent based online learner.
 
-    Wraps NativeSGDClassifier for online anomaly detection.
+    Wraps Mercury-native SGDClassifier for online anomaly detection.
     """
 
     def __init__(
@@ -304,22 +304,19 @@ class SGDOnlineLearner(OnlineLearner):
             alpha: Regularization strength
             warm_start: Reuse weights from previous fit
         """
-        try:
-            from omni_mercury_engine.ml._native_utils import NativeSGDClassifier
+        from omni_mercury_engine.ml.mercury_ml import SGDClassifier
 
-            self.model = NativeSGDClassifier(
-                loss=loss,
-                penalty=penalty,
-                alpha=alpha,
-                learning_rate="constant",
-                eta0=learning_rate,
-                warm_start=warm_start,
-                max_iter=1,
-                tol=None,
-                random_state=42,
-            )
-        except ImportError:
-            raise RuntimeError("_native_utils required for SGDOnlineLearner")
+        self.model = SGDClassifier(
+            loss=loss,
+            penalty=penalty,
+            alpha=alpha,
+            learning_rate="constant",
+            eta0=learning_rate,
+            warm_start=warm_start,
+            max_iter=1,
+            tol=None,
+            random_state=42,
+        )
 
         self._fitted = False
         self._classes = np.array([0, 1])
@@ -366,19 +363,16 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
             C: Regularization parameter
             fit_intercept: Whether to fit intercept
         """
-        try:
-            from omni_mercury_engine.ml._native_utils import NativePassiveAggressiveClassifier
+        from omni_mercury_engine.ml.mercury_ml import PassiveAggressiveClassifier
 
-            self.model = NativePassiveAggressiveClassifier(
-                C=C,
-                fit_intercept=fit_intercept,
-                warm_start=True,
-                max_iter=1,
-                tol=None,
-                random_state=42,
-            )
-        except ImportError:
-            raise RuntimeError("_native_utils required for PassiveAggressiveOnlineLearner")
+        self.model = PassiveAggressiveClassifier(
+            C=C,
+            fit_intercept=fit_intercept,
+            warm_start=True,
+            max_iter=1,
+            tol=None,
+            random_state=42,
+        )
 
         self._fitted = False
         self._classes = np.array([0, 1])

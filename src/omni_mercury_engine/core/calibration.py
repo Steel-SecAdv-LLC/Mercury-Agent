@@ -137,14 +137,7 @@ class PlattScaling:
             solver: Solver for logistic regression
             max_iter: Maximum iterations for convergence
         """
-        try:
-            from omni_mercury_engine.ml._native_utils import (
-                NativeLogisticRegression as LogisticRegression,
-            )
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
+        from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
         self.model = LogisticRegression(
             solver=solver,
@@ -164,7 +157,7 @@ class PlattScaling:
         Returns:
             Self for method chaining
         """
-        # Reshape for calibration model input
+        # Reshape for logistic regression
         X = y_prob.reshape(-1, 1)
 
         # Handle edge cases
@@ -218,14 +211,7 @@ class IsotonicCalibration:
         Args:
             out_of_bounds: How to handle out-of-bounds values ("clip", "nan")
         """
-        try:
-            from omni_mercury_engine.ml._native_utils import (
-                NativeIsotonicRegression as IsotonicRegression,
-            )
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
+        from omni_mercury_engine.ml.mercury_ml import IsotonicRegression
 
         self.model = IsotonicRegression(
             y_min=0.0,
@@ -322,12 +308,7 @@ class TemperatureScaling:
 
         logits = self._logit(y_prob)
 
-        try:
-            from omni_mercury_engine.ml._native_utils import native_log_loss as log_loss
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
+        from omni_mercury_engine.ml.mercury_ml import log_loss
 
         # Grid search for optimal temperature
         best_nll = float("inf")
@@ -417,14 +398,7 @@ class CalibrationEnsemble:
             calibrator.fit(y_prob_train, y_true_train)
             calibrated = calibrator.calibrate(y_prob_val)
 
-            try:
-                from omni_mercury_engine.ml._native_utils import (
-                    native_brier_score_loss as brier_score_loss,
-                )
-            except ImportError as e:
-                raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-                ) from e
+            from omni_mercury_engine.ml.mercury_ml import brier_score_loss
 
             try:
                 brier = brier_score_loss(y_true_val, calibrated)
@@ -479,15 +453,7 @@ def evaluate_calibration(
     Returns:
         CalibrationResult with before/after metrics
     """
-    try:
-        from omni_mercury_engine.ml._native_utils import (
-            native_brier_score_loss as brier_score_loss,
-            native_calibration_curve as calibration_curve,
-        )
-    except ImportError as e:
-        raise ImportError(
-            "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-        ) from e
+    from omni_mercury_engine.ml.mercury_ml import brier_score_loss, calibration_curve
 
     # Brier scores
     brier_before = brier_score_loss(y_true, y_prob_uncalibrated)
@@ -563,6 +529,8 @@ def calibrate_detector(
         all score extraction methods fail.
 
     Example:
+        >>> from omni_mercury_engine.ml.mercury_ml import IsolationForest
+        >>> detector = IsolationForest().fit(X_train)
         >>> calibrator, result = calibrate_detector(detector, X_cal, y_cal)
     """
     # Get uncalibrated predictions with robust fallback
@@ -691,7 +659,7 @@ def _synthesize_probabilities_from_predictions(
 
     # Determine anomaly convention
     if hasattr(detector, "contamination"):
-        # scikit-learn convention: -1 = anomaly, 1 = normal
+        # Convention: -1 = anomaly, 1 = normal
         is_anomaly = predictions == -1
     else:
         # Common convention: 1 = anomaly, 0 = normal
