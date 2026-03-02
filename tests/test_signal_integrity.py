@@ -173,11 +173,7 @@ class TestContinuousScores:
 
         assert len(unique_iqr) >= 2, "IQR scores should have variance"
 
-    def test_backward_compatibility(
-        self,
-        detector: MercuryAnomalyDetector,
-        toy_data: tuple[np.ndarray, np.ndarray],
-    ) -> None:
+    def test_backward_compatibility(self, detector, toy_data):
         """Verify legacy keys still exist for backward compatibility."""
         X, _ = toy_data
         detector.fit(X)
