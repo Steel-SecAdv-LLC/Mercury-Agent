@@ -752,48 +752,8 @@ class KFoldResult:
     aggregated_confusion_matrix: np.ndarray
 
 
-def prepare_breast_cancer_dataset() -> DatasetInfo:
-    """
-    Prepare breast cancer dataset for anomaly detection.
-    Malignant samples (minority class) treated as anomalies.
-
-    Downloads WDBC data directly from the UCI ML Repository. Falls back to
-    synthetic data if the download fails.
-    """
-    X, y = None, None
-
-    # Fetch WDBC data directly from UCI ML Repository
-    url = (
-        "https://archive.ics.uci.edu/ml/machine-learning-databases/"
-        "breast-cancer-wisconsin/wdbc.data"
-    )
-    content = fetch_from_mirror(url, "breast_cancer_wdbc")
-    if content is not None:
-        try:
-            lines = content.decode("utf-8").strip().split("\n")
-            data_list, target_list = [], []
-            for line in lines:
-                parts = line.strip().split(",")
-                if len(parts) >= 32:
-                    # Col 1 = diagnosis (M/B), cols 2-31 = 30 features
-                    target_list.append(0 if parts[1] == "M" else 1)
-                    data_list.append([float(x) for x in parts[2:32]])
-            X = np.array(data_list)
-            y = np.array(target_list)
-            logger.info(f"Loaded breast cancer WDBC from UCI ({len(X)} samples)")
-        except Exception as e:
-            logger.warning(f"Error parsing UCI breast cancer data: {e}")
-            X, y = None, None
-
-    # Synthetic fallback
-    if X is None or y is None:
-        logger.warning("Using synthetic breast cancer data (UCI fetch failed)")
-        rng = np.random.RandomState(42)
-        n_benign, n_malignant = 357, 212
-        n = n_benign + n_malignant
-        X = rng.randn(n, 30)
-        X[n_benign:] += 0.8  # Shift malignant cluster
-        y = np.concatenate([np.ones(n_benign, dtype=int), np.zeros(n_malignant, dtype=int)])
+def _load_breast_cancer_native() -> tuple[np.ndarray, np.ndarray]:
+    """Load breast cancer dataset from UCI via urllib.
 
     Falls back to synthetic data with matching dimensions (569 x 30).
     """
@@ -880,45 +840,7 @@ def prepare_breast_cancer_dataset() -> DatasetInfo:
 
 
 def prepare_digits_dataset() -> DatasetInfo:
-    """
-    Prepare digits dataset for anomaly detection.
-    Digit '8' treated as anomaly (unusual shape).
-
-    Downloads optdigits data directly from UCI ML Repository. Falls back to
-    synthetic data if the download fails.
-    """
-    X_all: list[list[float]] = []
-    y_all: list[int] = []
-
-    # Fetch optdigits training + test sets from UCI
-    for suffix, tag in [("optdigits.tra", "train"), ("optdigits.tes", "test")]:
-        url = (
-            "https://archive.ics.uci.edu/ml/machine-learning-databases/"
-            f"optdigits/{suffix}"
-        )
-        content = fetch_from_mirror(url, f"optdigits_{tag}")
-        if content is not None:
-            try:
-                for line in content.decode("utf-8").strip().split("\n"):
-                    parts = line.strip().split(",")
-                    if len(parts) == 65:  # 64 features + 1 label
-                        X_all.append([float(x) for x in parts[:64]])
-                        y_all.append(int(parts[64]))
-            except Exception as e:
-                logger.warning(f"Error parsing UCI optdigits {tag}: {e}")
-
-    if X_all:
-        X = np.array(X_all)
-        y = np.array(y_all)
-        logger.info(f"Loaded optdigits from UCI ({len(X)} samples)")
-    else:
-        # Synthetic fallback: 64-feature digit-like data
-        logger.warning("Using synthetic digits data (UCI fetch failed)")
-        rng = np.random.RandomState(42)
-        n_per_class = 180
-        n = n_per_class * 10
-        X = np.clip(rng.randn(n, 64) * 4 + 8, 0, 16)
-        y = np.repeat(np.arange(10), n_per_class)
+    """Prepare digits dataset for anomaly detection.
 
     Digit '8' treated as anomaly (unusual shape).
     Loads from UCI directly (no external ML library required).
