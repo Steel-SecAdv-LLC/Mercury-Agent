@@ -39,7 +39,6 @@ updates:
           - "torch*"
           - "numpy"
           - "scipy"
-          - "scikit-learn"
           - "pandas"
       web-dependencies:
         patterns:

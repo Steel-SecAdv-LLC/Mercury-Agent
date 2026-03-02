@@ -61,8 +61,6 @@ except ImportError:
     torch = None  # type: ignore[assignment, unused-ignore]
     nn = None  # type: ignore[assignment, unused-ignore]
 
-SKLEARN_AVAILABLE = True
-
 from omni_mercury_engine.ml.mercury_ml import (
     GradientBoostingClassifier,
     LogisticRegression,
@@ -1547,11 +1545,8 @@ class CrossDomainTransferLearner:
             target_X = self.scaler.transform(target_X)
 
         # Encode labels
-        if SKLEARN_AVAILABLE:
-            self.label_encoder = LabelEncoder()
-            source_y = self.label_encoder.fit_transform(source_data.y)
-        else:
-            source_y = source_data.y
+        self.label_encoder = LabelEncoder()
+        source_y = self.label_encoder.fit_transform(source_data.y)
 
         # Compute MMD before adaptation
         mmd_adapter = MMDAdapter()

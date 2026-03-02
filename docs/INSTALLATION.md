@@ -38,9 +38,8 @@ The core anomaly detection path (`MercuryAnomalyDetector`) requires only:
 - `numpy >= 1.24.0`
 - `scipy >= 1.10.0`
 
-scikit-learn is **not** used anywhere in Mercury Agent. All ML primitives —
-metrics, calibration, anomaly detection, cross-validation — use Mercury-native
-implementations in `omni_mercury_engine.ml.mercury_ml`.
+All ML primitives — metrics, calibration, anomaly detection, cross-validation —
+use Mercury-native implementations in `omni_mercury_engine.ml.mercury_ml`.
 
 ## Verify Installation
 

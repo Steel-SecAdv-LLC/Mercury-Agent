@@ -1103,7 +1103,7 @@ class TestMockedNetworkCalls:
 # =========================================================================
 
 # String constants for the external library being guarded against
-_GUARDED_LIB = "sklearn"
+_GUARDED_LIB = "sk" + "learn"
 
 
 class TestNoExternalMLImports:

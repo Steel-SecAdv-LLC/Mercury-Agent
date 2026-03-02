@@ -159,7 +159,7 @@ class GreyWolfOptimizer:
         Args:
             X: Feature matrix
             y: Labels
-            clf: Sklearn-compatible classifier
+            clf: Classifier with fit/predict interface
             n_features: Number of features to select
 
         Returns:

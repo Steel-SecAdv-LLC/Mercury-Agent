@@ -34,7 +34,6 @@ from importlib.util import find_spec
 HAS_TORCH: bool = find_spec("torch") is not None
 HAS_TORCHVISION: bool = find_spec("torchvision") is not None
 HAS_PYTORCH_LIGHTNING: bool = find_spec("pytorch_lightning") is not None
-HAS_SKLEARN: bool = True
 HAS_TIMM: bool = find_spec("timm") is not None
 HAS_CV2: bool = find_spec("cv2") is not None
 
@@ -113,8 +112,8 @@ HAS_MPMATH: bool = find_spec("mpmath") is not None
 # ---------------------------------------------------------------------------
 # Convenience groupings for common checks
 # ---------------------------------------------------------------------------
-HAS_ML_STACK: bool = HAS_TORCH and HAS_SKLEARN
-"""True (Mercury-native ML primitives always available)."""
+HAS_ML_STACK: bool = HAS_TORCH
+"""True when PyTorch is available (Mercury-native ML primitives always available)."""
 
 HAS_VISUAL_STACK: bool = HAS_TORCH and HAS_TORCHVISION and HAS_TIMM
 """True when the full visual anomaly detection stack is available."""

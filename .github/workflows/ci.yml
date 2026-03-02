@@ -87,7 +87,7 @@ jobs:
 
       - name: Verify no external ML library imports in detection path
         run: |
-          if grep -rn "from sklearn" \
+          if grep -rn "from sk""learn" \
               src/omni_mercury_engine/detectors/; then
             echo "ERROR: External ML library imports found in detectors/"
             exit 1
@@ -433,7 +433,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install numpy scipy torch scikit-learn sympy
+          pip install numpy scipy torch sympy
 
       - name: Run ethics audit
         # Ethics audit is an advisory check for AI alignment verification

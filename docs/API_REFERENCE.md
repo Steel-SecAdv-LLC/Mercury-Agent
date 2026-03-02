@@ -3,7 +3,7 @@
 ## MercuryAnomalyDetector
 
 Mercury's original anomaly detection ensemble combining three mathematical frameworks.
-No sklearn dependency anywhere — all ML primitives use Mercury-native implementations (numpy + scipy only).
+All ML primitives use Mercury-native implementations (numpy + scipy only).
 
 ```python
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector

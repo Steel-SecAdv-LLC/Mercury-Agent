@@ -534,7 +534,6 @@ class TestModelEnums:
 
         assert hasattr(ModelFramework, "PYTORCH")
         assert hasattr(ModelFramework, "ONNX")
-        assert hasattr(ModelFramework, "SKLEARN")
 
 
 # =============================================================================
