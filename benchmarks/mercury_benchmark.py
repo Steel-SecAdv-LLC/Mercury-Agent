@@ -668,7 +668,7 @@ def _benchmark_single_ama_comparison(entry: dict[str, Any], results: list[dict[s
 
     scores = result_det["scores"]
     auc = _safe_auc(y_test, scores)
-    f1, prec, rec, thr, strat = _oracle_threshold_f1(y_test, scores)
+    f1, prec, rec, thr, strat = _oracle_threshold_f1_upper_bound(y_test, scores)
 
     results.append(
         {
@@ -739,7 +739,7 @@ def _benchmark_single_baseline(entry: dict[str, Any], results: list[dict[str, An
 
     scores = result_det["scores"]
     auc = _safe_auc(y_test, scores)
-    f1, prec, rec, thr, strat = _oracle_threshold_f1(y_test, scores)
+    f1, prec, rec, thr, strat = _oracle_threshold_f1_upper_bound(y_test, scores)
 
     results.append(
         {
