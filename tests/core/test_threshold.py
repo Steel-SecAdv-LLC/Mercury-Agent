@@ -11,23 +11,28 @@ def test_otsu_bimodal_separation() -> None:
     normals = rng.normal(0.2, 0.05, 500)
     anomalies = rng.normal(0.8, 0.05, 50)
     scores = np.clip(np.concatenate([normals, anomalies]), 0.0, 1.0)
-    thr = otsu_threshold(scores)
+    thr, sigma = otsu_threshold(scores)
     # Threshold must fall between the two modes.
     # With 10:1 imbalance Otsu may pull toward the majority class,
     # so we accept any split between 0.25 and 0.70.
     assert 0.25 < thr < 0.70, f"Otsu threshold {thr:.4f} outside expected valley"
+    assert sigma > 0.0, "Between-class variance must be positive for bimodal data"
 
 
 def test_otsu_degenerate_constant() -> None:
-    """Constant score array must return fallback 0.5."""
+    """Constant score array must return fallback 0.5 with zero variance."""
     scores = np.full(100, 0.3, dtype=np.float64)
-    assert otsu_threshold(scores) == 0.5
+    thr, sigma = otsu_threshold(scores)
+    assert thr == 0.5
+    assert sigma == 0.0
 
 
 def test_otsu_small_n_returns_fallback() -> None:
     """Arrays smaller than 30 samples must return fallback."""
     scores = np.linspace(0, 1, 20)
-    assert otsu_threshold(scores) == 0.5
+    thr, sigma = otsu_threshold(scores)
+    assert thr == 0.5
+    assert sigma == 0.0
 
 
 def test_adaptive_prefers_otsu_over_mad() -> None:

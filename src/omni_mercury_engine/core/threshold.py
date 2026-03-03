@@ -32,7 +32,7 @@ _OTSU_MIN_SAMPLES: int = 30
 _OTSU_FALLBACK: float = 0.5
 
 
-def otsu_threshold(scores: npt.NDArray[np.float64]) -> float:
+def otsu_threshold(scores: npt.NDArray[np.float64]) -> tuple[float, float]:
     """Find the score threshold that maximizes between-class variance.
 
     Operates on the empirical histogram of ``scores``, scanning all bin
@@ -48,7 +48,11 @@ def otsu_threshold(scores: npt.NDArray[np.float64]) -> float:
             to float64.
 
     Returns:
-        Threshold in [0, 1]. Returns ``_OTSU_FALLBACK`` (0.5) when:
+        Tuple of ``(threshold, max_sigma_between)``.  The threshold is
+        in [0, 1]; ``max_sigma_between`` is the peak between-class
+        variance (0.0 when Otsu degenerates).  Returns
+        ``(_OTSU_FALLBACK, 0.0)`` when:
+
         - fewer than ``_OTSU_MIN_SAMPLES`` samples are provided,
         - all scores are identical (zero variance),
         - the histogram has only a single occupied bin.
@@ -57,20 +61,20 @@ def otsu_threshold(scores: npt.NDArray[np.float64]) -> float:
     n = len(scores)
 
     if n < _OTSU_MIN_SAMPLES:
-        return _OTSU_FALLBACK
+        return _OTSU_FALLBACK, 0.0
 
     scores_clipped = np.clip(scores, 0.0, 1.0)
 
     if float(np.std(scores_clipped)) < 1e-10:
         # Constant scores — degenerate: no separable threshold
-        return _OTSU_FALLBACK
+        return _OTSU_FALLBACK, 0.0
 
     hist, bin_edges = np.histogram(scores_clipped, bins=_OTSU_BINS, range=(0.0, 1.0))
     hist_f = hist.astype(np.float64)
     total = hist_f.sum()
 
     if total < 1.0:
-        return _OTSU_FALLBACK
+        return _OTSU_FALLBACK, 0.0
 
     hist_norm = hist_f / total  # normalized to probability mass
 
@@ -93,12 +97,13 @@ def otsu_threshold(scores: npt.NDArray[np.float64]) -> float:
 
     # Find first bin index with maximum between-class variance
     best_idx = int(np.argmax(sigma_between))
+    best_sigma = float(sigma_between[best_idx])
 
     # Guard: if best variance is near zero, Otsu found no meaningful split
-    if float(sigma_between[best_idx]) < 1e-10:
-        return _OTSU_FALLBACK
+    if best_sigma < 1e-10:
+        return _OTSU_FALLBACK, 0.0
 
-    return float(bin_edges[best_idx + 1])  # threshold = upper edge of best bin
+    return float(bin_edges[best_idx + 1]), best_sigma
 
 
 def adaptive_threshold(
@@ -128,11 +133,13 @@ def adaptive_threshold(
     scores = np.asarray(scores, dtype=np.float64).ravel()
 
     # Method 1: Otsu
-    thr = otsu_threshold(scores)
+    thr, max_sigma = otsu_threshold(scores)
     method = "otsu"
 
-    # Otsu returned fallback (0.5) — try MAD
-    otsu_degenerate = abs(thr - _OTSU_FALLBACK) < 1e-10
+    # Otsu degenerate when between-class variance is negligible —
+    # not by checking the threshold value, which can legitimately be 0.5
+    # for symmetric distributions.
+    otsu_degenerate = max_sigma < 1e-10
     if otsu_degenerate:
         median = float(np.median(scores))
         mad = float(np.median(np.abs(scores - median)))

@@ -341,6 +341,10 @@ class MercuryAnomalyDetector(BaseDetector):
                 mercury_aucs, ama_aucs = [], []
                 contamination_est = getattr(self, "_contamination_rate", 0.05)
 
+                # Pre-seed: reuse the main detector's decorrelation result
+                # so CV fold instances skip the O(n²) recomputation.
+                _shared_decorrelation = self._ama_detector._decorrelation_cache
+
                 for i in range(n_folds):
                     val_fold = folds[i]
                     train_folds = np.vstack([folds[j] for j in range(n_folds) if j != i])
@@ -352,6 +356,8 @@ class MercuryAnomalyDetector(BaseDetector):
 
                     # --- AMA AUC on this fold ---
                     temp_ama = AnomalyMathArrest()
+                    if _shared_decorrelation is not None:
+                        temp_ama._decorrelation_cache = _shared_decorrelation
                     temp_ama.fit(train_folds)
                     fold_ama_scores = temp_ama.detect(val_fold)
                     fold_ama_scores = np.clip(fold_ama_scores, 0.0, 1.0)

@@ -165,7 +165,9 @@ class BaseEquationProbe(ABC):
         _PCA_COMPONENTS: int = 10
 
         self._validate_fitted()
-        arr = np.atleast_2d(data)
+        # np.atleast_2d on 1D input produces shape (1, n), swapping samples
+        # and features.  Reshape explicitly so (n,) becomes (n, 1).
+        arr = data.reshape(-1, 1) if data.ndim == 1 else np.asarray(data)
         n_samples, n_features = arr.shape
 
         # Univariate: direct path, no overhead

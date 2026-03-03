@@ -630,7 +630,7 @@ class FEMAHazardMitigationLoader(DatasetLoader):
         # This reflects genuine outliers in the mitigation project dataset,
         # not just "expensive" projects which may be routine large-scale work.
         cost_threshold = float(np.percentile(features[:, 0], 95))
-        type_codes = features[:, 2].astype(int).clip(0, 1000)
+        type_codes = features[:, 4].astype(int).clip(0, 1000)
         top_types = np.argsort(np.bincount(type_codes, minlength=1))[-3:]
         type_is_rare = ~np.isin(type_codes, top_types)
         labels = ((features[:, 0] > cost_threshold) & type_is_rare).astype(np.int64)

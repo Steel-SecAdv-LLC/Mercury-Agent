@@ -295,8 +295,11 @@ class AnomalyMathArrest:
             raise ValueError(f"AnomalyMathArrest requires at least {MIN_SAMPLES} samples, got {n}.")
 
         # Invalidate decorrelation cache on re-fit so calibrate_decorrelator()
-        # recomputes from scratch with the new probe state.
-        self._decorrelation_cache = None
+        # recomputes from scratch with the new probe state.  A pre-seeded
+        # cache on a *fresh* instance (not yet fitted) is preserved — this
+        # allows CV fold instances to inherit the parent detector's result.
+        if self._is_fitted:
+            self._decorrelation_cache = None
 
         # Option B: geometry-routing probe selection
         if self._geometry_routing and self._user_probe_spec is None:
