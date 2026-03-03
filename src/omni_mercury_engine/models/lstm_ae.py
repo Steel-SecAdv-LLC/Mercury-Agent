@@ -359,7 +359,7 @@ def evaluate_detector(
     Returns:
         Dictionary with precision, recall, f1, auc_roc, auc_pr
     """
-    from sklearn.metrics import (
+    from omni_mercury_engine.ml.mercury_ml import (
         average_precision_score,
         f1_score,
         precision_recall_curve,

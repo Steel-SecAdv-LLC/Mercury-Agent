@@ -431,9 +431,9 @@ class SVMRFEnsembleClassifier:
             ensemble_weights: Weights for (SVM, RF) predictions
         """
         try:
-            from sklearn.ensemble import RandomForestClassifier
-            from sklearn.preprocessing import StandardScaler
-            from sklearn.svm import SVC
+            from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
+            from omni_mercury_engine.ml.mercury_ml import StandardScaler
+            from omni_mercury_engine.ml.mercury_ml import SVC
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"

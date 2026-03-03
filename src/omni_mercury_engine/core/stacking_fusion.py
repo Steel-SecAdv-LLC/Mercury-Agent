@@ -100,7 +100,7 @@ class StackingFusion:
         """
         if meta_learner is None:
             try:
-                from sklearn.linear_model import LogisticRegression
+                from omni_mercury_engine.ml.mercury_ml import LogisticRegression
             except ImportError as e:
                 raise ImportError(
                     "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -158,7 +158,7 @@ class StackingFusion:
 
         # Import sklearn functions needed for cross-validation
         try:
-            from sklearn.model_selection import cross_val_predict
+            from omni_mercury_engine.ml.mercury_ml import cross_val_predict
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"

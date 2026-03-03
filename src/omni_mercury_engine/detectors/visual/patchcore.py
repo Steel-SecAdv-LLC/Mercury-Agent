@@ -266,7 +266,7 @@ class PatchCoreDetector(BaseVisualDetector):
 
         except ImportError:
             logger.warning("FAISS not available, using sklearn NearestNeighbors")
-            from sklearn.neighbors import NearestNeighbors
+            from omni_mercury_engine.ml.mercury_ml import NearestNeighbors
 
             self._nn_index = NearestNeighbors(
                 n_neighbors=self.patchcore_config.num_neighbors,

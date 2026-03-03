@@ -332,7 +332,7 @@ class TestRealWorldBenchmark:
 
     def test_benchmark_runner_sklearn_detector(self):
         """Test benchmark with sklearn detector - verifies fail-closed behavior without real data."""
-        from sklearn.ensemble import IsolationForest
+        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
 
         from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
 
@@ -341,7 +341,7 @@ class TestRealWorldBenchmark:
         # Wrapper for sklearn
         class IFWrapper:
             def __init__(self):
-                self.model = IsolationForest(n_estimators=50, random_state=SEED)
+                self.model = MADDetector(n_estimators=50, random_state=SEED)
 
             def fit(self, X, y=None):
                 self.model.fit(X)

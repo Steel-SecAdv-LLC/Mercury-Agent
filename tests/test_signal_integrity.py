@@ -8,16 +8,12 @@ Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GNU GPL v3
 """
 
-import pytest
-
-pytest.importorskip("sklearn")
-
 import numpy as np
 import pytest
-from sklearn.datasets import make_blobs, make_classification
-from sklearn.metrics import roc_auc_score
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+from omni_mercury_engine.ml.mercury_ml import make_blobs, make_classification, roc_auc_score
+
 
 
 class TestContinuousScores:

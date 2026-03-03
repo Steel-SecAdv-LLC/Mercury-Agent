@@ -442,7 +442,7 @@ class NanoSafeguardDetector(BaseDetector):
             return 0.0
 
         try:
-            from sklearn.decomposition import PCA
+            from omni_mercury_engine.ml.mercury_ml import PCA
 
             target_dim = min(self.target_dim, data_2d.shape[1] - 1, data_2d.shape[0] - 1)
             if target_dim < 1:

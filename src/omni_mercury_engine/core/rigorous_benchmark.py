@@ -201,7 +201,7 @@ def stratified_split(
         X_train, X_test, y_train, y_test
     """
     try:
-        from sklearn.model_selection import train_test_split
+        from omni_mercury_engine.ml.mercury_ml import train_test_split
     except ImportError as e:
         raise ImportError(
             "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -309,7 +309,7 @@ def point_adjusted_f1(
         Point-adjusted F1 score
     """
     try:
-        from sklearn.metrics import f1_score
+        from omni_mercury_engine.ml.mercury_ml import f1_score
     except ImportError as e:
         raise ImportError(
             "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -401,7 +401,7 @@ class RigorousBenchmarkHarness:
             BenchmarkResult with all metrics and statistics
         """
         try:
-            from sklearn.metrics import (
+            from omni_mercury_engine.ml.mercury_ml import (
                 average_precision_score,
                 brier_score_loss,
                 f1_score,
@@ -409,7 +409,7 @@ class RigorousBenchmarkHarness:
                 recall_score,
                 roc_auc_score,
             )
-            from sklearn.model_selection import StratifiedKFold
+            from omni_mercury_engine.ml.mercury_ml import StratifiedKFold
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -597,8 +597,13 @@ def run_baseline_benchmarks(
     n_folds: int = 10,
     seed: int = GLOBAL_SEED,
 ) -> dict[str, BenchmarkResult]:
-    """
-    Run benchmarks on standard PyOD-style baselines.
+    """Run Mercury-native benchmarks.
+
+    Benchmarks Mercury's own MercuryAnomalyDetector.  Third-party detectors
+    (sklearn OneClassSVM, LOF, EllipticEnvelope) are **not** part of
+    Mercury's detection pipeline and are intentionally excluded.  For
+    comparison against third-party baselines, see
+    ``benchmarks/baseline_results.json`` which stores pre-computed results.
 
     Args:
         X: Feature matrix
@@ -610,18 +615,10 @@ def run_baseline_benchmarks(
     Returns:
         Dictionary mapping detector name to BenchmarkResult
     """
-    from sklearn.covariance import EllipticEnvelope
-    from sklearn.neighbors import LocalOutlierFactor
-    from sklearn.svm import OneClassSVM
-
     from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
     harness = RigorousBenchmarkHarness(n_folds=n_folds, seed=seed)
     results = {}
-
-    # Anomaly ratio for contamination parameter
-    anomaly_ratio = np.mean(y)
-    contamination = min(0.5, max(0.01, anomaly_ratio))
 
     # Mercury MercuryAnomalyDetector
     class MercuryWrapper:
@@ -641,83 +638,6 @@ def run_baseline_benchmarks(
 
     results["Mercury-Agent"] = harness.benchmark_detector(
         MercuryWrapper(), X, y, "Mercury-Agent", dataset_name
-    )
-
-    # One-Class SVM
-    class OCSVMWrapper:
-        def __init__(self) -> None:
-            self.model = OneClassSVM(kernel="rbf", nu=contamination)
-
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
-            self.model.fit(X)
-
-        def predict(self, X: np.ndarray) -> np.ndarray:
-            preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))  # type: ignore[no-any-return, unused-ignore]
-
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
-            scores = -self.model.decision_function(X)
-            scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
-
-    results["OneClassSVM"] = harness.benchmark_detector(
-        OCSVMWrapper(), X, y, "OneClassSVM", dataset_name
-    )
-
-    # Local Outlier Factor
-    class LOFWrapper:
-        def __init__(self) -> None:
-            self.model = LocalOutlierFactor(
-                n_neighbors=20,
-                contamination=contamination,
-                novelty=True,
-            )
-
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
-            self.model.fit(X)
-
-        def predict(self, X: np.ndarray) -> np.ndarray:
-            preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))  # type: ignore[no-any-return, unused-ignore]
-
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
-            scores = -self.model.decision_function(X)
-            scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
-
-    results["LOF"] = harness.benchmark_detector(LOFWrapper(), X, y, "LOF", dataset_name)
-
-    # Elliptic Envelope
-    class EEWrapper:
-        def __init__(self) -> None:
-            self.model = EllipticEnvelope(
-                contamination=contamination,
-                random_state=seed,
-            )
-
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
-            try:
-                self.model.fit(X)
-            except ValueError:
-                # Fallback for singular covariance
-                self.model = EllipticEnvelope(
-                    contamination=contamination,
-                    random_state=seed,
-                    support_fraction=0.9,
-                )
-                self.model.fit(X)
-
-        def predict(self, X: np.ndarray) -> np.ndarray:
-            preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))  # type: ignore[no-any-return, unused-ignore]
-
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
-            scores = -self.model.decision_function(X)
-            scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
-            return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]
-
-    results["EllipticEnvelope"] = harness.benchmark_detector(
-        EEWrapper(), X, y, "EllipticEnvelope", dataset_name
     )
 
     return results

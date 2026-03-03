@@ -99,26 +99,34 @@ KNOWN_CHECKSUMS: dict[str, str | None] = {
     "smd:machine-1-1.txt": None,  # Populate with actual hashes when available
     "batadal:dataset03.csv": None,
 }
-from sklearn.covariance import EllipticEnvelope
-from sklearn.datasets import fetch_covtype, fetch_kddcup99, load_breast_cancer, load_digits
-from sklearn.metrics import (
+# Optional sklearn datasets/detectors for third-party comparison benchmarks.
+# Mercury does NOT depend on sklearn — these are external comparison targets only.
+try:
+    from sklearn.covariance import EllipticEnvelope
+    from sklearn.datasets import fetch_covtype, fetch_kddcup99, load_breast_cancer, load_digits
+    from sklearn.neighbors import LocalOutlierFactor
+    from sklearn.svm import OneClassSVM
+
+    _SKLEARN_AVAILABLE = True
+except ImportError:
+    _SKLEARN_AVAILABLE = False
+
+from omni_mercury_engine.ml.mercury_ml import (
     confusion_matrix,
     f1_score,
     precision_score,
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import OneClassSVM
+from omni_mercury_engine.ml.mercury_ml import KFold, StratifiedKFold, train_test_split
+from omni_mercury_engine.ml.mercury_ml import StandardScaler
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 # AdaptiveAnomalyDetector removed — Mercury uses MercuryAnomalyDetector only
 ADAPTIVE_DETECTOR_AVAILABLE = False
 
-# Suppress expected warnings from sklearn/numpy during benchmark model fitting.
+# Suppress expected warnings from numpy during benchmark model fitting.
 # Scoped to specific categories rather than blanket suppression.
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -166,11 +174,11 @@ def fetch_with_retry(
     """
     Fetch a dataset with exponential backoff retry logic.
 
-    Handles intermittent HTTP 403 errors from sklearn's data servers (OpenML, UCI)
+    Handles intermittent HTTP 403 errors from data servers (OpenML, UCI)
     which can rate-limit or block CI IPs temporarily.
 
     Args:
-        fetch_func: The sklearn fetch function to call (e.g., fetch_covtype)
+        fetch_func: The data fetch function to call
         dataset_name: Name of the dataset for logging
         max_retries: Maximum number of retry attempts (default: 5)
         base_delay: Base delay in seconds for exponential backoff (default: 2.0)
@@ -740,11 +748,17 @@ class KFoldResult:
     aggregated_confusion_matrix: np.ndarray
 
 
-def prepare_breast_cancer_dataset() -> DatasetInfo:
+def prepare_breast_cancer_dataset() -> DatasetInfo | None:
     """
     Prepare breast cancer dataset for anomaly detection.
     Malignant samples (minority class) treated as anomalies.
+
+    Requires sklearn for real data; returns None if unavailable.
     """
+    if not _SKLEARN_AVAILABLE:
+        logger.info("sklearn not available — skipping breast_cancer dataset")
+        return None
+
     data = load_breast_cancer()
     X, y = data.data, data.target
 
@@ -769,11 +783,17 @@ def prepare_breast_cancer_dataset() -> DatasetInfo:
     )
 
 
-def prepare_digits_dataset() -> DatasetInfo:
+def prepare_digits_dataset() -> DatasetInfo | None:
     """
     Prepare digits dataset for anomaly detection.
     Digit '8' treated as anomaly (unusual shape).
+
+    Requires sklearn for real data; returns None if unavailable.
     """
+    if not _SKLEARN_AVAILABLE:
+        logger.info("sklearn not available — skipping digits dataset")
+        return None
+
     data = load_digits()
     X, y = data.data, data.target
 
@@ -810,9 +830,16 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     X, y = None, None
     source = "synthetic"
 
-    # Try sklearn's fetch_covtype first (uses OpenML/Figshare)
-    data = fetch_with_retry(
-        fetch_covtype,
+    if not _SKLEARN_AVAILABLE:
+        logger.info("sklearn not available — using fallback sources for covtype")
+        data = None
+    else:
+        data = None
+
+    # Try fetch_covtype first (uses OpenML/Figshare) — requires sklearn
+    if _SKLEARN_AVAILABLE:
+        data = fetch_with_retry(
+            fetch_covtype,
         "covtype",
         max_retries=3,
         base_delay=2.0,
@@ -823,7 +850,7 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
         try:
             X, y = data.data, data.target
             source = "sklearn"
-            logger.info("Successfully loaded covtype from sklearn (OpenML)")
+            logger.info("Successfully loaded covtype dataset")
         except Exception as e:
             logger.warning(f"Error processing sklearn covtype data: {e}")
             X, y = None, None
@@ -909,9 +936,12 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     source = "synthetic"
     dataset_name = "kddcup99"
 
-    # Try sklearn's fetch_kddcup99 first
-    data = fetch_with_retry(
-        fetch_kddcup99,
+    # Try fetch_kddcup99 first — requires sklearn
+    if not _SKLEARN_AVAILABLE:
+        data = None
+    else:
+        data = fetch_with_retry(
+            fetch_kddcup99,
         "KDDCup99",
         max_retries=3,
         base_delay=2.0,
@@ -927,7 +957,7 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
             X_numeric = X[:, numeric_mask].astype(float)
             y_anomaly = (y != b"normal.").astype(int)
             source = "sklearn"
-            logger.info("Successfully loaded KDDCup99 from sklearn")
+            logger.info("Successfully loaded KDDCup99 dataset")
         except Exception as e:
             logger.warning(f"Error processing sklearn KDDCup99 data: {e}")
             X_numeric, y_anomaly = None, None
@@ -1787,7 +1817,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_scores: np.ndarray
         # Use average_precision_score for correct PR-AUC calculation
         # This properly handles the precision-recall curve ordering and avoids
         # negative values from np.trapz on unsorted recall values
-        from sklearn.metrics import average_precision_score
+        from omni_mercury_engine.ml.mercury_ml import average_precision_score
 
         pr_auc = average_precision_score(y_true, y_scores)
     except ValueError as e:
@@ -1909,7 +1939,7 @@ def benchmark_detector_kfold(
         # This ensures higher scores = more anomalous regardless of detector convention
         try:
             train_scores = detector.decision_function(X_train)
-            from sklearn.metrics import roc_auc_score
+            from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
             # Check if scores need inversion (AUC < 0.5 means scores are inverted)
             if len(np.unique(y_train)) >= 2:
@@ -2063,19 +2093,21 @@ def run_full_benchmark(
     print("Loading datasets...")
     print("-" * 40)
 
-    # Standard sklearn datasets
+    # Standard datasets (requires sklearn for real data, falls back to synthetic)
     bc_data = prepare_breast_cancer_dataset()
-    datasets.append(bc_data)
-    print(
-        f"  [OK] {bc_data.name}: {bc_data.X_train.shape[0]} train, {bc_data.X_test.shape[0]} test"
-    )
+    if bc_data is not None:
+        datasets.append(bc_data)
+        print(
+            f"  [OK] {bc_data.name}: {bc_data.X_train.shape[0]} train, {bc_data.X_test.shape[0]} test"
+        )
 
     digits_data = prepare_digits_dataset()
-    datasets.append(digits_data)
-    print(
-        f"  [OK] {digits_data.name}: {digits_data.X_train.shape[0]} train, "
-        f"{digits_data.X_test.shape[0]} test"
-    )
+    if digits_data is not None:
+        datasets.append(digits_data)
+        print(
+            f"  [OK] {digits_data.name}: {digits_data.X_train.shape[0]} train, "
+            f"{digits_data.X_test.shape[0]} test"
+        )
 
     covtype_data = prepare_covtype_dataset(n_samples=DEFAULT_SAMPLES)
     if covtype_data is not None:
@@ -2132,13 +2164,22 @@ def run_full_benchmark(
 
     print()
 
-    # Define detectors including SOTA models
+    # Mercury-native detectors (always available)
     detectors: list[tuple[type, str, dict[str, Any]]] = [
         (OmniMercuryDetector, "Mercury-Agent", {}),
-        (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
-        (LocalOutlierFactor, "LocalOutlierFactor", {"n_neighbors": 20}),
-        (EllipticEnvelope, "EllipticEnvelope", {"random_state": 42}),
     ]
+
+    # Optional third-party detectors for comparison only (requires sklearn)
+    if _SKLEARN_AVAILABLE:
+        detectors.extend(
+            [
+                (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
+                (LocalOutlierFactor, "LocalOutlierFactor", {"n_neighbors": 20}),
+                (EllipticEnvelope, "EllipticEnvelope", {"random_state": 42}),
+            ]
+        )
+    else:
+        logger.info("sklearn not installed — running Mercury-only benchmarks")
 
     # Add SOTA models if requested
     if include_sota:

@@ -514,7 +514,7 @@ class RealWorldBenchmarkRunner:
         )
 
         # Stratified K-fold
-        from sklearn.metrics import (
+        from omni_mercury_engine.ml.mercury_ml import (
             average_precision_score,
             brier_score_loss,
             f1_score,
@@ -522,7 +522,7 @@ class RealWorldBenchmarkRunner:
             recall_score,
             roc_auc_score,
         )
-        from sklearn.model_selection import StratifiedKFold
+        from omni_mercury_engine.ml.mercury_ml import StratifiedKFold
 
         skf = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.seed)
 

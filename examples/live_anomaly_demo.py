@@ -45,7 +45,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sklearn.ensemble import IsolationForest
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 BANNER = """
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -96,7 +96,7 @@ class LiveAnomalyDetector:
     def __init__(self, domain: str = "security", contamination: float = 0.1) -> None:
         self.domain = domain
         self.contamination = contamination
-        self.model = IsolationForest(
+        self.model = MercuryAnomalyDetector(
             n_estimators=100,
             contamination=contamination,
             random_state=42,

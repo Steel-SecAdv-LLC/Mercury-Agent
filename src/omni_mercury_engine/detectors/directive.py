@@ -732,7 +732,7 @@ class SigmaDirectiveDetector(BaseDetector):
         target_dim = max(1, min(3, data_2d.shape[1] // 2))
 
         try:
-            from sklearn.decomposition import PCA
+            from omni_mercury_engine.ml.mercury_ml import PCA
 
             pca = PCA(n_components=target_dim)
             downsampled = pca.fit_transform(data_2d)

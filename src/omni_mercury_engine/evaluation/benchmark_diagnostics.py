@@ -488,7 +488,7 @@ class BenchmarkDiagnostics:
     def _compute_roc_auc(labels: NDArray, scores: NDArray) -> float:  # type: ignore[type-arg, unused-ignore]
         """Compute ROC-AUC score."""
         try:
-            from sklearn.metrics import roc_auc_score
+            from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
             return float(roc_auc_score(labels, scores))
         except (ImportError, ValueError):

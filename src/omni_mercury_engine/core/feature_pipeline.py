@@ -311,7 +311,7 @@ class FeatureSelector:
     def _compute_mutual_info(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Compute mutual information scores for each feature."""
         try:
-            from sklearn.feature_selection import mutual_info_classif
+            from omni_mercury_engine.ml.mercury_ml import mutual_info_classif
 
             # Handle continuous targets by discretizing
             if len(np.unique(y)) > 10:

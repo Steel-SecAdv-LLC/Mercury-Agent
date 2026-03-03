@@ -296,7 +296,7 @@ class SGDOnlineLearner(OnlineLearner):
             warm_start: Reuse weights from previous fit
         """
         try:
-            from sklearn.linear_model import SGDClassifier
+            from omni_mercury_engine.ml.mercury_ml import SGDClassifier
 
             self.model = SGDClassifier(
                 loss=loss,
@@ -358,7 +358,7 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
             fit_intercept: Whether to fit intercept
         """
         try:
-            from sklearn.linear_model import PassiveAggressiveClassifier
+            from omni_mercury_engine.ml.mercury_ml import PassiveAggressiveClassifier
 
             self.model = PassiveAggressiveClassifier(
                 C=C,

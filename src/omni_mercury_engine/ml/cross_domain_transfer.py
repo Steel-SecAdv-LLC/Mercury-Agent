@@ -50,8 +50,7 @@ except ImportError:
 
 SKLEARN_AVAILABLE = False
 try:
-    import sklearn  # noqa: F401
-
+    # sklearn dependency removed — Mercury uses native ML primitives
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -399,13 +398,13 @@ class MMDAdapter(BaseDomainAdapter):
         source_X_proj = self.transform(source_X, "source")
 
         try:
-            from sklearn.ensemble import GradientBoostingClassifier
+            from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier
 
             self._classifier = GradientBoostingClassifier(
                 n_estimators=100, max_depth=5, random_state=42
             )
         except ImportError:
-            from sklearn.linear_model import LogisticRegression
+            from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
             self._classifier = LogisticRegression(max_iter=1000, random_state=42)
 
@@ -534,14 +533,14 @@ class CORALAdapter(BaseDomainAdapter):
 
         # Train classifier on source domain
         try:
-            from sklearn.ensemble import GradientBoostingClassifier
+            from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier
 
             self._classifier = GradientBoostingClassifier(
                 n_estimators=100, max_depth=5, random_state=42
             )
         except ImportError:
             try:
-                from sklearn.linear_model import LogisticRegression
+                from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
                 self._classifier = LogisticRegression(max_iter=1000, random_state=42)
             except ImportError:
@@ -663,13 +662,13 @@ class SubspaceAlignmentAdapter(BaseDomainAdapter):
         source_proj = (source_X - self.source_mean) @ self.source_basis
 
         try:
-            from sklearn.ensemble import GradientBoostingClassifier
+            from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier
 
             self._classifier = GradientBoostingClassifier(
                 n_estimators=100, max_depth=5, random_state=42
             )
         except ImportError:
-            from sklearn.linear_model import LogisticRegression
+            from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
             self._classifier = LogisticRegression(max_iter=1000, random_state=42)
 
@@ -1069,13 +1068,13 @@ class JDAAdapter(BaseDomainAdapter):
         # Train final classifier
         source_proj = source_X_norm @ self.projection_matrix
         try:
-            from sklearn.ensemble import GradientBoostingClassifier
+            from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier
 
             self._classifier = GradientBoostingClassifier(
                 n_estimators=100, max_depth=5, random_state=42
             )
         except ImportError:
-            from sklearn.linear_model import LogisticRegression
+            from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
             self._classifier = LogisticRegression(max_iter=1000, random_state=42)
         self._classifier.fit(source_proj, source_y)
@@ -1213,13 +1212,13 @@ class TCAAdapter(BaseDomainAdapter):
         source_proj = K_source @ self.transformation
 
         try:
-            from sklearn.ensemble import GradientBoostingClassifier
+            from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier
 
             self._classifier = GradientBoostingClassifier(
                 n_estimators=100, max_depth=5, random_state=42
             )
         except ImportError:
-            from sklearn.linear_model import LogisticRegression
+            from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
             self._classifier = LogisticRegression(max_iter=1000, random_state=42)
         self._classifier.fit(source_proj, source_y)
@@ -1361,13 +1360,13 @@ class OptimalTransportAdapter(BaseDomainAdapter):
 
         # Train classifier on transported source data for out-of-sample prediction
         try:
-            from sklearn.ensemble import GradientBoostingClassifier
+            from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier
 
             self._classifier = GradientBoostingClassifier(
                 n_estimators=100, max_depth=5, random_state=42
             )
         except ImportError:
-            from sklearn.linear_model import LogisticRegression
+            from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
             self._classifier = LogisticRegression(max_iter=1000, random_state=42)
 
@@ -1572,7 +1571,7 @@ class CrossDomainTransferLearner:
         # Normalize
         if self.normalize and SKLEARN_AVAILABLE:
             try:
-                from sklearn.preprocessing import StandardScaler
+                from omni_mercury_engine.ml.mercury_ml import StandardScaler
             except ImportError as e:
                 raise ImportError(
                     "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -1585,7 +1584,7 @@ class CrossDomainTransferLearner:
         # Encode labels
         if SKLEARN_AVAILABLE:
             try:
-                from sklearn.preprocessing import LabelEncoder
+                from omni_mercury_engine.ml.mercury_ml import LabelEncoder
             except ImportError as e:
                 raise ImportError(
                     "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
@@ -1661,7 +1660,7 @@ class CrossDomainTransferLearner:
         start_time = time.time()
 
         try:
-            from sklearn.metrics import (
+            from omni_mercury_engine.ml.mercury_ml import (
                 accuracy_score,
                 f1_score,
                 precision_score,

@@ -503,7 +503,7 @@ class QueryByCommitteeSampler(BaseSampler):
 
             # Clone and train model
             try:
-                from sklearn.base import clone
+                from omni_mercury_engine.ml.mercury_ml import clone
 
                 model = clone(base_model)
             except ImportError:
