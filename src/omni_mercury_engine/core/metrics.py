@@ -210,7 +210,7 @@ def time_feature_extraction(detector_name: str) -> Generator[None, None, None]:
         detector_name: Name of detector being timed
 
     Example:
-        with time_feature_extraction("isolation_forest"):
+        with time_feature_extraction("mercury_detector"):
             features = detector.extract_features(data)
     """
     start_time = time.perf_counter()

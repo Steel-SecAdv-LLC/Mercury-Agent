@@ -1,7 +1,4 @@
-"""Rigorous benchmark harness using Mercury-native ML primitives.
-
-Rigorous benchmark harness for anomaly detection evaluation.
-All baselines use Mercury-native implementations.
+"""Rigorous benchmark harness for anomaly detection evaluation.
 
 Copyright (C) 2025 Steel Security Advisors LLC
 License: GPL-3.0-or-later
@@ -18,9 +15,6 @@ import numpy as np
 from scipy import stats
 
 from omni_mercury_engine.ml._native_utils import (
-    NativeEllipticEnvelope,
-    NativeLocalOutlierFactor,
-    NativeOneClassSVM,
     NativeStratifiedKFold,
     native_average_precision_score,
     native_brier_score_loss,
@@ -615,85 +609,6 @@ def run_baseline_benchmarks(
 
     results["Mercury-Agent"] = harness.benchmark_detector(
         MercuryWrapper(), X, y, "Mercury-Agent", dataset_name
-    )
-
-    # One-Class SVM (native)
-    class OCSVMWrapper:
-        def __init__(self) -> None:
-            self.model = NativeOneClassSVM(kernel="rbf", nu=contamination)
-
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
-            self.model.fit(X)
-
-        def predict(self, X: np.ndarray) -> np.ndarray:
-            preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))
-
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
-            scores = -self.model.decision_function(X)
-            rng = scores.max() - scores.min()
-            scores = (scores - scores.min()) / (rng + 1e-10)
-            return np.asarray(scores)
-
-    results["OneClassSVM"] = harness.benchmark_detector(
-        OCSVMWrapper(), X, y, "OneClassSVM", dataset_name
-    )
-
-    # Local Outlier Factor (native)
-    class LOFWrapper:
-        def __init__(self) -> None:
-            self.model = NativeLocalOutlierFactor(
-                n_neighbors=20,
-                contamination=contamination,
-                novelty=True,
-            )
-
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
-            self.model.fit(X)
-
-        def predict(self, X: np.ndarray) -> np.ndarray:
-            preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))
-
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
-            scores = -self.model.decision_function(X)
-            rng = scores.max() - scores.min()
-            scores = (scores - scores.min()) / (rng + 1e-10)
-            return np.asarray(scores)
-
-    results["LOF"] = harness.benchmark_detector(LOFWrapper(), X, y, "LOF", dataset_name)
-
-    # Elliptic Envelope (native)
-    class EEWrapper:
-        def __init__(self) -> None:
-            self.model = NativeEllipticEnvelope(
-                contamination=contamination,
-                random_state=seed,
-            )
-
-        def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> None:
-            try:
-                self.model.fit(X)
-            except (ValueError, np.linalg.LinAlgError):
-                self.model = NativeEllipticEnvelope(
-                    contamination=contamination,
-                    random_state=seed,
-                    support_fraction=0.9,
-                )
-                self.model.fit(X)
-
-        def predict(self, X: np.ndarray) -> np.ndarray:
-            preds = self.model.predict(X)
-            return np.asarray((preds == -1).astype(int))
-
-        def predict_proba(self, X: np.ndarray) -> np.ndarray:
-            scores = -self.model.decision_function(X)
-            rng = scores.max() - scores.min()
-            scores = (scores - scores.min()) / (rng + 1e-10)
-            return np.asarray(scores)
-
-    results["EllipticEnvelope"] = harness.benchmark_detector(
-        EEWrapper(), X, y, "EllipticEnvelope", dataset_name
     )
 
     return results

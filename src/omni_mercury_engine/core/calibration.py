@@ -530,8 +530,9 @@ def calibrate_detector(
         all score extraction methods fail.
 
     Example:
-        >>> from omni_mercury_engine.ml.mercury_ml import IsolationForest
-        >>> detector = IsolationForest().fit(X_train)
+        >>> from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+        >>> detector = MercuryAnomalyDetector()
+        >>> detector.fit(X_train)
         >>> calibrator, result = calibrate_detector(detector, X_cal, y_cal)
     """
     # Get uncalibrated predictions with robust fallback

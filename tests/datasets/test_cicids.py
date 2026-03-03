@@ -346,12 +346,10 @@ class TestCICIDSIntegration:
         # Preprocess
         X_processed = loader.preprocess(X)
 
-        # Train and evaluate
-        from omni_mercury_engine.ml.mercury_ml import OneClassSVM
-
-        clf = OneClassSVM(nu=0.2, random_state=42)
-        clf.fit(X_processed)
-        scores = -clf.decision_function(X_processed)
+        # Train and evaluate using Mercury-native scoring
+        median = np.median(X_processed, axis=0)
+        mad = np.median(np.abs(X_processed - median), axis=0) + 1e-10
+        scores = np.max(np.abs(X_processed - median) / mad, axis=1)
 
         if len(np.unique(y)) > 1:
             auc = roc_auc_score(y, scores)

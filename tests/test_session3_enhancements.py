@@ -338,7 +338,7 @@ class TestRealWorldBenchmark:
 
         runner = RealWorldBenchmarkRunner(n_folds=3, seed=SEED)
 
-        # Wrapper for IsolationForest
+        # Wrapper for MercuryAnomalyDetector
         class IFWrapper:
             def __init__(self):
                 self.model = MercuryAnomalyDetector()

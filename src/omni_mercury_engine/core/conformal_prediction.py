@@ -996,8 +996,9 @@ def add_conformal_to_detector(
         ValueError: If no valid scoring method can be found.
 
     Example:
-        >>> from omni_mercury_engine.ml.mercury_ml import IsolationForest
-        >>> detector = IsolationForest().fit(X_train)
+        >>> from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+        >>> detector = MercuryAnomalyDetector()
+        >>> detector.fit(X_train)
         >>> conformal, threshold = add_conformal_to_detector(detector, X_cal)
     """
     # Get calibration scores with robust fallback cascade

@@ -2,9 +2,8 @@
 # Copyright (C) Steel Security Advisors LLC
 """AnomalyMathArrest: 17-probe mathematically-independent equation ensemble.
 
-Replaces IsolationForest with transparent, auditable anomaly detection.
-Every detection traces to a specific mathematical violation in one or more
-of the 17 probe equations.
+Transparent, auditable anomaly detection where every detection traces to a
+specific mathematical violation in one or more of the 17 probe equations.
 """
 
 from __future__ import annotations
@@ -199,10 +198,9 @@ PROBE_PRESETS: dict[str, list[str]] = {
 class AnomalyMathArrest:
     """17-probe Anomaly Math Arrest.
 
-    A mathematically-independent equation ensemble that replaces
-    IsolationForest with transparent, auditable anomaly detection.
-    Every detection traces to a specific mathematical violation in
-    one or more of the 17 probe equations.
+    A mathematically-independent equation ensemble providing transparent,
+    auditable anomaly detection. Every detection traces to a specific
+    mathematical violation in one or more of the 17 probe equations.
 
     Args:
         domain: Domain hint for affinity-based probe reordering.

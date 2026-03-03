@@ -65,14 +65,10 @@ class ThreatSignature:
 
 class RealTimeThreatDetector(LoggerMixin):
     """
-    Real-time threat detection using ensemble anomaly detection.
+    Real-time threat detection using Mercury-native anomaly detection.
 
-    Combines multiple detection algorithms:
-    - Isolation Forest (tree-based)
-    - Local Outlier Factor (density-based)
-    - Elliptic Envelope (Gaussian)
-
-    Compatible with PyOD architecture for easy extension.
+    Uses MercuryAnomalyDetector (ResonanceScore, KinematicScore,
+    InfoGeometryScore probe ensemble) for all detection.
     """
 
     def __init__(
@@ -88,41 +84,25 @@ class RealTimeThreatDetector(LoggerMixin):
 
         Args:
             contamination: Expected proportion of outliers (0.0 to 0.5)
-            n_estimators: Number of estimators for Isolation Forest
-            enable_isolation_forest: Enable Isolation Forest detector
-            enable_lof: Enable Local Outlier Factor detector
-            enable_elliptic: Enable Elliptic Envelope detector
+            n_estimators: Unused, kept for API compatibility.
+            enable_isolation_forest: Unused, kept for API compatibility.
+            enable_lof: Unused, kept for API compatibility.
+            enable_elliptic: Unused, kept for API compatibility.
         """
         self.contamination = contamination
         self.n_estimators = n_estimators
 
+        from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+
+        self._mercury_detector = MercuryAnomalyDetector()
         self.detectors: dict[str, Any] = {}
-
-        from omni_mercury_engine.ml.mercury_ml import (
-            EllipticEnvelope,
-            IsolationForest,
-            LocalOutlierFactor,
-        )
-
-        if enable_isolation_forest:
-            self.detectors["isolation_forest"] = IsolationForest(
-                contamination=contamination, n_estimators=n_estimators, random_state=42
-            )
-
-        if enable_lof:
-            self.detectors["lof"] = LocalOutlierFactor(contamination=contamination, novelty=True)
-
-        if enable_elliptic:
-            self.detectors["elliptic"] = EllipticEnvelope(
-                contamination=contamination, random_state=42
-            )
 
         self.is_fitted = False
         self.threat_history: list[ThreatSignature] = []
 
     def fit(self, X: np.ndarray[Any, Any]) -> RealTimeThreatDetector:
         """
-        Fit detectors on normal (non-threatening) data.
+        Fit detector on normal (non-threatening) data.
 
         Args:
             X: Training data (n_samples, n_features)
@@ -130,12 +110,7 @@ class RealTimeThreatDetector(LoggerMixin):
         Returns:
             Self
         """
-        for name, detector in self.detectors.items():
-            try:
-                detector.fit(X)
-            except Exception as e:
-                self.logger.warning("Failed to fit %s: %s", name, e)
-
+        self._mercury_detector.fit(X)
         self.is_fitted = True
         return self
 
@@ -152,37 +127,19 @@ class RealTimeThreatDetector(LoggerMixin):
         if not self.is_fitted:
             raise ValueError("Detector must be fitted before detection")
 
-        predictions = {}
-        scores = {}
+        result = self._mercury_detector.detect(X)
+        anomaly_scores = np.asarray(result["scores"])
+        is_anomaly = np.asarray(result["is_anomaly"])
 
-        for name, detector in self.detectors.items():
-            try:
-                if hasattr(detector, "predict"):
-                    pred = detector.predict(X)
-                    predictions[name] = pred
-
-                if hasattr(detector, "score_samples"):
-                    score = detector.score_samples(X)
-                    scores[name] = score
-                elif hasattr(detector, "decision_function"):
-                    score = detector.decision_function(X)
-                    scores[name] = score
-            except Exception as e:
-                self.logger.warning("Failed to predict with %s: %s", name, e)
-
-        ensemble_score = np.mean([scores[name] for name in scores], axis=0)
-
-        is_threat = ensemble_score < np.percentile(ensemble_score, self.contamination * 100)
-
+        is_threat = is_anomaly.astype(bool)
         threat_indices = np.where(is_threat)[0]
-
-        threat_level = self._calculate_threat_level(ensemble_score)
+        threat_level = self._calculate_threat_level(-anomaly_scores)
 
         return {
             "is_threat": bool(np.any(is_threat)),
             "threat_indices": threat_indices.tolist(),
-            "ensemble_scores": ensemble_score.tolist(),
-            "individual_predictions": {k: v.tolist() for k, v in predictions.items()},
+            "ensemble_scores": (-anomaly_scores).tolist(),
+            "individual_predictions": {},
             "threat_level": threat_level,
             "num_threats": int(np.sum(is_threat)),
             "timestamp": datetime.now().isoformat(),
@@ -309,8 +266,7 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
 
         X_new = np.vstack(self.training_buffer)
 
-        for name, detector in self.detectors.items():
-            try:
-                detector.fit(X_new)
-            except Exception as e:
-                self.logger.warning("Failed to update %s: %s", name, e)
+        try:
+            self._mercury_detector.fit(X_new)
+        except Exception as e:
+            self.logger.warning("Failed to update Mercury detector: %s", e)

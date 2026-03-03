@@ -161,10 +161,8 @@ class TestIQRBounds:
 class TestAdaptiveContamination:
     """Test detector adapts to different data distributions.
 
-    Note: IsolationForest and explicit contamination estimation were removed
-    in the ensemble replacement (Resonance + Kinematic + InfoGeo). These tests
-    now verify the detector handles different distributions correctly via
-    its info-geometry and kinematic scoring.
+    These tests verify the Mercury-native detector handles different
+    distributions correctly via its info-geometry and kinematic scoring.
     """
 
     def test_noisy_data_scores_higher_than_clean(self):

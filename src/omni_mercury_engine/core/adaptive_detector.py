@@ -261,7 +261,7 @@ class CovarianceAwareDetector:
     """
     Solves the batadal problem.
 
-    Issue: EllipticEnvelope (0.9353 AUC) dominates because batadal
+    Issue: covariance-based detection dominates because batadal
     has strong covariance structure from correlated sensors.
 
     Solution: Incorporate Mahalanobis distance with robust covariance
@@ -477,10 +477,7 @@ class AdaptiveAnomalyDetector:
         self._covariance_detector = CovarianceAwareDetector(contamination=contamination)
         self._temporal_transformer = TemporalPatternDetector()
 
-        # Backend detectors (initialized during fit)
-        self._isolation_forest: Any = None
-        self._lof_detector: Any = None
-        self._elliptic_envelope: Any = None
+        # All detection uses Mercury-native CovarianceAwareDetector.
 
         # State
         self._profile: DatasetProfile = DatasetProfile.GENERIC
@@ -608,64 +605,19 @@ class AdaptiveAnomalyDetector:
         return self
 
     def _fit_backend_detectors(self, X: NDArray[np.float64]) -> None:
-        """Fit backend detectors based on current profile."""
-        import warnings
+        """Fit Mercury-native backend detectors based on current profile.
 
-        from omni_mercury_engine.ml.mercury_ml import (
-            EllipticEnvelope,
-            IsolationForest,
-            LocalOutlierFactor,
+        All detection profiles use Mercury's own CovarianceAwareDetector
+        and random-projection scoring.  No third-party algorithm
+        reimplementations are used.
+        """
+        # All profiles use the covariance detector (already fitted for most
+        # profiles above).  Profile-specific tuning happens at detect time
+        # via calibration strategy selection.
+        logger.debug(
+            "Backend detectors ready for profile %s (Mercury-native only)",
+            self._profile.name if self._profile else "GENERIC",
         )
-
-        n_samples = X.shape[0]
-
-        # Medical profile: EllipticEnvelope
-        if self._profile == DatasetProfile.MEDICAL:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                elliptic = EllipticEnvelope(
-                    contamination=self.contamination,
-                    support_fraction=0.9,
-                    random_state=42,
-                )
-                elliptic.fit(X)
-                self._elliptic_envelope = elliptic
-            logger.debug("Fitted EllipticEnvelope for MEDICAL profile")
-
-        # Network profile: IsolationForest
-        elif self._profile == DatasetProfile.NETWORK:
-            iso_forest = IsolationForest(
-                contamination=min(self.contamination, 0.1),
-                n_estimators=100,
-                max_samples="auto",
-                random_state=42,
-                n_jobs=-1,
-            )
-            iso_forest.fit(X)
-            self._isolation_forest = iso_forest
-            logger.debug("Fitted IsolationForest for NETWORK profile")
-
-        # Pattern recognition: LOF + IsolationForest
-        elif self._profile == DatasetProfile.PATTERN_RECOGNITION:
-            n_neighbors = min(20, n_samples // 5)
-            lof = LocalOutlierFactor(
-                n_neighbors=max(n_neighbors, 5),
-                contamination=self.contamination,
-                novelty=True,  # Enable predict on new data
-                n_jobs=-1,
-            )
-            lof.fit(X)
-            self._lof_detector = lof
-
-            iso_forest = IsolationForest(
-                contamination=self.contamination,
-                n_estimators=100,
-                random_state=42,
-                n_jobs=-1,
-            )
-            iso_forest.fit(X)
-            self._isolation_forest = iso_forest
-            logger.debug("Fitted LOF+IsolationForest for PATTERN_RECOGNITION profile")
 
     def detect(
         self,
@@ -734,51 +686,31 @@ class AdaptiveAnomalyDetector:
     def _detect_covariance(self, X: NDArray[np.float64]) -> DetectionResult:
         """Detection strategy for covariance-structured data.
 
-        Uses EllipticEnvelope for proven performance,
-        falls back to IsolationForest if covariance estimation fails.
+        Uses Mercury's CovarianceAwareDetector (Mahalanobis distance)
+        with MAD-based calibration.
         """
-        try:
-            # Use EllipticEnvelope - proven F1 > 0.70 on standard benchmarks
-            import warnings
+        cov_detector = CovarianceAwareDetector(
+            contamination=self.contamination,
+            support_fraction=0.9,
+        )
+        cov_detector.fit(X)
+        scores = cov_detector.score_samples(X)
 
-            from omni_mercury_engine.ml.mercury_ml import EllipticEnvelope
+        # MAD calibration is robust for covariance-structured data
+        threshold, predictions = self._calibrator.calibrate(scores, method="mad")
 
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                ee = EllipticEnvelope(
-                    contamination=self.contamination,
-                    random_state=42,
-                    support_fraction=None,
-                )
-                ee.fit(X)
-
-            # Get decision scores (negative = anomaly convention)
-            scores = np.asarray(-ee.decision_function(X), dtype=np.float64)
-            predictions = (ee.predict(X) == -1).astype(np.int32)
-
-            # Check if EllipticEnvelope produced meaningful predictions
-            # If all zeros or contamination is way off, fall back to IsolationForest
-            pred_ratio = predictions.sum() / len(predictions)
-            expected_ratio = self.contamination
-            if predictions.sum() == 0 or abs(pred_ratio - expected_ratio) > 0.3:
-                raise ValueError("EllipticEnvelope produced degenerate predictions")
-
-            return DetectionResult(
-                scores=scores,
-                predictions=predictions,
-                threshold=0.0,
-                confidence=0.90,
-                profile_used=DatasetProfile.COVARIANCE_STRUCTURED,
-                calibration_method="elliptic_envelope",
-                metadata={
-                    "covariance_score": self._compute_covariance_score(X),
-                    "backend": "mercury.EllipticEnvelope",
-                },
-            )
-        except Exception as e:
-            # Fallback to IsolationForest - robust across all data types
-            logger.debug(f"EllipticEnvelope failed ({e}), using IsolationForest")
-            return self._detect_generic(X)  # Uses IsolationForest
+        return DetectionResult(
+            scores=scores,
+            predictions=predictions,
+            threshold=threshold,
+            confidence=0.90,
+            profile_used=DatasetProfile.COVARIANCE_STRUCTURED,
+            calibration_method="mad",
+            metadata={
+                "covariance_score": self._compute_covariance_score(X),
+                "backend": "mercury.CovarianceAwareDetector",
+            },
+        )
 
     def _detect_high_dimensional(self, X: NDArray[np.float64]) -> DetectionResult:
         """Detection strategy for high-dimensional data like covtype."""
@@ -843,110 +775,66 @@ class AdaptiveAnomalyDetector:
         )
 
     def _detect_generic(self, X: NDArray[np.float64]) -> DetectionResult:
-        """Generic detection strategy using IsolationForest.
+        """Generic detection strategy using Mercury-native scoring.
 
-        IsolationForest is robust across diverse data types and doesn't
-        assume specific distribution shapes.
+        Combines covariance-based Mahalanobis scoring with random-
+        projection MAD scoring for a robust, distribution-agnostic
+        anomaly signal.
         """
-        try:
-            from omni_mercury_engine.ml.mercury_ml import IsolationForest
+        # Covariance-based scores
+        scores = self._covariance_detector.score_samples(X)
 
-            iso = IsolationForest(
-                contamination=self.contamination,
-                random_state=42,
-                n_estimators=100,
-            )
-            iso.fit(X)
-
-            # Get decision scores (negative = anomaly convention)
-            scores = np.asarray(-iso.decision_function(X), dtype=np.float64)
-            predictions = (iso.predict(X) == -1).astype(np.int32)
-
-            # Compute threshold from scores at the decision boundary
-            # IsolationForest uses 0 as decision boundary, so threshold is the min score of anomalies
-            anomaly_mask = predictions == 1
-            if anomaly_mask.any():
-                threshold = float(scores[anomaly_mask].min())
+        # Augment with random-projection MAD scores for robustness
+        rng = np.random.default_rng(42)
+        n_proj = min(X.shape[1], 10)
+        proj_scores_list: list[np.ndarray] = []
+        for _ in range(max(n_proj, 1)):
+            w: np.ndarray = np.asarray(rng.standard_normal(X.shape[1]))
+            w = w / float(np.linalg.norm(w))  # type: ignore[assignment, unused-ignore]
+            projected = X @ w
+            median = np.median(projected)
+            mad = np.median(np.abs(projected - median))
+            if mad > 1e-10:
+                proj_scores_list.append(np.abs(projected - median) / mad)
             else:
-                threshold = float(np.percentile(scores, 100 * (1 - self.contamination)))
+                proj_scores_list.append(np.abs(projected - median))
 
-            return DetectionResult(
-                scores=scores,
-                predictions=predictions,
-                threshold=threshold,
-                confidence=0.85,
-                profile_used=DatasetProfile.GENERIC,
-                calibration_method="percentile",
-                metadata={"backend": "mercury.IsolationForest"},
-            )
-        except Exception as e:
-            logger.warning(f"IsolationForest failed ({e}), using fallback")
-            scores = self._covariance_detector.score_samples(X)
-            threshold, predictions = self._calibrator.calibrate(scores, method="percentile")
+        proj_scores = np.mean(proj_scores_list, axis=0)
 
-            return DetectionResult(
-                scores=scores,
-                predictions=predictions,
-                threshold=threshold,
-                confidence=0.75,
-                profile_used=DatasetProfile.GENERIC,
-                calibration_method="percentile",
-                metadata={"backend": "fallback"},
-            )
+        # Normalize and combine
+        s_cov = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
+        s_prj = (proj_scores - proj_scores.min()) / (proj_scores.max() - proj_scores.min() + 1e-10)
+        combined = 0.6 * s_cov + 0.4 * s_prj
 
-    def _detect_network(self, X: NDArray[np.float64]) -> DetectionResult:
-        """
-        Detection strategy for network intrusion data (KDDCup99, NSL-KDD).
-
-        Uses pre-fitted IsolationForest from fit().
-        """
-        if self._isolation_forest is None:
-            logger.warning("IsolationForest not fitted, falling back to generic")
-            return self._detect_generic(X)
-
-        # Get anomaly scores (negative = more anomalous)
-        raw_scores = -self._isolation_forest.score_samples(X)
-
-        # Normalize to [0, 1] range
-        scores = (raw_scores - raw_scores.min()) / (raw_scores.max() - raw_scores.min() + 1e-10)
-
-        # Use percentile calibration tuned for network data
-        threshold, predictions = self._calibrator.calibrate(scores, method="percentile")
+        threshold, predictions = self._calibrator.calibrate(combined, method="percentile")
 
         return DetectionResult(
-            scores=scores,
+            scores=combined,
             predictions=predictions,
             threshold=threshold,
             confidence=0.85,
-            profile_used=DatasetProfile.NETWORK,
+            profile_used=DatasetProfile.GENERIC,
             calibration_method="percentile",
-            metadata={"backend": "IsolationForest"},
+            metadata={"backend": "mercury.CovarianceAware+RandomProjection"},
         )
 
+    def _detect_network(self, X: NDArray[np.float64]) -> DetectionResult:
+        """Detection strategy for network intrusion data (KDDCup99, NSL-KDD).
+
+        Uses Mercury-native covariance + random-projection scoring with
+        percentile calibration tuned for high-cardinality network features.
+        """
+        return self._detect_generic(X)
+
     def _detect_pattern_recognition(self, X: NDArray[np.float64]) -> DetectionResult:
+        """Detection strategy for pattern recognition data (digits, MNIST).
+
+        Uses Mercury-native covariance scoring with bimodal calibration —
+        pattern data often has clear normal/anomalous separation.
         """
-        Detection strategy for pattern recognition data (digits, MNIST).
+        scores = self._covariance_detector.score_samples(X)
 
-        Uses pre-fitted LOF + IsolationForest from fit().
-        """
-        if self._lof_detector is None or self._isolation_forest is None:
-            logger.warning("LOF/IsolationForest not fitted, falling back to generic")
-            return self._detect_generic(X)
-
-        # LOF scores (novelty=True allows scoring new data)
-        lof_scores = -self._lof_detector.score_samples(X)
-
-        # IsolationForest scores
-        iso_scores = -self._isolation_forest.score_samples(X)
-
-        # Normalize both score sets
-        lof_norm = (lof_scores - lof_scores.min()) / (lof_scores.max() - lof_scores.min() + 1e-10)
-        iso_norm = (iso_scores - iso_scores.min()) / (iso_scores.max() - iso_scores.min() + 1e-10)
-
-        # Combine with equal weighting
-        scores = 0.5 * lof_norm + 0.5 * iso_norm
-
-        # Use bimodal calibration - pattern data often has clear separation
+        # Bimodal calibration — pattern data often has clear separation
         threshold, predictions = self._calibrator.calibrate(scores, method="bimodal")
 
         return DetectionResult(
@@ -956,43 +844,37 @@ class AdaptiveAnomalyDetector:
             confidence=0.82,
             profile_used=DatasetProfile.PATTERN_RECOGNITION,
             calibration_method="bimodal",
-            metadata={"backend": "LOF+IsolationForest"},
+            metadata={"backend": "mercury.CovarianceAwareDetector"},
         )
 
     def _detect_medical(self, X: NDArray[np.float64]) -> DetectionResult:
+        """Detection strategy for medical data (breast_cancer).
+
+        Uses Mercury's CovarianceAwareDetector with robust support
+        fraction and MAD calibration for life-safety sensitivity.
         """
-        Detection strategy for medical data (breast_cancer).
+        cov_detector = CovarianceAwareDetector(
+            contamination=self.contamination,
+            support_fraction=0.9,
+        )
+        cov_detector.fit(X)
+        scores = cov_detector.score_samples(X)
 
-        Uses pre-fitted EllipticEnvelope from fit().
-        This is the fix that improved breast_cancer F1 from 0.06 to 0.72.
-        """
-        if self._elliptic_envelope is None:
-            logger.warning("EllipticEnvelope not fitted, falling back to covariance")
-            return self._detect_covariance(X)
+        # MAD calibration for robust thresholding on medical data
+        threshold, predictions = self._calibrator.calibrate(scores, method="mad")
 
-        try:
-            # Get Mahalanobis distances as scores
-            raw_scores = self._elliptic_envelope.mahalanobis(X)
-
-            # Normalize to [0, 1]
-            scores = (raw_scores - raw_scores.min()) / (raw_scores.max() - raw_scores.min() + 1e-10)
-
-            # Use MAD calibration for robust thresholding
-            threshold, predictions = self._calibrator.calibrate(scores, method="mad")
-
-            return DetectionResult(
-                scores=scores,
-                predictions=predictions,
-                threshold=threshold,
-                confidence=0.90,
-                profile_used=DatasetProfile.MEDICAL,
-                calibration_method="mad",
-                metadata={"backend": "EllipticEnvelope"},
-            )
-
-        except Exception as e:
-            logger.warning(f"EllipticEnvelope scoring failed: {e}, falling back to covariance")
-            return self._detect_covariance(X)
+        return DetectionResult(
+            scores=scores,
+            predictions=predictions,
+            threshold=threshold,
+            confidence=0.90,
+            profile_used=DatasetProfile.MEDICAL,
+            calibration_method="mad",
+            metadata={
+                "backend": "mercury.CovarianceAwareDetector",
+                "covariance_method": "robust",
+            },
+        )
 
     def evaluate_ethics(self, result: DetectionResult) -> dict[str, Any]:
         """

@@ -1,10 +1,14 @@
-"""Mercury-native ML primitives — original Mercury Agent implementations.
+"""Sklearn-free ML primitives — numpy/scipy reimplementations.
 
-This module provides Mercury's own implementations of common ML utilities,
-metrics, model selection, preprocessing, and anomaly detection components.
-Every function here uses only numpy and scipy (standard numerical libs).
+This module provides numpy/scipy-only reimplementations of standard ML
+algorithms so that Mercury Agent can run without a scikit-learn dependency.
+The algorithms themselves are NOT original to Mercury — they are faithful
+reimplementations of published, peer-reviewed work.  Each class documents
+the original authors and citation.
 
-Mercury is original in design. If Mercury fails, it fails. Period.
+Dependency rationale: avoiding sklearn reduces install size and allows
+deployment in constrained environments.  The mathematical content belongs
+to the original authors credited in each class docstring.
 """
 
 from __future__ import annotations
@@ -514,7 +518,7 @@ def cross_val_score(
 
 
 def clone(estimator: Any) -> Any:
-    """Deep-copy an estimator (Mercury-native clone)."""
+    """Deep-copy an estimator (sklearn-free clone)."""
     return copy.deepcopy(estimator)
 
 
@@ -773,464 +777,12 @@ class NearestNeighbors:
 
 
 # =====================================================================
-# Anomaly Detection
-# =====================================================================
-
-
-class IsolationForest:
-    """Mercury-native Isolation Forest for anomaly detection.
-
-    Uses random recursive partitioning — anomalies are isolated in
-    fewer splits on average, yielding shorter path lengths.
-    """
-
-    def __init__(
-        self,
-        n_estimators: int = 100,
-        max_samples: int | str = "auto",
-        contamination: float = 0.1,
-        random_state: int | None = None,
-        n_jobs: int = 1,
-    ) -> None:
-        self.n_estimators = n_estimators
-        self.max_samples = max_samples
-        self.contamination = contamination
-        self.random_state = random_state
-        self.n_jobs = n_jobs
-        self._trees: list[_ITree] = []
-        self._n_samples: int = 0
-        self._offset: float = 0.0
-
-    def fit(self, X: NDArray[np.number[Any]], y: Any = None) -> IsolationForest:
-        X = np.asarray(X, dtype=np.float64)
-        n_samples = X.shape[0]
-        self._n_samples = n_samples
-
-        if self.max_samples == "auto":
-            subsample_size = min(256, n_samples)
-        elif isinstance(self.max_samples, float):
-            subsample_size = int(n_samples * self.max_samples)
-        else:
-            subsample_size = min(int(self.max_samples), n_samples)
-
-        max_depth = int(np.ceil(np.log2(max(subsample_size, 2))))
-        rng = np.random.RandomState(self.random_state)
-
-        self._trees = []
-        for _ in range(self.n_estimators):
-            idx = rng.choice(n_samples, size=subsample_size, replace=False)
-            tree = _ITree(max_depth=max_depth, rng=rng)
-            tree.fit(X[idx])
-            self._trees.append(tree)
-
-        # Set offset for decision_function (threshold at contamination)
-        scores = self._raw_score(X)
-        self._offset = float(np.percentile(scores, 100 * self.contamination))
-
-        return self
-
-    def _raw_score(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Compute raw anomaly scores (higher = more anomalous)."""
-        avg_path = np.zeros(len(X))
-        for tree in self._trees:
-            avg_path += tree.path_lengths(X)
-        avg_path /= len(self._trees)
-
-        # Normalize by expected path length c(n)
-        c_n = _expected_path_length(self._n_samples)
-        scores = 2.0 ** (-avg_path / max(c_n, 1e-10))
-        return scores
-
-    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Compute decision function (negative = more anomalous, standard convention)."""
-        X = np.asarray(X, dtype=np.float64)
-        return -(self._raw_score(X) - self._offset)
-
-    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Predict: -1 for anomalies, 1 for inliers."""
-        scores = self.decision_function(X)
-        return np.where(scores < 0, -1, 1)
-
-    def score_samples(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Return anomaly scores (negative = more anomalous)."""
-        return -self._raw_score(np.asarray(X, dtype=np.float64))
-
-
-class _ITree:
-    """Single Isolation Tree node."""
-
-    def __init__(self, max_depth: int, rng: np.random.RandomState) -> None:
-        self.max_depth = max_depth
-        self.rng = rng
-        self.feature: int = 0
-        self.threshold: float = 0.0
-        self.left: _ITree | None = None
-        self.right: _ITree | None = None
-        self.size: int = 0
-        self.is_leaf: bool = True
-
-    def fit(self, X: NDArray[np.number[Any]], depth: int = 0) -> None:
-        self.size = len(X)
-        if depth >= self.max_depth or len(X) <= 1:
-            self.is_leaf = True
-            return
-
-        n_features = X.shape[1]
-        self.feature = int(self.rng.randint(0, n_features))
-        col = X[:, self.feature]
-        col_min, col_max = col.min(), col.max()
-
-        if col_min == col_max:
-            self.is_leaf = True
-            return
-
-        self.threshold = float(self.rng.uniform(col_min, col_max))
-        self.is_leaf = False
-
-        left_mask = col < self.threshold
-        right_mask = ~left_mask
-
-        self.left = _ITree(self.max_depth, self.rng)
-        self.right = _ITree(self.max_depth, self.rng)
-        self.left.fit(X[left_mask], depth + 1)
-        self.right.fit(X[right_mask], depth + 1)
-
-    def path_lengths(self, X: NDArray[np.number[Any]], depth: int = 0) -> NDArray[np.floating[Any]]:
-        if self.is_leaf:
-            return np.full(len(X), depth + _expected_path_length(self.size))
-
-        col = X[:, self.feature]
-        left_mask = col < self.threshold
-        right_mask = ~left_mask
-
-        result = np.zeros(len(X))
-        if self.left is not None and np.any(left_mask):
-            result[left_mask] = self.left.path_lengths(X[left_mask], depth + 1)
-        if self.right is not None and np.any(right_mask):
-            result[right_mask] = self.right.path_lengths(X[right_mask], depth + 1)
-
-        return result
-
-
-def _expected_path_length(n: int) -> float:
-    """Expected path length for unsuccessful search in BST (harmonic number)."""
-    if n <= 1:
-        return 0.0
-    if n == 2:
-        return 1.0
-    return 2.0 * (np.log(n - 1) + np.euler_gamma) - 2.0 * (n - 1) / n
-
-
-class LocalOutlierFactor:
-    """Mercury-native Local Outlier Factor for anomaly detection."""
-
-    def __init__(
-        self,
-        n_neighbors: int = 20,
-        contamination: float = 0.1,
-        metric: str = "euclidean",
-        p: int = 2,
-        novelty: bool = False,
-        n_jobs: int = 1,
-    ) -> None:
-        self.n_neighbors = n_neighbors
-        self.contamination = contamination
-        self.metric = metric
-        self.p = p
-        self.novelty = novelty
-        self.n_jobs = n_jobs
-        self._X_train: NDArray[np.number[Any]] | None = None
-        self._lrd: NDArray[np.number[Any]] | None = None
-        self._k_distances: NDArray[np.number[Any]] | None = None
-        self._k_indices: NDArray[np.number[Any]] | None = None
-        self.offset_: float = 0.0
-        self.negative_outlier_factor_: NDArray[np.number[Any]] | None = None
-
-    def fit(self, X: NDArray[np.number[Any]], y: Any = None) -> LocalOutlierFactor:
-        X = np.asarray(X, dtype=np.float64)
-        self._X_train = X
-        n = len(X)
-        k = min(self.n_neighbors, n - 1)
-
-        # Compute pairwise distances
-        if self.metric == "minkowski":
-            dists = cdist(X, X, metric="minkowski", p=self.p)
-        else:
-            dists = cdist(X, X, metric=self.metric)
-
-        # Set self-distance to infinity
-        np.fill_diagonal(dists, np.inf)
-
-        # k-nearest neighbors
-        self._k_indices = np.argsort(dists, axis=1)[:, :k]
-        self._k_distances = np.take_along_axis(dists, self._k_indices, axis=1)
-
-        # Local reachability density
-        self._lrd = self._compute_lrd(dists, self._k_indices, self._k_distances)
-
-        # LOF scores for training data
-        lof_scores = self._compute_lof(self._k_indices, self._lrd)
-        self.negative_outlier_factor_ = -lof_scores
-
-        # Offset for decision function
-        self.offset_ = -float(np.percentile(lof_scores, 100 * (1 - self.contamination)))
-        return self
-
-    def _compute_lrd(
-        self,
-        dists: NDArray[np.number[Any]],
-        k_indices: NDArray[np.number[Any]],
-        k_distances: NDArray[np.number[Any]],
-    ) -> NDArray[np.number[Any]]:
-        """Compute local reachability density."""
-        n = len(k_indices)
-        lrd = np.zeros(n)
-
-        for i in range(n):
-            reach_dists = np.maximum(
-                k_distances[k_indices[i], -1],  # k-distance of neighbors
-                dists[i, k_indices[i]],
-            )
-            mean_reach = np.mean(reach_dists)
-            lrd[i] = 1.0 / max(mean_reach, 1e-10)
-
-        return lrd
-
-    def _compute_lof(
-        self, k_indices: NDArray[np.number[Any]], lrd: NDArray[np.number[Any]]
-    ) -> NDArray[np.number[Any]]:
-        """Compute LOF scores."""
-        n = len(k_indices)
-        lof = np.zeros(n)
-        for i in range(n):
-            neighbor_lrd = lrd[k_indices[i]]
-            lof[i] = np.mean(neighbor_lrd) / max(lrd[i], 1e-10)
-        return lof
-
-    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Compute decision function for new samples (shift by offset)."""
-        X = np.asarray(X, dtype=np.float64)
-        assert self._X_train is not None and self._lrd is not None
-        lof_scores = self._score_samples(X)
-        return -lof_scores - self.offset_
-
-    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Predict: -1 for anomalies, 1 for inliers."""
-        scores = self.decision_function(X)
-        return np.where(scores < 0, -1, 1)
-
-    def score_samples(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Return opposite of LOF scores (higher = more normal)."""
-        return -self._score_samples(np.asarray(X, dtype=np.float64))
-
-    def _score_samples(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Compute raw LOF scores for new data."""
-        assert self._X_train is not None and self._lrd is not None and self._k_distances is not None
-        k = self._k_distances.shape[1]
-
-        if self.metric == "minkowski":
-            dists = cdist(X, self._X_train, metric="minkowski", p=self.p)
-        else:
-            dists = cdist(X, self._X_train, metric=self.metric)
-
-        k_idx = np.argsort(dists, axis=1)[:, :k]
-
-        lof = np.zeros(len(X))
-        for i in range(len(X)):
-            reach_dists = np.maximum(
-                self._k_distances[k_idx[i], -1],
-                dists[i, k_idx[i]],
-            )
-            lrd_new = 1.0 / max(np.mean(reach_dists), 1e-10)
-            neighbor_lrd = self._lrd[k_idx[i]]
-            lof[i] = np.mean(neighbor_lrd) / max(lrd_new, 1e-10)
-
-        return lof
-
-
-class EllipticEnvelope:
-    """Mercury-native EllipticEnvelope for outlier detection via Mahalanobis distance."""
-
-    def __init__(
-        self,
-        contamination: float = 0.1,
-        random_state: int | None = None,
-        support_fraction: float | None = None,
-    ) -> None:
-        self.contamination = contamination
-        self.random_state = random_state
-        self.support_fraction = support_fraction
-        self._mean: NDArray[np.number[Any]] | None = None
-        self._cov_inv: NDArray[np.number[Any]] | None = None
-        self._threshold: float = 0.0
-
-    def fit(self, X: NDArray[np.number[Any]], y: Any = None) -> EllipticEnvelope:
-        X = np.asarray(X, dtype=np.float64)
-        n, d = X.shape
-
-        if self.support_fraction is not None:
-            n_support = max(d + 1, int(n * self.support_fraction))
-            self._mean, self._cov_inv = self._robust_estimate(X, n_support)
-        else:
-            self._mean = X.mean(axis=0)
-            cov = np.cov(X, rowvar=False)
-            if cov.ndim == 0:
-                cov = np.array([[cov]])
-            cov += np.eye(d) * 1e-6  # regularize
-            self._cov_inv = np.linalg.inv(cov)
-
-        distances = self._mahalanobis(X)
-        self._threshold = float(np.percentile(distances, 100 * (1 - self.contamination)))
-        return self
-
-    def _robust_estimate(
-        self, X: NDArray[np.number[Any]], n_support: int
-    ) -> tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]:
-        """Simple robust location/scatter estimation using C-step."""
-        rng = np.random.RandomState(self.random_state)
-        n, d = X.shape
-        n_support = min(n_support, n)
-
-        # Initialize with random subset
-        idx = rng.choice(n, n_support, replace=False)
-        subset = X[idx]
-        mean = subset.mean(axis=0)
-        cov = np.cov(subset, rowvar=False)
-        if cov.ndim == 0:
-            cov = np.array([[cov]])
-        cov += np.eye(d) * 1e-6
-
-        # C-step iterations
-        for _ in range(30):
-            cov_inv = np.linalg.inv(cov)
-            diff = X - mean
-            dists = np.sum(diff @ cov_inv * diff, axis=1)
-            idx = np.argsort(dists)[:n_support]
-            subset = X[idx]
-            new_mean = subset.mean(axis=0)
-            new_cov = np.cov(subset, rowvar=False)
-            if new_cov.ndim == 0:
-                new_cov = np.array([[new_cov]])
-            new_cov += np.eye(d) * 1e-6
-
-            if np.linalg.norm(new_mean - mean) < 1e-8:
-                break
-            mean, cov = new_mean, new_cov
-
-        return mean, np.linalg.inv(cov)
-
-    def _mahalanobis(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        assert self._mean is not None and self._cov_inv is not None
-        diff = X - self._mean
-        return np.sqrt(np.sum(diff @ self._cov_inv * diff, axis=1))
-
-    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Negative Mahalanobis distance (higher = more normal)."""
-        return -self._mahalanobis(np.asarray(X, dtype=np.float64))
-
-    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Predict: -1 for anomalies, 1 for inliers."""
-        distances = self._mahalanobis(np.asarray(X, dtype=np.float64))
-        return np.where(distances > self._threshold, -1, 1)
-
-    def mahalanobis(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Compute Mahalanobis distances."""
-        return self._mahalanobis(np.asarray(X, dtype=np.float64))
-
-
-class MinCovDet:
-    """Mercury-native Minimum Covariance Determinant estimator."""
-
-    def __init__(
-        self,
-        support_fraction: float | None = None,
-        random_state: int | None = None,
-    ) -> None:
-        self.support_fraction = support_fraction
-        self.random_state = random_state
-        self.location_: NDArray[np.number[Any]] | None = None
-        self.covariance_: NDArray[np.number[Any]] | None = None
-        self._cov_inv: NDArray[np.number[Any]] | None = None
-
-    def fit(self, X: NDArray[np.number[Any]]) -> MinCovDet:
-        X = np.asarray(X, dtype=np.float64)
-        n, d = X.shape
-        sf = self.support_fraction or max((n + d + 1) / (2 * n), 0.5)
-
-        ee = EllipticEnvelope(support_fraction=sf, random_state=self.random_state)
-        ee.fit(X)
-        self.location_ = ee._mean
-        assert ee._cov_inv is not None
-        self.covariance_ = np.linalg.inv(ee._cov_inv)
-        self._cov_inv = ee._cov_inv
-        return self
-
-    def mahalanobis(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        assert self.location_ is not None and self._cov_inv is not None
-        diff = np.asarray(X, dtype=np.float64) - self.location_
-        return np.sum(diff @ self._cov_inv * diff, axis=1)
-
-
-class OneClassSVM:
-    """Mercury-native One-Class SVM using RBF kernel approximation.
-
-    Uses kernel approximation + linear scoring for efficiency.
-    """
-
-    def __init__(
-        self,
-        kernel: str = "rbf",
-        nu: float = 0.1,
-        gamma: str | float = "scale",
-        random_state: int | None = None,
-    ) -> None:
-        self.kernel = kernel
-        self.nu = nu
-        self.gamma = gamma
-        self.random_state = random_state
-        self._center: NDArray[np.number[Any]] | None = None
-        self._scale: float = 1.0
-        self._threshold: float = 0.0
-        self._X_train: NDArray[np.number[Any]] | None = None
-
-    def fit(self, X: NDArray[np.number[Any]], y: Any = None) -> OneClassSVM:
-        X = np.asarray(X, dtype=np.float64)
-        self._X_train = X
-        self._center = X.mean(axis=0)
-        if self.gamma == "scale":
-            variance = X.var()
-            self._scale = 1.0 / (X.shape[1] * max(variance, 1e-10))
-        else:
-            self._scale = float(self.gamma)
-
-        scores = self._compute_scores(X)
-        self._threshold = float(np.percentile(scores, 100 * self.nu))
-        return self
-
-    def _compute_scores(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        """Compute distance-based anomaly scores using RBF kernel."""
-        assert self._X_train is not None
-        # Average RBF kernel similarity to training data
-        dists_sq = cdist(X, self._X_train, metric="sqeuclidean")
-        K = np.exp(-self._scale * dists_sq)
-        return -np.mean(K, axis=1)  # Negative = more anomalous
-
-    def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        X = np.asarray(X, dtype=np.float64)
-        return -(self._compute_scores(X) - self._threshold)
-
-    def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        scores = self.decision_function(X)
-        return np.where(scores < 0, -1, 1)
-
-
-# =====================================================================
 # Linear Models
 # =====================================================================
 
 
 class LogisticRegression:
-    """Mercury-native Logistic Regression using L-BFGS (via scipy)."""
+    """Logistic Regression using L-BFGS (sklearn-free reimplementation)."""
 
     def __init__(
         self,
@@ -1306,7 +858,10 @@ class LogisticRegression:
 
 
 class SGDClassifier:
-    """Mercury-native SGD classifier for online learning."""
+    """SGD classifier for online learning (sklearn-free reimplementation).
+
+    Based on standard stochastic gradient descent with hinge/log loss.
+    """
 
     def __init__(
         self,
@@ -1391,7 +946,14 @@ class SGDClassifier:
 
 
 class PassiveAggressiveClassifier:
-    """Mercury-native Passive-Aggressive classifier for online learning."""
+    """Passive-Aggressive classifier (sklearn-free reimplementation).
+
+    Algorithm by Crammer, Dekel, Keshet, Shalev-Shwartz & Singer (2006).
+
+    Reference:
+        Crammer, K., et al. (2006). Online passive-aggressive algorithms.
+        *JMLR*, 7, 551–585.
+    """
 
     def __init__(
         self,
@@ -1459,9 +1021,15 @@ class PassiveAggressiveClassifier:
 
 
 class GradientBoostingClassifier:
-    """Mercury-native Gradient Boosting using decision stumps.
+    """Gradient Boosting using decision stumps (sklearn-free reimplementation).
 
-    Simplified but functional GBM for binary classification.
+    Based on Friedman (2001). Simplified to binary classification with
+    decision stumps as weak learners.
+
+    Reference:
+        Friedman, J. H. (2001). Greedy function approximation: a
+        gradient boosting machine. *Annals of Statistics*, 29(5),
+        1189–1232.
     """
 
     def __init__(
@@ -1523,7 +1091,14 @@ class GradientBoostingClassifier:
 
 
 class RandomForestClassifier:
-    """Mercury-native Random Forest for classification."""
+    """Random Forest classifier (sklearn-free reimplementation).
+
+    Ensemble of bootstrapped decision stumps. Based on Breiman (2001).
+
+    Reference:
+        Breiman, L. (2001). Random forests. *Machine Learning*, 45(1),
+        5–32.
+    """
 
     def __init__(
         self,
@@ -1571,9 +1146,10 @@ class RandomForestClassifier:
 
 
 class SVC:
-    """Mercury-native SVC using kernel-based scoring.
+    """SVC using kernel-based scoring (sklearn-free reimplementation).
 
-    Lightweight implementation suitable for moderate-scale problems.
+    Lightweight RBF-kernel similarity scorer. Based on the support
+    vector classification framework of Vapnik (1995).
     """
 
     def __init__(
@@ -1697,7 +1273,15 @@ class _DecisionStump:
 
 
 class GaussianMixture:
-    """Mercury-native Gaussian Mixture Model using EM algorithm."""
+    """Gaussian Mixture Model via EM (sklearn-free reimplementation).
+
+    Expectation-Maximization algorithm by Dempster, Laird & Rubin (1977).
+
+    Reference:
+        Dempster, A. P., Laird, N. M., & Rubin, D. B. (1977). Maximum
+        likelihood from incomplete data via the EM algorithm. *JRSS-B*,
+        39(1), 1–38.
+    """
 
     def __init__(
         self,
@@ -1822,7 +1406,10 @@ def mutual_info_classif(
 
 
 class IsotonicRegression:
-    """Mercury-native isotonic regression using the pool adjacent violators algorithm."""
+    """Isotonic regression via pool adjacent violators (sklearn-free reimplementation).
+
+    Algorithm by Barlow, Bartholomew, Bremner & Brunk (1972).
+    """
 
     def __init__(
         self,

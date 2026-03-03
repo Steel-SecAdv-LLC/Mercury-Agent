@@ -20,7 +20,7 @@ from __future__ import annotations
 
 """Statistical anomaly detector using Mercury's original mathematical frameworks.
 
-Ensemble composition (replaces prior z-score + IQR + IsolationForest):
+Mercury-native ensemble composition:
   - ResonanceScore  (40%): FFT-based harmonic spectral anomaly detection
   - KinematicScore  (30%): Physics-based jerk/curvature dynamics
   - InfoGeometryScore (30%): Fisher Information Matrix OOD detection

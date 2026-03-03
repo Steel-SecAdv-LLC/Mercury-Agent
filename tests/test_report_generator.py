@@ -126,7 +126,7 @@ class TestTechnicalDetails:
         """Test technical details creation."""
         details = TechnicalDetails(
             methodology="Statistical analysis",
-            algorithms_used=["IsolationForest", "OneClassSVM"],
+            algorithms_used=["ResonanceScore", "KinematicScore"],
             parameters={"contamination": 0.1},
             data_sources=["sensor_data"],
         )

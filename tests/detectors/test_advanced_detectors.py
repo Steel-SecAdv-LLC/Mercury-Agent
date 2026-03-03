@@ -335,25 +335,25 @@ class TestGWOEnsembleDetector:
 
     def test_add_detectors(self) -> None:
         """Test adding detectors to ensemble."""
+        from omni_mercury_engine.core.adaptive_detector import CovarianceAwareDetector
         from omni_mercury_engine.detectors.advanced import GWOEnsembleDetector
-        from omni_mercury_engine.ml.mercury_ml import IsolationForest
 
         detector = GWOEnsembleDetector()
-        detector.add_detector(IsolationForest(contamination=0.1, random_state=42))
-        detector.add_detector(IsolationForest(contamination=0.05, random_state=42))
+        detector.add_detector(CovarianceAwareDetector(contamination=0.1))
+        detector.add_detector(CovarianceAwareDetector(contamination=0.05))
 
         assert len(detector.detectors) == 2
 
     def test_fit_without_labels(self) -> None:
         """Test fitting without validation labels (equal weights)."""
+        from omni_mercury_engine.core.adaptive_detector import CovarianceAwareDetector
         from omni_mercury_engine.detectors.advanced import GWOEnsembleDetector
-        from omni_mercury_engine.ml.mercury_ml import IsolationForest
 
         X, _ = generate_industrial_data(n_samples=200, n_sensors=10)
 
         detector = GWOEnsembleDetector()
-        detector.add_detector(IsolationForest(contamination=0.1, random_state=42))
-        detector.add_detector(IsolationForest(contamination=0.05, random_state=42))
+        detector.add_detector(CovarianceAwareDetector(contamination=0.1))
+        detector.add_detector(CovarianceAwareDetector(contamination=0.05))
 
         detector.fit(X)
 
@@ -363,14 +363,14 @@ class TestGWOEnsembleDetector:
 
     def test_fit_with_labels(self) -> None:
         """Test fitting with validation labels (optimized weights)."""
+        from omni_mercury_engine.core.adaptive_detector import CovarianceAwareDetector
         from omni_mercury_engine.detectors.advanced import GWOEnsembleDetector
-        from omni_mercury_engine.ml.mercury_ml import IsolationForest
 
         X, y = generate_industrial_data(n_samples=200, n_sensors=10)
 
         detector = GWOEnsembleDetector(n_wolves=5, max_iterations=5)
-        detector.add_detector(IsolationForest(contamination=0.1, random_state=42))
-        detector.add_detector(IsolationForest(contamination=0.05, random_state=42))
+        detector.add_detector(CovarianceAwareDetector(contamination=0.1))
+        detector.add_detector(CovarianceAwareDetector(contamination=0.05))
 
         detector.fit(X, y_val=y)
 
@@ -380,14 +380,14 @@ class TestGWOEnsembleDetector:
 
     def test_predict(self) -> None:
         """Test prediction."""
+        from omni_mercury_engine.core.adaptive_detector import CovarianceAwareDetector
         from omni_mercury_engine.detectors.advanced import GWOEnsembleDetector
-        from omni_mercury_engine.ml.mercury_ml import IsolationForest
 
         X_train, y = generate_industrial_data(n_samples=200, n_sensors=10)
         X_test, _ = generate_industrial_data(n_samples=50, n_sensors=10, seed=123)
 
         detector = GWOEnsembleDetector()
-        detector.add_detector(IsolationForest(contamination=0.1, random_state=42))
+        detector.add_detector(CovarianceAwareDetector(contamination=0.1))
         detector.fit(X_train, y_val=y)
 
         scores = detector.predict(X_test)

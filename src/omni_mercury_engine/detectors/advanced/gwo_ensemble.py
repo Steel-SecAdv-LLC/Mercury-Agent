@@ -216,12 +216,11 @@ class GWOEnsembleDetector:
     to maximize detection performance on validation data.
 
     Example:
-        >>> from omni_mercury_engine.ml.mercury_ml import IsolationForest
-        >>> from omni_mercury_engine.ml.mercury_ml import LocalOutlierFactor
+        >>> from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
         >>>
         >>> detectors = [
-        ...     IsolationForest(contamination=0.1),
-        ...     LocalOutlierFactor(novelty=True),
+        ...     MercuryAnomalyDetector(enable_ama=True),
+        ...     MercuryAnomalyDetector(enable_ama=False),
         ... ]
         >>>
         >>> ensemble = GWOEnsembleDetector(detectors)

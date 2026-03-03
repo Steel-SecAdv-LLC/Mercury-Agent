@@ -208,12 +208,13 @@ class TestIntegrationWithEngine:
             loader._create_synthetic_fallback()
             X, y = loader.load_data()
 
-            # Simple detector test
-            from omni_mercury_engine.ml.mercury_ml import IsolationForest
+            # Simple detector test using Mercury-native scoring
+            from omni_mercury_engine.ml.mercury_ml import StandardScaler
 
-            clf = IsolationForest(random_state=42, contamination=0.1)
-            clf.fit(X)
-            scores = -clf.decision_function(X)
+            X_scaled = StandardScaler().fit_transform(X)
+            median = np.median(X_scaled, axis=0)
+            mad = np.median(np.abs(X_scaled - median), axis=0) + 1e-10
+            scores = np.max(np.abs(X_scaled - median) / mad, axis=1)
 
             if len(np.unique(y)) > 1:
                 from omni_mercury_engine.ml.mercury_ml import roc_auc_score as native_roc_auc_score

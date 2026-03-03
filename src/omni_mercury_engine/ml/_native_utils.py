@@ -12,17 +12,14 @@ from __future__ import annotations
 # Re-export everything from the canonical module under both old and new names.
 from omni_mercury_engine.ml.mercury_ml import (
     PCA,
-    EllipticEnvelope,
     GaussianMixture,
     GradientBoostingClassifier,
     IsotonicRegression,
     KFold,
     KMeans,
     LabelEncoder,
-    LocalOutlierFactor,
     LogisticRegression,
     NearestNeighbors,
-    OneClassSVM,
     PassiveAggressiveClassifier,
     SGDClassifier,
     StandardScaler,
@@ -58,9 +55,6 @@ NativeKMeans = KMeans
 NativeGaussianMixture = GaussianMixture
 NativeIsotonicRegression = IsotonicRegression
 NativeNearestNeighbors = NearestNeighbors
-NativeOneClassSVM = OneClassSVM
-NativeLocalOutlierFactor = LocalOutlierFactor
-NativeEllipticEnvelope = EllipticEnvelope
 
 native_roc_auc_score = roc_auc_score
 native_average_precision_score = average_precision_score

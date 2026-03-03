@@ -200,21 +200,8 @@ class LOFDetector:
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> LOFDetector:
-        """Fit the LOF detector."""
+        """Fit the LOF detector using Mercury-native cKDTree implementation."""
         from scipy.spatial import cKDTree
-
-        from omni_mercury_engine.ml.mercury_ml import LocalOutlierFactor
-
-        self._lof = LocalOutlierFactor(
-            n_neighbors=min(self.n_neighbors, len(X) - 1),
-            contamination=self.contamination,
-            metric=self.metric,
-            p=self.p,
-            novelty=True,
-        )
-        assert self._lof is not None
-        self._lof.fit(X)
-        self._fitted = True
 
         self._X_train = X.copy()
         n = len(X)
