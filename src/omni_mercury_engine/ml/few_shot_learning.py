@@ -1486,7 +1486,11 @@ class FewShotLearner:
             avg_f1 = 0.0
 
             try:
-                from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
+                from omni_mercury_engine.ml.mercury_ml import (
+                    f1_score,
+                    precision_score,
+                    recall_score,
+                )
 
                 avg_precision = precision_score(
                     all_true_arr, all_preds_arr, average="weighted", zero_division=0

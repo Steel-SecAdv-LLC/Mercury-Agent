@@ -90,10 +90,21 @@ def f1_score(
     *,
     zero_division: float = 0.0,
     average: str = "binary",
+    pos_label: int | None = None,
 ) -> float:
     """Compute F1 score."""
-    p = precision_score(y_true, y_pred, zero_division=zero_division, average=average)
-    r = recall_score(y_true, y_pred, zero_division=zero_division, average=average)
+    if pos_label is not None:
+        # Filter to binary evaluation for pos_label
+        mask = (y_true == pos_label) | (y_pred == pos_label)
+        if mask.sum() == 0:
+            return zero_division
+        binary_true = (y_true == pos_label).astype(np.intp)
+        binary_pred = (y_pred == pos_label).astype(np.intp)
+        p = precision_score(binary_true, binary_pred, zero_division=zero_division, average="binary")
+        r = recall_score(binary_true, binary_pred, zero_division=zero_division, average="binary")
+    else:
+        p = precision_score(y_true, y_pred, zero_division=zero_division, average=average)
+        r = recall_score(y_true, y_pred, zero_division=zero_division, average=average)
     if p + r == 0:
         return zero_division
     return 2.0 * p * r / (p + r)
@@ -1154,6 +1165,7 @@ class RandomForestClassifier:
         self.random_state = random_state
         self._trees: list[_DecisionStump] = []
         self.classes_: NDArray[np.number[Any]] | None = None
+        self.feature_importances_: NDArray[np.number[Any]] | None = None
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> RandomForestClassifier:
         X = np.asarray(X, dtype=np.float64)
@@ -1161,14 +1173,20 @@ class RandomForestClassifier:
         self.classes_ = np.unique(y)
         rng = np.random.RandomState(self.random_state)
         n = len(X)
+        n_features = X.shape[1]
 
         self._trees = []
+        importances = np.zeros(n_features)
         for _ in range(self.n_estimators):
             # Bootstrap sample
             idx = rng.choice(n, n, replace=True)
             tree = _DecisionStump(max_depth=self.max_depth, rng=rng)
             tree.fit(X[idx], y[idx])
             self._trees.append(tree)
+            if tree.feature_idx is not None:
+                importances[tree.feature_idx] += 1.0
+        total = importances.sum()
+        self.feature_importances_ = importances / total if total > 0 else importances
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
@@ -1250,6 +1268,7 @@ class _DecisionStump:
         self.max_depth = max_depth
         self.rng = rng or np.random.RandomState()
         self.feature: int = 0
+        self.feature_idx: int | None = None
         self.threshold: float = 0.0
         self.value: float = 0.0
         self.left: _DecisionStump | None = None
@@ -1291,6 +1310,7 @@ class _DecisionStump:
             return
 
         self.is_leaf = False
+        self.feature_idx = self.feature
         left_mask = X[:, self.feature] < self.threshold
         self.left = _DecisionStump(self.max_depth, self.rng)
         self.right = _DecisionStump(self.max_depth, self.rng)

@@ -840,11 +840,11 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     if _SKLEARN_AVAILABLE:
         data = fetch_with_retry(
             fetch_covtype,
-        "covtype",
-        max_retries=3,
-        base_delay=2.0,
-        as_frame=False,
-    )
+            "covtype",
+            max_retries=3,
+            base_delay=2.0,
+            as_frame=False,
+        )
 
     if data is not None:
         try:
@@ -942,13 +942,13 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     else:
         data = fetch_with_retry(
             fetch_kddcup99,
-        "KDDCup99",
-        max_retries=3,
-        base_delay=2.0,
-        subset="SA",
-        percent10=True,
-        as_frame=False,
-    )
+            "KDDCup99",
+            max_retries=3,
+            base_delay=2.0,
+            subset="SA",
+            percent10=True,
+            as_frame=False,
+        )
 
     if data is not None:
         try:

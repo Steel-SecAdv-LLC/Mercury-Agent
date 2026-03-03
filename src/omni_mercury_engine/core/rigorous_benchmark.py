@@ -208,7 +208,7 @@ def stratified_split(
         ) from e
 
     set_all_seeds(seed)
-    return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)  # type: ignore[no-any-return]
+    return train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)
 
 
 def compute_event_metrics(

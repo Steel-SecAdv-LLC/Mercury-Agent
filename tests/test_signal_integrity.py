@@ -15,7 +15,6 @@ from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.ml.mercury_ml import make_blobs, make_classification, roc_auc_score
 
 
-
 class TestContinuousScores:
     """Test that scores are continuous, not discrete."""
 

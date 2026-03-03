@@ -308,7 +308,11 @@ class MetricsCalculator:
         y_pred_adjusted = self._point_adjust(y_true, y_pred)
         if np.sum(y_pred_adjusted) > 0:
             try:
-                from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
+                from omni_mercury_engine.ml.mercury_ml import (
+                    f1_score,
+                    precision_score,
+                    recall_score,
+                )
             except ImportError as e:
                 raise ImportError(
                     "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"

@@ -243,9 +243,7 @@ class LOFDetector:
         self._train_lof = lof_scores
 
         # Threshold from contamination
-        self._threshold_val = float(
-            np.percentile(lof_scores, (1 - self.contamination) * 100)
-        )
+        self._threshold_val = float(np.percentile(lof_scores, (1 - self.contamination) * 100))
         self._fitted = True
         return self
 
@@ -461,8 +459,10 @@ class MCDDetector:
             X = X.reshape(-1, 1)
 
         n, p = X.shape
-        h = int(np.ceil((n + p + 1) / 2)) if self.support_fraction is None else int(
-            np.ceil(self.support_fraction * n)
+        h = (
+            int(np.ceil((n + p + 1) / 2))
+            if self.support_fraction is None
+            else int(np.ceil(self.support_fraction * n))
         )
         h = max(h, p + 1)  # need at least p+1 points
         h = min(h, n)
