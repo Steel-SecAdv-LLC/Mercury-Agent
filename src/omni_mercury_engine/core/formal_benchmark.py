@@ -589,7 +589,7 @@ def run_baseline_benchmarks(
 
     # Anomaly ratio for contamination parameter
     anomaly_ratio = np.mean(y)
-    contamination = min(0.5, max(0.01, anomaly_ratio))
+    _contamination = min(0.5, max(0.01, anomaly_ratio))
 
     # Mercury MercuryAnomalyDetector
     class MercuryWrapper:
