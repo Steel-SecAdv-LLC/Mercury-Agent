@@ -577,9 +577,9 @@ class AnomalyMathArrest:
         probe_names = [r.probe_name for r in results]
         fit_qualities = {r.probe_name: r.trajectory_fit_quality for r in results}
 
-        result = self._decorrelator.calibrate(score_matrix, probe_names, fit_qualities)
-        self._decorrelation_cache = dict(result)
-        return result
+        multipliers = self._decorrelator.calibrate(score_matrix, probe_names, fit_qualities)
+        self._decorrelation_cache = multipliers
+        return multipliers
 
     def get_probe_diagnostics(self) -> list[dict[str, Any]]:
         """Per-probe fit quality and status for full transparency."""
