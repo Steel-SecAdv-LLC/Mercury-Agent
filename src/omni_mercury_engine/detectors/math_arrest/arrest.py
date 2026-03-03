@@ -232,6 +232,8 @@ class AnomalyMathArrest:
         self._fit_qualities: dict[str, float] = {}
         self._geometry_routing: bool = geometry_routing
         self._detected_geometries: list[str] = []
+        # Cache for decorrelation results — see calibrate_decorrelator() docstring.
+        self._decorrelation_cache: dict[str, float] | None = None
 
     @property
     def detected_geometries(self) -> list[str]:
@@ -291,6 +293,10 @@ class AnomalyMathArrest:
         n = data.shape[0]
         if n < MIN_SAMPLES:
             raise ValueError(f"AnomalyMathArrest requires at least {MIN_SAMPLES} samples, got {n}.")
+
+        # Invalidate decorrelation cache on re-fit so calibrate_decorrelator()
+        # recomputes from scratch with the new probe state.
+        self._decorrelation_cache = None
 
         # Option B: geometry-routing probe selection
         if self._geometry_routing and self._user_probe_spec is None:
@@ -500,12 +506,29 @@ class AnomalyMathArrest:
     ) -> dict[str, float]:
         """Run all fitted probes on data and compute weight multipliers.
 
+        Results are cached on the instance after the first successful
+        computation.  Subsequent calls within the same fitted state
+        return the cached result without recomputing.  The cache is
+        automatically invalidated when :meth:`fit` is called again.
+
+        Caching is required because ``calibrate_decorrelator`` runs
+        every fitted probe on *data* to build a score matrix and then
+        computes an O(n_probes²) pairwise correlation matrix.  Without
+        caching, benchmark CV loops and any code path that calls this
+        method more than once per fitted instance would redundantly
+        repeat the entire computation and re-emit "Redundant probe
+        pair" warnings.
+
         Args:
             data: Calibration data.
 
         Returns:
             Weight multipliers dict (probe_name to float in ``(0, 1]``).
         """
+        # Return cached result when available (invalidated on re-fit).
+        if self._decorrelation_cache is not None:
+            return dict(self._decorrelation_cache)
+
         n = data.shape[0]
         if n < MIN_SAMPLES_FOR_DECORRELATION:
             logger.debug(
@@ -554,7 +577,9 @@ class AnomalyMathArrest:
         probe_names = [r.probe_name for r in results]
         fit_qualities = {r.probe_name: r.trajectory_fit_quality for r in results}
 
-        return self._decorrelator.calibrate(score_matrix, probe_names, fit_qualities)
+        result = self._decorrelator.calibrate(score_matrix, probe_names, fit_qualities)
+        self._decorrelation_cache = dict(result)
+        return result
 
     def get_probe_diagnostics(self) -> list[dict[str, Any]]:
         """Per-probe fit quality and status for full transparency."""
