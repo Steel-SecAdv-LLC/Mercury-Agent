@@ -45,7 +45,7 @@ def test_domain_preset_activates_correct_probe_count() -> None:
 
 def test_mercury_domain_hint_reaches_ama() -> None:
     """When MercuryAnomalyDetector is given a domain hint, AMA must use
-    the corresponding preset (not all-21)."""
+    the corresponding preset (not all-17)."""
     rng = np.random.RandomState(7)
     X = rng.randn(200, 8)
     det = MercuryAnomalyDetector(auto_validate=False, domain="tabular")

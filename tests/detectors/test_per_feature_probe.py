@@ -7,7 +7,7 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
     BaseEquationProbe,
     ProbeResult,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.iqr_robust import IQRRobustProbe
+from omni_mercury_engine.detectors.math_arrest.probes.ethical_iqr import EthicalIQRProbe
 from omni_mercury_engine.detectors.math_arrest.probes.variance_adapted import (
     VarianceAdaptedProbe,
 )
@@ -19,7 +19,7 @@ def test_per_feature_scores_shape_matches_detect() -> None:
     X_train = rng.randn(200, 5)
     X_test = rng.randn(50, 5)
 
-    probe = IQRRobustProbe()
+    probe = EthicalIQRProbe()
     probe.fit_trajectory(X_train)
     pf = probe.per_feature_scores(X_test)
     assert pf.shape == (50,), f"Expected (50,), got {pf.shape}"
@@ -71,7 +71,7 @@ def test_per_feature_high_dimensional_uses_pca() -> None:
     """Data with > 50 features must be PCA-reduced without crashing."""
     rng = np.random.RandomState(3)
     X = rng.randn(100, 60)  # > 50 features triggers PCA path
-    probe = IQRRobustProbe()
+    probe = EthicalIQRProbe()
     probe.fit_trajectory(X)
     scores = probe.per_feature_scores(X)
     assert scores.shape == (100,)

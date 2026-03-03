@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) Steel Security Advisors LLC
-"""AnomalyMathArrest: 21-probe mathematically-independent equation ensemble.
+"""AnomalyMathArrest: 17-probe mathematically-independent equation ensemble.
 
 Replaces IsolationForest with transparent, auditable anomaly detection.
 Every detection traces to a specific mathematical violation in one or more
-of the 21 probe equations.
+of the 17 probe equations.
 """
 
 from __future__ import annotations
@@ -28,47 +28,35 @@ from omni_mercury_engine.detectors.math_arrest.fusion import (
     CorrelationAwareDecorrelator,
     PhiWeightedFusion,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.additive import (
-    AdditiveProbe,
+from omni_mercury_engine.detectors.math_arrest.probes.additive_harmonic import (
+    AdditiveHarmonicProbe,
+)
+from omni_mercury_engine.detectors.math_arrest.probes.annealed_zscore import (
+    AnnealedZScoreProbe,
 )
 from omni_mercury_engine.detectors.math_arrest.probes.boltzmann_coupling import (
     BoltzmannCouplingProbe,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.catalan import (
-    CatalanOptimizedProbe,
+from omni_mercury_engine.detectors.math_arrest.probes.catalan_decay import (
+    CatalanDecayProbe,
 )
 from omni_mercury_engine.detectors.math_arrest.probes.energy_minimization import (
     EnergyMinimizationProbe,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.ethical import (
-    EthicalConstrainedProbe,
-)
-from omni_mercury_engine.detectors.math_arrest.probes.exponential import (
-    ExponentialDecayProbe,
+from omni_mercury_engine.detectors.math_arrest.probes.ethical_iqr import (
+    EthicalIQRProbe,
 )
 from omni_mercury_engine.detectors.math_arrest.probes.fractal_similarity import (
     FractalSelfSimilarityProbe,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.harmonic import (
-    HarmonicOscillatorProbe,
-)
 from omni_mercury_engine.detectors.math_arrest.probes.helix import (
     HelixMultiplicativeProbe,
-)
-from omni_mercury_engine.detectors.math_arrest.probes.iqr_robust import (
-    IQRRobustProbe,
 )
 from omni_mercury_engine.detectors.math_arrest.probes.lyapunov_chaos import (
     LyapunovChaosProbe,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.modified_zscore import (
-    ModifiedZScoreProbe,
-)
 from omni_mercury_engine.detectors.math_arrest.probes.momentum import (
     MomentumProbe,
-)
-from omni_mercury_engine.detectors.math_arrest.probes.quantum_annealing import (
-    QuantumAnnealingProbe,
 )
 from omni_mercury_engine.detectors.math_arrest.probes.quantum_superposition import (
     QuantumSuperpositionProbe,
@@ -98,13 +86,11 @@ logger = logging.getLogger(__name__)
 # Probe registry: canonical name → class
 # ---------------------------------------------------------------------------
 _PROBE_REGISTRY: dict[str, type[BaseEquationProbe]] = {
-    "AdditiveProbe": AdditiveProbe,
-    "HarmonicOscillatorProbe": HarmonicOscillatorProbe,
+    "AdditiveHarmonicProbe": AdditiveHarmonicProbe,
     "MomentumProbe": MomentumProbe,
     "VarianceAdaptedProbe": VarianceAdaptedProbe,
-    "EthicalConstrainedProbe": EthicalConstrainedProbe,
-    "CatalanOptimizedProbe": CatalanOptimizedProbe,
-    "ExponentialDecayProbe": ExponentialDecayProbe,
+    "EthicalIQRProbe": EthicalIQRProbe,
+    "CatalanDecayProbe": CatalanDecayProbe,
     "HelixMultiplicativeProbe": HelixMultiplicativeProbe,
     "R3RecursionResonanceProbe": R3RecursionResonanceProbe,
     "SVDProjectionProbe": SVDProjectionProbe,
@@ -115,10 +101,8 @@ _PROBE_REGISTRY: dict[str, type[BaseEquationProbe]] = {
     "WavePropagationProbe": WavePropagationProbe,
     "QuantumSuperpositionProbe": QuantumSuperpositionProbe,
     "EnergyMinimizationProbe": EnergyMinimizationProbe,
-    "QuantumAnnealingProbe": QuantumAnnealingProbe,
+    "AnnealedZScoreProbe": AnnealedZScoreProbe,
     "BoltzmannCouplingProbe": BoltzmannCouplingProbe,
-    "IQRRobustProbe": IQRRobustProbe,
-    "ModifiedZScoreProbe": ModifiedZScoreProbe,
 }
 
 _ALL_PROBE_NAMES: list[str] = list(_PROBE_REGISTRY.keys())
@@ -129,14 +113,13 @@ _ALL_PROBE_NAMES: list[str] = list(_PROBE_REGISTRY.keys())
 PROBE_PRESETS: dict[str, list[str]] = {
     "all": _ALL_PROBE_NAMES,
     "robust": [
-        "AdditiveProbe",
+        "AdditiveHarmonicProbe",
         "VarianceAdaptedProbe",
-        "EthicalConstrainedProbe",
-        "IQRRobustProbe",
-        "ModifiedZScoreProbe",
+        "EthicalIQRProbe",
+        "AnnealedZScoreProbe",
     ],
     "frequency": [
-        "HarmonicOscillatorProbe",
+        "AdditiveHarmonicProbe",
         "WavePropagationProbe",
         "ZetaHarmonicProbe",
         "QuantumSuperpositionProbe",
@@ -146,82 +129,80 @@ PROBE_PRESETS: dict[str, list[str]] = {
         "LyapunovChaosProbe",
         "R3RecursionResonanceProbe",
         "BoltzmannCouplingProbe",
-        "QuantumAnnealingProbe",
+        "AnnealedZScoreProbe",
         "EnergyMinimizationProbe",
     ],
     "minimal": [
-        "AdditiveProbe",
-        "ModifiedZScoreProbe",
-        "IQRRobustProbe",
+        "AdditiveHarmonicProbe",
+        "AnnealedZScoreProbe",
+        "EthicalIQRProbe",
     ],
     "forensic": _ALL_PROBE_NAMES,
     # Domain-semantic presets (top-down prior, complements geometry routing)
     "infrastructure": [
-        "HarmonicOscillatorProbe",
+        "AdditiveHarmonicProbe",
         "WavePropagationProbe",
         "ZetaHarmonicProbe",
         "MomentumProbe",
-        "IQRRobustProbe",
+        "EthicalIQRProbe",
         "LyapunovChaosProbe",
     ],
     "medical": [
-        "HarmonicOscillatorProbe",
+        "AdditiveHarmonicProbe",
         "WavePropagationProbe",
         "VarianceAdaptedProbe",
         "BoltzmannCouplingProbe",
-        "IQRRobustProbe",
+        "EthicalIQRProbe",
         "R3RecursionResonanceProbe",
     ],
     "humanitarian": [
-        "IQRRobustProbe",
-        "ModifiedZScoreProbe",
+        "EthicalIQRProbe",
+        "AnnealedZScoreProbe",
         "SVDProjectionProbe",
-        "EthicalConstrainedProbe",
-        "AdditiveProbe",
+        "AdditiveHarmonicProbe",
         "TopologyHomologyProbe",
     ],
     "security": [
         "R3RecursionResonanceProbe",
         "BoltzmannCouplingProbe",
         "LyapunovChaosProbe",
-        "IQRRobustProbe",
+        "EthicalIQRProbe",
         "SVDProjectionProbe",
-        "QuantumAnnealingProbe",
+        "AnnealedZScoreProbe",
     ],
     "environmental": [
         "WavePropagationProbe",
-        "HarmonicOscillatorProbe",
+        "AdditiveHarmonicProbe",
         "FractalSelfSimilarityProbe",
         "LyapunovChaosProbe",
         "EnergyMinimizationProbe",
-        "IQRRobustProbe",
+        "EthicalIQRProbe",
     ],
     "financial": [
-        "IQRRobustProbe",
-        "ModifiedZScoreProbe",
+        "EthicalIQRProbe",
+        "AnnealedZScoreProbe",
         "SVDProjectionProbe",
-        "ExponentialDecayProbe",
+        "CatalanDecayProbe",
         "VarianceAdaptedProbe",
     ],
     "tabular": [
-        "IQRRobustProbe",
-        "ModifiedZScoreProbe",
+        "EthicalIQRProbe",
+        "AnnealedZScoreProbe",
         "VarianceAdaptedProbe",
         "SVDProjectionProbe",
-        "AdditiveProbe",
-        "EthicalConstrainedProbe",
+        "AdditiveHarmonicProbe",
         "BoltzmannCouplingProbe",
     ],
 }
 
 
 class AnomalyMathArrest:
-    """21-probe Anomaly Math Arrest.
+    """17-probe Anomaly Math Arrest.
 
     A mathematically-independent equation ensemble that replaces
     IsolationForest with transparent, auditable anomaly detection.
     Every detection traces to a specific mathematical violation in
-    one or more of the 21 probe equations.
+    one or more of the 17 probe equations.
 
     Args:
         domain: Domain hint for affinity-based probe reordering.
@@ -230,7 +211,7 @@ class AnomalyMathArrest:
             ``"robust"``, ``"frequency"``, ``"chaos"``, ``"minimal"``,
             ``"forensic"``), a list of probe class names, or a list
             of :class:`BaseEquationProbe` instances.  Defaults to
-            ``"all"`` (all 21 probes).
+            ``"all"`` (all 17 probes).
     """
 
     def __init__(

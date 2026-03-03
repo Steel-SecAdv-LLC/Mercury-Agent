@@ -12,14 +12,15 @@ Classification uses unsupervised heuristics on training data only.
 No labels are required.
 
 Geometry -> Probe Preset mapping:
-    point           -> ``robust`` (IQR, MAD, Additive, VarianceAdapted, Ethical)
+    point           -> ``robust`` (EthicalIQR, AnnealedZScore, VarianceAdapted,
+                       AdditiveHarmonic)
     distributional  -> ``distributional`` (SVD, Boltzmann, QuantumSuperposition,
-                       ExponentialDecay, CatalanOptimized, Helix)
+                       CatalanDecay, Helix)
     collective      -> ``collective`` (Topology, FractalSimilarity, R3Recursion,
-                       EnergyMinimization, QuantumAnnealing)
-    temporal        -> ``temporal`` (WavePropagation, HarmonicOscillator, Zeta,
+                       EnergyMinimization, AnnealedZScore)
+    temporal        -> ``temporal`` (WavePropagation, AdditiveHarmonic, Zeta,
                        Lyapunov, Momentum)
-    unknown         -> ``all`` (fallback: all 21 probes)
+    unknown         -> ``all`` (fallback: all 17 probes)
 
 When two geometries are detected simultaneously, both clusters are merged.
 """
@@ -41,18 +42,16 @@ GeometryType = Literal["point", "distributional", "collective", "temporal", "unk
 # Geometry -> Probe Preset mapping
 GEOMETRY_PROBE_PRESETS: dict[str, list[str]] = {
     "point": [
-        "IQRRobustProbe",
-        "ModifiedZScoreProbe",
+        "EthicalIQRProbe",
+        "AnnealedZScoreProbe",
         "VarianceAdaptedProbe",
-        "AdditiveProbe",
-        "EthicalConstrainedProbe",
+        "AdditiveHarmonicProbe",
     ],
     "distributional": [
         "SVDProjectionProbe",
         "BoltzmannCouplingProbe",
         "QuantumSuperpositionProbe",
-        "ExponentialDecayProbe",
-        "CatalanOptimizedProbe",
+        "CatalanDecayProbe",
         "HelixMultiplicativeProbe",
     ],
     "collective": [
@@ -60,11 +59,11 @@ GEOMETRY_PROBE_PRESETS: dict[str, list[str]] = {
         "FractalSelfSimilarityProbe",
         "R3RecursionResonanceProbe",
         "EnergyMinimizationProbe",
-        "QuantumAnnealingProbe",
+        "AnnealedZScoreProbe",
     ],
     "temporal": [
         "WavePropagationProbe",
-        "HarmonicOscillatorProbe",
+        "AdditiveHarmonicProbe",
         "ZetaHarmonicProbe",
         "LyapunovChaosProbe",
         "MomentumProbe",
@@ -73,7 +72,7 @@ GEOMETRY_PROBE_PRESETS: dict[str, list[str]] = {
 
 # Minimum probe set: always include these regardless of geometry
 MINIMUM_PROBE_SET: list[str] = [
-    "IQRRobustProbe",
+    "EthicalIQRProbe",
     "SVDProjectionProbe",
     "VarianceAdaptedProbe",
 ]

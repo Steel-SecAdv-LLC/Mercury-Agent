@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) Steel Security Advisors LLC
-"""Extended tests for Anomaly Math Arrest — probes 9-21."""
+"""Extended tests for Anomaly Math Arrest — probes 9-17."""
 
 from __future__ import annotations
 
@@ -11,6 +11,9 @@ import pytest
 from omni_mercury_engine.detectors.math_arrest.arrest import (
     AnomalyMathArrest,
 )
+from omni_mercury_engine.detectors.math_arrest.probes.annealed_zscore import (
+    AnnealedZScoreProbe,
+)
 from omni_mercury_engine.detectors.math_arrest.probes.boltzmann_coupling import (
     BoltzmannCouplingProbe,
 )
@@ -20,17 +23,8 @@ from omni_mercury_engine.detectors.math_arrest.probes.energy_minimization import
 from omni_mercury_engine.detectors.math_arrest.probes.fractal_similarity import (
     FractalSelfSimilarityProbe,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.iqr_robust import (
-    IQRRobustProbe,
-)
 from omni_mercury_engine.detectors.math_arrest.probes.lyapunov_chaos import (
     LyapunovChaosProbe,
-)
-from omni_mercury_engine.detectors.math_arrest.probes.modified_zscore import (
-    ModifiedZScoreProbe,
-)
-from omni_mercury_engine.detectors.math_arrest.probes.quantum_annealing import (
-    QuantumAnnealingProbe,
 )
 from omni_mercury_engine.detectors.math_arrest.probes.quantum_superposition import (
     QuantumSuperpositionProbe,
@@ -351,41 +345,61 @@ class TestEnergyMinimizationProbe:
 
 
 # ===================================================================
-# Probe 18: QuantumAnnealingProbe
+# AnnealedZScoreProbe (merged: ModifiedZScore + QuantumAnnealing)
 # ===================================================================
 
 
-class TestQuantumAnnealingProbe:
-    """QuantumAnnealingProbe unit tests."""
+class TestAnnealedZScoreProbe:
+    """AnnealedZScoreProbe unit tests."""
 
-    def test_detects_thermodynamic_outlier(self) -> None:
-        probe = QuantumAnnealingProbe()
+    def test_detects_location_anomaly(self) -> None:
+        probe = AnnealedZScoreProbe()
         rng = np.random.default_rng(42)
         train = rng.normal(0, 1, 200).astype(np.float64)
         probe.fit_trajectory(train)
         test_data = train.copy()
-        test_data[100] = 20.0  # outlier
+        test_data[100] = 30.0
         result = probe.deviation_score(test_data)
         assert result.deviation_scores[100] > float(np.median(result.deviation_scores[:80]))
 
+    def test_resistant_to_contamination(self) -> None:
+        probe = AnnealedZScoreProbe()
+        rng = np.random.default_rng(42)
+        # 10% contamination
+        data = rng.normal(0, 1, 200).astype(np.float64)
+        data[:20] = 100.0
+        probe.fit_trajectory(data)
+        # MAD-based: should still detect outliers in clean test data
+        clean = rng.normal(0, 1, 200).astype(np.float64)
+        clean[50] = 50.0
+        result = probe.deviation_score(clean)
+        assert not np.any(np.isnan(result.deviation_scores))
+
+    def test_mad_based_not_std_based(self) -> None:
+        probe = AnnealedZScoreProbe()
+        rng = np.random.default_rng(42)
+        data = rng.normal(0, 1, 200).astype(np.float64)
+        probe.fit_trajectory(data)
+        # Verify internal state uses MAD-scaled value
+        assert probe._mad_scaled > 0.0
+        assert probe._median is not None
+
+    def test_annealed_threshold_stored(self) -> None:
+        probe = AnnealedZScoreProbe()
+        rng = np.random.default_rng(42)
+        data = rng.normal(0, 1, 200).astype(np.float64)
+        probe.fit_trajectory(data)
+        result = probe.deviation_score(data)
+        assert "annealed_threshold" in result.metadata
+        assert result.metadata["annealed_threshold"] > 0.0
+
     def test_normal_distribution_low_deviation(self) -> None:
-        probe = QuantumAnnealingProbe()
+        probe = AnnealedZScoreProbe()
         rng = np.random.default_rng(42)
         data = rng.normal(0, 1, 200).astype(np.float64)
         probe.fit_trajectory(data)
         result = probe.deviation_score(data)
         assert float(np.mean(result.deviation_scores)) < 0.8
-
-    def test_distinct_from_energy_minimization(self) -> None:
-        """QuantumAnnealing uses x^2/T, EnergyMinimization uses |Delta_E|."""
-        data = make_normal_signal(200)
-        qa = QuantumAnnealingProbe()
-        em = EnergyMinimizationProbe()
-        qa.fit_trajectory(data)
-        em.fit_trajectory(data)
-        qa_result = qa.deviation_score(data)
-        em_result = em.deviation_score(data)
-        assert qa_result.anomaly_geometry != em_result.anomaly_geometry
 
 
 # ===================================================================
@@ -424,118 +438,35 @@ class TestBoltzmannCouplingProbe:
 
 
 # ===================================================================
-# Probe 20: IQRRobustProbe
+# Full 17-probe Arrest integration
 # ===================================================================
 
 
-class TestIQRRobustProbe:
-    """IQRRobustProbe unit tests."""
+class TestFullArrest17:
+    """Integration tests for the full 17-probe arrest."""
 
-    def test_detects_moderate_outlier(self) -> None:
-        probe = IQRRobustProbe()
-        rng = np.random.default_rng(42)
-        train = rng.normal(0, 1, 200).astype(np.float64)
-        probe.fit_trajectory(train)
-        test_data = train.copy()
-        test_data[100] = 15.0  # outlier beyond 1.5*IQR
-        result = probe.deviation_score(test_data)
-        assert result.deviation_scores[100] > float(np.median(result.deviation_scores[:80]))
-
-    def test_skewed_data_handled(self) -> None:
-        probe = IQRRobustProbe()
-        rng = np.random.default_rng(42)
-        skewed = np.abs(rng.normal(0, 1, 200)).astype(np.float64)
-        probe.fit_trajectory(skewed)
-        result = probe.deviation_score(skewed)
-        assert not np.any(np.isnan(result.deviation_scores))
-
-    def test_distinct_from_ethical(self) -> None:
-        """IQR uses Q1/Q3/IQR fences, Ethical uses 2.5/97.5 percentiles."""
-        from omni_mercury_engine.detectors.math_arrest.probes.ethical import (
-            EthicalConstrainedProbe,
-        )
-
-        data = make_normal_signal(200)
-        iqr = IQRRobustProbe()
-        eth = EthicalConstrainedProbe()
-        iqr.fit_trajectory(data)
-        eth.fit_trajectory(data)
-        iqr_result = iqr.deviation_score(data)
-        eth_result = eth.deviation_score(data)
-        assert iqr_result.anomaly_geometry != eth_result.anomaly_geometry
-
-
-# ===================================================================
-# Probe 21: ModifiedZScoreProbe
-# ===================================================================
-
-
-class TestModifiedZScoreProbe:
-    """ModifiedZScoreProbe unit tests."""
-
-    def test_detects_location_anomaly(self) -> None:
-        probe = ModifiedZScoreProbe()
-        rng = np.random.default_rng(42)
-        train = rng.normal(0, 1, 200).astype(np.float64)
-        probe.fit_trajectory(train)
-        test_data = train.copy()
-        test_data[100] = 30.0
-        result = probe.deviation_score(test_data)
-        assert result.deviation_scores[100] > float(np.median(result.deviation_scores[:80]))
-
-    def test_resistant_to_contamination(self) -> None:
-        probe = ModifiedZScoreProbe()
-        rng = np.random.default_rng(42)
-        # 10% contamination
-        data = rng.normal(0, 1, 200).astype(np.float64)
-        data[:20] = 100.0
-        probe.fit_trajectory(data)
-        # MAD-based: should still detect outliers in clean test data
-        clean = rng.normal(0, 1, 200).astype(np.float64)
-        clean[50] = 50.0
-        result = probe.deviation_score(clean)
-        assert not np.any(np.isnan(result.deviation_scores))
-
-    def test_mad_based_not_std_based(self) -> None:
-        probe = ModifiedZScoreProbe()
-        rng = np.random.default_rng(42)
-        data = rng.normal(0, 1, 200).astype(np.float64)
-        probe.fit_trajectory(data)
-        # Verify internal state uses MAD, not std
-        assert probe._mad > 0.0
-        assert probe._median is not None
-
-
-# ===================================================================
-# Full 21-probe Arrest integration
-# ===================================================================
-
-
-class TestFullArrest21:
-    """Integration tests for the full 21-probe arrest."""
-
-    def test_all_21_probes_instantiate(self) -> None:
+    def test_all_17_probes_instantiate(self) -> None:
         arrest = AnomalyMathArrest()
-        assert len(arrest._probes) == 21
+        assert len(arrest._probes) == 17
 
-    def test_all_21_probes_fit(self) -> None:
+    def test_all_17_probes_fit(self) -> None:
         arrest = AnomalyMathArrest()
         data = make_normal_signal(500)
         arrest.fit(data)
-        assert arrest.active_probe_count == 21
+        assert arrest.active_probe_count == 17
 
     def test_degraded_ensemble_still_detects(self) -> None:
         arrest = AnomalyMathArrest()
         data = make_normal_signal(500)
         arrest.fit(data)
         # Manually disable half the probes
-        for i in range(0, 21, 2):
+        for i in range(0, 17, 2):
             arrest._probes[i]._is_fitted = False
         scores = arrest.detect(data)
         assert scores.shape == (500,)
         assert not np.all(scores == 0.0)
 
-    def test_domain_affinity_all_21_probes(self) -> None:
+    def test_domain_affinity_all_17_probes(self) -> None:
         for domain in [
             "earthquake",
             "tsunami",
@@ -553,7 +484,7 @@ class TestFullArrest21:
             assert np.all(scores >= 0.0)
             assert np.all(scores <= 1.0)
 
-    def test_no_nan_no_inf_21_probes(self) -> None:
+    def test_no_nan_no_inf_17_probes(self) -> None:
         arrest = AnomalyMathArrest()
         data = make_normal_signal(500)
         arrest.fit(data)
@@ -561,7 +492,7 @@ class TestFullArrest21:
         assert not np.any(np.isnan(scores))
         assert not np.any(np.isinf(scores))
 
-    def test_scores_in_zero_one_21_probes(self) -> None:
+    def test_scores_in_zero_one_17_probes(self) -> None:
         arrest = AnomalyMathArrest()
         data = make_normal_signal(500)
         arrest.fit(data)
@@ -584,17 +515,17 @@ class TestFullArrest21:
         assert "weight_multipliers" in report
         assert "effective_probe_count" in report
 
-    def test_ensemble_confidence_range_21(self) -> None:
+    def test_ensemble_confidence_range_17(self) -> None:
         arrest = AnomalyMathArrest()
         data = make_normal_signal(500)
         arrest.fit(data)
         conf = arrest.ensemble_confidence
         assert 0.0 <= conf <= 1.0
 
-    def test_effective_probe_count_le_21(self) -> None:
+    def test_effective_probe_count_le_17(self) -> None:
         arrest = AnomalyMathArrest()
         data = make_normal_signal(200)
         arrest.fit(data)
         report = arrest.get_correlation_report()
-        assert report["effective_probe_count"] <= 21.0
+        assert report["effective_probe_count"] <= 17.0
         assert report["effective_probe_count"] > 0.0

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) Steel Security Advisors LLC
-"""Core tests for the Anomaly Math Arrest (probes 1-8 + integration)."""
+"""Core tests for the Anomaly Math Arrest (merged probes + integration)."""
 
 from __future__ import annotations
 
@@ -14,20 +14,14 @@ from omni_mercury_engine.detectors.math_arrest.arrest import (
 from omni_mercury_engine.detectors.math_arrest.base_probe import (
     ProbeResult,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.additive import (
-    AdditiveProbe,
+from omni_mercury_engine.detectors.math_arrest.probes.additive_harmonic import (
+    AdditiveHarmonicProbe,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.catalan import (
-    CatalanOptimizedProbe,
+from omni_mercury_engine.detectors.math_arrest.probes.catalan_decay import (
+    CatalanDecayProbe,
 )
-from omni_mercury_engine.detectors.math_arrest.probes.ethical import (
-    EthicalConstrainedProbe,
-)
-from omni_mercury_engine.detectors.math_arrest.probes.exponential import (
-    ExponentialDecayProbe,
-)
-from omni_mercury_engine.detectors.math_arrest.probes.harmonic import (
-    HarmonicOscillatorProbe,
+from omni_mercury_engine.detectors.math_arrest.probes.ethical_iqr import (
+    EthicalIQRProbe,
 )
 from omni_mercury_engine.detectors.math_arrest.probes.helix import (
     HelixMultiplicativeProbe,
@@ -84,7 +78,7 @@ class TestProbeResult:
             result.confidence = 0.5  # type: ignore[misc]
 
     def test_scores_in_zero_one(self) -> None:
-        probe = AdditiveProbe()
+        probe = AdditiveHarmonicProbe()
         data = make_normal_signal()
         probe.fit_trajectory(data)
         result = probe.deviation_score(data)
@@ -92,7 +86,7 @@ class TestProbeResult:
         assert np.all(result.deviation_scores <= 1.0)
 
     def test_no_nan_no_inf(self) -> None:
-        probe = AdditiveProbe()
+        probe = AdditiveHarmonicProbe()
         data = make_normal_signal()
         probe.fit_trajectory(data)
         result = probe.deviation_score(data)
@@ -101,15 +95,15 @@ class TestProbeResult:
 
 
 # ===================================================================
-# Probe 1: AdditiveProbe
+# AdditiveHarmonicProbe (merged: Additive + HarmonicOscillator)
 # ===================================================================
 
 
-class TestAdditiveProbe:
-    """AdditiveProbe unit tests."""
+class TestAdditiveHarmonicProbe:
+    """AdditiveHarmonicProbe unit tests."""
 
     def test_detects_level_shift(self) -> None:
-        probe = AdditiveProbe()
+        probe = AdditiveHarmonicProbe()
         train = make_normal_signal()
         probe.fit_trajectory(train)
         test_data = make_level_shift()
@@ -121,40 +115,31 @@ class TestAdditiveProbe:
         assert mean_second > mean_first
 
     def test_fit_required_before_score(self) -> None:
-        probe = AdditiveProbe()
+        probe = AdditiveHarmonicProbe()
         with pytest.raises(RuntimeError, match="not been fitted"):
             probe.deviation_score(make_normal_signal())
 
     def test_minimum_samples_enforced(self) -> None:
-        probe = AdditiveProbe()
+        probe = AdditiveHarmonicProbe()
         with pytest.raises(ValueError, match="at least"):
             probe.fit_trajectory(np.array([1.0, 2.0, 3.0]))
 
     def test_constant_data_no_crash(self) -> None:
-        probe = AdditiveProbe()
+        probe = AdditiveHarmonicProbe()
         data = np.ones(50, dtype=np.float64)
         probe.fit_trajectory(data)
         result = probe.deviation_score(data)
         assert not np.any(np.isnan(result.deviation_scores))
 
     def test_2d_input_reduced_to_1d(self) -> None:
-        probe = AdditiveProbe()
+        probe = AdditiveHarmonicProbe()
         data_2d = np.random.default_rng(42).normal(0, 1, (100, 3)).astype(np.float64)
         probe.fit_trajectory(data_2d)
         result = probe.deviation_score(data_2d)
         assert result.deviation_scores.shape == (100,)
 
-
-# ===================================================================
-# Probe 2: HarmonicOscillatorProbe
-# ===================================================================
-
-
-class TestHarmonicOscillatorProbe:
-    """HarmonicOscillatorProbe unit tests."""
-
     def test_detects_periodicity_violation(self) -> None:
-        probe = HarmonicOscillatorProbe()
+        probe = AdditiveHarmonicProbe()
         train = make_normal_signal(200)
         probe.fit_trajectory(train)
         # Inject a non-periodic segment
@@ -163,20 +148,127 @@ class TestHarmonicOscillatorProbe:
         result = probe.deviation_score(test_data)
         assert float(np.max(result.deviation_scores[100:150])) > 0.0
 
-    def test_zscore_fallback_works(self) -> None:
-        probe = HarmonicOscillatorProbe()
-        # Aperiodic data forces fallback
-        rng = np.random.default_rng(99)
-        aperiodic = rng.normal(0, 1, 100).astype(np.float64)
-        probe.fit_trajectory(aperiodic)
-        result = probe.deviation_score(aperiodic)
-        assert result.deviation_scores.shape == (100,)
+    def test_overflow_safe(self) -> None:
+        """Exponent clamping prevents overflow in damped harmonic."""
+        probe = AdditiveHarmonicProbe()
+        rng = np.random.default_rng(42)
+        data = rng.normal(0, 1, 200).astype(np.float64)
+        probe.fit_trajectory(data)
+        result = probe.deviation_score(data)
+        assert not np.any(np.isnan(result.deviation_scores))
+        assert not np.any(np.isinf(result.deviation_scores))
 
-    def test_mode_metadata_present(self) -> None:
-        probe = HarmonicOscillatorProbe()
-        probe.fit_trajectory(make_normal_signal(200))
-        result = probe.deviation_score(make_normal_signal(200))
-        assert "mode" in result.metadata
+
+# ===================================================================
+# CatalanDecayProbe (merged: CatalanOptimized + ExponentialDecay)
+# ===================================================================
+
+
+class TestCatalanDecayProbe:
+    """CatalanDecayProbe unit tests."""
+
+    def test_detects_structural_break(self) -> None:
+        probe = CatalanDecayProbe()
+        rng = np.random.default_rng(42)
+        # AR(1) with structure
+        n = 200
+        train = np.zeros(n, dtype=np.float64)
+        train[0] = rng.normal()
+        for i in range(1, n):
+            train[i] = 0.9 * train[i - 1] + rng.normal(0, 0.1)
+        probe.fit_trajectory(train)
+        # Break the structure
+        test_data = train.copy()
+        test_data[100:150] = rng.normal(0, 5, 50)
+        result = probe.deviation_score(test_data)
+        assert float(np.max(result.deviation_scores[100:150])) > float(
+            np.median(result.deviation_scores[:100])
+        )
+
+    def test_detects_signal_degradation(self) -> None:
+        probe = CatalanDecayProbe()
+        train = make_normal_signal(200)
+        probe.fit_trajectory(train)
+        test_data = train.copy()
+        # Inject spiky noise
+        rng = np.random.default_rng(99)
+        test_data[100:200] += rng.normal(0, 5.0, 100)
+        result = probe.deviation_score(test_data)
+        # Degraded region should have higher deviation than calm region
+        assert float(np.mean(result.deviation_scores[120:])) > float(
+            np.mean(result.deviation_scores[:80])
+        )
+
+    def test_fit_required_before_score(self) -> None:
+        probe = CatalanDecayProbe()
+        with pytest.raises(RuntimeError, match="not been fitted"):
+            probe.deviation_score(make_normal_signal())
+
+    def test_catalan_numbers_precomputed(self) -> None:
+        probe = CatalanDecayProbe()
+        # Catalan numbers: C(0)=1, C(1)=1, C(2)=2, C(3)=5, C(4)=14
+        assert probe._catalan_numbers[0] == pytest.approx(1.0)
+        assert probe._catalan_numbers[1] == pytest.approx(1.0)
+        assert probe._catalan_numbers[2] == pytest.approx(2.0)
+        assert probe._catalan_numbers[3] == pytest.approx(5.0)
+        assert probe._catalan_numbers[4] == pytest.approx(14.0)
+
+
+# ===================================================================
+# EthicalIQRProbe (merged: EthicalConstrained + IQRRobust)
+# ===================================================================
+
+
+class TestEthicalIQRProbe:
+    """EthicalIQRProbe unit tests."""
+
+    def test_detects_boundary_violation(self) -> None:
+        probe = EthicalIQRProbe()
+        rng = np.random.default_rng(42)
+        train = rng.normal(0, 1, 200).astype(np.float64)
+        probe.fit_trajectory(train)
+        test_data = np.concatenate(
+            [
+                rng.normal(0, 1, 50),
+                np.full(50, 20.0),
+            ]
+        ).astype(np.float64)
+        result = probe.deviation_score(test_data)
+        assert float(np.mean(result.deviation_scores[50:])) > float(
+            np.mean(result.deviation_scores[:50])
+        )
+
+    def test_detects_moderate_outlier(self) -> None:
+        probe = EthicalIQRProbe()
+        rng = np.random.default_rng(42)
+        train = rng.normal(0, 1, 200).astype(np.float64)
+        probe.fit_trajectory(train)
+        test_data = train.copy()
+        test_data[100] = 15.0  # outlier beyond 1.5*IQR
+        result = probe.deviation_score(test_data)
+        assert result.deviation_scores[100] > float(np.median(result.deviation_scores[:80]))
+
+    def test_asymmetric_weighting(self) -> None:
+        """Upper breaches should be weighted more heavily than lower."""
+        probe = EthicalIQRProbe()
+        rng = np.random.default_rng(42)
+        train = rng.normal(0, 1, 200).astype(np.float64)
+        probe.fit_trajectory(train)
+        # Equal-magnitude violations above and below
+        upper_breach = np.array([probe._upper_fence + 5.0], dtype=np.float64)
+        lower_breach = np.array([probe._lower_fence - 5.0], dtype=np.float64)
+        upper_result = probe.deviation_score(upper_breach)
+        lower_result = probe.deviation_score(lower_breach)
+        # Upper multiplier (1.5) > lower multiplier (1.0)
+        assert upper_result.deviation_scores[0] >= lower_result.deviation_scores[0]
+
+    def test_skewed_data_handled(self) -> None:
+        probe = EthicalIQRProbe()
+        rng = np.random.default_rng(42)
+        skewed = np.abs(rng.normal(0, 1, 200)).astype(np.float64)
+        probe.fit_trajectory(skewed)
+        result = probe.deviation_score(skewed)
+        assert not np.any(np.isnan(result.deviation_scores))
 
 
 # ===================================================================
@@ -237,97 +329,7 @@ class TestVarianceAdaptedProbe:
 
 
 # ===================================================================
-# Probe 5: EthicalConstrainedProbe
-# ===================================================================
-
-
-class TestEthicalConstrainedProbe:
-    """EthicalConstrainedProbe unit tests."""
-
-    def test_detects_boundary_violation(self) -> None:
-        probe = EthicalConstrainedProbe()
-        rng = np.random.default_rng(42)
-        train = rng.normal(0, 1, 200).astype(np.float64)
-        probe.fit_trajectory(train)
-        test_data = np.concatenate(
-            [
-                rng.normal(0, 1, 50),
-                np.full(50, 20.0),
-            ]
-        ).astype(np.float64)
-        result = probe.deviation_score(test_data)
-        assert float(np.mean(result.deviation_scores[50:])) > float(
-            np.mean(result.deviation_scores[:50])
-        )
-
-    def test_zero_range_fallback(self) -> None:
-        probe = EthicalConstrainedProbe()
-        data = np.ones(50, dtype=np.float64)
-        probe.fit_trajectory(data)
-        assert probe._fit_quality == pytest.approx(0.1)
-        result = probe.deviation_score(data)
-        assert not np.any(np.isnan(result.deviation_scores))
-
-
-# ===================================================================
-# Probe 6: CatalanOptimizedProbe
-# ===================================================================
-
-
-class TestCatalanOptimizedProbe:
-    """CatalanOptimizedProbe unit tests."""
-
-    def test_detects_autocorrelation_break(self) -> None:
-        probe = CatalanOptimizedProbe()
-        rng = np.random.default_rng(42)
-        # AR(1) with Catalan coefficient
-        n = 200
-        train = np.zeros(n, dtype=np.float64)
-        train[0] = rng.normal()
-        for i in range(1, n):
-            train[i] = 0.9 * train[i - 1] + rng.normal(0, 0.1)
-        probe.fit_trajectory(train)
-        # Break the autocorrelation
-        test_data = train.copy()
-        test_data[100:150] = rng.normal(0, 5, 50)
-        result = probe.deviation_score(test_data)
-        assert float(np.max(result.deviation_scores[100:150])) > float(
-            np.median(result.deviation_scores[:100])
-        )
-
-
-# ===================================================================
-# Probe 7: ExponentialDecayProbe
-# ===================================================================
-
-
-class TestExponentialDecayProbe:
-    """ExponentialDecayProbe unit tests."""
-
-    def test_detects_signal_degradation(self) -> None:
-        probe = ExponentialDecayProbe()
-        train = make_normal_signal(200)
-        probe.fit_trajectory(train)
-        test_data = train.copy()
-        # Inject spiky noise that EWMA cannot track smoothly
-        rng = np.random.default_rng(99)
-        test_data[100:200] += rng.normal(0, 5.0, 100)
-        result = probe.deviation_score(test_data)
-        # Degraded region should have higher deviation than calm region
-        assert float(np.mean(result.deviation_scores[120:])) > float(
-            np.mean(result.deviation_scores[:80])
-        )
-
-    def test_lambda_stored_in_metadata(self) -> None:
-        probe = ExponentialDecayProbe()
-        probe.fit_trajectory(make_normal_signal(200))
-        result = probe.deviation_score(make_normal_signal(200))
-        assert "lambda" in result.metadata
-        assert result.metadata["lambda"] > 0.0
-
-
-# ===================================================================
-# Probe 8: HelixMultiplicativeProbe
+# HelixMultiplicativeProbe
 # ===================================================================
 
 
@@ -379,9 +381,9 @@ class TestAnomalyMathArrest:
         assert set(np.unique(preds)).issubset({0, 1})
         assert preds.dtype == np.int32
 
-    def test_all_8_probes_instantiate(self) -> None:
+    def test_all_17_probes_instantiate(self) -> None:
         arrest = AnomalyMathArrest()
-        assert len(arrest._probes) == 21
+        assert len(arrest._probes) == 17
 
     def test_degraded_probe_skipped(self) -> None:
         arrest = AnomalyMathArrest()
@@ -435,7 +437,7 @@ class TestAnomalyMathArrest:
         data = make_normal_signal()
         arrest.fit(data)
         diags = arrest.get_probe_diagnostics()
-        assert len(diags) == 21
+        assert len(diags) == 17
         for d in diags:
             assert "probe_class" in d
             assert "is_fitted" in d
@@ -468,13 +470,13 @@ class TestAnomalyMathArrest:
 class TestProbePresets:
     """Tests for probe selection and preset functionality."""
 
-    def test_default_is_all_21(self) -> None:
+    def test_default_is_all_17(self) -> None:
         arrest = AnomalyMathArrest()
-        assert len(arrest._probes) == 21
+        assert len(arrest._probes) == 17
 
     def test_preset_robust(self) -> None:
         arrest = AnomalyMathArrest(probes="robust")
-        assert len(arrest._probes) == 5
+        assert len(arrest._probes) == 4
         data = make_normal_signal(200)
         arrest.fit(data)
         scores = arrest.detect(data)
@@ -508,10 +510,10 @@ class TestProbePresets:
 
     def test_preset_forensic_is_all(self) -> None:
         arrest = AnomalyMathArrest(probes="forensic")
-        assert len(arrest._probes) == 21
+        assert len(arrest._probes) == 17
 
     def test_custom_probe_list_by_name(self) -> None:
-        arrest = AnomalyMathArrest(probes=["AdditiveProbe", "MomentumProbe"])
+        arrest = AnomalyMathArrest(probes=["AdditiveHarmonicProbe", "MomentumProbe"])
         assert len(arrest._probes) == 2
         data = make_normal_signal(200)
         arrest.fit(data)
@@ -527,14 +529,14 @@ class TestProbePresets:
             AnomalyMathArrest(probes=["FakeProbe"])
 
     def test_custom_probe_instances(self) -> None:
-        from omni_mercury_engine.detectors.math_arrest.probes.additive import (
-            AdditiveProbe,
+        from omni_mercury_engine.detectors.math_arrest.probes.additive_harmonic import (
+            AdditiveHarmonicProbe,
         )
         from omni_mercury_engine.detectors.math_arrest.probes.momentum import (
             MomentumProbe,
         )
 
-        arrest = AnomalyMathArrest(probes=[AdditiveProbe(), MomentumProbe()])
+        arrest = AnomalyMathArrest(probes=[AdditiveHarmonicProbe(), MomentumProbe()])
         assert len(arrest._probes) == 2
         data = make_normal_signal(200)
         arrest.fit(data)
@@ -579,7 +581,7 @@ class TestGeometryReport:
         arrest.fit(data)
         report = arrest.get_geometry_report(data)
         geometries = {e["anomaly_geometry"] for e in report}
-        # 21 probes should have multiple distinct geometries
+        # 17 probes should have multiple distinct geometries
         assert len(geometries) >= 5
 
     def test_report_not_fitted_raises(self) -> None:

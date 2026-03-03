@@ -30,7 +30,7 @@ MIN_SAMPLES_FOR_DECORRELATION: int = 50
 class CorrelationAwareDecorrelator:
     """Detect redundant probe clusters and reduce their weight contributions.
 
-    A 21-probe ensemble with 6 correlated pairs is not a 21-D signal.
+    A 17-probe ensemble with 6 correlated pairs is not a 17-D signal.
     This class quantifies effective dimensionality and corrects for it
     by computing pairwise Pearson correlations, identifying connected
     components of highly-correlated probes via BFS, and reducing
@@ -62,7 +62,7 @@ class CorrelationAwareDecorrelator:
     def effective_probe_count(self) -> float:
         """Sum of all weight multipliers (effective independent dimensions).
 
-        A fully independent 21-probe ensemble scores 21.0.
+        A fully independent 17-probe ensemble scores 17.0.
         Returns 0.0 if not calibrated.
         """
         if not self._is_calibrated:
