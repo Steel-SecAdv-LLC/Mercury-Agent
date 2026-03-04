@@ -98,11 +98,13 @@ class AdaptiveThresholdCalibrator:
         """Percentile-based calibration using contamination estimate."""
         estimated_contamination = self._estimate_contamination(scores)
         effective_contamination = max(estimated_contamination, self.contamination)
-        effective_contamination = float(np.clip(
-            effective_contamination,
-            self.min_contamination,
-            self.max_contamination,
-        ))
+        effective_contamination = float(
+            np.clip(
+                effective_contamination,
+                self.min_contamination,
+                self.max_contamination,
+            )
+        )
 
         threshold = float(np.percentile(scores, 100 * (1 - effective_contamination)))
         predictions = (scores >= threshold).astype(np.int32)
@@ -395,7 +397,7 @@ class TemporalPatternDetector:
 
         for i in range(n_samples):
             start = max(0, i - window + 1)
-            window_data = X[start: i + 1]
+            window_data = X[start : i + 1]
             result[i] = stat_func(window_data, axis=0)
 
         return result
@@ -410,11 +412,13 @@ class TemporalPatternDetector:
 # Mercury-native backend detectors (replace sklearn IsolationForest/LOF/EE)
 # ---------------------------------------------------------------------------
 
+
 class _MercuryRandomProjectionDetector:
     """Isolation-style anomaly detector using random projections (no trees/sklearn)."""
 
-    def __init__(self, contamination: float = 0.1, n_estimators: int = 100,
-                 random_state: int = 42) -> None:
+    def __init__(
+        self, contamination: float = 0.1, n_estimators: int = 100, random_state: int = 42
+    ) -> None:
         self.contamination = contamination
         self.n_estimators = n_estimators
         self._rng = np.random.default_rng(random_state)
@@ -476,6 +480,7 @@ class _MercuryLocalDensityDetector:
 # ---------------------------------------------------------------------------
 # Main adaptive detector
 # ---------------------------------------------------------------------------
+
 
 class AdaptiveAnomalyDetector:
     """
@@ -560,7 +565,7 @@ class AdaptiveAnomalyDetector:
 
             col_centered = col - col_mean
             autocorr = np.correlate(col_centered[:-1], col_centered[1:], mode="valid")
-            autocorr_val = float(autocorr[0]) / (col_std ** 2 * (n_samples - 1))
+            autocorr_val = float(autocorr[0]) / (col_std**2 * (n_samples - 1))
             autocorrs.append(abs(autocorr_val))
 
         if not autocorrs:
@@ -944,9 +949,7 @@ class AdaptiveAnomalyDetector:
                 []
                 if passes_ethics
                 else (
-                    ["sigma_Immutable < 0.93"]
-                    if sigma_immutable < 0.93
-                    else ["benevolence < 0.99"]
+                    ["sigma_Immutable < 0.93"] if sigma_immutable < 0.93 else ["benevolence < 0.99"]
                 )
             ),
         }

@@ -822,12 +822,12 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
 
     # Try fetch_covtype first (uses OpenML/Figshare)
     data = fetch_with_retry(
-            fetch_covtype,
-            "covtype",
-            max_retries=3,
-            base_delay=2.0,
-            as_frame=False,
-        )
+        fetch_covtype,
+        "covtype",
+        max_retries=3,
+        base_delay=2.0,
+        as_frame=False,
+    )
 
     if data is not None:
         try:
@@ -921,14 +921,14 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
 
     # Try fetch_kddcup99 first
     data = fetch_with_retry(
-            fetch_kddcup99,
-            "KDDCup99",
-            max_retries=3,
-            base_delay=2.0,
-            subset="SA",
-            percent10=True,
-            as_frame=False,
-        )
+        fetch_kddcup99,
+        "KDDCup99",
+        max_retries=3,
+        base_delay=2.0,
+        subset="SA",
+        percent10=True,
+        as_frame=False,
+    )
 
     if data is not None:
         try:

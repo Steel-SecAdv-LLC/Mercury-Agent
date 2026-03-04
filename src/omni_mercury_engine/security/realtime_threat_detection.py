@@ -58,11 +58,13 @@ class ThreatSignature:
 # Mercury-native detector components (no sklearn)
 # ---------------------------------------------------------------------------
 
+
 class _RandomProjectionDetector:
     """Isolation-style anomaly detector using random projections (no trees)."""
 
-    def __init__(self, contamination: float = 0.1, n_projections: int = 100,
-                 random_state: int = 42) -> None:
+    def __init__(
+        self, contamination: float = 0.1, n_projections: int = 100, random_state: int = 42
+    ) -> None:
         self.contamination = contamination
         self.n_projections = n_projections
         self._rng = np.random.default_rng(random_state)
@@ -161,6 +163,7 @@ class _RobustCovarianceDetector:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 class RealTimeThreatDetector(LoggerMixin):
     """
     Real-time threat detection using Mercury-native ensemble anomaly detection.
@@ -198,7 +201,8 @@ class RealTimeThreatDetector(LoggerMixin):
 
         if enable_isolation_forest:
             self.detectors["isolation_forest"] = _RandomProjectionDetector(
-                contamination=contamination, n_projections=n_estimators,
+                contamination=contamination,
+                n_projections=n_estimators,
             )
 
         if enable_lof:
@@ -398,7 +402,7 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
             self.training_buffer.append(X)
 
             if len(self.training_buffer) > self.max_buffer_size:
-                self.training_buffer = self.training_buffer[-self.max_buffer_size:]
+                self.training_buffer = self.training_buffer[-self.max_buffer_size :]
 
             self.samples_since_update += len(X)
 

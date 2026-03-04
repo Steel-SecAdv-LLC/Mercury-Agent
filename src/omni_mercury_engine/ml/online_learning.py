@@ -371,7 +371,9 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
                 random_state=42,
             )
         except ImportError:
-            raise RuntimeError("mercury_ml PassiveAggressiveClassifier required for PassiveAggressiveOnlineLearner")
+            raise RuntimeError(
+                "mercury_ml PassiveAggressiveClassifier required for PassiveAggressiveOnlineLearner"
+            )
 
         self._fitted = False
         self._classes = np.array([0, 1])
