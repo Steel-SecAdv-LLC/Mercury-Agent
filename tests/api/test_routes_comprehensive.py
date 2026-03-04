@@ -146,6 +146,49 @@ class TestModelRoutes:
 
 
 # =============================================================================
+# Auth Enforcement Tests (validates auth bypass fix)
+# =============================================================================
+
+
+class TestAuthEnforcement:
+    """Verify that batch and detection endpoints reject unauthenticated requests."""
+
+    def test_fusion_requires_auth(self, client):
+        """Fusion endpoint rejects anonymous requests after auth bypass fix."""
+        response = client.post(
+            "/api/v1/detect/fusion",
+            json={"request": {"data": [1.0, 2.0, 3.0, 4.0, 5.0]}},
+        )
+        assert response.status_code == 401
+
+    def test_three_r_requires_auth(self, client):
+        """3R endpoint rejects anonymous requests after auth bypass fix."""
+        response = client.post(
+            "/api/v1/detect/three-r",
+            json={"request": {"data": [1.0] * 50}},
+        )
+        assert response.status_code == 401
+
+    def test_batch_submit_requires_auth(self, client):
+        """Batch submit endpoint rejects anonymous requests after auth bypass fix."""
+        response = client.post(
+            "/api/v1/batch/detect",
+            json={"request": {"data": [[1.0]], "method": "univariate"}},
+        )
+        assert response.status_code == 401
+
+    def test_batch_list_requires_auth(self, client):
+        """Batch list endpoint rejects anonymous requests after auth bypass fix."""
+        response = client.get("/api/v1/batch/jobs")
+        assert response.status_code == 401
+
+    def test_batch_status_requires_auth(self, client):
+        """Batch status endpoint rejects anonymous requests after auth bypass fix."""
+        response = client.get("/api/v1/batch/jobs/some_id")
+        assert response.status_code == 401
+
+
+# =============================================================================
 # Detection Routes Tests
 # =============================================================================
 
@@ -153,7 +196,19 @@ class TestModelRoutes:
 class TestDetectionRoutes:
     """Tests for /api/v1/detect endpoints."""
 
-    def test_fusion_detection(self, client):
+    @pytest.fixture
+    def auth_headers(self):
+        """Create valid API key auth headers."""
+        from omni_mercury_engine.api.auth import get_api_key_store
+
+        store = get_api_key_store()
+        raw_key, _ = store.create_key(
+            name="detection_test_key",
+            user_id="detection_test_user",
+        )
+        return {"X-API-Key": raw_key}
+
+    def test_fusion_detection(self, client, auth_headers):
         """Test multi-detector fusion endpoint."""
         data = [1.0, 1.1, 1.0, 50.0, 1.1, 1.0, 1.1, 1.0, 1.1, 1.0]
         response = client.post(
@@ -165,13 +220,14 @@ class TestDetectionRoutes:
                     "detectors": ["statistical", "temporal"],
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 200
         result = response.json()
         assert "fused_score" in result
         assert "is_anomaly" in result
 
-    def test_fusion_detection_multivariate(self, client):
+    def test_fusion_detection_multivariate(self, client, auth_headers):
         """Test fusion with multivariate data."""
         data = [
             [1.0, 2.0, 3.0],
@@ -188,20 +244,22 @@ class TestDetectionRoutes:
                     "sensitivity": 0.5,
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 200
         result = response.json()
         assert "fused_score" in result
 
-    def test_fusion_minimum_data_points(self, client):
+    def test_fusion_minimum_data_points(self, client, auth_headers):
         """Test fusion with insufficient data."""
         response = client.post(
             "/api/v1/detect/fusion",
             json={"request": {"data": [1.0, 2.0]}},
+            headers=auth_headers,
         )
         assert response.status_code == 422
 
-    def test_fusion_detects_anomaly(self, client):
+    def test_fusion_detects_anomaly(self, client, auth_headers):
         """Test that fusion correctly flags clear anomalies."""
         data = [1.0, 1.1, 1.0, 1.1, 1.0, 100.0, 1.0, 1.1, 1.0, 1.1]
         response = client.post(
@@ -213,12 +271,13 @@ class TestDetectionRoutes:
                     "detectors": ["statistical"],
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 200
         result = response.json()
         assert result["is_anomaly"] is True
 
-    def test_three_r_detection(self, client):
+    def test_three_r_detection(self, client, auth_headers):
         """Test 3R mechanism analysis endpoint."""
         data = [float(i) + np.sin(i * 0.5) for i in range(50)]
         response = client.post(
@@ -231,6 +290,7 @@ class TestDetectionRoutes:
                     "ethical_threshold": 0.96,
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 200
         result = response.json()
@@ -239,7 +299,7 @@ class TestDetectionRoutes:
         assert "resonance_score" in result
         assert "is_stable" in result
 
-    def test_three_r_invalid_recursion_depth(self, client):
+    def test_three_r_invalid_recursion_depth(self, client, auth_headers):
         """Test 3R with invalid recursion depth."""
         data = [1.0] * 50
         response = client.post(
@@ -250,15 +310,17 @@ class TestDetectionRoutes:
                     "recursion_depth": 0,  # Must be 1-10
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 422
 
-    def test_three_r_response_structure(self, client):
+    def test_three_r_response_structure(self, client, auth_headers):
         """Test 3R response includes all expected fields."""
         data = [np.sin(i * 0.1) for i in range(100)]
         response = client.post(
             "/api/v1/detect/three-r",
             json={"request": {"data": data}},
+            headers=auth_headers,
         )
         assert response.status_code == 200
         result = response.json()
@@ -277,7 +339,19 @@ class TestDetectionRoutes:
 class TestBatchRoutes:
     """Tests for /api/v1/batch endpoints."""
 
-    def test_submit_batch_job(self, client):
+    @pytest.fixture
+    def auth_headers(self):
+        """Create valid API key auth headers."""
+        from omni_mercury_engine.api.auth import get_api_key_store
+
+        store = get_api_key_store()
+        raw_key, _ = store.create_key(
+            name="batch_test_key",
+            user_id="batch_test_user",
+        )
+        return {"X-API-Key": raw_key}
+
+    def test_submit_batch_job(self, client, auth_headers):
         """Test submitting a batch detection job."""
         data = [[float(i)] for i in range(20)]
         response = client.post(
@@ -289,13 +363,14 @@ class TestBatchRoutes:
                     "sensitivity": 0.5,
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 202
         result = response.json()
         assert "job_id" in result
         assert result["status"] in ("PENDING", "pending")
 
-    def test_get_job_status(self, client):
+    def test_get_job_status(self, client, auth_headers):
         """Test getting job status."""
         # First submit a job
         data = [[float(i)] for i in range(20)]
@@ -308,22 +383,23 @@ class TestBatchRoutes:
                     "sensitivity": 0.5,
                 }
             },
+            headers=auth_headers,
         )
         assert submit_resp.status_code == 202
         job_id = submit_resp.json()["job_id"]
 
         # Then check status
-        status_resp = client.get(f"/api/v1/batch/jobs/{job_id}")
+        status_resp = client.get(f"/api/v1/batch/jobs/{job_id}", headers=auth_headers)
         assert status_resp.status_code == 200
         status_data = status_resp.json()
         assert status_data["job_id"] == job_id
 
-    def test_get_job_not_found(self, client):
+    def test_get_job_not_found(self, client, auth_headers):
         """Test getting non-existent job."""
-        response = client.get("/api/v1/batch/jobs/nonexistent_job_id")
+        response = client.get("/api/v1/batch/jobs/nonexistent_job_id", headers=auth_headers)
         assert response.status_code == 404
 
-    def test_batch_empty_data_rejected(self, client):
+    def test_batch_empty_data_rejected(self, client, auth_headers):
         """Test that empty data is rejected."""
         response = client.post(
             "/api/v1/batch/detect",
@@ -333,36 +409,39 @@ class TestBatchRoutes:
                     "method": "univariate",
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 422
 
-    def test_batch_sensitivity_range(self, client):
+    def test_batch_sensitivity_range(self, client, auth_headers):
         """Test sensitivity validation."""
         data = [[1.0], [2.0], [3.0]]
         response = client.post(
             "/api/v1/batch/detect",
             json={"request": {"data": data, "sensitivity": 0.5}},
+            headers=auth_headers,
         )
         assert response.status_code == 202
 
-    def test_cancel_job(self, client):
+    def test_cancel_job(self, client, auth_headers):
         """Test cancelling a batch job."""
         # Submit a job first
         data = [[float(i)] for i in range(100)]
         submit_resp = client.post(
             "/api/v1/batch/detect",
             json={"request": {"data": data, "method": "univariate"}},
+            headers=auth_headers,
         )
         assert submit_resp.status_code == 202
         job_id = submit_resp.json()["job_id"]
 
         # Cancel it - may return 204 (cancelled), 200 (already done), or 400 (already completed)
-        cancel_resp = client.delete(f"/api/v1/batch/jobs/{job_id}")
+        cancel_resp = client.delete(f"/api/v1/batch/jobs/{job_id}", headers=auth_headers)
         assert cancel_resp.status_code in (200, 204, 400)
 
-    def test_list_jobs(self, client):
+    def test_list_jobs(self, client, auth_headers):
         """Test listing batch jobs."""
-        response = client.get("/api/v1/batch/jobs")
+        response = client.get("/api/v1/batch/jobs", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
@@ -453,7 +532,19 @@ class TestExportRoutes:
 class TestBatchCallbackSSRF:
     """Tests for batch callback URL SSRF validation."""
 
-    def test_private_callback_url_rejected(self, client):
+    @pytest.fixture
+    def auth_headers(self):
+        """Create valid API key auth headers."""
+        from omni_mercury_engine.api.auth import get_api_key_store
+
+        store = get_api_key_store()
+        raw_key, _ = store.create_key(
+            name="ssrf_test_key",
+            user_id="ssrf_test_user",
+        )
+        return {"X-API-Key": raw_key}
+
+    def test_private_callback_url_rejected(self, client, auth_headers):
         """Test that private IP callback URLs are rejected."""
         data = [[1.0], [2.0], [3.0]]
         response = client.post(
@@ -465,10 +556,11 @@ class TestBatchCallbackSSRF:
                     "callback_url": "https://192.168.1.1/webhook",
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 422
 
-    def test_localhost_callback_url_rejected(self, client):
+    def test_localhost_callback_url_rejected(self, client, auth_headers):
         """Test that localhost callback URLs are rejected."""
         data = [[1.0], [2.0], [3.0]]
         response = client.post(
@@ -480,10 +572,11 @@ class TestBatchCallbackSSRF:
                     "callback_url": "https://localhost/webhook",
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 422
 
-    def test_http_callback_url_rejected(self, client):
+    def test_http_callback_url_rejected(self, client, auth_headers):
         """Test that non-HTTPS callback URLs are rejected."""
         data = [[1.0], [2.0], [3.0]]
         response = client.post(
@@ -495,6 +588,7 @@ class TestBatchCallbackSSRF:
                     "callback_url": "http://example.com/webhook",
                 }
             },
+            headers=auth_headers,
         )
         assert response.status_code == 422
 
