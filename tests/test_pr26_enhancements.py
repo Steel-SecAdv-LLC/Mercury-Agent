@@ -191,37 +191,34 @@ class TestLibOQSHooks:
         qre = QuantumResistantEncryption(use_liboqs=False)
         assert qre._oqs_available is False
 
-    def test_encrypt_decrypt_without_liboqs(self):
-        """Test encryption/decryption works without liboqs"""
+    def test_encrypt_raises_without_liboqs(self):
+        """Ava Guardian fail-fast: encrypt raises RuntimeError without PQC backend."""
         qre = QuantumResistantEncryption(use_liboqs=False)
 
-        public_key, private_key = qre._generate_lattice_key()
+        public_key, _ = qre._generate_lattice_key()
 
-        data = b"Test data for encryption"
-        encrypted = qre.encrypt_hybrid(data, public_key)
-        decrypted = qre.decrypt_hybrid(encrypted, private_key)
+        with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+            qre.encrypt_hybrid(b"Test data for encryption", public_key)
 
-        assert decrypted == data
-
-    def test_sign_verify_without_liboqs(self):
-        """Test signature without liboqs"""
+    def test_sign_raises_without_liboqs(self):
+        """Ava Guardian fail-fast: sign raises RuntimeError without PQC backend."""
         qre = QuantumResistantEncryption(use_liboqs=False)
 
-        data = b"Data to sign"
-        signature = qre.sign_data(data)
+        with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+            qre.sign_data(b"Data to sign")
 
-        assert qre.verify_signature(data, signature) is True
-        assert qre.verify_signature(b"Wrong data", signature) is False
-
-    def test_secure_handler_with_qr(self):
-        """Test SecureDataHandler with quantum-resistant encryption"""
+    def test_secure_handler_fail_fast_without_liboqs(self):
+        """Ava Guardian fail-fast: SecureDataHandler raises without PQC backend."""
         handler = SecureDataHandler(enable_quantum_resistant=True)
 
-        data = "Sensitive information"
-        encrypted = handler.encrypt_quantum_resistant(data)
-        decrypted = handler.decrypt_quantum_resistant(encrypted)
-
-        assert decrypted.decode() == data
+        if not handler.qr_encryption._oqs_available:
+            with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+                handler.encrypt_quantum_resistant("Sensitive information")
+        else:
+            data = "Sensitive information"
+            encrypted = handler.encrypt_quantum_resistant(data)
+            decrypted = handler.decrypt_quantum_resistant(encrypted)
+            assert decrypted.decode() == data
 
 
 class TestIntegration:

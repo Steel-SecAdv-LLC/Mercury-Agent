@@ -28,17 +28,29 @@ Quantum-resistant algorithms implemented using NIST post-quantum candidates:
 - Dilithium (lattice-based signatures)
 - SPHINCS+ (hash-based signatures)
 
+Ava Guardian Fail-Fast Policy:
+    When liboqs is unavailable, cryptographic operations RAISE instead of
+    silently falling back to insecure implementations. Install a real PQC
+    backend for production use:
+        pip install ava-guardian    # Primary
+        pip install liboqs-python   # Secondary
+
 Reference: NIST Post-Quantum Cryptography Standardization (2024)
 https://csrc.nist.gov/projects/post-quantum-cryptography
-
-MIT-compatible implementation using standard cryptographic primitives.
 """
 
 import base64
 import hashlib
+import hmac
+import logging
 import secrets
 
 import numpy as np
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+logger = logging.getLogger(__name__)
+
+_AES_GCM_NONCE_SIZE = 12  # 96-bit nonce per NIST SP 800-38D
 
 
 class QuantumResistantEncryption:
@@ -142,40 +154,13 @@ class QuantumResistantEncryption:
         if self._oqs_available and self._oqs_kem is not None:
             return self._encrypt_with_liboqs(data)
 
-        if public_key is None:
-            public_key, _ = self._generate_lattice_key()
-
-        A, b = public_key
-
-        ephemeral_seed = secrets.token_bytes(16)
-        seed_hash = hashlib.sha3_256(ephemeral_seed).digest()
-        seed_int = int.from_bytes(seed_hash[:4], "big")
-        rng = np.random.RandomState(seed_int)
-
-        r = (rng.randint(0, 3, size=self.n) - 1).astype(np.int64)
-        e1 = np.zeros(self.n, dtype=np.int64)
-        e2 = np.int64(0)
-
-        m_bytes = hashlib.sha3_256(ephemeral_seed).digest()[:2]
-        m_int = int.from_bytes(m_bytes, "big") % self.q
-
-        u = np.mod(A.T @ r + e1, self.q).astype(np.int64)
-        v = np.int64(np.mod(b @ r + e2 + m_int, self.q))
-
-        shared_secret = hashlib.sha3_256(int(m_int).to_bytes(2, "big")).digest()
-
-        encrypted = bytes(
-            a ^ b
-            for a, b in zip(
-                data,
-                (shared_secret * (len(data) // len(shared_secret) + 1))[: len(data)],
-                strict=False,
-            )
+        raise RuntimeError(
+            "Encryption requires a real PQC backend (Ava Guardian fail-fast policy).\n"
+            "The LWE fallback with XOR stream cipher provides no meaningful security.\n"
+            "Install one of:\n"
+            "  pip install ava-guardian    # Primary (recommended)\n"
+            "  pip install liboqs-python   # Secondary fallback"
         )
-
-        header = u.tobytes() + v.tobytes()
-
-        return bytes(header + encrypted)
 
     def decrypt_hybrid(self, encrypted_data: bytes, private_key: np.ndarray[Any, Any]) -> bytes:
         """
@@ -195,109 +180,103 @@ class QuantumResistantEncryption:
         if self._oqs_available and self._oqs_kem is not None:
             return self._decrypt_with_liboqs(encrypted_data)
 
-        header_size = self.n * 8 + 8
-        header = encrypted_data[:header_size]
-        ciphertext = encrypted_data[header_size:]
-
-        u_bytes = header[: self.n * 8]
-        v_bytes = header[self.n * 8 :]
-
-        u = np.frombuffer(u_bytes, dtype=np.int64)[: self.n]
-        v = np.frombuffer(v_bytes, dtype=np.int64)[0]
-
-        v_prime = np.mod(u @ private_key, self.q)
-
-        m_int = np.int64(np.mod(v - v_prime, self.q))
-
-        shared_secret = hashlib.sha3_256(int(m_int).to_bytes(2, "big")).digest()
-
-        decrypted = bytes(
-            a ^ b
-            for a, b in zip(
-                ciphertext,
-                (shared_secret * (len(ciphertext) // len(shared_secret) + 1))[: len(ciphertext)],
-                strict=False,
-            )
+        raise RuntimeError(
+            "Decryption requires a real PQC backend (Ava Guardian fail-fast policy).\n"
+            "The LWE fallback with XOR stream cipher provides no meaningful security.\n"
+            "Install one of:\n"
+            "  pip install ava-guardian    # Primary (recommended)\n"
+            "  pip install liboqs-python   # Secondary fallback"
         )
-
-        return decrypted
 
     def _encrypt_with_liboqs(self, data: bytes) -> bytes:
         """
-        Encrypt using liboqs Kyber768 KEM.
+        Encrypt using liboqs Kyber768 KEM + AES-256-GCM.
+
+        The KEM-derived shared secret is hashed (SHA3-256) to produce a
+        256-bit AES key. A random 96-bit nonce is generated per encryption.
+        Output format: kem_ciphertext || nonce || aes_gcm_ciphertext_with_tag
 
         Args:
             data: Data to encrypt
 
         Returns:
-            Encrypted data with KEM ciphertext header
+            Encrypted data with KEM ciphertext header and AES-GCM payload
         """
         assert self._oqs_kem is not None
         public_key_bytes = self._oqs_kem.generate_keypair()
 
-        ciphertext, shared_secret = self._oqs_kem.encap_secret(public_key_bytes)
+        kem_ciphertext, shared_secret = self._oqs_kem.encap_secret(public_key_bytes)
 
-        encrypted = bytes(
-            a ^ b
-            for a, b in zip(
-                data,
-                (shared_secret * (len(data) // len(shared_secret) + 1))[: len(data)],
-                strict=False,
-            )
-        )
+        aes_key = hashlib.sha3_256(shared_secret).digest()
+        nonce = secrets.token_bytes(_AES_GCM_NONCE_SIZE)
+        aesgcm = AESGCM(aes_key)
+        encrypted = aesgcm.encrypt(nonce, data, None)
 
-        return bytes(ciphertext + encrypted)
+        return bytes(kem_ciphertext + nonce + encrypted)
 
     def _decrypt_with_liboqs(self, encrypted_data: bytes) -> bytes:
         """
-        Decrypt using liboqs Kyber768 KEM.
+        Decrypt using liboqs Kyber768 KEM + AES-256-GCM.
+
+        Parses: kem_ciphertext || nonce || aes_gcm_ciphertext_with_tag
+        Decapsulates the shared secret, derives AES key, and decrypts.
 
         Args:
-            encrypted_data: Encrypted data with KEM ciphertext header
+            encrypted_data: Encrypted data with KEM ciphertext header and AES-GCM payload
 
         Returns:
             Decrypted data
+
+        Raises:
+            cryptography.exceptions.InvalidTag: If ciphertext was tampered with
         """
         assert self._oqs_kem is not None
-        ciphertext_size = self._oqs_kem.details["length_ciphertext"]
-        ciphertext = encrypted_data[:ciphertext_size]
-        encrypted_content = encrypted_data[ciphertext_size:]
+        kem_ct_size = self._oqs_kem.details["length_ciphertext"]
+        kem_ciphertext = encrypted_data[:kem_ct_size]
+        nonce = encrypted_data[kem_ct_size : kem_ct_size + _AES_GCM_NONCE_SIZE]
+        aes_ciphertext = encrypted_data[kem_ct_size + _AES_GCM_NONCE_SIZE :]
 
-        shared_secret = self._oqs_kem.decap_secret(ciphertext)
+        shared_secret = self._oqs_kem.decap_secret(kem_ciphertext)
 
-        decrypted = bytes(
-            a ^ b
-            for a, b in zip(
-                encrypted_content,
-                (shared_secret * (len(encrypted_content) // len(shared_secret) + 1))[
-                    : len(encrypted_content)
-                ],
-                strict=False,
-            )
-        )
-
-        return decrypted
+        aes_key = hashlib.sha3_256(shared_secret).digest()
+        aesgcm = AESGCM(aes_key)
+        return aesgcm.decrypt(nonce, aes_ciphertext, None)
 
     def sign_data(self, data: bytes) -> bytes:
         """
-        Sign data using liboqs Dilithium3 if available.
+        Sign data using liboqs Dilithium3.
+
+        Raises RuntimeError if no real PQC backend is available, per Ava
+        Guardian fail-fast policy. A SHA3 hash is not a signature — anyone
+        with the seed can forge it.
 
         Args:
             data: Data to sign
 
         Returns:
             Signature bytes
+
+        Raises:
+            RuntimeError: If liboqs is not available
         """
         if not self._oqs_available or self._oqs_signature is None:
-            return hashlib.sha3_256(data + self.seed).digest()
+            raise RuntimeError(
+                "Signing requires a real PQC backend (Ava Guardian fail-fast policy).\n"
+                "sha3_256(data + seed) is a MAC, not a signature — anyone with the\n"
+                "seed can forge it. Install one of:\n"
+                "  pip install ava-guardian    # Primary (recommended)\n"
+                "  pip install liboqs-python   # Secondary fallback"
+            )
 
         self._oqs_signature.generate_keypair()
-        signature = self._oqs_signature.sign(data)
-        return signature
+        return self._oqs_signature.sign(data)
 
     def verify_signature(self, data: bytes, signature: bytes) -> bool:
         """
-        Verify signature using liboqs Dilithium3 if available.
+        Verify signature using liboqs Dilithium3.
+
+        Uses hmac.compare_digest for constant-time comparison to prevent
+        timing attacks, even though liboqs.verify() returns bool internally.
 
         Args:
             data: Original data
@@ -305,10 +284,18 @@ class QuantumResistantEncryption:
 
         Returns:
             True if signature is valid
+
+        Raises:
+            RuntimeError: If liboqs is not available
         """
         if not self._oqs_available or self._oqs_signature is None:
-            expected_sig = hashlib.sha3_256(data + self.seed).digest()
-            return signature == expected_sig
+            raise RuntimeError(
+                "Signature verification requires a real PQC backend "
+                "(Ava Guardian fail-fast policy).\n"
+                "Install one of:\n"
+                "  pip install ava-guardian    # Primary (recommended)\n"
+                "  pip install liboqs-python   # Secondary fallback"
+            )
 
         return self._oqs_signature.verify(data, signature)
 

@@ -6,8 +6,7 @@ Comprehensive tests for security/encryption.py module.
 
 Covers:
 - QuantumResistantEncryption key generation
-- Hybrid encryption and decryption round-trip
-- Signature creation and verification
+- Ava Guardian fail-fast policy (RuntimeError on insecure fallbacks)
 - SecureDataHandler sanitization, encoding/decoding
 - Quantum-resistant encryption enable/disable
 """
@@ -45,7 +44,7 @@ class TestQuantumResistantEncryption:
         assert qre.n == 128
 
     def test_generate_lattice_key(self):
-        """Test lattice-based key pair generation."""
+        """Test lattice-based key pair generation (pure math, no crypto)."""
         qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
         public_key, private_key = qre._generate_lattice_key()
 
@@ -54,73 +53,42 @@ class TestQuantumResistantEncryption:
         assert b.shape == (64,)
         assert private_key.shape == (64,)
 
-    def test_encrypt_decrypt_roundtrip(self):
-        """Test that encryption followed by decryption recovers the plaintext."""
+    def test_encrypt_raises_without_liboqs(self):
+        """Ava Guardian fail-fast: encrypt raises RuntimeError without PQC backend."""
         qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
-        public_key, private_key = qre._generate_lattice_key()
+        public_key, _ = qre._generate_lattice_key()
 
-        plaintext = b"Hello, quantum-resistant world!"
-        ciphertext = qre.encrypt_hybrid(plaintext, public_key)
+        with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+            qre.encrypt_hybrid(b"test data", public_key)
 
-        assert ciphertext != plaintext
-        assert len(ciphertext) > len(plaintext)
-
-        decrypted = qre.decrypt_hybrid(ciphertext, private_key)
-        assert decrypted == plaintext
-
-    def test_encrypt_decrypt_empty_data(self):
-        """Test encryption/decryption with empty data."""
+    def test_decrypt_raises_without_liboqs(self):
+        """Ava Guardian fail-fast: decrypt raises RuntimeError without PQC backend."""
         qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
-        public_key, private_key = qre._generate_lattice_key()
+        _, private_key = qre._generate_lattice_key()
 
-        plaintext = b""
-        ciphertext = qre.encrypt_hybrid(plaintext, public_key)
-        decrypted = qre.decrypt_hybrid(ciphertext, private_key)
-        assert decrypted == plaintext
+        with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+            qre.decrypt_hybrid(b"fake ciphertext", private_key)
 
-    def test_encrypt_generates_key_if_none(self):
-        """Test that encryption auto-generates key if not provided."""
+    def test_encrypt_auto_key_raises_without_liboqs(self):
+        """Fail-fast when no public key provided and liboqs unavailable."""
         qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
-        plaintext = b"auto-key test"
 
-        # Should not raise
-        ciphertext = qre.encrypt_hybrid(plaintext, public_key=None)
-        assert isinstance(ciphertext, bytes)
-        assert len(ciphertext) > 0
+        with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+            qre.encrypt_hybrid(b"auto-key test", public_key=None)
 
-    def test_sign_data_without_liboqs(self):
-        """Test data signing falls back to SHA3-256 HMAC."""
+    def test_sign_data_raises_without_liboqs(self):
+        """Ava Guardian fail-fast: signing raises RuntimeError without PQC backend."""
         qre = QuantumResistantEncryption(use_liboqs=False)
-        data = b"sign this message"
-        signature = qre.sign_data(data)
 
-        assert isinstance(signature, bytes)
-        assert len(signature) == 32  # SHA3-256 digest length
+        with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+            qre.sign_data(b"sign this message")
 
-    def test_verify_signature_valid(self):
-        """Test valid signature verification."""
+    def test_verify_signature_raises_without_liboqs(self):
+        """Ava Guardian fail-fast: verification raises RuntimeError without PQC backend."""
         qre = QuantumResistantEncryption(use_liboqs=False)
-        data = b"verify this message"
-        signature = qre.sign_data(data)
 
-        assert qre.verify_signature(data, signature) is True
-
-    def test_verify_signature_invalid(self):
-        """Test invalid signature rejection."""
-        qre = QuantumResistantEncryption(use_liboqs=False)
-        data = b"original message"
-        signature = qre.sign_data(data)
-
-        # Tamper with data
-        assert qre.verify_signature(b"tampered message", signature) is False
-
-    def test_verify_signature_wrong_signature(self):
-        """Test wrong signature rejection."""
-        qre = QuantumResistantEncryption(use_liboqs=False)
-        data = b"test message"
-        wrong_sig = b"\x00" * 32
-
-        assert qre.verify_signature(data, wrong_sig) is False
+        with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+            qre.verify_signature(b"data", b"\x00" * 32)
 
     def test_different_seeds_produce_different_keys(self):
         """Test that different instances produce different keys."""
@@ -130,16 +98,17 @@ class TestQuantumResistantEncryption:
         # Seeds should differ (random)
         assert qre1.seed != qre2.seed
 
-    def test_encrypt_binary_data(self):
-        """Test encryption of arbitrary binary data."""
+    def test_lattice_key_deterministic_from_seed(self):
+        """Test that same seed produces same lattice keys."""
         qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
-        public_key, private_key = qre._generate_lattice_key()
+        pk1, sk1 = qre._generate_lattice_key()
+        pk2, sk2 = qre._generate_lattice_key()
 
-        # Binary data with all byte values
-        plaintext = bytes(range(256))
-        ciphertext = qre.encrypt_hybrid(plaintext, public_key)
-        decrypted = qre.decrypt_hybrid(ciphertext, private_key)
-        assert decrypted == plaintext
+        import numpy as np
+
+        np.testing.assert_array_equal(pk1[0], pk2[0])
+        np.testing.assert_array_equal(pk1[1], pk2[1])
+        np.testing.assert_array_equal(sk1, sk2)
 
 
 # =============================================================================
@@ -214,29 +183,17 @@ class TestSecureDataHandler:
         decoded = handler.decode_data(encoded)
         assert decoded == original
 
-    def test_encrypt_quantum_resistant_string(self):
-        """Test quantum-resistant encryption of string."""
+    def test_encrypt_raises_without_liboqs(self):
+        """Ava Guardian fail-fast: encrypt raises when PQC backend unavailable."""
         handler = SecureDataHandler(enable_quantum_resistant=True)
-        plaintext = "sensitive data"
-        encrypted = handler.encrypt_quantum_resistant(plaintext)
-        assert isinstance(encrypted, bytes)
-        assert encrypted != plaintext.encode()
-
-    def test_encrypt_quantum_resistant_bytes(self):
-        """Test quantum-resistant encryption of bytes."""
-        handler = SecureDataHandler(enable_quantum_resistant=True)
-        plaintext = b"binary sensitive data"
-        encrypted = handler.encrypt_quantum_resistant(plaintext)
-        assert isinstance(encrypted, bytes)
-        assert encrypted != plaintext
-
-    def test_encrypt_decrypt_quantum_resistant_roundtrip(self):
-        """Test quantum-resistant encryption/decryption round-trip."""
-        handler = SecureDataHandler(enable_quantum_resistant=True)
-        plaintext = b"round trip test data"
-        encrypted = handler.encrypt_quantum_resistant(plaintext)
-        decrypted = handler.decrypt_quantum_resistant(encrypted)
-        assert decrypted == plaintext
+        # Without liboqs installed, this should raise RuntimeError
+        if not handler.qr_encryption._oqs_available:
+            with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+                handler.encrypt_quantum_resistant("sensitive data")
+        else:
+            # liboqs available — encryption should work
+            encrypted = handler.encrypt_quantum_resistant("sensitive data")
+            assert isinstance(encrypted, bytes)
 
     def test_encrypt_raises_when_disabled(self):
         """Test that encryption raises when quantum-resistant is disabled."""

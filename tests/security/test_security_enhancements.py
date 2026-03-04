@@ -38,7 +38,7 @@ class TestQuantumResistantEncryption:
     """Test quantum-resistant encryption."""
 
     def test_key_generation(self):
-        """Test lattice-based key generation."""
+        """Test lattice-based key generation (pure math, no crypto backend needed)."""
         qr = QuantumResistantEncryption(security_level=128)
 
         public_key, private_key = qr._generate_lattice_key()
@@ -48,37 +48,39 @@ class TestQuantumResistantEncryption:
         assert b.shape == (128,)
         assert private_key.shape == (128,)
 
-    def test_encryption_decryption(self):
-        """Test encrypt/decrypt cycle."""
-        qr = QuantumResistantEncryption(security_level=128)
-        public_key, private_key = qr._generate_lattice_key()
+    def test_encrypt_raises_without_pqc_backend(self):
+        """Ava Guardian fail-fast: encrypt raises RuntimeError without real PQC backend."""
+        qr = QuantumResistantEncryption(security_level=128, use_liboqs=False)
+        public_key, _ = qr._generate_lattice_key()
 
-        plaintext = b"Test quantum-resistant encryption"
+        with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+            qr.encrypt_hybrid(b"Test quantum-resistant encryption", public_key)
 
-        ciphertext = qr.encrypt_hybrid(plaintext, public_key)
+    def test_sign_raises_without_pqc_backend(self):
+        """Ava Guardian fail-fast: sign raises RuntimeError without real PQC backend."""
+        qr = QuantumResistantEncryption(use_liboqs=False)
 
-        assert len(ciphertext) > len(plaintext)
-        assert ciphertext != plaintext
+        with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+            qr.sign_data(b"Test signing")
 
-        decrypted = qr.decrypt_hybrid(ciphertext, private_key)
-
-        assert decrypted == plaintext
-
-    def test_secure_data_handler(self):
-        """Test SecureDataHandler with quantum-resistant encryption."""
+    def test_secure_data_handler_fail_fast(self):
+        """Test SecureDataHandler respects Ava Guardian fail-fast without liboqs."""
         handler = SecureDataHandler(enable_quantum_resistant=True)
 
         assert handler.public_key is not None
         assert handler.private_key is not None
 
-        data = "Sensitive information"
-        encrypted = handler.encrypt_quantum_resistant(data)
-
-        assert isinstance(encrypted, bytes)
-        assert encrypted != data.encode()
-
-        decrypted = handler.decrypt_quantum_resistant(encrypted)
-        assert decrypted == data.encode()
+        if not handler.qr_encryption._oqs_available:
+            with pytest.raises(RuntimeError, match="Ava Guardian fail-fast"):
+                handler.encrypt_quantum_resistant("Sensitive information")
+        else:
+            # liboqs available — full roundtrip should work
+            data = "Sensitive information"
+            encrypted = handler.encrypt_quantum_resistant(data)
+            assert isinstance(encrypted, bytes)
+            assert encrypted != data.encode()
+            decrypted = handler.decrypt_quantum_resistant(encrypted)
+            assert decrypted == data.encode()
 
     def test_sanitization(self):
         """Test input sanitization."""
