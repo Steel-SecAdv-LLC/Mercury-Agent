@@ -284,7 +284,10 @@ class RealTimeThreatDetector(LoggerMixin):
 
         ensemble_score = np.mean(list(scores.values()), axis=0)
 
-        is_threat = ensemble_score < np.percentile(ensemble_score, self.contamination * 100)
+        # Mercury-native score_samples: higher = more anomalous
+        is_threat = ensemble_score > np.percentile(
+            ensemble_score, (1 - self.contamination) * 100
+        )
 
         threat_indices = np.where(is_threat)[0]
 
@@ -301,14 +304,14 @@ class RealTimeThreatDetector(LoggerMixin):
         }
 
     def _calculate_threat_level(self, scores: np.ndarray[Any, Any]) -> str:
-        """Calculate threat level based on scores."""
-        min_score = np.min(scores)
+        """Calculate threat level based on scores (higher = more anomalous)."""
+        max_score = float(np.max(scores))
 
-        if min_score < np.percentile(scores, 1):
+        if max_score > np.percentile(scores, 99):
             return "CRITICAL"
-        elif min_score < np.percentile(scores, 5):
+        elif max_score > np.percentile(scores, 95):
             return "HIGH"
-        elif min_score < np.percentile(scores, 10):
+        elif max_score > np.percentile(scores, 90):
             return "MEDIUM"
         else:
             return "LOW"
