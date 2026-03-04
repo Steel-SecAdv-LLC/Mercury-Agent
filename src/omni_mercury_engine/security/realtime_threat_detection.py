@@ -85,8 +85,9 @@ class _RandomProjectionDetector:
     def score_samples(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         assert self._projections is not None
         projected = X @ self._projections.T
-        z = np.abs(projected - self._medians) / self._mads  # type: ignore[operator]
-        return np.mean(z, axis=1)
+        z = np.abs(projected - self._medians) / self._mads
+        result: np.ndarray[Any, Any] = np.mean(z, axis=1)
+        return result
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         scores = self.score_samples(X)
@@ -109,7 +110,8 @@ class _LocalDensityDetector:
         assert self._tree is not None
         k = min(self.n_neighbors + 1, self._tree.n - 1)
         dists, _ = self._tree.query(X, k=max(k, 2))
-        return np.mean(dists[:, 1:], axis=1)
+        result: np.ndarray[Any, Any] = np.mean(dists[:, 1:], axis=1)
+        return result
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         scores = self.score_samples(X)
@@ -148,7 +150,8 @@ class _RobustCovarianceDetector:
         assert self._mean is not None and self._cov_inv is not None
         centered = X - self._mean
         left = centered @ self._cov_inv
-        return np.sqrt(np.maximum(np.sum(left * centered, axis=1), 0.0))
+        result: np.ndarray[Any, Any] = np.sqrt(np.maximum(np.sum(left * centered, axis=1), 0.0))
+        return result
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         scores = self.score_samples(X)

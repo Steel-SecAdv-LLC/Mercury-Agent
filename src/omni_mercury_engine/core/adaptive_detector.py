@@ -582,7 +582,8 @@ class AdaptiveAnomalyDetector:
 
         corr = np.corrcoef(X.T)
         mask = ~np.eye(n_features, dtype=bool)
-        off_diag = np.abs(corr[mask])
+        corr_matrix: NDArray[np.float64] = np.asarray(corr)
+        off_diag = np.abs(corr_matrix[mask])
 
         high_corr_fraction = float(np.mean(off_diag > 0.5))
 
