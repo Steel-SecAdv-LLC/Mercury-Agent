@@ -108,9 +108,9 @@ class _LocalDensityDetector:
 
     def score_samples(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         assert self._tree is not None
-        k = min(self.n_neighbors + 1, self._tree.n - 1)
-        dists, _ = self._tree.query(X, k=max(k, 2))
-        result: np.ndarray[Any, Any] = np.mean(dists[:, 1:], axis=1)
+        k = min(self.n_neighbors, self._tree.n)
+        dists, _ = self._tree.query(X, k=max(k, 1))
+        result: np.ndarray[Any, Any] = np.mean(dists, axis=1)
         return result
 
     def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:

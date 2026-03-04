@@ -33,7 +33,9 @@ class TestCompatFlags:
         assert hasattr(_compat, "HAS_CV2")
 
     def test_convenience_groupings(self) -> None:
-        assert (_compat.HAS_TORCH and _compat.HAS_SKLEARN) == _compat.HAS_ML_STACK
+        # HAS_ML_STACK requires only PyTorch (Mercury uses native ML primitives,
+        # not sklearn).
+        assert _compat.HAS_TORCH == _compat.HAS_ML_STACK
         assert (
             _compat.HAS_TORCH and _compat.HAS_TORCHVISION and _compat.HAS_TIMM
         ) == _compat.HAS_VISUAL_STACK

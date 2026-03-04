@@ -464,9 +464,9 @@ class _MercuryLocalDensityDetector:
 
     def score_samples(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         assert self._tree is not None
-        k = min(self.n_neighbors + 1, self._tree.n - 1)
-        dists, _ = self._tree.query(X, k=max(k, 2))
-        return np.asarray(np.mean(dists[:, 1:], axis=1), dtype=np.float64)
+        k = min(self.n_neighbors, self._tree.n)
+        dists, _ = self._tree.query(X, k=max(k, 1))
+        return np.asarray(np.mean(dists, axis=1), dtype=np.float64)
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.int32]:
         scores = self.score_samples(X)
