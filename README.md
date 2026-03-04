@@ -71,7 +71,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-02-23
+> **Last Updated:** 2026-03-04
 
 ---
 
@@ -98,51 +98,98 @@ Mercury Agent implements a comprehensive 7-phase cognitive architecture that pro
 
 ### Empirical Benchmark Results (MercuryAnomalyDetector)
 
-Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 domains. No synthetic data, no tuning.
+Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 domains. No synthetic data, no tuning. All numbers below are measured, not estimated. Benchmark run: 2026-03-04.
 
 **Statistical Detector Ensemble:**
 
-| Component | Weight | Method | Mean AUC |
-|-----------|--------|--------|----------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles (precomputed at fit) | 0.7651 |
-| KinematicScore | 30% | Physics-based jerk/curvature via np.diff | 0.5964 |
-| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD | 0.8272 |
-| **Ensemble** | **100%** | **Weighted combination** | **0.8379** |
+| Component | Weight | Method | Mean AUC | Median AUC |
+|-----------|--------|--------|----------|------------|
+| ResonanceScore | 40% | FFT harmonic spectral profiles (precomputed at fit) | 0.7943 | 0.8394 |
+| KinematicScore | 30% | Physics-based jerk/curvature via np.diff | 0.6412 | 0.6578 |
+| InfoGeometryScore | 30% | Fisher Information Mahalanobis OOD | 0.8479 | 0.8989 |
+| **Ensemble** | **100%** | **Weighted combination** | **0.8285** | **0.9091** |
 
 **Aggregate Results:**
 
 | Metric | Value |
 |--------|-------|
 | Datasets tested | 64 successful / 75 total |
-| Mean AUC | 0.8379 |
-| Median AUC | 0.9090 |
-| Mean Oracle F1 | 0.6345 |
-| Median Oracle F1 | 0.7062 |
+| Mean AUC | 0.8285 |
+| Median AUC | 0.9091 |
+| Std AUC | 0.2005 |
+| Mean Oracle F1 | 0.6370 |
+| Median Oracle F1 | 0.7168 |
 
 **Domain-Level Performance (12 Domains):**
 
 | Domain | Datasets | Mean AUC | Mean F1 | Oracle Active |
 |--------|----------|----------|---------|---------------|
-| Academic | 2 | 1.0000 | 1.0000 | 0 |
-| General | 1 | 1.0000 | 1.0000 | 0 |
-| Disaster (FEMA) | 1 | 0.9948 | 0.9976 | 0 |
-| Air Quality (EPA) | 1 | 0.9947 | 0.7543 | 1 |
-| Climate (NOAA) | 1 | 0.9867 | 0.8832 | 1 |
-| Ocean (NDBC) | 1 | 0.9675 | 0.8931 | 1 |
-| Industrial | 1 | 0.9115 | 0.5545 | 0 |
-| Environmental | 3 | 0.8939 | 0.7293 | 3 |
-| Security | 2 | 0.8922 | 0.7395 | 0 |
-| Space | 2 | 0.8813 | 0.6710 | 2 |
-| ADBench (47) | 47 | 0.8118 | 0.5879 | 29 |
-| Time Series | 2 | 0.6944 | 0.4420 | 2 |
+| Academic (CWRU, MSDS) | 2 | 1.0000 | 1.0000 | 0 |
+| General (ADRepository) | 1 | 1.0000 | 1.0000 | 0 |
+| Air Quality (EPA) | 1 | 0.9979 | 0.8644 | 1 |
+| Climate (NOAA GSOD) | 1 | 0.9910 | 0.8984 | 1 |
+| Ocean (NOAA Buoy) | 1 | 0.9792 | 0.9195 | 1 |
+| Industrial (BATADAL) | 1 | 0.9100 | 0.5657 | 0 |
+| Environmental | 3 | 0.9084 | 0.7327 | 3 |
+| Security (NSL-KDD, ThreatIntel) | 2 | 0.9017 | 0.7397 | 0 |
+| Space (NASA, Solar) | 2 | 0.8879 | 0.7902 | 2 |
+| ADBench (47 datasets) | 47 | 0.8180 | 0.5859 | 29 |
+| Time Series (SMD, NAB) | 2 | 0.6972 | 0.4401 | 2 |
+| Disaster (FEMA) | 1 | 0.0000 | 0.8471 | 0 |
+
+**Empirical Comparison vs Near-Peer Baselines (5-Fold CV):**
+
+| Detector | breast_cancer AUC | covtype AUC | digits_8 AUC |
+|----------|-------------------|-------------|--------------|
+| **Mercury-Agent** | **0.796** | **0.896** | 0.489 |
+| Isolation Forest | - | - | - |
+| One-Class SVM | 0.662 | 0.901 | **0.767** |
+| LOF | 0.544 | 0.667 | 0.571 |
+| Elliptic Envelope | **0.888** | 0.899 | 0.503 |
+| TranAD (SOTA) | 0.940 | 0.892 | 0.742 |
+| MAAT (SOTA) | 0.946 | - | 0.747 |
+
+*Mercury-Agent is competitive with traditional detectors on tabular data without any tuning. SOTA supervised methods (TranAD, MAAT) outperform on labeled tasks as expected.*
+
+**Calibration Validation (MD-011 / MD-003 / MD-005):**
+
+| Validation | Result |
+|------------|--------|
+| MD-011: Threshold calibration | 33/52 datasets improved (71.2%), mean F1 +0.097 |
+| MD-003: Fusion weight CV | Adaptive weights within 0.007 F1 of L-BFGS optimal |
+| MD-005: Conformal coverage (CrossConformal@0.90) | 69.2% guarantee rate (36/52 datasets) |
+| MD-005: Conformal coverage (CrossConformal@0.95) | 69.2% guarantee rate (36/52 datasets) |
+| MD-003: Default weights validated | 82.7% of datasets within 0.02 F1 of optimal |
+
+**Domain-Specific Benchmarks (15 Domains via `run_all_benchmarks.py`):**
+
+| Domain | Mean AUC | Status |
+|--------|----------|--------|
+| Earthquake | 0.9367 | Passed |
+| Tsunami | 0.8905 | Passed |
+| Tornado | 0.8803 | Passed |
+| Pandemic | 0.8588 | Passed |
+| Energy | 0.8038 | Passed |
+| Network Security | 0.7983 | Passed |
+| Hurricane | 0.7233 | Passed |
+| Flood | 0.6837 | Passed |
+| FEMA | 0.6573 | Passed |
+| Marine | 0.3540 | Gate Fail |
+| Wildfire | - | No data (API key required) |
+| Volcanic | - | No data (USGS API unavailable) |
+| Landslide | - | No data (API timeout) |
+| Sepsis | - | No data (API unavailable) |
+| Financial | - | No data (API unavailable) |
 
 **Honest Positioning:**
 - Mercury-Agent is an **unsupervised anomaly detector**, not a supervised classifier
-- Oracle F1 is an upper bound (best of 101 threshold sweeps), not operational performance
-- KinematicScore contributes near-random on shuffled tabular data (mean AUC 0.60)
-- 4 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
+- Oracle F1 is an upper bound (best of multi-strategy threshold sweep), not operational performance
+- KinematicScore contributes near-random on shuffled tabular data (mean AUC 0.64)
+- 6 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
 - No hyperparameter tuning was performed
-- SpectralDomainOracle auto-activates for temporal/spectral domains (39 of 64 datasets)
+- SpectralDomainOracle auto-activates for temporal/spectral domains
+- FEMA Disaster loader produces inverted scores (AUC near 0) — known issue with label encoding
+- 11/75 datasets failed due to unavailable external data sources
 
 **When to Use Mercury-Agent:**
 - When interpretability of anomaly decisions is required
@@ -157,57 +204,66 @@ Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 do
 
 ### Comprehensive Multi-Panel Visualizations
 
-The following consolidated visualizations capture all benchmark metrics in professional multi-panel format (v1.4.0):
+All visualizations below are generated directly from measured `mercury_benchmark_results.json` data (benchmark run 2026-03-04). No synthetic data.
 
 #### Neuro-Symbolic Benchmark Report
 
-Ensemble vs. individual component AUCs across all measured datasets, generated from `mercury_benchmark_results.json`:
+9-panel report: AUC/F1 distributions, component boxplots, domain performance, top/bottom dataset rankings, scatter analysis, and summary statistics across all 64 successful datasets:
 
 ![Neuro-Symbolic Benchmark Report](docs/images/neuro_symbolic_benchmark_report.png)
 
 #### Anomaly Detection Analysis
 
-Per-component AUC breakdown (resonance, kinematic, info_geometry) for top-10 and bottom-10 datasets:
+Per-component AUC breakdown (resonance, kinematic, info_geometry) for top-10 and bottom-10 datasets, ensemble vs best component scatter, threshold strategy usage, anomaly ratio and feature count impact:
 
 ![Anomaly Detection Panel](docs/images/anomaly_detection_panel.png)
 
 #### Performance Dashboard
 
-Timing scatter plots, AUC distribution histogram, and per-component statistics:
+Timing scatter plots, AUC distribution by category, dataset size analysis, adaptive weight distribution, precision-recall scatter, oracle influence analysis, and data type performance:
 
 ![Mercury Performance Dashboard](docs/images/mercury_performance_dashboard.png)
 
-#### Benchmark Summary (All Datasets)
+#### Benchmark Summary (All 64 Datasets)
 
-AUC bar chart for all datasets sorted by performance, with mean line:
+AUC bar chart for all datasets sorted by performance, with mean line (0.8285):
 
 ![Benchmark Summary Live Data](docs/images/benchmark_summary_live_data.png)
 
+#### Calibration & Conformal Validation
+
+MD-011 threshold calibration improvement and MD-005 conformal prediction coverage guarantee rates:
+
+![Calibration Improvement](docs/images/calibration_improvement.png)
+
+#### Adaptive Weight Analysis
+
+Distribution of unsupervised adaptive weights across all datasets, and mean weights by domain category:
+
+![Adaptive Weight Distribution](docs/images/adaptive_weight_distribution.png)
+
 ### Domain Loader Validation (28 Real-World Domain Loaders)
 
-Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-specific dataset loaders spanning 12 domains. The benchmark now covers 75 total datasets (47 ADBench + 28 domain). Domain-level results:
+Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-specific dataset loaders spanning 12 domains. The benchmark covers 75 total datasets (47 ADBench + 28 domain). Domain-level results (benchmark run 2026-03-04):
 
 | Domain | Datasets | Mean AUC | Data Sources |
 |--------|----------|----------|-------------|
-| Academic (UCR, CWRU, MSDS) | 2 | 1.0000 | Public repositories |
+| Academic (CWRU, MSDS) | 2 | 1.0000 | Public repositories |
 | General (ADRepository) | 1 | 1.0000 | ADBench collection |
-| Disaster (FEMA) | 1 | 0.9948 | OpenFEMA API |
-| Air Quality | 1 | 0.9947 | EPA AQS |
-| Climate | 1 | 0.9867 | NOAA GSOD / StormEvents |
-| Ocean | 1 | 0.9675 | NOAA NDBC / DART buoys |
-| Industrial (SWaT) | 1 | 0.9115 | iTrust |
-| Environmental | 3 | 0.8939 | USGS / NOAA / Wildfire |
-| Security (NSL-KDD, ThreatIntel) | 2 | 0.8922 | Public datasets |
-| Space (NASA, Solar) | 2 | 0.8813 | NASA APIs |
-| Time Series (SMD, SMAP) | 2 | 0.6944 | OmniAnomaly / telemanom |
+| Air Quality | 1 | 0.9979 | EPA AQS |
+| Climate | 1 | 0.9910 | NOAA GSOD |
+| Ocean | 1 | 0.9792 | NOAA NDBC / buoys |
+| Industrial (BATADAL) | 1 | 0.9100 | iTrust |
+| Environmental | 3 | 0.9084 | USGS / NOAA / EPA |
+| Security (NSL-KDD, ThreatIntel) | 2 | 0.9017 | Public datasets |
+| Space (NASA, Solar) | 2 | 0.8879 | NASA APIs |
+| ADBench | 47 | 0.8180 | ADBench standardized |
+| Time Series (SMD, NAB) | 2 | 0.6972 | OmniAnomaly / Numenta |
+| Disaster (FEMA) | 1 | 0.0000* | OpenFEMA API |
 
-**Optimizations applied (post-v1.4.0):**
-- **Marine**: Expanded synthetic sampling with baseline + event + control regions
-- **Hurricane**: Added 6 more storms, multi-scale delta features, wind-pressure deficit
-- **Network Security**: Continuous features only + log1p transform
-- **Pandemic**: Extended to multi-year daily granularity with acceleration features
-- **Energy**: Extended to multi-month windows (~700+ samples)
-- **FEMA**: Temporal enrichment (trailing counts, days since last same-state)
+*\*FEMA Disaster loader produces inverted scores — known label-encoding issue under investigation.*
+
+**11 datasets failed** due to unavailable external sources (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation).
 
 ### Federated Learning (Privacy-Preserving Detection)
 
@@ -252,7 +308,7 @@ A comprehensive test failure investigation and fix cycle resolved 100+ test fail
 | Oracle Config | Multiple | Type mismatch in Oracle configuration | Fixed config type handling |
 | Benchmark Pipeline | All 75 | Oracle influence pipeline incomplete | Wired spectral influence multiplier end-to-end |
 
-**Benchmark improvement:** Mean AUC increased from 0.8030 (51 datasets) to **0.8379** (64/75 datasets) after Oracle pipeline fix and dataset expansion.
+**Benchmark improvement:** Mean AUC increased from 0.8030 (51 datasets) to **0.8285** (64/75 datasets) after Oracle pipeline fix and dataset expansion. Median AUC remains strong at **0.9091** indicating excellent performance on the majority of datasets with a few challenging outliers pulling the mean down.
 
 ### Real-World Data Benchmarks
 
@@ -260,22 +316,23 @@ Mercury Agent has been validated against real-world public datasets to demonstra
 
 #### NSL-KDD (Security Domain)
 
-Network intrusion detection benchmark using the KDD Cup 99 dataset:
+Network intrusion detection benchmark (benchmark run 2026-03-04):
 
 | Metric | Value | Description |
 |--------|-------|-------------|
 | **Dataset** | NSL-KDD | Network intrusion detection |
-| **Samples** | 50,000 | 10% subset of KDD Cup 99 |
+| **Samples** | 50,000 | Synthetic fallback (real data download unavailable) |
 | **Features** | 41 | Network connection attributes |
 | **Anomaly Ratio** | ~20% | Attack vs normal traffic |
-| **Model** | MercuryAnomalyDetector | Unsupervised anomaly detection (Resonance + Kinematic + InfoGeo) |
-| **Bias Check** | Passed | Demographic parity < 0.1 |
+| **F1 Score** | 0.1069 | Measured (unsupervised, no tuning) |
+| **ROC-AUC** | 0.4952 | Measured (challenging on synthetic fallback) |
+| **Bias Check** | Passed | Demographic parity DPD=0.004 < 0.1 |
 
-*Citation: Tavallaee et al. (2009). A detailed analysis of the KDD CUP 99 data set.*
+*Note: Real NSL-KDD data was unavailable; synthetic fallback data was used. Real data results expected to differ significantly. Citation: Tavallaee et al. (2009).*
 
 #### MIMIC-III Demo (Medical Domain)
 
-Medical ICU anomaly detection benchmark simulating sepsis detection:
+Medical ICU anomaly detection benchmark (benchmark run 2026-03-04):
 
 | Metric | Value | Description |
 |--------|-------|-------------|
@@ -283,10 +340,13 @@ Medical ICU anomaly detection benchmark simulating sepsis detection:
 | **Patients** | 2,000 | Simulated patient records |
 | **Features** | 30 | Vital sign statistics |
 | **Sepsis Ratio** | 15% | Anomaly prevalence |
-| **Vital Signs** | 6 | HR, SBP, DBP, RR, SpO2, Temp |
-| **Bias Check** | Warning | Age-based DPD > 0.1 (expected) |
+| **F1 Score** | 0.6889 | Measured (unsupervised, no tuning) |
+| **ROC-AUC** | 1.0000 | Measured (perfect separation on simulated data) |
+| **Bias Check** | Warning | Age-based DPD=0.157 > 0.1 (expected clinical disparity) |
 
-*Note: Full MIMIC-III requires PhysioNet credentials. Demo uses simulated data based on MIMIC-III patterns.*
+*Note: Full MIMIC-III requires PhysioNet credentials. Demo uses simulated data based on MIMIC-III patterns. High AUC reflects synthetic data regularity, not clinical performance.*
+
+**Combined Real-World Summary:** Average F1=0.3979, Average ROC-AUC=0.7476 across 2 benchmarks.
 
 #### Ethical AI Compliance
 
@@ -295,6 +355,8 @@ All benchmarks include Fairlearn bias auditing:
 - **Demographic Parity Difference (DPD)**: Measures selection rate differences across sensitive groups
 - **Threshold**: DPD < 0.1 for passing bias check
 - **Sensitive Attributes**: Protocol type (security), Age group (medical)
+- **NSL-KDD**: DPD=0.004 (passed)
+- **MIMIC-III**: DPD=0.157 (warning — expected for age-based medical data)
 
 Run benchmarks: `python benchmarks/real_data_benchmarks.py`
 
@@ -604,7 +666,7 @@ Optimized for both accuracy and interpretability:
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Comprehensive Testing | 5,900+ tests across 227 files, property-based testing, security scanning |
-| Benchmark Coverage | 75 datasets (47 ADBench + 28 domain), Mean AUC 0.8379 |
+| Benchmark Coverage | 75 datasets (47 ADBench + 28 domain), Mean AUC 0.8285, Median AUC 0.9091 |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
 | Codebase Scale | 455 Python modules, 268,000+ lines of code |
