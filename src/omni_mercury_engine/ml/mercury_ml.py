@@ -1366,8 +1366,8 @@ class GaussianMixture:
 
         prev_ll = -np.inf
         for _ in range(self.max_iter):
-            # E-step
-            resp = self._e_step(X)
+            # E-step: returns (normalized responsibilities, per-sample likelihoods)
+            resp, sample_likelihoods = self._e_step(X)
 
             # M-step
             nk = resp.sum(axis=0)
@@ -1381,15 +1381,17 @@ class GaussianMixture:
                     d
                 ) * 1e-6
 
-            # Check convergence
-            ll = np.sum(np.log(np.sum(resp, axis=1) + 1e-300))
+            # Check convergence using actual data log-likelihood
+            ll = float(np.sum(np.log(sample_likelihoods + 1e-300)))
             if abs(ll - prev_ll) < self.tol:
                 break
             prev_ll = ll
 
         return self
 
-    def _e_step(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+    def _e_step(
+        self, X: NDArray[np.number[Any]]
+    ) -> tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]:
         n = len(X)
         resp = np.zeros((n, self.n_components))
         for k in range(self.n_components):
@@ -1399,8 +1401,10 @@ class GaussianMixture:
                 )
             except (np.linalg.LinAlgError, ValueError):
                 resp[:, k] = 1e-300
-        resp /= resp.sum(axis=1, keepdims=True) + 1e-300
-        return resp
+        # Save per-sample total likelihood before normalization
+        sample_likelihoods = resp.sum(axis=1)
+        resp /= sample_likelihoods[:, np.newaxis] + 1e-300
+        return resp, sample_likelihoods
 
 
 # =====================================================================
