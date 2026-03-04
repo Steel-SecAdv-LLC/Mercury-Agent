@@ -1569,32 +1569,19 @@ class CrossDomainTransferLearner:
             source_X = source_data.X[:, :min_features]
             target_X = target_data.X[:, :min_features]
 
-        # Normalize
-        if self.normalize and SKLEARN_AVAILABLE:
-            try:
-                from omni_mercury_engine.ml.mercury_ml import StandardScaler
-            except ImportError as e:
-                raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-                ) from e
+        # Normalize (mercury-native StandardScaler, no sklearn needed)
+        if self.normalize:
+            from omni_mercury_engine.ml.mercury_ml import StandardScaler
 
             self.scaler = StandardScaler()
             source_X = self.scaler.fit_transform(source_X)
             target_X = self.scaler.transform(target_X)
 
-        # Encode labels
-        if SKLEARN_AVAILABLE:
-            try:
-                from omni_mercury_engine.ml.mercury_ml import LabelEncoder
-            except ImportError as e:
-                raise ImportError(
-                    "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-                ) from e
+        # Encode labels (mercury-native LabelEncoder, no sklearn needed)
+        from omni_mercury_engine.ml.mercury_ml import LabelEncoder
 
-            self.label_encoder = LabelEncoder()
-            source_y = self.label_encoder.fit_transform(source_data.y)
-        else:
-            source_y = source_data.y
+        self.label_encoder = LabelEncoder()
+        source_y = self.label_encoder.fit_transform(source_data.y)
 
         # Compute MMD before adaptation
         mmd_adapter = MMDAdapter()
@@ -1660,18 +1647,13 @@ class CrossDomainTransferLearner:
         """
         start_time = time.time()
 
-        try:
-            from omni_mercury_engine.ml.mercury_ml import (
-                accuracy_score,
-                f1_score,
-                precision_score,
-                recall_score,
-                roc_auc_score,
-            )
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
+        from omni_mercury_engine.ml.mercury_ml import (
+            accuracy_score,
+            f1_score,
+            precision_score,
+            recall_score,
+            roc_auc_score,
+        )
 
         # Fit the model
         self.fit(source_data, target_data, target_data.y)

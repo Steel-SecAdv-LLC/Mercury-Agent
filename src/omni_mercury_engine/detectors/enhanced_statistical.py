@@ -497,7 +497,7 @@ class MCDDetector:
                 subset = subset_new
 
             det = np.linalg.det(cov)
-            if det < best_det:
+            if 0 < det < best_det:
                 best_det = det
                 best_location = loc
                 best_cov = cov
