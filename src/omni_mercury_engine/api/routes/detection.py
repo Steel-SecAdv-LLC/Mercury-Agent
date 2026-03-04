@@ -139,12 +139,19 @@ class ThreeRResponse(BaseModel):
     harmonic_analysis: dict[str, Any]
 
 
-def _get_optional_user(
+def _get_current_user(
     api_key_user: User | None = Depends(APIKeyAuth(auto_error=False)),
     jwt_user: User | None = Depends(JWTAuth(auto_error=False)),
-) -> User | None:
-    """Get current user if authenticated."""
-    return api_key_user or jwt_user
+) -> User:
+    """Get current authenticated user from API key or JWT."""
+    user = api_key_user or jwt_user
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Provide X-API-Key header or Bearer token.",
+            headers={"WWW-Authenticate": "Bearer, ApiKey"},
+        )
+    return user
 
 
 @router.post(
@@ -170,7 +177,7 @@ Perform hybrid neural-symbolic anomaly detection using the NeurosymbolicFusionEn
 )
 async def detect_neurosymbolic(
     request: NeurosymbolicRequest,
-    user: User | None = Depends(_get_optional_user),
+    user: User = Depends(_get_current_user),
 ) -> NeurosymbolicResponse:
     """Perform neuro-symbolic anomaly detection."""
     try:
@@ -200,7 +207,7 @@ async def detect_neurosymbolic(
         engine.ingest_data(request.data)
         result = engine.analyze()
 
-        user_id = user.id if user else "anonymous"
+        user_id = user.id
         await record_detection(
             user_id=user_id,
             method="neurosymbolic",
@@ -272,7 +279,7 @@ specialized detectors using weighted ensemble.
 )
 async def detect_fusion(
     request: FusionRequest,
-    user: User | None = Depends(_get_optional_user),
+    user: User = Depends(_get_current_user),
 ) -> FusionResponse:
     """Perform multi-detector fusion analysis."""
     try:
@@ -333,7 +340,7 @@ async def detect_fusion(
         ]
         explanation = f"Fused score {fused_score:.3f} from: " + ", ".join(explanation_parts)
 
-        user_id = user.id if user else "anonymous"
+        user_id = user.id
         await record_detection(
             user_id=user_id,
             method="fusion",
@@ -389,7 +396,7 @@ Guarantees convergence: V(S_t) ≤ ε × e^(-0.25t)
 )
 async def detect_three_r(
     request: ThreeRRequest,
-    user: User | None = Depends(_get_optional_user),
+    user: User = Depends(_get_current_user),
 ) -> ThreeRResponse:
     """Perform 3R mechanism analysis."""
     try:
@@ -454,7 +461,7 @@ async def detect_three_r(
 
         is_stable, _ = aafe.verify_lyapunov_stability()
 
-        user_id = user.id if user else "anonymous"
+        user_id = user.id
         await record_detection(
             user_id=user_id,
             method="three_r",
