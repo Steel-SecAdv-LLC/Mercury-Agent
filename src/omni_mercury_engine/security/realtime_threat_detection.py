@@ -220,6 +220,10 @@ class RealTimeThreatDetector(LoggerMixin):
 
         self.is_fitted = False
         self.threat_history: list[ThreatSignature] = []
+        # Reference score percentiles from training data (set during fit)
+        self._ref_p90: float = 0.0
+        self._ref_p95: float = 0.0
+        self._ref_p99: float = 0.0
 
     def fit(self, X: np.ndarray[Any, Any]) -> RealTimeThreatDetector:
         """
@@ -236,6 +240,20 @@ class RealTimeThreatDetector(LoggerMixin):
                 detector.fit(X)
             except Exception as e:
                 self.logger.warning("Failed to fit %s: %s", name, e)
+
+        # Compute reference score distribution from training data
+        ref_scores_list: list[np.ndarray[Any, Any]] = []
+        for name, detector in self.detectors.items():
+            try:
+                if hasattr(detector, "score_samples"):
+                    ref_scores_list.append(detector.score_samples(X))
+            except Exception:
+                pass
+        if ref_scores_list:
+            ref_ensemble = np.mean(ref_scores_list, axis=0)
+            self._ref_p90 = float(np.percentile(ref_ensemble, 90))
+            self._ref_p95 = float(np.percentile(ref_ensemble, 95))
+            self._ref_p99 = float(np.percentile(ref_ensemble, 99))
 
         self.is_fitted = True
         return self
@@ -302,14 +320,14 @@ class RealTimeThreatDetector(LoggerMixin):
         }
 
     def _calculate_threat_level(self, scores: np.ndarray[Any, Any]) -> str:
-        """Calculate threat level based on scores (higher = more anomalous)."""
+        """Calculate threat level using reference thresholds from training data."""
         max_score = float(np.max(scores))
 
-        if max_score > np.percentile(scores, 99):
+        if max_score > self._ref_p99:
             return "CRITICAL"
-        elif max_score > np.percentile(scores, 95):
+        elif max_score > self._ref_p95:
             return "HIGH"
-        elif max_score > np.percentile(scores, 90):
+        elif max_score > self._ref_p90:
             return "MEDIUM"
         else:
             return "LOW"
