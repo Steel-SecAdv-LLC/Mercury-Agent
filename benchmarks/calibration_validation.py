@@ -114,7 +114,7 @@ def _stratified_split(
     # First split: 60% train, 40% rest
     try:
         sss1 = StratifiedShuffleSplit(n_splits=1, test_size=0.4, random_state=rng.randint(0, 2**31))
-        train_idx, rest_idx = next(sss1.split(X, y))
+        train_idx, rest_idx = sss1.split(X, y)[0]
     except ValueError:
         return None
 
@@ -124,7 +124,7 @@ def _stratified_split(
     # Second split: 50/50 of remaining = 20%/20% of total
     try:
         sss2 = StratifiedShuffleSplit(n_splits=1, test_size=0.5, random_state=rng.randint(0, 2**31))
-        cal_idx, test_idx = next(sss2.split(X_rest, y_rest))
+        cal_idx, test_idx = sss2.split(X_rest, y_rest)[0]
     except ValueError:
         return None
 
