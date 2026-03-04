@@ -112,6 +112,116 @@ class TestQuantumResistantEncryption:
 
 
 # =============================================================================
+# Real liboqs signing identity tests (skipped without liboqs)
+# =============================================================================
+
+_LIBOQS_AVAILABLE = False
+try:
+    import oqs  # noqa: F401
+
+    _LIBOQS_AVAILABLE = True
+except (ImportError, RuntimeError):
+    pass
+
+
+@pytest.mark.skipif(not _LIBOQS_AVAILABLE, reason="Requires liboqs native library")
+class TestLongLivedSigningIdentity:
+    """Tests for ML-DSA-65 long-lived signing identity (requires real liboqs)."""
+
+    def test_signing_keypair_generated_at_init(self):
+        """Signing keypair is generated once at init, not per-call."""
+        qre = QuantumResistantEncryption()
+        assert qre._oqs_available is True
+        assert qre.signing_public_key is not None
+        assert len(qre.signing_public_key) > 0
+
+    def test_sign_and_verify_roundtrip(self):
+        """Sign-then-verify on the same instance succeeds."""
+        qre = QuantumResistantEncryption()
+        msg = b"Mercury Agent identity assertion"
+        sig = qre.sign_data(msg)
+        assert qre.verify_signature(msg, sig) is True
+
+    def test_verify_with_explicit_public_key(self):
+        """Verify accepts an explicit public key from another party."""
+        qre = QuantumResistantEncryption()
+        pk = qre.signing_public_key
+        msg = b"cross-instance verification"
+        sig = qre.sign_data(msg)
+
+        # Verify on a fresh instance using the explicit public key
+        verifier = QuantumResistantEncryption()
+        assert verifier.verify_signature(msg, sig, public_key=pk) is True
+
+    def test_wrong_public_key_rejects(self):
+        """Signature verification fails with the wrong public key."""
+        qre1 = QuantumResistantEncryption()
+        qre2 = QuantumResistantEncryption()
+        msg = b"identity-bound message"
+        sig = qre1.sign_data(msg)
+
+        # qre2 has a different identity — verification must fail
+        assert qre2.verify_signature(msg, sig) is False
+
+    def test_stable_identity_across_calls(self):
+        """Multiple signatures from the same instance verify against the same public key."""
+        qre = QuantumResistantEncryption()
+        pk = qre.signing_public_key
+        for i in range(3):
+            msg = f"message {i}".encode()
+            sig = qre.sign_data(msg)
+            assert qre.verify_signature(msg, sig, public_key=pk) is True
+
+    def test_export_and_restore_signing_identity(self):
+        """Secret key export + constructor restore preserves signing capability."""
+        qre = QuantumResistantEncryption()
+        pk = qre.signing_public_key
+        sk = qre.export_signing_secret_key()
+        assert isinstance(sk, bytes)
+        assert len(sk) > 0
+
+        # Restore identity on a new instance
+        restored = QuantumResistantEncryption(signing_secret_key=sk)
+        msg = b"persistent identity test"
+        sig = restored.sign_data(msg)
+
+        # Verify against original public key
+        verifier = QuantumResistantEncryption()
+        assert verifier.verify_signature(msg, sig, public_key=pk) is True
+
+    def test_restored_instance_has_no_public_key(self):
+        """Restored instance cannot derive public key from secret key alone."""
+        qre = QuantumResistantEncryption()
+        sk = qre.export_signing_secret_key()
+
+        restored = QuantumResistantEncryption(signing_secret_key=sk)
+        assert restored.signing_public_key is None
+
+    def test_verify_without_public_key_raises(self):
+        """Restored instance with no public key raises ValueError on verify without explicit pk."""
+        qre = QuantumResistantEncryption()
+        sk = qre.export_signing_secret_key()
+
+        restored = QuantumResistantEncryption(signing_secret_key=sk)
+        with pytest.raises(ValueError, match="No public key available"):
+            restored.verify_signature(b"data", b"\x00" * 100)
+
+    def test_encrypt_decrypt_roundtrip(self):
+        """KEM + AES-256-GCM encrypt/decrypt roundtrip with real liboqs."""
+        qre = QuantumResistantEncryption()
+        plaintext = b"quantum-resistant payload"
+        ciphertext = qre.encrypt_hybrid(plaintext)
+        decrypted = qre.decrypt_hybrid(ciphertext, None)
+        assert decrypted == plaintext
+
+    def test_ciphertext_min_length_validation(self):
+        """Truncated ciphertext is rejected before decryption attempt."""
+        qre = QuantumResistantEncryption()
+        with pytest.raises(ValueError, match="Ciphertext too short"):
+            qre.decrypt_hybrid(b"\x00" * 10, None)
+
+
+# =============================================================================
 # SecureDataHandler Tests
 # =============================================================================
 

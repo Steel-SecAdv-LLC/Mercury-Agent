@@ -23,10 +23,10 @@ from typing import Any
 """
 Secure data handling utilities with quantum-resistant encryption support.
 
-Quantum-resistant algorithms implemented using NIST post-quantum candidates:
-- Kyber (lattice-based encryption)
-- Dilithium (lattice-based signatures)
-- SPHINCS+ (hash-based signatures)
+Quantum-resistant algorithms using NIST-standardized post-quantum primitives:
+- ML-KEM-768 / Kyber (lattice-based key encapsulation, FIPS 203)
+- ML-DSA-65 / Dilithium (lattice-based digital signatures, FIPS 204)
+- SPHINCS+ (hash-based signatures, FIPS 205)
 
 Ava Guardian Fail-Fast Policy:
     When liboqs is unavailable, cryptographic operations RAISE instead of
@@ -53,21 +53,45 @@ class QuantumResistantEncryption:
     """
     Quantum-resistant encryption backed by liboqs (via Ava Guardian or direct).
 
-    Production path: Kyber768 KEM + AES-256-GCM for encryption, Dilithium3 for
-    signatures. When no real PQC backend is available, all cryptographic operations
-    raise RuntimeError per the Ava Guardian fail-fast policy.
+    Production path: ML-KEM-768 (Kyber) + AES-256-GCM for encryption,
+    ML-DSA-65 (Dilithium) for signatures. When no real PQC backend is
+    available, all cryptographic operations raise RuntimeError per the
+    Ava Guardian fail-fast policy.
+
+    Signing identity is long-lived: a keypair is generated once at init
+    and reused for the lifetime of the instance. The public key serves as
+    the instance's cryptographic identity. For persistence across restarts,
+    export the secret key via ``export_signing_secret_key()`` and restore
+    it by passing ``signing_secret_key`` to the constructor.
+
+    KEM is ephemeral by design: each ``encrypt_hybrid`` call generates a
+    fresh KEM keypair (standard KEM usage per NIST FIPS 203).
 
     The LWE lattice key generation is retained only for SecureDataHandler's
     deterministic test scaffolding and is never used in the encryption path.
     """
 
-    def __init__(self, security_level: int = 256, use_liboqs: bool = True) -> None:
+    # NIST FIPS 203/204 standardized names, with legacy fallbacks for
+    # older liboqs builds that still use the CRYSTALS project names.
+    _KEM_ALGORITHMS = ("ML-KEM-768", "Kyber768")
+    _SIG_ALGORITHMS = ("ML-DSA-65", "Dilithium3")
+
+    def __init__(
+        self,
+        security_level: int = 256,
+        use_liboqs: bool = True,
+        signing_secret_key: bytes | None = None,
+    ) -> None:
         """
         Initialize quantum-resistant encryption.
 
         Args:
             security_level: Security parameter (128, 192, or 256 bits)
             use_liboqs: Attempt to use liboqs for production-grade PQC
+            signing_secret_key: Optional persisted ML-DSA-65 secret key to
+                restore a long-lived signing identity instead of generating
+                a fresh keypair. Must have been obtained from a prior call
+                to ``export_signing_secret_key()``.
         """
         self.security_level = security_level
         self.n = security_level
@@ -77,34 +101,99 @@ class QuantumResistantEncryption:
         self._oqs_available = False
         self._oqs_kem = None
         self._oqs_signature = None
+        self._signing_public_key: bytes | None = None
 
         if use_liboqs:
             try:
                 import oqs
 
                 self._oqs_available = True
-                self._init_liboqs(oqs)
+                self._init_liboqs(oqs, signing_secret_key)
             except ImportError:
                 self._oqs_available = False
 
-    def _init_liboqs(self, oqs: Any) -> None:
+    def _init_liboqs(
+        self, oqs: Any, signing_secret_key: bytes | None = None
+    ) -> None:
         """
         Initialize liboqs KEM and signature schemes for production use.
 
+        Generates a long-lived signing keypair (or restores one from
+        ``signing_secret_key``). The KEM instance is initialized without
+        a keypair — each encryption generates an ephemeral one.
+
         Args:
             oqs: The oqs module imported from liboqs
+            signing_secret_key: Optional ML-DSA-65 secret key for identity
+                restoration. When provided, the constructor skips keypair
+                generation and uses the stored key material.
         """
         try:
-            kem_algorithm = "Kyber768"
-            self._oqs_kem = oqs.KeyEncapsulation(kem_algorithm)
+            # KEM: try NIST name first, fall back to legacy
+            for kem_name in self._KEM_ALGORITHMS:
+                try:
+                    self._oqs_kem = oqs.KeyEncapsulation(kem_name)
+                    break
+                except (oqs.MechanismNotEnabledError, Exception):
+                    continue
+            else:
+                raise RuntimeError("No supported KEM algorithm available")
 
-            sig_algorithm = "Dilithium3"
-            self._oqs_signature = oqs.Signature(sig_algorithm)
+            # Signature: try NIST name first, fall back to legacy
+            for sig_name in self._SIG_ALGORITHMS:
+                try:
+                    if signing_secret_key is not None:
+                        self._oqs_signature = oqs.Signature(sig_name, signing_secret_key)
+                    else:
+                        self._oqs_signature = oqs.Signature(sig_name)
+                    break
+                except (oqs.MechanismNotEnabledError, Exception):
+                    continue
+            else:
+                raise RuntimeError("No supported signature algorithm available")
+
+            # Long-lived signing identity
+            if signing_secret_key is not None:
+                # Restored from persisted key — public key must be tracked
+                # externally (liboqs cannot derive it from the secret key).
+                self._signing_public_key = None
+            else:
+                self._signing_public_key = self._oqs_signature.generate_keypair()
 
         except Exception:
             self._oqs_available = False
             self._oqs_kem = None
             self._oqs_signature = None
+            self._signing_public_key = None
+
+    @property
+    def signing_public_key(self) -> bytes | None:
+        """The instance's long-lived ML-DSA-65 public key, or None if unavailable."""
+        return self._signing_public_key
+
+    def export_signing_secret_key(self) -> bytes:
+        """
+        Export the ML-DSA-65 secret key for persistent storage.
+
+        The caller is responsible for protecting this key material at rest
+        (e.g., encrypted file, HSM, OS keyring). The corresponding public
+        key must also be persisted separately — liboqs cannot derive it
+        from the secret key alone.
+
+        Returns:
+            Raw secret key bytes
+
+        Raises:
+            RuntimeError: If no signing identity is available
+        """
+        if not self._oqs_available or self._oqs_signature is None:
+            raise RuntimeError(
+                "No signing identity to export (Ava Guardian fail-fast policy).\n"
+                "Install one of:\n"
+                "  pip install ava-guardian    # Primary (recommended)\n"
+                "  pip install liboqs-python   # Secondary fallback"
+            )
+        return self._oqs_signature.export_secret_key()
 
     def _generate_lattice_key(
         self,
@@ -248,11 +337,11 @@ class QuantumResistantEncryption:
 
     def sign_data(self, data: bytes) -> bytes:
         """
-        Sign data using liboqs Dilithium3.
+        Sign data using the instance's long-lived ML-DSA-65 identity.
 
-        Raises RuntimeError if no real PQC backend is available, per Ava
-        Guardian fail-fast policy. A SHA3 hash is not a signature — anyone
-        with the seed can forge it.
+        The signing keypair is generated once at init (or restored from a
+        persisted secret key). Every call produces a signature verifiable
+        against ``signing_public_key``.
 
         Args:
             data: Data to sign
@@ -261,7 +350,7 @@ class QuantumResistantEncryption:
             Signature bytes
 
         Raises:
-            RuntimeError: If liboqs is not available
+            RuntimeError: If no PQC backend is available
         """
         if not self._oqs_available or self._oqs_signature is None:
             raise RuntimeError(
@@ -272,25 +361,30 @@ class QuantumResistantEncryption:
                 "  pip install liboqs-python   # Secondary fallback"
             )
 
-        self._oqs_signature.generate_keypair()
         return self._oqs_signature.sign(data)
 
-    def verify_signature(self, data: bytes, signature: bytes) -> bool:
+    def verify_signature(
+        self, data: bytes, signature: bytes, public_key: bytes | None = None
+    ) -> bool:
         """
-        Verify signature using liboqs Dilithium3.
+        Verify an ML-DSA-65 signature.
 
-        Delegates entirely to liboqs OQS_SIG_verify, which performs constant-time
-        verification internally. No additional comparison logic is applied.
+        Delegates to liboqs ``OQS_SIG_verify``, which performs constant-time
+        verification internally.
 
         Args:
             data: Original data
             signature: Signature to verify
+            public_key: Explicit ML-DSA-65 public key. When None, uses
+                this instance's ``signing_public_key`` (for verifying
+                signatures produced by the same instance).
 
         Returns:
             True if signature is valid
 
         Raises:
-            RuntimeError: If liboqs is not available
+            RuntimeError: If no PQC backend is available
+            ValueError: If no public key is available for verification
         """
         if not self._oqs_available or self._oqs_signature is None:
             raise RuntimeError(
@@ -301,7 +395,14 @@ class QuantumResistantEncryption:
                 "  pip install liboqs-python   # Secondary fallback"
             )
 
-        return self._oqs_signature.verify(data, signature)
+        pk = public_key if public_key is not None else self._signing_public_key
+        if pk is None:
+            raise ValueError(
+                "No public key available for verification. Either pass one "
+                "explicitly or use an instance that generated its own keypair."
+            )
+
+        return self._oqs_signature.verify(data, signature, pk)
 
 
 class SecureDataHandler:

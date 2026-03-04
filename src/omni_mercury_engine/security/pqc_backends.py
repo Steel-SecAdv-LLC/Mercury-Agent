@@ -159,6 +159,34 @@ def require_constant_time() -> bool:
     return os.environ.get("AVA_REQUIRE_CONSTANT_TIME", "").lower() == "true"
 
 
+def _resolve_sig_algorithm() -> str:
+    """Resolve the best available ML-DSA signature algorithm name.
+
+    NIST FIPS 204 standardized 'ML-DSA-65'; older liboqs builds use
+    the CRYSTALS project name 'Dilithium3'. Try the standard name first.
+    """
+    if not LIBOQS_AVAILABLE:
+        return "ML-DSA-65"  # won't be used without liboqs
+    for name in ("ML-DSA-65", "Dilithium3"):
+        if name in oqs.get_enabled_sig_mechanisms():
+            return name
+    return "ML-DSA-65"  # let caller handle the error
+
+
+def _resolve_sphincs_algorithm() -> str:
+    """Resolve the best available SLH-DSA / SPHINCS+ algorithm name.
+
+    NIST FIPS 205 standardized SLH-DSA naming; older liboqs builds use
+    'SPHINCS+-SHA2-256f-simple'. Try the standard name first.
+    """
+    if not LIBOQS_AVAILABLE:
+        return "SPHINCS+-SHA2-256f-simple"  # won't be used without liboqs
+    for name in ("SLH_DSA_PURE_SHA2_256F", "SPHINCS+-SHA2-256f-simple"):
+        if name in oqs.get_enabled_sig_mechanisms():
+            return name
+    return "SPHINCS+-SHA2-256f-simple"  # let caller handle the error
+
+
 @dataclass
 class DilithiumKeyPair:
     """ML-DSA-65 (Dilithium) key pair."""
@@ -211,7 +239,7 @@ def generate_dilithium_keypair() -> DilithiumKeyPair:
         )
 
     if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("Dilithium3")
+        sig = oqs.Signature(_resolve_sig_algorithm())
         public_key = sig.generate_keypair()
         secret_key = sig.export_secret_key()
         return DilithiumKeyPair(public_key=public_key, secret_key=secret_key)
@@ -243,7 +271,7 @@ def dilithium_sign(message: bytes, secret_key: bytes) -> bytes:
         Digital signature bytes
     """
     if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("Dilithium3", secret_key)
+        sig = oqs.Signature(_resolve_sig_algorithm(), secret_key)
         return cast("bytes", sig.sign(message))
 
     if PQCRYPTO_AVAILABLE:
@@ -267,7 +295,7 @@ def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> boo
         True if signature is valid
     """
     if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("Dilithium3")
+        sig = oqs.Signature(_resolve_sig_algorithm())
         return cast("bool", sig.verify(message, signature, public_key))
 
     if PQCRYPTO_AVAILABLE:
@@ -382,7 +410,7 @@ def generate_sphincs_keypair() -> SphincsKeyPair:
             algorithm="SPHINCS+-SIMULATED",
         )
 
-    sig = oqs.Signature("SPHINCS+-SHA2-256f-simple")
+    sig = oqs.Signature(_resolve_sphincs_algorithm())
     public_key = sig.generate_keypair()
     secret_key = sig.export_secret_key()
     return SphincsKeyPair(public_key=public_key, secret_key=secret_key)
@@ -391,7 +419,7 @@ def generate_sphincs_keypair() -> SphincsKeyPair:
 def sphincs_sign(message: bytes, secret_key: bytes) -> bytes:
     """Sign message using SPHINCS+."""
     if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("SPHINCS+-SHA2-256f-simple", secret_key)
+        sig = oqs.Signature(_resolve_sphincs_algorithm(), secret_key)
         return cast("bytes", sig.sign(message))
 
     logger.warning("Using simulated SPHINCS+ signature (NOT SECURE)")
@@ -402,7 +430,7 @@ def sphincs_sign(message: bytes, secret_key: bytes) -> bytes:
 def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     """Verify SPHINCS+ signature."""
     if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("SPHINCS+-SHA2-256f-simple")
+        sig = oqs.Signature(_resolve_sphincs_algorithm())
         return cast("bool", sig.verify(message, signature, public_key))
 
     logger.warning("Using simulated SPHINCS+ verification (NOT SECURE)")
