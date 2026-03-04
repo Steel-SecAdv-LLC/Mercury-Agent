@@ -678,7 +678,7 @@ class PCA:
         n_samples = X.shape[0]
         self.mean_ = X.mean(axis=0)
         X_centered = X - self.mean_
-        _U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)  # type: ignore[arg-type]
+        _U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
         self.components_ = Vt[: self.n_components]
         # Explained variance
         explained_var = (S**2) / (n_samples - 1)
@@ -1299,8 +1299,8 @@ class _DecisionStump:
         self.is_leaf: bool = True
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]], depth: int = 0) -> None:
-        self.value = float(np.mean(y))  # type: ignore[arg-type]
-        if depth >= self.max_depth or len(X) <= 2 or float(np.std(y)) < 1e-10:  # type: ignore[arg-type]
+        self.value = float(np.mean(y))
+        if depth >= self.max_depth or len(X) <= 2 or float(np.std(y)) < 1e-10:
             self.is_leaf = True
             return
 
@@ -1319,9 +1319,9 @@ class _DecisionStump:
                 right_mask = ~left_mask
                 if not np.any(left_mask) or not np.any(right_mask):
                     continue
-                var_reduction = float(np.var(y)) - (  # type: ignore[arg-type]
-                    float(np.sum(left_mask)) * float(np.var(y[left_mask]))  # type: ignore[arg-type]
-                    + float(np.sum(right_mask)) * float(np.var(y[right_mask]))  # type: ignore[arg-type]
+                var_reduction = float(np.var(y)) - (
+                    float(np.sum(left_mask)) * float(np.var(y[left_mask]))
+                    + float(np.sum(right_mask)) * float(np.var(y[right_mask]))
                 ) / len(y)
                 if var_reduction > best_gain:
                     best_gain = var_reduction
@@ -1465,7 +1465,7 @@ def mutual_info_classif(
         if n_bins <= 1:
             mi[f] = 0.0
             continue
-        bins = np.percentile(col, np.linspace(0, 100, n_bins + 1))  # type: ignore[arg-type]
+        bins = np.percentile(col, np.linspace(0, 100, n_bins + 1))
         bins = np.unique(bins)
         if len(bins) <= 1:
             mi[f] = 0.0
@@ -1607,7 +1607,7 @@ class IsotonicRegression:
                 values[i] = (weights[i] * values[i] + weights[i + 1] * values[i + 1]) / total_w
                 weights[i] = total_w
                 values = np.delete(values, i + 1)
-                weights = np.delete(weights, i + 1)  # type: ignore[assignment]
+                weights = np.delete(weights, i + 1)
                 blocks.pop(i + 1)
                 if i > 0:
                     i -= 1
@@ -1625,7 +1625,7 @@ class IsotonicRegression:
         if idx < n:
             result[idx:] = values[-1]
 
-        result = np.clip(result, self.y_min, self.y_max)  # type: ignore[assignment]
+        result = np.clip(result, self.y_min, self.y_max)
         self._x = X_sorted
         self._y = result
         return self

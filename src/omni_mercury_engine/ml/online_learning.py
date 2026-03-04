@@ -328,13 +328,15 @@ class SGDOnlineLearner(OnlineLearner):
         """Predict labels."""
         if not self._fitted:
             return np.zeros(len(X), dtype=np.int64)
-        return self.model.predict(X)
+        result = self.model.predict(X)
+        return np.asarray(result, dtype=np.int64)
 
     def predict_proba(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Predict probabilities."""
         if not self._fitted:
             return np.full((len(X), 2), 0.5)
-        return self.model.predict_proba(X)
+        result = self.model.predict_proba(X)
+        return np.asarray(result, dtype=np.float64)
 
 
 class PassiveAggressiveOnlineLearner(OnlineLearner):
@@ -387,7 +389,8 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
         """Predict labels."""
         if not self._fitted:
             return np.zeros(len(X), dtype=np.int64)
-        return self.model.predict(X)
+        result = self.model.predict(X)
+        return np.asarray(result, dtype=np.int64)
 
     def predict_proba(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Predict probabilities (from decision function)."""
