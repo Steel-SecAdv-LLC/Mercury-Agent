@@ -110,6 +110,8 @@ class _LocalDensityDetector:
         assert self._tree is not None
         k = min(self.n_neighbors, self._tree.n)
         dists, _ = self._tree.query(X, k=max(k, 1))
+        if dists.ndim == 1:
+            dists = dists[:, np.newaxis]
         result: np.ndarray[Any, Any] = np.mean(dists, axis=1)
         return result
 

@@ -466,6 +466,8 @@ class _MercuryLocalDensityDetector:
         assert self._tree is not None
         k = min(self.n_neighbors, self._tree.n)
         dists, _ = self._tree.query(X, k=max(k, 1))
+        if dists.ndim == 1:
+            dists = dists[:, np.newaxis]
         return np.asarray(np.mean(dists, axis=1), dtype=np.float64)
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.int32]:
