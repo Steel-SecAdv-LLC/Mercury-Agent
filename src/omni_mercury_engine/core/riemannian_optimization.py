@@ -32,7 +32,7 @@ from __future__ import annotations
 import abc
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 import scipy.linalg
@@ -70,7 +70,7 @@ _DEFAULT_TOL: float = 1e-7
 class OptimizationResult:
     """Result of a Riemannian optimization run."""
 
-    x: np.ndarray
+    x: np.ndarray[Any, Any]
     objective_value: float
     converged: bool
     num_iterations: int
@@ -86,39 +86,41 @@ class Manifold(abc.ABC):
     """Abstract base class for a Riemannian manifold."""
 
     @abc.abstractmethod
-    def project(self, x: np.ndarray) -> np.ndarray:
+    def project(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Project a point onto the manifold."""
 
     @abc.abstractmethod
-    def retraction(self, x: np.ndarray, v: np.ndarray) -> np.ndarray:
+    def retraction(self, x: np.ndarray[Any, Any], v: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Retract a tangent vector *v* at *x* back onto the manifold."""
 
     @abc.abstractmethod
-    def exp_map(self, x: np.ndarray, v: np.ndarray) -> np.ndarray:
+    def exp_map(self, x: np.ndarray[Any, Any], v: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Exponential map: move along the geodesic from *x* in direction *v*."""
 
     @abc.abstractmethod
-    def log_map(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def log_map(self, x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Logarithmic map: tangent vector at *x* pointing toward *y*."""
 
     @abc.abstractmethod
-    def inner_product(self, x: np.ndarray, u: np.ndarray, v: np.ndarray) -> float:
+    def inner_product(
+        self, x: np.ndarray[Any, Any], u: np.ndarray[Any, Any], v: np.ndarray[Any, Any]
+    ) -> float:
         """Riemannian inner product of tangent vectors *u*, *v* at *x*."""
 
     @abc.abstractmethod
-    def geodesic_distance(self, x: np.ndarray, y: np.ndarray) -> float:
+    def geodesic_distance(self, x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> float:
         """Geodesic distance between two points on the manifold."""
 
-    def norm(self, x: np.ndarray, v: np.ndarray) -> float:
+    def norm(self, x: np.ndarray[Any, Any], v: np.ndarray[Any, Any]) -> float:
         """Riemannian norm of tangent vector *v* at *x*."""
         return float(np.sqrt(max(self.inner_product(x, v, v), 0.0)))
 
     def parallel_transport(
         self,
-        x: np.ndarray,
-        y: np.ndarray,
-        v: np.ndarray,
-    ) -> np.ndarray:
+        x: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
+        v: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Transport tangent vector *v* from T_x M to T_y M.
 
         Default implementation uses the vector-transport-by-retraction
@@ -150,21 +152,21 @@ class SimplexManifold(Manifold):
 
     # -- helpers ----------------------------------------------------------
 
-    def _validate(self, x: np.ndarray) -> None:
+    def _validate(self, x: np.ndarray[Any, Any]) -> None:
         if self.dimension is not None and x.shape[-1] != self.dimension:
             msg = f"Expected dimension {self.dimension}, got {x.shape[-1]}"
             raise ValueError(msg)
 
     @staticmethod
-    def _clamp_to_interior(x: np.ndarray) -> np.ndarray:
+    def _clamp_to_interior(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Clamp point to the strict interior of the simplex."""
         x = np.maximum(x, _EPS)
-        result: np.ndarray = x / x.sum()
+        result: np.ndarray[Any, Any] = x / x.sum()
         return result
 
     # -- Manifold interface -----------------------------------------------
 
-    def project(self, x: np.ndarray) -> np.ndarray:
+    def project(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Project an arbitrary point onto the probability simplex.
 
         Uses the algorithm of Duchi et al. (2008) "Efficient Projections
@@ -183,16 +185,16 @@ class SimplexManifold(Manifold):
         else:
             # batched case
             theta = np.array([(cumsum[i, r] - 1.0) / (r + 1.0) for i, r in enumerate(rho)])
-        projected: np.ndarray = np.maximum(x - theta[..., np.newaxis], 0.0)
+        projected: np.ndarray[Any, Any] = np.maximum(x - theta[..., np.newaxis], 0.0)
         # Normalise to handle residual floating-point error
         projected = projected / (projected.sum(axis=-1, keepdims=True) + _EPS)
         return projected
 
-    def retraction(self, x: np.ndarray, v: np.ndarray) -> np.ndarray:
+    def retraction(self, x: np.ndarray[Any, Any], v: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Retraction: project x + v back onto the simplex."""
         return self.project(x + v)
 
-    def exp_map(self, x: np.ndarray, v: np.ndarray) -> np.ndarray:
+    def exp_map(self, x: np.ndarray[Any, Any], v: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Exponential map on the simplex with Fisher metric.
 
         Uses the softmax retraction which is the natural exponential map
@@ -210,10 +212,10 @@ class SimplexManifold(Manifold):
         log_result -= log_result.max()
         result = np.exp(log_result)
         result = result / (result.sum() + _EPS)
-        clamped: np.ndarray = np.maximum(result, 0.0)
+        clamped: np.ndarray[Any, Any] = np.maximum(result, 0.0)
         return clamped
 
-    def log_map(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def log_map(self, x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Logarithmic map: inverse of exp_map.
 
         Returns tangent vector v at x such that exp_x(v) = y:
@@ -226,10 +228,12 @@ class SimplexManifold(Manifold):
         y_safe = self._clamp_to_interior(y)
         v = x_safe * (np.log(y_safe + _EPS) - np.log(x_safe + _EPS))
         # Project onto the tangent space of the simplex: sum(v) = 0
-        v_proj: np.ndarray = v - x_safe * v.sum()
+        v_proj: np.ndarray[Any, Any] = v - x_safe * v.sum()
         return v_proj
 
-    def inner_product(self, x: np.ndarray, u: np.ndarray, v: np.ndarray) -> float:
+    def inner_product(
+        self, x: np.ndarray[Any, Any], u: np.ndarray[Any, Any], v: np.ndarray[Any, Any]
+    ) -> float:
         """Fisher information inner product on the simplex.
 
         <u, v>_x = sum_i (u_i * v_i / x_i)
@@ -237,7 +241,7 @@ class SimplexManifold(Manifold):
         x_safe = self._clamp_to_interior(x)
         return float(np.sum(u * v / x_safe))
 
-    def geodesic_distance(self, x: np.ndarray, y: np.ndarray) -> float:
+    def geodesic_distance(self, x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> float:
         """Geodesic distance under the Fisher metric.
 
         On the simplex with the Fisher metric the geodesic distance is
@@ -257,10 +261,10 @@ class SimplexManifold(Manifold):
 
     def parallel_transport(
         self,
-        x: np.ndarray,
-        y: np.ndarray,
-        v: np.ndarray,
-    ) -> np.ndarray:
+        x: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
+        v: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Parallel transport of *v* from T_x to T_y on the simplex.
 
         Re-scales the tangent vector so it lies in T_y (sum = 0
@@ -311,7 +315,7 @@ class SPDManifold(Manifold):
 
     # -- helpers ----------------------------------------------------------
 
-    def _validate_shape(self, x: np.ndarray) -> None:
+    def _validate_shape(self, x: np.ndarray[Any, Any]) -> None:
         if x.ndim < 2 or x.shape[-1] != x.shape[-2]:
             msg = f"Expected square matrix, got shape {x.shape}"
             raise ValueError(msg)
@@ -320,15 +324,15 @@ class SPDManifold(Manifold):
             raise ValueError(msg)
 
     @staticmethod
-    def _sym(x: np.ndarray) -> np.ndarray:
+    def _sym(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Symmetrise a matrix: (X + X^T) / 2."""
-        result: np.ndarray = 0.5 * (x + x.T)
+        result: np.ndarray[Any, Any] = 0.5 * (x + x.T)
         return result
 
-    def _safe_inv(self, x: np.ndarray) -> np.ndarray:
+    def _safe_inv(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute matrix inverse with fallback for near-singular matrices."""
         try:
-            result: np.ndarray = scipy.linalg.inv(x)
+            result: np.ndarray[Any, Any] = scipy.linalg.inv(x)
             return result
         except scipy.linalg.LinAlgError:
             logger.warning(
@@ -337,19 +341,19 @@ class SPDManifold(Manifold):
             result = scipy.linalg.pinvh(x)
             return result
 
-    def _safe_sqrtm(self, x: np.ndarray) -> np.ndarray:
+    def _safe_sqrtm(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute matrix square root, ensuring real and symmetric output."""
         result = scipy.linalg.sqrtm(x)
         result = np.real(result)
         return self._sym(result)
 
-    def _safe_logm(self, x: np.ndarray) -> np.ndarray:
+    def _safe_logm(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute matrix logarithm, ensuring real and symmetric output."""
         result = scipy.linalg.logm(x)
         result = np.real(result)
         return self._sym(result)
 
-    def _safe_expm(self, x: np.ndarray) -> np.ndarray:
+    def _safe_expm(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Compute matrix exponential, ensuring real and symmetric output."""
         result = scipy.linalg.expm(x)
         result = np.real(result)
@@ -357,7 +361,7 @@ class SPDManifold(Manifold):
 
     # -- Manifold interface -----------------------------------------------
 
-    def project(self, x: np.ndarray) -> np.ndarray:
+    def project(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Project a matrix onto the SPD cone.
 
         1. Symmetrise the matrix.
@@ -367,10 +371,10 @@ class SPDManifold(Manifold):
         x_sym = self._sym(x)
         eigenvalues, eigenvectors = scipy.linalg.eigh(x_sym)
         eigenvalues = np.maximum(eigenvalues, self.min_eigenvalue)
-        result: np.ndarray = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
+        result: np.ndarray[Any, Any] = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
         return result
 
-    def retraction(self, x: np.ndarray, v: np.ndarray) -> np.ndarray:
+    def retraction(self, x: np.ndarray[Any, Any], v: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Retraction on the SPD manifold.
 
         Uses the first-order approximation: project(X + V).
@@ -379,7 +383,7 @@ class SPDManifold(Manifold):
         """
         return self.project(x + v)
 
-    def exp_map(self, x: np.ndarray, v: np.ndarray) -> np.ndarray:
+    def exp_map(self, x: np.ndarray[Any, Any], v: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Riemannian exponential map on the SPD manifold.
 
         exp_X(V) = X^{1/2} expm(X^{-1/2} V X^{-1/2}) X^{1/2}
@@ -395,7 +399,7 @@ class SPDManifold(Manifold):
         result = x_sqrt @ exp_inner @ x_sqrt
         return self._sym(result)
 
-    def log_map(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def log_map(self, x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Riemannian logarithmic map on the SPD manifold.
 
         log_X(Y) = X^{1/2} logm(X^{-1/2} Y X^{-1/2}) X^{1/2}
@@ -412,7 +416,9 @@ class SPDManifold(Manifold):
         result = x_sqrt @ log_inner @ x_sqrt
         return self._sym(result)
 
-    def inner_product(self, x: np.ndarray, u: np.ndarray, v: np.ndarray) -> float:
+    def inner_product(
+        self, x: np.ndarray[Any, Any], u: np.ndarray[Any, Any], v: np.ndarray[Any, Any]
+    ) -> float:
         """Affine-invariant Riemannian metric.
 
         <U, V>_X = trace(X^{-1} U X^{-1} V)
@@ -420,7 +426,7 @@ class SPDManifold(Manifold):
         x_inv = self._safe_inv(x)
         return float(np.trace(x_inv @ u @ x_inv @ v))
 
-    def geodesic_distance(self, x: np.ndarray, y: np.ndarray) -> float:
+    def geodesic_distance(self, x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> float:
         """Affine-invariant geodesic distance.
 
         d(X, Y) = || logm(X^{-1/2} Y X^{-1/2}) ||_F
@@ -438,10 +444,10 @@ class SPDManifold(Manifold):
 
     def parallel_transport(
         self,
-        x: np.ndarray,
-        y: np.ndarray,
-        v: np.ndarray,
-    ) -> np.ndarray:
+        x: np.ndarray[Any, Any],
+        y: np.ndarray[Any, Any],
+        v: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Parallel transport from T_X to T_Y on the SPD manifold.
 
         Uses the Schild's ladder approximation:
@@ -502,9 +508,9 @@ class RiemannianGradientDescent:
 
     def _armijo_line_search(
         self,
-        x: np.ndarray,
-        grad: np.ndarray,
-        objective_fn: Callable[[np.ndarray], float],
+        x: np.ndarray[Any, Any],
+        grad: np.ndarray[Any, Any],
+        objective_fn: Callable[[np.ndarray[Any, Any]], float],
         f_x: float,
     ) -> float:
         """Armijo backtracking line search.
@@ -540,11 +546,11 @@ class RiemannianGradientDescent:
 
     def step(
         self,
-        x: np.ndarray,
-        grad: np.ndarray,
-        objective_fn: Callable[[np.ndarray], float] | None = None,
+        x: np.ndarray[Any, Any],
+        grad: np.ndarray[Any, Any],
+        objective_fn: Callable[[np.ndarray[Any, Any]], float] | None = None,
         f_x: float | None = None,
-    ) -> np.ndarray:
+    ) -> np.ndarray[Any, Any]:
         """Perform a single Riemannian gradient descent step.
 
         Args:
@@ -568,9 +574,9 @@ class RiemannianGradientDescent:
 
     def optimize(
         self,
-        x0: np.ndarray,
-        objective_fn: Callable[[np.ndarray], float],
-        grad_fn: Callable[[np.ndarray], np.ndarray],
+        x0: np.ndarray[Any, Any],
+        objective_fn: Callable[[np.ndarray[Any, Any]], float],
+        grad_fn: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         *,
         max_iter: int = _DEFAULT_MAX_ITER,
         tol: float = _DEFAULT_TOL,
@@ -676,7 +682,7 @@ class RiemannianAdam:
         self.epsilon = epsilon
 
         # State
-        self._m: np.ndarray | None = None  # First moment (tangent vector)
+        self._m: np.ndarray[Any, Any] | None = None  # First moment (tangent vector)
         self._v_scalar: float = 0.0  # Second moment (scalar)
         self._t: int = 0  # Time step
 
@@ -688,9 +694,9 @@ class RiemannianAdam:
 
     def step(
         self,
-        x: np.ndarray,
-        grad: np.ndarray,
-    ) -> np.ndarray:
+        x: np.ndarray[Any, Any],
+        grad: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
         """Perform a single Riemannian Adam step.
 
         Args:
@@ -736,9 +742,9 @@ class RiemannianAdam:
 
     def optimize(
         self,
-        x0: np.ndarray,
-        objective_fn: Callable[[np.ndarray], float],
-        grad_fn: Callable[[np.ndarray], np.ndarray],
+        x0: np.ndarray[Any, Any],
+        objective_fn: Callable[[np.ndarray[Any, Any]], float],
+        grad_fn: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         *,
         max_iter: int = _DEFAULT_MAX_ITER,
         tol: float = _DEFAULT_TOL,
@@ -899,9 +905,9 @@ class ConstrainedParameterOptimizer:
 
     def optimize_simplex_weights(
         self,
-        initial_weights: np.ndarray,
-        objective_fn: Callable[[np.ndarray], float],
-        grad_fn: Callable[[np.ndarray], np.ndarray],
+        initial_weights: np.ndarray[Any, Any],
+        objective_fn: Callable[[np.ndarray[Any, Any]], float],
+        grad_fn: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         *,
         max_iter: int | None = None,
         tol: float | None = None,
@@ -936,11 +942,11 @@ class ConstrainedParameterOptimizer:
         # tangent space.  The tangent space at x is
         # {v : sum(v) = 0}.  The Riemannian gradient under the Fisher
         # metric is: rgrad_i = x_i * (egrad_i - <egrad, x>)
-        def riemannian_grad(x: np.ndarray) -> np.ndarray:
+        def riemannian_grad(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
             eg = grad_fn(x)
             # Fisher-metric Riemannian gradient on the simplex
             x_safe = np.maximum(x, _EPS)
-            rg: np.ndarray = x_safe * (eg - np.dot(eg, x_safe))
+            rg: np.ndarray[Any, Any] = x_safe * (eg - np.dot(eg, x_safe))
             return rg
 
         return optimizer.optimize(
@@ -955,9 +961,9 @@ class ConstrainedParameterOptimizer:
 
     def optimize_spd_parameter(
         self,
-        initial_matrix: np.ndarray,
-        objective_fn: Callable[[np.ndarray], float],
-        grad_fn: Callable[[np.ndarray], np.ndarray],
+        initial_matrix: np.ndarray[Any, Any],
+        objective_fn: Callable[[np.ndarray[Any, Any]], float],
+        grad_fn: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]],
         *,
         max_iter: int | None = None,
         tol: float | None = None,
@@ -990,10 +996,10 @@ class ConstrainedParameterOptimizer:
         # Riemannian gradient from Euclidean gradient:
         # rgrad = X @ sym(egrad) @ X
         # (This is the standard formula for the affine-invariant metric.)
-        def riemannian_grad(x: np.ndarray) -> np.ndarray:
+        def riemannian_grad(x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
             eg = grad_fn(x)
             eg_sym = 0.5 * (eg + eg.T)
-            rg: np.ndarray = x @ eg_sym @ x
+            rg: np.ndarray[Any, Any] = x @ eg_sym @ x
             return rg
 
         return optimizer.optimize(
@@ -1008,9 +1014,9 @@ class ConstrainedParameterOptimizer:
 
     def optimize_oae_weights(
         self,
-        initial_weights: dict[str, float] | np.ndarray | None = None,
-        objective_fn: Callable[[np.ndarray], float] | None = None,
-        grad_fn: Callable[[np.ndarray], np.ndarray] | None = None,
+        initial_weights: dict[str, float] | np.ndarray[Any, Any] | None = None,
+        objective_fn: Callable[[np.ndarray[Any, Any]], float] | None = None,
+        grad_fn: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | None = None,
         *,
         max_iter: int | None = None,
         tol: float | None = None,

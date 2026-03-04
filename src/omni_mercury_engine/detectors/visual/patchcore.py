@@ -113,7 +113,7 @@ class PatchCoreDetector(BaseVisualDetector):
         self.memory_bank: torch.Tensor | None = None
         self.memory_bank_spatial_info: list[tuple[int, int]] = []
 
-        # Nearest neighbor index (FAISS or sklearn)
+        # Nearest neighbor index (FAISS or Mercury NearestNeighbors)
         self._nn_index: Any = None
 
         # Track feature extraction info
@@ -241,7 +241,7 @@ class PatchCoreDetector(BaseVisualDetector):
     def _build_nn_index(self, embeddings: torch.Tensor) -> None:
         """Build nearest neighbor index for fast querying.
 
-        Uses FAISS if available, otherwise falls back to sklearn.
+        Uses FAISS if available, otherwise falls back to Mercury NearestNeighbors.
 
         Args:
             embeddings: Memory bank embeddings [N, D]
@@ -265,7 +265,7 @@ class PatchCoreDetector(BaseVisualDetector):
             logger.info(f"Built FAISS index with {embeddings_np.shape[0]} vectors")
 
         except ImportError:
-            logger.warning("FAISS not available, using sklearn NearestNeighbors")
+            logger.warning("FAISS not available, using Mercury NearestNeighbors")
             from omni_mercury_engine.ml.mercury_ml import NearestNeighbors
 
             self._nn_index = NearestNeighbors(
@@ -296,9 +296,9 @@ class PatchCoreDetector(BaseVisualDetector):
                 distances, indices = self._nn_index.search(query_np, k)
                 return distances, indices
         except (ImportError, AttributeError):
-            pass  # faiss not available, fall back to sklearn
+            pass  # faiss not available, fall back to Mercury NearestNeighbors
 
-        # Sklearn fallback
+        # Mercury NearestNeighbors fallback
         distances, indices = self._nn_index.kneighbors(query_np, n_neighbors=k)
         return distances, indices
 

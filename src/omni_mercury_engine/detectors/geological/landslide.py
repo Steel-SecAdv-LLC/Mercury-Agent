@@ -436,7 +436,7 @@ class SVMRFEnsembleClassifier:
             from omni_mercury_engine.ml.mercury_ml import SVC
         except ImportError as e:
             raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
+                "Mercury ML utilities not available. Ensure mercury_ml.py is installed."
             ) from e
 
         self.svm = SVC(kernel=svm_kernel, probability=True, random_state=42)
