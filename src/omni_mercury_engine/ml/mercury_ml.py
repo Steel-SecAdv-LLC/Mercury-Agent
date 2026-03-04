@@ -224,6 +224,11 @@ def roc_auc_score(y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[An
     classes = np.unique(y_true)
     if len(classes) < 2:
         raise ValueError("ROC AUC requires at least two classes in y_true")
+    if len(classes) > 2:
+        raise ValueError(
+            "ROC AUC with multiclass data is not supported. "
+            "y_true must be binary (2 unique values)."
+        )
 
     # Sort by descending score
     desc_idx = np.argsort(y_score)[::-1]
@@ -232,14 +237,13 @@ def roc_auc_score(y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[An
 
     # Compute TPR and FPR at each threshold (support arbitrary binary labels)
     pos_label = classes[-1]  # highest class value is positive
-    neg_label = classes[0]  # lowest class value is negative
     n_pos = float(np.sum(y_true == pos_label))
-    n_neg = float(np.sum(y_true == neg_label))
+    n_neg = float(len(y_true) - n_pos)
     if n_pos == 0 or n_neg == 0:
         raise ValueError("ROC AUC requires both positive and negative samples")
 
     tps = np.cumsum(y_true_sorted == pos_label).astype(np.float64)
-    fps = np.cumsum(y_true_sorted == neg_label).astype(np.float64)
+    fps = np.cumsum(y_true_sorted != pos_label).astype(np.float64)
     tpr = tps / n_pos
     fpr = fps / n_neg
 

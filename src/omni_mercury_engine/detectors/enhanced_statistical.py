@@ -274,7 +274,7 @@ class LOFDetector:
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        k = min(self.n_neighbors, len(self._train_X) - 1)
+        k = min(self.n_neighbors, len(self._train_X))
         dists, indices = self._train_tree.query(X, k=k, p=self.p)
 
         # Compute LOF scores for new data against training set
