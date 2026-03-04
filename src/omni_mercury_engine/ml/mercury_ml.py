@@ -54,8 +54,10 @@ def precision_score(
     if average == "weighted":
         return _weighted_metric(y_true, y_pred, _precision_binary, zero_division)
 
-    tp = float(np.sum((y_pred == 1) & (y_true == 1)))
-    fp = float(np.sum((y_pred == 1) & (y_true == 0)))
+    classes = np.unique(y_true)
+    pos_label = classes[-1]
+    tp = float(np.sum((y_pred == pos_label) & (y_true == pos_label)))
+    fp = float(np.sum((y_pred == pos_label) & (y_true != pos_label)))
     denom = tp + fp
     if denom == 0:
         return zero_division
@@ -76,8 +78,10 @@ def recall_score(
     if average == "weighted":
         return _weighted_metric(y_true, y_pred, _recall_binary, zero_division)
 
-    tp = float(np.sum((y_pred == 1) & (y_true == 1)))
-    fn = float(np.sum((y_pred == 0) & (y_true == 1)))
+    classes = np.unique(y_true)
+    pos_label = classes[-1]
+    tp = float(np.sum((y_pred == pos_label) & (y_true == pos_label)))
+    fn = float(np.sum((y_pred != pos_label) & (y_true == pos_label)))
     denom = tp + fn
     if denom == 0:
         return zero_division
@@ -556,8 +560,8 @@ def cross_val_predict(
     cv: int = 5,
     method: str = "predict",
 ) -> NDArray[np.number[Any]]:
-    """Generate cross-validated predictions."""
-    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    """Generate cross-validated predictions using stratified folds."""
+    kf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
     predictions = None
 
     for train_idx, test_idx in kf.split(X, y):
