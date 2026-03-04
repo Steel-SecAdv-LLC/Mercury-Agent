@@ -48,13 +48,8 @@ except ImportError:
     torch = None  # type: ignore[assignment, unused-ignore]
     nn = None  # type: ignore[assignment, unused-ignore]
 
-SKLEARN_AVAILABLE = False
-try:
-    import sklearn  # noqa: F401
-
-    SKLEARN_AVAILABLE = True
-except ImportError:
-    SKLEARN_AVAILABLE = False
+# NOTE: sklearn is NOT used for detection in Mercury-Agent.
+# Cross-domain transfer uses Mercury-native ML primitives from mercury_ml.
 
 
 class DomainAdaptationMethod(StrEnum):
@@ -546,8 +541,8 @@ class CORALAdapter(BaseDomainAdapter):
                 self._classifier = LogisticRegression(max_iter=1000, random_state=42)
             except ImportError:
                 logger.warning(
-                    "sklearn not available — CORAL adapter will use alignment-only mode "
-                    "without classifier. Install scikit-learn for full functionality."
+                    "mercury_ml LogisticRegression not available — CORAL adapter will "
+                    "use alignment-only mode without classifier."
                 )
                 self._classifier = None
 

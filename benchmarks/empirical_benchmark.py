@@ -99,17 +99,15 @@ KNOWN_CHECKSUMS: dict[str, str | None] = {
     "smd:machine-1-1.txt": None,  # Populate with actual hashes when available
     "batadal:dataset03.csv": None,
 }
-# Optional sklearn datasets/detectors for third-party comparison benchmarks.
-# Mercury does NOT depend on sklearn — these are external comparison targets only.
-try:
-    from sklearn.covariance import EllipticEnvelope
-    from sklearn.datasets import fetch_covtype, fetch_kddcup99, load_breast_cancer, load_digits
-    from sklearn.neighbors import LocalOutlierFactor
-    from sklearn.svm import OneClassSVM
-
-    _SKLEARN_AVAILABLE = True
-except ImportError:
-    _SKLEARN_AVAILABLE = False
+# sklearn datasets/detectors are REQUIRED for benchmarks.
+# Mercury does NOT depend on sklearn for production detection — these are
+# external comparison targets used to benchmark Mercury's original detection
+# against established third-party systems.  If sklearn is not installed,
+# benchmarks cannot run and will fail explicitly (no silent fallbacks).
+from sklearn.covariance import EllipticEnvelope
+from sklearn.datasets import fetch_covtype, fetch_kddcup99, load_breast_cancer, load_digits
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.svm import OneClassSVM
 
 from omni_mercury_engine.ml.mercury_ml import (
     confusion_matrix,
@@ -753,12 +751,8 @@ def prepare_breast_cancer_dataset() -> DatasetInfo | None:
     Prepare breast cancer dataset for anomaly detection.
     Malignant samples (minority class) treated as anomalies.
 
-    Requires sklearn for real data; returns None if unavailable.
+    Uses sklearn's load_breast_cancer as an external comparison dataset.
     """
-    if not _SKLEARN_AVAILABLE:
-        logger.info("sklearn not available — skipping breast_cancer dataset")
-        return None
-
     data = load_breast_cancer()
     X, y = data.data, data.target
 
@@ -788,12 +782,8 @@ def prepare_digits_dataset() -> DatasetInfo | None:
     Prepare digits dataset for anomaly detection.
     Digit '8' treated as anomaly (unusual shape).
 
-    Requires sklearn for real data; returns None if unavailable.
+    Uses sklearn's load_digits as an external comparison dataset.
     """
-    if not _SKLEARN_AVAILABLE:
-        logger.info("sklearn not available — skipping digits dataset")
-        return None
-
     data = load_digits()
     X, y = data.data, data.target
 
@@ -830,15 +820,8 @@ def prepare_covtype_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     X, y = None, None
     source = "synthetic"
 
-    if not _SKLEARN_AVAILABLE:
-        logger.info("sklearn not available — using fallback sources for covtype")
-        data = None
-    else:
-        data = None
-
-    # Try fetch_covtype first (uses OpenML/Figshare) — requires sklearn
-    if _SKLEARN_AVAILABLE:
-        data = fetch_with_retry(
+    # Try fetch_covtype first (uses OpenML/Figshare)
+    data = fetch_with_retry(
             fetch_covtype,
             "covtype",
             max_retries=3,
@@ -936,11 +919,8 @@ def prepare_kddcup_dataset(n_samples: int = 5000) -> DatasetInfo | None:
     source = "synthetic"
     dataset_name = "kddcup99"
 
-    # Try fetch_kddcup99 first — requires sklearn
-    if not _SKLEARN_AVAILABLE:
-        data = None
-    else:
-        data = fetch_with_retry(
+    # Try fetch_kddcup99 first
+    data = fetch_with_retry(
             fetch_kddcup99,
             "KDDCup99",
             max_retries=3,
@@ -2169,17 +2149,14 @@ def run_full_benchmark(
         (OmniMercuryDetector, "Mercury-Agent", {}),
     ]
 
-    # Optional third-party detectors for comparison only (requires sklearn)
-    if _SKLEARN_AVAILABLE:
-        detectors.extend(
-            [
-                (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
-                (LocalOutlierFactor, "LocalOutlierFactor", {"n_neighbors": 20}),
-                (EllipticEnvelope, "EllipticEnvelope", {"random_state": 42}),
-            ]
-        )
-    else:
-        logger.info("sklearn not installed — running Mercury-only benchmarks")
+    # Third-party detectors for comparison (external comparison targets only)
+    detectors.extend(
+        [
+            (OneClassSVM, "OneClassSVM", {"kernel": "rbf", "gamma": "auto"}),
+            (LocalOutlierFactor, "LocalOutlierFactor", {"n_neighbors": 20}),
+            (EllipticEnvelope, "EllipticEnvelope", {"random_state": 42}),
+        ]
+    )
 
     # Add SOTA models if requested
     if include_sota:

@@ -419,7 +419,7 @@ class CalibrationEnsemble:
             from omni_mercury_engine.ml.mercury_ml import KFold
         except ImportError:
             logger.warning(
-                "sklearn not available — skipping cross-validation method selection, "
+                "mercury_ml KFold not available — skipping cross-validation method selection, "
                 "using default ensemble calibration"
             )
             return

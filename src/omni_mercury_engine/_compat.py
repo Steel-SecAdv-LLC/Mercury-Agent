@@ -34,6 +34,8 @@ from importlib.util import find_spec
 HAS_TORCH: bool = find_spec("torch") is not None
 HAS_TORCHVISION: bool = find_spec("torchvision") is not None
 HAS_PYTORCH_LIGHTNING: bool = find_spec("pytorch_lightning") is not None
+# NOTE: sklearn is NOT used for detection in Mercury-Agent.
+# This flag exists only for optional benchmark comparison tooling.
 HAS_SKLEARN: bool = find_spec("sklearn") is not None
 HAS_TIMM: bool = find_spec("timm") is not None
 HAS_CV2: bool = find_spec("cv2") is not None
@@ -113,8 +115,8 @@ HAS_MPMATH: bool = find_spec("mpmath") is not None
 # ---------------------------------------------------------------------------
 # Convenience groupings for common checks
 # ---------------------------------------------------------------------------
-HAS_ML_STACK: bool = HAS_TORCH and HAS_SKLEARN
-"""True when both PyTorch and scikit-learn are installed (minimum for ML detectors)."""
+HAS_ML_STACK: bool = HAS_TORCH
+"""True when PyTorch is installed (minimum for ML detectors). Mercury uses its own native ML primitives."""
 
 HAS_VISUAL_STACK: bool = HAS_TORCH and HAS_TORCHVISION and HAS_TIMM
 """True when the full visual anomaly detection stack is available."""

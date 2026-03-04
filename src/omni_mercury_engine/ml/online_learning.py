@@ -274,7 +274,7 @@ class SGDOnlineLearner(OnlineLearner):
     """
     Stochastic Gradient Descent based online learner.
 
-    Wraps sklearn's SGDClassifier for online anomaly detection.
+    Uses Mercury-native SGDClassifier for online anomaly detection.
     """
 
     def __init__(
@@ -310,7 +310,7 @@ class SGDOnlineLearner(OnlineLearner):
                 random_state=42,
             )
         except ImportError:
-            raise RuntimeError("sklearn required for SGDOnlineLearner")
+            raise RuntimeError("mercury_ml SGDClassifier required for SGDOnlineLearner")
 
         self._fitted = False
         self._classes = np.array([0, 1])
@@ -371,7 +371,7 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
                 random_state=42,
             )
         except ImportError:
-            raise RuntimeError("sklearn required for PassiveAggressiveOnlineLearner")
+            raise RuntimeError("mercury_ml PassiveAggressiveClassifier required for PassiveAggressiveOnlineLearner")
 
         self._fitted = False
         self._classes = np.array([0, 1])
