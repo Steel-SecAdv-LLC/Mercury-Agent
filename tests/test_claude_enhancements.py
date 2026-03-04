@@ -34,7 +34,7 @@ from hypothesis import (
     strategies as st,
 )
 from hypothesis.extra.numpy import arrays
-from sklearn.linear_model import LogisticRegression
+from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 

@@ -120,7 +120,7 @@ COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
 class OracleActivation(Enum):
     """Oracle activation mode.
 
-    Controls whether the SpectralDomainOracle is active. Can be set
+    Controls whether the SpectralDomainFrequency detector is active. Can be set
     explicitly or left at AUTO for domain-aware activation.
     """
 

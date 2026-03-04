@@ -194,7 +194,7 @@ class TestIntegrationWithEngine:
 
     def test_multiple_datasets_benchmark(self):
         """Test benchmarking across multiple ADRepository datasets."""
-        from sklearn.metrics import roc_auc_score
+        from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
         datasets_to_test = ["thyroid", "backdoor", "campaign"]
         results = {}
@@ -209,12 +209,13 @@ class TestIntegrationWithEngine:
             loader._create_synthetic_fallback()
             X, y = loader.load_data()
 
-            # Simple detector test
-            from sklearn.ensemble import IsolationForest
+            # Simple detector test using MADDetector's actual API
+            from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
 
-            clf = IsolationForest(random_state=42, contamination=0.1)
+            clf = MADDetector()
             clf.fit(X)
-            scores = -clf.score_samples(X)
+            result = clf.detect(X)
+            scores = result.scores
 
             if len(np.unique(y)) > 1:
                 auc = roc_auc_score(y, scores)

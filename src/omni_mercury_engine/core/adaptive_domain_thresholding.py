@@ -416,10 +416,10 @@ class CalibrationEnsemble:
     def _select_best_method(self, scores: NDArray[np.float64], labels: NDArray[np.int32]) -> None:
         """Select best calibration method via cross-validation."""
         try:
-            from sklearn.model_selection import KFold
+            from omni_mercury_engine.ml.mercury_ml import KFold
         except ImportError:
             logger.warning(
-                "sklearn not available — skipping cross-validation method selection, "
+                "mercury_ml KFold not available — skipping cross-validation method selection, "
                 "using default ensemble calibration"
             )
             return

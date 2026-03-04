@@ -100,6 +100,8 @@ class MADDetector:
         self,
         threshold_multiplier: float = 3.5,
         consistency_constant: float = 1.4826,
+        *,
+        threshold: float | None = None,
     ):
         """
         Initialize MAD detector.
@@ -107,8 +109,9 @@ class MADDetector:
         Args:
             threshold_multiplier: Number of MADs for threshold (default: 3.5)
             consistency_constant: Scale factor for normal distribution (1.4826)
+            threshold: Alias for threshold_multiplier (keyword-only)
         """
-        self.threshold_multiplier = threshold_multiplier
+        self.threshold_multiplier = threshold if threshold is not None else threshold_multiplier
         self.consistency_constant = consistency_constant
         self.median_: np.ndarray | None = None
         self.mad_: np.ndarray | None = None
@@ -166,6 +169,21 @@ class MADDetector:
             },
         )
 
+    def decision_function(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Return anomaly scores (higher = more anomalous).
+
+        Compatible with the ensemble detector protocol used by GWOEnsembleDetector.
+        """
+        result = self.detect(X)
+        return result.scores
+
+    def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Return anomaly scores (higher = more anomalous).
+
+        Alias for decision_function for ensemble compatibility.
+        """
+        return self.decision_function(X)
+
 
 class LOFDetector:
     """
@@ -204,55 +222,86 @@ class LOFDetector:
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> LOFDetector:
-        """Fit the LOF detector."""
-        try:
-            from sklearn.neighbors import LocalOutlierFactor
+        """Fit the LOF detector using Mercury-native cKDTree implementation."""
+        from scipy.spatial import cKDTree
 
-            self._lof = LocalOutlierFactor(
-                n_neighbors=min(self.n_neighbors, len(X) - 1),
-                contamination=self.contamination,
-                metric=self.metric,
-                p=self.p,
-                novelty=True,
-            )
-            assert self._lof is not None
-            self._lof.fit(X)
-            self._fitted = True
-        except ImportError:
-            raise DetectorException("scikit-learn required for LOF detection")
+        X = np.asarray(X)
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
 
+        k = min(self.n_neighbors, len(X) - 1)
+        tree = cKDTree(X)
+        # k+1 because query includes point itself
+        dists, indices = tree.query(X, k=k + 1, p=self.p)
+        # Drop self-neighbor (first column)
+        dists = dists[:, 1:]
+        indices = indices[:, 1:]
+
+        # k-distance for each point (distance to k-th neighbor)
+        k_dists = dists[:, -1]
+
+        # Reachability distance: max(k-distance(o), d(p, o))
+        # Local reachability density: 1 / mean(reach-dist)
+        n = len(X)
+        lrd = np.zeros(n)
+        for i in range(n):
+            reach_dists = np.maximum(k_dists[indices[i]], dists[i])
+            mean_reach = np.mean(reach_dists)
+            lrd[i] = 1.0 / (mean_reach + 1e-10)
+
+        # LOF score: mean(lrd(neighbors)) / lrd(point)
+        lof_scores = np.zeros(n)
+        for i in range(n):
+            lof_scores[i] = np.mean(lrd[indices[i]]) / (lrd[i] + 1e-10)
+
+        self._train_X = X
+        self._train_tree = tree
+        self._train_k_dists = k_dists
+        self._train_lrd = lrd
+        self._train_lof = lof_scores
+
+        # Threshold from contamination
+        self._threshold_val = float(np.percentile(lof_scores, (1 - self.contamination) * 100))
+        self._fitted = True
         return self
 
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
-        """Detect anomalies using LOF."""
-        if not self._fitted or self._lof is None:
+        """Detect anomalies using Mercury-native LOF."""
+        if not self._fitted:
             raise DetectorException("LOFDetector must be fitted before detection")
 
         X = np.asarray(X)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        # Get LOF scores (negative = more anomalous)
-        raw_scores = -self._lof.decision_function(X)
+        k = min(self.n_neighbors, len(self._train_X))
+        dists, indices = self._train_tree.query(X, k=k, p=self.p)
+
+        # Compute LOF scores for new data against training set
+        n = len(X)
+        lof_scores = np.zeros(n)
+        for i in range(n):
+            reach_dists = np.maximum(self._train_k_dists[indices[i]], dists[i])
+            mean_reach = np.mean(reach_dists)
+            point_lrd = 1.0 / (mean_reach + 1e-10)
+            lof_scores[i] = np.mean(self._train_lrd[indices[i]]) / (point_lrd + 1e-10)
 
         # Normalize to [0, 1]
-        min_score, max_score = raw_scores.min(), raw_scores.max()
+        min_score, max_score = lof_scores.min(), lof_scores.max()
         if max_score - min_score > 1e-8:
-            scores = (raw_scores - min_score) / (max_score - min_score)
+            scores = (lof_scores - min_score) / (max_score - min_score)
         else:
-            scores = np.full_like(raw_scores, 0.5)
+            scores = np.full_like(lof_scores, 0.5)
 
-        # Prediction
-        predictions = self._lof.predict(X)
-        is_anomaly = predictions == -1
+        is_anomaly = lof_scores > self._threshold_val
 
         return AnomalyResult(
             is_anomaly=is_anomaly,
             scores=scores,
             method="lof",
-            threshold=float(self._lof.offset_),
+            threshold=self._threshold_val,
             details={
-                "raw_scores": raw_scores,
+                "raw_scores": lof_scores,
                 "n_neighbors": self.n_neighbors,
             },
         )
@@ -290,13 +339,13 @@ class DBSCANDetector:
         self.min_samples = min_samples
         self.metric = metric
         self.auto_eps = auto_eps
-        self._fitted_eps: float | None = None
+        self._fitted_eps: float = 0.5
         self._reference_data: np.ndarray | None = None
         self._fitted = False
 
     def _estimate_eps(self, X: NDArray[np.float64]) -> float:
         """Estimate optimal eps using k-distance graph."""
-        from sklearn.neighbors import NearestNeighbors
+        from omni_mercury_engine.ml.mercury_ml import NearestNeighbors
 
         k = min(self.min_samples, len(X) - 1)
         nn = NearestNeighbors(n_neighbors=k)
@@ -332,7 +381,7 @@ class DBSCANDetector:
             raise DetectorException("DBSCANDetector must be fitted before detection")
 
         try:
-            from sklearn.cluster import DBSCAN
+            from omni_mercury_engine.ml.mercury_ml import DBSCAN
         except ImportError:
             raise DetectorException("scikit-learn required for DBSCAN detection")
 
@@ -355,7 +404,6 @@ class DBSCANDetector:
         scores = np.zeros(len(X))
         core_mask = np.isin(np.arange(len(X)), dbscan.core_sample_indices_)
 
-        assert self._fitted_eps is not None
         if np.any(core_mask):
             core_points = X[core_mask]
             for i, point in enumerate(X):
@@ -414,37 +462,87 @@ class MCDDetector:
         self.contamination = contamination
         self.random_state = random_state
         self._mcd = None
-        self._threshold: float | None = None
+        self._threshold: float = 0.0
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> MCDDetector:
-        """Fit the MCD detector."""
-        try:
-            from sklearn.covariance import MinCovDet
-        except ImportError:
-            raise DetectorException("scikit-learn required for MCD detection")
+        """Fit the MCD detector using Mercury-native robust covariance estimation.
 
+        Uses an iterative concentration step approach (FastMCD algorithm):
+        repeatedly select the subset with smallest covariance determinant.
+        """
         X = np.asarray(X)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
 
-        mcd = MinCovDet(
-            support_fraction=self.support_fraction,
-            random_state=self.random_state,
+        n, p = X.shape
+        h = (
+            int(np.ceil((n + p + 1) / 2))
+            if self.support_fraction is None
+            else int(np.ceil(self.support_fraction * n))
         )
-        mcd.fit(X)
-        self._mcd = mcd
+        h = max(h, p + 1)  # need at least p+1 points
+        h = min(h, n)
 
-        # Compute threshold from training data
-        distances = mcd.mahalanobis(X)
+        rng = np.random.RandomState(self.random_state)
+
+        best_det = np.inf
+        best_location = np.mean(X, axis=0)
+        best_cov = np.cov(X, rowvar=False)
+        if best_cov.ndim == 0:
+            best_cov = np.array([[float(best_cov)]])
+
+        # Run multiple random starts for robustness
+        n_trials = min(10, max(1, n // h))
+        for _ in range(n_trials):
+            subset = rng.choice(n, size=h, replace=False)
+            for _step in range(30):  # concentration steps
+                X_sub = X[subset]
+                loc = np.mean(X_sub, axis=0)
+                cov = np.cov(X_sub, rowvar=False)
+                if cov.ndim == 0:
+                    cov = np.array([[float(cov)]])
+                cov += np.eye(p) * 1e-10  # regularize
+                try:
+                    cov_inv = np.linalg.inv(cov)
+                except np.linalg.LinAlgError:
+                    break
+                diff = X - loc
+                dists = np.sum(diff @ cov_inv * diff, axis=1)
+                subset_new = np.argsort(dists)[:h]
+                if np.array_equal(np.sort(subset), np.sort(subset_new)):
+                    break
+                subset = subset_new
+
+            det = np.linalg.det(cov)
+            if 0 < det < best_det:
+                best_det = det
+                best_location = loc
+                best_cov = cov
+
+        self._location = best_location
+        self._covariance = best_cov
+        try:
+            self._cov_inv = np.linalg.inv(best_cov)
+        except np.linalg.LinAlgError:
+            self._cov_inv = np.linalg.pinv(best_cov)
+
+        # Compute threshold from training data Mahalanobis distances
+        diff = X - self._location
+        distances = np.sqrt(np.maximum(0, np.sum(diff @ self._cov_inv * diff, axis=1)))
         self._threshold = float(np.percentile(distances, (1 - self.contamination) * 100))
 
         self._fitted = True
         return self
 
+    def _mahalanobis(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Compute Mahalanobis distances from the robust center."""
+        diff = X - self._location
+        return np.sqrt(np.maximum(0, np.sum(diff @ self._cov_inv * diff, axis=1)))
+
     def detect(self, X: NDArray[np.float64]) -> AnomalyResult:
-        """Detect anomalies using MCD."""
-        if not self._fitted or self._mcd is None:
+        """Detect anomalies using Mercury-native MCD."""
+        if not self._fitted:
             raise DetectorException("MCDDetector must be fitted before detection")
 
         X = np.asarray(X)
@@ -452,7 +550,7 @@ class MCDDetector:
             X = X.reshape(-1, 1)
 
         # Mahalanobis distances
-        distances = self._mcd.mahalanobis(X)
+        distances = self._mahalanobis(X)
 
         # Normalize scores
         max_dist = max(distances.max(), self._threshold * 2)
@@ -462,7 +560,7 @@ class MCDDetector:
 
         # Chi-squared based p-values
         n_features = X.shape[1]
-        p_values = 1 - stats.chi2.cdf(distances, df=n_features)
+        p_values = 1 - stats.chi2.cdf(distances**2, df=n_features)
 
         return AnomalyResult(
             is_anomaly=is_anomaly,
@@ -472,8 +570,8 @@ class MCDDetector:
             confidence=1 - p_values,
             details={
                 "mahalanobis_distances": distances,
-                "robust_location": self._mcd.location_,
-                "robust_covariance": self._mcd.covariance_,
+                "robust_location": self._location,
+                "robust_covariance": self._covariance,
                 "p_values": p_values,
             },
         )

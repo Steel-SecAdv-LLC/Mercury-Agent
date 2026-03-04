@@ -18,27 +18,15 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-import warnings
+"""Real-Time Threat Detection using Mercury-native anomaly detection.
 
-warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
-    DeprecationWarning,
-    stacklevel=2,
-)
+Implements real-time threat detection using Mercury's own ensemble anomaly
+detection methods.  All detection is performed with numpy/scipy — no sklearn.
 
-"""DEPRECATED: This module uses sklearn (IsolationForest, LOF, EllipticEnvelope)
-for anomaly detection. Mercury's production detector is MercuryAnomalyDetector
-in detectors/statistical.py. This module is retained for reference only.
-
-Original: Real-Time Threat Detection with PyOD-Compatible Anomaly Detection
-
-Implements real-time threat detection using ensemble anomaly detection methods
-compatible with PyOD (Python Outlier Detection) framework.
-
-Reference: Zhao et al., "PyOD: A Python Toolbox for Scalable Outlier Detection" (2019)
-https://github.com/yzhao062/pyod
-
-MIT-compatible implementation using scikit-learn and numpy.
+Detection ensemble:
+  - Isolation-style random-projection detector (tree-free)
+  - Local density estimator (scipy.spatial.cKDTree)
+  - Robust covariance (Mahalanobis distance)
 """
 
 import logging
@@ -47,6 +35,7 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
+from scipy.spatial import cKDTree
 
 from omni_mercury_engine.utils.logging import LoggerMixin
 
@@ -65,16 +54,131 @@ class ThreatSignature:
     confidence: float = 0.95
 
 
+# ---------------------------------------------------------------------------
+# Mercury-native detector components (no sklearn)
+# ---------------------------------------------------------------------------
+
+
+class _RandomProjectionDetector:
+    """Isolation-style anomaly detector using random projections (no trees)."""
+
+    def __init__(
+        self, contamination: float = 0.1, n_projections: int = 100, random_state: int = 42
+    ) -> None:
+        self.contamination = contamination
+        self.n_projections = n_projections
+        self._rng = np.random.default_rng(random_state)
+        self._projections: np.ndarray | None = None
+        self._medians: np.ndarray | None = None
+        self._mads: np.ndarray | None = None
+
+    def fit(self, X: np.ndarray[Any, Any]) -> None:
+        n_features = X.shape[1]
+        self._projections = self._rng.standard_normal((self.n_projections, n_features))
+        norms = np.linalg.norm(self._projections, axis=1, keepdims=True)
+        self._projections /= np.where(norms > 1e-10, norms, 1.0)
+        projected = X @ self._projections.T  # (n_samples, n_projections)
+        self._medians = np.median(projected, axis=0)
+        self._mads = np.median(np.abs(projected - self._medians), axis=0)
+        self._mads = np.where(self._mads > 1e-10, self._mads, 1.0)
+
+    def score_samples(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        assert self._projections is not None
+        projected = X @ self._projections.T
+        z = np.abs(projected - self._medians) / self._mads
+        result: np.ndarray[Any, Any] = np.mean(z, axis=1)
+        return result
+
+    def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        scores = self.score_samples(X)
+        threshold = np.percentile(scores, 100 * (1 - self.contamination))
+        return np.where(scores >= threshold, -1, 1)
+
+
+class _LocalDensityDetector:
+    """KDTree-based local density anomaly detector (LOF-style, no sklearn)."""
+
+    def __init__(self, contamination: float = 0.1, n_neighbors: int = 20) -> None:
+        self.contamination = contamination
+        self.n_neighbors = n_neighbors
+        self._tree: cKDTree | None = None
+
+    def fit(self, X: np.ndarray[Any, Any]) -> None:
+        self._tree = cKDTree(X)
+
+    def score_samples(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        assert self._tree is not None
+        k = min(self.n_neighbors, self._tree.n)
+        dists, _ = self._tree.query(X, k=max(k, 1))
+        if dists.ndim == 1:
+            dists = dists[:, np.newaxis]
+        result: np.ndarray[Any, Any] = np.mean(dists, axis=1)
+        return result
+
+    def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        scores = self.score_samples(X)
+        threshold = np.percentile(scores, 100 * (1 - self.contamination))
+        return np.where(scores >= threshold, -1, 1)
+
+    def decision_function(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        return -self.score_samples(X)
+
+
+class _RobustCovarianceDetector:
+    """Mahalanobis-distance detector with robust covariance (no sklearn)."""
+
+    def __init__(self, contamination: float = 0.1, random_state: int = 42) -> None:
+        self.contamination = contamination
+        self._mean: np.ndarray | None = None
+        self._cov_inv: np.ndarray | None = None
+
+    def fit(self, X: np.ndarray[Any, Any]) -> None:
+        n_samples, n_features = X.shape
+        median = np.median(X, axis=0)
+        dists = np.sqrt(np.sum((X - median) ** 2, axis=1))
+        n_support = max(int(n_samples * 0.9), n_features + 1)
+        idx = np.argsort(dists)[:n_support]
+        X_s = X[idx]
+        self._mean = np.mean(X_s, axis=0)
+        centered = X_s - self._mean
+        cov = centered.T @ centered / max(len(X_s) - 1, 1)
+        cov += 1e-6 * np.eye(n_features)
+        try:
+            self._cov_inv = np.linalg.inv(cov)
+        except np.linalg.LinAlgError:
+            self._cov_inv = np.linalg.pinv(cov)
+
+    def score_samples(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        assert self._mean is not None and self._cov_inv is not None
+        centered = X - self._mean
+        left = centered @ self._cov_inv
+        result: np.ndarray[Any, Any] = np.sqrt(np.maximum(np.sum(left * centered, axis=1), 0.0))
+        return result
+
+    def predict(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        scores = self.score_samples(X)
+        threshold = np.percentile(scores, 100 * (1 - self.contamination))
+        return np.where(scores >= threshold, -1, 1)
+
+    def decision_function(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        return -self.score_samples(X)
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
 class RealTimeThreatDetector(LoggerMixin):
     """
-    Real-time threat detection using ensemble anomaly detection.
+    Real-time threat detection using Mercury-native ensemble anomaly detection.
 
-    Combines multiple detection algorithms:
-    - Isolation Forest (tree-based)
-    - Local Outlier Factor (density-based)
-    - Elliptic Envelope (Gaussian)
+    Combines multiple Mercury-native detection algorithms:
+    - Random-projection isolation detector
+    - Local density estimator (cKDTree)
+    - Robust covariance (Mahalanobis)
 
-    Compatible with PyOD architecture for easy extension.
+    All detection is numpy/scipy only — zero sklearn dependency.
     """
 
     def __init__(
@@ -90,40 +194,38 @@ class RealTimeThreatDetector(LoggerMixin):
 
         Args:
             contamination: Expected proportion of outliers (0.0 to 0.5)
-            n_estimators: Number of estimators for Isolation Forest
-            enable_isolation_forest: Enable Isolation Forest detector
-            enable_lof: Enable Local Outlier Factor detector
-            enable_elliptic: Enable Elliptic Envelope detector
+            n_estimators: Number of random projections for isolation detector
+            enable_isolation_forest: Enable random-projection detector
+            enable_lof: Enable local density detector
+            enable_elliptic: Enable robust covariance detector
         """
         self.contamination = contamination
         self.n_estimators = n_estimators
 
-        self.detectors = {}
-
-        try:
-            from sklearn.covariance import EllipticEnvelope
-            from sklearn.ensemble import IsolationForest
-            from sklearn.neighbors import LocalOutlierFactor
-        except ImportError as e:
-            raise ImportError(
-                "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
-            ) from e
+        self.detectors: dict[str, Any] = {}
 
         if enable_isolation_forest:
-            self.detectors["isolation_forest"] = IsolationForest(
-                contamination=contamination, n_estimators=n_estimators, random_state=42
+            self.detectors["isolation_forest"] = _RandomProjectionDetector(
+                contamination=contamination,
+                n_projections=n_estimators,
             )
 
         if enable_lof:
-            self.detectors["lof"] = LocalOutlierFactor(contamination=contamination, novelty=True)
+            self.detectors["lof"] = _LocalDensityDetector(
+                contamination=contamination,
+            )
 
         if enable_elliptic:
-            self.detectors["elliptic"] = EllipticEnvelope(
-                contamination=contamination, random_state=42
+            self.detectors["elliptic"] = _RobustCovarianceDetector(
+                contamination=contamination,
             )
 
         self.is_fitted = False
         self.threat_history: list[ThreatSignature] = []
+        # Reference score percentiles from training data (set during fit)
+        self._ref_p90: float = 0.0
+        self._ref_p95: float = 0.0
+        self._ref_p99: float = 0.0
 
     def fit(self, X: np.ndarray[Any, Any]) -> RealTimeThreatDetector:
         """
@@ -141,6 +243,20 @@ class RealTimeThreatDetector(LoggerMixin):
             except Exception as e:
                 self.logger.warning("Failed to fit %s: %s", name, e)
 
+        # Compute reference score distribution from training data
+        ref_scores_list: list[np.ndarray[Any, Any]] = []
+        for name, detector in self.detectors.items():
+            try:
+                if hasattr(detector, "score_samples"):
+                    ref_scores_list.append(detector.score_samples(X))
+            except Exception:
+                pass
+        if ref_scores_list:
+            ref_ensemble = np.mean(ref_scores_list, axis=0)
+            self._ref_p90 = float(np.percentile(ref_ensemble, 90))
+            self._ref_p95 = float(np.percentile(ref_ensemble, 95))
+            self._ref_p99 = float(np.percentile(ref_ensemble, 99))
+
         self.is_fitted = True
         return self
 
@@ -157,8 +273,8 @@ class RealTimeThreatDetector(LoggerMixin):
         if not self.is_fitted:
             raise ValueError("Detector must be fitted before detection")
 
-        predictions = {}
-        scores = {}
+        predictions: dict[str, Any] = {}
+        scores: dict[str, Any] = {}
 
         for name, detector in self.detectors.items():
             try:
@@ -175,9 +291,21 @@ class RealTimeThreatDetector(LoggerMixin):
             except Exception as e:
                 self.logger.warning("Failed to predict with %s: %s", name, e)
 
-        ensemble_score = np.mean([scores[name] for name in scores], axis=0)
+        if not scores:
+            return {
+                "is_threat": False,
+                "threat_indices": [],
+                "ensemble_scores": [],
+                "individual_predictions": {},
+                "threat_level": "LOW",
+                "num_threats": 0,
+                "timestamp": datetime.now().isoformat(),
+            }
 
-        is_threat = ensemble_score < np.percentile(ensemble_score, self.contamination * 100)
+        ensemble_score = np.mean(list(scores.values()), axis=0)
+
+        # Mercury-native score_samples: higher = more anomalous
+        is_threat = ensemble_score > np.percentile(ensemble_score, (1 - self.contamination) * 100)
 
         threat_indices = np.where(is_threat)[0]
 
@@ -194,14 +322,14 @@ class RealTimeThreatDetector(LoggerMixin):
         }
 
     def _calculate_threat_level(self, scores: np.ndarray[Any, Any]) -> str:
-        """Calculate threat level based on scores."""
-        min_score = np.min(scores)
+        """Calculate threat level using reference thresholds from training data."""
+        max_score = float(np.max(scores))
 
-        if min_score < np.percentile(scores, 1):
+        if max_score > self._ref_p99:
             return "CRITICAL"
-        elif min_score < np.percentile(scores, 5):
+        elif max_score > self._ref_p95:
             return "HIGH"
-        elif min_score < np.percentile(scores, 10):
+        elif max_score > self._ref_p90:
             return "MEDIUM"
         else:
             return "LOW"
@@ -262,6 +390,7 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
     Adaptive threat detector that updates based on new threats.
 
     Implements online learning for continuous adaptation to evolving threats.
+    All detection is Mercury-native (numpy/scipy only).
     """
 
     def __init__(self, *args: Any, update_frequency: int = 100, **kwargs: Any) -> None:

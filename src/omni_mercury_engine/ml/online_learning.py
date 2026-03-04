@@ -274,7 +274,7 @@ class SGDOnlineLearner(OnlineLearner):
     """
     Stochastic Gradient Descent based online learner.
 
-    Wraps sklearn's SGDClassifier for online anomaly detection.
+    Uses Mercury-native SGDClassifier for online anomaly detection.
     """
 
     def __init__(
@@ -296,7 +296,7 @@ class SGDOnlineLearner(OnlineLearner):
             warm_start: Reuse weights from previous fit
         """
         try:
-            from sklearn.linear_model import SGDClassifier
+            from omni_mercury_engine.ml.mercury_ml import SGDClassifier
 
             self.model = SGDClassifier(
                 loss=loss,
@@ -310,7 +310,7 @@ class SGDOnlineLearner(OnlineLearner):
                 random_state=42,
             )
         except ImportError:
-            raise RuntimeError("sklearn required for SGDOnlineLearner")
+            raise RuntimeError("mercury_ml SGDClassifier required for SGDOnlineLearner")
 
         self._fitted = False
         self._classes = np.array([0, 1])
@@ -328,13 +328,15 @@ class SGDOnlineLearner(OnlineLearner):
         """Predict labels."""
         if not self._fitted:
             return np.zeros(len(X), dtype=np.int64)
-        return self.model.predict(X)
+        result = self.model.predict(X)
+        return np.asarray(result, dtype=np.int64)
 
     def predict_proba(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Predict probabilities."""
         if not self._fitted:
             return np.full((len(X), 2), 0.5)
-        return self.model.predict_proba(X)
+        result = self.model.predict_proba(X)
+        return np.asarray(result, dtype=np.float64)
 
 
 class PassiveAggressiveOnlineLearner(OnlineLearner):
@@ -358,7 +360,7 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
             fit_intercept: Whether to fit intercept
         """
         try:
-            from sklearn.linear_model import PassiveAggressiveClassifier
+            from omni_mercury_engine.ml.mercury_ml import PassiveAggressiveClassifier
 
             self.model = PassiveAggressiveClassifier(
                 C=C,
@@ -369,7 +371,9 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
                 random_state=42,
             )
         except ImportError:
-            raise RuntimeError("sklearn required for PassiveAggressiveOnlineLearner")
+            raise RuntimeError(
+                "mercury_ml PassiveAggressiveClassifier required for PassiveAggressiveOnlineLearner"
+            )
 
         self._fitted = False
         self._classes = np.array([0, 1])
@@ -387,7 +391,8 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
         """Predict labels."""
         if not self._fitted:
             return np.zeros(len(X), dtype=np.int64)
-        return self.model.predict(X)
+        result = self.model.predict(X)
+        return np.asarray(result, dtype=np.int64)
 
     def predict_proba(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Predict probabilities (from decision function)."""

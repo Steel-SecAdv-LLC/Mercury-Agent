@@ -331,8 +331,8 @@ class TestCICIDSIntegration:
 
     def test_cicids_benchmark(self):
         """Test benchmarking CICIDS with Isolation Forest."""
-        from sklearn.ensemble import IsolationForest
-        from sklearn.metrics import roc_auc_score
+        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
+        from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
         config = DatasetConfig(
             name="cicids",
@@ -347,10 +347,11 @@ class TestCICIDSIntegration:
         # Preprocess
         X_processed = loader.preprocess(X)
 
-        # Train and evaluate
-        clf = IsolationForest(random_state=42, contamination=0.2)
+        # Train and evaluate using MADDetector's actual API
+        clf = MADDetector()
         clf.fit(X_processed)
-        scores = -clf.score_samples(X_processed)
+        result = clf.detect(X_processed)
+        scores = result.scores
 
         if len(np.unique(y)) > 1:
             auc = roc_auc_score(y, scores)

@@ -7,11 +7,9 @@ Copyright (C) 2025 Steel Security Advisors LLC
 
 import pytest
 
-pytest.importorskip("sklearn")
-
 import numpy as np
 import pytest
-from sklearn.tree import DecisionTreeClassifier
+from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier
 
 from omni_mercury_engine.ml.gwo_optimizer import GreyWolfOptimizer
 from omni_mercury_engine.utils.rng import DeterministicRNG
@@ -151,7 +149,7 @@ class TestGreyWolfOptimizer:
         y = (X[:, 0] + X[:, 1] > 0).astype(int)
 
         gwo = GreyWolfOptimizer(n_wolves=5, max_iter=5)
-        clf = DecisionTreeClassifier(max_depth=3, random_state=42)
+        clf = GradientBoostingClassifier(n_estimators=5, max_depth=3, random_state=42)
 
         mask = gwo.select_features(X, y, clf, n_features=3)
 
@@ -166,7 +164,7 @@ class TestGreyWolfOptimizer:
         y = np.random.randint(0, 2, 50)
 
         gwo = GreyWolfOptimizer(n_wolves=3, max_iter=3)
-        clf = DecisionTreeClassifier(max_depth=2, random_state=42)
+        clf = GradientBoostingClassifier(n_estimators=5, max_depth=2, random_state=42)
 
         mask = gwo.select_features(X, y, clf, n_features=5)
 
@@ -179,7 +177,7 @@ class TestGreyWolfOptimizer:
         y = np.random.randint(0, 2, 50)
 
         gwo = GreyWolfOptimizer(n_wolves=3, max_iter=3)
-        clf = DecisionTreeClassifier(max_depth=2, random_state=42)
+        clf = GradientBoostingClassifier(n_estimators=5, max_depth=2, random_state=42)
 
         mask = gwo.select_features(X, y, clf, n_features=1)
 

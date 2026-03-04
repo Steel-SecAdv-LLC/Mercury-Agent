@@ -968,9 +968,9 @@ class AutoThresholdOptimizer:
         as the threshold. Fallback to percentile if GMM fails.
         """
         try:
-            from sklearn.mixture import GaussianMixture
+            from omni_mercury_engine.ml.mercury_ml import GaussianMixture
         except ImportError:
-            logger.warning("sklearn not available for GMM, falling back to percentile")
+            logger.warning("mercury_ml GaussianMixture not available, falling back to percentile")
             return self._percentile_threshold(scores, contamination, fixed_threshold)
 
         if len(scores) < 20:

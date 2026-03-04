@@ -204,7 +204,7 @@ class TestConceptDriftEvaluation:
 
     def test_concept_drift_evaluator(self, drift_data):
         """Test full concept drift evaluation."""
-        from sklearn.ensemble import RandomForestClassifier
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         from omni_mercury_engine.ml.concept_drift_evaluation import (
             ConceptDriftEvaluator,
@@ -437,7 +437,7 @@ class TestExplainability:
 
     def test_shap_explainer_local(self, synthetic_data):
         """Test local SHAP explanations."""
-        from sklearn.ensemble import RandomForestClassifier
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         from omni_mercury_engine.ml.explainability import SHAPExplainer
 
@@ -457,7 +457,7 @@ class TestExplainability:
 
     def test_shap_explainer_global(self, synthetic_data):
         """Test global SHAP explanations."""
-        from sklearn.ensemble import RandomForestClassifier
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         from omni_mercury_engine.ml.explainability import SHAPExplainer
 
@@ -477,7 +477,7 @@ class TestExplainability:
 
     def test_counterfactual_explainer(self, synthetic_data):
         """Test counterfactual explanations."""
-        from sklearn.ensemble import RandomForestClassifier
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         from omni_mercury_engine.ml.explainability import CounterfactualExplainer
 
@@ -508,7 +508,7 @@ class TestActiveLearning:
 
     def test_uncertainty_sampler(self, synthetic_data):
         """Test uncertainty-based sampling."""
-        from sklearn.ensemble import RandomForestClassifier
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         from omni_mercury_engine.ml.active_learning import (
             SamplingStrategy,
@@ -540,7 +540,7 @@ class TestActiveLearning:
 
     def test_hybrid_sampler(self, synthetic_data):
         """Test hybrid uncertainty + diversity sampling."""
-        from sklearn.ensemble import RandomForestClassifier
+        from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
 
         from omni_mercury_engine.ml.active_learning import HybridSampler
 
@@ -557,7 +557,7 @@ class TestActiveLearning:
 
     def test_active_learner(self, synthetic_data):
         """Test full active learning loop."""
-        from sklearn.linear_model import LogisticRegression
+        from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
         from omni_mercury_engine.ml.active_learning import (
             ActiveLearner,

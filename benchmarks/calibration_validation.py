@@ -39,9 +39,9 @@ from typing import Any
 
 import numpy as np
 from scipy.optimize import minimize
-from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
-from sklearn.preprocessing import StandardScaler
+from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score, roc_auc_score
+from omni_mercury_engine.ml.mercury_ml import StratifiedKFold, StratifiedShuffleSplit
+from omni_mercury_engine.ml.mercury_ml import StandardScaler
 
 # ---------------------------------------------------------------------------
 # Ensure src/ is on the path

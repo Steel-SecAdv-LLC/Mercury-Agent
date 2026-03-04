@@ -15,7 +15,7 @@ pytest.importorskip("torch")
 import numpy as np
 import pytest
 import torch
-from sklearn.datasets import make_classification
+from omni_mercury_engine.ml.mercury_ml import make_classification
 
 
 class TestFusionTraining:

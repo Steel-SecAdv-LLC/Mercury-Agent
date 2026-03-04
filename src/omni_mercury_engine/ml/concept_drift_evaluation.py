@@ -935,7 +935,7 @@ class ConceptDriftEvaluator:
             # Clone or reuse model
             if clone_model:
                 try:
-                    from sklearn.base import clone
+                    from omni_mercury_engine.ml.mercury_ml import clone
 
                     current_model = clone(model)
                 except (ImportError, TypeError):
@@ -973,7 +973,7 @@ class ConceptDriftEvaluator:
 
             # Calculate metrics
             try:
-                from sklearn.metrics import (
+                from omni_mercury_engine.ml.mercury_ml import (
                     accuracy_score,
                     f1_score,
                     precision_score,

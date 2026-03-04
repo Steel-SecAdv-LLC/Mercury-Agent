@@ -335,27 +335,25 @@ class TestGWOEnsembleDetector:
 
     def test_add_detectors(self) -> None:
         """Test adding detectors to ensemble."""
-        from sklearn.ensemble import IsolationForest
-
         from omni_mercury_engine.detectors.advanced import GWOEnsembleDetector
+        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
 
         detector = GWOEnsembleDetector()
-        detector.add_detector(IsolationForest(contamination=0.1, random_state=42))
-        detector.add_detector(IsolationForest(contamination=0.05, random_state=42))
+        detector.add_detector(MADDetector(threshold=2.5))
+        detector.add_detector(MADDetector(threshold=3.0))
 
         assert len(detector.detectors) == 2
 
     def test_fit_without_labels(self) -> None:
         """Test fitting without validation labels (equal weights)."""
-        from sklearn.ensemble import IsolationForest
-
         from omni_mercury_engine.detectors.advanced import GWOEnsembleDetector
+        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
 
         X, _ = generate_industrial_data(n_samples=200, n_sensors=10)
 
         detector = GWOEnsembleDetector()
-        detector.add_detector(IsolationForest(contamination=0.1, random_state=42))
-        detector.add_detector(IsolationForest(contamination=0.05, random_state=42))
+        detector.add_detector(MADDetector(threshold=2.5))
+        detector.add_detector(MADDetector(threshold=3.0))
 
         detector.fit(X)
 
@@ -365,15 +363,14 @@ class TestGWOEnsembleDetector:
 
     def test_fit_with_labels(self) -> None:
         """Test fitting with validation labels (optimized weights)."""
-        from sklearn.ensemble import IsolationForest
-
         from omni_mercury_engine.detectors.advanced import GWOEnsembleDetector
+        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
 
         X, y = generate_industrial_data(n_samples=200, n_sensors=10)
 
         detector = GWOEnsembleDetector(n_wolves=5, max_iterations=5)
-        detector.add_detector(IsolationForest(contamination=0.1, random_state=42))
-        detector.add_detector(IsolationForest(contamination=0.05, random_state=42))
+        detector.add_detector(MADDetector(threshold=2.5))
+        detector.add_detector(MADDetector(threshold=3.0))
 
         detector.fit(X, y_val=y)
 
@@ -383,15 +380,14 @@ class TestGWOEnsembleDetector:
 
     def test_predict(self) -> None:
         """Test prediction."""
-        from sklearn.ensemble import IsolationForest
-
         from omni_mercury_engine.detectors.advanced import GWOEnsembleDetector
+        from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
 
         X_train, y = generate_industrial_data(n_samples=200, n_sensors=10)
         X_test, _ = generate_industrial_data(n_samples=50, n_sensors=10, seed=123)
 
         detector = GWOEnsembleDetector()
-        detector.add_detector(IsolationForest(contamination=0.1, random_state=42))
+        detector.add_detector(MADDetector(threshold=2.5))
         detector.fit(X_train, y_val=y)
 
         scores = detector.predict(X_test)

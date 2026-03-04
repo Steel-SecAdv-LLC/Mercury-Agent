@@ -70,7 +70,7 @@ def compute_auroc(
         return 0.5
 
     try:
-        from sklearn.metrics import roc_auc_score
+        from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 
         return float(roc_auc_score(y_true, y_score))
     except ImportError:
@@ -118,7 +118,7 @@ def compute_auprc(
     y_score = _to_numpy(y_score).flatten()
 
     try:
-        from sklearn.metrics import average_precision_score
+        from omni_mercury_engine.ml.mercury_ml import average_precision_score
 
         return float(average_precision_score(y_true, y_score))
     except ImportError:

@@ -49,7 +49,7 @@ import numpy as np
 # Add src to path for development
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from sklearn.metrics import (
+from omni_mercury_engine.ml.mercury_ml import (
     accuracy_score,
     average_precision_score,
     f1_score,

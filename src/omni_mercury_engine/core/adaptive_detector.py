@@ -1,24 +1,10 @@
-"""DEPRECATED: This module uses sklearn for anomaly detection.
+"""Adaptive Detector Module for Mercury-Agent.
 
-Mercury's production detector is MercuryAnomalyDetector in
-detectors/statistical.py. This module is retained for reference
-only and will be removed in a future release.
-
-Do not import this module in production or benchmark code paths.
-
-Original description:
-Adaptive Detector Module for Mercury-Agent.
 Addresses specific weaknesses identified in benchmark analysis.
+All detection is Mercury-native (numpy/scipy only) — zero sklearn dependency.
+
 Copyright (C) 2025 Steel Security Advisors LLC
 """
-
-import warnings
-
-warnings.warn(
-    f"{__name__} is deprecated. Use MercuryAnomalyDetector.",
-    DeprecationWarning,
-    stacklevel=2,
-)
 
 import logging
 from dataclasses import dataclass, field
@@ -27,6 +13,7 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.spatial import cKDTree
 
 logger = logging.getLogger(__name__)
 
@@ -109,18 +96,17 @@ class AdaptiveThresholdCalibrator:
         scores: NDArray[np.float64],
     ) -> tuple[float, NDArray[np.int32]]:
         """Percentile-based calibration using contamination estimate."""
-        # Estimate contamination from score distribution
         estimated_contamination = self._estimate_contamination(scores)
-
-        # Use the higher of estimated or default contamination
         effective_contamination = max(estimated_contamination, self.contamination)
-        effective_contamination = np.clip(
-            effective_contamination,
-            self.min_contamination,
-            self.max_contamination,
+        effective_contamination = float(
+            np.clip(
+                effective_contamination,
+                self.min_contamination,
+                self.max_contamination,
+            )
         )
 
-        threshold = np.percentile(scores, 100 * (1 - effective_contamination))
+        threshold = float(np.percentile(scores, 100 * (1 - effective_contamination)))
         predictions = (scores >= threshold).astype(np.int32)
 
         return threshold, predictions
@@ -130,24 +116,20 @@ class AdaptiveThresholdCalibrator:
         scores: NDArray[np.float64],
     ) -> tuple[float, NDArray[np.int32]]:
         """Otsu's method for bimodal threshold selection."""
-        # Normalize scores to [0, 255] range for histogram
-        score_min = scores.min()
-        score_max = scores.max()
+        score_min = float(scores.min())
+        score_max = float(scores.max())
 
         if score_max - score_min < 1e-10:
-            # All scores are the same
             threshold = score_min
             predictions = np.zeros(len(scores), dtype=np.int32)
             return threshold, predictions
 
         normalized = ((scores - score_min) / (score_max - score_min) * 255).astype(np.int32)
 
-        # Compute histogram
         hist, _ = np.histogram(normalized, bins=256, range=(0, 256))
         hist = hist.astype(np.float64)
         total = hist.sum()
 
-        # Otsu's algorithm
         sum_total = np.dot(np.arange(256), hist)
         sum_b = 0.0
         w_b = 0.0
@@ -173,7 +155,6 @@ class AdaptiveThresholdCalibrator:
                 max_variance = variance
                 best_threshold = t
 
-        # Convert back to original scale
         threshold = score_min + (best_threshold / 255) * (score_max - score_min)
         predictions = (scores >= threshold).astype(np.int32)
 
@@ -184,18 +165,15 @@ class AdaptiveThresholdCalibrator:
         scores: NDArray[np.float64],
     ) -> tuple[float, NDArray[np.int32]]:
         """Median Absolute Deviation based calibration."""
-        median = np.median(scores)
-        mad = np.median(np.abs(scores - median))
+        median = float(np.median(scores))
+        mad = float(np.median(np.abs(scores - median)))
 
         if mad < 1e-10:
-            # Fall back to percentile if MAD is zero
             return self._percentile_calibration(scores)
 
-        # Threshold at median + 3*MAD (robust outlier detection)
-        threshold = median + 3 * 1.4826 * mad  # 1.4826 for normal consistency
+        threshold = median + 3 * 1.4826 * mad
         predictions = (scores >= threshold).astype(np.int32)
 
-        # Ensure at least some predictions if contamination is expected
         if predictions.sum() == 0 and self.contamination > 0:
             return self._percentile_calibration(scores)
 
@@ -211,14 +189,11 @@ class AdaptiveThresholdCalibrator:
         Assumes scores come from a mixture of normal and anomalous distributions.
         Finds the valley between the two modes.
         """
-        # Try Otsu first (good for bimodal)
         threshold, predictions = self._otsu_calibration(scores)
 
-        # Validate that we have reasonable predictions
-        pred_ratio = predictions.mean()
+        pred_ratio = float(predictions.mean())
 
         if pred_ratio < self.min_contamination or pred_ratio > self.max_contamination:
-            # Fall back to percentile
             return self._percentile_calibration(scores)
 
         return threshold, predictions
@@ -236,22 +211,18 @@ class AdaptiveThresholdCalibrator:
         if n < 10:
             return self.contamination
 
-        # Compute second derivative to find inflection point
-        # Use a smoothed version to reduce noise
         window = max(n // 20, 5)
         smoothed = np.convolve(sorted_scores, np.ones(window) / window, mode="valid")
 
         if len(smoothed) < 10:
             return self.contamination
 
-        # Find maximum curvature point
         second_deriv = np.diff(np.diff(smoothed))
         if len(second_deriv) == 0:
             return self.contamination
 
-        knee_idx = np.argmax(second_deriv) + window // 2
+        knee_idx = int(np.argmax(second_deriv)) + window // 2
 
-        # Contamination is the fraction above the knee
         estimated = 1.0 - (knee_idx / n)
 
         return float(np.clip(estimated, self.min_contamination, self.max_contamination))
@@ -265,7 +236,7 @@ class CovarianceAwareDetector:
     has strong covariance structure from correlated sensors.
 
     Solution: Incorporate Mahalanobis distance with robust covariance
-    estimation into the detection pipeline.
+    estimation into the detection pipeline.  Mercury-native (no sklearn).
     """
 
     def __init__(
@@ -285,40 +256,29 @@ class CovarianceAwareDetector:
         """Fit the detector using robust covariance estimation."""
         n_samples, n_features = X.shape
 
-        # Robust estimation using trimmed mean and covariance
-        # Sort samples by distance from median
         median = np.median(X, axis=0)
         distances = np.sqrt(np.sum((X - median) ** 2, axis=1))
         sorted_indices = np.argsort(distances)
 
-        # Use support_fraction of closest points
         n_support = int(n_samples * self.support_fraction)
         support_indices = sorted_indices[:n_support]
         X_support = X[support_indices]
 
-        # Compute robust mean and covariance
         self._mean = np.mean(X_support, axis=0)
 
-        # Regularized covariance
         centered = X_support - self._mean
         cov = np.dot(centered.T, centered) / (n_support - 1)
 
-        # Add regularization for numerical stability
         reg = 1e-6 * np.eye(n_features)
         cov_reg = cov + reg
 
-        # Compute pseudo-inverse for potentially singular covariance
         try:
             self._covariance_inv = np.linalg.inv(cov_reg)
         except np.linalg.LinAlgError:
-            # Fall back to pseudo-inverse
             self._covariance_inv = np.linalg.pinv(cov_reg)
 
-        # Compute Mahalanobis distances for all training points
         all_distances = self._mahalanobis_distance(X)
-
-        # Set threshold based on contamination
-        self._threshold = np.percentile(all_distances, 100 * (1 - self.contamination))
+        self._threshold = float(np.percentile(all_distances, 100 * (1 - self.contamination)))
 
         return self
 
@@ -328,11 +288,10 @@ class CovarianceAwareDetector:
             raise RuntimeError("Detector not fitted. Call fit() first.")
 
         centered = X - self._mean
-        # Efficient computation: sqrt(sum_j sum_k (x_j - mu_j) * inv_cov_jk * (x_k - mu_k))
         left = np.dot(centered, self._covariance_inv)
-        distances = np.sqrt(np.sum(left * centered, axis=1))
+        distances = np.sqrt(np.maximum(np.sum(left * centered, axis=1), 0.0))
 
-        return np.asarray(distances)  # type: ignore[no-any-return, unused-ignore]
+        return np.asarray(distances, dtype=np.float64)
 
     def score_samples(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         """Return anomaly scores (higher = more anomalous)."""
@@ -379,7 +338,7 @@ class TemporalPatternDetector:
             Augmented features with temporal information
         """
         n_samples, n_features = X.shape
-        augmented_features = [X]
+        augmented_features: list[NDArray[np.float64]] = [X]
         self._feature_names = [f"orig_{i}" for i in range(n_features)]
 
         # Add lag features
@@ -408,17 +367,14 @@ class TemporalPatternDetector:
                 if window > n_samples:
                     continue
 
-                # Rolling mean
                 rolling_mean = self._rolling_stat(X, window, np.mean)
                 augmented_features.append(rolling_mean)
                 self._feature_names.extend([f"rmean{window}_{i}" for i in range(n_features)])
 
-                # Rolling std
                 rolling_std = self._rolling_stat(X, window, np.std)
                 augmented_features.append(rolling_std)
                 self._feature_names.extend([f"rstd{window}_{i}" for i in range(n_features)])
 
-                # Deviation from rolling mean (z-score like)
                 deviation = np.zeros_like(X)
                 nonzero_std = rolling_std > 1e-10
                 deviation[nonzero_std] = (X[nonzero_std] - rolling_mean[nonzero_std]) / rolling_std[
@@ -452,12 +408,88 @@ class TemporalPatternDetector:
         return self._feature_names
 
 
+# ---------------------------------------------------------------------------
+# Mercury-native backend detectors (replace sklearn IsolationForest/LOF/EE)
+# ---------------------------------------------------------------------------
+
+
+class _MercuryRandomProjectionDetector:
+    """Isolation-style anomaly detector using random projections (no trees/sklearn)."""
+
+    def __init__(
+        self, contamination: float = 0.1, n_estimators: int = 100, random_state: int = 42
+    ) -> None:
+        self.contamination = contamination
+        self.n_estimators = n_estimators
+        self._rng = np.random.default_rng(random_state)
+        self._projections: NDArray[np.float64] | None = None
+        self._medians: NDArray[np.float64] | None = None
+        self._mads: NDArray[np.float64] | None = None
+
+    def fit(self, X: NDArray[np.float64]) -> None:
+        n_features = X.shape[1]
+        proj = self._rng.standard_normal((self.n_estimators, n_features))
+        norms = np.linalg.norm(proj, axis=1, keepdims=True)
+        self._projections = proj / np.where(norms > 1e-10, norms, 1.0)
+        projected = X @ self._projections.T
+        self._medians = np.median(projected, axis=0)
+        self._mads = np.median(np.abs(projected - self._medians), axis=0)
+        self._mads = np.where(self._mads > 1e-10, self._mads, 1.0)
+
+    def score_samples(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        assert self._projections is not None
+        projected = X @ self._projections.T
+        z = np.abs(projected - self._medians) / self._mads  # type: ignore[operator]
+        return np.asarray(np.mean(z, axis=1), dtype=np.float64)
+
+    def predict(self, X: NDArray[np.float64]) -> NDArray[np.int32]:
+        scores = self.score_samples(X)
+        threshold = float(np.percentile(scores, 100 * (1 - self.contamination)))
+        return np.where(scores >= threshold, -1, 1).astype(np.int32)
+
+    def decision_function(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        return -self.score_samples(X)
+
+
+class _MercuryLocalDensityDetector:
+    """KDTree-based local density anomaly detector (LOF-style, no sklearn)."""
+
+    def __init__(self, contamination: float = 0.1, n_neighbors: int = 20) -> None:
+        self.contamination = contamination
+        self.n_neighbors = n_neighbors
+        self._tree: cKDTree | None = None
+
+    def fit(self, X: NDArray[np.float64]) -> None:
+        self._tree = cKDTree(X)
+
+    def score_samples(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        assert self._tree is not None
+        k = min(self.n_neighbors, self._tree.n)
+        dists, _ = self._tree.query(X, k=max(k, 1))
+        if dists.ndim == 1:
+            dists = dists[:, np.newaxis]
+        return np.asarray(np.mean(dists, axis=1), dtype=np.float64)
+
+    def predict(self, X: NDArray[np.float64]) -> NDArray[np.int32]:
+        scores = self.score_samples(X)
+        threshold = float(np.percentile(scores, 100 * (1 - self.contamination)))
+        return np.where(scores >= threshold, -1, 1).astype(np.int32)
+
+    def decision_function(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        return -self.score_samples(X)
+
+
+# ---------------------------------------------------------------------------
+# Main adaptive detector
+# ---------------------------------------------------------------------------
+
+
 class AdaptiveAnomalyDetector:
     """
     Main adaptive detector that combines all improvements.
 
     Automatically profiles the dataset and applies appropriate
-    detection strategies.
+    detection strategies.  All detection is Mercury-native (no sklearn).
     """
 
     def __init__(
@@ -477,10 +509,10 @@ class AdaptiveAnomalyDetector:
         self._covariance_detector = CovarianceAwareDetector(contamination=contamination)
         self._temporal_transformer = TemporalPatternDetector()
 
-        # Backend detectors (initialized during fit)
-        self._isolation_forest = None
-        self._lof_detector = None
-        self._elliptic_envelope = None
+        # Mercury-native backend detectors (initialized during fit)
+        self._projection_detector: _MercuryRandomProjectionDetector | None = None
+        self._density_detector: _MercuryLocalDensityDetector | None = None
+        self._robust_cov_detector: CovarianceAwareDetector | None = None
 
         # State
         self._profile: DatasetProfile = DatasetProfile.GENERIC
@@ -504,16 +536,10 @@ class AdaptiveAnomalyDetector:
         """
         n_samples, n_features = X.shape
 
-        # Check for temporal patterns (autocorrelation)
         temporal_score = self._compute_temporal_score(X)
-
-        # Check for covariance structure
         covariance_score = self._compute_covariance_score(X)
-
-        # Check dimensionality - threshold at 20 features for high-dimensional
         is_high_dim = n_features > 20
 
-        # Heuristic profiling
         if temporal_score > 0.3:
             return DatasetProfile.TEMPORAL
         elif covariance_score > 0.5 and not is_high_dim:
@@ -530,20 +556,19 @@ class AdaptiveAnomalyDetector:
         if n_samples < 10:
             return 0.0
 
-        # Check autocorrelation at lag 1 for each feature
-        autocorrs = []
-        for j in range(min(n_features, 10)):  # Sample features
+        autocorrs: list[float] = []
+        for j in range(min(n_features, 10)):
             col = X[:, j]
-            col_mean = col.mean()
-            col_std = col.std()
+            col_mean = float(col.mean())
+            col_std = float(col.std())
 
             if col_std < 1e-10:
                 continue
 
             col_centered = col - col_mean
             autocorr = np.correlate(col_centered[:-1], col_centered[1:], mode="valid")
-            autocorr = autocorr[0] / (col_std**2 * (n_samples - 1))
-            autocorrs.append(abs(autocorr))
+            autocorr_val = float(autocorr[0]) / (col_std**2 * (n_samples - 1))
+            autocorrs.append(abs(autocorr_val))
 
         if not autocorrs:
             return 0.0
@@ -557,17 +582,14 @@ class AdaptiveAnomalyDetector:
         if n_features < 2:
             return 0.0
 
-        # Compute correlation matrix
         corr = np.corrcoef(X.T)
-
-        # Score based on off-diagonal correlations
         mask = ~np.eye(n_features, dtype=bool)
-        off_diag = np.abs(corr[mask])  # type: ignore[index, unused-ignore]
+        corr_matrix: NDArray[np.float64] = np.asarray(corr)
+        off_diag = np.abs(corr_matrix[mask])
 
-        # Strong covariance if many high correlations
-        high_corr_fraction = np.mean(off_diag > 0.5)
+        high_corr_fraction = float(np.mean(off_diag > 0.5))
 
-        return float(high_corr_fraction)
+        return high_corr_fraction
 
     def fit(
         self,
@@ -591,7 +613,6 @@ class AdaptiveAnomalyDetector:
 
         logger.debug(f"Fitting AdaptiveAnomalyDetector with profile: {self._profile.value}")
 
-        # Store training data for profiles that need it
         self._X_train = X
 
         # Fit covariance detector for relevant profiles
@@ -601,73 +622,49 @@ class AdaptiveAnomalyDetector:
         ]:
             self._covariance_detector.fit(X)
 
-        # Fit sklearn backend detectors based on profile
+        # Fit Mercury-native backend detectors based on profile
         self._fit_backend_detectors(X)
 
         self._is_fitted = True
         return self
 
     def _fit_backend_detectors(self, X: NDArray[np.float64]) -> None:
-        """Fit sklearn backend detectors based on current profile."""
-        try:
-            import warnings
+        """Fit Mercury-native backend detectors based on current profile."""
+        n_samples = X.shape[0]
 
-            from sklearn.covariance import EllipticEnvelope
-            from sklearn.ensemble import IsolationForest
-            from sklearn.neighbors import LocalOutlierFactor
+        # Medical profile: Robust covariance (Mahalanobis)
+        if self._profile == DatasetProfile.MEDICAL:
+            self._robust_cov_detector = CovarianceAwareDetector(
+                contamination=self.contamination,
+                support_fraction=0.9,
+            )
+            self._robust_cov_detector.fit(X)
+            logger.debug("Fitted Mercury CovarianceAwareDetector for MEDICAL profile")
 
-            n_samples = X.shape[0]
+        # Network profile: Random projection detector
+        elif self._profile == DatasetProfile.NETWORK:
+            self._projection_detector = _MercuryRandomProjectionDetector(
+                contamination=min(self.contamination, 0.1),
+                n_estimators=100,
+            )
+            self._projection_detector.fit(X)
+            logger.debug("Fitted Mercury RandomProjectionDetector for NETWORK profile")
 
-            # Medical profile: EllipticEnvelope
-            if self._profile == DatasetProfile.MEDICAL:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    elliptic = EllipticEnvelope(
-                        contamination=self.contamination,
-                        support_fraction=0.9,
-                        random_state=42,
-                    )
-                    elliptic.fit(X)
-                    self._elliptic_envelope = elliptic
-                logger.debug("Fitted EllipticEnvelope for MEDICAL profile")
+        # Pattern recognition: LOF-style + random projection
+        elif self._profile == DatasetProfile.PATTERN_RECOGNITION:
+            n_neighbors = min(20, n_samples // 5)
+            self._density_detector = _MercuryLocalDensityDetector(
+                n_neighbors=max(n_neighbors, 5),
+                contamination=self.contamination,
+            )
+            self._density_detector.fit(X)
 
-            # Network profile: IsolationForest
-            elif self._profile == DatasetProfile.NETWORK:
-                iso_forest = IsolationForest(
-                    contamination=min(self.contamination, 0.1),
-                    n_estimators=100,
-                    max_samples="auto",
-                    random_state=42,
-                    n_jobs=-1,
-                )
-                iso_forest.fit(X)
-                self._isolation_forest = iso_forest
-                logger.debug("Fitted IsolationForest for NETWORK profile")
-
-            # Pattern recognition: LOF + IsolationForest
-            elif self._profile == DatasetProfile.PATTERN_RECOGNITION:
-                n_neighbors = min(20, n_samples // 5)
-                lof = LocalOutlierFactor(
-                    n_neighbors=max(n_neighbors, 5),
-                    contamination=self.contamination,
-                    novelty=True,  # Enable predict on new data
-                    n_jobs=-1,
-                )
-                lof.fit(X)
-                self._lof_detector = lof
-
-                iso_forest = IsolationForest(
-                    contamination=self.contamination,
-                    n_estimators=100,
-                    random_state=42,
-                    n_jobs=-1,
-                )
-                iso_forest.fit(X)
-                self._isolation_forest = iso_forest
-                logger.debug("Fitted LOF+IsolationForest for PATTERN_RECOGNITION profile")
-
-        except ImportError:
-            logger.warning("sklearn not available, using basic detectors")
+            self._projection_detector = _MercuryRandomProjectionDetector(
+                contamination=self.contamination,
+                n_estimators=100,
+            )
+            self._projection_detector.fit(X)
+            logger.debug("Fitted Mercury LOF+RandomProjection for PATTERN_RECOGNITION profile")
 
     def detect(
         self,
@@ -685,12 +682,8 @@ class AdaptiveAnomalyDetector:
             Detection result with scores, predictions, and metadata
         """
         if not self._is_fitted:
-            # Auto-fit if not fitted
             self.fit(X)
 
-        n_samples, n_features = X.shape
-
-        # Apply profile-specific detection
         if self._profile == DatasetProfile.TEMPORAL:
             return self._detect_temporal(X)
         elif self._profile == DatasetProfile.COVARIANCE_STRUCTURED:
@@ -708,16 +701,12 @@ class AdaptiveAnomalyDetector:
 
     def _detect_temporal(self, X: NDArray[np.float64]) -> DetectionResult:
         """Detection strategy for temporal data."""
-        # Transform with temporal features
         X_temporal = self._temporal_transformer.transform(X)
 
-        # Use robust covariance on augmented features
         detector = CovarianceAwareDetector(contamination=self.contamination)
         detector.fit(X_temporal)
 
         scores = detector.score_samples(X_temporal)
-
-        # Use bimodal calibration for better threshold
         threshold, predictions = self._calibrator.calibrate(scores, method="bimodal")
 
         return DetectionResult(
@@ -736,60 +725,43 @@ class AdaptiveAnomalyDetector:
     def _detect_covariance(self, X: NDArray[np.float64]) -> DetectionResult:
         """Detection strategy for covariance-structured data.
 
-        Uses sklearn's EllipticEnvelope when available for proven performance,
-        falls back to IsolationForest if covariance estimation fails.
+        Uses Mercury-native CovarianceAwareDetector (Mahalanobis distance).
         """
-        try:
-            # Use sklearn's EllipticEnvelope - proven F1 > 0.70 on standard benchmarks
-            import warnings
+        cov_detector = CovarianceAwareDetector(
+            contamination=self.contamination,
+            support_fraction=0.9,
+        )
+        cov_detector.fit(X)
 
-            from sklearn.covariance import EllipticEnvelope
+        scores = cov_detector.score_samples(X)
+        predictions = cov_detector.predict(X)
 
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                ee = EllipticEnvelope(
-                    contamination=self.contamination,
-                    random_state=42,
-                    support_fraction=None,
-                )
-                ee.fit(X)
+        pred_ratio = float(predictions.sum()) / len(predictions)
+        if predictions.sum() == 0 or abs(pred_ratio - self.contamination) > 0.3:
+            # Fallback to percentile calibration
+            threshold, predictions = self._calibrator.calibrate(scores, method="percentile")
+        else:
+            threshold = cov_detector._threshold
 
-            # Get decision scores (negative = anomaly in sklearn convention)
-            scores = -ee.decision_function(X)
-            predictions = (ee.predict(X) == -1).astype(np.int32)
-
-            # Check if EllipticEnvelope produced meaningful predictions
-            # If all zeros or contamination is way off, fall back to IsolationForest
-            pred_ratio = predictions.sum() / len(predictions)
-            expected_ratio = self.contamination
-            if predictions.sum() == 0 or abs(pred_ratio - expected_ratio) > 0.3:
-                raise ValueError("EllipticEnvelope produced degenerate predictions")
-
-            return DetectionResult(
-                scores=scores,
-                predictions=predictions,
-                threshold=0.0,
-                confidence=0.90,
-                profile_used=DatasetProfile.COVARIANCE_STRUCTURED,
-                calibration_method="sklearn_elliptic",
-                metadata={
-                    "covariance_score": self._compute_covariance_score(X),
-                    "backend": "sklearn.EllipticEnvelope",
-                },
-            )
-        except Exception as e:
-            # Fallback to IsolationForest - robust across all data types
-            logger.debug(f"EllipticEnvelope failed ({e}), using IsolationForest")
-            return self._detect_generic(X)  # Uses IsolationForest
+        return DetectionResult(
+            scores=scores,
+            predictions=predictions,
+            threshold=threshold,
+            confidence=0.90,
+            profile_used=DatasetProfile.COVARIANCE_STRUCTURED,
+            calibration_method="percentile",
+            metadata={
+                "covariance_score": self._compute_covariance_score(X),
+                "backend": "Mercury.CovarianceAwareDetector",
+            },
+        )
 
     def _detect_high_dimensional(self, X: NDArray[np.float64]) -> DetectionResult:
         """Detection strategy for high-dimensional data like covtype."""
-        # For high-dimensional data, use ensemble of scores
-
         # 1. Covariance-based score (regularized for high-dim)
         cov_detector = CovarianceAwareDetector(
             contamination=self.contamination,
-            support_fraction=0.8,  # More robust for high-dim
+            support_fraction=0.8,
         )
         cov_detector.fit(X)
         cov_scores = cov_detector.score_samples(X)
@@ -797,17 +769,17 @@ class AdaptiveAnomalyDetector:
         # 2. Isolation-like score using random projections
         n_projections = min(X.shape[1], 20)
         rng = np.random.default_rng(42)
-        projection_scores = []
+        projection_scores: list[NDArray[np.float64]] = []
 
         for _ in range(n_projections):
-            # Random 1D projection
-            w: np.ndarray = np.asarray(rng.standard_normal(X.shape[1]))
-            w = w / float(np.linalg.norm(w))  # type: ignore[assignment, unused-ignore]
+            w = np.asarray(rng.standard_normal(X.shape[1]), dtype=np.float64)
+            norm = float(np.linalg.norm(w))
+            if norm > 1e-10:
+                w = w / norm
             projected = X @ w
 
-            # Outlier score in 1D
-            median = np.median(projected)
-            mad = np.median(np.abs(projected - median))
+            median = float(np.median(projected))
+            mad = float(np.median(np.abs(projected - median)))
             if mad > 1e-10:
                 scores_1d = np.abs(projected - median) / mad
             else:
@@ -817,18 +789,13 @@ class AdaptiveAnomalyDetector:
         proj_scores = np.mean(projection_scores, axis=0)
 
         # Combine scores
-        cov_scores_norm = (cov_scores - cov_scores.min()) / (
-            cov_scores.max() - cov_scores.min() + 1e-10
-        )
-        proj_scores_norm = (proj_scores - proj_scores.min()) / (
-            proj_scores.max() - proj_scores.min() + 1e-10
-        )
+        cov_range = float(cov_scores.max() - cov_scores.min())
+        proj_range = float(proj_scores.max() - proj_scores.min())
+        cov_scores_norm = (cov_scores - cov_scores.min()) / (cov_range + 1e-10)
+        proj_scores_norm = (proj_scores - proj_scores.min()) / (proj_range + 1e-10)
 
-        # Weighted combination
         combined_scores = 0.6 * cov_scores_norm + 0.4 * proj_scores_norm
 
-        # Use percentile calibration - Otsu fails on anomaly score distributions
-        # Anomaly scores have long tails, not bimodal peaks like image histograms
         threshold, predictions = self._calibrator.calibrate(combined_scores, method="percentile")
 
         return DetectionResult(
@@ -845,74 +812,44 @@ class AdaptiveAnomalyDetector:
         )
 
     def _detect_generic(self, X: NDArray[np.float64]) -> DetectionResult:
-        """Generic detection strategy using IsolationForest.
+        """Generic detection strategy using Mercury-native random projections.
 
-        IsolationForest is robust across diverse data types and doesn't
+        Random projections are robust across diverse data types and don't
         assume specific distribution shapes.
         """
-        try:
-            from sklearn.ensemble import IsolationForest
+        proj_detector = _MercuryRandomProjectionDetector(
+            contamination=self.contamination,
+            n_estimators=100,
+        )
+        proj_detector.fit(X)
 
-            iso = IsolationForest(
-                contamination=self.contamination,
-                random_state=42,
-                n_estimators=100,
-            )
-            iso.fit(X)
+        scores = proj_detector.score_samples(X)
+        threshold, predictions = self._calibrator.calibrate(scores, method="percentile")
 
-            # Get decision scores (negative = anomaly in sklearn convention)
-            scores = -iso.decision_function(X)  # Flip so higher = more anomalous
-            predictions = (iso.predict(X) == -1).astype(np.int32)
-
-            # Compute threshold from scores at the decision boundary
-            # IsolationForest uses 0 as decision boundary, so threshold is the min score of anomalies
-            anomaly_mask = predictions == 1
-            if anomaly_mask.any():
-                threshold = float(scores[anomaly_mask].min())
-            else:
-                threshold = float(np.percentile(scores, 100 * (1 - self.contamination)))
-
-            return DetectionResult(
-                scores=scores,
-                predictions=predictions,
-                threshold=threshold,
-                confidence=0.85,
-                profile_used=DatasetProfile.GENERIC,
-                calibration_method="percentile",
-                metadata={"backend": "sklearn.IsolationForest"},
-            )
-        except Exception as e:
-            logger.warning(f"IsolationForest failed ({e}), using fallback")
-            scores = self._covariance_detector.score_samples(X)
-            threshold, predictions = self._calibrator.calibrate(scores, method="percentile")
-
-            return DetectionResult(
-                scores=scores,
-                predictions=predictions,
-                threshold=threshold,
-                confidence=0.75,
-                profile_used=DatasetProfile.GENERIC,
-                calibration_method="percentile",
-                metadata={"backend": "fallback"},
-            )
+        return DetectionResult(
+            scores=scores,
+            predictions=predictions,
+            threshold=threshold,
+            confidence=0.85,
+            profile_used=DatasetProfile.GENERIC,
+            calibration_method="percentile",
+            metadata={"backend": "Mercury.RandomProjectionDetector"},
+        )
 
     def _detect_network(self, X: NDArray[np.float64]) -> DetectionResult:
         """
         Detection strategy for network intrusion data (KDDCup99, NSL-KDD).
 
-        Uses pre-fitted IsolationForest from fit().
+        Uses pre-fitted Mercury random projection detector from fit().
         """
-        if self._isolation_forest is None:
-            logger.warning("IsolationForest not fitted, falling back to generic")
+        if self._projection_detector is None:
+            logger.warning("Projection detector not fitted, falling back to generic")
             return self._detect_generic(X)
 
-        # Get anomaly scores (negative = more anomalous in sklearn)
-        raw_scores = -self._isolation_forest.score_samples(X)
+        raw_scores = self._projection_detector.score_samples(X)
+        score_range = float(raw_scores.max() - raw_scores.min())
+        scores = (raw_scores - raw_scores.min()) / (score_range + 1e-10)
 
-        # Normalize to [0, 1] range
-        scores = (raw_scores - raw_scores.min()) / (raw_scores.max() - raw_scores.min() + 1e-10)
-
-        # Use percentile calibration tuned for network data
         threshold, predictions = self._calibrator.calibrate(scores, method="percentile")
 
         return DetectionResult(
@@ -922,33 +859,29 @@ class AdaptiveAnomalyDetector:
             confidence=0.85,
             profile_used=DatasetProfile.NETWORK,
             calibration_method="percentile",
-            metadata={"backend": "IsolationForest"},
+            metadata={"backend": "Mercury.RandomProjectionDetector"},
         )
 
     def _detect_pattern_recognition(self, X: NDArray[np.float64]) -> DetectionResult:
         """
         Detection strategy for pattern recognition data (digits, MNIST).
 
-        Uses pre-fitted LOF + IsolationForest from fit().
+        Uses pre-fitted Mercury LOF-style + random projection from fit().
         """
-        if self._lof_detector is None or self._isolation_forest is None:
-            logger.warning("LOF/IsolationForest not fitted, falling back to generic")
+        if self._density_detector is None or self._projection_detector is None:
+            logger.warning("Density/Projection detectors not fitted, falling back to generic")
             return self._detect_generic(X)
 
-        # LOF scores (novelty=True allows scoring new data)
-        lof_scores = -self._lof_detector.score_samples(X)
+        lof_scores = self._density_detector.score_samples(X)
+        proj_scores = self._projection_detector.score_samples(X)
 
-        # IsolationForest scores
-        iso_scores = -self._isolation_forest.score_samples(X)
+        lof_range = float(lof_scores.max() - lof_scores.min())
+        proj_range = float(proj_scores.max() - proj_scores.min())
+        lof_norm = (lof_scores - lof_scores.min()) / (lof_range + 1e-10)
+        proj_norm = (proj_scores - proj_scores.min()) / (proj_range + 1e-10)
 
-        # Normalize both score sets
-        lof_norm = (lof_scores - lof_scores.min()) / (lof_scores.max() - lof_scores.min() + 1e-10)
-        iso_norm = (iso_scores - iso_scores.min()) / (iso_scores.max() - iso_scores.min() + 1e-10)
+        scores = 0.5 * lof_norm + 0.5 * proj_norm
 
-        # Combine with equal weighting
-        scores = 0.5 * lof_norm + 0.5 * iso_norm
-
-        # Use bimodal calibration - pattern data often has clear separation
         threshold, predictions = self._calibrator.calibrate(scores, method="bimodal")
 
         return DetectionResult(
@@ -958,42 +891,37 @@ class AdaptiveAnomalyDetector:
             confidence=0.82,
             profile_used=DatasetProfile.PATTERN_RECOGNITION,
             calibration_method="bimodal",
-            metadata={"backend": "LOF+IsolationForest"},
+            metadata={"backend": "Mercury.LOF+RandomProjection"},
         )
 
     def _detect_medical(self, X: NDArray[np.float64]) -> DetectionResult:
         """
         Detection strategy for medical data (breast_cancer).
 
-        Uses pre-fitted EllipticEnvelope from fit().
-        This is the fix that improved breast_cancer F1 from 0.06 to 0.72.
+        Uses pre-fitted Mercury CovarianceAwareDetector from fit().
         """
-        if self._elliptic_envelope is None:
-            logger.warning("EllipticEnvelope not fitted, falling back to covariance")
+        if self._robust_cov_detector is None:
+            logger.warning("Robust covariance detector not fitted, falling back to covariance")
             return self._detect_covariance(X)
 
         try:
-            # Get Mahalanobis distances as scores
-            raw_scores = self._elliptic_envelope.mahalanobis(X)
+            scores = self._robust_cov_detector.score_samples(X)
+            score_range = float(scores.max() - scores.min())
+            scores_norm = (scores - scores.min()) / (score_range + 1e-10)
 
-            # Normalize to [0, 1]
-            scores = (raw_scores - raw_scores.min()) / (raw_scores.max() - raw_scores.min() + 1e-10)
-
-            # Use MAD calibration for robust thresholding
-            threshold, predictions = self._calibrator.calibrate(scores, method="mad")
+            threshold, predictions = self._calibrator.calibrate(scores_norm, method="mad")
 
             return DetectionResult(
-                scores=scores,
+                scores=scores_norm,
                 predictions=predictions,
                 threshold=threshold,
                 confidence=0.90,
                 profile_used=DatasetProfile.MEDICAL,
                 calibration_method="mad",
-                metadata={"backend": "EllipticEnvelope"},
+                metadata={"backend": "Mercury.CovarianceAwareDetector"},
             )
-
         except Exception as e:
-            logger.warning(f"EllipticEnvelope scoring failed: {e}, falling back to covariance")
+            logger.warning(f"CovarianceAwareDetector scoring failed: {e}, falling back")
             return self._detect_covariance(X)
 
     def evaluate_ethics(self, result: DetectionResult) -> dict[str, Any]:
@@ -1002,18 +930,14 @@ class AdaptiveAnomalyDetector:
 
         Ensures sigma_Immutable >= 0.93 (hard) and benevolence >= 0.99.
         """
-        # Compute fairness metrics
-        anomaly_ratio = result.predictions.mean()
+        anomaly_ratio = float(result.predictions.mean())
 
-        # Benevolence check: predictions should not be excessively aggressive
         benevolence = 1.0 - min(anomaly_ratio, 0.5) / 0.5
         benevolence = max(benevolence, 0.0)
 
-        # sigma_Immutable based on confidence and calibration quality
         sigma_immutable = result.confidence * 0.95 + 0.05
 
-        # Lyapunov stability factor
-        score_variance = result.scores.var()
+        score_variance = float(result.scores.var())
         lyapunov = 1.0 / (1.0 + score_variance)
 
         passes_ethics = sigma_immutable >= 0.93 and benevolence >= self.benevolence_threshold
@@ -1027,7 +951,9 @@ class AdaptiveAnomalyDetector:
             "violations": (
                 []
                 if passes_ethics
-                else (["σ_Immutable < 0.93"] if sigma_immutable < 0.93 else ["benevolence < 0.99"])
+                else (
+                    ["sigma_Immutable < 0.93"] if sigma_immutable < 0.93 else ["benevolence < 0.99"]
+                )
             ),
         }
 
@@ -1066,7 +992,6 @@ class DatasetSpecificEnsemble:
         """
         dataset_name = dataset_name.lower()
 
-        # Map datasets to optimal profiles
         profile_mapping = {
             "covtype": DatasetProfile.HIGH_DIMENSIONAL,
             "batadal": DatasetProfile.COVARIANCE_STRUCTURED,
@@ -1085,17 +1010,15 @@ class DatasetSpecificEnsemble:
             "mnist": DatasetProfile.PATTERN_RECOGNITION,
         }
 
-        # Determine profile
         profile = DatasetProfile.GENERIC
         for key, p in profile_mapping.items():
             if key in dataset_name:
                 profile = p
                 break
 
-        # Create detector
         detector = AdaptiveAnomalyDetector(
             contamination=self.contamination,
-            auto_profile=False,  # Use our explicit profile
+            auto_profile=False,
         )
         detector._profile = profile
 

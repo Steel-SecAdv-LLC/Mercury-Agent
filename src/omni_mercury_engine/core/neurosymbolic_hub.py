@@ -878,7 +878,7 @@ class NeuroSymbolicHub:
             # Train meta-learner
             meta_features = np.column_stack([neural_scores, symbolic_scores])
 
-            from sklearn.linear_model import LogisticRegression
+            from omni_mercury_engine.ml.mercury_ml import LogisticRegression
 
             meta_learner = LogisticRegression(solver="lbfgs", max_iter=1000, random_state=self.seed)
             meta_learner.fit(meta_features, y)

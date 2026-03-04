@@ -250,8 +250,8 @@ class MercuryAnomalyDetector(BaseDetector):
                     ORACLE_DOMAIN_POLICY,
                     OracleActivation,
                 )
-                from omni_mercury_engine.detectors.spectral_domain_oracle import (
-                    SpectralDomainOracle,
+                from omni_mercury_engine.detectors.spectral_domain_frequency import (
+                    SpectralDomainFrequency,
                 )
 
                 oracle_mode = OracleActivation.AUTO
@@ -264,7 +264,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
                 if should_init:
                     oracle_cfg = {"domain": oracle_domain}
-                    self._oracle_detector = SpectralDomainOracle(oracle_cfg)
+                    self._oracle_detector = SpectralDomainFrequency(oracle_cfg)
                     self._oracle_detector.fit(arr)
                     logger.info("Oracle fitted: domain=%s", oracle_domain)
             except Exception as exc:
@@ -667,12 +667,12 @@ class MercuryAnomalyDetector(BaseDetector):
         det._oracle_metadata = {"active": False}
         if oracle_ref_stats is not None:
             try:
-                from omni_mercury_engine.detectors.spectral_domain_oracle import (
-                    SpectralDomainOracle,
+                from omni_mercury_engine.detectors.spectral_domain_frequency import (
+                    SpectralDomainFrequency,
                 )
 
                 domain = oracle_ref_stats.get("domain", "environmental")
-                oracle = SpectralDomainOracle({"domain": domain})
+                oracle = SpectralDomainFrequency({"domain": domain})
                 # Restore per-band reference statistics
                 if "ref_band_means" in oracle_ref_stats:
                     oracle._ref_band_means = oracle_ref_stats["ref_band_means"]
