@@ -100,6 +100,8 @@ class MADDetector:
         self,
         threshold_multiplier: float = 3.5,
         consistency_constant: float = 1.4826,
+        *,
+        threshold: float | None = None,
     ):
         """
         Initialize MAD detector.
@@ -107,8 +109,9 @@ class MADDetector:
         Args:
             threshold_multiplier: Number of MADs for threshold (default: 3.5)
             consistency_constant: Scale factor for normal distribution (1.4826)
+            threshold: Alias for threshold_multiplier (keyword-only)
         """
-        self.threshold_multiplier = threshold_multiplier
+        self.threshold_multiplier = threshold if threshold is not None else threshold_multiplier
         self.consistency_constant = consistency_constant
         self.median_: np.ndarray | None = None
         self.mad_: np.ndarray | None = None
@@ -165,6 +168,21 @@ class MADDetector:
                 "mad": self.mad_,
             },
         )
+
+    def decision_function(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Return anomaly scores (higher = more anomalous).
+
+        Compatible with the ensemble detector protocol used by GWOEnsembleDetector.
+        """
+        result = self.detect(X)
+        return result.scores
+
+    def predict(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
+        """Return anomaly scores (higher = more anomalous).
+
+        Alias for decision_function for ensemble compatibility.
+        """
+        return self.decision_function(X)
 
 
 class LOFDetector:
