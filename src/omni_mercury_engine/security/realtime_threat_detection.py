@@ -285,9 +285,7 @@ class RealTimeThreatDetector(LoggerMixin):
         ensemble_score = np.mean(list(scores.values()), axis=0)
 
         # Mercury-native score_samples: higher = more anomalous
-        is_threat = ensemble_score > np.percentile(
-            ensemble_score, (1 - self.contamination) * 100
-        )
+        is_threat = ensemble_score > np.percentile(ensemble_score, (1 - self.contamination) * 100)
 
         threat_indices = np.where(is_threat)[0]
 
