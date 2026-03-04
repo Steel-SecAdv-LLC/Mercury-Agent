@@ -511,7 +511,7 @@ class MCDDetector:
 
         # Compute threshold from training data Mahalanobis distances
         diff = X - self._location
-        distances = np.sqrt(np.sum(diff @ self._cov_inv * diff, axis=1))
+        distances = np.sqrt(np.maximum(0, np.sum(diff @ self._cov_inv * diff, axis=1)))
         self._threshold = float(np.percentile(distances, (1 - self.contamination) * 100))
 
         self._fitted = True

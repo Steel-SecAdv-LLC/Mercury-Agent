@@ -211,14 +211,16 @@ def roc_auc_score(y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[An
     y_true_sorted = y_true[desc_idx]
     y_score_sorted = y_score[desc_idx]
 
-    # Compute TPR and FPR at each threshold
-    n_pos = float(np.sum(y_true == 1))
-    n_neg = float(np.sum(y_true == 0))
+    # Compute TPR and FPR at each threshold (support arbitrary binary labels)
+    pos_label = classes[-1]  # highest class value is positive
+    neg_label = classes[0]  # lowest class value is negative
+    n_pos = float(np.sum(y_true == pos_label))
+    n_neg = float(np.sum(y_true == neg_label))
     if n_pos == 0 or n_neg == 0:
         raise ValueError("ROC AUC requires both positive and negative samples")
 
-    tps = np.cumsum(y_true_sorted == 1).astype(np.float64)
-    fps = np.cumsum(y_true_sorted == 0).astype(np.float64)
+    tps = np.cumsum(y_true_sorted == pos_label).astype(np.float64)
+    fps = np.cumsum(y_true_sorted == neg_label).astype(np.float64)
     tpr = tps / n_pos
     fpr = fps / n_neg
 
