@@ -129,11 +129,23 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     # Panel 1: AUC Distribution Histogram
     ax1 = fig.add_subplot(gs[0, 0])
     aucs = [r["ensemble_auc"] for r in successful]
-    ax1.hist(aucs, bins=20, color=COLORS["ensemble"], alpha=0.75, edgecolor="#0d1117", linewidth=0.5)
-    ax1.axvline(summary["mean_auc"], color=COLORS["danger"], linestyle="--", linewidth=1.5,
-                label=f"Mean: {summary['mean_auc']:.4f}")
-    ax1.axvline(summary["median_auc"], color=COLORS["warning"], linestyle="--", linewidth=1.5,
-                label=f"Median: {summary['median_auc']:.4f}")
+    ax1.hist(
+        aucs, bins=20, color=COLORS["ensemble"], alpha=0.75, edgecolor="#0d1117", linewidth=0.5
+    )
+    ax1.axvline(
+        summary["mean_auc"],
+        color=COLORS["danger"],
+        linestyle="--",
+        linewidth=1.5,
+        label=f"Mean: {summary['mean_auc']:.4f}",
+    )
+    ax1.axvline(
+        summary["median_auc"],
+        color=COLORS["warning"],
+        linestyle="--",
+        linewidth=1.5,
+        label=f"Median: {summary['median_auc']:.4f}",
+    )
     ax1.set_xlabel("ROC-AUC")
     ax1.set_ylabel("Count")
     _style_ax(ax1, "Ensemble AUC Distribution")
@@ -142,20 +154,33 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     # Panel 2: Component AUC Comparison (box-style)
     ax2 = fig.add_subplot(gs[0, 1])
     comp_data = {
-        "Resonance": [r["resonance_auc"] for r in successful
-                      if not np.isnan(r.get("resonance_auc", float("nan")))],
-        "Kinematic": [r["kinematic_auc"] for r in successful
-                      if not np.isnan(r.get("kinematic_auc", float("nan")))],
-        "InfoGeo": [r["info_geometry_auc"] for r in successful
-                    if not np.isnan(r.get("info_geometry_auc", float("nan")))],
+        "Resonance": [
+            r["resonance_auc"]
+            for r in successful
+            if not np.isnan(r.get("resonance_auc", float("nan")))
+        ],
+        "Kinematic": [
+            r["kinematic_auc"]
+            for r in successful
+            if not np.isnan(r.get("kinematic_auc", float("nan")))
+        ],
+        "InfoGeo": [
+            r["info_geometry_auc"]
+            for r in successful
+            if not np.isnan(r.get("info_geometry_auc", float("nan")))
+        ],
         "Ensemble": [r["ensemble_auc"] for r in successful],
     }
-    bp = ax2.boxplot(comp_data.values(), labels=comp_data.keys(), patch_artist=True,
-                     boxprops=dict(linewidth=0.5),
-                     whiskerprops=dict(color="#8b949e"),
-                     capprops=dict(color="#8b949e"),
-                     medianprops=dict(color=COLORS["warning"], linewidth=2),
-                     flierprops=dict(markeredgecolor="#8b949e", markersize=4))
+    bp = ax2.boxplot(
+        comp_data.values(),
+        labels=comp_data.keys(),
+        patch_artist=True,
+        boxprops=dict(linewidth=0.5),
+        whiskerprops=dict(color="#8b949e"),
+        capprops=dict(color="#8b949e"),
+        medianprops=dict(color=COLORS["warning"], linewidth=2),
+        flierprops=dict(markeredgecolor="#8b949e", markersize=4),
+    )
     box_colors = [COLORS["resonance"], COLORS["kinematic"], COLORS["info_geo"], COLORS["ensemble"]]
     for patch, color in zip(bp["boxes"], box_colors):
         patch.set_facecolor(color)
@@ -167,19 +192,30 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     # Panel 3: Domain Performance
     ax3 = fig.add_subplot(gs[0, 2])
     domain_summary = data["domain_summary"]
-    domains = sorted(domain_summary.keys(),
-                     key=lambda d: domain_summary[d]["stats"].get("mean_auc") or 0, reverse=True)
+    domains = sorted(
+        domain_summary.keys(),
+        key=lambda d: domain_summary[d]["stats"].get("mean_auc") or 0,
+        reverse=True,
+    )
     domain_names = [d.replace("_", "\n") for d in domains]
     domain_aucs = [domain_summary[d]["stats"].get("mean_auc") or 0 for d in domains]
     domain_colors = [VIRIDIS(a) for a in domain_aucs]
-    bars = ax3.barh(domain_names, domain_aucs, color=domain_colors, edgecolor="#0d1117", linewidth=0.3)
+    bars = ax3.barh(
+        domain_names, domain_aucs, color=domain_colors, edgecolor="#0d1117", linewidth=0.3
+    )
     ax3.axvline(0.5, color=COLORS["text_muted"], linestyle=":", alpha=0.5)
     ax3.set_xlabel("Mean AUC")
     _style_ax(ax3, "Domain Performance")
     ax3.set_xlim(0, 1.05)
     for bar, auc in zip(bars, domain_aucs):
-        ax3.text(min(auc + 0.01, 1.0), bar.get_y() + bar.get_height() / 2,
-                 f"{auc:.3f}", va="center", fontsize=7, color="#c9d1d9")
+        ax3.text(
+            min(auc + 0.01, 1.0),
+            bar.get_y() + bar.get_height() / 2,
+            f"{auc:.3f}",
+            va="center",
+            fontsize=7,
+            color="#c9d1d9",
+        )
 
     # Panel 4: Top-15 Datasets by AUC
     ax4 = fig.add_subplot(gs[1, 0])
@@ -198,7 +234,9 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     names_b = [r["name"] for r in bottom15]
     bot_aucs = [r["ensemble_auc"] for r in bottom15]
     colors_b = [VIRIDIS(max(0, a)) for a in bot_aucs]
-    ax5.barh(names_b[::-1], bot_aucs[::-1], color=colors_b[::-1], edgecolor="#0d1117", linewidth=0.3)
+    ax5.barh(
+        names_b[::-1], bot_aucs[::-1], color=colors_b[::-1], edgecolor="#0d1117", linewidth=0.3
+    )
     ax5.set_xlabel("AUC")
     _style_ax(ax5, "Bottom 15 Datasets")
     ax5.axvline(0.5, color=COLORS["danger"], linestyle="--", alpha=0.7)
@@ -207,10 +245,18 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     ax6 = fig.add_subplot(gs[1, 2])
     f1s = [r["oracle_f1"] for r in successful]
     ax6.hist(f1s, bins=20, color=COLORS["success"], alpha=0.75, edgecolor="#0d1117", linewidth=0.5)
-    ax6.axvline(summary["mean_oracle_f1"], color=COLORS["danger"], linestyle="--",
-                label=f"Mean: {summary['mean_oracle_f1']:.4f}")
-    ax6.axvline(summary["median_oracle_f1"], color=COLORS["warning"], linestyle="--",
-                label=f"Median: {summary['median_oracle_f1']:.4f}")
+    ax6.axvline(
+        summary["mean_oracle_f1"],
+        color=COLORS["danger"],
+        linestyle="--",
+        label=f"Mean: {summary['mean_oracle_f1']:.4f}",
+    )
+    ax6.axvline(
+        summary["median_oracle_f1"],
+        color=COLORS["warning"],
+        linestyle="--",
+        label=f"Median: {summary['median_oracle_f1']:.4f}",
+    )
     ax6.set_xlabel("Oracle F1")
     ax6.set_ylabel("Count")
     _style_ax(ax6, "Oracle F1 Distribution")
@@ -220,8 +266,15 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     ax7 = fig.add_subplot(gs[2, 0])
     scatter_aucs = [r["ensemble_auc"] for r in successful]
     scatter_f1s = [r["oracle_f1"] for r in successful]
-    ax7.scatter(scatter_aucs, scatter_f1s, c=COLORS["ensemble"], alpha=0.6, s=30,
-                edgecolors="#0d1117", linewidth=0.5)
+    ax7.scatter(
+        scatter_aucs,
+        scatter_f1s,
+        c=COLORS["ensemble"],
+        alpha=0.6,
+        s=30,
+        edgecolors="#0d1117",
+        linewidth=0.5,
+    )
     ax7.set_xlabel("Ensemble AUC")
     ax7.set_ylabel("Oracle F1")
     _style_ax(ax7, "AUC vs Oracle F1")
@@ -246,10 +299,26 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     x = np.arange(4)
     width = 0.35
     bar_colors = [COLORS["resonance"], COLORS["kinematic"], COLORS["info_geo"], COLORS["ensemble"]]
-    ax8.bar(x - width / 2, comp_means, width, label="Mean",
-            color=bar_colors, alpha=0.85, edgecolor="#0d1117", linewidth=0.5)
-    ax8.bar(x + width / 2, comp_medians, width, label="Median",
-            color=bar_colors, alpha=0.40, edgecolor="#0d1117", linewidth=0.5)
+    ax8.bar(
+        x - width / 2,
+        comp_means,
+        width,
+        label="Mean",
+        color=bar_colors,
+        alpha=0.85,
+        edgecolor="#0d1117",
+        linewidth=0.5,
+    )
+    ax8.bar(
+        x + width / 2,
+        comp_medians,
+        width,
+        label="Median",
+        color=bar_colors,
+        alpha=0.40,
+        edgecolor="#0d1117",
+        linewidth=0.5,
+    )
     ax8.set_xticks(x)
     ax8.set_xticklabels(comp_names)
     ax8.set_ylabel("AUC")
@@ -276,13 +345,26 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
         f"Weights: R=40% K=30% IG=30%\n"
         f"No tuning, no synthetic data"
     )
-    ax9.text(0.05, 0.5, summary_text, transform=ax9.transAxes, fontsize=10,
-             verticalalignment="center", fontfamily="monospace", color="#e6edf3",
-             bbox=dict(boxstyle="round,pad=0.8", facecolor="#21262d", edgecolor="#30363d", alpha=0.9))
+    ax9.text(
+        0.05,
+        0.5,
+        summary_text,
+        transform=ax9.transAxes,
+        fontsize=10,
+        verticalalignment="center",
+        fontfamily="monospace",
+        color="#e6edf3",
+        bbox=dict(boxstyle="round,pad=0.8", facecolor="#21262d", edgecolor="#30363d", alpha=0.9),
+    )
     _style_ax(ax9, "Key Metrics")
 
-    fig.suptitle("Mercury Agent v1.5.1 — Neuro-Symbolic Benchmark Report",
-                 fontsize=16, fontweight="bold", color="#e6edf3", y=0.99)
+    fig.suptitle(
+        "Mercury Agent v1.5.1 — Neuro-Symbolic Benchmark Report",
+        fontsize=16,
+        fontweight="bold",
+        color="#e6edf3",
+        y=0.99,
+    )
     plt.savefig(OUTPUT_DIR / "neuro_symbolic_benchmark_report.png")
     plt.close()
     print("Generated: neuro_symbolic_benchmark_report.png")
@@ -304,12 +386,30 @@ def generate_anomaly_detection_panel(data: dict[str, Any]) -> None:
     names = [r["name"] for r in top10]
     x = np.arange(len(names))
     width = 0.2
-    ax1.barh(x - width, [r["resonance_auc"] for r in top10], width,
-             label="Resonance", color=COLORS["resonance"], alpha=0.85)
-    ax1.barh(x, [r["kinematic_auc"] for r in top10], width,
-             label="Kinematic", color=COLORS["kinematic"], alpha=0.85)
-    ax1.barh(x + width, [r["info_geometry_auc"] for r in top10], width,
-             label="InfoGeo", color=COLORS["info_geo"], alpha=0.85)
+    ax1.barh(
+        x - width,
+        [r["resonance_auc"] for r in top10],
+        width,
+        label="Resonance",
+        color=COLORS["resonance"],
+        alpha=0.85,
+    )
+    ax1.barh(
+        x,
+        [r["kinematic_auc"] for r in top10],
+        width,
+        label="Kinematic",
+        color=COLORS["kinematic"],
+        alpha=0.85,
+    )
+    ax1.barh(
+        x + width,
+        [r["info_geometry_auc"] for r in top10],
+        width,
+        label="InfoGeo",
+        color=COLORS["info_geo"],
+        alpha=0.85,
+    )
     ax1.set_yticks(x)
     ax1.set_yticklabels(names)
     ax1.set_xlabel("AUC")
@@ -322,12 +422,30 @@ def generate_anomaly_detection_panel(data: dict[str, Any]) -> None:
     bot10 = successful[-10:]
     names_b = [r["name"] for r in bot10]
     x = np.arange(len(names_b))
-    ax2.barh(x - width, [r["resonance_auc"] for r in bot10], width,
-             label="Resonance", color=COLORS["resonance"], alpha=0.85)
-    ax2.barh(x, [r["kinematic_auc"] for r in bot10], width,
-             label="Kinematic", color=COLORS["kinematic"], alpha=0.85)
-    ax2.barh(x + width, [r["info_geometry_auc"] for r in bot10], width,
-             label="InfoGeo", color=COLORS["info_geo"], alpha=0.85)
+    ax2.barh(
+        x - width,
+        [r["resonance_auc"] for r in bot10],
+        width,
+        label="Resonance",
+        color=COLORS["resonance"],
+        alpha=0.85,
+    )
+    ax2.barh(
+        x,
+        [r["kinematic_auc"] for r in bot10],
+        width,
+        label="Kinematic",
+        color=COLORS["kinematic"],
+        alpha=0.85,
+    )
+    ax2.barh(
+        x + width,
+        [r["info_geometry_auc"] for r in bot10],
+        width,
+        label="InfoGeo",
+        color=COLORS["info_geo"],
+        alpha=0.85,
+    )
     ax2.set_yticks(x)
     ax2.set_yticklabels(names_b)
     ax2.set_xlabel("AUC")
@@ -339,8 +457,15 @@ def generate_anomaly_detection_panel(data: dict[str, Any]) -> None:
     ax3 = fig.add_subplot(gs[0, 2])
     for r in successful:
         best_comp = max(r["resonance_auc"], r["kinematic_auc"], r["info_geometry_auc"])
-        ax3.scatter(best_comp, r["ensemble_auc"], alpha=0.6, s=30,
-                    c=COLORS["ensemble"], edgecolors="#0d1117", linewidth=0.5)
+        ax3.scatter(
+            best_comp,
+            r["ensemble_auc"],
+            alpha=0.6,
+            s=30,
+            c=COLORS["ensemble"],
+            edgecolors="#0d1117",
+            linewidth=0.5,
+        )
     lims = [0, 1.05]
     ax3.plot(lims, lims, color=COLORS["text_muted"], linestyle="--", alpha=0.5, label="y=x")
     ax3.set_xlabel("Best Single Component AUC")
@@ -359,20 +484,35 @@ def generate_anomaly_detection_panel(data: dict[str, Any]) -> None:
     strat_names = [s[0] for s in sorted_strats]
     strat_counts = [s[1] for s in sorted_strats]
     strat_colors = [VIRIDIS(i / max(1, len(sorted_strats) - 1)) for i in range(len(sorted_strats))]
-    bars = ax4.bar(strat_names, strat_counts, color=strat_colors, edgecolor="#0d1117", linewidth=0.5)
+    bars = ax4.bar(
+        strat_names, strat_counts, color=strat_colors, edgecolor="#0d1117", linewidth=0.5
+    )
     ax4.set_ylabel("Datasets")
     _style_ax(ax4, "Threshold Strategy Usage")
     ax4.tick_params(axis="x", rotation=45)
     for bar, count in zip(bars, strat_counts):
-        ax4.text(bar.get_x() + bar.get_width() / 2, count + 0.3, str(count),
-                 ha="center", fontsize=8, color="#c9d1d9")
+        ax4.text(
+            bar.get_x() + bar.get_width() / 2,
+            count + 0.3,
+            str(count),
+            ha="center",
+            fontsize=8,
+            color="#c9d1d9",
+        )
 
     # Panel 5: Anomaly ratio vs AUC
     ax5 = fig.add_subplot(gs[1, 1])
     for r in successful:
         ar = r.get("anomaly_ratio", 0)
-        ax5.scatter(ar, r["ensemble_auc"], alpha=0.6, s=30,
-                    c=COLORS["primary"], edgecolors="#0d1117", linewidth=0.5)
+        ax5.scatter(
+            ar,
+            r["ensemble_auc"],
+            alpha=0.6,
+            s=30,
+            c=COLORS["primary"],
+            edgecolors="#0d1117",
+            linewidth=0.5,
+        )
     ax5.set_xlabel("Anomaly Ratio")
     ax5.set_ylabel("Ensemble AUC")
     _style_ax(ax5, "Anomaly Ratio vs AUC")
@@ -382,15 +522,27 @@ def generate_anomaly_detection_panel(data: dict[str, Any]) -> None:
     ax6 = fig.add_subplot(gs[1, 2])
     for r in successful:
         nf = r.get("n_features", 1)
-        ax6.scatter(nf, r["ensemble_auc"], alpha=0.6, s=30,
-                    c=COLORS["secondary"], edgecolors="#0d1117", linewidth=0.5)
+        ax6.scatter(
+            nf,
+            r["ensemble_auc"],
+            alpha=0.6,
+            s=30,
+            c=COLORS["secondary"],
+            edgecolors="#0d1117",
+            linewidth=0.5,
+        )
     ax6.set_xlabel("Number of Features")
     ax6.set_ylabel("Ensemble AUC")
     _style_ax(ax6, "Feature Count vs AUC")
     ax6.set_xscale("log")
 
-    fig.suptitle("Mercury Agent — Anomaly Detection Analysis",
-                 fontsize=16, fontweight="bold", color="#e6edf3", y=0.99)
+    fig.suptitle(
+        "Mercury Agent — Anomaly Detection Analysis",
+        fontsize=16,
+        fontweight="bold",
+        color="#e6edf3",
+        y=0.99,
+    )
     plt.savefig(OUTPUT_DIR / "anomaly_detection_panel.png")
     plt.close()
     print("Generated: anomaly_detection_panel.png")
@@ -411,8 +563,15 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
     ax1 = fig.add_subplot(gs[0, 0])
     fit_times = [r.get("fit_ms", 0) for r in successful]
     score_times = [r.get("score_ms", 0) for r in successful]
-    ax1.scatter(fit_times, score_times, alpha=0.6, s=30,
-                c=COLORS["primary"], edgecolors="#0d1117", linewidth=0.5)
+    ax1.scatter(
+        fit_times,
+        score_times,
+        alpha=0.6,
+        s=30,
+        c=COLORS["primary"],
+        edgecolors="#0d1117",
+        linewidth=0.5,
+    )
     ax1.set_xlabel("Fit Time (ms)")
     ax1.set_ylabel("Score Time (ms)")
     _style_ax(ax1, "Fit vs Score Latency")
@@ -428,11 +587,15 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
     sorted_cats = sorted(cats.items(), key=lambda x: np.median(x[1]), reverse=True)
     cat_names = [c[0] for c in sorted_cats[:8]]
     cat_data = [c[1] for c in sorted_cats[:8]]
-    bp = ax2.boxplot(cat_data, labels=[n.replace("_", "\n") for n in cat_names], patch_artist=True,
-                     whiskerprops=dict(color="#8b949e"),
-                     capprops=dict(color="#8b949e"),
-                     medianprops=dict(color=COLORS["warning"], linewidth=2),
-                     flierprops=dict(markeredgecolor="#8b949e", markersize=4))
+    bp = ax2.boxplot(
+        cat_data,
+        labels=[n.replace("_", "\n") for n in cat_names],
+        patch_artist=True,
+        whiskerprops=dict(color="#8b949e"),
+        capprops=dict(color="#8b949e"),
+        medianprops=dict(color=COLORS["warning"], linewidth=2),
+        flierprops=dict(markeredgecolor="#8b949e", markersize=4),
+    )
     for i, patch in enumerate(bp["boxes"]):
         patch.set_facecolor(VIRIDIS(i / max(1, len(cat_names) - 1)))
         patch.set_alpha(0.7)
@@ -444,8 +607,16 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
     ax3 = fig.add_subplot(gs[0, 2])
     n_trains = [r.get("n_train", 0) for r in successful]
     n_tests = [r.get("n_test", 0) for r in successful]
-    sc = ax3.scatter(n_trains, n_tests, c=[r["ensemble_auc"] for r in successful],
-                     cmap="viridis", s=30, alpha=0.7, edgecolors="#0d1117", linewidth=0.5)
+    sc = ax3.scatter(
+        n_trains,
+        n_tests,
+        c=[r["ensemble_auc"] for r in successful],
+        cmap="viridis",
+        s=30,
+        alpha=0.7,
+        edgecolors="#0d1117",
+        linewidth=0.5,
+    )
     ax3.set_xlabel("Train Samples")
     ax3.set_ylabel("Test Samples")
     _style_ax(ax3, "Dataset Sizes (color=AUC)")
@@ -457,12 +628,23 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
     # Panel 4: Timing histogram
     ax4 = fig.add_subplot(gs[1, 0])
     total_times = [r.get("fit_ms", 0) + r.get("score_ms", 0) for r in successful]
-    ax4.hist(total_times, bins=20, color=COLORS["secondary"], alpha=0.75, edgecolor="#0d1117", linewidth=0.5)
+    ax4.hist(
+        total_times,
+        bins=20,
+        color=COLORS["secondary"],
+        alpha=0.75,
+        edgecolor="#0d1117",
+        linewidth=0.5,
+    )
     ax4.set_xlabel("Total Time (ms)")
     ax4.set_ylabel("Count")
     _style_ax(ax4, "Total Processing Time Distribution")
-    ax4.axvline(np.median(total_times), color=COLORS["danger"], linestyle="--",
-                label=f"Median: {np.median(total_times):.0f}ms")
+    ax4.axvline(
+        np.median(total_times),
+        color=COLORS["danger"],
+        linestyle="--",
+        label=f"Median: {np.median(total_times):.0f}ms",
+    )
     ax4.legend(facecolor="#161b22", edgecolor="#30363d")
 
     # Panel 5: Weight source breakdown (pie)
@@ -475,10 +657,14 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
     ws_counts = list(weight_sources.values())
     ws_colors = [VIRIDIS(i / max(1, len(ws_names) - 1)) for i in range(len(ws_names))]
     if ws_names:
-        wedges, texts, autotexts = ax5.pie(ws_counts,
-                                            labels=[n.replace("_", "\n") for n in ws_names],
-                                            colors=ws_colors, autopct="%1.0f%%", startangle=90,
-                                            textprops={"color": "#c9d1d9", "fontsize": 8})
+        wedges, texts, autotexts = ax5.pie(
+            ws_counts,
+            labels=[n.replace("_", "\n") for n in ws_names],
+            colors=ws_colors,
+            autopct="%1.0f%%",
+            startangle=90,
+            textprops={"color": "#c9d1d9", "fontsize": 8},
+        )
         for at in autotexts:
             at.set_color("#e6edf3")
             at.set_fontweight("bold")
@@ -489,11 +675,21 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
     oracle_active = [r for r in successful if r.get("oracle_metadata", {}).get("active")]
     oracle_inactive = [r for r in successful if not r.get("oracle_metadata", {}).get("active")]
     if oracle_active:
-        ax6.hist([r["ensemble_auc"] for r in oracle_active], bins=15, alpha=0.65,
-                 label=f"Oracle ON ({len(oracle_active)})", color=COLORS["success"])
+        ax6.hist(
+            [r["ensemble_auc"] for r in oracle_active],
+            bins=15,
+            alpha=0.65,
+            label=f"Oracle ON ({len(oracle_active)})",
+            color=COLORS["success"],
+        )
     if oracle_inactive:
-        ax6.hist([r["ensemble_auc"] for r in oracle_inactive], bins=15, alpha=0.65,
-                 label=f"Oracle OFF ({len(oracle_inactive)})", color=COLORS["secondary"])
+        ax6.hist(
+            [r["ensemble_auc"] for r in oracle_inactive],
+            bins=15,
+            alpha=0.65,
+            label=f"Oracle OFF ({len(oracle_inactive)})",
+            color=COLORS["secondary"],
+        )
     ax6.set_xlabel("AUC")
     ax6.set_ylabel("Count")
     _style_ax(ax6, "Oracle Influence on AUC")
@@ -503,8 +699,16 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
     ax7 = fig.add_subplot(gs[2, 0])
     precs = [r["oracle_precision"] for r in successful]
     recs = [r["oracle_recall"] for r in successful]
-    sc2 = ax7.scatter(recs, precs, c=[r["ensemble_auc"] for r in successful],
-                      cmap="viridis", s=30, alpha=0.7, edgecolors="#0d1117", linewidth=0.5)
+    sc2 = ax7.scatter(
+        recs,
+        precs,
+        c=[r["ensemble_auc"] for r in successful],
+        cmap="viridis",
+        s=30,
+        alpha=0.7,
+        edgecolors="#0d1117",
+        linewidth=0.5,
+    )
     ax7.set_xlabel("Oracle Recall")
     ax7.set_ylabel("Oracle Precision")
     _style_ax(ax7, "Precision-Recall (color=AUC)")
@@ -526,16 +730,23 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
     dt_counts = [len(v) for v in data_types.values()]
     if dt_names:
         dt_colors = [VIRIDIS(i / max(1, len(dt_names) - 1)) for i in range(len(dt_names))]
-        bars = ax8.bar(range(len(dt_names)), dt_means, color=dt_colors,
-                       edgecolor="#0d1117", linewidth=0.5)
+        bars = ax8.bar(
+            range(len(dt_names)), dt_means, color=dt_colors, edgecolor="#0d1117", linewidth=0.5
+        )
         ax8.set_xticks(range(len(dt_names)))
         ax8.set_xticklabels([f"{n}\n(n={c})" for n, c in zip(dt_names, dt_counts)], fontsize=8)
         ax8.set_ylabel("Mean AUC")
         _style_ax(ax8, "Performance by Data Type")
         ax8.set_ylim(0, 1.05)
         for bar, mean in zip(bars, dt_means):
-            ax8.text(bar.get_x() + bar.get_width() / 2, mean + 0.02, f"{mean:.3f}",
-                     ha="center", fontsize=8, color="#c9d1d9")
+            ax8.text(
+                bar.get_x() + bar.get_width() / 2,
+                mean + 0.02,
+                f"{mean:.3f}",
+                ha="center",
+                fontsize=8,
+                color="#c9d1d9",
+            )
 
     # Panel 9: Summary stats
     ax9 = fig.add_subplot(gs[2, 2])
@@ -554,13 +765,26 @@ def generate_performance_dashboard(data: dict[str, Any]) -> None:
         f"{'─' * 35}\n"
         f"All timings measured on benchmark run"
     )
-    ax9.text(0.05, 0.5, perf_text, transform=ax9.transAxes, fontsize=10,
-             verticalalignment="center", fontfamily="monospace", color="#e6edf3",
-             bbox=dict(boxstyle="round,pad=0.8", facecolor="#21262d", edgecolor="#30363d", alpha=0.9))
+    ax9.text(
+        0.05,
+        0.5,
+        perf_text,
+        transform=ax9.transAxes,
+        fontsize=10,
+        verticalalignment="center",
+        fontfamily="monospace",
+        color="#e6edf3",
+        bbox=dict(boxstyle="round,pad=0.8", facecolor="#21262d", edgecolor="#30363d", alpha=0.9),
+    )
     _style_ax(ax9, "Runtime Statistics")
 
-    fig.suptitle("Mercury Agent — Performance Dashboard",
-                 fontsize=16, fontweight="bold", color="#e6edf3", y=0.99)
+    fig.suptitle(
+        "Mercury Agent — Performance Dashboard",
+        fontsize=16,
+        fontweight="bold",
+        color="#e6edf3",
+        y=0.99,
+    )
     plt.savefig(OUTPUT_DIR / "mercury_performance_dashboard.png")
     plt.close()
     print("Generated: mercury_performance_dashboard.png")
@@ -589,10 +813,17 @@ def generate_benchmark_summary(data: dict[str, Any]) -> None:
         f"Mercury Agent — All {summary['successful']} Datasets Ranked by AUC\n"
         f"Mean: {summary['mean_auc']:.4f} | Median: {summary['median_auc']:.4f} | "
         f"Std: {summary['std_auc']:.4f}",
-        fontsize=13, fontweight="bold", color="#e6edf3"
+        fontsize=13,
+        fontweight="bold",
+        color="#e6edf3",
     )
-    ax.axvline(summary["mean_auc"], color=COLORS["danger"], linestyle="--", linewidth=1.5,
-               label=f"Mean: {summary['mean_auc']:.4f}")
+    ax.axvline(
+        summary["mean_auc"],
+        color=COLORS["danger"],
+        linestyle="--",
+        linewidth=1.5,
+        label=f"Mean: {summary['mean_auc']:.4f}",
+    )
     ax.axvline(0.5, color=COLORS["text_muted"], linestyle=":", alpha=0.5, label="Random (0.5)")
     ax.legend(loc="lower right", facecolor="#161b22", edgecolor="#30363d")
     ax.set_xlim(0, 1.05)
@@ -629,19 +860,42 @@ def generate_calibration_visuals(data: dict[str, Any]) -> None:
         mean_before = md011.get("mean_uncalibrated_f1", 0)
         mean_after = md011.get("mean_calibrated_f1", 0)
         improved = md011.get("calibration_improved", 0)
-        total_tested = improved + md011.get("calibration_same", 0) + md011.get("calibration_degraded", 0)
+        total_tested = (
+            improved + md011.get("calibration_same", 0) + md011.get("calibration_degraded", 0)
+        )
 
-        bars = ax1.bar(["Uncalibrated", "Calibrated"], [mean_before, mean_after],
-                       color=[COLORS["warning"], COLORS["success"]],
-                       edgecolor="#0d1117", linewidth=0.5, width=0.5)
+        bars = ax1.bar(
+            ["Uncalibrated", "Calibrated"],
+            [mean_before, mean_after],
+            color=[COLORS["warning"], COLORS["success"]],
+            edgecolor="#0d1117",
+            linewidth=0.5,
+            width=0.5,
+        )
         for bar, val in zip(bars, [mean_before, mean_after]):
-            ax1.text(bar.get_x() + bar.get_width() / 2, val + 0.015, f"{val:.4f}",
-                     ha="center", fontsize=11, fontweight="bold", color="#e6edf3")
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
+                val + 0.015,
+                f"{val:.4f}",
+                ha="center",
+                fontsize=11,
+                fontweight="bold",
+                color="#e6edf3",
+            )
         delta = mean_after - mean_before
-        ax1.text(0.5, 0.92, f"+{delta:.4f} improvement",
-                 transform=ax1.transAxes, ha="center", fontsize=10, color=COLORS["success"])
+        ax1.text(
+            0.5,
+            0.92,
+            f"+{delta:.4f} improvement",
+            transform=ax1.transAxes,
+            ha="center",
+            fontsize=10,
+            color=COLORS["success"],
+        )
         ax1.set_ylabel("Mean F1 Score")
-        _style_ax(ax1, f"MD-011: Threshold Calibration\n({improved}/{total_tested} datasets improved)")
+        _style_ax(
+            ax1, f"MD-011: Threshold Calibration\n({improved}/{total_tested} datasets improved)"
+        )
         ax1.set_ylim(0, max(mean_before, mean_after) * 1.3)
     else:
         ax1.text(0.5, 0.5, "No MD-011 data", transform=ax1.transAxes, ha="center", color="#8b949e")
@@ -664,15 +918,27 @@ def generate_calibration_visuals(data: dict[str, Any]) -> None:
             deltas_sorted = [p[0] for p in pairs]
             names_sorted = [p[1] for p in pairs]
             bar_colors = [COLORS["success"] if d >= 0 else COLORS["danger"] for d in deltas_sorted]
-            ax2.barh(range(len(deltas_sorted)), deltas_sorted, color=bar_colors,
-                     edgecolor="#0d1117", linewidth=0.3)
+            ax2.barh(
+                range(len(deltas_sorted)),
+                deltas_sorted,
+                color=bar_colors,
+                edgecolor="#0d1117",
+                linewidth=0.3,
+            )
             ax2.set_yticks(range(len(names_sorted)))
             ax2.set_yticklabels(names_sorted, fontsize=6)
             ax2.axvline(0, color=COLORS["text_muted"], linewidth=0.8)
             ax2.set_xlabel("ΔF1 (calibrated − uncalibrated)")
             _style_ax(ax2, "Per-Dataset Calibration Impact")
         else:
-            ax2.text(0.5, 0.5, "No per-dataset data", transform=ax2.transAxes, ha="center", color="#8b949e")
+            ax2.text(
+                0.5,
+                0.5,
+                "No per-dataset data",
+                transform=ax2.transAxes,
+                ha="center",
+                color="#8b949e",
+            )
             _style_ax(ax2, "Per-Dataset Calibration Impact")
     else:
         ax2.text(0.5, 0.5, "No results data", transform=ax2.transAxes, ha="center", color="#8b949e")
@@ -695,8 +961,16 @@ def generate_calibration_visuals(data: dict[str, Any]) -> None:
                 level_data = md005_score.get(lk, {})
                 pcts.append(level_data.get(f"{method}_pct", 0))
             offset = (i - len(methods) / 2 + 0.5) * w
-            bars = ax3.bar(x + offset, pcts, w, label=mlabel, color=mcolor, alpha=0.8,
-                           edgecolor="#0d1117", linewidth=0.5)
+            bars = ax3.bar(
+                x + offset,
+                pcts,
+                w,
+                label=mlabel,
+                color=mcolor,
+                alpha=0.8,
+                edgecolor="#0d1117",
+                linewidth=0.5,
+            )
         ax3.set_xticks(x)
         ax3.set_xticklabels(levels)
         ax3.set_xlabel("Coverage Level")
@@ -705,7 +979,9 @@ def generate_calibration_visuals(data: dict[str, Any]) -> None:
         ax3.legend(fontsize=8, facecolor="#161b22", edgecolor="#30363d")
         ax3.set_ylim(0, 100)
     else:
-        ax3.text(0.5, 0.5, "No MD-005 score data", transform=ax3.transAxes, ha="center", color="#8b949e")
+        ax3.text(
+            0.5, 0.5, "No MD-005 score data", transform=ax3.transAxes, ha="center", color="#8b949e"
+        )
         _style_ax(ax3, "MD-005: Conformal Coverage (Score-Based)")
 
     # Panel 4: MD-005 Accuracy-based coverage
@@ -723,11 +999,23 @@ def generate_calibration_visuals(data: dict[str, Any]) -> None:
             pcts.append(ld.get("pct", 0))
 
         x = np.arange(len(levels_a))
-        bars = ax4.bar(x, pcts, color=[COLORS["primary"], COLORS["success"], COLORS["secondary"]],
-                       edgecolor="#0d1117", linewidth=0.5, width=0.5)
+        bars = ax4.bar(
+            x,
+            pcts,
+            color=[COLORS["primary"], COLORS["success"], COLORS["secondary"]],
+            edgecolor="#0d1117",
+            linewidth=0.5,
+            width=0.5,
+        )
         for bar, pct, m, t in zip(bars, pcts, meets, totals):
-            ax4.text(bar.get_x() + bar.get_width() / 2, pct + 1.5, f"{m}/{t}\n({pct:.1f}%)",
-                     ha="center", fontsize=9, color="#c9d1d9")
+            ax4.text(
+                bar.get_x() + bar.get_width() / 2,
+                pct + 1.5,
+                f"{m}/{t}\n({pct:.1f}%)",
+                ha="center",
+                fontsize=9,
+                color="#c9d1d9",
+            )
         ax4.set_xticks(x)
         ax4.set_xticklabels(levels_a)
         ax4.set_xlabel("Coverage Level")
@@ -735,7 +1023,14 @@ def generate_calibration_visuals(data: dict[str, Any]) -> None:
         _style_ax(ax4, "MD-005: Accuracy-Based Coverage")
         ax4.set_ylim(0, max(pcts) * 1.35 if pcts else 100)
     else:
-        ax4.text(0.5, 0.5, "No MD-005 accuracy data", transform=ax4.transAxes, ha="center", color="#8b949e")
+        ax4.text(
+            0.5,
+            0.5,
+            "No MD-005 accuracy data",
+            transform=ax4.transAxes,
+            ha="center",
+            color="#8b949e",
+        )
         _style_ax(ax4, "MD-005: Accuracy-Based Coverage")
 
     # Panel 5: MD-003 Weight Distribution
@@ -749,16 +1044,34 @@ def generate_calibration_visuals(data: dict[str, Any]) -> None:
         stds = [wd[k]["std"] for k in comp_keys]
 
         x = np.arange(len(comp_names))
-        bars = ax5.bar(x, means, yerr=stds, capsize=5, color=comp_colors,
-                       edgecolor="#0d1117", linewidth=0.5, width=0.5, alpha=0.85,
-                       error_kw={"ecolor": "#c9d1d9", "capthick": 1.5})
+        bars = ax5.bar(
+            x,
+            means,
+            yerr=stds,
+            capsize=5,
+            color=comp_colors,
+            edgecolor="#0d1117",
+            linewidth=0.5,
+            width=0.5,
+            alpha=0.85,
+            error_kw={"ecolor": "#c9d1d9", "capthick": 1.5},
+        )
         for bar, mean, std in zip(bars, means, stds):
-            ax5.text(bar.get_x() + bar.get_width() / 2, mean + std + 0.02,
-                     f"{mean:.3f}±{std:.3f}", ha="center", fontsize=8, color="#c9d1d9")
+            ax5.text(
+                bar.get_x() + bar.get_width() / 2,
+                mean + std + 0.02,
+                f"{mean:.3f}±{std:.3f}",
+                ha="center",
+                fontsize=8,
+                color="#c9d1d9",
+            )
         ax5.set_xticks(x)
         ax5.set_xticklabels(comp_names)
         ax5.set_ylabel("Weight Value")
-        _style_ax(ax5, f"MD-003: Adaptive Weight Distribution\n(n={md003.get('n_datasets_with_adaptive_weights', '?')})")
+        _style_ax(
+            ax5,
+            f"MD-003: Adaptive Weight Distribution\n(n={md003.get('n_datasets_with_adaptive_weights', '?')})",
+        )
         ax5.set_ylim(0, 1.0)
     else:
         ax5.text(0.5, 0.5, "No MD-003 data", transform=ax5.transAxes, ha="center", color="#8b949e")
@@ -785,17 +1098,32 @@ def generate_calibration_visuals(data: dict[str, Any]) -> None:
             f"Default validated = optimal ≤ default F1\n"
             f"Adaptive validated = optimal ≤ adaptive F1"
         )
-        ax6.text(0.05, 0.5, cv_text, transform=ax6.transAxes, fontsize=9,
-                 verticalalignment="center", fontfamily="monospace", color="#e6edf3",
-                 bbox=dict(boxstyle="round,pad=0.8", facecolor="#21262d", edgecolor="#30363d", alpha=0.9))
+        ax6.text(
+            0.05,
+            0.5,
+            cv_text,
+            transform=ax6.transAxes,
+            fontsize=9,
+            verticalalignment="center",
+            fontfamily="monospace",
+            color="#e6edf3",
+            bbox=dict(
+                boxstyle="round,pad=0.8", facecolor="#21262d", edgecolor="#30363d", alpha=0.9
+            ),
+        )
         _style_ax(ax6, "MD-003: Cross-Validation Summary")
     else:
         ax6.axis("off")
         ax6.text(0.5, 0.5, "No CV data", transform=ax6.transAxes, ha="center", color="#8b949e")
         _style_ax(ax6, "MD-003: Cross-Validation Summary")
 
-    fig.suptitle("Mercury Agent — Calibration & Conformal Validation",
-                 fontsize=16, fontweight="bold", color="#e6edf3", y=0.99)
+    fig.suptitle(
+        "Mercury Agent — Calibration & Conformal Validation",
+        fontsize=16,
+        fontweight="bold",
+        color="#e6edf3",
+        y=0.99,
+    )
     plt.savefig(OUTPUT_DIR / "calibration_improvement.png")
     plt.close()
     print("Generated: calibration_improvement.png")
@@ -819,12 +1147,27 @@ def generate_weight_distribution(data: dict[str, Any]) -> None:
     # Panel 1: Weight histograms (overlaid)
     ax1 = fig.add_subplot(gs[0, 0])
     if res_w:
-        ax1.hist(res_w, bins=15, alpha=0.6, label=f"Resonance (μ={np.mean(res_w):.3f})",
-                 color=COLORS["resonance"])
-        ax1.hist(kin_w, bins=15, alpha=0.6, label=f"Kinematic (μ={np.mean(kin_w):.3f})",
-                 color=COLORS["kinematic"])
-        ax1.hist(ig_w, bins=15, alpha=0.6, label=f"InfoGeo (μ={np.mean(ig_w):.3f})",
-                 color=COLORS["info_geo"])
+        ax1.hist(
+            res_w,
+            bins=15,
+            alpha=0.6,
+            label=f"Resonance (μ={np.mean(res_w):.3f})",
+            color=COLORS["resonance"],
+        )
+        ax1.hist(
+            kin_w,
+            bins=15,
+            alpha=0.6,
+            label=f"Kinematic (μ={np.mean(kin_w):.3f})",
+            color=COLORS["kinematic"],
+        )
+        ax1.hist(
+            ig_w,
+            bins=15,
+            alpha=0.6,
+            label=f"InfoGeo (μ={np.mean(ig_w):.3f})",
+            color=COLORS["info_geo"],
+        )
         ax1.set_xlabel("Weight Value")
         ax1.set_ylabel("Count")
         ax1.legend(fontsize=7, facecolor="#161b22", edgecolor="#30363d")
@@ -859,8 +1202,16 @@ def generate_weight_distribution(data: dict[str, Any]) -> None:
     # Panel 3: Resonance vs Kinematic scatter (colored by InfoGeo)
     ax3 = fig.add_subplot(gs[0, 2])
     if res_w:
-        sc = ax3.scatter(res_w, kin_w, c=ig_w, cmap="viridis", s=30, alpha=0.7,
-                         edgecolors="#0d1117", linewidth=0.5)
+        sc = ax3.scatter(
+            res_w,
+            kin_w,
+            c=ig_w,
+            cmap="viridis",
+            s=30,
+            alpha=0.7,
+            edgecolors="#0d1117",
+            linewidth=0.5,
+        )
         ax3.set_xlabel("Resonance Weight")
         ax3.set_ylabel("Kinematic Weight")
         cbar = plt.colorbar(sc, ax=ax3)
@@ -920,13 +1271,28 @@ def generate_weight_distribution(data: dict[str, Any]) -> None:
             f"Default weights: R=0.40 K=0.30 IG=0.30\n"
             f"Strategy: statistical_adaptive_weights"
         )
-        ax6.text(0.05, 0.5, weight_text, transform=ax6.transAxes, fontsize=9,
-                 verticalalignment="center", fontfamily="monospace", color="#e6edf3",
-                 bbox=dict(boxstyle="round,pad=0.8", facecolor="#21262d", edgecolor="#30363d", alpha=0.9))
+        ax6.text(
+            0.05,
+            0.5,
+            weight_text,
+            transform=ax6.transAxes,
+            fontsize=9,
+            verticalalignment="center",
+            fontfamily="monospace",
+            color="#e6edf3",
+            bbox=dict(
+                boxstyle="round,pad=0.8", facecolor="#21262d", edgecolor="#30363d", alpha=0.9
+            ),
+        )
     _style_ax(ax6, "Weight Summary")
 
-    fig.suptitle("Mercury Agent — Adaptive Weight Analysis",
-                 fontsize=16, fontweight="bold", color="#e6edf3", y=0.99)
+    fig.suptitle(
+        "Mercury Agent — Adaptive Weight Analysis",
+        fontsize=16,
+        fontweight="bold",
+        color="#e6edf3",
+        y=0.99,
+    )
     plt.savefig(OUTPUT_DIR / "adaptive_weight_distribution.png")
     plt.close()
     print("Generated: adaptive_weight_distribution.png")
