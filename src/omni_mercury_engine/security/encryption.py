@@ -41,26 +41,24 @@ https://csrc.nist.gov/projects/post-quantum-cryptography
 
 import base64
 import hashlib
-import logging
 import secrets
 
 import numpy as np
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
-logger = logging.getLogger(__name__)
 
 _AES_GCM_NONCE_SIZE = 12  # 96-bit nonce per NIST SP 800-38D
 
 
 class QuantumResistantEncryption:
     """
-    Quantum-resistant encryption using lattice-based cryptography principles.
+    Quantum-resistant encryption backed by liboqs (via Ava Guardian or direct).
 
-    Implements simplified Kyber-inspired KEM using Learning With Errors (LWE).
-    This is a deterministic demo implementation for testing; noise set to zero for stability.
-    Production should use liboqs for NIST-approved post-quantum cryptography.
+    Production path: Kyber768 KEM + AES-256-GCM for encryption, Dilithium3 for
+    signatures. When no real PQC backend is available, all cryptographic operations
+    raise RuntimeError per the Ava Guardian fail-fast policy.
 
-    Note: Conditional import of liboqs planned for future enhancement.
+    The LWE lattice key generation is retained only for SecureDataHandler's
+    deterministic test scaffolding and is never used in the encryption path.
     """
 
     def __init__(self, security_level: int = 256, use_liboqs: bool = True) -> None:
@@ -138,17 +136,16 @@ class QuantumResistantEncryption:
         public_key: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None,
     ) -> bytes:
         """
-        Hybrid encryption: quantum-resistant KEM + symmetric stream cipher.
+        Encrypt data using Kyber768 KEM + AES-256-GCM via liboqs.
 
-        Uses liboqs Kyber768 if available, otherwise falls back to deterministic LWE-KEM.
-        Noise terms (e1, e2) set to zero for test stability in fallback mode.
+        Raises RuntimeError if no PQC backend is available (Ava Guardian fail-fast).
 
         Args:
             data: Data to encrypt
-            public_key: Optional public key (generated if None)
+            public_key: Unused (retained for API compatibility); liboqs manages keys internally
 
         Returns:
-            Encrypted data with encapsulated key header (u || v)
+            KEM ciphertext || nonce || AES-GCM ciphertext with authentication tag
         """
         if self._oqs_available and self._oqs_kem is not None:
             return self._encrypt_with_liboqs(data)
@@ -163,18 +160,20 @@ class QuantumResistantEncryption:
 
     def decrypt_hybrid(self, encrypted_data: bytes, private_key: np.ndarray[Any, Any]) -> bytes:
         """
-        Decrypt using quantum-resistant KEM decapsulation.
+        Decrypt data using Kyber768 KEM decapsulation + AES-256-GCM via liboqs.
 
-        Uses liboqs Kyber768 if available, otherwise falls back to LWE decapsulation.
-        Recovers message m from (u, v) using private key s.
-        m_int = v - u @ s (mod q) since noise terms are zero.
+        Raises RuntimeError if no PQC backend is available (Ava Guardian fail-fast).
 
         Args:
-            encrypted_data: Encrypted data with encapsulated key header (u || v)
-            private_key: Private key s
+            encrypted_data: KEM ciphertext || nonce || AES-GCM ciphertext with tag
+            private_key: Unused (retained for API compatibility); liboqs manages keys internally
 
         Returns:
             Decrypted data
+
+        Raises:
+            RuntimeError: If no PQC backend is available
+            cryptography.exceptions.InvalidTag: If ciphertext was tampered with
         """
         if self._oqs_available and self._oqs_kem is not None:
             return self._decrypt_with_liboqs(encrypted_data)
@@ -231,6 +230,12 @@ class QuantumResistantEncryption:
         """
         assert self._oqs_kem is not None
         kem_ct_size = self._oqs_kem.details["length_ciphertext"]
+        min_size = kem_ct_size + _AES_GCM_NONCE_SIZE + 16  # +16 for AES-GCM tag
+        if len(encrypted_data) < min_size:
+            raise ValueError(
+                f"Ciphertext too short: got {len(encrypted_data)} bytes, "
+                f"minimum {min_size} bytes required"
+            )
         kem_ciphertext = encrypted_data[:kem_ct_size]
         nonce = encrypted_data[kem_ct_size : kem_ct_size + _AES_GCM_NONCE_SIZE]
         aes_ciphertext = encrypted_data[kem_ct_size + _AES_GCM_NONCE_SIZE :]
@@ -274,8 +279,8 @@ class QuantumResistantEncryption:
         """
         Verify signature using liboqs Dilithium3.
 
-        Uses hmac.compare_digest for constant-time comparison to prevent
-        timing attacks, even though liboqs.verify() returns bool internally.
+        Delegates entirely to liboqs OQS_SIG_verify, which performs constant-time
+        verification internally. No additional comparison logic is applied.
 
         Args:
             data: Original data
