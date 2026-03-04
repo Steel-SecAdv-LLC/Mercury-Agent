@@ -112,9 +112,7 @@ class QuantumResistantEncryption:
             except ImportError:
                 self._oqs_available = False
 
-    def _init_liboqs(
-        self, oqs: Any, signing_secret_key: bytes | None = None
-    ) -> None:
+    def _init_liboqs(self, oqs: Any, signing_secret_key: bytes | None = None) -> None:
         """
         Initialize liboqs KEM and signature schemes for production use.
 
@@ -158,6 +156,7 @@ class QuantumResistantEncryption:
                 # externally (liboqs cannot derive it from the secret key).
                 self._signing_public_key = None
             else:
+                assert self._oqs_signature is not None
                 self._signing_public_key = self._oqs_signature.generate_keypair()
 
         except Exception:
