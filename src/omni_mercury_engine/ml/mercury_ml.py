@@ -1211,11 +1211,15 @@ class RandomForestClassifier:
     def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         X = np.asarray(X, dtype=np.float64)
         n_classes = len(self.classes_)
+        class_vals = self.classes_.astype(np.float64)
         all_preds = np.zeros((len(X), n_classes))
         for tree in self._trees:
             preds = tree.predict(X)
-            for i, c in enumerate(self.classes_):
-                all_preds[:, i] += (preds == c).astype(float)
+            # _DecisionStump returns continuous leaf means; map to nearest class
+            diffs = np.abs(preds[:, np.newaxis] - class_vals[np.newaxis, :])
+            nearest_class_idx = np.argmin(diffs, axis=1)
+            for i in range(n_classes):
+                all_preds[:, i] += (nearest_class_idx == i).astype(float)
         return all_preds / len(self._trees)
 
 
