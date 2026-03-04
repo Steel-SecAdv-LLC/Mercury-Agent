@@ -265,14 +265,17 @@ def average_precision_score(
     y_true = np.asarray(y_true).ravel()
     y_score = np.asarray(y_score).ravel()
 
+    classes = np.unique(y_true)
+    pos_label = classes[-1] if len(classes) >= 2 else 1
+
     desc_idx = np.argsort(y_score)[::-1]
     y_true_sorted = y_true[desc_idx]
 
-    n_pos = float(np.sum(y_true == 1))
+    n_pos = float(np.sum(y_true == pos_label))
     if n_pos == 0:
         return 0.0
 
-    tps = np.cumsum(y_true_sorted == 1).astype(np.float64)
+    tps = np.cumsum(y_true_sorted == pos_label).astype(np.float64)
     precision = tps / np.arange(1, len(y_true_sorted) + 1, dtype=np.float64)
     recall_change = np.diff(np.concatenate([[0.0], tps / n_pos]))
 
@@ -286,16 +289,19 @@ def precision_recall_curve(
     y_true = np.asarray(y_true).ravel()
     y_score = np.asarray(y_score).ravel()
 
+    classes = np.unique(y_true)
+    pos_label = classes[-1] if len(classes) >= 2 else 1
+
     desc_idx = np.argsort(y_score)[::-1]
     y_true_sorted = y_true[desc_idx]
     thresholds = y_score[desc_idx]
 
-    n_pos = float(np.sum(y_true == 1))
+    n_pos = float(np.sum(y_true == pos_label))
     if n_pos == 0:
         return np.array([1.0]), np.array([0.0]), np.array([])
 
-    tps = np.cumsum(y_true_sorted == 1).astype(np.float64)
-    fps = np.cumsum(y_true_sorted == 0).astype(np.float64)
+    tps = np.cumsum(y_true_sorted == pos_label).astype(np.float64)
+    fps = np.cumsum(y_true_sorted != pos_label).astype(np.float64)
     precisions = tps / (tps + fps)
     recalls = tps / n_pos
 
