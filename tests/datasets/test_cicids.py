@@ -347,10 +347,11 @@ class TestCICIDSIntegration:
         # Preprocess
         X_processed = loader.preprocess(X)
 
-        # Train and evaluate
-        clf = MADDetector(random_state=42, contamination=0.2)
+        # Train and evaluate using MADDetector's actual API
+        clf = MADDetector()
         clf.fit(X_processed)
-        scores = -clf.score_samples(X_processed)
+        result = clf.detect(X_processed)
+        scores = result.scores
 
         if len(np.unique(y)) > 1:
             auc = roc_auc_score(y, scores)

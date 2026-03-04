@@ -50,7 +50,8 @@ except ImportError:
 
 SKLEARN_AVAILABLE = False
 try:
-    # sklearn dependency removed — Mercury uses native ML primitives
+    import sklearn  # noqa: F401
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False

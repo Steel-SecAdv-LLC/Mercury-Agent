@@ -321,7 +321,7 @@ class DBSCANDetector:
         self.min_samples = min_samples
         self.metric = metric
         self.auto_eps = auto_eps
-        self._fitted_eps: float | None = None
+        self._fitted_eps: float = 0.5
         self._reference_data: np.ndarray | None = None
         self._fitted = False
 
@@ -386,7 +386,6 @@ class DBSCANDetector:
         scores = np.zeros(len(X))
         core_mask = np.isin(np.arange(len(X)), dbscan.core_sample_indices_)
 
-        assert self._fitted_eps is not None
         if np.any(core_mask):
             core_points = X[core_mask]
             for i, point in enumerate(X):
@@ -445,7 +444,7 @@ class MCDDetector:
         self.contamination = contamination
         self.random_state = random_state
         self._mcd = None
-        self._threshold: float | None = None
+        self._threshold: float = 0.0
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> MCDDetector:

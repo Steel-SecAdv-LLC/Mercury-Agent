@@ -641,17 +641,17 @@ class PCA:
 
     def __init__(self, n_components: int = 2) -> None:
         self.n_components = n_components
-        self.components_: NDArray[np.number[Any]] | None = None
-        self.mean_: NDArray[np.number[Any]] | None = None
-        self.explained_variance_: NDArray[np.number[Any]] | None = None
-        self.explained_variance_ratio_: NDArray[np.number[Any]] | None = None
+        self.components_: NDArray[np.number[Any]] = np.empty((0, 0))
+        self.mean_: NDArray[np.number[Any]] = np.empty(0)
+        self.explained_variance_: NDArray[np.number[Any]] = np.empty(0)
+        self.explained_variance_ratio_: NDArray[np.number[Any]] = np.empty(0)
 
     def fit(self, X: NDArray[np.number[Any]]) -> PCA:
         X = np.asarray(X, dtype=np.float64)
         n_samples = X.shape[0]
         self.mean_ = X.mean(axis=0)
         X_centered = X - self.mean_
-        _U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
+        _U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)  # type: ignore[arg-type]
         self.components_ = Vt[: self.n_components]
         # Explained variance
         explained_var = (S**2) / (n_samples - 1)
@@ -664,14 +664,12 @@ class PCA:
         return self
 
     def transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        assert self.mean_ is not None and self.components_ is not None
         return (np.asarray(X, dtype=np.float64) - self.mean_) @ self.components_.T
 
     def fit_transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         return self.fit(X).transform(X)
 
     def inverse_transform(self, X_reduced: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        assert self.mean_ is not None and self.components_ is not None
         return np.asarray(X_reduced, dtype=np.float64) @ self.components_ + self.mean_
 
 
@@ -754,8 +752,8 @@ class DBSCAN:
         self.eps = eps
         self.min_samples = min_samples
         self.metric = metric
-        self.labels_: NDArray[np.number[Any]] | None = None
-        self.core_sample_indices_: NDArray[np.number[Any]] | None = None
+        self.labels_: NDArray[np.number[Any]] = np.empty(0, dtype=int)
+        self.core_sample_indices_: NDArray[np.number[Any]] = np.empty(0, dtype=int)
 
     def fit_predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         X = np.asarray(X, dtype=np.float64)
@@ -784,8 +782,6 @@ class DBSCAN:
                         labels[nb] = cluster_id
                         if core_mask[nb]:
                             queue.append(nb)
-                    elif labels[nb] == -1:
-                        labels[nb] = cluster_id
             cluster_id += 1
 
         self.labels_ = labels
@@ -850,9 +846,9 @@ class LogisticRegression:
         self.max_iter = max_iter
         self.C = C
         self.random_state = random_state
-        self.coef_: NDArray[np.number[Any]] | None = None
-        self.intercept_: NDArray[np.number[Any]] | None = None
-        self.classes_: NDArray[np.number[Any]] | None = None
+        self.coef_: NDArray[np.number[Any]] = np.empty((0, 0))
+        self.intercept_: NDArray[np.number[Any]] = np.empty(0)
+        self.classes_: NDArray[np.number[Any]] = np.empty(0)
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> LogisticRegression:
         from scipy.optimize import minimize
@@ -899,11 +895,9 @@ class LogisticRegression:
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         prob = self.predict_proba(X)
-        assert self.classes_ is not None
         return self.classes_[(prob[:, 1] >= 0.5).astype(int)]
 
     def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
-        assert self.coef_ is not None and self.intercept_ is not None
         X = np.asarray(X, dtype=np.float64)
         z = X @ self.coef_.T + self.intercept_
         z = np.clip(z.ravel(), -500, 500)
@@ -1164,8 +1158,8 @@ class RandomForestClassifier:
         self.max_depth = max_depth or 10
         self.random_state = random_state
         self._trees: list[_DecisionStump] = []
-        self.classes_: NDArray[np.number[Any]] | None = None
-        self.feature_importances_: NDArray[np.number[Any]] | None = None
+        self.classes_: NDArray[np.number[Any]] = np.empty(0)
+        self.feature_importances_: NDArray[np.number[Any]] = np.empty(0)
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> RandomForestClassifier:
         X = np.asarray(X, dtype=np.float64)
@@ -1191,12 +1185,10 @@ class RandomForestClassifier:
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         proba = self.predict_proba(X)
-        assert self.classes_ is not None
         return self.classes_[np.argmax(proba, axis=1)]
 
     def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         X = np.asarray(X, dtype=np.float64)
-        assert self.classes_ is not None
         n_classes = len(self.classes_)
         all_preds = np.zeros((len(X), n_classes))
         for tree in self._trees:
@@ -1276,8 +1268,8 @@ class _DecisionStump:
         self.is_leaf: bool = True
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]], depth: int = 0) -> None:
-        self.value = float(np.mean(y))
-        if depth >= self.max_depth or len(X) <= 2 or np.std(y) < 1e-10:
+        self.value = float(np.mean(y))  # type: ignore[arg-type]
+        if depth >= self.max_depth or len(X) <= 2 or float(np.std(y)) < 1e-10:  # type: ignore[arg-type]
             self.is_leaf = True
             return
 
@@ -1296,9 +1288,9 @@ class _DecisionStump:
                 right_mask = ~left_mask
                 if not np.any(left_mask) or not np.any(right_mask):
                     continue
-                var_reduction = np.var(y) - (
-                    np.sum(left_mask) * np.var(y[left_mask])
-                    + np.sum(right_mask) * np.var(y[right_mask])
+                var_reduction = float(np.var(y)) - (  # type: ignore[arg-type]
+                    float(np.sum(left_mask)) * float(np.var(y[left_mask]))  # type: ignore[arg-type]
+                    + float(np.sum(right_mask)) * float(np.var(y[right_mask]))  # type: ignore[arg-type]
                 ) / len(y)
                 if var_reduction > best_gain:
                     best_gain = var_reduction
@@ -1357,9 +1349,9 @@ class GaussianMixture:
         self.max_iter = max_iter
         self.tol = tol
         self.random_state = random_state
-        self.means_: NDArray[np.number[Any]] | None = None
-        self.covariances_: NDArray[np.number[Any]] | None = None
-        self.weights_: NDArray[np.number[Any]] | None = None
+        self.means_: NDArray[np.number[Any]] = np.empty(0)
+        self.covariances_: NDArray[np.number[Any]] = np.empty(0)
+        self.weights_: NDArray[np.number[Any]] = np.empty(0)
 
     def fit(self, X: NDArray[np.number[Any]]) -> GaussianMixture:
         X = np.asarray(X, dtype=np.float64)
@@ -1400,9 +1392,6 @@ class GaussianMixture:
     def _e_step(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         n = len(X)
         resp = np.zeros((n, self.n_components))
-        assert (
-            self.means_ is not None and self.covariances_ is not None and self.weights_ is not None
-        )
         for k in range(self.n_components):
             try:
                 resp[:, k] = self.weights_[k] * sp_stats.multivariate_normal.pdf(
@@ -1441,7 +1430,7 @@ def mutual_info_classif(
         if n_bins <= 1:
             mi[f] = 0.0
             continue
-        bins = np.percentile(col, np.linspace(0, 100, n_bins + 1))
+        bins = np.percentile(col, np.linspace(0, 100, n_bins + 1))  # type: ignore[arg-type]
         bins = np.unique(bins)
         if len(bins) <= 1:
             mi[f] = 0.0
@@ -1522,10 +1511,11 @@ def make_blobs(
     Parameters match sklearn's make_blobs for compatibility.
     """
     rng = np.random.RandomState(random_state)
+    centers_arr: NDArray[np.floating[Any]]
     if centers is None:
         centers_arr = np.zeros((1, n_features))
     else:
-        centers_arr = np.asarray(centers)
+        centers_arr = np.asarray(centers, dtype=np.float64)
     n_centers = len(centers_arr)
     n_features = centers_arr.shape[1]
     samples_per = n_samples // max(n_centers, 1)
@@ -1582,7 +1572,7 @@ class IsotonicRegression:
                 values[i] = (weights[i] * values[i] + weights[i + 1] * values[i + 1]) / total_w
                 weights[i] = total_w
                 values = np.delete(values, i + 1)
-                weights = np.delete(weights, i + 1)
+                weights = np.delete(weights, i + 1)  # type: ignore[assignment]
                 blocks.pop(i + 1)
                 if i > 0:
                     i -= 1
@@ -1600,7 +1590,7 @@ class IsotonicRegression:
         if idx < n:
             result[idx:] = values[-1]
 
-        result = np.clip(result, self.y_min, self.y_max)
+        result = np.clip(result, self.y_min, self.y_max)  # type: ignore[assignment]
         self._x = X_sorted
         self._y = result
         return self

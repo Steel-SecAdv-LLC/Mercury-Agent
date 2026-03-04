@@ -338,20 +338,21 @@ class TestRealWorldBenchmark:
 
         runner = RealWorldBenchmarkRunner(n_folds=3, seed=SEED)
 
-        # Wrapper for sklearn
+        # Wrapper using MADDetector's actual API (fit + detect -> AnomalyResult)
         class IFWrapper:
             def __init__(self):
-                self.model = MADDetector(n_estimators=50, random_state=SEED)
+                self.model = MADDetector()
 
             def fit(self, X, y=None):
                 self.model.fit(X)
 
             def predict(self, X):
-                return (self.model.predict(X) == -1).astype(int)
+                result = self.model.detect(X)
+                return result.is_anomaly.astype(int)
 
             def predict_proba(self, X):
-                scores = -self.model.score_samples(X)
-                scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
+                result = self.model.detect(X)
+                scores = result.scores
                 return np.column_stack([1 - scores, scores])
 
         # Test fail-closed behavior: without real data, should raise RuntimeError
