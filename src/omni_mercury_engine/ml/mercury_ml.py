@@ -93,6 +93,9 @@ def f1_score(
     pos_label: int | None = None,
 ) -> float:
     """Compute F1 score."""
+    y_true = np.asarray(y_true).ravel()
+    y_pred = np.asarray(y_pred).ravel()
+
     if pos_label is not None:
         # Filter to binary evaluation for pos_label
         mask = (y_true == pos_label) | (y_pred == pos_label)
@@ -102,6 +105,9 @@ def f1_score(
         binary_pred = (y_pred == pos_label).astype(np.intp)
         p = precision_score(binary_true, binary_pred, zero_division=zero_division, average="binary")
         r = recall_score(binary_true, binary_pred, zero_division=zero_division, average="binary")
+    elif average == "weighted":
+        # Compute per-class F1 then take weighted average (matches sklearn)
+        return _weighted_metric(y_true, y_pred, _f1_binary, zero_division)
     else:
         p = precision_score(y_true, y_pred, zero_division=zero_division, average=average)
         r = recall_score(y_true, y_pred, zero_division=zero_division, average=average)
@@ -172,6 +178,19 @@ def _recall_binary(
     tp = float(np.sum((y_pred == label) & (y_true == label)))
     fn = float(np.sum((y_pred != label) & (y_true == label)))
     return tp / (tp + fn) if (tp + fn) > 0 else zero_division
+
+
+def _f1_binary(
+    y_true: NDArray[np.number[Any]],
+    y_pred: NDArray[np.number[Any]],
+    label: int,
+    zero_division: float,
+) -> float:
+    p = _precision_binary(y_true, y_pred, label, zero_division)
+    r = _recall_binary(y_true, y_pred, label, zero_division)
+    if p + r == 0:
+        return zero_division
+    return 2.0 * p * r / (p + r)
 
 
 def _weighted_metric(
