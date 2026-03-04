@@ -72,8 +72,9 @@ jobs:
           echo "📦 Version: $VERSION (prerelease: $PRERELEASE)"
 
       - name: Validate version format
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
             echo "❌ Invalid version format: $VERSION"
             echo "Expected format: X.Y.Z or X.Y.Z-suffix"
@@ -132,8 +133,9 @@ jobs:
           pip install build twine
 
       - name: Update version in pyproject.toml
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
         run: |
-          VERSION="${{ needs.validate.outputs.version }}"
           sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
           echo "Updated version to $VERSION"
 
@@ -220,9 +222,10 @@ jobs:
 
       - name: Generate changelog
         id: changelog
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
-          VERSION="${{ needs.validate.outputs.version }}"
-
           # Get previous tag
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
 
@@ -250,7 +253,7 @@ jobs:
           echo "### Docker" >> CHANGELOG_EXCERPT.md
           echo "" >> CHANGELOG_EXCERPT.md
           echo "\`\`\`bash" >> CHANGELOG_EXCERPT.md
-          echo "docker pull ghcr.io/${{ github.repository }}:$VERSION" >> CHANGELOG_EXCERPT.md
+          echo "docker pull ghcr.io/$REPO:$VERSION" >> CHANGELOG_EXCERPT.md
           echo "\`\`\`" >> CHANGELOG_EXCERPT.md
 
           cat CHANGELOG_EXCERPT.md
@@ -305,14 +308,15 @@ jobs:
 
     steps:
       - name: Release Summary
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          PRERELEASE: ${{ needs.validate.outputs.is_prerelease }}
+          REPO: ${{ github.repository }}
         run: |
-          VERSION="${{ needs.validate.outputs.version }}"
-          PRERELEASE="${{ needs.validate.outputs.is_prerelease }}"
-
           echo "🎉 Mercury Agent v$VERSION Released!"
           echo ""
           echo "Release Type: $([ "$PRERELEASE" == "true" ] && echo "Pre-release" || echo "Stable")"
-          echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
-          echo "Docker Image: ghcr.io/${{ github.repository }}:$VERSION"
+          echo "GitHub Release: https://github.com/$REPO/releases/tag/v$VERSION"
+          echo "Docker Image: ghcr.io/$REPO:$VERSION"
           echo ""
           echo "✅ All release tasks completed successfully!"

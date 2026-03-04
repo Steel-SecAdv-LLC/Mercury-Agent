@@ -41,7 +41,6 @@ https://csrc.nist.gov/projects/post-quantum-cryptography
 
 import base64
 import hashlib
-import hmac
 import logging
 import secrets
 
