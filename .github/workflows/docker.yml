@@ -51,7 +51,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner on tarball
         continue-on-error: true
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
         with:
           input: /tmp/mercury-image.tar
           format: sarif

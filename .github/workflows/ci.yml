@@ -585,7 +585,7 @@ jobs:
 
       - name: Scan Docker image with Trivy
         continue-on-error: true
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
         with:
           image-ref: mercury-agent:${{ github.sha }}
           format: 'sarif'

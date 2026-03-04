@@ -522,14 +522,6 @@ def _get_current_user(
     return user
 
 
-def _get_optional_user(
-    api_key_user: User | None = Depends(APIKeyAuth(auto_error=False)),
-    jwt_user: User | None = Depends(JWTAuth(auto_error=False)),
-) -> User | None:
-    """Get current user if authenticated, otherwise return None."""
-    return api_key_user or jwt_user
-
-
 @router.post(
     "/detect",
     response_model=BatchJobSubmitResponse,
@@ -560,7 +552,7 @@ Submit a batch anomaly detection job for asynchronous processing.
 async def submit_batch_job(
     request: BatchDetectRequest,
     background_tasks: BackgroundTasks,
-    user: User | None = Depends(_get_optional_user),
+    user: User = Depends(_get_current_user),
 ) -> BatchJobSubmitResponse:
     """Submit a batch anomaly detection job."""
     if len(request.data) > 10000:
@@ -569,7 +561,7 @@ async def submit_batch_job(
             detail="Maximum 10,000 samples per batch request",
         )
 
-    user_id = user.id if user else "anonymous"
+    user_id = user.id
     store = get_job_store()
 
     job = await store.create_job(
@@ -624,7 +616,7 @@ async def submit_batch_job(
 )
 async def get_job_status(
     job_id: str,
-    user: User | None = Depends(_get_optional_user),
+    user: User = Depends(_get_current_user),
 ) -> BatchJobResponse:
     """Get batch job status."""
     store = get_job_store()
@@ -636,7 +628,7 @@ async def get_job_status(
             detail=f"Job {job_id} not found",
         )
 
-    if user and job.user_id != user.id and not user.has_permission(Permission.ADMIN):
+    if job.user_id != user.id and not user.has_permission(Permission.ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this job",
@@ -668,7 +660,7 @@ async def get_job_results(
     job_id: str,
     offset: int = Query(default=0, ge=0, description="Pagination offset"),
     limit: int = Query(default=100, ge=1, le=1000, description="Results per page"),
-    user: User | None = Depends(_get_optional_user),
+    user: User = Depends(_get_current_user),
 ) -> BatchResultsResponse:
     """Get batch job results with pagination."""
     store = get_job_store()
@@ -680,7 +672,7 @@ async def get_job_results(
             detail=f"Job {job_id} not found",
         )
 
-    if user and job.user_id != user.id and not user.has_permission(Permission.ADMIN):
+    if job.user_id != user.id and not user.has_permission(Permission.ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this job",
@@ -714,7 +706,7 @@ async def get_job_results(
 )
 async def cancel_job(
     job_id: str,
-    user: User | None = Depends(_get_optional_user),
+    user: User = Depends(_get_current_user),
 ) -> None:
     """Cancel a batch job."""
     store = get_job_store()
@@ -726,7 +718,7 @@ async def cancel_job(
             detail=f"Job {job_id} not found",
         )
 
-    if user and job.user_id != user.id and not user.has_permission(Permission.ADMIN):
+    if job.user_id != user.id and not user.has_permission(Permission.ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to this job",
@@ -752,10 +744,10 @@ async def cancel_job(
 async def list_jobs(
     status_filter: JobStatus | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=200, description="Maximum jobs to return"),
-    user: User | None = Depends(_get_optional_user),
+    user: User = Depends(_get_current_user),
 ) -> list[BatchJobResponse]:
     """List user's batch jobs."""
-    user_id = user.id if user else "anonymous"
+    user_id = user.id
     store = get_job_store()
 
     jobs = await store.get_user_jobs(
