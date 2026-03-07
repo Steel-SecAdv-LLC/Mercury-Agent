@@ -46,7 +46,7 @@
 **License:** GNU General Public License v3.0
 **Version:** v1.5.1
 **Date:** 2026-02-09
-**AI Co-Architects:** Devin ⚛ | Claude ⊛
+**AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
 
