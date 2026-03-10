@@ -7,10 +7,7 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-Tests for mercury_guardian backward-compatibility shim.
-
-Verifies that all names re-exported from mercury_guardian still resolve
-to the canonical implementations in mercury_amacrypto.
+Tests for AMA Cryptography integration adapter with post-quantum cryptography.
 
 Covers:
 - MercuryGuardianAdapter initialization and availability
@@ -39,7 +36,7 @@ class TestMercuryGuardianAdapter:
     @pytest.fixture
     def adapter(self):
         """Create MercuryGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
+        from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
         return MercuryGuardianAdapter(
             enable_timing_monitor=True,
@@ -51,7 +48,7 @@ class TestMercuryGuardianAdapter:
     @pytest.fixture
     def adapter_no_timing(self):
         """Create MercuryGuardianAdapter without timing monitor."""
-        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
+        from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
         return MercuryGuardianAdapter(
             enable_timing_monitor=False,
@@ -61,7 +58,7 @@ class TestMercuryGuardianAdapter:
     @pytest.fixture
     def adapter_no_gosnn(self):
         """Create MercuryGuardianAdapter without GOSNN synapse."""
-        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
+        from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
         return MercuryGuardianAdapter(
             enable_timing_monitor=True,
@@ -92,7 +89,7 @@ class TestMercuryGuardianAdapter:
     def test_get_pqc_status(self, adapter):
         """Test PQC status retrieval."""
         status = adapter.get_pqc_status()
-        assert "mercury_guardian_available" in status
+        assert "ama_cryptography_available" in status
         assert "dilithium_available" in status
         assert "kyber_available" in status
         assert "timing_monitor_enabled" in status
@@ -110,7 +107,7 @@ class TestMercuryGuardianAdapter:
     def test_get_gosnn_scalars(self, adapter):
         """Test GOSNN scalars retrieval."""
         scalars = adapter.get_gosnn_scalars()
-        assert "omni_mercury_guardian_available" in scalars
+        assert "omni_ama_cryptography_available" in scalars
         assert "omni_dilithium_available" in scalars
         assert "omni_kyber_available" in scalars
         assert "omni_crypto_anomaly_count" in scalars
@@ -131,7 +128,7 @@ class TestEWMATimingMonitor:
     @pytest.fixture
     def monitor(self):
         """Create EWMATimingMonitor instance."""
-        from omni_mercury_engine.integrations.mercury_guardian import EWMATimingMonitor
+        from omni_mercury_engine.integrations.mercury_amacrypto import EWMATimingMonitor
 
         return EWMATimingMonitor(alpha=0.1, mad_threshold=3.0)
 
@@ -217,7 +214,7 @@ class TestCryptoAnomaly:
 
     def test_crypto_anomaly_creation(self):
         """Test CryptoAnomaly creation."""
-        from omni_mercury_engine.integrations.mercury_guardian import (
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
             CryptoAnomaly,
             CryptoAnomalyType,
         )
@@ -236,7 +233,7 @@ class TestCryptoAnomaly:
 
     def test_crypto_anomaly_types(self):
         """Test all CryptoAnomalyType values."""
-        from omni_mercury_engine.integrations.mercury_guardian import CryptoAnomalyType
+        from omni_mercury_engine.integrations.mercury_amacrypto import CryptoAnomalyType
 
         assert CryptoAnomalyType.TIMING_ANOMALY.value == "timing_anomaly"
         assert CryptoAnomalyType.SIGNATURE_FAILURE.value == "signature_failure"
@@ -257,7 +254,7 @@ class TestTimingStats:
 
     def test_timing_stats_defaults(self):
         """Test TimingStats default values."""
-        from omni_mercury_engine.integrations.mercury_guardian import TimingStats
+        from omni_mercury_engine.integrations.mercury_amacrypto import TimingStats
 
         stats = TimingStats()
         assert stats.ewma_mean == 0.0
@@ -268,7 +265,7 @@ class TestTimingStats:
 
     def test_timing_stats_custom(self):
         """Test TimingStats with custom values."""
-        from omni_mercury_engine.integrations.mercury_guardian import TimingStats
+        from omni_mercury_engine.integrations.mercury_amacrypto import TimingStats
 
         stats = TimingStats(
             ewma_mean=10.0,
@@ -292,7 +289,7 @@ class TestAttackSimulation:
     @pytest.fixture
     def adapter(self):
         """Create MercuryGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
+        from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
         return MercuryGuardianAdapter(
             enable_timing_monitor=True,
@@ -354,7 +351,7 @@ class TestAnomalyRecording:
     @pytest.fixture
     def adapter(self):
         """Create MercuryGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
+        from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
         return MercuryGuardianAdapter(
             enable_timing_monitor=True,
@@ -393,36 +390,46 @@ class TestAnomalyRecording:
 
 
 class TestFactoryFunction:
-    """Tests for create_mercury_guardian_adapter factory function."""
+    """Tests for create_ama_cryptography_adapter factory function."""
 
     def test_create_adapter_default(self):
         """Test factory function with defaults."""
-        from omni_mercury_engine.integrations.mercury_guardian import (
-            create_mercury_guardian_adapter,
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            create_ama_cryptography_adapter,
         )
 
-        adapter = create_mercury_guardian_adapter()
+        adapter = create_ama_cryptography_adapter()
         assert adapter is not None
         assert adapter.timing_monitor is not None
         assert adapter.gosnn_synapse_enabled is True
 
     def test_create_adapter_no_timing(self):
         """Test factory function without timing monitor."""
-        from omni_mercury_engine.integrations.mercury_guardian import (
-            create_mercury_guardian_adapter,
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            create_ama_cryptography_adapter,
         )
 
-        adapter = create_mercury_guardian_adapter(enable_timing_monitor=False)
+        adapter = create_ama_cryptography_adapter(enable_timing_monitor=False)
         assert adapter.timing_monitor is None
 
     def test_create_adapter_no_gosnn(self):
         """Test factory function without GOSNN synapse."""
-        from omni_mercury_engine.integrations.mercury_guardian import (
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
+            create_ama_cryptography_adapter,
+        )
+
+        adapter = create_ama_cryptography_adapter(gosnn_synapse_enabled=False)
+        assert adapter.gosnn_synapse_enabled is False
+
+    def test_create_adapter_compat_alias(self):
+        """Test backward compat factory function alias."""
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
             create_mercury_guardian_adapter,
         )
 
-        adapter = create_mercury_guardian_adapter(gosnn_synapse_enabled=False)
-        assert adapter.gosnn_synapse_enabled is False
+        adapter = create_mercury_guardian_adapter()
+        assert adapter is not None
+        assert adapter.timing_monitor is not None
 
 
 # =============================================================================
@@ -431,7 +438,7 @@ class TestFactoryFunction:
 
 
 class TestModuleImports:
-    """Tests for module imports and exports (backward compat shim)."""
+    """Tests for module imports and exports."""
 
     def test_import_from_integrations(self):
         """Test importing from integrations package."""
@@ -457,16 +464,15 @@ class TestModuleImports:
         assert isinstance(DILITHIUM_AVAILABLE, bool)
         assert isinstance(KYBER_AVAILABLE, bool)
 
-    def test_import_from_mercury_guardian_module(self):
-        """Test importing directly from mercury_guardian module (backward compat shim)."""
-        from omni_mercury_engine.integrations.mercury_guardian import (
-            AMA_CRYPTOGRAPHY_AVAILABLE,
-            AVA_GUARDIAN_AVAILABLE,
+    def test_import_from_mercury_amacrypto_module(self):
+        """Test importing directly from mercury_amacrypto module."""
+        from omni_mercury_engine.integrations.mercury_amacrypto import (
             CryptoAnomaly,
             CryptoAnomalyType,
             EWMATimingMonitor,
             MercuryGuardianAdapter,
             TimingStats,
+            create_ama_cryptography_adapter,
             create_mercury_guardian_adapter,
         )
 
@@ -478,21 +484,10 @@ class TestModuleImports:
                 CryptoAnomaly,
                 CryptoAnomalyType,
                 TimingStats,
+                create_ama_cryptography_adapter,
                 create_mercury_guardian_adapter,
             ]
         )
-        # Verify backward compat aliases
-        assert isinstance(AMA_CRYPTOGRAPHY_AVAILABLE, bool)
-        assert isinstance(AVA_GUARDIAN_AVAILABLE, bool)
-        assert AMA_CRYPTOGRAPHY_AVAILABLE == AVA_GUARDIAN_AVAILABLE
-
-    def test_mercury_guardian_resolves_to_mercury_amacrypto(self):
-        """Test that mercury_guardian shim exports the same objects as mercury_amacrypto."""
-        from omni_mercury_engine.integrations import mercury_amacrypto, mercury_guardian
-
-        assert mercury_guardian.MercuryGuardianAdapter is mercury_amacrypto.MercuryGuardianAdapter
-        assert mercury_guardian.EWMATimingMonitor is mercury_amacrypto.EWMATimingMonitor
-        assert mercury_guardian.CryptoAnomaly is mercury_amacrypto.CryptoAnomaly
 
 
 # =============================================================================
@@ -506,13 +501,13 @@ class TestGracefulFallback:
     @pytest.fixture
     def adapter(self):
         """Create MercuryGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
+        from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
         return MercuryGuardianAdapter()
 
     def test_dilithium_keygen_fallback(self, adapter):
         """Test Dilithium keygen returns None when unavailable."""
-        from omni_mercury_engine.integrations.mercury_guardian import DILITHIUM_AVAILABLE
+        from omni_mercury_engine.integrations.mercury_amacrypto import DILITHIUM_AVAILABLE
 
         result = adapter.generate_dilithium_keypair()
         if not DILITHIUM_AVAILABLE:
@@ -522,7 +517,7 @@ class TestGracefulFallback:
 
     def test_kyber_keygen_fallback(self, adapter):
         """Test Kyber keygen returns None when unavailable."""
-        from omni_mercury_engine.integrations.mercury_guardian import KYBER_AVAILABLE
+        from omni_mercury_engine.integrations.mercury_amacrypto import KYBER_AVAILABLE
 
         result = adapter.generate_kyber_keypair()
         if not KYBER_AVAILABLE:
@@ -566,7 +561,7 @@ class TestGOSNNScalars:
     @pytest.fixture
     def adapter(self):
         """Create MercuryGuardianAdapter instance."""
-        from omni_mercury_engine.integrations.mercury_guardian import MercuryGuardianAdapter
+        from omni_mercury_engine.integrations.mercury_amacrypto import MercuryGuardianAdapter
 
         return MercuryGuardianAdapter()
 

@@ -136,9 +136,9 @@ fairness = [
     "fairlearn>=0.9.0",
 ]
 
-# Post-Quantum Cryptography - Primary backend (Ava Guardian)
+# Post-Quantum Cryptography - Primary backend (AMA Cryptography)
 pqc = [
-    "ava-guardian>=0.1.0",  # Primary: Steel Security PQC framework
+    "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git",  # Primary: Steel Security PQC framework
 ]
 
 # Post-Quantum Cryptography - Fallback backends
@@ -403,7 +403,10 @@ module = [
     "face_recognition.*",
     "facenet_pytorch",
     "facenet_pytorch.*",
-    # Ava-Guardian integration
+    # AMA Cryptography integration (PQC primary backend)
+    "ama_cryptography",
+    "ama_cryptography.*",
+    # Ava-Guardian integration (backward compat shim)
     "ava_guardian",
     "ava_guardian.*",
     # Async database drivers

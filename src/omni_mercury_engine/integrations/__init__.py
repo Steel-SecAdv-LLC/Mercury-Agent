@@ -13,13 +13,14 @@ This package provides:
 - HTTP client with circuit breaker and retry logic
 - External service stubs for testing and development
 - Request routing and fallback handling
-- Ava-Guardian post-quantum cryptography adapter
+- AMA Cryptography post-quantum cryptography adapter
 """
 
 from __future__ import annotations
 
 from omni_mercury_engine.integrations.http.client import HTTPClient, HTTPClientConfig, HTTPResponse
-from omni_mercury_engine.integrations.mercury_guardian import (
+from omni_mercury_engine.integrations.mercury_amacrypto import (
+    AMA_CRYPTOGRAPHY_AVAILABLE,
     AVA_GUARDIAN_AVAILABLE,
     DILITHIUM_AVAILABLE,
     KYBER_AVAILABLE,
@@ -37,6 +38,7 @@ from omni_mercury_engine.integrations.routing.fallback import (
 from omni_mercury_engine.integrations.routing.router import RequestRouter, Route, RouteMatch
 
 __all__ = [
+    "AMA_CRYPTOGRAPHY_AVAILABLE",
     "AVA_GUARDIAN_AVAILABLE",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",

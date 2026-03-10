@@ -90,7 +90,8 @@ HAS_AIOKAFKA: bool = find_spec("aiokafka") is not None
 # ---------------------------------------------------------------------------
 # Post-Quantum Cryptography
 # ---------------------------------------------------------------------------
-HAS_AVA_GUARDIAN: bool = find_spec("ava_guardian") is not None
+HAS_AMA_CRYPTOGRAPHY: bool = find_spec("ama_cryptography") is not None
+HAS_AVA_GUARDIAN: bool = HAS_AMA_CRYPTOGRAPHY or find_spec("ava_guardian") is not None
 HAS_LIBOQS: bool = find_spec("oqs") is not None
 
 # ---------------------------------------------------------------------------
