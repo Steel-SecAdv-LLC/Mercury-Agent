@@ -27,7 +27,7 @@ jobs:
 
     - name: Install security tools
       run: |
-        pip install --upgrade pip
+        pip install --upgrade "pip>=26.0"
         pip install safety bandit pip-audit
 
     - name: Run Safety check
@@ -111,6 +111,8 @@ jobs:
         ignore-unfixed: true
         # Skip duplicate detection across layers
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
+        # Honor documented risk acceptances in .trivyignore
+        trivyignores: .trivyignore
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v4
@@ -127,6 +129,7 @@ jobs:
         severity: 'CRITICAL,HIGH'
         vuln-type: 'os,library'
         ignore-unfixed: true
+        trivyignores: .trivyignore
         exit-code: '1'
       continue-on-error: true
 
@@ -144,6 +147,10 @@ jobs:
         format: 'sarif'
         output: 'trivy-fs-results.sarif'
         severity: 'CRITICAL,HIGH,MEDIUM'
+        # Ignore unfixed vulnerabilities for consistency with container scan
+        ignore-unfixed: true
+        # Honor documented risk acceptances in .trivyignore
+        trivyignores: .trivyignore
         # Skip test files and documentation
         skip-dirs: 'tests,docs,benchmarks'
 
