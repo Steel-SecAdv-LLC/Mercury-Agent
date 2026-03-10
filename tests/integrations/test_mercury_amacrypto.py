@@ -90,11 +90,14 @@ class TestMercuryGuardianAdapter:
         """Test PQC status retrieval."""
         status = adapter.get_pqc_status()
         assert "ama_cryptography_available" in status
+        assert "mercury_guardian_available" in status  # backward compat alias
         assert "dilithium_available" in status
         assert "kyber_available" in status
         assert "timing_monitor_enabled" in status
         assert "gosnn_synapse_enabled" in status
         assert "anomaly_count" in status
+        # Verify ama_cryptography_available and mercury_guardian_available are consistent
+        assert status["ama_cryptography_available"] == status["mercury_guardian_available"]
 
     def test_get_anomaly_summary_empty(self, adapter):
         """Test anomaly summary with no anomalies."""

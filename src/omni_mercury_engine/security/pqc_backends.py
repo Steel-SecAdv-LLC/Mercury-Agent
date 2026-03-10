@@ -150,10 +150,18 @@ if not AMA_CRYPTOGRAPHY_AVAILABLE and not LIBOQS_AVAILABLE:
 
 
 class PQCBackend(Enum):
-    """Available PQC backend implementations."""
+    """Available PQC backend implementations.
+
+    Note: ``AVA_GUARDIAN`` is a backward-compatibility alias for ``AMA_CRYPTOGRAPHY``.
+    Both resolve to the same enum member (``PQCBackend.AMA_CRYPTOGRAPHY``) and share
+    the value ``"ama-cryptography"``.  Code that previously checked
+    ``backend.value == "ava-guardian"`` should be updated to use enum identity checks
+    (``backend == PQCBackend.AMA_CRYPTOGRAPHY`` or ``backend == PQCBackend.AVA_GUARDIAN``)
+    because the string value changed when Ava-Guardian was renamed to AMA Cryptography.
+    """
 
     AMA_CRYPTOGRAPHY = "ama-cryptography"
-    AVA_GUARDIAN = "ama-cryptography"  # backward compat alias
+    AVA_GUARDIAN = "ama-cryptography"  # backward compat alias — same member as AMA_CRYPTOGRAPHY
     LIBOQS = "liboqs"
     PQCRYPTO = "pqcrypto"
     SIMULATION = "simulation"

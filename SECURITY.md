@@ -74,7 +74,7 @@ Mercury Agent uses NIST-approved post-quantum cryptographic algorithms (ML-DSA-6
 
 | Backend | Status | Recommendation |
 |---------|--------|----------------|
-| Ava Guardian | Community-tested, NOT externally audited | Development/Testing (Primary) |
+| AMA Cryptography | Community-tested, NOT externally audited | Development/Testing (Primary) |
 | liboqs-python | Research-grade, constant-time implementations | Development/Testing (Secondary) |
 | pqcrypto | Experimental, may have timing variations | Development only (Tertiary) |
 | SIMULATION | NOT SECURE - no real cryptography | BLOCKED in production |
@@ -89,18 +89,18 @@ Mercury Agent uses NIST-approved post-quantum cryptographic algorithms (ML-DSA-6
    - Document risk acceptance for unaudited cryptographic code
 
 3. **Backend Priority Chain**: Mercury Agent automatically selects the best available backend:
-   - **Primary**: Ava Guardian (`pip install ava-guardian`)
+   - **Primary**: AMA Cryptography (`pip install ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git`)
    - **Secondary**: liboqs-python (`pip install liboqs-python`)
    - **Tertiary**: pqcrypto (`pip install pqcrypto`)
    - **Blocked**: SIMULATION mode is blocked in production environments
 
-4. **Fail-Fast Philosophy**: Mercury Agent refuses to run with simulated cryptography in production. Set `AVA_REQUIRE_REAL_PQC=true` or `AVA_REQUIRE_CONSTANT_TIME=true` to enforce real PQC backends.
+4. **Fail-Fast Philosophy**: Mercury Agent refuses to run with simulated cryptography in production. Set `AMA_REQUIRE_REAL_PQC=true` or `AMA_REQUIRE_CONSTANT_TIME=true` to enforce real PQC backends.
 
-5. **Constant-Time Requirement**: For timing-attack resistance, set `AVA_REQUIRE_CONSTANT_TIME=true` to require Ava Guardian or liboqs-python (both provide constant-time implementations).
+5. **Constant-Time Requirement**: For timing-attack resistance, set `AMA_REQUIRE_CONSTANT_TIME=true` to require AMA Cryptography or liboqs-python (both provide constant-time implementations).
 
 **References:**
 - [NIST PQC Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography)
-- [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian)
+- [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
 - [liboqs / Open Quantum Safe](https://openquantumsafe.org/)
 - [Dilithium (CRYSTALS)](https://pq-crystals.org/dilithium/)
 - [Kyber (CRYSTALS)](https://pq-crystals.org/kyber/)

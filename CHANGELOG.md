@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### AMA Cryptography Migration
+
+- **AMA Cryptography Integration**: Migrated primary PQC backend from `ava-guardian` to
+  `ama-cryptography`. The new `mercury_amacrypto.py` module is the canonical integration
+  adapter, with `mercury_guardian.py` kept as a backward-compatibility re-export shim.
+- **New `AMA_CRYPTOGRAPHY_AVAILABLE` flag**: Primary availability flag in
+  `pqc_backends.py`, `pqc_guards.py`, `_compat.py`, and the integration adapter.
+  `AVA_GUARDIAN_AVAILABLE` and `HAS_AVA_GUARDIAN` kept as aliases.
+- **Updated GOSNN component name**: `ava_guardian_crypto` → `ama_cryptography_pqc` in
+  the GOSNN synapse registration.
+- **New `create_ama_cryptography_adapter()` factory**: Canonical factory function;
+  `create_mercury_guardian_adapter()` kept as alias.
+- **Env var updates**: `AMA_REQUIRE_REAL_PQC` and `AMA_REQUIRE_CONSTANT_TIME` are now
+  the primary env vars; legacy `AVA_REQUIRE_*` names still accepted.
+- **PQC Production Check CI**: Updated workflow triggers to also watch
+  `mercury_amacrypto.py` and uses the new `AMA_CRYPTOGRAPHY_AVAILABLE` check.
+
 ### Added (Anomaly Math Arrest — 21-Probe Ensemble)
 
 - **Anomaly Math Arrest**: 21-probe mathematically-independent equation ensemble
@@ -396,7 +413,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   factory functions and registry integration for all new detector types
 - **Comprehensive Strict Type Checking**: MyPy strict mode enabled across entire codebase,
   resolved 274+ strict-mode errors and removed all `ignore_errors` exclusions
-- **SHA3-256 Cryptographic Alignment**: Aligned cryptographic posture with Ava-Guardian,
+- **SHA3-256 Cryptographic Alignment**: Aligned cryptographic posture with AMA Cryptography,
   upgraded hash functions to SHA3-256 for tamper-evident audit trails
 - **CI/CD Pipeline Compliance**: Resolved all blocking lint (Flake8), type (MyPy),
   security (Bandit), and test (pytest) failures across 408 files
