@@ -107,7 +107,9 @@ elif importlib.util.find_spec("ava_guardian") is not None:
         DILITHIUM_AVAILABLE = True
         KYBER_AVAILABLE = True
         SPHINCS_AVAILABLE = True
-        logger.info("AMA Cryptography PQC backend loaded via ava-guardian compatibility shim (PRIMARY)")
+        logger.info(
+            "AMA Cryptography PQC backend loaded via ava-guardian compatibility shim (PRIMARY)"
+        )
     except ImportError:
         logger.debug("ava_guardian package found but crypto module not available")
 else:

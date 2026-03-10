@@ -118,6 +118,7 @@ except ImportError:
             ciphertext: bytes = b""
             shared_secret: bytes = b""
 
+
 # Backward compatibility alias
 AVA_GUARDIAN_AVAILABLE = AMA_CRYPTOGRAPHY_AVAILABLE
 
@@ -752,7 +753,9 @@ class MercuryGuardianAdapter:
         """
         scalars: dict[str, float] = {
             "omni_ama_cryptography_available": 1.0 if AMA_CRYPTOGRAPHY_AVAILABLE else 0.0,
-            "omni_mercury_guardian_available": 1.0 if AMA_CRYPTOGRAPHY_AVAILABLE else 0.0,  # backward compat alias
+            "omni_mercury_guardian_available": (
+                1.0 if AMA_CRYPTOGRAPHY_AVAILABLE else 0.0
+            ),  # backward compat alias
             "omni_dilithium_available": 1.0 if DILITHIUM_AVAILABLE else 0.0,
             "omni_kyber_available": 1.0 if KYBER_AVAILABLE else 0.0,
             "omni_crypto_anomaly_count": float(len(self.anomaly_history)),

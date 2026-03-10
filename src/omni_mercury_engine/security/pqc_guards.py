@@ -96,7 +96,9 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
         logger.warning("No real PQC backend available - SIMULATION mode (NOT SECURE)")
 
     # Enforce production requirement if set (support both env var names for compat)
-    require_real = os.environ.get("AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC", "")).lower() in (
+    require_real = os.environ.get(
+        "AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC", "")
+    ).lower() in (
         "true",
         "1",
         "yes",
