@@ -58,7 +58,7 @@ import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, NoReturn
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +92,41 @@ try:
     SPHINCS_AVAILABLE = _AMA_SPHINCS
     logger.info("AMA Cryptography v2.0 PQC backend loaded (sole backend)")
 except ImportError:
-    raise ImportError(
-        "AMA Cryptography is required but not installed.\n"
-        "Install with: pip install ama-cryptography\n"
-        "Mercury Agent no longer supports fallback PQC backends."
+    logger.warning(
+        "AMA Cryptography is not installed. Post-quantum cryptography features "
+        "will be unavailable. Install with: pip install ama-cryptography"
     )
+
+    # Stub functions that raise RuntimeError when called.
+    # Use NoReturn so mypy does not complain about signature mismatches
+    # between the try- and except-branches.
+    def _ama_generate_dilithium_keypair() -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_dilithium_sign(message: bytes, secret_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_generate_kyber_keypair() -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_kyber_encapsulate(public_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_generate_sphincs_keypair() -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_sphincs_sign(message: bytes, secret_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
 
 # Backward compatibility alias
 AVA_GUARDIAN_AVAILABLE = AMA_CRYPTOGRAPHY_AVAILABLE
@@ -393,11 +423,11 @@ def validate_pqc_environment() -> dict[str, Any]:
         )
     if not KYBER_AVAILABLE:
         warnings.append(
-            "Kyber-1024 not available. " "Build AMA native C library for key encapsulation."
+            "Kyber-1024 not available. Build AMA native C library for key encapsulation."
         )
     if not SPHINCS_AVAILABLE:
         warnings.append(
-            "SPHINCS+ not available. " "Build AMA native C library for hash-based signatures."
+            "SPHINCS+ not available. Build AMA native C library for hash-based signatures."
         )
 
     is_production_ready = len(issues) == 0 and DILITHIUM_AVAILABLE

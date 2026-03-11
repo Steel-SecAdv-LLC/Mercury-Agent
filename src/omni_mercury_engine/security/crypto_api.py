@@ -51,15 +51,35 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from ama_cryptography.crypto_api import (
-    AESGCMProvider,
-    AlgorithmType as AmaAlgorithmType,
-    AmaCryptography,
-    CryptoPackageConfig as AmaCryptoPackageConfig,
-    CryptoPackageResult as AmaCryptoPackageResult,
-    create_crypto_package as ama_create_crypto_package,
-    get_pqc_capabilities as ama_get_pqc_capabilities,
-)
+AMA_CRYPTO_API_AVAILABLE = False
+AESGCMProvider: Any = None
+AmaAlgorithmType: Any = None
+AmaCryptography: Any = None
+AmaCryptoPackageConfig: Any = None
+AmaCryptoPackageResult: Any = None
+ama_create_crypto_package: Any = None
+ama_get_pqc_capabilities: Any = None
+
+try:
+    from ama_cryptography.crypto_api import (
+        AESGCMProvider,
+        AlgorithmType as AmaAlgorithmType,
+        AmaCryptography,
+        CryptoPackageConfig as AmaCryptoPackageConfig,
+        CryptoPackageResult as AmaCryptoPackageResult,
+        create_crypto_package as ama_create_crypto_package,
+        get_pqc_capabilities as ama_get_pqc_capabilities,
+    )
+
+    AMA_CRYPTO_API_AVAILABLE = True
+except ImportError:
+    import warnings
+
+    warnings.warn(
+        "ama_cryptography.crypto_api not available. "
+        "Install ama-cryptography[pqc] for full cryptographic support.",
+        stacklevel=2,
+    )
 
 from omni_mercury_engine.security.pqc_backends import (
     dilithium_sign,
@@ -375,11 +395,14 @@ class HybridSignatureProvider:
 # ---------------------------------------------------------------------------
 
 # Map Mercury SecurityLevel → AMA AlgorithmType
-_SECURITY_LEVEL_TO_AMA = {
-    SecurityLevel.CLASSICAL: AmaAlgorithmType.ED25519,
-    SecurityLevel.POST_QUANTUM: AmaAlgorithmType.ML_DSA_65,
-    SecurityLevel.HYBRID: AmaAlgorithmType.HYBRID_SIG,
-}
+if AMA_CRYPTO_API_AVAILABLE and AmaAlgorithmType is not None:
+    _SECURITY_LEVEL_TO_AMA = {
+        SecurityLevel.CLASSICAL: AmaAlgorithmType.ED25519,
+        SecurityLevel.POST_QUANTUM: AmaAlgorithmType.ML_DSA_65,
+        SecurityLevel.HYBRID: AmaAlgorithmType.HYBRID_SIG,
+    }
+else:
+    _SECURITY_LEVEL_TO_AMA: dict[SecurityLevel, Any] = {}  # type: ignore[no-redef]
 
 
 class MercuryCrypto:
@@ -409,18 +432,22 @@ class MercuryCrypto:
         self.backend = backend
 
         # AMA Cryptography instance — the real implementation.
-        # May fail if the native C library is not built; degrade gracefully
-        # so classical Ed25519 (via cryptography package) still works.
-        ama_algo = _SECURITY_LEVEL_TO_AMA.get(security_level, AmaAlgorithmType.ML_DSA_65)
-        try:
-            self._ama = AmaCryptography(algorithm=ama_algo)
-        except RuntimeError:
-            self._ama = None
-            logger.warning(
-                "AmaCryptography(%s) unavailable (native C library not built). "
-                "Classical Ed25519 via Mercury's own provider remains available.",
-                ama_algo,
-            )
+        # May fail if the native C library is not built or ama_cryptography
+        # is not installed; degrade gracefully so classical Ed25519 (via
+        # cryptography package) and simulation PQC still work.
+        self._ama = None
+        if AMA_CRYPTO_API_AVAILABLE and AmaCryptography is not None:
+            ama_algo = _SECURITY_LEVEL_TO_AMA.get(security_level)
+            try:
+                self._ama = AmaCryptography(algorithm=ama_algo)
+            except (RuntimeError, TypeError):
+                logger.warning(
+                    "AmaCryptography(%s) unavailable (native C library not built). "
+                    "Classical Ed25519 via Mercury's own provider remains available.",
+                    ama_algo,
+                )
+        else:
+            logger.info("ama_cryptography not installed; running with Mercury-native crypto only.")
 
         # Mercury provider wrappers for backward compatibility
         self.mldsa_provider = MLDSAProvider()
@@ -539,6 +566,8 @@ class MercuryCrypto:
             Dict with 'ciphertext', 'nonce', 'tag', 'aad' keys
         """
         try:
+            if AESGCMProvider is None:
+                raise RuntimeError("AESGCMProvider not available")
             provider = AESGCMProvider()
             result: dict[str, Any] = provider.encrypt(plaintext, key, nonce=nonce, aad=aad)
             return result
@@ -578,6 +607,8 @@ class MercuryCrypto:
             Decrypted plaintext
         """
         try:
+            if AESGCMProvider is None:
+                raise RuntimeError("AESGCMProvider not available")
             provider = AESGCMProvider()
             decrypted: bytes = provider.decrypt(ciphertext, key, nonce, tag, aad=aad)
             return decrypted
@@ -611,7 +642,7 @@ class MercuryCrypto:
         data_bytes = json.dumps(data, sort_keys=True, default=str).encode()
 
         # 6-layer package via AMA
-        if config.use_six_layer:
+        if config.use_six_layer and AMA_CRYPTO_API_AVAILABLE and AmaCryptoPackageConfig is not None:
             ama_config = AmaCryptoPackageConfig(
                 signature_algorithm=AmaAlgorithmType.HYBRID_SIG,
             )
@@ -661,7 +692,7 @@ class MercuryCrypto:
     def get_capabilities(self) -> dict[str, Any]:
         """Get current cryptographic capabilities."""
         pqc_caps = get_pqc_capabilities()
-        ama_caps = ama_get_pqc_capabilities()
+        ama_caps = ama_get_pqc_capabilities() if ama_get_pqc_capabilities is not None else {}
         return {
             "security_level": self.security_level.value,
             "backend": self.backend.value,

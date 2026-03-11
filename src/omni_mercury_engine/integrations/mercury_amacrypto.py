@@ -53,13 +53,74 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-from ama_cryptography.adaptive_posture import (
-    CryptoPostureController,
-    PostureAction,
-    PostureEvaluation,
-    PostureEvaluator,
-    ThreatLevel,
-)
+
+_AMA_POSTURE_AVAILABLE = False
+try:
+    from ama_cryptography.adaptive_posture import (
+        CryptoPostureController,
+        PostureAction,
+        PostureEvaluation,
+        PostureEvaluator,
+        ThreatLevel,
+    )
+
+    _AMA_POSTURE_AVAILABLE = True
+except ImportError:
+    import warnings
+
+    warnings.warn(
+        "ama_cryptography.adaptive_posture not available. "
+        "Adaptive posture features will use stubs.",
+        stacklevel=2,
+    )
+
+    # Stub implementations for when ama_cryptography is not installed
+    from enum import Enum as _Enum
+
+    class ThreatLevel(_Enum):  # type: ignore[no-redef]
+        """Stub ThreatLevel enum."""
+
+        NOMINAL = "nominal"
+        LOW = "low"
+        MEDIUM = "medium"
+        HIGH = "high"
+        CRITICAL = "critical"
+
+    class PostureAction(_Enum):  # type: ignore[no-redef]
+        """Stub PostureAction enum."""
+
+        NONE = "none"
+        ROTATE_KEYS = "rotate_keys"
+        SWITCH_ALGORITHM = "switch_algorithm"
+        ALERT = "alert"
+
+    @dataclass
+    class PostureEvaluation:  # type: ignore[no-redef]
+        """Stub PostureEvaluation."""
+
+        threat_level: ThreatLevel = ThreatLevel.NOMINAL
+        action: PostureAction = PostureAction.NONE
+        confidence: float = 0.0
+        signals: dict[str, Any] = field(default_factory=dict)
+        details: dict[str, Any] = field(default_factory=dict)
+
+    class PostureEvaluator:  # type: ignore[no-redef]
+        """Stub PostureEvaluator."""
+
+        def evaluate(self, report: dict[str, Any]) -> PostureEvaluation:
+            return PostureEvaluation(
+                threat_level=ThreatLevel.NOMINAL,
+                action=PostureAction.NONE,
+                confidence=0.0,
+                signals={},
+            )
+
+    class CryptoPostureController:  # type: ignore[no-redef]
+        """Stub CryptoPostureController."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
 
 logger = logging.getLogger(__name__)
 
