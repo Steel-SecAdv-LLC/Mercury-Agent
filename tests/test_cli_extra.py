@@ -43,9 +43,7 @@ def test_security_command_help():
 def test_security_command_with_sql_payload():
     """Test security command with SQL injection payload."""
     runner = CliRunner()
-    result = runner.invoke(
-        main, ["security", "--payload", "SELECT * FROM users WHERE id = 1"]
-    )
+    result = runner.invoke(main, ["security", "--payload", "SELECT * FROM users WHERE id = 1"])
     assert result.exit_code == 0 or "error" in result.output.lower()
 
 
@@ -58,9 +56,7 @@ def test_detect_with_json_input():
         data_file = f.name
 
     try:
-        result = runner.invoke(
-            main, ["detect", "--input", data_file, "--detector", "temporal"]
-        )
+        result = runner.invoke(main, ["detect", "--input", data_file, "--detector", "temporal"])
         assert result.exit_code == 0 or "error" in result.output.lower()
     finally:
         Path(data_file).unlink()
@@ -140,9 +136,7 @@ def test_detect_with_fusion_detector():
         temp_file = f.name
 
     try:
-        result = runner.invoke(
-            main, ["detect", "--input", temp_file, "--detector", "fusion"]
-        )
+        result = runner.invoke(main, ["detect", "--input", temp_file, "--detector", "fusion"])
         assert result.exit_code == 0 or "error" in result.output.lower()
     finally:
         Path(temp_file).unlink()

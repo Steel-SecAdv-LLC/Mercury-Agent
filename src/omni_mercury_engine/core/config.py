@@ -768,7 +768,9 @@ def validate_env() -> dict[str, Any]:
     # ── TLS (Production) ──────────────────────────────────────────────
     if is_production:
         if os.environ.get("OMNI_TLS_ENABLED", "").lower() not in ("true", "1", "yes"):
-            warnings.append("TLS is not enabled. Production deployments should enable OMNI_TLS_ENABLED")
+            warnings.append(
+                "TLS is not enabled. Production deployments should enable OMNI_TLS_ENABLED"
+            )
 
     # ── Summary ───────────────────────────────────────────────────────
     if errors:
@@ -787,8 +789,6 @@ def validate_env() -> dict[str, Any]:
         logger.info("Environment validation passed")
 
     if is_production and errors:
-        raise ValueError(
-            "Environment validation failed for production: " + "; ".join(errors)
-        )
+        raise ValueError("Environment validation failed for production: " + "; ".join(errors))
 
     return results

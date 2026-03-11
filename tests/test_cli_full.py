@@ -32,7 +32,6 @@ from click.testing import CliRunner
 
 from omni_mercury_engine.cli import main
 
-
 # ---------------------------------------------------------------------------
 # detect command tests
 # ---------------------------------------------------------------------------
@@ -79,9 +78,7 @@ def test_detect_with_threshold():
         temp_file = f.name
 
     try:
-        result = runner.invoke(
-            main, ["detect", "--input", temp_file, "--threshold", "0.8"]
-        )
+        result = runner.invoke(main, ["detect", "--input", temp_file, "--threshold", "0.8"])
         assert result.exit_code == 0 or "Error" in result.output
     finally:
         Path(temp_file).unlink()
@@ -99,9 +96,7 @@ def test_detect_with_output_file():
         output_file = out.name
 
     try:
-        result = runner.invoke(
-            main, ["detect", "--input", data_file, "--output", output_file]
-        )
+        result = runner.invoke(main, ["detect", "--input", data_file, "--output", output_file])
         assert result.exit_code == 0 or "Error" in result.output
     finally:
         Path(data_file).unlink()
@@ -118,9 +113,7 @@ def test_detect_with_statistical_detector():
         temp_file = f.name
 
     try:
-        result = runner.invoke(
-            main, ["detect", "--input", temp_file, "--detector", "statistical"]
-        )
+        result = runner.invoke(main, ["detect", "--input", temp_file, "--detector", "statistical"])
         assert result.exit_code == 0 or "Error" in result.output
     finally:
         Path(temp_file).unlink()
@@ -195,18 +188,14 @@ def test_train_with_correct_flags():
 def test_security_command_with_payload():
     """Test security command with --payload flag (correct flag name)."""
     runner = CliRunner()
-    result = runner.invoke(
-        main, ["security", "--payload", "SELECT * FROM users WHERE 1=1"]
-    )
+    result = runner.invoke(main, ["security", "--payload", "SELECT * FROM users WHERE 1=1"])
     assert result.exit_code >= 0 or "Error" in result.output
 
 
 def test_security_command_with_xss_payload():
     """Test security command with XSS payload."""
     runner = CliRunner()
-    result = runner.invoke(
-        main, ["security", "--payload", "<script>alert('xss')</script>"]
-    )
+    result = runner.invoke(main, ["security", "--payload", "<script>alert('xss')</script>"])
     assert result.exit_code >= 0 or "Error" in result.output
 
 
@@ -225,14 +214,8 @@ def test_security_missing_payload():
 def test_biometric_with_reference():
     """Test biometric command with --reference flag."""
     runner = CliRunner()
-    result = runner.invoke(
-        main, ["biometric", "--reference", "/nonexistent/ref.jpg"]
-    )
-    assert (
-        result.exit_code != 0
-        or "Error" in result.output
-        or "error" in result.output.lower()
-    )
+    result = runner.invoke(main, ["biometric", "--reference", "/nonexistent/ref.jpg"])
+    assert result.exit_code != 0 or "Error" in result.output or "error" in result.output.lower()
 
 
 def test_biometric_with_both_flags():
@@ -242,11 +225,7 @@ def test_biometric_with_both_flags():
         main,
         ["biometric", "--reference", "/tmp/ref.jpg", "--test", "/tmp/test.jpg"],
     )
-    assert (
-        result.exit_code != 0
-        or "Error" in result.output
-        or "error" in result.output.lower()
-    )
+    assert result.exit_code != 0 or "Error" in result.output or "error" in result.output.lower()
 
 
 def test_biometric_missing_reference():
@@ -294,9 +273,7 @@ def test_explain_with_model_flag():
         temp_file = f.name
 
     try:
-        result = runner.invoke(
-            main, ["explain", "--input", temp_file, "--model", "statistical"]
-        )
+        result = runner.invoke(main, ["explain", "--input", temp_file, "--model", "statistical"])
         assert result.exit_code == 0 or "Error" in result.output
     finally:
         Path(temp_file).unlink()
@@ -408,8 +385,7 @@ def test_physics_uiux_with_json():
     runner = CliRunner()
 
     interactions = [
-        {"timestamp": i * 0.5, "type": "click", "x": 100 + i, "y": 200 + i}
-        for i in range(10)
+        {"timestamp": i * 0.5, "type": "click", "x": 100 + i, "y": 200 + i} for i in range(10)
     ]
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:

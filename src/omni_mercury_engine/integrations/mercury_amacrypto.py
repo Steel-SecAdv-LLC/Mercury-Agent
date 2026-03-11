@@ -715,7 +715,11 @@ class MercuryGuardianAdapter:
                 severity=0.8,
                 timestamp=time.time(),
                 operation="dilithium_keygen",
-                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
+                details={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "duration_ms": duration_ms,
+                },
                 omni_scalars={
                     "omni_crypto_keygen_failure": 1.0,
                     "omni_crypto_dilithium_error": 1.0,
@@ -756,7 +760,11 @@ class MercuryGuardianAdapter:
                 severity=0.9,
                 timestamp=time.time(),
                 operation="dilithium_sign",
-                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
+                details={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "duration_ms": duration_ms,
+                },
                 omni_scalars={
                     "omni_crypto_sign_failure": 1.0,
                     "omni_crypto_dilithium_error": 1.0,
@@ -813,7 +821,11 @@ class MercuryGuardianAdapter:
                 severity=0.9,
                 timestamp=time.time(),
                 operation="dilithium_verify",
-                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
+                details={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "duration_ms": duration_ms,
+                },
                 omni_scalars={
                     "omni_crypto_verify_failure": 1.0,
                     "omni_crypto_dilithium_error": 1.0,
@@ -849,7 +861,11 @@ class MercuryGuardianAdapter:
                 severity=0.8,
                 timestamp=time.time(),
                 operation="kyber_keygen",
-                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
+                details={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "duration_ms": duration_ms,
+                },
                 omni_scalars={
                     "omni_crypto_keygen_failure": 1.0,
                     "omni_crypto_kyber_error": 1.0,
@@ -890,7 +906,11 @@ class MercuryGuardianAdapter:
                 severity=0.8,
                 timestamp=time.time(),
                 operation="kyber_encapsulate",
-                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
+                details={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "duration_ms": duration_ms,
+                },
                 omni_scalars={
                     "omni_crypto_encapsulate_failure": 1.0,
                     "omni_crypto_kyber_error": 1.0,
@@ -931,7 +951,11 @@ class MercuryGuardianAdapter:
                 severity=0.9,
                 timestamp=time.time(),
                 operation="kyber_decapsulate",
-                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
+                details={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "duration_ms": duration_ms,
+                },
                 omni_scalars={
                     "omni_crypto_decapsulate_failure": 1.0,
                     "omni_crypto_kyber_error": 1.0,
