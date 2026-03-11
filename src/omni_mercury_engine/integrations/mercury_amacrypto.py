@@ -121,6 +121,14 @@ except ImportError:
         def __init__(self, **kwargs: Any) -> None:
             pass
 
+        def get_posture_summary(self) -> dict[str, Any]:
+            """Return a stub posture summary."""
+            return {
+                "status": "stub",
+                "threat_level": "nominal",
+                "action": "none",
+            }
+
 
 logger = logging.getLogger(__name__)
 
@@ -177,8 +185,8 @@ except ImportError:
         class DilithiumKeyPair:  # type: ignore[no-redef]
             """Stub for DilithiumKeyPair when AMA Cryptography not available."""
 
-            private_key: bytes = field(default=b"", repr=False)
             public_key: bytes = b""
+            secret_key: bytes = field(default=b"", repr=False)
 
         @dataclass
         class KyberKeyPair:  # type: ignore[no-redef]
@@ -232,6 +240,14 @@ class TimingStats:
     mad: float = 0.0
     sample_count: int = 0
     alpha: float = 0.1
+
+
+@dataclass
+class _TimingAnomaly:
+    """Timing anomaly data for security reports."""
+
+    severity: str
+    deviation_sigma: float
 
 
 class EWMATimingMonitor:
@@ -327,11 +343,6 @@ class EWMATimingMonitor:
                 if deviation > self.mad_threshold:
                     severity = "critical" if deviation > self.mad_threshold * 2 else "warning"
                     total_alerts += 1
-
-                    @dataclass
-                    class _TimingAnomaly:
-                        severity: str
-                        deviation_sigma: float
 
                     recent_alerts.append(
                         {
@@ -485,9 +496,22 @@ class MercuryGuardianAdapter:
             self._last_posture_evaluation = evaluation
 
             # Register posture decisions back into GOSNN as SECURITY scalars
+            threat_level_map = {
+                ThreatLevel.NOMINAL: 0.0,
+                ThreatLevel.LOW: 0.25,
+                ThreatLevel.MEDIUM: 0.5,
+                ThreatLevel.HIGH: 0.75,
+                ThreatLevel.CRITICAL: 1.0,
+            }
+            action_map = {
+                PostureAction.NONE: 0.0,
+                PostureAction.ROTATE_KEYS: 1.0,
+                PostureAction.SWITCH_ALGORITHM: 2.0,
+                PostureAction.ALERT: 3.0,
+            }
             posture_scalars: dict[str, float] = {
-                "omni_posture_threat_level": float(evaluation.threat_level.value),
-                "omni_posture_action": float(evaluation.action.value),
+                "omni_posture_threat_level": threat_level_map.get(evaluation.threat_level, 0.0),
+                "omni_posture_action": action_map.get(evaluation.action, 0.0),
                 "omni_posture_confidence": evaluation.confidence,
                 "omni_posture_effective_score": evaluation.signals.get("effective_score", 0.0),
                 "omni_posture_timing_score": evaluation.signals.get("timing_score", 0.0),
@@ -676,7 +700,7 @@ class MercuryGuardianAdapter:
             if self._dilithium_keypair is None:
                 logger.warning("No Dilithium keypair available")
                 return None
-            private_key = self._dilithium_keypair.private_key
+            private_key = self._dilithium_keypair.secret_key
 
         start_time = time.perf_counter()
         try:
@@ -992,8 +1016,15 @@ class MercuryGuardianAdapter:
 
         # Include posture state
         if self._last_posture_evaluation is not None:
-            scalars["omni_posture_threat_level"] = float(
-                self._last_posture_evaluation.threat_level.value
+            threat_level_map = {
+                ThreatLevel.NOMINAL: 0.0,
+                ThreatLevel.LOW: 0.25,
+                ThreatLevel.MEDIUM: 0.5,
+                ThreatLevel.HIGH: 0.75,
+                ThreatLevel.CRITICAL: 1.0,
+            }
+            scalars["omni_posture_threat_level"] = threat_level_map.get(
+                self._last_posture_evaluation.threat_level, 0.0
             )
             scalars["omni_posture_confidence"] = self._last_posture_evaluation.confidence
 

@@ -52,13 +52,6 @@ from enum import Enum
 from typing import Any
 
 AMA_CRYPTO_API_AVAILABLE = False
-AESGCMProvider: Any = None
-AmaAlgorithmType: Any = None
-AmaCryptography: Any = None
-AmaCryptoPackageConfig: Any = None
-AmaCryptoPackageResult: Any = None
-ama_create_crypto_package: Any = None
-ama_get_pqc_capabilities: Any = None
 
 try:
     from ama_cryptography.crypto_api import (
@@ -80,6 +73,14 @@ except ImportError:
         "Install ama-cryptography[pqc] for full cryptographic support.",
         stacklevel=2,
     )
+
+    AESGCMProvider = None
+    AmaAlgorithmType = None
+    AmaCryptography = None
+    AmaCryptoPackageConfig = None
+    AmaCryptoPackageResult = None
+    ama_create_crypto_package = None
+    ama_get_pqc_capabilities = None
 
 from omni_mercury_engine.security.pqc_backends import (
     dilithium_sign,
