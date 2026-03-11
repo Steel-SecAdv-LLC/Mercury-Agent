@@ -968,7 +968,7 @@ This combination of **classical control theory**, **ethical AI principles**, and
 
 ## Omni-Codes: Bio-Inspired Helical Parameters
 
-Mercury Agent integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
+Mercury Agent integrates the **Omni-Codes** from [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography), providing bio-inspired helical parameters for ethical AI alignment and system stability.
 
 ### The Seven Omni-Codes
 

@@ -23,10 +23,10 @@ Post-Quantum Cryptography Production Guards
 
 Ensures simulation mode is never silently used in production contexts.
 Implements fail-fast principles to force installation of real cryptographic
-libraries (ava-guardian, liboqs-python, pqcrypto) for production security.
+libraries (ama-cryptography, liboqs-python, pqcrypto) for production security.
 
 PQC Backend Priority:
-1. Ava Guardian (ava_guardian) - Primary, full-featured
+1. AMA Cryptography (ama_cryptography) - Primary, full-featured
 2. liboqs-python (oqs) - Secondary fallback
 3. pqcrypto - Tertiary fallback
 4. SIMULATION - Fail-fast (blocked in production)
@@ -37,6 +37,7 @@ import os
 import warnings
 
 from omni_mercury_engine.security.pqc_backends import (
+    AMA_CRYPTOGRAPHY_AVAILABLE,
     AVA_GUARDIAN_AVAILABLE,
     LIBOQS_AVAILABLE,
     PQCRYPTO_AVAILABLE,
@@ -58,7 +59,7 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
     Check if real PQC libraries are available.
 
     Uses the backend detection from pqc_backends.py which follows the priority:
-    1. Ava Guardian (primary)
+    1. AMA Cryptography (primary)
     2. liboqs-python (secondary)
     3. pqcrypto (tertiary)
     4. SIMULATION (blocked in production)
@@ -67,25 +68,26 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
         Dictionary with availability status for each algorithm and active backend.
 
     Raises:
-        RuntimeError: If AVA_REQUIRE_REAL_PQC=true and libraries missing.
+        RuntimeError: If AMA_REQUIRE_REAL_PQC=true and libraries missing.
     """
     # Use centralized backend detection from pqc_backends
     backend = get_active_backend()
     has_real_backend = backend != PQCBackend.SIMULATION
 
-    results = {
+    results: dict[str, bool | str] = {
         "dilithium": has_real_backend,
         "kyber": has_real_backend,
-        "sphincs": AVA_GUARDIAN_AVAILABLE or LIBOQS_AVAILABLE,
+        "sphincs": AMA_CRYPTOGRAPHY_AVAILABLE or LIBOQS_AVAILABLE,
         "backend": backend.value,
-        "ava_guardian": AVA_GUARDIAN_AVAILABLE,
+        "ama_cryptography": AMA_CRYPTOGRAPHY_AVAILABLE,
+        "ava_guardian": AVA_GUARDIAN_AVAILABLE,  # backward compat alias
         "liboqs": LIBOQS_AVAILABLE,
         "pqcrypto": PQCRYPTO_AVAILABLE,
     }
 
     # Log backend status
-    if AVA_GUARDIAN_AVAILABLE:
-        logger.info("Ava Guardian PQC backend available (PRIMARY)")
+    if AMA_CRYPTOGRAPHY_AVAILABLE:
+        logger.info("AMA Cryptography PQC backend available (PRIMARY)")
     elif LIBOQS_AVAILABLE:
         logger.info("liboqs-python PQC backend available (SECONDARY)")
     elif PQCRYPTO_AVAILABLE:
@@ -93,8 +95,10 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
     else:
         logger.warning("No real PQC backend available - SIMULATION mode (NOT SECURE)")
 
-    # Enforce production requirement if set
-    require_real = os.environ.get("AVA_REQUIRE_REAL_PQC", "").lower() in (
+    # Enforce production requirement if set (support both env var names for compat)
+    require_real = os.environ.get(
+        "AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC", "")
+    ).lower() in (
         "true",
         "1",
         "yes",
@@ -102,17 +106,17 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
 
     if require_real and not has_real_backend:
         raise RuntimeError(
-            "AVA_REQUIRE_REAL_PQC=true but no real PQC backend available.\n"
+            "AMA_REQUIRE_REAL_PQC=true but no real PQC backend available.\n"
             "Install one of:\n"
-            "  pip install ava-guardian    # Primary (recommended)\n"
-            "  pip install liboqs-python   # Secondary fallback\n"
-            "  pip install pqcrypto        # Tertiary fallback"
+            "  pip install ama-cryptography    # Primary (recommended)\n"
+            "  pip install liboqs-python       # Secondary fallback\n"
+            "  pip install pqcrypto            # Tertiary fallback"
         )
 
     if not has_real_backend:
         warnings.warn(
             "PQC operating in SIMULATION mode. "
-            "Install ava-guardian or liboqs-python for production security.",
+            "Install ama-cryptography or liboqs-python for production security.",
             PQCSimulationWarning,
             stacklevel=2,
         )
@@ -139,8 +143,8 @@ def assert_no_simulation_in_production() -> None:
         raise RuntimeError(
             "PRODUCTION BLOCKED: No real PQC backend available.\n"
             "Install one of:\n"
-            "  pip install ava-guardian    # Primary (recommended)\n"
-            "  pip install liboqs-python   # Secondary fallback\n"
+            "  pip install ama-cryptography    # Primary (recommended)\n"
+            "  pip install liboqs-python       # Secondary fallback\n"
             "\n"
             "Mercury Agent refuses to run with simulated cryptography in production."
         )

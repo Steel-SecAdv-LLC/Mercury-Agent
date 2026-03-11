@@ -4,9 +4,11 @@ on:
   push:
     paths:
       - 'src/omni_mercury_engine/security/**'
+      - 'src/omni_mercury_engine/integrations/mercury_amacrypto.py'
   pull_request:
     paths:
       - 'src/omni_mercury_engine/security/**'
+      - 'src/omni_mercury_engine/integrations/mercury_amacrypto.py'
 
 jobs:
   verify-real-pqc:
@@ -21,7 +23,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade "pip>=26.0"
           pip install -e ".[dev]"
 
       - name: Install liboqs native library
@@ -44,8 +46,8 @@ jobs:
 
       - name: Install PQC backends
         run: |
-          # Try Ava Guardian first (Primary)
-          pip install ava-guardian || echo "Ava Guardian not available"
+          # Try AMA Cryptography first (Primary)
+          pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git" || echo "AMA Cryptography not available"
           # Fallback to liboqs-python (Secondary) - requires native liboqs installed above
           pip install liboqs-python || echo "liboqs-python not available"
 
@@ -65,7 +67,7 @@ jobs:
 
       - name: Run security tests with real PQC requirement
         env:
-          AVA_REQUIRE_REAL_PQC: "true"
+          AMA_REQUIRE_REAL_PQC: "true"
         run: |
           pytest tests/security/ -v --tb=short || echo "Some tests may fail without real PQC libraries"
 
@@ -85,8 +87,8 @@ jobs:
               results = check_pqc_production_readiness()
               print(f'Backend details: {results}')
               
-              if results.get('ava_guardian'):
-                  print('SUCCESS: Using Ava Guardian (PRIMARY) - all PQC algorithms supported')
+              if results.get('ama_cryptography'):
+                  print('SUCCESS: Using AMA Cryptography (PRIMARY) - all PQC algorithms supported')
               elif results.get('liboqs'):
                   print('SUCCESS: Using liboqs-python (SECONDARY) - all PQC algorithms supported')
               elif results.get('pqcrypto'):
@@ -94,7 +96,7 @@ jobs:
               elif backend == PQCBackend.SIMULATION:
                   print('WARNING: Using SIMULATION backend')
                   print('This is acceptable for CI testing but NOT for production deployments')
-                  print('Production deployments MUST install: pip install ava-guardian OR pip install liboqs-python')
+                  print('Production deployments MUST install: pip install ama-cryptography OR pip install liboqs-python')
               else:
                   print('WARNING: No real PQC backend detected')
               

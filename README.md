@@ -17,7 +17,7 @@
 [![Coverage](https://img.shields.io/badge/coverage-85%25%2B-brightgreen.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
-[![Ava-Guardian](https://img.shields.io/badge/Ava--Guardian-PQC%20Adapter-green.svg)](#ava-guardian-integration)
+[![AMA-Cryptography](https://img.shields.io/badge/AMA--Cryptography-PQC%20Adapter-green.svg)](#ama-cryptography-integration)
 
 </div>
 
@@ -1080,7 +1080,7 @@ The test suite includes:
 - `test_resilience_real.py`: 27+ tests for circuit breaker state machine
 - `test_enhanced_geological_detectors.py`: 60+ tests for Landslide/Wildfire/Volcanic with 3R synapses
 - `test_advanced_optimizers.py`: 50+ tests for SyntheticGradient/DTP/AMAV integration
-- `test_ava_guardian.py`: 60+ tests for Ava-Guardian PQC adapter and EWMA timing monitor
+- `test_mercury_amacrypto.py`: 60+ tests for AMA Cryptography PQC adapter and EWMA timing monitor
 
 **Test Suite Stabilization (v1.5.1 Patch):**
 - Fixed 100+ test failures caused by missing FastAPI dependency, uninitialized federation attributes, and unreachable synthetic data thresholds
@@ -1506,9 +1506,9 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregati
 </details>
 
 <details>
-<summary><strong>Ava-Guardian Integration</strong> - Post-Quantum Cryptography Adapter</summary>
+<summary><strong>AMA Cryptography Integration</strong> - Post-Quantum Cryptography Adapter</summary>
 
-The **Ava-Guardian adapter** provides post-quantum cryptographic security with GOSNN synapse integration:
+The **AMA Cryptography adapter** provides post-quantum cryptographic security with GOSNN synapse integration:
 
 **PQC Algorithms:**
 - **Kyber-1024**: Post-quantum key encapsulation (NIST Level 5)
@@ -1523,12 +1523,12 @@ The **Ava-Guardian adapter** provides post-quantum cryptographic security with G
 
 **Integration:**
 ```python
-from omni_mercury_engine.integrations.ava_guardian import create_ava_guardian_adapter
+from omni_mercury_engine.integrations.mercury_amacrypto import create_ama_cryptography_adapter
 
-adapter = create_ava_guardian_adapter(enable_gosnn_synapse=True)
-if adapter.pqc_available:
-    keypair = adapter.dilithium_keypair()
-    signature = adapter.dilithium_sign(message, keypair.secret_key)
+adapter = create_ama_cryptography_adapter(gosnn_synapse_enabled=True)
+if adapter.is_available():
+    keypair = adapter.generate_dilithium_keypair()
+    signature = adapter.sign_dilithium(message)
 ```
 
 </details>
@@ -1536,7 +1536,7 @@ if adapter.pqc_available:
 <details>
 <summary><strong>Omni-Codes</strong> - Bio-Inspired Helical Parameters</summary>
 
-Mercury Agent integrates the **Omni-Codes** from [Ava Guardian](https://github.com/Steel-SecAdv-LLC/Ava-Guardian), providing bio-inspired helical parameters for ethical AI alignment and system stability.
+Mercury Agent integrates the **Omni-Codes** from [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography), providing bio-inspired helical parameters for ethical AI alignment and system stability.
 
 **The Seven Omni-Codes:**
 

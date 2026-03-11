@@ -21,10 +21,11 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Upgrade pip to latest to address CVE-2025-8869 (path traversal in wheel archives).
+# Upgrade pip to latest to address CVE-2025-8869 (symlink extraction in sdist archives)
+# and CVE-2026-1703 (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp).
 # Python 3.12 implements PEP 706, so the vulnerable tar fallback is never used,
-# but we pin to the latest pip as defense-in-depth.
-RUN pip install --no-cache-dir --upgrade "pip>=25.1" "setuptools>=78.1.1" wheel
+# but we pin to >=26.0 as defense-in-depth and to fully resolve both CVEs.
+RUN pip install --no-cache-dir --upgrade "pip>=26.0" "setuptools>=78.1.1" wheel
 
 # Set working directory for build
 WORKDIR /app
@@ -95,6 +96,13 @@ RUN chmod 750 /home/$USERNAME
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
+# Upgrade the base image's system Python pip to fix CVE-2026-1703
+# (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp) and CVE-2025-8869.
+# The builder's venv already has pip>=26.0 via the copy above, but the base
+# python:3.12-slim-bookworm image ships its own pip that Trivy would otherwise detect.
+RUN python -m pip install --upgrade --no-cache-dir "pip>=26.0" "setuptools>=78.1.1" && \
+    pip cache purge
 
 # Copy application code
 WORKDIR /app
