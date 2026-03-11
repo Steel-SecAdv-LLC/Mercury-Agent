@@ -310,12 +310,28 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 
 ---
 
-## 5. Production Readiness Gaps
+## 5. Production Readiness - 75/100
+
+### Production Readiness Scorecard
+
+| Category | Grade | Status |
+|----------|-------|--------|
+| Logging | B+ | PII masking, structured format support; 139 print() in src/ |
+| Configuration | A- | Pydantic validation, env vars, K8s secrets; no secret rotation |
+| Error Handling | A | Specific exceptions, proper propagation; 25+ broad handlers |
+| Performance | B | Load testing infra exists (Locust + k6); no bottleneck testing |
+| Security | A- | Comprehensive scanning, PQC; 12+ Trivy ignores, PQC not audited |
+| Deployment | A | K8s, Helm, Docker multi-stage; no docker-compose, no GitOps |
+| Monitoring | B+ | Prometheus/Grafana/AlertManager; no OpenTelemetry, limited metrics |
+| Documentation | B | Good coverage; missing deployment guide, troubleshooting, runbook |
+| Dependencies | A- | Security scanning; no lock file, loose version pins, git URL dep |
+| Testing | A- | 6,074 tests / 256 files; 10% CI threshold vs 85% target |
 
 ### Print Statements in Production Code
 
-58 `print()` calls across 20 source files including:
+139 `print()` calls in `src/` including:
 - `score_calibration.py` (22 occurrences)
+- `cli.py` (17 occurrences - acceptable for CLI output)
 - `calibration_pipeline.py` (6 occurrences)
 - `three_r_attention.py` (4 occurrences)
 - `cognitive/orchestrator.py` (3 occurrences)
@@ -324,23 +340,41 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 
 - Mix of `print()`, `logging.warning()`, and structured logger usage
 - No consistent log format across modules
-- OpenTelemetry integration silently fails if packages missing
+- OpenTelemetry referenced in `.env.example:125` but not implemented in code
+- 289 source files import logging but no structlog adoption
 
 ### Security Concerns
 
 - AMA Cryptography pinned to git URL without commit hash (`pyproject.toml:141`)
+- PQC backend "community-tested, NOT externally audited" (`SECURITY.md:77`)
 - PyTorch `>=2.2.0` with no upper bound (breaking changes possible)
 - NumPy `>=1.24.0` with no upper bound
-- Bandit security checks partially disabled
+- Bandit security checks partially disabled (B101, B311, B310)
+- 12+ CVEs in `.trivyignore` with quarterly review process
+- No `requirements.lock` for reproducible builds
 
 ### Missing Production Infrastructure
 
-- No health check endpoint validation in tests
-- No load testing or performance benchmarks
+- No `docker-compose.yml` for local development
+- No OpenTelemetry distributed tracing implementation
 - No chaos engineering / fault injection tests
 - No rollback procedures documented
-- No runbook for operational incidents
-- Metrics endpoints exist but alerting rules are not defined
+- No operational runbook for incidents
+- No deployment guide (`docs/DEPLOYMENT.md` missing)
+- No GitOps (Flux/ArgoCD) configuration
+- No secret rotation (External Secrets Operator commented out)
+- No performance regression tests in CI
+- Load tests (Locust/k6) exist but not integrated into CI pipeline
+
+### What IS Production-Ready
+
+- Docker multi-stage builds with security hardening (no root, SUID bits removed)
+- K8s manifests with liveness/readiness probes, PDB, anti-affinity, topology spread
+- Helm chart with 100+ config options and environment overlays
+- FastAPI with PII masking, JWT auth, rate limiting
+- RestrictedUnpickler prevents arbitrary code execution
+- Prometheus rules and AlertManager configuration
+- 3-20 replica HPA with CPU/memory scaling targets
 
 ---
 
@@ -358,19 +392,27 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 
 ### P1 - Should Fix (Operational Risks)
 
-6. **Replace silent exception swallowing** - At minimum log at ERROR level; prefer raising
-7. **Pin AMA Cryptography to commit hash** - Prevent supply chain drift
-8. **Replace `print()` with structured logging** - 58 occurrences in source code
-9. **Enforce coverage threshold** - Close gap between 10% CI and 85% target
-10. **Make sigma_immutable actually immutable** - Use `__setattr__` override or frozen slots
+8. **Replace silent exception swallowing** - 105 bare except handlers across 20 files; at minimum log at ERROR level
+9. **Pin AMA Cryptography to commit hash** - Prevent supply chain drift; currently points to main branch
+10. **Replace `print()` with structured logging** - 139 occurrences in source code
+11. **Enforce coverage threshold** - Close gap between 10% CI and 85% target
+12. **Make sigma_immutable actually immutable** - Use `__setattr__` override or frozen slots
+13. **Generate `requirements.lock`** - No reproducible builds currently possible
+14. **Create `docs/DEPLOYMENT.md`** - Step-by-step production deployment guide missing
+15. **Implement OpenTelemetry** - Referenced in config but not implemented in code
 
 ### P2 - Should Improve (Quality)
 
-11. **Remove dead `_fusion` code** - Dead variable in gosnn_integration.py
-12. **Configure hardcoded GOSNN values** - Move 15+ magic numbers to config
-13. **Enable disabled domain policies** - Financial and humanitarian are off
-14. **Add intersectional fairness metrics** - Current bias audits are single-axis only
-15. **Document mock fallback behavior** - Operators need to know degradation modes
+16. **Remove dead `_fusion` code** - Dead variable in gosnn_integration.py
+17. **Configure hardcoded GOSNN values** - Move 15+ magic numbers to config
+18. **Enable disabled domain policies** - Financial and humanitarian are off
+19. **Add intersectional fairness metrics** - Current bias audits are single-axis only
+20. **Document mock fallback behavior** - Operators need to know degradation modes
+21. **Create `docker-compose.yml`** - Local development requires K8s currently
+22. **Integrate load tests into CI** - Locust/k6 exist but aren't automated
+23. **Add operational runbook** - No incident response procedures documented
+24. **Connect 3R to Resilience module** - Detection and recovery are completely decoupled
+25. **Implement bidirectional GOSNN-3R feedback** - Currently one-way only
 
 ---
 
