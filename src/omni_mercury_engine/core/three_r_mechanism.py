@@ -2336,10 +2336,10 @@ class RefactoringTransformer(ast.NodeTransformer):
         """
         from collections import Counter
 
-        counts: Counter[object] = Counter()
+        counts: Counter[int | float | str] = Counter()
 
         class _ConstCollector(ast.NodeVisitor):
-            def visit_Constant(self, n: ast.Constant) -> None:  # type: ignore[override]
+            def visit_Constant(self, n: ast.Constant) -> None:
                 if isinstance(n.value, (int, float, str)) and not isinstance(n.value, bool):
                     counts[n.value] += 1
                 self.generic_visit(n)
@@ -2347,26 +2347,28 @@ class RefactoringTransformer(ast.NodeTransformer):
         _ConstCollector().visit(node)
 
         # Only hoist values appearing >=2 times and not trivially simple
-        trivial: set[object] = {0, 1, -1, ""}
+        trivial: set[int | float | str] = {0, 1, -1, ""}
         to_hoist = {v for v, c in counts.items() if c >= 2 and v not in trivial}
         if not to_hoist:
             return node
 
         # Build substitution map: value -> variable name
         # Sort by repr() to give deterministic ordering across types
-        sub_map: dict[object, str] = {
+        # Values are always int | float | str (filtered in _ConstCollector)
+        sub_map: dict[int | float | str, str] = {
             val: f"_const_{i}" for i, val in enumerate(sorted(to_hoist, key=repr))
         }
 
         class _ConstReplacer(ast.NodeTransformer):
-            def visit_Constant(self, n: ast.Constant) -> ast.expr:  # type: ignore[override]
+            def visit_Constant(self, n: ast.Constant) -> ast.expr:
                 if n.value in sub_map:
-                    name_node = ast.Name(id=sub_map[n.value], ctx=ast.Load())
+                    var_name = sub_map[n.value]  # type: ignore[index]  # key type narrowed by `in` check
+                    name_node = ast.Name(id=var_name, ctx=ast.Load())
                     ast.copy_location(name_node, n)
                     return name_node
                 return n
 
-        node = _ConstReplacer().visit(node)  # type: ignore[assignment]
+        node = _ConstReplacer().visit(node)  # NodeTransformer.visit returns AST
 
         # Insert assignment statements after the docstring
         docstring_offset = 1 if ast.get_docstring(node) else 0
