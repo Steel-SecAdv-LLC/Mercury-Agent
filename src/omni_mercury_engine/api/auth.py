@@ -644,13 +644,13 @@ class JWTAuth:
                     logger.info(
                         "JWT signing key derived from AMA HD Key Management " "(purpose=jwt_sign)"
                     )
-                except Exception as e:
+                except (ImportError, RuntimeError, ValueError, OSError, TypeError) as e:
                     raise ValueError(
                         "JWT_SECRET_KEY environment variable is required in production "
                         "and AMA HD key derivation failed. "
                         "Generate a secure random key (e.g., `openssl rand -hex 32`) and set "
                         "JWT_SECRET_KEY in your environment or .env file. "
-                        f"HD derivation error: {e}"
+                        f"HD derivation error: {type(e).__name__}: {e}"
                     ) from e
             elif allow_dev_fallback:
                 # Use fallback key for development only

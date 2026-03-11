@@ -256,18 +256,17 @@ class Ed25519Provider:
 
     def verify(self, message: bytes, signature: bytes, public_key: bytes) -> bool:
         """Verify Ed25519 signature."""
+        # Build exception tuple dynamically since InvalidSignature may not be importable
+        _verify_errors: tuple[type[Exception], ...] = (ValueError, TypeError, RuntimeError, OSError)
+        if InvalidSignature is not None:
+            _verify_errors = (*_verify_errors, InvalidSignature)
         try:
             pub_key = Ed25519PublicKey.from_public_bytes(public_key)
             pub_key.verify(signature, message)
             return True
-        except (ValueError, TypeError) as e:
+        except _verify_errors as e:
             logger.debug(f"Ed25519 verification failed: {type(e).__name__}")
             return False
-        except Exception as e:
-            if InvalidSignature is not None and isinstance(e, InvalidSignature):
-                logger.debug(f"Ed25519 verification failed: {type(e).__name__}")
-                return False
-            raise
 
 
 class MLDSAProvider:

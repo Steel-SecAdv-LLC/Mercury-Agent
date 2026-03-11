@@ -20,20 +20,25 @@ from __future__ import annotations
 
 """Humanitarian infrastructure and workforce monitoring."""
 
-from .agrifood_security import AgriFoodSecurityDetector
-from .climate_resilience import ClimateResilienceDetector
-from .economic_resilience import EconomicResilienceDetector
-from .education_equity import EducationEquityDetector
+from .agrifood_security import AgriFoodSecurityDetector, FoodSecurityThreat
+from .climate_resilience import ClimateEvent, ClimateResilienceDetector
+from .economic_resilience import EconomicResilienceDetector, EconomicThreat
+from .education_equity import EducationEquityDetector, EducationThreat
 from .essential_workers import EssentialWorkersMonitor
 from .government_facilities import GovernmentFacilitiesMonitor
-from .neuroscience import NeuroscienceDetector
+from .neuroscience import NeuralThreat, NeuroscienceDetector
 
 __all__ = [
     "AgriFoodSecurityDetector",
+    "ClimateEvent",
     "ClimateResilienceDetector",
     "EconomicResilienceDetector",
+    "EconomicThreat",
     "EducationEquityDetector",
+    "EducationThreat",
     "EssentialWorkersMonitor",
+    "FoodSecurityThreat",
     "GovernmentFacilitiesMonitor",
+    "NeuralThreat",
     "NeuroscienceDetector",
 ]

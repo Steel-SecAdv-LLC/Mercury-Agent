@@ -710,3 +710,85 @@ def load_configuration(
         manager.load_from_env()
 
     return manager
+
+
+def validate_env() -> dict[str, Any]:
+    """Validate environment variables required for Mercury Agent.
+
+    Checks that critical environment variables are set and well-formed.
+    Returns a summary dict with status, warnings, and errors.
+
+    Raises:
+        ValueError: If a REQUIRED variable is missing and the environment
+            appears to be production (MERCURY_AGENT_ENV=production).
+    """
+    results: dict[str, Any] = {"status": "ok", "warnings": [], "errors": []}
+    warnings = results["warnings"]
+    errors = results["errors"]
+
+    # Detect production mode
+    env_val = os.environ.get("MERCURY_AGENT_ENV", "").lower()
+    is_production = env_val == "production" or os.environ.get("ENV", "").lower() == "production"
+
+    # ── REQUIRED ──────────────────────────────────────────────────────
+    jwt_key = os.environ.get("JWT_SECRET_KEY")
+    if not jwt_key:
+        msg = "JWT_SECRET_KEY is not set. Generate with: openssl rand -hex 32"
+        if is_production:
+            errors.append(msg)
+        else:
+            warnings.append(msg + " (non-production: dev fallback will be used)")
+    elif len(jwt_key) < 32:
+        warnings.append("JWT_SECRET_KEY is shorter than 32 characters — consider a stronger key")
+
+    # ── AMA Cryptography (Production) ─────────────────────────────────
+    if is_production:
+        if os.environ.get("AMA_REQUIRE_REAL_PQC", "").lower() not in ("true", "1", "yes"):
+            warnings.append(
+                "AMA_REQUIRE_REAL_PQC is not enabled. "
+                "Production deployments should set AMA_REQUIRE_REAL_PQC=true"
+            )
+        if os.environ.get("AMA_REQUIRE_CONSTANT_TIME", "").lower() not in ("true", "1", "yes"):
+            warnings.append(
+                "AMA_REQUIRE_CONSTANT_TIME is not enabled. "
+                "Production deployments should set AMA_REQUIRE_CONSTANT_TIME=true"
+            )
+
+    # ── Validation limits ─────────────────────────────────────────────
+    for var, default in [
+        ("OMNI_MAX_DATA_POINTS", "100000"),
+        ("OMNI_MAX_FEATURES", "1000"),
+    ]:
+        val = os.environ.get(var, default)
+        try:
+            int(val)
+        except (ValueError, TypeError):
+            errors.append(f"{var}={val!r} is not a valid integer")
+
+    # ── TLS (Production) ──────────────────────────────────────────────
+    if is_production:
+        if os.environ.get("OMNI_TLS_ENABLED", "").lower() not in ("true", "1", "yes"):
+            warnings.append("TLS is not enabled. Production deployments should enable OMNI_TLS_ENABLED")
+
+    # ── Summary ───────────────────────────────────────────────────────
+    if errors:
+        results["status"] = "error"
+    elif warnings:
+        results["status"] = "warning"
+
+    # Print human-readable output for CLI usage
+    if errors:
+        for e in errors:
+            logger.error("ENV VALIDATION ERROR: %s", e)
+    for w in warnings:
+        logger.warning("ENV VALIDATION WARNING: %s", w)
+
+    if not errors and not warnings:
+        logger.info("Environment validation passed")
+
+    if is_production and errors:
+        raise ValueError(
+            "Environment validation failed for production: " + "; ".join(errors)
+        )
+
+    return results

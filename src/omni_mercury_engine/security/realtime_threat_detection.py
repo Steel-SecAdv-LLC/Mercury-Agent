@@ -240,8 +240,8 @@ class RealTimeThreatDetector(LoggerMixin):
         for name, detector in self.detectors.items():
             try:
                 detector.fit(X)
-            except Exception as e:
-                self.logger.warning("Failed to fit %s: %s", name, e)
+            except (ValueError, TypeError, RuntimeError, np.linalg.LinAlgError) as e:
+                self.logger.warning("Failed to fit %s: %s: %s", name, type(e).__name__, e)
 
         # Compute reference score distribution from training data
         ref_scores_list: list[np.ndarray[Any, Any]] = []
@@ -249,8 +249,8 @@ class RealTimeThreatDetector(LoggerMixin):
             try:
                 if hasattr(detector, "score_samples"):
                     ref_scores_list.append(detector.score_samples(X))
-            except Exception:
-                pass
+            except (ValueError, TypeError, RuntimeError, np.linalg.LinAlgError):
+                self.logger.debug("Failed to score_samples for %s during fit", name)
         if ref_scores_list:
             ref_ensemble = np.mean(ref_scores_list, axis=0)
             self._ref_p90 = float(np.percentile(ref_ensemble, 90))
@@ -288,8 +288,8 @@ class RealTimeThreatDetector(LoggerMixin):
                 elif hasattr(detector, "decision_function"):
                     score = detector.decision_function(X)
                     scores[name] = score
-            except Exception as e:
-                self.logger.warning("Failed to predict with %s: %s", name, e)
+            except (ValueError, TypeError, RuntimeError, np.linalg.LinAlgError) as e:
+                self.logger.warning("Failed to predict with %s: %s: %s", name, type(e).__name__, e)
 
         if not scores:
             return {
@@ -446,5 +446,5 @@ class AdaptiveThreatDetector(RealTimeThreatDetector):
         for name, detector in self.detectors.items():
             try:
                 detector.fit(X_new)
-            except Exception as e:
-                self.logger.warning("Failed to update %s: %s", name, e)
+            except (ValueError, TypeError, RuntimeError, np.linalg.LinAlgError) as e:
+                self.logger.warning("Failed to update %s: %s: %s", name, type(e).__name__, e)

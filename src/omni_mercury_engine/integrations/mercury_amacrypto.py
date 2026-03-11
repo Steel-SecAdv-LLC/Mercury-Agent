@@ -639,7 +639,9 @@ class MercuryGuardianAdapter:
                     group=ScalarGroup.SECURITY,
                     metadata={"event": "posture_key_rotation"},
                 )
-            except (ImportError, Exception) as e:
+            except ImportError:
+                logger.debug("GOSNN not available for rotation event registration")
+            except (AttributeError, RuntimeError, TypeError) as e:
                 logger.debug(f"Could not register rotation event to GOSNN: {e}")
 
     def _on_posture_algorithm_switch(self, new_algorithm: str) -> None:
@@ -662,7 +664,9 @@ class MercuryGuardianAdapter:
                     group=ScalarGroup.SECURITY,
                     metadata={"event": "posture_algorithm_switch", "new_algorithm": new_algorithm},
                 )
-            except (ImportError, Exception) as e:
+            except ImportError:
+                logger.debug("GOSNN not available for algorithm switch registration")
+            except (AttributeError, RuntimeError, TypeError) as e:
                 logger.debug(f"Could not register algorithm switch to GOSNN: {e}")
 
     def evaluate_posture(self) -> PostureEvaluation:
@@ -704,21 +708,21 @@ class MercuryGuardianAdapter:
             self._dilithium_keypair = keypair
             return keypair
 
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, OSError) as e:
             duration_ms = (time.perf_counter() - start_time) * 1000
             anomaly = CryptoAnomaly(
                 anomaly_type=CryptoAnomalyType.KEY_GENERATION_FAILURE,
                 severity=0.8,
                 timestamp=time.time(),
                 operation="dilithium_keygen",
-                details={"error": str(e), "duration_ms": duration_ms},
+                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
                 omni_scalars={
                     "omni_crypto_keygen_failure": 1.0,
                     "omni_crypto_dilithium_error": 1.0,
                 },
             )
             self._record_anomaly(anomaly)
-            logger.error(f"Dilithium keygen failed: {e}")
+            logger.error(f"Dilithium keygen failed: {type(e).__name__}: {e}")
             return None
 
     def sign_dilithium(self, message: bytes, private_key: bytes | None = None) -> bytes | None:
@@ -745,21 +749,21 @@ class MercuryGuardianAdapter:
 
             return bytes(signature)
 
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, OSError) as e:
             duration_ms = (time.perf_counter() - start_time) * 1000
             anomaly = CryptoAnomaly(
                 anomaly_type=CryptoAnomalyType.SIGNATURE_FAILURE,
                 severity=0.9,
                 timestamp=time.time(),
                 operation="dilithium_sign",
-                details={"error": str(e), "duration_ms": duration_ms},
+                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
                 omni_scalars={
                     "omni_crypto_sign_failure": 1.0,
                     "omni_crypto_dilithium_error": 1.0,
                 },
             )
             self._record_anomaly(anomaly)
-            logger.error(f"Dilithium sign failed: {e}")
+            logger.error(f"Dilithium sign failed: {type(e).__name__}: {e}")
             return None
 
     def verify_dilithium(
@@ -802,21 +806,21 @@ class MercuryGuardianAdapter:
 
             return bool(result)
 
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, OSError) as e:
             duration_ms = (time.perf_counter() - start_time) * 1000
             anomaly = CryptoAnomaly(
                 anomaly_type=CryptoAnomalyType.SIGNATURE_FAILURE,
                 severity=0.9,
                 timestamp=time.time(),
                 operation="dilithium_verify",
-                details={"error": str(e), "duration_ms": duration_ms},
+                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
                 omni_scalars={
                     "omni_crypto_verify_failure": 1.0,
                     "omni_crypto_dilithium_error": 1.0,
                 },
             )
             self._record_anomaly(anomaly)
-            logger.error(f"Dilithium verify failed: {e}")
+            logger.error(f"Dilithium verify failed: {type(e).__name__}: {e}")
             return False
 
     def generate_kyber_keypair(self) -> KyberKeyPair | None:
@@ -838,21 +842,21 @@ class MercuryGuardianAdapter:
             self._kyber_keypair = keypair
             return keypair
 
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, OSError) as e:
             duration_ms = (time.perf_counter() - start_time) * 1000
             anomaly = CryptoAnomaly(
                 anomaly_type=CryptoAnomalyType.KEY_GENERATION_FAILURE,
                 severity=0.8,
                 timestamp=time.time(),
                 operation="kyber_keygen",
-                details={"error": str(e), "duration_ms": duration_ms},
+                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
                 omni_scalars={
                     "omni_crypto_keygen_failure": 1.0,
                     "omni_crypto_kyber_error": 1.0,
                 },
             )
             self._record_anomaly(anomaly)
-            logger.error(f"Kyber keygen failed: {e}")
+            logger.error(f"Kyber keygen failed: {type(e).__name__}: {e}")
             return None
 
     def encapsulate_kyber(self, public_key: bytes | None = None) -> KyberEncapsulation | None:
@@ -879,21 +883,21 @@ class MercuryGuardianAdapter:
 
             return result
 
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, OSError) as e:
             duration_ms = (time.perf_counter() - start_time) * 1000
             anomaly = CryptoAnomaly(
                 anomaly_type=CryptoAnomalyType.ENCAPSULATION_FAILURE,
                 severity=0.8,
                 timestamp=time.time(),
                 operation="kyber_encapsulate",
-                details={"error": str(e), "duration_ms": duration_ms},
+                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
                 omni_scalars={
                     "omni_crypto_encapsulate_failure": 1.0,
                     "omni_crypto_kyber_error": 1.0,
                 },
             )
             self._record_anomaly(anomaly)
-            logger.error(f"Kyber encapsulate failed: {e}")
+            logger.error(f"Kyber encapsulate failed: {type(e).__name__}: {e}")
             return None
 
     def decapsulate_kyber(self, ciphertext: bytes, secret_key: bytes | None = None) -> bytes | None:
@@ -920,21 +924,21 @@ class MercuryGuardianAdapter:
 
             return bytes(shared_secret)
 
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, OSError) as e:
             duration_ms = (time.perf_counter() - start_time) * 1000
             anomaly = CryptoAnomaly(
                 anomaly_type=CryptoAnomalyType.DECAPSULATION_FAILURE,
                 severity=0.9,
                 timestamp=time.time(),
                 operation="kyber_decapsulate",
-                details={"error": str(e), "duration_ms": duration_ms},
+                details={"error": str(e), "error_type": type(e).__name__, "duration_ms": duration_ms},
                 omni_scalars={
                     "omni_crypto_decapsulate_failure": 1.0,
                     "omni_crypto_kyber_error": 1.0,
                 },
             )
             self._record_anomaly(anomaly)
-            logger.error(f"Kyber decapsulate failed: {e}")
+            logger.error(f"Kyber decapsulate failed: {type(e).__name__}: {e}")
             return None
 
     def simulate_attack(self, attack_type: str = "timing") -> dict[str, Any]:

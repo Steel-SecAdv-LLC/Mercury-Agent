@@ -399,8 +399,8 @@ async def process_batch_job(
 
         logger.info(f"Batch job {job_id} completed: {processed} processed, {failed} failed")
 
-    except Exception as e:
-        logger.error(f"Batch job {job_id} failed: {e}")
+    except (ValueError, TypeError, RuntimeError, KeyError, OSError) as e:
+        logger.error(f"Batch job {job_id} failed: {type(e).__name__}: {e}")
         await store.update_job(
             job_id,
             status=JobStatus.FAILED,
@@ -473,7 +473,8 @@ async def _process_chunk(
                 }
             )
 
-        except Exception:
+        except (ValueError, TypeError, RuntimeError, KeyError) as e:
+            logger.debug("Batch item %d processing failed: %s: %s", offset + i, type(e).__name__, e)
             results.append(
                 {
                     "index": offset + i,
@@ -503,7 +504,7 @@ async def _send_callback(url: str, job_id: str, status: JobStatus) -> None:
                 },
             )
         logger.info("Callback sent for job %s", job_id)
-    except Exception as e:
+    except (ImportError, OSError, ValueError, RuntimeError) as e:
         logger.warning("Failed to send callback for job %s: %s", job_id, type(e).__name__)
 
 

@@ -502,8 +502,8 @@ class SecureAuditLogger:
         for hook in self._event_hooks:
             try:
                 hook(event)
-            except Exception as e:
-                logger.warning(f"Audit hook error: {e}")
+            except (TypeError, ValueError, RuntimeError, AttributeError) as e:
+                logger.warning(f"Audit hook error: {type(e).__name__}: {e}")
 
         return event_id
 

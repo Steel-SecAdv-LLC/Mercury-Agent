@@ -251,8 +251,8 @@ async def detect_neurosymbolic(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Neuro-symbolic module is not available.",
         ) from e
-    except Exception as e:
-        logger.error("Neuro-symbolic detection failed: %s", e)
+    except (ValueError, TypeError, RuntimeError, KeyError) as e:
+        logger.error("Neuro-symbolic detection failed: %s: %s", type(e).__name__, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during detection.",
@@ -358,8 +358,8 @@ async def detect_fusion(
             explanation=explanation,
         )
 
-    except Exception as e:
-        logger.error("Fusion detection failed: %s", e)
+    except (ValueError, TypeError, RuntimeError, KeyError) as e:
+        logger.error("Fusion detection failed: %s: %s", type(e).__name__, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during detection.",
@@ -495,8 +495,8 @@ async def detect_three_r(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="3R module is not available.",
         )
-    except Exception as e:
-        logger.error("3R detection failed: %s", e)
+    except (ValueError, TypeError, RuntimeError, KeyError) as e:
+        logger.error("3R detection failed: %s: %s", type(e).__name__, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during detection.",
