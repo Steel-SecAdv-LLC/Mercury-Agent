@@ -255,8 +255,8 @@ def main() -> int:
         import traceback
 
         traceback.print_exc()
-        # Return 0 (advisory) rather than crashing CI on unexpected failures
-        return 0
+        # Unexpected failures indicate a broken ethics framework — treat as hard failure.
+        return 1
 
 
 if __name__ == "__main__":

@@ -1312,8 +1312,7 @@ class ScoreCalibrationManager:
             detector_name: Name for display
         """
         diagnostics = self.get_diagnostics(scores, threshold, labels)
-        print(f"\n--- {detector_name} ---")
-        print(diagnostics)
+        logger.info("%s diagnostics:\n%s", detector_name, diagnostics)
 
     def _apply_probability_calibration(
         self,
@@ -1832,17 +1831,18 @@ def diagnose_scores(
     diagnostics = ScoreDiagnostics.analyze(scores, threshold, labels, "diagnosis")
 
     if print_output:
-        print(diagnostics)
+        logger.info("Score diagnostics:\n%s", diagnostics)
 
-        # Print actionable recommendations
         if diagnostics.predicted_anomaly_ratio == 0:
-            print("\nDIAGNOSIS: All predictions are NEGATIVE (no anomalies detected)")
-            print(f"CAUSE: Threshold ({threshold:.4f}) is higher than all scores")
-            print(f"       Score max: {diagnostics.score_max:.4f}")
-            print("\nRECOMMENDED ACTIONS:")
-            print("1. Use percentile-based threshold: threshold = percentile(scores, 95)")
-            print("2. Use adaptive calibration: calibrate_scores(scores, method='auto')")
-            print("3. Check if scores need normalization to [0, 1]")
+            logger.warning(
+                "DIAGNOSIS: All predictions are NEGATIVE (no anomalies detected). "
+                "CAUSE: Threshold (%.4f) is higher than all scores (max=%.4f). "
+                "RECOMMENDED: (1) Use percentile-based threshold, "
+                "(2) Use adaptive calibration, "
+                "(3) Check if scores need normalization to [0, 1].",
+                threshold,
+                diagnostics.score_max,
+            )
 
     return diagnostics
 
