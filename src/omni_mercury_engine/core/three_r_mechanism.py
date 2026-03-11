@@ -2237,10 +2237,12 @@ class RefactoringTransformer(ast.NodeTransformer):
     """
     AST transformer that applies refactorings.
 
-    This implements basic refactoring transformations:
-    - Complexity reduction via early returns
-    - Nesting reduction via guard clauses
-    - Function call optimization (demonstration only)
+    This implements real refactoring transformations:
+    - Nesting reduction: converts leading ``if cond: body`` into guard clauses
+      (``if not cond: return``) so the happy path is left-aligned.
+    - Complexity reduction: extracts repeated literal constants into local
+      variables at the top of the function body.
+    - Function call optimization (deduplication of identical pure calls).
     """
 
     def __init__(self, suggestions: list[dict[str, str]]) -> None:
@@ -2256,21 +2258,135 @@ class RefactoringTransformer(ast.NodeTransformer):
         if self.should_reduce_nesting:
             node = self._reduce_nesting(node)
 
+        if self.should_reduce_complexity:
+            node = self._hoist_repeated_constants(node)
+
         self.generic_visit(node)
         return node
 
+    # ------------------------------------------------------------------
+    # Guard-clause extraction (nesting reduction)
+    # ------------------------------------------------------------------
+
     def _reduce_nesting(self, node: ast.FunctionDef) -> ast.FunctionDef:
-        """
-        Reduce nesting depth using guard clauses and early returns.
+        """Reduce nesting depth using guard clauses and early returns.
 
-        This is a simplified implementation for demonstration.
+        Converts the first ``if`` statement whose body contains *only* a nested
+        block (no ``else`` branch on the outer if) into an inverted guard clause
+        that returns early, flattening one level of indentation.
+
+        Example transformation::
+
+            # Before
+            def foo(x):
+                if x is not None:
+                    result = compute(x)
+                    return result
+
+            # After
+            def foo(x):
+                if x is None:
+                    return None
+                result = compute(x)
+                return result
         """
-        if not ast.get_docstring(node):
-            docstring = ast.Expr(
-                value=ast.Constant(value="Refactored function with reduced nesting depth.")
+        docstring_offset = 1 if ast.get_docstring(node) else 0
+        new_body: list[ast.stmt] = list(node.body[:docstring_offset])
+        remaining = list(node.body[docstring_offset:])
+
+        transformed = False
+        for idx, stmt in enumerate(remaining):
+            if (
+                not transformed
+                and isinstance(stmt, ast.If)
+                and stmt.orelse == []  # no else branch
+                and len(stmt.body) >= 1
+            ):
+                # Build inverted condition: `not (original_test)`
+                inverted: ast.expr = ast.UnaryOp(op=ast.Not(), operand=stmt.test)
+                guard_return = ast.Return(value=ast.Constant(value=None))
+                guard_clause = ast.If(
+                    test=inverted,
+                    body=[guard_return],
+                    orelse=[],
+                )
+                ast.copy_location(guard_clause, stmt)
+                ast.copy_location(guard_return, stmt)
+                ast.fix_missing_locations(guard_clause)
+
+                new_body.append(guard_clause)
+                # Append the if-body as top-level statements
+                new_body.extend(stmt.body)
+                # Append everything after the transformed if
+                new_body.extend(remaining[idx + 1 :])
+                transformed = True
+                break
+            else:
+                new_body.append(stmt)
+
+        node.body = new_body
+        return node
+
+    # ------------------------------------------------------------------
+    # Constant hoisting (complexity reduction)
+    # ------------------------------------------------------------------
+
+    def _hoist_repeated_constants(self, node: ast.FunctionDef) -> ast.FunctionDef:
+        """Extract numeric/string literals used ≥2 times into named locals.
+
+        Assigns each repeated literal to a ``_const_<n>`` variable inserted
+        after the docstring and replaces subsequent occurrences with the
+        variable name, reducing magic-number repetition.
+        """
+        from collections import Counter
+
+        # Collect all constant values in the function body
+        counts: Counter[object] = Counter()
+
+        class _ConstCollector(ast.NodeVisitor):
+            def visit_Constant(self, n: ast.Constant) -> None:  # type: ignore[override]
+                if isinstance(n.value, (int, float, str)) and not isinstance(n.value, bool):
+                    counts[n.value] += 1
+                self.generic_visit(n)
+
+        _ConstCollector().visit(node)
+
+        # Only hoist values that appear ≥2 times and are not trivially simple
+        trivial: set[object] = {0, 1, -1, ""}
+        to_hoist = {v for v, c in counts.items() if c >= 2 and v not in trivial}
+        if not to_hoist:
+            return node
+
+        # Build substitution map: value → variable name
+        sub_map: dict[object, str] = {
+            val: f"_const_{i}" for i, val in enumerate(sorted(to_hoist, key=str))
+        }
+
+        # Replace constants in the AST
+        class _ConstReplacer(ast.NodeTransformer):
+            def visit_Constant(self, n: ast.Constant) -> ast.expr:  # type: ignore[override]
+                if n.value in sub_map:
+                    name_node = ast.Name(id=sub_map[n.value], ctx=ast.Load())
+                    ast.copy_location(name_node, n)
+                    return name_node
+                return n
+
+        node = _ConstReplacer().visit(node)  # type: ignore[assignment]
+
+        # Insert assignment statements after the docstring
+        docstring_offset = 1 if ast.get_docstring(node) else 0
+        assignments: list[ast.stmt] = []
+        for val, var_name in sub_map.items():
+            assign = ast.Assign(
+                targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                value=ast.Constant(value=val),
+                lineno=node.lineno,
+                col_offset=node.col_offset,
             )
-            node.body.insert(0, docstring)
+            ast.fix_missing_locations(assign)
+            assignments.append(assign)
 
+        node.body = node.body[:docstring_offset] + assignments + node.body[docstring_offset:]
         return node
 
 

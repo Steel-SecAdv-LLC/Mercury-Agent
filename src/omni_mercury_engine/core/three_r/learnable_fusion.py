@@ -652,6 +652,175 @@ class Learnable3REngine:
 
         return loss_value
 
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        *,
+        epochs: int = 100,
+        batch_size: int = 32,
+        val_fraction: float = 0.2,
+        patience: int = 10,
+        min_delta: float = 1e-4,
+    ) -> dict[str, object]:
+        """Multi-epoch training with validation split and early stopping.
+
+        Splits ``X``/``y`` into training and validation sets, trains for up to
+        ``epochs`` epochs using mini-batches, monitors validation loss, and
+        stops early when improvement stalls.
+
+        Args:
+            X: Input array of shape ``(n_samples, n_features)``.
+            y: Target scores of shape ``(n_samples,)``.
+            epochs: Maximum number of training epochs.
+            batch_size: Number of samples per gradient step.
+            val_fraction: Fraction of data held out for validation (0–1).
+            patience: Stop training when val loss does not improve by at least
+                ``min_delta`` for this many consecutive epochs.
+            min_delta: Minimum absolute improvement in validation loss that
+                resets the patience counter.
+
+        Returns:
+            Dictionary with training history::
+
+                {
+                    "train_losses": [float, ...],   # per-epoch mean train loss
+                    "val_losses":   [float, ...],   # per-epoch mean val loss
+                    "best_epoch":   int,            # epoch with lowest val loss
+                    "best_val_loss": float,
+                    "stopped_early": bool,
+                }
+
+        Note:
+            Returns an empty-history dict without raising when PyTorch is
+            unavailable; callers can detect this via ``train_losses == []``.
+        """
+        if not TORCH_AVAILABLE or self.model is None:
+            logger.warning("fit() called but PyTorch is unavailable — skipping training.")
+            return {
+                "train_losses": [],
+                "val_losses": [],
+                "best_epoch": 0,
+                "best_val_loss": float("inf"),
+                "stopped_early": False,
+            }
+
+        X_arr = np.asarray(X, dtype=np.float32)
+        y_arr = np.asarray(y, dtype=np.float32)
+        n_samples = len(X_arr)
+
+        if n_samples < 2:
+            raise ValueError(f"fit() requires at least 2 samples, got {n_samples}.")
+
+        # ---- Train / validation split (last val_fraction of shuffled data) ----
+        rng = np.random.default_rng(seed=42)
+        indices = rng.permutation(n_samples)
+        n_val = max(1, int(n_samples * val_fraction))
+        n_train = n_samples - n_val
+        train_idx, val_idx = indices[:n_train], indices[n_train:]
+
+        X_train, y_train = X_arr[train_idx], y_arr[train_idx]
+        X_val, y_val = X_arr[val_idx], y_arr[val_idx]
+
+        # ---- Convert validation set to tensors once -------------------------
+        X_val_t = torch.tensor(X_val, dtype=torch.float32, device=self.device)
+        y_val_t = torch.tensor(y_val, dtype=torch.float32, device=self.device)
+
+        train_losses: list[float] = []
+        val_losses: list[float] = []
+        best_val_loss = float("inf")
+        best_epoch = 0
+        patience_counter = 0
+
+        logger.info(
+            "Learnable3REngine.fit() starting: n_train=%d, n_val=%d, "
+            "epochs=%d, batch_size=%d, patience=%d",
+            n_train,
+            n_val,
+            epochs,
+            batch_size,
+            patience,
+        )
+
+        for epoch in range(epochs):
+            # Shuffle training data each epoch
+            perm = rng.permutation(n_train)
+            X_train = X_train[perm]
+            y_train = y_train[perm]
+
+            # ---- Mini-batch training pass -----------------------------------
+            self.model.train()
+            epoch_losses: list[float] = []
+
+            for start in range(0, n_train, batch_size):
+                end = min(start + batch_size, n_train)
+                X_batch = torch.tensor(X_train[start:end], dtype=torch.float32, device=self.device)
+                y_batch = torch.tensor(y_train[start:end], dtype=torch.float32, device=self.device)
+
+                self.optimizer.zero_grad()
+                result = self.model(X_batch)
+                prediction = result["fusion_score"]  # shape: (batch,)
+                loss = F.mse_loss(prediction, y_batch)
+                loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
+                self.optimizer.step()
+
+                epoch_losses.append(float(loss.item()))
+
+            mean_train_loss = float(np.mean(epoch_losses)) if epoch_losses else 0.0
+            train_losses.append(mean_train_loss)
+            self.training_history.append(mean_train_loss)
+
+            # ---- Validation pass --------------------------------------------
+            self.model.eval()
+            with torch.no_grad():
+                val_result = self.model(X_val_t)
+                val_pred = val_result["fusion_score"]
+                val_loss = float(F.mse_loss(val_pred, y_val_t).item())
+
+            val_losses.append(val_loss)
+
+            # ---- Early stopping check ---------------------------------------
+            if val_loss < best_val_loss - min_delta:
+                best_val_loss = val_loss
+                best_epoch = epoch
+                patience_counter = 0
+            else:
+                patience_counter += 1
+
+            if (epoch + 1) % max(1, epochs // 10) == 0 or epoch == 0:
+                logger.debug(
+                    f"Epoch {epoch + 1}/{epochs}: "
+                    f"train_loss={mean_train_loss:.6f}, "
+                    f"val_loss={val_loss:.6f}, "
+                    f"patience={patience_counter}/{patience}"
+                )
+
+            if patience_counter >= patience:
+                logger.info(
+                    f"Early stopping at epoch {epoch + 1}: "
+                    f"val loss has not improved by >{min_delta} for {patience} epochs. "
+                    f"Best val loss={best_val_loss:.6f} at epoch {best_epoch + 1}."
+                )
+                return {
+                    "train_losses": train_losses,
+                    "val_losses": val_losses,
+                    "best_epoch": best_epoch,
+                    "best_val_loss": best_val_loss,
+                    "stopped_early": True,
+                }
+
+        logger.info(
+            f"Training complete: {epochs} epochs, "
+            f"best val loss={best_val_loss:.6f} at epoch {best_epoch + 1}."
+        )
+        return {
+            "train_losses": train_losses,
+            "val_losses": val_losses,
+            "best_epoch": best_epoch,
+            "best_val_loss": best_val_loss,
+            "stopped_early": False,
+        }
+
     def _numpy_fallback(self, data: np.ndarray | list[float]) -> Learnable3RResult:
         """NumPy fallback when PyTorch is unavailable."""
         arr = np.array(data)

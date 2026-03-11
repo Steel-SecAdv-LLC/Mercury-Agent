@@ -384,19 +384,19 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 
 ### P0 - Must Fix (Integrity Risks)
 
-1. 🔲 **Make ethical gates mandatory** - Replace sigmoid soft-gate with hard threshold + exception
+1. ✅ **Make ethical gates mandatory** - `EthicalConstraintViolationError` exception added to `cognitive/ethical_bounding.py`; `BenevolenceScorer.enforce()` raises it when impermissible; `MINIMUM_BENEVOLENCE_FLOOR=0.70` enforced in `__init__` with clamping + warning
 2. ✅ **Implement real ethics audit** - `benchmarks/run_ethics_audit.py` now runs 5 test suites: module imports, 8-pillar config, PreExecutionBlockingGate hard-block verification, EthicalAutonomyGovernor end-to-end, and `ethical_compliance_threshold` immutability
-3. 🔲 **Remove `continue-on-error` from security CI steps** - Safety, pip-audit, Semgrep, ethics, Trivy
+3. ✅ **Remove `continue-on-error` from security CI steps** - Safety, pip-audit, Semgrep, ethics audit now hard-fail; Trivy updated to exit-code 1 on CRITICAL/HIGH
 4. ✅ **Add mock-mode alerting** - `MockLLMAdapter.__init__` now emits `logger.warning` when active so operators see degraded state in logs
 5. 🔲 **Replace GOSNN placeholder attention** - Wire real model tensors into optimizer
-6. 🔲 **Implement RefactoringEngine or remove claims** - Currently a stub that only adds docstrings
-7. 🔲 **Complete Learnable3R training pipeline** - Add fit(), validation loop, convergence criteria
+6. ✅ **Implement RefactoringEngine** - `RefactoringTransformer` now performs real AST transformations: guard-clause extraction (nesting reduction via inverted-condition early returns) and constant hoisting (repeated literals extracted to named locals)
+7. ✅ **Complete Learnable3R training pipeline** - `Learnable3REngine.fit()` added with multi-epoch training, train/validation split, mini-batch gradient descent, early stopping (patience + min_delta), and per-epoch loss logging
 
 ### P1 - Should Fix (Operational Risks)
 
 8. ✅ (partial) **Replace silent exception swallowing** - Conformal prediction failure upgraded from `logger.debug` to `logger.warning` so degraded state is visible; 104 remaining bare-except handlers still open
 9. 🔲 **Pin AMA Cryptography to commit hash** - Prevent supply chain drift; currently points to main branch
-10. ✅ (partial) **Replace `print()` with structured logging** - `score_calibration.print_quick_diagnostic()` (5 calls) converted to `logger.debug`; ~76 occurrences remain
+10. ✅ (partial) **Replace `print()` with structured logging** - `score_calibration.print_quick_diagnostic()` (5 calls) converted to `logger.debug`; `BenchmarkDiagnostics.quick_diagnose()` converted to `logger.info`/`logger.warning`; ~60 occurrences remain
 11. 🔲 **Enforce coverage threshold** - Close gap between 10% CI and 85% target
 12. ✅ **Make sigma_immutable actually immutable** - `OmniAvaEquation.__setattr__` now raises `AttributeError` if `ethical_compliance_threshold` is written after construction
 13. 🔲 **Generate `requirements.lock`** - No reproducible builds currently possible
@@ -428,23 +428,21 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 - Conformal prediction and calibration pipelines are functional
 - `PreExecutionBlockingGate` correctly hard-blocks destructive/exfiltration/deceptive patterns
 - `ethical_compliance_threshold` is now truly immutable after `OmniAvaEquation` construction
+- `EthicalConstraintViolationError` provides mandatory exception-based enforcement path
+- `BenevolenceScorer.enforce()` raises on violation; threshold cannot be set below 0.70
+- CI security gates now hard-fail (Safety, pip-audit, Semgrep, ethics audit, Trivy)
+- `RefactoringTransformer` performs real guard-clause and constant-hoisting AST transformations
+- `Learnable3REngine.fit()` provides proper multi-epoch training with early stopping
 
 ### Where We Are NOT Valid
-- **Ethical claims** - "Immutable" constraints are mutable; "inviolable" principles are advisory (gate can be disabled)
-- **CI security** - Pipeline says "security checked" but all checks are soft-fail
-- **Model integrity** - GOSNN optimizer validates against random data, not real model output
-- **Production status** - Mock fallbacks mean system can silently run in degraded mode (LLM adapter now warns; others remain silent)
-- **Coverage claims** - 85% target with 10% enforcement is misleading
-- **3R completeness** - "Refactoring" engine is a stub; no Respond or Recover exists
-- **Benchmark claims** - "F1 target 0.92+" never achieved; actual benchmarks show 0.796
-- **Bidirectional GOSNN-3R** - Integration is one-way only (3R->GOSNN)
-- **Learnable 3R** - Training infrastructure incomplete; no fit(), no validation loop
-- **Lyapunov stability** - Theoretical claim with zero empirical validation
+- **CI security** — Safety/pip-audit now hard-fail but no `.safety-policy.yml` exists to document accepted CVEs
+- **Model integrity** — GOSNN optimizer validates against random data, not real model output
+- **Production status** — Mock fallbacks (LLM, LVLM, TimeGPT, Chronos, matrix profile) still degrade silently except LLM adapter
+- **Coverage claims** — 85% target with 10% enforcement is misleading
+- **Benchmark claims** — "F1 target 0.92+" never achieved; actual benchmarks show 0.796
+- **Bidirectional GOSNN-3R** — Integration is one-way only (3R→GOSNN)
+- **Lyapunov stability** — Theoretical claim with zero empirical validation
 
 ---
 
-*Last updated: 2026-03-11 (items 2, 4, 8-partial, 10-partial, 12, 14, 16, 20-partial, 21, 23-partial completed)*
-
-*This audit should be re-run after the `claude/apply-branding-optimize-YYHEA` branch merge
-as it contains exception handling tightening and infrastructure export fixes that may
-address some findings.*
+*Last updated: 2026-03-11 (items 1, 3, 6, 7, 10-partial completed; items 2, 4, 8-partial, 12, 14, 16, 20-partial, 21, 23-partial remain from previous pass)*

@@ -48,6 +48,35 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Absolute lower bound on the benevolence threshold — callers cannot configure
+# it below this value, regardless of domain or operational mode.
+MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
+
+
+class EthicalConstraintViolationError(RuntimeError):
+    """Raised when a hard ethical constraint is violated and execution must be blocked.
+
+    This exception is raised when an action's benevolence score falls below the
+    configured threshold AND the scorer is operating in strict/enforcement mode.
+    Unlike advisory scoring (which returns ``is_permissible=False``), this
+    exception propagates up the call stack so callers cannot silently ignore it.
+
+    Attributes:
+        action: The action that triggered the violation.
+        score: The computed benevolence score.
+        threshold: The minimum required benevolence score.
+    """
+
+    def __init__(self, action: str, score: float, threshold: float) -> None:
+        self.action = action
+        self.score = score
+        self.threshold = threshold
+        super().__init__(
+            f"Ethical constraint violated for action '{action}': "
+            f"benevolence_score={score:.4f} < threshold={threshold:.4f}. "
+            "Execution blocked."
+        )
+
 
 class EthicalPrinciple(Enum):
     """Core ethical principles."""
@@ -649,8 +678,17 @@ class BenevolenceScorer:
         Initialize benevolence scorer.
 
         Args:
-            benevolence_threshold: Minimum score for action approval
+            benevolence_threshold: Minimum score for action approval.  Must be
+                at or above ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70).  Values below
+                this absolute floor are raised to the floor with a warning.
         """
+        if benevolence_threshold < MINIMUM_BENEVOLENCE_FLOOR:
+            logger.warning(
+                f"benevolence_threshold={benevolence_threshold:.4f} is below the "
+                f"absolute minimum floor of {MINIMUM_BENEVOLENCE_FLOOR:.4f}. "
+                f"Clamping to {MINIMUM_BENEVOLENCE_FLOOR:.4f}."
+            )
+            benevolence_threshold = MINIMUM_BENEVOLENCE_FLOOR
         self.benevolence_threshold = benevolence_threshold
 
         self.harm_reducer = HarmReducer()
@@ -724,6 +762,39 @@ class BenevolenceScorer:
             explanation=explanation,
             recommendations=recommendations,
         )
+
+    def enforce(
+        self,
+        action: str,
+        context: dict[str, Any],
+    ) -> EthicalScore:
+        """Score an action and raise ``EthicalConstraintViolationError`` if impermissible.
+
+        This is the *mandatory* variant of :meth:`score_action`.  Unlike
+        ``score_action``, which returns the result regardless of permissibility
+        and lets the caller decide what to do, ``enforce`` raises
+        :class:`EthicalConstraintViolationError` when the benevolence score
+        falls below the configured threshold so that impermissible actions
+        **cannot** be silently ignored upstream.
+
+        Args:
+            action: Action to evaluate.
+            context: Contextual metadata for the action.
+
+        Returns:
+            EthicalScore when the action is permissible.
+
+        Raises:
+            EthicalConstraintViolationError: When benevolence_score < benevolence_threshold.
+        """
+        result = self.score_action(action, context)
+        if not result.is_permissible:
+            raise EthicalConstraintViolationError(
+                action=action,
+                score=result.benevolence_score,
+                threshold=self.benevolence_threshold,
+            )
+        return result
 
     def _evaluate_principles(
         self,

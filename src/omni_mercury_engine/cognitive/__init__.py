@@ -72,6 +72,11 @@ from omni_mercury_engine.cognitive.differentiable_logic import (
     LukasiewiczTNorm,
     ProductTNorm,
 )
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
+    BenevolenceScorer,
+    EthicalConstraintViolationError,
+)
 from omni_mercury_engine.cognitive.explainability import (
     ExplainabilityEngine,
     ExplanationType,
@@ -138,6 +143,8 @@ __all__ = [
     "AnomalyVerifier",
     # Core cognitive components
     "BattlefieldAssessment",
+    # Ethical framework
+    "BenevolenceScorer",
     "Case",
     "CaseBasedReasoner",
     "CausalDiscoveryEngine",
