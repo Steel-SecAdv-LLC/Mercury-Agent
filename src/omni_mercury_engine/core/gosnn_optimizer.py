@@ -23,6 +23,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from abc import ABC, abstractmethod
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -324,6 +326,26 @@ class EthicalGateOptimizer:
         return self._violation_count / self._total_evaluations
 
 
+class AttentionProvider(ABC):
+    """Interface for supplying real attention tensors to the optimizer.
+
+    Concrete implementations should wrap the GOSNN model (or any attention-
+    producing module) and return the most recent attention scores when
+    ``get_attention`` is called.  Plugging in a provider replaces the
+    placeholder random tensor that was previously hard-coded.
+    """
+
+    @abstractmethod
+    def get_attention(self) -> np.ndarray:
+        """Return attention scores with shape ``(num_heads, seq_len, seq_len)``.
+
+        Raises:
+            RuntimeError: If attention data is unavailable (e.g. model not
+                yet run).
+        """
+        ...  # pragma: no cover
+
+
 class AttentionOptimizer:
     """
     Optimizer for 32-head triadic φ-weighting attention.
@@ -446,10 +468,12 @@ class GOSNNOptimizer:
         sigma_immutable: float = SIGMA_IMMUTABLE_TARGET,
         target_overhead_percent: float = 2.0,
         seed: int = 42,
+        attention_provider: AttentionProvider | None = None,
     ):
         self.sigma_immutable = sigma_immutable
         self.target_overhead = target_overhead_percent
         self.seed = seed
+        self._attention_provider = attention_provider
 
         # Sub-optimizers
         self.importance_analyzer = ScalarImportanceAnalyzer(seed)
@@ -527,10 +551,27 @@ class GOSNNOptimizer:
                 "Consider RLHF-style loss adjustment."
             )
 
-        # Optimize attention
-        # (This is a placeholder - actual attention tensors would come from model)
-        dummy_attention = np.random.randn(32, 16, 16)
-        _, attention_overhead = self.attention_optimizer.optimize_attention(dummy_attention)
+        # Optimize attention — use real tensors when an AttentionProvider is
+        # configured; fall back to a deterministic placeholder with a warning.
+        if self._attention_provider is not None:
+            try:
+                attention_data = self._attention_provider.get_attention()
+            except RuntimeError:
+                logger.warning(
+                    "AttentionProvider.get_attention() raised RuntimeError; "
+                    "falling back to placeholder attention tensor."
+                )
+                rng = np.random.default_rng(seed=self.seed)
+                attention_data = rng.standard_normal((32, 16, 16))
+        else:
+            logger.warning(
+                "No AttentionProvider configured — attention overhead metrics "
+                "are computed on a placeholder tensor.  Wire an "
+                "AttentionProvider for production accuracy."
+            )
+            rng = np.random.default_rng(seed=self.seed)
+            attention_data = rng.standard_normal((32, 16, 16))
+        _, attention_overhead = self.attention_optimizer.optimize_attention(attention_data)
 
         if attention_overhead > self.target_overhead:
             recommendations.append(

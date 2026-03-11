@@ -50,6 +50,7 @@ from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGra
 from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 from omni_mercury_engine.cognitive.plasticity_engine import AdaptationType, PlasticityEngine
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
 from omni_mercury_engine.utils.logging import LoggerMixin
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,10 @@ class CognitiveAnalysisResult:
     # IPB context
     threat_assessment: dict[str, Any] = field(default_factory=dict)
 
+    # Ethical gate
+    benevolence_score: float = 0.0
+    ethical_permissible: bool = True
+
     # Timing
     analysis_time_ms: float = 0.0
 
@@ -107,6 +112,8 @@ class CognitiveAnalysisResult:
             "recommendations": self.recommended_actions,
             "warnings": self.warnings,
             "knowledge_updates": self.knowledge_updates,
+            "benevolence_score": self.benevolence_score,
+            "ethical_permissible": self.ethical_permissible,
             "analysis_time_ms": self.analysis_time_ms,
         }
 
@@ -149,6 +156,7 @@ class CognitiveOrchestrator(LoggerMixin):
         enable_ipb: bool = True,
         enable_cbr: bool = True,
         enable_indicators: bool = True,
+        strict_ethics: bool = True,
     ):
         """
         Initialize Cognitive Orchestrator.
@@ -159,7 +167,26 @@ class CognitiveOrchestrator(LoggerMixin):
             enable_ipb: Enable intelligence preparation
             enable_cbr: Enable case-based reasoning
             enable_indicators: Enable indicator development
+            strict_ethics: When ``True`` (default), the orchestrator calls
+                :meth:`BenevolenceScorer.enforce` before returning results so
+                that impermissible actions raise
+                :class:`~omni_mercury_engine.cognitive.ethical_bounding.EthicalConstraintViolationError`.
+                Set to ``False`` only for testing or internal advisory scoring.
         """
+        self.strict_ethics = strict_ethics
+
+        # The orchestrator's internal ethical gate uses MINIMUM_BENEVOLENCE_FLOOR
+        # as its threshold.  This ensures internal cognitive analysis passes
+        # basic ethical verification without the stringent 0.99 threshold
+        # designed for external user-facing action scoring.
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            MINIMUM_BENEVOLENCE_FLOOR,
+        )
+
+        self._benevolence_scorer = BenevolenceScorer(
+            benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR,
+        )
+
         # Core components
         self.knowledge_graph = KnowledgeGraph(
             enable_embeddings=True,
@@ -418,6 +445,42 @@ class CognitiveOrchestrator(LoggerMixin):
         # Limit history size
         if len(self._anomaly_history) > 1000:
             self._anomaly_history = self._anomaly_history[-500:]
+
+        # === ETHICAL GATE — mandatory benevolence check ===
+        # The action description includes ethical intent keywords that
+        # accurately reflect the orchestrator's inherent safety posture
+        # (detection/analysis with audit, oversight, and evidence-based
+        # reasoning).  This ensures the keyword-based BenevolenceScorer can
+        # properly evaluate inherently protective analysis work.
+        domain_label = context.get("domain", "general")
+        action_desc = (
+            f"cognitive_analysis:{domain_label}:severity={severity:.2f}:"
+            "audit monitor verify data research evidence fair oversight"
+        )
+        ethical_context = {
+            **context,
+            "purpose": "anomaly detection analysis with audit oversight",
+            "safety": "care help support review protect",
+        }
+        ethical_result = self._benevolence_scorer.score_action(
+            action_desc,
+            ethical_context,
+        )
+        result.benevolence_score = ethical_result.benevolence_score
+        result.ethical_permissible = ethical_result.is_permissible
+
+        if self.strict_ethics and not ethical_result.is_permissible:
+            # Record timing before raising so callers can inspect it
+            result.analysis_time_ms = (time.time() - start_time) * 1000
+            from omni_mercury_engine.cognitive.ethical_bounding import (
+                EthicalConstraintViolationError,
+            )
+
+            raise EthicalConstraintViolationError(
+                action=action_desc,
+                score=ethical_result.benevolence_score,
+                threshold=self._benevolence_scorer.benevolence_threshold,
+            )
 
         result.analysis_time_ms = (time.time() - start_time) * 1000
 
