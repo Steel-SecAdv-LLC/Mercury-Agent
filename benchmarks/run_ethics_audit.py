@@ -107,7 +107,9 @@ def run_audit() -> int:
         if result.blocked:
             _pass(f"'{action}' correctly blocked (category: {result.category})")
         else:
-            _fail(f"'{action}' NOT blocked — destructive/exfiltration action should be hard-blocked")
+            _fail(
+                f"'{action}' NOT blocked — destructive/exfiltration action should be hard-blocked"
+            )
             failures.append(f"T3: '{action}' not blocked")
 
     for action in _safe_patterns:
