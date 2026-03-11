@@ -135,6 +135,7 @@ logger = logging.getLogger(__name__)
 AMA_CRYPTOGRAPHY_AVAILABLE = False
 DILITHIUM_AVAILABLE = False
 KYBER_AVAILABLE = False
+_PQC_BACKEND_SOURCE = "none"
 
 try:
     from ama_cryptography.pqc_backends import (
@@ -154,6 +155,7 @@ try:
     AMA_CRYPTOGRAPHY_AVAILABLE = True
     DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
     KYBER_AVAILABLE = _KYBER_AVAILABLE
+    _PQC_BACKEND_SOURCE = "ama_cryptography"
     logger.info("AMA Cryptography PQC backends loaded successfully")
 except ImportError:
     try:
@@ -174,11 +176,24 @@ except ImportError:
         AMA_CRYPTOGRAPHY_AVAILABLE = True
         DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
         KYBER_AVAILABLE = _KYBER_AVAILABLE
+        _PQC_BACKEND_SOURCE = "ava_guardian"
         logger.info("AMA Cryptography PQC backends loaded via ava-guardian compatibility shim")
     except ImportError:
+        _PQC_BACKEND_SOURCE = "stub"
         logger.warning(
             "AMA Cryptography not available. Post-quantum cryptography features disabled. "
             "Install ama-cryptography for PQC support."
+        )
+
+# Enforce real PQC in production when AMA_REQUIRE_REAL_PQC is set
+import os as _os
+
+if _os.environ.get("AMA_REQUIRE_REAL_PQC", "").lower() in ("true", "1", "yes"):
+    if _PQC_BACKEND_SOURCE == "stub":
+        raise RuntimeError(
+            "AMA_REQUIRE_REAL_PQC is set but no real PQC backend is available. "
+            "Install ama-cryptography: pip install 'ama-cryptography @ "
+            "git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git'"
         )
 
         @dataclass
@@ -420,6 +435,7 @@ class MercuryGuardianAdapter:
         return {
             "ama_cryptography_available": AMA_CRYPTOGRAPHY_AVAILABLE,
             "mercury_guardian_available": AMA_CRYPTOGRAPHY_AVAILABLE,
+            "pqc_backend_source": _PQC_BACKEND_SOURCE,
             "dilithium_available": DILITHIUM_AVAILABLE,
             "kyber_available": KYBER_AVAILABLE,
             "timing_monitor_enabled": self.timing_monitor is not None,
@@ -442,6 +458,21 @@ class MercuryGuardianAdapter:
             self._trigger_gosnn_synapse(anomaly)
             self._evaluate_posture_from_gosnn()
 
+    @staticmethod
+    def _sanitize_scalars(scalars: dict[str, float]) -> dict[str, float]:
+        """Sanitize scalar values to prevent NaN/Inf from poisoning GOSNN state."""
+        sanitized: dict[str, float] = {}
+        for key, value in scalars.items():
+            if not isinstance(value, (int, float)):
+                logger.warning(f"Non-numeric scalar {key}={value!r}, coercing to 0.0")
+                sanitized[key] = 0.0
+            elif np.isnan(value) or np.isinf(value):
+                logger.warning(f"Invalid scalar {key}={value}, clamping to 0.0")
+                sanitized[key] = 0.0
+            else:
+                sanitized[key] = float(value)
+        return sanitized
+
     def _trigger_gosnn_synapse(self, anomaly: CryptoAnomaly) -> None:
         """Trigger GOSNN ethical gate synapse with crypto anomaly."""
         try:
@@ -453,7 +484,7 @@ class MercuryGuardianAdapter:
             gosnn = GlobalOmniScalarNetwork()
             gosnn.register_scalars(
                 component_name="ama_cryptography_pqc",
-                scalars=anomaly.omni_scalars,
+                scalars=self._sanitize_scalars(anomaly.omni_scalars),
                 group=ScalarGroup.ETHICAL,
                 metadata={
                     "anomaly_type": anomaly.anomaly_type.value,
@@ -520,7 +551,7 @@ class MercuryGuardianAdapter:
 
             gosnn.register_scalars(
                 component_name="ama_adaptive_posture",
-                scalars=posture_scalars,
+                scalars=self._sanitize_scalars(posture_scalars),
                 group=ScalarGroup.SECURITY,
                 metadata={
                     "threat_level": evaluation.threat_level.name,

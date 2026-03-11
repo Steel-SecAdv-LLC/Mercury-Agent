@@ -448,4 +448,6 @@ Contributors will be recognized in:
 
 ---
 
+**AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
+
 Copyright 2025-2026 Steel Security Advisors LLC. Licensed under GNU General Public License v3.0.

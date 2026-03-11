@@ -1508,6 +1508,8 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregati
 <details>
 <summary><strong>AMA Cryptography Integration</strong> - Post-Quantum Cryptography Adapter</summary>
 
+Mercury Agent's cryptographic protection layer is provided by [**AMA Cryptography**](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography), delivering quantum-resistant security through NIST-approved post-quantum algorithms with a 6-layer defense architecture, double-helix key evolution, and adaptive posture system. AMA Cryptography is a **hard-required dependency** — Mercury Agent refuses to start without it.
+
 The **AMA Cryptography adapter** provides post-quantum cryptographic security with GOSNN synapse integration:
 
 **PQC Algorithms:**
@@ -1850,9 +1852,10 @@ GitHub dependency graph is enabled for this repository. View the complete depend
 
 **Author/Inventor**: Andrew E. A.
 
-**AI Co-Architects:** Devin ⚛ | Claude ⊛
+**AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 **Special Thanks**:
+- [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography) — Post-quantum cryptographic protection layer (hard-required PQC backend)
 - NIST Post-Quantum Cryptography Standardization Project
 - Fairlearn bias detection framework
 - Hypothesis property-based testing
@@ -1898,7 +1901,7 @@ Dataset fetching can be configured via environment variables:
 
 **Conceptual Architect:** Steel Security Advisors LLC and Andrew E. A. conceived, directed, validated, and supervised the development of Mercury Agent.
 
-**AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Devin ⚛ and Claude ⊛.
+**AI Co-Architects:** Significant portions of the codebase, documentation, mathematical frameworks, and technical implementation were constructed by AI systems: Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛.
 
 This project represents a human/AI collaborative construct - a development paradigm where human vision, requirements, and critical evaluation guide AI-generated implementation.
 

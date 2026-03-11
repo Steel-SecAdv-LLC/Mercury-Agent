@@ -250,5 +250,7 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-02-21*
+**AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
+
+*Last Updated: 2026-03-11*
 *Version: 1.5.1*
