@@ -281,8 +281,10 @@ class TestEngineCalibration:
 class TestBenchmarkDiagnostics:
     """Test benchmark diagnostics module."""
 
-    def test_quick_diagnose(self, capsys):
+    def test_quick_diagnose(self, caplog):
         """Test BenchmarkDiagnostics.quick_diagnose()."""
+        import logging
+
         from omni_mercury_engine.evaluation.benchmark_diagnostics import (
             BenchmarkDiagnostics,
         )
@@ -290,13 +292,15 @@ class TestBenchmarkDiagnostics:
         scores = np.array([0.1, 0.2, 0.3, 0.4])  # All below 0.5
         labels = np.array([0, 0, 1, 1])
 
-        BenchmarkDiagnostics.quick_diagnose(scores, labels, threshold=0.5)
+        with caplog.at_level(
+            logging.INFO,
+            logger="omni_mercury_engine.evaluation.benchmark_diagnostics",
+        ):
+            BenchmarkDiagnostics.quick_diagnose(scores, labels, threshold=0.5)
 
-        captured = capsys.readouterr()
-
-        assert "Score range" in captured.out
-        assert "Threshold" in captured.out
-        assert "Predictions above threshold" in captured.out
+        assert "range" in caplog.text
+        assert "threshold" in caplog.text
+        assert "above_threshold" in caplog.text
 
     def test_full_diagnostics(self):
         """Test BenchmarkDiagnostics.diagnose()."""

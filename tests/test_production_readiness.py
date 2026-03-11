@@ -393,10 +393,12 @@ class TestLearnable3RFit:
             pytest.skip("PyTorch not installed")
 
         from omni_mercury_engine.core.three_r.learnable_fusion import (
+            Learnable3RConfig,
             Learnable3REngine,
         )
 
-        return Learnable3REngine(input_dim=4, hidden_dim=16, device="cpu")
+        config = Learnable3RConfig(hidden_dim=16)
+        return Learnable3REngine(config=config, device="cpu")
 
     def test_fit_returns_history(self, engine):
         X = np.random.randn(50, 4).astype(np.float32)
@@ -528,7 +530,10 @@ class TestBenchmarkDiagnosticsLogging:
         scores = np.array([0.1, 0.2, 0.3, 0.8, 0.9])
         labels = np.array([0, 0, 0, 1, 1])
 
-        with caplog.at_level(logging.INFO):
+        with caplog.at_level(
+            logging.INFO,
+            logger="omni_mercury_engine.evaluation.benchmark_diagnostics",
+        ):
             BenchmarkDiagnostics.quick_diagnose(
                 scores,
                 labels=labels,
@@ -547,7 +552,10 @@ class TestBenchmarkDiagnosticsLogging:
         scores = np.array([0.1, 0.2, 0.3])
         labels = np.array([0, 1, 1])
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(
+            logging.WARNING,
+            logger="omni_mercury_engine.evaluation.benchmark_diagnostics",
+        ):
             BenchmarkDiagnostics.quick_diagnose(
                 scores,
                 labels=labels,
