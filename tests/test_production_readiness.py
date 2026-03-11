@@ -426,8 +426,6 @@ class TestLearnable3RFit:
         assert history["stopped_early"] is True
 
     def test_best_epoch_checkpoint_restored(self, engine):
-        import torch
-
         X = np.random.randn(80, 4).astype(np.float32)
         y = np.random.randn(80).astype(np.float32)
 
