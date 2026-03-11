@@ -260,6 +260,10 @@ class MockLLMAdapter(BaseLLMAdapter):
         """Initialize mock adapter."""
         super().__init__(config or LLMConfig(provider=LLMProvider.MOCK))
         self._is_available = True
+        logger.warning(
+            "MockLLMAdapter is active — responses are heuristic-only, not from a real LLM. "
+            "Set a supported LLMProvider (e.g. HUGGINGFACE) for production use."
+        )
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """Generate mock response."""

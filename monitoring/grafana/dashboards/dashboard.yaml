@@ -1,0 +1,12 @@
+# Grafana dashboard provisioning — local development
+# Auto-loads dashboards from the dashboards/ directory when Grafana starts.
+apiVersion: 1
+
+providers:
+  - name: "Mercury-Agent"
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

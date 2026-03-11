@@ -1,0 +1,98 @@
+# Mercury-Agent Local Development — Docker Compose
+#
+# Starts the Mercury-Agent API together with a lightweight monitoring stack
+# (Prometheus + Grafana) that mirrors the production observability setup.
+#
+# Prerequisites:
+#   cp .env.example .env   # set JWT_SECRET_KEY at minimum
+#
+# Usage:
+#   docker compose up -d
+#   curl http://localhost:8000/health
+#   open http://localhost:3000    # Grafana  (default credentials: admin / admin)
+#   open http://localhost:9090    # Prometheus
+
+services:
+  # ---------------------------------------------------------------------------
+  # Mercury-Agent API
+  # ---------------------------------------------------------------------------
+  mercury-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mercury-agent:local
+    container_name: mercury-agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Use development mode so startup succeeds without all production secrets.
+      # Override with MERCURY_AGENT_ENV=production when testing prod behaviour.
+      MERCURY_AGENT_ENV: ${MERCURY_AGENT_ENV:-development}
+      OMNI_API_HOST: "0.0.0.0"
+      OMNI_API_PORT: "8000"
+      OMNI_LOG_FORMAT: ${OMNI_LOG_FORMAT:-text}
+    volumes:
+      # Persist model cache and on-disk detections between container restarts
+      - mercury-cache:/app/cache
+      - mercury-models:/app/models
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import urllib.request, sys
+          try:
+            urllib.request.urlopen("http://localhost:8000/health", timeout=5)
+          except Exception as e:
+            print(e, file=sys.stderr)
+            sys.exit(1)
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Prometheus — metrics collection
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: mercury-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+
+  # ---------------------------------------------------------------------------
+  # Grafana — dashboards
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: mercury-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  mercury-cache:
+  mercury-models:
+  prometheus-data:
+  grafana-data:

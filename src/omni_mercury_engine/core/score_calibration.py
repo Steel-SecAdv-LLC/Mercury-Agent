@@ -502,7 +502,7 @@ class ScoreDiagnostics:
         detector_name: str = "Unknown",
     ) -> None:
         """
-        Print quick diagnostic matching user's requested format.
+        Log quick diagnostic matching user's requested format.
 
         This implements the exact diagnostic the user requested:
         ```
@@ -514,12 +514,16 @@ class ScoreDiagnostics:
         """
         scores = np.asarray(scores).flatten()
 
-        print(f"\n--- {detector_name} Score Diagnostics ---")
-        print(f"Score range: [{scores.min():.4f}, {scores.max():.4f}]")
-        print(f"Score mean: {scores.mean():.4f}")
-        print(f"Threshold: {threshold}")
-        print(f"Predictions above threshold: {(scores > threshold).sum()}/{len(scores)}")
-        print("-" * 40)
+        logger.debug("\n--- %s Score Diagnostics ---", detector_name)
+        logger.debug("Score range: [%.4f, %.4f]", scores.min(), scores.max())
+        logger.debug("Score mean: %.4f", scores.mean())
+        logger.debug("Threshold: %s", threshold)
+        logger.debug(
+            "Predictions above threshold: %d/%d",
+            int((scores > threshold).sum()),
+            len(scores),
+        )
+        logger.debug("-" * 40)
 
 
 class AutoThresholdOptimizer:

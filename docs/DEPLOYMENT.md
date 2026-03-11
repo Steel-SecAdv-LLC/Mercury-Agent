@@ -1,0 +1,402 @@
+# Mercury-Agent Deployment Guide
+
+This guide covers deploying Mercury-Agent from a local Docker environment through
+production Kubernetes/Helm. It documents every required configuration value, the
+expected startup sequence, and the most common operational concerns.
+
+---
+
+## Table of Contents
+
+1. [Prerequisites](#prerequisites)
+2. [Quick Start (Docker Compose)](#quick-start-docker-compose)
+3. [Production Docker](#production-docker)
+4. [Kubernetes / Helm](#kubernetes--helm)
+5. [Required Environment Variables](#required-environment-variables)
+6. [Optional Environment Variables](#optional-environment-variables)
+7. [Health Checks](#health-checks)
+8. [Monitoring](#monitoring)
+9. [Secrets Management](#secrets-management)
+10. [Upgrade Procedure](#upgrade-procedure)
+11. [Rollback Procedure](#rollback-procedure)
+12. [Troubleshooting](#troubleshooting)
+
+---
+
+## Prerequisites
+
+| Tool | Minimum Version | Notes |
+|------|----------------|-------|
+| Python | 3.11 | 3.12 recommended |
+| Docker | 24.0 | multi-stage build required |
+| docker compose | 2.20 | V2 plugin (`docker compose`, not `docker-compose`) |
+| kubectl | 1.28 | for Kubernetes deployments |
+| Helm | 3.12 | for Helm deployments |
+
+---
+
+## Quick Start (Docker Compose)
+
+For local development and evaluation use `docker-compose.yml` at the repo root:
+
+```bash
+# 1. Copy and fill in secrets
+cp .env.example .env
+# Edit .env — at minimum set JWT_SECRET_KEY
+
+# 2. Start all services
+docker compose up -d
+
+# 3. Verify API is healthy
+curl http://localhost:8000/health
+
+# 4. Tail logs
+docker compose logs -f mercury-agent
+```
+
+Services started by docker-compose:
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| `mercury-agent` | 8000 | REST API |
+| `prometheus` | 9090 | Metrics scrape |
+| `grafana` | 3000 | Dashboards (admin/admin) |
+
+---
+
+## Production Docker
+
+### Build
+
+```bash
+docker build \
+  --build-arg USERNAME=mercuryagent \
+  --build-arg USER_UID=1000 \
+  -t mercury-agent:latest .
+```
+
+The Dockerfile uses a multi-stage build:
+- **Stage 1 (builder):** installs all dependencies into `/opt/venv`
+- **Stage 2 (runtime):** copies only the venv + source, runs as non-root UID 1000
+
+### Run
+
+```bash
+docker run -d \
+  --name mercury-agent \
+  -p 8000:8000 \
+  --env-file .env \
+  -e MERCURY_AGENT_ENV=production \
+  mercury-agent:latest
+```
+
+---
+
+## Kubernetes / Helm
+
+### Install
+
+```bash
+helm install mercury-agent ./helm \
+  --namespace mercury \
+  --create-namespace \
+  -f helm/values.yaml \
+  --set secrets.jwtSecretKey="$(openssl rand -hex 32)" \
+  --set secrets.mercuryCacheSecret="$(openssl rand -hex 32)" \
+  --set secrets.apiKeyHashSalt="$(openssl rand -hex 32)"
+```
+
+### Upgrade
+
+```bash
+helm upgrade mercury-agent ./helm \
+  --namespace mercury \
+  -f helm/values.yaml
+```
+
+### Key Helm values
+
+| Value | Default | Description |
+|-------|---------|-------------|
+| `replicaCount` | 3 | Number of API pods |
+| `image.tag` | `latest` | Docker image tag |
+| `resources.requests.cpu` | `500m` | CPU request |
+| `resources.requests.memory` | `1Gi` | Memory request |
+| `autoscaling.enabled` | `true` | HPA enabled |
+| `autoscaling.minReplicas` | 3 | Minimum pods |
+| `autoscaling.maxReplicas` | 20 | Maximum pods |
+| `secrets.jwtSecretKey` | *(required)* | JWT signing key |
+| `secrets.mercuryCacheSecret` | *(required)* | Cache HMAC key |
+| `secrets.apiKeyHashSalt` | *(required)* | API key hash salt |
+
+The Helm chart configures liveness/readiness probes, PodDisruptionBudget, anti-affinity,
+and topology spread constraints automatically.
+
+---
+
+## Required Environment Variables
+
+These must be set before starting the application in **any** environment.
+The application will refuse to start in production mode if they are missing.
+
+| Variable | Description | Generate with |
+|----------|-------------|---------------|
+| `JWT_SECRET_KEY` | JWT signing key for API auth | `openssl rand -hex 32` |
+
+### Additional production-only requirements
+
+When `MERCURY_AGENT_ENV=production` the following are also required and the
+application will raise an error on startup if they are absent:
+
+| Variable | Description | Generate with |
+|----------|-------------|---------------|
+| `MERCURY_CACHE_SECRET` | HMAC key for signed cache entries | `openssl rand -hex 32` |
+| `API_KEY_HASH_SALT` | Salt for API key hashing | `openssl rand -hex 32` |
+
+---
+
+## Optional Environment Variables
+
+### API Server
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MERCURY_AGENT_ENV` | `development` | Set to `production` for strict mode |
+| `OMNI_API_HOST` | `0.0.0.0` | Bind address |
+| `OMNI_API_PORT` | `8000` | Listen port |
+| `OMNI_API_WORKERS` | `4` | Uvicorn worker count |
+
+### Logging
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OMNI_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `OMNI_LOG_FORMAT` | `json` | `json` (structured) or `text` (human-readable) |
+
+### Rate Limiting
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OMNI_RATE_LIMIT_ENABLED` | `true` | Enable per-IP rate limiting |
+| `OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE` | `100` | Steady-state limit |
+| `OMNI_RATE_LIMIT_BURST` | `20` | Burst allowance |
+
+### ML / Performance
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OMNI_ML_ENABLED` | `true` | Enable ML detector pipeline |
+| `OMNI_QUANTUM_ENABLED` | `false` | Enable PQC/quantum modules |
+| `OMNI_CACHE_DIR` | `/app/cache` | On-disk cache path |
+| `TORCH_HOME` | `/app/models` | PyTorch model cache |
+| `OMP_NUM_THREADS` | `4` | OpenMP threads for NumPy/SciPy |
+
+### Database (optional persistence)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | *(none)* | e.g. `postgresql://user:pass@host:5432/db` |
+
+---
+
+## Health Checks
+
+### REST endpoint
+
+```
+GET /health
+```
+
+Returns `200 OK` when the service is ready to handle requests. Used by
+Kubernetes readiness and liveness probes.
+
+### Docker HEALTHCHECK
+
+The Dockerfile defines:
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import omni_mercury_engine; print('healthy')" || exit 1
+```
+
+### CLI check
+
+```bash
+python -c "import omni_mercury_engine; print('OK')"
+```
+
+---
+
+## Monitoring
+
+Prometheus metrics are served on the API port at `/metrics`.
+
+### Grafana dashboards
+
+Dashboards are auto-provisioned from `monitoring/grafana/` when the Grafana
+container starts. After running `docker compose up -d grafana` the
+Mercury-Agent Overview dashboard is immediately available at
+`http://localhost:3000` (default credentials: admin / admin).
+
+### AlertManager
+
+AlertManager rules are in `monitoring/alertmanager/`. Configure receivers
+(Slack, PagerDuty, email) in `monitoring/alertmanager/alertmanager-config.yaml`.
+
+### Key metrics to watch
+
+| Metric | Alert threshold | Notes |
+|--------|----------------|-------|
+| `mercury_anomaly_detections_total` | — | Detection throughput |
+| `mercury_api_request_latency_seconds` | p99 > 2s | API latency |
+| `mercury_ethics_violations_total` | > 0 / 5 min | Ethical constraint breaches |
+| `mercury_mock_fallback_active` | > 0 | Mock adapters in use (degraded) |
+| `process_resident_memory_bytes` | > 4 GiB | Memory leak indicator |
+
+---
+
+## Secrets Management
+
+Secrets should never be committed to source control. Recommended approaches:
+
+### Kubernetes Secrets (built-in)
+
+```bash
+kubectl create secret generic mercury-agent-secrets \
+  --namespace mercury \
+  --from-literal=JWT_SECRET_KEY="$(openssl rand -hex 32)" \
+  --from-literal=MERCURY_CACHE_SECRET="$(openssl rand -hex 32)" \
+  --from-literal=API_KEY_HASH_SALT="$(openssl rand -hex 32)"
+```
+
+### External Secrets Operator (recommended for production)
+
+The Helm chart supports External Secrets Operator (ESO). Enable it:
+
+```yaml
+# helm/values.yaml
+externalSecrets:
+  enabled: true
+  secretStore: cluster-secret-store
+  remoteRef:
+    key: mercury-agent/prod
+```
+
+### Rotation
+
+There is currently **no automated secret rotation**. Manual rotation steps:
+
+1. Generate new secret values
+2. Update the Kubernetes Secret or ESO reference
+3. Perform a rolling restart: `kubectl rollout restart deployment/mercury-agent -n mercury`
+4. Verify health: `kubectl rollout status deployment/mercury-agent -n mercury`
+
+---
+
+## Upgrade Procedure
+
+```bash
+# 1. Pull latest image (or build locally)
+docker pull ghcr.io/steel-secadv-llc/mercury-agent:latest
+
+# 2. For Helm deployments — upgrade in place (rolling update)
+helm upgrade mercury-agent ./helm \
+  --namespace mercury \
+  --set image.tag=<new-tag>
+
+# 3. Monitor rollout
+kubectl rollout status deployment/mercury-agent -n mercury
+
+# 4. Smoke test
+curl https://<ingress-host>/health
+```
+
+---
+
+## Rollback Procedure
+
+### Helm rollback
+
+```bash
+# List revision history
+helm history mercury-agent --namespace mercury
+
+# Roll back to previous revision
+helm rollback mercury-agent --namespace mercury
+
+# Roll back to a specific revision
+helm rollback mercury-agent 3 --namespace mercury
+```
+
+### Docker rollback
+
+```bash
+docker stop mercury-agent
+docker run -d --name mercury-agent \
+  -p 8000:8000 \
+  --env-file .env \
+  mercury-agent:<previous-tag>
+```
+
+---
+
+## Troubleshooting
+
+### Service fails to start
+
+**Symptom:** Container exits immediately with error.
+
+1. Check required env vars are set: `MERCURY_AGENT_ENV`, `JWT_SECRET_KEY`
+2. In production mode, verify `MERCURY_CACHE_SECRET` and `API_KEY_HASH_SALT` are set
+3. Check for import errors: `docker run --rm mercury-agent:latest python -c "import omni_mercury_engine"`
+
+### Mock adapters active in production
+
+**Symptom:** `MockLLMAdapter is active` warning in logs.
+
+- This means no supported LLM provider is configured
+- Set a valid `LLMProvider` in application config or via environment variable
+- Check `OMNI_ML_ENABLED=true` is set
+- Verify optional model dependencies are installed: `pip install -e ".[llm]"`
+
+### High memory usage
+
+**Symptom:** Pod OOMKilled or memory > 4 GiB.
+
+1. Reduce `OMP_NUM_THREADS` (default 4)
+2. Reduce `OMNI_API_WORKERS` (default 4)
+3. Enable model offloading: set `TORCH_HOME` to a persistent volume
+4. Check for detector memory leaks in `/metrics`
+
+### Conformal prediction skipped (WARNING in logs)
+
+**Symptom:** `Conformal prediction skipped: ... — confidence_intervals will be None`
+
+- The conformal predictor was not fitted or encountered an error
+- Call `fit()` on the `GOSNNIntegration` instance with labelled validation data
+  before running inference
+- confidence_intervals will be absent from detection results until fitted
+
+### Ethics audit failures in CI
+
+**Symptom:** CI ethics-audit job shows `FAIL` but continues (advisory gate).
+
+- Review the specific test(s) that failed in the CI log
+- `T3` failures: `PreExecutionBlockingGate` pattern list may be incomplete
+- `T4` failures: `EthicalAutonomyGovernor` scoring thresholds may need calibration
+- `T5` failures: `ethical_compliance_threshold` immutability guard is broken — do not deploy
+
+### Coverage below target
+
+The repository targets 85% test coverage but CI enforces only 10%.
+To run coverage locally:
+
+```bash
+pytest --cov=omni_mercury_engine --cov-report=term-missing tests/
+```
+
+To enforce the 85% target locally:
+
+```bash
+pytest --cov=omni_mercury_engine --cov-fail-under=85 tests/
+```
