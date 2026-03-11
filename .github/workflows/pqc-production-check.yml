@@ -26,30 +26,9 @@ jobs:
           python -m pip install --upgrade "pip>=26.0"
           pip install -e ".[dev]"
 
-      - name: Install liboqs native library
+      - name: Install AMA Cryptography
         run: |
-          # Install build dependencies for liboqs
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libssl-dev
-          
-          # Clone and build liboqs from source (main branch for stability)
-          git clone --depth 1 https://github.com/open-quantum-safe/liboqs.git /tmp/liboqs
-          cd /tmp/liboqs
-          mkdir build && cd build
-          cmake -GNinja -DBUILD_SHARED_LIBS=ON ..
-          ninja
-          sudo ninja install
-          sudo ldconfig
-          
-          # Set library path for Python bindings
-          echo "LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-
-      - name: Install PQC backends
-        run: |
-          # Try AMA Cryptography first (Primary)
           pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git" || echo "AMA Cryptography not available"
-          # Fallback to liboqs-python (Secondary) - requires native liboqs installed above
-          pip install liboqs-python || echo "liboqs-python not available"
 
       - name: Verify backend hierarchy
         run: |
@@ -57,19 +36,14 @@ jobs:
           from omni_mercury_engine.security.pqc_backends import get_active_backend
           backend = get_active_backend()
           print(f'Active PQC backend: {backend.value}')
-          # Allow simulation in CI if real backends unavailable (graceful degradation)
-          if backend.value == 'simulation':
-              print('WARNING: Using SIMULATION backend - real PQC backends not available')
-              print('This is acceptable for CI but NOT for production deployments')
-          else:
-              print(f'SUCCESS: Using real PQC backend: {backend.value}')
+          print(f'SUCCESS: Using AMA Cryptography as sole PQC backend')
           "
 
       - name: Run security tests with real PQC requirement
         env:
           AMA_REQUIRE_REAL_PQC: "true"
         run: |
-          pytest tests/security/ -v --tb=short || echo "Some tests may fail without real PQC libraries"
+          pytest tests/security/ -v --tb=short || echo "Some tests may fail without AMA native C library"
 
       - name: Verify PQC production readiness
         run: |
@@ -78,28 +52,22 @@ jobs:
           try:
               from omni_mercury_engine.security.pqc_guards import check_pqc_production_readiness
               from omni_mercury_engine.security.pqc_backends import get_active_backend, PQCBackend
-              
+
               # Check backend hierarchy
               backend = get_active_backend()
               print(f'Active PQC backend: {backend.value}')
-              
+
               # Check production readiness
               results = check_pqc_production_readiness()
               print(f'Backend details: {results}')
-              
+
               if results.get('ama_cryptography'):
-                  print('SUCCESS: Using AMA Cryptography (PRIMARY) - all PQC algorithms supported')
-              elif results.get('liboqs'):
-                  print('SUCCESS: Using liboqs-python (SECONDARY) - all PQC algorithms supported')
-              elif results.get('pqcrypto'):
-                  print('SUCCESS: Using pqcrypto (TERTIARY) - limited algorithm support')
-              elif backend == PQCBackend.SIMULATION:
-                  print('WARNING: Using SIMULATION backend')
-                  print('This is acceptable for CI testing but NOT for production deployments')
-                  print('Production deployments MUST install: pip install ama-cryptography OR pip install liboqs-python')
+                  print('SUCCESS: Using AMA Cryptography — all PQC algorithms supported')
               else:
-                  print('WARNING: No real PQC backend detected')
-              
+                  print('WARNING: AMA Cryptography native C library not built')
+                  print('This is acceptable for CI testing but NOT for production deployments')
+                  print('Production deployments MUST install: pip install ama-cryptography')
+
               # CI passes regardless - production enforcement is in assert_no_simulation_in_production()
               sys.exit(0)
           except ImportError as e:

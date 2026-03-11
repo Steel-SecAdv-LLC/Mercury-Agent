@@ -98,7 +98,6 @@ Mercury Agent uses NIST-approved post-quantum cryptographic algorithms (ML-DSA-6
 **References:**
 - [NIST PQC Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography)
 - [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
-- [liboqs / Open Quantum Safe](https://openquantumsafe.org/)
 - [Dilithium (CRYSTALS)](https://pq-crystals.org/dilithium/)
 - [Kyber (CRYSTALS)](https://pq-crystals.org/kyber/)
 

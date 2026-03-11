@@ -683,7 +683,7 @@ Optimized for both accuracy and interpretability:
 | Input Validation | **Complete** | OWASP-compliant, SQL/XSS/injection detection |
 | JWT Authentication | **Complete** | PyJWT with proper validation |
 | Property Testing | **Complete** | Hypothesis-based test suite |
-| Post-Quantum Crypto | **Complete** | liboqs integration with fallback |
+| Post-Quantum Crypto | **Complete** | AMA Cryptography (sole PQC backend) |
 | Real-Data Validation | **Pending** | Requires MIMIC-III, NSL-KDD datasets |
 
 **Legend:**
@@ -1120,7 +1120,7 @@ GitHub Actions automatically tests:
 |-------|------------|
 | Input Validation | OWASP-compliant SQL/XSS/injection detection |
 | Authentication | JWT with proper expiration and signature verification |
-| Cryptography | Kyber768/Dilithium3 via liboqs with classical fallback |
+| Cryptography | ML-DSA-65/Kyber-1024/SPHINCS+ via AMA Cryptography |
 | Rust Crypto | AES-256-GCM, ChaCha20-Poly1305, BLAKE3, Argon2id via PyO3 (see `rust_crypto/`) |
 | Rate Limiting | Token bucket algorithm with configurable limits |
 | Secret Detection | detect-secrets in pre-commit hooks |
@@ -1821,7 +1821,6 @@ the Free Software Foundation, either version 3 of the License, or
 - **PyTorch**: BSD-style license
 - **Fairlearn**: MIT license
 - **Hypothesis**: MPL 2.0 license
-- **liboqs-python**: MIT license
 - **FastAPI**: MIT license
 - **PyJWT**: MIT license
 
