@@ -40,7 +40,6 @@ from omni_mercury_engine.security.pqc_backends import (
     DILITHIUM_AVAILABLE,
     KYBER_AVAILABLE,
     SPHINCS_AVAILABLE,
-    PQCBackend,
     get_active_backend,
 )
 

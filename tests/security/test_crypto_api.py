@@ -272,9 +272,9 @@ class TestPostQuantumProviders:
         assert encapsulated.shared_secret is not None
 
         recovered = provider.decapsulate(encapsulated.ciphertext, keypair.secret_key)
-        assert recovered == encapsulated.shared_secret, (
-            "Kyber shared secrets should match after encap/decap"
-        )
+        assert (
+            recovered == encapsulated.shared_secret
+        ), "Kyber shared secrets should match after encap/decap"
 
     def test_sphincs_plus_signatures(self):
         """Test SPHINCS+ signature roundtrip."""

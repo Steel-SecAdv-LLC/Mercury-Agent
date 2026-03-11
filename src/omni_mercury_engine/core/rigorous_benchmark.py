@@ -402,6 +402,7 @@ class RigorousBenchmarkHarness:
         """
         try:
             from omni_mercury_engine.ml.mercury_ml import (
+                StratifiedKFold,
                 average_precision_score,
                 brier_score_loss,
                 f1_score,
@@ -409,7 +410,6 @@ class RigorousBenchmarkHarness:
                 recall_score,
                 roc_auc_score,
             )
-            from omni_mercury_engine.ml.mercury_ml import StratifiedKFold
         except ImportError as e:
             raise ImportError(
                 "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"

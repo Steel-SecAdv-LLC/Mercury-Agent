@@ -42,15 +42,19 @@ from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
+try:
+    from ama_cryptography.key_management import (
+        HDKeyDerivation,
+        KeyRotationManager,
+    )
+
+    _AMA_KEY_MGMT_AVAILABLE = True
+except ImportError:
+    _AMA_KEY_MGMT_AVAILABLE = False
+
 from fastapi import HTTPException, Request, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
-
-from ama_cryptography.key_management import (
-    HDKeyDerivation,
-    KeyRotationManager,
-    KeyStatus,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -334,6 +338,12 @@ class AuthKeyManager:
             master_seed: HD derivation master seed (generated if None)
             rotation_period_days: Default key rotation period in days
         """
+        if not _AMA_KEY_MGMT_AVAILABLE:
+            raise RuntimeError(
+                "AuthKeyManager requires AMA Cryptography key management. "
+                "Install with: pip install 'ama-cryptography @ "
+                "git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git'"
+            )
         self._hd = HDKeyDerivation(seed=master_seed)
         self._rotation = KeyRotationManager(
             rotation_period=timedelta(days=rotation_period_days),
@@ -381,12 +391,13 @@ class AuthKeyManager:
         if index is None:
             index = self._key_index.get(purpose, 0)
 
-        return self._hd.derive_key(
+        result: bytes = self._hd.derive_key(
             purpose=purpose_id,
             account=0,
             change=0,
             index=index,
         )
+        return result
 
     def rotate_key(self, purpose: str) -> tuple[str, str]:
         """Rotate the key for the given purpose.
@@ -427,8 +438,7 @@ class AuthKeyManager:
         if old_key_id in self._rotation.keys:
             self._rotation.initiate_rotation(old_key_id, new_key_id)
             logger.info(
-                f"Key rotation initiated: {old_key_id} → {new_key_id} "
-                f"(purpose={purpose})"
+                f"Key rotation initiated: {old_key_id} → {new_key_id} " f"(purpose={purpose})"
             )
 
         return old_key_id, new_key_id
@@ -437,7 +447,8 @@ class AuthKeyManager:
         """Check if the active key for a purpose needs rotation."""
         current_index = self._key_index.get(purpose, 0)
         key_id = f"{purpose}-{current_index}"
-        return self._rotation.should_rotate(key_id)
+        result: bool = self._rotation.should_rotate(key_id)
+        return result
 
     def get_active_key_material(self, purpose: str) -> bytes:
         """Get the current active key material for a purpose."""
@@ -459,7 +470,8 @@ class AuthKeyManager:
 
     def get_rotation_status(self) -> dict[str, Any]:
         """Get status of all managed keys."""
-        return self._rotation.export_metadata()
+        result: dict[str, Any] = self._rotation.export_metadata()
+        return result
 
 
 # Global API key store (in production, use dependency injection)
@@ -630,8 +642,7 @@ class JWTAuth:
                     derived = km.get_active_key_material("jwt_sign")
                     self.secret_key = derived.hex()
                     logger.info(
-                        "JWT signing key derived from AMA HD Key Management "
-                        "(purpose=jwt_sign)"
+                        "JWT signing key derived from AMA HD Key Management " "(purpose=jwt_sign)"
                     )
                 except Exception as e:
                     raise ValueError(

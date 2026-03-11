@@ -52,16 +52,15 @@ from enum import Enum
 from typing import Any
 
 from ama_cryptography.crypto_api import (
+    AESGCMProvider,
     AlgorithmType as AmaAlgorithmType,
     AmaCryptography,
-    CryptoBackend as AmaCryptoBackend,
     CryptoPackageConfig as AmaCryptoPackageConfig,
     CryptoPackageResult as AmaCryptoPackageResult,
-    AESGCMProvider,
     create_crypto_package as ama_create_crypto_package,
     get_pqc_capabilities as ama_get_pqc_capabilities,
-    verify_crypto_package as ama_verify_crypto_package,
 )
+
 from omni_mercury_engine.security.pqc_backends import (
     dilithium_sign,
     dilithium_verify,
@@ -124,6 +123,7 @@ class CryptoBackend(Enum):
 # ---------------------------------------------------------------------------
 # Mercury data classes (backward-compatible interface)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class KeyPair:
@@ -195,6 +195,7 @@ class CryptoPackageResult:
 # ---------------------------------------------------------------------------
 # Provider classes — delegate to AMA Cryptography
 # ---------------------------------------------------------------------------
+
 
 class Ed25519Provider:
     """Ed25519 classical signature provider."""
@@ -539,7 +540,8 @@ class MercuryCrypto:
         """
         try:
             provider = AESGCMProvider()
-            return provider.encrypt(plaintext, key, nonce=nonce, aad=aad)
+            result: dict[str, Any] = provider.encrypt(plaintext, key, nonce=nonce, aad=aad)
+            return result
         except RuntimeError:
             # AMA native C backend not available — fall back to Mercury's
             # Rust/Python AEAD from omni_mercury_engine.crypto
@@ -577,7 +579,8 @@ class MercuryCrypto:
         """
         try:
             provider = AESGCMProvider()
-            return provider.decrypt(ciphertext, key, nonce, tag, aad=aad)
+            decrypted: bytes = provider.decrypt(ciphertext, key, nonce, tag, aad=aad)
+            return decrypted
         except RuntimeError:
             from omni_mercury_engine.crypto import decrypt as mercury_decrypt
 

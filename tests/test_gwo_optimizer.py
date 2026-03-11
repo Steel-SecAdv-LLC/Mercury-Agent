@@ -5,13 +5,11 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 """
 
-import pytest
-
 import numpy as np
 import pytest
-from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier
 
 from omni_mercury_engine.ml.gwo_optimizer import GreyWolfOptimizer
+from omni_mercury_engine.ml.mercury_ml import GradientBoostingClassifier
 from omni_mercury_engine.utils.rng import DeterministicRNG
 
 

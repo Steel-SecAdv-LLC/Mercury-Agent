@@ -54,8 +54,8 @@ References:
 
 import logging
 import os
-import time
 import threading
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -130,6 +130,7 @@ def require_constant_time() -> bool:
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DilithiumKeyPair:
     """ML-DSA-65 (Dilithium) key pair."""
@@ -169,6 +170,7 @@ class SphincsKeyPair:
 # PQC operations — thin wrappers around AMA Cryptography
 # ---------------------------------------------------------------------------
 
+
 def generate_dilithium_keypair() -> DilithiumKeyPair:
     """
     Generate ML-DSA-65 (Dilithium) key pair via AMA Cryptography.
@@ -192,14 +194,16 @@ def dilithium_sign(message: bytes, secret_key: bytes) -> bytes:
     """Sign message using ML-DSA-65 (Dilithium) via AMA Cryptography."""
     if not DILITHIUM_AVAILABLE:
         raise RuntimeError("ML-DSA-65 not available in AMA Cryptography.")
-    return _ama_dilithium_sign(message, secret_key)
+    result: bytes = _ama_dilithium_sign(message, secret_key)
+    return result
 
 
 def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     """Verify ML-DSA-65 (Dilithium) signature via AMA Cryptography."""
     if not DILITHIUM_AVAILABLE:
         raise RuntimeError("ML-DSA-65 not available in AMA Cryptography.")
-    return _ama_dilithium_verify(message, signature, public_key)
+    result: bool = _ama_dilithium_verify(message, signature, public_key)
+    return result
 
 
 def generate_kyber_keypair() -> KyberKeyPair:
@@ -225,7 +229,8 @@ def kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> bytes:
     """Decapsulate shared secret using Kyber secret key via AMA Cryptography."""
     if not KYBER_AVAILABLE:
         raise RuntimeError("Kyber-1024 not available in AMA Cryptography.")
-    return _ama_kyber_decapsulate(ciphertext, secret_key)
+    result: bytes = _ama_kyber_decapsulate(ciphertext, secret_key)
+    return result
 
 
 def generate_sphincs_keypair() -> SphincsKeyPair:
@@ -243,14 +248,16 @@ def sphincs_sign(message: bytes, secret_key: bytes) -> bytes:
     """Sign message using SPHINCS+ via AMA Cryptography."""
     if not SPHINCS_AVAILABLE:
         raise RuntimeError("SPHINCS+ not available in AMA Cryptography.")
-    return _ama_sphincs_sign(message, secret_key)
+    result: bytes = _ama_sphincs_sign(message, secret_key)
+    return result
 
 
 def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     """Verify SPHINCS+ signature via AMA Cryptography."""
     if not SPHINCS_AVAILABLE:
         raise RuntimeError("SPHINCS+ not available in AMA Cryptography.")
-    return _ama_sphincs_verify(message, signature, public_key)
+    result: bool = _ama_sphincs_verify(message, signature, public_key)
+    return result
 
 
 def get_pqc_capabilities() -> dict[str, Any]:
@@ -377,9 +384,7 @@ def validate_pqc_environment() -> dict[str, Any]:
     warnings: list[str] = []
 
     if require_constant_time() and not AMA_CRYPTOGRAPHY_AVAILABLE:
-        issues.append(
-            "AMA_REQUIRE_CONSTANT_TIME=true but AMA Cryptography is not available."
-        )
+        issues.append("AMA_REQUIRE_CONSTANT_TIME=true but AMA Cryptography is not available.")
 
     if not DILITHIUM_AVAILABLE:
         warnings.append(
@@ -388,13 +393,11 @@ def validate_pqc_environment() -> dict[str, Any]:
         )
     if not KYBER_AVAILABLE:
         warnings.append(
-            "Kyber-1024 not available. "
-            "Build AMA native C library for key encapsulation."
+            "Kyber-1024 not available. " "Build AMA native C library for key encapsulation."
         )
     if not SPHINCS_AVAILABLE:
         warnings.append(
-            "SPHINCS+ not available. "
-            "Build AMA native C library for hash-based signatures."
+            "SPHINCS+ not available. " "Build AMA native C library for hash-based signatures."
         )
 
     is_production_ready = len(issues) == 0 and DILITHIUM_AVAILABLE

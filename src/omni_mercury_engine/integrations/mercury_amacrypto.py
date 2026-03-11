@@ -53,7 +53,6 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-
 from ama_cryptography.adaptive_posture import (
     CryptoPostureController,
     PostureAction,
@@ -273,14 +272,16 @@ class EWMATimingMonitor:
                         severity: str
                         deviation_sigma: float
 
-                    recent_alerts.append({
-                        "type": "timing",
-                        "anomaly": _TimingAnomaly(
-                            severity=severity,
-                            deviation_sigma=deviation,
-                        ),
-                        "operation": operation,
-                    })
+                    recent_alerts.append(
+                        {
+                            "type": "timing",
+                            "anomaly": _TimingAnomaly(
+                                severity=severity,
+                                deviation_sigma=deviation,
+                            ),
+                            "operation": operation,
+                        }
+                    )
 
         return {
             "status": "monitoring_active" if self.stats else "monitoring_disabled",
@@ -483,21 +484,22 @@ class MercuryGuardianAdapter:
 
         # Synthesize pattern alerts from GOSNN scalar anomalies
         if anomaly_count > 0 and avg_severity > 0.3:
-            @dataclass
-            class _PatternAnomaly:
-                z_score: float
-                severity: str
-
             severity_level = "critical" if avg_severity > 0.7 else "warning"
             z_score = avg_severity * 10.0
-            report["recent_alerts"].append({
-                "type": "pattern",
-                "anomaly": {
-                    "z_score": z_score,
-                    "severity": severity_level,
-                },
-            })
+            report["recent_alerts"].append(
+                {
+                    "type": "pattern",
+                    "anomaly": {
+                        "z_score": z_score,
+                        "severity": severity_level,
+                    },
+                }
+            )
             report["total_alerts"] = int(report.get("total_alerts", 0) + anomaly_count)
+
+        # Include timing anomaly count in resonance analysis for PostureEvaluator
+        if timing_anomalies > 0:
+            report.setdefault("resonance_analysis", {})["timing_anomaly_count"] = timing_anomalies
 
         return report
 
@@ -510,6 +512,7 @@ class MercuryGuardianAdapter:
                     GlobalOmniScalarNetwork,
                     ScalarGroup,
                 )
+
                 gosnn = GlobalOmniScalarNetwork()
                 gosnn.register_scalars(
                     component_name="ama_posture_rotation",
@@ -525,15 +528,14 @@ class MercuryGuardianAdapter:
 
     def _on_posture_algorithm_switch(self, new_algorithm: str) -> None:
         """Callback from CryptoPostureController when algorithm switch occurs."""
-        logger.info(
-            f"AMA Adaptive Posture switched algorithm to {new_algorithm} via GOSNN context"
-        )
+        logger.info(f"AMA Adaptive Posture switched algorithm to {new_algorithm} via GOSNN context")
         if self.gosnn_synapse_enabled:
             try:
                 from omni_mercury_engine.core.global_omni_scalar_network import (
                     GlobalOmniScalarNetwork,
                     ScalarGroup,
                 )
+
                 gosnn = GlobalOmniScalarNetwork()
                 gosnn.register_scalars(
                     component_name="ama_posture_algorithm",
@@ -911,9 +913,7 @@ class MercuryGuardianAdapter:
         """Get aggregated omni-scalars for GOSNN registration."""
         scalars: dict[str, float] = {
             "omni_ama_cryptography_available": 1.0 if AMA_CRYPTOGRAPHY_AVAILABLE else 0.0,
-            "omni_mercury_guardian_available": (
-                1.0 if AMA_CRYPTOGRAPHY_AVAILABLE else 0.0
-            ),
+            "omni_mercury_guardian_available": (1.0 if AMA_CRYPTOGRAPHY_AVAILABLE else 0.0),
             "omni_dilithium_available": 1.0 if DILITHIUM_AVAILABLE else 0.0,
             "omni_kyber_available": 1.0 if KYBER_AVAILABLE else 0.0,
             "omni_crypto_anomaly_count": float(len(self.anomaly_history)),

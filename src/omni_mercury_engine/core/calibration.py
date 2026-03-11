@@ -473,8 +473,7 @@ def evaluate_calibration(
         CalibrationResult with before/after metrics
     """
     try:
-        from omni_mercury_engine.ml.mercury_ml import calibration_curve
-        from omni_mercury_engine.ml.mercury_ml import brier_score_loss
+        from omni_mercury_engine.ml.mercury_ml import brier_score_loss, calibration_curve
     except ImportError as e:
         raise ImportError(
             "This feature requires scikit-learn. Install with: pip install mercury-agent[ml]"
