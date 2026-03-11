@@ -131,6 +131,7 @@ from omni_mercury_engine.cognitive.reflexion import (
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate, UncertaintyQuantifier
 
 __all__ = [
+    "MINIMUM_BENEVOLENCE_FLOOR",
     # Abstraction and Planning
     "AbstractionLevel",
     "ActiveInferenceAgent",
@@ -141,10 +142,10 @@ __all__ = [
     "AnomalyHierarchicalPlanner",
     "AnomalyReflexion",
     "AnomalyVerifier",
-    # Ethical framework
-    "BenevolenceScorer",
     # Core cognitive components
     "BattlefieldAssessment",
+    # Ethical framework
+    "BenevolenceScorer",
     "Case",
     "CaseBasedReasoner",
     "CausalDiscoveryEngine",
@@ -161,10 +162,10 @@ __all__ = [
     "ConstraintSolver",
     "CreditAssignment",
     "DetectionAgent",
-    # Differentiable Logic
-    "EthicalConstraintViolationError",
     "DifferentiableLogicEngine",
     "DifferentiableTNorm",
+    # Differentiable Logic
+    "EthicalConstraintViolationError",
     "ExperienceMemory",
     # Explainability
     "ExplainabilityEngine",
@@ -192,7 +193,6 @@ __all__ = [
     "MercuryPredictiveCoding",
     # Multi-Agent Coordination
     "MultiAgentDetectionSystem",
-    "MINIMUM_BENEVOLENCE_FLOOR",
     "MultiHopReasoner",
     "OptionLibrary",
     # Individual components

@@ -352,7 +352,7 @@ class TestRefactoringTransformerConstantHoisting:
         )
         new_tree = transformer.visit(tree)
         ast.fix_missing_locations(new_tree)
-        code = ast.unparse(new_tree)
+        ast.unparse(new_tree)
 
         # Should compile and execute correctly
         compiled = compile(new_tree, "<test>", "exec")

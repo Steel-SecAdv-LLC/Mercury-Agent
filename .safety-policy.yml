@@ -1,7 +1,7 @@
-# Mercury Agent Safety Policy
+# Mercury Agent Safety Policy (v3.0)
 # Defines accepted vulnerabilities for the Safety CLI scanner.
 #
-# Each entry documents the CVE, rationale, applied mitigations, and review
+# Each CVE entry documents the rationale, applied mitigations, and review
 # schedule so that CI can hard-fail on NEW vulnerabilities while allowing
 # known, risk-assessed exceptions through.
 #
@@ -11,92 +11,93 @@
 #
 # Reference: https://docs.safetycli.com/safety-docs/policy-file
 
-security:
-  # Continue scanning even when accepted vulnerabilities are encountered.
-  # Only NEW (unaccepted) vulnerabilities cause a non-zero exit code.
-  continue-on-vulnerability-error: true
+version: '3.0'
 
-  ignore-vulnerabilities:
-    # ---------------------------------------------------------------
-    # CVE-2025-14104: util-linux heap buffer overread in setpwnam()
-    # ---------------------------------------------------------------
-    # Severity: Medium | CVSS: 5.5
-    # Component: util-linux (libblkid1, libmount1, libsmartcols1, libuuid1)
-    # Justification: Mercury Agent runs non-root; setpwnam() is never called.
-    # Mitigations: Non-root container, SUID/SGID bits removed.
-    # Expiry: 2026-06-11
-    - id: CVE-2025-14104
-      reason: "Non-root container; setpwnam() not called by application."
-      expires: "2026-06-11"
+scanning-settings:
+  max-depth: 6
+  exclude: []
+  include-files: []
+  system:
+    targets: []
 
-    # ---------------------------------------------------------------
-    # CVE-2025-8869: pip symlink extraction vulnerability
-    # ---------------------------------------------------------------
-    # Severity: Medium | CVSS: 5.3
-    # Justification: pip >= 26.0 fixes; runtime image does not run pip.
-    # Expiry: 2026-06-11
-    - id: CVE-2025-8869
-      reason: "Runtime image does not invoke pip; fixed in pip >= 26.0."
-      expires: "2026-06-11"
+report:
+  dependency-vulnerabilities:
+    enabled: true
+    auto-ignore-in-report:
+      python:
+        environment-results: true
+        unpinned-requirements: true
+      cvss-severity: []
 
-    # ---------------------------------------------------------------
-    # CVE-2025-7709: libsqlite3 FTS5 vulnerability
-    # ---------------------------------------------------------------
-    # Severity: Medium | CVSS: 5.0
-    # Justification: Mercury Agent does not use SQLite FTS5.
-    # Expiry: 2026-06-11
-    - id: CVE-2025-7709
-      reason: "FTS5 module not used by application."
-      expires: "2026-06-11"
+fail-scan-with-exit-code:
+  dependency-vulnerabilities:
+    enabled: true
+    fail-on-any-of:
+      cvss-severity:
+        - critical
+        - high
+      exploitability:
+        - critical
+        - high
 
-    # ---------------------------------------------------------------
-    # CVE-2025-68973: GnuPG key handling
-    # ---------------------------------------------------------------
-    # Severity: High | CVSS: 7.5
-    # Justification: Mercury Agent does not use GPG.
-    # Mitigations: gnupg package not present in runtime image.
-    # Expiry: 2026-06-11
-    - id: CVE-2025-68973
-      reason: "GnuPG not used; package absent from runtime image."
-      expires: "2026-06-11"
+security-updates:
+  dependency-vulnerabilities:
+    auto-security-updates-limit:
+      - patch
 
-    # ---------------------------------------------------------------
-    # CVE-2025-13601: glib URI processing
-    # ---------------------------------------------------------------
-    # Severity: High | CVSS: 7.0
-    # Justification: No glib URI processing in application code.
-    # Expiry: 2026-06-11
-    - id: CVE-2025-13601
-      reason: "Application does not process URIs via glib."
-      expires: "2026-06-11"
-
-    # ---------------------------------------------------------------
-    # CVE-2025-6020: linux-pam
-    # ---------------------------------------------------------------
-    # Severity: High | CVSS: 7.0
-    # Justification: No PAM usage; container runs non-root.
-    # Expiry: 2026-06-11
-    - id: CVE-2025-6020
-      reason: "PAM not used; container runs non-root."
-      expires: "2026-06-11"
-
-    # ---------------------------------------------------------------
-    # CVE-2025-7458: SQLite (Critical, no fix in Debian bookworm)
-    # ---------------------------------------------------------------
-    # Severity: Critical | CVSS: 9.8
-    # Justification: Mercury Agent does not use SQLite directly.
-    # Mitigations: No SQLite bindings or imports in application.
-    # Expiry: 2026-06-11
-    - id: CVE-2025-7458
-      reason: "SQLite not used by application; no direct bindings."
-      expires: "2026-06-11"
-
-    # ---------------------------------------------------------------
-    # CVE-2023-45853: zlib/minizip (Critical, no fix in Debian bookworm)
-    # ---------------------------------------------------------------
-    # Severity: Critical | CVSS: 9.8
-    # Justification: minizip function not used; only zlib core compression.
-    # Expiry: 2026-06-11
-    - id: CVE-2023-45853
-      reason: "minizip not used; only zlib core compression."
-      expires: "2026-06-11"
+installation:
+  default-action: allow
+  audit-logging:
+    enabled: true
+  allow:
+    packages: []
+    # Accepted CVEs with documented risk assessment.
+    # Each entry expires 2026-06-11 (quarterly review).
+    vulnerabilities:
+      # CVE-2025-14104: util-linux heap buffer overread in setpwnam()
+      # Severity: Medium | Non-root container; setpwnam() never called.
+      CVE-2025-14104:
+        reason: "Non-root container; setpwnam() not called by application."
+        expires: "2026-06-11"
+      # CVE-2025-8869: pip symlink extraction vulnerability
+      # Severity: Medium | Runtime image does not run pip.
+      CVE-2025-8869:
+        reason: "Runtime image does not invoke pip; fixed in pip >= 26.0."
+        expires: "2026-06-11"
+      # CVE-2025-7709: libsqlite3 FTS5 vulnerability
+      # Severity: Medium | FTS5 module not used.
+      CVE-2025-7709:
+        reason: "FTS5 module not used by application."
+        expires: "2026-06-11"
+      # CVE-2025-68973: GnuPG key handling
+      # Severity: High | GnuPG not present in runtime image.
+      CVE-2025-68973:
+        reason: "GnuPG not used; package absent from runtime image."
+        expires: "2026-06-11"
+      # CVE-2025-13601: glib URI processing
+      # Severity: High | No glib URI processing in code.
+      CVE-2025-13601:
+        reason: "Application does not process URIs via glib."
+        expires: "2026-06-11"
+      # CVE-2025-6020: linux-pam
+      # Severity: High | No PAM usage; non-root container.
+      CVE-2025-6020:
+        reason: "PAM not used; container runs non-root."
+        expires: "2026-06-11"
+      # CVE-2025-7458: SQLite (Critical, no fix in Debian bookworm)
+      # Severity: Critical | No SQLite bindings or imports.
+      CVE-2025-7458:
+        reason: "SQLite not used by application; no direct bindings."
+        expires: "2026-06-11"
+      # CVE-2023-45853: zlib/minizip (Critical, no fix in Debian bookworm)
+      # Severity: Critical | minizip not used; only zlib core compression.
+      CVE-2023-45853:
+        reason: "minizip not used; only zlib core compression."
+        expires: "2026-06-11"
+  deny:
+    packages: {}
+    vulnerabilities:
+      warning-on-any-of:
+        cvss-severity: []
+      block-on-any-of:
+        cvss-severity: []
