@@ -115,13 +115,17 @@ def security(payload: str) -> None:
 @click.option("--epochs", "-e", default=50, type=int, help="Training epochs")
 def train(data: str, output: str, epochs: int) -> None:
     """Train fusion model"""
-    engine = _get_engine(mode="fusion")
+    try:
+        engine = _get_engine(mode="fusion")
 
-    click.echo(f"Training fusion model on {data}...")
-    engine.train_fusion_model(data, epochs=epochs)
+        click.echo(f"Training fusion model on {data}...")
+        engine.train_fusion_model(data, epochs=epochs)
 
-    engine.save_model(output)
-    click.echo(f"Model saved to {output}")
+        engine.save_model(output)
+        click.echo(f"Model saved to {output}")
+    except (RuntimeError, ValueError, OSError) as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1) from e
 
 
 @main.command()
@@ -129,21 +133,25 @@ def train(data: str, output: str, epochs: int) -> None:
 @click.option("--model", "-m", default="fusion", help="Model type")
 def explain(input: str, model: str) -> None:
     """Explain anomaly detection decision"""
-    engine = _get_engine(mode=model)
+    try:
+        engine = _get_engine(mode=model)
 
-    data = _load_data(input)
+        data = _load_data(input)
 
-    result = engine.detect_with_fusion(data)
+        result = engine.detect_with_fusion(data)
 
-    explanation = {
-        "prediction": {
-            "is_anomaly": result["is_anomaly"],
-            "confidence": result["anomaly_prob"],
-        },
-        "detector_contributions": result.get("detector_importance", {}),
-    }
+        explanation = {
+            "prediction": {
+                "is_anomaly": result["is_anomaly"],
+                "confidence": result["anomaly_prob"],
+            },
+            "detector_contributions": result.get("detector_importance", {}),
+        }
 
-    click.echo(json.dumps(explanation, indent=2))
+        click.echo(json.dumps(explanation, indent=2))
+    except (KeyError, ValueError, RuntimeError, OSError) as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1) from e
 
 
 def _load_data(filepath: str) -> np.ndarray[Any, Any]:
