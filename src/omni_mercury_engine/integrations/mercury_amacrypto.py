@@ -185,17 +185,6 @@ except ImportError:
             "Install ama-cryptography for PQC support."
         )
 
-# Enforce real PQC in production when AMA_REQUIRE_REAL_PQC is set
-import os as _os
-
-if _os.environ.get("AMA_REQUIRE_REAL_PQC", "").lower() in ("true", "1", "yes"):
-    if _PQC_BACKEND_SOURCE == "stub":
-        raise RuntimeError(
-            "AMA_REQUIRE_REAL_PQC is set but no real PQC backend is available. "
-            "Install ama-cryptography: pip install 'ama-cryptography @ "
-            "git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git'"
-        )
-
         @dataclass
         class DilithiumKeyPair:  # type: ignore[no-redef]
             """Stub for DilithiumKeyPair when AMA Cryptography not available."""
@@ -216,6 +205,18 @@ if _os.environ.get("AMA_REQUIRE_REAL_PQC", "").lower() in ("true", "1", "yes"):
 
             ciphertext: bytes = b""
             shared_secret: bytes = b""
+
+
+# Enforce real PQC in production when AMA_REQUIRE_REAL_PQC is set
+import os as _os
+
+if _os.environ.get("AMA_REQUIRE_REAL_PQC", "").lower() in ("true", "1", "yes"):
+    if _PQC_BACKEND_SOURCE == "stub":
+        raise RuntimeError(
+            "AMA_REQUIRE_REAL_PQC is set but no real PQC backend is available. "
+            "Install ama-cryptography: pip install 'ama-cryptography @ "
+            "git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git'"
+        )
 
 
 # Backward compatibility alias
