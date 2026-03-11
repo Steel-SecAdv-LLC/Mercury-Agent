@@ -18,10 +18,10 @@ mock fallbacks that silently degrade functionality without operator awareness.
 
 | Severity | Count | Category |
 |----------|-------|----------|
-| **CRITICAL** | 6 | Ethics not enforced, CI soft-fails security, mock objects in prod |
-| **HIGH** | 12 | Silent exception swallowing, placeholder data, bypass vectors |
-| **MEDIUM** | 15 | Hardcoded values, disabled features, coverage gaps |
-| **LOW** | 8 | Documentation drift, config inflexibility, edge cases |
+| **CRITICAL** | 8 | Ethics not enforced, CI soft-fails security, mock objects in prod, RefactoringEngine is stub, no Respond/Recover |
+| **HIGH** | 14 | Silent exception swallowing, placeholder data, bypass vectors, learnable 3R incomplete, one-way GOSNN integration |
+| **MEDIUM** | 18 | Hardcoded values, disabled features, coverage gaps, unvalidated claims |
+| **LOW** | 10 | Documentation drift, config inflexibility, edge cases |
 
 ---
 
@@ -79,32 +79,99 @@ mock fallbacks that silently degrade functionality without operator awareness.
 
 ---
 
-## 2. 3R (Recognize, Respond, Recover)
+## 2. 3R (Recursion-Resonance-Refactoring) - NOT Recognize-Respond-Recover
 
-### Architecture Status
+### Critical Clarification
 
-The 3R pipeline has strong type definitions and structural scaffolding in `three_r/types.py`,
-`three_r/fusion.py`, and `three_r_mechanism.py`. The OmniAvaEquation is implemented with
-sigma_immutable gating.
+**"3R" stands for Recursion-Resonance-Refactoring**, a detection-only framework.
+There is NO Respond or Recover implementation. The system detects anomalies but has
+no automated response or recovery pipeline.
 
-### Issues Found
+### Completeness Assessment
 
-1. **sigma_immutable Is Not Immutable** (`three_r/fusion.py:80-91`)
+| Component | Status | Completeness |
+|-----------|--------|-------------|
+| **Recursion (R)** - RecursionEngine | Functional | 95% |
+| **Resonance (H)** - ResonanceEngine | Functional | 95% |
+| **Refactoring (O)** - RefactoringEngine | **STUB** | **15%** |
+| **Fusion Equation** - OmniAvaEquation | Functional | 90% |
+| **Learnable Fusion** - Learnable3REngine | Incomplete | 40% |
+| **Domain Adaptation** - DomainAdaptiveOAEWeights | Partial | 60% |
+| **Respond** | **MISSING** | **0%** |
+| **Recover** | **MISSING** | **0%** |
+| **GOSNN Integration** | One-way only | 50% |
+| **End-to-End Training** | Missing | 0% |
+
+### Critical Issues
+
+1. **RefactoringEngine Is a Stub** (`three_r_mechanism.py:2236-2270`)
+   - `RefactoringTransformer._reduce_nesting()` only adds a docstring
+   - No actual AST code transformations despite claiming "dynamic code optimization"
+   - `should_reduce_complexity` flag is set but never used
+   - Documentation claims: "AST manipulation for continuous performance improvement"
+   - Reality: Demo-only stub that doesn't transform code
+
+2. **sigma_immutable Is Not Immutable** (`three_r/fusion.py:80-91`)
    - Accepted as constructor parameter
    - Clamped to `[0.90, 0.99]` range with only a warning
    - Can be **dropped from 0.96 to 0.90** at instantiation
 
-2. **GOSNN-3R Weight Sync Assumptions** (`gosnn_3r_integration.py:454`)
+3. **Learnable3R Lacks Training Infrastructure** (`three_r/learnable_fusion.py:547+`)
+   - `train_step()` accepts single samples, not batches
+   - No `fit()` method for multi-epoch training
+   - No validation loop or convergence monitoring
+   - Returns 0.0 silently when PyTorch unavailable
+
+4. **Learnable and Static 3R Are Decoupled**
+   - `ThreeRMechanism` uses `OmniAvaEquation` (static weights)
+   - `Learnable3REngine` is completely separate
+   - Learned weights CANNOT feed back to the main mechanism
+
+5. **GOSNN-3R Integration Is One-Way** (`gosnn_3r_integration.py`)
+   - Claims "bidirectional feedback between GOSNN and 3R"
+   - Reality: One-way (3R -> GOSNN weights), no reverse integration
+   - GOSNN scalar update does not loop back to 3R components
+
+6. **3R and Resilience Are Not Connected**
+   - `resilience/` module exists independently
+   - 3R has NO imports from resilience
+   - Anomaly detection (3R) never triggers recovery (resilience)
+
+7. **GOSNN-3R Weight Sync Assumptions** (`gosnn_3r_integration.py:454`)
    - Assumes GOSNN instance has `_collect_all_scalars()` - no validation
    - Default weights `(0.447, 0.276, 0.276)` are hardcoded, not computed from data
 
-3. **Sliding Window Silent Fallback** (`gosnn_3r_integration.py:192-221`)
+8. **Sliding Window Silent Fallback** (`gosnn_3r_integration.py:192-221`)
    - `normalize()` returns data unchanged if `min_samples` not met
    - No warning logged - completely silent degradation
 
-4. **Incomplete 3R Attention** (`ml/three_r_attention.py`)
+9. **Incomplete 3R Attention** (`ml/three_r_attention.py`)
    - Contains 4 `print()` statements in production code
    - Attention mechanism works but lacks integration tests verifying end-to-end flow
+
+10. **Ablation Script Missing** (`configs/ablation_3r_lyapunov.yaml:16-17`)
+    - Config references `scripts/run_ablation.py` which does not exist
+    - Comment admits: "scripts/run_ablation.py is not yet implemented"
+
+### Test Coverage Gaps
+
+- **Learnable3R tests are smoke-only** (`tests/cognitive/test_core_three_r_learnable.py`)
+  - `assert engine is not None` - only checks instantiation
+  - No functional, convergence, or accuracy tests
+- **No end-to-end pipeline test** - nothing validates full R->H->O->Fusion flow
+- **RefactoringTransformer untested** - no tests for actual code transformation
+- **Lyapunov stability claims unvalidated** - theoretical formula, no empirical test
+- **DomainAdaptiveOAEWeights.fit_domain_profiles()** - no tests at all
+
+### Unvalidated Claims
+
+| Claim | Reality |
+|-------|---------|
+| "NSL-KDD F1=0.797 -> target 0.92+" | Benchmarks show 0.796 F1 (worse than baseline) |
+| "Automatic refactoring via AST" | Stub that only adds docstrings |
+| "Lyapunov stability V(S_t) <= e*e^(-0.25t)" | Theoretical; no empirical validation |
+| "Domain-adaptive learned weights" | Falls back to golden-ratio defaults with insufficient data |
+| "Bidirectional GOSNN-3R feedback" | One-way integration only |
 
 ---
 
@@ -286,6 +353,8 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 3. **Remove `continue-on-error` from security CI steps** - Safety, pip-audit, Semgrep, ethics, Trivy
 4. **Add mock-mode alerting** - Operators must know when fallback mocks are active
 5. **Replace GOSNN placeholder attention** - Wire real model tensors into optimizer
+6. **Implement RefactoringEngine or remove claims** - Currently a stub that only adds docstrings
+7. **Complete Learnable3R training pipeline** - Add fit(), validation loop, convergence criteria
 
 ### P1 - Should Fix (Operational Risks)
 
@@ -321,6 +390,11 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 - **Production status** - Mock fallbacks mean system can silently run in degraded mode
 - **Coverage claims** - 85% target with 10% enforcement is misleading
 - **Ethics audit** - "PASS" output from a placeholder that checks nothing
+- **3R completeness** - "Refactoring" engine is a stub; no Respond or Recover exists
+- **Benchmark claims** - "F1 target 0.92+" never achieved; actual benchmarks show 0.796
+- **Bidirectional GOSNN-3R** - Integration is one-way only (3R->GOSNN)
+- **Learnable 3R** - Training infrastructure incomplete; no fit(), no validation loop
+- **Lyapunov stability** - Theoretical claim with zero empirical validation
 
 ---
 
