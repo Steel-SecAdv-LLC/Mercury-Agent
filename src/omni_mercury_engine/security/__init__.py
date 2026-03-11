@@ -49,9 +49,9 @@ except ImportError:  # torch not installed
     IntelligenceFusionEngine = None  # type: ignore[assignment, misc]
 
 from omni_mercury_engine.security.pqc_backends import (
+    AMA_CRYPTOGRAPHY_AVAILABLE,
     DILITHIUM_AVAILABLE,
     KYBER_AVAILABLE,
-    LIBOQS_AVAILABLE,
     SPHINCS_AVAILABLE,
     DilithiumKeyPair,
     KyberEncapsulation,
@@ -71,6 +71,7 @@ from omni_mercury_engine.security.pqc_backends import (
     sphincs_verify,
 )
 from omni_mercury_engine.security.pqc_guards import (
+    PQCProductionWarning,
     PQCSimulationWarning,
     assert_no_simulation_in_production,
     check_pqc_production_readiness,
@@ -89,9 +90,9 @@ from omni_mercury_engine.security.secure_audit_logging import (
 from omni_mercury_engine.security.threat_detection import ThreatDetector
 
 __all__ = [
+    "AMA_CRYPTOGRAPHY_AVAILABLE",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
-    "LIBOQS_AVAILABLE",
     "SPHINCS_AVAILABLE",
     "AlgorithmType",
     # Secure Audit Logging
@@ -114,6 +115,7 @@ __all__ = [
     "MercuryCrypto",
     "PIIMasker",
     "PQCBackend",
+    "PQCProductionWarning",
     "PQCSimulationWarning",
     "RateLimiter",
     "SecureAuditLogger",

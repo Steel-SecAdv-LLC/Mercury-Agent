@@ -42,6 +42,16 @@ from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
+try:
+    from ama_cryptography.key_management import (
+        HDKeyDerivation,
+        KeyRotationManager,
+    )
+
+    _AMA_KEY_MGMT_AVAILABLE = True
+except ImportError:
+    _AMA_KEY_MGMT_AVAILABLE = False
+
 from fastapi import HTTPException, Request, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
@@ -299,13 +309,189 @@ class APIKeyStore:
             self._keys[key_id].last_used_at = datetime.now()
 
 
+class AuthKeyManager:
+    """AMA Key Management integration for Mercury's auth layer.
+
+    Provides HD key derivation, key rotation, and lifecycle management
+    for API keys, JWT signing keys, and audit trail signing keys via
+    AMA Cryptography's ``HDKeyDerivation`` and ``KeyRotationManager``.
+
+    Key Purposes:
+        - ``api_key``:    API key derivation and rotation
+        - ``jwt_sign``:   JWT signing key rotation
+        - ``audit_sign``: Audit trail signing key rotation
+    """
+
+    # HD derivation purpose constants (BIP44-style)
+    PURPOSE_API_KEY = 100
+    PURPOSE_JWT_SIGN = 101
+    PURPOSE_AUDIT_SIGN = 102
+
+    def __init__(
+        self,
+        master_seed: bytes | None = None,
+        rotation_period_days: int = 90,
+    ) -> None:
+        """Initialize the auth key manager.
+
+        Args:
+            master_seed: HD derivation master seed (generated if None)
+            rotation_period_days: Default key rotation period in days
+        """
+        if not _AMA_KEY_MGMT_AVAILABLE:
+            raise RuntimeError(
+                "AuthKeyManager requires AMA Cryptography key management. "
+                "Install with: pip install 'ama-cryptography @ "
+                "git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git'"
+            )
+        self._hd = HDKeyDerivation(seed=master_seed)
+        self._rotation = KeyRotationManager(
+            rotation_period=timedelta(days=rotation_period_days),
+        )
+        self._key_index: dict[str, int] = {
+            "api_key": 0,
+            "jwt_sign": 0,
+            "audit_sign": 0,
+        }
+
+        # Register initial keys for each purpose
+        for purpose, purpose_id in [
+            ("api_key", self.PURPOSE_API_KEY),
+            ("jwt_sign", self.PURPOSE_JWT_SIGN),
+            ("audit_sign", self.PURPOSE_AUDIT_SIGN),
+        ]:
+            key_id = f"{purpose}-0"
+            path = f"m/{purpose_id}'/0'/0'/0'"
+            self._rotation.register_key(
+                key_id=key_id,
+                purpose=purpose,
+                derivation_path=path,
+                expires_in=timedelta(days=rotation_period_days),
+            )
+
+    def derive_key(self, purpose: str, index: int | None = None) -> bytes:
+        """Derive a key for the given purpose using HD derivation.
+
+        Args:
+            purpose: One of ``api_key``, ``jwt_sign``, ``audit_sign``
+            index: Key index (uses current index if None)
+
+        Returns:
+            32-byte derived key
+        """
+        purpose_map = {
+            "api_key": self.PURPOSE_API_KEY,
+            "jwt_sign": self.PURPOSE_JWT_SIGN,
+            "audit_sign": self.PURPOSE_AUDIT_SIGN,
+        }
+        purpose_id = purpose_map.get(purpose)
+        if purpose_id is None:
+            raise ValueError(f"Unknown key purpose: {purpose}")
+
+        if index is None:
+            index = self._key_index.get(purpose, 0)
+
+        result: bytes = self._hd.derive_key(
+            purpose=purpose_id,
+            account=0,
+            change=0,
+            index=index,
+        )
+        return result
+
+    def rotate_key(self, purpose: str) -> tuple[str, str]:
+        """Rotate the key for the given purpose.
+
+        Derives a new key via HD derivation, registers it with the
+        rotation manager, and initiates the rotation. The old key
+        remains in ROTATING state for a grace period.
+
+        Args:
+            purpose: One of ``api_key``, ``jwt_sign``, ``audit_sign``
+
+        Returns:
+            Tuple of (old_key_id, new_key_id)
+        """
+        current_index = self._key_index.get(purpose, 0)
+        new_index = current_index + 1
+        self._key_index[purpose] = new_index
+
+        old_key_id = f"{purpose}-{current_index}"
+        new_key_id = f"{purpose}-{new_index}"
+
+        purpose_map = {
+            "api_key": self.PURPOSE_API_KEY,
+            "jwt_sign": self.PURPOSE_JWT_SIGN,
+            "audit_sign": self.PURPOSE_AUDIT_SIGN,
+        }
+        purpose_id = purpose_map.get(purpose, 0)
+        path = f"m/{purpose_id}'/0'/0'/{new_index}'"
+
+        self._rotation.register_key(
+            key_id=new_key_id,
+            purpose=purpose,
+            parent_id=old_key_id,
+            derivation_path=path,
+            expires_in=timedelta(days=self._rotation.rotation_period.days),
+        )
+
+        if old_key_id in self._rotation.keys:
+            self._rotation.initiate_rotation(old_key_id, new_key_id)
+            logger.info(
+                f"Key rotation initiated: {old_key_id} → {new_key_id} " f"(purpose={purpose})"
+            )
+
+        return old_key_id, new_key_id
+
+    def should_rotate(self, purpose: str) -> bool:
+        """Check if the active key for a purpose needs rotation."""
+        current_index = self._key_index.get(purpose, 0)
+        key_id = f"{purpose}-{current_index}"
+        result: bool = self._rotation.should_rotate(key_id)
+        return result
+
+    def get_active_key_material(self, purpose: str) -> bytes:
+        """Get the current active key material for a purpose."""
+        current_index = self._key_index.get(purpose, 0)
+        return self.derive_key(purpose, current_index)
+
+    def complete_rotation(self, purpose: str) -> None:
+        """Complete rotation by deprecating the previous key."""
+        current_index = self._key_index.get(purpose, 0)
+        if current_index > 0:
+            old_key_id = f"{purpose}-{current_index - 1}"
+            self._rotation.complete_rotation(old_key_id)
+
+    def revoke_key(self, purpose: str, index: int, reason: str = "compromised") -> None:
+        """Revoke a specific key version."""
+        key_id = f"{purpose}-{index}"
+        self._rotation.revoke_key(key_id, reason=reason)
+        logger.warning(f"Key revoked: {key_id} (reason={reason})")
+
+    def get_rotation_status(self) -> dict[str, Any]:
+        """Get status of all managed keys."""
+        result: dict[str, Any] = self._rotation.export_metadata()
+        return result
+
+
 # Global API key store (in production, use dependency injection)
 _api_key_store = APIKeyStore()
+
+# Global AMA key manager instance
+_auth_key_manager: AuthKeyManager | None = None
 
 
 def get_api_key_store() -> APIKeyStore:
     """Get the API key store instance."""
     return _api_key_store
+
+
+def get_auth_key_manager() -> AuthKeyManager:
+    """Get or create the global AMA auth key manager instance."""
+    global _auth_key_manager
+    if _auth_key_manager is None:
+        _auth_key_manager = AuthKeyManager()
+    return _auth_key_manager
 
 
 class APIKeyAuth:
@@ -450,14 +636,23 @@ class JWTAuth:
             is_production = is_production or os.getenv("ENVIRONMENT", "").lower() == "production"
 
             if is_production:
-                raise ValueError(
-                    "JWT_SECRET_KEY environment variable is required in production. "
-                    "Generate a secure random key (e.g., `openssl rand -hex 32`) and set "
-                    "JWT_SECRET_KEY in your environment or .env file. "
-                    "See CHANGELOG.md for migration instructions."
-                )
-
-            if allow_dev_fallback:
+                # In production, derive JWT signing key from AMA Key Management
+                try:
+                    km = get_auth_key_manager()
+                    derived = km.get_active_key_material("jwt_sign")
+                    self.secret_key = derived.hex()
+                    logger.info(
+                        "JWT signing key derived from AMA HD Key Management " "(purpose=jwt_sign)"
+                    )
+                except Exception as e:
+                    raise ValueError(
+                        "JWT_SECRET_KEY environment variable is required in production "
+                        "and AMA HD key derivation failed. "
+                        "Generate a secure random key (e.g., `openssl rand -hex 32`) and set "
+                        "JWT_SECRET_KEY in your environment or .env file. "
+                        f"HD derivation error: {e}"
+                    ) from e
+            elif allow_dev_fallback:
                 # Use fallback key for development only
                 self.secret_key = self._DEV_FALLBACK_KEY
                 self.using_fallback = True

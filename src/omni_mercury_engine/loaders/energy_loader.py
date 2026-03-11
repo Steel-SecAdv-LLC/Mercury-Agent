@@ -734,7 +734,7 @@ class EnergyLoader(BaseDomainLoader):
         ramp_len = 16
         ramp_start = max(0, storm_center - ramp_len - 8)
         for j in range(min(ramp_len, storm_center - ramp_start)):
-            t = j / ramp_len  # type: ignore[assignment]
+            t = np.float64(j / ramp_len)
             kp[ramp_start + j] = 2.0 + (float(peak_kp) - 2.0) * t
 
         # Peak: 8 steps (24h)

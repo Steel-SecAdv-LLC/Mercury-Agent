@@ -19,7 +19,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Tests for PR #26 enhancements: DB term, N term, RNG utility, liboqs hooks
+Tests for PR #26 enhancements: DB term, N term, RNG utility, LWE encryption
 """
 
 import numpy as np
@@ -178,22 +178,17 @@ class TestNanoScaleEnhancements:
         assert 0 <= score <= 1
 
 
-class TestLibOQSHooks:
-    """Test liboqs integration hooks"""
+class TestLWEEncryption:
+    """Test native LWE-KEM encryption (AMA Cryptography is sole PQC backend)"""
 
     def test_qr_encryption_initialization(self):
         """Test quantum-resistant encryption initializes"""
-        qre = QuantumResistantEncryption(use_liboqs=True)
-        assert qre.use_liboqs is True
+        qre = QuantumResistantEncryption()
+        assert qre.security_level == 256
 
-    def test_qr_encryption_fallback(self):
-        """Test fallback when liboqs not available"""
-        qre = QuantumResistantEncryption(use_liboqs=False)
-        assert qre._oqs_available is False
-
-    def test_encrypt_decrypt_without_liboqs(self):
-        """Test encryption/decryption works without liboqs"""
-        qre = QuantumResistantEncryption(use_liboqs=False)
+    def test_encrypt_decrypt_roundtrip(self):
+        """Test encryption/decryption round-trip with LWE-KEM"""
+        qre = QuantumResistantEncryption()
 
         public_key, private_key = qre._generate_lattice_key()
 
@@ -203,9 +198,9 @@ class TestLibOQSHooks:
 
         assert decrypted == data
 
-    def test_sign_verify_without_liboqs(self):
-        """Test signature without liboqs"""
-        qre = QuantumResistantEncryption(use_liboqs=False)
+    def test_sign_verify(self):
+        """Test SHA3-256 signature"""
+        qre = QuantumResistantEncryption()
 
         data = b"Data to sign"
         signature = qre.sign_data(data)

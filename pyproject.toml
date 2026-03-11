@@ -141,10 +141,6 @@ pqc = [
     "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git",  # Primary: Steel Security PQC framework
 ]
 
-# Post-Quantum Cryptography - Fallback backends
-pqc-fallback = [
-    "liboqs-python>=0.9.0",  # Secondary: liboqs bindings (constant-time)
-]
 
 # Streaming infrastructure (Kafka, Redis)
 streaming = [
@@ -280,9 +276,6 @@ module = [
     "pandas.*",
     "deepface.*",
     "fairlearn.*",
-    "liboqs.*",
-    "oqs",
-    "oqs.*",
     "scipy.*",
     "sklearn.*",
     "matplotlib.*",
@@ -333,11 +326,6 @@ module = [
     "sympy.*",
     # Reporting library
     "reportlab.*",
-    # Post-quantum cryptography
-    "pqcrypto",
-    "pqcrypto.*",
-    "pqcrypto.kem.*",
-    "pqcrypto.sign.*",
     # Monitoring and climate data
     "prometheus_client.*",
     "cdsapi.*",

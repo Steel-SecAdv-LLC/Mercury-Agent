@@ -438,8 +438,10 @@ class _MercuryRandomProjectionDetector:
 
     def score_samples(self, X: NDArray[np.float64]) -> NDArray[np.float64]:
         assert self._projections is not None
+        assert self._medians is not None
+        assert self._mads is not None
         projected = X @ self._projections.T
-        z = np.abs(projected - self._medians) / self._mads  # type: ignore[operator]
+        z = np.abs(projected - self._medians) / self._mads
         return np.asarray(np.mean(z, axis=1), dtype=np.float64)
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.int32]:

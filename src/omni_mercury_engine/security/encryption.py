@@ -47,55 +47,20 @@ class QuantumResistantEncryption:
 
     Implements simplified Kyber-inspired KEM using Learning With Errors (LWE).
     This is a deterministic demo implementation for testing; noise set to zero for stability.
-    Production should use liboqs for NIST-approved post-quantum cryptography.
-
-    Note: Conditional import of liboqs planned for future enhancement.
+    Production PQC is provided by AMA Cryptography (see pqc_backends.py).
     """
 
-    def __init__(self, security_level: int = 256, use_liboqs: bool = True) -> None:
+    def __init__(self, security_level: int = 256) -> None:
         """
         Initialize quantum-resistant encryption.
 
         Args:
             security_level: Security parameter (128, 192, or 256 bits)
-            use_liboqs: Attempt to use liboqs for production-grade PQC
         """
         self.security_level = security_level
         self.n = security_level
         self.q = 3329
         self.seed = secrets.token_bytes(32)
-        self.use_liboqs = use_liboqs
-        self._oqs_available = False
-        self._oqs_kem = None
-        self._oqs_signature = None
-
-        if use_liboqs:
-            try:
-                import oqs
-
-                self._oqs_available = True
-                self._init_liboqs(oqs)
-            except ImportError:
-                self._oqs_available = False
-
-    def _init_liboqs(self, oqs: Any) -> None:
-        """
-        Initialize liboqs KEM and signature schemes for production use.
-
-        Args:
-            oqs: The oqs module imported from liboqs
-        """
-        try:
-            kem_algorithm = "Kyber768"
-            self._oqs_kem = oqs.KeyEncapsulation(kem_algorithm)
-
-            sig_algorithm = "Dilithium3"
-            self._oqs_signature = oqs.Signature(sig_algorithm)
-
-        except Exception:
-            self._oqs_available = False
-            self._oqs_kem = None
-            self._oqs_signature = None
 
     def _generate_lattice_key(
         self,
@@ -129,8 +94,8 @@ class QuantumResistantEncryption:
         """
         Hybrid encryption: quantum-resistant KEM + symmetric stream cipher.
 
-        Uses liboqs Kyber768 if available, otherwise falls back to deterministic LWE-KEM.
-        Noise terms (e1, e2) set to zero for test stability in fallback mode.
+        Uses deterministic LWE-KEM with noise terms (e1, e2) set to zero for
+        test stability.
 
         Args:
             data: Data to encrypt
@@ -139,9 +104,6 @@ class QuantumResistantEncryption:
         Returns:
             Encrypted data with encapsulated key header (u || v)
         """
-        if self._oqs_available and self._oqs_kem is not None:
-            return self._encrypt_with_liboqs(data)
-
         if public_key is None:
             public_key, _ = self._generate_lattice_key()
 
@@ -181,7 +143,6 @@ class QuantumResistantEncryption:
         """
         Decrypt using quantum-resistant KEM decapsulation.
 
-        Uses liboqs Kyber768 if available, otherwise falls back to LWE decapsulation.
         Recovers message m from (u, v) using private key s.
         m_int = v - u @ s (mod q) since noise terms are zero.
 
@@ -192,9 +153,6 @@ class QuantumResistantEncryption:
         Returns:
             Decrypted data
         """
-        if self._oqs_available and self._oqs_kem is not None:
-            return self._decrypt_with_liboqs(encrypted_data)
-
         header_size = self.n * 8 + 8
         header = encrypted_data[:header_size]
         ciphertext = encrypted_data[header_size:]
@@ -222,65 +180,11 @@ class QuantumResistantEncryption:
 
         return decrypted
 
-    def _encrypt_with_liboqs(self, data: bytes) -> bytes:
-        """
-        Encrypt using liboqs Kyber768 KEM.
-
-        Args:
-            data: Data to encrypt
-
-        Returns:
-            Encrypted data with KEM ciphertext header
-        """
-        assert self._oqs_kem is not None
-        public_key_bytes = self._oqs_kem.generate_keypair()
-
-        ciphertext, shared_secret = self._oqs_kem.encap_secret(public_key_bytes)
-
-        encrypted = bytes(
-            a ^ b
-            for a, b in zip(
-                data,
-                (shared_secret * (len(data) // len(shared_secret) + 1))[: len(data)],
-                strict=False,
-            )
-        )
-
-        return bytes(ciphertext + encrypted)
-
-    def _decrypt_with_liboqs(self, encrypted_data: bytes) -> bytes:
-        """
-        Decrypt using liboqs Kyber768 KEM.
-
-        Args:
-            encrypted_data: Encrypted data with KEM ciphertext header
-
-        Returns:
-            Decrypted data
-        """
-        assert self._oqs_kem is not None
-        ciphertext_size = self._oqs_kem.details["length_ciphertext"]
-        ciphertext = encrypted_data[:ciphertext_size]
-        encrypted_content = encrypted_data[ciphertext_size:]
-
-        shared_secret = self._oqs_kem.decap_secret(ciphertext)
-
-        decrypted = bytes(
-            a ^ b
-            for a, b in zip(
-                encrypted_content,
-                (shared_secret * (len(encrypted_content) // len(shared_secret) + 1))[
-                    : len(encrypted_content)
-                ],
-                strict=False,
-            )
-        )
-
-        return decrypted
-
     def sign_data(self, data: bytes) -> bytes:
         """
-        Sign data using liboqs Dilithium3 if available.
+        Sign data using SHA3-256 HMAC.
+
+        For production PQC signatures use AMA Cryptography (pqc_backends.dilithium_sign).
 
         Args:
             data: Data to sign
@@ -288,16 +192,13 @@ class QuantumResistantEncryption:
         Returns:
             Signature bytes
         """
-        if not self._oqs_available or self._oqs_signature is None:
-            return hashlib.sha3_256(data + self.seed).digest()
-
-        self._oqs_signature.generate_keypair()
-        signature = self._oqs_signature.sign(data)
-        return signature
+        return hashlib.sha3_256(data + self.seed).digest()
 
     def verify_signature(self, data: bytes, signature: bytes) -> bool:
         """
-        Verify signature using liboqs Dilithium3 if available.
+        Verify SHA3-256 HMAC signature.
+
+        For production PQC verification use AMA Cryptography (pqc_backends.dilithium_verify).
 
         Args:
             data: Original data
@@ -306,11 +207,8 @@ class QuantumResistantEncryption:
         Returns:
             True if signature is valid
         """
-        if not self._oqs_available or self._oqs_signature is None:
-            expected_sig = hashlib.sha3_256(data + self.seed).digest()
-            return signature == expected_sig
-
-        return self._oqs_signature.verify(data, signature)
+        expected_sig = hashlib.sha3_256(data + self.seed).digest()
+        return signature == expected_sig
 
 
 class SecureDataHandler:

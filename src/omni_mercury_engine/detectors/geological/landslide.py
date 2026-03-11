@@ -431,9 +431,11 @@ class SVMRFEnsembleClassifier:
             ensemble_weights: Weights for (SVM, RF) predictions
         """
         try:
-            from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
-            from omni_mercury_engine.ml.mercury_ml import StandardScaler
-            from omni_mercury_engine.ml.mercury_ml import SVC
+            from omni_mercury_engine.ml.mercury_ml import (
+                SVC,
+                RandomForestClassifier,
+                StandardScaler,
+            )
         except ImportError as e:
             raise ImportError(
                 "Mercury ML utilities not available. Ensure mercury_ml.py is installed."

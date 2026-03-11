@@ -21,79 +21,86 @@ from __future__ import annotations
 """
 Post-Quantum Cryptography Production Guards
 
-Ensures simulation mode is never silently used in production contexts.
-Implements fail-fast principles to force installation of real cryptographic
-libraries (ama-cryptography, liboqs-python, pqcrypto) for production security.
+Ensures PQC environment is properly configured for production use.
+AMA Cryptography v2.0 is the sole PQC backend — there are no fallbacks.
 
-PQC Backend Priority:
-1. AMA Cryptography (ama_cryptography) - Primary, full-featured
-2. liboqs-python (oqs) - Secondary fallback
-3. pqcrypto - Tertiary fallback
-4. SIMULATION - Fail-fast (blocked in production)
+Mercury Agent hard-requires AMA Cryptography.  If the package is not
+installed, ``pqc_backends`` will raise ``ImportError`` at module load.
+These guards verify that the *native C library* inside AMA is built so
+that real PQC algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are available
+at runtime.
 """
 
 import logging
 import os
-import warnings
 
 from omni_mercury_engine.security.pqc_backends import (
     AMA_CRYPTOGRAPHY_AVAILABLE,
     AVA_GUARDIAN_AVAILABLE,
-    LIBOQS_AVAILABLE,
-    PQCRYPTO_AVAILABLE,
-    PQCBackend,
+    DILITHIUM_AVAILABLE,
+    KYBER_AVAILABLE,
+    SPHINCS_AVAILABLE,
     get_active_backend,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class PQCSimulationWarning(UserWarning):
-    """Warning raised when PQC operates in simulation mode."""
+class PQCProductionWarning(UserWarning):
+    """Warning raised when native PQC algorithms are unavailable."""
 
     pass
 
 
+# Backward compatibility alias
+PQCSimulationWarning = PQCProductionWarning
+
+
 def check_pqc_production_readiness() -> dict[str, bool | str]:
     """
-    Check if real PQC libraries are available.
+    Check if PQC algorithms are available via AMA Cryptography's native C library.
 
-    Uses the backend detection from pqc_backends.py which follows the priority:
-    1. AMA Cryptography (primary)
-    2. liboqs-python (secondary)
-    3. pqcrypto (tertiary)
-    4. SIMULATION (blocked in production)
+    AMA Cryptography is always installed (enforced by pqc_backends.py).
+    This checks whether the native C backend is built, which provides
+    ML-DSA-65, Kyber-1024, and SPHINCS+ implementations.
 
     Returns:
-        Dictionary with availability status for each algorithm and active backend.
+        Dictionary with availability status for each algorithm.
 
     Raises:
-        RuntimeError: If AMA_REQUIRE_REAL_PQC=true and libraries missing.
+        RuntimeError: If AMA_REQUIRE_REAL_PQC=true and native PQC not built.
     """
-    # Use centralized backend detection from pqc_backends
     backend = get_active_backend()
-    has_real_backend = backend != PQCBackend.SIMULATION
 
     results: dict[str, bool | str] = {
-        "dilithium": has_real_backend,
-        "kyber": has_real_backend,
-        "sphincs": AMA_CRYPTOGRAPHY_AVAILABLE or LIBOQS_AVAILABLE,
+        "dilithium": DILITHIUM_AVAILABLE,
+        "kyber": KYBER_AVAILABLE,
+        "sphincs": SPHINCS_AVAILABLE,
         "backend": backend.value,
         "ama_cryptography": AMA_CRYPTOGRAPHY_AVAILABLE,
         "ava_guardian": AVA_GUARDIAN_AVAILABLE,  # backward compat alias
-        "liboqs": LIBOQS_AVAILABLE,
-        "pqcrypto": PQCRYPTO_AVAILABLE,
     }
 
-    # Log backend status
-    if AMA_CRYPTOGRAPHY_AVAILABLE:
-        logger.info("AMA Cryptography PQC backend available (PRIMARY)")
-    elif LIBOQS_AVAILABLE:
-        logger.info("liboqs-python PQC backend available (SECONDARY)")
-    elif PQCRYPTO_AVAILABLE:
-        logger.warning("pqcrypto PQC backend available (TERTIARY - timing variations)")
+    if DILITHIUM_AVAILABLE and KYBER_AVAILABLE and SPHINCS_AVAILABLE:
+        logger.info("AMA Cryptography native C backend: all PQC algorithms available")
+    elif DILITHIUM_AVAILABLE or KYBER_AVAILABLE or SPHINCS_AVAILABLE:
+        missing = []
+        if not DILITHIUM_AVAILABLE:
+            missing.append("ML-DSA-65")
+        if not KYBER_AVAILABLE:
+            missing.append("Kyber-1024")
+        if not SPHINCS_AVAILABLE:
+            missing.append("SPHINCS+")
+        logger.warning(
+            "AMA Cryptography native C backend: partial — missing %s. "
+            "Build with: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build",
+            ", ".join(missing),
+        )
     else:
-        logger.warning("No real PQC backend available - SIMULATION mode (NOT SECURE)")
+        logger.warning(
+            "AMA Cryptography native C backend not built — no PQC algorithms available. "
+            "Build with: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
+        )
 
     # Enforce production requirement if set (support both env var names for compat)
     require_real = os.environ.get(
@@ -104,20 +111,20 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
         "yes",
     )
 
-    if require_real and not has_real_backend:
+    if require_real and not DILITHIUM_AVAILABLE:
         raise RuntimeError(
-            "AMA_REQUIRE_REAL_PQC=true but no real PQC backend available.\n"
-            "Install one of:\n"
-            "  pip install ama-cryptography    # Primary (recommended)\n"
-            "  pip install liboqs-python       # Secondary fallback\n"
-            "  pip install pqcrypto            # Tertiary fallback"
+            "AMA_REQUIRE_REAL_PQC=true but native PQC algorithms are not available.\n"
+            "Build the AMA Cryptography native C library:\n"
+            "  cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
         )
 
-    if not has_real_backend:
+    if not DILITHIUM_AVAILABLE:
+        import warnings
+
         warnings.warn(
-            "PQC operating in SIMULATION mode. "
-            "Install ama-cryptography or liboqs-python for production security.",
-            PQCSimulationWarning,
+            "PQC native algorithms not available. "
+            "Build AMA Cryptography's native C library for production security.",
+            PQCProductionWarning,
             stacklevel=2,
         )
 
@@ -126,31 +133,30 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
 
 def assert_no_simulation_in_production() -> None:
     """
-    BLOCKS application startup if running with simulated PQC in production.
+    BLOCKS application startup if native PQC algorithms are unavailable in production.
 
-    This function implements the fail-fast philosophy: Mercury Agent refuses
-    to run with simulated cryptography in production environments.
+    Mercury Agent refuses to run without real PQC cryptography in production
+    environments.
 
     Usage:
         if os.environ.get("ENVIRONMENT") == "production":
             assert_no_simulation_in_production()
 
     Raises:
-        RuntimeError: If no real PQC backend is available.
+        RuntimeError: If native PQC algorithms are not available.
     """
-    backend = get_active_backend()
-    if backend == PQCBackend.SIMULATION:
+    if not DILITHIUM_AVAILABLE:
         raise RuntimeError(
-            "PRODUCTION BLOCKED: No real PQC backend available.\n"
-            "Install one of:\n"
-            "  pip install ama-cryptography    # Primary (recommended)\n"
-            "  pip install liboqs-python       # Secondary fallback\n"
+            "PRODUCTION BLOCKED: Native PQC algorithms not available.\n"
+            "AMA Cryptography is installed but its native C library is not built.\n"
+            "Build with: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
             "\n"
-            "Mercury Agent refuses to run with simulated cryptography in production."
+            "Mercury Agent refuses to run without real PQC cryptography in production."
         )
 
 
 __all__ = [
+    "PQCProductionWarning",
     "PQCSimulationWarning",
     "assert_no_simulation_in_production",
     "check_pqc_production_readiness",

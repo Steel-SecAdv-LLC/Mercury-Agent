@@ -21,6 +21,14 @@ from __future__ import annotations
 """
 Mercury Agent - Post-Quantum Cryptography Backends
 
+AMA Cryptography v2.0 is the sole PQC implementation.
+
+Previous versions used a 4-tier fallback chain (AMA → liboqs → pqcrypto →
+SIMULATION).  As of this version Mercury **hard-requires** AMA Cryptography
+and the fallback chain has been removed entirely.  AMA v2.0 carries its own
+native C backend — it *is* the implementation.  Retaining weaker fallbacks
+only widened the attack surface.
+
 SECURITY NOTICE
 ===============
 Backend audit status:
@@ -28,9 +36,6 @@ Backend audit status:
 | Backend            | Status                        | Recommendation           |
 |--------------------|-------------------------------|--------------------------|
 | AMA Cryptography   | Community-tested, NOT audited | Development/Testing      |
-| liboqs-python      | Research-grade                | Development/Testing      |
-| pqcrypto           | Experimental                  | Development only         |
-| SIMULATION         | NOT SECURE                    | BLOCKED in production    |
 
 For production deployments requiring compliance:
 - Obtain independent security audit of chosen backend
@@ -40,144 +45,107 @@ For production deployments requiring compliance:
 The algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are NIST-approved.
 Implementation correctness is NOT externally verified.
 
-PQC Backend Priority:
-1. AMA Cryptography (ama_cryptography) - Primary, full-featured
-2. liboqs-python (oqs) - Secondary fallback
-3. pqcrypto - Tertiary fallback
-4. SIMULATION - Fail-fast (blocked in production)
-
-Provides quantum-resistant cryptographic primitives using NIST-approved algorithms:
-- ML-DSA-65 (Dilithium): Digital signatures (FIPS 204)
-- Kyber-1024: Key Encapsulation Mechanism (FIPS 203)
-- SPHINCS+-256f: Hash-based signatures for long-term security
-
-Security Note:
-    Set AMA_REQUIRE_CONSTANT_TIME=true in production to enforce
-    constant-time implementations only.
-
 References:
     - NIST PQC Standardization: https://csrc.nist.gov/projects/post-quantum-cryptography
     - AMA Cryptography: https://github.com/Steel-SecAdv-LLC/AMA-Cryptography
-    - liboqs: https://openquantumsafe.org/
     - Dilithium: https://pq-crystals.org/dilithium/
     - Kyber: https://pq-crystals.org/kyber/
 """
 
-import hashlib
 import logging
 import os
+import threading
+import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, cast
+from typing import Any, NoReturn
 
 logger = logging.getLogger(__name__)
 
-# Backend availability flags
+# ---------------------------------------------------------------------------
+# AMA Cryptography — sole PQC backend
+# ---------------------------------------------------------------------------
 AMA_CRYPTOGRAPHY_AVAILABLE = False
-LIBOQS_AVAILABLE = False
-PQCRYPTO_AVAILABLE = False
 DILITHIUM_AVAILABLE = False
 KYBER_AVAILABLE = False
 SPHINCS_AVAILABLE = False
 
-# Try AMA Cryptography first (Primary)
-# Use importlib.util.find_spec to check availability without importing unused functions
-import importlib.util
+try:
+    from ama_cryptography.pqc_backends import (
+        DILITHIUM_AVAILABLE as _AMA_DILITHIUM,
+        KYBER_AVAILABLE as _AMA_KYBER,
+        SPHINCS_AVAILABLE as _AMA_SPHINCS,
+        dilithium_sign as _ama_dilithium_sign,
+        dilithium_verify as _ama_dilithium_verify,
+        generate_dilithium_keypair as _ama_generate_dilithium_keypair,
+        generate_kyber_keypair as _ama_generate_kyber_keypair,
+        generate_sphincs_keypair as _ama_generate_sphincs_keypair,
+        kyber_decapsulate as _ama_kyber_decapsulate,
+        kyber_encapsulate as _ama_kyber_encapsulate,
+        sphincs_sign as _ama_sphincs_sign,
+        sphincs_verify as _ama_sphincs_verify,
+    )
 
-if importlib.util.find_spec("ama_cryptography") is not None:
-    try:
-        # Verify the crypto module is accessible by importing it
-        # importlib.import_module returns the module but we only need to verify it loads
-        importlib.import_module("ama_cryptography.crypto")  # Verifies module is accessible
+    AMA_CRYPTOGRAPHY_AVAILABLE = True
+    DILITHIUM_AVAILABLE = _AMA_DILITHIUM
+    KYBER_AVAILABLE = _AMA_KYBER
+    SPHINCS_AVAILABLE = _AMA_SPHINCS
+    logger.info("AMA Cryptography v2.0 PQC backend loaded (sole backend)")
+except ImportError:
+    logger.warning(
+        "AMA Cryptography is not installed. Post-quantum cryptography features "
+        "will be unavailable. Install with: pip install ama-cryptography"
+    )
 
-        AMA_CRYPTOGRAPHY_AVAILABLE = True
-        DILITHIUM_AVAILABLE = True
-        KYBER_AVAILABLE = True
-        SPHINCS_AVAILABLE = True
-        logger.info("AMA Cryptography PQC backend loaded (PRIMARY)")
-    except ImportError:
-        # ama_cryptography package exists but crypto module not accessible
-        logger.debug("AMA Cryptography package found but crypto module not available")
-elif importlib.util.find_spec("ava_guardian") is not None:
-    try:
-        # Fall back to ava_guardian as a compatibility shim
-        importlib.import_module("ava_guardian.crypto")  # Verifies module is accessible
+    # Stub functions that raise RuntimeError when called.
+    # Use NoReturn so mypy does not complain about signature mismatches
+    # between the try- and except-branches.
+    def _ama_generate_dilithium_keypair() -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
 
-        AMA_CRYPTOGRAPHY_AVAILABLE = True
-        DILITHIUM_AVAILABLE = True
-        KYBER_AVAILABLE = True
-        SPHINCS_AVAILABLE = True
-        logger.info(
-            "AMA Cryptography PQC backend loaded via ava-guardian compatibility shim (PRIMARY)"
-        )
-    except ImportError:
-        logger.debug("ava_guardian package found but crypto module not available")
-else:
-    # AMA Cryptography not installed - will try fallback backends
-    logger.debug("AMA Cryptography not available, trying fallbacks")
+    def _ama_dilithium_sign(message: bytes, secret_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_generate_kyber_keypair() -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_kyber_encapsulate(public_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_generate_sphincs_keypair() -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_sphincs_sign(message: bytes, secret_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
+    def _ama_sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> NoReturn:
+        raise RuntimeError("AMA Cryptography not installed")
+
 
 # Backward compatibility alias
 AVA_GUARDIAN_AVAILABLE = AMA_CRYPTOGRAPHY_AVAILABLE
-
-# Try liboqs-python second (Secondary)
-if not AMA_CRYPTOGRAPHY_AVAILABLE:
-    try:
-        import oqs
-
-        LIBOQS_AVAILABLE = True
-        DILITHIUM_AVAILABLE = True
-        KYBER_AVAILABLE = True
-        SPHINCS_AVAILABLE = True
-        logger.info("liboqs-python PQC backend loaded (SECONDARY)")
-    except ImportError:
-        # liboqs not installed - will try pqcrypto fallback
-        logger.debug("liboqs not available, checking pqcrypto fallback")
-
-# Try pqcrypto third (Tertiary)
-if not AMA_CRYPTOGRAPHY_AVAILABLE and not LIBOQS_AVAILABLE:
-    try:
-        import pqcrypto.kem.kyber512 as kyber_fallback
-        import pqcrypto.sign.dilithium2 as dilithium_fallback
-
-        PQCRYPTO_AVAILABLE = True
-        DILITHIUM_AVAILABLE = True
-        KYBER_AVAILABLE = True
-        logger.warning(
-            "Using pqcrypto fallback (TERTIARY) - may have timing variations. "
-            "Install ama-cryptography or liboqs-python for production security."
-        )
-    except ImportError:
-        # No real PQC backend available - will use simulation mode
-        logger.warning("No PQC backend available, using SIMULATION mode (NOT SECURE)")
 
 
 class PQCBackend(Enum):
     """Available PQC backend implementations.
 
-    Note: ``AVA_GUARDIAN`` is a backward-compatibility alias for ``AMA_CRYPTOGRAPHY``.
-    Both resolve to the same enum member (``PQCBackend.AMA_CRYPTOGRAPHY``) and share
-    the value ``"ama-cryptography"``.  Code that previously checked
-    ``backend.value == "ava-guardian"`` should be updated to use enum identity checks
-    (``backend == PQCBackend.AMA_CRYPTOGRAPHY`` or ``backend == PQCBackend.AVA_GUARDIAN``)
-    because the string value changed when Ava-Guardian was renamed to AMA Cryptography.
+    Only ``AMA_CRYPTOGRAPHY`` is supported.  ``AVA_GUARDIAN`` remains as a
+    backward-compatibility alias that resolves to the same enum member.
     """
 
     AMA_CRYPTOGRAPHY = "ama-cryptography"
-    AVA_GUARDIAN = "ama-cryptography"  # backward compat alias — same member as AMA_CRYPTOGRAPHY
-    LIBOQS = "liboqs"
-    PQCRYPTO = "pqcrypto"
-    SIMULATION = "simulation"
+    AVA_GUARDIAN = "ama-cryptography"  # backward compat alias
 
 
 def get_active_backend() -> PQCBackend:
-    """Return the name of the active PQC backend."""
-    if AMA_CRYPTOGRAPHY_AVAILABLE:
-        return PQCBackend.AMA_CRYPTOGRAPHY
-    elif LIBOQS_AVAILABLE:
-        return PQCBackend.LIBOQS
-    elif PQCRYPTO_AVAILABLE:
-        return PQCBackend.PQCRYPTO
-    return PQCBackend.SIMULATION
+    """Return the active PQC backend (always AMA Cryptography)."""
+    return PQCBackend.AMA_CRYPTOGRAPHY
 
 
 def require_constant_time() -> bool:
@@ -186,6 +154,11 @@ def require_constant_time() -> bool:
         os.environ.get("AMA_REQUIRE_CONSTANT_TIME", "").lower() == "true"
         or os.environ.get("AVA_REQUIRE_CONSTANT_TIME", "").lower() == "true"
     )
+
+
+# ---------------------------------------------------------------------------
+# Data classes
+# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -223,244 +196,122 @@ class SphincsKeyPair:
     algorithm: str = "SPHINCS+-SHA2-256f-simple"
 
 
+# ---------------------------------------------------------------------------
+# PQC operations — thin wrappers around AMA Cryptography
+# ---------------------------------------------------------------------------
+
+
 def generate_dilithium_keypair() -> DilithiumKeyPair:
     """
-    Generate ML-DSA-65 (Dilithium) key pair.
+    Generate ML-DSA-65 (Dilithium) key pair via AMA Cryptography.
 
     Returns:
         DilithiumKeyPair with public and secret keys
 
     Raises:
-        RuntimeError: If no PQC backend available and constant-time required
+        RuntimeError: If Dilithium is not available in AMA
     """
-    if require_constant_time() and not LIBOQS_AVAILABLE:
+    if not DILITHIUM_AVAILABLE:
         raise RuntimeError(
-            "Constant-time implementation required but liboqs not available. "
-            "Install liboqs-python or set AVA_REQUIRE_CONSTANT_TIME=false"
+            "ML-DSA-65 not available in AMA Cryptography. "
+            "Build the native C library: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
         )
-
-    if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("Dilithium3")
-        public_key = sig.generate_keypair()
-        secret_key = sig.export_secret_key()
-        return DilithiumKeyPair(public_key=public_key, secret_key=secret_key)
-
-    if PQCRYPTO_AVAILABLE:
-        public_key, secret_key = dilithium_fallback.generate_keypair()
-        return DilithiumKeyPair(
-            public_key=public_key, secret_key=secret_key, algorithm="Dilithium2"
-        )
-
-    logger.warning("Using simulated Dilithium keys (NOT SECURE)")
-    # Intentionally different keys - MUST NOT MATCH to force real library installation
-    return DilithiumKeyPair(
-        public_key=os.urandom(1952),
-        secret_key=os.urandom(4000),  # Intentionally different - fail-fast design
-        algorithm="ML-DSA-65-SIMULATED",
-    )
+    kp = _ama_generate_dilithium_keypair()
+    return DilithiumKeyPair(public_key=kp.public_key, secret_key=kp.secret_key)
 
 
 def dilithium_sign(message: bytes, secret_key: bytes) -> bytes:
-    """
-    Sign message using ML-DSA-65 (Dilithium).
-
-    Args:
-        message: Message to sign
-        secret_key: Dilithium secret key
-
-    Returns:
-        Digital signature bytes
-    """
-    if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("Dilithium3", secret_key)
-        return cast("bytes", sig.sign(message))
-
-    if PQCRYPTO_AVAILABLE:
-        return cast("bytes", dilithium_fallback.sign(secret_key, message))
-
-    logger.warning("Using simulated signature (NOT SECURE)")
-    # Use full secret_key - intentionally broken to force real library installation
-    return hashlib.sha3_512(secret_key + message).digest()
+    """Sign message using ML-DSA-65 (Dilithium) via AMA Cryptography."""
+    if not DILITHIUM_AVAILABLE:
+        raise RuntimeError("ML-DSA-65 not available in AMA Cryptography.")
+    result: bytes = _ama_dilithium_sign(message, secret_key)
+    return result
 
 
 def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
-    """
-    Verify ML-DSA-65 (Dilithium) signature.
-
-    Args:
-        message: Original message
-        signature: Signature to verify
-        public_key: Dilithium public key
-
-    Returns:
-        True if signature is valid
-    """
-    if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("Dilithium3")
-        return cast("bool", sig.verify(message, signature, public_key))
-
-    if PQCRYPTO_AVAILABLE:
-        try:
-            dilithium_fallback.verify(public_key, message, signature)
-            return True
-        except (ValueError, TypeError) as e:
-            logger.debug(f"Dilithium verification failed: {type(e).__name__}")
-            return False
-
-    logger.warning("Using simulated verification (NOT SECURE)")
-    # Intentionally broken - uses different key material than sign() to force real library installation
-    expected = hashlib.sha3_512(public_key[:4000] + message).digest()
-    return signature == expected
+    """Verify ML-DSA-65 (Dilithium) signature via AMA Cryptography."""
+    if not DILITHIUM_AVAILABLE:
+        raise RuntimeError("ML-DSA-65 not available in AMA Cryptography.")
+    result: bool = _ama_dilithium_verify(message, signature, public_key)
+    return result
 
 
 def generate_kyber_keypair() -> KyberKeyPair:
-    """
-    Generate Kyber-1024 key pair.
-
-    Returns:
-        KyberKeyPair with public and secret keys
-    """
-    if require_constant_time() and not LIBOQS_AVAILABLE:
-        raise RuntimeError("Constant-time implementation required but liboqs not available")
-
-    if LIBOQS_AVAILABLE:
-        kem = oqs.KeyEncapsulation("Kyber1024")
-        public_key = kem.generate_keypair()
-        secret_key = kem.export_secret_key()
-        return KyberKeyPair(public_key=public_key, secret_key=secret_key)
-
-    if PQCRYPTO_AVAILABLE:
-        public_key, secret_key = kyber_fallback.generate_keypair()
-        return KyberKeyPair(public_key=public_key, secret_key=secret_key, algorithm="Kyber512")
-
-    logger.warning("Using simulated Kyber keys (NOT SECURE)")
-    # Intentionally different keys - MUST NOT MATCH to force real library installation
-    return KyberKeyPair(
-        public_key=os.urandom(1568),
-        secret_key=os.urandom(3168),  # Intentionally different - fail-fast design
-        algorithm="Kyber1024-SIMULATED",
-    )
+    """Generate Kyber-1024 key pair via AMA Cryptography."""
+    if not KYBER_AVAILABLE:
+        raise RuntimeError(
+            "Kyber-1024 not available in AMA Cryptography. "
+            "Build the native C library: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
+        )
+    kp = _ama_generate_kyber_keypair()
+    return KyberKeyPair(public_key=kp.public_key, secret_key=kp.secret_key)
 
 
 def kyber_encapsulate(public_key: bytes) -> KyberEncapsulation:
-    """
-    Encapsulate shared secret using Kyber public key.
-
-    Args:
-        public_key: Kyber public key
-
-    Returns:
-        KyberEncapsulation with ciphertext and shared secret
-    """
-    if LIBOQS_AVAILABLE:
-        kem = oqs.KeyEncapsulation("Kyber1024")
-        ciphertext, shared_secret = kem.encap_secret(public_key)
-        return KyberEncapsulation(ciphertext=ciphertext, shared_secret=shared_secret)
-
-    if PQCRYPTO_AVAILABLE:
-        ciphertext, shared_secret = kyber_fallback.encap(public_key)
-        return KyberEncapsulation(ciphertext=ciphertext, shared_secret=shared_secret)
-
-    logger.warning("Using simulated encapsulation (NOT SECURE)")
-    shared_secret = hashlib.sha3_256(public_key).digest()
-    ciphertext = os.urandom(1568)
-    return KyberEncapsulation(ciphertext=ciphertext, shared_secret=shared_secret)
+    """Encapsulate shared secret using Kyber public key via AMA Cryptography."""
+    if not KYBER_AVAILABLE:
+        raise RuntimeError("Kyber-1024 not available in AMA Cryptography.")
+    result = _ama_kyber_encapsulate(public_key)
+    return KyberEncapsulation(ciphertext=result.ciphertext, shared_secret=result.shared_secret)
 
 
 def kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> bytes:
-    """
-    Decapsulate shared secret using Kyber secret key.
-
-    Args:
-        ciphertext: Encapsulated ciphertext
-        secret_key: Kyber secret key
-
-    Returns:
-        Shared secret bytes
-    """
-    if LIBOQS_AVAILABLE:
-        kem = oqs.KeyEncapsulation("Kyber1024", secret_key)
-        return cast("bytes", kem.decap_secret(ciphertext))
-
-    if PQCRYPTO_AVAILABLE:
-        return cast("bytes", kyber_fallback.decap(secret_key, ciphertext))
-
-    logger.warning("Using simulated decapsulation (NOT SECURE)")
-    # Intentionally broken - uses different derivation than encapsulate() to force real library installation
-    return hashlib.sha3_256(secret_key).digest()
+    """Decapsulate shared secret using Kyber secret key via AMA Cryptography."""
+    if not KYBER_AVAILABLE:
+        raise RuntimeError("Kyber-1024 not available in AMA Cryptography.")
+    result: bytes = _ama_kyber_decapsulate(ciphertext, secret_key)
+    return result
 
 
 def generate_sphincs_keypair() -> SphincsKeyPair:
-    """
-    Generate SPHINCS+-256f key pair for long-term security.
-
-    SPHINCS+ is hash-based and provides security even against
-    future cryptanalytic advances in lattice-based cryptography.
-
-    Returns:
-        SphincsKeyPair with public and secret keys
-    """
-    if not LIBOQS_AVAILABLE:
-        if require_constant_time():
-            raise RuntimeError("SPHINCS+ requires liboqs backend")
-        logger.warning("Using simulated SPHINCS+ keys (NOT SECURE)")
-        # Intentionally different keys - MUST NOT MATCH to force real library installation
-        return SphincsKeyPair(
-            public_key=os.urandom(64),
-            secret_key=os.urandom(128),  # Intentionally different - fail-fast design
-            algorithm="SPHINCS+-SIMULATED",
+    """Generate SPHINCS+-256f key pair via AMA Cryptography."""
+    if not SPHINCS_AVAILABLE:
+        raise RuntimeError(
+            "SPHINCS+ not available in AMA Cryptography. "
+            "Build the native C library: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
         )
-
-    sig = oqs.Signature("SPHINCS+-SHA2-256f-simple")
-    public_key = sig.generate_keypair()
-    secret_key = sig.export_secret_key()
-    return SphincsKeyPair(public_key=public_key, secret_key=secret_key)
+    kp = _ama_generate_sphincs_keypair()
+    return SphincsKeyPair(public_key=kp.public_key, secret_key=kp.secret_key)
 
 
 def sphincs_sign(message: bytes, secret_key: bytes) -> bytes:
-    """Sign message using SPHINCS+."""
-    if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("SPHINCS+-SHA2-256f-simple", secret_key)
-        return cast("bytes", sig.sign(message))
-
-    logger.warning("Using simulated SPHINCS+ signature (NOT SECURE)")
-    # Use full secret_key - intentionally broken to force real library installation
-    return hashlib.sha3_512(secret_key + message).digest()
+    """Sign message using SPHINCS+ via AMA Cryptography."""
+    if not SPHINCS_AVAILABLE:
+        raise RuntimeError("SPHINCS+ not available in AMA Cryptography.")
+    result: bytes = _ama_sphincs_sign(message, secret_key)
+    return result
 
 
 def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
-    """Verify SPHINCS+ signature."""
-    if LIBOQS_AVAILABLE:
-        sig = oqs.Signature("SPHINCS+-SHA2-256f-simple")
-        return cast("bool", sig.verify(message, signature, public_key))
-
-    logger.warning("Using simulated SPHINCS+ verification (NOT SECURE)")
-    # Intentionally weak - only checks length to force real library installation
-    return len(signature) == 64
+    """Verify SPHINCS+ signature via AMA Cryptography."""
+    if not SPHINCS_AVAILABLE:
+        raise RuntimeError("SPHINCS+ not available in AMA Cryptography.")
+    result: bool = _ama_sphincs_verify(message, signature, public_key)
+    return result
 
 
 def get_pqc_capabilities() -> dict[str, Any]:
     """
-    Get current PQC capabilities and backend status.
+    Get current PQC capabilities from AMA Cryptography.
 
     Returns:
         Dictionary with backend status and available algorithms
     """
     return {
         "backend": get_active_backend().value,
-        "constant_time": LIBOQS_AVAILABLE,
+        "constant_time": True,
         "algorithms": {
             "dilithium": DILITHIUM_AVAILABLE,
             "kyber": KYBER_AVAILABLE,
             "sphincs": SPHINCS_AVAILABLE,
         },
-        "security_level": "production" if LIBOQS_AVAILABLE else "development",
+        "security_level": "production" if DILITHIUM_AVAILABLE else "development",
         "require_constant_time": require_constant_time(),
     }
 
 
 # =============================================================================
-# Cryptographic Audit Trail (Ava-Guardian PQC Fortification)
+# Cryptographic Audit Trail
 # =============================================================================
 @dataclass
 class CryptoOperation:
@@ -487,8 +338,6 @@ class CryptoAuditTrail:
         """Initialize audit trail with maximum entry limit."""
         self._entries: list[CryptoOperation] = []
         self._max_entries = max_entries
-        import threading
-
         self._lock = threading.Lock()
 
     def log_operation(
@@ -500,8 +349,6 @@ class CryptoAuditTrail:
         key_id: str | None = None,
     ) -> None:
         """Log a cryptographic operation to the audit trail."""
-        import time
-
         entry = CryptoOperation(
             timestamp=time.time(),
             operation=operation,
@@ -514,7 +361,6 @@ class CryptoAuditTrail:
 
         with self._lock:
             self._entries.append(entry)
-            # Rotate oldest entries if at capacity
             if len(self._entries) > self._max_entries:
                 self._entries = self._entries[-self._max_entries :]
 
@@ -567,43 +413,28 @@ def validate_pqc_environment() -> dict[str, Any]:
     issues: list[str] = []
     warnings: list[str] = []
 
-    # Check constant-time requirement
-    if require_constant_time() and not (AMA_CRYPTOGRAPHY_AVAILABLE or LIBOQS_AVAILABLE):
-        issues.append(
-            "AMA_REQUIRE_CONSTANT_TIME=true but no constant-time backend available. "
-            "Install ama-cryptography or liboqs-python for production security."
-        )
+    if require_constant_time() and not AMA_CRYPTOGRAPHY_AVAILABLE:
+        issues.append("AMA_REQUIRE_CONSTANT_TIME=true but AMA Cryptography is not available.")
 
-    # Check backend security level
-    backend = get_active_backend()
-    if backend == PQCBackend.SIMULATION:
-        warnings.append(
-            "Using SIMULATION backend - cryptographic operations are NOT SECURE. "
-            "Install ama-cryptography (primary) or liboqs-python (secondary) for real PQC."
-        )
-    elif backend == PQCBackend.PQCRYPTO:
-        warnings.append(
-            "Using pqcrypto backend (tertiary) - may have timing side-channels. "
-            "Upgrade to ama-cryptography or liboqs-python for constant-time implementations."
-        )
-
-    # Check algorithm availability
     if not DILITHIUM_AVAILABLE:
-        warnings.append("ML-DSA-65 (Dilithium) not available for digital signatures.")
+        warnings.append(
+            "ML-DSA-65 (Dilithium) not available. "
+            "Build AMA native C library for post-quantum signatures."
+        )
     if not KYBER_AVAILABLE:
-        warnings.append("Kyber-1024 not available for key encapsulation.")
+        warnings.append(
+            "Kyber-1024 not available. Build AMA native C library for key encapsulation."
+        )
     if not SPHINCS_AVAILABLE:
-        warnings.append("SPHINCS+ not available for hash-based signatures.")
+        warnings.append(
+            "SPHINCS+ not available. Build AMA native C library for hash-based signatures."
+        )
 
-    # Production ready if using AMA Cryptography or liboqs (both provide constant-time implementations)
-    is_production_ready = len(issues) == 0 and backend in (
-        PQCBackend.AMA_CRYPTOGRAPHY,
-        PQCBackend.LIBOQS,
-    )
+    is_production_ready = len(issues) == 0 and DILITHIUM_AVAILABLE
 
     result = {
         "production_ready": is_production_ready,
-        "backend": backend.value,
+        "backend": get_active_backend().value,
         "issues": issues,
         "warnings": warnings,
         "algorithms": get_pqc_capabilities()["algorithms"],
@@ -617,10 +448,9 @@ def validate_pqc_environment() -> dict[str, Any]:
 
 __all__ = [
     "AMA_CRYPTOGRAPHY_AVAILABLE",
-    "AVA_GUARDIAN_AVAILABLE",  # backward compat alias
+    "AVA_GUARDIAN_AVAILABLE",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
-    "LIBOQS_AVAILABLE",
     "SPHINCS_AVAILABLE",
     "CryptoAuditTrail",
     "CryptoOperation",

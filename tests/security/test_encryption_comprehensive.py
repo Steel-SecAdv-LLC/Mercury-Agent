@@ -31,7 +31,7 @@ class TestQuantumResistantEncryption:
 
     def test_initialization_defaults(self):
         """Test default initialization parameters."""
-        qre = QuantumResistantEncryption(use_liboqs=False)
+        qre = QuantumResistantEncryption()
         assert qre.security_level == 256
         assert qre.n == 256
         assert qre.q == 3329
@@ -40,13 +40,13 @@ class TestQuantumResistantEncryption:
 
     def test_initialization_custom_level(self):
         """Test custom security level."""
-        qre = QuantumResistantEncryption(security_level=128, use_liboqs=False)
+        qre = QuantumResistantEncryption(security_level=128)
         assert qre.security_level == 128
         assert qre.n == 128
 
     def test_generate_lattice_key(self):
         """Test lattice-based key pair generation."""
-        qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
+        qre = QuantumResistantEncryption(security_level=64)
         public_key, private_key = qre._generate_lattice_key()
 
         A, b = public_key
@@ -56,7 +56,7 @@ class TestQuantumResistantEncryption:
 
     def test_encrypt_decrypt_roundtrip(self):
         """Test that encryption followed by decryption recovers the plaintext."""
-        qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
+        qre = QuantumResistantEncryption(security_level=64)
         public_key, private_key = qre._generate_lattice_key()
 
         plaintext = b"Hello, quantum-resistant world!"
@@ -70,7 +70,7 @@ class TestQuantumResistantEncryption:
 
     def test_encrypt_decrypt_empty_data(self):
         """Test encryption/decryption with empty data."""
-        qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
+        qre = QuantumResistantEncryption(security_level=64)
         public_key, private_key = qre._generate_lattice_key()
 
         plaintext = b""
@@ -80,7 +80,7 @@ class TestQuantumResistantEncryption:
 
     def test_encrypt_generates_key_if_none(self):
         """Test that encryption auto-generates key if not provided."""
-        qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
+        qre = QuantumResistantEncryption(security_level=64)
         plaintext = b"auto-key test"
 
         # Should not raise
@@ -88,9 +88,9 @@ class TestQuantumResistantEncryption:
         assert isinstance(ciphertext, bytes)
         assert len(ciphertext) > 0
 
-    def test_sign_data_without_liboqs(self):
-        """Test data signing falls back to SHA3-256 HMAC."""
-        qre = QuantumResistantEncryption(use_liboqs=False)
+    def test_sign_data(self):
+        """Test data signing uses SHA3-256 HMAC."""
+        qre = QuantumResistantEncryption()
         data = b"sign this message"
         signature = qre.sign_data(data)
 
@@ -99,7 +99,7 @@ class TestQuantumResistantEncryption:
 
     def test_verify_signature_valid(self):
         """Test valid signature verification."""
-        qre = QuantumResistantEncryption(use_liboqs=False)
+        qre = QuantumResistantEncryption()
         data = b"verify this message"
         signature = qre.sign_data(data)
 
@@ -107,7 +107,7 @@ class TestQuantumResistantEncryption:
 
     def test_verify_signature_invalid(self):
         """Test invalid signature rejection."""
-        qre = QuantumResistantEncryption(use_liboqs=False)
+        qre = QuantumResistantEncryption()
         data = b"original message"
         signature = qre.sign_data(data)
 
@@ -116,7 +116,7 @@ class TestQuantumResistantEncryption:
 
     def test_verify_signature_wrong_signature(self):
         """Test wrong signature rejection."""
-        qre = QuantumResistantEncryption(use_liboqs=False)
+        qre = QuantumResistantEncryption()
         data = b"test message"
         wrong_sig = b"\x00" * 32
 
@@ -124,15 +124,15 @@ class TestQuantumResistantEncryption:
 
     def test_different_seeds_produce_different_keys(self):
         """Test that different instances produce different keys."""
-        qre1 = QuantumResistantEncryption(security_level=64, use_liboqs=False)
-        qre2 = QuantumResistantEncryption(security_level=64, use_liboqs=False)
+        qre1 = QuantumResistantEncryption(security_level=64)
+        qre2 = QuantumResistantEncryption(security_level=64)
 
         # Seeds should differ (random)
         assert qre1.seed != qre2.seed
 
     def test_encrypt_binary_data(self):
         """Test encryption of arbitrary binary data."""
-        qre = QuantumResistantEncryption(security_level=64, use_liboqs=False)
+        qre = QuantumResistantEncryption(security_level=64)
         public_key, private_key = qre._generate_lattice_key()
 
         # Binary data with all byte values
