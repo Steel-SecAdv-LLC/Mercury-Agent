@@ -185,7 +185,7 @@ jobs:
         # specific CVEs after documented risk assessment.
         run: |
           pip install -e . || true
-          safety check --policy-file .safety-policy.yml --output json > safety-report.json || true
+          safety check --policy-file .safety-policy.yml --output json > safety-report.json
 
       - name: Run pip-audit
         # pip-audit scans installed packages — fails CI on unaccepted vulnerabilities.
