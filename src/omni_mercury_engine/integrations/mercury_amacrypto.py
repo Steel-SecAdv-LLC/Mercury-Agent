@@ -28,9 +28,17 @@ Features:
 - Post-quantum cryptographic operations (ML-DSA-65, Kyber-1024)
 - EWMA/MAD timing anomaly detection (<2% overhead)
 - Crypto anomaly synapse to GOSNN ethical gate
+- **Bidirectional GOSNN ↔ AMA Adaptive Posture integration**
 - Security detector integration for attack simulation
 
-Synapse: Crypto anomalies → GOSNN gate → security detectors
+Bidirectional Posture Architecture:
+    Crypto operations → Timing monitor → Anomaly detection
+                                                ↓
+    GOSNN ethical gate ← omni_scalars ← CryptoAnomaly
+            ↓                                   ↑
+    PostureEvaluator ← GOSNN security scalars ──┘
+            ↓
+    Posture decisions → GOSNN ScalarGroup.SECURITY
 
 References:
 - NIST FIPS 203: ML-KEM (Kyber)
@@ -45,6 +53,14 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+
+from ama_cryptography.adaptive_posture import (
+    CryptoPostureController,
+    PostureAction,
+    PostureEvaluation,
+    PostureEvaluator,
+    ThreatLevel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -168,12 +184,6 @@ class EWMATimingMonitor:
     """
 
     def __init__(self, alpha: float = 0.1, mad_threshold: float = 3.0) -> None:
-        """Initialize EWMA timing monitor.
-
-        Args:
-            alpha: EWMA smoothing factor (0 < alpha <= 1)
-            mad_threshold: MAD multiplier for anomaly detection
-        """
         self.alpha = alpha
         self.mad_threshold = mad_threshold
         self.stats: dict[str, TimingStats] = {}
@@ -181,15 +191,7 @@ class EWMATimingMonitor:
         self.max_history = 100
 
     def record_timing(self, operation: str, duration_ms: float) -> CryptoAnomaly | None:
-        """Record timing and detect anomalies.
-
-        Args:
-            operation: Name of cryptographic operation
-            duration_ms: Operation duration in milliseconds
-
-        Returns:
-            CryptoAnomaly if timing anomaly detected, None otherwise
-        """
+        """Record timing and detect anomalies."""
         if operation not in self.stats:
             self.stats[operation] = TimingStats(alpha=self.alpha)
             self.recent_timings[operation] = []
@@ -243,12 +245,49 @@ class EWMATimingMonitor:
         return anomaly
 
     def get_overhead_estimate(self) -> float:
-        """Estimate monitoring overhead percentage.
-
-        Returns:
-            Estimated overhead as percentage (target: <2%)
-        """
+        """Estimate monitoring overhead percentage (target: <2%)."""
         return 0.5
+
+    def get_security_report(self) -> dict[str, Any]:
+        """Generate a security report compatible with AMA PostureEvaluator.
+
+        Translates EWMA/MAD timing data into the ``monitor_report`` format
+        that ``PostureEvaluator.evaluate()`` consumes.
+        """
+        recent_alerts: list[dict[str, Any]] = []
+        total_alerts = 0
+
+        for operation, timings in self.recent_timings.items():
+            stats = self.stats.get(operation)
+            if stats is None or stats.sample_count < 10 or stats.mad <= 0:
+                continue
+
+            for duration_ms in timings[-20:]:
+                deviation = abs(duration_ms - stats.ewma_mean) / (stats.mad + 1e-10)
+                if deviation > self.mad_threshold:
+                    severity = "critical" if deviation > self.mad_threshold * 2 else "warning"
+                    total_alerts += 1
+
+                    @dataclass
+                    class _TimingAnomaly:
+                        severity: str
+                        deviation_sigma: float
+
+                    recent_alerts.append({
+                        "type": "timing",
+                        "anomaly": _TimingAnomaly(
+                            severity=severity,
+                            deviation_sigma=deviation,
+                        ),
+                        "operation": operation,
+                    })
+
+        return {
+            "status": "monitoring_active" if self.stats else "monitoring_disabled",
+            "recent_alerts": recent_alerts[-100:],
+            "total_alerts": total_alerts,
+            "resonance_analysis": {},
+        }
 
 
 class MercuryGuardianAdapter:
@@ -257,14 +296,17 @@ class MercuryGuardianAdapter:
     Provides post-quantum cryptographic operations with:
     - EWMA/MAD timing anomaly detection
     - GOSNN ethical gate synapse for crypto anomalies
+    - **Bidirectional GOSNN ↔ AMA Adaptive Posture integration**
     - Security detector integration for attack simulation
 
-    Synapse Architecture:
+    Bidirectional Synapse Architecture:
         Crypto operations → Timing monitor → Anomaly detection
                                                     ↓
         GOSNN ethical gate ← omni_scalars ← CryptoAnomaly
+                ↓                                   ↑
+        PostureEvaluator ← GOSNN security scalars ──┘
                 ↓
-        Security detectors (if anomaly severity > threshold)
+        Posture decisions → GOSNN ScalarGroup.SECURITY
     """
 
     def __init__(
@@ -274,14 +316,6 @@ class MercuryGuardianAdapter:
         mad_threshold: float = 3.0,
         gosnn_synapse_enabled: bool = True,
     ):
-        """Initialize AMA Cryptography adapter.
-
-        Args:
-            enable_timing_monitor: Enable EWMA/MAD timing monitoring
-            timing_alpha: EWMA smoothing factor
-            mad_threshold: MAD multiplier for anomaly detection
-            gosnn_synapse_enabled: Enable GOSNN ethical gate synapse
-        """
         self.timing_monitor = (
             EWMATimingMonitor(alpha=timing_alpha, mad_threshold=mad_threshold)
             if enable_timing_monitor
@@ -294,40 +328,49 @@ class MercuryGuardianAdapter:
         self._dilithium_keypair: DilithiumKeyPair | None = None
         self._kyber_keypair: KyberKeyPair | None = None
 
+        # AMA Adaptive Posture — bidirectional GOSNN integration
+        self._posture_evaluator = PostureEvaluator()
+        self._posture_controller = CryptoPostureController(
+            monitor=self.timing_monitor,
+            evaluator=self._posture_evaluator,
+            on_rotation=self._on_posture_rotation,
+            on_algorithm_switch=self._on_posture_algorithm_switch,
+        )
+        self._last_posture_evaluation: PostureEvaluation | None = None
+
     def is_available(self) -> bool:
         """Check if AMA Cryptography PQC is available."""
         return AMA_CRYPTOGRAPHY_AVAILABLE
 
     def get_pqc_status(self) -> dict[str, Any]:
-        """Get PQC backend status.
-
-        Returns:
-            Dictionary with availability status for each algorithm
-        """
+        """Get PQC backend status."""
         return {
             "ama_cryptography_available": AMA_CRYPTOGRAPHY_AVAILABLE,
-            "mercury_guardian_available": AMA_CRYPTOGRAPHY_AVAILABLE,  # backward compat alias
+            "mercury_guardian_available": AMA_CRYPTOGRAPHY_AVAILABLE,
             "dilithium_available": DILITHIUM_AVAILABLE,
             "kyber_available": KYBER_AVAILABLE,
             "timing_monitor_enabled": self.timing_monitor is not None,
             "gosnn_synapse_enabled": self.gosnn_synapse_enabled,
             "anomaly_count": len(self.anomaly_history),
+            "posture_threat_level": (
+                self._last_posture_evaluation.threat_level.name
+                if self._last_posture_evaluation
+                else ThreatLevel.NOMINAL.name
+            ),
         }
 
     def _record_anomaly(self, anomaly: CryptoAnomaly) -> None:
-        """Record anomaly and trigger GOSNN synapse if enabled."""
+        """Record anomaly, trigger GOSNN synapse, and evaluate posture."""
         self.anomaly_history.append(anomaly)
         if len(self.anomaly_history) > self.max_anomaly_history:
             self.anomaly_history.pop(0)
 
         if self.gosnn_synapse_enabled:
             self._trigger_gosnn_synapse(anomaly)
+            self._evaluate_posture_from_gosnn()
 
     def _trigger_gosnn_synapse(self, anomaly: CryptoAnomaly) -> None:
-        """Trigger GOSNN ethical gate synapse with crypto anomaly.
-
-        Synapse: Registers omni-scalars from crypto anomaly for ethical gating.
-        """
+        """Trigger GOSNN ethical gate synapse with crypto anomaly."""
         try:
             from omni_mercury_engine.core.global_omni_scalar_network import (
                 GlobalOmniScalarNetwork,
@@ -354,12 +397,178 @@ class MercuryGuardianAdapter:
         except Exception as e:
             logger.warning(f"GOSNN synapse failed: {e}")
 
-    def generate_dilithium_keypair(self) -> DilithiumKeyPair | None:
-        """Generate ML-DSA-65 (Dilithium) keypair.
+    def _evaluate_posture_from_gosnn(self) -> None:
+        """Feed GOSNN security scalar state into AMA PostureEvaluator.
 
-        Returns:
-            DilithiumKeyPair or None if not available
+        Reads GOSNN security scalars and constructs a monitor report
+        that the PostureEvaluator can consume.  The evaluation result
+        is then registered back into GOSNN as ScalarGroup.SECURITY,
+        completing the bidirectional loop.
         """
+        try:
+            from omni_mercury_engine.core.global_omni_scalar_network import (
+                GlobalOmniScalarNetwork,
+                ScalarGroup,
+            )
+
+            gosnn = GlobalOmniScalarNetwork()
+
+            # Gather GOSNN security + ethical scalars for context
+            security_scalars = dict(gosnn.scalar_groups.get(ScalarGroup.SECURITY, {}))
+            ethical_scalars = dict(gosnn.scalar_groups.get(ScalarGroup.ETHICAL, {}))
+
+            # Build a synthetic monitor report from full system context
+            report = self._build_posture_report(security_scalars, ethical_scalars)
+            evaluation = self._posture_evaluator.evaluate(report)
+            self._last_posture_evaluation = evaluation
+
+            # Register posture decisions back into GOSNN as SECURITY scalars
+            posture_scalars: dict[str, float] = {
+                "omni_posture_threat_level": float(evaluation.threat_level.value),
+                "omni_posture_action": float(evaluation.action.value),
+                "omni_posture_confidence": evaluation.confidence,
+                "omni_posture_effective_score": evaluation.signals.get("effective_score", 0.0),
+                "omni_posture_timing_score": evaluation.signals.get("timing_score", 0.0),
+                "omni_posture_pattern_score": evaluation.signals.get("pattern_score", 0.0),
+            }
+
+            gosnn.register_scalars(
+                component_name="ama_adaptive_posture",
+                scalars=posture_scalars,
+                group=ScalarGroup.SECURITY,
+                metadata={
+                    "threat_level": evaluation.threat_level.name,
+                    "action": evaluation.action.name,
+                    "confidence": evaluation.confidence,
+                },
+            )
+
+            if evaluation.threat_level in (ThreatLevel.HIGH, ThreatLevel.CRITICAL):
+                logger.warning(
+                    f"AMA Adaptive Posture: {evaluation.threat_level.name} "
+                    f"(action={evaluation.action.name}, confidence={evaluation.confidence:.2f})"
+                )
+
+        except ImportError:
+            logger.debug("GOSNN not available for posture evaluation")
+        except Exception as e:
+            logger.warning(f"Posture evaluation from GOSNN failed: {e}")
+
+    def _build_posture_report(
+        self,
+        security_scalars: dict[str, float],
+        ethical_scalars: dict[str, float],
+    ) -> dict[str, Any]:
+        """Build a monitor report from GOSNN scalars for PostureEvaluator.
+
+        Translates the full system context (GOSNN security + ethical scalars)
+        plus local timing monitor data into the report format consumed by
+        ``PostureEvaluator.evaluate()``.
+        """
+        # Start with timing monitor's own report if available
+        if self.timing_monitor is not None:
+            report = self.timing_monitor.get_security_report()
+        else:
+            report = {
+                "status": "monitoring_active",
+                "recent_alerts": [],
+                "total_alerts": 0,
+                "resonance_analysis": {},
+            }
+
+        # Augment with GOSNN-derived signals
+        anomaly_count = ethical_scalars.get("omni_crypto_anomaly_count", 0.0)
+        avg_severity = ethical_scalars.get("omni_crypto_avg_severity", 0.0)
+        timing_anomalies = ethical_scalars.get("omni_crypto_timing_anomalies", 0.0)
+
+        # Synthesize pattern alerts from GOSNN scalar anomalies
+        if anomaly_count > 0 and avg_severity > 0.3:
+            @dataclass
+            class _PatternAnomaly:
+                z_score: float
+                severity: str
+
+            severity_level = "critical" if avg_severity > 0.7 else "warning"
+            z_score = avg_severity * 10.0
+            report["recent_alerts"].append({
+                "type": "pattern",
+                "anomaly": {
+                    "z_score": z_score,
+                    "severity": severity_level,
+                },
+            })
+            report["total_alerts"] = int(report.get("total_alerts", 0) + anomaly_count)
+
+        return report
+
+    def _on_posture_rotation(self) -> None:
+        """Callback from CryptoPostureController when key rotation is triggered."""
+        logger.info("AMA Adaptive Posture triggered key rotation via GOSNN context")
+        if self.gosnn_synapse_enabled:
+            try:
+                from omni_mercury_engine.core.global_omni_scalar_network import (
+                    GlobalOmniScalarNetwork,
+                    ScalarGroup,
+                )
+                gosnn = GlobalOmniScalarNetwork()
+                gosnn.register_scalars(
+                    component_name="ama_posture_rotation",
+                    scalars={
+                        "omni_posture_key_rotation_triggered": 1.0,
+                        "omni_posture_rotation_timestamp": time.time(),
+                    },
+                    group=ScalarGroup.SECURITY,
+                    metadata={"event": "posture_key_rotation"},
+                )
+            except (ImportError, Exception) as e:
+                logger.debug(f"Could not register rotation event to GOSNN: {e}")
+
+    def _on_posture_algorithm_switch(self, new_algorithm: str) -> None:
+        """Callback from CryptoPostureController when algorithm switch occurs."""
+        logger.info(
+            f"AMA Adaptive Posture switched algorithm to {new_algorithm} via GOSNN context"
+        )
+        if self.gosnn_synapse_enabled:
+            try:
+                from omni_mercury_engine.core.global_omni_scalar_network import (
+                    GlobalOmniScalarNetwork,
+                    ScalarGroup,
+                )
+                gosnn = GlobalOmniScalarNetwork()
+                gosnn.register_scalars(
+                    component_name="ama_posture_algorithm",
+                    scalars={
+                        "omni_posture_algorithm_switch_triggered": 1.0,
+                        "omni_posture_switch_timestamp": time.time(),
+                    },
+                    group=ScalarGroup.SECURITY,
+                    metadata={"event": "posture_algorithm_switch", "new_algorithm": new_algorithm},
+                )
+            except (ImportError, Exception) as e:
+                logger.debug(f"Could not register algorithm switch to GOSNN: {e}")
+
+    def evaluate_posture(self) -> PostureEvaluation:
+        """Manually trigger a posture evaluation cycle.
+
+        Reads GOSNN state and returns the posture evaluation.  The result
+        is also registered into GOSNN as ScalarGroup.SECURITY.
+        """
+        self._evaluate_posture_from_gosnn()
+        if self._last_posture_evaluation is not None:
+            return self._last_posture_evaluation
+        return PostureEvaluation(
+            threat_level=ThreatLevel.NOMINAL,
+            action=PostureAction.NONE,
+            confidence=0.0,
+            signals={"reason": "no_evaluation_data"},
+        )
+
+    def get_posture_summary(self) -> dict[str, Any]:
+        """Get current adaptive posture state."""
+        return self._posture_controller.get_posture_summary()
+
+    def generate_dilithium_keypair(self) -> DilithiumKeyPair | None:
+        """Generate ML-DSA-65 (Dilithium) keypair."""
         if not AMA_CRYPTOGRAPHY_AVAILABLE or not DILITHIUM_AVAILABLE:
             logger.warning("Dilithium not available")
             return None
@@ -395,15 +604,7 @@ class MercuryGuardianAdapter:
             return None
 
     def sign_dilithium(self, message: bytes, private_key: bytes | None = None) -> bytes | None:
-        """Sign message with ML-DSA-65 (Dilithium).
-
-        Args:
-            message: Data to sign
-            private_key: Optional private key (uses cached if None)
-
-        Returns:
-            Signature bytes or None if failed
-        """
+        """Sign message with ML-DSA-65 (Dilithium)."""
         if not AMA_CRYPTOGRAPHY_AVAILABLE or not DILITHIUM_AVAILABLE:
             logger.warning("Dilithium not available")
             return None
@@ -446,16 +647,7 @@ class MercuryGuardianAdapter:
     def verify_dilithium(
         self, message: bytes, signature: bytes, public_key: bytes | None = None
     ) -> bool:
-        """Verify ML-DSA-65 (Dilithium) signature.
-
-        Args:
-            message: Original data
-            signature: Signature to verify
-            public_key: Optional public key (uses cached if None)
-
-        Returns:
-            True if valid, False otherwise
-        """
+        """Verify ML-DSA-65 (Dilithium) signature."""
         if not AMA_CRYPTOGRAPHY_AVAILABLE or not DILITHIUM_AVAILABLE:
             logger.warning("Dilithium not available")
             return False
@@ -510,11 +702,7 @@ class MercuryGuardianAdapter:
             return False
 
     def generate_kyber_keypair(self) -> KyberKeyPair | None:
-        """Generate Kyber-1024 (ML-KEM) keypair.
-
-        Returns:
-            KyberKeyPair or None if not available
-        """
+        """Generate Kyber-1024 (ML-KEM) keypair."""
         if not AMA_CRYPTOGRAPHY_AVAILABLE or not KYBER_AVAILABLE:
             logger.warning("Kyber not available")
             return None
@@ -550,14 +738,7 @@ class MercuryGuardianAdapter:
             return None
 
     def encapsulate_kyber(self, public_key: bytes | None = None) -> KyberEncapsulation | None:
-        """Encapsulate shared secret with Kyber-1024.
-
-        Args:
-            public_key: Optional public key (uses cached if None)
-
-        Returns:
-            KyberEncapsulation with ciphertext and shared_secret, or None if failed
-        """
+        """Encapsulate shared secret with Kyber-1024."""
         if not AMA_CRYPTOGRAPHY_AVAILABLE or not KYBER_AVAILABLE:
             logger.warning("Kyber not available")
             return None
@@ -598,15 +779,7 @@ class MercuryGuardianAdapter:
             return None
 
     def decapsulate_kyber(self, ciphertext: bytes, secret_key: bytes | None = None) -> bytes | None:
-        """Decapsulate shared secret with Kyber-1024.
-
-        Args:
-            ciphertext: Ciphertext from encapsulation
-            secret_key: Optional secret key (uses cached if None)
-
-        Returns:
-            Shared secret bytes or None if failed
-        """
+        """Decapsulate shared secret with Kyber-1024."""
         if not AMA_CRYPTOGRAPHY_AVAILABLE or not KYBER_AVAILABLE:
             logger.warning("Kyber not available")
             return None
@@ -647,14 +820,7 @@ class MercuryGuardianAdapter:
             return None
 
     def simulate_attack(self, attack_type: str = "timing") -> dict[str, Any]:
-        """Simulate cryptographic attack for testing detection.
-
-        Args:
-            attack_type: Type of attack to simulate ("timing", "replay", "side_channel")
-
-        Returns:
-            Dictionary with simulation results and detection status
-        """
+        """Simulate cryptographic attack for testing detection."""
         results: dict[str, Any] = {
             "attack_type": attack_type,
             "detected": False,
@@ -709,11 +875,7 @@ class MercuryGuardianAdapter:
         return results
 
     def get_anomaly_summary(self) -> dict[str, Any]:
-        """Get summary of detected anomalies.
-
-        Returns:
-            Dictionary with anomaly statistics and recent anomalies
-        """
+        """Get summary of detected anomalies."""
         if not self.anomaly_history:
             return {
                 "total_anomalies": 0,
@@ -746,16 +908,12 @@ class MercuryGuardianAdapter:
         }
 
     def get_gosnn_scalars(self) -> dict[str, float]:
-        """Get aggregated omni-scalars for GOSNN registration.
-
-        Returns:
-            Dictionary of omni-scalars from crypto operations
-        """
+        """Get aggregated omni-scalars for GOSNN registration."""
         scalars: dict[str, float] = {
             "omni_ama_cryptography_available": 1.0 if AMA_CRYPTOGRAPHY_AVAILABLE else 0.0,
             "omni_mercury_guardian_available": (
                 1.0 if AMA_CRYPTOGRAPHY_AVAILABLE else 0.0
-            ),  # backward compat alias
+            ),
             "omni_dilithium_available": 1.0 if DILITHIUM_AVAILABLE else 0.0,
             "omni_kyber_available": 1.0 if KYBER_AVAILABLE else 0.0,
             "omni_crypto_anomaly_count": float(len(self.anomaly_history)),
@@ -771,6 +929,13 @@ class MercuryGuardianAdapter:
         if self.timing_monitor:
             scalars["omni_crypto_monitoring_overhead"] = self.timing_monitor.get_overhead_estimate()
 
+        # Include posture state
+        if self._last_posture_evaluation is not None:
+            scalars["omni_posture_threat_level"] = float(
+                self._last_posture_evaluation.threat_level.value
+            )
+            scalars["omni_posture_confidence"] = self._last_posture_evaluation.confidence
+
         return scalars
 
 
@@ -778,15 +943,7 @@ def create_ama_cryptography_adapter(
     enable_timing_monitor: bool = True,
     gosnn_synapse_enabled: bool = True,
 ) -> MercuryGuardianAdapter:
-    """Factory function to create AMA Cryptography adapter.
-
-    Args:
-        enable_timing_monitor: Enable EWMA/MAD timing monitoring
-        gosnn_synapse_enabled: Enable GOSNN ethical gate synapse
-
-    Returns:
-        Configured MercuryGuardianAdapter instance
-    """
+    """Factory function to create AMA Cryptography adapter."""
     return MercuryGuardianAdapter(
         enable_timing_monitor=enable_timing_monitor,
         gosnn_synapse_enabled=gosnn_synapse_enabled,
@@ -797,17 +954,7 @@ def create_mercury_guardian_adapter(
     enable_timing_monitor: bool = True,
     gosnn_synapse_enabled: bool = True,
 ) -> MercuryGuardianAdapter:
-    """Factory function to create AMA Cryptography adapter.
-
-    Backward compatibility alias for create_ama_cryptography_adapter.
-
-    Args:
-        enable_timing_monitor: Enable EWMA/MAD timing monitoring
-        gosnn_synapse_enabled: Enable GOSNN ethical gate synapse
-
-    Returns:
-        Configured MercuryGuardianAdapter instance
-    """
+    """Backward compatibility alias for create_ama_cryptography_adapter."""
     return create_ama_cryptography_adapter(
         enable_timing_monitor=enable_timing_monitor,
         gosnn_synapse_enabled=gosnn_synapse_enabled,
@@ -816,7 +963,7 @@ def create_mercury_guardian_adapter(
 
 __all__ = [
     "AMA_CRYPTOGRAPHY_AVAILABLE",
-    "AVA_GUARDIAN_AVAILABLE",  # backward compat alias
+    "AVA_GUARDIAN_AVAILABLE",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
     "CryptoAnomaly",
@@ -828,5 +975,5 @@ __all__ = [
     "MercuryGuardianAdapter",
     "TimingStats",
     "create_ama_cryptography_adapter",
-    "create_mercury_guardian_adapter",  # backward compat alias
+    "create_mercury_guardian_adapter",
 ]

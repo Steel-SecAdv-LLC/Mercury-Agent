@@ -3,11 +3,13 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Tests for the crypto_api module - cryptographic operations.
+
+AMA Cryptography v2.0 is the sole PQC backend.  There is no simulation
+mode — if AMA is installed but its native C library is not built, the
+PQC algorithm tests are skipped (not faked).
 """
 
 from __future__ import annotations
-
-import os
 
 import pytest
 
@@ -27,31 +29,17 @@ try:
 except ImportError:
     HAS_CRYPTO = False
 
-
-def _check_real_pqc_available() -> bool:
-    """Check if real PQC libraries are available."""
-    try:
-        import oqs  # noqa: F401
-
-        return True
-    except ImportError:
-        try:
-            import pqcrypto  # noqa: F401
-
-            return True
-        except ImportError:
-            return False
-
-
-# Determine if we're in simulation mode
-SIMULATION_MODE = not _check_real_pqc_available()
-
-# Check if real PQC is required by environment
-REQUIRE_REAL_PQC = os.environ.get("AVA_REQUIRE_REAL_PQC", "").lower() in (
-    "true",
-    "1",
-    "yes",
-)
+# Check native PQC availability (AMA always installed, but native C may not be built)
+try:
+    from omni_mercury_engine.security.pqc_backends import (
+        DILITHIUM_AVAILABLE,
+        KYBER_AVAILABLE,
+        SPHINCS_AVAILABLE,
+    )
+except ImportError:
+    DILITHIUM_AVAILABLE = False
+    KYBER_AVAILABLE = False
+    SPHINCS_AVAILABLE = False
 
 pytestmark = pytest.mark.skipif(not HAS_CRYPTO, reason="crypto_api not available")
 
@@ -229,173 +217,123 @@ class TestAlgorithmTypeEnum:
         assert hasattr(AlgorithmType, "ML_DSA_65") or hasattr(AlgorithmType, "DILITHIUM")
 
 
+@pytest.mark.skipif(
+    not DILITHIUM_AVAILABLE,
+    reason="ML-DSA-65 not available (AMA native C library not built)",
+)
 class TestPostQuantumProviders:
     """
     Tests for Post-Quantum Cryptographic Providers via crypto_api.
 
-    These tests verify the crypto_api providers work correctly in the current mode:
-    - In SIMULATION mode: verification SHOULD fail (broken by design = fail-fast)
-    - In REAL mode: verification SHOULD succeed
-
-    This follows the fail-fast philosophy - simulation mode is intentionally broken
-    to force developers to install real PQC libraries for production.
+    Requires AMA Cryptography's native C library to be built.
     """
 
     def test_mldsa_keypair_generation(self):
-        """Test ML-DSA-65 keypair generation works in any mode."""
-        try:
-            from omni_mercury_engine.security.crypto_api import MLDSAProvider
+        """Test ML-DSA-65 keypair generation."""
+        from omni_mercury_engine.security.crypto_api import MLDSAProvider
 
-            provider = MLDSAProvider()
-            keypair = provider.generate_keypair()
+        provider = MLDSAProvider()
+        keypair = provider.generate_keypair()
 
-            # Keypair generation should always work
-            assert keypair is not None
-            assert keypair.public_key is not None
-            assert keypair.secret_key is not None
-            assert keypair.algorithm == AlgorithmType.ML_DSA_65
-        except ImportError:
-            pytest.skip("ML-DSA provider not available")
+        assert keypair is not None
+        assert keypair.public_key is not None
+        assert keypair.secret_key is not None
+        assert keypair.algorithm == AlgorithmType.ML_DSA_65
 
     def test_mldsa_sign_verify(self):
-        """Test ML-DSA-65 signature behavior matches current mode."""
-        try:
-            from omni_mercury_engine.security.crypto_api import MLDSAProvider
+        """Test ML-DSA-65 sign and verify roundtrip."""
+        from omni_mercury_engine.security.crypto_api import MLDSAProvider
 
-            provider = MLDSAProvider()
-            keypair = provider.generate_keypair()
-            message = b"Post-quantum secure message"
+        provider = MLDSAProvider()
+        keypair = provider.generate_keypair()
+        message = b"Post-quantum secure message"
 
-            signature = provider.sign(message, keypair.secret_key)
-            is_valid = provider.verify(message, signature, keypair.public_key)
+        signature = provider.sign(message, keypair.secret_key)
+        is_valid = provider.verify(message, signature, keypair.public_key)
+        assert is_valid is True, "ML-DSA-65 should verify signatures correctly"
 
-            if SIMULATION_MODE:
-                # Simulation mode SHOULD fail verification (fail-fast philosophy)
-                assert is_valid is False, (
-                    "Simulation mode should NOT verify signatures. "
-                    "Install liboqs-python for real cryptography."
-                )
-            else:
-                # Real mode SHOULD succeed
-                assert is_valid is True, "Real PQC should verify signatures correctly"
-                # Wrong message should fail even in real mode
-                is_valid_wrong = provider.verify(b"wrong", signature, keypair.public_key)
-                assert is_valid_wrong is False
-        except ImportError:
-            pytest.skip("ML-DSA provider not available")
+        # Wrong message should fail
+        is_valid_wrong = provider.verify(b"wrong", signature, keypair.public_key)
+        assert is_valid_wrong is False
 
     def test_kyber_encapsulation(self):
-        """Test Kyber key encapsulation behavior matches current mode."""
-        try:
-            from omni_mercury_engine.security.crypto_api import KyberProvider
+        """Test Kyber key encapsulation roundtrip."""
+        if not KYBER_AVAILABLE:
+            pytest.skip("Kyber-1024 not available")
 
-            provider = KyberProvider()
-            keypair = provider.generate_keypair()
+        from omni_mercury_engine.security.crypto_api import KyberProvider
 
-            encapsulated = provider.encapsulate(keypair.public_key)
-            assert encapsulated is not None
-            assert encapsulated.ciphertext is not None
-            assert encapsulated.shared_secret is not None
+        provider = KyberProvider()
+        keypair = provider.generate_keypair()
 
-            recovered = provider.decapsulate(encapsulated.ciphertext, keypair.secret_key)
+        encapsulated = provider.encapsulate(keypair.public_key)
+        assert encapsulated is not None
+        assert encapsulated.ciphertext is not None
+        assert encapsulated.shared_secret is not None
 
-            if SIMULATION_MODE:
-                # Simulation mode SHOULD produce mismatched shared secrets (fail-fast)
-                assert recovered != encapsulated.shared_secret, (
-                    "Simulation mode should NOT produce matching shared secrets. "
-                    "Install liboqs-python for real cryptography."
-                )
-            else:
-                # Real mode SHOULD match
-                assert (
-                    recovered == encapsulated.shared_secret
-                ), "Real PQC should produce matching shared secrets"
-        except ImportError:
-            pytest.skip("Kyber provider not available")
+        recovered = provider.decapsulate(encapsulated.ciphertext, keypair.secret_key)
+        assert recovered == encapsulated.shared_secret, (
+            "Kyber shared secrets should match after encap/decap"
+        )
 
     def test_sphincs_plus_signatures(self):
-        """Test SPHINCS+ signature behavior matches current mode."""
-        try:
-            from omni_mercury_engine.security.crypto_api import SphincsProvider
+        """Test SPHINCS+ signature roundtrip."""
+        if not SPHINCS_AVAILABLE:
+            pytest.skip("SPHINCS+ not available")
 
-            provider = SphincsProvider()
-            keypair = provider.generate_keypair()
-            message = b"Hash-based signature test"
+        from omni_mercury_engine.security.crypto_api import SphincsProvider
 
-            signature = provider.sign(message, keypair.secret_key)
-            is_valid = provider.verify(message, signature, keypair.public_key)
+        provider = SphincsProvider()
+        keypair = provider.generate_keypair()
+        message = b"Hash-based signature test"
 
-            # SPHINCS+ simulation only checks signature length (64 bytes from sha3_512)
-            # So it may return True even in simulation mode - this is expected
-            # The test verifies the provider works without crashing
-            assert isinstance(is_valid, bool)
-        except ImportError:
-            pytest.skip("SPHINCS+ provider not available")
+        signature = provider.sign(message, keypair.secret_key)
+        is_valid = provider.verify(message, signature, keypair.public_key)
+        assert is_valid is True, "SPHINCS+ should verify signatures correctly"
 
 
+@pytest.mark.skipif(
+    not DILITHIUM_AVAILABLE,
+    reason="ML-DSA-65 not available (AMA native C library not built)",
+)
 class TestHybridCryptography:
     """
     Tests for Hybrid Classical+Post-Quantum Operations.
 
-    These tests verify the HybridSignatureProvider works correctly in the current mode:
-    - In SIMULATION mode: PQC verification SHOULD fail (broken by design = fail-fast)
-    - In REAL mode: PQC verification SHOULD succeed
-
-    Classical (Ed25519) verification should always work when available.
+    Requires AMA Cryptography's native C library.
     """
 
     def test_hybrid_keypair_generation(self):
         """Test hybrid keypair generation includes both algorithms."""
-        try:
-            from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
+        from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
 
-            provider = HybridSignatureProvider()
-            classical_kp, pqc_kp = provider.generate_keypairs()
+        provider = HybridSignatureProvider()
+        classical_kp, pqc_kp = provider.generate_keypairs()
 
-            # Keypair generation should always work
-            # classical_kp may be None if Ed25519 is not available
-            assert pqc_kp is not None
-            assert pqc_kp.algorithm == AlgorithmType.ML_DSA_65
-            if classical_kp is not None:
-                assert classical_kp.algorithm == AlgorithmType.ED25519
-        except ImportError:
-            pytest.skip("Hybrid provider not available")
+        assert pqc_kp is not None
+        assert pqc_kp.algorithm == AlgorithmType.ML_DSA_65
+        if classical_kp is not None:
+            assert classical_kp.algorithm == AlgorithmType.ED25519
 
     def test_hybrid_signature_verification(self):
-        """Test hybrid signature behavior matches current mode."""
-        try:
-            from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
+        """Test hybrid signature roundtrip."""
+        from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
 
-            provider = HybridSignatureProvider()
-            classical_kp, pqc_kp = provider.generate_keypairs()
-            message = b"Hybrid security message"
+        provider = HybridSignatureProvider()
+        classical_kp, pqc_kp = provider.generate_keypairs()
+        message = b"Hybrid security message"
 
-            # sign() requires: message, classical_secret (or None), pqc_secret
-            classical_secret = classical_kp.secret_key if classical_kp else None
-            hybrid_sig = provider.sign(message, classical_secret, pqc_kp.secret_key)
+        classical_secret = classical_kp.secret_key if classical_kp else None
+        hybrid_sig = provider.sign(message, classical_secret, pqc_kp.secret_key)
 
-            # verify() requires: message, hybrid_sig, classical_public (or None), pqc_public
-            # Returns tuple (classical_valid, pqc_valid)
-            classical_public = classical_kp.public_key if classical_kp else None
-            classical_valid, pqc_valid = provider.verify(
-                message, hybrid_sig, classical_public, pqc_kp.public_key
-            )
+        classical_public = classical_kp.public_key if classical_kp else None
+        classical_valid, pqc_valid = provider.verify(
+            message, hybrid_sig, classical_public, pqc_kp.public_key
+        )
 
-            # Classical (Ed25519) should always work when available
-            if classical_kp is not None:
-                assert classical_valid is True, "Classical Ed25519 should verify correctly"
-
-            if SIMULATION_MODE:
-                # PQC verification SHOULD fail in simulation mode (fail-fast philosophy)
-                assert pqc_valid is False, (
-                    "Simulation mode should NOT verify PQC signatures. "
-                    "Install liboqs-python for real cryptography."
-                )
-            else:
-                # Real mode SHOULD succeed
-                assert pqc_valid is True, "Real PQC should verify signatures correctly"
-        except ImportError:
-            pytest.skip("Hybrid provider not available")
+        if classical_kp is not None:
+            assert classical_valid is True, "Classical Ed25519 should verify correctly"
+        assert pqc_valid is True, "ML-DSA-65 should verify signatures correctly"
 
     def test_hybrid_security_level(self):
         """Test MercuryCrypto with hybrid security level."""
@@ -526,150 +464,62 @@ class TestCryptoIntegration:
 
 
 @pytest.mark.skipif(
-    not SIMULATION_MODE,
-    reason="Test only applicable when running in simulation mode",
-)
-class TestPQCSimulationBehavior:
-    """
-    Tests that verify simulation mode behaves as expected (broken by design).
-
-    These tests PASS when verification FAILS because broken simulation = correct behavior.
-    This is intentional to force developers to install real PQC libraries.
-    """
-
-    def test_simulated_dilithium_sign_verify_fails(self):
-        """Simulation mode SHOULD fail verification - this is intentional."""
-        try:
-            from omni_mercury_engine.security.pqc_backends import (
-                dilithium_sign,
-                dilithium_verify,
-                generate_dilithium_keypair,
-            )
-
-            keypair = generate_dilithium_keypair()
-            message = b"Test message for simulation"
-
-            signature = dilithium_sign(message, keypair.secret_key)
-            # Verification SHOULD fail in simulation mode - this is by design
-            is_valid = dilithium_verify(message, signature, keypair.public_key)
-
-            # Test PASSES when verification FAILS (broken simulation = correct behavior)
-            assert is_valid is False, (
-                "Simulation mode should NOT verify signatures. "
-                "Install liboqs-python for real cryptography."
-            )
-        except ImportError:
-            pytest.skip("PQC backends not available")
-
-    def test_simulated_kyber_encap_decap_mismatch(self):
-        """Simulation mode SHOULD produce mismatched shared secrets."""
-        try:
-            from omni_mercury_engine.security.pqc_backends import (
-                generate_kyber_keypair,
-                kyber_decapsulate,
-                kyber_encapsulate,
-            )
-
-            keypair = generate_kyber_keypair()
-            encapsulated = kyber_encapsulate(keypair.public_key)
-            recovered = kyber_decapsulate(encapsulated.ciphertext, keypair.secret_key)
-
-            # Shared secrets SHOULD NOT match in simulation mode
-            assert recovered != encapsulated.shared_secret, (
-                "Simulation mode should NOT produce matching shared secrets. "
-                "Install liboqs-python for real cryptography."
-            )
-        except ImportError:
-            pytest.skip("PQC backends not available")
-
-    def test_simulated_sphincs_sign_verify_fails(self):
-        """Simulation mode SHOULD fail SPHINCS+ verification."""
-        try:
-            from omni_mercury_engine.security.pqc_backends import (
-                generate_sphincs_keypair,
-                sphincs_sign,
-                sphincs_verify,
-            )
-
-            keypair = generate_sphincs_keypair()
-            message = b"Test message for SPHINCS+ simulation"
-
-            signature = sphincs_sign(message, keypair.secret_key)
-            # Verification checks only length in simulation - signature is 64 bytes
-            is_valid = sphincs_verify(message, signature, keypair.public_key)
-
-            # Test behavior depends on signature length (64 bytes from sha3_512)
-            # This is intentionally weak verification
-            assert is_valid is True, "SPHINCS+ simulation only checks signature length"
-        except ImportError:
-            pytest.skip("PQC backends not available")
-
-
-@pytest.mark.skipif(
-    SIMULATION_MODE,
-    reason="Requires real PQC libraries (liboqs-python)",
+    not DILITHIUM_AVAILABLE,
+    reason="Requires AMA native C library (ML-DSA-65)",
 )
 class TestPQCRealImplementation:
     """
-    Tests that require real cryptographic libraries.
+    Tests for real PQC cryptographic operations via AMA Cryptography.
 
-    These tests are skipped when running in simulation mode.
-    Install liboqs-python to run these tests.
+    These tests require the native C library to be built.
     """
 
     def test_real_dilithium_sign_verify_succeeds(self):
-        """Real PQC libraries SHOULD verify signatures correctly."""
-        try:
-            from omni_mercury_engine.security.pqc_backends import (
-                dilithium_sign,
-                dilithium_verify,
-                generate_dilithium_keypair,
-            )
+        """ML-DSA-65 sign/verify roundtrip."""
+        from omni_mercury_engine.security.pqc_backends import (
+            dilithium_sign,
+            dilithium_verify,
+            generate_dilithium_keypair,
+        )
 
-            keypair = generate_dilithium_keypair()
-            message = b"Test message for real PQC"
+        keypair = generate_dilithium_keypair()
+        message = b"Test message for real PQC"
 
-            signature = dilithium_sign(message, keypair.secret_key)
-            is_valid = dilithium_verify(message, signature, keypair.public_key)
+        signature = dilithium_sign(message, keypair.secret_key)
+        is_valid = dilithium_verify(message, signature, keypair.public_key)
 
-            assert is_valid is True, "Real PQC should verify signatures correctly"
-        except ImportError:
-            pytest.skip("PQC backends not available")
+        assert is_valid is True, "ML-DSA-65 should verify signatures correctly"
 
+    @pytest.mark.skipif(not KYBER_AVAILABLE, reason="Kyber-1024 not available")
     def test_real_kyber_encap_decap_matches(self):
-        """Real PQC libraries SHOULD produce matching shared secrets."""
-        try:
-            from omni_mercury_engine.security.pqc_backends import (
-                generate_kyber_keypair,
-                kyber_decapsulate,
-                kyber_encapsulate,
-            )
+        """Kyber encap/decap shared secret roundtrip."""
+        from omni_mercury_engine.security.pqc_backends import (
+            generate_kyber_keypair,
+            kyber_decapsulate,
+            kyber_encapsulate,
+        )
 
-            keypair = generate_kyber_keypair()
-            encapsulated = kyber_encapsulate(keypair.public_key)
-            recovered = kyber_decapsulate(encapsulated.ciphertext, keypair.secret_key)
+        keypair = generate_kyber_keypair()
+        encapsulated = kyber_encapsulate(keypair.public_key)
+        recovered = kyber_decapsulate(encapsulated.ciphertext, keypair.secret_key)
 
-            assert (
-                recovered == encapsulated.shared_secret
-            ), "Real PQC should produce matching shared secrets"
-        except ImportError:
-            pytest.skip("PQC backends not available")
+        assert (
+            recovered == encapsulated.shared_secret
+        ), "Kyber should produce matching shared secrets"
 
+    @pytest.mark.skipif(not SPHINCS_AVAILABLE, reason="SPHINCS+ not available")
     def test_real_sphincs_sign_verify_succeeds(self):
-        """Real PQC libraries SHOULD verify SPHINCS+ signatures correctly."""
-        try:
-            from omni_mercury_engine.security.pqc_backends import (
-                generate_sphincs_keypair,
-                sphincs_sign,
-                sphincs_verify,
-            )
+        """SPHINCS+ sign/verify roundtrip."""
+        from omni_mercury_engine.security.pqc_backends import (
+            generate_sphincs_keypair,
+            sphincs_sign,
+            sphincs_verify,
+        )
 
-            keypair = generate_sphincs_keypair()
-            message = b"Test message for real SPHINCS+"
+        keypair = generate_sphincs_keypair()
+        message = b"Test message for real SPHINCS+"
 
-            signature = sphincs_sign(message, keypair.secret_key)
-            is_valid = sphincs_verify(message, signature, keypair.public_key)
+        signature = sphincs_sign(message, keypair.secret_key)
+        is_valid = sphincs_verify(message, signature, keypair.public_key)
 
-            assert is_valid is True, "Real PQC should verify SPHINCS+ signatures"
-        except ImportError:
-            pytest.skip("PQC backends not available")
+        assert is_valid is True, "SPHINCS+ should verify signatures correctly"
