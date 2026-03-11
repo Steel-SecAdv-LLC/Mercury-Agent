@@ -74,29 +74,26 @@ Mercury Agent uses NIST-approved post-quantum cryptographic algorithms (ML-DSA-6
 
 | Backend | Status | Recommendation |
 |---------|--------|----------------|
-| AMA Cryptography | Community-tested, NOT externally audited | Development/Testing (Primary) |
-| liboqs-python | Research-grade, constant-time implementations | Development/Testing (Secondary) |
-| pqcrypto | Experimental, may have timing variations | Development only (Tertiary) |
-| SIMULATION | NOT SECURE - no real cryptography | BLOCKED in production |
+| AMA Cryptography (Native C) | Community-tested, NOT externally audited | Production (sole backend — hard-required) |
 
 **Important Security Considerations:**
 
-1. **Algorithm vs Implementation**: The algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are NIST-approved and standardized. However, implementation correctness is NOT externally verified for any of the available backends.
+1. **Algorithm vs Implementation**: The algorithms (ML-DSA-65, Kyber-1024, SPHINCS+) are NIST-approved and standardized. However, implementation correctness is NOT externally verified for the AMA Cryptography backend.
 
 2. **Production Deployments**: For production deployments requiring compliance:
-   - Obtain an independent security audit of your chosen backend
+   - Obtain an independent security audit of the AMA Cryptography native C library
    - Consider FIPS 140-2 Level 3+ HSM for master secrets
    - Document risk acceptance for unaudited cryptographic code
 
-3. **Backend Priority Chain**: Mercury Agent automatically selects the best available backend:
-   - **Primary**: AMA Cryptography (`pip install ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git`)
-   - **Secondary**: liboqs-python (`pip install liboqs-python`)
-   - **Tertiary**: pqcrypto (`pip install pqcrypto`)
-   - **Blocked**: SIMULATION mode is blocked in production environments
+3. **Sole Backend**: Mercury Agent **hard-requires** AMA Cryptography. There is no fallback chain — if AMA Cryptography is not installed, Mercury refuses to start. The native C library must be built for PQC algorithms:
+   ```bash
+   pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git"
+   cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
+   ```
 
-4. **Fail-Fast Philosophy**: Mercury Agent refuses to run with simulated cryptography in production. Set `AMA_REQUIRE_REAL_PQC=true` or `AMA_REQUIRE_CONSTANT_TIME=true` to enforce real PQC backends.
+4. **Production Enforcement**: Mercury Agent refuses to run without real PQC cryptography in production. Set `AMA_REQUIRE_REAL_PQC=true` to enforce native PQC availability at startup.
 
-5. **Constant-Time Requirement**: For timing-attack resistance, set `AMA_REQUIRE_CONSTANT_TIME=true` to require AMA Cryptography or liboqs-python (both provide constant-time implementations).
+5. **Constant-Time Requirement**: AMA Cryptography's native C library provides constant-time implementations. Set `AMA_REQUIRE_CONSTANT_TIME=true` to enforce this at startup.
 
 **References:**
 - [NIST PQC Standardization](https://csrc.nist.gov/projects/post-quantum-cryptography)
