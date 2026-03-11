@@ -514,17 +514,16 @@ class ScoreDiagnostics:
         """
         scores = np.asarray(scores).flatten()
 
-        _diag_logger = logging.getLogger(__name__)
-        _diag_logger.debug("\n--- %s Score Diagnostics ---", detector_name)
-        _diag_logger.debug("Score range: [%.4f, %.4f]", scores.min(), scores.max())
-        _diag_logger.debug("Score mean: %.4f", scores.mean())
-        _diag_logger.debug("Threshold: %s", threshold)
-        _diag_logger.debug(
+        logger.debug("\n--- %s Score Diagnostics ---", detector_name)
+        logger.debug("Score range: [%.4f, %.4f]", scores.min(), scores.max())
+        logger.debug("Score mean: %.4f", scores.mean())
+        logger.debug("Threshold: %s", threshold)
+        logger.debug(
             "Predictions above threshold: %d/%d",
             int((scores > threshold).sum()),
             len(scores),
         )
-        _diag_logger.debug("-" * 40)
+        logger.debug("-" * 40)
 
 
 class AutoThresholdOptimizer:

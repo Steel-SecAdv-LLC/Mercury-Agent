@@ -49,7 +49,9 @@ def test_detect_with_csv_data():
 
     try:
         result = runner.invoke(main, ["detect", "--input", temp_file])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(temp_file).unlink()
 
@@ -64,7 +66,9 @@ def test_detect_with_json_data():
 
     try:
         result = runner.invoke(main, ["detect", "--input", temp_file])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(temp_file).unlink()
 
@@ -79,7 +83,9 @@ def test_detect_with_threshold():
 
     try:
         result = runner.invoke(main, ["detect", "--input", temp_file, "--threshold", "0.8"])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(temp_file).unlink()
 
@@ -97,7 +103,9 @@ def test_detect_with_output_file():
 
     try:
         result = runner.invoke(main, ["detect", "--input", data_file, "--output", output_file])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(data_file).unlink()
         if os.path.exists(output_file):
@@ -114,7 +122,9 @@ def test_detect_with_statistical_detector():
 
     try:
         result = runner.invoke(main, ["detect", "--input", temp_file, "--detector", "statistical"])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(temp_file).unlink()
 
@@ -259,7 +269,9 @@ def test_explain_with_csv_input():
 
     try:
         result = runner.invoke(main, ["explain", "--input", temp_file])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(temp_file).unlink()
 
@@ -274,7 +286,9 @@ def test_explain_with_model_flag():
 
     try:
         result = runner.invoke(main, ["explain", "--input", temp_file, "--model", "statistical"])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(temp_file).unlink()
 
@@ -359,7 +373,9 @@ def test_physics_spectral_with_csv():
 
     try:
         result = runner.invoke(main, ["physics", "spectral", "--input", temp_file])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(temp_file).unlink()
 
@@ -375,7 +391,9 @@ def test_physics_dynamics_with_csv():
 
     try:
         result = runner.invoke(main, ["physics", "dynamics", "--input", temp_file])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(temp_file).unlink()
 
@@ -394,7 +412,9 @@ def test_physics_uiux_with_json():
 
     try:
         result = runner.invoke(main, ["physics", "uiux", "--input", temp_file])
-        assert result.exit_code == 0 or "Error" in result.output
+        assert result.exit_code in (0, 1), f"Exit {result.exit_code}: {result.output}"
+        assert result.exception is None or isinstance(result.exception, SystemExit), \
+            f"Unhandled exception: {result.exception!r}\n{result.output}"
     finally:
         Path(temp_file).unlink()
 

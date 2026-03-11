@@ -233,13 +233,15 @@ Prometheus metrics are served on the API port at `/metrics`.
 
 ### Grafana dashboards
 
-Preconfigured dashboards are in `monitoring/grafana/`. Import them after
-starting Grafana via `docker compose up -d grafana`.
+Dashboards are auto-provisioned from `monitoring/grafana/` when the Grafana
+container starts. After running `docker compose up -d grafana` the
+Mercury-Agent Overview dashboard is immediately available at
+`http://localhost:3000` (default credentials: admin / admin).
 
 ### AlertManager
 
 AlertManager rules are in `monitoring/alertmanager/`. Configure receivers
-(Slack, PagerDuty, email) in `monitoring/alertmanager/alertmanager.yml`.
+(Slack, PagerDuty, email) in `monitoring/alertmanager/alertmanager-config.yaml`.
 
 ### Key metrics to watch
 

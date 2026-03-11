@@ -47,6 +47,12 @@ class OmniAvaEquation:
     Default initialization uses golden ratio proportions for optimal harmony.
     """
 
+    # Class-level annotations satisfy the type checker: these are instance
+    # attributes set via object.__setattr__ to bypass the immutability guard
+    # during __init__ without triggering a false ``attr-defined`` error.
+    ethical_compliance_threshold: float
+    _ethical_threshold_locked: bool
+
     def __init__(
         self,
         ethical_compliance_threshold: float = 0.96,

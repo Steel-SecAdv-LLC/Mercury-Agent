@@ -3,11 +3,13 @@
 # Starts the Mercury-Agent API together with a lightweight monitoring stack
 # (Prometheus + Grafana) that mirrors the production observability setup.
 #
+# Prerequisites:
+#   cp .env.example .env   # set JWT_SECRET_KEY at minimum
+#
 # Usage:
-#   cp .env.example .env          # fill in JWT_SECRET_KEY at minimum
-#   docker compose up -d          # start all services
+#   docker compose up -d
 #   curl http://localhost:8000/health
-#   open http://localhost:3000    # Grafana (admin / admin)
+#   open http://localhost:3000    # Grafana  (default credentials: admin / admin)
 #   open http://localhost:9090    # Prometheus
 
 services:
@@ -26,13 +28,14 @@ services:
     env_file:
       - .env
     environment:
-      # Override to non-production so startup doesn't require all prod secrets
+      # Use development mode so startup succeeds without all production secrets.
+      # Override with MERCURY_AGENT_ENV=production when testing prod behaviour.
       MERCURY_AGENT_ENV: ${MERCURY_AGENT_ENV:-development}
       OMNI_API_HOST: "0.0.0.0"
       OMNI_API_PORT: "8000"
       OMNI_LOG_FORMAT: ${OMNI_LOG_FORMAT:-text}
     volumes:
-      # Persist model cache and on-disk detections between restarts
+      # Persist model cache and on-disk detections between container restarts
       - mercury-cache:/app/cache
       - mercury-models:/app/models
     healthcheck:
@@ -40,14 +43,17 @@ services:
         - CMD
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+        - |
+          import urllib.request, sys
+          try:
+            urllib.request.urlopen("http://localhost:8000/health", timeout=5)
+          except Exception as e:
+            print(e, file=sys.stderr)
+            sys.exit(1)
       interval: 30s
       timeout: 10s
-      start_period: 20s
+      start_period: 30s
       retries: 3
-    depends_on:
-      prometheus:
-        condition: service_started
 
   # ---------------------------------------------------------------------------
   # Prometheus — metrics collection

@@ -1,0 +1,26 @@
+# Mercury-Agent Prometheus Configuration
+# Used by docker-compose.yml for local development.
+# Production Kubernetes uses the PrometheusRule CRD in prometheus-rules.yaml instead.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: local
+
+# Load alerting rules
+rule_files:
+  - "prometheus-rules.yaml"
+
+scrape_configs:
+  # Mercury-Agent API metrics
+  - job_name: "mercury-agent-api"
+    static_configs:
+      - targets: ["mercury-agent:8000"]
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
