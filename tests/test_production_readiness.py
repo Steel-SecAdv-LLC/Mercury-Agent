@@ -197,12 +197,14 @@ class TestRefactoringTransformerGuardClause:
     def test_guard_clause_single_if(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             def foo(x):
                 if x is not None:
                     result = x + 1
                     return result
-        """)
+        """
+        )
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_nesting"}],
@@ -218,12 +220,14 @@ class TestRefactoringTransformerGuardClause:
     def test_guard_clause_preserves_docstring(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent('''\
+        source = textwrap.dedent(
+            '''\
             def foo(x):
                 """My docstring."""
                 if x is not None:
                     return x
-        ''')
+        '''
+        )
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_nesting"}],
@@ -236,13 +240,15 @@ class TestRefactoringTransformerGuardClause:
     def test_guard_clause_multiple_ifs(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             def foo(x, y):
                 if x is not None:
                     a = x + 1
                 if y is not None:
                     b = y + 2
-        """)
+        """
+        )
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_nesting"}],
@@ -257,13 +263,15 @@ class TestRefactoringTransformerGuardClause:
     def test_if_with_else_not_transformed(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             def foo(x):
                 if x > 0:
                     return 1
                 else:
                     return 0
-        """)
+        """
+        )
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_nesting"}],
@@ -282,12 +290,14 @@ class TestRefactoringTransformerConstantHoisting:
     def test_hoists_repeated_literal(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             def foo():
                 x = 42
                 y = 42
                 z = 42
-        """)
+        """
+        )
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_complexity"}],
@@ -302,13 +312,15 @@ class TestRefactoringTransformerConstantHoisting:
     def test_does_not_hoist_trivial_values(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             def foo():
                 x = 0
                 y = 0
                 z = 1
                 w = 1
-        """)
+        """
+        )
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_complexity"}],
@@ -323,11 +335,13 @@ class TestRefactoringTransformerConstantHoisting:
     def test_hoists_repeated_strings(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             def foo():
                 a = "hello"
                 b = "hello"
-        """)
+        """
+        )
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_complexity"}],
@@ -340,12 +354,14 @@ class TestRefactoringTransformerConstantHoisting:
     def test_output_compiles_and_runs(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent("""\
+        source = textwrap.dedent(
+            """\
             def foo():
                 x = 42
                 y = 42
                 return x + y
-        """)
+        """
+        )
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_complexity"}],
