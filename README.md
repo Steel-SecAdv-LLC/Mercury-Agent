@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img width="1563" height="341" alt="Mercury Agent Banner — © 2021–2026 Steel Security Advisors LLC" src="docs/images/mercury_agent_banner.png" />
+  <img width="919" height="214" alt="image" src="https://github.com/user-attachments/assets/3e78d1e1-893d-4bbe-abd9-beb37461535f" />
 
 </div>
 
