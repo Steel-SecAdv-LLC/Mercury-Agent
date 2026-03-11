@@ -274,8 +274,7 @@ def test_explain_with_model_flag():
 
     try:
         result = runner.invoke(main, ["explain", "--input", temp_file, "--model", "statistical"])
-        # May fail with KeyError if mode doesn't support fusion; that's OK for a flag test
-        assert result.exit_code == 0 or "Error" in result.output or result.exception is not None
+        assert result.exit_code == 0 or "Error" in result.output
     finally:
         Path(temp_file).unlink()
 

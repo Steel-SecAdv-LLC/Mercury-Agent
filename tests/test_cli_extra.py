@@ -114,8 +114,7 @@ def test_train_command_with_options():
                 "1",
             ],
         )
-        # May fail with RuntimeError if data dir is empty; that's OK for a flag test
-        assert result.exit_code == 0 or "error" in result.output.lower() or result.exception is not None
+        assert result.exit_code == 0 or "error" in result.output.lower()
 
 
 def test_biometric_with_both_images():
