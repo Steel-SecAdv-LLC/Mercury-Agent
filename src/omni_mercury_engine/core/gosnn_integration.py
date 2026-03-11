@@ -332,8 +332,7 @@ class GOSNNIntegration:
         # Domain configurations
         self.domains: dict[str, DomainConfig] = {}
 
-        # Fusion and calibration components
-        self._fusion = None
+        # Calibration components
         self._calibrator = None
         self._conformal = None
 
@@ -638,8 +637,12 @@ class GOSNNIntegration:
             try:
                 confidence_intervals = self._conformal.predict(X)
             except (ValueError, RuntimeError, AttributeError) as e:
-                # Conformal prediction optional - log and continue without intervals
-                logger.debug(f"Conformal prediction skipped: {type(e).__name__}: {e}")
+                # Conformal prediction failed - degraded state, intervals unavailable
+                logger.warning(
+                    "Conformal prediction skipped: %s: %s — confidence_intervals will be None",
+                    type(e).__name__,
+                    e,
+                )
 
         # Compute adaptive threshold
         threshold = self._compute_adaptive_threshold(calibrated_scores)
@@ -692,43 +695,21 @@ class GOSNNIntegration:
         domain_predictions: dict[str, np.ndarray],
         y_val: np.ndarray | None,
     ) -> None:
-        """Set up fusion strategy."""
-        try:
-            from omni_mercury_engine.core.stacking_fusion import (
-                BayesianModelAveraging,
-                EthicallyConstrainedFusion,
-                StackingFusion,
-            )
+        """Set up domain weights for prediction fusion."""
+        # Initialize domain weights using ethical scores as quality multipliers.
+        # Each domain's weight is scaled by its ethical compliance score so that
+        # higher-confidence, ethically-validated domains contribute more to the
+        # final fused prediction.
+        self._domain_weights = {
+            name: config.weight * config.ethical_score
+            for name, config in self.domains.items()
+            if config.enabled
+        }
 
-            if self.fusion_method == "stacking":
-                self._fusion = StackingFusion(seed=self.seed)  # type: ignore[assignment]
-            elif self.fusion_method == "bma":
-                self._fusion = BayesianModelAveraging()  # type: ignore[assignment]
-            else:  # ethical
-                self._fusion = EthicallyConstrainedFusion(  # type: ignore[assignment]
-                    sigma_immutable=self.sigma_immutable,
-                )
-
-            # Initialize domain weights based on ethical scores
-            self._domain_weights = {
-                name: config.weight * config.ethical_score
-                for name, config in self.domains.items()
-                if config.enabled
-            }
-
-            # Normalize
-            total = sum(self._domain_weights.values())
-            if total > 0:
-                self._domain_weights = {k: v / total for k, v in self._domain_weights.items()}
-
-        except ImportError:
-            # Fallback to simple weighted average
-            self._domain_weights = {
-                name: config.weight for name, config in self.domains.items() if config.enabled
-            }
-            total = sum(self._domain_weights.values())
-            if total > 0:
-                self._domain_weights = {k: v / total for k, v in self._domain_weights.items()}
+        # Normalize to sum to 1.0
+        total = sum(self._domain_weights.values())
+        if total > 0:
+            self._domain_weights = {k: v / total for k, v in self._domain_weights.items()}
 
     def _setup_calibration(
         self,

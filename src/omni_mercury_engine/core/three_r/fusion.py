@@ -88,7 +88,9 @@ class OmniAvaEquation:
                 f"ethical_compliance_threshold={ethical_compliance_threshold:.4f} "
                 f"clamped to [{0.90}, {0.99}] -> {clamped:.4f}"
             )
-        self.ethical_compliance_threshold = clamped
+        # Use object.__setattr__ so the immutability guard (set below) doesn't
+        # trigger during construction.
+        object.__setattr__(self, "ethical_compliance_threshold", clamped)
         self.convergence_rate_param = convergence_rate
         self.golden_ratio = GOLDEN_RATIO_CONSTANT
         self.domain = domain
@@ -121,6 +123,19 @@ class OmniAvaEquation:
 
         self.convergence_history: list[float] = []
         self.time_step: int = 0
+        # Seal: prevent post-construction mutation of the ethical threshold.
+        object.__setattr__(self, "_ethical_threshold_locked", True)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Prevent post-construction mutation of ethical_compliance_threshold."""
+        if name == "ethical_compliance_threshold" and getattr(
+            self, "_ethical_threshold_locked", False
+        ):
+            raise AttributeError(
+                "ethical_compliance_threshold is immutable after construction. "
+                "Create a new OmniAvaEquation instance to change the threshold."
+            )
+        object.__setattr__(self, name, value)
 
     def compute(
         self,

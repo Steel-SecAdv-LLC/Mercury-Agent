@@ -380,39 +380,41 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 
 ## 6. Top Priority Remediation Recommendations
 
+### Status key: ✅ DONE | 🔲 OPEN
+
 ### P0 - Must Fix (Integrity Risks)
 
-1. **Make ethical gates mandatory** - Replace sigmoid soft-gate with hard threshold + exception
-2. **Implement real ethics audit** - Replace placeholder `run_ethics_audit.py` with actual validation
-3. **Remove `continue-on-error` from security CI steps** - Safety, pip-audit, Semgrep, ethics, Trivy
-4. **Add mock-mode alerting** - Operators must know when fallback mocks are active
-5. **Replace GOSNN placeholder attention** - Wire real model tensors into optimizer
-6. **Implement RefactoringEngine or remove claims** - Currently a stub that only adds docstrings
-7. **Complete Learnable3R training pipeline** - Add fit(), validation loop, convergence criteria
+1. 🔲 **Make ethical gates mandatory** - Replace sigmoid soft-gate with hard threshold + exception
+2. ✅ **Implement real ethics audit** - `benchmarks/run_ethics_audit.py` now runs 5 test suites: module imports, 8-pillar config, PreExecutionBlockingGate hard-block verification, EthicalAutonomyGovernor end-to-end, and `ethical_compliance_threshold` immutability
+3. 🔲 **Remove `continue-on-error` from security CI steps** - Safety, pip-audit, Semgrep, ethics, Trivy
+4. ✅ **Add mock-mode alerting** - `MockLLMAdapter.__init__` now emits `logger.warning` when active so operators see degraded state in logs
+5. 🔲 **Replace GOSNN placeholder attention** - Wire real model tensors into optimizer
+6. 🔲 **Implement RefactoringEngine or remove claims** - Currently a stub that only adds docstrings
+7. 🔲 **Complete Learnable3R training pipeline** - Add fit(), validation loop, convergence criteria
 
 ### P1 - Should Fix (Operational Risks)
 
-8. **Replace silent exception swallowing** - 105 bare except handlers across 20 files; at minimum log at ERROR level
-9. **Pin AMA Cryptography to commit hash** - Prevent supply chain drift; currently points to main branch
-10. **Replace `print()` with structured logging** - 139 occurrences in source code
-11. **Enforce coverage threshold** - Close gap between 10% CI and 85% target
-12. **Make sigma_immutable actually immutable** - Use `__setattr__` override or frozen slots
-13. **Generate `requirements.lock`** - No reproducible builds currently possible
-14. **Create `docs/DEPLOYMENT.md`** - Step-by-step production deployment guide missing
-15. **Implement OpenTelemetry** - Referenced in config but not implemented in code
+8. ✅ (partial) **Replace silent exception swallowing** - Conformal prediction failure upgraded from `logger.debug` to `logger.warning` so degraded state is visible; 104 remaining bare-except handlers still open
+9. 🔲 **Pin AMA Cryptography to commit hash** - Prevent supply chain drift; currently points to main branch
+10. ✅ (partial) **Replace `print()` with structured logging** - `score_calibration.print_quick_diagnostic()` (5 calls) converted to `logger.debug`; ~76 occurrences remain
+11. 🔲 **Enforce coverage threshold** - Close gap between 10% CI and 85% target
+12. ✅ **Make sigma_immutable actually immutable** - `OmniAvaEquation.__setattr__` now raises `AttributeError` if `ethical_compliance_threshold` is written after construction
+13. 🔲 **Generate `requirements.lock`** - No reproducible builds currently possible
+14. ✅ **Create `docs/DEPLOYMENT.md`** - Step-by-step production deployment guide added; covers Docker, K8s/Helm, required env vars, health checks, monitoring, secrets, upgrade/rollback, and troubleshooting
+15. 🔲 **Implement OpenTelemetry** - Referenced in config but not implemented in code
 
 ### P2 - Should Improve (Quality)
 
-16. **Remove dead `_fusion` code** - Dead variable in gosnn_integration.py
-17. **Configure hardcoded GOSNN values** - Move 15+ magic numbers to config
-18. **Enable disabled domain policies** - Financial and humanitarian are off
-19. **Add intersectional fairness metrics** - Current bias audits are single-axis only
-20. **Document mock fallback behavior** - Operators need to know degradation modes
-21. **Create `docker-compose.yml`** - Local development requires K8s currently
-22. **Integrate load tests into CI** - Locust/k6 exist but aren't automated
-23. **Add operational runbook** - No incident response procedures documented
-24. **Connect 3R to Resilience module** - Detection and recovery are completely decoupled
-25. **Implement bidirectional GOSNN-3R feedback** - Currently one-way only
+16. ✅ **Remove dead `_fusion` code** - `self._fusion = None` and three unreachable `_fusion = ...` assignments removed from `gosnn_integration.py`; `_setup_fusion` simplified to always use ethical-score-weighted averaging
+17. 🔲 **Configure hardcoded GOSNN values** - Move 15+ magic numbers to config
+18. 🔲 **Enable disabled domain policies** - Financial and humanitarian are off
+19. 🔲 **Add intersectional fairness metrics** - Current bias audits are single-axis only
+20. ✅ (partial) **Document mock fallback behavior** - `MockLLMAdapter` now logs a warning; `docs/DEPLOYMENT.md` includes a troubleshooting section covering mock-adapter degradation
+21. ✅ **Create `docker-compose.yml`** - Local development compose file added; starts mercury-agent API, Prometheus, and Grafana with volume-backed persistence
+22. 🔲 **Integrate load tests into CI** - Locust/k6 exist but aren't automated
+23. ✅ (partial) **Add operational runbook** - `docs/DEPLOYMENT.md` covers health checks, monitoring metrics, upgrade/rollback procedures, and the most common failure modes
+24. 🔲 **Connect 3R to Resilience module** - Detection and recovery are completely decoupled
+25. 🔲 **Implement bidirectional GOSNN-3R feedback** - Currently one-way only
 
 ---
 
@@ -424,14 +426,15 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 - 3R type definitions are comprehensive
 - Security modules (PQC, audit logging, rate limiting) have real implementations
 - Conformal prediction and calibration pipelines are functional
+- `PreExecutionBlockingGate` correctly hard-blocks destructive/exfiltration/deceptive patterns
+- `ethical_compliance_threshold` is now truly immutable after `OmniAvaEquation` construction
 
 ### Where We Are NOT Valid
-- **Ethical claims** - "Immutable" constraints are mutable; "inviolable" principles are advisory
+- **Ethical claims** - "Immutable" constraints are mutable; "inviolable" principles are advisory (gate can be disabled)
 - **CI security** - Pipeline says "security checked" but all checks are soft-fail
 - **Model integrity** - GOSNN optimizer validates against random data, not real model output
-- **Production status** - Mock fallbacks mean system can silently run in degraded mode
+- **Production status** - Mock fallbacks mean system can silently run in degraded mode (LLM adapter now warns; others remain silent)
 - **Coverage claims** - 85% target with 10% enforcement is misleading
-- **Ethics audit** - "PASS" output from a placeholder that checks nothing
 - **3R completeness** - "Refactoring" engine is a stub; no Respond or Recover exists
 - **Benchmark claims** - "F1 target 0.92+" never achieved; actual benchmarks show 0.796
 - **Bidirectional GOSNN-3R** - Integration is one-way only (3R->GOSNN)
@@ -439,6 +442,8 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 - **Lyapunov stability** - Theoretical claim with zero empirical validation
 
 ---
+
+*Last updated: 2026-03-11 (items 2, 4, 8-partial, 10-partial, 12, 14, 16, 20-partial, 21, 23-partial completed)*
 
 *This audit should be re-run after the `claude/apply-branding-optimize-YYHEA` branch merge
 as it contains exception handling tightening and infrastructure export fixes that may
