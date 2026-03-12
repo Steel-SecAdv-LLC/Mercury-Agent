@@ -52,11 +52,15 @@ class TemporalAnomalyDetector(BaseDetector):
         self.window_size = self.config.get("window_size", 10)
         self.change_threshold = self.config.get("change_threshold", 2.0)
 
-        self.lstm = nn.LSTM(
-            input_size=1,
-            hidden_size=32,
-            num_layers=2,
-            batch_first=True,
+        self.lstm = (
+            nn.LSTM(
+                input_size=1,
+                hidden_size=32,
+                num_layers=2,
+                batch_first=True,
+            )
+            if TORCH_AVAILABLE
+            else None
         )
 
         self.baseline_mean: float | None = None
@@ -146,6 +150,7 @@ class TemporalAnomalyDetector(BaseDetector):
             data_tensor = torch.tensor(data_np, dtype=torch.float32).unsqueeze(-1)
 
         with torch.no_grad():
+            assert self.lstm is not None, "LSTM unavailable without PyTorch"
             _, (hidden, _) = self.lstm(data_tensor)
             lstm_features = hidden[-1]
 
