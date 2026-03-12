@@ -139,20 +139,36 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install Trivy via official apt repository
+      # Install from the official Trivy Debian package repository.
+      # This is more reliable than downloading a binary from GitHub releases
+      # (the GitHub releases CDN can transiently fail on the install.sh path).
+      run: |
+        sudo apt-get install -y --no-install-recommends wget gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
+          | gpg --dearmor \
+          | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+        echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] \
+          https://aquasecurity.github.io/trivy-repo/deb \
+          $(lsb_release -sc) main" \
+          | sudo tee /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update -qq
+        sudo apt-get install -y trivy
+        trivy --version
+
     - name: Run Trivy filesystem scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-fs-results.sarif'
-        severity: 'CRITICAL,HIGH,MEDIUM'
-        # Ignore unfixed vulnerabilities for consistency with container scan
-        ignore-unfixed: true
-        # Honor documented risk acceptances in .trivyignore
-        trivyignores: .trivyignore
-        # Skip test files and documentation
-        skip-dirs: 'tests,docs,benchmarks'
+      # Scan the source tree for dependency and configuration vulnerabilities.
+      # exit-code 0: informational — findings go to the Security tab via SARIF;
+      # the container scan (above) is the enforcing gate for deployment images.
+      run: |
+        trivy fs . \
+          --format sarif \
+          --output trivy-fs-results.sarif \
+          --severity CRITICAL,HIGH,MEDIUM \
+          --ignore-unfixed \
+          --ignorefile .trivyignore \
+          --skip-dirs tests,docs,benchmarks \
+          --exit-code 0
 
     - name: Upload Trivy filesystem results
       uses: github/codeql-action/upload-sarif@v4
