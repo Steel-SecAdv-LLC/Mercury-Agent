@@ -78,21 +78,21 @@ except ImportError:
     from enum import Enum as _Enum
 
     class ThreatLevel(_Enum):  # type: ignore[no-redef]
-        """Stub ThreatLevel enum."""
+        """Stub ThreatLevel enum (matches ama_cryptography.adaptive_posture)."""
 
         NOMINAL = "nominal"
-        LOW = "low"
-        MEDIUM = "medium"
+        ELEVATED = "elevated"
         HIGH = "high"
         CRITICAL = "critical"
 
     class PostureAction(_Enum):  # type: ignore[no-redef]
-        """Stub PostureAction enum."""
+        """Stub PostureAction enum (matches ama_cryptography.adaptive_posture)."""
 
         NONE = "none"
+        INCREASE_MONITORING = "increase_monitoring"
         ROTATE_KEYS = "rotate_keys"
         SWITCH_ALGORITHM = "switch_algorithm"
-        ALERT = "alert"
+        ROTATE_AND_SWITCH = "rotate_and_switch"
 
     @dataclass
     class PostureEvaluation:  # type: ignore[no-redef]
@@ -498,16 +498,16 @@ class MercuryGuardianAdapter:
             # Register posture decisions back into GOSNN as SECURITY scalars
             threat_level_map = {
                 ThreatLevel.NOMINAL: 0.0,
-                ThreatLevel.LOW: 0.25,
-                ThreatLevel.MEDIUM: 0.5,
-                ThreatLevel.HIGH: 0.75,
+                ThreatLevel.ELEVATED: 0.33,
+                ThreatLevel.HIGH: 0.66,
                 ThreatLevel.CRITICAL: 1.0,
             }
             action_map = {
                 PostureAction.NONE: 0.0,
-                PostureAction.ROTATE_KEYS: 1.0,
-                PostureAction.SWITCH_ALGORITHM: 2.0,
-                PostureAction.ALERT: 3.0,
+                PostureAction.INCREASE_MONITORING: 1.0,
+                PostureAction.ROTATE_KEYS: 2.0,
+                PostureAction.SWITCH_ALGORITHM: 3.0,
+                PostureAction.ROTATE_AND_SWITCH: 4.0,
             }
             posture_scalars: dict[str, float] = {
                 "omni_posture_threat_level": threat_level_map.get(evaluation.threat_level, 0.0),
