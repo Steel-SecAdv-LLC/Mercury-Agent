@@ -132,6 +132,27 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Module-level scalar mappings for posture enums.
+# These are the single source of truth used by both
+# ``_evaluate_posture_from_gosnn`` and ``get_gosnn_scalars`` when translating
+# the ``ama_cryptography.adaptive_posture`` enums into GOSNN scalar values.
+# Values mirror the real ``ThreatLevel``/``PostureAction`` semantics so stub and
+# live enums are handled identically. Every enum member MUST be covered here;
+# ``tests/test_enum_compatibility.py`` enforces full coverage.
+THREAT_LEVEL_MAP: dict[ThreatLevel, float] = {
+    ThreatLevel.NOMINAL: 0.0,
+    ThreatLevel.ELEVATED: 0.33,
+    ThreatLevel.HIGH: 0.66,
+    ThreatLevel.CRITICAL: 1.0,
+}
+ACTION_MAP: dict[PostureAction, float] = {
+    PostureAction.NONE: 0.0,
+    PostureAction.INCREASE_MONITORING: 1.0,
+    PostureAction.ROTATE_KEYS: 2.0,
+    PostureAction.SWITCH_ALGORITHM: 3.0,
+    PostureAction.ROTATE_AND_SWITCH: 4.0,
+}
+
 AMA_CRYPTOGRAPHY_AVAILABLE = False
 DILITHIUM_AVAILABLE = False
 KYBER_AVAILABLE = False
@@ -496,22 +517,9 @@ class MercuryGuardianAdapter:
             self._last_posture_evaluation = evaluation
 
             # Register posture decisions back into GOSNN as SECURITY scalars
-            threat_level_map = {
-                ThreatLevel.NOMINAL: 0.0,
-                ThreatLevel.ELEVATED: 0.33,
-                ThreatLevel.HIGH: 0.66,
-                ThreatLevel.CRITICAL: 1.0,
-            }
-            action_map = {
-                PostureAction.NONE: 0.0,
-                PostureAction.INCREASE_MONITORING: 1.0,
-                PostureAction.ROTATE_KEYS: 2.0,
-                PostureAction.SWITCH_ALGORITHM: 3.0,
-                PostureAction.ROTATE_AND_SWITCH: 4.0,
-            }
             posture_scalars: dict[str, float] = {
-                "omni_posture_threat_level": threat_level_map.get(evaluation.threat_level, 0.0),
-                "omni_posture_action": action_map.get(evaluation.action, 0.0),
+                "omni_posture_threat_level": THREAT_LEVEL_MAP.get(evaluation.threat_level, 0.0),
+                "omni_posture_action": ACTION_MAP.get(evaluation.action, 0.0),
                 "omni_posture_confidence": evaluation.confidence,
                 "omni_posture_effective_score": evaluation.signals.get("effective_score", 0.0),
                 "omni_posture_timing_score": evaluation.signals.get("timing_score", 0.0),
@@ -1016,14 +1024,7 @@ class MercuryGuardianAdapter:
 
         # Include posture state
         if self._last_posture_evaluation is not None:
-            threat_level_map = {
-                ThreatLevel.NOMINAL: 0.0,
-                ThreatLevel.LOW: 0.25,
-                ThreatLevel.MEDIUM: 0.5,
-                ThreatLevel.HIGH: 0.75,
-                ThreatLevel.CRITICAL: 1.0,
-            }
-            scalars["omni_posture_threat_level"] = threat_level_map.get(
+            scalars["omni_posture_threat_level"] = THREAT_LEVEL_MAP.get(
                 self._last_posture_evaluation.threat_level, 0.0
             )
             scalars["omni_posture_confidence"] = self._last_posture_evaluation.confidence
