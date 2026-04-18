@@ -36,7 +36,10 @@ jobs:
           # the ``CMakeBuild`` ``build_ext`` command and compile the native C
           # library. Without Cython the native library is silently skipped and
           # ama_cryptography 2.1.5+ fails at import time under INVARIANT-7.
-          python -m pip install "cython>=3.0" "cmake>=3.16" wheel
+          # ``setuptools``/``wheel`` are required in the ambient environment for
+          # the subsequent ``pip install --no-build-isolation`` of
+          # ama-cryptography to resolve ``setuptools.build_meta``.
+          python -m pip install "setuptools>=61.0" wheel "cython>=3.0" "cmake>=3.16"
           pip install -e ".[dev]"
 
       - name: Build AMA Cryptography native C library + Python bindings
