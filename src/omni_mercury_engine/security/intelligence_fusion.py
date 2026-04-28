@@ -494,12 +494,12 @@ class IntelligenceFusionEngine:
         for _i, discipline in enumerate(IntelligenceDiscipline):
             if discipline.value in intel_reports:
                 score = intel_reports[discipline.value].get("confidence", 0.0)
-                source_scores.append((discipline.value, score))
+                source_scores.append((str(discipline.value), score))
 
         source_scores.sort(key=lambda x: x[1], reverse=True)
 
-        primary = [s[0] for s in source_scores[:3]]
-        corroborating = [s[0] for s in source_scores[3:6]]
+        primary: list[str] = [s[0] for s in source_scores[:3]]
+        corroborating: list[str] = [s[0] for s in source_scores[3:6]]
 
         return primary, corroborating
 
