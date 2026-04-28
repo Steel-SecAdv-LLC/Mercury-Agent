@@ -408,10 +408,10 @@ OMEGA_CONSTANT = MathematicalConstants.OMEGA.value
 
 
 # =============================================================================
-# Omni-Codes: Bio-Inspired Helical Parameters from Ava Guardian
+# Omni-Codes: Bio-Inspired Helical Parameters from AMA Cryptography
 # =============================================================================
 # Seven Omni-Codes governing ethical AI alignment and system stability.
-# Integrated from Ava Guardian (https://github.com/Steel-SecAdv-LLC/Ava-Guardian)
+# Integrated from AMA Cryptography (https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
 # Each code has helical parameters (r, p) inspired by DNA double-helix stability.
 # =============================================================================
 
@@ -467,13 +467,13 @@ class OmniCodes:
     """
     Seven foundational Omni-Codes governing Mercury Agent.
 
-    These codes are integrated from Ava Guardian and provide:
+    These codes are integrated from AMA Cryptography and provide:
     - Helical data encoding (mirrors DNA double-helix stability)
     - Self-healing capabilities (CRISPR-inspired adaptations)
     - Evolutionary adaptability (dynamic parameter tuning)
     - Canonical hashing (cryptographic integrity)
 
-    Reference: https://github.com/Steel-SecAdv-LLC/Ava-Guardian
+    Reference: https://github.com/Steel-SecAdv-LLC/AMA-Cryptography
     """
 
     OMNI_DIRECTIONAL = OmniCode(

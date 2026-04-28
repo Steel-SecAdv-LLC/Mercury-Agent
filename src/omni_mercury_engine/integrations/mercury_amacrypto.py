@@ -78,21 +78,21 @@ except ImportError:
     from enum import Enum as _Enum
 
     class ThreatLevel(_Enum):  # type: ignore[no-redef]
-        """Stub ThreatLevel enum."""
+        """Stub ThreatLevel enum (matches ama_cryptography.adaptive_posture)."""
 
         NOMINAL = "nominal"
-        LOW = "low"
-        MEDIUM = "medium"
+        ELEVATED = "elevated"
         HIGH = "high"
         CRITICAL = "critical"
 
     class PostureAction(_Enum):  # type: ignore[no-redef]
-        """Stub PostureAction enum."""
+        """Stub PostureAction enum (matches ama_cryptography.adaptive_posture)."""
 
         NONE = "none"
+        INCREASE_MONITORING = "increase_monitoring"
         ROTATE_KEYS = "rotate_keys"
         SWITCH_ALGORITHM = "switch_algorithm"
-        ALERT = "alert"
+        ROTATE_AND_SWITCH = "rotate_and_switch"
 
     @dataclass
     class PostureEvaluation:  # type: ignore[no-redef]
@@ -132,6 +132,38 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Module-level scalar mappings for posture enums.
+#
+# Single source of truth used by both ``_evaluate_posture_from_gosnn`` and
+# ``get_gosnn_scalars`` when translating ``ama_cryptography.adaptive_posture``
+# enums into GOSNN scalar values. Values mirror the real
+# ``ThreatLevel``/``PostureAction`` semantics so stub and live enums are handled
+# identically. Every enum member MUST be covered here;
+# ``tests/test_enum_compatibility.py`` enforces full coverage.
+# ---------------------------------------------------------------------------
+THREAT_LEVEL_MAP: dict[ThreatLevel, float] = {
+    ThreatLevel.NOMINAL: 0.0,
+    ThreatLevel.ELEVATED: 0.33,
+    ThreatLevel.HIGH: 0.66,
+    ThreatLevel.CRITICAL: 1.0,
+}
+ACTION_MAP: dict[PostureAction, float] = {
+    PostureAction.NONE: 0.0,
+    PostureAction.INCREASE_MONITORING: 1.0,
+    PostureAction.ROTATE_KEYS: 2.0,
+    PostureAction.SWITCH_ALGORITHM: 3.0,
+    PostureAction.ROTATE_AND_SWITCH: 4.0,
+}
+
+# Tracks which PQC backend produced the symbols imported below. Values:
+#   "ama_cryptography" — real ``ama_cryptography.pqc_backends`` import succeeded
+#   "ava_guardian"     — back-compat shim ``ava_guardian.pqc_backends`` succeeded
+#   "stub"             — neither package available; in-module stubs are in use
+# Surface this on ``MercuryGuardianAdapter.get_pqc_status()`` so operators can
+# tell at a glance whether they are running against a real PQC implementation.
+_PQC_BACKEND_SOURCE: str = "stub"
+
 AMA_CRYPTOGRAPHY_AVAILABLE = False
 DILITHIUM_AVAILABLE = False
 KYBER_AVAILABLE = False
@@ -154,6 +186,7 @@ try:
     AMA_CRYPTOGRAPHY_AVAILABLE = True
     DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
     KYBER_AVAILABLE = _KYBER_AVAILABLE
+    _PQC_BACKEND_SOURCE = "ama_cryptography"
     logger.info("AMA Cryptography PQC backends loaded successfully")
 except ImportError:
     try:
@@ -174,8 +207,10 @@ except ImportError:
         AMA_CRYPTOGRAPHY_AVAILABLE = True
         DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
         KYBER_AVAILABLE = _KYBER_AVAILABLE
+        _PQC_BACKEND_SOURCE = "ava_guardian"
         logger.info("AMA Cryptography PQC backends loaded via ava-guardian compatibility shim")
     except ImportError:
+        # _PQC_BACKEND_SOURCE remains "stub" — tracked at module top.
         logger.warning(
             "AMA Cryptography not available. Post-quantum cryptography features disabled. "
             "Install ama-cryptography for PQC support."
@@ -415,6 +450,43 @@ class MercuryGuardianAdapter:
         """Check if AMA Cryptography PQC is available."""
         return AMA_CRYPTOGRAPHY_AVAILABLE
 
+    @staticmethod
+    def _sanitize_scalars(scalars: dict[str, Any]) -> dict[str, float]:
+        """Coerce a scalar dict to finite ``float`` values for GOSNN.
+
+        GOSNN's state machine assumes finite numeric inputs.  A NaN/Inf or
+        non-numeric value would propagate through ``register_scalars`` and
+        poison downstream attention/optimizer math.  This helper:
+
+        * Coerces values to ``float`` when possible.
+        * Replaces ``NaN``/``+Inf``/``-Inf`` with ``0.0``.
+        * Drops keys whose values cannot be coerced to ``float`` (with a log).
+
+        Defensive only — callers should still validate inputs upstream.
+        """
+        import math
+
+        clean: dict[str, float] = {}
+        for key, value in scalars.items():
+            try:
+                fvalue = float(value)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "Dropping non-numeric scalar %r (value=%r) before GOSNN registration",
+                    key,
+                    value,
+                )
+                continue
+            if not math.isfinite(fvalue):
+                logger.warning(
+                    "Sanitizing non-finite scalar %r (value=%r) to 0.0 before GOSNN registration",
+                    key,
+                    value,
+                )
+                fvalue = 0.0
+            clean[key] = fvalue
+        return clean
+
     def get_pqc_status(self) -> dict[str, Any]:
         """Get PQC backend status."""
         return {
@@ -422,6 +494,7 @@ class MercuryGuardianAdapter:
             "mercury_guardian_available": AMA_CRYPTOGRAPHY_AVAILABLE,
             "dilithium_available": DILITHIUM_AVAILABLE,
             "kyber_available": KYBER_AVAILABLE,
+            "pqc_backend_source": _PQC_BACKEND_SOURCE,
             "timing_monitor_enabled": self.timing_monitor is not None,
             "gosnn_synapse_enabled": self.gosnn_synapse_enabled,
             "anomaly_count": len(self.anomaly_history),
@@ -453,7 +526,7 @@ class MercuryGuardianAdapter:
             gosnn = GlobalOmniScalarNetwork()
             gosnn.register_scalars(
                 component_name="ama_cryptography_pqc",
-                scalars=anomaly.omni_scalars,
+                scalars=self._sanitize_scalars(anomaly.omni_scalars),
                 group=ScalarGroup.ETHICAL,
                 metadata={
                     "anomaly_type": anomaly.anomaly_type.value,
@@ -495,23 +568,12 @@ class MercuryGuardianAdapter:
             evaluation = self._posture_evaluator.evaluate(report)
             self._last_posture_evaluation = evaluation
 
-            # Register posture decisions back into GOSNN as SECURITY scalars
-            threat_level_map = {
-                ThreatLevel.NOMINAL: 0.0,
-                ThreatLevel.LOW: 0.25,
-                ThreatLevel.MEDIUM: 0.5,
-                ThreatLevel.HIGH: 0.75,
-                ThreatLevel.CRITICAL: 1.0,
-            }
-            action_map = {
-                PostureAction.NONE: 0.0,
-                PostureAction.ROTATE_KEYS: 1.0,
-                PostureAction.SWITCH_ALGORITHM: 2.0,
-                PostureAction.ALERT: 3.0,
-            }
+            # Register posture decisions back into GOSNN as SECURITY scalars.
+            # Mappings are module-level (THREAT_LEVEL_MAP / ACTION_MAP) so the
+            # stub and real enum paths use the same single source of truth.
             posture_scalars: dict[str, float] = {
-                "omni_posture_threat_level": threat_level_map.get(evaluation.threat_level, 0.0),
-                "omni_posture_action": action_map.get(evaluation.action, 0.0),
+                "omni_posture_threat_level": THREAT_LEVEL_MAP.get(evaluation.threat_level, 0.0),
+                "omni_posture_action": ACTION_MAP.get(evaluation.action, 0.0),
                 "omni_posture_confidence": evaluation.confidence,
                 "omni_posture_effective_score": evaluation.signals.get("effective_score", 0.0),
                 "omni_posture_timing_score": evaluation.signals.get("timing_score", 0.0),
@@ -520,7 +582,7 @@ class MercuryGuardianAdapter:
 
             gosnn.register_scalars(
                 component_name="ama_adaptive_posture",
-                scalars=posture_scalars,
+                scalars=self._sanitize_scalars(posture_scalars),
                 group=ScalarGroup.SECURITY,
                 metadata={
                     "threat_level": evaluation.threat_level.name,
@@ -1016,14 +1078,7 @@ class MercuryGuardianAdapter:
 
         # Include posture state
         if self._last_posture_evaluation is not None:
-            threat_level_map = {
-                ThreatLevel.NOMINAL: 0.0,
-                ThreatLevel.LOW: 0.25,
-                ThreatLevel.MEDIUM: 0.5,
-                ThreatLevel.HIGH: 0.75,
-                ThreatLevel.CRITICAL: 1.0,
-            }
-            scalars["omni_posture_threat_level"] = threat_level_map.get(
+            scalars["omni_posture_threat_level"] = THREAT_LEVEL_MAP.get(
                 self._last_posture_evaluation.threat_level, 0.0
             )
             scalars["omni_posture_confidence"] = self._last_posture_evaluation.confidence

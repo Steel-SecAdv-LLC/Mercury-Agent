@@ -218,7 +218,7 @@ class AnomalyMathArrest:
                 raise ValueError(
                     f"Unknown probe name {name!r}. Available: {sorted(_PROBE_REGISTRY.keys())}"
                 )
-            result.append(_PROBE_REGISTRY[name]())  # type: ignore[index]
+            result.append(_PROBE_REGISTRY[name]())
         return result
 
     def fit(self, data: npt.NDArray[np.float64]) -> AnomalyMathArrest:

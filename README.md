@@ -1519,7 +1519,11 @@ The **AMA Cryptography adapter** provides post-quantum cryptographic security wi
 - Attack simulation (timing, replay, side_channel)
 - Crypto anomaly recording with severity classification
 - GOSNN synapse for security detector integration
-- Graceful fallback when PQC libraries unavailable
+- **Opt-in strict enforcement** — set `AMA_REQUIRE_REAL_PQC=true`
+  (or the back-compat `AVA_REQUIRE_REAL_PQC=true`) to make Mercury Agent
+  refuse to start when AMA Cryptography's native C library is not built;
+  without that env var the adapter logs a `PQCProductionWarning` and
+  continues with degraded posture so dev/test environments stay usable.
 
 **Integration:**
 ```python
