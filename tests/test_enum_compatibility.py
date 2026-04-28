@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-# Copyright 2025-2026 Steel Security Advisors LLC
-# Licensed under the Apache License, Version 2.0
+"""
+Mercury Agent
+Copyright (C) 2025 Steel Security Advisors LLC
 
-"""Integration tests for cross-repo enum compatibility (Priority 3).
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Integration tests for cross-repo enum compatibility (Priority 3).
 
 Verifies that Mercury-Agent's posture enums and their scalar mappings agree
 with the real ``ama_cryptography.adaptive_posture`` definitions. These tests

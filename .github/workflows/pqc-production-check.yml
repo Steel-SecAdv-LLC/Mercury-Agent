@@ -30,25 +30,18 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade "pip>=26.0"
-          # Cython must be available BEFORE installing ama-cryptography so that
-          # setup.py's ``get_cythonized_extensions()`` returns a non-empty
-          # ``ext_modules`` list, which in turn causes ``pip install`` to invoke
-          # the ``CMakeBuild`` ``build_ext`` command and compile the native C
-          # library. Without Cython the native library is silently skipped and
-          # ama_cryptography 2.1.5+ fails at import time under INVARIANT-7.
           # ``setuptools``/``wheel`` are required in the ambient environment for
           # the subsequent ``pip install --no-build-isolation`` of
           # ama-cryptography to resolve ``setuptools.build_meta``.
-          python -m pip install "setuptools>=61.0" wheel "cython>=3.0" "cmake>=3.16"
+          python -m pip install "setuptools>=61.0" wheel "cmake>=3.16"
           pip install -e ".[dev]"
 
-      - name: Build AMA Cryptography native C library + Python bindings
+      - name: Build AMA Cryptography native C library
         run: |
-          # Clone explicitly and build the native C library BEFORE the Python
-          # install so the compiled shared objects are available regardless of
-          # whether setup.py's build_ext hook is triggered. This satisfies
-          # INVARIANT-7 (native HMAC/HKDF/SHA3 backends required) as enforced by
-          # ama_cryptography.crypto_api at import time.
+          # Clone and build the native C library explicitly via cmake so the
+          # compiled shared objects are available before the Python install.
+          # This satisfies INVARIANT-7 (native HMAC/HKDF/SHA3 backends required)
+          # which is enforced by ama_cryptography.crypto_api at import time.
           git clone --depth 1 https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
           cd /tmp/ama-cryptography
           cmake -S . -B build \
@@ -59,12 +52,24 @@ jobs:
             -DAMA_BUILD_TESTS=OFF \
             -DAMA_BUILD_EXAMPLES=OFF
           cmake --build build -j "$(nproc)"
-          # Install the Python package in editable mode against the prebuilt
-          # native library. Cython extensions are produced by setup.py.
-          pip install --no-build-isolation -e .
+
+      - name: Install AMA Cryptography Python package
+        run: |
+          # Install the Python package against the prebuilt native library.
+          # ``AMA_NO_CYTHON=1`` skips the optional Cython binding compilation
+          # because it is independent of the native C library and currently
+          # has an upstream syntax issue in ed25519_binding.pyx. The Python
+          # API loads ``libama_cryptography.so`` directly via ctypes/cffi at
+          # runtime, so the native HMAC/HKDF/SHA3 backends remain wired up
+          # and INVARIANT-7 is satisfied.
+          cd /tmp/ama-cryptography
+          AMA_NO_CYTHON=1 pip install --no-build-isolation .
           # Surface the freshly built shared library on the loader search path
           # so the ``ama_cryptography`` Python module can find it at import.
-          echo "LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          {
+            echo "LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
+            echo "AMA_NO_CYTHON=1"
+          } >> "$GITHUB_ENV"
 
       - name: Verify backend hierarchy
         run: |
