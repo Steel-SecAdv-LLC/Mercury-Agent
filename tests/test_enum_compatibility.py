@@ -22,19 +22,24 @@ the stub enums or module-level maps drift out of sync with the upstream
 
 import importlib
 import math
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 _MODULE_NAME = "omni_mercury_engine.integrations.mercury_amacrypto"
 
 
-@pytest.fixture(scope="module")
-def mercury_amacrypto():
+@pytest.fixture(scope="module")  # type: ignore[untyped-decorator]
+def mercury_amacrypto() -> ModuleType:
     """Import ``mercury_amacrypto`` or skip the test suite cleanly."""
     try:
         return importlib.import_module(_MODULE_NAME)
     except ImportError as exc:  # pragma: no cover - environment safeguard
         pytest.skip(f"{_MODULE_NAME} not importable: {exc}")
+        raise  # unreachable; satisfies mypy on the skip path
 
 
 EXPECTED_THREAT_LEVEL_MEMBERS = {"NOMINAL", "ELEVATED", "HIGH", "CRITICAL"}
@@ -54,29 +59,29 @@ REMOVED_POSTURE_ACTION_MEMBERS = {"ALERT"}
 class TestEnumCompatibility:
     """Verify Mercury Agent posture enums match AMA Cryptography real enums."""
 
-    def test_threat_level_members(self, mercury_amacrypto) -> None:
+    def test_threat_level_members(self, mercury_amacrypto: ModuleType) -> None:
         """``ThreatLevel`` must expose exactly the expected members."""
         threat_level = mercury_amacrypto.ThreatLevel
         assert set(threat_level.__members__) == EXPECTED_THREAT_LEVEL_MEMBERS
 
-    def test_posture_action_members(self, mercury_amacrypto) -> None:
+    def test_posture_action_members(self, mercury_amacrypto: ModuleType) -> None:
         """``PostureAction`` must expose exactly the expected members."""
         posture_action = mercury_amacrypto.PostureAction
         assert set(posture_action.__members__) == EXPECTED_POSTURE_ACTION_MEMBERS
 
-    def test_no_removed_threat_level_members(self, mercury_amacrypto) -> None:
+    def test_no_removed_threat_level_members(self, mercury_amacrypto: ModuleType) -> None:
         """Legacy ``ThreatLevel`` members (LOW/MEDIUM) must not reappear."""
         threat_level = mercury_amacrypto.ThreatLevel
         leaked = REMOVED_THREAT_LEVEL_MEMBERS & set(threat_level.__members__)
         assert not leaked, f"Removed ThreatLevel members resurfaced: {sorted(leaked)}"
 
-    def test_no_removed_posture_action_members(self, mercury_amacrypto) -> None:
+    def test_no_removed_posture_action_members(self, mercury_amacrypto: ModuleType) -> None:
         """Legacy ``PostureAction`` members (ALERT) must not reappear."""
         posture_action = mercury_amacrypto.PostureAction
         leaked = REMOVED_POSTURE_ACTION_MEMBERS & set(posture_action.__members__)
         assert not leaked, f"Removed PostureAction members resurfaced: {sorted(leaked)}"
 
-    def test_threat_level_map_covers_all_members(self, mercury_amacrypto) -> None:
+    def test_threat_level_map_covers_all_members(self, mercury_amacrypto: ModuleType) -> None:
         """``THREAT_LEVEL_MAP`` must cover every ``ThreatLevel`` member."""
         threat_level = mercury_amacrypto.ThreatLevel
         threat_level_map = mercury_amacrypto.THREAT_LEVEL_MAP
@@ -88,7 +93,7 @@ class TestEnumCompatibility:
             assert math.isfinite(value)
             assert 0.0 <= value <= 1.0, f"{member} -> {value} outside [0, 1]"
 
-    def test_action_map_covers_all_members(self, mercury_amacrypto) -> None:
+    def test_action_map_covers_all_members(self, mercury_amacrypto: ModuleType) -> None:
         """``ACTION_MAP`` must cover every ``PostureAction`` member."""
         posture_action = mercury_amacrypto.PostureAction
         action_map = mercury_amacrypto.ACTION_MAP
@@ -98,7 +103,7 @@ class TestEnumCompatibility:
             assert math.isfinite(value)
             assert value >= 0.0, f"{member} -> {value} must be non-negative"
 
-    def test_threat_level_map_is_monotonic(self, mercury_amacrypto) -> None:
+    def test_threat_level_map_is_monotonic(self, mercury_amacrypto: ModuleType) -> None:
         """Severity ordering NOMINAL < ELEVATED < HIGH < CRITICAL must hold."""
         threat_level = mercury_amacrypto.ThreatLevel
         threat_level_map = mercury_amacrypto.THREAT_LEVEL_MAP
@@ -114,7 +119,7 @@ class TestEnumCompatibility:
             f"{list(zip([level.name for level in ordered], values))}"
         )
 
-    def test_action_map_is_monotonic(self, mercury_amacrypto) -> None:
+    def test_action_map_is_monotonic(self, mercury_amacrypto: ModuleType) -> None:
         """Action severity NONE < INCREASE_MONITORING < ... < ROTATE_AND_SWITCH."""
         posture_action = mercury_amacrypto.PostureAction
         action_map = mercury_amacrypto.ACTION_MAP
@@ -131,12 +136,12 @@ class TestEnumCompatibility:
             f"{list(zip([action.name for action in ordered], values))}"
         )
 
-    def test_pqc_backend_source_value(self, mercury_amacrypto) -> None:
+    def test_pqc_backend_source_value(self, mercury_amacrypto: ModuleType) -> None:
         """``_PQC_BACKEND_SOURCE`` must be one of the documented states."""
         source = mercury_amacrypto._PQC_BACKEND_SOURCE
         assert source in {"ama_cryptography", "ava_guardian", "stub"}
 
-    def test_get_pqc_status_includes_backend_source(self, mercury_amacrypto) -> None:
+    def test_get_pqc_status_includes_backend_source(self, mercury_amacrypto: ModuleType) -> None:
         """``get_pqc_status()`` must surface ``pqc_backend_source``."""
         adapter = mercury_amacrypto.create_ama_cryptography_adapter(
             enable_timing_monitor=False, gosnn_synapse_enabled=False
@@ -149,17 +154,17 @@ class TestEnumCompatibility:
 class TestSanitizeScalars:
     """Verify ``MercuryGuardianAdapter._sanitize_scalars`` defends GOSNN."""
 
-    def _adapter(self, mercury_amacrypto):
+    def _adapter(self, mercury_amacrypto: ModuleType) -> Any:
         return mercury_amacrypto.create_ama_cryptography_adapter(
             enable_timing_monitor=False, gosnn_synapse_enabled=False
         )
 
-    def test_passes_through_finite_floats(self, mercury_amacrypto) -> None:
+    def test_passes_through_finite_floats(self, mercury_amacrypto: ModuleType) -> None:
         adapter = self._adapter(mercury_amacrypto)
         clean = adapter._sanitize_scalars({"a": 0.0, "b": 1.5, "c": -2.25})
         assert clean == {"a": 0.0, "b": 1.5, "c": -2.25}
 
-    def test_replaces_nan_and_inf_with_zero(self, mercury_amacrypto) -> None:
+    def test_replaces_nan_and_inf_with_zero(self, mercury_amacrypto: ModuleType) -> None:
         adapter = self._adapter(mercury_amacrypto)
         clean = adapter._sanitize_scalars(
             {
@@ -174,25 +179,32 @@ class TestSanitizeScalars:
         assert clean["neg_inf"] == 0.0
         assert clean["ok"] == 0.42
 
-    def test_coerces_int_and_bool_to_float(self, mercury_amacrypto) -> None:
+    def test_coerces_int_and_bool_to_float(self, mercury_amacrypto: ModuleType) -> None:
         adapter = self._adapter(mercury_amacrypto)
         clean = adapter._sanitize_scalars({"i": 7, "b_true": True, "b_false": False})
         assert clean == {"i": 7.0, "b_true": 1.0, "b_false": 0.0}
         for value in clean.values():
             assert isinstance(value, float)
 
-    def test_drops_non_numeric_values(self, mercury_amacrypto) -> None:
+    def test_drops_non_numeric_values(self, mercury_amacrypto: ModuleType) -> None:
         adapter = self._adapter(mercury_amacrypto)
         clean = adapter._sanitize_scalars(
             {"keep": 1.0, "drop_str": "not-a-number", "drop_none": None, "drop_obj": object()}
         )
         assert clean == {"keep": 1.0}
 
-    def test_empty_input_returns_empty_dict(self, mercury_amacrypto) -> None:
+    def test_drops_overflowing_value_without_raising(self, mercury_amacrypto: ModuleType) -> None:
+        """``float(huge_int)`` raises ``OverflowError`` — that key must be dropped,
+        not allowed to propagate and break the entire scalar registration."""
+        adapter = self._adapter(mercury_amacrypto)
+        clean = adapter._sanitize_scalars({"keep": 1.0, "huge": 10**10000})
+        assert clean == {"keep": 1.0}
+
+    def test_empty_input_returns_empty_dict(self, mercury_amacrypto: ModuleType) -> None:
         adapter = self._adapter(mercury_amacrypto)
         assert adapter._sanitize_scalars({}) == {}
 
-    def test_output_is_a_new_dict(self, mercury_amacrypto) -> None:
+    def test_output_is_a_new_dict(self, mercury_amacrypto: ModuleType) -> None:
         """Sanitization must not mutate the caller's dict."""
         adapter = self._adapter(mercury_amacrypto)
         source = {"a": float("nan"), "b": 1.0}

@@ -470,18 +470,23 @@ class MercuryGuardianAdapter:
         for key, value in scalars.items():
             try:
                 fvalue = float(value)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError) as exc:
+                # Log the offending type + exception class — never the value
+                # itself, which can be a multi-thousand-digit integer that
+                # blows up Python's int-to-string conversion limit on
+                # ``%r`` formatting (PEP 0651 / sys.set_int_max_str_digits).
                 logger.warning(
-                    "Dropping non-numeric scalar %r (value=%r) before GOSNN registration",
+                    "Dropping non-numeric scalar %r (type=%s) before GOSNN registration: %s",
                     key,
-                    value,
+                    type(value).__name__,
+                    type(exc).__name__,
                 )
                 continue
             if not math.isfinite(fvalue):
                 logger.warning(
-                    "Sanitizing non-finite scalar %r (value=%r) to 0.0 before GOSNN registration",
+                    "Sanitizing non-finite scalar %r (value=%s) to 0.0 before GOSNN registration",
                     key,
-                    value,
+                    fvalue,
                 )
                 fvalue = 0.0
             clean[key] = fvalue

@@ -1522,8 +1522,9 @@ The **AMA Cryptography adapter** provides post-quantum cryptographic security wi
 - **Opt-in strict enforcement** — set `AMA_REQUIRE_REAL_PQC=true`
   (or the back-compat `AVA_REQUIRE_REAL_PQC=true`) to make Mercury Agent
   refuse to start when AMA Cryptography's native C library is not built;
-  without that env var the adapter logs a `PQCProductionWarning` and
-  continues with degraded posture so dev/test environments stay usable.
+  without that env var the adapter emits a `PQCProductionWarning`
+  (via `warnings.warn`, not the logging module) and continues with
+  degraded posture so dev/test environments stay usable.
 
 **Integration:**
 ```python

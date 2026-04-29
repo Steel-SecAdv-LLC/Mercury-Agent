@@ -211,9 +211,14 @@ class AnomalyMathArrest:
         if spec and isinstance(spec[0], BaseEquationProbe):
             return list(spec)  # type: ignore[arg-type]
 
-        # List of class name strings
+        # List of class name strings — the ``BaseEquationProbe`` instance
+        # branch above already returned, so every element here is a ``str``.
+        # mypy can't track that narrowing across the union; assert to help it.
         result: list[BaseEquationProbe] = []
         for name in spec:
+            assert isinstance(
+                name, str
+            ), f"Mixed probe spec lists are not supported (got {type(name).__name__})"
             if name not in _PROBE_REGISTRY:
                 raise ValueError(
                     f"Unknown probe name {name!r}. Available: {sorted(_PROBE_REGISTRY.keys())}"
