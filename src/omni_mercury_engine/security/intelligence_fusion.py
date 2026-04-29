@@ -498,8 +498,12 @@ class IntelligenceFusionEngine:
 
         source_scores.sort(key=lambda x: x[1], reverse=True)
 
-        primary = [s[0] for s in source_scores[:3]]
-        corroborating = [s[0] for s in source_scores[3:6]]
+        # Coerce IntelligenceDiscipline.value (typed as Literal[...] by mypy)
+        # into plain ``str`` so the return matches the declared signature
+        # ``tuple[list[str], list[str]]`` and downstream consumers don't get
+        # narrowed Literal types.
+        primary: list[str] = [str(s[0]) for s in source_scores[:3]]
+        corroborating: list[str] = [str(s[0]) for s in source_scores[3:6]]
 
         return primary, corroborating
 
