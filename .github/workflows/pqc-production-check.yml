@@ -5,10 +5,12 @@ on:
     paths:
       - 'src/omni_mercury_engine/security/**'
       - 'src/omni_mercury_engine/integrations/mercury_amacrypto.py'
+      - '.github/workflows/pqc-production-check.yml'
   pull_request:
     paths:
       - 'src/omni_mercury_engine/security/**'
       - 'src/omni_mercury_engine/integrations/mercury_amacrypto.py'
+      - '.github/workflows/pqc-production-check.yml'
 
 jobs:
   verify-real-pqc:
@@ -21,14 +23,55 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install build toolchain for AMA Cryptography native library
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade "pip>=26.0"
+          # ``setuptools``/``wheel`` are required in the ambient environment for
+          # the subsequent ``pip install --no-build-isolation`` of
+          # ama-cryptography to resolve ``setuptools.build_meta``.
+          python -m pip install "setuptools>=61.0" wheel "cmake>=3.16"
           pip install -e ".[dev]"
 
-      - name: Install AMA Cryptography
+      - name: Build AMA Cryptography native C library
         run: |
-          pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git" || echo "AMA Cryptography not available"
+          # Clone and build the native C library explicitly via cmake so the
+          # compiled shared objects are available before the Python install.
+          # This satisfies INVARIANT-7 (native HMAC/HKDF/SHA3 backends required)
+          # which is enforced by ama_cryptography.crypto_api at import time.
+          git clone --depth 1 https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
+          cd /tmp/ama-cryptography
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DAMA_USE_NATIVE_PQC=ON \
+            -DAMA_BUILD_SHARED=ON \
+            -DAMA_BUILD_STATIC=ON \
+            -DAMA_BUILD_TESTS=OFF \
+            -DAMA_BUILD_EXAMPLES=OFF
+          cmake --build build -j "$(nproc)"
+
+      - name: Install AMA Cryptography Python package
+        run: |
+          # Install the Python package against the prebuilt native library.
+          # ``AMA_NO_CYTHON=1`` skips the optional Cython binding compilation
+          # because it is independent of the native C library and currently
+          # has an upstream syntax issue in ed25519_binding.pyx. The Python
+          # API loads ``libama_cryptography.so`` directly via ctypes/cffi at
+          # runtime, so the native HMAC/HKDF/SHA3 backends remain wired up
+          # and INVARIANT-7 is satisfied.
+          cd /tmp/ama-cryptography
+          AMA_NO_CYTHON=1 pip install --no-build-isolation .
+          # Surface the freshly built shared library on the loader search path
+          # so the ``ama_cryptography`` Python module can find it at import.
+          {
+            echo "LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
+            echo "AMA_NO_CYTHON=1"
+          } >> "$GITHUB_ENV"
 
       - name: Verify backend hierarchy
         run: |
@@ -37,6 +80,34 @@ jobs:
           backend = get_active_backend()
           print(f'Active PQC backend: {backend.value}')
           print(f'SUCCESS: Using AMA Cryptography as sole PQC backend')
+          "
+
+      - name: Assert Mercury Agent sees the real AMA Cryptography backend
+        # Now that the previous step actually builds + installs the native
+        # C library, the integration adapter MUST report the real backend.
+        # If this assertion fails, something has regressed — either the
+        # build broke or the import contract drifted. Fail loudly rather
+        # than silently degrading to stub PQC.
+        run: |
+          python -c "
+          from omni_mercury_engine.integrations.mercury_amacrypto import (
+              _PQC_BACKEND_SOURCE,
+              AMA_CRYPTOGRAPHY_AVAILABLE,
+              DILITHIUM_AVAILABLE,
+              KYBER_AVAILABLE,
+          )
+          print(f'_PQC_BACKEND_SOURCE = {_PQC_BACKEND_SOURCE!r}')
+          print(f'AMA_CRYPTOGRAPHY_AVAILABLE = {AMA_CRYPTOGRAPHY_AVAILABLE}')
+          print(f'DILITHIUM_AVAILABLE = {DILITHIUM_AVAILABLE}')
+          print(f'KYBER_AVAILABLE = {KYBER_AVAILABLE}')
+          assert _PQC_BACKEND_SOURCE == 'ama_cryptography', (
+              f'Expected backend source ama_cryptography, got {_PQC_BACKEND_SOURCE!r} — '
+              'CMake build / pip install of ama-cryptography did not succeed'
+          )
+          assert AMA_CRYPTOGRAPHY_AVAILABLE, 'AMA_CRYPTOGRAPHY_AVAILABLE must be True'
+          assert DILITHIUM_AVAILABLE, 'DILITHIUM_AVAILABLE must be True with the native lib'
+          assert KYBER_AVAILABLE, 'KYBER_AVAILABLE must be True with the native lib'
+          print('OK: Mercury Agent is running against the real ama_cryptography backend.')
           "
 
       - name: Run security tests with real PQC requirement
