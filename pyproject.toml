@@ -91,7 +91,7 @@ foundation = [
 
 # Medical dataset loaders (MIT-BIH, PhysioNet)
 medical = [
-    "wfdb>=4.0.0",
+    "wfdb>=4.3.1",
 ]
 
 # Deep face recognition
