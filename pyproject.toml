@@ -402,6 +402,12 @@ module = [
     "asyncpg.*",
     "aiosqlite",
     "aiosqlite.*",
+    # Hyper-parameter optimisation (optional, used by AutoML modules)
+    "optuna",
+    "optuna.*",
+    # Safe XML parsing — no public type stubs published
+    "defusedxml",
+    "defusedxml.*",
 ]
 ignore_missing_imports = true
 

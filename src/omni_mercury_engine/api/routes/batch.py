@@ -489,6 +489,18 @@ async def _send_callback(url: str, job_id: str, status: JobStatus) -> None:
 
     The URL has already been validated by BatchDetectRequest.validate_callback_url
     to ensure it uses HTTPS and does not target private/internal addresses.
+
+    Failures must never escape: this coroutine is fired from a background task
+    in ``process_batch_job`` and an unhandled exception would either crash the
+    worker or be lost to ``asyncio``.  The ``httpx.HTTPError`` hierarchy
+    (TimeoutException / ConnectError / HTTPStatusError / ...) inherits from
+    ``Exception`` directly, not from ``OSError``/``RuntimeError``, so a narrow
+    ``except (ImportError, OSError, ValueError, RuntimeError)`` would let
+    common network failures propagate (see Devin review on PR #145).  We keep
+    a broad guard plus explicit handlers for ``httpx.TimeoutException`` (the
+    real source of callback timeouts) and ``asyncio.TimeoutError`` (Python's
+    builtin ``TimeoutError`` since 3.11) so the intent is documented and the
+    distinction shows up in logs.
     """
     try:
         import httpx
@@ -503,8 +515,25 @@ async def _send_callback(url: str, job_id: str, status: JobStatus) -> None:
                 },
             )
         logger.info("Callback sent for job %s", job_id)
+    except ImportError:
+        logger.warning("Callback for job %s skipped: httpx not installed", job_id)
     except Exception as e:
-        logger.warning("Failed to send callback for job %s: %s", job_id, type(e).__name__)
+        # ``httpx.TimeoutException`` and ``asyncio.TimeoutError`` (== builtin
+        # ``TimeoutError`` on 3.11+) are the network-timeout signals we want
+        # to surface distinctly; everything else is logged generically.
+        # Importing httpx here keeps the module importable even when httpx is
+        # absent (handled by the ImportError branch above on the success path).
+        timeout_types: tuple[type[BaseException], ...] = (asyncio.TimeoutError, TimeoutError)
+        try:
+            import httpx as _httpx
+
+            timeout_types = timeout_types + (_httpx.TimeoutException,)
+        except ImportError:
+            pass
+        if isinstance(e, timeout_types):
+            logger.warning("Callback for job %s timed out: %s", job_id, type(e).__name__)
+        else:
+            logger.warning("Failed to send callback for job %s: %s", job_id, type(e).__name__)
 
 
 def _get_current_user(

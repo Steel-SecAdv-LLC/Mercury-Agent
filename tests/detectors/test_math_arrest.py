@@ -403,6 +403,26 @@ class TestAnomalyMathArrest:
         with pytest.raises(ValueError, match="at least"):
             arrest.fit(np.array([1.0, 2.0], dtype=np.float64))
 
+    def test_unknown_probe_name_raises_value_error(self) -> None:
+        """Unknown probe names produce a clear ``ValueError`` with the registry."""
+        with pytest.raises(ValueError, match="Unknown probe name"):
+            AnomalyMathArrest(probes=["NotARealProbe"])
+
+    def test_mixed_probe_spec_raises_type_error(self) -> None:
+        """Mixed ``str``/instance probe-spec lists must raise ``TypeError``.
+
+        The validation is done with an explicit ``raise`` — *not* an
+        ``assert`` — so the contract is enforced even when Python is
+        run with ``-O``/``PYTHONOPTIMIZE`` (assertions are stripped in
+        that mode). Regression guard for PR #162 review.
+        """
+        first = AdditiveProbe()  # a real BaseEquationProbe instance
+        # Spec starts with a str, so the function takes the "list of
+        # class name strings" branch and validates each element. The
+        # second element is an instance, which must trip the guard.
+        with pytest.raises(TypeError, match="Mixed probe spec lists"):
+            AnomalyMathArrest(probes=["AdditiveProbe", first])
+
     def test_scores_in_zero_one(self) -> None:
         arrest = AnomalyMathArrest()
         data = make_normal_signal()

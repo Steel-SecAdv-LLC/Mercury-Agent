@@ -166,7 +166,7 @@ def get_integration_breaker(name: str) -> ExternalIntegrationCircuitBreaker:
     Get or create a circuit breaker for an external integration.
 
     Args:
-        name: Unique identifier for the integration (e.g., "ava_guardian")
+        name: Unique identifier for the integration (e.g., "ama_cryptography")
 
     Returns:
         Circuit breaker instance for the integration
