@@ -251,4 +251,4 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 ---
 
 *Last Updated: 2026-02-21*
-*Version: 1.5.1*
+*Version: 1.6.0*

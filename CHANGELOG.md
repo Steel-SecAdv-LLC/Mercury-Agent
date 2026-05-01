@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.6.0] - 2026-05-01
+
+### Security (Dependency CVE Remediation)
+
+- **cryptography** `>=43.0.1` → `>=46.0.7`: CVE-2026-26007, CVE-2026-34073, CVE-2026-39892
+- **pillow** `>=10.4.0` → `>=12.2.0`: CVE-2026-25990, CVE-2026-40192
+- **requests** `>=2.32.0` → `>=2.33.0`: CVE-2026-25645
+- **aiohttp** `>=3.9.0` → `>=3.13.4`: CVE-2026-34513 through CVE-2026-34525 (18 CVEs)
+- **pytest** (dev) `>=7.4.0` → `>=9.0.3`: CVE-2025-71176
+- **black** (dev) `>=24.0.0,<26.0.0` → `>=26.3.1,<27.0.0`: CVE-2026-32274
 
 ### AMA Cryptography Migration
 
@@ -216,11 +225,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mercury_benchmark_results.json
 
 ### Version Reconciliation
-- All version strings bumped from 1.4.0 → 1.5.1 to match CHANGELOG entries
-  (pyproject.toml, __init__.py, cli.py, api/health.py, .secrets.baseline,
+- All version strings bumped from 1.5.1 → 1.6.0
+  (pyproject.toml, __init__.py, cli.py, api/health.py, api/server.py,
+  crypto/__init__.py, models/sota/__init__.py, .secrets.baseline,
   README.md, SECURITY.md)
-- CHANGELOG entries [1.5.0] and [1.5.1] verified against actual code —
-  all described changes are present
+- [Unreleased] section promoted to [1.6.0] — no unreleased content remains
 
 ---
 
