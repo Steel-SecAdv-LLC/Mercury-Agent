@@ -211,14 +211,23 @@ class AnomalyMathArrest:
         if spec and isinstance(spec[0], BaseEquationProbe):
             return list(spec)  # type: ignore[arg-type]
 
-        # List of class name strings
+        # List of class name strings — the ``BaseEquationProbe`` instance
+        # branch above already returned, so every element here is expected
+        # to be a ``str``. Validate explicitly with ``raise TypeError``
+        # rather than ``assert`` so the contract is enforced even when
+        # Python is run with ``-O`` / ``PYTHONOPTIMIZE`` (asserts get
+        # stripped). The check also serves as type narrowing for mypy.
         result: list[BaseEquationProbe] = []
         for name in spec:
+            if not isinstance(name, str):
+                raise TypeError(
+                    f"Mixed probe spec lists are not supported (got {type(name).__name__})"
+                )
             if name not in _PROBE_REGISTRY:
                 raise ValueError(
                     f"Unknown probe name {name!r}. Available: {sorted(_PROBE_REGISTRY.keys())}"
                 )
-            result.append(_PROBE_REGISTRY[name]())  # type: ignore[index]
+            result.append(_PROBE_REGISTRY[name]())
         return result
 
     def fit(self, data: npt.NDArray[np.float64]) -> AnomalyMathArrest:
