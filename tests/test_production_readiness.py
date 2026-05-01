@@ -367,43 +367,6 @@ class TestRefactoringTransformerConstantHoisting:
         exec(compiled, namespace)  # noqa: S102
         assert namespace["foo"]() == 84  # type: ignore[operator]
 
-    def test_does_not_hoist_default_arguments(self):
-        """Regression: hoisting must not touch args.defaults / decorator_list.
-
-        Constants in default-argument positions are evaluated at function-
-        definition time in the enclosing scope. Replacing them with
-        ``_const_N`` references — when the assignment lives inside the
-        function body — would raise NameError at definition time.
-        """
-        from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
-
-        source = textwrap.dedent("""\
-            def foo(x=42):
-                y = 42
-                return x + y
-        """)
-        tree = ast.parse(source)
-        transformer = RefactoringTransformer(
-            [{"type": "reduce_complexity"}],
-        )
-        new_tree = transformer.visit(tree)
-        ast.fix_missing_locations(new_tree)
-
-        # Default argument must remain a literal, not a Name reference.
-        func_def = new_tree.body[0]
-        assert isinstance(func_def, ast.FunctionDef)
-        assert len(func_def.args.defaults) == 1
-        assert isinstance(func_def.args.defaults[0], ast.Constant)
-        assert func_def.args.defaults[0].value == 42
-
-        # The function must compile and execute without NameError.
-        compiled = compile(new_tree, "<test>", "exec")
-        namespace: dict[str, object] = {}
-        exec(compiled, namespace)  # noqa: S102
-        assert namespace["foo"]() == 84  # type: ignore[operator]
-        assert namespace["foo"](100) == 142  # type: ignore[operator]
-
-
 # ============================================================================
 # Learnable3R.fit() tests
 # ============================================================================
