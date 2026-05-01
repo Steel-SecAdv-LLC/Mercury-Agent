@@ -144,7 +144,6 @@ class TestCognitiveOrchestratorEthicalGate:
         )
         from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
-        # Strict mode with impossibly high threshold
         orchestrator = CognitiveOrchestrator(
             enable_plasticity=False,
             enable_causal=False,
@@ -153,10 +152,14 @@ class TestCognitiveOrchestratorEthicalGate:
             enable_indicators=False,
             strict_ethics=True,
         )
-        # The default benevolence threshold is 0.99 — most actions won't
-        # reach that, which means strict mode will raise. We test that
-        # the exception propagates properly.
-        try:
+        # The orchestrator's internal scorer is initialized with
+        # MINIMUM_BENEVOLENCE_FLOOR (0.70), and analyze() injects
+        # positive-keyword text that comfortably exceeds that floor.
+        # To deterministically exercise the violation path, pin the
+        # scorer's threshold above the maximum achievable score.
+        orchestrator._benevolence_scorer.benevolence_threshold = 1.01
+
+        with pytest.raises(EthicalConstraintViolationError) as exc_info:
             orchestrator.analyze(
                 detection_result={
                     "is_anomaly": True,
@@ -165,10 +168,8 @@ class TestCognitiveOrchestratorEthicalGate:
                 },
                 context={"domain": "general"},
             )
-            # If it didn't raise, the action was permissible — that's also valid
-        except EthicalConstraintViolationError as e:
-            assert e.threshold == 0.99
-            assert e.score < 0.99
+        assert exc_info.value.threshold == 1.01
+        assert exc_info.value.score < 1.01
 
 
 class TestCognitiveInitExports:
@@ -197,14 +198,12 @@ class TestRefactoringTransformerGuardClause:
     def test_guard_clause_single_if(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent(
-            """\
+        source = textwrap.dedent("""\
             def foo(x):
                 if x is not None:
                     result = x + 1
                     return result
-        """
-        )
+        """)
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_nesting"}],
@@ -220,14 +219,12 @@ class TestRefactoringTransformerGuardClause:
     def test_guard_clause_preserves_docstring(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent(
-            '''\
+        source = textwrap.dedent('''\
             def foo(x):
                 """My docstring."""
                 if x is not None:
                     return x
-        '''
-        )
+        ''')
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_nesting"}],
@@ -241,15 +238,13 @@ class TestRefactoringTransformerGuardClause:
         """Only the *last* if (no else) is safe to transform into a guard clause."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent(
-            """\
+        source = textwrap.dedent("""\
             def foo(x, y):
                 if x is not None:
                     a = x + 1
                 if y is not None:
                     b = y + 2
-        """
-        )
+        """)
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_nesting"}],
@@ -269,15 +264,13 @@ class TestRefactoringTransformerGuardClause:
     def test_if_with_else_not_transformed(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent(
-            """\
+        source = textwrap.dedent("""\
             def foo(x):
                 if x > 0:
                     return 1
                 else:
                     return 0
-        """
-        )
+        """)
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_nesting"}],
@@ -296,14 +289,12 @@ class TestRefactoringTransformerConstantHoisting:
     def test_hoists_repeated_literal(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent(
-            """\
+        source = textwrap.dedent("""\
             def foo():
                 x = 42
                 y = 42
                 z = 42
-        """
-        )
+        """)
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_complexity"}],
@@ -318,15 +309,13 @@ class TestRefactoringTransformerConstantHoisting:
     def test_does_not_hoist_trivial_values(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent(
-            """\
+        source = textwrap.dedent("""\
             def foo():
                 x = 0
                 y = 0
                 z = 1
                 w = 1
-        """
-        )
+        """)
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_complexity"}],
@@ -341,13 +330,11 @@ class TestRefactoringTransformerConstantHoisting:
     def test_hoists_repeated_strings(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent(
-            """\
+        source = textwrap.dedent("""\
             def foo():
                 a = "hello"
                 b = "hello"
-        """
-        )
+        """)
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_complexity"}],
@@ -360,14 +347,12 @@ class TestRefactoringTransformerConstantHoisting:
     def test_output_compiles_and_runs(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
-        source = textwrap.dedent(
-            """\
+        source = textwrap.dedent("""\
             def foo():
                 x = 42
                 y = 42
                 return x + y
-        """
-        )
+        """)
         tree = ast.parse(source)
         transformer = RefactoringTransformer(
             [{"type": "reduce_complexity"}],
@@ -381,6 +366,42 @@ class TestRefactoringTransformerConstantHoisting:
         namespace: dict[str, object] = {}
         exec(compiled, namespace)  # noqa: S102
         assert namespace["foo"]() == 84  # type: ignore[operator]
+
+    def test_does_not_hoist_default_arguments(self):
+        """Regression: hoisting must not touch args.defaults / decorator_list.
+
+        Constants in default-argument positions are evaluated at function-
+        definition time in the enclosing scope. Replacing them with
+        ``_const_N`` references — when the assignment lives inside the
+        function body — would raise NameError at definition time.
+        """
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
+
+        source = textwrap.dedent("""\
+            def foo(x=42):
+                y = 42
+                return x + y
+        """)
+        tree = ast.parse(source)
+        transformer = RefactoringTransformer(
+            [{"type": "reduce_complexity"}],
+        )
+        new_tree = transformer.visit(tree)
+        ast.fix_missing_locations(new_tree)
+
+        # Default argument must remain a literal, not a Name reference.
+        func_def = new_tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+        assert len(func_def.args.defaults) == 1
+        assert isinstance(func_def.args.defaults[0], ast.Constant)
+        assert func_def.args.defaults[0].value == 42
+
+        # The function must compile and execute without NameError.
+        compiled = compile(new_tree, "<test>", "exec")
+        namespace: dict[str, object] = {}
+        exec(compiled, namespace)  # noqa: S102
+        assert namespace["foo"]() == 84  # type: ignore[operator]
+        assert namespace["foo"](100) == 142  # type: ignore[operator]
 
 
 # ============================================================================
@@ -514,10 +535,24 @@ class TestAttentionProvider:
         assert optimizer._attention_provider is provider
 
     def test_placeholder_warning_when_no_provider(self, caplog):
+        from omni_mercury_engine.core.global_omni_scalar_network import (
+            GlobalOmniScalarNetwork,
+            reset_global_network,
+        )
         from omni_mercury_engine.core.gosnn_optimizer import GOSNNOptimizer
 
+        reset_global_network()
+        gosnn = GlobalOmniScalarNetwork()
         optimizer = GOSNNOptimizer()
         assert optimizer._attention_provider is None
+
+        with caplog.at_level(logging.WARNING, logger="omni_mercury_engine.core.gosnn_optimizer"):
+            optimizer.optimize(gosnn)
+
+        assert any(
+            "AttentionProvider" in r.getMessage() and r.levelno == logging.WARNING
+            for r in caplog.records
+        ), "Expected a WARNING mentioning AttentionProvider when none is configured."
 
 
 # ============================================================================
