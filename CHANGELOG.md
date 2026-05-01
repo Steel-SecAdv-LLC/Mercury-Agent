@@ -225,10 +225,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mercury_benchmark_results.json
 
 ### Version Reconciliation
-- All version strings bumped from 1.5.1 → 1.6.0
-  (pyproject.toml, __init__.py, cli.py, api/health.py, api/server.py,
+- All version strings bumped from 1.5.1 → 1.6.0 across 27 files:
+  pyproject.toml, __init__.py, cli.py, api/health.py, api/server.py,
   crypto/__init__.py, models/sota/__init__.py, .secrets.baseline,
-  README.md, SECURITY.md)
+  README.md, SECURITY.md, data_sources/base.py, data_sources/earth_science.py,
+  cognitive/anomaly_detection_enhanced.py, infrastructure/observability.py,
+  integrations/cross_platform_hub.py, helm/mercury-agent/Chart.yaml,
+  k8s/base/deployment.yaml, k8s/base/kustomization.yaml,
+  k8s/overlays/distributed/streaming-workers.yaml, docs/MATH_SPEC.md,
+  examples/physics_detectors_demo.py, benchmarks/generate_benchmark_visuals.py,
+  benchmarks/generate_v1_2_visuals.py, benchmarks/live_dataset_benchmark.py,
+  tests/test_cli_smoke.py, tests/test_api.py
 - [Unreleased] section promoted to [1.6.0] — no unreleased content remains
 
 ---
