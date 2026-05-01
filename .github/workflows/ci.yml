@@ -164,14 +164,15 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install security tools
+        # All four tools (bandit, safety, pip-audit, semgrep) are blocking
+        # downstream, so installation failure must fail the job rather than
+        # silently degrading coverage.
         run: |
           python -m pip install --upgrade "pip>=26.0"
-          # Note: semgrep installation may fail on some environments due to semgrep-core binary requirements
-          pip install bandit safety pip-audit
-          pip install semgrep || echo "Semgrep installation failed - will skip semgrep scan"
+          pip install bandit safety pip-audit semgrep
 
       - name: Run Bandit (security linter)
-        # Bandit security scan is now blocking - fails on medium+ severity issues
+        # Bandit security scan is blocking - fails on medium+ severity issues.
         run: |
           bandit -r src/omni_mercury_engine/ \
             -c pyproject.toml \
@@ -180,32 +181,31 @@ jobs:
             --severity-level medium
 
       - name: Run Safety (dependency vulnerabilities)
-        # Safety check scans installed packages
-        # continue-on-error: upstream CVEs shouldn't hard-block, but failures are visible.
-        continue-on-error: true
+        # Safety scans installed packages for known CVEs.  Blocking - known
+        # dependency vulnerabilities fail the PR.
         run: |
           pip install -e . || true
           safety check --output json > safety-report.json
 
       - name: Run pip-audit
-        # pip-audit scans installed packages
-        continue-on-error: true
+        # pip-audit scans installed packages for vulnerabilities.  Blocking.
         run: pip-audit --format json --output pip-audit-report.json
 
       - name: Run Semgrep
-        # Semgrep security scan - continue on error if semgrep not installed
-        continue-on-error: true
+        # Semgrep security scan.  Blocking on findings.  If semgrep is
+        # somehow unavailable here, fail explicitly rather than silently
+        # passing the gate.
         run: |
-          if command -v semgrep &> /dev/null; then
-            semgrep scan \
-              --config "p/python" \
-              --config "p/security-audit" \
-              --json \
-              --output semgrep-report.json \
-              src/
-          else
-            echo "Semgrep not installed, skipping scan"
+          if ! command -v semgrep &> /dev/null; then
+            echo "Semgrep is not installed - failing rather than silently skipping."
+            exit 1
           fi
+          semgrep scan \
+            --config "p/python" \
+            --config "p/security-audit" \
+            --json \
+            --output semgrep-report.json \
+            src/
 
       - name: Upload security reports
         uses: actions/upload-artifact@v4
@@ -519,9 +519,14 @@ jobs:
           pip install numpy scipy torch scikit-learn sympy
 
       - name: Run ethics audit
-        # Ethics audit is an advisory check for AI alignment verification
-        # Failures indicate areas needing review but don't block the pipeline
-        continue-on-error: true
+        # Ethics audit is now a BLOCKING check for AI alignment verification.
+        # benchmarks/run_ethics_audit.py exercises EthicalAutonomyGovernor,
+        # PreExecutionBlockingGate, OmniAvaEquation immutability, and the
+        # 8-pillar EthicsConfig defaults.  Real audit failures (the script's
+        # `failures` list) return exit code 1 and now fail the PR.  Unexpected
+        # crashes inside the script are still caught and return 0 (the script
+        # itself handles that), so this step only blocks on actual ethical
+        # regressions, not on infrastructure problems.
         run: python benchmarks/run_ethics_audit.py
 
   # ===========================================================================
