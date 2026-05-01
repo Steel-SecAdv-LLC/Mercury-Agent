@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mercury-agent"
-version = "1.5.1"
+version = "1.6.0"
 description = "Mercury Agent: ML-Centric Multi-Domain Anomaly Detection Framework"
 readme = "README.md"
 license = {text = "GPL-3.0+"}
@@ -52,9 +52,9 @@ dependencies = [
     "click>=8.1.0",
     "pydantic>=2.0.0",
     "bcrypt>=4.0.1",
-    "cryptography>=43.0.1",
-    "pillow>=10.4.0",  # Security: CVE patches
-    "requests>=2.32.0",  # Security: SSL/TLS improvements
+    "cryptography>=46.0.7",  # CVE-2026-26007, CVE-2026-34073, CVE-2026-39892
+    "pillow>=12.2.0",  # Security: CVE-2026-25990, CVE-2026-40192
+    "requests>=2.33.0",  # Security: CVE-2026-25645
     "tqdm>=4.65.0",
     "networkx>=3.0",
     "defusedxml>=0.7.1",
@@ -163,14 +163,14 @@ benchmark = [
 
 # Development tools
 dev = [
-    "pytest>=7.4.0",
+    "pytest>=9.0.3",  # CVE-2025-71176
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
     "pytest-timeout>=2.2.0",
     "pytest-mock>=3.12.0",
     "pytest-xdist>=3.5.0",
     "hypothesis>=6.0.0",
-    "black>=24.0.0,<26.0.0",
+    "black>=26.3.1,<27.0.0",  # CVE-2026-32274
     "mypy>=1.8.0",
     "ruff>=0.1.0",
     "pre-commit>=3.5.0",
@@ -184,7 +184,7 @@ loadtest = [
 # Domain-specific loader dependencies (currently all loaders use stdlib + numpy + pandas,
 # but these are reserved for future external API client libraries)
 domains = [
-    "aiohttp>=3.9.0",
+    "aiohttp>=3.13.4",  # Security: CVE-2026-34513 through CVE-2026-34525
 ]
 
 # GUI / visualization dashboard

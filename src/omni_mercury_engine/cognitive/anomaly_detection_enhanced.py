@@ -720,7 +720,7 @@ class NOAAWeatherSource(ExternalDataSource):
         self._client = httpx.Client(
             timeout=timeout_seconds,
             headers={
-                "User-Agent": "MercuryAgent/1.5.1 (steel.sa.llc@gmail.com)",
+                "User-Agent": "MercuryAgent/1.6.0 (steel.sa.llc@gmail.com)",
                 "Accept": "application/geo+json",
             },
         )

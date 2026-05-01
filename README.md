@@ -23,7 +23,7 @@
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.5.1                     |
+              |                                   Mercury Agent ♱ v1.6.0                     |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -44,7 +44,7 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.5.1
+**Version:** v1.6.0
 **Date:** 2026-02-09
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
@@ -296,7 +296,7 @@ result = global_detector.detect(new_data)
 - Oracle state round-trip serialization via `get_oracle_statistics()` / `from_statistics()`
 - 14+ tests covering correctness, privacy, serialization, and dimension validation
 
-### Recent Quality Improvements (v1.5.1 Patch)
+### Recent Quality Improvements (v1.6.0 Patch)
 
 A comprehensive test failure investigation and fix cycle resolved 100+ test failures across the suite:
 
@@ -1082,7 +1082,7 @@ The test suite includes:
 - `test_advanced_optimizers.py`: 50+ tests for SyntheticGradient/DTP/AMAV integration
 - `test_mercury_amacrypto.py`: 60+ tests for AMA Cryptography PQC adapter and EWMA timing monitor
 
-**Test Suite Stabilization (v1.5.1 Patch):**
+**Test Suite Stabilization (v1.6.0 Patch):**
 - Fixed 100+ test failures caused by missing FastAPI dependency, uninitialized federation attributes, and unreachable synthetic data thresholds
 - All fixes are minimal and targeted — no unnecessary refactoring
 
@@ -1948,7 +1948,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent v1.5.1 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent v1.6.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 

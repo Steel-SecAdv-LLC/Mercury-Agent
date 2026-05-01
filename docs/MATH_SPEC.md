@@ -1,6 +1,6 @@
 # Mercury Agent -- Formal Mathematical Specification
 
-**Version:** 1.5.1
+**Version:** 1.6.0
 **Date:** 2026-02-11
 **Status:** Living Document
 **Cross-references:** `docs/equations_inventory.md`, `docs/correctness_report.md`
