@@ -94,9 +94,10 @@ jobs:
           fi
 
       - name: Run pydocstyle (docstring checks)
-        # Informational only - docstring style enforcement is advisory
-        # Many docstrings use alternative valid formatting conventions
-        continue-on-error: true
+        # Blocking.  Google-convention docstrings on src/ are required.
+        # D212/D415 are intentionally ignored (multi-line summary placement
+        # and trailing punctuation are stylistic and produce noise on
+        # otherwise-valid docstrings).
         run: pydocstyle src/omni_mercury_engine/ --convention=google --add-ignore=D212,D415
 
   # ===========================================================================
@@ -672,19 +673,31 @@ jobs:
           load: true
 
       - name: Scan Docker image with Trivy
-        continue-on-error: true
+        # Blocking.  Critical/high vulnerabilities in the built image fail
+        # the PR.  ignore-unfixed: true and .trivyignore mirror the
+        # standalone security.yml container-scan policy, so risk
+        # acceptances are honored consistently.  Severity scoped to
+        # CRITICAL,HIGH to match security.yml's container-scan job and to
+        # avoid blocking on MEDIUM/LOW noise that the standalone job
+        # already covers.
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: mercury-agent:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN'
-          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+          vuln-type: 'os,library'
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          exit-code: '1'
           timeout: '10m'
 
       - name: Upload Trivy results
+        # Always upload SARIF (even when the scan step failed) so the
+        # findings reach the GitHub Security tab.  No continue-on-error -
+        # if the upload itself fails, that signals a real infrastructure
+        # problem worth surfacing.
         if: always()
-        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
@@ -715,12 +728,12 @@ jobs:
           pip install sphinx sphinx-rtd-theme myst-parser sphinx-autodoc-typehints
 
       - name: Build documentation
-        # Documentation build is informational - may fail due to missing autodoc sources
-        # Core functionality is validated in code-quality and core-tests stages
-        continue-on-error: true
+        # Blocking.  Sphinx warnings/errors (missing autodoc sources,
+        # broken cross-references, malformed RST) fail the PR.  -W
+        # promotes warnings to errors so silent doc rot can't accumulate.
         run: |
           cd docs
-          sphinx-build -b html . _build/html
+          sphinx-build -b html -W --keep-going . _build/html
 
   # ===========================================================================
   # Final Status Check

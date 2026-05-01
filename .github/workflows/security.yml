@@ -31,20 +31,16 @@ jobs:
         pip install safety bandit pip-audit
 
     - name: Run Safety check
-      # Safety check for known Python vulnerabilities
-      # continue-on-error: upstream CVEs in transitive deps shouldn't hard-block PRs,
-      # but removing || true ensures the step visibly fails when issues are found.
-      continue-on-error: true
+      # Blocking.  Known Python CVEs in installed packages fail the PR.
       run: safety check --json --output safety-report.json
 
     - name: Run pip-audit
-      # pip-audit provides more comprehensive vulnerability detection
-      continue-on-error: true
+      # Blocking.  pip-audit provides comprehensive vulnerability detection
+      # against the PyPI advisory database and OSV.
       run: pip-audit --format json --output pip-audit-report.json
 
     - name: Run Bandit security scan
-      # Bandit scans for common security issues in Python code
-      continue-on-error: true
+      # Blocking.  Bandit medium+ severity findings in src/ fail the PR.
       run: bandit -r src/omni_mercury_engine/ -f json -o bandit-report.json --severity-level medium
 
     - name: Upload Security Reports
@@ -69,30 +65,30 @@ jobs:
         # This is necessary for ML-heavy images with torch/pytorch dependencies
         echo "=== Disk space before cleanup ==="
         df -h /
-        
+
         # Remove Android SDK (saves ~10GB)
         sudo rm -rf /usr/local/lib/android || true
-        
+
         # Remove .NET SDK (saves ~2GB)
         sudo rm -rf /usr/share/dotnet || true
-        
+
         # Remove Haskell/GHC (saves ~5GB)
         sudo rm -rf /opt/ghc || true
         sudo rm -rf /usr/local/.ghcup || true
-        
+
         # Remove CodeQL (saves ~1GB)
         sudo rm -rf /opt/hostedtoolcache/CodeQL || true
-        
+
         # Remove Swift (saves ~1GB)
         sudo rm -rf /usr/share/swift || true
-        
+
         # Clean apt cache
         sudo apt-get clean || true
-        
+
         # Prune Docker to free space
         docker system prune -af || true
         docker builder prune -af || true
-        
+
         echo "=== Disk space after cleanup ==="
         df -h /
 
@@ -100,6 +96,10 @@ jobs:
       run: docker build -t mercury-agent:scan .
 
     - name: Run Trivy vulnerability scanner
+      # Blocking.  CRITICAL/HIGH/MEDIUM fixable vulnerabilities in the
+      # built image fail the PR.  exit-code: '1' is what makes this
+      # actually block - without it, trivy-action returns 0 regardless of
+      # findings and the SARIF upload becomes the only signal.
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: 'mercury-agent:scan'
@@ -107,21 +107,27 @@ jobs:
         output: 'trivy-results.sarif'
         severity: 'CRITICAL,HIGH,MEDIUM'
         vuln-type: 'os,library'
-        # Ignore unfixed vulnerabilities to reduce noise
         ignore-unfixed: true
-        # Skip duplicate detection across layers
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
-        # Honor documented risk acceptances in .trivyignore
         trivyignores: .trivyignore
+        exit-code: '1'
 
     - name: Upload Trivy scan results to GitHub Security tab
+      # if: always() ensures the SARIF reaches the Security tab even when
+      # the scan step failed.  No continue-on-error - upload failures
+      # signal a real infra problem worth blocking on.
       uses: github/codeql-action/upload-sarif@v4
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
         category: 'trivy-container-scan'
 
-    - name: Run Trivy in table format for PR comments
+    - name: Render Trivy findings to job summary
+      # Human-readable table for the Actions job summary.  Runs only when
+      # the SARIF scan failed, since on success there is nothing to show.
+      # Blocking is already enforced by the SARIF scan above; this step
+      # never alters job outcome.
+      if: failure()
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: 'mercury-agent:scan'
@@ -130,8 +136,7 @@ jobs:
         vuln-type: 'os,library'
         ignore-unfixed: true
         trivyignores: .trivyignore
-        exit-code: '1'
-      continue-on-error: true
+        exit-code: '0'
 
   filesystem-scan:
     name: Filesystem Security Scan (Trivy)
@@ -140,6 +145,8 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Run Trivy filesystem scanner
+      # Blocking.  CRITICAL/HIGH/MEDIUM fixable findings in src/ fail the
+      # PR.  exit-code: '1' is what makes this gate actually block.
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: 'fs'
@@ -147,12 +154,10 @@ jobs:
         format: 'sarif'
         output: 'trivy-fs-results.sarif'
         severity: 'CRITICAL,HIGH,MEDIUM'
-        # Ignore unfixed vulnerabilities for consistency with container scan
         ignore-unfixed: true
-        # Honor documented risk acceptances in .trivyignore
         trivyignores: .trivyignore
-        # Skip test files and documentation
         skip-dirs: 'tests,docs,benchmarks'
+        exit-code: '1'
 
     - name: Upload Trivy filesystem results
       uses: github/codeql-action/upload-sarif@v4
