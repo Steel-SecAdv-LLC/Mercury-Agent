@@ -400,7 +400,7 @@ class DataSourceBase(ABC):
 
     DEFAULT_BASE_URL: str = ""
     DEFAULT_TIMEOUT: float = 30.0
-    DEFAULT_USER_AGENT: str = "MercuryAgent/1.5.1 (steel.sa.llc@gmail.com)"
+    DEFAULT_USER_AGENT: str = "MercuryAgent/1.6.0 (steel.sa.llc@gmail.com)"
 
     def __init__(self, config: DataSourceConfig | None = None) -> None:
         """Initialize data source.

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Mercury Agent v1.5.1 - Comprehensive Benchmark Visualization Generator
+Mercury Agent v1.6.0 - Comprehensive Benchmark Visualization Generator
 Copyright (C) 2025 Steel Security Advisors LLC
 
-Generates consolidated publication-quality benchmark visualizations for v1.5.1:
+Generates consolidated publication-quality benchmark visualizations for v1.6.0:
 1. neuro_symbolic_benchmark_report.png - Main comprehensive report (6 panels)
 2. anomaly_detection_panel.png - Detection performance analysis (6 panels)
 3. benchmark_summary_live_data.png - Live data and module coverage (6 panels)
@@ -71,7 +71,7 @@ def generate_neuro_symbolic_report(results: dict[str, Any]) -> None:
     """Generate comprehensive neuro-symbolic benchmark report (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
-        "Mercury Agent v1.5.1 - Neuro-Symbolic Benchmark Report",
+        "Mercury Agent v1.6.0 - Neuro-Symbolic Benchmark Report",
         fontsize=16,
         fontweight="bold",
         color=COLORS["gold"],
@@ -185,7 +185,7 @@ def generate_neuro_symbolic_report(results: dict[str, Any]) -> None:
     fig.text(
         0.99,
         0.01,
-        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.5.1",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.6.0",
         ha="right",
         fontsize=8,
         alpha=0.6,
@@ -201,7 +201,7 @@ def generate_anomaly_detection_panel(results: dict[str, Any]) -> None:
     """Generate anomaly detection analysis panel (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
-        "Mercury Agent v1.5.1 - Anomaly Detection Analysis",
+        "Mercury Agent v1.6.0 - Anomaly Detection Analysis",
         fontsize=16,
         fontweight="bold",
         color=COLORS["gold"],
@@ -369,7 +369,7 @@ def generate_anomaly_detection_panel(results: dict[str, Any]) -> None:
     fig.text(
         0.99,
         0.01,
-        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.5.1",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.6.0",
         ha="right",
         fontsize=8,
         alpha=0.6,
@@ -385,7 +385,7 @@ def generate_benchmark_summary(results: dict[str, Any]) -> None:
     """Generate benchmark summary with live data and module coverage (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
-        "Mercury Agent v1.5.1 - Benchmark Summary & Module Coverage",
+        "Mercury Agent v1.6.0 - Benchmark Summary & Module Coverage",
         fontsize=16,
         fontweight="bold",
         color=COLORS["gold"],
@@ -466,7 +466,7 @@ def generate_benchmark_summary(results: dict[str, Any]) -> None:
         )
         y_pos -= 0.15
 
-    # Panel 4: New Module Sizes (v1.5.1)
+    # Panel 4: New Module Sizes (v1.6.0)
     ax4 = fig.add_subplot(gs[1, 0])
     new_modules = [
         "enhanced_\nstatistical",
@@ -478,7 +478,7 @@ def generate_benchmark_summary(results: dict[str, Any]) -> None:
     lines = [1132, 1036, 1105, 734, 914]
     ax4.bar(new_modules, lines, color=COLORS["secondary"])
     ax4.set_ylabel("Lines of Code")
-    ax4.set_title("5 New Modules (v1.5.1): 4,921 LOC")
+    ax4.set_title("5 New Modules (v1.6.0): 4,921 LOC")
     for i, v in enumerate(lines):
         ax4.text(i, v + 20, str(v), ha="center", fontsize=9)
 
@@ -511,7 +511,7 @@ def generate_benchmark_summary(results: dict[str, Any]) -> None:
 
     # Panel 7: Version History
     ax7 = fig.add_subplot(gs[2, 0])
-    versions = ["v1.0.0", "v1.1.0", "v1.4.0", "v1.5.1"]
+    versions = ["v1.0.0", "v1.1.0", "v1.4.0", "v1.6.0"]
     test_counts = [1200, 1880, 4863, 5996]
     engine_counts = [12, 18, 22, 25]
     ax7_twin = ax7.twinx()
@@ -571,7 +571,7 @@ def generate_benchmark_summary(results: dict[str, Any]) -> None:
     fig.text(
         0.99,
         0.01,
-        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.5.1",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.6.0",
         ha="right",
         fontsize=8,
         alpha=0.6,
@@ -587,7 +587,7 @@ def generate_performance_dashboard(results: dict[str, Any]) -> None:
     """Generate performance, ethics, and quality dashboard (6 panels)."""
     fig = plt.figure(figsize=(16, 12))
     fig.suptitle(
-        "Mercury Agent v1.5.1 - Performance & Ethics Dashboard",
+        "Mercury Agent v1.6.0 - Performance & Ethics Dashboard",
         fontsize=16,
         fontweight="bold",
         color=COLORS["gold"],
@@ -734,7 +734,7 @@ def generate_performance_dashboard(results: dict[str, Any]) -> None:
     fig.text(
         0.99,
         0.01,
-        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.5.1",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')} | v1.6.0",
         ha="right",
         fontsize=8,
         alpha=0.6,
@@ -749,7 +749,7 @@ def generate_performance_dashboard(results: dict[str, Any]) -> None:
 def main() -> None:
     """Generate all consolidated visualizations."""
     print("=" * 60)
-    print("Mercury Agent v1.5.1 - Visualization Generator")
+    print("Mercury Agent v1.6.0 - Visualization Generator")
     print("=" * 60)
 
     # Ensure output directory exists
