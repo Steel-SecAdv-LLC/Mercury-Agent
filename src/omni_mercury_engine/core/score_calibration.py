@@ -1303,13 +1303,13 @@ class ScoreCalibrationManager:
         detector_name: str = "Unknown",
     ) -> None:
         """
-        Print formatted diagnostics to console.
+        Log formatted diagnostics via ``logger.info``.
 
         Args:
             scores: Anomaly scores
             threshold: Threshold to analyze
             labels: Optional ground truth labels
-            detector_name: Name for display
+            detector_name: Name for log message
         """
         diagnostics = self.get_diagnostics(scores, threshold, labels)
         logger.info("%s diagnostics:\n%s", detector_name, diagnostics)
@@ -1808,24 +1808,23 @@ def diagnose_scores(
     """
     Diagnose score distribution and threshold issues.
 
-    This implements the exact diagnostic the user requested:
-
     Args:
         scores: Anomaly scores array
         threshold: Current threshold value
         labels: Optional ground truth labels
-        print_output: Whether to print diagnostics
+        print_output: Whether to log diagnostics (via ``logger.info``
+            and ``logger.warning``).
 
     Returns:
         CalibrationDiagnostics object
 
-    Example:
-        # In the benchmark, add this after detection:
+    Example::
+
         diagnostics = diagnose_scores(
             result["scores"],
             detector.threshold,
             y_true,
-            print_output=True
+            print_output=True,
         )
     """
     diagnostics = ScoreDiagnostics.analyze(scores, threshold, labels, "diagnosis")

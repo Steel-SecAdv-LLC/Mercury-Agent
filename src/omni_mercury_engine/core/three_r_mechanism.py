@@ -2272,11 +2272,11 @@ class RefactoringTransformer(ast.NodeTransformer):
     def _reduce_nesting(self, node: ast.FunctionDef) -> ast.FunctionDef:
         """Reduce nesting depth using guard clauses and early returns.
 
-        Converts ``if`` statements whose body contains only nested logic
-        (no ``else`` branch on the outer ``if``) into inverted guard clauses
-        that return early, flattening one level of indentation per
-        qualifying ``if``.  Unlike a single-shot approach, this walks all
-        statements and transforms every qualifying ``if`` found.
+        Only transforms an ``if`` statement (with no ``else``) into an
+        inverted guard clause when it is the **last** statement in the
+        function body (after any docstring).  This restriction guarantees
+        semantic preservation: the early ``return None`` cannot skip
+        subsequent statements that the original code would have executed.
 
         Example::
 
@@ -2294,31 +2294,32 @@ class RefactoringTransformer(ast.NodeTransformer):
                 return result
         """
         docstring_offset = 1 if ast.get_docstring(node) else 0
+        stmts = node.body[docstring_offset:]
+
+        if not stmts:
+            return node
+
+        last_stmt = stmts[-1]
+        if not (
+            isinstance(last_stmt, ast.If) and last_stmt.orelse == [] and len(last_stmt.body) >= 1
+        ):
+            return node
+
+        inverted: ast.expr = ast.UnaryOp(op=ast.Not(), operand=last_stmt.test)
+        guard_return = ast.Return(value=ast.Constant(value=None))
+        guard_clause = ast.If(
+            test=inverted,
+            body=[guard_return],
+            orelse=[],
+        )
+        ast.copy_location(guard_clause, last_stmt)
+        ast.copy_location(guard_return, last_stmt)
+        ast.fix_missing_locations(guard_clause)
+
         new_body: list[ast.stmt] = list(node.body[:docstring_offset])
-
-        for stmt in node.body[docstring_offset:]:
-            if (
-                isinstance(stmt, ast.If)
-                and stmt.orelse == []  # no else branch
-                and len(stmt.body) >= 1
-            ):
-                # Build inverted condition: ``not (original_test)``
-                inverted: ast.expr = ast.UnaryOp(op=ast.Not(), operand=stmt.test)
-                guard_return = ast.Return(value=ast.Constant(value=None))
-                guard_clause = ast.If(
-                    test=inverted,
-                    body=[guard_return],
-                    orelse=[],
-                )
-                ast.copy_location(guard_clause, stmt)
-                ast.copy_location(guard_return, stmt)
-                ast.fix_missing_locations(guard_clause)
-
-                new_body.append(guard_clause)
-                # Append the original if-body as top-level statements
-                new_body.extend(stmt.body)
-            else:
-                new_body.append(stmt)
+        new_body.extend(stmts[:-1])
+        new_body.append(guard_clause)
+        new_body.extend(last_stmt.body)
 
         node.body = new_body
         return node
@@ -2338,8 +2339,21 @@ class RefactoringTransformer(ast.NodeTransformer):
 
         counts: Counter[int | float | str] = Counter()
 
+        # Collect constants, but skip the docstring node so it is never
+        # replaced by a variable reference.
+        docstring_node: ast.Constant | None = None
+        if (
+            node.body
+            and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.Constant)
+            and isinstance(node.body[0].value.value, str)
+        ):
+            docstring_node = node.body[0].value
+
         class _ConstCollector(ast.NodeVisitor):
             def visit_Constant(self, n: ast.Constant) -> None:
+                if n is docstring_node:
+                    return
                 if isinstance(n.value, (int, float, str)) and not isinstance(n.value, bool):
                     counts[n.value] += 1
                 self.generic_visit(n)
@@ -2361,6 +2375,8 @@ class RefactoringTransformer(ast.NodeTransformer):
 
         class _ConstReplacer(ast.NodeTransformer):
             def visit_Constant(self, n: ast.Constant) -> ast.expr:
+                if n is docstring_node:
+                    return n
                 if n.value in sub_map:
                     var_name = sub_map[n.value]  # type: ignore[index]  # key type narrowed by `in` check
                     name_node = ast.Name(id=var_name, ctx=ast.Load())

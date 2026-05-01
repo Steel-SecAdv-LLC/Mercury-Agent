@@ -167,10 +167,13 @@ class CognitiveOrchestrator(LoggerMixin):
             enable_ipb: Enable intelligence preparation
             enable_cbr: Enable case-based reasoning
             enable_indicators: Enable indicator development
-            strict_ethics: When ``True`` (default), the orchestrator calls
-                :meth:`BenevolenceScorer.enforce` before returning results so
-                that impermissible actions raise
-                :class:`~omni_mercury_engine.cognitive.ethical_bounding.EthicalConstraintViolationError`.
+            strict_ethics: When ``True`` (default), the orchestrator scores
+                the analysis action via
+                :meth:`BenevolenceScorer.score_action` using
+                ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) as its threshold and
+                raises
+                :class:`~omni_mercury_engine.cognitive.ethical_bounding.EthicalConstraintViolationError`
+                if the action is not permissible.
                 Set to ``False`` only for testing or internal advisory scoring.
         """
         self.strict_ethics = strict_ethics
@@ -447,20 +450,20 @@ class CognitiveOrchestrator(LoggerMixin):
             self._anomaly_history = self._anomaly_history[-500:]
 
         # === ETHICAL GATE — mandatory benevolence check ===
-        # The action description includes ethical intent keywords that
-        # accurately reflect the orchestrator's inherent safety posture
-        # (detection/analysis with audit, oversight, and evidence-based
-        # reasoning).  This ensures the keyword-based BenevolenceScorer can
-        # properly evaluate inherently protective analysis work.
+        # Score on a controlled action description that reflects the
+        # orchestrator's inherent safety posture.  We intentionally do
+        # NOT pass caller-supplied ``context`` to the scorer to prevent
+        # arbitrary text from injecting harm keywords and causing false
+        # ethical rejections of legitimate analysis operations.
         domain_label = context.get("domain", "general")
         action_desc = (
             f"cognitive_analysis:{domain_label}:severity={severity:.2f}:"
             "audit monitor verify data research evidence fair oversight"
         )
         ethical_context = {
-            **context,
             "purpose": "anomaly detection analysis with audit oversight",
             "safety": "care help support review protect",
+            "domain": domain_label,
         }
         ethical_result = self._benevolence_scorer.score_action(
             action_desc,

@@ -717,11 +717,23 @@ class Learnable3REngine:
 
         if n_samples < 2:
             raise ValueError(f"fit() requires at least 2 samples, got {n_samples}.")
+        if epochs <= 0:
+            raise ValueError(f"fit() expected 'epochs' to be a positive integer, got {epochs}.")
+        if batch_size <= 0:
+            raise ValueError(
+                f"fit() expected 'batch_size' to be a positive integer, got {batch_size}."
+            )
+        if patience < 1:
+            raise ValueError(f"fit() expected 'patience' to be at least 1, got {patience}.")
+        if not (0.0 < val_fraction < 1.0):
+            raise ValueError(
+                f"fit() expected 'val_fraction' to be in the open interval (0.0, 1.0), got {val_fraction}."
+            )
 
         # ---- Train / validation split ----
         rng = np.random.default_rng(seed=seed)
         indices = rng.permutation(n_samples)
-        n_val = max(1, int(n_samples * val_fraction))
+        n_val = max(1, min(n_samples - 1, int(n_samples * val_fraction)))
         n_train = n_samples - n_val
         train_idx, val_idx = indices[:n_train], indices[n_train:]
 
