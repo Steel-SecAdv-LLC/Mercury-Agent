@@ -713,7 +713,33 @@ class Learnable3REngine:
 
         X_arr = np.asarray(X, dtype=np.float32)
         y_arr = np.asarray(y, dtype=np.float32)
-        n_samples = len(X_arr)
+
+        # Shape validation — must run before length / dtype checks so that
+        # callers passing a common ``(n_samples, 1)`` target (e.g. from
+        # sklearn-style label arrays) cannot silently broadcast against the
+        # ``(batch,)`` ``fusion_score`` output and produce a ``(batch, batch)``
+        # loss tensor.  ``F.mse_loss`` would happily accept the broadcast
+        # result and train on the wrong objective without raising.
+        if X_arr.ndim != 2:
+            raise ValueError(
+                f"fit() expected X to be 2-D (n_samples, n_features), got shape {X_arr.shape}."
+            )
+        if y_arr.ndim == 2 and y_arr.shape[1] == 1:
+            # Trailing-singleton dim is a common sklearn convention; squeeze
+            # it transparently so callers don't have to match our 1-D contract
+            # exactly.  Anything else (true multi-target) is rejected.
+            y_arr = y_arr.reshape(-1)
+        if y_arr.ndim != 1:
+            raise ValueError(
+                f"fit() expected y to be 1-D (n_samples,) "
+                f"(or 2-D with a trailing singleton dim), got shape {y_arr.shape}."
+            )
+        if X_arr.shape[0] != y_arr.shape[0]:
+            raise ValueError(
+                f"fit() expected X and y to have matching n_samples, "
+                f"got X.shape[0]={X_arr.shape[0]}, y.shape[0]={y_arr.shape[0]}."
+            )
+        n_samples = X_arr.shape[0]
 
         if n_samples < 2:
             raise ValueError(f"fit() requires at least 2 samples, got {n_samples}.")

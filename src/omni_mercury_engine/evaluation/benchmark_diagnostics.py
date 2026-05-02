@@ -438,7 +438,7 @@ class BenchmarkDiagnostics:
         detector_name: str = "Detector",
     ) -> None:
         """
-        Log a quick diagnostic summary at INFO level.
+        Log a quick diagnostic summary.
 
         Args:
             scores: Anomaly scores
@@ -446,11 +446,27 @@ class BenchmarkDiagnostics:
             threshold: Current threshold
             detector_name: Name for display
 
-        Logs the following at ``logging.INFO``:
-            Score range: [min, max]
-            Score mean: mean
-            Threshold: threshold
-            Predictions above threshold: count/total
+        Emits up to three log records on the
+        ``omni_mercury_engine.evaluation.benchmark_diagnostics`` logger:
+
+        * **INFO** — single structured score-distribution line of the form::
+
+            <detector_name> Score Diagnostics — range=[min, max], mean=mean, \
+threshold=threshold, above_threshold=count/total
+
+        * **INFO** — when ``labels`` is provided, a single structured
+          ground-truth line of the form::
+
+            <detector_name> ground-truth: TP=…, FP=…, FN=…, TN=… | \
+Precision=…, Recall=…, F1=…
+
+        * **WARNING** — when ``labels`` is provided AND ``F1 == 0`` AND
+          ``threshold > max(scores)``, a single diagnosis line explaining
+          that the threshold sits above the score distribution and
+          recommending auto-calibration or a lower threshold.
+
+        No multi-line / per-field record is emitted; tests/log filters
+        should match the structured single-line format above.
         """
         scores = np.asarray(scores).flatten()
 

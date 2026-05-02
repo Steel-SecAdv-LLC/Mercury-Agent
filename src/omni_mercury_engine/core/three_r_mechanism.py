@@ -2389,11 +2389,19 @@ class RefactoringTransformer(ast.NodeTransformer):
                     counts[(type(n.value), n.value)] += 1
                 self.generic_visit(n)
 
-            # Don't descend into nested function/lambda/comprehension scopes:
-            # constants inside them belong to *those* scopes and will be
-            # hoisted (or skipped) by the recursive visit on each nested
-            # FunctionDef.  Counting them here would double-count and could
-            # hoist a literal into the wrong scope.
+            # Don't descend into nested function / async-function / lambda /
+            # class scopes: constants inside them belong to *those* scopes
+            # and will be hoisted (or skipped) by the recursive visit on
+            # each nested ``FunctionDef``.  Counting them here would
+            # double-count and could hoist a literal into the wrong scope.
+            #
+            # Comprehension scopes (``ListComp`` / ``SetComp`` / ``DictComp``
+            # / ``GeneratorExp``) are *not* blocked here.  Although they
+            # have their own iteration-variable scope in Python 3, free
+            # name references inside the comprehension body resolve in the
+            # enclosing function scope, so a hoisted ``_const_<n>``
+            # assigned at the top of the function is visible to the
+            # comprehension and the rewrite is semantics-preserving.
             def visit_FunctionDef(self, n: ast.FunctionDef) -> None:
                 return None
 
