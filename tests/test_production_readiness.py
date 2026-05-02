@@ -20,6 +20,32 @@ import textwrap
 import numpy as np
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _restore_engine_logger_propagation():
+    """Defensive cleanup: restore propagation on the package's parent logger.
+
+    ``omni_mercury_engine.utils.logging.configure_logging`` (exercised by
+    ``tests/test_logging_utils.py``) sets ``propagate = False`` on the
+    ``omni_mercury_engine`` logger to prevent double-printing through
+    Python's root logger.  Pytest's ``caplog`` fixture captures records via a
+    handler on the **root** logger and relies on that propagation chain — so
+    if any earlier test in the run leaves ``propagate = False`` set, the
+    caplog assertions below silently see an empty ``caplog.text``.
+
+    Forcing ``propagate = True`` here makes these tests resilient to upstream
+    test-isolation regressions without weakening the production behavior of
+    ``configure_logging`` itself.
+    """
+    logger = logging.getLogger("omni_mercury_engine")
+    previous_propagate = logger.propagate
+    logger.propagate = True
+    try:
+        yield
+    finally:
+        logger.propagate = previous_propagate
+
+
 # ============================================================================
 # Ethical enforcement tests
 # ============================================================================

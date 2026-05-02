@@ -364,6 +364,20 @@ class TestConfigureLogging:
         logger = logging.getLogger("omni_mercury_engine")
         logger.handlers.clear()
         logger.setLevel(logging.NOTSET)
+        # ``configure_logging()`` flips this to False to prevent
+        # double-printing through Python's root logger.  Restore it here so
+        # subsequent tests in the suite (e.g. caplog-based tests in
+        # tests/test_production_readiness.py) can still observe records via
+        # propagation.  Without this teardown, ``test_logging_utils`` pollutes
+        # the parent logger and breaks any caplog assertion downstream.
+        logger.propagate = True
+
+    def teardown_method(self):
+        """Restore the parent logger to a propagating, handler-free state."""
+        logger = logging.getLogger("omni_mercury_engine")
+        logger.handlers.clear()
+        logger.setLevel(logging.NOTSET)
+        logger.propagate = True
 
     def test_configure_with_defaults(self):
         """Test configuration with default settings."""
