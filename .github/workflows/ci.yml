@@ -225,15 +225,22 @@ jobs:
             --ignore "" \
             --output json > safety-report.json
           rc=$?
-          if [ "$rc" -ne 0 ]; then
-            echo "::group::Safety report (exit=$rc)"
-            cat safety-report.json
-            echo "::endgroup::"
-            echo "::group::Safety vulnerabilities (jq summary)"
+          # Surface findings as ::error:: annotations so they appear in
+          # the GitHub Checks API (visible without log access).
+          jq -r '.vulnerabilities[]? | "::error title=Safety dep CVE::\(.package_name) \(.analyzed_version) — vuln-id \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
+            | sort -u || true
+          # Also dump compact summary into the Job Summary panel.
+          {
+            echo "## Safety report (exit=$rc)"
+            echo
+            echo '```'
             jq -r '.vulnerabilities[]? | "\(.package_name) \(.analyzed_version) — \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
               | sort -u || true
-            echo "::endgroup::"
-          fi
+            echo '```'
+            echo
+            echo "Total vulns: $(jq '(.vulnerabilities // []) | length' safety-report.json 2>/dev/null || echo '?')"
+            echo "Packages scanned: $(jq '.report_meta.packages_found // "?"' safety-report.json 2>/dev/null)"
+          } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
           exit "$rc"
 
       - name: Run pip-audit (PyPI/OSV advisories — BLOCKING)
