@@ -594,12 +594,23 @@ jobs:
           load: true
 
       - name: Scan Docker image with Trivy
+        # Blocking gate.  Mirrors the standalone security.yml container
+        # scan policy so risk acceptances are honored consistently across
+        # workflows: ignore-unfixed drops Debian-bookworm CVEs that have no
+        # available patch (these are tracked in .trivyignore with
+        # documented mitigations and quarterly review dates), and
+        # trivyignores: .trivyignore lets Trivy pick up the explicit
+        # acceptance entries.  vuln-type scopes the scan to OS and library
+        # findings (the surface this image actually exposes).
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: mercury-agent:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+          vuln-type: 'os,library'
+          ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: '1'
           timeout: '10m'
 

@@ -106,8 +106,8 @@ no automated response or recovery pipeline.
 
 1. ~~**RefactoringEngine Is a Stub**~~ **RESOLVED** (`three_r_mechanism.py:2236+`)
    - `RefactoringTransformer` now implements real AST transformations:
-     - `_reduce_nesting()`: guard-clause extraction for all qualifying `if` statements
-     - `_hoist_repeated_constants()`: extracts repeated literals into named locals
+     - `_reduce_nesting()`: inverts the last trailing `if`-without-`else` in a function body into a guard clause with an early `return None`, leaving the happy path left-aligned (interior `if`s are left intact because injecting an early return ahead of subsequent code would change semantics)
+     - `_hoist_repeated_constants()`: extracts repeated numeric/string literals (used 2+ times) from executable body statements into `_const_<n>` named locals, skipping decorators / default arguments / annotations and keeping `int` and `float` namespaces disjoint; functions containing `global`/`nonlocal` are skipped to avoid SyntaxError
    - `should_reduce_complexity` flag now activates constant hoisting
    - 8 unit tests validate correctness including compile+execute verification
    - *(Resolved by branch: `claude/improve-previous-work-k2tWf`)*
