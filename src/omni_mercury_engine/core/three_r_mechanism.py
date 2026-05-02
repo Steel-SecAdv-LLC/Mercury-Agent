@@ -2339,26 +2339,23 @@ class RefactoringTransformer(ast.NodeTransformer):
 
         counts: Counter[int | float | str] = Counter()
 
-        # Collect constants, but skip the docstring node so it is never
-        # replaced by a variable reference.
-        docstring_node: ast.Constant | None = None
-        if (
-            node.body
-            and isinstance(node.body[0], ast.Expr)
-            and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.value, str)
-        ):
-            docstring_node = node.body[0].value
+        # Restrict traversal to the function body (skipping the docstring) so
+        # that constants in args.defaults / args.kw_defaults / decorator_list
+        # are never hoisted. Those are evaluated at function-definition time
+        # in the enclosing scope, but the synthesized `_const_N = ...`
+        # assignments live inside the body, which would cause a NameError.
+        docstring_offset = 1 if ast.get_docstring(node) else 0
+        body_to_scan = node.body[docstring_offset:]
 
         class _ConstCollector(ast.NodeVisitor):
             def visit_Constant(self, n: ast.Constant) -> None:
-                if n is docstring_node:
-                    return
                 if isinstance(n.value, (int, float, str)) and not isinstance(n.value, bool):
                     counts[n.value] += 1
                 self.generic_visit(n)
 
-        _ConstCollector().visit(node)
+        collector = _ConstCollector()
+        for stmt in body_to_scan:
+            collector.visit(stmt)
 
         # Only hoist values appearing >=2 times and not trivially simple
         trivial: set[int | float | str] = {0, 1, -1, ""}
@@ -2375,8 +2372,6 @@ class RefactoringTransformer(ast.NodeTransformer):
 
         class _ConstReplacer(ast.NodeTransformer):
             def visit_Constant(self, n: ast.Constant) -> ast.expr:
-                if n is docstring_node:
-                    return n
                 if n.value in sub_map:
                     var_name = sub_map[n.value]  # type: ignore[index]  # key type narrowed by `in` check
                     name_node = ast.Name(id=var_name, ctx=ast.Load())
@@ -2384,10 +2379,9 @@ class RefactoringTransformer(ast.NodeTransformer):
                     return name_node
                 return n
 
-        node = _ConstReplacer().visit(node)  # NodeTransformer.visit returns AST
+        replacer = _ConstReplacer()
+        new_body_tail: list[ast.stmt] = [replacer.visit(stmt) for stmt in body_to_scan]
 
-        # Insert assignment statements after the docstring
-        docstring_offset = 1 if ast.get_docstring(node) else 0
         assignments: list[ast.stmt] = []
         for val, var_name in sub_map.items():
             assign = ast.Assign(
@@ -2399,7 +2393,7 @@ class RefactoringTransformer(ast.NodeTransformer):
             ast.fix_missing_locations(assign)
             assignments.append(assign)
 
-        node.body = node.body[:docstring_offset] + assignments + node.body[docstring_offset:]
+        node.body = node.body[:docstring_offset] + assignments + new_body_tail
         return node
 
 
