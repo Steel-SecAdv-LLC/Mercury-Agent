@@ -5,9 +5,12 @@
 # schedule so that CI can hard-fail on NEW vulnerabilities while allowing
 # known, risk-assessed exceptions through.
 #
-# Last Updated: 2026-03-11
+# Last Updated: 2026-05-02 (PR #148 — confirms documentation-only role
+#   alongside .safety-policy-v2.yml shim and per-CVE CLI ignore flags
+#   driven by docs/PYTHON_DEP_CVE_AUDIT.md; OS-level acceptances below
+#   continue to be enforced by Trivy via .trivyignore)
 # Reviewed By: Steel Security Advisors LLC
-# Next Review: 2026-06-11 (quarterly)
+# Next Review: 2026-08-02 (quarterly; aligned with PYTHON_DEP_CVE_AUDIT.md)
 #
 # Reference: https://docs.safetycli.com/safety-docs/policy-file
 
@@ -52,48 +55,48 @@ installation:
   allow:
     packages: []
     # Accepted CVEs with documented risk assessment.
-    # Each entry expires 2026-06-11 (quarterly review).
+    # Each entry expires 2026-08-02 (quarterly review).
     vulnerabilities:
       # CVE-2025-14104: util-linux heap buffer overread in setpwnam()
       # Severity: Medium | Non-root container; setpwnam() never called.
       CVE-2025-14104:
         reason: "Non-root container; setpwnam() not called by application."
-        expires: "2026-06-11"
+        expires: "2026-08-02"
       # CVE-2025-8869: pip symlink extraction vulnerability
       # Severity: Medium | Runtime image does not run pip.
       CVE-2025-8869:
         reason: "Runtime image does not invoke pip; fixed in pip >= 26.0."
-        expires: "2026-06-11"
+        expires: "2026-08-02"
       # CVE-2025-7709: libsqlite3 FTS5 vulnerability
       # Severity: Medium | FTS5 module not used.
       CVE-2025-7709:
         reason: "FTS5 module not used by application."
-        expires: "2026-06-11"
+        expires: "2026-08-02"
       # CVE-2025-68973: GnuPG key handling
       # Severity: High | GnuPG not present in runtime image.
       CVE-2025-68973:
         reason: "GnuPG not used; package absent from runtime image."
-        expires: "2026-06-11"
+        expires: "2026-08-02"
       # CVE-2025-13601: glib URI processing
       # Severity: High | No glib URI processing in code.
       CVE-2025-13601:
         reason: "Application does not process URIs via glib."
-        expires: "2026-06-11"
+        expires: "2026-08-02"
       # CVE-2025-6020: linux-pam
       # Severity: High | No PAM usage; non-root container.
       CVE-2025-6020:
         reason: "PAM not used; container runs non-root."
-        expires: "2026-06-11"
+        expires: "2026-08-02"
       # CVE-2025-7458: SQLite (Critical, no fix in Debian bookworm)
       # Severity: Critical | No SQLite bindings or imports.
       CVE-2025-7458:
         reason: "SQLite not used by application; no direct bindings."
-        expires: "2026-06-11"
+        expires: "2026-08-02"
       # CVE-2023-45853: zlib/minizip (Critical, no fix in Debian bookworm)
       # Severity: Critical | minizip not used; only zlib core compression.
       CVE-2023-45853:
         reason: "minizip not used; only zlib core compression."
-        expires: "2026-06-11"
+        expires: "2026-08-02"
   deny:
     packages: {}
     vulnerabilities:

@@ -232,9 +232,15 @@ jobs:
           # 1952eb7 / 63ae1dc; fixed in commit ae7ad84.
           pip install -e ".[api]" --upgrade "click>=8.2" "typer>=0.20"
           set +e
+          # ``--ignore`` is intentionally omitted while the audit-doc
+          # IGNORE list is empty — passing ``--ignore ""`` is ambiguous
+          # (some Safety versions treat an empty string as a single
+          # invalid vuln-id and exit non-zero before scanning).  When
+          # the first risk-accepted CVE is added to
+          # ``docs/PYTHON_DEP_CVE_AUDIT.md``, change this invocation to
+          # ``--ignore "<id1>,<id2>,..."`` with the ID(s) listed there.
           safety check \
             --policy-file .safety-policy-v2.yml \
-            --ignore "" \
             --output json > safety-report.json
           rc=$?
           # On any non-zero exit, surface each finding as a GHA

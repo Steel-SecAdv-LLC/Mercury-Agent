@@ -2,10 +2,23 @@
 
 **Audit Date:** 2026-05-02
 **Next Review:** 2026-08-02 (90 days; quarterly cadence)
-**Scope:** All Python packages installed by `pip install -e ".[ml,dev]"` against
-the `mercury-agent` editable install. Tools: `safety check` (v3.7.0) and
-`pip-audit` (v2.10.0), both run in a clean Python 3.11.15 virtual environment
-to mirror the GitHub Actions `security-scan` job environment.
+**Scope:** Python packages installed by `pip install -e ".[api]"` against the
+`mercury-agent` editable install. This is the **same install set** that the
+GitHub Actions `security-scan` job runs (Python 3.12, `actions/setup-python@v5`),
+so the local enumeration and the CI gate cover identical surfaces. Tools:
+`safety check` (v3.7.0) and `pip-audit` (v2.10.0).
+
+**Two-tier dep-CVE coverage in CI.** The Python-package-level scan above
+(Safety + pip-audit, fast) gates on `[api]` extras and base dependencies.
+The deployment-surface scan (Trivy on the built Docker image, slower) gates
+on the **full** runtime install (`mercury-agent[all]` + system packages),
+honoring `.trivyignore` for OS-level acceptances. Both must be GREEN for
+PRs to merge; together they cover the full attack surface from PyPI deps
+down to base-image OS libraries.
+
+For local reproduction with broader extras (e.g., to manually verify
+`[ml,dev]` against current Safety advisories), see the Methodology section
+below.
 
 This document is the source-of-truth rationale for the per-CVE `--ignore` /
 `--ignore-vuln` flags wired into `.github/workflows/ci.yml`. Every entry must
@@ -104,34 +117,49 @@ Debian-managed Python packages in `/usr/lib/python3/dist-packages`
 (`pip 24.0`, `wheel 0.42.0`, `setuptools 68.1.2`, `pyjwt 2.7.0`,
 `cryptography 41.0.7`, etc.) that are not removable by `pip` and that
 `safety check` reports alongside the upgraded versions in
-`/usr/local/lib/python3.11/dist-packages`. This produces noisy "findings"
+`/usr/local/lib/python3.12/dist-packages`. This produces noisy "findings"
 that do not represent the production or CI environment. The audit run is
-therefore performed in `/tmp/cve_audit_venv` created via
-`python3 -m venv`, then `pip install --upgrade "pip>=26.0"`, then the
-production install sequence — exactly matching the CI runner.
+therefore performed in `/tmp/cve_audit_venv` created via `python3.12 -m
+venv`, then `pip install --upgrade "pip>=26.0"`, then the same install
+sequence the CI `security-scan` job uses (Python 3.12 from
+`actions/setup-python@v5` + `pip install -e ".[api]"` after explicit
+`click>=8.2`/`typer>=0.20` pinning).
 
-**Reproduction:**
+**Reproduction (CI-equivalent — what the gate enforces):**
 
 ```bash
-python3 -m venv /tmp/cve_audit_venv
+python3.12 -m venv /tmp/cve_audit_venv
 /tmp/cve_audit_venv/bin/pip install --upgrade "pip>=26.0"
 /tmp/cve_audit_venv/bin/pip install bandit safety pip-audit
-/tmp/cve_audit_venv/bin/pip install -e ".[ml,dev]"
-cd /tmp  # avoid Safety auto-discovering the v3 .safety-policy.yml
-/tmp/cve_audit_venv/bin/safety check --output json > safety.json
+/tmp/cve_audit_venv/bin/pip install -e ".[api]" --upgrade \
+    "click>=8.2" "typer>=0.20"
+/tmp/cve_audit_venv/bin/safety check \
+    --policy-file .safety-policy-v2.yml \
+    --output json > safety.json
 /tmp/cve_audit_venv/bin/pip-audit --format json --output pip-audit.json
 ```
 
-`cd /tmp` is required because `safety check` auto-discovers
-`.safety-policy.yml` in the working directory and rejects the repo's v3
-file with `Legacy policy file parser only accepts versions minor than 3.0`
-(known limitation of `safety` v3.x's `check` subcommand). In CI this
-same auto-discovery would otherwise fail the job; CI sidesteps it by
-passing `--policy-file .safety-policy-v2.yml` explicitly, which is a
-no-op v2-format shim shipped at the repo root specifically to override
-the auto-discovery (see the header of `.safety-policy-v2.yml` for full
-rationale). Local audit runs use `cd /tmp` instead because `--policy-file`
-is path-relative and easier to reason about when reproducing.
+**Reproduction (broader scope — useful for local dev verification):**
+
+```bash
+# Same setup, but install [ml,dev] for a wider scan surface than CI's
+# fast Python-package gate enforces.  Findings here that do not also
+# appear in the CI scope are caught instead by the Trivy stage on the
+# built Docker image (which scans the full deployment surface).
+/tmp/cve_audit_venv/bin/pip install -e ".[ml,dev]" --upgrade \
+    "click>=8.2" "typer>=0.20"
+/tmp/cve_audit_venv/bin/safety check \
+    --policy-file .safety-policy-v2.yml \
+    --output json > safety-broad.json
+```
+
+The `--policy-file .safety-policy-v2.yml` flag overrides Safety's
+working-directory auto-discovery of `.safety-policy.yml`, which is in
+v3 format and rejected by `check`'s legacy parser with `Legacy policy
+file parser only accepts versions minor than 3.0`. Both CI and this
+reproduction use the v2 shim for the same reason. (`.safety-policy.yml`
+itself remains as the human-readable documentation of OS-level CVE
+acceptances enforced by Trivy via `.trivyignore`.)
 
 ---
 

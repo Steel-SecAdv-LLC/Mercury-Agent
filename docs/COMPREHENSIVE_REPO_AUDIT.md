@@ -282,7 +282,7 @@ the commits referenced below:
 
 | CI Step | Old line | What It Allowed Through | Status |
 |---------|----------|------------------------|--------|
-| Pydocstyle | 99 | Docstring violations | **BLOCKING** (commit `2b5e59e`-equivalent in PR #148) |
+| Pydocstyle | 99 | Docstring violations | Still advisory (`continue-on-error: true`) — codebase-wide docstring hygiene is out of scope for this PR; tracked separately |
 | Safety scan | 185 | Known CVEs in dependencies | **BLOCKING** (this PR; per-CVE ignore via `docs/PYTHON_DEP_CVE_AUDIT.md`) |
 | pip-audit | 192 | Vulnerable packages | **BLOCKING** (this PR; per-CVE ignore via `docs/PYTHON_DEP_CVE_AUDIT.md`) |
 | Semgrep | 197 | Security code issues | **BLOCKING** (PR #148) |
@@ -464,6 +464,6 @@ all hard-fail PRs on findings outside the documented accept-lists.**
 | 2026-03-11 | PRs #142, #144, #146 (cherry-picked) | Black formatting, AMA Crypto v2.0 consolidation, MyPy/monitoring fixes |
 | 2026-03-11 | `claude/improve-previous-work-k2tWf` | Items 1, 3, 5-partial, 6, 7, 10-continued |
 
-*Last updated: 2026-03-11*
+*Last updated: 2026-05-02 (PR #148 — Safety + pip-audit BLOCKING; CVE audit doc; click/typer pin)*
 
 *Remaining high-priority open items: P1-9 (pin AMA Crypto), P1-11 (coverage threshold), P1-13 (requirements.lock), P1-15 (OpenTelemetry), P2-17 (GOSNN config), P2-18 (domain policies), P2-19 (intersectional fairness), P2-22 (load tests in CI), P2-24 (3R-Resilience), P2-25 (bidirectional GOSNN-3R).*

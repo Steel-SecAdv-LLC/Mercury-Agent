@@ -760,13 +760,25 @@ class Learnable3REngine:
             raise ValueError(
                 f"fit() expected 'val_fraction' to be in the open interval (0.0, 1.0), got {val_fraction}."
             )
+        if min_delta < 0:
+            # A negative ``min_delta`` would make the early-stop check
+            # ``val_loss < best_val_loss - min_delta`` easier to satisfy
+            # than equality, which would silently treat regressions as
+            # improvements and skew best-epoch selection.
+            raise ValueError(f"fit() expected 'min_delta' >= 0, got {min_delta}.")
 
         # ---- Train / validation split ----
         rng = np.random.default_rng(seed=seed)
-        # Seed PyTorch as well when a seed is supplied — otherwise weight
-        # init, dropout masks, and any torch-side stochastic ops stay
-        # uncontrolled and tests that depend on loss trajectories become
-        # flaky despite the deterministic NumPy shuffle.
+        # Seed PyTorch as well when a seed is supplied so dropout masks,
+        # batch shuffling, and any other torch-side stochastic ops in
+        # this fit() call are deterministic.  Note this does **not**
+        # re-initialize model parameters: weights are already created in
+        # ``Learnable3REngine.__init__`` before ``fit()`` is called, so
+        # callers that want fully reproducible weight init need to seed
+        # PyTorch themselves *before* constructing the engine.  For tests,
+        # the autouse ``set_random_seed`` fixture in ``tests/conftest.py``
+        # plus an explicit ``torch.manual_seed(...)`` in the engine
+        # fixture cover that requirement.
         if seed is not None:
             torch.manual_seed(seed)
         indices = rng.permutation(n_samples)
