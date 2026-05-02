@@ -415,7 +415,7 @@ class TestLearnable3RFit:
     @pytest.fixture
     def engine(self):
         try:
-            import torch  # noqa: F401
+            import torch
         except ImportError:
             pytest.skip("PyTorch not installed")
 
@@ -424,6 +424,12 @@ class TestLearnable3RFit:
             Learnable3REngine,
         )
 
+        # Seed PyTorch in the fixture so weight init / dropout / etc. are
+        # deterministic across the training tests.  The NumPy-side `seed=`
+        # arg passed to fit() only controls shuffling; without seeding torch
+        # here, loss-trajectory assertions become flaky.
+        torch.manual_seed(42)
+
         config = Learnable3RConfig(hidden_dim=16)
         return Learnable3REngine(config=config, device="cpu")
 
@@ -431,15 +437,19 @@ class TestLearnable3RFit:
         X = np.random.randn(50, 4).astype(np.float32)
         y = np.random.randn(50).astype(np.float32)
 
-        history = engine.fit(X, y, epochs=5, batch_size=16, patience=3, seed=42)
+        history = engine.fit(X, y, epochs=5, batch_size=16, patience=5, seed=42)
 
         assert "train_losses" in history
         assert "val_losses" in history
         assert "best_epoch" in history
         assert "best_val_loss" in history
         assert "stopped_early" in history
+        # patience >= epochs disables early stopping, so the history must be
+        # exactly the requested length.  When patience < epochs the test
+        # would have to use `<=` because fit() is allowed to stop early.
         assert len(history["train_losses"]) == 5
         assert len(history["val_losses"]) == 5
+        assert len(history["train_losses"]) == len(history["val_losses"])
 
     def test_fit_loss_decreases(self, engine):
         # Generate a simple learnable pattern
@@ -453,8 +463,13 @@ class TestLearnable3RFit:
         assert history["train_losses"][0] > history["train_losses"][-1]
 
     def test_early_stopping(self, engine):
-        X = np.random.randn(50, 4).astype(np.float32)
-        y = np.random.randn(50).astype(np.float32)
+        # Random data has no learnable signal, so val_loss plateaus quickly.
+        # min_delta=0.01 ensures the patience counter actually advances once
+        # improvements become small — at min_delta=1e-10 the test was
+        # vulnerable to ever-tinier "improvements" preventing stop.
+        rng = np.random.default_rng(seed=42)
+        X = rng.standard_normal((50, 4)).astype(np.float32)
+        y = rng.standard_normal(50).astype(np.float32)
 
         history = engine.fit(
             X,
@@ -462,13 +477,15 @@ class TestLearnable3RFit:
             epochs=1000,
             batch_size=16,
             patience=3,
-            min_delta=1e-10,
+            min_delta=0.01,
             seed=42,
         )
 
-        # Should stop before 1000 epochs
+        # Should stop well before 1000 epochs and the history length must
+        # mirror the early-stop flag.
         assert len(history["train_losses"]) < 1000
         assert history["stopped_early"] is True
+        assert len(history["train_losses"]) == len(history["val_losses"])
 
     def test_best_epoch_checkpoint_restored(self, engine):
         X = np.random.randn(80, 4).astype(np.float32)

@@ -180,18 +180,26 @@ jobs:
             --severity-level medium
 
       - name: Run Safety (dependency vulnerabilities)
-        # Safety check is informational — the deprecated `safety check` command
-        # has a known bug in safety-schemas that prevents v3.0 policy files from
-        # filtering accepted CVEs.  Primary dep-vuln enforcement is via pip-audit
-        # and Trivy (Docker stage).  Results are uploaded as artifacts for review.
+        # Informational by design.  Safety v3.x's `safety check` command
+        # has a known schema-validation bug that prevents the v3 policy
+        # file format from filtering accepted CVEs (silent crash with
+        # ``--policy-file``); we still pass the file so the documented
+        # risk acceptances are at least visibly in scope, and keep the
+        # `|| true` so upstream tool failures don't block the PR.
+        # Hard enforcement of dep CVEs lives in the Trivy stage on the
+        # built Docker image (Stage 8) and the `Filesystem Security
+        # Scan` job in security.yml.  Results upload as artifacts.
         run: |
           pip install -e . || true
-          safety check --output json > safety-report.json || true
+          safety check --policy-file .safety-policy.yml \
+            --output json > safety-report.json || true
 
       - name: Run pip-audit
-        # pip-audit scans installed packages for known vulnerabilities.
-        # Informational — results uploaded as artifacts.  Hard enforcement
-        # is via Trivy on the Docker image (Stage 8).
+        # Informational by design (parity with Safety above).  pip-audit
+        # cross-checks installed packages against PyPI/OSV advisories;
+        # findings appear in the artifact and the GitHub Actions log.
+        # Hard enforcement of dep CVEs is via Trivy on the Docker image
+        # (Stage 8) and the standalone `Filesystem Security Scan` job.
         run: pip-audit --format json --output pip-audit-report.json || true
 
       - name: Run Semgrep

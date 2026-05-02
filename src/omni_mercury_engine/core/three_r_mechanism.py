@@ -2238,13 +2238,22 @@ class RefactoringTransformer(ast.NodeTransformer):
 
     Supported transformations:
 
-    - **Nesting reduction** (``reduce_nesting``): converts leading ``if cond: body``
-      blocks (with no ``else`` branch) into inverted guard clauses so the
-      happy-path is left-aligned.  All qualifying ``if`` statements in a
-      function are transformed, not just the first.
+    - **Nesting reduction** (``reduce_nesting``): converts the last qualifying
+      ``if cond: body`` block (with no ``else`` branch) at the end of the
+      function body into an inverted guard clause so the happy-path is
+      left-aligned.  Only the final qualifying ``if`` is rewritten — interior
+      ``if`` statements are left intact because injecting an early
+      ``return None`` ahead of subsequent code would change semantics.
     - **Complexity reduction** (``reduce_complexity``): extracts numeric and
       string literals used two or more times into named local variables at the
-      top of the function body and replaces subsequent occurrences.
+      top of the function body and replaces subsequent occurrences.  Only
+      executable body statements are scanned (decorators, default arguments,
+      and annotations are excluded), the ``int`` and ``float`` literal
+      namespaces are kept disjoint (``42`` and ``42.0`` hoist independently),
+      generated ``_const_<n>`` names are bumped past any pre-existing
+      identifier in the function, and functions containing ``global`` /
+      ``nonlocal`` declarations are skipped to avoid the
+      ``SyntaxError: name 'x' is assigned to before global declaration``.
     """
 
     def __init__(self, suggestions: list[dict[str, str]]) -> None:
@@ -2334,56 +2343,160 @@ class RefactoringTransformer(ast.NodeTransformer):
         Assigns each repeated literal to a ``_const_<n>`` variable inserted
         after the docstring and replaces subsequent occurrences with the
         variable name, reducing magic-number repetition.
+
+        Safety properties:
+
+        * Only executable body statements are scanned — ``args.defaults``,
+          ``args.kw_defaults``, ``decorator_list``, and annotations are never
+          touched, since those expressions are evaluated at function-definition
+          time in the enclosing scope and would raise ``NameError`` against
+          the synthesized in-body ``_const_N`` assignments.
+        * ``int`` and ``float`` constants are tracked under disjoint keys, so
+          ``42`` and ``42.0`` hoist independently and the type of each literal
+          is preserved.
+        * Hoisted names (``_const_<n>``) are renumbered past any pre-existing
+          local / argument / module-level name in the function so collisions
+          with author-written ``_const_0`` (or similar) cannot silently
+          rebind a value.
+        * Functions containing ``global`` or ``nonlocal`` declarations are
+          skipped: prepending an assignment ahead of those declarations would
+          raise ``SyntaxError: name 'x' is assigned to before global
+          declaration`` at compile time.
         """
         from collections import Counter
 
-        counts: Counter[int | float | str] = Counter()
+        # Skip functions that declare `global` or `nonlocal` at the top level —
+        # any insertion ahead of those statements is a compile-time SyntaxError.
+        for stmt in node.body:
+            if isinstance(stmt, (ast.Global, ast.Nonlocal)):
+                return node
 
         # Restrict traversal to the function body (skipping the docstring) so
-        # that constants in args.defaults / args.kw_defaults / decorator_list
-        # are never hoisted. Those are evaluated at function-definition time
-        # in the enclosing scope, but the synthesized `_const_N = ...`
-        # assignments live inside the body, which would cause a NameError.
+        # that constants in args.defaults / args.kw_defaults / decorator_list /
+        # annotations are never hoisted.
         docstring_offset = 1 if ast.get_docstring(node) else 0
         body_to_scan = node.body[docstring_offset:]
+
+        # Use (type, value) keys so int and float constants stay disjoint —
+        # Python treats `42 == 42.0` and `hash(42) == hash(42.0)`, which would
+        # otherwise silently rewrite a float literal as an int reference.
+        ConstKey = tuple[type, int | float | str]
+        counts: Counter[ConstKey] = Counter()
 
         class _ConstCollector(ast.NodeVisitor):
             def visit_Constant(self, n: ast.Constant) -> None:
                 if isinstance(n.value, (int, float, str)) and not isinstance(n.value, bool):
-                    counts[n.value] += 1
+                    counts[(type(n.value), n.value)] += 1
                 self.generic_visit(n)
+
+            # Don't descend into nested function/lambda/comprehension scopes:
+            # constants inside them belong to *those* scopes and will be
+            # hoisted (or skipped) by the recursive visit on each nested
+            # FunctionDef.  Counting them here would double-count and could
+            # hoist a literal into the wrong scope.
+            def visit_FunctionDef(self, n: ast.FunctionDef) -> None:
+                return None
+
+            def visit_AsyncFunctionDef(self, n: ast.AsyncFunctionDef) -> None:
+                return None
+
+            def visit_Lambda(self, n: ast.Lambda) -> None:
+                return None
+
+            def visit_ClassDef(self, n: ast.ClassDef) -> None:
+                return None
 
         collector = _ConstCollector()
         for stmt in body_to_scan:
             collector.visit(stmt)
 
-        # Only hoist values appearing >=2 times and not trivially simple
-        trivial: set[int | float | str] = {0, 1, -1, ""}
-        to_hoist = {v for v, c in counts.items() if c >= 2 and v not in trivial}
+        # Only hoist values appearing >=2 times and not trivially simple.  The
+        # trivial set carries both int and float forms so that, e.g., 0.0 is
+        # also considered trivial.
+        trivial: set[ConstKey] = {
+            (int, 0),
+            (int, 1),
+            (int, -1),
+            (float, 0.0),
+            (float, 1.0),
+            (float, -1.0),
+            (str, ""),
+        }
+        to_hoist = {k for k, c in counts.items() if c >= 2 and k not in trivial}
         if not to_hoist:
             return node
 
-        # Build substitution map: value -> variable name
-        # Sort by repr() to give deterministic ordering across types
-        # Values are always int | float | str (filtered in _ConstCollector)
-        sub_map: dict[int | float | str, str] = {
-            val: f"_const_{i}" for i, val in enumerate(sorted(to_hoist, key=repr))
+        # Pick a `_const_<n>` index that doesn't collide with any name that
+        # already exists in the function (parameters, locals, free variables).
+        existing_names: set[str] = set()
+        for arg in (
+            *node.args.args,
+            *node.args.posonlyargs,
+            *node.args.kwonlyargs,
+        ):
+            existing_names.add(arg.arg)
+        if node.args.vararg is not None:
+            existing_names.add(node.args.vararg.arg)
+        if node.args.kwarg is not None:
+            existing_names.add(node.args.kwarg.arg)
+
+        class _NameCollector(ast.NodeVisitor):
+            def visit_Name(self, n: ast.Name) -> None:
+                existing_names.add(n.id)
+                self.generic_visit(n)
+
+        name_collector = _NameCollector()
+        for stmt in body_to_scan:
+            name_collector.visit(stmt)
+
+        # Bump the starting index past any `_const_<digits>` already present
+        # so the new names cannot shadow author-written identifiers.
+        import re
+
+        used_indices = {
+            int(m.group(1))
+            for name in existing_names
+            if (m := re.fullmatch(r"_const_(\d+)", name)) is not None
+        }
+        base_index = max(used_indices) + 1 if used_indices else 0
+
+        # Build substitution map: (type, value) -> variable name.  Sort by
+        # repr() of the (type-name, value) pair for deterministic ordering
+        # across types and runs.
+        sub_map: dict[ConstKey, str] = {
+            key: f"_const_{base_index + i}"
+            for i, key in enumerate(sorted(to_hoist, key=lambda k: (k[0].__name__, repr(k[1]))))
         }
 
         class _ConstReplacer(ast.NodeTransformer):
             def visit_Constant(self, n: ast.Constant) -> ast.expr:
-                if n.value in sub_map:
-                    var_name = sub_map[n.value]  # type: ignore[index]  # key type narrowed by `in` check
-                    name_node = ast.Name(id=var_name, ctx=ast.Load())
+                key = (type(n.value), n.value)
+                if key in sub_map:
+                    name_node = ast.Name(id=sub_map[key], ctx=ast.Load())
                     ast.copy_location(name_node, n)
                     return name_node
+                return n
+
+            # Mirror _ConstCollector: don't rewrite literals belonging to
+            # nested scopes — those will be processed independently when
+            # their enclosing FunctionDef is visited.
+            def visit_FunctionDef(self, n: ast.FunctionDef) -> ast.AST:
+                return n
+
+            def visit_AsyncFunctionDef(self, n: ast.AsyncFunctionDef) -> ast.AST:
+                return n
+
+            def visit_Lambda(self, n: ast.Lambda) -> ast.AST:
+                return n
+
+            def visit_ClassDef(self, n: ast.ClassDef) -> ast.AST:
                 return n
 
         replacer = _ConstReplacer()
         new_body_tail: list[ast.stmt] = [replacer.visit(stmt) for stmt in body_to_scan]
 
         assignments: list[ast.stmt] = []
-        for val, var_name in sub_map.items():
+        for (_, val), var_name in sub_map.items():
             assign = ast.Assign(
                 targets=[ast.Name(id=var_name, ctx=ast.Store())],
                 value=ast.Constant(value=val),

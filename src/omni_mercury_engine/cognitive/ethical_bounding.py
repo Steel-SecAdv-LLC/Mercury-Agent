@@ -67,12 +67,22 @@ class EthicalConstraintViolationError(RuntimeError):
         action: The action that triggered the violation.
         score: The computed benevolence score.
         threshold: The minimum required benevolence score.
+        analysis_time_ms: Optional wall-clock time for the analysis run that
+            triggered the violation, captured by the orchestrator before the
+            exception was raised.  ``None`` when the raiser did not measure it.
     """
 
-    def __init__(self, action: str, score: float, threshold: float) -> None:
+    def __init__(
+        self,
+        action: str,
+        score: float,
+        threshold: float,
+        analysis_time_ms: float | None = None,
+    ) -> None:
         self.action = action
         self.score = score
         self.threshold = threshold
+        self.analysis_time_ms = analysis_time_ms
         super().__init__(
             f"Ethical constraint violated for action '{action}': "
             f"benevolence_score={score:.4f} < threshold={threshold:.4f}. "
@@ -682,16 +692,13 @@ class BenevolenceScorer:
         Args:
             benevolence_threshold: Minimum score for action approval.  Must be
                 at or above ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70).  Values below
-                this absolute floor are clamped with a warning.
+                this absolute floor are clamped with a warning, and any later
+                assignment to :attr:`benevolence_threshold` is also clamped
+                via the property setter — the floor cannot be lowered after
+                construction.
         """
-        if benevolence_threshold < MINIMUM_BENEVOLENCE_FLOOR:
-            logger.warning(
-                "benevolence_threshold=%.4f is below the absolute minimum "
-                "floor of %.4f — clamping to floor.",
-                benevolence_threshold,
-                MINIMUM_BENEVOLENCE_FLOOR,
-            )
-            benevolence_threshold = MINIMUM_BENEVOLENCE_FLOOR
+        # Use the property setter so the floor is enforced consistently
+        # whether the value is set in __init__ or reassigned later.
         self.benevolence_threshold = benevolence_threshold
 
         self.harm_reducer = HarmReducer()
@@ -706,6 +713,31 @@ class BenevolenceScorer:
         self.audit_history: list[AlignmentAudit] = []
 
         logger.info(f"BenevolenceScorer initialized with threshold {benevolence_threshold}")
+
+    @property
+    def benevolence_threshold(self) -> float:
+        """Approval threshold, always at or above ``MINIMUM_BENEVOLENCE_FLOOR``."""
+        return self._benevolence_threshold
+
+    @benevolence_threshold.setter
+    def benevolence_threshold(self, value: float) -> None:
+        """Clamp every assignment to the absolute floor.
+
+        Storing the threshold as a property instead of a plain attribute
+        ensures the ``MINIMUM_BENEVOLENCE_FLOOR`` guarantee survives later
+        mutation (``scorer.benevolence_threshold = 0.0`` no longer bypasses
+        the gate — the assignment is silently raised to the floor with a
+        warning).
+        """
+        if value < MINIMUM_BENEVOLENCE_FLOOR:
+            logger.warning(
+                "benevolence_threshold=%.4f is below the absolute minimum "
+                "floor of %.4f — clamping to floor.",
+                value,
+                MINIMUM_BENEVOLENCE_FLOOR,
+            )
+            value = MINIMUM_BENEVOLENCE_FLOOR
+        self._benevolence_threshold = value
 
     def score_action(
         self,

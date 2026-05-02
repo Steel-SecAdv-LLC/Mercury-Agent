@@ -118,6 +118,29 @@ class CognitiveAnalysisResult:
         }
 
 
+# Whitelist of caller-supplied ``context["domain"]`` values that are safe to
+# interpolate into the benevolence-scoring action description.  Any domain
+# label outside this set is replaced with ``"general"`` before scoring so a
+# hostile or malformed value (e.g. ``"damage_control"``,
+# ``"exposure_control"``) cannot inject harm-keyword substrings into the
+# action and trip a false ``EthicalConstraintViolationError``.  Mirrors the
+# domains exposed by :class:`~omni_mercury_engine.cognitive.ipb_engine.EnvironmentDomain`.
+_SAFE_DOMAIN_LABELS: frozenset[str] = frozenset(
+    {
+        "general",
+        "cyber",
+        "physical",
+        "cognitive",
+        "financial",
+        "social",
+        "infrastructure",
+        "medical",
+        "environmental",
+        "space",
+    }
+)
+
+
 class CognitiveOrchestrator(LoggerMixin):
     """
     Unified Cognitive Layer for Mercury-Agent.
@@ -451,19 +474,22 @@ class CognitiveOrchestrator(LoggerMixin):
 
         # === ETHICAL GATE — mandatory benevolence check ===
         # Score on a controlled action description that reflects the
-        # orchestrator's inherent safety posture.  We intentionally do
-        # NOT pass caller-supplied ``context`` to the scorer to prevent
-        # arbitrary text from injecting harm keywords and causing false
-        # ethical rejections of legitimate analysis operations.
-        domain_label = context.get("domain", "general")
+        # orchestrator's inherent safety posture.  Caller-supplied
+        # ``context`` is NOT passed to the scorer — arbitrary text
+        # could inject harm keywords ("damage", "control", "track",
+        # "expose", …) and trip a false EthicalConstraintViolationError.
+        # The domain label is whitelisted so a hostile / typo'd value
+        # like "damage_control" cannot reach the scorer either.
+        raw_domain = context.get("domain", "general")
+        safe_domain = raw_domain if raw_domain in _SAFE_DOMAIN_LABELS else "general"
         action_desc = (
-            f"cognitive_analysis:{domain_label}:severity={severity:.2f}:"
+            f"cognitive_analysis:{safe_domain}:severity={severity:.2f}:"
             "audit monitor verify data research evidence fair oversight"
         )
         ethical_context = {
             "purpose": "anomaly detection analysis with audit oversight",
             "safety": "care help support review protect",
-            "domain": domain_label,
+            "domain": safe_domain,
         }
         ethical_result = self._benevolence_scorer.score_action(
             action_desc,
@@ -473,7 +499,10 @@ class CognitiveOrchestrator(LoggerMixin):
         result.ethical_permissible = ethical_result.is_permissible
 
         if self.strict_ethics and not ethical_result.is_permissible:
-            # Record timing before raising so callers can inspect it
+            # Record timing on the local result before raising so the
+            # measurement is captured in any logging path that handles
+            # the partial result; the timing is also surfaced on the
+            # exception via ``analysis_time_ms`` for caller inspection.
             result.analysis_time_ms = (time.time() - start_time) * 1000
             from omni_mercury_engine.cognitive.ethical_bounding import (
                 EthicalConstraintViolationError,
@@ -483,6 +512,7 @@ class CognitiveOrchestrator(LoggerMixin):
                 action=action_desc,
                 score=ethical_result.benevolence_score,
                 threshold=self._benevolence_scorer.benevolence_threshold,
+                analysis_time_ms=result.analysis_time_ms,
             )
 
         result.analysis_time_ms = (time.time() - start_time) * 1000

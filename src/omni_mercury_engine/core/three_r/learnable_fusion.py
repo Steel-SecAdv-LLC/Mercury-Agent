@@ -732,6 +732,12 @@ class Learnable3REngine:
 
         # ---- Train / validation split ----
         rng = np.random.default_rng(seed=seed)
+        # Seed PyTorch as well when a seed is supplied — otherwise weight
+        # init, dropout masks, and any torch-side stochastic ops stay
+        # uncontrolled and tests that depend on loss trajectories become
+        # flaky despite the deterministic NumPy shuffle.
+        if seed is not None:
+            torch.manual_seed(seed)
         indices = rng.permutation(n_samples)
         n_val = max(1, min(n_samples - 1, int(n_samples * val_fraction)))
         n_train = n_samples - n_val
@@ -772,6 +778,14 @@ class Learnable3REngine:
 
             for start in range(0, n_train, batch_size):
                 end = min(start + batch_size, n_train)
+                # OptimizationScorer contains BatchNorm1d, which raises
+                # ValueError("Expected more than 1 value per channel") in
+                # training mode on a batch of one.  Skip the trailing
+                # size-1 mini-batch instead of crashing — losing one sample
+                # per epoch is preferable to aborting training when
+                # n_train % batch_size == 1.
+                if end - start < 2:
+                    continue
                 X_batch = torch.tensor(
                     X_train_shuffled[start:end],
                     dtype=torch.float32,
