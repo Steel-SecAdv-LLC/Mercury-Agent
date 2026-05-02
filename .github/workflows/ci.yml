@@ -219,10 +219,22 @@ jobs:
         # via the policy file.
         run: |
           pip install -e ".[api]"
+          set +e
           safety check \
             --policy-file .safety-policy-v2.yml \
             --ignore "" \
             --output json > safety-report.json
+          rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::group::Safety report (exit=$rc)"
+            cat safety-report.json
+            echo "::endgroup::"
+            echo "::group::Safety vulnerabilities (jq summary)"
+            jq -r '.vulnerabilities[]? | "\(.package_name) \(.analyzed_version) — \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
+              | sort -u || true
+            echo "::endgroup::"
+          fi
+          exit "$rc"
 
       - name: Run pip-audit (PyPI/OSV advisories — BLOCKING)
         # Hard-blocking, parity with Safety above.  Risk-accepted CVEs
