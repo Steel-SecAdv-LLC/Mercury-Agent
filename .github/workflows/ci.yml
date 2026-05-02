@@ -179,28 +179,39 @@ jobs:
             -o bandit-report.json \
             --severity-level medium
 
-      - name: Run Safety (dependency vulnerabilities)
-        # Informational by design.  Safety v3.x's `safety check` command
-        # has a known schema-validation bug that prevents the v3 policy
-        # file format from filtering accepted CVEs (silent crash with
-        # ``--policy-file``); we still pass the file so the documented
-        # risk acceptances are at least visibly in scope, and keep the
-        # `|| true` so upstream tool failures don't block the PR.
+      - name: Run Safety (informational — dependency vulnerabilities)
+        # Informational by design.  Safety v3.x's ``safety check``
+        # command has a known schema-validation bug that prevents the
+        # v3 policy file format from filtering accepted CVEs (silent
+        # crash with ``--policy-file``); we still pass the file so the
+        # documented risk acceptances are at least visibly in scope.
+        #
+        # ``continue-on-error: true`` (NOT ``|| true``) is used so that
+        # findings surface as a red ❌ in the GitHub Actions UI rather
+        # than as a green ✓ that hides regressions — the workflow keeps
+        # going so the PR is not blocked, but the failure is visible to
+        # maintainers and the JSON artifact below carries the details.
+        #
         # Hard enforcement of dep CVEs lives in the Trivy stage on the
-        # built Docker image (Stage 8) and the `Filesystem Security
-        # Scan` job in security.yml.  Results upload as artifacts.
+        # built Docker image (Stage 8) and in the standalone
+        # ``Filesystem Security Scan (Trivy)`` job in security.yml.
+        continue-on-error: true
         run: |
-          pip install -e . || true
+          pip install -e .
           safety check --policy-file .safety-policy.yml \
-            --output json > safety-report.json || true
+            --output json > safety-report.json
 
-      - name: Run pip-audit
+      - name: Run pip-audit (informational — PyPI/OSV advisories)
         # Informational by design (parity with Safety above).  pip-audit
         # cross-checks installed packages against PyPI/OSV advisories;
-        # findings appear in the artifact and the GitHub Actions log.
-        # Hard enforcement of dep CVEs is via Trivy on the Docker image
-        # (Stage 8) and the standalone `Filesystem Security Scan` job.
-        run: pip-audit --format json --output pip-audit-report.json || true
+        # findings appear in the artifact, the GitHub Actions log, and
+        # — via ``continue-on-error: true`` — as a red ❌ on the job
+        # summary so vulnerability regressions cannot silently slip in
+        # under a green check.  Hard enforcement of dep CVEs is via
+        # Trivy on the Docker image (Stage 8) and the standalone
+        # ``Filesystem Security Scan (Trivy)`` job.
+        continue-on-error: true
+        run: pip-audit --format json --output pip-audit-report.json
 
       - name: Run Semgrep
         # Semgrep security scan — fails CI on detected issues.

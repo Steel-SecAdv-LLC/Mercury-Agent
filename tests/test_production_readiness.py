@@ -514,9 +514,19 @@ class TestLearnable3RFit:
         )
 
         # Seed PyTorch in the fixture so weight init / dropout / etc. are
-        # deterministic across the training tests.  The NumPy-side `seed=`
-        # arg passed to fit() only controls shuffling; without seeding torch
-        # here, loss-trajectory assertions become flaky.
+        # deterministic across the training tests.  The NumPy-side
+        # ``seed=`` argument passed to ``fit()`` only controls shuffling
+        # of the train/val split; PyTorch tensor allocation, parameter
+        # initialization, and (when configured) dropout draws all consume
+        # the torch RNG.  Without seeding torch here, loss-trajectory
+        # assertions in tests below would be flaky across machines and
+        # PyTorch versions.
+        #
+        # NOTE: ``tests/conftest.py::set_random_seed`` is autouse and
+        # also seeds torch with ``DEFAULT_TEST_SEED = 42`` before each
+        # test runs.  We re-seed inside this fixture defensively so the
+        # contract is local to this test class and survives any future
+        # change to the global fixture order.
         torch.manual_seed(42)
 
         config = Learnable3RConfig(hidden_dim=16)
@@ -526,19 +536,34 @@ class TestLearnable3RFit:
         X = np.random.randn(50, 4).astype(np.float32)
         y = np.random.randn(50).astype(np.float32)
 
-        history = engine.fit(X, y, epochs=5, batch_size=16, patience=5, seed=42)
+        # ``patience`` is set to ``epochs * 2`` so that early stopping is
+        # structurally impossible for this test — the patience counter
+        # cannot reach the patience threshold within ``epochs`` epochs.
+        # This lets us assert the exact history length deterministically.
+        # If a future maintainer lowers ``patience`` below ``epochs``, the
+        # universal upper-bound assertion (``<= epochs``) below still
+        # holds, and the equality assertion would surface the change as a
+        # clear test failure rather than as silent flakiness.
+        epochs = 5
+        history = engine.fit(X, y, epochs=epochs, batch_size=16, patience=epochs * 2, seed=42)
 
         assert "train_losses" in history
         assert "val_losses" in history
         assert "best_epoch" in history
         assert "best_val_loss" in history
         assert "stopped_early" in history
-        # patience >= epochs disables early stopping, so the history must be
-        # exactly the requested length.  When patience < epochs the test
-        # would have to use `<=` because fit() is allowed to stop early.
-        assert len(history["train_losses"]) == 5
-        assert len(history["val_losses"]) == 5
+        # Universal contract: ``fit()`` never produces more entries than
+        # ``epochs``.  This assertion remains correct regardless of
+        # patience configuration.
+        assert len(history["train_losses"]) <= epochs
+        assert len(history["val_losses"]) <= epochs
+        # Stronger contract under ``patience >= epochs``: history is
+        # exactly ``epochs`` entries long because early stop cannot fire.
+        assert len(history["train_losses"]) == epochs
+        assert len(history["val_losses"]) == epochs
         assert len(history["train_losses"]) == len(history["val_losses"])
+        # And ``stopped_early`` must reflect that.
+        assert history["stopped_early"] is False
 
     def test_fit_loss_decreases(self, engine):
         # Generate a simple learnable pattern
