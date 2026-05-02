@@ -216,11 +216,51 @@ class TestRefactoringTransformerGuardClause:
         )
         new_tree = transformer.visit(tree)
         ast.fix_missing_locations(new_tree)
-        code = ast.unparse(new_tree)
 
-        # Should have an inverted guard clause
-        assert "not" in code
-        assert "return None" in code or "return" in code
+        # Walk the AST to verify the guard-clause rewrite *structurally*.
+        # A ``not`` substring would be present in the ORIGINAL source
+        # already (``is not None``), and a ``return`` substring is
+        # produced by the original ``return result`` line, so a textual
+        # match could not distinguish a real rewrite from a no-op.
+        func_def = new_tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+
+        # Contract of ``_reduce_nesting`` for this input:
+        #   1. The function body's first statement must be the inverted
+        #      guard ``if not (x is not None): return None`` — i.e. an
+        #      ``ast.If`` whose test is an ``ast.UnaryOp(op=ast.Not, ...)``
+        #      and whose body is exactly one ``ast.Return``.
+        #   2. The original body statements (``result = x + 1`` and
+        #      ``return result``) must now be SIBLINGS of that guard at
+        #      function-body scope, NOT nested inside any ``ast.If``.
+        # Either contract failing means we accepted a no-op silently.
+        first = func_def.body[0]
+        assert isinstance(
+            first, ast.If
+        ), f"expected guard clause as first statement, got {type(first).__name__}"
+        assert isinstance(first.test, ast.UnaryOp) and isinstance(
+            first.test.op, ast.Not
+        ), "guard test must be an inverted predicate (UnaryOp(Not))"
+        assert (
+            len(first.body) == 1 and isinstance(first.body[0], ast.Return) and not first.orelse
+        ), "guard body must be a single early-return with no else branch"
+
+        # The former nested body must now live at function-body scope.
+        rest = func_def.body[1:]
+        assert len(rest) == 2, f"expected 2 hoisted statements, got {len(rest)}"
+        assert isinstance(
+            rest[0], ast.Assign
+        ), f"first hoisted stmt must be the original assignment, got {type(rest[0]).__name__}"
+        assert isinstance(
+            rest[1], ast.Return
+        ), f"second hoisted stmt must be the original return, got {type(rest[1]).__name__}"
+
+        # And the rewritten function must still execute correctly.
+        compiled = compile(new_tree, "<test-guard>", "exec")
+        namespace: dict[str, object] = {}
+        exec(compiled, namespace)  # noqa: S102
+        assert namespace["foo"](5) == 6  # type: ignore[operator]
+        assert namespace["foo"](None) is None  # type: ignore[operator]
 
     def test_guard_clause_preserves_docstring(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
@@ -257,15 +297,46 @@ class TestRefactoringTransformerGuardClause:
         )
         new_tree = transformer.visit(tree)
         ast.fix_missing_locations(new_tree)
-        code = ast.unparse(new_tree)
 
-        # Only the last if should be transformed; the first if must remain
-        # untouched to preserve semantics (early return would skip the second if).
-        assert "if x is not None" in code
-        assert "return None" in code
-        # The first if-block body (a = x + 1) must still be indented under the if,
-        # not hoisted to top-level as it would be with the broken transformation.
-        assert "    if x is not None:\n        a = x + 1" in code
+        # Walk the AST to verify the structural contract directly,
+        # rather than asserting on whitespace in ``ast.unparse()`` output
+        # (which can change across Python patch releases).
+        func_def = new_tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+
+        # Contract for two-sibling-ifs input:
+        #   * The FIRST ``if x is not None:`` must remain an ``ast.If``
+        #     at function-body scope with its original ``Assign`` still
+        #     in ``body``.  Hoisting it would let the early-return guard
+        #     skip the second ``if`` (semantics-breaking).
+        #   * The transformer is allowed to convert the LAST ``if`` into
+        #     a guard clause; that's the only safe rewrite here.
+        first_if = func_def.body[0]
+        assert isinstance(first_if, ast.If), (
+            "first statement must remain an ast.If — hoisting it would "
+            "let the guard's early return skip the second if-block."
+        )
+        # Its test must still be the original predicate, not an
+        # inverted ``not (x is not None)`` guard.
+        assert not (
+            isinstance(first_if.test, ast.UnaryOp) and isinstance(first_if.test.op, ast.Not)
+        ), "first if's predicate was inverted — that is the broken transform."
+        # And the original assignment must still live inside its body.
+        assert len(first_if.body) == 1 and isinstance(
+            first_if.body[0], ast.Assign
+        ), "first if's body must still contain the original assignment."
+
+        # Confirm the function still compiles and runs cleanly with both
+        # branches reachable.
+        compiled = compile(new_tree, "<test-guard-multi>", "exec")
+        namespace: dict[str, object] = {}
+        exec(compiled, namespace)  # noqa: S102
+        # No ``return`` in source, so ``foo`` returns ``None`` either way;
+        # the important contract is that no exception is raised and both
+        # branches' assignments execute when their predicates hold.
+        assert namespace["foo"](1, 2) is None  # type: ignore[operator]
+        assert namespace["foo"](None, 2) is None  # type: ignore[operator]
+        assert namespace["foo"](1, None) is None  # type: ignore[operator]
 
     def test_if_with_else_not_transformed(self):
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer

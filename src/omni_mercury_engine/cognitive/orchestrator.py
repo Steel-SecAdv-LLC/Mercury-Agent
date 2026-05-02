@@ -120,24 +120,22 @@ class CognitiveAnalysisResult:
 
 # Whitelist of caller-supplied ``context["domain"]`` values that are safe to
 # interpolate into the benevolence-scoring action description.  Any domain
-# label outside this set is replaced with ``"general"`` before scoring so a
-# hostile or malformed value (e.g. ``"damage_control"``,
+# label outside this set is replaced with the ``_DEFAULT_DOMAIN`` sentinel
+# before scoring so a hostile or malformed value (e.g. ``"damage_control"``,
 # ``"exposure_control"``) cannot inject harm-keyword substrings into the
-# action and trip a false ``EthicalConstraintViolationError``.  Mirrors the
-# domains exposed by :class:`~omni_mercury_engine.cognitive.ipb_engine.EnvironmentDomain`.
+# action and trip a false ``EthicalConstraintViolationError``.
+#
+# The base set is derived programmatically from
+# :class:`~omni_mercury_engine.cognitive.ipb_engine.EnvironmentDomain`
+# so a new domain added to the enum is automatically permitted here
+# without having to edit two files.  We then add the explicit
+# ``_DEFAULT_DOMAIN = "general"`` sentinel — this is the value used when
+# the caller did not supply a domain or supplied an unsafe one, and it
+# is intentionally **not** a member of ``EnvironmentDomain`` (it is
+# orchestrator-internal).
+_DEFAULT_DOMAIN: str = "general"
 _SAFE_DOMAIN_LABELS: frozenset[str] = frozenset(
-    {
-        "general",
-        "cyber",
-        "physical",
-        "cognitive",
-        "financial",
-        "social",
-        "infrastructure",
-        "medical",
-        "environmental",
-        "space",
-    }
+    {member.value for member in EnvironmentDomain} | {_DEFAULT_DOMAIN}
 )
 
 
@@ -480,7 +478,7 @@ class CognitiveOrchestrator(LoggerMixin):
         # "expose", …) and trip a false EthicalConstraintViolationError.
         # The domain label is whitelisted so a hostile / typo'd value
         # like "damage_control" cannot reach the scorer either.
-        raw_domain = context.get("domain", "general")
+        raw_domain = context.get("domain", _DEFAULT_DOMAIN)
         # Normalize first: caller-supplied ``raw_domain`` could be any type
         # (an unhashable ``dict`` / ``list`` would raise ``TypeError`` from
         # the ``in`` membership test below; an ``EnvironmentDomain`` enum
@@ -490,7 +488,7 @@ class CognitiveOrchestrator(LoggerMixin):
         safe_domain = (
             raw_domain
             if isinstance(raw_domain, str) and raw_domain in _SAFE_DOMAIN_LABELS
-            else "general"
+            else _DEFAULT_DOMAIN
         )
         action_desc = (
             f"cognitive_analysis:{safe_domain}:severity={severity:.2f}:"
