@@ -253,8 +253,12 @@ jobs:
           if [ "$rc" -ne 0 ] && [ -n "$GITHUB_TOKEN" ] && [ -n "$PR_NUMBER" ]; then
             summary=$(jq -r '.vulnerabilities[]? | "- \(.package_name) \(.analyzed_version) — vuln-id \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
               | sort -u || true)
-            body=$(printf '<!-- safety-diag -->\n## Safety BLOCKING failure (exit=%s) on commit %s\n\n%s\n\n_Posted by ci.yml diagnostic step._' \
-              "$rc" "${GITHUB_SHA:0:7}" "$summary")
+            file_size=$(wc -c < safety-report.json 2>/dev/null || echo "?")
+            json_keys=$(jq -r 'keys | join(",")' safety-report.json 2>/dev/null || echo "json-parse-failed")
+            head_dump=$(head -c 4000 safety-report.json | base64 -w0 2>/dev/null || echo "base64-failed")
+            tail_dump=$(tail -c 2000 safety-report.json | base64 -w0 2>/dev/null || echo "base64-failed")
+            body=$(printf '<!-- safety-diag -->\n## Safety BLOCKING failure (exit=%s) on commit %s\n\n**File size:** %s bytes\n**JSON top-level keys:** `%s`\n**Vuln summary (jq):**\n%s\n\n**Head 4000 bytes (base64):**\n```\n%s\n```\n**Tail 2000 bytes (base64):**\n```\n%s\n```\n\n_Posted by ci.yml diagnostic step._' \
+              "$rc" "${GITHUB_SHA:0:7}" "$file_size" "$json_keys" "$summary" "$head_dump" "$tail_dump")
             curl -sS -X POST \
               -H "Authorization: token $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github+json" \
