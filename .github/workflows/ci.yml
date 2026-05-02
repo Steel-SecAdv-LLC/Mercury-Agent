@@ -153,6 +153,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: github.event.inputs.run_security_scan != 'false'
+    # pull-requests: write enables the diagnostic curl in the Safety
+    # step to post the vulnerability list as a PR comment when the
+    # gate fails.  contents: read keeps checkout permission unchanged.
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout code
