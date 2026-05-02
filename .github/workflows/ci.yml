@@ -224,19 +224,25 @@ jobs:
         # CVEs are configured via the ``--ignore`` flag below, not
         # via the policy file.
         run: |
-          pip install -e ".[api]"
+          # Install Mercury's [api] extras (which bring in pyjwt — needed
+          # to cover CVE-2026-32597 in the safety scan).  Also re-pin
+          # ``click>=8.2`` and ``typer>=0.20`` because the GHA hosted
+          # Python runner ships an older ``typer`` whose ``__types.py``
+          # uses ``click.Choice[ParamTypeValue]`` (PEP 695 generic
+          # subscripting added in click 8.2).  Without this re-pin the
+          # ``pip install -e ".[api]"`` resolver downgrades click to a
+          # version that breaks typer's import, and ``safety check``
+          # crashes with ``TypeError: type 'Choice' is not subscriptable``
+          # (zero-byte safety-report.json) before any vulnerability
+          # scanning happens — which would falsely pass for the wrong
+          # reason if continue-on-error were re-enabled.
+          pip install -e ".[api]" --upgrade "click>=8.2" "typer>=0.20"
           set +e
-          # Capture both stdout (JSON report) and stderr (error msgs)
-          # separately so we can diagnose why the file ends up 0 bytes.
           safety check \
             --policy-file .safety-policy-v2.yml \
             --ignore "" \
             --output json > safety-report.json 2> safety-stderr.log
           rc=$?
-          ls -la safety-report.json safety-stderr.log .safety-policy-v2.yml 2>&1 || true
-          echo "::group::safety-stderr.log"
-          cat safety-stderr.log || true
-          echo "::endgroup::"
           # Surface findings as ::error:: annotations so they appear in
           # the GitHub Checks API (visible without log access).
           jq -r '.vulnerabilities[]? | "::error title=Safety dep CVE::\(.package_name) \(.analyzed_version) — vuln-id \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
