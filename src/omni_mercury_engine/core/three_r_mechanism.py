@@ -2414,6 +2414,27 @@ class RefactoringTransformer(ast.NodeTransformer):
             def visit_ClassDef(self, n: ast.ClassDef) -> None:
                 return None
 
+            # ``ast.JoinedStr.values`` is restricted by the AST grammar to
+            # ``Constant`` / ``FormattedValue`` only — a direct ``Name``
+            # child there is not a legal AST and ``compile()`` will reject
+            # the result.  Skip the whole JoinedStr (including any
+            # ``FormattedValue`` expressions inside) so the collector and
+            # the replacer agree: we only consider literals that live in
+            # contexts where ``Name`` substitution is valid.
+            def visit_JoinedStr(self, n: ast.JoinedStr) -> None:
+                return None
+
+            # ``match_case.pattern`` (specifically ``MatchValue.value``)
+            # requires a literal-bearing expression; replacing it with an
+            # ``ast.Name`` either produces invalid AST or — worse —
+            # silently turns the match value into a ``MatchAs`` capture
+            # pattern that binds the name and matches anything.  Skip
+            # ``Match`` entirely (including case bodies and guards) so we
+            # never attempt the unsafe rewrite, mirrored in the replacer
+            # below.
+            def visit_Match(self, n: ast.Match) -> None:
+                return None
+
         collector = _ConstCollector()
         for stmt in body_to_scan:
             collector.visit(stmt)
@@ -2500,8 +2521,44 @@ class RefactoringTransformer(ast.NodeTransformer):
             def visit_ClassDef(self, n: ast.ClassDef) -> ast.AST:
                 return n
 
+            # f-strings: ``ast.JoinedStr.values`` only legally contains
+            # ``Constant`` and ``FormattedValue`` nodes.  Returning an
+            # ``ast.Name`` here would produce an AST that ``compile()``
+            # rejects.  Leave the whole JoinedStr intact (matched by the
+            # collector's skip so we don't generate dead ``_const_<n>``
+            # assignments either).
+            def visit_JoinedStr(self, n: ast.JoinedStr) -> ast.AST:
+                return n
+
+            # ``match`` statements: ``MatchValue.value`` requires a
+            # literal-bearing expression.  Substituting an ``ast.Name``
+            # would either fail to compile or — much worse — silently
+            # convert the match arm into a ``MatchAs`` capture that
+            # rebinds the name and matches anything.  Skip the entire
+            # ``Match`` (parity with the collector) so neither the
+            # subject, the patterns, the guards, nor the case bodies are
+            # rewritten — partial rewrites would still leave the unsafe
+            # pattern in place.
+            def visit_Match(self, n: ast.Match) -> ast.AST:
+                return n
+
         replacer = _ConstReplacer()
-        new_body_tail: list[ast.stmt] = [replacer.visit(stmt) for stmt in body_to_scan]
+        # ``NodeTransformer.visit`` is typed as ``ast.AST | None`` (and
+        # may even return a ``list`` for some node types), so a list-comp
+        # with ``list[ast.stmt]`` annotation lies to mypy and would mask
+        # an unexpected return shape.  Use an explicit loop with an
+        # ``isinstance`` guard so any future regression in a transformer
+        # method surfaces as a clear ``AssertionError`` here rather than
+        # propagating a malformed AST into ``compile()``.
+        new_body_tail: list[ast.stmt] = []
+        for stmt in body_to_scan:
+            new_stmt = replacer.visit(stmt)
+            if not isinstance(new_stmt, ast.stmt):
+                raise AssertionError(
+                    f"_ConstReplacer.visit returned {type(new_stmt).__name__} "
+                    "for a statement; expected an ast.stmt subclass."
+                )
+            new_body_tail.append(new_stmt)
 
         assignments: list[ast.stmt] = []
         for (_, val), var_name in sub_map.items():

@@ -409,6 +409,89 @@ class TestRefactoringTransformerConstantHoisting:
         assert namespace["foo"]() == 84  # type: ignore[operator]
         assert namespace["foo"](100) == 142  # type: ignore[operator]
 
+    def test_does_not_rewrite_inside_fstring(self):
+        """Regression: ``ast.JoinedStr.values`` must contain only ``Constant``/
+        ``FormattedValue`` children — replacing a ``Constant`` direct child
+        with an ``ast.Name`` produces an AST that ``compile()`` rejects.
+        The hoister must skip f-strings entirely so the output always
+        compiles cleanly.
+        """
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
+
+        source = textwrap.dedent("""\
+            def foo():
+                a = f"prefix-greeting"
+                b = f"suffix-greeting"
+                c = "greeting"
+                d = "greeting"
+                return (a, b, c, d)
+        """)
+        tree = ast.parse(source)
+        transformer = RefactoringTransformer(
+            [{"type": "reduce_complexity"}],
+        )
+        new_tree = transformer.visit(tree)
+        ast.fix_missing_locations(new_tree)
+
+        # Output MUST still compile.
+        compiled = compile(new_tree, "<test-fstring>", "exec")
+        namespace: dict[str, object] = {}
+        exec(compiled, namespace)  # noqa: S102
+        assert namespace["foo"]() == (  # type: ignore[operator]
+            "prefix-greeting",
+            "suffix-greeting",
+            "greeting",
+            "greeting",
+        )
+
+    def test_does_not_rewrite_inside_match_pattern(self):
+        """Regression: ``MatchValue.value`` must remain literal-bearing —
+        replacing it with an ``ast.Name`` either fails to compile or
+        silently turns the case arm into a ``MatchAs`` capture pattern
+        that matches anything.  The hoister must skip ``ast.Match``
+        entirely.
+        """
+        from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
+
+        source = textwrap.dedent("""\
+            def classify(x):
+                a = 42
+                b = 42
+                match x:
+                    case 42:
+                        return ("answer", a + b)
+                    case 100:
+                        return ("century", a + b)
+                    case _:
+                        return ("other", a + b)
+        """)
+        tree = ast.parse(source)
+        transformer = RefactoringTransformer(
+            [{"type": "reduce_complexity"}],
+        )
+        new_tree = transformer.visit(tree)
+        ast.fix_missing_locations(new_tree)
+
+        # The match arms' literal patterns MUST still be ``MatchValue``
+        # with a ``Constant`` value (not a ``Name``), otherwise the
+        # arm has been silently re-interpreted as a capture pattern.
+        func_def = new_tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+        match_stmt = next(s for s in func_def.body if isinstance(s, ast.Match))
+        for case in match_stmt.cases:
+            if isinstance(case.pattern, ast.MatchValue):
+                assert isinstance(
+                    case.pattern.value, ast.Constant
+                ), "match value pattern was rewritten — would silently change semantics."
+
+        # Output must compile and dispatch on the integer 42 (not bind).
+        compiled = compile(new_tree, "<test-match>", "exec")
+        namespace: dict[str, object] = {}
+        exec(compiled, namespace)  # noqa: S102
+        assert namespace["classify"](42) == ("answer", 84)  # type: ignore[operator]
+        assert namespace["classify"](100) == ("century", 84)  # type: ignore[operator]
+        assert namespace["classify"](7) == ("other", 84)  # type: ignore[operator]
+
 
 # ============================================================================
 # Learnable3R.fit() tests
