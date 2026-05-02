@@ -135,6 +135,25 @@ is path-relative and easier to reason about when reproducing.
 
 ---
 
+## Provenance — superseded branches
+
+The `claude/mercury-agent-status-checks-0006S` branch (commits
+`8dc87e7`, `299704c`, `8b58a53`, `2b5e59e`) represented earlier
+attempts at the same goals as PR #148. Their disposition:
+
+| Commit | Subject | Disposition on this PR |
+|--------|---------|----------------------|
+| `8dc87e7` | Add Neuro-Symbolic Tests CI gate | **Subsumed** by `d27726f` |
+| `299704c` | Restore ci.yml with Neuro-Symbolic Tests gate | **Subsumed** by `d27726f` |
+| `8b58a53` | Make Safety, pip-audit, Semgrep, and Ethics Audit blocking | **Substantively subsumed** by `50c4b12` + `9f735bc` + `ae7ad84` (this PR delivers the same blocking posture for Safety + pip-audit, plus the policy-file shim and the click/typer pin that the original commit lacked) |
+| `2b5e59e` | Harden remaining continue-on-error escape hatches across CI | **Substantively subsumed** by `50c4b12` + `9f735bc` + `ae7ad84`; the audit doc and ci.yml comments document the full hardening posture |
+
+`claude/continue-optimization-work-j2Tx7` was deleted from the remote
+before this audit; no commit-level disposition is possible. Nothing
+substantive from that branch is referenced by the open PR set.
+
+---
+
 ## Re-review schedule
 
 The next audit is due **2026-08-02**. The PR template's Security checklist

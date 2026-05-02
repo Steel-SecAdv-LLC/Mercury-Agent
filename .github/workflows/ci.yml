@@ -153,12 +153,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: github.event.inputs.run_security_scan != 'false'
-    # pull-requests: write enables the diagnostic curl in the Safety
-    # step to post the vulnerability list as a PR comment when the
-    # gate fails.  contents: read keeps checkout permission unchanged.
-    permissions:
-      contents: read
-      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -233,21 +227,21 @@ jobs:
           # ``pip install -e ".[api]"`` resolver downgrades click to a
           # version that breaks typer's import, and ``safety check``
           # crashes with ``TypeError: type 'Choice' is not subscriptable``
-          # (zero-byte safety-report.json) before any vulnerability
-          # scanning happens — which would falsely pass for the wrong
-          # reason if continue-on-error were re-enabled.
+          # before any vulnerability scanning happens.  Diagnosed via
+          # the diagnostic curl posts on PR #148 commits 6cc4bbd /
+          # 1952eb7 / 63ae1dc; fixed in commit ae7ad84.
           pip install -e ".[api]" --upgrade "click>=8.2" "typer>=0.20"
           set +e
           safety check \
             --policy-file .safety-policy-v2.yml \
             --ignore "" \
-            --output json > safety-report.json 2> safety-stderr.log
+            --output json > safety-report.json
           rc=$?
-          # Surface findings as ::error:: annotations so they appear in
-          # the GitHub Checks API (visible without log access).
+          # On any non-zero exit, surface each finding as a GHA
+          # ::error:: annotation (visible in the Checks tab UI without
+          # log access) and as a Job Summary table.
           jq -r '.vulnerabilities[]? | "::error title=Safety dep CVE::\(.package_name) \(.analyzed_version) — vuln-id \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
             | sort -u || true
-          # Also dump compact summary into the Job Summary panel.
           {
             echo "## Safety report (exit=$rc)"
             echo
@@ -259,30 +253,7 @@ jobs:
             echo "Total vulns: $(jq '(.vulnerabilities // []) | length' safety-report.json 2>/dev/null || echo '?')"
             echo "Packages scanned: $(jq '.report_meta.packages_found // "?"' safety-report.json 2>/dev/null)"
           } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
-          # Post the unique vuln summary as a PR comment using GITHUB_TOKEN
-          # so this environment can read it back via mcp__github__pull_
-          # request_read get_comments (without needing log access).
-          if [ "$rc" -ne 0 ] && [ -n "$GITHUB_TOKEN" ] && [ -n "$PR_NUMBER" ]; then
-            summary=$(jq -r '.vulnerabilities[]? | "- \(.package_name) \(.analyzed_version) — vuln-id \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
-              | sort -u || true)
-            file_size=$(wc -c < safety-report.json 2>/dev/null || echo "?")
-            stderr_size=$(wc -c < safety-stderr.log 2>/dev/null || echo "?")
-            json_keys=$(jq -r 'keys | join(",")' safety-report.json 2>/dev/null || echo "json-parse-failed")
-            head_dump=$(head -c 4000 safety-report.json | base64 -w0 2>/dev/null || echo "base64-failed")
-            stderr_dump=$(head -c 6000 safety-stderr.log | base64 -w0 2>/dev/null || echo "base64-failed")
-            body=$(printf '<!-- safety-diag -->\n## Safety BLOCKING failure (exit=%s) on commit %s\n\n**Report file size:** %s bytes\n**Stderr file size:** %s bytes\n**JSON top-level keys:** `%s`\n**Vuln summary (jq):**\n%s\n\n**Stderr (base64, first 6000):**\n```\n%s\n```\n**Report head (base64, first 4000):**\n```\n%s\n```\n\n_Posted by ci.yml diagnostic step._' \
-              "$rc" "${GITHUB_SHA:0:7}" "$file_size" "$stderr_size" "$json_keys" "$summary" "$stderr_dump" "$head_dump")
-            curl -sS -X POST \
-              -H "Authorization: token $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
-              -d "$(jq -nc --arg b "$body" '{body: $b}')" \
-              > /tmp/comment-resp.json || true
-          fi
           exit "$rc"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Run pip-audit (PyPI/OSV advisories — BLOCKING)
         # Hard-blocking, parity with Safety above.  Risk-accepted CVEs
