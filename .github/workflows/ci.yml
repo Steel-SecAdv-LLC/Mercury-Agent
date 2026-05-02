@@ -163,13 +163,26 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install security tools
-        # All four tools (bandit, safety, pip-audit, semgrep) are blocking
-        # downstream, so installation failure must fail the job rather
-        # than silently degrading coverage of the security gate.
-        run: |
-          python -m pip install --upgrade "pip>=26.0"
-          pip install bandit safety pip-audit semgrep
+      - name: Upgrade pip
+        # Pin upgrade target liberally — if the runner already ships a
+        # newer pip, ``--upgrade`` is a no-op.  Failure here means a
+        # genuine network / index issue and should fail the job.
+        run: python -m pip install --upgrade "pip>=26.0"
+
+      - name: Install bandit / safety / pip-audit
+        # Three lightweight pure-Python tools.  Split from semgrep
+        # below so a failure here surfaces with a clear step name
+        # rather than being conflated with the much larger semgrep
+        # install.
+        run: pip install bandit safety pip-audit
+
+      - name: Install Semgrep
+        # Semgrep is heavier (~76MB manylinux wheel including
+        # ``semgrep-core``).  Blocking — if it cannot be installed,
+        # the security gate would be silently weaker, so we fail
+        # explicitly rather than ``|| true``.  Using a separate step
+        # keeps the failure mode self-evident in the GHA UI.
+        run: pip install semgrep
 
       - name: Run Bandit (security linter)
         # Bandit security scan is blocking - fails on medium+ severity issues.
