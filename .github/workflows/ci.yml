@@ -193,49 +193,34 @@ jobs:
             -o bandit-report.json \
             --severity-level medium
 
-      - name: Run Safety (dependency vulnerabilities — informational)
-        # Informational by design (NOT silent).  Safety v3.x's ``safety
-        # check`` command only accepts policy files in the legacy v2
-        # format (``.safety-policy.yml`` is in the modern v3 format
-        # ``Reference: https://docs.safetycli.com/safety-docs/policy-file``).
-        # The new v3-aware command ``safety scan`` requires Safety
-        # Cloud authentication, which we cannot provision in CI without
-        # baking a credential into the workflow.  Until either path is
-        # available — Safety-side fix to support v3 policy files in
-        # ``check``, or a CI auth mechanism for ``scan`` — we cannot
-        # honor accepted-CVE risk acceptances in the Safety run.
-        #
-        # Without a working acceptance mechanism, "blocking" would fail
-        # every PR on transitive Python-package CVEs that the project
-        # does not directly use (cryptography / wheel / setuptools /
-        # xmltodict / etc. baseline reports).  We therefore keep the
-        # step at ``continue-on-error: true`` — a strict improvement
-        # over the previous ``|| true`` because findings now surface
-        # as a red ❌ in the GHA UI rather than as a green ✓ that
-        # silently masks regressions.
-        #
-        # **Hard enforcement** of dep CVEs lives in the Trivy stage on
-        # the built Docker image (Stage 8) and the standalone
-        # ``Filesystem Security Scan (Trivy)`` job in security.yml,
-        # both of which honor ``.trivyignore`` for documented risk
-        # acceptances.  ``.safety-policy.yml`` remains in the repo as
-        # human-readable documentation of accepted-CVE rationale (the
-        # ``Reference:`` header points at the Safety v3 policy spec).
-        continue-on-error: true
+      - name: Run Safety (dependency vulnerabilities — BLOCKING)
+        # Hard-blocking dep-CVE gate.  Risk-accepted CVEs are passed via
+        # ``--ignore`` with a comma-separated Safety vulnerability-ID
+        # list.  Each ID's rationale and re-review date is documented
+        # in ``docs/PYTHON_DEP_CVE_AUDIT.md`` (the ``--ignore`` argument
+        # below is intentionally empty as of the audit date — every
+        # finding present in PR #148 was resolved by upgrade rather
+        # than acceptance, see the "Resolved upgrades" table in the
+        # audit doc).  Adding an ignore later requires:
+        #   1. Add the row to docs/PYTHON_DEP_CVE_AUDIT.md with
+        #      Disposition=IGNORE and a verifiable Rationale.
+        #   2. Append the Safety vuln-id to the comma-separated list
+        #      passed to ``--ignore`` here.
+        # This sidesteps Safety v3.x's policy-file limitations (legacy
+        # ``check`` rejects v3 policy files; v3-aware ``scan`` requires
+        # Safety Cloud auth) while still enforcing per-CVE acceptance.
         run: |
-          pip install -e .
-          safety check --output json > safety-report.json
+          pip install -e ".[api]"
+          safety check --ignore "" --output json > safety-report.json
 
-      - name: Run pip-audit (PyPI/OSV advisories — informational)
-        # Informational, parity with Safety above: ``pip-audit`` does
-        # not have a documented project-level ignore-list mechanism
-        # equivalent to ``.trivyignore`` for accepted CVEs, so making
-        # it blocking would similarly fail PRs on baseline transitive
-        # findings outside this PR's scope.  ``continue-on-error:
-        # true`` makes findings visible as a red ❌ on the GHA UI
-        # while letting the PR proceed; Trivy gates remain the
-        # enforcing hard-fail for dep CVEs.
-        continue-on-error: true
+      - name: Run pip-audit (PyPI/OSV advisories — BLOCKING)
+        # Hard-blocking, parity with Safety above.  Risk-accepted CVEs
+        # are passed via repeated ``--ignore-vuln <id>`` flags.  Each
+        # ID's rationale and re-review date is documented in
+        # ``docs/PYTHON_DEP_CVE_AUDIT.md`` (the audit table is empty
+        # of accepted CVEs as of PR #148 — every prior finding was
+        # resolved by upgrade).  Adding an ignore later requires the
+        # same two-step process documented on the Safety step above.
         run: pip-audit --format json --output pip-audit-report.json
 
       - name: Run Semgrep (SAST — BLOCKING)
