@@ -226,11 +226,17 @@ jobs:
         run: |
           pip install -e ".[api]"
           set +e
+          # Capture both stdout (JSON report) and stderr (error msgs)
+          # separately so we can diagnose why the file ends up 0 bytes.
           safety check \
             --policy-file .safety-policy-v2.yml \
             --ignore "" \
-            --output json > safety-report.json
+            --output json > safety-report.json 2> safety-stderr.log
           rc=$?
+          ls -la safety-report.json safety-stderr.log .safety-policy-v2.yml 2>&1 || true
+          echo "::group::safety-stderr.log"
+          cat safety-stderr.log || true
+          echo "::endgroup::"
           # Surface findings as ::error:: annotations so they appear in
           # the GitHub Checks API (visible without log access).
           jq -r '.vulnerabilities[]? | "::error title=Safety dep CVE::\(.package_name) \(.analyzed_version) — vuln-id \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
@@ -254,11 +260,12 @@ jobs:
             summary=$(jq -r '.vulnerabilities[]? | "- \(.package_name) \(.analyzed_version) — vuln-id \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
               | sort -u || true)
             file_size=$(wc -c < safety-report.json 2>/dev/null || echo "?")
+            stderr_size=$(wc -c < safety-stderr.log 2>/dev/null || echo "?")
             json_keys=$(jq -r 'keys | join(",")' safety-report.json 2>/dev/null || echo "json-parse-failed")
             head_dump=$(head -c 4000 safety-report.json | base64 -w0 2>/dev/null || echo "base64-failed")
-            tail_dump=$(tail -c 2000 safety-report.json | base64 -w0 2>/dev/null || echo "base64-failed")
-            body=$(printf '<!-- safety-diag -->\n## Safety BLOCKING failure (exit=%s) on commit %s\n\n**File size:** %s bytes\n**JSON top-level keys:** `%s`\n**Vuln summary (jq):**\n%s\n\n**Head 4000 bytes (base64):**\n```\n%s\n```\n**Tail 2000 bytes (base64):**\n```\n%s\n```\n\n_Posted by ci.yml diagnostic step._' \
-              "$rc" "${GITHUB_SHA:0:7}" "$file_size" "$json_keys" "$summary" "$head_dump" "$tail_dump")
+            stderr_dump=$(head -c 6000 safety-stderr.log | base64 -w0 2>/dev/null || echo "base64-failed")
+            body=$(printf '<!-- safety-diag -->\n## Safety BLOCKING failure (exit=%s) on commit %s\n\n**Report file size:** %s bytes\n**Stderr file size:** %s bytes\n**JSON top-level keys:** `%s`\n**Vuln summary (jq):**\n%s\n\n**Stderr (base64, first 6000):**\n```\n%s\n```\n**Report head (base64, first 4000):**\n```\n%s\n```\n\n_Posted by ci.yml diagnostic step._' \
+              "$rc" "${GITHUB_SHA:0:7}" "$file_size" "$stderr_size" "$json_keys" "$summary" "$stderr_dump" "$head_dump")
             curl -sS -X POST \
               -H "Authorization: token $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github+json" \
