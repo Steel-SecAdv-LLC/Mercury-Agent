@@ -241,7 +241,25 @@ jobs:
             echo "Total vulns: $(jq '(.vulnerabilities // []) | length' safety-report.json 2>/dev/null || echo '?')"
             echo "Packages scanned: $(jq '.report_meta.packages_found // "?"' safety-report.json 2>/dev/null)"
           } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          # Post the unique vuln summary as a PR comment using GITHUB_TOKEN
+          # so this environment can read it back via mcp__github__pull_
+          # request_read get_comments (without needing log access).
+          if [ "$rc" -ne 0 ] && [ -n "$GITHUB_TOKEN" ] && [ -n "$PR_NUMBER" ]; then
+            summary=$(jq -r '.vulnerabilities[]? | "- \(.package_name) \(.analyzed_version) — vuln-id \(.vulnerability_id) (\(.CVE // "no-cve"))"' safety-report.json 2>/dev/null \
+              | sort -u || true)
+            body=$(printf '<!-- safety-diag -->\n## Safety BLOCKING failure (exit=%s) on commit %s\n\n%s\n\n_Posted by ci.yml diagnostic step._' \
+              "$rc" "${GITHUB_SHA:0:7}" "$summary")
+            curl -sS -X POST \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              -d "$(jq -nc --arg b "$body" '{body: $b}')" \
+              > /tmp/comment-resp.json || true
+          fi
           exit "$rc"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Run pip-audit (PyPI/OSV advisories — BLOCKING)
         # Hard-blocking, parity with Safety above.  Risk-accepted CVEs
