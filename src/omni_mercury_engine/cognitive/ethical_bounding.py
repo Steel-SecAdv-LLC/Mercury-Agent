@@ -712,7 +712,11 @@ class BenevolenceScorer:
 
         self.audit_history: list[AlignmentAudit] = []
 
-        logger.info(f"BenevolenceScorer initialized with threshold {benevolence_threshold}")
+        # Log the clamped value (self.benevolence_threshold via the property
+        # getter), not the raw constructor argument — otherwise an operator
+        # debugging a below-floor request would see the value they tried to
+        # set instead of the value the gate is actually using.
+        logger.info("BenevolenceScorer initialized with threshold %s", self.benevolence_threshold)
 
     @property
     def benevolence_threshold(self) -> float:

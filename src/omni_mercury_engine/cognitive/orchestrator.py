@@ -481,7 +481,17 @@ class CognitiveOrchestrator(LoggerMixin):
         # The domain label is whitelisted so a hostile / typo'd value
         # like "damage_control" cannot reach the scorer either.
         raw_domain = context.get("domain", "general")
-        safe_domain = raw_domain if raw_domain in _SAFE_DOMAIN_LABELS else "general"
+        # Normalize first: caller-supplied ``raw_domain`` could be any type
+        # (an unhashable ``dict`` / ``list`` would raise ``TypeError`` from
+        # the ``in`` membership test below; an ``EnvironmentDomain`` enum
+        # value carries the canonical string under ``.value``).
+        if hasattr(raw_domain, "value"):  # EnvironmentDomain enum
+            raw_domain = raw_domain.value
+        safe_domain = (
+            raw_domain
+            if isinstance(raw_domain, str) and raw_domain in _SAFE_DOMAIN_LABELS
+            else "general"
+        )
         action_desc = (
             f"cognitive_analysis:{safe_domain}:severity={severity:.2f}:"
             "audit monitor verify data research evidence fair oversight"

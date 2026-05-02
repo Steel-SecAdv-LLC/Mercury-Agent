@@ -719,9 +719,14 @@ class Learnable3REngine:
             raise ValueError(f"fit() requires at least 2 samples, got {n_samples}.")
         if epochs <= 0:
             raise ValueError(f"fit() expected 'epochs' to be a positive integer, got {epochs}.")
-        if batch_size <= 0:
+        if batch_size < 2:
+            # Hard floor of 2: BatchNorm1d in training mode requires >=2
+            # samples per batch.  At batch_size=1 every batch would be
+            # skipped by the size-< 2 guard below and fit() would silently
+            # perform zero optimizer steps while still returning a history
+            # — fail loudly here instead.
             raise ValueError(
-                f"fit() expected 'batch_size' to be a positive integer, got {batch_size}."
+                f"fit() expected 'batch_size' >= 2 (BatchNorm1d requires it), got {batch_size}."
             )
         if patience < 1:
             raise ValueError(f"fit() expected 'patience' to be at least 1, got {patience}.")
@@ -741,6 +746,15 @@ class Learnable3REngine:
         indices = rng.permutation(n_samples)
         n_val = max(1, min(n_samples - 1, int(n_samples * val_fraction)))
         n_train = n_samples - n_val
+        if n_train < 2:
+            # Same reason as the batch_size >= 2 guard: BatchNorm1d in
+            # training mode needs 2+ samples.  With n_samples == 2 (and any
+            # val_fraction > 0) the split would produce n_train == 1, which
+            # would otherwise turn fit() into a silent no-op.
+            raise ValueError(
+                f"fit() requires n_train >= 2 after the val split (got {n_train}); "
+                f"increase n_samples or lower val_fraction."
+            )
         train_idx, val_idx = indices[:n_train], indices[n_train:]
 
         X_train, y_train = X_arr[train_idx], y_arr[train_idx]
@@ -776,15 +790,24 @@ class Learnable3REngine:
             self.model.train()
             epoch_losses: list[float] = []
 
-            for start in range(0, n_train, batch_size):
-                end = min(start + batch_size, n_train)
-                # OptimizationScorer contains BatchNorm1d, which raises
-                # ValueError("Expected more than 1 value per channel") in
-                # training mode on a batch of one.  Skip the trailing
-                # size-1 mini-batch instead of crashing — losing one sample
-                # per epoch is preferable to aborting training when
-                # n_train % batch_size == 1.
+            # Build the per-epoch batch ranges and merge a trailing size-1
+            # mini-batch into the previous batch.  OptimizationScorer
+            # contains BatchNorm1d, which raises ValueError("Expected more
+            # than 1 value per channel") in training mode on a batch of
+            # one.  Merging keeps every sample in the gradient step (no
+            # silent drop) while always satisfying BatchNorm's >=2 floor.
+            batch_ranges: list[tuple[int, int]] = [
+                (s, min(s + batch_size, n_train)) for s in range(0, n_train, batch_size)
+            ]
+            if len(batch_ranges) >= 2 and batch_ranges[-1][1] - batch_ranges[-1][0] == 1:
+                prev_start, _ = batch_ranges[-2]
+                _, last_end = batch_ranges[-1]
+                batch_ranges = batch_ranges[:-2] + [(prev_start, last_end)]
+
+            for start, end in batch_ranges:
                 if end - start < 2:
+                    # Defensive: should be unreachable now that batch_size >= 2
+                    # and n_train >= 2 are validated and trailing-1 is merged.
                     continue
                 X_batch = torch.tensor(
                     X_train_shuffled[start:end],
