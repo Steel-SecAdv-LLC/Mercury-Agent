@@ -1,0 +1,27 @@
+# Safety v2 policy file (legacy format) — minimal/no-op.
+#
+# This file exists ONLY to satisfy ``safety check``'s legacy v2-only
+# policy-file parser when the command is invoked from the repository
+# root (which is what CI does).  Without this file, ``safety check``
+# auto-discovers ``.safety-policy.yml`` (the human-readable v3 file)
+# and exits with::
+#
+#   Error: Invalid value for '--policy-file': Unable to load the
+#   Safety Policy file ".safety-policy.yml".
+#   HINT: .safety-policy.yml is a policy file version 3.0. Legacy
+#   policy file parser only accepts versions minor than 3.0
+#
+# Per-CVE risk acceptance is **not** done in this file.  The blocking
+# Safety step in .github/workflows/ci.yml passes accepted CVEs via
+# ``--ignore <id1>,<id2>,...`` driven by docs/PYTHON_DEP_CVE_AUDIT.md.
+# That document is the source of truth for accepted Python-package
+# CVEs; this file is purely a "shut up safety check's auto-discovery"
+# shim.  Do not add ignore entries here — add them to the audit doc
+# and to the ``--ignore`` flag in ci.yml.
+#
+# OS-level CVEs (which appear in Trivy scans of the built image) are
+# documented in .safety-policy.yml (v3, human-readable) and enforced
+# via .trivyignore in the Trivy gates.
+
+security:
+  ignore-vulnerabilities: {}

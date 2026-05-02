@@ -209,9 +209,20 @@ jobs:
         # This sidesteps Safety v3.x's policy-file limitations (legacy
         # ``check`` rejects v3 policy files; v3-aware ``scan`` requires
         # Safety Cloud auth) while still enforcing per-CVE acceptance.
+        #
+        # ``--policy-file .safety-policy-v2.yml`` is required to
+        # override Safety's auto-discovery of ``.safety-policy.yml``
+        # (which is in v3 format and rejected by ``check``'s legacy
+        # parser).  See the header of ``.safety-policy-v2.yml`` for
+        # the full rationale.  The v2 file is a no-op shim — accepted
+        # CVEs are configured via the ``--ignore`` flag below, not
+        # via the policy file.
         run: |
           pip install -e ".[api]"
-          safety check --ignore "" --output json > safety-report.json
+          safety check \
+            --policy-file .safety-policy-v2.yml \
+            --ignore "" \
+            --output json > safety-report.json
 
       - name: Run pip-audit (PyPI/OSV advisories — BLOCKING)
         # Hard-blocking, parity with Safety above.  Risk-accepted CVEs

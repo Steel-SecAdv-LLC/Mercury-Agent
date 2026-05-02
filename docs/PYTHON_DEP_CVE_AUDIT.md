@@ -125,9 +125,13 @@ cd /tmp  # avoid Safety auto-discovering the v3 .safety-policy.yml
 `cd /tmp` is required because `safety check` auto-discovers
 `.safety-policy.yml` in the working directory and rejects the repo's v3
 file with `Legacy policy file parser only accepts versions minor than 3.0`
-(known limitation of `safety` v3.x's `check` subcommand). In CI this is
-a non-issue because the GHA runner workspace does not contain the policy
-file at the path Safety scans from. The `cd /tmp` step is local-only.
+(known limitation of `safety` v3.x's `check` subcommand). In CI this
+same auto-discovery would otherwise fail the job; CI sidesteps it by
+passing `--policy-file .safety-policy-v2.yml` explicitly, which is a
+no-op v2-format shim shipped at the repo root specifically to override
+the auto-discovery (see the header of `.safety-policy-v2.yml` for full
+rationale). Local audit runs use `cd /tmp` instead because `--policy-file`
+is path-relative and easier to reason about when reproducing.
 
 ---
 
