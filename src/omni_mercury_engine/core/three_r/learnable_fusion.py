@@ -652,6 +652,283 @@ class Learnable3REngine:
 
         return loss_value
 
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        *,
+        epochs: int = 100,
+        batch_size: int = 32,
+        val_fraction: float = 0.2,
+        patience: int = 10,
+        min_delta: float = 1e-4,
+        seed: int | None = None,
+    ) -> dict[str, object]:
+        """Multi-epoch training with validation split, early stopping, and best-epoch checkpointing.
+
+        Splits ``X``/``y`` into training and validation sets, trains for up to
+        ``epochs`` epochs using mini-batches, monitors validation loss, and
+        stops early when improvement stalls.  At completion the model weights
+        are restored to the best-performing epoch.
+
+        Args:
+            X: Input array of shape ``(n_samples, n_features)``.
+            y: Target scores of shape ``(n_samples,)``.
+            epochs: Maximum number of training epochs.
+            batch_size: Number of samples per gradient step.
+            val_fraction: Fraction of data held out for validation (0-1).
+            patience: Stop training when val loss does not improve by at least
+                ``min_delta`` for this many consecutive epochs.
+            min_delta: Minimum absolute improvement in validation loss that
+                resets the patience counter.
+            seed: Optional RNG seed for reproducibility.  ``None`` uses
+                non-deterministic shuffling.
+
+        Returns:
+            Dictionary with training history::
+
+                {
+                    "train_losses": [float, ...],
+                    "val_losses":   [float, ...],
+                    "best_epoch":   int,
+                    "best_val_loss": float,
+                    "stopped_early": bool,
+                }
+
+        Note:
+            Returns an empty-history dict without raising when PyTorch is
+            unavailable; callers can detect this via ``train_losses == []``.
+        """
+        if not TORCH_AVAILABLE or self.model is None:
+            logger.warning("fit() called but PyTorch is unavailable — skipping training.")
+            return {
+                "train_losses": [],
+                "val_losses": [],
+                "best_epoch": 0,
+                "best_val_loss": float("inf"),
+                "stopped_early": False,
+            }
+
+        import copy
+
+        X_arr = np.asarray(X, dtype=np.float32)
+        y_arr = np.asarray(y, dtype=np.float32)
+
+        # Shape validation — must run before length / dtype checks so that
+        # callers passing a common ``(n_samples, 1)`` target (e.g. from
+        # sklearn-style label arrays) cannot silently broadcast against the
+        # ``(batch,)`` ``fusion_score`` output and produce a ``(batch, batch)``
+        # loss tensor.  ``F.mse_loss`` would happily accept the broadcast
+        # result and train on the wrong objective without raising.
+        if X_arr.ndim != 2:
+            raise ValueError(
+                f"fit() expected X to be 2-D (n_samples, n_features), got shape {X_arr.shape}."
+            )
+        if y_arr.ndim == 2 and y_arr.shape[1] == 1:
+            # Trailing-singleton dim is a common sklearn convention; squeeze
+            # it transparently so callers don't have to match our 1-D contract
+            # exactly.  Anything else (true multi-target) is rejected.
+            y_arr = y_arr.reshape(-1)
+        if y_arr.ndim != 1:
+            raise ValueError(
+                f"fit() expected y to be 1-D (n_samples,) "
+                f"(or 2-D with a trailing singleton dim), got shape {y_arr.shape}."
+            )
+        if X_arr.shape[0] != y_arr.shape[0]:
+            raise ValueError(
+                f"fit() expected X and y to have matching n_samples, "
+                f"got X.shape[0]={X_arr.shape[0]}, y.shape[0]={y_arr.shape[0]}."
+            )
+        n_samples = X_arr.shape[0]
+
+        if n_samples < 2:
+            raise ValueError(f"fit() requires at least 2 samples, got {n_samples}.")
+        if epochs <= 0:
+            raise ValueError(f"fit() expected 'epochs' to be a positive integer, got {epochs}.")
+        if batch_size < 2:
+            # Hard floor of 2: BatchNorm1d in training mode requires >=2
+            # samples per batch.  At batch_size=1 every batch would be
+            # skipped by the size-< 2 guard below and fit() would silently
+            # perform zero optimizer steps while still returning a history
+            # — fail loudly here instead.
+            raise ValueError(
+                f"fit() expected 'batch_size' >= 2 (BatchNorm1d requires it), got {batch_size}."
+            )
+        if patience < 1:
+            raise ValueError(f"fit() expected 'patience' to be at least 1, got {patience}.")
+        if not (0.0 < val_fraction < 1.0):
+            raise ValueError(
+                f"fit() expected 'val_fraction' to be in the open interval (0.0, 1.0), got {val_fraction}."
+            )
+        if min_delta < 0:
+            # A negative ``min_delta`` would make the early-stop check
+            # ``val_loss < best_val_loss - min_delta`` easier to satisfy
+            # than equality, which would silently treat regressions as
+            # improvements and skew best-epoch selection.
+            raise ValueError(f"fit() expected 'min_delta' >= 0, got {min_delta}.")
+
+        # ---- Train / validation split ----
+        rng = np.random.default_rng(seed=seed)
+        # Seed PyTorch as well when a seed is supplied so dropout masks,
+        # batch shuffling, and any other torch-side stochastic ops in
+        # this fit() call are deterministic.  Note this does **not**
+        # re-initialize model parameters: weights are already created in
+        # ``Learnable3REngine.__init__`` before ``fit()`` is called, so
+        # callers that want fully reproducible weight init need to seed
+        # PyTorch themselves *before* constructing the engine.  For tests,
+        # the autouse ``set_random_seed`` fixture in ``tests/conftest.py``
+        # plus an explicit ``torch.manual_seed(...)`` in the engine
+        # fixture cover that requirement.
+        if seed is not None:
+            torch.manual_seed(seed)
+        indices = rng.permutation(n_samples)
+        n_val = max(1, min(n_samples - 1, int(n_samples * val_fraction)))
+        n_train = n_samples - n_val
+        if n_train < 2:
+            # Same reason as the batch_size >= 2 guard: BatchNorm1d in
+            # training mode needs 2+ samples.  With n_samples == 2 (and any
+            # val_fraction > 0) the split would produce n_train == 1, which
+            # would otherwise turn fit() into a silent no-op.
+            raise ValueError(
+                f"fit() requires n_train >= 2 after the val split (got {n_train}); "
+                f"increase n_samples or lower val_fraction."
+            )
+        train_idx, val_idx = indices[:n_train], indices[n_train:]
+
+        X_train, y_train = X_arr[train_idx], y_arr[train_idx]
+        X_val, y_val = X_arr[val_idx], y_arr[val_idx]
+
+        X_val_t = torch.tensor(X_val, dtype=torch.float32, device=self.device)
+        y_val_t = torch.tensor(y_val, dtype=torch.float32, device=self.device)
+
+        train_losses: list[float] = []
+        val_losses: list[float] = []
+        best_val_loss = float("inf")
+        best_epoch = 0
+        best_state: dict[str, Any] | None = None
+        patience_counter = 0
+
+        logger.info(
+            "Learnable3REngine.fit(): n_train=%d, n_val=%d, epochs=%d, "
+            "batch_size=%d, patience=%d",
+            n_train,
+            n_val,
+            epochs,
+            batch_size,
+            patience,
+        )
+
+        for epoch in range(epochs):
+            # Shuffle training data each epoch
+            perm = rng.permutation(n_train)
+            X_train_shuffled = X_train[perm]
+            y_train_shuffled = y_train[perm]
+
+            # ---- Mini-batch training pass ----
+            self.model.train()
+            epoch_losses: list[float] = []
+
+            # Build the per-epoch batch ranges and merge a trailing size-1
+            # mini-batch into the previous batch.  OptimizationScorer
+            # contains BatchNorm1d, which raises ValueError("Expected more
+            # than 1 value per channel") in training mode on a batch of
+            # one.  Merging keeps every sample in the gradient step (no
+            # silent drop) while always satisfying BatchNorm's >=2 floor.
+            batch_ranges: list[tuple[int, int]] = [
+                (s, min(s + batch_size, n_train)) for s in range(0, n_train, batch_size)
+            ]
+            if len(batch_ranges) >= 2 and batch_ranges[-1][1] - batch_ranges[-1][0] == 1:
+                prev_start, _ = batch_ranges[-2]
+                _, last_end = batch_ranges[-1]
+                batch_ranges = batch_ranges[:-2] + [(prev_start, last_end)]
+
+            for start, end in batch_ranges:
+                if end - start < 2:
+                    # Defensive: should be unreachable now that batch_size >= 2
+                    # and n_train >= 2 are validated and trailing-1 is merged.
+                    continue
+                X_batch = torch.tensor(
+                    X_train_shuffled[start:end],
+                    dtype=torch.float32,
+                    device=self.device,
+                )
+                y_batch = torch.tensor(
+                    y_train_shuffled[start:end],
+                    dtype=torch.float32,
+                    device=self.device,
+                )
+
+                self.optimizer.zero_grad()
+                result = self.model(X_batch)
+                prediction = result["fusion_score"]
+                loss = F.mse_loss(prediction, y_batch)
+                loss.backward()  # type: ignore[no-untyped-call, unused-ignore]
+                self.optimizer.step()
+
+                epoch_losses.append(float(loss.item()))
+
+            mean_train_loss = float(np.mean(epoch_losses)) if epoch_losses else 0.0
+            train_losses.append(mean_train_loss)
+            self.training_history.append(mean_train_loss)
+
+            # ---- Validation pass ----
+            self.model.eval()
+            with torch.no_grad():
+                val_result = self.model(X_val_t)
+                val_pred = val_result["fusion_score"]
+                val_loss = float(F.mse_loss(val_pred, y_val_t).item())
+
+            val_losses.append(val_loss)
+
+            # ---- Best-epoch checkpointing ----
+            if val_loss < best_val_loss - min_delta:
+                best_val_loss = val_loss
+                best_epoch = epoch
+                best_state = copy.deepcopy(self.model.state_dict())
+                patience_counter = 0
+            else:
+                patience_counter += 1
+
+            if (epoch + 1) % max(1, epochs // 10) == 0 or epoch == 0:
+                logger.debug(
+                    "Epoch %d/%d: train_loss=%.6f, val_loss=%.6f, patience=%d/%d",
+                    epoch + 1,
+                    epochs,
+                    mean_train_loss,
+                    val_loss,
+                    patience_counter,
+                    patience,
+                )
+
+            if patience_counter >= patience:
+                logger.info(
+                    "Early stopping at epoch %d: val loss not improved by >%g "
+                    "for %d epochs. Best val loss=%.6f at epoch %d.",
+                    epoch + 1,
+                    min_delta,
+                    patience,
+                    best_val_loss,
+                    best_epoch + 1,
+                )
+                break
+
+        # ---- Restore best-epoch weights ----
+        if best_state is not None:
+            self.model.load_state_dict(best_state)
+            logger.info(
+                "Restored model weights from best epoch %d (val_loss=%.6f).",
+                best_epoch + 1,
+                best_val_loss,
+            )
+
+        return {
+            "train_losses": train_losses,
+            "val_losses": val_losses,
+            "best_epoch": best_epoch,
+            "best_val_loss": best_val_loss,
+            "stopped_early": patience_counter >= patience,
+        }
+
     def _numpy_fallback(self, data: np.ndarray | list[float]) -> Learnable3RResult:
         """NumPy fallback when PyTorch is unavailable."""
         arr = np.array(data)

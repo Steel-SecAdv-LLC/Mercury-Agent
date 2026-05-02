@@ -44,6 +44,7 @@ import numpy as np
 
 from omni_mercury_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner, CaseOutcome
 from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
+from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
 from omni_mercury_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
 from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
@@ -89,6 +90,10 @@ class CognitiveAnalysisResult:
     # IPB context
     threat_assessment: dict[str, Any] = field(default_factory=dict)
 
+    # Ethical gate
+    benevolence_score: float = 0.0
+    ethical_permissible: bool = True
+
     # Timing
     analysis_time_ms: float = 0.0
 
@@ -107,8 +112,31 @@ class CognitiveAnalysisResult:
             "recommendations": self.recommended_actions,
             "warnings": self.warnings,
             "knowledge_updates": self.knowledge_updates,
+            "benevolence_score": self.benevolence_score,
+            "ethical_permissible": self.ethical_permissible,
             "analysis_time_ms": self.analysis_time_ms,
         }
+
+
+# Whitelist of caller-supplied ``context["domain"]`` values that are safe to
+# interpolate into the benevolence-scoring action description.  Any domain
+# label outside this set is replaced with the ``_DEFAULT_DOMAIN`` sentinel
+# before scoring so a hostile or malformed value (e.g. ``"damage_control"``,
+# ``"exposure_control"``) cannot inject harm-keyword substrings into the
+# action and trip a false ``EthicalConstraintViolationError``.
+#
+# The base set is derived programmatically from
+# :class:`~omni_mercury_engine.cognitive.ipb_engine.EnvironmentDomain`
+# so a new domain added to the enum is automatically permitted here
+# without having to edit two files.  We then add the explicit
+# ``_DEFAULT_DOMAIN = "general"`` sentinel — this is the value used when
+# the caller did not supply a domain or supplied an unsafe one, and it
+# is intentionally **not** a member of ``EnvironmentDomain`` (it is
+# orchestrator-internal).
+_DEFAULT_DOMAIN: str = "general"
+_SAFE_DOMAIN_LABELS: frozenset[str] = frozenset(
+    {member.value for member in EnvironmentDomain} | {_DEFAULT_DOMAIN}
+)
 
 
 class CognitiveOrchestrator(LoggerMixin):
@@ -149,6 +177,7 @@ class CognitiveOrchestrator(LoggerMixin):
         enable_ipb: bool = True,
         enable_cbr: bool = True,
         enable_indicators: bool = True,
+        strict_ethics: bool = True,
     ):
         """
         Initialize Cognitive Orchestrator.
@@ -159,7 +188,29 @@ class CognitiveOrchestrator(LoggerMixin):
             enable_ipb: Enable intelligence preparation
             enable_cbr: Enable case-based reasoning
             enable_indicators: Enable indicator development
+            strict_ethics: When ``True`` (default), the orchestrator scores
+                the analysis action via
+                :meth:`BenevolenceScorer.score_action` using
+                ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) as its threshold and
+                raises
+                :class:`~omni_mercury_engine.cognitive.ethical_bounding.EthicalConstraintViolationError`
+                if the action is not permissible.
+                Set to ``False`` only for testing or internal advisory scoring.
         """
+        self.strict_ethics = strict_ethics
+
+        # The orchestrator's internal ethical gate uses MINIMUM_BENEVOLENCE_FLOOR
+        # as its threshold.  This ensures internal cognitive analysis passes
+        # basic ethical verification without the stringent 0.99 threshold
+        # designed for external user-facing action scoring.
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            MINIMUM_BENEVOLENCE_FLOOR,
+        )
+
+        self._benevolence_scorer = BenevolenceScorer(
+            benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR,
+        )
+
         # Core components
         self.knowledge_graph = KnowledgeGraph(
             enable_embeddings=True,
@@ -418,6 +469,59 @@ class CognitiveOrchestrator(LoggerMixin):
         # Limit history size
         if len(self._anomaly_history) > 1000:
             self._anomaly_history = self._anomaly_history[-500:]
+
+        # === ETHICAL GATE — mandatory benevolence check ===
+        # Score on a controlled action description that reflects the
+        # orchestrator's inherent safety posture.  Caller-supplied
+        # ``context`` is NOT passed to the scorer — arbitrary text
+        # could inject harm keywords ("damage", "control", "track",
+        # "expose", …) and trip a false EthicalConstraintViolationError.
+        # The domain label is whitelisted so a hostile / typo'd value
+        # like "damage_control" cannot reach the scorer either.
+        raw_domain = context.get("domain", _DEFAULT_DOMAIN)
+        # Normalize first: caller-supplied ``raw_domain`` could be any type
+        # (an unhashable ``dict`` / ``list`` would raise ``TypeError`` from
+        # the ``in`` membership test below; an ``EnvironmentDomain`` enum
+        # value carries the canonical string under ``.value``).
+        if hasattr(raw_domain, "value"):  # EnvironmentDomain enum
+            raw_domain = raw_domain.value
+        safe_domain = (
+            raw_domain
+            if isinstance(raw_domain, str) and raw_domain in _SAFE_DOMAIN_LABELS
+            else _DEFAULT_DOMAIN
+        )
+        action_desc = (
+            f"cognitive_analysis:{safe_domain}:severity={severity:.2f}:"
+            "audit monitor verify data research evidence fair oversight"
+        )
+        ethical_context = {
+            "purpose": "anomaly detection analysis with audit oversight",
+            "safety": "care help support review protect",
+            "domain": safe_domain,
+        }
+        ethical_result = self._benevolence_scorer.score_action(
+            action_desc,
+            ethical_context,
+        )
+        result.benevolence_score = ethical_result.benevolence_score
+        result.ethical_permissible = ethical_result.is_permissible
+
+        if self.strict_ethics and not ethical_result.is_permissible:
+            # Record timing on the local result before raising so the
+            # measurement is captured in any logging path that handles
+            # the partial result; the timing is also surfaced on the
+            # exception via ``analysis_time_ms`` for caller inspection.
+            result.analysis_time_ms = (time.time() - start_time) * 1000
+            from omni_mercury_engine.cognitive.ethical_bounding import (
+                EthicalConstraintViolationError,
+            )
+
+            raise EthicalConstraintViolationError(
+                action=action_desc,
+                score=ethical_result.benevolence_score,
+                threshold=self._benevolence_scorer.benevolence_threshold,
+                analysis_time_ms=result.analysis_time_ms,
+            )
 
         result.analysis_time_ms = (time.time() - start_time) * 1000
 

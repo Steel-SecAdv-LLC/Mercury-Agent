@@ -72,6 +72,11 @@ from omni_mercury_engine.cognitive.differentiable_logic import (
     LukasiewiczTNorm,
     ProductTNorm,
 )
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
+    BenevolenceScorer,
+    EthicalConstraintViolationError,
+)
 from omni_mercury_engine.cognitive.explainability import (
     ExplainabilityEngine,
     ExplanationType,
@@ -126,6 +131,7 @@ from omni_mercury_engine.cognitive.reflexion import (
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate, UncertaintyQuantifier
 
 __all__ = [
+    "MINIMUM_BENEVOLENCE_FLOOR",
     # Abstraction and Planning
     "AbstractionLevel",
     "ActiveInferenceAgent",
@@ -138,6 +144,8 @@ __all__ = [
     "AnomalyVerifier",
     # Core cognitive components
     "BattlefieldAssessment",
+    # Ethical framework
+    "BenevolenceScorer",
     "Case",
     "CaseBasedReasoner",
     "CausalDiscoveryEngine",
@@ -154,9 +162,10 @@ __all__ = [
     "ConstraintSolver",
     "CreditAssignment",
     "DetectionAgent",
-    # Differentiable Logic
     "DifferentiableLogicEngine",
     "DifferentiableTNorm",
+    # Differentiable Logic
+    "EthicalConstraintViolationError",
     "ExperienceMemory",
     # Explainability
     "ExplainabilityEngine",

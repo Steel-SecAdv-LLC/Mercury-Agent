@@ -438,7 +438,7 @@ class BenchmarkDiagnostics:
         detector_name: str = "Detector",
     ) -> None:
         """
-        Print quick diagnostic matching the user's requested format.
+        Log a quick diagnostic summary.
 
         Args:
             scores: Anomaly scores
@@ -446,19 +446,41 @@ class BenchmarkDiagnostics:
             threshold: Current threshold
             detector_name: Name for display
 
-        This prints exactly what the user requested:
-            Score range: [min, max]
-            Score mean: mean
-            Threshold: threshold
-            Predictions above threshold: count/total
+        Emits up to three log records on the
+        ``omni_mercury_engine.evaluation.benchmark_diagnostics`` logger:
+
+        * **INFO** — single structured score-distribution line of the form::
+
+            <detector_name> Score Diagnostics — range=[min, max], mean=mean, \
+threshold=threshold, above_threshold=count/total
+
+        * **INFO** — when ``labels`` is provided, a single structured
+          ground-truth line of the form::
+
+            <detector_name> ground-truth: TP=…, FP=…, FN=…, TN=… | \
+Precision=…, Recall=…, F1=…
+
+        * **WARNING** — when ``labels`` is provided AND ``F1 == 0`` AND
+          ``threshold > max(scores)``, a single diagnosis line explaining
+          that the threshold sits above the score distribution and
+          recommending auto-calibration or a lower threshold.
+
+        No multi-line / per-field record is emitted; tests/log filters
+        should match the structured single-line format above.
         """
         scores = np.asarray(scores).flatten()
 
-        print(f"\n--- {detector_name} Score Diagnostics ---")
-        print(f"Score range: [{scores.min():.4f}, {scores.max():.4f}]")
-        print(f"Score mean: {scores.mean():.4f}")
-        print(f"Threshold: {threshold}")
-        print(f"Predictions above threshold: {(scores > threshold).sum()}/{len(scores)}")
+        logger.info(
+            "%s Score Diagnostics — range=[%.4f, %.4f], mean=%.4f, "
+            "threshold=%s, above_threshold=%d/%d",
+            detector_name,
+            scores.min(),
+            scores.max(),
+            scores.mean(),
+            threshold,
+            int((scores > threshold).sum()),
+            len(scores),
+        )
 
         if labels is not None:
             labels = np.asarray(labels).flatten()
@@ -472,17 +494,27 @@ class BenchmarkDiagnostics:
             recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
             f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
-            print("\nWith ground truth:")
-            print(f"  TP={tp}, FP={fp}, FN={fn}, TN={tn}")
-            print(f"  Precision={precision:.4f}, Recall={recall:.4f}, F1={f1:.4f}")
+            logger.info(
+                "%s ground-truth: TP=%d, FP=%d, FN=%d, TN=%d | "
+                "Precision=%.4f, Recall=%.4f, F1=%.4f",
+                detector_name,
+                int(tp),
+                int(fp),
+                int(fn),
+                int(tn),
+                precision,
+                recall,
+                f1,
+            )
 
             if f1 == 0 and threshold > scores.max():
-                print(
-                    f"\n>>> DIAGNOSIS: F1=0 because threshold ({threshold:.4f}) > max score ({scores.max():.4f})"
+                logger.warning(
+                    "%s DIAGNOSIS: F1=0 because threshold (%.4f) > max score (%.4f). "
+                    "SOLUTION: Use auto-calibration or lower the threshold.",
+                    detector_name,
+                    threshold,
+                    scores.max(),
                 )
-                print(">>> SOLUTION: Use auto-calibration or lower threshold")
-
-        print("-" * 40)
 
     @staticmethod
     def _compute_roc_auc(labels: NDArray, scores: NDArray) -> float:  # type: ignore[type-arg, unused-ignore]

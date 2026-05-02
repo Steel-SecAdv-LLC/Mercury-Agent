@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0+
 
 [build-system]
-requires = ["setuptools>=78.1.1", "wheel"]
+requires = ["setuptools>=82.0.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -50,11 +50,11 @@ dependencies = [
     "scipy>=1.10.0",
     "pandas>=2.0.0",
     "click>=8.1.0",
-    "pydantic>=2.0.0",
+    "pydantic>=2.13.3",
     "bcrypt>=4.0.1",
     "cryptography>=46.0.7",  # CVE-2026-26007, CVE-2026-34073, CVE-2026-39892
     "pillow>=12.2.0",  # Security: CVE-2026-25990, CVE-2026-40192
-    "requests>=2.33.0",  # Security: CVE-2026-25645
+    "requests>=2.33.1",  # Security: CVE-2026-25645
     "tqdm>=4.65.0",
     "networkx>=3.0",
     "defusedxml>=0.7.1",
@@ -68,7 +68,7 @@ ml = [
     "torch>=2.2.0",
     "torchvision>=0.17.0",
     "pytorch-lightning>=2.0.0",
-    "timm>=0.9.0",
+    "timm>=1.0.26",
     "opencv-python-headless>=4.8.0",
 ]
 
@@ -91,7 +91,7 @@ foundation = [
 
 # Medical dataset loaders (MIT-BIH, PhysioNet)
 medical = [
-    "wfdb>=4.0.0",
+    "wfdb>=4.3.1",
 ]
 
 # Deep face recognition
@@ -102,9 +102,10 @@ face = [
 # API server
 api = [
     "fastapi>=0.109.0",
-    "httpx>=0.25.0",
+    "httpx>=0.28.1",
     "uvicorn>=0.25.0",
     "python-multipart>=0.0.9",  # Required by FastAPI for form/file handling
+    "pyjwt>=2.12.0",  # CVE-2026-32597 (crit header validation); lazy-imported by api/auth.py
 ]
 
 # SOTA anomaly detection models (TranAD, MAAT, etc.)
@@ -168,11 +169,11 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-timeout>=2.2.0",
     "pytest-mock>=3.12.0",
-    "pytest-xdist>=3.5.0",
+    "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
     "black>=26.3.1,<27.0.0",  # CVE-2026-32274
-    "mypy>=1.8.0",
-    "ruff>=0.1.0",
+    "mypy>=1.20.2",
+    "ruff>=0.15.12",
     "pre-commit>=3.5.0",
 ]
 

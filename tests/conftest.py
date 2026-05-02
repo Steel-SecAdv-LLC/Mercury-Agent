@@ -26,6 +26,7 @@ All test fixtures now use seeded random number generation
 to ensure consistent test results across runs.
 """
 
+import logging
 import os
 
 import numpy as np
@@ -57,6 +58,35 @@ def set_random_seed():
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(DEFAULT_TEST_SEED)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _restore_engine_logger_propagation():
+    """Keep ``omni_mercury_engine`` logger propagating across every test.
+
+    ``omni_mercury_engine.utils.logging.configure_logging`` (exercised by
+    ``tests/test_logging_utils.py``) sets ``propagate = False`` on the
+    package's parent logger to prevent double-printing through Python's
+    root logger in production.  Pytest's ``caplog`` fixture, however,
+    captures records via a handler on the **root** logger and depends on
+    the propagation chain to receive them — so once any earlier test
+    leaves ``propagate = False`` set, every downstream caplog assertion
+    against an ``omni_mercury_engine.*`` logger silently sees an empty
+    ``caplog.text``.
+
+    This fixture saves and restores ``propagate`` around every test in
+    the suite so that test-isolation regressions cannot break caplog
+    capture again.  It does not weaken production behavior — the
+    ``configure_logging`` flip remains in place during the body of each
+    test that exercises it; we only restore the flag between tests.
+    """
+    logger = logging.getLogger("omni_mercury_engine")
+    previous_propagate = logger.propagate
+    logger.propagate = True
+    try:
+        yield
+    finally:
+        logger.propagate = previous_propagate
 
 
 @pytest.fixture

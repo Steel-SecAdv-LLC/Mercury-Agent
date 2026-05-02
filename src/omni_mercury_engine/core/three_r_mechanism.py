@@ -2234,13 +2234,26 @@ class RefactoringEngine:
 
 
 class RefactoringTransformer(ast.NodeTransformer):
-    """
-    AST transformer that applies refactorings.
+    """AST transformer that applies real refactoring transformations.
 
-    This implements basic refactoring transformations:
-    - Complexity reduction via early returns
-    - Nesting reduction via guard clauses
-    - Function call optimization (demonstration only)
+    Supported transformations:
+
+    - **Nesting reduction** (``reduce_nesting``): converts the last qualifying
+      ``if cond: body`` block (with no ``else`` branch) at the end of the
+      function body into an inverted guard clause so the happy-path is
+      left-aligned.  Only the final qualifying ``if`` is rewritten — interior
+      ``if`` statements are left intact because injecting an early
+      ``return None`` ahead of subsequent code would change semantics.
+    - **Complexity reduction** (``reduce_complexity``): extracts numeric and
+      string literals used two or more times into named local variables at the
+      top of the function body and replaces subsequent occurrences.  Only
+      executable body statements are scanned (decorators, default arguments,
+      and annotations are excluded), the ``int`` and ``float`` literal
+      namespaces are kept disjoint (``42`` and ``42.0`` hoist independently),
+      generated ``_const_<n>`` names are bumped past any pre-existing
+      identifier in the function, and functions containing ``global`` /
+      ``nonlocal`` declarations are skipped to avoid the
+      ``SyntaxError: name 'x' is assigned to before global declaration``.
     """
 
     def __init__(self, suggestions: list[dict[str, str]]) -> None:
@@ -2251,26 +2264,314 @@ class RefactoringTransformer(ast.NodeTransformer):
         )
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
-        """Visit function definition and apply transformations."""
-
+        """Apply transformations to function definitions."""
         if self.should_reduce_nesting:
             node = self._reduce_nesting(node)
+
+        if self.should_reduce_complexity:
+            node = self._hoist_repeated_constants(node)
 
         self.generic_visit(node)
         return node
 
+    # ------------------------------------------------------------------
+    # Guard-clause extraction (nesting reduction)
+    # ------------------------------------------------------------------
+
     def _reduce_nesting(self, node: ast.FunctionDef) -> ast.FunctionDef:
-        """
-        Reduce nesting depth using guard clauses and early returns.
+        """Reduce nesting depth using guard clauses and early returns.
 
-        This is a simplified implementation for demonstration.
+        Only transforms an ``if`` statement (with no ``else``) into an
+        inverted guard clause when it is the **last** statement in the
+        function body (after any docstring).  This restriction guarantees
+        semantic preservation: the early ``return None`` cannot skip
+        subsequent statements that the original code would have executed.
+
+        Example::
+
+            # Before
+            def foo(x):
+                if x is not None:
+                    result = compute(x)
+                    return result
+
+            # After
+            def foo(x):
+                if x is None:
+                    return None
+                result = compute(x)
+                return result
         """
-        if not ast.get_docstring(node):
-            docstring = ast.Expr(
-                value=ast.Constant(value="Refactored function with reduced nesting depth.")
+        docstring_offset = 1 if ast.get_docstring(node) else 0
+        stmts = node.body[docstring_offset:]
+
+        if not stmts:
+            return node
+
+        last_stmt = stmts[-1]
+        if not (
+            isinstance(last_stmt, ast.If) and last_stmt.orelse == [] and len(last_stmt.body) >= 1
+        ):
+            return node
+
+        inverted: ast.expr = ast.UnaryOp(op=ast.Not(), operand=last_stmt.test)
+        guard_return = ast.Return(value=ast.Constant(value=None))
+        guard_clause = ast.If(
+            test=inverted,
+            body=[guard_return],
+            orelse=[],
+        )
+        ast.copy_location(guard_clause, last_stmt)
+        ast.copy_location(guard_return, last_stmt)
+        ast.fix_missing_locations(guard_clause)
+
+        new_body: list[ast.stmt] = list(node.body[:docstring_offset])
+        new_body.extend(stmts[:-1])
+        new_body.append(guard_clause)
+        new_body.extend(last_stmt.body)
+
+        node.body = new_body
+        return node
+
+    # ------------------------------------------------------------------
+    # Constant hoisting (complexity reduction)
+    # ------------------------------------------------------------------
+
+    def _hoist_repeated_constants(self, node: ast.FunctionDef) -> ast.FunctionDef:
+        """Extract numeric/string literals used two or more times into named locals.
+
+        Assigns each repeated literal to a ``_const_<n>`` variable inserted
+        after the docstring and replaces subsequent occurrences with the
+        variable name, reducing magic-number repetition.
+
+        Safety properties:
+
+        * Only executable body statements are scanned — ``args.defaults``,
+          ``args.kw_defaults``, ``decorator_list``, and annotations are never
+          touched, since those expressions are evaluated at function-definition
+          time in the enclosing scope and would raise ``NameError`` against
+          the synthesized in-body ``_const_N`` assignments.
+        * ``int`` and ``float`` constants are tracked under disjoint keys, so
+          ``42`` and ``42.0`` hoist independently and the type of each literal
+          is preserved.
+        * Hoisted names (``_const_<n>``) are renumbered past any pre-existing
+          local / argument / module-level name in the function so collisions
+          with author-written ``_const_0`` (or similar) cannot silently
+          rebind a value.
+        * Functions containing ``global`` or ``nonlocal`` declarations are
+          skipped: prepending an assignment ahead of those declarations would
+          raise ``SyntaxError: name 'x' is assigned to before global
+          declaration`` at compile time.
+        """
+        from collections import Counter
+
+        # Skip functions that declare `global` or `nonlocal` at the top level —
+        # any insertion ahead of those statements is a compile-time SyntaxError.
+        for stmt in node.body:
+            if isinstance(stmt, (ast.Global, ast.Nonlocal)):
+                return node
+
+        # Restrict traversal to the function body (skipping the docstring) so
+        # that constants in args.defaults / args.kw_defaults / decorator_list /
+        # annotations are never hoisted.
+        docstring_offset = 1 if ast.get_docstring(node) else 0
+        body_to_scan = node.body[docstring_offset:]
+
+        # Use (type, value) keys so int and float constants stay disjoint —
+        # Python treats `42 == 42.0` and `hash(42) == hash(42.0)`, which would
+        # otherwise silently rewrite a float literal as an int reference.
+        ConstKey = tuple[type, int | float | str]
+        counts: Counter[ConstKey] = Counter()
+
+        class _ConstCollector(ast.NodeVisitor):
+            def visit_Constant(self, n: ast.Constant) -> None:
+                if isinstance(n.value, (int, float, str)) and not isinstance(n.value, bool):
+                    counts[(type(n.value), n.value)] += 1
+                self.generic_visit(n)
+
+            # Don't descend into nested function / async-function / lambda /
+            # class scopes: constants inside them belong to *those* scopes
+            # and will be hoisted (or skipped) by the recursive visit on
+            # each nested ``FunctionDef``.  Counting them here would
+            # double-count and could hoist a literal into the wrong scope.
+            #
+            # Comprehension scopes (``ListComp`` / ``SetComp`` / ``DictComp``
+            # / ``GeneratorExp``) are *not* blocked here.  Although they
+            # have their own iteration-variable scope in Python 3, free
+            # name references inside the comprehension body resolve in the
+            # enclosing function scope, so a hoisted ``_const_<n>``
+            # assigned at the top of the function is visible to the
+            # comprehension and the rewrite is semantics-preserving.
+            def visit_FunctionDef(self, n: ast.FunctionDef) -> None:
+                return None
+
+            def visit_AsyncFunctionDef(self, n: ast.AsyncFunctionDef) -> None:
+                return None
+
+            def visit_Lambda(self, n: ast.Lambda) -> None:
+                return None
+
+            def visit_ClassDef(self, n: ast.ClassDef) -> None:
+                return None
+
+            # ``ast.JoinedStr.values`` is restricted by the AST grammar to
+            # ``Constant`` / ``FormattedValue`` only — a direct ``Name``
+            # child there is not a legal AST and ``compile()`` will reject
+            # the result.  Skip the whole JoinedStr (including any
+            # ``FormattedValue`` expressions inside) so the collector and
+            # the replacer agree: we only consider literals that live in
+            # contexts where ``Name`` substitution is valid.
+            def visit_JoinedStr(self, n: ast.JoinedStr) -> None:
+                return None
+
+            # ``match_case.pattern`` (specifically ``MatchValue.value``)
+            # requires a literal-bearing expression; replacing it with an
+            # ``ast.Name`` either produces invalid AST or — worse —
+            # silently turns the match value into a ``MatchAs`` capture
+            # pattern that binds the name and matches anything.  Skip
+            # ``Match`` entirely (including case bodies and guards) so we
+            # never attempt the unsafe rewrite, mirrored in the replacer
+            # below.
+            def visit_Match(self, n: ast.Match) -> None:
+                return None
+
+        collector = _ConstCollector()
+        for stmt in body_to_scan:
+            collector.visit(stmt)
+
+        # Only hoist values appearing >=2 times and not trivially simple.  The
+        # trivial set carries both int and float forms so that, e.g., 0.0 is
+        # also considered trivial.
+        trivial: set[ConstKey] = {
+            (int, 0),
+            (int, 1),
+            (int, -1),
+            (float, 0.0),
+            (float, 1.0),
+            (float, -1.0),
+            (str, ""),
+        }
+        to_hoist = {k for k, c in counts.items() if c >= 2 and k not in trivial}
+        if not to_hoist:
+            return node
+
+        # Pick a `_const_<n>` index that doesn't collide with any name that
+        # already exists in the function (parameters, locals, free variables).
+        existing_names: set[str] = set()
+        for arg in (
+            *node.args.args,
+            *node.args.posonlyargs,
+            *node.args.kwonlyargs,
+        ):
+            existing_names.add(arg.arg)
+        if node.args.vararg is not None:
+            existing_names.add(node.args.vararg.arg)
+        if node.args.kwarg is not None:
+            existing_names.add(node.args.kwarg.arg)
+
+        class _NameCollector(ast.NodeVisitor):
+            def visit_Name(self, n: ast.Name) -> None:
+                existing_names.add(n.id)
+                self.generic_visit(n)
+
+        name_collector = _NameCollector()
+        for stmt in body_to_scan:
+            name_collector.visit(stmt)
+
+        # Bump the starting index past any `_const_<digits>` already present
+        # so the new names cannot shadow author-written identifiers.
+        import re
+
+        used_indices = {
+            int(m.group(1))
+            for name in existing_names
+            if (m := re.fullmatch(r"_const_(\d+)", name)) is not None
+        }
+        base_index = max(used_indices) + 1 if used_indices else 0
+
+        # Build substitution map: (type, value) -> variable name.  Sort by
+        # repr() of the (type-name, value) pair for deterministic ordering
+        # across types and runs.
+        sub_map: dict[ConstKey, str] = {
+            key: f"_const_{base_index + i}"
+            for i, key in enumerate(sorted(to_hoist, key=lambda k: (k[0].__name__, repr(k[1]))))
+        }
+
+        class _ConstReplacer(ast.NodeTransformer):
+            def visit_Constant(self, n: ast.Constant) -> ast.expr:
+                key = (type(n.value), n.value)
+                if key in sub_map:
+                    name_node = ast.Name(id=sub_map[key], ctx=ast.Load())
+                    ast.copy_location(name_node, n)
+                    return name_node
+                return n
+
+            # Mirror _ConstCollector: don't rewrite literals belonging to
+            # nested scopes — those will be processed independently when
+            # their enclosing FunctionDef is visited.
+            def visit_FunctionDef(self, n: ast.FunctionDef) -> ast.AST:
+                return n
+
+            def visit_AsyncFunctionDef(self, n: ast.AsyncFunctionDef) -> ast.AST:
+                return n
+
+            def visit_Lambda(self, n: ast.Lambda) -> ast.AST:
+                return n
+
+            def visit_ClassDef(self, n: ast.ClassDef) -> ast.AST:
+                return n
+
+            # f-strings: ``ast.JoinedStr.values`` only legally contains
+            # ``Constant`` and ``FormattedValue`` nodes.  Returning an
+            # ``ast.Name`` here would produce an AST that ``compile()``
+            # rejects.  Leave the whole JoinedStr intact (matched by the
+            # collector's skip so we don't generate dead ``_const_<n>``
+            # assignments either).
+            def visit_JoinedStr(self, n: ast.JoinedStr) -> ast.AST:
+                return n
+
+            # ``match`` statements: ``MatchValue.value`` requires a
+            # literal-bearing expression.  Substituting an ``ast.Name``
+            # would either fail to compile or — much worse — silently
+            # convert the match arm into a ``MatchAs`` capture that
+            # rebinds the name and matches anything.  Skip the entire
+            # ``Match`` (parity with the collector) so neither the
+            # subject, the patterns, the guards, nor the case bodies are
+            # rewritten — partial rewrites would still leave the unsafe
+            # pattern in place.
+            def visit_Match(self, n: ast.Match) -> ast.AST:
+                return n
+
+        replacer = _ConstReplacer()
+        # ``NodeTransformer.visit`` is typed as ``ast.AST | None`` (and
+        # may even return a ``list`` for some node types), so a list-comp
+        # with ``list[ast.stmt]`` annotation lies to mypy and would mask
+        # an unexpected return shape.  Use an explicit loop with an
+        # ``isinstance`` guard so any future regression in a transformer
+        # method surfaces as a clear ``AssertionError`` here rather than
+        # propagating a malformed AST into ``compile()``.
+        new_body_tail: list[ast.stmt] = []
+        for stmt in body_to_scan:
+            new_stmt = replacer.visit(stmt)
+            if not isinstance(new_stmt, ast.stmt):
+                raise AssertionError(
+                    f"_ConstReplacer.visit returned {type(new_stmt).__name__} "
+                    "for a statement; expected an ast.stmt subclass."
+                )
+            new_body_tail.append(new_stmt)
+
+        assignments: list[ast.stmt] = []
+        for (_, val), var_name in sub_map.items():
+            assign = ast.Assign(
+                targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                value=ast.Constant(value=val),
+                lineno=node.lineno,
+                col_offset=node.col_offset,
             )
-            node.body.insert(0, docstring)
+            ast.fix_missing_locations(assign)
+            assignments.append(assign)
 
+        node.body = node.body[:docstring_offset] + assignments + new_body_tail
         return node
 
 

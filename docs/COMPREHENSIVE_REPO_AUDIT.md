@@ -93,9 +93,9 @@ no automated response or recovery pipeline.
 |-----------|--------|-------------|
 | **Recursion (R)** - RecursionEngine | Functional | 95% |
 | **Resonance (H)** - ResonanceEngine | Functional | 95% |
-| **Refactoring (O)** - RefactoringEngine | **STUB** | **15%** |
+| **Refactoring (O)** - RefactoringEngine | Functional | 70% |
 | **Fusion Equation** - OmniAvaEquation | Functional | 90% |
-| **Learnable Fusion** - Learnable3REngine | Incomplete | 40% |
+| **Learnable Fusion** - Learnable3REngine | Functional | 75% |
 | **Domain Adaptation** - DomainAdaptiveOAEWeights | Partial | 60% |
 | **Respond** | **MISSING** | **0%** |
 | **Recover** | **MISSING** | **0%** |
@@ -104,23 +104,26 @@ no automated response or recovery pipeline.
 
 ### Critical Issues
 
-1. **RefactoringEngine Is a Stub** (`three_r_mechanism.py:2236-2270`)
-   - `RefactoringTransformer._reduce_nesting()` only adds a docstring
-   - No actual AST code transformations despite claiming "dynamic code optimization"
-   - `should_reduce_complexity` flag is set but never used
-   - Documentation claims: "AST manipulation for continuous performance improvement"
-   - Reality: Demo-only stub that doesn't transform code
+1. ~~**RefactoringEngine Is a Stub**~~ **RESOLVED** (`three_r_mechanism.py:2236+`)
+   - `RefactoringTransformer` now implements real AST transformations:
+     - `_reduce_nesting()`: inverts the last trailing `if`-without-`else` in a function body into a guard clause with an early `return None`, leaving the happy path left-aligned (interior `if`s are left intact because injecting an early return ahead of subsequent code would change semantics)
+     - `_hoist_repeated_constants()`: extracts repeated numeric/string literals (used 2+ times) from executable body statements into `_const_<n>` named locals, skipping decorators / default arguments / annotations and keeping `int` and `float` namespaces disjoint; functions containing `global`/`nonlocal` are skipped to avoid SyntaxError
+   - `should_reduce_complexity` flag now activates constant hoisting
+   - 8 unit tests validate correctness including compile+execute verification
+   - *(Resolved by branch: `claude/improve-previous-work-k2tWf`)*
 
 2. **sigma_immutable Is Not Immutable** (`three_r/fusion.py:80-91`)
    - Accepted as constructor parameter
    - Clamped to `[0.90, 0.99]` range with only a warning
    - Can be **dropped from 0.96 to 0.90** at instantiation
 
-3. **Learnable3R Lacks Training Infrastructure** (`three_r/learnable_fusion.py:547+`)
-   - `train_step()` accepts single samples, not batches
-   - No `fit()` method for multi-epoch training
-   - No validation loop or convergence monitoring
-   - Returns 0.0 silently when PyTorch unavailable
+3. ~~**Learnable3R Lacks Training Infrastructure**~~ **RESOLVED** (`three_r/learnable_fusion.py:547+`)
+   - `fit()` method added with: train/val split, mini-batch training, early stopping,
+     per-epoch logging, configurable RNG seed, best-epoch model checkpointing
+   - `train_step()` retained for single-sample use cases
+   - Graceful no-op with warning when PyTorch unavailable
+   - 6 unit tests validate training pipeline
+   - *(Resolved by branch: `claude/improve-previous-work-k2tWf`)*
 
 4. **Learnable and Static 3R Are Decoupled**
    - `ThreeRMechanism` uses `OmniAvaEquation` (static weights)
@@ -168,7 +171,7 @@ no automated response or recovery pipeline.
 | Claim | Reality |
 |-------|---------|
 | "NSL-KDD F1=0.797 -> target 0.92+" | Benchmarks show 0.796 F1 (worse than baseline) |
-| "Automatic refactoring via AST" | Stub that only adds docstrings |
+| "Automatic refactoring via AST" | ✅ Real guard-clause extraction + constant hoisting (8 tests) |
 | "Lyapunov stability V(S_t) <= e*e^(-0.25t)" | Theoretical; no empirical validation |
 | "Domain-adaptive learned weights" | Falls back to golden-ratio defaults with insufficient data |
 | "Bidirectional GOSNN-3R feedback" | One-way integration only |
@@ -271,21 +274,25 @@ These aren't test mocks - they're fallbacks in `src/` that silently degrade:
 **Risk:** Operators have no way to know if the system is running on real models
 or silent mock fallbacks.
 
-### CI Pipeline Soft-Fails (HIGH)
+### CI Pipeline Soft-Fails (HIGH) — RESOLVED in PR #148
 
-These `continue-on-error: true` steps mean failures DON'T block the pipeline:
+These `continue-on-error: true` steps previously meant failures didn't
+block the pipeline. **All security/ethics gates are now blocking** as of
+the commits referenced below:
 
-| CI Step | Line | What It Allows Through |
-|---------|------|----------------------|
-| Pydocstyle | 99 | Docstring violations |
-| Safety scan | 185 | Known CVEs in dependencies |
-| pip-audit | 192 | Vulnerable packages |
-| Semgrep | 197 | Security code issues |
-| **Ethics audit** | **441** | **AI ethics failures** |
-| Trivy scan | 587, 599 | Container vulnerabilities |
-| Documentation | 632 | Documentation failures |
+| CI Step | Old line | What It Allowed Through | Status |
+|---------|----------|------------------------|--------|
+| Pydocstyle | 99 | Docstring violations | Still advisory (`continue-on-error: true`) — codebase-wide docstring hygiene is out of scope for this PR; tracked separately |
+| Safety scan | 185 | Known CVEs in dependencies | **BLOCKING** (this PR; per-CVE ignore via `docs/PYTHON_DEP_CVE_AUDIT.md`) |
+| pip-audit | 192 | Vulnerable packages | **BLOCKING** (this PR; per-CVE ignore via `docs/PYTHON_DEP_CVE_AUDIT.md`) |
+| Semgrep | 197 | Security code issues | **BLOCKING** (PR #148) |
+| **Ethics audit** | **441** | **AI ethics failures** | **BLOCKING** (PR #148) |
+| Trivy scan | 587, 599 | Container vulnerabilities | **BLOCKING** with `exit-code: 1`, CRITICAL/HIGH severity (PR #148) |
+| Documentation | 632 | Documentation failures | Still advisory (codebase-wide hygiene scope) |
 
-**The security and ethics gates are cosmetic - they log but never block.**
+**The security and ethics gates are no longer cosmetic — Safety,
+pip-audit, Semgrep, Bandit, Trivy (Docker + Filesystem), and Ethics Audit
+all hard-fail PRs on findings outside the documented accept-lists.**
 
 ### Disabled Tests
 
@@ -384,19 +391,19 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 
 ### P0 - Must Fix (Integrity Risks)
 
-1. 🔲 **Make ethical gates mandatory** - Replace sigmoid soft-gate with hard threshold + exception
+1. ✅ **Make ethical gates mandatory** - `EthicalConstraintViolationError` exception + `BenevolenceScorer.enforce()` added; wired into `CognitiveOrchestrator.analyze()` with `strict_ethics=True` default; `MINIMUM_BENEVOLENCE_FLOOR=0.70` clamp prevents threshold manipulation to zero (bypass vector 1 closed); benevolence score + permissibility recorded in `CognitiveAnalysisResult` *(branch: `claude/improve-previous-work-k2tWf`)*
 2. ✅ **Implement real ethics audit** - `benchmarks/run_ethics_audit.py` now runs 5 test suites: module imports, 8-pillar config, PreExecutionBlockingGate hard-block verification, EthicalAutonomyGovernor end-to-end, and `ethical_compliance_threshold` immutability
-3. 🔲 **Remove `continue-on-error` from security CI steps** - Safety, pip-audit, Semgrep, ethics, Trivy
+3. ✅ **Remove `continue-on-error` / `|| true` from security CI steps** - Removed from Semgrep, ethics audit, Bandit, Trivy Docker scan, **Safety, and pip-audit**; Trivy narrowed to CRITICAL/HIGH with `exit-code: 1` and is one of two enforcing dep-CVE gates (mirrored by the standalone `Filesystem Security Scan` job in `security.yml`); ethics audit now returns exit code 1 on unexpected failures.  **Semgrep, Safety, and pip-audit are all BLOCKING** with hardened install (missing semgrep `exit 1`s rather than silently passing).  The Safety v3 policy-file blocker is sidestepped via per-CVE `--ignore`/`--ignore-vuln` CLI flags driven by `docs/PYTHON_DEP_CVE_AUDIT.md` (the source-of-truth audit table with per-CVE rationale and 90-day re-review dates); the ignore lists are empty as of PR #148 because every prior finding was resolved by upgrade (PR #165's 27 CVE upgrades + this PR's PyJWT pin for CVE-2026-32597 = 28 CVEs total).  `.safety-policy.yml` remains in the repo as documentation of OS-level CVE acceptances (those continue to be enforced by Trivy via `.trivyignore`); it is no longer wired into `safety check` invocations.  Findings upload as JSON artifacts (`safety-report.json`, `pip-audit-report.json`) for triage.  *(branch: `claude/improve-previous-work-k2tWf`)*
 4. ✅ **Add mock-mode alerting** - `MockLLMAdapter.__init__` now emits `logger.warning` when active so operators see degraded state in logs
-5. 🔲 **Replace GOSNN placeholder attention** - Wire real model tensors into optimizer
-6. 🔲 **Implement RefactoringEngine or remove claims** - Currently a stub that only adds docstrings
-7. 🔲 **Complete Learnable3R training pipeline** - Add fit(), validation loop, convergence criteria
+5. ✅ (partial) **Replace GOSNN placeholder attention** - `AttentionProvider` ABC interface added to `gosnn_optimizer.py`; `GOSNNOptimizer` accepts optional `attention_provider` parameter; when no provider is configured, a deterministic seeded placeholder is used with `logger.warning()` instead of silent `np.random.randn()`; real providers can now be plugged in without modifying the optimizer *(branch: `claude/improve-previous-work-k2tWf`)*
+6. ✅ **Implement RefactoringEngine** - `RefactoringTransformer` rewritten with real AST transformations: guard-clause extraction (inverts only the **last** qualifying `if` without `else` at the end of a function body into an early-return; interior `if` statements are intentionally left intact because injecting `return None` ahead of subsequent code would change semantics), constant hoisting (extracts repeated literals ≥2 occurrences into `_const_<n>` locals; only executable body statements are scanned — decorators, default arguments, and annotations are excluded; `int` and `float` constants are tracked under disjoint `(type, value)` keys so `42` and `42.0` hoist independently; generated names are bumped past any pre-existing `_const_<digits>` identifier in the function; functions containing `global`/`nonlocal` declarations are skipped to avoid the *assigned-before-global-declaration* `SyntaxError`); 9 unit tests validate guard clauses, docstring preservation, multi-if semantic preservation, else-preservation, literal hoisting, trivial-value exclusion, string hoisting, default-argument exclusion, and compile+execute *(branch: `claude/improve-previous-work-k2tWf`)*
+7. ✅ **Complete Learnable3R training pipeline** - `Learnable3REngine.fit()` implemented with: train/val split, mini-batch training, early stopping (patience + min_delta), per-epoch logging, configurable RNG seed, and **best-epoch model checkpointing** (saves `state_dict` at best val loss and restores after training); graceful no-op when PyTorch unavailable; 6 tests covering history, loss decrease, early stopping, checkpoint restore, min-samples validation, and PyTorch-absent path *(branch: `claude/improve-previous-work-k2tWf`)*
 
 ### P1 - Should Fix (Operational Risks)
 
 8. ✅ (partial) **Replace silent exception swallowing** - Conformal prediction failure upgraded from `logger.debug` to `logger.warning` so degraded state is visible; 104 remaining bare-except handlers still open
 9. 🔲 **Pin AMA Cryptography to commit hash** - Prevent supply chain drift; currently points to main branch
-10. ✅ (partial) **Replace `print()` with structured logging** - `score_calibration.print_quick_diagnostic()` (5 calls) converted to `logger.debug`; ~76 occurrences remain
+10. ✅ (partial) **Replace `print()` with structured logging** - `BenchmarkDiagnostics.quick_diagnose()` (10 print calls) converted to `logger.info`/`logger.warning`; `ScoreCalibrationManager.print_diagnostics()` (2 calls) and `diagnose_scores()` (7 calls) converted to `logger.info`/`logger.warning`; ~60 occurrences remain (mostly in `cli.py` which is acceptable for CLI output) *(branches: PR #146 + `claude/improve-previous-work-k2tWf`)*
 11. 🔲 **Enforce coverage threshold** - Close gap between 10% CI and 85% target
 12. ✅ **Make sigma_immutable actually immutable** - `OmniAvaEquation.__setattr__` now raises `AttributeError` if `ethical_compliance_threshold` is written after construction
 13. 🔲 **Generate `requirements.lock`** - No reproducible builds currently possible
@@ -428,23 +435,35 @@ These `continue-on-error: true` steps mean failures DON'T block the pipeline:
 - Conformal prediction and calibration pipelines are functional
 - `PreExecutionBlockingGate` correctly hard-blocks destructive/exfiltration/deceptive patterns
 - `ethical_compliance_threshold` is now truly immutable after `OmniAvaEquation` construction
+- `BenevolenceScorer.score_action` is invoked with a fully-controlled action description in `CognitiveOrchestrator.analyze()` (the user-supplied `domain` is whitelisted before interpolation), and `strict_ethics=True` raises `EthicalConstraintViolationError` when the score is impermissible — mandatory ethical gate in execution path; orchestrator does not call `enforce()` itself because it must surface the analysis-time measurement on the exception
+- `MINIMUM_BENEVOLENCE_FLOOR` is enforced via a property setter, so `scorer.benevolence_threshold = 0.0` is silently clamped to the floor (not just on `__init__`) — the floor cannot be lowered after construction
+- `EthicalConstraintViolationError` propagates up call stack — cannot be silently ignored — and now carries `analysis_time_ms` for caller diagnostics
+- `RefactoringTransformer` performs real AST transformations (last-`if` guard-clause + constant hoisting with `int`/`float` separation, name-collision avoidance, and `global`/`nonlocal` skip)
+- `Learnable3REngine.fit()` provides proper training pipeline with best-epoch checkpointing; size-1 mini-batches are skipped to avoid the `BatchNorm1d` crash and `seed=` also seeds PyTorch
+- Trivy on the built Docker image (and the standalone `Filesystem Security Scan`) hard-fail on CRITICAL/HIGH dep CVEs and honor `.trivyignore` for documented risk acceptances; Semgrep (SAST), Bandit, **Safety, and pip-audit** are all blocking; per-CVE risk acceptance for Safety/pip-audit is wired via `--ignore`/`--ignore-vuln` CLI flags driven by `docs/PYTHON_DEP_CVE_AUDIT.md` (currently empty — every prior finding was resolved by upgrade in PR #165 + PyJWT pin in PR #148).  Results upload as JSON artifacts for triage
 
 ### Where We Are NOT Valid
-- **Ethical claims** - "Immutable" constraints are mutable; "inviolable" principles are advisory (gate can be disabled)
-- **CI security** - Pipeline says "security checked" but all checks are soft-fail
-- **Model integrity** - GOSNN optimizer validates against random data, not real model output
+- **Ethical claims** - ~~"Immutable" constraints are mutable~~ `MINIMUM_BENEVOLENCE_FLOOR` + `enforce()` + `CognitiveOrchestrator` gate close bypass vector 1; **remaining**: sigmoid gate (vector 2), `enable_bias_audits`/`enable_sigma_directives` off-switches (vector 3), `enable_blocking=False` (vector 4), domain lower bounds (vector 5), rollback non-enforcement (vector 6)
+- **CI security** - ~~all checks are soft-fail~~ Semgrep, Bandit, Ethics Audit, Trivy (Docker + Filesystem), **Safety, and pip-audit** are now blocking with no escape hatches; Semgrep install hardened so missing semgrep `exit 1`s rather than silently skipping.  The Safety v3 policy-file blocker is sidestepped via per-CVE `--ignore`/`--ignore-vuln` CLI flags driven by `docs/PYTHON_DEP_CVE_AUDIT.md`; the audit table is empty of accepted CVEs at the time of writing because PR #165's upgrades (cryptography 46.0.7, pillow 12.2.0, requests 2.33.1, aiohttp 3.13.4, pytest 9.0.3, black 26.3.1 — 27 CVEs) plus this PR's PyJWT pin (`>=2.12.0`, CVE-2026-32597) cleared every finding.  `.safety-policy.yml` remains in the repo as documentation of OS-level CVE acceptances enforced by Trivy via `.trivyignore`.  A new **Neuro-Symbolic Tests** job runs on every PR and is wired into the `CI Success` rollup, gating the 7-phase cognitive architecture (`tests/cognitive/`, `tests/safeguards/`, neurosymbolic/3R/ethics suites) so cognitive regressions cannot land on feature branches.  `pydocstyle` and Sphinx docs build remain advisory by design (their failures are codebase-wide hygiene work, separate from this PR's scope)
+- **Model integrity** - ~~GOSNN optimizer validates against random data~~ `AttentionProvider` interface available; placeholder now uses deterministic seed with `logger.warning()`; **remaining**: no concrete `AttentionProvider` implementation wired to GOSNN model yet
 - **Production status** - Mock fallbacks mean system can silently run in degraded mode (LLM adapter now warns; others remain silent)
 - **Coverage claims** - 85% target with 10% enforcement is misleading
-- **3R completeness** - "Refactoring" engine is a stub; no Respond or Recover exists
+- **3R completeness** - ~~"Refactoring" engine is a stub~~ real AST transforms implemented; no Respond or Recover exists
 - **Benchmark claims** - "F1 target 0.92+" never achieved; actual benchmarks show 0.796
 - **Bidirectional GOSNN-3R** - Integration is one-way only (3R->GOSNN)
-- **Learnable 3R** - Training infrastructure incomplete; no fit(), no validation loop
+- ~~**Learnable 3R**~~ - ✅ `fit()` with train/val split, early stopping, and best-epoch checkpointing implemented
 - **Lyapunov stability** - Theoretical claim with zero empirical validation
 
 ---
 
-*Last updated: 2026-03-11 (items 2, 4, 8-partial, 10-partial, 12, 14, 16, 20-partial, 21, 23-partial completed)*
+### Provenance Trail
 
-*This audit should be re-run after the `claude/apply-branding-optimize-YYHEA` branch merge
-as it contains exception handling tightening and infrastructure export fixes that may
-address some findings.*
+| Date | Branch | Items Resolved |
+|------|--------|----------------|
+| 2026-03-11 | `claude/apply-branding-optimize-YYHEA` | Items 2, 4, 8-partial, 10-partial, 12, 14, 16, 20-partial, 21, 23-partial |
+| 2026-03-11 | PRs #142, #144, #146 (cherry-picked) | Black formatting, AMA Crypto v2.0 consolidation, MyPy/monitoring fixes |
+| 2026-03-11 | `claude/improve-previous-work-k2tWf` | Items 1, 3, 5-partial, 6, 7, 10-continued |
+
+*Last updated: 2026-05-02 (PR #148 — Safety + pip-audit BLOCKING; CVE audit doc; click/typer pin)*
+
+*Remaining high-priority open items: P1-9 (pin AMA Crypto), P1-11 (coverage threshold), P1-13 (requirements.lock), P1-15 (OpenTelemetry), P2-17 (GOSNN config), P2-18 (domain policies), P2-19 (intersectional fairness), P2-22 (load tests in CI), P2-24 (3R-Resilience), P2-25 (bidirectional GOSNN-3R).*
