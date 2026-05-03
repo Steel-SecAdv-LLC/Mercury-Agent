@@ -675,7 +675,7 @@ Optimized for both accuracy and interpretability:
 | Multi-Domain Coverage | 22+ detection engines across 12 domains (8 new statistical methods) |
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
-| Comprehensive Testing | 5,900+ tests across 227 files, property-based testing, security scanning |
+| Comprehensive Testing | ~5,100+ tests collected across 258 files (verified `pytest --collect-only`; grows with optional ML deps installed), property-based testing, security scanning |
 | Benchmark Coverage | 64 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain), Mean AUC 0.8285, Median AUC 0.9091 |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |

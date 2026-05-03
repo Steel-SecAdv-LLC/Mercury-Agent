@@ -438,6 +438,63 @@ def test_default_max_entries_is_256() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Exception translation: every failure path raises UnsafePayloadError.
+# --------------------------------------------------------------------------- #
+
+
+def test_toctou_corruption_after_validation_raises_unsafe_payload(
+    good_npz: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A file that passes the central-directory check but is corrupt by
+    the time numpy reads it must surface as UnsafePayloadError, not as
+    a raw zipfile.BadZipFile leaked to the caller.
+
+    We simulate the TOCTOU window by monkey-patching np.load to raise
+    BadZipFile -- exactly what happens if the file is truncated or
+    rewritten between our pre-check and numpy's own zip parse.
+    """
+    import zipfile as _zipfile_mod
+
+    import numpy as _np_mod
+
+    def _explode(*_args: object, **_kwargs: object) -> object:
+        raise _zipfile_mod.BadZipFile("simulated TOCTOU corruption")
+
+    monkeypatch.setattr(_np_mod, "load", _explode)
+    with pytest.raises(UnsafePayloadError, match="TOCTOU"):
+        safe_load_training_data(good_npz)
+
+
+def test_oserror_during_load_raises_unsafe_payload(
+    good_npz: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Filesystem failures during np.load (e.g., file deleted, EIO) are
+    translated to UnsafePayloadError so callers see one exception type."""
+    import numpy as _np_mod
+
+    def _explode(*_args: object, **_kwargs: object) -> object:
+        raise OSError("simulated disk error")
+
+    monkeypatch.setattr(_np_mod, "load", _explode)
+    with pytest.raises(UnsafePayloadError, match="Failed to read"):
+        safe_load_training_data(good_npz)
+
+
+def test_keyerror_during_load_raises_unsafe_payload(
+    good_npz: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """KeyError from a malformed NpzFile entry is translated."""
+    import numpy as _np_mod
+
+    def _explode(*_args: object, **_kwargs: object) -> object:
+        raise KeyError("malformed entry")
+
+    monkeypatch.setattr(_np_mod, "load", _explode)
+    with pytest.raises(UnsafePayloadError, match=r"Malformed \.npz"):
+        safe_load_training_data(good_npz)
+
+
+# --------------------------------------------------------------------------- #
 # Constants are exported and stable.
 # --------------------------------------------------------------------------- #
 

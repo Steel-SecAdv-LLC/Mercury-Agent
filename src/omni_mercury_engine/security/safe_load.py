@@ -295,6 +295,22 @@ def safe_load_training_data(
                 f"unicode, bytes)."
             ) from exc
         raise UnsafePayloadError(f"Failed to parse {p} as .npz: {exc}") from exc
+    except zipfile.BadZipFile as exc:
+        # Central-directory check passed earlier, but the archive became
+        # invalid by the time numpy tried to read it (TOCTOU: the file
+        # was modified or truncated between our pre-check and np.load).
+        raise UnsafePayloadError(
+            f"{p} became an invalid zip between validation and load (TOCTOU): {exc}"
+        ) from exc
+    except OSError as exc:
+        # Filesystem-level failure: file deleted, permission revoked,
+        # disk error, etc. Surface as an UnsafePayloadError so callers
+        # see one exception type from this loader.
+        raise UnsafePayloadError(f"Failed to read {p}: {exc}") from exc
+    except (KeyError, EOFError) as exc:
+        # numpy.NpzFile can raise KeyError on a malformed entry name and
+        # EOFError on a truncated DEFLATE stream. Translate both.
+        raise UnsafePayloadError(f"Malformed .npz {p}: {exc}") from exc
 
 
 # --------------------------------------------------------------------------- #

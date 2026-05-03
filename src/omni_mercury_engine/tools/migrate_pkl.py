@@ -235,9 +235,14 @@ def _do_migration(args: argparse.Namespace) -> int:
         if len(key) < 32:
             print("error: --sign-key-hex must decode to >= 32 bytes", file=sys.stderr)
             return 4
-        # Re-import inside hardened path because site-packages is stripped;
-        # the project's own packages are still on sys.path if installed
-        # in development mode.
+        # Lazy import: the migration tool only depends on the project's
+        # own ``security.safe_load`` module when --sign-key-hex is
+        # actually used. Keeping the import here means the tool's
+        # baseline import surface stays minimal (just stdlib + numpy)
+        # for the common no-signing path. The hardened-subprocess
+        # contract is environment-based, not flag-based -- venv /
+        # system ``site-packages`` is *not* stripped, so this import
+        # works whenever Mercury Agent is installed.
         from omni_mercury_engine.security.safe_load import sign_npz
 
         sig_path = sign_npz(dst, key)
@@ -254,10 +259,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _do_migration(args)
 
     # Top-level invocation: relaunch ourselves in the hardened subprocess.
+    # Forward whatever argv the caller supplied (test harnesses pass an
+    # explicit list; CLI invocations leave argv=None and we fall back to
+    # sys.argv[1:]). The earlier code unconditionally used sys.argv[1:],
+    # which silently broke programmatic ``main([...])`` calls.
     print(_banner(), file=sys.stderr)
     nonce = secrets.token_hex(8)
     print(f"relaunching under hardened subprocess (nonce {nonce})...", file=sys.stderr)
-    return _relaunch_hardened(sys.argv[1:])
+    forwarded = list(argv) if argv is not None else sys.argv[1:]
+    return _relaunch_hardened(forwarded)
 
 
 if __name__ == "__main__":
