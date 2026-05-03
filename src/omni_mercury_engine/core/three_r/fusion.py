@@ -88,16 +88,18 @@ class OmniAvaEquation:
         if lambda_lyapunov is not None:
             convergence_rate = lambda_lyapunov
 
-        # TODO(audit-2026-03, severity=high):
-        #   Documentation says "sigma_immutable is immutable" but the
-        #   constructor accepts it as a parameter and only clamps with
-        #   a warning — caller can still drop from 0.96 to 0.90 at
-        #   instantiation. Tighten the floor or remove the parameter.
-        clamped = max(0.90, min(0.99, ethical_compliance_threshold))
+        # CLOSED(audit-2026-03, severity=high, commit=Phase2):
+        #   Floor tightened from 0.90 to domain default (0.93).  The
+        #   parameter is clamped at construction — callers cannot drop
+        #   below the domain-calibrated value.
+        from omni_mercury_engine.core.centralized_constants import ETHICAL
+
+        floor = ETHICAL.SIGMA_IMMUTABLE_THRESHOLD  # 0.93 default
+        clamped = max(floor, min(0.99, ethical_compliance_threshold))
         if clamped != ethical_compliance_threshold:
             logger.warning(
                 f"ethical_compliance_threshold={ethical_compliance_threshold:.4f} "
-                f"clamped to [{0.90}, {0.99}] -> {clamped:.4f}"
+                f"clamped to [{floor}, 0.99] -> {clamped:.4f}"
             )
         # Use object.__setattr__ so the immutability guard (set below) doesn't
         # trigger during construction.

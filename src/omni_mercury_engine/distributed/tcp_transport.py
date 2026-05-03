@@ -46,7 +46,9 @@ import json
 import logging
 import secrets
 import socket as _socket_mod
+import ssl
 import struct
+import time
 from dataclasses import asdict
 from typing import Any
 
@@ -211,6 +213,9 @@ class TCPMessageTransport(MessageTransport):
             rejected; an invalid signature is rejected.
     """
 
+    #: Sliding window for replay defense (seconds).
+    REPLAY_WINDOW: float = 300.0
+
     def __init__(
         self,
         node_id: str,
@@ -220,6 +225,7 @@ class TCPMessageTransport(MessageTransport):
         peers: dict[str, tuple[str, int]] | None = None,
         keypair: KeyPair | None = None,
         peer_public_keys: dict[str, bytes] | None = None,
+        ssl_context: ssl.SSLContext | None = None,
     ) -> None:
         super().__init__()
         self._node_id = node_id
@@ -227,6 +233,7 @@ class TCPMessageTransport(MessageTransport):
         self._bind_port = bind_port
         self._peers: dict[str, tuple[str, int]] = dict(peers or {})
         self._peer_public_keys: dict[str, bytes] = dict(peer_public_keys or {})
+        self._ssl_context = ssl_context
 
         self._signer = Ed25519Provider()
         self._keypair = keypair or self._signer.generate_keypair()
@@ -235,6 +242,10 @@ class TCPMessageTransport(MessageTransport):
         # Outstanding RPCs awaiting their response — keyed by request_id.
         self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
         self._running = False
+
+        # Replay defense: per-sender tracking of seen request_ids within
+        # a sliding time window.
+        self._seen_requests: dict[str, dict[str, float]] = {}
 
     # -- introspection --------------------------------------------------
 
@@ -266,7 +277,10 @@ class TCPMessageTransport(MessageTransport):
         if self._running:
             return
         self._server = await asyncio.start_server(
-            self._handle_connection, host=self._bind_host, port=self._bind_port
+            self._handle_connection,
+            host=self._bind_host,
+            port=self._bind_port,
+            ssl=self._ssl_context,
         )
         self._running = True
         logger.info(
@@ -348,7 +362,9 @@ class TCPMessageTransport(MessageTransport):
 
     async def _send(self, addr: tuple[str, int], envelope: dict[str, Any]) -> None:
         host, port = addr
-        reader, writer = await asyncio.open_connection(host=host, port=port)
+        reader, writer = await asyncio.open_connection(
+            host=host, port=port, ssl=self._ssl_context,
+        )
         try:
             payload = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
             writer.write(_frame(payload))
@@ -394,6 +410,16 @@ class TCPMessageTransport(MessageTransport):
                     "Rejected inbound frame on %s: invalid signature from %s",
                     self._node_id,
                     envelope.get("from"),
+                )
+                return
+            sender = envelope.get("from", "")
+            request_id = envelope.get("request_id", "")
+            if self._is_replay(sender, request_id):
+                logger.warning(
+                    "Rejected replay on %s: request_id=%s from %s",
+                    self._node_id,
+                    request_id,
+                    sender,
                 )
                 return
 
@@ -451,6 +477,25 @@ class TCPMessageTransport(MessageTransport):
         signature = self._signer.sign(_envelope_bytes(envelope), self._keypair.secret_key)
         envelope["signature"] = signature.hex()
         return envelope
+
+    # -- replay defense -------------------------------------------------
+
+    def _is_replay(self, sender: str, request_id: str) -> bool:
+        """Check if (sender, request_id) was already seen within the window."""
+        now = time.monotonic()
+        # Prune expired entries for this sender
+        if sender in self._seen_requests:
+            seen = self._seen_requests[sender]
+            expired = [rid for rid, ts in seen.items() if now - ts > self.REPLAY_WINDOW]
+            for rid in expired:
+                del seen[rid]
+        else:
+            self._seen_requests[sender] = {}
+
+        if request_id in self._seen_requests[sender]:
+            return True
+        self._seen_requests[sender][request_id] = now
+        return False
 
     # -- crypto ---------------------------------------------------------
 
