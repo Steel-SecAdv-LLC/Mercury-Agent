@@ -831,6 +831,7 @@ class RaftCluster:
         self._use_in_memory = use_in_memory_transport
 
         for config in node_configs:
+            transport: MessageTransport
             if use_in_memory_transport:
                 transport = InMemoryTransport(config.node_id)
             else:

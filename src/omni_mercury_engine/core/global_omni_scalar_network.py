@@ -54,6 +54,7 @@ import os
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -136,16 +137,28 @@ class EnhancementResult:
 
 class EthicalGate:
     """
-    Neural network gate for ethical compliance verification.
+    Trained neural network gate for ethical compliance verification.
 
-    Blocks operations if ethical score falls below σ_Immutable threshold (0.93).
-    Uses a simple feedforward network: 256 → 64 → 1 with Sigmoid activation.
+    Architecture: ``Linear(256, 64) → ReLU → Linear(64, 1) → Sigmoid``.
+
+    The gate is trained by ``scripts/train_sigma_immutable.py`` on a
+    labelled scalar-vector corpus (see that script's docstring for the
+    labelling source).  Trained weights are persisted at
+    ``security/sigma_immutable_weights.pt`` and loaded at construction
+    time.  If the weights file is absent or PyTorch is unavailable, the
+    gate falls back to a deterministic NumPy heuristic.
+
+    The gate is a *second independent check* alongside
+    :class:`~omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`.
     """
+
+    _WEIGHTS_RELPATH = "security/sigma_immutable_weights.pt"
 
     def __init__(self, input_dim: int = 256, threshold: float = 0.93) -> None:
         self.threshold = threshold
         self.input_dim = input_dim
         self.logger = logging.getLogger(__name__)
+        self._trained = False
 
         if TORCH_AVAILABLE:
             self.gate_network = nn.Sequential(
@@ -154,8 +167,29 @@ class EthicalGate:
                 nn.Linear(64, 1),
                 nn.Sigmoid(),
             )
+            self._try_load_trained_weights()
         else:
             self.gate_network = None  # type: ignore[assignment, unused-ignore]
+
+    def _try_load_trained_weights(self) -> None:
+        """Load trained weights from the in-repo artifact if present."""
+        # Resolve weights path relative to the package root
+        pkg_root = Path(__file__).resolve().parent.parent
+        weights_path = pkg_root / self._WEIGHTS_RELPATH
+        if not weights_path.exists():
+            self.logger.debug(
+                "σ_Immutable weights not found at %s; using untrained gate",
+                weights_path,
+            )
+            return
+        try:
+            state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+            self.gate_network.load_state_dict(state_dict)  # type: ignore[union-attr]
+            self.gate_network.eval()  # type: ignore[union-attr]
+            self._trained = True
+            self.logger.info("σ_Immutable: loaded trained weights from %s", weights_path)
+        except Exception as exc:
+            self.logger.warning("σ_Immutable: failed to load weights: %s", exc)
 
     def evaluate(self, scalar_vector: np.ndarray[Any, Any]) -> tuple[bool, float]:
         """

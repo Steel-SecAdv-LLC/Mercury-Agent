@@ -136,33 +136,19 @@ class PreExecutionBlockingGate:
 
     def __init__(
         self,
-        # TODO(audit-2026-03, severity=critical):
-        #   PreExecutionBlockingGate has an off switch — single ``False``
-        #   here disables all blocking. Phase 2 hard-enforcement landed at
-        #   the engine/orchestrator/hub boundary (see
-        #   ``src/omni_mercury_engine/ethical/__init__.py``); this gate
-        #   should follow suit. Track until enable_blocking is removed.
-        enable_blocking: bool = True,
         custom_patterns: dict[str, BlockedActionCategory] | None = None,
-        # TODO(audit-2026-03, severity=high):
-        #   ``allow_overrides`` permits an authorised bypass of the
-        #   blocking decision; needs the same audit-trail discipline as
-        #   the new EthicalViolation path.
-        allow_overrides: bool = False,
-        override_key: str | None = None,
     ) -> None:
         """
         Initialize pre-execution blocking gate.
 
+        Blocking is always active — there is no off-switch.  The
+        ``enable_blocking`` and ``allow_overrides`` parameters were
+        removed in the May 2026 Phase 2 audit cure because a single
+        ``False`` at construction silently disabled all protection.
+
         Args:
-            enable_blocking: Whether blocking is active (False for testing)
             custom_patterns: Additional patterns to block
-            allow_overrides: Whether to allow authorized overrides
-            override_key: Secret key required for overrides
         """
-        self.enable_blocking = enable_blocking
-        self.allow_overrides = allow_overrides
-        self.override_key = override_key
         self.audit_log: list[BlockingGateResult] = []
 
         # Combine default and custom patterns
@@ -172,14 +158,13 @@ class PreExecutionBlockingGate:
 
         logging.info(
             f"PreExecutionBlockingGate initialized: {len(self.blocked_patterns)} patterns, "
-            f"blocking={'enabled' if enable_blocking else 'disabled'}"
+            f"blocking=enabled (always)"
         )
 
     def check_action(
         self,
         action_type: str,
         action_params: dict[str, Any] | None = None,
-        override_key: str | None = None,
     ) -> BlockingGateResult:
         """
         Check if an action should be blocked before execution.
@@ -190,43 +175,12 @@ class PreExecutionBlockingGate:
         Args:
             action_type: Type of action being attempted
             action_params: Parameters of the action
-            override_key: Optional key to bypass blocking (if allowed)
 
         Returns:
             BlockingGateResult indicating if action is blocked
         """
         action_params = action_params or {}
         timestamp = datetime.now(UTC).isoformat()
-
-        # Check for override
-        if (
-            self.allow_overrides
-            and override_key is not None
-            and self.override_key is not None
-            and override_key == self.override_key
-        ):
-            result = BlockingGateResult(
-                blocked=False,
-                category=None,
-                reason="Override authorized",
-                timestamp=timestamp,
-                action_type=action_type,
-                override_allowed=True,
-            )
-            self.audit_log.append(result)
-            return result
-
-        # If blocking disabled (e.g., for testing), allow all
-        if not self.enable_blocking:
-            result = BlockingGateResult(
-                blocked=False,
-                category=None,
-                reason="Blocking disabled",
-                timestamp=timestamp,
-                action_type=action_type,
-            )
-            self.audit_log.append(result)
-            return result
 
         # Check action type against blocked patterns
         action_lower = action_type.lower()
@@ -305,10 +259,7 @@ class EthicsConfig:
     enable_commitment_evolution: bool = True
     min_ethics_score: float = 0.7
     strict_mode: bool = False
-    # Pre-execution blocking gate configuration
-    enable_blocking_gate: bool = True
-    allow_blocking_overrides: bool = False
-    blocking_override_key: str | None = None
+
 
 
 @dataclass
@@ -349,12 +300,8 @@ class EthicalAutonomyGovernor:
         self.config = config or EthicsConfig()
         self.audit_log: list[dict[str, Any]] = []
 
-        # Initialize pre-execution blocking gate
-        self.blocking_gate = PreExecutionBlockingGate(
-            enable_blocking=self.config.enable_blocking_gate,
-            allow_overrides=self.config.allow_blocking_overrides,
-            override_key=self.config.blocking_override_key,
-        )
+        # Initialize pre-execution blocking gate (always on, no off-switch)
+        self.blocking_gate = PreExecutionBlockingGate()
 
         logging.info("Ethical Autonomy Governor initialized with 8 principles and blocking gate")
 
@@ -363,7 +310,6 @@ class EthicalAutonomyGovernor:
         action_type: str,
         action_params: dict[str, Any],
         context: dict[str, Any] | None = None,
-        override_key: str | None = None,
     ) -> EthicsResult:
         """
         Evaluate an action against all 8 ethical principles.
@@ -375,7 +321,6 @@ class EthicalAutonomyGovernor:
             action_type: Type of action (e.g., "refactoring", "optimization")
             action_params: Parameters of the action
             context: Additional context for evaluation
-            override_key: Optional key to bypass blocking gate
 
         Returns:
             EthicsResult with pass/fail and detailed scores
@@ -389,7 +334,6 @@ class EthicalAutonomyGovernor:
         gate_result = self.blocking_gate.check_action(
             action_type=action_type,
             action_params=action_params,
-            override_key=override_key,
         )
 
         if gate_result.blocked:

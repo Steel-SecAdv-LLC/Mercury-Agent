@@ -30,11 +30,13 @@ boundary, and there is no flag the caller can set to disable it:
   benevolence is below ``benevolence_threshold``.
 - :meth:`omni_mercury_engine.engine.OmniMercuryEngine.detect_with_fusion`
   (and ``detect_with_fusion_calibrated``) raises with
-  ``check="sigma_immutable"`` when GOSNN's neural ethical gate
-  (σ_Immutable) does not pass.  The previous "fall back to
-  ``ethical_gate_passed=True`` if GOSNN errors" behavior is removed —
-  if the gate cannot be evaluated the boundary fails closed
-  (``check="gosnn_unavailable"``).
+  ``check="benevolence"`` via :meth:`BenevolenceScorer.enforce` — the
+  same primitive used by the orchestrator.  Additionally, the GOSNN
+  σ_Immutable neural gate (trained by
+  ``scripts/train_sigma_immutable.py``) provides a second independent
+  ethical check — its score is recorded in ``gosnn_metadata``.  GOSNN
+  failures do not block detection; they populate ``gosnn_metadata``
+  with ``fallback_mode=True`` and the error.
 - :meth:`omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer.enforce`
   is the primitive enforcement hook used by the boundary methods above.
 

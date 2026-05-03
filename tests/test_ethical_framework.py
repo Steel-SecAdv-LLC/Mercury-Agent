@@ -111,8 +111,6 @@ class TestEthicalAutonomyGovernor:
         governor = EthicalAutonomyGovernor()
 
         assert governor.ethical_scalars is not None
-        assert governor.enable_bias_audits is True
-        assert governor.enable_sigma_directives is True
         assert governor.sigma_directive is not None
         assert len(governor.ethical_scalars.to_dict()) >= 150
 
@@ -142,7 +140,7 @@ class TestEthicalAutonomyGovernor:
 
     def test_bias_auditing(self):
         """Test bias auditing functionality."""
-        governor = EthicalAutonomyGovernor(enable_bias_audits=True)
+        governor = EthicalAutonomyGovernor()
 
         np.random.seed(123)
         fair_data = np.concatenate([np.random.randn(50) * 1.0, np.random.randn(50) * 1.0])

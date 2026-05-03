@@ -206,14 +206,6 @@ class EthicalAutonomyGovernor:
     def __init__(
         self,
         ethical_scalars: EthicalScalars | None = None,
-        # TODO(audit-2026-03, severity=critical):
-        #   Both ``enable_bias_audits`` and ``enable_sigma_directives``
-        #   are ``True`` by default but can be set to ``False`` at
-        #   construction, bypassing all governance. Phase 2 closed the
-        #   detect/analyze/predict boundary; this governor surface is
-        #   still configurable away.
-        enable_bias_audits: bool = True,
-        enable_sigma_directives: bool = True,
         p_value_threshold: float = 0.05,
         ethical_threshold: float = 0.8,
         rng: DeterministicRNG | None = None,
@@ -222,29 +214,27 @@ class EthicalAutonomyGovernor:
         """
         Initialize Ethical Autonomy Governor.
 
+        Bias audits and Sigma Directive overrides are always active —
+        there is no off-switch.  The ``enable_bias_audits`` and
+        ``enable_sigma_directives`` parameters were removed in the
+        May 2026 Phase 2 audit cure because ``False`` at construction
+        silently bypassed all governance.
+
         Args:
             ethical_scalars: Ethical scalar configuration
-            enable_bias_audits: Enable bias auditing
-            enable_sigma_directives: Enable Sigma Directive overrides
             p_value_threshold: Statistical significance threshold
             ethical_threshold: Minimum ethical score threshold
             rng: Optional DeterministicRNG for reproducibility
             thresholds: Threshold configuration (frozen at construction time)
         """
         self.ethical_scalars = ethical_scalars or DEFAULT_CONFIG.ethical_scalars
-        self.enable_bias_audits = enable_bias_audits
-        self.enable_sigma_directives = enable_sigma_directives
         self.p_value_threshold = p_value_threshold
         self.ethical_threshold = ethical_threshold
         self._rng = rng or get_global_rng()
         # Freeze thresholds at construction time to avoid global mutation risk
         self._thresholds = thresholds or ThresholdConfig()
 
-        self.sigma_directive: SigmaDirective | None = (
-            SigmaDirective(self.ethical_scalars, self._thresholds)
-            if enable_sigma_directives
-            else None
-        )
+        self.sigma_directive = SigmaDirective(self.ethical_scalars, self._thresholds)
 
         self.decision_history: list[EthicalDecision] = []
         self.rollback_history: list[EthicalDecision] = []
@@ -268,19 +258,18 @@ class EthicalAutonomyGovernor:
         ethical_score = self._compute_ethical_score(action, context)
 
         bias_audit_passed = True
-        if self.enable_bias_audits and data is not None:
+        if data is not None:
             bias_metrics = self._audit_bias(data, context)
             bias_audit_passed = not bias_metrics.bias_detected
 
         p_value = self._statistical_validation(ethical_score, context)
 
         sigma_directive_applied = False
-        if self.enable_sigma_directives and self.sigma_directive:
-            allow, reasoning = self.sigma_directive.apply_directive(action, context)
-            sigma_directive_applied = not allow
+        allow, reasoning = self.sigma_directive.apply_directive(action, context)
+        sigma_directive_applied = not allow
 
-            if not allow:
-                context["sigma_override_reasoning"] = reasoning
+        if not allow:
+            context["sigma_override_reasoning"] = reasoning
 
         decision = EthicalDecision(
             decision_id=decision_id,
@@ -294,9 +283,24 @@ class EthicalAutonomyGovernor:
         if self._should_rollback(decision):
             decision.rollback_triggered = True
             self.rollback_history.append(decision)
-        else:
-            self.decision_history.append(decision)
+            from omni_mercury_engine.cognitive.ethical_bounding import (
+                EthicalConstraintViolationError,
+            )
 
+            raise EthicalConstraintViolationError(
+                action=action,
+                score=ethical_score,
+                threshold=self.ethical_threshold,
+                check="governance_rollback",
+                details={
+                    "decision_id": decision_id,
+                    "bias_audit_passed": bias_audit_passed,
+                    "p_value": p_value,
+                    "sigma_directive_applied": sigma_directive_applied,
+                },
+            )
+
+        self.decision_history.append(decision)
         return decision
 
     def _compute_ethical_score(self, action: str, context: dict[str, Any]) -> float:

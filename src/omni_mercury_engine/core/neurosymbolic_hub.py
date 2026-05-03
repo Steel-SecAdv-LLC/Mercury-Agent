@@ -540,7 +540,19 @@ class NeuroSymbolicHub:
         self.input_dim = input_dim
         self.fusion_mode = fusion_mode
         self.sigma_immutable = sigma_immutable
-        self.benevolence_threshold = benevolence_threshold
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            MINIMUM_BENEVOLENCE_FLOOR,
+        )
+
+        if benevolence_threshold < MINIMUM_BENEVOLENCE_FLOOR:
+            logger.warning(
+                "benevolence_threshold=%.4f below absolute minimum %.4f; "
+                "clamping to floor",
+                benevolence_threshold,
+                MINIMUM_BENEVOLENCE_FLOOR,
+            )
+            benevolence_threshold = MINIMUM_BENEVOLENCE_FLOOR
+        self._benevolence_threshold = benevolence_threshold
         self.use_calibration = use_calibration
         self.seed = seed
         self.rng = np.random.default_rng(seed)
@@ -618,6 +630,27 @@ class NeuroSymbolicHub:
             f"sigma_immutable={sigma_immutable}, benevolence≥{benevolence_threshold}, "
             f"domain={domain or 'general'}"
         )
+
+    @property
+    def benevolence_threshold(self) -> float:
+        """Approval threshold, always at or above ``MINIMUM_BENEVOLENCE_FLOOR``."""
+        return self._benevolence_threshold
+
+    @benevolence_threshold.setter
+    def benevolence_threshold(self, value: float) -> None:
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            MINIMUM_BENEVOLENCE_FLOOR,
+        )
+
+        if value < MINIMUM_BENEVOLENCE_FLOOR:
+            logger.warning(
+                "benevolence_threshold=%.4f below absolute minimum %.4f; "
+                "clamping to floor",
+                value,
+                MINIMUM_BENEVOLENCE_FLOOR,
+            )
+            value = MINIMUM_BENEVOLENCE_FLOOR
+        self._benevolence_threshold = value
 
     def _initialize_default_rules(self) -> None:
         """Initialize default symbolic rules."""

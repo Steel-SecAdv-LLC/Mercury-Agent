@@ -13,8 +13,10 @@ Phase 2 of the May 2026 audit cure flips ethics from "advisory" to
 "functional".  Every API surface listed as a *decision boundary* in
 ``src/omni_mercury_engine/ethical/__init__.py`` MUST raise
 ``EthicalConstraintViolationError`` (re-exported as ``EthicalViolation``)
-on a simulated benevolence- or σ_Immutable-violation, and MUST NOT raise
-for legitimate inputs.
+on a simulated benevolence-violation (``check="benevolence"``), and MUST
+NOT raise for legitimate inputs.  GOSNN's σ_Immutable score is
+informational metadata — it is not the enforcement gate today because
+the underlying neural network is untrained.
 
 This file is the regression that makes the contract durable: any future
 change that turns one of these boundaries back into a logger.warning,

@@ -45,6 +45,7 @@ import asyncio
 import json
 import logging
 import secrets
+import socket as _socket_mod
 import struct
 from dataclasses import asdict
 from typing import Any
@@ -247,7 +248,7 @@ class TCPMessageTransport(MessageTransport):
         """Concrete (host, port) the listener bound to (after start())."""
         if self._server is None:
             raise RuntimeError("Transport not started")
-        sockets = self._server.sockets or []
+        sockets: tuple[_socket_mod.socket, ...] = self._server.sockets or ()
         if not sockets:
             raise RuntimeError("Transport has no bound socket")
         host, port = sockets[0].getsockname()[:2]
@@ -426,8 +427,8 @@ class TCPMessageTransport(MessageTransport):
             handler = self._message_handlers.get("append_entries")
             if handler is None:
                 return None
-            req = _deserialize_append_entries(envelope["body"])
-            resp_ae: AppendEntriesResponse = await handler(req)
+            ae_req = _deserialize_append_entries(envelope["body"])
+            resp_ae: AppendEntriesResponse = await handler(ae_req)
             return self._make_response_envelope(
                 envelope, "append_entries_response", asdict(resp_ae)
             )

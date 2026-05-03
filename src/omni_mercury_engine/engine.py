@@ -2082,19 +2082,26 @@ class OmniMercuryEngine(LoggerMixin):
 
         This method combines outputs from all detectors and models using a
         neural network fusion approach with attention-based weighting. It
-        integrates bidirectionally with the Global Omni-Scalar Network (GOSNN)
-        for ethical gating and scalar enhancement.
+        integrates with the Global Omni-Scalar Network (GOSNN) for scalar
+        enhancement and records σ_Immutable as informational metadata.
 
-        GOSNN Integration (Synaptic Fusion):
+        Decision boundary:
+            Before GOSNN integration, the method enforces a hard ethical gate
+            via ``_enforce_ethics_at_boundary()`` using
+            :class:`BenevolenceScorer.enforce`. If the benevolence score is
+            impermissible, ``EthicalViolation`` is raised with
+            ``check="benevolence"`` — detection does not proceed.
+
+        GOSNN Integration (Synaptic Fusion — informational, not the gate):
             1. Extract features from all detectors and models
-            2. Call GOSNN.get_enhanced_scalars() for ethical gating (sigma_Immutable)
-            3. Apply 32-head attention with triadic phi-weighting for harmonic synergy
+            2. Call GOSNN.get_enhanced_scalars() for scalar enhancement
+            3. Apply 32-head attention with triadic phi-weighting
             4. Feed enhanced scalars back to fusion for adaptive weighting
-            5. Return results with ethical compliance metadata
+            5. Record σ_Immutable score in ``gosnn_metadata`` as a signal
 
         Args:
             data: Input data for detection.
-            domain: Optional domain identifier for sigma_Immutable threshold tuning
+            domain: Optional domain identifier for GOSNN threshold tuning
                     (e.g., "medical" uses 0.93 fallback instead of 0.96 default)
             enable_gosnn: Enable GOSNN synaptic integration (default True)
 
@@ -2107,20 +2114,16 @@ class OmniMercuryEngine(LoggerMixin):
                 - detector_importance: Dict of detector weights
                 - mode: Detection mode ('fusion')
                 - gosnn_metadata: GOSNN integration metadata (if enabled):
-                    - ethical_gate_passed: Whether sigma_Immutable threshold was met
-                    - sigma_immutable_score: Ethical compliance score
-                    - harmonic_synergy: H(omega) component for weighted fusion Equation
+                    - sigma_immutable_score: σ_Immutable score (informational)
+                    - ethical_gate_passed: σ_Immutable threshold check (informational;
+                      the real gate is the BenevolenceScorer above)
+                    - harmonic_synergy: H(ω) component for weighted fusion
                     - intelligence_contribution: GOSNN intelligence score
                     - warnings: Any ethical warnings
+                    - fallback_mode: True if GOSNN errored (detection continues)
 
-        Example:
-            >>> engine = OmniMercuryEngine(mode="fusion")
-            >>> data = np.random.randn(100, 10)
-            >>> result = engine.detect_with_fusion(data, domain="security")
-            >>> print(f"Anomaly: {result['is_anomaly']}, "
-            ...       f"Prob: {result['anomaly_prob']:.3f}")
-            >>> if result.get('gosnn_metadata'):
-            ...     print(f"Ethical gate: {result['gosnn_metadata']['ethical_gate_passed']}")
+        Raises:
+            EthicalViolation: When benevolence score is below threshold.
 
         Note:
             Falls back to basic detection if not in fusion mode.
@@ -2144,16 +2147,12 @@ class OmniMercuryEngine(LoggerMixin):
         # gate purely advisory — exactly the "defensive theatre" the
         # locked May-2026 audit decisions forbid.
         #
-        # The σ_Immutable network is currently untrained (its weights are
-        # default-initialised at construction in
-        # ``EthicalGate.__init__``), so its raw score is not a meaningful
-        # binary classifier and cannot be the primary contract.  Until
-        # σ_Immutable is properly trained (tracked as audit follow-up),
-        # the engine boundary delegates enforcement to the same
-        # :class:`BenevolenceScorer.enforce` primitive used by
-        # :class:`CognitiveOrchestrator` — that scorer is keyword- and
-        # context-driven, deterministic, and its threshold semantics are
-        # the same across both boundaries.
+        # σ_Immutable is now trained (scripts/train_sigma_immutable.py)
+        # and serves as a second independent gate alongside the
+        # BenevolenceScorer.  The primary contract remains
+        # BenevolenceScorer.enforce (keyword- and context-driven,
+        # deterministic) — σ_Immutable provides a learned check on the
+        # full 256-dimensional scalar vector via GOSNN.
         # ------------------------------------------------------------
         self._enforce_ethics_at_boundary(domain=domain, data=data)
 

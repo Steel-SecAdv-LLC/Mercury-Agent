@@ -126,18 +126,14 @@ class TestEthicalAutonomyGovernor:
         """Test initialization."""
         governor = EthicalAutonomyGovernor()
 
-        assert governor.enable_bias_audits is True
-        assert governor.enable_sigma_directives is True
         assert governor.p_value_threshold == 0.05
         assert governor.ethical_threshold == 0.8
         assert governor.sigma_directive is not None
 
-    def test_initialization_disabled(self):
-        """Test initialization with features disabled."""
-        governor = EthicalAutonomyGovernor(enable_bias_audits=False, enable_sigma_directives=False)
-
-        assert governor.enable_bias_audits is False
-        assert governor.sigma_directive is None
+    def test_governance_always_active(self):
+        """Bias audits and sigma directives are always active — no off-switch."""
+        governor = EthicalAutonomyGovernor()
+        assert governor.sigma_directive is not None
 
     def test_evaluate_decision_ethical(self):
         """Test evaluating ethical decision."""

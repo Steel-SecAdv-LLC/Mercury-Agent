@@ -87,14 +87,6 @@ class EthicalConfig(BaseModel):
         le=1.0,
         description="Benevolence threshold for net-positive outcomes.",
     )
-    enable_bias_audits: bool = Field(
-        default=True,
-        description="Enable Fairlearn-compatible bias auditing.",
-    )
-    enable_sigma_directives: bool = Field(
-        default=True,
-        description="Enable Σ Directive overrides for critical situations.",
-    )
     p_value_threshold: float = Field(
         default=0.05,
         gt=0.0,
