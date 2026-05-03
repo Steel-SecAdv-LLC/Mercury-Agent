@@ -13,8 +13,8 @@
 [![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
-[![Tests](https://img.shields.io/badge/tests-5900%2B-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-85%25%2B-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-5100%2B%20collected-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
 [![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
 [![AMA-Cryptography](https://img.shields.io/badge/AMA--Cryptography-PQC%20Adapter-green.svg)](#ama-cryptography-integration)
@@ -98,7 +98,17 @@ Mercury Agent implements a comprehensive 7-phase cognitive architecture that pro
 
 ### Empirical Benchmark Results (MercuryAnomalyDetector)
 
-Measured on 75 real-world datasets (47 ADBench + 28 domain loaders) across 12 domains. No synthetic data, no tuning. All numbers below are measured, not estimated. Benchmark run: 2026-03-04.
+Measured on **64 reproducible real-world datasets\*** (of 75 attempted: 47 ADBench + 28 domain loaders) across 12 domains. No synthetic data, no tuning. All numbers below are measured, not estimated. Benchmark run: 2026-03-04.
+
+> **\*Reproducibility note.** 11 of the 75 attempted datasets are not currently
+> reproducible because their external data sources (SMAP, MSL, CICIDS-2017,
+> MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP,
+> FEMA HazardMitigation) are unavailable or rate-limited from this build
+> environment. Headline metrics (Mean AUC 0.8285, Median AUC 0.9091) are
+> computed over the **64 successful** datasets. Additionally, **1 of the 64**
+> (FEMA Disaster) is a known-broken loader producing inverted scores (AUC ≈ 0,
+> see line "Disaster (FEMA)" below). Both gaps have tracked owners and a
+> scheduled fix; see `docs/ROADMAP.md` for status.
 
 **Statistical Detector Ensemble:**
 
@@ -666,7 +676,7 @@ Optimized for both accuracy and interpretability:
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Comprehensive Testing | 5,900+ tests across 227 files, property-based testing, security scanning |
-| Benchmark Coverage | 75 datasets (47 ADBench + 28 domain), Mean AUC 0.8285, Median AUC 0.9091 |
+| Benchmark Coverage | 64 reproducible datasets (of 75 attempted; 47 ADBench + 28 domain), Mean AUC 0.8285, Median AUC 0.9091 |
 | Cross-Platform | Linux, macOS, Windows, Docker, Kubernetes, 10+ external platforms |
 | Mathematical Rigor | Lyapunov stability, sigma_quadratic constraints |
 | Codebase Scale | 455 Python modules, 268,000+ lines of code |
@@ -690,7 +700,7 @@ Optimized for both accuracy and interpretability:
 - **Complete**: Implemented and tested
 - **Pending**: Requires real-world dataset validation
 
-> **Note:** Core anomaly detection is benchmarked on 75 real-world datasets (see `benchmarks/mercury_benchmark_results.json`). Domain-specific modules may still require validation on their target datasets before production deployment.
+> **Note:** Core anomaly detection is benchmarked on **64 reproducible real-world datasets** (of 75 attempted; see `benchmarks/mercury_benchmark_results.json` and the reproducibility note in the Benchmarks section). Domain-specific modules may still require validation on their target datasets before production deployment.
 
 </details>
 
@@ -1067,10 +1077,17 @@ bandit -r src/ -f txt
 ### Test Coverage
 
 The test suite includes:
-- **5,900+ tests** across 227 test files
+- **~5,100 tests collected** across 258 test files (verified by
+  `pytest --collect-only -q` on 2026-05-03 in a minimal install with
+  optional ML deps absent; expected to grow when `torch`,
+  `torchvision`, `fastapi`, and other optional deps are installed —
+  some test modules are gated behind those imports).
 - **Property-based testing** with Hypothesis for edge case discovery
 - **Security scanning** with Bandit integrated in CI/CD
-- **Coverage tracking**: 85%+ across core modules
+- **Coverage tracking**: regenerated per release via
+  `pytest --cov=src/omni_mercury_engine --cov-report=term`. Historical
+  internal target is ≥85% across core modules; the headline number
+  should be re-measured rather than asserted on a stale badge.
 
 **New Test Suites (v1.4.0):**
 - `test_enhanced_anomaly_detection.py`: 38+ tests for enhanced statistical methods, cross-platform hub, ensemble coordination
@@ -1924,7 +1941,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on 75 real datasets (Mean AUC 0.8379). Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on **64 reproducible real datasets** (of 75 attempted; Mean AUC 0.8285, Median AUC 0.9091). 11 datasets currently fail to load due to unavailable external sources and 1 (FEMA Disaster) is a known-broken loader -- both have tracked fixes scheduled. Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 

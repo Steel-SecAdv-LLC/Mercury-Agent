@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **Reproducibility note (applies to all 1.x release entries below):**
+> Headline benchmark numbers in this changelog are computed over the
+> **64 reproducible datasets** (of 75 attempted). 11 datasets currently
+> fail to load due to unavailable external sources (SMAP, MSL,
+> CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA
+> StormEvents, NOAA ERDDAP, FEMA HazardMitigation), and 1 of the 64
+> (FEMA Disaster) is a known-broken loader producing inverted scores.
+> See the README "Empirical Benchmark Results" section for the full
+> reproducibility footnote and `docs/ROADMAP.md` for tracked fixes.
+
+## [Unreleased]
+
+### Security
+
+- **Pickle code path removed from training pipeline.** The legacy
+  `.pkl` / `.pickle` branch in `OmniMercuryEngine.train_fusion_model`
+  has been deleted. Pickle is structurally a code-execution format and
+  the existing whitelist was both functionally broken under numpy 2.x
+  (production whitelist used `numpy.core.multiarray` while numpy 2.x
+  emits `numpy._core.multiarray`) and incomplete (rejected `bool_`,
+  `uint8`, `float16`). Replacement: `omni_mercury_engine.security.safe_load`
+  module exposing `safe_load_training_data`, optional HMAC-SHA-256
+  provenance via `sign_npz` / `verify_npz_signature`, and a
+  one-shot operator migration tool at
+  `python -m omni_mercury_engine.tools.migrate_pkl` that runs in a
+  separate hardened subprocess.
+- **34 new tests** in `tests/security/test_safe_load.py` and
+  `tests/security/test_migrate_pkl.py` pin: pickle path is gone;
+  loader rejects wrong magic bytes, oversized files, object dtypes,
+  pickle-disguised-as-npz; HMAC roundtrip and tamper detection work;
+  migration tool refuses to run without explicit operator consent.
+
 ## [1.6.0] - 2026-05-01
 
 ### Security (Dependency CVE Remediation)

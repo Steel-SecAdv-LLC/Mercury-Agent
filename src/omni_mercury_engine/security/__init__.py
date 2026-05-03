@@ -87,12 +87,24 @@ from omni_mercury_engine.security.secure_audit_logging import (
     configure_audit_logger,
     get_audit_logger,
 )
+from omni_mercury_engine.security.safe_load import (
+    DEFAULT_MAX_BYTES,
+    NPZ_MAGIC,
+    SIG_SUFFIX,
+    UnsafePayloadError,
+    safe_load_training_data,
+    sign_npz,
+    verify_npz_signature,
+)
 from omni_mercury_engine.security.threat_detection import ThreatDetector
 
 __all__ = [
     "AMA_CRYPTOGRAPHY_AVAILABLE",
+    "DEFAULT_MAX_BYTES",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
+    "NPZ_MAGIC",
+    "SIG_SUFFIX",
     "SPHINCS_AVAILABLE",
     "AlgorithmType",
     # Secure Audit Logging
@@ -126,6 +138,7 @@ __all__ = [
     "SphincsKeyPair",
     "SphincsProvider",
     "ThreatDetector",
+    "UnsafePayloadError",
     "assert_no_simulation_in_production",
     "check_pqc_production_readiness",
     "configure_audit_logger",
@@ -136,6 +149,10 @@ __all__ = [
     "generate_kyber_keypair",
     "generate_sphincs_keypair",
     "get_active_backend",
+    # Safe loading
+    "safe_load_training_data",
+    "sign_npz",
+    "verify_npz_signature",
     "get_audit_logger",
     "get_pqc_capabilities",
     "kyber_decapsulate",

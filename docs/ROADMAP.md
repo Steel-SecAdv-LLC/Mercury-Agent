@@ -1,20 +1,50 @@
 # Mercury Agent - Strategic Engineering Roadmap
 
-> **Status (2026-02-17):** All seven capabilities listed below have initial
-> implementations in the source tree. The phase checklists below were written
-> before the implementations were merged and have **not** been updated to
-> reflect completion. Treat the interface designs as aspirational targets
-> rather than exact API contracts — the actual implementations may differ.
+> **Capability status (2026-05-03 — replaces all prior status tables).**
 >
-> | Capability | Source Location | Status |
-> |---|---|---|
-> | 1. Distributed Processing | `distributed/cluster.py`, `distributed/raft_consensus.py` | Implemented |
-> | 2. Biometric Modalities | `biometric/iris_recognition.py`, `biometric/fingerprint_recognition.py`, `biometric/voice_recognition.py` | Implemented |
-> | 3. Real Quantum Computing | `quantum_computing/circuits.py`, `quantum_computing/executor.py`, `quantum_computing/hybrid.py` | Implemented |
-> | 4. Advanced Harmonics | `harmonics/analyzer.py`, `harmonics/features.py`, `harmonics/transform.py` | Implemented |
-> | 5. AutoML | `automl/optimizer.py`, `automl/schedulers.py`, `automl/search_space.py` | Implemented |
-> | 6. Federated Learning | `federated_learning/client.py`, `federated_learning/server.py`, `federated_learning/privacy.py` | Implemented |
-> | 7. Explainability | `explainability/shap.py`, `explainability/counterfactuals.py`, `explainability/gdpr_compliance.py` | Implemented |
+> Each capability is rated against three orthogonal columns rather than a
+> single ambiguous "Implemented" flag, because the previous wording
+> conflated *interface exists* with *production-ready*. Definitions:
+>
+> - **Designed** — there is a written API or architectural design for
+>   the capability (in this document, in `ARCHITECTURE.md`, or in the
+>   source-tree docstrings).
+> - **Stubbed** — code exists but at least one critical path raises
+>   `NotImplementedError`, returns mock data, depends on an unwired
+>   collaborator, or has no in-tree tests.
+> - **Functional** — code exists, all critical paths are wired,
+>   in-tree tests exercise them, and the behaviour matches the design.
+>   "Functional" does **not** imply external audit, FIPS certification,
+>   or production deployment.
+>
+> A capability can legitimately be Designed AND Stubbed AND Functional
+> on different surfaces. The "Notes" column calls out the precise gap.
+>
+> | # | Capability | Designed | Stubbed | Functional | Notes |
+> |---|------------|:--------:|:-------:|:----------:|-------|
+> | 1 | Distributed Processing | ✓ | ✓ | partial | `raft_consensus.py` has 5 `NotImplementedError` calls (lines 315, 323, 331, 335, 830) — only `InMemoryTransport` is implemented; no network transport. Single-process Raft only. Scheduled for v1.7. |
+> | 2 | Biometric Modalities | ✓ | ✓ | partial | `iris_recognition.py` (721 LOC), `fingerprint_recognition.py` (1131 LOC), `voice_recognition.py` (884 LOC) all import-clean with no `NotImplementedError`. However `narrative/voice.py:208` defaults to `MockLLMAdapter`, which silently returns heuristic-only narrative output unless a real LLM is wired. Iris and fingerprint paths look functional pending dedicated test coverage. |
+> | 3 | Real Quantum Computing | ✓ | — | partial | `executor.py` defaults to `BackendType.SIMULATOR` and uses `AerSimulator`. Real-hardware path (IBM Quantum, IonQ) requires user credentials and is not exercised in CI. Treat as "simulated by default; real hardware untested in-tree." |
+> | 4 | Advanced Harmonics | ✓ | — | ✓ | `harmonics/analyzer.py`, `features.py`, `transform.py` are wired and exercised by the 21-probe ensemble and detector pipeline. |
+> | 5 | AutoML | ✓ | — | ✓ | `automl/optimizer.py`, `schedulers.py`, `search_space.py` (~1,135 LOC main file). `tests/automl/test_scheduler_completion.py` exercises the scheduler. Hyperparameter search wired into training loop. |
+> | 6 | Federated Learning | ✓ | ✓ | partial | `federated_learning/client.py`, `server.py`, `privacy.py` implemented. The 2026-03 in-tree audit (`docs/COMPREHENSIVE_REPO_AUDIT.md`) flags one-way GOSNN integration and conformal prediction failing silently with `confidence_intervals=None`; until those are closed, treat as partial. |
+> | 7 | Explainability | ✓ | — | ✓ | `explainability/shap.py`, `counterfactuals.py`, `gdpr_compliance.py` (~2,400 LOC combined). No `NotImplementedError`; design surface present. Pending broader test coverage but core paths run. |
+>
+> **Cross-cutting items not in the above seven, but tracked:**
+>
+> | Capability | Designed | Stubbed | Functional | Notes |
+> |------------|:--------:|:-------:|:----------:|-------|
+> | Safe training-data loader (no pickle) | ✓ | — | ✓ | `omni_mercury_engine.security.safe_load` (added in `[Unreleased]`); 25 tests cover .npz validation, HMAC signing, tamper detection. Pickle code path **deleted** from the engine. |
+> | Pickle migration tool | ✓ | — | ✓ | `python -m omni_mercury_engine.tools.migrate_pkl`; 9 tests cover hardened-subprocess relaunch, schema validation, refusal-by-default. |
+> | VLM detectors | ✓ | ✓ | — | `detectors/vlm/base_vlm.py:184,205,219,250,264` — 5 abstract methods raise `NotImplementedError`. Strategic decision (2026-05): keep native detectors; do **not** ship BLIP/GPT adapters. Surface to be marked experimental or removed in v1.7. |
+> | Visual base detector | ✓ | ✓ | — | `detectors/visual/base_visual.py:294,312,326` — 3 abstract methods raise `NotImplementedError`. Aggressive native-detector improvement is the chosen path. |
+> | Ethics enforcement | ✓ | ✓ | — | Strategic decision (2026-05): hard-enforce, not advisory. Migration tracked as Phase 2 of the May 2026 audit cure. |
+> | 21-probe Anomaly Math Arrest ensemble | ✓ | ? | ? | Wiring audit pending — verify ensemble is the primary path and retire any IsolationForest fallback. Tracked as Phase 2 item. |
+>
+> The phase checklists later in this document were written **before**
+> implementations were merged and use `[ ]` markers throughout. They are
+> retained as design references; the table above is the authoritative
+> status. When the two disagree, the table wins.
 
 This document outlines the strategic engineering roadmap for Mercury Agent, detailing planned enhancements, architectural considerations, and implementation strategies.
 
@@ -24,19 +54,26 @@ This document outlines the strategic engineering roadmap for Mercury Agent, deta
 
 Mercury Agent is evolving toward a distributed, privacy-preserving, and explainable AI platform. This roadmap establishes the technical foundation for seven major capability expansions:
 
-1. **Distributed Processing** - Multi-node deployment for horizontal scalability — **Implemented**
-2. **Additional Biometric Modalities** - Iris, fingerprint, and voice authentication — **Implemented**
-3. **Real Quantum Computing** - Qiskit integration for production quantum workloads — **Implemented**
-4. **Advanced Harmonics** - Higher l_max spherical harmonic analysis for 3D data — **Implemented**
-5. **AutoML** - Automatic hyperparameter tuning and model selection — **Implemented**
-6. **Federated Learning** - Privacy-preserving distributed training — **Implemented**
-7. **Explainability** - SHAP values and comprehensive interpretability framework — **Implemented**
+1. **Distributed Processing** — Multi-node deployment for horizontal scalability — *Designed + Stubbed; in-memory only, network transport pending v1.7*
+2. **Additional Biometric Modalities** — Iris, fingerprint, and voice authentication — *Iris/fingerprint Functional; voice Partial (MockLLMAdapter default)*
+3. **Real Quantum Computing** — Qiskit integration for production quantum workloads — *Simulator Functional; real hardware untested in-tree*
+4. **Advanced Harmonics** — Higher l_max spherical harmonic analysis for 3D data — *Functional*
+5. **AutoML** — Automatic hyperparameter tuning and model selection — *Functional*
+6. **Federated Learning** — Privacy-preserving distributed training — *Designed + Stubbed (one-way GOSNN integration; silent conformal failure flagged in 2026-03 audit)*
+7. **Explainability** — SHAP values and comprehensive interpretability framework — *Functional*
 
 ---
 
 ## 1. Distributed Processing
 
-> **Status: Implemented** in `distributed/cluster.py`, `distributed/raft_consensus.py`. The design below was written pre-implementation; actual API may differ.
+> **Status: Designed + Stubbed (partial Functional).** Code exists in
+> `distributed/cluster.py` (688 LOC) and `distributed/raft_consensus.py`
+> (894 LOC) but five `NotImplementedError` calls remain in
+> `raft_consensus.py` at lines 315, 323, 331, 335, and 830 — only
+> `InMemoryTransport` is implemented; no TCP/gRPC network transport
+> exists. Multi-node Raft cannot communicate today. Scheduled fix in
+> v1.7 (gRPC `MessageTransport` + integration tests). The design
+> below was written pre-implementation; actual API may differ.
 
 ### Current State
 - Single-node deployment with threading for parallelism
@@ -143,7 +180,14 @@ class DistributedMercuryCluster:
 
 ## 2. Additional Biometric Modalities
 
-> **Status: Implemented** in `biometric/iris_recognition.py`, `biometric/fingerprint_recognition.py`, `biometric/voice_recognition.py`. The design below was written pre-implementation; actual API may differ.
+> **Status: Functional (iris, fingerprint); Partial (voice).** Iris and
+> fingerprint recognition modules (721 + 1131 LOC) import cleanly with no
+> `NotImplementedError`. The voice path is `biometric/voice_recognition.py`
+> (884 LOC) but `narrative/voice.py:208` defaults to `MockLLMAdapter`,
+> which silently returns heuristic-only narrative output unless a real
+> LLM is wired -- treat narrative voice generation as Stubbed by
+> default. The design below was written pre-implementation; actual API
+> may differ.
 
 ### Current State
 - Facial recognition behavioral analysis
@@ -266,7 +310,13 @@ class BiometricAnomalyDetector:
 
 ## 3. Real Quantum Computing Integration
 
-> **Status: Implemented** in `quantum_computing/circuits.py`, `quantum_computing/executor.py`, `quantum_computing/hybrid.py`. The design below was written pre-implementation; actual API may differ.
+> **Status: Functional (simulator); Untested in-tree (real hardware).**
+> `quantum_computing/executor.py` defaults to `BackendType.SIMULATOR`
+> and runs circuits via Qiskit's `AerSimulator`. The real-hardware code
+> path (IBM Quantum, IonQ, Rigetti) requires user credentials and is
+> not exercised in CI. Treat as "simulated by default; real hardware
+> untested in-tree." The design below was written pre-implementation;
+> actual API may differ.
 
 ### Current State
 - Simulated quantum operations via NumPy
@@ -385,7 +435,10 @@ class QuantumAnomalyDetector:
 
 ## 4. Advanced Harmonics
 
-> **Status: Implemented** in `harmonics/analyzer.py`, `harmonics/features.py`, `harmonics/transform.py`. The design below was written pre-implementation; actual API may differ.
+> **Status: Functional.** `harmonics/analyzer.py`, `features.py`, and
+> `transform.py` are wired into the 21-probe ensemble and exercised by
+> the detector pipeline. The design below was written
+> pre-implementation; actual API may differ.
 
 ### Current State
 - Basic spherical harmonic decomposition
@@ -519,7 +572,11 @@ class AdvancedHarmonicAnalyzer:
 
 ## 5. AutoML
 
-> **Status: Implemented** in `automl/optimizer.py`, `automl/schedulers.py`, `automl/search_space.py`. The design below was written pre-implementation; actual API may differ.
+> **Status: Functional.** `automl/optimizer.py` (~1,135 LOC) plus
+> `schedulers.py` and `search_space.py`. The hyperparameter search is
+> wired into the training loop, and `tests/automl/test_scheduler_completion.py`
+> exercises the scheduler. The design below was written
+> pre-implementation; actual API may differ.
 
 ### Current State
 - Manual hyperparameter configuration
@@ -655,7 +712,14 @@ class MercuryAutoML:
 
 ## 6. Federated Learning
 
-> **Status: Implemented** in `federated_learning/client.py`, `federated_learning/server.py`, `federated_learning/privacy.py`. The design below was written pre-implementation; actual API may differ.
+> **Status: Designed + Stubbed (partial Functional).**
+> `federated_learning/client.py`, `server.py`, and `privacy.py` are
+> implemented, but the 2026-03 in-tree audit
+> (`docs/COMPREHENSIVE_REPO_AUDIT.md`) flags one-way GOSNN integration
+> and conformal prediction failing silently with
+> `confidence_intervals=None`. Until those are closed, treat as
+> partial. The design below was written pre-implementation; actual API
+> may differ.
 
 ### Current State
 - Centralized training only
@@ -782,7 +846,11 @@ class FederatedMercury:
 
 ## 7. Explainability
 
-> **Status: Implemented** in `explainability/shap.py`, `explainability/counterfactuals.py`, `explainability/gdpr_compliance.py`. The design below was written pre-implementation; actual API may differ.
+> **Status: Functional.** `explainability/shap.py`,
+> `counterfactuals.py`, and `gdpr_compliance.py` (~2,400 LOC combined)
+> contain no `NotImplementedError` and surface the designed APIs.
+> Broader test coverage is pending but the core paths run. The design
+> below was written pre-implementation; actual API may differ.
 
 ### Current State
 - Basic feature importance via permutation
