@@ -45,12 +45,14 @@ import asyncio
 import json
 import logging
 import secrets
-import socket as _socket_mod
-import ssl
 import struct
 import time
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import socket as _socket_mod
+    import ssl
 
 from omni_mercury_engine.distributed.raft_consensus import (
     AppendEntriesRequest,

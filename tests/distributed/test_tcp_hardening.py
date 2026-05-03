@@ -16,19 +16,14 @@ import asyncio
 import json
 import multiprocessing
 import os
-import signal
 import ssl
 import struct
 import tempfile
-import time
 
 import pytest
 
 from omni_mercury_engine.distributed.raft_consensus import (
-    AppendEntriesRequest,
-    AppendEntriesResponse,
     ClusterConfiguration,
-    LogEntry,
     NodeState,
     RaftNode,
     RequestVoteRequest,
@@ -359,10 +354,8 @@ def _run_raft_node(
         await node.start()
 
         # Wait for leader election (10 seconds max)
-        leader_found = False
         for _ in range(100):
             if node.state == NodeState.LEADER:
-                leader_found = True
                 break
             await _aio.sleep(0.1)
 

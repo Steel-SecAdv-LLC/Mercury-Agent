@@ -20,7 +20,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from omni_mercury_engine.core.global_omni_scalar_network import EthicalGate  # noqa: E402
+from omni_mercury_engine.core.global_omni_scalar_network import EthicalGate
 
 # ---------------------------------------------------------------------------
 # KAT vectors — hand-curated, deterministic
