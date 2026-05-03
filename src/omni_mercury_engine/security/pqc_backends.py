@@ -217,14 +217,24 @@ def generate_dilithium_keypair() -> DilithiumKeyPair:
             "Build the native C library: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
         )
     kp = _ama_generate_dilithium_keypair()
-    return DilithiumKeyPair(public_key=kp.public_key, secret_key=kp.secret_key)
+    # Defensive copy: AMA's keypair holds ``secret_key`` as a mutable
+    # ``bytearray`` and registers a ``_secure_memzero`` finalizer that
+    # zeros the buffer when the AMA object is GC'd.  Aliasing the same
+    # buffer here would let the finalizer destroy Mercury's own copy
+    # the moment the AMA wrapper falls out of scope, breaking every
+    # downstream sign/verify.  Coercing to immutable ``bytes`` decouples
+    # Mercury's lifetime from AMA's memzero policy.
+    return DilithiumKeyPair(
+        public_key=bytes(kp.public_key),
+        secret_key=bytes(kp.secret_key),
+    )
 
 
 def dilithium_sign(message: bytes, secret_key: bytes) -> bytes:
     """Sign message using ML-DSA-65 (Dilithium) via AMA Cryptography."""
     if not DILITHIUM_AVAILABLE:
         raise RuntimeError("ML-DSA-65 not available in AMA Cryptography.")
-    result: bytes = _ama_dilithium_sign(message, secret_key)
+    result: bytes = bytes(_ama_dilithium_sign(message, secret_key))
     return result
 
 
@@ -232,7 +242,7 @@ def dilithium_verify(message: bytes, signature: bytes, public_key: bytes) -> boo
     """Verify ML-DSA-65 (Dilithium) signature via AMA Cryptography."""
     if not DILITHIUM_AVAILABLE:
         raise RuntimeError("ML-DSA-65 not available in AMA Cryptography.")
-    result: bool = _ama_dilithium_verify(message, signature, public_key)
+    result: bool = bool(_ama_dilithium_verify(message, signature, public_key))
     return result
 
 
@@ -244,7 +254,12 @@ def generate_kyber_keypair() -> KyberKeyPair:
             "Build the native C library: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
         )
     kp = _ama_generate_kyber_keypair()
-    return KyberKeyPair(public_key=kp.public_key, secret_key=kp.secret_key)
+    # See ``generate_dilithium_keypair`` — defensive copy decouples Mercury
+    # from AMA's secure-memzero finalizer.
+    return KyberKeyPair(
+        public_key=bytes(kp.public_key),
+        secret_key=bytes(kp.secret_key),
+    )
 
 
 def kyber_encapsulate(public_key: bytes) -> KyberEncapsulation:
@@ -252,14 +267,19 @@ def kyber_encapsulate(public_key: bytes) -> KyberEncapsulation:
     if not KYBER_AVAILABLE:
         raise RuntimeError("Kyber-1024 not available in AMA Cryptography.")
     result = _ama_kyber_encapsulate(public_key)
-    return KyberEncapsulation(ciphertext=result.ciphertext, shared_secret=result.shared_secret)
+    # Defensive copy of the shared_secret/ciphertext buffers — the AMA
+    # encapsulation object is finalized with secure memzero of the secret.
+    return KyberEncapsulation(
+        ciphertext=bytes(result.ciphertext),
+        shared_secret=bytes(result.shared_secret),
+    )
 
 
 def kyber_decapsulate(ciphertext: bytes, secret_key: bytes) -> bytes:
     """Decapsulate shared secret using Kyber secret key via AMA Cryptography."""
     if not KYBER_AVAILABLE:
         raise RuntimeError("Kyber-1024 not available in AMA Cryptography.")
-    result: bytes = _ama_kyber_decapsulate(ciphertext, secret_key)
+    result: bytes = bytes(_ama_kyber_decapsulate(ciphertext, secret_key))
     return result
 
 
@@ -271,14 +291,19 @@ def generate_sphincs_keypair() -> SphincsKeyPair:
             "Build the native C library: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build"
         )
     kp = _ama_generate_sphincs_keypair()
-    return SphincsKeyPair(public_key=kp.public_key, secret_key=kp.secret_key)
+    # See ``generate_dilithium_keypair`` — defensive copy decouples Mercury
+    # from AMA's secure-memzero finalizer.
+    return SphincsKeyPair(
+        public_key=bytes(kp.public_key),
+        secret_key=bytes(kp.secret_key),
+    )
 
 
 def sphincs_sign(message: bytes, secret_key: bytes) -> bytes:
     """Sign message using SPHINCS+ via AMA Cryptography."""
     if not SPHINCS_AVAILABLE:
         raise RuntimeError("SPHINCS+ not available in AMA Cryptography.")
-    result: bytes = _ama_sphincs_sign(message, secret_key)
+    result: bytes = bytes(_ama_sphincs_sign(message, secret_key))
     return result
 
 
@@ -286,7 +311,7 @@ def sphincs_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
     """Verify SPHINCS+ signature via AMA Cryptography."""
     if not SPHINCS_AVAILABLE:
         raise RuntimeError("SPHINCS+ not available in AMA Cryptography.")
-    result: bool = _ama_sphincs_verify(message, signature, public_key)
+    result: bool = bool(_ama_sphincs_verify(message, signature, public_key))
     return result
 
 
