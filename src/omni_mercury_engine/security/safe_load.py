@@ -28,12 +28,16 @@ are pure binary tensor containers with no execution semantics.
 This module provides:
 
 * :func:`safe_load_training_data` -- the only sanctioned entry point
-  for loading on-disk training tensors. Enforces magic bytes, size
-  ceiling, and ``allow_pickle=False``.
+  for loading on-disk training tensors. Enforces magic bytes, on-disk
+  size ceiling, zip central-directory inspection (per-entry and total
+  uncompressed-size limits, entry-count cap, suspicious-name guard,
+  compression-ratio guard against zip bombs), and
+  ``allow_pickle=False``.
 * :func:`sign_npz` / :func:`verify_npz_signature` -- optional HMAC-SHA-256
-  provenance via a sidecar ``.npz.sig`` file, using the ``cryptography``
-  library already in the project's runtime dependencies. No third-party
-  signing format introduced.
+  provenance via a sidecar ``.npz.sig`` file. Implemented with the
+  Python standard library (``hmac`` and ``hashlib``) so the loader has
+  no third-party crypto dependency at import time and can be used in
+  minimal-install environments.
 
 The pickle-based code path that previously lived inline in
 ``omni_mercury_engine.engine.OmniMercuryEngine.train_fusion_model`` has
@@ -46,14 +50,19 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import os
+import zipfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+if TYPE_CHECKING:
+    import os
+
 __all__ = [
     "DEFAULT_MAX_BYTES",
+    "DEFAULT_MAX_ENTRIES",
+    "DEFAULT_MAX_UNCOMPRESSED_BYTES",
     "NPZ_MAGIC",
     "SIG_SUFFIX",
     "UnsafePayloadError",
@@ -66,8 +75,19 @@ __all__ = [
 # .npz files are zip archives; the zip "local file header" magic is PK\x03\x04.
 NPZ_MAGIC: bytes = b"PK\x03\x04"
 
-# 64 MiB default ceiling. Override per-call when a larger payload is expected.
+# Default 64 MiB on-disk ceiling. Override per-call when a larger payload is
+# expected from a trusted source.
 DEFAULT_MAX_BYTES: int = 64 * 1024 * 1024
+
+# Default 1 GiB total uncompressed ceiling. .npz is a zip container, so a
+# small file on disk can expand into very large arrays; this guard bounds the
+# decompression-bomb attack surface independently of on-disk size.
+DEFAULT_MAX_UNCOMPRESSED_BYTES: int = 1024 * 1024 * 1024
+
+# Default upper bound on the number of entries in the archive. Legitimate
+# Mercury training payloads contain a handful of named arrays; an archive
+# with thousands of entries is almost certainly hostile.
+DEFAULT_MAX_ENTRIES: int = 256
 
 # Sidecar signature suffix.
 SIG_SUFFIX: str = ".sig"
@@ -113,26 +133,109 @@ def _validate_magic(p: Path) -> None:
         )
 
 
+def _validate_zip_central_directory(
+    p: Path,
+    *,
+    max_uncompressed_bytes: int,
+    max_entries: int,
+) -> None:
+    """Inspect the zip central directory before letting numpy decompress.
+
+    .npz is a zip container. Without this guard, a small file on disk
+    can expand to tens of GiB of numpy arrays in memory (decompression
+    bomb). We read only the central directory metadata and reject the
+    archive before any decompression happens.
+
+    Rejects, in order:
+
+    * Files that aren't valid zip archives (corrupt or truncated).
+    * Archives with more than ``max_entries`` members.
+    * Per-entry uncompressed sizes greater than ``max_uncompressed_bytes``.
+    * Cumulative uncompressed size greater than ``max_uncompressed_bytes``.
+    * Compression ratios per entry greater than 1000:1, which is
+      characteristic of zip-bomb constructions and never produced by
+      legitimate numpy savez output.
+    * Entry names that contain path traversal components (``..``, leading
+      slash, drive letters) -- numpy doesn't write them, so any presence
+      indicates tampering.
+    """
+    try:
+        with zipfile.ZipFile(p, "r") as zf:
+            infos = zf.infolist()
+    except zipfile.BadZipFile as exc:
+        raise UnsafePayloadError(f"{p} is not a valid zip archive: {exc}") from exc
+
+    if len(infos) == 0:
+        raise UnsafePayloadError(f"{p} is an empty zip archive")
+    if len(infos) > max_entries:
+        raise UnsafePayloadError(
+            f"{p} has {len(infos)} entries (max {max_entries}); refusing to load"
+        )
+
+    cumulative = 0
+    for info in infos:
+        name = info.filename
+        if name.startswith("/") or ".." in Path(name).parts or (len(name) >= 2 and name[1] == ":"):
+            raise UnsafePayloadError(
+                f"{p} contains suspicious entry name {name!r}; refusing to load"
+            )
+        if info.file_size < 0:
+            raise UnsafePayloadError(f"{p} entry {name!r} reports negative uncompressed size")
+        if info.file_size > max_uncompressed_bytes:
+            raise UnsafePayloadError(
+                f"{p} entry {name!r} uncompressed size {info.file_size} "
+                f"exceeds limit {max_uncompressed_bytes}"
+            )
+        # Compression-ratio guard. A modest ratio is normal for numpy
+        # arrays; anything beyond ~1000:1 is a bomb signature.
+        if info.compress_size > 0:
+            ratio = info.file_size / info.compress_size
+            if ratio > 1000:
+                raise UnsafePayloadError(
+                    f"{p} entry {name!r} has compression ratio {ratio:.0f}:1 "
+                    f"(>1000:1); refusing to load (zip-bomb signature)"
+                )
+        cumulative += info.file_size
+        if cumulative > max_uncompressed_bytes:
+            raise UnsafePayloadError(
+                f"{p} cumulative uncompressed size exceeds {max_uncompressed_bytes} "
+                f"bytes; refusing to load"
+            )
+
+
 def safe_load_training_data(
     path: str | os.PathLike[str],
     *,
     max_bytes: int = DEFAULT_MAX_BYTES,
+    max_uncompressed_bytes: int = DEFAULT_MAX_UNCOMPRESSED_BYTES,
+    max_entries: int = DEFAULT_MAX_ENTRIES,
     verify_key: bytes | None = None,
 ) -> dict[str, np.ndarray]:
     """Load a training payload from a numpy ``.npz`` archive.
 
     This is the only sanctioned loader. Pickle is **not** supported and
     will not be supported. ``allow_pickle=False`` is enforced
-    unconditionally.
+    unconditionally. The archive is also screened for zip-bomb
+    decompression attacks before any data is read.
 
     Parameters
     ----------
     path:
         Filesystem path to a ``.npz`` archive.
     max_bytes:
-        Reject the file if it is larger than this many bytes. Default
-        :data:`DEFAULT_MAX_BYTES` (64 MiB). Raise this explicitly when a
-        larger payload is expected from a trusted source.
+        Reject the file if its on-disk size exceeds this many bytes.
+        Default :data:`DEFAULT_MAX_BYTES` (64 MiB). Raise this
+        explicitly when a larger payload is expected from a trusted
+        source.
+    max_uncompressed_bytes:
+        Reject the archive if any single entry, or the cumulative
+        uncompressed payload, exceeds this many bytes. Default
+        :data:`DEFAULT_MAX_UNCOMPRESSED_BYTES` (1 GiB). Tighten this
+        for memory-constrained workers.
+    max_entries:
+        Reject the archive if it contains more than this many entries.
+        Default :data:`DEFAULT_MAX_ENTRIES` (256). Legitimate Mercury
+        training payloads contain a handful of named arrays.
     verify_key:
         If provided, a sidecar ``<path>.sig`` file must exist and
         contain a valid HMAC-SHA-256 of the archive bytes under this
@@ -147,12 +250,18 @@ def safe_load_training_data(
     Raises
     ------
     UnsafePayloadError
-        If any safety check fails (missing file, wrong magic, size
-        ceiling, signature mismatch, or attempted pickle content).
+        If any safety check fails (missing file, wrong magic, on-disk
+        size ceiling, zip-bomb signature, suspicious entry name,
+        signature mismatch, or attempted pickle content).
     """
     p = _validate_path(path)
     _validate_size(p, max_bytes)
     _validate_magic(p)
+    _validate_zip_central_directory(
+        p,
+        max_uncompressed_bytes=max_uncompressed_bytes,
+        max_entries=max_entries,
+    )
 
     if verify_key is not None:
         verify_npz_signature(p, verify_key)
@@ -216,7 +325,7 @@ def sign_npz(path: str | os.PathLike[str], key: bytes) -> Path:
     sig_path.write_text(digest.hex(), encoding="ascii")
     # Best-effort: tighten permissions so the signature is owner-only.
     try:
-        os.chmod(sig_path, 0o600)
+        sig_path.chmod(0o600)
     except OSError:
         pass
     return sig_path
@@ -280,22 +389,9 @@ def _file_hmac(p: Path, key: bytes, *, chunk: int = 1 << 20) -> bytes:
     return mac.digest()
 
 
-def assert_pickle_path_removed(loaded_module: Any) -> None:
-    """Sentinel used by tests: confirm engine.py has no pickle import path.
-
-    Imports the engine source and asserts neither ``pickle`` nor
-    ``_RestrictedUnpickler`` are referenced inside ``train_fusion_model``.
-    Tests call this so a future refactor cannot silently reintroduce the
-    dangerous code path without breaking CI.
-    """
-    import inspect
-
-    src = inspect.getsource(loaded_module.OmniMercuryEngine.train_fusion_model)
-    forbidden = ("pickle.", "import pickle", "_RestrictedUnpickler", ".pkl", ".pickle")
-    found = [tok for tok in forbidden if tok in src]
-    if found:
-        raise AssertionError(
-            f"train_fusion_model contains forbidden pickle tokens: {found}. "
-            f"The pickle code path was removed in v1.7.0 and must not "
-            f"be reintroduced."
-        )
+# The "pickle path is gone" guardian lives in
+# ``tests/security/test_safe_load.py::test_engine_train_fusion_model_has_no_pickle_path``.
+# That test reads ``engine.py`` directly as text so it runs even when
+# optional ML deps are absent, which is the most reliable contract for
+# CI. No additional sentinel is exported from this module on purpose --
+# duplication only invites the two checks to drift.

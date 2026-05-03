@@ -33,9 +33,6 @@ These tests pin two contracts:
 
 from __future__ import annotations
 
-import inspect
-import os
-import struct
 from pathlib import Path
 
 import numpy as np
@@ -43,6 +40,8 @@ import pytest
 
 from omni_mercury_engine.security.safe_load import (
     DEFAULT_MAX_BYTES,
+    DEFAULT_MAX_ENTRIES,
+    DEFAULT_MAX_UNCOMPRESSED_BYTES,
     NPZ_MAGIC,
     SIG_SUFFIX,
     UnsafePayloadError,
@@ -50,7 +49,6 @@ from omni_mercury_engine.security.safe_load import (
     sign_npz,
     verify_npz_signature,
 )
-
 
 # --------------------------------------------------------------------------- #
 # Fixtures.
@@ -91,9 +89,7 @@ def test_engine_train_fusion_model_has_no_pickle_path() -> None:
     """
     import omni_mercury_engine
 
-    engine_path = (
-        Path(omni_mercury_engine.__file__).resolve().parent / "engine.py"
-    )
+    engine_path = Path(omni_mercury_engine.__file__).resolve().parent / "engine.py"
     text = engine_path.read_text(encoding="utf-8")
 
     # Locate the train_fusion_model body. We scan only that method to
@@ -217,10 +213,10 @@ def test_pickle_file_renamed_to_npz_rejected(tmp_path: Path) -> None:
 def test_npz_containing_object_dtype_rejected(tmp_path: Path) -> None:
     """numpy refuses object arrays without allow_pickle; we surface that."""
     p = tmp_path / "objs.npz"
-    # Build an .npz containing an object-dtype array. numpy will pickle
-    # under the hood when saving with allow_pickle defaulting to True.
+    # Build an .npz containing an object-dtype array. numpy pickles such
+    # arrays into the archive on save, so they exercise the
+    # allow_pickle=False guard on read.
     arr = np.array([{"k": 1}, {"k": 2}], dtype=object)
-    np.save_kwargs = {}
     np.savez(str(p), x=arr)
     with pytest.raises(UnsafePayloadError):
         safe_load_training_data(p)
@@ -316,6 +312,94 @@ def test_non_bytes_key_rejected(good_npz: Path) -> None:
         sign_npz(good_npz, "not-bytes")  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="key must be bytes"):
         verify_npz_signature(good_npz, "not-bytes")  # type: ignore[arg-type]
+
+
+# --------------------------------------------------------------------------- #
+# Zip-bomb / decompression-DoS defense.
+# --------------------------------------------------------------------------- #
+
+
+def _make_bomb_npz(path: Path, *, ratio_target: float = 5000.0) -> None:
+    """Write a zip whose central directory advertises a tiny compressed
+    size and a huge uncompressed size -- a classic zip-bomb shape.
+
+    We don't actually need to materialise gigabytes of data to attack
+    the loader; the decompression-bomb guard reads the central directory
+    metadata first, so a fabricated entry header is enough to exercise
+    the rejection path.
+    """
+    import struct
+    import zipfile
+
+    # Easiest path: write a real zip with a highly-compressible payload
+    # so the recorded compress/uncompress sizes hit a >1000:1 ratio.
+    # Zeros compress extraordinarily well with DEFLATE.
+    big_payload = b"\x00" * int(ratio_target * 4096)
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+        zf.writestr("payload.npy", big_payload)
+
+    # Sanity: confirm we hit a hostile ratio.
+    with zipfile.ZipFile(path, "r") as zf:
+        info = zf.infolist()[0]
+        assert info.compress_size > 0
+        assert (
+            info.file_size / info.compress_size
+        ) > 1000, "test fixture failed to produce a zip-bomb-shaped ratio"
+    # Stop ruff complaining about unused import in some Python versions.
+    _ = struct
+
+
+def test_zip_bomb_compression_ratio_rejected(tmp_path: Path) -> None:
+    p = tmp_path / "bomb.npz"
+    _make_bomb_npz(p)
+    with pytest.raises(UnsafePayloadError, match="zip-bomb signature"):
+        safe_load_training_data(p)
+
+
+def test_too_many_entries_rejected(tmp_path: Path) -> None:
+    """An archive with thousands of entries is rejected before decompression."""
+    import zipfile
+
+    p = tmp_path / "many.npz"
+    with zipfile.ZipFile(p, "w") as zf:
+        for i in range(DEFAULT_MAX_ENTRIES + 5):
+            zf.writestr(f"entry_{i}.npy", b"\x00")
+    with pytest.raises(UnsafePayloadError, match="entries"):
+        safe_load_training_data(p)
+
+
+def test_corrupt_zip_rejected(tmp_path: Path) -> None:
+    """File starts with .npz magic but has truncated central directory."""
+    p = tmp_path / "corrupt.npz"
+    p.write_bytes(NPZ_MAGIC + b"\x00" * 200)
+    with pytest.raises(UnsafePayloadError, match="not a valid zip archive"):
+        safe_load_training_data(p)
+
+
+def test_path_traversal_entry_rejected(tmp_path: Path) -> None:
+    """Entry with ``..`` in its path is rejected even if size is fine."""
+    import zipfile
+
+    p = tmp_path / "evil.npz"
+    with zipfile.ZipFile(p, "w") as zf:
+        zf.writestr("../escape.npy", b"\x00" * 16)
+    with pytest.raises(UnsafePayloadError, match="suspicious entry name"):
+        safe_load_training_data(p)
+
+
+def test_uncompressed_size_ceiling_enforced(tmp_path: Path, good_npz: Path) -> None:
+    """Caller-supplied tighter uncompressed-size cap is honored."""
+    # good_npz contains a few small float arrays; cap to 1 byte to force rejection.
+    with pytest.raises(UnsafePayloadError, match="uncompressed"):
+        safe_load_training_data(good_npz, max_uncompressed_bytes=1)
+
+
+def test_default_uncompressed_ceiling_is_one_gib() -> None:
+    assert DEFAULT_MAX_UNCOMPRESSED_BYTES == 1024 * 1024 * 1024
+
+
+def test_default_max_entries_is_256() -> None:
+    assert DEFAULT_MAX_ENTRIES == 256
 
 
 # --------------------------------------------------------------------------- #

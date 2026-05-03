@@ -25,16 +25,28 @@ it does so in a clearly-marked operator workflow that:
 
 * refuses to import the engine -- the engine never sees pickle bytes;
 * re-launches itself in a hardened subprocess before doing any
-  unpickling -- a fresh interpreter with ``PYTHONNOUSERSITE=1``,
-  ``PYTHONDONTWRITEBYTECODE=1``, no ``PYTHONSTARTUP``, and a scrubbed
-  ``PYTHONPATH`` -- so a malicious pickle cannot poison the operator's
-  environment via user customizations or startup scripts. The
-  subprocess boundary, not the flag combination, is the load-bearing
-  isolation;
+  unpickling. The hardening is environment-based, not flag-based,
+  because ``-S -E -I`` strip the project's own editable install and
+  break legitimate operator workflows. Concretely the child runs with:
+
+    - ``PYTHONNOUSERSITE=1`` (no user-site ``sitecustomize``)
+    - ``PYTHONDONTWRITEBYTECODE=1`` (no stray ``.pyc`` files)
+    - no ``PYTHONSTARTUP``, no ``PYTHONPATH``, no ``LD_PRELOAD`` (any env
+      var not in :data:`_FORWARDED_ENV` is dropped)
+
+  The subprocess boundary, not the flag combination, is the
+  load-bearing isolation -- a malicious pickle that achieves code
+  execution still cannot reach the parent (operator) process state;
 * prints a loud disclaimer and refuses to run unless the caller passes
   ``--i-trust-this-file`` confirming the input pickle came from a
   trusted source;
-* writes the converted ``.npz`` archive with ``allow_pickle=False``;
+* writes the converted archive via ``numpy.savez``. ``numpy.savez``
+  itself does not expose an ``allow_pickle`` parameter on the write
+  path, so we enforce the "no pickle in the output" contract by
+  rejecting any object-dtype array **before** the write happens (see
+  ``_do_migration``). The resulting ``.npz`` is then loadable through
+  :func:`omni_mercury_engine.security.safe_load.safe_load_training_data`
+  with ``allow_pickle=False`` enforced on read;
 * optionally signs the output with HMAC-SHA-256 via
   :func:`omni_mercury_engine.security.safe_load.sign_npz`.
 
@@ -55,13 +67,20 @@ import os
 import secrets
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 _HARDENED_SENTINEL = "MERCURY_MIGRATE_PKL_HARDENED"
 
 # Environment variables we explicitly forward to the hardened child.
-# Anything else (PYTHONSTARTUP, LD_PRELOAD, etc.) is dropped.
-_FORWARDED_ENV = ("PATH", "LANG", "LC_ALL", "PYTHONPATH", "VIRTUAL_ENV", "HOME")
+# Anything else (PYTHONSTARTUP, PYTHONPATH, LD_PRELOAD, etc.) is dropped
+# so a malicious pickle cannot weaponise import-path injection or a
+# poisoned ``sitecustomize``. ``VIRTUAL_ENV`` is forwarded so a venv's
+# own ``site-packages`` (which the editable install resolves through the
+# venv's ``sys.path``, not via ``PYTHONPATH``) remains discoverable.
+_FORWARDED_ENV = ("PATH", "LANG", "LC_ALL", "VIRTUAL_ENV", "HOME")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -121,7 +140,7 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     malicious pickle that achieves code execution still cannot reach
     the parent (operator) process state.
     """
-    import subprocess
+    import subprocess  # nosec B404
 
     env: dict[str, str] = {
         _HARDENED_SENTINEL: "1",
@@ -135,13 +154,20 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     env.setdefault("LANG", "C")
 
     cmd = [sys.executable, "-m", "omni_mercury_engine.tools.migrate_pkl", *argv]
-    completed = subprocess.run(cmd, env=env, check=False)
+    # B603/S603: command list is fully constructed from sys.executable plus the
+    # fixed module path of this tool plus argparse-validated args. There is no
+    # shell interpolation and no shell=True.
+    completed = subprocess.run(cmd, env=env, check=False)  # noqa: S603  # nosec B603
     return completed.returncode
 
 
 def _do_migration(args: argparse.Namespace) -> int:
     """Body that runs inside the hardened subprocess."""
-    import pickle  # noqa: S403  # Intentional: this is the only sanctioned use.
+    # B403: pickle is intentionally used here -- this is the one-shot
+    # operator migration tool whose entire purpose is to read a legacy
+    # .pkl payload that the operator has explicitly attested to trusting
+    # (--i-trust-this-file). The engine itself never imports pickle.
+    import pickle  # nosec B403
 
     import numpy as np
 
@@ -164,7 +190,11 @@ def _do_migration(args: argparse.Namespace) -> int:
 
     print(f"loading legacy pickle: {src} ({size} bytes)", file=sys.stderr)
     with src.open("rb") as f:
-        loaded = pickle.load(f)  # noqa: S301  # hardened subprocess; user opted in.
+        # B301: this is THE sanctioned pickle.load call in the codebase.
+        # It only runs in the hardened subprocess after explicit operator
+        # consent (--i-trust-this-file). The engine itself never reaches
+        # this code path; see module docstring.
+        loaded = pickle.load(f)  # nosec B301
 
     if not isinstance(loaded, dict):
         print(
@@ -204,7 +234,11 @@ def _do_migration(args: argparse.Namespace) -> int:
         return 3
     archive["labels"] = label_arr
 
-    np.savez(str(dst), **archive)
+    # np.savez signature in numpy's type stubs declares the second
+    # positional as ``compress: bool``, but the runtime API explicitly
+    # accepts named ``ndarray`` kwargs. We rely on the documented runtime
+    # behaviour, not the stubs.
+    np.savez(str(dst), **archive)  # type: ignore[arg-type]
     print(f"wrote: {dst}", file=sys.stderr)
 
     if args.sign_key_hex:

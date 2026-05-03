@@ -20,14 +20,14 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 Tests for the one-shot legacy ``.pkl`` migration CLI.
 
 We invoke the tool via ``subprocess`` rather than importing it, because
-the production behaviour is to re-launch under hardened ``python -S -E
--I`` flags. Importing in-process would skip exactly the hardening we
-want to verify.
+the production behaviour is to re-launch in a hardened subprocess
+(scrubbed env: ``PYTHONNOUSERSITE=1``, ``PYTHONDONTWRITEBYTECODE=1``,
+no ``PYTHONSTARTUP``, no ``PYTHONPATH``). Importing in-process would
+skip exactly the hardening we want to verify.
 """
 
 from __future__ import annotations
 
-import os
 import pickle  # only used to *create* test fixtures, never to load engine data
 import subprocess
 import sys
@@ -44,7 +44,9 @@ from omni_mercury_engine.security.safe_load import (
 
 def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
     """Invoke the migration tool exactly the way an operator would."""
-    return subprocess.run(
+    # S603: command list is built from sys.executable, the module path of
+    # the tool under test, and test-controlled args. No shell=True.
+    return subprocess.run(  # noqa: S603  # nosec B603
         [sys.executable, "-m", "omni_mercury_engine.tools.migrate_pkl", *args],
         capture_output=True,
         text=True,
@@ -83,7 +85,8 @@ def test_refuses_without_trust_flag(tmp_path: Path, legacy_pkl: Path) -> None:
 def test_relaunches_under_hardened_flags(tmp_path: Path, legacy_pkl: Path) -> None:
     """
     The top-level invocation prints the relaunch banner; the child runs
-    under -S -E -I. We verify by reading the stderr banner.
+    in a hardened subprocess (scrubbed env). We verify by reading the
+    stderr banner and confirming the child exits successfully.
     """
     out = _run_tool(
         "--input",
@@ -187,9 +190,7 @@ def test_rejects_object_dtype_features(tmp_path: Path) -> None:
 def test_refuses_to_overwrite_existing_output(tmp_path: Path, legacy_pkl: Path) -> None:
     existing = tmp_path / "out.npz"
     existing.write_bytes(b"placeholder")
-    proc = _run_tool(
-        "--input", str(legacy_pkl), "--output", str(existing), "--i-trust-this-file"
-    )
+    proc = _run_tool("--input", str(legacy_pkl), "--output", str(existing), "--i-trust-this-file")
     assert proc.returncode == 2
     assert "refusing to overwrite" in proc.stderr
     # File untouched.

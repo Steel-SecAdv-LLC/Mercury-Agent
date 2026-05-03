@@ -2487,6 +2487,7 @@ class OmniMercuryEngine(LoggerMixin):
             >>> print(f"Best loss: {result['best_loss']:.4f}")
             >>> print(f"Epochs: {result['epochs_trained']}")
         """
+        import os
         import tempfile
 
         from torch.utils.data import DataLoader, random_split
@@ -2523,8 +2524,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         if "labels" not in data:
             raise RuntimeError(
-                f"Training archive {training_data!r} is missing the required "
-                f"'labels' array."
+                f"Training archive {training_data!r} is missing the required " f"'labels' array."
             )
         features_dict = {
             k: torch.tensor(v, dtype=torch.float32) for k, v in data.items() if k != "labels"
