@@ -51,7 +51,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -155,9 +155,16 @@ def _validate_zip_central_directory(
     * Compression ratios per entry greater than 1000:1, which is
       characteristic of zip-bomb constructions and never produced by
       legitimate numpy savez output.
-    * Entry names that contain path traversal components (``..``, leading
-      slash, drive letters) -- numpy doesn't write them, so any presence
-      indicates tampering.
+    * Entry names that contain path-traversal components (``..``,
+      leading ``/``, drive letters) or ``\\`` (backslash) -- numpy
+      doesn't write any of these, so any presence indicates tampering.
+      We reject backslashes outright because POSIX path parsing keeps
+      ``\\`` as a literal character (so ``..\\escape.npy`` would slip
+      past a naive parts-check on a POSIX runtime), and Windows zip
+      consumers would interpret it as a directory separator on
+      extraction. Names are then parsed with ``PurePosixPath`` for
+      ``..`` detection so behaviour is identical regardless of the
+      platform Mercury Agent runs on.
     """
     try:
         with zipfile.ZipFile(p, "r") as zf:
@@ -175,7 +182,12 @@ def _validate_zip_central_directory(
     cumulative = 0
     for info in infos:
         name = info.filename
-        if name.startswith("/") or ".." in Path(name).parts or (len(name) >= 2 and name[1] == ":"):
+        if (
+            "\\" in name  # see docstring: backslash is hostile in zip names
+            or name.startswith("/")
+            or ".." in PurePosixPath(name).parts
+            or (len(name) >= 2 and name[1] == ":")
+        ):
             raise UnsafePayloadError(
                 f"{p} contains suspicious entry name {name!r}; refusing to load"
             )

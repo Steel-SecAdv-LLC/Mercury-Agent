@@ -31,11 +31,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one-shot operator migration tool at
   `python -m omni_mercury_engine.tools.migrate_pkl` that runs in a
   separate hardened subprocess.
-- **34 new tests** in `tests/security/test_safe_load.py` and
+- **Zip-bomb defense in `safe_load`.** `_validate_zip_central_directory`
+  inspects the `.npz` central directory before any decompression and
+  rejects: corrupt zips, archives with more than 256 entries, per-entry
+  uncompressed sizes above 1 GiB, cumulative uncompressed size above
+  1 GiB, per-entry compression ratio above 1000:1 (zip-bomb signature),
+  and entry names containing path-traversal components (`..`, leading
+  `/`, drive letters, or backslashes — backslash is rejected outright
+  because POSIX path parsing keeps `\\` as a literal character and a
+  Windows extractor would interpret it as a directory separator).
+- **`migrate_pkl` invocation.** The tool runs the conversion when
+  invoked. There is no `--i-trust-this-file` / consent flag; it would
+  have been theatre on top of real defenses (subprocess isolation,
+  scrubbed env, pre-write object-dtype rejection). Optional
+  `--sign-key-hex` and `--max-bytes` retained.
+- **44 new tests** in `tests/security/test_safe_load.py` and
   `tests/security/test_migrate_pkl.py` pin: pickle path is gone;
   loader rejects wrong magic bytes, oversized files, object dtypes,
-  pickle-disguised-as-npz; HMAC roundtrip and tamper detection work;
-  migration tool refuses to run without explicit operator consent.
+  pickle-disguised-as-`.npz`, zip-bombs (compression-ratio guard),
+  too-many-entries, corrupt zips, path-traversal entries (forward
+  slash, ``..``, backslash, drive-letter), tightened uncompressed-size
+  caps; HMAC roundtrip and tamper detection work; migration tool
+  relaunches itself in a hardened subprocess and refuses to overwrite
+  existing outputs.
 
 ## [1.6.0] - 2026-05-01
 

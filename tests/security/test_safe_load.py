@@ -320,20 +320,17 @@ def test_non_bytes_key_rejected(good_npz: Path) -> None:
 
 
 def _make_bomb_npz(path: Path, *, ratio_target: float = 5000.0) -> None:
-    """Write a zip whose central directory advertises a tiny compressed
-    size and a huge uncompressed size -- a classic zip-bomb shape.
+    """Write a real zip with a highly compressible (all-zero) payload.
 
-    We don't actually need to materialise gigabytes of data to attack
-    the loader; the decompression-bomb guard reads the central directory
-    metadata first, so a fabricated entry header is enough to exercise
-    the rejection path.
+    Zeros compress extraordinarily well with DEFLATE, so the resulting
+    archive has a >1000:1 compress/uncompress ratio in its central
+    directory -- the same shape a real zip-bomb would have. We exercise
+    the loader's rejection path with a real archive rather than a
+    fabricated header so the test is robust to any future change in
+    how the loader inspects the zip.
     """
-    import struct
     import zipfile
 
-    # Easiest path: write a real zip with a highly-compressible payload
-    # so the recorded compress/uncompress sizes hit a >1000:1 ratio.
-    # Zeros compress extraordinarily well with DEFLATE.
     big_payload = b"\x00" * int(ratio_target * 4096)
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         zf.writestr("payload.npy", big_payload)
@@ -345,8 +342,6 @@ def _make_bomb_npz(path: Path, *, ratio_target: float = 5000.0) -> None:
         assert (
             info.file_size / info.compress_size
         ) > 1000, "test fixture failed to produce a zip-bomb-shaped ratio"
-    # Stop ruff complaining about unused import in some Python versions.
-    _ = struct
 
 
 def test_zip_bomb_compression_ratio_rejected(tmp_path: Path) -> None:
@@ -383,6 +378,46 @@ def test_path_traversal_entry_rejected(tmp_path: Path) -> None:
     p = tmp_path / "evil.npz"
     with zipfile.ZipFile(p, "w") as zf:
         zf.writestr("../escape.npy", b"\x00" * 16)
+    with pytest.raises(UnsafePayloadError, match="suspicious entry name"):
+        safe_load_training_data(p)
+
+
+def test_backslash_path_traversal_entry_rejected(tmp_path: Path) -> None:
+    """Backslash-laced traversal must be rejected on POSIX too.
+
+    On POSIX, ``Path('..\\\\escape.npy').parts`` is a single-component
+    tuple because backslash is a literal filename character. A naive
+    check on ``parts`` would let this through. We reject any backslash
+    in the entry name outright -- numpy never writes backslashes, and
+    a Windows extractor would treat ``\\`` as a directory separator.
+    """
+    import zipfile
+
+    p = tmp_path / "evil_bs.npz"
+    with zipfile.ZipFile(p, "w") as zf:
+        zf.writestr("..\\escape.npy", b"\x00" * 16)
+    with pytest.raises(UnsafePayloadError, match="suspicious entry name"):
+        safe_load_training_data(p)
+
+
+def test_embedded_backslash_entry_rejected(tmp_path: Path) -> None:
+    """Even names without a leading ``..`` but with backslashes are rejected."""
+    import zipfile
+
+    p = tmp_path / "evil_embed.npz"
+    with zipfile.ZipFile(p, "w") as zf:
+        zf.writestr("foo\\..\\bar.npy", b"\x00" * 16)
+    with pytest.raises(UnsafePayloadError, match="suspicious entry name"):
+        safe_load_training_data(p)
+
+
+def test_drive_letter_entry_rejected(tmp_path: Path) -> None:
+    """Windows-style drive-letter prefix is rejected."""
+    import zipfile
+
+    p = tmp_path / "evil_drive.npz"
+    with zipfile.ZipFile(p, "w") as zf:
+        zf.writestr("C:evil.npy", b"\x00" * 16)
     with pytest.raises(UnsafePayloadError, match="suspicious entry name"):
         safe_load_training_data(p)
 
