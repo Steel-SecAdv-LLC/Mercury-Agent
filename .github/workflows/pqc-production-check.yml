@@ -117,16 +117,15 @@ jobs:
           pytest tests/security/ -v --tb=short || echo "Some tests may fail without AMA native C library"
 
       - name: Run AMA Cryptography Known-Answer Tests (KAT)
-        # Phase 2 ITEM 5 of the May-2026 audit cure.  The KAT suite at
-        # tests/security/test_ama_kat.py pins:
+        # Phase 2 audit cure.  The KAT suites pin:
         #   - Ed25519 RFC 8032 §7.1 vectors (always run)
-        #   - ML-DSA-65 / Kyber-1024 / SPHINCS+ round-trip (PQC backend
-        #     required — runs here because the previous steps installed
-        #     the native AMA Cryptography library)
+        #   - ML-DSA-65 / Kyber-1024 / SPHINCS+ round-trip
         #   - Deterministic-seed reproducibility for ML-DSA signing
+        #   - NIST FIPS 203/204/205 ACVP-Server reference vectors
+        #     (bit-for-bit sigGen, decapsulation checks)
         # A regression in any KAT is a build-time failure.
         run: |
-          pytest tests/security/test_ama_kat.py -v --tb=short
+          pytest tests/security/test_ama_kat.py tests/security/test_nist_fips_kat.py -v --tb=short
 
       - name: Publish PQC coverage number for the README badge
         # Generates the coverage figure cited in the README PQC section
@@ -136,6 +135,7 @@ jobs:
         run: |
           pytest \
             tests/security/test_ama_kat.py \
+            tests/security/test_nist_fips_kat.py \
             tests/security/test_crypto_api.py \
             --cov=src/omni_mercury_engine/security/crypto_api \
             --cov=src/omni_mercury_engine/security/pqc_backends \
