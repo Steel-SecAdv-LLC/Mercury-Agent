@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   have been theatre on top of real defenses (subprocess isolation,
   scrubbed env, pre-write object-dtype rejection). Optional
   `--sign-key-hex` and `--max-bytes` retained.
-- **44 new tests** in `tests/security/test_safe_load.py` and
+- **43 new tests** in `tests/security/test_safe_load.py` and
   `tests/security/test_migrate_pkl.py` pin: pickle path is gone;
   loader rejects wrong magic bytes, oversized files, object dtypes,
   pickle-disguised-as-`.npz`, zip-bombs (compression-ratio guard),
