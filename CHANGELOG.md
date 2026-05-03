@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **Reproducibility note (applies to all 1.x release entries below):**
+> Headline benchmark numbers in this changelog are computed over the
+> **64 reproducible datasets** (of 75 attempted). 11 datasets currently
+> fail to load due to unavailable external sources (SMAP, MSL,
+> CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA
+> StormEvents, NOAA ERDDAP, FEMA HazardMitigation), and 1 of the 64
+> (FEMA Disaster) is a known-broken loader producing inverted scores.
+> See the README "Empirical Benchmark Results" section for the full
+> reproducibility footnote and `docs/ROADMAP.md` for tracked fixes.
+
+## [Unreleased]
+
+### Security
+
+- **Pickle code path removed from training pipeline.** The legacy
+  `.pkl` / `.pickle` branch in `OmniMercuryEngine.train_fusion_model`
+  has been deleted. Pickle is structurally a code-execution format and
+  the existing whitelist was both functionally broken under numpy 2.x
+  (production whitelist used `numpy.core.multiarray` while numpy 2.x
+  emits `numpy._core.multiarray`) and incomplete (rejected `bool_`,
+  `uint8`, `float16`). Replacement: `omni_mercury_engine.security.safe_load`
+  module exposing `safe_load_training_data`, optional HMAC-SHA-256
+  provenance via `sign_npz` / `verify_npz_signature`, and a
+  one-shot operator migration tool at
+  `python -m omni_mercury_engine.tools.migrate_pkl` that runs in a
+  separate hardened subprocess.
+- **Zip-bomb defense in `safe_load`.** `_validate_zip_central_directory`
+  inspects the `.npz` central directory before any decompression and
+  rejects: corrupt zips, archives with more than 256 entries, per-entry
+  uncompressed sizes above 1 GiB, cumulative uncompressed size above
+  1 GiB, per-entry compression ratio above 1000:1 (zip-bomb signature),
+  and entry names containing path-traversal components (`..`, leading
+  `/`, drive letters, or backslashes — backslash is rejected outright
+  because POSIX path parsing keeps `\\` as a literal character and a
+  Windows extractor would interpret it as a directory separator).
+- **`migrate_pkl` invocation.** The tool runs the conversion when
+  invoked. There is no `--i-trust-this-file` / consent flag; it would
+  have been theatre on top of real defenses (subprocess isolation,
+  scrubbed env, pre-write object-dtype rejection). Optional
+  `--sign-key-hex` and `--max-bytes` retained.
+- **43 new tests** in `tests/security/test_safe_load.py` and
+  `tests/security/test_migrate_pkl.py` pin: pickle path is gone;
+  loader rejects wrong magic bytes, oversized files, object dtypes,
+  pickle-disguised-as-`.npz`, zip-bombs (compression-ratio guard),
+  too-many-entries, corrupt zips, path-traversal entries (forward
+  slash, ``..``, backslash, drive-letter), tightened uncompressed-size
+  caps; HMAC roundtrip and tamper detection work; migration tool
+  relaunches itself in a hardened subprocess and refuses to overwrite
+  existing outputs.
+
 ## [1.6.0] - 2026-05-01
 
 ### Security (Dependency CVE Remediation)

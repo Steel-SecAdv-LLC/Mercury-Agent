@@ -77,6 +77,15 @@ from omni_mercury_engine.security.pqc_guards import (
     check_pqc_production_readiness,
 )
 from omni_mercury_engine.security.rate_limiting import RateLimiter
+from omni_mercury_engine.security.safe_load import (
+    DEFAULT_MAX_BYTES,
+    NPZ_MAGIC,
+    SIG_SUFFIX,
+    UnsafePayloadError,
+    safe_load_training_data,
+    sign_npz,
+    verify_npz_signature,
+)
 from omni_mercury_engine.security.secure_audit_logging import (
     AuditEvent,
     AuditEventCategory,
@@ -91,8 +100,11 @@ from omni_mercury_engine.security.threat_detection import ThreatDetector
 
 __all__ = [
     "AMA_CRYPTOGRAPHY_AVAILABLE",
+    "DEFAULT_MAX_BYTES",
     "DILITHIUM_AVAILABLE",
     "KYBER_AVAILABLE",
+    "NPZ_MAGIC",
+    "SIG_SUFFIX",
     "SPHINCS_AVAILABLE",
     "AlgorithmType",
     # Secure Audit Logging
@@ -126,6 +138,7 @@ __all__ = [
     "SphincsKeyPair",
     "SphincsProvider",
     "ThreatDetector",
+    "UnsafePayloadError",
     "assert_no_simulation_in_production",
     "check_pqc_production_readiness",
     "configure_audit_logger",
@@ -140,6 +153,10 @@ __all__ = [
     "get_pqc_capabilities",
     "kyber_decapsulate",
     "kyber_encapsulate",
+    # Safe loading
+    "safe_load_training_data",
+    "sign_npz",
     "sphincs_sign",
     "sphincs_verify",
+    "verify_npz_signature",
 ]
