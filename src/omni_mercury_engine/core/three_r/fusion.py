@@ -97,10 +97,15 @@ class OmniAvaEquation:
         floor = ETHICAL.SIGMA_IMMUTABLE_MEDICAL  # 0.93 — lowest domain floor
         clamped = max(floor, min(0.99, ethical_compliance_threshold))
         if clamped != ethical_compliance_threshold:
+            # Do not interpolate the supplied or clamped value into the log
+            # record — CodeQL's py/clear-text-logging-sensitive-data taints
+            # ``clamped`` via the parameter and the security review (alerts
+            # 877, 878) flags any inclusion of the threshold in log output.
+            # The fact-of-clamping is sufficient diagnostic; the floor and
+            # ceiling are documented in source and ``ETHICAL`` constants.
             logger.warning(
-                "ethical_compliance_threshold clamped to [%s, 0.99] -> %.4f",
-                floor,
-                clamped,
+                "ethical_compliance_threshold outside permitted range; "
+                "value clamped to the domain-calibrated floor"
             )
         # Use object.__setattr__ so the immutability guard (set below) doesn't
         # trigger during construction.
