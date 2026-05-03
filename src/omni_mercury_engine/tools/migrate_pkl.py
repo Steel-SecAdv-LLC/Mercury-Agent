@@ -21,25 +21,22 @@ One-shot legacy ``.pkl`` -> ``.npz`` migration tool.
 
 Pickle has been removed from the Mercury Agent runtime. This tool is
 the only place in the codebase that may execute ``pickle.load``, and
-it does so in a clearly-marked operator workflow that:
+it does so in a clearly-bounded operator workflow that:
 
 * refuses to import the engine -- the engine never sees pickle bytes;
-* re-launches itself in a hardened subprocess before doing any
-  unpickling. The hardening is environment-based, not flag-based,
-  because ``-S -E -I`` strip the project's own editable install and
-  break legitimate operator workflows. Concretely the child runs with:
+* re-launches itself in a hardened subprocess before unpickling. The
+  hardening is environment-based, not flag-based, because ``-S -E -I``
+  strip the project's own editable install and break legitimate
+  operator workflows. Concretely the child runs with:
 
     - ``PYTHONNOUSERSITE=1`` (no user-site ``sitecustomize``)
     - ``PYTHONDONTWRITEBYTECODE=1`` (no stray ``.pyc`` files)
     - no ``PYTHONSTARTUP``, no ``PYTHONPATH``, no ``LD_PRELOAD`` (any env
       var not in :data:`_FORWARDED_ENV` is dropped)
 
-  The subprocess boundary, not the flag combination, is the
-  load-bearing isolation -- a malicious pickle that achieves code
-  execution still cannot reach the parent (operator) process state;
-* prints a loud disclaimer and refuses to run unless the caller passes
-  ``--i-trust-this-file`` confirming the input pickle came from a
-  trusted source;
+  The subprocess boundary, not flag combinations, is the load-bearing
+  isolation -- a malicious pickle that achieves code execution in the
+  child still cannot reach the parent (operator) process state;
 * writes the converted archive via ``numpy.savez``. ``numpy.savez``
   itself does not expose an ``allow_pickle`` parameter on the write
   path, so we enforce the "no pickle in the output" contract by
@@ -53,10 +50,10 @@ it does so in a clearly-marked operator workflow that:
 Usage::
 
     python -m omni_mercury_engine.tools.migrate_pkl \\
-        --input legacy.pkl --output legacy.npz --i-trust-this-file
+        --input legacy.pkl --output legacy.npz
 
     python -m omni_mercury_engine.tools.migrate_pkl \\
-        --input legacy.pkl --output legacy.npz --i-trust-this-file \\
+        --input legacy.pkl --output legacy.npz \\
         --sign-key-hex 0123...  # 64 hex chars = 32 bytes
 """
 
@@ -88,20 +85,11 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="python -m omni_mercury_engine.tools.migrate_pkl",
         description=(
             "Convert a legacy .pkl training payload to a safe .npz archive. "
-            "Pickle is unsafe; this tool exists only for one-shot migration."
+            "Runs in a hardened subprocess; the engine itself never loads pickles."
         ),
     )
     parser.add_argument("--input", required=True, help="Path to legacy .pkl file.")
     parser.add_argument("--output", required=True, help="Destination .npz path.")
-    parser.add_argument(
-        "--i-trust-this-file",
-        action="store_true",
-        required=False,
-        help=(
-            "Required acknowledgement that the input pickle is from a trusted "
-            "source. Pickle deserialization can execute arbitrary code."
-        ),
-    )
     parser.add_argument(
         "--sign-key-hex",
         default=None,
@@ -119,12 +107,11 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _disclaimer() -> str:
+def _banner() -> str:
     return (
-        "WARNING: pickle deserialization can execute arbitrary code. This "
-        "tool will load a pickle file in a hardened subprocess. Only run "
-        "it on payloads from a trusted source you control. Mercury Agent "
-        "will never load pickles at runtime."
+        "migrate_pkl: converting legacy pickle in a hardened subprocess "
+        "(PYTHONNOUSERSITE=1, scrubbed env). Mercury Agent itself never "
+        "loads pickles at runtime."
     )
 
 
@@ -165,8 +152,7 @@ def _do_migration(args: argparse.Namespace) -> int:
     """Body that runs inside the hardened subprocess."""
     # B403: pickle is intentionally used here -- this is the one-shot
     # operator migration tool whose entire purpose is to read a legacy
-    # .pkl payload that the operator has explicitly attested to trusting
-    # (--i-trust-this-file). The engine itself never imports pickle.
+    # .pkl payload. The engine itself never imports pickle.
     import pickle  # nosec B403
 
     import numpy as np
@@ -191,9 +177,8 @@ def _do_migration(args: argparse.Namespace) -> int:
     print(f"loading legacy pickle: {src} ({size} bytes)", file=sys.stderr)
     with src.open("rb") as f:
         # B301: this is THE sanctioned pickle.load call in the codebase.
-        # It only runs in the hardened subprocess after explicit operator
-        # consent (--i-trust-this-file). The engine itself never reaches
-        # this code path; see module docstring.
+        # It only runs in the hardened subprocess. The engine itself
+        # never reaches this code path; see module docstring.
         loaded = pickle.load(f)  # nosec B301
 
     if not isinstance(loaded, dict):
@@ -251,7 +236,7 @@ def _do_migration(args: argparse.Namespace) -> int:
             print("error: --sign-key-hex must decode to >= 32 bytes", file=sys.stderr)
             return 4
         # Re-import inside hardened path because site-packages is stripped;
-        # the project's own packages are still on PYTHONPATH if installed
+        # the project's own packages are still on sys.path if installed
         # in development mode.
         from omni_mercury_engine.security.safe_load import sign_npz
 
@@ -264,20 +249,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if not args.i_trust_this_file:
-        print(_disclaimer(), file=sys.stderr)
-        print(
-            "refusing to run without --i-trust-this-file (this is intentional)",
-            file=sys.stderr,
-        )
-        return 1
-
     if os.environ.get(_HARDENED_SENTINEL) == "1":
         # Already inside the hardened subprocess; do the actual work.
         return _do_migration(args)
 
-    # Top-level invocation: relaunch ourselves under hardened flags.
-    print(_disclaimer(), file=sys.stderr)
+    # Top-level invocation: relaunch ourselves in the hardened subprocess.
+    print(_banner(), file=sys.stderr)
     nonce = secrets.token_hex(8)
     print(f"relaunching under hardened subprocess (nonce {nonce})...", file=sys.stderr)
     return _relaunch_hardened(sys.argv[1:])

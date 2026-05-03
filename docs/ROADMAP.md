@@ -70,10 +70,13 @@ Mercury Agent is evolving toward a distributed, privacy-preserving, and explaina
 > `distributed/cluster.py` (688 LOC) and `distributed/raft_consensus.py`
 > (894 LOC) but five `NotImplementedError` calls remain in
 > `raft_consensus.py` at lines 315, 323, 331, 335, and 830 — only
-> `InMemoryTransport` is implemented; no TCP/gRPC network transport
-> exists. Multi-node Raft cannot communicate today. Scheduled fix in
-> v1.7 (gRPC `MessageTransport` + integration tests). The design
-> below was written pre-implementation; actual API may differ.
+> `InMemoryTransport` is implemented; no network transport exists.
+> Multi-node Raft cannot communicate today. Scheduled fix in v1.7 is a
+> **native pure-stdlib TCP `MessageTransport`** (asyncio + length-prefixed
+> binary frames + AMA Cryptography per-message signatures) plus
+> integration tests. No third-party RPC framework — the wire format is
+> Mercury's own, owned end-to-end. The design below was written
+> pre-implementation; actual API may differ.
 
 ### Current State
 - Single-node deployment with threading for parallelism

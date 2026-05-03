@@ -71,30 +71,17 @@ def legacy_pkl(tmp_path: Path) -> Path:
 
 
 # --------------------------------------------------------------------------- #
-# Refusal-by-default. Tool must not unpickle anything without explicit consent.
+# Hardened-subprocess relaunch.
 # --------------------------------------------------------------------------- #
 
 
-def test_refuses_without_trust_flag(tmp_path: Path, legacy_pkl: Path) -> None:
-    out = _run_tool("--input", str(legacy_pkl), "--output", str(tmp_path / "out.npz"))
-    assert out.returncode == 1
-    assert "i-trust-this-file" in out.stderr
-    assert not (tmp_path / "out.npz").exists()
-
-
-def test_relaunches_under_hardened_flags(tmp_path: Path, legacy_pkl: Path) -> None:
+def test_relaunches_under_hardened_subprocess(tmp_path: Path, legacy_pkl: Path) -> None:
     """
     The top-level invocation prints the relaunch banner; the child runs
     in a hardened subprocess (scrubbed env). We verify by reading the
     stderr banner and confirming the child exits successfully.
     """
-    out = _run_tool(
-        "--input",
-        str(legacy_pkl),
-        "--output",
-        str(tmp_path / "out.npz"),
-        "--i-trust-this-file",
-    )
+    out = _run_tool("--input", str(legacy_pkl), "--output", str(tmp_path / "out.npz"))
     assert "hardened subprocess" in out.stderr
     assert out.returncode == 0
 
@@ -106,13 +93,7 @@ def test_relaunches_under_hardened_flags(tmp_path: Path, legacy_pkl: Path) -> No
 
 def test_round_trip_pkl_to_npz(tmp_path: Path, legacy_pkl: Path) -> None:
     out_path = tmp_path / "out.npz"
-    proc = _run_tool(
-        "--input",
-        str(legacy_pkl),
-        "--output",
-        str(out_path),
-        "--i-trust-this-file",
-    )
+    proc = _run_tool("--input", str(legacy_pkl), "--output", str(out_path))
     assert proc.returncode == 0, proc.stderr
     assert out_path.exists()
 
@@ -131,7 +112,6 @@ def test_signing_during_migration(tmp_path: Path, legacy_pkl: Path) -> None:
         str(legacy_pkl),
         "--output",
         str(out_path),
-        "--i-trust-this-file",
         "--sign-key-hex",
         key_hex,
     )
@@ -150,9 +130,7 @@ def test_rejects_pickle_with_non_dict_root(tmp_path: Path) -> None:
     bad = tmp_path / "bad.pkl"
     with bad.open("wb") as f:
         pickle.dump([1, 2, 3], f)
-    proc = _run_tool(
-        "--input", str(bad), "--output", str(tmp_path / "out.npz"), "--i-trust-this-file"
-    )
+    proc = _run_tool("--input", str(bad), "--output", str(tmp_path / "out.npz"))
     assert proc.returncode == 3
     assert "must be a dict" in proc.stderr
 
@@ -161,9 +139,7 @@ def test_rejects_pickle_with_missing_keys(tmp_path: Path) -> None:
     bad = tmp_path / "bad.pkl"
     with bad.open("wb") as f:
         pickle.dump({"only_features": {}}, f)
-    proc = _run_tool(
-        "--input", str(bad), "--output", str(tmp_path / "out.npz"), "--i-trust-this-file"
-    )
+    proc = _run_tool("--input", str(bad), "--output", str(tmp_path / "out.npz"))
     assert proc.returncode == 3
 
 
@@ -175,9 +151,7 @@ def test_rejects_object_dtype_features(tmp_path: Path) -> None:
     }
     with bad.open("wb") as f:
         pickle.dump(payload, f)
-    proc = _run_tool(
-        "--input", str(bad), "--output", str(tmp_path / "out.npz"), "--i-trust-this-file"
-    )
+    proc = _run_tool("--input", str(bad), "--output", str(tmp_path / "out.npz"))
     assert proc.returncode == 3
     assert "object dtype" in proc.stderr
 
@@ -190,7 +164,7 @@ def test_rejects_object_dtype_features(tmp_path: Path) -> None:
 def test_refuses_to_overwrite_existing_output(tmp_path: Path, legacy_pkl: Path) -> None:
     existing = tmp_path / "out.npz"
     existing.write_bytes(b"placeholder")
-    proc = _run_tool("--input", str(legacy_pkl), "--output", str(existing), "--i-trust-this-file")
+    proc = _run_tool("--input", str(legacy_pkl), "--output", str(existing))
     assert proc.returncode == 2
     assert "refusing to overwrite" in proc.stderr
     # File untouched.
@@ -203,7 +177,6 @@ def test_max_bytes_enforced(tmp_path: Path, legacy_pkl: Path) -> None:
         str(legacy_pkl),
         "--output",
         str(tmp_path / "out.npz"),
-        "--i-trust-this-file",
         "--max-bytes",
         "10",
     )
