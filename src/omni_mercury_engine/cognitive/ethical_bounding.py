@@ -63,10 +63,21 @@ class EthicalConstraintViolationError(RuntimeError):
     this exception propagates up the call stack so that impermissible actions
     **cannot** be silently ignored.
 
+    The same class is re-exported from :mod:`omni_mercury_engine.ethical` as
+    ``EthicalViolation`` — that is the canonical name to use at new decision
+    boundaries.  ``EthicalConstraintViolationError`` is retained so existing
+    catch sites and tests keep working.
+
     Attributes:
         action: The action that triggered the violation.
         score: The computed benevolence score.
         threshold: The minimum required benevolence score.
+        check: Identifier for which gate raised — ``"benevolence"`` for the
+            scorer-based check, ``"sigma_immutable"`` for GOSNN's neural
+            ethical gate, ``"gosnn_unavailable"`` when the gate could not be
+            evaluated and the boundary failed closed.
+        details: Optional structured context (e.g., domain, requesting
+            component, raw scalar vector summary) for downstream auditing.
         analysis_time_ms: Optional wall-clock time for the analysis run that
             triggered the violation, captured by the orchestrator before the
             exception was raised.  ``None`` when the raiser did not measure it.
@@ -78,15 +89,20 @@ class EthicalConstraintViolationError(RuntimeError):
         score: float,
         threshold: float,
         analysis_time_ms: float | None = None,
+        *,
+        check: str = "benevolence",
+        details: dict[str, Any] | None = None,
     ) -> None:
         self.action = action
         self.score = score
         self.threshold = threshold
+        self.check = check
+        self.details = details or {}
         self.analysis_time_ms = analysis_time_ms
         super().__init__(
-            f"Ethical constraint violated for action '{action}': "
-            f"benevolence_score={score:.4f} < threshold={threshold:.4f}. "
-            "Execution blocked."
+            f"Ethical constraint '{check}' violated for action '{action}': "
+            f"score={score:.4f} < threshold={threshold:.4f}. "
+            "Execution blocked at the decision boundary."
         )
 
 

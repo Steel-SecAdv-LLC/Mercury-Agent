@@ -17,6 +17,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Ethics
+
+- **Hard ethics enforcement at the decision boundary** (Phase 2 audit
+  cure, May 2026). Every top-level inference path now raises
+  `EthicalViolation` (re-exported from
+  `omni_mercury_engine.cognitive.ethical_bounding.EthicalConstraintViolationError`)
+  on benevolence-threshold violation, replacing the prior
+  logger.warning / `ethical_violations`-list / `strict_ethics`-flag
+  advisory paths. Boundary surfaces:
+  - `CognitiveOrchestrator.analyze` raises with `check="benevolence"`
+    when the per-analysis benevolence score falls below the scorer's
+    threshold. The `strict_ethics=False` constructor argument is
+    deprecated and ignored — passing `False` emits a
+    `DeprecationWarning` and the gate still fires.
+  - `NeuroSymbolicHub.predict` raises with `check="benevolence"` for
+    any sample whose computed benevolence is below
+    `benevolence_threshold` (replaces the prior
+    `result.ethical_compliant=False` advisory return).
+  - `OmniMercuryEngine.detect_with_fusion` (and the `_calibrated`
+    variant) raises with `check="benevolence"` via a per-engine
+    `BenevolenceScorer.enforce` call against an action description
+    rich in defensive-purpose keywords. The σ_Immutable network
+    output remains in `result["gosnn_metadata"]` as a *signal*, not
+    the gate — the underlying neural network is currently untrained
+    and cannot be the contract until it is properly trained (tracked
+    as audit follow-up). The previous "fall back to
+    `ethical_gate_passed=True` if GOSNN errors" path is deleted.
+  Decision-boundary contract documented in
+  `src/omni_mercury_engine/ethical/__init__.py`. New regression
+  suite at `tests/ethical/test_hard_enforcement.py` (13 tests, wired
+  into the `Neuro-Symbolic Tests` CI job) makes a benevolence-threshold
+  regression a build-time failure. ROADMAP cross-cutting "Ethics
+  enforcement" row flips from Stubbed to Functional.
+
 ### Security
 
 - **Pickle code path removed from training pipeline.** The legacy

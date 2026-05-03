@@ -1090,14 +1090,33 @@ class NeuroSymbolicHub:
                 except Exception as e:
                     logger.warning(f"GOSNN-3R integration failed: {e}")
 
-            # Check ethical compliance
+            # Check ethical compliance — hard gate at the decision boundary.
+            # The previous behavior was to record the violation in
+            # ``ethical_violations`` and continue silently; per the May 2026
+            # ethics-enforcement contract (see
+            # ``src/omni_mercury_engine/ethical/__init__.py``), every
+            # impermissible sample must raise.
             benevolence_score = self._compute_benevolence(sample_context, fused_score)
             ethical_compliant = benevolence_score >= self.benevolence_threshold
-            ethical_violations = []
+            ethical_violations: list[str] = []
 
             if not ethical_compliant:
-                ethical_violations.append(
-                    f"Benevolence {benevolence_score:.3f} < {self.benevolence_threshold}"
+                from omni_mercury_engine.cognitive.ethical_bounding import (
+                    EthicalConstraintViolationError,
+                )
+
+                raise EthicalConstraintViolationError(
+                    action=f"NeuroSymbolicHub.predict[sample={i}]",
+                    score=benevolence_score,
+                    threshold=self.benevolence_threshold,
+                    check="benevolence",
+                    details={
+                        "sample_index": i,
+                        "fused_score": float(fused_score),
+                        "neural_score": float(neural_score),
+                        "symbolic_score": float(symbolic_score),
+                        "fusion_mode": self.fusion_mode.value,
+                    },
                 )
 
             # Build reasoning chain with P2 integration info

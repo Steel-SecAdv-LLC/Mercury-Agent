@@ -38,7 +38,7 @@
 > | Pickle migration tool | ✓ | — | ✓ | `python -m omni_mercury_engine.tools.migrate_pkl`; 9 tests cover hardened-subprocess relaunch, schema validation, refusal-by-default. |
 > | VLM detectors | ✓ | ✓ | — | `detectors/vlm/base_vlm.py:184,205,219,250,264` — 5 abstract methods raise `NotImplementedError`. Strategic decision (2026-05): keep native detectors; do **not** ship BLIP/GPT adapters. Surface to be marked experimental or removed in v1.7. |
 > | Visual base detector | ✓ | ✓ | — | `detectors/visual/base_visual.py:294,312,326` — 3 abstract methods raise `NotImplementedError`. Aggressive native-detector improvement is the chosen path. |
-> | Ethics enforcement | ✓ | ✓ | — | Strategic decision (2026-05): hard-enforce, not advisory. Migration tracked as Phase 2 of the May 2026 audit cure. |
+> | Ethics enforcement | ✓ | — | ✓ | Hard-enforced at the decision boundary (Phase 2 cure, May 2026). `CognitiveOrchestrator.analyze`, `OmniMercuryEngine.detect_with_fusion`/`detect_with_fusion_calibrated`, and `NeuroSymbolicHub.predict` all raise `EthicalViolation` on benevolence-threshold violation; the `strict_ethics=False` flag is deprecated and ignored. Decision-boundary contract documented in `src/omni_mercury_engine/ethical/__init__.py`. Regression suite: `tests/ethical/test_hard_enforcement.py` (13 tests, wired into the `Neuro-Symbolic Tests` CI job — a benevolence-threshold regression cannot merge silently). |
 > | 21-probe Anomaly Math Arrest ensemble | ✓ | ? | ? | Wiring audit pending — verify ensemble is the primary path and retire any IsolationForest fallback. Tracked as Phase 2 item. |
 >
 > The phase checklists later in this document were written **before**

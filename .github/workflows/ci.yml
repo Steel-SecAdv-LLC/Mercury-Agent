@@ -430,10 +430,21 @@ jobs:
         # All paths are blocking - there are no continue-on-error escape
         # hatches here.  If the AI's reasoning, alignment, or kill-switch
         # logic fails, the PR fails.
+        #
+        # ``tests/ethical/`` is the regression suite for the hard
+        # ethics-enforcement decision boundary contract documented in
+        # ``src/omni_mercury_engine/ethical/__init__.py`` — Phase 2 of the
+        # May 2026 audit cure.  It runs here (not in core-tests) because
+        # exercising the boundary requires the full neural fusion stack;
+        # routing it through this job means a benevolence-threshold
+        # regression (e.g. someone reintroducing a ``strict_ethics``
+        # opt-out, or downgrading a raise to a logger.warning) cannot
+        # merge silently.
         run: |
           pytest \
             tests/cognitive/ \
             tests/safeguards/ \
+            tests/ethical/ \
             tests/test_neurosymbolic_integration.py \
             tests/test_neurosymbolic_enhanced.py \
             tests/test_neurosymbolic_extended.py \
@@ -444,6 +455,7 @@ jobs:
             --timeout=300 \
             --cov=src/omni_mercury_engine/cognitive \
             --cov=src/omni_mercury_engine/safeguards \
+            --cov=src/omni_mercury_engine/ethical \
             --cov=src/omni_mercury_engine/core \
             --cov=src/omni_mercury_engine/models \
             --cov-report=xml \

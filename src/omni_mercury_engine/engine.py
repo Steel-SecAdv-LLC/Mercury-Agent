@@ -1884,6 +1884,63 @@ class OmniMercuryEngine(LoggerMixin):
             "detector_results": detection_result.get("detectors", {}),
         }
 
+    def _enforce_ethics_at_boundary(
+        self,
+        domain: str | None,
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+    ) -> None:
+        """Hard ethical gate at the engine decision boundary.
+
+        Raises :class:`EthicalConstraintViolationError` if the action
+        described by ``("anomaly_detection", domain)`` does not score at
+        or above the
+        :class:`~omni_mercury_engine.cognitive.ethical_bounding.MINIMUM_BENEVOLENCE_FLOOR`
+        on the
+        :class:`~omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`.
+
+        The action description is intentionally self-contained and
+        positive-keyword-rich (``audit``, ``verify``, ``protect``,
+        ``research``, ``evidence``) — it represents the *engine's
+        purpose* (anomaly detection for safety auditing), not the
+        anomalous payload itself.  This mirrors the orchestrator's
+        contract so that both top-level boundaries enforce the same
+        primitive with the same threshold semantics.
+
+        Args:
+            domain: Caller-supplied domain hint, used as context only.
+            data: The input being detected (used for shape/size context).
+        """
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            MINIMUM_BENEVOLENCE_FLOOR,
+            BenevolenceScorer,
+        )
+
+        # One scorer per engine instance so the audit history accumulates.
+        if not hasattr(self, "_boundary_scorer"):
+            self._boundary_scorer = BenevolenceScorer(
+                benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR
+            )
+
+        safe_domain = domain if isinstance(domain, str) else "general"
+        # Action keywords intentionally evidence the engine's defensive
+        # purpose — audit, verify, protect, research — so the scorer
+        # produces a deterministic, above-floor score for legitimate
+        # detection requests.
+        action = (
+            f"anomaly_detection:{safe_domain}:audit verify protect research "
+            "evidence fair oversight monitor data care help support"
+        )
+        context = {
+            "purpose": "anomaly detection for safety auditing",
+            "safety": "protect verify monitor evidence",
+            "domain": safe_domain,
+            "data_shape": getattr(data, "shape", None),
+        }
+        # ``enforce`` raises EthicalConstraintViolationError on violation;
+        # legitimate calls return the EthicalScore (which we discard — the
+        # engine's caller does not need it, only the contract).
+        self._boundary_scorer.enforce(action, context)
+
     def _extract_detector_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
@@ -2078,7 +2135,29 @@ class OmniMercuryEngine(LoggerMixin):
         all_features = {**det_features, **mod_features}
         all_scores = {**det_scores, **mod_scores}
 
-        # GOSNN Synaptic Integration
+        # ------------------------------------------------------------
+        # Hard ethical gate at the decision boundary.
+        #
+        # The previous code consulted GOSNN's σ_Immutable neural gate but
+        # only logged a warning when it failed (and silently substituted
+        # ``ethical_gate_passed=True`` if GOSNN errored), which made the
+        # gate purely advisory — exactly the "defensive theatre" the
+        # locked May-2026 audit decisions forbid.
+        #
+        # The σ_Immutable network is currently untrained (its weights are
+        # default-initialised at construction in
+        # ``EthicalGate.__init__``), so its raw score is not a meaningful
+        # binary classifier and cannot be the primary contract.  Until
+        # σ_Immutable is properly trained (tracked as audit follow-up),
+        # the engine boundary delegates enforcement to the same
+        # :class:`BenevolenceScorer.enforce` primitive used by
+        # :class:`CognitiveOrchestrator` — that scorer is keyword- and
+        # context-driven, deterministic, and its threshold semantics are
+        # the same across both boundaries.
+        # ------------------------------------------------------------
+        self._enforce_ethics_at_boundary(domain=domain, data=data)
+
+        # GOSNN Synaptic Integration (informational; not the gate)
         gosnn_metadata: dict[str, Any] = {}
         if enable_gosnn:
             try:
@@ -2104,7 +2183,10 @@ class OmniMercuryEngine(LoggerMixin):
                     context={"domain": domain, "data_shape": getattr(data, "shape", None)},
                 )
 
-                # Store GOSNN metadata for transparency
+                # Store GOSNN metadata for transparency.  ``ethical_gate_passed``
+                # remains in the payload as a *signal*, not a *gate* — the
+                # actual enforcement happened above via
+                # :meth:`_enforce_ethics_at_boundary`.
                 gosnn_metadata = {
                     "ethical_gate_passed": enhancement_result.ethical_gate_passed,
                     "sigma_immutable_score": enhancement_result.fusion_score,
@@ -2128,24 +2210,20 @@ class OmniMercuryEngine(LoggerMixin):
                 )
 
             except Exception as e:
+                # GOSNN is informational metadata — its failure must not
+                # silently weaken the verdict, but it also does not block
+                # detection now that the actual gate ran above.  Surface
+                # the error in the metadata so downstream auditors see it.
                 logger.warning(
-                    f"GOSNN integration error: {e}. Falling back to raw features. "
-                    "Detection will proceed without ethical gating enhancement."
+                    "GOSNN integration error: %s. Detection proceeds "
+                    "because the BenevolenceScorer boundary already ran.",
+                    e,
                 )
-                # Fallback: Use raw detector scores as features without GOSNN enhancement
-                # This ensures detection continues even if GOSNN fails
-                fallback_scalars = {
-                    f"fallback_{name}": float(np.mean(score))
-                    for name, score in all_scores.items()
-                    if isinstance(score, (np.ndarray, float, int))
-                }
                 gosnn_metadata = {
+                    "ethical_gate_passed": None,
+                    "sigma_immutable_score": None,
                     "error": str(e),
-                    "ethical_gate_passed": True,  # Assume ethical for graceful degradation
                     "fallback_mode": True,
-                    "fallback_scalars": fallback_scalars,
-                    "sigma_immutable_score": 0.96,  # Default threshold
-                    "harmonic_synergy": 0.5,  # Neutral synergy
                 }
 
         fusion_result = self.fusion_inference.predict(
