@@ -198,7 +198,10 @@ def train(
         if epoch % 20 == 0 or epoch == 1:
             logger.info(
                 "epoch %3d | train_loss=%.4f | val_loss=%.4f | val_acc=%.4f",
-                epoch, train_loss, val_loss, val_acc,
+                epoch,
+                train_loss,
+                val_loss,
+                val_acc,
             )
 
         if val_acc > best_val_acc:
@@ -210,7 +213,8 @@ def train(
     model.load_state_dict(best_state)
     logger.info(
         "Training complete — best val_acc=%.4f at epoch %d",
-        best_val_acc, metrics["best_epoch"],
+        best_val_acc,
+        metrics["best_epoch"],
     )
     return model, metrics
 

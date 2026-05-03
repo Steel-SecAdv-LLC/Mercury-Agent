@@ -43,12 +43,35 @@ KAT_POSITIVE[27:180] = _rng.uniform(0.0, 2.0, 153).astype(np.float32)
 # ── Negative vector: 5 critical ethical scalars below threshold ──
 KAT_NEGATIVE = np.zeros(256, dtype=np.float32)
 KAT_NEGATIVE[:27] = np.array(
-    [0.1, 0.2, 0.15, 0.3, 0.05,       # 5 violations
-     1.1, 1.7, 1.8, 1.5, 1.3,          # rest above threshold
-     1.4, 1.2, 1.6, 1.1, 1.5,
-     1.3, 1.4, 1.7, 1.2, 1.6,
-     1.1, 1.5, 1.8, 1.3, 1.4,
-     1.2, 1.6],
+    [
+        0.1,
+        0.2,
+        0.15,
+        0.3,
+        0.05,  # 5 violations
+        1.1,
+        1.7,
+        1.8,
+        1.5,
+        1.3,  # rest above threshold
+        1.4,
+        1.2,
+        1.6,
+        1.1,
+        1.5,
+        1.3,
+        1.4,
+        1.7,
+        1.2,
+        1.6,
+        1.1,
+        1.5,
+        1.8,
+        1.3,
+        1.4,
+        1.2,
+        1.6,
+    ],
     dtype=np.float32,
 )
 KAT_NEGATIVE[27:180] = _rng.uniform(0.0, 2.0, 153).astype(np.float32)
@@ -56,9 +79,35 @@ KAT_NEGATIVE[27:180] = _rng.uniform(0.0, 2.0, 153).astype(np.float32)
 # ── All-low ethical vector: all 27 ethical scalars below threshold ──
 KAT_ALL_LOW = np.zeros(256, dtype=np.float32)
 KAT_ALL_LOW[:27] = np.array(
-    [0.1, 0.2, 0.15, 0.3, 0.05, 0.25, 0.1, 0.2, 0.15, 0.3,
-     0.05, 0.25, 0.1, 0.2, 0.15, 0.3, 0.05, 0.25, 0.1, 0.2,
-     0.15, 0.3, 0.05, 0.25, 0.1, 0.2, 0.15],
+    [
+        0.1,
+        0.2,
+        0.15,
+        0.3,
+        0.05,
+        0.25,
+        0.1,
+        0.2,
+        0.15,
+        0.3,
+        0.05,
+        0.25,
+        0.1,
+        0.2,
+        0.15,
+        0.3,
+        0.05,
+        0.25,
+        0.1,
+        0.2,
+        0.15,
+        0.3,
+        0.05,
+        0.25,
+        0.1,
+        0.2,
+        0.15,
+    ],
     dtype=np.float32,
 )
 KAT_ALL_LOW[27:180] = _rng.uniform(0.0, 2.0, 153).astype(np.float32)

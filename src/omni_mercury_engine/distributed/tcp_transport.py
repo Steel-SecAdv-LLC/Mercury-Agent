@@ -363,7 +363,9 @@ class TCPMessageTransport(MessageTransport):
     async def _send(self, addr: tuple[str, int], envelope: dict[str, Any]) -> None:
         host, port = addr
         reader, writer = await asyncio.open_connection(
-            host=host, port=port, ssl=self._ssl_context,
+            host=host,
+            port=port,
+            ssl=self._ssl_context,
         )
         try:
             payload = json.dumps(envelope, separators=(",", ":")).encode("utf-8")

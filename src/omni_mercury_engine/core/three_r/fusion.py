@@ -94,7 +94,7 @@ class OmniAvaEquation:
         #   below the domain-calibrated value.
         from omni_mercury_engine.core.centralized_constants import ETHICAL
 
-        floor = ETHICAL.SIGMA_IMMUTABLE_THRESHOLD  # 0.93 default
+        floor = ETHICAL.SIGMA_IMMUTABLE_MEDICAL  # 0.93 — lowest domain floor
         clamped = max(floor, min(0.99, ethical_compliance_threshold))
         if clamped != ethical_compliance_threshold:
             logger.warning(

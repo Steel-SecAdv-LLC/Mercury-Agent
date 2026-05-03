@@ -184,8 +184,8 @@ class EthicalGate:
             return
         try:
             state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
-            self.gate_network.load_state_dict(state_dict)  # type: ignore[union-attr]
-            self.gate_network.eval()  # type: ignore[union-attr]
+            self.gate_network.load_state_dict(state_dict)
+            self.gate_network.eval()
             self._trained = True
             self.logger.info("σ_Immutable: loaded trained weights from %s", weights_path)
         except Exception as exc:

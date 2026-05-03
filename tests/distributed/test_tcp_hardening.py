@@ -48,6 +48,7 @@ pytestmark = pytest.mark.asyncio
 # Helper: self-signed CA + node certs
 # ---------------------------------------------------------------------------
 
+
 def _generate_tls_assets(
     tmpdir: str,
 ) -> tuple[ssl.SSLContext, ssl.SSLContext]:
@@ -67,23 +68,63 @@ def _generate_tls_assets(
 
     # Generate CA key + self-signed cert
     subprocess.run(
-        ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-keyout", ca_key,
-         "-out", ca_cert, "-days", "1", "-nodes",
-         "-subj", "/CN=Mercury-Test-CA"],
-        check=True, capture_output=True,
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            ca_key,
+            "-out",
+            ca_cert,
+            "-days",
+            "1",
+            "-nodes",
+            "-subj",
+            "/CN=Mercury-Test-CA",
+        ],
+        check=True,
+        capture_output=True,
     )
     # Generate node key + CSR
     subprocess.run(
-        ["openssl", "req", "-newkey", "rsa:2048", "-keyout", node_key,
-         "-out", node_csr, "-nodes",
-         "-subj", "/CN=localhost"],
-        check=True, capture_output=True,
+        [
+            "openssl",
+            "req",
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            node_key,
+            "-out",
+            node_csr,
+            "-nodes",
+            "-subj",
+            "/CN=localhost",
+        ],
+        check=True,
+        capture_output=True,
     )
     # Sign node cert with CA
     subprocess.run(
-        ["openssl", "x509", "-req", "-in", node_csr, "-CA", ca_cert,
-         "-CAkey", ca_key, "-CAcreateserial", "-out", node_cert, "-days", "1"],
-        check=True, capture_output=True,
+        [
+            "openssl",
+            "x509",
+            "-req",
+            "-in",
+            node_csr,
+            "-CA",
+            ca_cert,
+            "-CAkey",
+            ca_key,
+            "-CAcreateserial",
+            "-out",
+            node_cert,
+            "-days",
+            "1",
+        ],
+        check=True,
+        capture_output=True,
     )
 
     # Server context
@@ -232,15 +273,17 @@ async def test_fuzzer_unexpected_fields() -> None:
     host, port = transport.bound_address
 
     reader, writer = await asyncio.open_connection(host, port)
-    payload = json.dumps({
-        "type": "totally_unknown",
-        "request_id": "abc",
-        "from": "evil",
-        "to": "target",
-        "body": {},
-        "extra_field": "unexpected",
-        "signature": "deadbeef",
-    }).encode()
+    payload = json.dumps(
+        {
+            "type": "totally_unknown",
+            "request_id": "abc",
+            "from": "evil",
+            "to": "target",
+            "body": {},
+            "extra_field": "unexpected",
+            "signature": "deadbeef",
+        }
+    ).encode()
     writer.write(_frame(payload))
     await writer.drain()
     await asyncio.sleep(0.1)

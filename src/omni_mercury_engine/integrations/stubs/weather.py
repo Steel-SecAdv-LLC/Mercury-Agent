@@ -673,9 +673,7 @@ class WeatherService:
         if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
             data = await self._fetch_openweathermap(location)
         elif self.provider == WeatherAPIProvider.NOAA:
-            raise ValueError(
-                "NOAA API requires coordinates. Use get_current_by_coords() instead."
-            )
+            raise ValueError("NOAA API requires coordinates. Use get_current_by_coords() instead.")
         else:
             raise ValueError(f"Unknown weather API provider: {self.provider}")
 
@@ -885,5 +883,4 @@ def create_weather_service(
     return WeatherService(
         provider=provider_enum,
         api_key=api_key,
-        fallback_to_stub=True,
     )

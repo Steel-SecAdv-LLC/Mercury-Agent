@@ -261,7 +261,6 @@ class EthicsConfig:
     strict_mode: bool = False
 
 
-
 @dataclass
 class EthicsResult:
     """Result of ethics evaluation."""
