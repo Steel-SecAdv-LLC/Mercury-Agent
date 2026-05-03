@@ -475,6 +475,13 @@ class RaftNode:
 
         if isinstance(self._transport, InMemoryTransport):
             InMemoryTransport.register_node(self.node_id, self)
+        else:
+            # Network transports route inbound RPCs through registered
+            # handlers — the in-memory transport bypasses the registry
+            # because it owns direct ``RaftNode`` references, but every
+            # other transport (TCP and beyond) needs the wiring here.
+            self._transport.register_handler("request_vote", self.handle_request_vote)
+            self._transport.register_handler("append_entries", self.handle_append_entries)
 
         self._reset_election_timer()
         logger.info("Raft node %s started", self.node_id)
@@ -827,7 +834,15 @@ class RaftCluster:
             if use_in_memory_transport:
                 transport = InMemoryTransport(config.node_id)
             else:
-                raise NotImplementedError("Network transport not yet implemented")
+                # Native pure-stdlib TCP transport — see
+                # ``omni_mercury_engine.distributed.tcp_transport``.
+                # Imported lazily to avoid pulling crypto deps when only
+                # the in-memory path is used.
+                from omni_mercury_engine.distributed.tcp_transport import (
+                    TCPMessageTransport,
+                )
+
+                transport = TCPMessageTransport(config.node_id)
 
             state_machine: StateMachine[Any] = StateMachine()
             node = RaftNode(config, transport, state_machine)

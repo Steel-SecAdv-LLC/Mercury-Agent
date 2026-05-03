@@ -136,8 +136,18 @@ class PreExecutionBlockingGate:
 
     def __init__(
         self,
+        # TODO(audit-2026-03, severity=critical):
+        #   PreExecutionBlockingGate has an off switch — single ``False``
+        #   here disables all blocking. Phase 2 hard-enforcement landed at
+        #   the engine/orchestrator/hub boundary (see
+        #   ``src/omni_mercury_engine/ethical/__init__.py``); this gate
+        #   should follow suit. Track until enable_blocking is removed.
         enable_blocking: bool = True,
         custom_patterns: dict[str, BlockedActionCategory] | None = None,
+        # TODO(audit-2026-03, severity=high):
+        #   ``allow_overrides`` permits an authorised bypass of the
+        #   blocking decision; needs the same audit-trail discipline as
+        #   the new EthicalViolation path.
         allow_overrides: bool = False,
         override_key: str | None = None,
     ) -> None:

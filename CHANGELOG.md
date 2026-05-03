@@ -17,6 +17,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Anomaly Detection
+
+- **21-probe Anomaly Math Arrest is the dominant path** (Phase 2 ITEM
+  2). End-to-end audit confirms `AnomalyMathArrest` registers all 21
+  mathematically-independent probes and discriminates injected
+  anomalies across `earthquake` / `tsunami` / `pandemic` / `marine` /
+  `geomagnetic` / `default` domain-affinity orderings. No live
+  `IsolationForest` import or instantiation remains in `src/` — the
+  only references are documentation strings explaining what the
+  ensemble replaced. Regression suite:
+  `tests/detectors/test_math_arrest_dominant_path.py` (11 tests).
+  ROADMAP cross-cutting "21-probe Anomaly Math Arrest ensemble" row
+  flips to Functional.
+
+### GOSNN Placeholders
+
+- **`gosnn_optimizer.optimize` no longer fabricates random attention
+  tensors** (Phase 2 ITEM 3). The previous `rng.standard_normal((32,
+  16, 16))` fallback is deleted. When no `AttentionProvider` is
+  configured (or the configured one raises), the attention-overhead
+  metric is *skipped* and that fact is surfaced in
+  `OptimizationResult.recommendations`. Real tensors flow only via
+  `AttentionProvider.get_attention`.
+- **Conformal-prediction failures propagate** in
+  `GOSNNIntegration.detect`. The blanket
+  `except (ValueError, RuntimeError, AttributeError)` that left
+  `confidence_intervals=None` is gone — callers now see the underlying
+  exception. Regression: `tests/core/test_gosnn_placeholder_cures.py`.
+
+### Distributed Processing
+
+- **Native pure-stdlib TCP MessageTransport for Raft** (Phase 2 ITEM
+  4). New `omni_mercury_engine.distributed.tcp_transport`:
+  `asyncio.start_server` + length-prefixed binary frames + per-message
+  Ed25519 signatures via Mercury's own AMA Cryptography surface. No
+  third-party RPC framework, no protobuf, no msgpack, no zeromq — the
+  wire format is Mercury's own. The five `NotImplementedError` sites
+  in `raft_consensus.py` are gone; `RaftCluster(use_in_memory_transport=False)`
+  now constructs real network nodes. Integration test
+  `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects`
+  spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and
+  confirms re-election. ROADMAP "Distributed Processing" row flips to
+  Functional.
+
+### Cryptography
+
+- **AMA Cryptography Known-Answer Tests + measured coverage** (Phase
+  2 ITEM 5). New `tests/security/test_ama_kat.py` pins:
+  - Ed25519 RFC 8032 §7.1 vectors bit-for-bit (always run).
+  - ML-DSA-65 / Kyber-1024 / SPHINCS+ round-trips and ML-DSA
+    deterministic-signing reproducibility (run when AMA's PQC
+    backend is installed; skip — never silently pass — otherwise).
+  The `pqc-production-check.yml` workflow runs the KATs on every PR
+  and publishes a coverage XML for `crypto_api.py` + `pqc_backends.py`
+  + `pqc_guards.py` as the `pqc-coverage` artifact. README PQC
+  section now cites the in-repo evidence rather than external-audit
+  framing.
+
+### TODO / FIXME Discipline
+
+- **Inline markers restored** for unresolved findings from
+  `docs/COMPREHENSIVE_REPO_AUDIT.md` (Phase 2 ITEM 6). High-impact
+  cited lines now carry
+  `# TODO(audit-2026-03, severity=critical|high|medium|low):` markers
+  at the cited locations
+  (`core/ai_ethics.py:139,141`, `core/ethical_governor.py:209-210`,
+  `core/three_r/fusion.py:91`). Findings closed by Phase 2 (GOSNN
+  attention placeholder, GOSNN dead `_fusion`, conformal silent
+  failure, ethics-decision-boundary advisory mode) are marked
+  **CLOSED** in the audit doc with citations to the regression
+  suites. `CONTRIBUTING.md` codifies the rule going forward: every
+  new `TODO` / `FIXME` MUST include a severity tag and a citing
+  reference.
+
 ### Ethics
 
 - **Hard ethics enforcement at the decision boundary** (Phase 2 audit

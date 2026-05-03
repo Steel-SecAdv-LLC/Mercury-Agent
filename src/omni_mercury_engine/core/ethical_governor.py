@@ -206,6 +206,12 @@ class EthicalAutonomyGovernor:
     def __init__(
         self,
         ethical_scalars: EthicalScalars | None = None,
+        # TODO(audit-2026-03, severity=critical):
+        #   Both ``enable_bias_audits`` and ``enable_sigma_directives``
+        #   are ``True`` by default but can be set to ``False`` at
+        #   construction, bypassing all governance. Phase 2 closed the
+        #   detect/analyze/predict boundary; this governor surface is
+        #   still configurable away.
         enable_bias_audits: bool = True,
         enable_sigma_directives: bool = True,
         p_value_threshold: float = 0.05,

@@ -631,18 +631,15 @@ class GOSNNIntegration:
         else:
             calibrated_scores = fused_scores
 
-        # Apply conformal prediction
+        # Apply conformal prediction.  When the user has explicitly opted
+        # in via ``use_conformal=True`` and a calibrated predictor exists,
+        # any failure during ``predict`` is a real bug — silently
+        # swallowing it (the previous behaviour) leaves callers with
+        # ``confidence_intervals=None`` and no signal that the contract
+        # was broken.  Per the May-2026 audit cure, propagate the error.
         confidence_intervals = None
         if self._conformal is not None:
-            try:
-                confidence_intervals = self._conformal.predict(X)
-            except (ValueError, RuntimeError, AttributeError) as e:
-                # Conformal prediction failed - degraded state, intervals unavailable
-                logger.warning(
-                    "Conformal prediction skipped: %s: %s — confidence_intervals will be None",
-                    type(e).__name__,
-                    e,
-                )
+            confidence_intervals = self._conformal.predict(X)
 
         # Compute adaptive threshold
         threshold = self._compute_adaptive_threshold(calibrated_scores)

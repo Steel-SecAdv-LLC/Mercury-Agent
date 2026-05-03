@@ -1532,6 +1532,17 @@ The **AMA Cryptography adapter** provides post-quantum cryptographic security wi
 - **ML-DSA-65 (Dilithium)**: Post-quantum digital signatures (192-bit quantum security)
 - **EWMA/MAD Timing Monitor**: <2% overhead anomaly detection
 
+**Correctness evidence (in-repo, measured-and-published):**
+- **Known-Answer Tests:** `tests/security/test_ama_kat.py` pins
+  Ed25519 RFC 8032 §7.1 vectors bit-for-bit, ML-DSA-65 round-trip,
+  Kyber-1024 encaps/decaps round-trip, SPHINCS+ round-trip, and
+  ML-DSA deterministic-signing reproducibility. Runs on every PR
+  via the `PQC Production Readiness` workflow.
+- **Measured coverage:** the same workflow publishes a coverage
+  number for `security/crypto_api.py` + `security/pqc_backends.py`
+  + `security/pqc_guards.py` as a CI artifact (`pqc-coverage`)
+  rather than an external-audit framing.
+
 **Security Features:**
 - Attack simulation (timing, replay, side_channel)
 - Crypto anomaly recording with severity classification

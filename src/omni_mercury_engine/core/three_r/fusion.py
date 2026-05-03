@@ -88,6 +88,11 @@ class OmniAvaEquation:
         if lambda_lyapunov is not None:
             convergence_rate = lambda_lyapunov
 
+        # TODO(audit-2026-03, severity=high):
+        #   Documentation says "sigma_immutable is immutable" but the
+        #   constructor accepts it as a parameter and only clamps with
+        #   a warning — caller can still drop from 0.96 to 0.90 at
+        #   instantiation. Tighten the floor or remove the parameter.
         clamped = max(0.90, min(0.99, ethical_compliance_threshold))
         if clamped != ethical_compliance_threshold:
             logger.warning(
