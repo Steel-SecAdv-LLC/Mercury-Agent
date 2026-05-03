@@ -26,6 +26,9 @@ Sigma Directives, Risk Matrix, and Compliance.
 import numpy as np
 import pytest
 
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    EthicalConstraintViolationError,
+)
 from omni_mercury_engine.core.ethical_config import DEFAULT_CONFIG
 from omni_mercury_engine.core.ethical_governor import (
     BiasMetrics,
@@ -115,7 +118,12 @@ class TestEthicalAutonomyGovernor:
         assert len(governor.ethical_scalars.to_dict()) >= 150
 
     def test_decision_evaluation(self):
-        """Test ethical decision evaluation."""
+        """Test ethical decision evaluation on a benign-context decision.
+
+        Uses balanced data (zeros) so the bias audit cannot fail
+        non-deterministically and erroneously trigger the
+        governance-rollback boundary.
+        """
         governor = EthicalAutonomyGovernor()
 
         context = {
@@ -129,14 +137,13 @@ class TestEthicalAutonomyGovernor:
             "honesty": 0.9,
         }
 
-        decision = governor.evaluate_decision(
-            "deploy_ai_system", context, data=np.random.randn(100)
-        )
+        decision = governor.evaluate_decision("deploy_ai_system", context, data=np.zeros(100))
 
         assert isinstance(decision, EthicalDecision)
         assert decision.ethical_score > 0.0
         assert isinstance(decision.bias_audit_passed, bool)
         assert decision.p_value >= 0.0
+        assert decision.rollback_triggered is False
 
     def test_bias_auditing(self):
         """Test bias auditing functionality."""
@@ -167,7 +174,16 @@ class TestEthicalAutonomyGovernor:
         assert 0.0 <= p_value <= 1.0
 
     def test_rollback_mechanism(self):
-        """Test automatic rollback on violations."""
+        """A bad context must raise at the governance boundary.
+
+        Phase 2 of the May-2026 audit cure made
+        ``EthicalAutonomyGovernor.evaluate_decision`` raise
+        ``EthicalConstraintViolationError`` whenever ``_should_rollback``
+        fires.  The previous "return a decision with
+        ``rollback_triggered=True``" path was a silent advisory and is
+        no longer reachable.  The rollback record itself remains
+        observable on ``governor.rollback_history``.
+        """
         governor = EthicalAutonomyGovernor(ethical_threshold=0.8)
 
         bad_context = {
@@ -177,17 +193,36 @@ class TestEthicalAutonomyGovernor:
             "potential_harm": 0.9,
         }
 
-        decision = governor.evaluate_decision("harmful_action", bad_context)
+        with pytest.raises(EthicalConstraintViolationError) as exc_info:
+            governor.evaluate_decision("harmful_action", bad_context)
 
-        if decision.ethical_score < 0.8 or not decision.bias_audit_passed:
-            assert decision.rollback_triggered is True
+        assert exc_info.value.check == "governance_rollback"
+        assert exc_info.value.action == "harmful_action"
+        assert len(governor.rollback_history) == 1
+        assert governor.rollback_history[0].rollback_triggered is True
 
     def test_governance_report(self):
-        """Test governance reporting."""
+        """Test governance reporting over a sequence of benign decisions.
+
+        Each context supplies the full Sigma Directive signal set
+        (fairness/benefit/harm-prevention/suffering-mitigation/
+        transparency/honesty) so the directive does not reject the
+        action.  Without the full set the directive correctly raises
+        on the first iteration.
+        """
         governor = EthicalAutonomyGovernor()
 
         for i in range(10):
-            context = {"fairness_score": 0.8 + i * 0.01, "societal_benefit": 0.8}
+            context = {
+                "fairness_score": 0.8 + i * 0.01,
+                "bias_detected": False,
+                "societal_benefit": 0.85,
+                "potential_harm": 0.05,
+                "harm_prevention": 0.9,
+                "suffering_mitigation": 0.9,
+                "transparency": 0.9,
+                "honesty": 0.9,
+            }
             governor.evaluate_decision(f"action_{i}", context)
 
         report = governor.get_governance_report()
@@ -196,6 +231,8 @@ class TestEthicalAutonomyGovernor:
         assert "avg_ethical_score" in report
         assert "bias_audit_pass_rate" in report
         assert report["ethical_scalars_count"] >= 150
+        assert report["total_decisions"] == 10
+        assert report["total_rollbacks"] == 0
 
 
 class TestUSLawPolling:
@@ -463,8 +500,12 @@ class TestIntegratedEthicalFramework:
     """Integration tests for complete ethical framework."""
 
     def test_end_to_end_ethical_pipeline(self):
-        """Test complete ethical decision-making pipeline."""
-        np.random.seed(777)
+        """Test complete ethical decision-making pipeline.
+
+        Uses balanced data so the bias audit cannot non-deterministically
+        flip ``bias_audit_passed`` to ``False`` and trigger the
+        governance-rollback boundary.
+        """
         governor = EthicalAutonomyGovernor()
         risk_matrix = EthicalRiskMatrix()
 
@@ -485,16 +526,24 @@ class TestIntegratedEthicalFramework:
             "purpose_limitation": True,
         }
 
-        data = np.random.randn(100)
+        data = np.zeros(100)
         decision = governor.evaluate_decision("deploy_system", context, data=data)
 
         risk = risk_matrix.assess_risk(context, anomaly_score=0.3)
 
-        assert not decision.rollback_triggered or decision.bias_audit_passed
+        assert decision.rollback_triggered is False
+        assert decision.bias_audit_passed is True
         assert risk.risk_level in [RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.NEGLIGIBLE]
 
     def test_high_risk_scenario(self):
-        """Test high-risk scenario handling."""
+        """Test high-risk scenario handling.
+
+        A high-risk context must raise at the governance boundary —
+        the decision is blocked at evaluation, and the rollback is
+        recorded on ``governor.rollback_history``.  The risk matrix
+        is independently evaluated and must classify the same context
+        as HIGH/CRITICAL with at least one compliance violation.
+        """
         governor = EthicalAutonomyGovernor()
         risk_matrix = EthicalRiskMatrix()
 
@@ -509,11 +558,21 @@ class TestIntegratedEthicalFramework:
             "encryption_at_rest": False,
         }
 
-        decision = governor.evaluate_decision("critical_action", high_risk_context)
+        with pytest.raises(EthicalConstraintViolationError) as exc_info:
+            governor.evaluate_decision("critical_action", high_risk_context)
+
+        assert exc_info.value.check == "governance_rollback"
+        assert len(governor.rollback_history) == 1
+        rolled_back = governor.rollback_history[0]
+        assert rolled_back.rollback_triggered is True
+        assert (
+            rolled_back.sigma_directive_applied
+            or not rolled_back.bias_audit_passed
+            or rolled_back.ethical_score < governor.ethical_threshold
+        )
 
         risk = risk_matrix.assess_risk(high_risk_context, anomaly_score=0.9)
 
-        assert decision.rollback_triggered or decision.sigma_directive_applied
         assert risk.risk_level in [RiskLevel.HIGH, RiskLevel.CRITICAL]
         assert len(risk.compliance_violations) > 0
 

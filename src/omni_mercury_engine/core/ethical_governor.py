@@ -305,14 +305,28 @@ class EthicalAutonomyGovernor:
 
     def _compute_ethical_score(self, action: str, context: dict[str, Any]) -> float:
         """
-        Compute ethical score using ~150 ethical scalars.
+        Compute ethical score from agent ethical scalars and per-decision
+        behaviour signals.
+
+        The base score reflects the agent's intrinsic ethical alignment
+        (drawn from ~150 ``EthicalScalars``).  When the caller supplies
+        per-decision behaviour signals (``fairness_score``, the
+        ``societal_benefit``/``potential_harm`` net,
+        ``harm_prevention``, ``suffering_mitigation``, ``transparency``,
+        ``honesty``, or ``bias_detected``), the base is multiplicatively
+        modulated by the mean of those signals so that bad contexts
+        yield low scores and good contexts yield high scores.  Without
+        this modulation, the score collapsed to ~1.23 for every input
+        and the rollback gate had to lean entirely on the bias audit
+        and Sigma Directive — a hidden weakness closed by the Phase 2
+        audit cure.
 
         Args:
             action: Action to evaluate
             context: Context with ethical implications
 
         Returns:
-            Ethical score (0.0 to 2.0, normalized by scalars)
+            Ethical score (0.0 to ~2.5, scalar-normalized)
         """
         relevant_scalars = []
 
@@ -332,7 +346,28 @@ class EthicalAutonomyGovernor:
             ]
         )
 
-        base_score = np.mean(relevant_scalars) if relevant_scalars else 1.0
+        base_score = float(np.mean(relevant_scalars)) if relevant_scalars else 1.0
+
+        behaviour_signals: list[float] = []
+        if "fairness_score" in context:
+            behaviour_signals.append(float(context["fairness_score"]))
+        if "societal_benefit" in context or "potential_harm" in context:
+            net = float(context.get("societal_benefit", 0.5)) - float(
+                context.get("potential_harm", 0.0)
+            )
+            behaviour_signals.append(max(0.0, min(1.0, net)))
+        if "harm_prevention" in context:
+            behaviour_signals.append(float(context["harm_prevention"]))
+        if "suffering_mitigation" in context:
+            behaviour_signals.append(float(context["suffering_mitigation"]))
+        if "transparency" in context:
+            behaviour_signals.append(float(context["transparency"]))
+        if "honesty" in context:
+            behaviour_signals.append(float(context["honesty"]))
+        if context.get("bias_detected", False):
+            behaviour_signals.append(0.0)
+
+        behaviour_modifier = float(np.mean(behaviour_signals)) if behaviour_signals else 1.0
 
         context_modifier = 1.0
         if context.get("critical", False):
@@ -340,7 +375,7 @@ class EthicalAutonomyGovernor:
         if context.get("humanitarian", False):
             context_modifier *= self.ethical_scalars.omni_disaster_response
 
-        return float(base_score * context_modifier)
+        return float(base_score * behaviour_modifier * context_modifier)
 
     def _audit_bias(self, data: np.ndarray[Any, Any], context: dict[str, Any]) -> BiasMetrics:
         """
