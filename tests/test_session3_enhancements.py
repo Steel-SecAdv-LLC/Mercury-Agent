@@ -58,19 +58,18 @@ class TestNeuroSymbolicHub:
         """Test prediction returns explanations."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
-        # ``predict()`` is a hard ethical decision boundary (raises on
-        # benevolence < threshold).  Set threshold to the absolute floor
-        # (MINIMUM_BENEVOLENCE_FLOOR=0.70) so synthetic random inputs
-        # whose benevolence scores land around ~0.68–0.72 can still
-        # surface explanations for the assertions below.
         hub = NeuroSymbolicHub(
             input_dim=32,
-            benevolence_threshold=0.0,
             seed=SEED,
             enable_domain_features=False,
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
+        # Test-only: bypass the setter's floor-clamp so synthetic random
+        # inputs (whose benevolence sits in the ~0.65–0.75 band) do not
+        # trigger the hard ethical gate.  This test exercises explanations,
+        # not ethical enforcement.
+        hub._benevolence_threshold = 0.0
 
         X = np.random.randn(3, 32)
         results = hub.predict(X, return_explanations=True)
@@ -121,19 +120,15 @@ class TestNeuroSymbolicHub:
             SymbolicRule,
         )
 
-        # ``predict()`` is hard-gated on benevolence; use the floor so the
-        # rule-firing path returns rather than raising.
         hub = NeuroSymbolicHub(
-            benevolence_threshold=0.99,
             seed=SEED,
             enable_domain_features=False,
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
-        # Drop below the floor for synthetic-input tests so the hard
-        # ethical gate at predict() does not raise on the untrained
-        # encoder's ~0.68 benevolence band.
-        hub.benevolence_threshold = 0.0
+        # Test-only: bypass the setter's floor-clamp.  This test exercises
+        # rule-firing, not ethical enforcement.
+        hub._benevolence_threshold = 0.0
 
         # Add custom rule
         hub.add_rule(
@@ -158,16 +153,14 @@ class TestNeuroSymbolicHub:
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
         hub = NeuroSymbolicHub(
-            benevolence_threshold=0.99,
             seed=SEED,
             enable_domain_features=False,
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
-        # Drop below the floor for synthetic-input tests so the hard
-        # ethical gate at predict() does not raise on the untrained
-        # encoder's ~0.68 benevolence band.
-        hub.benevolence_threshold = 0.0
+        # Test-only: bypass the floor-clamp.  This test exercises GOSNN
+        # scalar integration, not ethical enforcement.
+        hub._benevolence_threshold = 0.0
 
         # Run some inferences (reduced from 5 to 3 for faster execution)
         X = np.random.randn(3, 64)
@@ -395,10 +388,10 @@ class TestRealWorldBenchmark:
         # Create wrapper for NeuroSymbolicHub
         class NSHWrapper:
             def __init__(self):
-                self.hub = NeuroSymbolicHub(input_dim=38, benevolence_threshold=0.99, seed=SEED)
-                # Pin below the floor so the hard ethical gate does not
-                # raise on synthetic random inputs.
-                self.hub.benevolence_threshold = 0.0
+                self.hub = NeuroSymbolicHub(input_dim=38, seed=SEED)
+                # Test-only: bypass the floor-clamp.  This benchmark
+                # wrapper tests scoring, not ethical enforcement.
+                self.hub._benevolence_threshold = 0.0
 
             def fit(self, X, y=None):
                 self.hub.fit(X, y)
@@ -447,16 +440,14 @@ class TestIntegration:
 
         hub = NeuroSymbolicHub(
             fusion_mode=FusionMode.STACKING,
-            benevolence_threshold=0.99,
             seed=SEED,
             enable_domain_features=False,
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
-        # Drop below the floor for synthetic-input tests so the hard
-        # ethical gate at predict() does not raise on the untrained
-        # encoder's ~0.68 benevolence band.
-        hub.benevolence_threshold = 0.0
+        # Test-only: bypass the floor-clamp.  This test exercises the
+        # scoring pipeline, not ethical enforcement.
+        hub._benevolence_threshold = 0.0
 
         # Fit with labeled data (reduced size for faster execution)
         # Use 50% threshold to ensure both classes are represented
@@ -529,16 +520,14 @@ class TestIntegration:
         # Initialize components with reduced complexity for faster execution
         hub = NeuroSymbolicHub(
             input_dim=64,
-            benevolence_threshold=0.99,
             seed=SEED,
             enable_domain_features=False,
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
-        # Drop below the floor for synthetic-input tests so the hard
-        # ethical gate at predict() does not raise on the untrained
-        # encoder's ~0.68 benevolence band.
-        hub.benevolence_threshold = 0.0
+        # Test-only: bypass the floor-clamp.  This test exercises the
+        # end-to-end pipeline, not ethical enforcement.
+        hub._benevolence_threshold = 0.0
         gosnn = GlobalOmniScalarNetwork()
         optimizer = GOSNNOptimizer(seed=SEED)
 

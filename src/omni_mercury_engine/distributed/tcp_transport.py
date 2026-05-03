@@ -228,6 +228,8 @@ class TCPMessageTransport(MessageTransport):
         keypair: KeyPair | None = None,
         peer_public_keys: dict[str, bytes] | None = None,
         ssl_context: ssl.SSLContext | None = None,
+        server_ssl_context: ssl.SSLContext | None = None,
+        client_ssl_context: ssl.SSLContext | None = None,
     ) -> None:
         super().__init__()
         self._node_id = node_id
@@ -235,7 +237,10 @@ class TCPMessageTransport(MessageTransport):
         self._bind_port = bind_port
         self._peers: dict[str, tuple[str, int]] = dict(peers or {})
         self._peer_public_keys: dict[str, bytes] = dict(peer_public_keys or {})
-        self._ssl_context = ssl_context
+        # TLS: prefer explicit server/client contexts; fall back to shared
+        # ``ssl_context`` for backward-compatibility.
+        self._server_ssl_context = server_ssl_context or ssl_context
+        self._client_ssl_context = client_ssl_context or ssl_context
 
         self._signer = Ed25519Provider()
         self._keypair = keypair or self._signer.generate_keypair()
@@ -282,7 +287,7 @@ class TCPMessageTransport(MessageTransport):
             self._handle_connection,
             host=self._bind_host,
             port=self._bind_port,
-            ssl=self._ssl_context,
+            ssl=self._server_ssl_context,
         )
         self._running = True
         logger.info(
@@ -354,9 +359,9 @@ class TCPMessageTransport(MessageTransport):
         self._pending[request_id] = future
 
         try:
-            await asyncio.wait_for(self._send(addr, envelope), timeout=CONNECT_TIMEOUT)
+            await asyncio.wait_for(self._send(addr, envelope), timeout=RPC_TIMEOUT)
             return await asyncio.wait_for(future, timeout=RPC_TIMEOUT)
-        except (TimeoutError, OSError, ConnectionError) as exc:
+        except (TimeoutError, OSError, ConnectionError, ValueError) as exc:
             logger.debug("RPC %s to %s failed: %s", msg_type, peer_id, exc)
             return None
         finally:
@@ -367,14 +372,13 @@ class TCPMessageTransport(MessageTransport):
         reader, writer = await asyncio.open_connection(
             host=host,
             port=port,
-            ssl=self._ssl_context,
+            ssl=self._client_ssl_context,
         )
         try:
             payload = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
             writer.write(_frame(payload))
             await writer.drain()
 
-            # Wait for the response frame on the same connection.
             resp_frame = await _read_frame(reader)
             if resp_frame is None:
                 return

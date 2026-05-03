@@ -98,8 +98,9 @@ class OmniAvaEquation:
         clamped = max(floor, min(0.99, ethical_compliance_threshold))
         if clamped != ethical_compliance_threshold:
             logger.warning(
-                f"ethical_compliance_threshold={ethical_compliance_threshold:.4f} "
-                f"clamped to [{floor}, 0.99] -> {clamped:.4f}"
+                "ethical_compliance_threshold clamped to [%s, 0.99] -> %.4f",
+                floor,
+                clamped,
             )
         # Use object.__setattr__ so the immutability guard (set below) doesn't
         # trigger during construction.
@@ -191,8 +192,7 @@ class OmniAvaEquation:
         # Validate benevolence_score range
         if benevolence_score is not None and not (0.0 <= benevolence_score <= 1.0):
             logger.warning(
-                f"benevolence_score={benevolence_score:.4f} outside [0, 1], "
-                "clamping to valid range"
+                f"benevolence_score={benevolence_score:.4f} outside [0, 1], clamping to valid range"
             )
             benevolence_score = max(0.0, min(1.0, benevolence_score))
 

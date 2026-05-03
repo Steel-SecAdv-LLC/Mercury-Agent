@@ -132,6 +132,8 @@ from omni_mercury_engine.utils.logging import LoggerMixin
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
+    from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
+
     # Type hints for lazy-loaded models (improves IDE support without import cost)
     from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
     from omni_mercury_engine.models.affective import AffectiveAnomalyModel
@@ -655,7 +657,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         if not TORCH_AVAILABLE:
             raise ImportError(
-                "PyTorch is required for OmniMercuryEngine. " "Install it with: pip install torch"
+                "PyTorch is required for OmniMercuryEngine. Install it with: pip install torch"
             )
 
         self.device = torch.device(device)
@@ -671,6 +673,10 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Thread pool for parallel processing
         self._executor: ThreadPoolExecutor | None = None
+
+        # Ethical boundary scorer — lazily initialised on first use by
+        # _enforce_ethics_at_boundary, declared here for mypy --strict.
+        self._boundary_scorer: BenevolenceScorer | None = None
 
         self._init_detectors()
         self._init_models()
@@ -1761,7 +1767,7 @@ class OmniMercuryEngine(LoggerMixin):
             detector_diagnostics[detector_name] = diag
 
             if print_output:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"DETECTOR: {detector_name}")
                 print(diag)
 
@@ -1915,8 +1921,7 @@ class OmniMercuryEngine(LoggerMixin):
             BenevolenceScorer,
         )
 
-        # One scorer per engine instance so the audit history accumulates.
-        if not hasattr(self, "_boundary_scorer"):
+        if self._boundary_scorer is None:
             self._boundary_scorer = BenevolenceScorer(
                 benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR
             )
@@ -2601,7 +2606,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         if "labels" not in data:
             raise RuntimeError(
-                f"Training archive {training_data!r} is missing the required " f"'labels' array."
+                f"Training archive {training_data!r} is missing the required 'labels' array."
             )
         features_dict = {
             k: torch.tensor(v, dtype=torch.float32) for k, v in data.items() if k != "labels"

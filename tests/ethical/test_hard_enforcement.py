@@ -219,10 +219,11 @@ class TestNeuroSymbolicHubBoundary:
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
-        # Forcibly pin below the floor for this test — the hub stores
-        # ``benevolence_threshold`` directly so we drive the gate to a
-        # realised range that returns rather than raising.
-        hub.benevolence_threshold = 0.0
+        # Test-only: bypass the setter's floor-clamp via the private attr
+        # so synthetic random inputs (benevolence ~0.65–0.75) reliably pass.
+        # This test asserts that predict() returns successfully for benign
+        # inputs, not that the gate fires.
+        hub._benevolence_threshold = 0.0
 
         X = np.random.RandomState(1).randn(2, 32)
         results = hub.predict(X)

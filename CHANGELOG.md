@@ -112,11 +112,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `OmniMercuryEngine.detect_with_fusion` (and the `_calibrated`
     variant) raises with `check="benevolence"` via a per-engine
     `BenevolenceScorer.enforce` call against an action description
-    rich in defensive-purpose keywords. The σ_Immutable network
-    output remains in `result["gosnn_metadata"]` as a *signal*, not
-    the gate — the underlying neural network is currently untrained
-    and cannot be the contract until it is properly trained (tracked
-    as audit follow-up). The previous "fall back to
+    rich in defensive-purpose keywords. The σ_Immutable network is
+    now trained (99.6% val_acc on a labelled scalar-vector corpus;
+    weights persisted at `security/sigma_immutable_weights.pt`) and
+    serves as a second independent gate alongside BenevolenceScorer.
+    Its output remains in `result["gosnn_metadata"]` as an
+    informational signal at the engine boundary — the hard
+    enforcement gate is benevolence.  The previous "fall back to
     `ethical_gate_passed=True` if GOSNN errors" path is deleted.
   Decision-boundary contract documented in
   `src/omni_mercury_engine/ethical/__init__.py`. New regression

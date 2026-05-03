@@ -146,13 +146,8 @@ async def test_mutual_tls_round_trip() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         server_ctx, client_ctx = _generate_tls_assets(tmpdir)
 
-        # Node A uses server_ctx for listening, client_ctx for outbound.
-        # Since TCPMessageTransport uses a single ssl_context for both
-        # listening and connecting, we use the server context (it has both
-        # server and client cert loaded).  For testing, one shared cert
-        # is sufficient.
-        a = TCPMessageTransport("a", ssl_context=server_ctx)
-        b = TCPMessageTransport("b", ssl_context=server_ctx)
+        a = TCPMessageTransport("a", server_ssl_context=server_ctx, client_ssl_context=client_ctx)
+        b = TCPMessageTransport("b", server_ssl_context=server_ctx, client_ssl_context=client_ctx)
         await a.start()
         await b.start()
         a.set_peer("b", *b.bound_address, public_key=b.public_key)
@@ -373,16 +368,17 @@ def test_subprocess_three_node_cluster() -> None:
     """Three Raft nodes in separate processes elect a leader."""
     with tempfile.TemporaryDirectory() as tmpdir:
         node_ids = ["sub_0", "sub_1", "sub_2"]
-        base_port = 19100
         procs: list[multiprocessing.Process] = []
 
         for i, nid in enumerate(node_ids):
-            peers = [(other, base_port + j) for j, other in enumerate(node_ids) if j != i]
+            # Use port 0 (ephemeral) — the child communicates its actual
+            # bound port via the ready file, avoiding fixed-port collisions.
+            peers = [(other, 0) for j, other in enumerate(node_ids) if j != i]
             ready_path = os.path.join(tmpdir, f"{nid}_ready")
             result_path = os.path.join(tmpdir, f"{nid}_result")
             p = multiprocessing.Process(
                 target=_run_raft_node,
-                args=(nid, base_port + i, peers, ready_path, result_path),
+                args=(nid, 0, peers, ready_path, result_path),
             )
             procs.append(p)
             p.start()

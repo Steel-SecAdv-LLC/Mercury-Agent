@@ -205,7 +205,7 @@ class EthicalGate:
             self.logger.warning("NaN detected in scalar_vector; replacing with zeros")
             scalar_vector = np.nan_to_num(scalar_vector, nan=0.0)
 
-        if self.gate_network is not None and TORCH_AVAILABLE:
+        if self.gate_network is not None and TORCH_AVAILABLE and self._trained:
             padded = np.zeros(self.input_dim)
             padded[: min(len(scalar_vector), self.input_dim)] = scalar_vector[: self.input_dim]
 
