@@ -511,39 +511,41 @@ class FinancialService:
         api_key: str | None = None,
         timeout: int = 30,
         cache_ttl: int = 60,
-        fallback_to_stub: bool = True,
     ):
         """Initialize financial service.
+
+        The ``fallback_to_stub`` parameter was removed in the May 2026
+        Phase 2 audit cure — silent fallback to stub data is not
+        permitted.  If the configured provider fails, the error
+        propagates to the caller.
 
         Args:
             provider: API provider to use.
             api_key: API key for Alpha Vantage (not needed for Yahoo/Stub).
             timeout: Request timeout in seconds.
             cache_ttl: Cache time-to-live in seconds.
-            fallback_to_stub: Fall back to stub on API failures.
         """
         self.provider = provider
         self.api_key = api_key or os.getenv("ALPHA_VANTAGE_API_KEY")
         self.timeout = timeout
         self.cache_ttl = cache_ttl
-        self.fallback_to_stub = fallback_to_stub
 
         # Price cache with TTL
         self._cache: dict[str, tuple[SecurityPrice, datetime]] = {}
         self._call_count = 0
         self._api_errors = 0
 
-        # Stub fallback
+        # Stub instance for explicit STUB provider only
         self._stub = FinancialServiceStub()
 
         # Validate Alpha Vantage configuration
         if provider == FinancialAPIProvider.ALPHA_VANTAGE and not self.api_key:
-            logger.warning(
+            raise NotImplementedError(
                 "Alpha Vantage requires an API key. Set ALPHA_VANTAGE_API_KEY "
                 "environment variable or provide api_key parameter. "
-                "Falling back to stub mode."
+                "Silent fallback to stub mode is not permitted "
+                "(Phase 2 audit cure)."
             )
-            self.provider = FinancialAPIProvider.STUB
 
     def _get_cached(self, symbol: str) -> SecurityPrice | None:
         """Get cached price if still valid."""
@@ -679,9 +681,6 @@ class FinancialService:
     async def get_price(self, symbol: str) -> SecurityPrice:
         """Get current price for symbol.
 
-        Attempts to fetch from configured API provider, with automatic
-        fallback to stub on failure if enabled.
-
         Args:
             symbol: Security symbol/ticker.
 
@@ -689,7 +688,7 @@ class FinancialService:
             Current price data.
 
         Raises:
-            ValueError: If symbol is invalid or API fails without fallback.
+            ValueError: If symbol is invalid or API fails.
         """
         self._call_count += 1
 
@@ -698,30 +697,20 @@ class FinancialService:
         if cached:
             return cached
 
-        # Use stub if configured
+        # Use stub if explicitly configured
         if self.provider == FinancialAPIProvider.STUB:
             return await self._stub.get_price(symbol)
 
-        try:
-            if self.provider == FinancialAPIProvider.ALPHA_VANTAGE:
-                price = await self._fetch_alpha_vantage(symbol)
-            elif self.provider == FinancialAPIProvider.YAHOO_FINANCE:
-                price = await self._fetch_yahoo_finance(symbol)
-            else:
-                price = await self._stub.get_price(symbol)
+        if self.provider == FinancialAPIProvider.ALPHA_VANTAGE:
+            price = await self._fetch_alpha_vantage(symbol)
+        elif self.provider == FinancialAPIProvider.YAHOO_FINANCE:
+            price = await self._fetch_yahoo_finance(symbol)
+        else:
+            raise ValueError(f"Unknown financial API provider: {self.provider}")
 
-            # Cache successful result
-            self._set_cached(symbol, price)
-            return price
-
-        except Exception as e:
-            self._api_errors += 1
-            logger.warning(f"Financial API error for {symbol}: {e}")
-
-            if self.fallback_to_stub:
-                logger.info(f"Falling back to stub for {symbol}")
-                return await self._stub.get_price(symbol)
-            raise
+        # Cache successful result
+        self._set_cached(symbol, price)
+        return price
 
     async def get_prices(self, symbols: list[str]) -> dict[str, SecurityPrice]:
         """Get prices for multiple symbols.
@@ -766,7 +755,7 @@ class FinancialService:
         if self.provider == FinancialAPIProvider.ALPHA_VANTAGE:
             return await self._fetch_alpha_vantage_history(symbol, days)
 
-        return await self._stub.get_history(symbol, days, interval)
+        raise ValueError(f"Unknown financial API provider: {self.provider}")
 
     async def _fetch_yahoo_history(
         self,
@@ -850,7 +839,10 @@ class FinancialService:
     ) -> list[HistoricalBar]:
         """Fetch historical data from Alpha Vantage."""
         if not self.api_key:
-            return await self._stub.get_history(symbol, days)
+            raise NotImplementedError(
+                "Alpha Vantage API key required for historical data. "
+                "Silent fallback to stub is not permitted (Phase 2 audit cure)."
+            )
 
         # Use TIME_SERIES_DAILY for daily data
         params = {
@@ -948,5 +940,4 @@ def create_financial_service(
     return FinancialService(
         provider=provider_enum,
         api_key=api_key,
-        fallback_to_stub=True,
     )

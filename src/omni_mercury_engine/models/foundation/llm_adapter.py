@@ -254,42 +254,24 @@ Context:
 
 
 class MockLLMAdapter(BaseLLMAdapter):
-    """Mock LLM adapter for testing without API calls."""
+    """Mock LLM adapter — hard-fails at construction.
+
+    Phase 2 audit cure: silent mock degradation is not permitted in
+    production.  Instantiating this class raises ``NotImplementedError``
+    so operators are forced to configure a real LLM provider.
+    """
 
     def __init__(self, config: LLMConfig | None = None):
-        """Initialize mock adapter."""
-        super().__init__(config or LLMConfig(provider=LLMProvider.MOCK))
-        self._is_available = True
-        logger.warning(
-            "MockLLMAdapter is active — responses are heuristic-only, not from a real LLM. "
-            "Set a supported LLMProvider (e.g. HUGGINGFACE) for production use."
+        raise NotImplementedError(
+            "MockLLMAdapter cannot be used in production. "
+            "Configure a real LLM provider (e.g. LLMProvider.HUGGINGFACE)."
         )
 
-    def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """Generate mock response."""
-        # Simple heuristic: longer prompts or prompts mentioning certain keywords
-        # are more likely to be anomalies
-        is_anomaly = (
-            "error" in prompt.lower()
-            or "unusual" in prompt.lower()
-            or "spike" in prompt.lower()
-            or len(prompt) > 1000
-        )
+    def generate(self, prompt: str, system_prompt: str | None = None) -> str:  # pragma: no cover
+        raise NotImplementedError
 
-        return json.dumps(
-            {
-                "is_anomaly": is_anomaly,
-                "anomaly_score": 0.85 if is_anomaly else 0.15,
-                "confidence": 0.75,
-                "category": "mock_anomaly" if is_anomaly else "normal",
-                "explanation": "Mock analysis: "
-                + ("Detected anomaly indicators" if is_anomaly else "Data appears normal"),
-            }
-        )
-
-    def is_available(self) -> bool:
-        """Mock adapter is always available."""
-        return True
+    def is_available(self) -> bool:  # pragma: no cover
+        return False
 
 
 class HuggingFaceLLMAdapter(BaseLLMAdapter):

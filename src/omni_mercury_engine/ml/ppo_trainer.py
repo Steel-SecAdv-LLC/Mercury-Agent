@@ -281,9 +281,11 @@ class PPOTrainer:
     def _initialize_model(self) -> None:
         """Initialize PPO model."""
         if not HAS_STABLE_BASELINES:
-            logger.warning("stable-baselines3 not available, using mock model")
-            self.model = None
-            return
+            raise NotImplementedError(
+                "stable-baselines3 not available. Install with: "
+                "pip install stable-baselines3. Silent mock degradation "
+                "is not permitted (Phase 2 audit cure)."
+            )
 
         try:
             self.model = PPO(
@@ -306,8 +308,10 @@ class PPOTrainer:
 
             logger.info("PPO model initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize PPO model: {e}")
-            self.model = None
+            raise NotImplementedError(
+                f"Failed to initialize PPO model: {e}. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            ) from e
 
     def pretrain(
         self,
@@ -370,8 +374,10 @@ class PPOTrainer:
             except Exception as e:
                 logger.error(f"Training failed: {e}")
         else:
-            logger.warning("No model available, using mock training")
-            self._mock_pretrain(total_timesteps)
+            raise RuntimeError(
+                "No PPO model available for pretraining. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
 
         self.stats.training_time = time.time() - start_time
 

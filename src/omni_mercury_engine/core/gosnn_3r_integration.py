@@ -203,8 +203,12 @@ class SlidingWindowNormalizer:
 
         with self._lock:
             if self._n_samples < self.config.min_samples:
-                # Not enough data, return as-is
-                return data
+                raise RuntimeError(
+                    f"Sliding-window normalization requires at least "
+                    f"{self.config.min_samples} samples, but only "
+                    f"{self._n_samples} have been observed. "
+                    "Silent passthrough is not permitted (Phase 2 audit cure)."
+                )
 
             if self.config.normalization == "standard":
                 if self._mean is not None and self._std is not None:
@@ -218,7 +222,11 @@ class SlidingWindowNormalizer:
                 if self._median is not None and self._iqr is not None:
                     return (data - self._median) / self._iqr
 
-            return data
+            raise RuntimeError(
+                f"Sliding-window statistics for '{self.config.normalization}' "
+                "are not available despite sufficient samples. "
+                "Silent passthrough is not permitted (Phase 2 audit cure)."
+            )
 
     def normalize_with_ema(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
         """

@@ -145,8 +145,10 @@ class MatrixProfileDetector(BaseFoundationModel):
                     logger.info("STUMPY GPU not available, using CPU")
 
         except ImportError:
-            logger.warning("STUMPY not installed. Install with: pip install stumpy")
-            self._stumpy_available = False
+            raise NotImplementedError(
+                "STUMPY not installed. Install with: pip install stumpy. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
 
     def compute_matrix_profile(
         self,
@@ -169,7 +171,10 @@ class MatrixProfileDetector(BaseFoundationModel):
         window_size = window_size or self.mp_config.window_size
 
         if not self._stumpy_available:
-            return self._mock_matrix_profile(series, window_size)
+            raise RuntimeError(
+                "STUMPY is not available for Matrix Profile computation. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
 
         import stumpy
 
@@ -189,8 +194,10 @@ class MatrixProfileDetector(BaseFoundationModel):
             }
 
         except Exception as e:
-            logger.warning(f"Matrix Profile computation failed: {e}")
-            return self._mock_matrix_profile(series, window_size)
+            raise RuntimeError(
+                f"Matrix Profile computation failed: {e}. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            ) from e
 
     def find_discords(
         self,

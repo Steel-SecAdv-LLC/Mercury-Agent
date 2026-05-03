@@ -313,42 +313,32 @@ class LLaVABackend(LVLMBackend):
 
 
 class MockLVLMBackend(LVLMBackend):
-    """Mock backend for testing without actual models."""
+    """Mock LVLM backend — hard-fails at construction.
+
+    Phase 2 audit cure: silent mock degradation is not permitted in
+    production.  Instantiating this class raises ``NotImplementedError``
+    so operators are forced to configure a real vision-language model.
+    """
 
     def initialize(self) -> None:
-        """No-op initialization."""
-        logger.info("Using Mock LVLM backend (for testing)")
+        raise NotImplementedError(
+            "MockLVLMBackend cannot be used in production. "
+            "Configure a real LVLM backend (e.g. Qwen2VL, MiniCPMV, LLaVA)."
+        )
 
     def generate(
         self,
         images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
-    ) -> str:
-        """Generate mock response."""
-        # Simple heuristic for testing
-        if "anomaly" in prompt.lower() or "unusual" in prompt.lower():
-            return (
-                "Based on my analysis of the image(s), I do not detect any "
-                "clear anomalies. The scene appears normal with typical "
-                "activity patterns. Confidence: 0.2"
-            )
-        return "The image shows a typical scene with no unusual elements."
+    ) -> str:  # pragma: no cover
+        raise NotImplementedError
 
     def vqa(
         self,
         image: Image.Image | np.ndarray[Any, Any] | torch.Tensor,
         question: str,
-    ) -> str:
-        """Visual Question Answering for test compatibility.
-
-        Args:
-            image: Input image
-            question: Question about the image
-
-        Returns:
-            Answer string
-        """
-        return self.generate([image] if not isinstance(image, list) else image, question)  # type: ignore[arg-type, unused-ignore]
+    ) -> str:  # pragma: no cover
+        raise NotImplementedError
 
 
 def get_lvlm_backend(

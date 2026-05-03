@@ -142,11 +142,11 @@ class ChronosAdapter(BaseFoundationModel):
             logger.info("Chronos model loaded successfully")
 
         except ImportError:
-            logger.warning(
+            raise NotImplementedError(
                 "chronos-forecasting package not installed. "
-                "Install with: pip install chronos-forecasting"
+                "Install with: pip install chronos-forecasting. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
             )
-            self._pipeline = None
 
     def forecast(
         self,
@@ -196,8 +196,10 @@ class ChronosAdapter(BaseFoundationModel):
             except Exception as e:
                 logger.warning(f"Chronos forecast failed: {e}")
 
-        # Fallback to mock forecast
-        return self._mock_forecast(series.numpy(), horizon)
+        raise RuntimeError(
+            "Chronos pipeline is not available and forecast failed. "
+            "Silent mock degradation is not permitted (Phase 2 audit cure)."
+        )
 
     def detect_anomalies(
         self,
@@ -253,10 +255,11 @@ class ChronosAdapter(BaseFoundationModel):
                         # Anomaly score = normalized distance from median
                         scores[t] = abs(s[t] - median) / iqr
                     else:
-                        # Mock: use z-score
-                        mean = np.mean(s[t - context_len : t])
-                        std = max(np.std(s[t - context_len : t]), 1e-6)
-                        scores[t] = abs(s[t] - mean) / std
+                        raise RuntimeError(
+                            "Chronos pipeline is not available. "
+                            "Silent mock degradation is not permitted "
+                            "(Phase 2 audit cure)."
+                        )
 
                 except Exception as e:
                     logger.debug(f"Prediction at t={t} failed: {e}")

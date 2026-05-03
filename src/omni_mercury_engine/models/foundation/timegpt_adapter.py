@@ -140,15 +140,20 @@ class TimeGPTAdapter(BaseFoundationModel):
                 api_key = os.environ.get("NIXTLA_API_KEY")
 
             if api_key is None:
-                logger.warning("No Nixtla API key provided. TimeGPT will use mock mode.")
-                self._client = None
+                raise NotImplementedError(
+                    "No Nixtla API key provided. Set NIXTLA_API_KEY or pass "
+                    "api_key in TimeGPTConfig. Silent mock degradation is not "
+                    "permitted (Phase 2 audit cure)."
+                )
             else:
                 self._client = NixtlaClient(api_key=api_key)
                 logger.info("TimeGPT client initialized successfully")
 
         except ImportError:
-            logger.warning("nixtla package not installed. " "Install with: pip install nixtla")
-            self._client = None
+            raise NotImplementedError(
+                "nixtla package not installed. Install with: pip install nixtla. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
 
     def _to_dataframe(
         self,

@@ -216,9 +216,10 @@ class BLIPVLMDetector(BaseVLMDetector):
         self._has_pil = HAS_PIL
 
         if not self._has_transformers:
-            logger.warning(
-                "transformers not available - BLIP VLM will use mock implementation. "
-                "Install with: pip install transformers"
+            raise NotImplementedError(
+                "transformers not available — BLIP VLM cannot operate. "
+                "Install with: pip install transformers. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
             )
 
     def _initialize_model(self) -> None:
@@ -228,10 +229,10 @@ class BLIPVLMDetector(BaseVLMDetector):
         if transformers is not available.
         """
         if not self._has_transformers:
-            logger.info("Using mock BLIP implementation (transformers not available)")
-            self._model = None
-            self._processor = None
-            return
+            raise NotImplementedError(
+                "transformers not available — BLIP VLM cannot initialize. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
 
         try:
             logger.info(f"Loading BLIP model: {self.blip_config.model_name}")
@@ -408,8 +409,10 @@ class BLIPVLMDetector(BaseVLMDetector):
                     logger.warning(f"BLIP inference failed: {e}")
                     caption = "Unable to generate caption"
             else:
-                # Mock implementation
-                caption = self._generate_mock_caption(img)
+                raise RuntimeError(
+                    "BLIP model not loaded — cannot generate captions. "
+                    "Silent mock degradation is not permitted (Phase 2 audit cure)."
+                )
 
             captions.append(caption)
 
@@ -512,8 +515,10 @@ class BLIPVLMDetector(BaseVLMDetector):
             features = torch.cat(features_list, dim=0)
 
         else:
-            # Mock feature extraction
-            features = self._generate_mock_features(images)
+            raise RuntimeError(
+                "BLIP model not loaded — cannot extract features. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
 
         # L2 normalize features
         features = torch.nn.functional.normalize(features, p=2, dim=-1)
