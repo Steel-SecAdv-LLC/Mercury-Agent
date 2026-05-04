@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Disaster and Emergency Management Dataset Loaders
 
@@ -105,7 +104,8 @@ class FEMADisasterLoader(DatasetLoader):
     API_URL = TrustedEndpoints.FEMA_DISASTER_DECLARATIONS
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize FEMA disaster loader.
+        """
+        Initialize FEMA disaster loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -138,6 +138,7 @@ class FEMADisasterLoader(DatasetLoader):
         self._last_request_time = time.time()
 
     def download(self) -> bool:
+        """Download."""
         if self._download_from_fema():
             return True
         if ALLOW_SYNTHETIC:
@@ -234,7 +235,8 @@ class FEMADisasterLoader(DatasetLoader):
             return False
 
     def _process_fema_data(self, records: list[dict[str, Any]]) -> tuple[np.ndarray, np.ndarray]:
-        """Process OpenFEMA disaster declaration records.
+        """
+        Process OpenFEMA disaster declaration records.
 
         Args:
             records: List of disaster declaration records
@@ -512,6 +514,7 @@ class FEMAHazardMitigationLoader(DatasetLoader):
 
     @property
     def is_real_data(self) -> bool:
+        """Is real data."""
         return self._is_real_data
 
     def download(self) -> bool:

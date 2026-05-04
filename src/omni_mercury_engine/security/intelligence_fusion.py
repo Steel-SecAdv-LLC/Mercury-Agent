@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -63,7 +61,7 @@ from torch import nn
 
 
 class IntelligenceDiscipline(Enum):
-    """Intelligence collection disciplines"""
+    """Intelligence collection disciplines."""
 
     OSINT = "open_source"
     COMINT = "communications"
@@ -81,7 +79,7 @@ class IntelligenceDiscipline(Enum):
 
 
 class ThreatLevel(Enum):
-    """Threat assessment levels"""
+    """Threat assessment levels."""
 
     LOW = 1
     MODERATE = 2
@@ -92,7 +90,7 @@ class ThreatLevel(Enum):
 
 @dataclass
 class IntelligenceFusionResult:
-    """Result from multi-INT fusion analysis"""
+    """Result from multi-INT fusion analysis."""
 
     threat_detected: bool
     threat_level: str
@@ -117,8 +115,8 @@ class AllSourceFusionNetwork(nn.Module):
     """
     Neural network for all-source intelligence fusion.
 
-    Implements multi-head attention across INT disciplines with golden ratio
-    architecture optimization for optimal information synthesis.
+    Implements multi-head attention across INT disciplines with golden ratio architecture
+    optimization for optimal information synthesis.
     """
 
     def __init__(self, input_dim: int = 128, num_int_types: int = 13) -> None:
@@ -231,8 +229,8 @@ class IntelligenceFusionEngine:
     """
     All-Source Intelligence Fusion Engine.
 
-    Synthesizes multi-INT inputs for comprehensive threat assessment with
-    neurosymbolic reasoning and cryptanalysis integration.
+    Synthesizes multi-INT inputs for comprehensive threat assessment with neurosymbolic reasoning
+    and cryptanalysis integration.
     """
 
     def __init__(
@@ -278,7 +276,7 @@ class IntelligenceFusionEngine:
         )
 
     def _initialize_threat_kb(self) -> dict[str, dict[str, Any]]:
-        """Initialize threat pattern knowledge base"""
+        """Initialize threat pattern knowledge base."""
         return {
             "terrorism_indicators": {
                 "patterns": ["recruitment", "training", "logistics", "finance", "communications"],
@@ -326,7 +324,7 @@ class IntelligenceFusionEngine:
         }
 
     def _initialize_reliability_scores(self) -> dict[str, float]:
-        """Initialize INT source reliability weights"""
+        """Initialize INT source reliability weights."""
         return {
             IntelligenceDiscipline.HUMINT.value: 0.85,
             IntelligenceDiscipline.IMINT.value: 0.92,
@@ -472,7 +470,7 @@ class IntelligenceFusionEngine:
         return int_features
 
     def _process_temporal_context(self, temporal_context: list[dict[str, Any]]) -> torch.Tensor:
-        """Process temporal threat progression"""
+        """Process temporal threat progression."""
         sequence_length = min(len(temporal_context), 10)
         feature_dim = 165
 
@@ -488,7 +486,7 @@ class IntelligenceFusionEngine:
     def _identify_sources(
         self, intel_reports: dict[str, Any], attention_weights: np.ndarray[Any, Any]
     ) -> tuple[list[str], list[str]]:
-        """Identify primary and corroborating intelligence sources"""
+        """Identify primary and corroborating intelligence sources."""
         source_scores = []
 
         for _i, discipline in enumerate(IntelligenceDiscipline):
@@ -510,7 +508,7 @@ class IntelligenceFusionEngine:
     def _extract_threat_indicators(
         self, intel_reports: dict[str, Any], threat_level: ThreatLevel
     ) -> list[str]:
-        """Extract key threat indicators from reports"""
+        """Extract key threat indicators from reports."""
         indicators = set()
 
         for report in intel_reports.values():
@@ -523,7 +521,7 @@ class IntelligenceFusionEngine:
         return list(indicators)[:15]
 
     def _analyze_temporal_patterns(self, temporal_context: list[dict[str, Any]]) -> dict[str, Any]:
-        """Analyze temporal threat progression patterns"""
+        """Analyze temporal threat progression patterns."""
         if not temporal_context:
             return {}
 
@@ -537,7 +535,7 @@ class IntelligenceFusionEngine:
         }
 
     def _extract_geospatial_context(self, intel_reports: dict[str, Any]) -> dict[str, Any]:
-        """Extract geospatial threat context"""
+        """Extract geospatial threat context."""
         geospatial = {}
 
         if IntelligenceDiscipline.GEOINT.value in intel_reports:
@@ -552,7 +550,7 @@ class IntelligenceFusionEngine:
         return geospatial
 
     def _recommend_actions(self, threat_level: ThreatLevel, indicators: list[str]) -> list[str]:
-        """Recommend actions based on threat assessment"""
+        """Recommend actions based on threat assessment."""
         actions = []
 
         if threat_level == ThreatLevel.CRITICAL:
@@ -589,7 +587,7 @@ class IntelligenceFusionEngine:
     def _prioritize_collection(
         self, threat_level: ThreatLevel, primary_sources: list[str], indicators: list[str]
     ) -> list[str]:
-        """Prioritize intelligence collection efforts"""
+        """Prioritize intelligence collection efforts."""
         priorities = []
 
         if threat_level.value >= ThreatLevel.SUBSTANTIAL.value:
@@ -612,7 +610,7 @@ class IntelligenceFusionEngine:
     def _apply_symbolic_reasoning(
         self, intel_reports: dict[str, Any], threat_level: ThreatLevel, indicators: list[str]
     ) -> dict[str, Any]:
-        """Apply neurosymbolic threat reasoning"""
+        """Apply neurosymbolic threat reasoning."""
         all_matched_patterns: list[str] = []
         deductions: list[str] = []
         confidence_factors: list[str] = []
@@ -636,7 +634,7 @@ class IntelligenceFusionEngine:
         }
 
     def _analyze_cryptographic_patterns(self, intel_reports: dict[str, Any]) -> dict[str, Any]:
-        """Analyze cryptographic and pattern indicators"""
+        """Analyze cryptographic and pattern indicators."""
         encrypted_comms_detected: bool = False
         pattern_strength: float = 0.0
         recommendations: list[str] = []
@@ -661,7 +659,7 @@ class IntelligenceFusionEngine:
         }
 
     def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
-        """Extract features for ML fusion integration"""
+        """Extract features for ML fusion integration."""
         int_features = self._extract_int_features(data)
 
         all_features = []
@@ -675,7 +673,7 @@ class IntelligenceFusionEngine:
             return torch.zeros(1, 128, dtype=torch.float32)
 
     def predict(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Predict for engine integration"""
+        """Predict for engine integration."""
         result = self.fuse_intelligence(data)
 
         return {

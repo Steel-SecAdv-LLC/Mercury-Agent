@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -67,7 +65,7 @@ class APTGroup(Enum):
 
 
 class MalwareFamily(Enum):
-    """Malware family classifications"""
+    """Malware family classifications."""
 
     RANSOMWARE_WANNACRY = "wannacry"
     RANSOMWARE_RYUK = "ryuk"
@@ -95,7 +93,7 @@ class CyberKillChainStage(Enum):
 
 
 class ThreatActorType(Enum):
-    """Threat actor classifications"""
+    """Threat actor classifications."""
 
     NATION_STATE = "nation_state"
     CYBERCRIME = "cybercriminal"
@@ -107,7 +105,7 @@ class ThreatActorType(Enum):
 
 @dataclass
 class CYBINTAnalysisResult:
-    """CYBINT sub-processor analysis result"""
+    """CYBINT sub-processor analysis result."""
 
     threat_detected: bool
     confidence: float
@@ -271,14 +269,14 @@ class C2InfrastructureDetector:
         }
 
     def _match_signature(self, data: dict[str, Any], signature: dict[str, str]) -> bool:
-        """Match network data against C2 signature"""
+        """Match network data against C2 signature."""
         protocol_match = data.get("protocol") == signature["protocol"]
         pattern_match = signature["pattern"] in data.get("patterns", [])
 
         return protocol_match and pattern_match
 
     def _detect_beaconing(self, data: dict[str, Any]) -> bool:
-        """Detect beaconing patterns in network traffic"""
+        """Detect beaconing patterns in network traffic."""
         intervals = data.get("connection_intervals", [])
         if len(intervals) < 5:
             return False
@@ -291,7 +289,7 @@ class C2InfrastructureDetector:
         return coefficient_variation < 0.2
 
     def _detect_dga(self, data: dict[str, Any]) -> bool:
-        """Detect Domain Generation Algorithm usage"""
+        """Detect Domain Generation Algorithm usage."""
         domains = data.get("queried_domains", [])
 
         entropy_scores = [self._calculate_entropy(d) for d in domains]
@@ -303,7 +301,7 @@ class C2InfrastructureDetector:
         return False
 
     def _calculate_entropy(self, domain: str) -> float:
-        """Calculate Shannon entropy of domain name"""
+        """Calculate Shannon entropy of domain name."""
         if not domain:
             return 0.0
 
@@ -319,7 +317,7 @@ class C2InfrastructureDetector:
         return entropy
 
     def _generate_c2_recommendations(self, indicators: list[str]) -> list[str]:
-        """Generate C2 mitigation recommendations"""
+        """Generate C2 mitigation recommendations."""
         recs = []
 
         if "beaconing_activity" in indicators:
@@ -392,7 +390,7 @@ class ZeroDayIndicatorAnalyzer:
         }
 
     def _generate_zero_day_recommendations(self, likelihood: float) -> list[str]:
-        """Generate zero-day response recommendations"""
+        """Generate zero-day response recommendations."""
         recs = []
 
         if likelihood > 0.7:
@@ -412,8 +410,7 @@ class CYBINTSubProcessor:
     """
     Comprehensive CYBINT sub-processor for detailed cyber threat analysis.
 
-    Integrates APT attribution, malware classification, C2 detection,
-    and zero-day analysis.
+    Integrates APT attribution, malware classification, C2 detection, and zero-day analysis.
     """
 
     def __init__(
@@ -522,7 +519,7 @@ class CYBINTSubProcessor:
         return result
 
     def _attribute_apt(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Attribute threat to APT group"""
+        """Attribute threat to APT group."""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
         if self.apt_recognizer is None:
@@ -541,7 +538,7 @@ class CYBINTSubProcessor:
         return {"apt_group": identified_apt, "confidence": apt_confidence}
 
     def _classify_malware(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Classify malware family"""
+        """Classify malware family."""
         features_tensor = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
         if self.malware_classifier is None:
@@ -560,7 +557,7 @@ class CYBINTSubProcessor:
         return {"family": identified_family, "confidence": confidence}
 
     def _identify_kill_chain_stage(self, threat_data: dict[str, Any]) -> str:
-        """Identify cyber kill chain stage"""
+        """Identify cyber kill chain stage."""
         ttps = threat_data.get("ttps", [])
 
         if any("reconnaissance" in ttp.lower() for ttp in ttps):
@@ -581,7 +578,7 @@ class CYBINTSubProcessor:
         return CyberKillChainStage.RECONNAISSANCE.value
 
     def _classify_threat_actor(self, result: CYBINTAnalysisResult) -> str:
-        """Classify threat actor type"""
+        """Classify threat actor type."""
         if result.apt_group and "apt" in result.apt_group.lower():
             return ThreatActorType.NATION_STATE.value
 
@@ -592,7 +589,7 @@ class CYBINTSubProcessor:
         return ThreatActorType.UNKNOWN.value
 
     def _calculate_risk_score(self, result: CYBINTAnalysisResult) -> float:
-        """Calculate overall cyber risk score"""
+        """Calculate overall cyber risk score."""
         base_score = result.confidence
 
         if result.threat_severity == "critical":
@@ -609,7 +606,7 @@ class CYBINTSubProcessor:
         return min(base_score, 1.0)
 
     def _generate_defensive_measures(self, result: CYBINTAnalysisResult) -> list[str]:
-        """Generate defensive countermeasures"""
+        """Generate defensive countermeasures."""
         measures = []
 
         if result.apt_group and result.apt_group != "unknown_apt":

@@ -1,8 +1,8 @@
 """
 Advanced Harmonic Analyzer for Mercury Agent.
 
-High-level interface for 3D surface analysis and anomaly detection
-using spherical harmonic decomposition.
+High-level interface for 3D surface analysis and anomaly detection using spherical harmonic
+decomposition.
 """
 
 from __future__ import annotations

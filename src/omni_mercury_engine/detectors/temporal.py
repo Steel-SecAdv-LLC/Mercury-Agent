@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -41,6 +39,7 @@ from omni_mercury_engine.core.exceptions import DetectorException
 class TemporalAnomalyDetector(BaseDetector):
     """
     Time series anomaly detection using:
+
     - Trend analysis
     - Sudden changes
     - Seasonality detection
@@ -63,7 +62,7 @@ class TemporalAnomalyDetector(BaseDetector):
         self.baseline_std: float | None = None
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> TemporalAnomalyDetector:
-        """Fit detector to normal time series"""
+        """Fit detector to normal time series."""
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
 
@@ -74,7 +73,8 @@ class TemporalAnomalyDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect temporal anomalies with optional auto-calibration.
+        """
+        Detect temporal anomalies with optional auto-calibration.
 
         Auto-Calibration:
             When auto_calibrate=True (via enable_auto_calibration()), the
@@ -134,7 +134,7 @@ class TemporalAnomalyDetector(BaseDetector):
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """Extract temporal features for ML fusion"""
+        """Extract temporal features for ML fusion."""
         data_np = data.cpu().numpy() if TORCH_AVAILABLE and isinstance(data, torch.Tensor) else data
 
         if not self._is_fitted:
@@ -152,14 +152,14 @@ class TemporalAnomalyDetector(BaseDetector):
         return lstm_features
 
     def _detect_trend_anomalies(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Detect anomalies based on trend deviation.
+        """
+        Detect anomalies based on trend deviation.
 
-        Returns continuous scores without hard clipping to preserve
-        ranking information for downstream fusion models.
+        Returns continuous scores without hard clipping to preserve ranking information for
+        downstream fusion models.
 
-        Fix for Issue #7: No Score Continuity. Previously used
-        np.minimum(z_score / 3.0, 1.0) which capped scores at 1.0,
-        losing differentiation between extreme anomalies.
+        Fix for Issue #7: No Score Continuity. Previously used np.minimum(z_score / 3.0, 1.0) which
+        capped scores at 1.0, losing differentiation between extreme anomalies.
         """
         if len(data) < self.window_size:
             return np.zeros(len(data))
@@ -187,7 +187,8 @@ class TemporalAnomalyDetector(BaseDetector):
         return scores
 
     def _detect_sudden_changes(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Detect sudden changes in values.
+        """
+        Detect sudden changes in values.
 
         Returns continuous scores without hard clipping.
 

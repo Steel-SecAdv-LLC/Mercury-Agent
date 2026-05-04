@@ -155,8 +155,8 @@ class ExactShapExplainer(ShapExplainer):
     """
     Exact Shapley value computation.
 
-    Computes exact Shapley values by evaluating all 2^n feature subsets.
-    Only practical for small numbers of features (n < 15).
+    Computes exact Shapley values by evaluating all 2^n feature subsets. Only practical for small
+    numbers of features (n < 15).
     """
 
     def __init__(
@@ -269,8 +269,7 @@ class KernelShapExplainer(ShapExplainer):
     """
     Kernel SHAP explainer.
 
-    Model-agnostic approximation using weighted linear regression
-    on a sample of feature coalitions.
+    Model-agnostic approximation using weighted linear regression on a sample of feature coalitions.
     """
 
     def __init__(
@@ -411,8 +410,7 @@ class SamplingShapExplainer(ShapExplainer):
     """
     Sampling-based SHAP explainer.
 
-    Estimates Shapley values using permutation sampling,
-    suitable for high-dimensional data.
+    Estimates Shapley values using permutation sampling, suitable for high-dimensional data.
     """
 
     def __init__(
@@ -499,8 +497,7 @@ class TreeShapExplainer(ShapExplainer):
     """
     Tree SHAP explainer for tree-based models.
 
-    Provides exact and efficient computation of SHAP values
-    for tree ensemble models.
+    Provides exact and efficient computation of SHAP values for tree ensemble models.
     """
 
     def __init__(

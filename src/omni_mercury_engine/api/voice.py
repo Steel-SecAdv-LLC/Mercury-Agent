@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -43,7 +42,8 @@ logger = logging.getLogger(__name__)
 
 # Request/Response Models
 class SpeakRequest(BaseModel):
-    """Request model for voice speak endpoint.
+    """
+    Request model for voice speak endpoint.
 
     Attributes:
         message: User's natural language message
@@ -81,7 +81,8 @@ class SpeakRequest(BaseModel):
 
 
 class VoiceResponseModel(BaseModel):
-    """Response model for voice speak endpoint.
+    """
+    Response model for voice speak endpoint.
 
     Attributes:
         message: Mercury's response message
@@ -130,7 +131,8 @@ class VoiceResponseModel(BaseModel):
 
 
 class DetectionNarrationRequest(BaseModel):
-    """Request model for detection narration.
+    """
+    Request model for detection narration.
 
     Attributes:
         detection_result: The detection result to narrate
@@ -161,7 +163,8 @@ class DetectionNarrationRequest(BaseModel):
 
 
 class NarrationResponse(BaseModel):
-    """Response model for detection narration.
+    """
+    Response model for detection narration.
 
     Attributes:
         summary: Brief summary of the detection
@@ -184,7 +187,8 @@ class NarrationResponse(BaseModel):
 
 
 class StatusResponse(BaseModel):
-    """Response model for system status.
+    """
+    Response model for system status.
 
     Attributes:
         status: Overall system status

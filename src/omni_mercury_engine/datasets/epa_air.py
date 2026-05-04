@@ -1,13 +1,13 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 EPA Air Quality System (AQS) — Daily PM2.5 Loader
 
-Downloads daily PM2.5 monitoring data from EPA's pre-generated files.
-Anomaly flags are computed against EPA AQI thresholds.
+Downloads daily PM2.5 monitoring data from EPA's pre-generated files. Anomaly flags are computed
+against EPA AQI thresholds.
 
-Source: https://aqs.epa.gov/aqsweb/airdata/download_files.html
+Source:
+https://aqs.epa.gov/aqsweb/airdata/download_files.html
 License: Public Domain (US Government)
 """
 
@@ -31,7 +31,8 @@ logger = logging.getLogger(__name__)
 
 
 class EPAAirQualityLoader(DatasetLoader):
-    """EPA Air Quality System daily PM2.5 loader.
+    """
+    EPA Air Quality System daily PM2.5 loader.
 
     Downloads daily PM2.5 summary data from EPA's pre-generated annual
     ZIP files. Each ZIP contains a CSV with site-level daily measurements.
@@ -60,7 +61,8 @@ class EPAAirQualityLoader(DatasetLoader):
         self.year = config.preprocessing.get("year", 2023)
 
     def download(self) -> bool:
-        """Download EPA daily PM2.5 ZIP for the configured year.
+        """
+        Download EPA daily PM2.5 ZIP for the configured year.
 
         Raises:
             DataSourceUnavailableError: If EPA data is unreachable.
@@ -148,6 +150,7 @@ class EPAAirQualityLoader(DatasetLoader):
         return data["features"], data["labels"]
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Preprocess."""
         data = np.nan_to_num(data, nan=0.0)
         return ((data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)).astype(np.float32)
 

@@ -98,8 +98,8 @@ if TORCH_AVAILABLE:
         """
         Learned ethical gating function.
 
-        Replaces static η threshold with a learned gate that
-        considers input context for adaptive ethical gating.
+        Replaces static η threshold with a learned gate that considers input context for adaptive
+        ethical gating.
         """
 
         def __init__(
@@ -235,8 +235,8 @@ if TORCH_AVAILABLE:
         """
         Spectral attention with wavelet decomposition.
 
-        Combines FFT analysis with multi-scale wavelet attention
-        for comprehensive frequency domain understanding.
+        Combines FFT analysis with multi-scale wavelet attention for comprehensive frequency domain
+        understanding.
         """
 
         def __init__(
@@ -407,8 +407,8 @@ if TORCH_AVAILABLE:
         """
         Complete learnable 3R fusion module.
 
-        Combines multi-scale recursion, spectral attention, and
-        optimization scoring with learnable weights and dynamic gating.
+        Combines multi-scale recursion, spectral attention, and optimization scoring with learnable
+        weights and dynamic gating.
         """
 
         def __init__(
@@ -664,7 +664,8 @@ class Learnable3REngine:
         min_delta: float = 1e-4,
         seed: int | None = None,
     ) -> dict[str, object]:
-        """Multi-epoch training with validation split, early stopping, and best-epoch checkpointing.
+        """
+        Multi-epoch training with validation split, early stopping, and best-epoch checkpointing.
 
         Splits ``X``/``y`` into training and validation sets, trains for up to
         ``epochs`` epochs using mini-batches, monitors validation loss, and
@@ -930,7 +931,7 @@ class Learnable3REngine:
         }
 
     def _numpy_fallback(self, data: np.ndarray | list[float]) -> Learnable3RResult:
-        """NumPy fallback when PyTorch is unavailable."""
+        """Numpy fallback when PyTorch is unavailable."""
         arr = np.array(data)
 
         def recursion_score(x: np.ndarray, depth: int = 5) -> float:
@@ -1018,7 +1019,8 @@ class Learnable3REngine:
         logger.info(f"Model saved to {path}")
 
     def load_model(self, path: str, allow_unsafe: bool = False) -> None:
-        """Load model checkpoint.
+        """
+        Load model checkpoint.
 
         Security Note: By default, uses safe loading (weights_only=True).
         Set allow_unsafe=True only for trusted checkpoints that require

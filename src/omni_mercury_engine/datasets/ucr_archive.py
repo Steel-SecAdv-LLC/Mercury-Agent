@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 UCR Time Series Archive and Additional Benchmark Loaders
 

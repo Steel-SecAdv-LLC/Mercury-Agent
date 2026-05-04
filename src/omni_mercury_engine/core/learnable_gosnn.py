@@ -202,7 +202,8 @@ if TORCH_AVAILABLE:
             x: torch.Tensor,
             mask: torch.Tensor | None = None,
         ) -> tuple[torch.Tensor, torch.Tensor]:
-            """Apply sparse attention.
+            """
+            Apply sparse attention.
 
             Args:
                 x: Input tensor [batch, seq_len, d_model]
@@ -653,7 +654,7 @@ class LearnableGOSNN:
         }
 
     def _numpy_fusion(self, scalar_values: dict[str, float]) -> dict[str, Any]:
-        """NumPy fallback for scalar fusion."""
+        """Numpy fallback for scalar fusion."""
         values = list(scalar_values.values())
         if not values:
             return {

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -52,7 +50,7 @@ if TYPE_CHECKING:
 
 
 class ArrhythmiaType(Enum):
-    """13 cardiac rhythm classifications"""
+    """13 cardiac rhythm classifications."""
 
     NORMAL_SINUS = "normal_sinus_rhythm"
     ATRIAL_FIB = "atrial_fibrillation"
@@ -71,7 +69,7 @@ class ArrhythmiaType(Enum):
 
 @dataclass
 class CardiologyPredictionResult:
-    """Cardiology prediction results"""
+    """Cardiology prediction results."""
 
     cardiac_risk_detected: bool
     confidence: float
@@ -94,8 +92,8 @@ class ECGRhythmAnalyzer(nn.Module):
     """
     1D CNN + LSTM for ECG rhythm analysis.
 
-    Detects arrhythmias and cardiac anomalies from raw ECG signals.
-    Architecture inspired by PTB-XL and MIT-BIH research.
+    Detects arrhythmias and cardiac anomalies from raw ECG signals. Architecture inspired by PTB-XL
+    and MIT-BIH research.
     """
 
     def __init__(
@@ -238,7 +236,7 @@ class CardiacBiomarkerAnalyzer:
     def _generate_biomarker_recommendations(
         self, mi_risk: float, hf_risk: float, acute_mi: bool
     ) -> list[str]:
-        """Generate clinical recommendations based on biomarkers"""
+        """Generate clinical recommendations based on biomarkers."""
         recs = []
 
         if acute_mi:
@@ -259,9 +257,7 @@ class CardiacBiomarkerAnalyzer:
 
 
 class FraminghamRiskCalculator:
-    """
-    Framingham Risk Score calculator for 10-year CVD risk.
-    """
+    """Framingham Risk Score calculator for 10-year CVD risk."""
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
@@ -313,7 +309,7 @@ class FraminghamRiskCalculator:
         smoker: bool,
         diabetes: bool,
     ) -> int:
-        """Calculate Framingham points for males"""
+        """Calculate Framingham points for males."""
         points = 0
 
         if age < 35:
@@ -382,7 +378,7 @@ class FraminghamRiskCalculator:
         smoker: bool,
         diabetes: bool,
     ) -> int:
-        """Calculate Framingham points for females"""
+        """Calculate Framingham points for females."""
         points = 0
 
         if age < 35:
@@ -439,7 +435,7 @@ class FraminghamRiskCalculator:
         return points
 
     def _points_to_risk(self, points: int, gender: str) -> float:
-        """Convert points to 10-year CVD risk percentage"""
+        """Convert points to 10-year CVD risk percentage."""
         if gender == "male":
             risk_map = {
                 -3: 1,
@@ -486,7 +482,7 @@ class FraminghamRiskCalculator:
         return float(risk_map.get(points, 30 if points > 13 else 1))
 
     def _interpret_risk(self, risk_percent: float) -> dict[str, Any]:
-        """Interpret Framingham risk score"""
+        """Interpret Framingham risk score."""
         if risk_percent < 10:
             category = "Low Risk"
             recs = [
@@ -516,9 +512,9 @@ class FraminghamRiskCalculator:
 
 
 class CardiologyPredictor:
-    """
-    Comprehensive cardiology prediction system integrating ECG analysis,
-    biomarker detection, and risk stratification.
+    """Comprehensive cardiology prediction system integrating ECG analysis, biomarker detection, and
+
+    risk stratification.
     """
 
     def __init__(self, enable_ecg: bool = True, enable_biomarkers: bool = True) -> None:
@@ -596,7 +592,7 @@ class CardiologyPredictor:
         return result
 
     def _analyze_ecg(self, ecg_signal: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze ECG signal for arrhythmias"""
+        """Analyze ECG signal for arrhythmias."""
         if self.ecg_analyzer is None:
             return {
                 "arrhythmia_type": "normal_sinus_rhythm",

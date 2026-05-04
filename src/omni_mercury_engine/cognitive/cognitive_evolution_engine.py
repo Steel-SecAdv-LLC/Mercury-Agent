@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -190,8 +188,7 @@ class SelfPlaySimulator:
     """
     Multi-agent self-play simulator for recursive improvement.
 
-    Uses multiple agents with different roles to simulate
-    scenarios and discover improvements.
+    Uses multiple agents with different roles to simulate scenarios and discover improvements.
     """
 
     def __init__(self, num_agents: int = 5) -> None:
@@ -360,8 +357,7 @@ class RuleMutator:
     """
     Genetic rule mutation engine.
 
-    Applies genetic operations to evolve rules based on
-    fitness and confidence scores.
+    Applies genetic operations to evolve rules based on fitness and confidence scores.
     """
 
     def __init__(
@@ -580,8 +576,8 @@ class ChainOfThoughtReasoner:
     """
     Chain-of-thought reasoning engine.
 
-    Implements step-by-step reasoning for complex problems
-    with full transparency and explainability.
+    Implements step-by-step reasoning for complex problems with full transparency and
+    explainability.
     """
 
     def __init__(self, max_steps: int = 10) -> None:
@@ -750,8 +746,7 @@ class CounterfactualSimulator:
     """
     Counterfactual simulation engine.
 
-    Simulates "what if" scenarios to predict outcomes
-    of alternative actions or conditions.
+    Simulates "what if" scenarios to predict outcomes of alternative actions or conditions.
     """
 
     def __init__(self) -> None:
@@ -871,8 +866,7 @@ class TheoryOfMind:
     """
     Theory of Mind engine for user intent inference.
 
-    Infers user intentions and mental states from
-    observed behaviors and interactions.
+    Infers user intentions and mental states from observed behaviors and interactions.
     """
 
     def __init__(self) -> None:
@@ -999,8 +993,7 @@ class CuriosityEngine:
     """
     Curiosity-driven exploration engine.
 
-    Identifies novel patterns and generates questions
-    for further investigation.
+    Identifies novel patterns and generates questions for further investigation.
     """
 
     def __init__(self, novelty_threshold: float = 0.7) -> None:
@@ -1141,8 +1134,8 @@ class CognitiveEvolutionEngine:
     """
     Main cognitive evolution engine orchestrator.
 
-    Coordinates all advanced cognitive capabilities for
-    recursive self-improvement while maintaining safety.
+    Coordinates all advanced cognitive capabilities for recursive self-improvement while maintaining
+    safety.
     """
 
     def __init__(

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -53,15 +51,30 @@ from typing import Any
 
 AMA_CRYPTO_API_AVAILABLE = False
 
+# AMA classes / helpers are imported under private ``_ama_*`` aliases so the
+# fallback branch below can rebind them to ``None`` without mypy raising
+# "Cannot assign to a type" / "Incompatible types in assignment" — the same
+# pattern is used in ``pqc_backends.py``.  Public-facing references inside
+# this module continue to use the unprefixed names through guarded
+# ``AMA_CRYPTO_API_AVAILABLE`` blocks; the ``Any | None`` annotations make
+# the rebinding mypy-clean while preserving runtime behaviour.
+_AmaAESGCMProvider: Any | None = None
+_AmaAlgorithmType: Any | None = None
+_AmaCryptography: Any | None = None
+_AmaCryptoPackageConfig: Any | None = None
+_AmaCryptoPackageResult: Any | None = None
+_ama_create_crypto_package: Any | None = None
+_ama_get_pqc_capabilities: Any | None = None
+
 try:
     from ama_cryptography.crypto_api import (
-        AESGCMProvider,
-        AlgorithmType as AmaAlgorithmType,
-        AmaCryptography,
-        CryptoPackageConfig as AmaCryptoPackageConfig,
-        CryptoPackageResult as AmaCryptoPackageResult,
-        create_crypto_package as ama_create_crypto_package,
-        get_pqc_capabilities as ama_get_pqc_capabilities,
+        AESGCMProvider as _AmaAESGCMProvider,
+        AlgorithmType as _AmaAlgorithmType,
+        AmaCryptography as _AmaCryptography,
+        CryptoPackageConfig as _AmaCryptoPackageConfig,
+        CryptoPackageResult as _AmaCryptoPackageResult,
+        create_crypto_package as _ama_create_crypto_package,
+        get_pqc_capabilities as _ama_get_pqc_capabilities,
     )
 
     AMA_CRYPTO_API_AVAILABLE = True
@@ -74,13 +87,19 @@ except ImportError:
         stacklevel=2,
     )
 
-    AESGCMProvider = None
-    AmaAlgorithmType = None
-    AmaCryptography = None
-    AmaCryptoPackageConfig = None
-    AmaCryptoPackageResult = None
-    ama_create_crypto_package = None
-    ama_get_pqc_capabilities = None
+# Public aliases — kept for backward compatibility with any downstream
+# importer that referenced the old ``AESGCMProvider`` / ``AmaCryptography``
+# names directly.  They are typed ``Any`` so callers gated on
+# ``AMA_CRYPTO_API_AVAILABLE`` can use them as classes/callables, while
+# unconditional use without that gate is correctly rejected by the runtime
+# (calling ``None`` raises ``TypeError``).
+AESGCMProvider: Any = _AmaAESGCMProvider
+AmaAlgorithmType: Any = _AmaAlgorithmType
+AmaCryptography: Any = _AmaCryptography
+AmaCryptoPackageConfig: Any = _AmaCryptoPackageConfig
+AmaCryptoPackageResult: Any = _AmaCryptoPackageResult
+ama_create_crypto_package: Any = _ama_create_crypto_package
+ama_get_pqc_capabilities: Any = _ama_get_pqc_capabilities
 
 from omni_mercury_engine.security.pqc_backends import (
     dilithium_sign,
@@ -274,6 +293,7 @@ class MLDSAProvider:
     """ML-DSA-65 (Dilithium) post-quantum signature provider — delegates to AMA."""
 
     def generate_keypair(self) -> KeyPair:
+        """Generate keypair."""
         dilithium_kp = generate_dilithium_keypair()
         return KeyPair(
             public_key=dilithium_kp.public_key,
@@ -283,9 +303,11 @@ class MLDSAProvider:
         )
 
     def sign(self, message: bytes, secret_key: bytes) -> bytes:
+        """Sign."""
         return dilithium_sign(message, secret_key)
 
     def verify(self, message: bytes, signature: bytes, public_key: bytes) -> bool:
+        """Verify."""
         return dilithium_verify(message, signature, public_key)
 
 
@@ -293,6 +315,7 @@ class KyberProvider:
     """Kyber-1024 key encapsulation provider — delegates to AMA."""
 
     def generate_keypair(self) -> KeyPair:
+        """Generate keypair."""
         kyber_kp = generate_kyber_keypair()
         return KeyPair(
             public_key=kyber_kp.public_key,
@@ -302,6 +325,7 @@ class KyberProvider:
         )
 
     def encapsulate(self, public_key: bytes) -> EncapsulatedSecret:
+        """Encapsulate."""
         result = kyber_encapsulate(public_key)
         return EncapsulatedSecret(
             ciphertext=result.ciphertext,
@@ -310,6 +334,7 @@ class KyberProvider:
         )
 
     def decapsulate(self, ciphertext: bytes, secret_key: bytes) -> bytes:
+        """Decapsulate."""
         return kyber_decapsulate(ciphertext, secret_key)
 
 
@@ -317,6 +342,7 @@ class SphincsProvider:
     """SPHINCS+ hash-based signature provider — delegates to AMA."""
 
     def generate_keypair(self) -> KeyPair:
+        """Generate keypair."""
         sphincs_kp = generate_sphincs_keypair()
         return KeyPair(
             public_key=sphincs_kp.public_key,
@@ -326,9 +352,11 @@ class SphincsProvider:
         )
 
     def sign(self, message: bytes, secret_key: bytes) -> bytes:
+        """Sign."""
         return sphincs_sign(message, secret_key)
 
     def verify(self, message: bytes, signature: bytes, public_key: bytes) -> bool:
+        """Verify."""
         return sphincs_verify(message, signature, public_key)
 
 
@@ -379,7 +407,11 @@ class HybridSignatureProvider:
         classical_public: bytes | None,
         pqc_public: bytes,
     ) -> tuple[bool, bool]:
-        """Verify hybrid signature. Returns (classical_valid, pqc_valid)."""
+        """
+        Verify hybrid signature.
+
+        Returns (classical_valid, pqc_valid).
+        """
         classical_valid = True
         if self.classical_provider and classical_public and hybrid_sig.classical_signature:
             classical_valid = self.classical_provider.verify(

@@ -61,8 +61,8 @@ class GaborFilter:
     """
     2D Gabor filter bank for iris texture analysis.
 
-    Gabor filters are bandpass filters that capture texture information
-    at specific orientations and frequencies.
+    Gabor filters are bandpass filters that capture texture information at specific orientations and
+    frequencies.
     """
 
     def __init__(

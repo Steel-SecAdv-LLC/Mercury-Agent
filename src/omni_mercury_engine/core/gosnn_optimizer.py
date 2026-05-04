@@ -1,5 +1,6 @@
 """
 Mercury Agent - GOSNN Hub Optimizer
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -79,8 +80,7 @@ class ScalarImportanceAnalyzer:
     """
     SHAP-inspired importance analysis for GOSNN scalars.
 
-    Computes importance scores for each scalar by measuring
-    their contribution to the final output.
+    Computes importance scores for each scalar by measuring their contribution to the final output.
     """
 
     def __init__(self, seed: int = 42):
@@ -326,17 +326,18 @@ class EthicalGateOptimizer:
 
 
 class AttentionProvider(ABC):
-    """Interface for supplying real attention tensors to the optimizer.
+    """
+    Interface for supplying real attention tensors to the optimizer.
 
-    Concrete implementations should wrap the GOSNN model (or any attention-
-    producing module) and return the most recent attention scores when
-    ``get_attention`` is called.  Plugging in a provider replaces the
-    placeholder random tensor that was previously hard-coded.
+    Concrete implementations should wrap the GOSNN model (or any attention- producing module) and
+    return the most recent attention scores when ``get_attention`` is called.  Plugging in a
+    provider replaces the placeholder random tensor that was previously hard-coded.
     """
 
     @abstractmethod
     def get_attention(self) -> np.ndarray:
-        """Return attention scores with shape ``(num_heads, seq_len, seq_len)``.
+        """
+        Return attention scores with shape ``(num_heads, seq_len, seq_len)``.
 
         Raises:
             RuntimeError: If attention data is unavailable (e.g. model not

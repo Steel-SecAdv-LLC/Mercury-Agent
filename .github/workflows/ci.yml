@@ -94,10 +94,16 @@ jobs:
           fi
 
       - name: Run pydocstyle (docstring checks)
-        # Informational only - docstring style enforcement is advisory
-        # Many docstrings use alternative valid formatting conventions
-        continue-on-error: true
-        run: pydocstyle src/omni_mercury_engine/ --convention=google --add-ignore=D212,D415
+        # Blocking — the docstring contract is part of the source-of-truth API
+        # surface and we do not allow it to drift silently.  ``[tool.pydocstyle]``
+        # in ``pyproject.toml`` configures the Google convention plus the
+        # project's whitelisted exclusions; we re-pass the exclusions on the
+        # command line so behaviour is identical regardless of whether the
+        # tool is run under tomli-aware (3.11+) or non-aware shells.
+        run: |
+          pydocstyle src/omni_mercury_engine/ \
+            --convention=google \
+            --add-ignore=D100,D104,D105,D107,D212,D415
 
   # ===========================================================================
   # Stage 2: Type Checking
@@ -810,14 +816,19 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install documentation tools
+        # ``sphinx_autodoc_typehints`` is intentionally excluded — the docs
+        # build never imports the package (see ``docs/conf.py``), so loading
+        # the autodoc-typehints extension would only crash with
+        # ``Unknown event name: autodoc-process-signature``.
         run: |
           python -m pip install --upgrade "pip>=26.0"
-          pip install sphinx sphinx-rtd-theme myst-parser sphinx-autodoc-typehints
+          pip install sphinx sphinx-rtd-theme myst-parser
 
       - name: Build documentation
-        # Documentation build is informational - may fail due to missing autodoc sources
-        # Core functionality is validated in code-quality and core-tests stages
-        continue-on-error: true
+        # Blocking — Sphinx is the source-of-truth render of the narrative
+        # docs (``ARCHITECTURE.md``, ``MATH_SPEC.md``, ``DEPLOYMENT.md``,
+        # …).  A docs build that doesn't actually run is silent rot; if it
+        # breaks, fix the underlying issue rather than ``continue-on-error``.
         run: |
           cd docs
           sphinx-build -b html . _build/html

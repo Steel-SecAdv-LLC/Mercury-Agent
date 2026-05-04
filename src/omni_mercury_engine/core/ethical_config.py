@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -36,11 +34,11 @@ from omni_mercury_engine.utils.constants import OmniCodes
 @dataclass
 class EthicalScalars:
     """
-    Comprehensive ethical scalar configuration incorporating
-    ancient cultural wisdom (Thoth, Ma'at, Athena) and modern
-    technological principles (CRISPR, quantum resilience, regenerative design).
-    Doctorate-level omni- variations organized thematically.
-    ~150+ key scalars (135 existing + 20 PhD-inspired) from research.
+    Comprehensive ethical scalar configuration incorporating ancient cultural wisdom (Thoth, Ma'at,
+
+    Athena) and modern technological principles (CRISPR, quantum resilience, regenerative design).
+    Doctorate-level omni- variations organized thematically. ~150+ key scalars (135 existing + 20
+    PhD-inspired) from research.
 
     Research sources: Wikipedia (verified October 2025)
     - Ancient Egyptian deities: Thoth (wisdom, writing), Ma'at (truth, justice, balance)
@@ -269,8 +267,8 @@ class EngineConfig:
     """
     Main engine configuration including ethical scalars.
 
-    Provides a unified configuration interface for the Mercury Agent,
-    incorporating both technical and ethical parameters.
+    Provides a unified configuration interface for the Mercury Agent, incorporating both technical
+    and ethical parameters.
     """
 
     ethical_scalars: EthicalScalars = field(default_factory=EthicalScalars)

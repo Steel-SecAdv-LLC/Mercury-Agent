@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -49,7 +47,7 @@ T = TypeVar("T")
 
 
 class DeviceType(Enum):
-    """Compute device types"""
+    """Compute device types."""
 
     CPU = "cpu"
     CUDA = "cuda"
@@ -57,7 +55,7 @@ class DeviceType(Enum):
 
 
 class FusionMode(Enum):
-    """Fusion strategies"""
+    """Fusion strategies."""
 
     EARLY = "early"
     LATE = "late"
@@ -65,7 +63,8 @@ class FusionMode(Enum):
 
 
 class DataCharacteristics(Enum):
-    """Detected data characteristics for adaptive component weighting.
+    """
+    Detected data characteristics for adaptive component weighting.
 
     Used by :class:`MercuryAnomalyDetector` to automatically adjust ensemble
     component weights based on whether data is temporally ordered, unordered
@@ -118,10 +117,11 @@ COMPONENT_COMPATIBILITY: dict[DataCharacteristics, dict[str, float]] = {
 
 
 class OracleActivation(Enum):
-    """Oracle activation mode.
+    """
+    Oracle activation mode.
 
-    Controls whether the SpectralDomainFrequency detector is active. Can be set
-    explicitly or left at AUTO for domain-aware activation.
+    Controls whether the SpectralDomainFrequency detector is active. Can be set explicitly or left
+    at AUTO for domain-aware activation.
     """
 
     AUTO = "auto"  # Domain-aware: enabled/disabled per ORACLE_DOMAIN_POLICY
@@ -152,7 +152,7 @@ ORACLE_DOMAIN_POLICY: dict[str, str] = {
 
 @dataclass
 class DetectorConfig:
-    """Configuration for individual detectors"""
+    """Configuration for individual detectors."""
 
     enabled: bool = True
     threshold: float = 0.5
@@ -164,7 +164,7 @@ class DetectorConfig:
 
 @dataclass
 class ModelConfig:
-    """Configuration for individual models"""
+    """Configuration for individual models."""
 
     enabled: bool = True
     use_harmonic_features: bool = True
@@ -174,7 +174,7 @@ class ModelConfig:
 
 @dataclass
 class FusionConfig:
-    """Configuration for ML fusion"""
+    """Configuration for ML fusion."""
 
     mode: FusionMode = FusionMode.HYBRID
     attention_heads: int = 4
@@ -281,7 +281,7 @@ class ThresholdDefaults:
 
 @dataclass
 class EngineConfig:
-    """Main engine configuration"""
+    """Main engine configuration."""
 
     device: DeviceType = DeviceType.CPU
     fusion_mode: FusionMode = FusionMode.HYBRID
@@ -302,17 +302,23 @@ class EngineConfig:
     """Global anomaly decision threshold. Scores > threshold = anomaly."""
 
     contamination: float | None = None
-    """Expected fraction of anomalies (0.0-1.0). If set, uses percentile-based
-    threshold instead of fixed threshold. Works with Mercury's statistical ensemble
+    """
+    Expected fraction of anomalies (0.0-1.0).
+
+    If set, uses percentile-based threshold instead of fixed threshold. Works with Mercury's statistical ensemble
     (Resonance + Kinematic + InfoGeometry detectors).
-    Example: contamination=0.05 means top 5% of scores are classified as anomalies."""
+    Example: contamination=0.05 means top 5% of scores are classified as anomalies.
+    """
 
     adaptive_threshold: bool = False
-    """If True, automatically calibrate threshold based on score distribution.
-    Uses percentile-based thresholding when contamination is set."""
+    """
+    If True, automatically calibrate threshold based on score distribution.
+
+    Uses percentile-based thresholding when contamination is set.
+    """
 
     def __post_init__(self) -> None:
-        """Initialize default detector and model configs"""
+        """Initialize default detector and model configs."""
         if not self.detectors:
             self.detectors = {
                 "statistical": DetectorConfig(),
@@ -660,7 +666,8 @@ _config_manager: ConfigurationManager | None = None
 
 
 def get_config_manager() -> ConfigurationManager:
-    """Get the global configuration manager singleton.
+    """
+    Get the global configuration manager singleton.
 
     Note:
         This function uses lazy initialization. For thread-safe initialization

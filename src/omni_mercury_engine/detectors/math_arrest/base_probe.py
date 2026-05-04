@@ -33,12 +33,12 @@ class ProbeResult:
 
 
 class BaseEquationProbe(ABC):
-    """Abstract base class for all Anomaly Math Arrest equation probes.
+    """
+    Abstract base class for all Anomaly Math Arrest equation probes.
 
-    Every probe must implement ``fit_trajectory`` and ``deviation_score``.
-    Utility methods handle input validation, score normalization, and
-    dimensionality reduction so that individual probes stay focused on
-    their core mathematics.
+    Every probe must implement ``fit_trajectory`` and ``deviation_score``. Utility methods handle
+    input validation, score normalization, and dimensionality reduction so that individual probes
+    stay focused on their core mathematics.
     """
 
     def __init__(self, *, min_samples: int = MIN_SAMPLES) -> None:
@@ -52,7 +52,8 @@ class BaseEquationProbe(ABC):
 
     @abstractmethod
     def fit_trajectory(self, data: npt.NDArray[np.float64]) -> None:
-        """Learn normal evolution parameters from training data.
+        """
+        Learn normal evolution parameters from training data.
 
         Args:
             data: Training data, shape ``(n_samples,)`` or
@@ -64,7 +65,8 @@ class BaseEquationProbe(ABC):
 
     @abstractmethod
     def deviation_score(self, data: npt.NDArray[np.float64]) -> ProbeResult:
-        """Compute per-sample deviation scores.
+        """
+        Compute per-sample deviation scores.
 
         Args:
             data: Evaluation data, same shape convention as
@@ -102,7 +104,8 @@ class BaseEquationProbe(ABC):
         data: npt.NDArray[np.float64],
         min_n: int | None = None,
     ) -> None:
-        """Validate that *data* is non-empty and has enough samples.
+        """
+        Validate that *data* is non-empty and has enough samples.
 
         Args:
             data: Input array.
@@ -127,7 +130,8 @@ class BaseEquationProbe(ABC):
 
     @staticmethod
     def _to_1d(data: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Reduce 2-D input to 1-D via column-wise mean.
+        """
+        Reduce 2-D input to 1-D via column-wise mean.
 
         Args:
             data: Array of shape ``(n,)`` or ``(n, m)``.
@@ -143,7 +147,8 @@ class BaseEquationProbe(ABC):
     def _normalize_scores(
         raw: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
-        """Normalize raw scores to ``[0, 1]`` using the 99th percentile.
+        """
+        Normalize raw scores to ``[0, 1]`` using the 99th percentile.
 
         Args:
             raw: Raw deviation values (non-negative expected).
@@ -163,7 +168,8 @@ class BaseEquationProbe(ABC):
         actual: npt.NDArray[np.float64],
         predicted: npt.NDArray[np.float64],
     ) -> float:
-        """Compute R-squared, clamped to ``[0, 1]``.
+        """
+        Compute R-squared, clamped to ``[0, 1]``.
 
         Returns ``1.0`` for constant data when the residual is negligible.
         """

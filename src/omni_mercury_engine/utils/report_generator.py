@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -253,7 +251,7 @@ class ReportGenerator:
 
 @dataclass
 class ReportConfig:
-    """Report configuration"""
+    """Report configuration."""
 
     title: str
     report_type: str
@@ -364,8 +362,7 @@ class PlainEnglishReportGenerator:
     def generate_security_report(
         self, results: dict[str, Any], config: ReportConfig | None = None
     ) -> str:
-        """Generate plain English security report"""
-
+        """Generate plain English security report."""
         if config is None:
             config = ReportConfig(title="Security Intelligence Report", report_type="security")
 
@@ -431,8 +428,7 @@ class PlainEnglishReportGenerator:
     def generate_humanitarian_report(
         self, results: dict[str, Any], config: ReportConfig | None = None
     ) -> str:
-        """Generate plain English humanitarian report"""
-
+        """Generate plain English humanitarian report."""
         if config is None:
             config = ReportConfig(title="Humanitarian Crisis Report", report_type="humanitarian")
 
@@ -649,8 +645,7 @@ class ReportManager:
         return self.email_sender.send_email_report(report, recipient, config.title)
 
     def _save_html_report(self, text_report: str, output_path: str) -> None:
-        """Save report as HTML"""
-
+        """Save report as HTML."""
         html_template = f"""
         <!DOCTYPE html>
         <html>

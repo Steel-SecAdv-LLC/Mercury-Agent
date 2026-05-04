@@ -1,5 +1,6 @@
 """
 Mercury Agent - GOSNN Integration Layer
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -131,8 +132,7 @@ class GOSNNPerformanceMonitor:
     """
     Performance monitor for GOSNN operations.
 
-    Tracks latency, throughput, and identifies bottlenecks
-    for optimization targeting <2% overhead.
+    Tracks latency, throughput, and identifies bottlenecks for optimization targeting <2% overhead.
     """
 
     def __init__(self, max_entries: int = 5000) -> None:
@@ -264,11 +264,14 @@ class IntegrationResult:
 class DetectorProtocol(Protocol):
     """Protocol for detectors in the integration layer."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Any: ...
+    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Any:
+        """Fit the detector to ``(X, y)`` and return the fit handle."""
 
-    def detect(self, X: np.ndarray) -> dict[str, Any]: ...
+    def detect(self, X: np.ndarray) -> dict[str, Any]:
+        """Run detection on ``X`` and return a result dict."""
 
-    def extract_features(self, X: np.ndarray) -> np.ndarray: ...
+    def extract_features(self, X: np.ndarray) -> np.ndarray:
+        """Extract a feature matrix from ``X`` for the integration layer."""
 
 
 @dataclass

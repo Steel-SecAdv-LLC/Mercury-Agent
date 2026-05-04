@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -59,7 +57,7 @@ from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetect
 
 @dataclass
 class DisasterPrecursorResult:
-    """Disaster precursor prediction results"""
+    """Disaster precursor prediction results."""
 
     precursor_detected: bool
     confidence: float
@@ -213,7 +211,7 @@ class GeomageticCorrelator:
         }
 
     def _classify_geomagnetic_activity(self, kp: float) -> str:
-        """Classify geomagnetic activity level"""
+        """Classify geomagnetic activity level."""
         for status, (min_kp, max_kp) in self.kp_thresholds.items():
             if min_kp <= kp < max_kp:
                 return status
@@ -325,8 +323,8 @@ class DisasterPrecursorDetector:
     """
     Comprehensive disaster precursor detection system.
 
-    Integrates Schumann resonance, geomagnetic, ionospheric, and seismic data
-    for multi-modal disaster early warning.
+    Integrates Schumann resonance, geomagnetic, ionospheric, and seismic data for multi-modal
+    disaster early warning.
     """
 
     def __init__(
@@ -449,8 +447,7 @@ class DisasterPrecursorDetector:
         return result
 
     def _predict_earthquake(self, em_features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict earthquake from EM features"""
-
+        """Predict earthquake from EM features."""
         features_tensor = torch.tensor(em_features, dtype=torch.float32).unsqueeze(0)
 
         if self.earthquake_analyzer is None:
@@ -469,8 +466,7 @@ class DisasterPrecursorDetector:
         }
 
     def _estimate_time_to_event(self, risk_score: float, correlation: float) -> float:
-        """Estimate time to potential event"""
-
+        """Estimate time to potential event."""
         base_time = 48.0
 
         urgency_factor = (risk_score + correlation) / 2.0
@@ -480,8 +476,7 @@ class DisasterPrecursorDetector:
         return max(estimated_hours, 2.0)
 
     def _assess_risk_level(self, result: DisasterPrecursorResult) -> str:
-        """Assess overall disaster risk level"""
-
+        """Assess overall disaster risk level."""
         if not result.precursor_detected:
             return "low"
 
@@ -495,8 +490,7 @@ class DisasterPrecursorDetector:
             return "low"
 
     def _generate_early_warning_actions(self, result: DisasterPrecursorResult) -> list[str]:
-        """Generate early warning actions"""
-
+        """Generate early warning actions."""
         actions = []
 
         if result.risk_level in ["critical", "high"]:
@@ -519,8 +513,7 @@ class DisasterPrecursorDetector:
         return actions
 
     def _generate_monitoring_recommendations(self, result: DisasterPrecursorResult) -> list[str]:
-        """Generate monitoring recommendations"""
-
+        """Generate monitoring recommendations."""
         recs = []
 
         if result.ionospheric_disturbance:

@@ -46,21 +46,27 @@ class NoOpMetric:
         pass
 
     def labels(self, *args: Any, **kwargs: Any) -> NoOpMetric:
+        """Labels."""
         return self
 
     def inc(self, amount: float = 1) -> None:
+        """Inc."""
         pass
 
     def dec(self, amount: float = 1) -> None:
+        """Dec."""
         pass
 
     def set(self, value: float) -> None:
+        """Set."""
         pass
 
     def observe(self, amount: float) -> None:
+        """Observe."""
         pass
 
     def time(self) -> NoOpContextManager:
+        """Time."""
         return NoOpContextManager()
 
 
@@ -245,7 +251,8 @@ def time_fusion_inference(fusion_type: str = "hybrid") -> Generator[None, None, 
 
 
 def record_inference_error(model_name: str) -> None:
-    """Record a model inference error.
+    """
+    Record a model inference error.
 
     Args:
         model_name: Name of the model that had an error
@@ -254,7 +261,8 @@ def record_inference_error(model_name: str) -> None:
 
 
 def record_cache_hit(detector_name: str) -> None:
-    """Record a feature cache hit.
+    """
+    Record a feature cache hit.
 
     Args:
         detector_name: Name of the detector
@@ -263,7 +271,8 @@ def record_cache_hit(detector_name: str) -> None:
 
 
 def record_cache_miss(detector_name: str) -> None:
-    """Record a feature cache miss.
+    """
+    Record a feature cache miss.
 
     Args:
         detector_name: Name of the detector
@@ -274,7 +283,8 @@ def record_cache_miss(detector_name: str) -> None:
 def update_model_metrics(
     model_version: str, dataset: str, roc_auc: float | None = None, f1_score: float | None = None
 ) -> None:
-    """Update model quality metrics.
+    """
+    Update model quality metrics.
 
     Args:
         model_version: Version identifier for the model
@@ -289,7 +299,8 @@ def update_model_metrics(
 
 
 def is_prometheus_available() -> bool:
-    """Check if Prometheus metrics are available.
+    """
+    Check if Prometheus metrics are available.
 
     Returns:
         True if prometheus_client is installed and metrics are active

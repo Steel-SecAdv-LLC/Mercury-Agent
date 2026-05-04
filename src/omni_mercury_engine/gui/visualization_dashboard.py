@@ -1,5 +1,6 @@
 """
 Mercury Agent - Enhanced Visualization Dashboard
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -708,9 +709,7 @@ class AnomalyVisualizer:
 
 
 class DashboardBuilder:
-    """
-    Builder class for creating comprehensive anomaly detection dashboards.
-    """
+    """Builder class for creating comprehensive anomaly detection dashboards."""
 
     def __init__(
         self,

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -46,7 +44,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DualStudentConfig:
-    """Configuration for Dual-Student distillation.
+    """
+    Configuration for Dual-Student distillation.
 
     Attributes:
         backbone: Backbone architecture for teacher/students
@@ -68,10 +67,10 @@ class DualStudentConfig:
 
 
 class EncoderDecoderStudent(nn.Module):
-    """Encoder-Decoder student for patch-level anomaly detection.
+    """
+    Encoder-Decoder student for patch-level anomaly detection.
 
-    Learns to reconstruct teacher features, specialized for
-    detecting local/patch-level defects.
+    Learns to reconstruct teacher features, specialized for detecting local/patch-level defects.
     """
 
     def __init__(
@@ -79,7 +78,8 @@ class EncoderDecoderStudent(nn.Module):
         in_channels: int,
         hidden_dim: int = 256,
     ):
-        """Initialize encoder-decoder student.
+        """
+        Initialize encoder-decoder student.
 
         Args:
             in_channels: Input feature channels
@@ -113,7 +113,8 @@ class EncoderDecoderStudent(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass.
+        """
+        Forward pass.
 
         Args:
             x: Input features [B, C, H, W]
@@ -128,10 +129,11 @@ class EncoderDecoderStudent(nn.Module):
 
 
 class EncoderEncoderStudent(nn.Module):
-    """Encoder-Encoder student for semantic anomaly detection.
+    """
+    Encoder-Encoder student for semantic anomaly detection.
 
-    Uses skip connections to preserve semantic information,
-    specialized for detecting semantic/contextual anomalies.
+    Uses skip connections to preserve semantic information, specialized for detecting
+    semantic/contextual anomalies.
     """
 
     def __init__(
@@ -139,7 +141,8 @@ class EncoderEncoderStudent(nn.Module):
         in_channels: int,
         hidden_dim: int = 256,
     ):
-        """Initialize encoder-encoder student.
+        """
+        Initialize encoder-encoder student.
 
         Args:
             in_channels: Input feature channels
@@ -175,7 +178,8 @@ class EncoderEncoderStudent(nn.Module):
         self.output = nn.Conv2d(hidden_dim, in_channels, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass with attention.
+        """
+        Forward pass with attention.
 
         Args:
             x: Input features [B, C, H, W]
@@ -213,7 +217,8 @@ class DualStudentDistillation(nn.Module):
     """
 
     def __init__(self, config: DualStudentConfig | dict[str, Any] | None = None) -> None:
-        """Initialize dual-student distillation.
+        """
+        Initialize dual-student distillation.
 
         Args:
             config: Distillation configuration
@@ -240,7 +245,8 @@ class DualStudentDistillation(nn.Module):
         self._feature_dim: int = 0
 
     def _initialize_networks(self, sample_input: torch.Tensor) -> None:
-        """Initialize networks based on input dimensions.
+        """
+        Initialize networks based on input dimensions.
 
         Args:
             sample_input: Sample input for dimension inference
@@ -276,7 +282,8 @@ class DualStudentDistillation(nn.Module):
         logger.info(f"Initialized dual-student networks (feature_dim={total_channels})")
 
     def _aggregate_features(self, features: dict[str, torch.Tensor]) -> torch.Tensor:
-        """Aggregate multi-scale teacher features.
+        """
+        Aggregate multi-scale teacher features.
 
         Args:
             features: Dict of layer features
@@ -305,7 +312,8 @@ class DualStudentDistillation(nn.Module):
         teacher_feat: torch.Tensor,
         student_feat: torch.Tensor,
     ) -> torch.Tensor:
-        """Compute distillation loss.
+        """
+        Compute distillation loss.
 
         Uses cosine similarity for better gradient flow.
 
@@ -327,7 +335,8 @@ class DualStudentDistillation(nn.Module):
         return loss
 
     def fit(self, data: torch.Tensor) -> DualStudentDistillation:
-        """Train students on normal data.
+        """
+        Train students on normal data.
 
         Args:
             data: Normal images [N, C, H, W]
@@ -411,7 +420,8 @@ class DualStudentDistillation(nn.Module):
         return self
 
     def detect(self, data: torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies using dual-student discrepancy.
+        """
+        Detect anomalies using dual-student discrepancy.
 
         Args:
             data: Test images [N, C, H, W]

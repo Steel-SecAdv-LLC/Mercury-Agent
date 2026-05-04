@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -69,7 +70,7 @@ class Activation(Enum):
 
 def relu(x: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
     """
-    ReLU activation: f(x) = max(0, x)
+    Relu activation: f(x) = max(0, x)
 
     Advantages: Fast convergence, computationally simple
     Disadvantage: Can cause 'dying ReLU' with high learning rates
@@ -152,7 +153,8 @@ def softmax(x: NDArray[np.floating[Any]], axis: int = -1) -> NDArray[np.floating
 
 
 def get_activation(name: str | Activation) -> Any:
-    """Get activation function by name.
+    """
+    Get activation function by name.
 
     Args:
         name: Activation name or enum
@@ -229,7 +231,8 @@ class LightweightMLP:
     """
 
     def __init__(self, config: MLPConfig | None = None, **kwargs: Any) -> None:
-        """Initialize MLP.
+        """
+        Initialize MLP.
 
         Args:
             config: MLPConfig object or None to use kwargs
@@ -434,7 +437,8 @@ class LightweightAutoencoder:
         activation: str = "relu",
         seed: int = 42,
     ) -> None:
-        """Initialize autoencoder.
+        """
+        Initialize autoencoder.
 
         Args:
             input_dim: Input feature dimension
@@ -509,8 +513,8 @@ class IsolationScorer:
     """
     Lightweight isolation-based anomaly scorer.
 
-    Uses random projections and isolation concepts without
-    full Isolation Forest. Good for quick anomaly screening.
+    Uses random projections and isolation concepts without full Isolation Forest. Good for quick
+    anomaly screening.
     """
 
     def __init__(
@@ -519,7 +523,8 @@ class IsolationScorer:
         contamination: float = 0.1,
         seed: int = 42,
     ) -> None:
-        """Initialize isolation scorer.
+        """
+        Initialize isolation scorer.
 
         Args:
             n_projections: Number of random projections

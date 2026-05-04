@@ -1,7 +1,8 @@
-"""Mercury-native federated anomaly detection.
+"""
+Mercury-native federated anomaly detection.
 
-Enables privacy-preserving, decentralized training by exchanging
-sufficient statistics between nodes instead of raw data.
+Enables privacy-preserving, decentralized training by exchanging sufficient statistics between nodes
+instead of raw data.
 """
 
 from omni_mercury_engine.federation.aggregator import FederatedAggregator

@@ -1,5 +1,6 @@
 """
 Mercury Agent - Unified Rate Limiting
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -90,15 +91,18 @@ class InMemoryBackend:
         self._last_cleanup = time.time()
 
     def get(self, key: str) -> tuple[float, int] | None:
+        """Get."""
         with self._lock:
             return self._buckets.get(key)
 
     def set(self, key: str, last_time: float, tokens: int, ttl: int) -> None:
+        """Set."""
         with self._lock:
             self._cleanup_if_needed()
             self._buckets[key] = (last_time, tokens)
 
     def delete(self, key: str) -> None:
+        """Delete."""
         with self._lock:
             self._buckets.pop(key, None)
 

@@ -1,5 +1,6 @@
 """
 Mercury Agent - Cross-Platform Anomaly Detection Hub
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -381,7 +382,11 @@ class PlatformAdapter(ABC):
 
     @abstractmethod
     async def send_batch(self, events: list[AnomalyEvent]) -> int:
-        """Send batch of events. Returns count of successful sends."""
+        """
+        Send batch of events.
+
+        Returns count of successful sends.
+        """
         pass
 
     @abstractmethod
@@ -394,10 +399,12 @@ class PlatformAdapter(ABC):
 
     @property
     def is_connected(self) -> bool:
+        """Is connected."""
         return self._connected
 
     @property
     def last_error(self) -> str | None:
+        """Last error."""
         return self._last_error
 
 
@@ -711,7 +718,7 @@ class OpenTelemetryAdapter(PlatformAdapter):
         self,
         query: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
-        """OpenTelemetry is push-only, no fetch support."""
+        """Opentelemetry is push-only, no fetch support."""
         logger.warning("OpenTelemetry adapter does not support data fetching")
         return
         yield  # Make this a generator

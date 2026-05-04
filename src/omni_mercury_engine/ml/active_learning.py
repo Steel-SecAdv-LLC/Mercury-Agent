@@ -1,5 +1,6 @@
 """
 Mercury Agent - Active Learning Framework
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -252,8 +253,7 @@ class DiversitySampler(BaseSampler):
     """
     Diversity-based sampling.
 
-    Selects samples that are maximally diverse from each other
-    and from already labeled samples.
+    Selects samples that are maximally diverse from each other and from already labeled samples.
     """
 
     def __init__(
@@ -463,8 +463,8 @@ class QueryByCommitteeSampler(BaseSampler):
     """
     Query by Committee (QBC) sampling.
 
-    Uses an ensemble of models and selects samples with highest
-    disagreement among committee members.
+    Uses an ensemble of models and selects samples with highest disagreement among committee
+    members.
     """
 
     def __init__(

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 
 Domain loader for cross-domain FEMA disaster data from OpenFEMA API.
 
@@ -255,7 +253,8 @@ class FEMALoader(BaseDomainLoader):
         url: str,
         params: dict[str, str],
     ) -> Any:
-        """Fetch JSON from the FEMA OpenFEMA API with OData $-parameters.
+        """
+        Fetch JSON from the FEMA OpenFEMA API with OData $-parameters.
 
         The base ``_fetch_json`` method uses ``urllib.parse.urlencode`` which
         percent-encodes ``$`` as ``%24`` in query keys.  The FEMA OData API
@@ -292,7 +291,8 @@ class FEMALoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """Fetch the most recent disaster declarations from OpenFEMA.
+        """
+        Fetch the most recent disaster declarations from OpenFEMA.
 
         Retrieves the latest page of disaster declaration summaries,
         ordered by declaration date descending, providing a snapshot
@@ -330,7 +330,8 @@ class FEMALoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """Fetch disaster declaration data for a specific ground truth event.
+        """
+        Fetch disaster declaration data for a specific ground truth event.
 
         Uses OData-style filtering to retrieve declarations matching
         the event criteria.  Automatically paginates through results
@@ -407,7 +408,8 @@ class FEMALoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """Return the catalog of ground truth FEMA events.
+        """
+        Return the catalog of ground truth FEMA events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -426,7 +428,8 @@ class FEMALoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray:
-        """Generate binary anomaly labels for a historical FEMA event.
+        """
+        Generate binary anomaly labels for a historical FEMA event.
 
         Labeling strategy: a declaration is labeled *anomalous* (``1``)
         if it is a Major Disaster (declaration type ``DR``) with both
@@ -477,7 +480,8 @@ class FEMALoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
-        """Transform raw FEMA declaration data into a feature matrix.
+        """
+        Transform raw FEMA declaration data into a feature matrix.
 
         Feature selection is based on Cohen's d analysis across events.
         Features with near-zero class separation (d < 0.3), zero
@@ -591,7 +595,8 @@ class FEMALoader(BaseDomainLoader):
     def _records_to_dataframe(
         records: list[dict[str, Any]],
     ) -> pd.DataFrame:
-        """Convert OpenFEMA JSON records to a flat DataFrame.
+        """
+        Convert OpenFEMA JSON records to a flat DataFrame.
 
         Extracts the key fields from each declaration record and
         returns a DataFrame with standardized column names.
@@ -651,7 +656,8 @@ class FEMALoader(BaseDomainLoader):
 
     @staticmethod
     def _bool_column(df: pd.DataFrame, col: str) -> np.ndarray:
-        """Extract a boolean column as a float64 array (1.0 / 0.0).
+        """
+        Extract a boolean column as a float64 array (1.0 / 0.0).
 
         Args:
             df: Source DataFrame.
@@ -668,7 +674,8 @@ class FEMALoader(BaseDomainLoader):
     def _compute_days_since_last_same_state(
         df: pd.DataFrame,
     ) -> np.ndarray:
-        """Compute days since the last declaration in the same state.
+        """
+        Compute days since the last declaration in the same state.
 
         Args:
             df: DataFrame with ``state`` and ``declarationDate`` columns.
@@ -702,7 +709,8 @@ class FEMALoader(BaseDomainLoader):
     def _compute_trailing_counts(
         df: pd.DataFrame,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Compute trailing 12-month declaration counts.
+        """
+        Compute trailing 12-month declaration counts.
 
         Returns two arrays:
         - declarations in the same state over prior 12 months
@@ -752,7 +760,8 @@ class FEMALoader(BaseDomainLoader):
     def _compute_time_between_declarations(
         df: pd.DataFrame,
     ) -> np.ndarray:
-        """Compute seconds between consecutive declarations.
+        """
+        Compute seconds between consecutive declarations.
 
         Used as a temporal feature for anomaly detection: clusters of
         rapid declarations may indicate unusually severe events.

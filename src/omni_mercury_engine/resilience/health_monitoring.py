@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -29,7 +27,7 @@ from typing import Any
 
 @dataclass
 class HealthMetrics:
-    """Health metrics for a component"""
+    """Health metrics for a component."""
 
     cpu_usage: float = 0.0
     memory_usage: float = 0.0
@@ -43,13 +41,13 @@ class HealthMetrics:
 
 
 class HealthMonitor:
-    """Monitor health of components and agents"""
+    """Monitor health of components and agents."""
 
     def __init__(self) -> None:
         self.metrics: dict[str, list[HealthMetrics]] = {}
 
     def record_metrics(self, component_name: str, metrics: HealthMetrics) -> None:
-        """Record health metrics for a component"""
+        """Record health metrics for a component."""
         if component_name not in self.metrics:
             self.metrics[component_name] = []
 
@@ -59,7 +57,7 @@ class HealthMonitor:
             self.metrics[component_name] = self.metrics[component_name][-1000:]
 
     def get_current_health(self, component_name: str) -> dict[str, Any]:
-        """Get current health status of a component"""
+        """Get current health status of a component."""
         if component_name not in self.metrics or not self.metrics[component_name]:
             return {"status": "unknown"}
 
@@ -81,7 +79,7 @@ class HealthMonitor:
         }
 
     def get_ecosystem_health(self) -> dict[str, Any]:
-        """Get overall ecosystem health"""
+        """Get overall ecosystem health."""
         component_health = {name: self.get_current_health(name) for name in self.metrics}
 
         healthy_count = sum(1 for h in component_health.values() if h.get("status") == "healthy")

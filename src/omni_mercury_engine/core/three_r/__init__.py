@@ -1,5 +1,6 @@
 """
 Mercury Agent - 3R Mechanism Package
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 The Three-R (Recursion-Resonance-Refactoring) Mechanism provides a unified

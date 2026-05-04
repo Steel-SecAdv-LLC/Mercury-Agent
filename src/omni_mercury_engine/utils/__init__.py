@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -167,9 +165,7 @@ def compress_information(
     data: np.ndarray[Any, Any],
     compression_level: int = 9,
 ) -> tuple[bytes, dict[str, Any]]:
-    """
-    Extreme data compression inspired by black hole information density
-    """
+    """Extreme data compression inspired by black hole information density."""
     original_shape = data.shape
     original_dtype = str(data.dtype)
     original_size = data.nbytes
@@ -193,9 +189,7 @@ def decompress_information(
     compressed: bytes,
     metadata: dict[str, Any],
 ) -> np.ndarray[Any, Any]:
-    """
-    Decompress data compressed by compress_information
-    """
+    """Decompress data compressed by compress_information."""
     decompressed = zlib.decompress(compressed)
 
     dtype = np.dtype(metadata["dtype"])
@@ -210,9 +204,7 @@ def gravitational_lensing(
     signal: np.ndarray[Any, Any],
     amplification_factor: float = 3.0,
 ) -> np.ndarray[Any, Any]:
-    """
-    Amplify weak signals using gravitational lensing analogy
-    """
+    """Amplify weak signals using gravitational lensing analogy."""
     signal_strength = np.abs(signal)
     median_strength = np.median(signal_strength)
 
@@ -228,9 +220,7 @@ def detect_singularity(
     data: np.ndarray[Any, Any],
     threshold_percentile: float = 99.0,
 ) -> dict[str, Any]:
-    """
-    Detect singularity points (critical decision points) in data
-    """
+    """Detect singularity points (critical decision points) in data."""
     data_flat = data.flatten()
 
     threshold = np.percentile(np.abs(data_flat), threshold_percentile)
@@ -259,9 +249,7 @@ def compute_time_dilation(
     priority_scores: np.ndarray[Any, Any],
     mass_factor: float = 1.0,
 ) -> np.ndarray[Any, Any]:
-    """
-    Compute time dilation factor for priority weighting
-    """
+    """Compute time dilation factor for priority weighting."""
     normalized_scores = priority_scores / (np.max(priority_scores) + 1e-10)
 
     schwarzschild_radius = 2.0 * mass_factor

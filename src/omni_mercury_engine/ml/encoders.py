@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -45,6 +43,7 @@ class StatisticalEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
+
             x: [batch_size, input_dim] - Statistical features
 
         Returns:
@@ -81,6 +80,7 @@ class TemporalEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
+
             x: [batch_size, seq_len, input_dim] - Time series data OR
                [batch_size, input_dim] - Pre-extracted embeddings
 
@@ -136,6 +136,7 @@ class BiometricEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
+
             x: [batch_size, channels, height, width] - Face images OR
                [batch_size, embedding_dim] - Pre-extracted embeddings
 
@@ -154,7 +155,7 @@ class BiometricEncoder(nn.Module):
 
 
 class QuantumEncoder(nn.Module):
-    """Encodes quantum state vectors and observables"""
+    """Encodes quantum state vectors and observables."""
 
     def __init__(self, state_dim: int, output_dim: int = 128) -> None:
         super().__init__()
@@ -174,6 +175,7 @@ class QuantumEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
+
             x: [batch_size, state_dim, 2] - Complex quantum states (real, imag) OR
                [batch_size, state_dim] - Pre-extracted quantum embeddings
 
@@ -208,6 +210,7 @@ class AstrophysicalEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
+
             x: [batch_size, input_dim] - Astrophysical features
 
         Returns:
@@ -245,6 +248,7 @@ class AffectiveEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
+
             x: [batch_size, seq_len, input_dim] - Emotional feature sequences OR
                [batch_size, input_dim] - Pre-extracted embeddings
 

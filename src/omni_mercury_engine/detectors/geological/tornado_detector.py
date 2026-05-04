@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -67,7 +65,7 @@ from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class TornadoIntensity(Enum):
-    """Enhanced Fujita (EF) Scale tornado intensity levels"""
+    """Enhanced Fujita (EF) Scale tornado intensity levels."""
 
     EF0 = "ef0_weak"
     EF1 = "ef1_moderate"
@@ -79,7 +77,7 @@ class TornadoIntensity(Enum):
 
 
 class TornadoThreatLevel(Enum):
-    """Tornado threat assessment levels"""
+    """Tornado threat assessment levels."""
 
     NONE = "none"
     MARGINAL = "marginal"
@@ -91,7 +89,7 @@ class TornadoThreatLevel(Enum):
 
 @dataclass
 class TornadoPredictionResult:
-    """Tornado prediction results"""
+    """Tornado prediction results."""
 
     tornado_likely: bool
     confidence: float
@@ -318,8 +316,8 @@ class ResonancePatternAnalyzer:
     """
     FFT-based resonance pattern analyzer for tornado signatures.
 
-    Implements the Resonance Engine component of 3R for detecting
-    characteristic frequency patterns in atmospheric data.
+    Implements the Resonance Engine component of 3R for detecting characteristic frequency patterns
+    in atmospheric data.
     """
 
     def __init__(self) -> None:
@@ -382,8 +380,8 @@ class RecursiveFeatureExtractor:
     """
     Recursive feature extraction for multi-scale tornado pattern detection.
 
-    Implements the Recursion Engine component of 3R for hierarchical
-    pattern analysis at progressively finer scales.
+    Implements the Recursion Engine component of 3R for hierarchical pattern analysis at
+    progressively finer scales.
     """
 
     def __init__(self, max_depth: int = 4, decay_factor: float = 0.8) -> None:

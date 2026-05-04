@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -66,7 +64,8 @@ logger = logging.getLogger(__name__)
 
 
 class ExternalSourceCategory(Enum):
-    """High-level categories of external data sources.
+    """
+    High-level categories of external data sources.
 
     Note: This enum represents abstract source categories for the cognitive
     anomaly detection module. For specific API data source types, see
@@ -138,8 +137,8 @@ class MemoryKnowledgeGraph:
     """
     Knowledge graph built from accumulated memories.
 
-    Uses memory entries as nodes and relationships as edges
-    to enable pattern discovery and predictive analysis.
+    Uses memory entries as nodes and relationships as edges to enable pattern discovery and
+    predictive analysis.
     """
 
     def __init__(self) -> None:
@@ -324,8 +323,8 @@ class BayesianPredictor:
     """
     Bayesian predictor for anomaly forecasting.
 
-    Uses Beta-Bernoulli conjugate prior for probability estimation
-    based on success/failure histories.
+    Uses Beta-Bernoulli conjugate prior for probability estimation based on success/failure
+    histories.
     """
 
     def __init__(self, prior_alpha: float = 1.0, prior_beta: float = 1.0) -> None:
@@ -402,8 +401,7 @@ class HiddenMarkovPredictor:
     """
     Hidden Markov Model for sequence-based anomaly prediction.
 
-    Lightweight implementation for detecting state transitions
-    that may indicate anomalies.
+    Lightweight implementation for detecting state transitions that may indicate anomalies.
     """
 
     def __init__(self, n_states: int = 3) -> None:
@@ -507,10 +505,11 @@ class ExternalDataSource(ABC):
 
 
 class SimulatedGeologicalSource(ExternalDataSource):
-    """Simulated geological data source (USGS-style) for development/testing.
+    """
+    Simulated geological data source (USGS-style) for development/testing.
 
-    Generates synthetic earthquake data for testing anomaly detection pipelines.
-    In production, implement a real USGS API client that extends ExternalDataSource.
+    Generates synthetic earthquake data for testing anomaly detection pipelines. In production,
+    implement a real USGS API client that extends ExternalDataSource.
     """
 
     def __init__(self) -> None:
@@ -534,14 +533,16 @@ class SimulatedGeologicalSource(ExternalDataSource):
         ]
 
     def get_source_type(self) -> ExternalSourceCategory:
+        """Get source type."""
         return ExternalSourceCategory.GEOLOGICAL
 
 
 class SimulatedEnvironmentalSource(ExternalDataSource):
-    """Simulated environmental data source (NOAA-style) for development/testing.
+    """
+    Simulated environmental data source (NOAA-style) for development/testing.
 
-    Generates synthetic weather and environmental data for testing anomaly detection.
-    In production, implement a real NOAA API client that extends ExternalDataSource.
+    Generates synthetic weather and environmental data for testing anomaly detection. In production,
+    implement a real NOAA API client that extends ExternalDataSource.
     """
 
     def __init__(self) -> None:
@@ -565,6 +566,7 @@ class SimulatedEnvironmentalSource(ExternalDataSource):
         ]
 
     def get_source_type(self) -> ExternalSourceCategory:
+        """Get source type."""
         return ExternalSourceCategory.ENVIRONMENTAL
 
 
@@ -591,7 +593,8 @@ class USGSEarthquakeSource(ExternalDataSource):
         days_back: int = 7,
         timeout_seconds: float = 30.0,
     ) -> None:
-        """Initialize USGS earthquake data source.
+        """
+        Initialize USGS earthquake data source.
 
         Args:
             min_magnitude: Minimum earthquake magnitude to fetch (default 2.5)
@@ -607,7 +610,8 @@ class USGSEarthquakeSource(ExternalDataSource):
         self._client = httpx.Client(timeout=timeout_seconds)
 
     def fetch(self) -> list[ExternalDataPoint]:
-        """Fetch real earthquake data from USGS API.
+        """
+        Fetch real earthquake data from USGS API.
 
         Returns:
             List of ExternalDataPoint objects with earthquake data.
@@ -676,6 +680,7 @@ class USGSEarthquakeSource(ExternalDataSource):
             return []
 
     def get_source_type(self) -> ExternalSourceCategory:
+        """Get source type."""
         return ExternalSourceCategory.GEOLOGICAL
 
     def __del__(self) -> None:
@@ -706,7 +711,8 @@ class NOAAWeatherSource(ExternalDataSource):
         zone: str | None = None,
         timeout_seconds: float = 30.0,
     ) -> None:
-        """Initialize NOAA weather data source.
+        """
+        Initialize NOAA weather data source.
 
         Args:
             state: Two-letter state code to filter alerts (e.g., "CA", "TX")
@@ -726,7 +732,8 @@ class NOAAWeatherSource(ExternalDataSource):
         )
 
     def fetch(self) -> list[ExternalDataPoint]:
-        """Fetch real weather alerts from NOAA API.
+        """
+        Fetch real weather alerts from NOAA API.
 
         Returns:
             List of ExternalDataPoint objects with weather alert data.
@@ -790,6 +797,7 @@ class NOAAWeatherSource(ExternalDataSource):
             return []
 
     def get_source_type(self) -> ExternalSourceCategory:
+        """Get source type."""
         return ExternalSourceCategory.ENVIRONMENTAL
 
     def __del__(self) -> None:
@@ -802,8 +810,7 @@ class ExternalDataIntegrator:
     """
     Integrates external data sources for real-time anomaly detection.
 
-    Manages multiple data sources and aligns external patterns
-    with internal memory patterns.
+    Manages multiple data sources and aligns external patterns with internal memory patterns.
     """
 
     def __init__(self) -> None:
@@ -910,8 +917,7 @@ class ValueExtractor:
     """
     Extract value/opportunities from detected anomalies.
 
-    Identifies benevolent intervention opportunities while
-    filtering through ethical constraints.
+    Identifies benevolent intervention opportunities while filtering through ethical constraints.
     """
 
     def __init__(self, benevolence_threshold: float = 0.99) -> None:
@@ -1020,12 +1026,12 @@ class EnhancedAnomalyDetector:
     """
     Enhanced Anomaly Detector with memory graph and external integration.
 
-    Main interface for Phase 4 capabilities combining internal
-    memory-driven patterns with external data sources.
+    Main interface for Phase 4 capabilities combining internal memory-driven patterns with external
+    data sources.
 
-    The detector supports both real and simulated data sources. By default,
-    simulated sources are registered for development/testing. In production,
-    register real data sources using register_external_source().
+    The detector supports both real and simulated data sources. By default, simulated sources are
+    registered for development/testing. In production, register real data sources using
+    register_external_source().
     """
 
     def __init__(
@@ -1061,10 +1067,11 @@ class EnhancedAnomalyDetector:
         logger.info(f"EnhancedAnomalyDetector initialized in {mode} mode")
 
     def _register_simulated_sources(self) -> None:
-        """Register simulated data sources for development/testing.
+        """
+        Register simulated data sources for development/testing.
 
-        These sources generate synthetic data for testing purposes.
-        In production, use register_external_source() to add real data feeds.
+        These sources generate synthetic data for testing purposes. In production, use
+        register_external_source() to add real data feeds.
         """
         self.external_integrator.register_source(
             "geological_simulated", SimulatedGeologicalSource()
@@ -1074,7 +1081,8 @@ class EnhancedAnomalyDetector:
         )
 
     def register_external_source(self, name: str, source: ExternalDataSource) -> None:
-        """Register a real external data source for production use.
+        """
+        Register a real external data source for production use.
 
         Args:
             name: Unique name for the data source

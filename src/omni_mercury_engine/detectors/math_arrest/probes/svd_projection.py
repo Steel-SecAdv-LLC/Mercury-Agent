@@ -15,11 +15,11 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
 
 
 class SVDProjectionProbe(BaseEquationProbe):
-    """Detect dimensional collapse via rank-1 SVD Hankel reconstruction.
+    """
+    Detect dimensional collapse via rank-1 SVD Hankel reconstruction.
 
-    Builds a Hankel matrix from the time series, computes the SVD,
-    reconstructs using only the first singular component, and measures
-    the reconstruction residual per row.
+    Builds a Hankel matrix from the time series, computes the SVD, reconstructs using only the first
+    singular component, and measures the reconstruction residual per row.
     """
 
     def __init__(self) -> None:

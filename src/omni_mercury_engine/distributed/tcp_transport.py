@@ -90,7 +90,11 @@ def _frame(payload: bytes) -> bytes:
 
 
 async def _read_frame(reader: asyncio.StreamReader) -> bytes | None:
-    """Read one length-prefixed frame.  Returns ``None`` on clean EOF."""
+    """
+    Read one length-prefixed frame.
+
+    Returns ``None`` on clean EOF.
+    """
     if reader.at_eof():
         return None
     try:
@@ -179,10 +183,11 @@ def _deserialize_append_entries_response(body: dict[str, Any]) -> AppendEntriesR
 
 
 def _envelope_bytes(envelope: dict[str, Any]) -> bytes:
-    """Canonical bytes for signing/verifying.
+    """
+    Canonical bytes for signing/verifying.
 
-    Excludes ``signature`` so the field can be set after canonicalisation
-    without affecting the digest.
+    Excludes ``signature`` so the field can be set after canonicalisation without affecting the
+    digest.
     """
     canonical = {k: envelope[k] for k in ("type", "request_id", "from", "to", "body")}
     return json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -194,7 +199,8 @@ def _envelope_bytes(envelope: dict[str, Any]) -> bytes:
 
 
 class TCPMessageTransport(MessageTransport):
-    """Native pure-stdlib TCP transport for Raft consensus.
+    """
+    Native pure-stdlib TCP transport for Raft consensus.
 
     The transport is symmetric — every node both serves a TCP listener
     and connects out to its peers on demand.
@@ -491,8 +497,9 @@ class TCPMessageTransport(MessageTransport):
                 pass
 
     async def _handle_envelope(self, envelope: dict[str, Any]) -> dict[str, Any] | None:
-        """Dispatch an inbound RPC to the registered handler and sign the
-        response envelope before returning it on the same connection."""
+        """Dispatch an inbound RPC to the registered handler and sign the response envelope before
+        returning it on the same connection.
+        """
         msg_type = envelope.get("type")
         if msg_type == "request_vote":
             handler = self._message_handlers.get("request_vote")

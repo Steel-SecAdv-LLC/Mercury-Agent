@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -56,7 +54,8 @@ MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
 
 
 class EthicalConstraintViolationError(RuntimeError):
-    """Raised when a hard ethical constraint is violated and execution must halt.
+    """
+    Raised when a hard ethical constraint is violated and execution must halt.
 
     Unlike the advisory :meth:`BenevolenceScorer.score_action` path (which
     returns ``is_permissible=False`` and leaves enforcement to the caller),
@@ -208,8 +207,7 @@ class HarmReducer:
     """
     Evaluates and minimizes potential harm from actions.
 
-    Uses weighted scoring across harm categories to ensure
-    actions minimize negative impacts.
+    Uses weighted scoring across harm categories to ensure actions minimize negative impacts.
     """
 
     HARM_WEIGHTS = {
@@ -291,8 +289,7 @@ class BenefitMaximizer:
     """
     Evaluates and maximizes potential benefits from actions.
 
-    Uses weighted scoring across benefit categories to ensure
-    actions maximize positive impacts.
+    Uses weighted scoring across benefit categories to ensure actions maximize positive impacts.
     """
 
     BENEFIT_WEIGHTS = {
@@ -582,8 +579,7 @@ class ValuePreserver:
     """
     Value preservation module for maintaining positive outcomes.
 
-    Ensures actions default to positive outcomes and preserve
-    important values.
+    Ensures actions default to positive outcomes and preserve important values.
     """
 
     CORE_VALUES = [
@@ -695,8 +691,8 @@ class BenevolenceScorer:
     """
     Main benevolence scoring engine.
 
-    Combines harm reduction, benefit maximization, equity,
-    empathy, and value preservation into a unified score.
+    Combines harm reduction, benefit maximization, equity, empathy, and value preservation into a
+    unified score.
     """
 
     BENEVOLENCE_THRESHOLD = 0.99
@@ -823,7 +819,8 @@ class BenevolenceScorer:
         action: str,
         context: dict[str, Any],
     ) -> EthicalScore:
-        """Score an action and raise on violation — the *mandatory* gate.
+        """
+        Score an action and raise on violation — the *mandatory* gate.
 
         Unlike :meth:`score_action`, which returns the result regardless of
         permissibility, ``enforce`` raises

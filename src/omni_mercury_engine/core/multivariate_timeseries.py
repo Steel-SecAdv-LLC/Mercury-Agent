@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -38,7 +36,8 @@ class MultivariateTSDetector:
     """Multivariate time-series anomaly detector using LTG architecture."""
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize multivariate TS detector.
+        """
+        Initialize multivariate TS detector.
 
         Args:
             config: Configuration including:
@@ -61,7 +60,8 @@ class MultivariateTSDetector:
         self.std_features: np.ndarray[Any, Any] | None = None
 
     def fit(self, time_series_data: np.ndarray[Any, Any]) -> None:
-        """Fit LTG model on training time-series data.
+        """
+        Fit LTG model on training time-series data.
 
         Args:
             time_series_data: Training data (n_samples, window_size, num_features)
@@ -86,7 +86,8 @@ class MultivariateTSDetector:
         self.trained = True
 
     def predict(self, time_series_data: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Detect anomalies in time-series data.
+        """
+        Detect anomalies in time-series data.
 
         Args:
             time_series_data: Test data (n_samples, window_size, num_features)
@@ -119,7 +120,8 @@ class MultivariateTSDetector:
         }
 
     def _extract_lstm_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Extract long-term dependencies using LSTM (simplified).
+        """
+        Extract long-term dependencies using LSTM (simplified).
 
         In full implementation, would use actual LSTM layers with hidden states.
         """
@@ -127,7 +129,8 @@ class MultivariateTSDetector:
         return result
 
     def _extract_temporal_conv_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Extract short-term patterns using temporal convolution (simplified).
+        """
+        Extract short-term patterns using temporal convolution (simplified).
 
         In full implementation, would use 1D convolution layers with multiple filters.
         """
@@ -135,7 +138,8 @@ class MultivariateTSDetector:
         return result
 
     def _extract_graph_features(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Extract inter-feature dependencies using graph convolution (simplified).
+        """
+        Extract inter-feature dependencies using graph convolution (simplified).
 
         In full implementation, would build dependency graph and apply GCN layers.
         """
@@ -191,7 +195,8 @@ class ChaosMultivariateFusion:
         chaos_config: dict[str, Any] | None = None,
         rng: DeterministicRNG | None = None,
     ):
-        """Initialize fusion detector.
+        """
+        Initialize fusion detector.
 
         Args:
             mvts_config: Configuration for multivariate TS detector

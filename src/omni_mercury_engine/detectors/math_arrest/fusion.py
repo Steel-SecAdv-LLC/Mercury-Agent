@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) Steel Security Advisors LLC
-"""Phi-weighted fusion engine with correlation-aware decorrelation.
+"""
+Phi-weighted fusion engine with correlation-aware decorrelation.
 
-Combines probe scores using golden-ratio-derived weights, modulated by
-probe confidence and optional decorrelation multipliers to prevent
-redundant probe clusters from dominating the ensemble signal.
+Combines probe scores using golden-ratio-derived weights, modulated by probe confidence and optional
+decorrelation multipliers to prevent redundant probe clusters from dominating the ensemble signal.
 """
 
 from __future__ import annotations
@@ -28,13 +28,13 @@ MIN_SAMPLES_FOR_DECORRELATION: int = 50
 
 
 class CorrelationAwareDecorrelator:
-    """Detect redundant probe clusters and reduce their weight contributions.
+    """
+    Detect redundant probe clusters and reduce their weight contributions.
 
-    A 21-probe ensemble with 6 correlated pairs is not a 21-D signal.
-    This class quantifies effective dimensionality and corrects for it
-    by computing pairwise Pearson correlations, identifying connected
-    components of highly-correlated probes via BFS, and reducing
-    weight multipliers for non-dominant members of each cluster.
+    A 21-probe ensemble with 6 correlated pairs is not a 21-D signal. This class quantifies
+    effective dimensionality and corrects for it by computing pairwise Pearson correlations,
+    identifying connected components of highly-correlated probes via BFS, and reducing weight
+    multipliers for non-dominant members of each cluster.
     """
 
     def __init__(self, threshold: float = REDUNDANCY_THRESHOLD) -> None:
@@ -60,10 +60,10 @@ class CorrelationAwareDecorrelator:
 
     @property
     def effective_probe_count(self) -> float:
-        """Sum of all weight multipliers (effective independent dimensions).
+        """
+        Sum of all weight multipliers (effective independent dimensions).
 
-        A fully independent 21-probe ensemble scores 21.0.
-        Returns 0.0 if not calibrated.
+        A fully independent 21-probe ensemble scores 21.0. Returns 0.0 if not calibrated.
         """
         if not self._is_calibrated:
             return 0.0
@@ -75,7 +75,8 @@ class CorrelationAwareDecorrelator:
         probe_names: list[str],
         fit_qualities: dict[str, float],
     ) -> dict[str, float]:
-        """Compute pairwise correlations and set weight multipliers.
+        """
+        Compute pairwise correlations and set weight multipliers.
 
         Args:
             score_matrix: Shape ``(n_samples, n_probes)``.
@@ -200,7 +201,8 @@ class PhiWeightedFusion:
         affinity_order: list[int] | None = None,
         decorrelator: CorrelationAwareDecorrelator | None = None,
     ) -> npt.NDArray[np.float64]:
-        """Fuse probe scores into a single anomaly score per sample.
+        """
+        Fuse probe scores into a single anomaly score per sample.
 
         Args:
             probe_results: Active probe results.

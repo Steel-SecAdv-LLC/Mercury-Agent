@@ -16,10 +16,11 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
 
 
 class FractalSelfSimilarityProbe(BaseEquationProbe):
-    """Detect scale-invariance loss via cross-scale correlation at phi ratio.
+    """
+    Detect scale-invariance loss via cross-scale correlation at phi ratio.
 
-    Compares windowed correlations between the original signal and a
-    version resampled at the golden ratio scale.
+    Compares windowed correlations between the original signal and a version resampled at the golden
+    ratio scale.
     """
 
     def __init__(self) -> None:

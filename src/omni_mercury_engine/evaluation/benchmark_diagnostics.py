@@ -1,5 +1,6 @@
 """
 Mercury Agent - Benchmark Diagnostics Module
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -437,8 +438,7 @@ class BenchmarkDiagnostics:
         threshold: float = 0.5,
         detector_name: str = "Detector",
     ) -> None:
-        """
-        Log a quick diagnostic summary.
+        """Log a quick diagnostic summary.
 
         Args:
             scores: Anomaly scores
@@ -451,14 +451,14 @@ class BenchmarkDiagnostics:
 
         * **INFO** — single structured score-distribution line of the form::
 
-            <detector_name> Score Diagnostics — range=[min, max], mean=mean, \
-threshold=threshold, above_threshold=count/total
+              <detector_name> Score Diagnostics — range=[min, max], mean=mean, \
+              threshold=threshold, above_threshold=count/total
 
         * **INFO** — when ``labels`` is provided, a single structured
           ground-truth line of the form::
 
-            <detector_name> ground-truth: TP=…, FP=…, FN=…, TN=… | \
-Precision=…, Recall=…, F1=…
+              <detector_name> ground-truth: TP=…, FP=…, FN=…, TN=… | \
+              Precision=…, Recall=…, F1=…
 
         * **WARNING** — when ``labels`` is provided AND ``F1 == 0`` AND
           ``threshold > max(scores)``, a single diagnosis line explaining

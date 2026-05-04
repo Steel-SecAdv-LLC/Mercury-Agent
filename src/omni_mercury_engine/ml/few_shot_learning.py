@@ -1,5 +1,6 @@
 """
 Mercury Agent - Few-Shot Learning Framework
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -129,8 +130,7 @@ class EpisodeGenerator:
     """
     Generates few-shot learning episodes from data.
 
-    Supports various sampling strategies and ensures proper
-    train/test separation within episodes.
+    Supports various sampling strategies and ensures proper train/test separation within episodes.
     """
 
     def __init__(
@@ -850,7 +850,8 @@ class MAMLNumpy(BaseFewShotLearner):
         W2: NDArray[np.float64],
         b2: NDArray[np.float64],
     ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        """Forward pass through network.
+        """
+        Forward pass through network.
 
         Returns:
             Tuple of (hidden activations, output logits)
@@ -1083,7 +1084,8 @@ class RelationNetworkNumpy(BaseFewShotLearner):
         query_embed: NDArray[np.float64],
         proto_embed: NDArray[np.float64],
     ) -> NDArray[np.float64]:
-        """Compute relation scores between queries and prototypes.
+        """
+        Compute relation scores between queries and prototypes.
 
         Args:
             query_embed: Query embeddings [n_query, embedding_dim]
@@ -1256,8 +1258,8 @@ class FewShotLearner:
     """
     Unified interface for few-shot learning experiments.
 
-    Supports multiple methods and evaluation protocols including
-    the critical 10/50/100 label experiments.
+    Supports multiple methods and evaluation protocols including the critical 10/50/100 label
+    experiments.
     """
 
     def __init__(

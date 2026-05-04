@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -182,7 +180,8 @@ class MedicalCoordinator:
         }
 
     def get_module(self, module_name: str, **kwargs: Any) -> Any:
-        """Instantiate a specific module by name.
+        """
+        Instantiate a specific module by name.
 
         Args:
             module_name: Name of module from registry
@@ -200,7 +199,8 @@ class MedicalCoordinator:
         return module_class(**kwargs)
 
     def get_modules_by_category(self, category: str) -> list[str]:
-        """Get all module names in a category.
+        """
+        Get all module names in a category.
 
         Args:
             category: 'pandemic', 'critical_care', 'cardiology', 'general'
@@ -211,7 +211,8 @@ class MedicalCoordinator:
         return [name for name, info in self.modules.items() if info["category"] == category]
 
     def get_modules_by_priority(self, priority: str) -> list[str]:
-        """Get all module names with a priority level.
+        """
+        Get all module names with a priority level.
 
         Args:
             priority: 'high', 'medium', 'low'
@@ -227,7 +228,8 @@ class MedicalCoordinator:
         priorities: list[str] | None = None,
         module_names: list[str] | None = None,
     ) -> list[str]:
-        """Filter modules based on multiple criteria.
+        """
+        Filter modules based on multiple criteria.
 
         Args:
             categories: Filter by categories (e.g., ['pandemic', 'critical_care'])
@@ -263,7 +265,8 @@ class MedicalCoordinator:
         module_names: list[str] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Instantiate all modules matching filters.
+        """
+        Instantiate all modules matching filters.
 
         Args:
             categories: Filter by categories
@@ -283,7 +286,8 @@ class MedicalCoordinator:
         return instances
 
     def list_all_modules(self) -> dict[str, dict[str, str]]:
-        """List all available modules with metadata.
+        """
+        List all available modules with metadata.
 
         Returns:
             Dictionary of module metadata

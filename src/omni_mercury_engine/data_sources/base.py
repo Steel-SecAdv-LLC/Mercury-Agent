@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -52,10 +51,11 @@ logger = logging.getLogger(__name__)
 
 
 class DataSourceType(Enum):
-    """Categories of data sources for anomaly detection.
+    """
+    Categories of data sources for anomaly detection.
 
-    Each type represents a distinct domain with specific data characteristics
-    and anomaly patterns relevant to Mercury Agent's multi-domain detection.
+    Each type represents a distinct domain with specific data characteristics and anomaly patterns
+    relevant to Mercury Agent's multi-domain detection.
     """
 
     # Space Weather & Solar Physics
@@ -91,7 +91,8 @@ class DataSourceType(Enum):
 
 
 class AlertLevel(Enum):
-    """Standardized alert severity levels.
+    """
+    Standardized alert severity levels.
 
     Maps to various agency-specific scales:
     - NOAA: G1-G5 (geomagnetic), S1-S5 (solar radiation), R1-R5 (radio blackout)
@@ -135,7 +136,8 @@ class AlertLevel(Enum):
 
 @dataclass
 class DataPoint:
-    """Standardized data container for all data sources.
+    """
+    Standardized data container for all data sources.
 
     All data sources normalize their output to this format to enable
     consistent processing in the anomaly detection pipeline.
@@ -201,7 +203,8 @@ class DataPoint:
         )
 
     def to_feature_vector(self, feature_dim: int = 32) -> np.ndarray:
-        """Convert DataPoint to a feature vector for ML processing.
+        """
+        Convert DataPoint to a feature vector for ML processing.
 
         Creates a numerical representation suitable for fusion network input.
 
@@ -261,7 +264,8 @@ class RateLimitConfig:
 
 @dataclass
 class CacheConfig:
-    """Caching configuration.
+    """
+    Caching configuration.
 
     Attributes:
         enabled: Whether caching is enabled
@@ -276,7 +280,8 @@ class CacheConfig:
 
 @dataclass
 class CircuitBreakerConfig:
-    """Circuit breaker configuration for fault tolerance.
+    """
+    Circuit breaker configuration for fault tolerance.
 
     Integrates with Mercury Agent's centralized circuit breaker pattern
     to prevent cascading failures when external APIs become unavailable.
@@ -302,7 +307,8 @@ class CircuitBreakerConfig:
 
 @dataclass
 class DataSourceConfig:
-    """Configuration for a data source.
+    """
+    Configuration for a data source.
 
     Attributes:
         api_key: API key if required
@@ -331,7 +337,8 @@ class DataSourceConfig:
 
 @dataclass
 class FetchResult:
-    """Result of a data fetch operation.
+    """
+    Result of a data fetch operation.
 
     Attributes:
         success: Whether the fetch succeeded
@@ -403,7 +410,8 @@ class DataSourceBase(ABC):
     DEFAULT_USER_AGENT: str = "MercuryAgent/1.6.0 (steel.sa.llc@gmail.com)"
 
     def __init__(self, config: DataSourceConfig | None = None) -> None:
-        """Initialize data source.
+        """
+        Initialize data source.
 
         Args:
             config: Configuration options. If None, uses defaults.
@@ -498,7 +506,8 @@ class DataSourceBase(ABC):
         endpoint: str,
         params: dict[str, Any] | None = None,
     ) -> httpx.Response:
-        """Make HTTP GET request with resilience patterns.
+        """
+        Make HTTP GET request with resilience patterns.
 
         Includes circuit breaker integration to prevent cascading failures
         when the external API becomes unavailable.
@@ -805,7 +814,8 @@ class DataSourceBase(ABC):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Implementation of data fetching logic.
+        """
+        Implementation of data fetching logic.
 
         Subclasses must implement this method.
 
@@ -826,7 +836,8 @@ class DataSourceBase(ABC):
         use_cache: bool = True,
         **kwargs: Any,
     ) -> FetchResult:
-        """Fetch data from the source.
+        """
+        Fetch data from the source.
 
         Args:
             start_time: Optional start of time range
@@ -888,7 +899,8 @@ class DataSourceBase(ABC):
         use_cache: bool = True,
         **kwargs: Any,
     ) -> FetchResult:
-        """Synchronous version of fetch.
+        """
+        Synchronous version of fetch.
 
         Note: Creates a new event loop if needed (Python 3.10+ compatible).
         """
@@ -965,7 +977,8 @@ class DataSourceBase(ABC):
         await self.close()
 
     async def health_check(self) -> bool:
-        """Perform a health check on the data source.
+        """
+        Perform a health check on the data source.
 
         Returns:
             True if the source is healthy and reachable.
@@ -1022,7 +1035,8 @@ class DataSourceManager:
         source: DataSourceBase,
         enabled: bool = True,
     ) -> None:
-        """Register a data source.
+        """
+        Register a data source.
 
         Args:
             source: Data source instance
@@ -1073,7 +1087,8 @@ class DataSourceManager:
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> FetchResult:
-        """Fetch from a specific source.
+        """
+        Fetch from a specific source.
 
         Args:
             source_id: Source identifier
@@ -1097,7 +1112,8 @@ class DataSourceManager:
         source_types: list[DataSourceType] | None = None,
         **kwargs: Any,
     ) -> dict[str, FetchResult]:
-        """Fetch from all enabled sources concurrently.
+        """
+        Fetch from all enabled sources concurrently.
 
         Args:
             start_time: Optional start time
@@ -1170,7 +1186,8 @@ class DataSourceManager:
         filter_types: list[DataSourceType] | None = None,
         min_confidence: float = 0.0,
     ) -> list[DataPoint]:
-        """Extract and filter data points from fetch results.
+        """
+        Extract and filter data points from fetch results.
 
         Args:
             results: Results from fetch_all

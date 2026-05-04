@@ -1,13 +1,13 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 NOAA Storm Events Database Loader
 
-Bulk CSV files from NCEI, 60+ years of US severe weather events.
-Ground truth labels are inherent: event type, damage amounts, injuries, fatalities.
+Bulk CSV files from NCEI, 60+ years of US severe weather events. Ground truth labels are inherent:
+event type, damage amounts, injuries, fatalities.
 
-Source: https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/
+Source:
+https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/
 License: Public Domain (US Government)
 """
 
@@ -31,7 +31,8 @@ logger = logging.getLogger(__name__)
 
 
 class NOAAStormEventsLoader(DatasetLoader):
-    """NOAA Storm Events Database loader.
+    """
+    NOAA Storm Events Database loader.
 
     Downloads bulk CSV files from NCEI containing severe weather events
     across the US. Each record includes event type, property/crop damage,
@@ -86,7 +87,8 @@ class NOAAStormEventsLoader(DatasetLoader):
         self.year_end = config.preprocessing.get("year_end", current_year)
 
     def download(self) -> bool:
-        """Download storm event detail CSVs from NCEI.
+        """
+        Download storm event detail CSVs from NCEI.
 
         Raises:
             DataSourceUnavailableError: If NCEI is unreachable.
@@ -218,6 +220,7 @@ class NOAAStormEventsLoader(DatasetLoader):
         return data["features"], data["labels"]
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Preprocess."""
         data = np.nan_to_num(data, nan=0.0)
         # Log-transform damage columns
         data[:, 4] = np.log1p(data[:, 4])

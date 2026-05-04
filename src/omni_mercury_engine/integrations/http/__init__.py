@@ -1,6 +1,4 @@
-"""
-HTTP client components with resilience patterns.
-"""
+"""HTTP client components with resilience patterns."""
 
 from __future__ import annotations
 

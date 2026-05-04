@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Standardized transformation from raw loader output to MercuryAnomalyDetector input.
 
@@ -26,7 +25,8 @@ def prepare_for_detector(
     df: pd.DataFrame,
     expected_columns: list[str],
 ) -> np.ndarray[Any, Any]:
-    """Convert loader DataFrame to detector-ready numpy array.
+    """
+    Convert loader DataFrame to detector-ready numpy array.
 
     Args:
         df: Output of loader.engineer_features() wrapped as DataFrame,

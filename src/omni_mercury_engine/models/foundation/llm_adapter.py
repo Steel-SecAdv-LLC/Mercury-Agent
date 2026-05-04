@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -254,7 +252,8 @@ Context:
 
 
 class MockLLMAdapter(BaseLLMAdapter):
-    """Mock LLM adapter — hard-fails at construction.
+    """
+    Mock LLM adapter — hard-fails at construction.
 
     Phase 2 audit cure: silent mock degradation is not permitted in
     production.  Instantiating this class raises ``NotImplementedError``
@@ -268,9 +267,11 @@ class MockLLMAdapter(BaseLLMAdapter):
         )
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:  # pragma: no cover
+        """Generate."""
         raise NotImplementedError
 
     def is_available(self) -> bool:  # pragma: no cover
+        """Is available."""
         return False
 
 
@@ -300,7 +301,8 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def _load_model(self) -> None:
-        """Lazy load the model.
+        """
+        Lazy load the model.
 
         Security Note: For supply chain security (CWE-494), we require revision
         pinning when loading models from HuggingFace Hub. Set config.revision to
@@ -413,8 +415,8 @@ class ZeroShotAnomalyDetector:
     """
     Zero-shot anomaly detector using LLM prompting.
 
-    Provides anomaly detection without training by leveraging
-    LLM's world knowledge and reasoning capabilities.
+    Provides anomaly detection without training by leveraging LLM's world knowledge and reasoning
+    capabilities.
     """
 
     def __init__(
@@ -437,7 +439,8 @@ class ZeroShotAnomalyDetector:
             self.adapter = self._create_adapter()
 
     def _create_adapter(self) -> BaseLLMAdapter:
-        """Create appropriate adapter based on config.
+        """
+        Create appropriate adapter based on config.
 
         Phase 2 audit cure: an unsupported / unimplemented provider must
         not silently fall back to ``MockLLMAdapter`` — that path masked
@@ -542,8 +545,8 @@ class TextLogAnomalyDetector:
     """
     Specialized detector for text and log anomalies.
 
-    Uses LLM understanding of log patterns, error messages,
-    and text semantics for anomaly detection.
+    Uses LLM understanding of log patterns, error messages, and text semantics for anomaly
+    detection.
     """
 
     def __init__(

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -30,10 +28,11 @@ from typing import Any
 
 
 class EmergingTechMonitor:
-    """Emerging technology monitoring and anomaly detection.
+    """
+    Emerging technology monitoring and anomaly detection.
 
-    Monitors 9+ emerging technology categories for novel patterns and
-    future-proofs the engine against unknown technology threats.
+    Monitors 9+ emerging technology categories for novel patterns and future-proofs the engine
+    against unknown technology threats.
     """
 
     def __init__(self) -> None:
@@ -131,7 +130,8 @@ class EmergingTechMonitor:
         }
 
     def detect(self, data: dict[str, Any], category: str, technology: str) -> dict[str, Any]:
-        """Detect anomalies in emerging technology development.
+        """
+        Detect anomalies in emerging technology development.
 
         Args:
             data: Development metrics (patents, publications, funding, incidents)
@@ -184,7 +184,8 @@ class EmergingTechMonitor:
     def explore_technology_scenarios(
         self, technology: str, timeframe_years: int = 10
     ) -> dict[str, Any]:
-        """Explore multiple technology evolution scenarios using multiverse approach.
+        """
+        Explore multiple technology evolution scenarios using multiverse approach.
 
         Args:
             technology: Technology to model (e.g., 'agi', 'quantum_computing')
@@ -231,7 +232,8 @@ class EmergingTechMonitor:
         }
 
     def assess_adaptive_detection_readiness(self, technology: str) -> dict[str, Any]:
-        """Assess readiness to detect anomalies in novel technology.
+        """
+        Assess readiness to detect anomalies in novel technology.
 
         Args:
             technology: Technology to assess (e.g., 'neuromorphic_computing')

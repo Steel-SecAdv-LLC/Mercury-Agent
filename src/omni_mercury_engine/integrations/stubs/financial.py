@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -54,7 +55,8 @@ class MarketStatus(Enum):
 
 @dataclass
 class SecurityPrice:
-    """Security price data.
+    """
+    Security price data.
 
     Attributes:
         symbol: Security symbol/ticker.
@@ -103,7 +105,8 @@ class SecurityPrice:
 
 @dataclass
 class MarketData:
-    """Market-wide data.
+    """
+    Market-wide data.
 
     Attributes:
         index_name: Market index name.
@@ -197,7 +200,8 @@ class FinancialServiceStub:
         latency_ms: tuple[int, int] = (20, 100),
         failure_rate: float = 0.0,
     ):
-        """Initialize financial stub.
+        """
+        Initialize financial stub.
 
         Args:
             seed: Random seed for reproducibility.
@@ -261,7 +265,8 @@ class FinancialServiceStub:
         )
 
     async def get_price(self, symbol: str) -> SecurityPrice:
-        """Get current price for symbol.
+        """
+        Get current price for symbol.
 
         Args:
             symbol: Security symbol.
@@ -281,7 +286,8 @@ class FinancialServiceStub:
         return price
 
     async def get_prices(self, symbols: list[str]) -> dict[str, SecurityPrice]:
-        """Get prices for multiple symbols.
+        """
+        Get prices for multiple symbols.
 
         Args:
             symbols: List of security symbols.
@@ -296,7 +302,8 @@ class FinancialServiceStub:
         return {symbol.upper(): self._generate_price(symbol.upper()) for symbol in symbols}
 
     async def get_market_data(self, index: str = "SPX") -> MarketData:
-        """Get market index data.
+        """
+        Get market index data.
 
         Args:
             index: Index symbol (SPX, DJI, IXIC, etc.).
@@ -352,7 +359,8 @@ class FinancialServiceStub:
         days: int = 30,
         interval: str = "1d",
     ) -> list[HistoricalBar]:
-        """Get historical price data.
+        """
+        Get historical price data.
 
         Args:
             symbol: Security symbol.
@@ -398,7 +406,8 @@ class FinancialServiceStub:
         return bars
 
     async def get_signal(self, symbol: str) -> TradingSignal:
-        """Get trading signal for symbol.
+        """
+        Get trading signal for symbol.
 
         Args:
             symbol: Security symbol.
@@ -432,7 +441,8 @@ class FinancialServiceStub:
         symbol: str,
         threshold: float = 2.0,
     ) -> dict[str, Any]:
-        """Detect price anomalies for symbol.
+        """
+        Detect price anomalies for symbol.
 
         Args:
             symbol: Security symbol.
@@ -512,7 +522,8 @@ class FinancialService:
         timeout: int = 30,
         cache_ttl: int = 60,
     ):
-        """Initialize financial service.
+        """
+        Initialize financial service.
 
         The ``fallback_to_stub`` parameter was removed in the May 2026
         Phase 2 audit cure — silent fallback to stub data is not
@@ -560,7 +571,8 @@ class FinancialService:
         self._cache[symbol] = (price, datetime.now())
 
     async def _fetch_alpha_vantage(self, symbol: str) -> SecurityPrice:
-        """Fetch price from Alpha Vantage API.
+        """
+        Fetch price from Alpha Vantage API.
 
         API Documentation: https://www.alphavantage.co/documentation/
         """
@@ -613,7 +625,8 @@ class FinancialService:
         )
 
     async def _fetch_yahoo_finance(self, symbol: str) -> SecurityPrice:
-        """Fetch price from Yahoo Finance API.
+        """
+        Fetch price from Yahoo Finance API.
 
         Uses the public Yahoo Finance chart API endpoint.
         """
@@ -679,7 +692,8 @@ class FinancialService:
         )
 
     async def get_price(self, symbol: str) -> SecurityPrice:
-        """Get current price for symbol.
+        """
+        Get current price for symbol.
 
         Args:
             symbol: Security symbol/ticker.
@@ -713,7 +727,8 @@ class FinancialService:
         return price
 
     async def get_prices(self, symbols: list[str]) -> dict[str, SecurityPrice]:
-        """Get prices for multiple symbols.
+        """
+        Get prices for multiple symbols.
 
         Args:
             symbols: List of security symbols.
@@ -735,7 +750,8 @@ class FinancialService:
         days: int = 30,
         interval: str = "1d",
     ) -> list[HistoricalBar]:
-        """Get historical price data.
+        """
+        Get historical price data.
 
         Args:
             symbol: Security symbol.

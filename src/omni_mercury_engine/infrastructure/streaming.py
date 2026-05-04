@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -155,10 +153,10 @@ class StreamMessage:
 # =============================================================================
 @dataclass
 class CircuitBreaker:
-    """Circuit breaker for streaming connections.
+    """
+    Circuit breaker for streaming connections.
 
-    Prevents cascade failures by temporarily stopping requests
-    to a failing downstream service.
+    Prevents cascade failures by temporarily stopping requests to a failing downstream service.
     """
 
     name: str
@@ -224,7 +222,8 @@ class StreamProducer(ABC):
         key: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> bool:
-        """Send a message to a topic.
+        """
+        Send a message to a topic.
 
         Args:
             topic: Target topic/stream name
@@ -243,7 +242,8 @@ class StreamProducer(ABC):
         topic: str,
         messages: list[dict[str, Any]],
     ) -> int:
-        """Send multiple messages in a batch.
+        """
+        Send multiple messages in a batch.
 
         Args:
             topic: Target topic/stream name
@@ -275,7 +275,8 @@ class StreamConsumer(ABC):
 
     @abstractmethod
     async def subscribe(self, topics: list[str]) -> None:
-        """Subscribe to one or more topics.
+        """
+        Subscribe to one or more topics.
 
         Args:
             topics: List of topic names to subscribe to
@@ -287,7 +288,8 @@ class StreamConsumer(ABC):
         self,
         timeout_ms: int = 1000,
     ) -> AsyncIterator[StreamMessage]:
-        """Consume messages from subscribed topics.
+        """
+        Consume messages from subscribed topics.
 
         Args:
             timeout_ms: Timeout for polling in milliseconds
@@ -299,7 +301,8 @@ class StreamConsumer(ABC):
 
     @abstractmethod
     async def commit(self, message: StreamMessage) -> None:
-        """Commit offset for a consumed message.
+        """
+        Commit offset for a consumed message.
 
         Args:
             message: The message to commit
@@ -434,7 +437,8 @@ class InMemoryStreamConsumer(StreamConsumer):
 # Kafka Implementation
 # =============================================================================
 class KafkaStreamProducer(StreamProducer):
-    """Kafka producer with production-grade features.
+    """
+    Kafka producer with production-grade features.
 
     Features:
     - Automatic batching and compression
@@ -564,7 +568,8 @@ class KafkaStreamProducer(StreamProducer):
 
 
 class KafkaStreamConsumer(StreamConsumer):
-    """Kafka consumer with production-grade features.
+    """
+    Kafka consumer with production-grade features.
 
     Features:
     - Consumer group rebalancing
@@ -690,7 +695,8 @@ class KafkaStreamConsumer(StreamConsumer):
 # Redis Streams Implementation
 # =============================================================================
 class RedisStreamProducer(StreamProducer):
-    """Redis Streams producer for low-latency streaming.
+    """
+    Redis Streams producer for low-latency streaming.
 
     Features:
     - Sub-millisecond latency
@@ -802,7 +808,8 @@ class RedisStreamProducer(StreamProducer):
 
 
 class RedisStreamConsumer(StreamConsumer):
-    """Redis Streams consumer with consumer groups.
+    """
+    Redis Streams consumer with consumer groups.
 
     Features:
     - Consumer group support for distributed processing
@@ -948,7 +955,8 @@ class StreamProducerFactory:
         config: StreamConfig | None = None,
         **kwargs: Any,
     ) -> StreamProducer:
-        """Create a stream producer for the specified backend.
+        """
+        Create a stream producer for the specified backend.
 
         Args:
             backend: "kafka", "redis", or "memory"
@@ -986,7 +994,8 @@ class StreamConsumerFactory:
         group_id: str = "mercury-agent",
         **kwargs: Any,
     ) -> StreamConsumer:
-        """Create a stream consumer for the specified backend.
+        """
+        Create a stream consumer for the specified backend.
 
         Args:
             backend: "kafka", "redis", or "memory"
@@ -1135,7 +1144,8 @@ class StreamingAnomalyPipeline:
         }
 
     def _default_detector(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Statistical Z-score anomaly detector with adaptive thresholding.
+        """
+        Statistical Z-score anomaly detector with adaptive thresholding.
 
         This default detector performs real-time statistical anomaly detection
         using exponential moving average (EMA) for mean and variance tracking.
@@ -1383,7 +1393,8 @@ class StreamingAnomalyPipeline:
         self._update_throughput_metrics(time.time())
 
     def get_stats(self) -> dict[str, Any]:
-        """Get comprehensive pipeline statistics.
+        """
+        Get comprehensive pipeline statistics.
 
         Returns:
             Dictionary containing:

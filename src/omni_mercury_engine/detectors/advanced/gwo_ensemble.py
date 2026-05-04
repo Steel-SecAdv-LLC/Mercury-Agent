@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 GWO-Enhanced Ensemble Detector
 
@@ -84,8 +83,7 @@ class GreyWolfOptimizer:
     """
     Grey Wolf Optimizer for weight optimization.
 
-    Implements the GWO algorithm with enhancements for
-    anomaly detection ensemble optimization.
+    Implements the GWO algorithm with enhancements for anomaly detection ensemble optimization.
     """
 
     def __init__(

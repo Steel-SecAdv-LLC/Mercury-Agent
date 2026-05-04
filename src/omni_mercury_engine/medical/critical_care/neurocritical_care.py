@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -52,7 +50,7 @@ if TYPE_CHECKING:
 
 
 class StrokeType(Enum):
-    """Stroke classifications"""
+    """Stroke classifications."""
 
     NO_STROKE = "no_stroke"
     ISCHEMIC = "ischemic_stroke"
@@ -62,7 +60,7 @@ class StrokeType(Enum):
 
 
 class SeizureType(Enum):
-    """Seizure classifications per ILAE"""
+    """Seizure classifications per ILAE."""
 
     NO_SEIZURE = "no_seizure"
     FOCAL_AWARE = "focal_aware"
@@ -75,7 +73,7 @@ class SeizureType(Enum):
 
 @dataclass
 class NeurocriticalPredictionResult:
-    """Neurocritical care prediction results"""
+    """Neurocritical care prediction results."""
 
     # Required fields (no defaults) - must come first
     neurological_emergency_detected: bool
@@ -258,7 +256,7 @@ class ICPMonitor:
         }
 
     def _estimate_icp_from_clinicals(self, patient_data: dict[str, Any]) -> float:
-        """Estimate ICP from clinical signs when direct measurement unavailable"""
+        """Estimate ICP from clinical signs when direct measurement unavailable."""
         baseline_icp = 10.0
 
         gcs = patient_data.get("gcs_score", 15)
@@ -280,7 +278,7 @@ class ICPMonitor:
     def _generate_icp_recommendations(
         self, icp: float, cpp: float, elevated: bool, critical: bool
     ) -> list[str]:
-        """Generate ICP management recommendations"""
+        """Generate ICP management recommendations."""
         recs = []
 
         if critical:
@@ -350,7 +348,7 @@ class NIHSSCalculator:
         }
 
     def _interpret_nihss(self, score: int) -> dict[str, Any]:
-        """Interpret NIHSS score"""
+        """Interpret NIHSS score."""
         if score == 0:
             return {
                 "category": "No stroke symptoms",
@@ -403,9 +401,9 @@ class NIHSSCalculator:
 
 
 class NeurocriticalCarePredictor:
-    """
-    Comprehensive neurocritical care prediction system integrating stroke,
-    seizure, ICP monitoring, and TBI assessment.
+    """Comprehensive neurocritical care prediction system integrating stroke, seizure, ICP
+
+    monitoring, and TBI assessment.
     """
 
     def __init__(
@@ -513,7 +511,7 @@ class NeurocriticalCarePredictor:
         return result
 
     def _detect_stroke(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Detect and classify stroke"""
+        """Detect and classify stroke."""
         if self.stroke_detector is None:
             return {
                 "stroke_detected": False,
@@ -553,7 +551,7 @@ class NeurocriticalCarePredictor:
         }
 
     def _predict_seizure(self, sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict seizure occurrence and type"""
+        """Predict seizure occurrence and type."""
         if self.seizure_predictor is None:
             return {
                 "seizure_detected": False,
@@ -593,7 +591,7 @@ class NeurocriticalCarePredictor:
         }
 
     def _assess_tbi(self, tbi_features: dict[str, Any]) -> dict[str, Any]:
-        """Assess traumatic brain injury severity"""
+        """Assess traumatic brain injury severity."""
         gcs = tbi_features.get("gcs_score", 15)
 
         if gcs >= 13:

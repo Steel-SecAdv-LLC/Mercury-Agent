@@ -1,5 +1,6 @@
-"""
+r"""
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -141,16 +142,15 @@ def _banner() -> str:
 
 
 def _relaunch_hardened(argv: Sequence[str]) -> int:
-    """Re-exec this module in a fresh subprocess with a scrubbed env.
+    """
+    Re-exec this module in a fresh subprocess with a scrubbed env.
 
-    User customizations and startup scripts are disabled
-    (``PYTHONNOUSERSITE=1``, no ``PYTHONSTARTUP``). Only a small
-    allow-list of env vars is forwarded. The child process sets a
+    User customizations and startup scripts are disabled (``PYTHONNOUSERSITE=1``, no
+    ``PYTHONSTARTUP``). Only a small allow-list of env vars is forwarded. The child process sets a
     sentinel so it does not re-launch itself.
 
-    The load-bearing isolation here is the *process boundary* -- a
-    malicious pickle that achieves code execution still cannot reach
-    the parent (operator) process state.
+    The load-bearing isolation here is the *process boundary* -- a malicious pickle that achieves
+    code execution still cannot reach the parent (operator) process state.
     """
     import subprocess  # nosec B404
 
@@ -276,6 +276,7 @@ def _do_migration(args: argparse.Namespace) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Main."""
     parser = _build_parser()
     args = parser.parse_args(argv)
 

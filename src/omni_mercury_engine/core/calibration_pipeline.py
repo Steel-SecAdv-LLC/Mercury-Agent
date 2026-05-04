@@ -1,5 +1,6 @@
-"""
+r"""
 Mercury Agent - Threshold Auto-Calibration Pipeline (Phase 5)
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -69,7 +70,8 @@ logger = logging.getLogger(__name__)
 
 
 class ThresholdStatus(Enum):
-    """Calibration status of an individual threshold.
+    """
+    Calibration status of an individual threshold.
 
     Attributes:
         CALIBRATED: Threshold was calibrated against a known dataset.
@@ -83,7 +85,7 @@ class ThresholdStatus(Enum):
 
 
 class CalibrationStrategy(Enum):
-    """Strategy used to select the optimal operating point.
+    r"""Strategy used to select the optimal operating point.
 
     Attributes:
         YOUDEN_J: Maximize Youden's J statistic
@@ -106,7 +108,8 @@ class CalibrationStrategy(Enum):
 
 @dataclass
 class DatasetFingerprint:
-    """SHA-256 fingerprint of a dataset's summary statistics.
+    """
+    SHA-256 fingerprint of a dataset's summary statistics.
 
     The fingerprint is computed as::
 
@@ -148,7 +151,8 @@ class DatasetFingerprint:
 
 @dataclass
 class ThresholdRecord:
-    """A single threshold with full provenance metadata.
+    """
+    A single threshold with full provenance metadata.
 
     Attributes:
         name: Human-readable identifier (e.g. ``"anomaly.default"``).
@@ -187,7 +191,8 @@ class ThresholdRecord:
 
 @dataclass
 class ThresholdResult:
-    """Return type for a single calibration run.
+    """
+    Return type for a single calibration run.
 
     Attributes:
         threshold: Optimal threshold value.
@@ -222,7 +227,7 @@ class ThresholdResult:
 
 @dataclass
 class DriftResult:
-    """Result of a distribution drift detection test.
+    r"""Result of a distribution drift detection test.
 
     Attributes:
         drifted: ``True`` when the new data distribution has shifted
@@ -264,7 +269,8 @@ class DriftResult:
 
 
 def compute_dataset_fingerprint(X: NDArray[np.float64]) -> DatasetFingerprint:
-    """Compute a SHA-256 fingerprint from dataset summary statistics.
+    """
+    Compute a SHA-256 fingerprint from dataset summary statistics.
 
     The fingerprint is deterministic for a given set of summary statistics
     (mean, std, shape, quantiles) and is used to detect whether runtime
@@ -337,7 +343,8 @@ def _histogram_densities(
     b: NDArray[np.float64],
     n_bins: int = 50,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Compute aligned histogram densities for two 1-D arrays.
+    """
+    Compute aligned histogram densities for two 1-D arrays.
 
     Both arrays are binned using the same edges spanning the combined
     range so the resulting PMFs are directly comparable.
@@ -473,7 +480,7 @@ def ks_statistic(
 
 
 class ThresholdCalibrationPipeline:
-    """Threshold auto-calibration pipeline with full provenance tracking.
+    r"""Threshold auto-calibration pipeline with full provenance tracking.
 
     This pipeline manages the lifecycle of every threshold in the Mercury
     Agent system:
@@ -574,11 +581,12 @@ class ThresholdCalibrationPipeline:
     # ------------------------------------------------------------------
 
     def _register_system_defaults(self) -> None:
-        """Populate the registry with the system's default thresholds.
+        """
+        Populate the registry with the system's default thresholds.
 
-        Every threshold from :pymod:`centralized_constants` is registered
-        with ``status=UNCALIBRATED`` to ensure that consumers are aware
-        they have not been calibrated against a real dataset.
+        Every threshold from :pymod:`centralized_constants` is registered with
+        ``status=UNCALIBRATED`` to ensure that consumers are aware they have not been calibrated
+        against a real dataset.
         """
         defaults: list[tuple[str, float]] = [
             # Anomaly detection
@@ -738,7 +746,8 @@ class ThresholdCalibrationPipeline:
         cost_fn: float = 1.0,
         n_candidate_thresholds: int = 500,
     ) -> dict[str, ThresholdResult]:
-        """Recalibrate ALL thresholds in the system from a single dataset.
+        """
+        Recalibrate ALL thresholds in the system from a single dataset.
 
         This sweeps anomaly, ethical, and confidence-band thresholds.
         Each threshold category uses the most appropriate score
@@ -860,7 +869,8 @@ class ThresholdCalibrationPipeline:
         fp: DatasetFingerprint,
         results: dict[str, ThresholdResult],
     ) -> None:
-        """Calibrate confidence band thresholds using score quantiles.
+        """
+        Calibrate confidence band thresholds using score quantiles.
 
         The confidence bands partition the score space into *high*,
         *medium*, *low*, and *minimum actionable* regions.  We compute
@@ -934,7 +944,8 @@ class ThresholdCalibrationPipeline:
         X_new: NDArray[np.float64],
         X_calibration: NDArray[np.float64],
     ) -> DriftResult:
-        """Detect distribution drift between calibration and runtime data.
+        """
+        Detect distribution drift between calibration and runtime data.
 
         Uses two complementary tests:
 
@@ -1023,7 +1034,8 @@ class ThresholdCalibrationPipeline:
     # ------------------------------------------------------------------
 
     def get_threshold_provenance(self) -> dict[str, dict[str, Any]]:
-        """Return provenance metadata for every registered threshold.
+        """
+        Return provenance metadata for every registered threshold.
 
         Returns:
             Dictionary keyed by threshold name.  Each value is a dict
@@ -1047,7 +1059,8 @@ class ThresholdCalibrationPipeline:
         return result
 
     def get_threshold(self, name: str) -> ThresholdRecord | None:
-        """Look up a single threshold by name.
+        """
+        Look up a single threshold by name.
 
         Args:
             name: Registry key (e.g. ``"anomaly.default_threshold"``).
@@ -1066,7 +1079,8 @@ class ThresholdCalibrationPipeline:
         status: ThresholdStatus = ThresholdStatus.UNCALIBRATED,
         strategy: str = "manual",
     ) -> None:
-        """Manually set or override a threshold.
+        """
+        Manually set or override a threshold.
 
         Args:
             name: Registry key.

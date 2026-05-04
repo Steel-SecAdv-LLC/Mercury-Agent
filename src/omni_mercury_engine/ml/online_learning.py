@@ -1,5 +1,6 @@
 """
 Mercury Agent - Online Learning Pipeline
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -343,8 +344,7 @@ class PassiveAggressiveOnlineLearner(OnlineLearner):
     """
     Passive-Aggressive online learner.
 
-    Good for scenarios with concept drift as it aggressively
-    corrects mistakes.
+    Good for scenarios with concept drift as it aggressively corrects mistakes.
     """
 
     def __init__(

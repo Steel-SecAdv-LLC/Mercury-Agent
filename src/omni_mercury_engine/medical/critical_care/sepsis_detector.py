@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -53,7 +51,7 @@ if TYPE_CHECKING:
 
 
 class SepsisStage(Enum):
-    """Sepsis progression stages"""
+    """Sepsis progression stages."""
 
     NO_SEPSIS = "no_sepsis"
     SIRS = "systemic_inflammatory_response"
@@ -64,7 +62,7 @@ class SepsisStage(Enum):
 
 @dataclass
 class SepsisPredictionResult:
-    """Sepsis detection results"""
+    """Sepsis detection results."""
 
     sepsis_detected: bool
     confidence: float
@@ -147,7 +145,7 @@ class SOFACalculator:
         }
 
     def _calculate_respiration(self, data: dict[str, Any]) -> int:
-        """Respiration score based on PaO2/FiO2 ratio"""
+        """Respiration score based on PaO2/FiO2 ratio."""
         pao2_fio2 = data.get("pao2_fio2_ratio")
         vent = data.get("mechanical_ventilation", False)
 
@@ -166,7 +164,7 @@ class SOFACalculator:
             return 4
 
     def _calculate_coagulation(self, data: dict[str, Any]) -> int:
-        """Coagulation score based on platelets"""
+        """Coagulation score based on platelets."""
         platelets = data.get("platelets_k_ul", 200)
 
         if platelets >= 150:
@@ -181,7 +179,7 @@ class SOFACalculator:
             return 4
 
     def _calculate_liver(self, data: dict[str, Any]) -> int:
-        """Liver score based on bilirubin"""
+        """Liver score based on bilirubin."""
         bilirubin = data.get("bilirubin_mg_dl", 1.0)
 
         if bilirubin < 1.2:
@@ -196,7 +194,8 @@ class SOFACalculator:
             return 4
 
     def _calculate_cardiovascular(self, data: dict[str, Any]) -> int:
-        """Cardiovascular score based on MAP and vasopressors.
+        """
+        Cardiovascular score based on MAP and vasopressors.
 
         SOFA cardiovascular scoring:
         0: MAP >= 70, no vasopressors
@@ -229,7 +228,7 @@ class SOFACalculator:
         return 0
 
     def _calculate_cns(self, data: dict[str, Any]) -> int:
-        """CNS score based on Glasgow Coma Scale"""
+        """CNS score based on Glasgow Coma Scale."""
         gcs = data.get("gcs_score", 15)
 
         if gcs == 15:
@@ -244,7 +243,7 @@ class SOFACalculator:
             return 4
 
     def _calculate_renal(self, data: dict[str, Any]) -> int:
-        """Renal score based on creatinine and urine output"""
+        """Renal score based on creatinine and urine output."""
         creatinine = data.get("creatinine_mg_dl", 1.0)
         urine_output = data.get("urine_output_ml_day", 2000)
 
@@ -382,9 +381,9 @@ class SepsisProgressionPredictor(nn.Module):
 
 
 class SepsisDetector:
-    """
-    Comprehensive sepsis detection system integrating SOFA, qSOFA,
-    and temporal progression prediction.
+    """Comprehensive sepsis detection system integrating SOFA, qSOFA, and temporal progression
+
+    prediction.
     """
 
     def __init__(self, enable_ml_prediction: bool = True) -> None:
@@ -467,7 +466,7 @@ class SepsisDetector:
         return result
 
     def _predict_progression(self, temporal_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict sepsis progression using ML model"""
+        """Predict sepsis progression using ML model."""
         if self.progression_predictor is None:
             return {
                 "predicted_stage": "no_sepsis",
@@ -497,7 +496,7 @@ class SepsisDetector:
         }
 
     def _generate_recommendations(self, result: SepsisPredictionResult) -> list[str]:
-        """Generate clinical recommendations based on sepsis assessment"""
+        """Generate clinical recommendations based on sepsis assessment."""
         recs = []
 
         if result.sepsis_stage == "septic_shock":
@@ -527,7 +526,7 @@ class SepsisDetector:
         return recs
 
     def _generate_bundle_checklist(self, result: SepsisPredictionResult) -> list[str]:
-        """Generate Surviving Sepsis Campaign bundle checklist"""
+        """Generate Surviving Sepsis Campaign bundle checklist."""
         bundle = []
 
         if result.sepsis_detected:
@@ -545,7 +544,7 @@ class SepsisDetector:
         return bundle
 
     def _estimate_intervention_window(self, result: SepsisPredictionResult) -> float | None:
-        """Estimate time window for critical interventions"""
+        """Estimate time window for critical interventions."""
         if result.sepsis_stage == "septic_shock":
             return 1.0
         elif result.sepsis_stage in ["sepsis", "severe_sepsis"]:

@@ -1,11 +1,9 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 """
 
 from __future__ import annotations
@@ -90,6 +88,7 @@ class Indicator:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.indicator_id,
             "name": self.name,
@@ -104,7 +103,7 @@ class Indicator:
 
     @property
     def precision(self) -> float:
-        """Calculate indicator precision (PPV)."""
+        """Return the indicator's positive predictive value."""
         total = self.true_positive_count + self.false_positive_count
         return self.true_positive_count / total if total > 0 else 0.5
 
@@ -124,6 +123,7 @@ class Warning:
     resolution: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.warning_id,
             "indicator": self.indicator.name,
@@ -150,6 +150,7 @@ class IntelligenceRequirement:
     answer: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.pir_id,
             "question": self.question,

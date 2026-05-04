@@ -1,5 +1,6 @@
 """
 Mercury Agent - Adaptive Fusion Architecture
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This module provides enhanced fusion capabilities including:
@@ -204,8 +205,8 @@ if TORCH_AVAILABLE:
         """
         Sparse attention mechanism for efficiency with many detectors.
 
-        Implements top-k attention where only the k most relevant
-        detectors contribute to each output.
+        Implements top-k attention where only the k most relevant detectors contribute to each
+        output.
         """
 
         def __init__(
@@ -319,8 +320,8 @@ if TORCH_AVAILABLE:
         """
         Attention with adaptive head count based on input complexity.
 
-        Dynamically adjusts the number of active attention heads based on
-        the complexity of the input (e.g., number of active detectors).
+        Dynamically adjusts the number of active attention heads based on the complexity of the
+        input (e.g., number of active detectors).
         """
 
         def __init__(
@@ -449,8 +450,8 @@ if TORCH_AVAILABLE:
         """
         Uncertainty quantification module for fusion outputs.
 
-        Estimates epistemic (model) and aleatoric (data) uncertainty
-        using Monte Carlo dropout and ensemble disagreement.
+        Estimates epistemic (model) and aleatoric (data) uncertainty using Monte Carlo dropout and
+        ensemble disagreement.
         """
 
         def __init__(

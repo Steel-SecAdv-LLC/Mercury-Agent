@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -56,7 +54,8 @@ class LVLMBackend(ABC):
         max_new_tokens: int = 256,
         temperature: float = 0.1,
     ):
-        """Initialize LVLM backend.
+        """
+        Initialize LVLM backend.
 
         Args:
             model_name: HuggingFace model identifier
@@ -84,7 +83,8 @@ class LVLMBackend(ABC):
         images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
-        """Generate response for visual question.
+        """
+        Generate response for visual question.
 
         Args:
             images: Input images (single image or sequence)
@@ -313,7 +313,8 @@ class LLaVABackend(LVLMBackend):
 
 
 class MockLVLMBackend(LVLMBackend):
-    """Mock LVLM backend — hard-fails at construction.
+    """
+    Mock LVLM backend — hard-fails at construction.
 
     Phase 2 audit cure: silent mock degradation is not permitted in
     production.  Instantiating this class raises ``NotImplementedError``
@@ -321,6 +322,7 @@ class MockLVLMBackend(LVLMBackend):
     """
 
     def initialize(self) -> None:
+        """Initialize."""
         raise NotImplementedError(
             "MockLVLMBackend cannot be used in production. "
             "Configure a real LVLM backend (e.g. Qwen2VL, MiniCPMV, LLaVA)."
@@ -331,6 +333,7 @@ class MockLVLMBackend(LVLMBackend):
         images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
+        """Generate."""
         raise NotImplementedError(
             "MockLVLMBackend cannot be used in production. "
             "Configure a real LVLM backend (e.g. Qwen2VL, MiniCPMV, LLaVA)."
@@ -341,6 +344,7 @@ class MockLVLMBackend(LVLMBackend):
         image: Image.Image | np.ndarray[Any, Any] | torch.Tensor,
         question: str,
     ) -> str:
+        """Vqa."""
         raise NotImplementedError(
             "MockLVLMBackend cannot be used in production. "
             "Configure a real LVLM backend (e.g. Qwen2VL, MiniCPMV, LLaVA)."
@@ -353,7 +357,8 @@ def get_lvlm_backend(
     device: str = "cuda",
     **kwargs: Any,
 ) -> LVLMBackend:
-    """Factory function to get appropriate LVLM backend.
+    """
+    Factory function to get appropriate LVLM backend.
 
     Args:
         model_type: Type of LVLM ('qwen2_vl', 'minicpm_v', 'llava', 'mock')

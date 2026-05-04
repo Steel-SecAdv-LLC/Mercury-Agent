@@ -1,5 +1,6 @@
 """
 Mercury Agent - Score Calibration System
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -59,7 +60,8 @@ class CalibrationMethod(Enum):
 
 @dataclass
 class CalibrationDiagnostics:
-    """Diagnostic information about score distribution and calibration.
+    """
+    Diagnostic information about score distribution and calibration.
 
     This class provides the diagnostic output requested by the user:
     - Score range, mean, std
@@ -232,7 +234,8 @@ class CalibrationResult:
 
 
 class ScoreDiagnostics:
-    """Tools for analyzing and diagnosing score distributions.
+    """
+    Tools for analyzing and diagnosing score distributions.
 
     Use this class to understand why F1=0 when ROC-AUC is good:
     - Are scores clustered below the threshold?
@@ -242,7 +245,8 @@ class ScoreDiagnostics:
 
     @staticmethod
     def _validate_scores(scores: NDArray[np.float64], min_samples: int = 1) -> NDArray[np.float64]:
-        """Validate and clean score array.
+        """
+        Validate and clean score array.
 
         Args:
             scores: Input scores array
@@ -279,7 +283,8 @@ class ScoreDiagnostics:
 
     @staticmethod
     def _validate_labels(labels: NDArray[np.int32] | None) -> NDArray[np.int32] | None:
-        """Validate binary labels array.
+        """
+        Validate binary labels array.
 
         Args:
             labels: Input labels array (optional)
@@ -753,8 +758,8 @@ class AutoThresholdOptimizer:
         """
         Otsu's method for bimodal threshold selection.
 
-        Finds the threshold that maximizes between-class variance,
-        assuming scores come from two distributions (normal vs anomaly).
+        Finds the threshold that maximizes between-class variance, assuming scores come from two
+        distributions (normal vs anomaly).
         """
         score_min = scores.min()
         score_max = scores.max()
@@ -859,8 +864,8 @@ class AutoThresholdOptimizer:
         """
         Knee/elbow detection in sorted scores.
 
-        Finds the point where scores transition from "normal" to "anomalous"
-        by detecting the elbow in the sorted score curve.
+        Finds the point where scores transition from "normal" to "anomalous" by detecting the elbow
+        in the sorted score curve.
         """
         sorted_scores = np.sort(scores)
         n = len(sorted_scores)
@@ -917,8 +922,7 @@ class AutoThresholdOptimizer:
         """
         Adaptive IQR-based threshold.
 
-        Uses the score distribution's IQR to estimate contamination
-        and set threshold accordingly.
+        Uses the score distribution's IQR to estimate contamination and set threshold accordingly.
         """
         q1, q3 = np.percentile(scores, [25, 75])
         iqr = q3 - q1
@@ -968,8 +972,8 @@ class AutoThresholdOptimizer:
         """
         Gaussian Mixture Model based threshold.
 
-        Fits a 2-component GMM and uses the intersection point
-        as the threshold. Fallback to percentile if GMM fails.
+        Fits a 2-component GMM and uses the intersection point as the threshold. Fallback to
+        percentile if GMM fails.
         """
         try:
             from omni_mercury_engine.ml.mercury_ml import GaussianMixture
@@ -1415,7 +1419,8 @@ class ThresholdConfidenceIntervalCalculator:
         contamination: float = 0.05,
         labels: NDArray[np.int32] | None = None,
     ) -> ThresholdConfidenceInterval:
-        """Compute bootstrap confidence interval for threshold.
+        """
+        Compute bootstrap confidence interval for threshold.
 
         Args:
             scores: Anomaly scores array
@@ -1479,7 +1484,8 @@ class ThresholdConfidenceIntervalCalculator:
         contamination: float = 0.05,
         labels: NDArray[np.int32] | None = None,
     ) -> ThresholdConfidenceInterval:
-        """Compute bias-corrected and accelerated (BCa) bootstrap CI.
+        """
+        Compute bias-corrected and accelerated (BCa) bootstrap CI.
 
         BCa intervals are more accurate than percentile intervals,
         especially for skewed distributions or small samples.
@@ -1599,7 +1605,8 @@ class LabelSmoothingCalibrator:
         min_smoothing: float = 0.01,
         max_smoothing: float = 0.3,
     ):
-        """Initialize label smoothing calibrator.
+        """
+        Initialize label smoothing calibrator.
 
         Args:
             smoothing: Base smoothing factor (0-1). 0.1 recommended.
@@ -1620,7 +1627,8 @@ class LabelSmoothingCalibrator:
         labels: NDArray[np.int32],
         class_weights: NDArray[np.float64] | None = None,
     ) -> NDArray[np.float64]:
-        """Apply label smoothing to binary labels.
+        """
+        Apply label smoothing to binary labels.
 
         Args:
             labels: Binary labels array (0 or 1)
@@ -1655,7 +1663,8 @@ class LabelSmoothingCalibrator:
         labels: NDArray[np.int32],
         confidences: NDArray[np.float64],
     ) -> NDArray[np.float64]:
-        """Apply confidence-weighted label smoothing.
+        """
+        Apply confidence-weighted label smoothing.
 
         Higher confidence samples get less smoothing, lower confidence
         samples get more smoothing. This is useful when label quality varies.
@@ -1685,7 +1694,8 @@ class LabelSmoothingCalibrator:
         predictions: NDArray[np.float64],
         temperature: float = 1.0,
     ) -> NDArray[np.float64]:
-        """Get calibration targets using temperature scaling and smoothing.
+        """
+        Get calibration targets using temperature scaling and smoothing.
 
         Combines label smoothing with temperature scaling for optimal calibration.
 

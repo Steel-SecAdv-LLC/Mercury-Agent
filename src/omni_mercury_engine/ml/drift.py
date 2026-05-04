@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -404,8 +402,8 @@ class ChiSquaredDriftDetector:
     """
     Chi-squared test based drift detector for categorical features.
 
-    Uses the chi-squared test of independence to detect changes
-    in the distribution of categorical variables.
+    Uses the chi-squared test of independence to detect changes in the distribution of categorical
+    variables.
     """
 
     def __init__(
@@ -551,9 +549,8 @@ class OnlineDriftDetector:
     """
     Online drift detection with adaptive windowing.
 
-    Implements ADWIN (Adaptive Windowing) inspired online drift detection
-    that maintains a sliding window and detects when the distribution
-    changes significantly.
+    Implements ADWIN (Adaptive Windowing) inspired online drift detection that maintains a sliding
+    window and detects when the distribution changes significantly.
     """
 
     def __init__(
@@ -645,8 +642,8 @@ class EnsembleDriftDetector:
     """
     Ensemble drift detector combining multiple methods.
 
-    Combines KS, PSI, and Chi-squared tests for robust drift detection.
-    Uses majority voting to determine final drift decision.
+    Combines KS, PSI, and Chi-squared tests for robust drift detection. Uses majority voting to
+    determine final drift decision.
     """
 
     def __init__(

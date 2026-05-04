@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 MAAT: Mamba Adaptive Anomaly Transformer (arXiv 2025)
 
@@ -49,7 +48,8 @@ __all__ = [
 
 @dataclass
 class MAATConfig:
-    """Configuration for MAAT model.
+    """
+    Configuration for MAAT model.
 
     Attributes:
         input_dim: Number of input features
@@ -334,8 +334,8 @@ class SelectiveSSM(nn.Module):
         """
         Sequential SSM scan (simplified).
 
-        For efficiency, this uses a parallel-friendly approximation.
-        True sequential scan would require custom CUDA kernels.
+        For efficiency, this uses a parallel-friendly approximation. True sequential scan would
+        require custom CUDA kernels.
         """
         batch_size, seq_len, d_inner = x.shape
 

@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Structured logging module for Mercury Agent.
@@ -98,7 +99,8 @@ class StructuredFormatter(logging.Formatter):
         redact_pii: bool = True,
         extra_fields: dict[str, Any] | None = None,
     ) -> None:
-        """Initialize the structured formatter.
+        """
+        Initialize the structured formatter.
 
         Args:
             include_timestamp: Include ISO 8601 timestamp.
@@ -118,7 +120,8 @@ class StructuredFormatter(logging.Formatter):
             self._hostname = socket.gethostname()
 
     def _redact_value(self, key: str, value: Any) -> Any:
-        """Redact potential PII values.
+        """
+        Redact potential PII values.
 
         Args:
             key: The field key.
@@ -137,7 +140,8 @@ class StructuredFormatter(logging.Formatter):
         return value
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format the log record as JSON.
+        """
+        Format the log record as JSON.
 
         Args:
             record: The log record to format.
@@ -209,7 +213,8 @@ class StructuredFormatter(logging.Formatter):
 
 
 class ColoredFormatter(logging.Formatter):
-    """Colored console formatter for development.
+    """
+    Colored console formatter for development.
 
     This formatter adds ANSI color codes to log output for better
     readability during development.
@@ -228,7 +233,8 @@ class ColoredFormatter(logging.Formatter):
     RESET = "\033[0m"
 
     def __init__(self, fmt: str | None = None, datefmt: str | None = None) -> None:
-        """Initialize the colored formatter.
+        """
+        Initialize the colored formatter.
 
         Args:
             fmt: Log format string.
@@ -237,7 +243,8 @@ class ColoredFormatter(logging.Formatter):
         super().__init__(fmt or DEFAULT_FORMAT, datefmt or DEFAULT_DATE_FORMAT)
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format the log record with colors.
+        """
+        Format the log record with colors.
 
         Args:
             record: The log record to format.
@@ -264,7 +271,8 @@ class PerformanceLogger:
     """
 
     def __init__(self, component: str, logger: logging.Logger | None = None) -> None:
-        """Initialize performance logger.
+        """
+        Initialize performance logger.
 
         Args:
             component: Component name for metric namespacing.
@@ -307,7 +315,8 @@ class PerformanceLogger:
             )
 
     def log_metrics(self) -> dict[str, dict[str, float]]:
-        """Log aggregated metrics.
+        """
+        Log aggregated metrics.
 
         Returns:
             Dictionary of metric statistics.
@@ -339,7 +348,8 @@ class PerformanceLogger:
 
 
 def get_correlation_id() -> str | None:
-    """Get the current correlation ID.
+    """
+    Get the current correlation ID.
 
     Returns:
         Current correlation ID or None if not set.
@@ -348,7 +358,8 @@ def get_correlation_id() -> str | None:
 
 
 def set_correlation_id(correlation_id: str) -> None:
-    """Set the correlation ID for the current context.
+    """
+    Set the correlation ID for the current context.
 
     Args:
         correlation_id: The correlation ID to set.
@@ -414,7 +425,8 @@ def configure_logging(
     redact_pii: bool = True,
     extra_fields: dict[str, Any] | None = None,
 ) -> None:
-    """Configure logging for the application.
+    """
+    Configure logging for the application.
 
     This function sets up the logging system with the specified
     configuration. It should be called once at application startup.
@@ -484,7 +496,8 @@ def configure_logging(
 def log_function_call(
     logger: logging.Logger | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Decorator to log function entry and exit.
+    """
+    Decorator to log function entry and exit.
 
     Args:
         logger: Logger to use. If None, creates one based on function module.
@@ -530,7 +543,8 @@ def log_function_call(
 
 
 class LoggerMixin:
-    """Mixin class that provides automatic logger initialization.
+    """
+    Mixin class that provides automatic logger initialization.
 
     This mixin provides a `logger` property that automatically creates
     a logger named after the class's module. It reduces boilerplate code
@@ -565,7 +579,8 @@ class LoggerMixin:
 
     @property
     def logger(self) -> logging.Logger:
-        """Get or create the logger for this instance.
+        """
+        Get or create the logger for this instance.
 
         Returns:
             Logger instance named after the class's module.
@@ -576,7 +591,8 @@ class LoggerMixin:
 
     @logger.setter
     def logger(self, value: logging.Logger) -> None:
-        """Allow setting a custom logger if needed.
+        """
+        Allow setting a custom logger if needed.
 
         Args:
             value: Custom logger to use instead of auto-created one.

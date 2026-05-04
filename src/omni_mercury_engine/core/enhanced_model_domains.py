@@ -1,5 +1,6 @@
 """
 Mercury Agent - Enhanced Model Domain Components
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -453,8 +454,7 @@ class EnhancedBiometricModel:
         """
         Compute individual fairness score.
 
-        Similar individuals should receive similar predictions regardless
-        of protected attribute.
+        Similar individuals should receive similar predictions regardless of protected attribute.
         """
         if len(predictions) < 2:
             return 1.0

@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 NOAA GSOD — Global Summary of the Day Loader
 
@@ -47,7 +46,8 @@ DEFAULT_STATIONS = [
 
 
 class NOAAGSODLoader(DatasetLoader):
-    """NOAA Global Summary of the Day (GSOD) weather data loader.
+    """
+    NOAA Global Summary of the Day (GSOD) weather data loader.
 
     Downloads daily weather summary CSVs from NCEI for selected stations.
     Each record contains temperature, dew point, pressure, wind speed,
@@ -94,7 +94,8 @@ class NOAAGSODLoader(DatasetLoader):
         self.stations = config.preprocessing.get("stations", DEFAULT_STATIONS)
 
     def download(self) -> bool:
-        """Download GSOD CSVs for configured stations and year.
+        """
+        Download GSOD CSVs for configured stations and year.
 
         Raises:
             DataSourceUnavailableError: If no station data is retrievable.
@@ -208,6 +209,7 @@ class NOAAGSODLoader(DatasetLoader):
         return data["features"], data["labels"]
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Preprocess."""
         data = np.nan_to_num(data, nan=0.0)
         return ((data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)).astype(np.float32)
 

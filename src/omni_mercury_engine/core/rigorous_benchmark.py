@@ -1,15 +1,14 @@
-"""DEPRECATED: This module uses sklearn for anomaly detection baselines.
+"""
+DEPRECATED: This module uses sklearn for anomaly detection baselines.
 
-Mercury's production benchmark is benchmarks/mercury_benchmark.py.
-Mercury's production detector is MercuryAnomalyDetector in
-detectors/statistical.py. This module is retained for reference
-only and will be removed in a future release.
+Mercury's production benchmark is benchmarks/mercury_benchmark.py. Mercury's production detector is
+MercuryAnomalyDetector in detectors/statistical.py. This module is retained for reference only and
+will be removed in a future release.
 
 Do not import this module in production or benchmark code paths.
 
-Original: Rigorous Benchmark Harness.
-Copyright (C) 2025 Steel Security Advisors LLC
-License: GPL-3.0-or-later
+Original: Rigorous Benchmark Harness. Copyright (C) 2025 Steel Security Advisors LLC License:
+GPL-3.0-or-later
 """
 
 from __future__ import annotations
@@ -597,7 +596,8 @@ def run_baseline_benchmarks(
     n_folds: int = 10,
     seed: int = GLOBAL_SEED,
 ) -> dict[str, BenchmarkResult]:
-    """Run Mercury-native benchmarks.
+    """
+    Run Mercury-native benchmarks.
 
     Benchmarks Mercury's own MercuryAnomalyDetector.  Third-party detectors
     (sklearn OneClassSVM, LOF, EllipticEnvelope) are **not** part of

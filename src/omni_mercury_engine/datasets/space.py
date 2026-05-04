@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Space & Astronomical Dataset Loaders: SETI, NASA Exoplanets, Solar Dynamics
 
@@ -243,7 +242,8 @@ class NASAExoplanetLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download real exoplanet data from NASA Archive.
+        """
+        Download real exoplanet data from NASA Archive.
 
         Returns:
             True if download successful, False otherwise.
@@ -322,7 +322,8 @@ class NASAExoplanetLoader(DatasetLoader):
             return False
 
     def _process_tap_data(self, records: list[Any]) -> tuple[np.ndarray, np.ndarray]:
-        """Process TAP query results.
+        """
+        Process TAP query results.
 
         Args:
             records: List of records from TAP query
@@ -480,7 +481,8 @@ class SolarDynamicsLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download real solar data from NOAA SWPC.
+        """
+        Download real solar data from NOAA SWPC.
 
         Returns:
             True if download successful, False otherwise.
@@ -547,7 +549,8 @@ class SolarDynamicsLoader(DatasetLoader):
             return False
 
     def _process_swpc_data(self, data: list[dict[str, Any]]) -> tuple[np.ndarray, np.ndarray]:
-        """Process NOAA SWPC X-ray flux data.
+        """
+        Process NOAA SWPC X-ray flux data.
 
         Args:
             data: List of X-ray flux records

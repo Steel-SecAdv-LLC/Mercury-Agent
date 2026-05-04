@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -73,7 +71,7 @@ FEATURE_DIM = 20
 
 
 class TsunamiSeverity(Enum):
-    """Tsunami severity classification based on wave height"""
+    """Tsunami severity classification based on wave height."""
 
     NONE = "none"
     ADVISORY = "advisory"  # < 0.3m
@@ -95,7 +93,7 @@ class EarthquakeMagnitude(Enum):
 
 
 class MeteorThreatLevel(Enum):
-    """Meteor/asteroid threat classification"""
+    """Meteor/asteroid threat classification."""
 
     NONE = "none"
     MINIMAL = "minimal"
@@ -117,7 +115,7 @@ class SolarFlareClass(Enum):
 
 @dataclass
 class TsunamiPredictionResult:
-    """Tsunami prediction results"""
+    """Tsunami prediction results."""
 
     tsunami_detected: bool
     confidence: float
@@ -138,7 +136,7 @@ class TsunamiPredictionResult:
 
 @dataclass
 class EarthquakePredictionResult:
-    """Earthquake prediction results"""
+    """Earthquake prediction results."""
 
     earthquake_detected: bool
     confidence: float
@@ -162,7 +160,7 @@ class EarthquakePredictionResult:
 
 @dataclass
 class MeteorPredictionResult:
-    """Meteor/asteroid prediction results"""
+    """Meteor/asteroid prediction results."""
 
     meteor_detected: bool
     confidence: float
@@ -184,7 +182,7 @@ class MeteorPredictionResult:
 
 @dataclass
 class SolarFlarePredictionResult:
-    """Solar flare prediction results"""
+    """Solar flare prediction results."""
 
     flare_detected: bool
     confidence: float
@@ -207,10 +205,11 @@ class SolarFlarePredictionResult:
 if TORCH_AVAILABLE:
 
     class WaveformFFTAnalyzer(nn.Module):
-        """FFT-based waveform analyzer for tsunami detection.
+        """
+        FFT-based waveform analyzer for tsunami detection.
 
-        Analyzes oceanic waveform patterns using frequency domain analysis
-        integrated with 3R Resonance mechanism.
+        Analyzes oceanic waveform patterns using frequency domain analysis integrated with 3R
+        Resonance mechanism.
         """
 
         def __init__(self, input_dim: int = 256, hidden_dim: int = 64) -> None:
@@ -243,7 +242,8 @@ if TORCH_AVAILABLE:
             )
 
         def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-            """Forward pass for waveform analysis.
+            """
+            Forward pass for waveform analysis.
 
             Args:
                 x: Waveform tensor [batch, seq_len]
@@ -277,10 +277,10 @@ else:
 if TORCH_AVAILABLE:
 
     class SeismicWaveAnalyzer(nn.Module):
-        """P/S-wave spectrogram analyzer for earthquake detection.
+        """
+        P/S-wave spectrogram analyzer for earthquake detection.
 
-        Uses scipy.signal for spectrogram computation and neural network
-        for classification.
+        Uses scipy.signal for spectrogram computation and neural network for classification.
         """
 
         def __init__(self, n_freq_bins: int = 64, hidden_dim: int = 128) -> None:
@@ -331,7 +331,8 @@ if TORCH_AVAILABLE:
         def forward(
             self, spectrogram: torch.Tensor
         ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-            """Forward pass for seismic analysis.
+            """
+            Forward pass for seismic analysis.
 
             Args:
                 spectrogram: Spectrogram tensor [batch, 1, freq, time]
@@ -386,7 +387,8 @@ class BayesianMeteorFilter:
         radar_detection: bool,
         prior: float | None = None,
     ) -> float:
-        """Update posterior probability using Bayes' theorem.
+        """
+        Update posterior probability using Bayes' theorem.
 
         Args:
             optical_detection: Whether optical sensor detected object
@@ -450,7 +452,8 @@ class GeomagneticHMM:
         self.current_state = 0
 
     def predict_next_state(self, current_state: int | None = None) -> tuple[int, float]:
-        """Predict most likely next state.
+        """
+        Predict most likely next state.
 
         Args:
             current_state: Current state index (uses internal if None)
@@ -464,7 +467,8 @@ class GeomagneticHMM:
         return predicted_state, probs[predicted_state]
 
     def update_state(self, x_ray_flux: float) -> int:
-        """Update state based on observed X-ray flux.
+        """
+        Update state based on observed X-ray flux.
 
         Args:
             x_ray_flux: Observed X-ray flux in W/m^2
@@ -484,7 +488,8 @@ class GeomagneticHMM:
         return self.current_state
 
     def get_storm_probability(self, state: int | None = None) -> float:
-        """Get probability of geomagnetic storm given current state.
+        """
+        Get probability of geomagnetic storm given current state.
 
         Args:
             state: State index (uses current if None)
@@ -498,10 +503,11 @@ class GeomagneticHMM:
 
 
 class TsunamiDetector:
-    """Tsunami detector using oceanic waveform FFT analysis.
+    """
+    Tsunami detector using oceanic waveform FFT analysis.
 
-    Integrates with 3R Resonance mechanism for frequency-domain
-    anomaly detection in oceanic sensor data.
+    Integrates with 3R Resonance mechanism for frequency-domain anomaly detection in oceanic sensor
+    data.
     """
 
     def __init__(
@@ -527,7 +533,8 @@ class TsunamiDetector:
         waveform_data: np.ndarray[Any, Any] | torch.Tensor,
         source_info: dict[str, Any] | None = None,
     ) -> TsunamiPredictionResult:
-        """Predict tsunami from oceanic waveform data.
+        """
+        Predict tsunami from oceanic waveform data.
 
         Args:
             waveform_data: Sea level or pressure waveform [seq_len] or [batch, seq_len]
@@ -646,7 +653,8 @@ class TsunamiDetector:
     def extract_features(
         self, waveform_data: np.ndarray[Any, Any] | torch.Tensor
     ) -> np.ndarray[Any, Any]:
-        """Extract features for fusion pipeline.
+        """
+        Extract features for fusion pipeline.
 
         Args:
             waveform_data: Waveform data
@@ -681,10 +689,11 @@ class TsunamiDetector:
 
 
 class EarthquakeDetector:
-    """Earthquake detector using P/S-wave spectrogram analysis.
+    """
+    Earthquake detector using P/S-wave spectrogram analysis.
 
-    Uses scipy.signal for spectrogram computation and integrates
-    with 3R Resonance for frequency-domain analysis.
+    Uses scipy.signal for spectrogram computation and integrates with 3R Resonance for frequency-
+    domain analysis.
     """
 
     def __init__(
@@ -711,7 +720,8 @@ class EarthquakeDetector:
         seismic_data: np.ndarray[Any, Any] | torch.Tensor,
         station_info: dict[str, Any] | None = None,
     ) -> EarthquakePredictionResult:
-        """Predict earthquake from seismic waveform data.
+        """
+        Predict earthquake from seismic waveform data.
 
         Args:
             seismic_data: Seismic waveform [seq_len] or [batch, seq_len]
@@ -915,7 +925,8 @@ class EarthquakeDetector:
 
 
 class MeteorDetector:
-    """Meteor detector using optical/radar Bayesian filter with NASA CNEOS integration.
+    """
+    Meteor detector using optical/radar Bayesian filter with NASA CNEOS integration.
 
     Combines optical and radar observations with Bayesian inference
     for meteor/asteroid detection and trajectory estimation.
@@ -933,7 +944,8 @@ class MeteorDetector:
         prior_probability: float = 1e-6,
         use_nasa_data: bool = True,
     ):
-        """Initialize MeteorDetector.
+        """
+        Initialize MeteorDetector.
 
         Args:
             detection_threshold: Confidence threshold for meteor detection (0-1)
@@ -977,7 +989,8 @@ class MeteorDetector:
         self._cache_timestamp = now
 
     def get_recent_fireballs(self, days: int = 7) -> list[Any]:
-        """Get recent fireball events from NASA CNEOS.
+        """
+        Get recent fireball events from NASA CNEOS.
 
         Args:
             days: Number of days back to look
@@ -997,7 +1010,8 @@ class MeteorDetector:
         return [fb for fb in self._fireball_cache if fb.date >= cutoff]
 
     def get_upcoming_close_approaches(self) -> list[Any]:
-        """Get upcoming near-Earth object close approaches.
+        """
+        Get upcoming near-Earth object close approaches.
 
         Returns:
             List of CloseApproachEvent objects
@@ -1009,7 +1023,8 @@ class MeteorDetector:
         return self._close_approach_cache or []
 
     def get_impact_risks(self) -> list[Any]:
-        """Get current impact risk assessments from NASA Sentry.
+        """
+        Get current impact risk assessments from NASA Sentry.
 
         Returns:
             List of SentryImpactRisk objects sorted by Palermo scale
@@ -1031,7 +1046,8 @@ class MeteorDetector:
         radar_data: np.ndarray[Any, Any] | None = None,
         noaa_stub: dict[str, Any] | None = None,
     ) -> MeteorPredictionResult:
-        """Predict meteor from optical and radar data with NASA CNEOS integration.
+        """
+        Predict meteor from optical and radar data with NASA CNEOS integration.
 
         This method combines local sensor data with real-time NASA CNEOS data
         for comprehensive meteor/NEO detection.
@@ -1271,10 +1287,11 @@ class MeteorDetector:
 
 
 class SolarFlareDetector:
-    """Solar flare detector using X-ray flux and geomagnetic HMM.
+    """
+    Solar flare detector using X-ray flux and geomagnetic HMM.
 
-    Predicts solar flares and geomagnetic storms using Hidden Markov
-    Model for state transitions and X-ray flux analysis.
+    Predicts solar flares and geomagnetic storms using Hidden Markov Model for state transitions and
+    X-ray flux analysis.
     """
 
     def __init__(
@@ -1282,7 +1299,8 @@ class SolarFlareDetector:
         detection_threshold: float = 0.7,
         proton_flux_agg_method: str = "max",
     ):
-        """Initialize SolarFlareDetector.
+        """
+        Initialize SolarFlareDetector.
 
         Args:
             detection_threshold: Confidence threshold for flare detection (0-1)
@@ -1322,7 +1340,8 @@ class SolarFlareDetector:
         proton_flux: float | None = None,
         magnetometer_data: np.ndarray[Any, Any] | None = None,
     ) -> SolarFlarePredictionResult:
-        """Predict solar flare from X-ray and proton flux data.
+        """
+        Predict solar flare from X-ray and proton flux data.
 
         Args:
             x_ray_flux: X-ray flux in W/m^2 (scalar or time series)
@@ -1372,7 +1391,8 @@ class SolarFlareDetector:
         )
 
     def _aggregate_proton_flux(self, proton_flux: float | np.ndarray[Any, Any] | None) -> float:
-        """Aggregate proton flux using configured method.
+        """
+        Aggregate proton flux using configured method.
 
         For time-series threats like solar flares, peak detection (max) is
         recommended as it captures the most dangerous flux levels. Mean is
@@ -1514,7 +1534,8 @@ def generate_synthetic_tsunami_data(
     seq_len: int = 256,
     rng: np.random.Generator | None = None,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-    """Generate synthetic tsunami waveform data for training.
+    """
+    Generate synthetic tsunami waveform data for training.
 
     Creates realistic oceanic waveform patterns:
     - Normal waves: Sinusoidal with noise
@@ -1570,7 +1591,8 @@ def generate_synthetic_earthquake_data(
     n_time_bins: int = 64,
     rng: np.random.Generator | None = None,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-    """Generate synthetic earthquake spectrogram data for training.
+    """
+    Generate synthetic earthquake spectrogram data for training.
 
     Creates realistic seismic spectrograms:
     - Normal: Background seismic noise
@@ -1657,7 +1679,8 @@ def load_dart_buoy_data(
     days_back: int = 30,
     seq_len: int = 256,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]] | None:
-    """Load real tsunami waveform data from NOAA DART buoy network.
+    """
+    Load real tsunami waveform data from NOAA DART buoy network.
 
     DART (Deep-ocean Assessment and Reporting of Tsunamis) buoys provide
     real-time sea level measurements for tsunami detection.
@@ -1746,7 +1769,8 @@ def load_noaa_tsunami_records(
     min_year: int = 2000,
     max_records: int = 1000,
 ) -> list[dict[str, Any]] | None:
-    """Load historical tsunami event records from NOAA NGDC.
+    """
+    Load historical tsunami event records from NOAA NGDC.
 
     Data source: NOAA National Centers for Environmental Information
     https://www.ngdc.noaa.gov/hazel/view/hazards/tsunami/event-search
@@ -1793,7 +1817,8 @@ def load_usgs_earthquake_catalog(
     n_freq_bins: int = 64,
     n_time_bins: int = 64,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]] | None:
-    """Load earthquake data from USGS Earthquake Catalog API.
+    """
+    Load earthquake data from USGS Earthquake Catalog API.
 
     Converts earthquake metadata into synthetic spectrograms based on
     magnitude, depth, and location for training seismic analyzers.
@@ -1900,7 +1925,8 @@ def load_usgs_earthquake_catalog(
 
 @dataclass
 class FireballEvent:
-    """NASA CNEOS Fireball event data.
+    """
+    NASA CNEOS Fireball event data.
 
     Represents a bolide (fireball) detected by US Government sensors.
     Data source: NASA JPL Center for Near Earth Object Studies (CNEOS)
@@ -1933,7 +1959,8 @@ class FireballEvent:
 
 @dataclass
 class CloseApproachEvent:
-    """NASA CNEOS Close Approach event data.
+    """
+    NASA CNEOS Close Approach event data.
 
     Represents a near-Earth object (NEO) close approach event.
     Data source: NASA JPL CNEOS Close Approach Data API
@@ -1951,7 +1978,8 @@ class CloseApproachEvent:
 
 @dataclass
 class SentryImpactRisk:
-    """NASA Sentry impact monitoring data.
+    """
+    NASA Sentry impact monitoring data.
 
     Represents a potential future Earth impact event monitored by Sentry.
     Data source: NASA JPL Sentry Impact Monitoring System
@@ -1971,7 +1999,8 @@ def load_nasa_fireball_data(
     days_back: int = 365,
     min_energy_kt: float = 0.0,
 ) -> list[FireballEvent] | None:
-    """Load fireball/bolide data from NASA CNEOS Fireball API.
+    """
+    Load fireball/bolide data from NASA CNEOS Fireball API.
 
     Data source: NASA JPL Center for Near Earth Object Studies (CNEOS)
     https://ssd-api.jpl.nasa.gov/doc/fireball.html
@@ -2169,7 +2198,8 @@ def load_nasa_close_approach_data(
 
 
 def load_nasa_sentry_data() -> list[SentryImpactRisk] | None:
-    """Load potential impact data from NASA Sentry Impact Monitoring API.
+    """
+    Load potential impact data from NASA Sentry Impact Monitoring API.
 
     Data source: NASA JPL Sentry Impact Monitoring System
     https://ssd-api.jpl.nasa.gov/doc/sentry.html
@@ -2252,7 +2282,8 @@ def train_waveform_analyzer(
     device: str = "cpu",
     use_real_data: bool = True,
 ) -> dict[str, list[float]]:
-    """Train WaveformFFTAnalyzer on tsunami data.
+    """
+    Train WaveformFFTAnalyzer on tsunami data.
 
     Attempts to load real-world data from NOAA DART buoy network first,
     falling back to synthetic data if the API is unavailable.
@@ -2374,7 +2405,8 @@ def train_seismic_analyzer(
     device: str = "cpu",
     use_real_data: bool = True,
 ) -> dict[str, list[float]]:
-    """Train SeismicWaveAnalyzer on earthquake data.
+    """
+    Train SeismicWaveAnalyzer on earthquake data.
 
     Attempts to load real-world data from USGS Earthquake Catalog first,
     falling back to synthetic data if the API is unavailable.
@@ -2491,7 +2523,8 @@ def train_all_disaster_networks(
     device: str = "cpu",
     n_epochs: int = 10,
 ) -> dict[str, dict[str, list[float]]]:
-    """Train all disaster detection neural networks on synthetic data.
+    """
+    Train all disaster detection neural networks on synthetic data.
 
     This function initializes and trains:
     - WaveformFFTAnalyzer for tsunami detection

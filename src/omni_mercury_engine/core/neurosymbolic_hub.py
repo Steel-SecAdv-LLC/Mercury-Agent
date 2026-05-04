@@ -1,5 +1,6 @@
 """
 Mercury Agent - Enhanced Neuro-Symbolic Hub
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -728,7 +729,8 @@ class NeuroSymbolicHub:
             self.knowledge_graph.add_rule(rule)
 
     def _initialize_domain_rules(self, domain: str) -> None:
-        """Initialize domain-specific symbolic rules.
+        """
+        Initialize domain-specific symbolic rules.
 
         Args:
             domain: Domain name ('medical', 'financial', 'infrastructure')

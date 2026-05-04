@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -46,7 +44,8 @@ if TYPE_CHECKING:
 def _validate_tensor_devices(
     tensors: dict[str, torch.Tensor], context: str = "tensors"
 ) -> tuple[torch.device, torch.dtype]:
-    """Validate all tensors share the same device and dtype.
+    """
+    Validate all tensors share the same device and dtype.
 
     Args:
         tensors: Dictionary of named tensors to validate.
@@ -220,10 +219,11 @@ if TORCH_AVAILABLE:
             detector_embeddings: torch.Tensor,
             return_attention: bool = False,
         ) -> tuple[torch.Tensor, torch.Tensor]:
-            """Apply hierarchical coarse-to-fine attention.
+            """
+            Apply hierarchical coarse-to-fine attention.
 
-            First applies coarse attention to capture global patterns,
-            then fine attention for detailed pattern matching.
+            First applies coarse attention to capture global patterns, then fine attention for
+            detailed pattern matching.
             """
             coarse_output, coarse_weights = self.coarse_attention(
                 detector_embeddings,
@@ -702,6 +702,7 @@ if TORCH_AVAILABLE:
         ) -> dict[str, torch.Tensor]:
             """
             Extract and normalize features from all detectors.
+
             Explicitly named method for feature extraction phase.
             """
             extracted = {}
@@ -719,6 +720,7 @@ if TORCH_AVAILABLE:
         def early_fusion_forward(self, detector_features: dict[str, torch.Tensor]) -> torch.Tensor:
             """
             Early fusion: concatenate normalized features → MLP.
+
             Explicitly named method for early fusion phase.
             """
             projected_features = []
@@ -738,6 +740,7 @@ if TORCH_AVAILABLE:
         def late_fusion_forward(self, detector_scores: dict[str, torch.Tensor]) -> torch.Tensor:
             """
             Late fusion: weighted average of detector scores.
+
             Explicitly named method for late fusion phase.
             """
             batch_size = next(iter(detector_scores.values())).shape[0]
@@ -760,6 +763,7 @@ if TORCH_AVAILABLE:
         ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
             """
             Hybrid detection: combine early + late fusion with attention.
+
             Explicitly named method for complete hybrid fusion pipeline.
             """
             early_output = self.early_fusion_forward(detector_features)
@@ -792,6 +796,7 @@ if TORCH_AVAILABLE:
     class EarlyFusionEncoder(nn.Module):
         """
         Explicitly named early fusion encoder.
+
         Concatenates and encodes features from multiple detectors.
         """
 
@@ -806,6 +811,7 @@ if TORCH_AVAILABLE:
             )
 
         def forward(self, concatenated_features: torch.Tensor) -> torch.Tensor:
+            """Forward."""
             result: torch.Tensor = self.encoder(concatenated_features)
             return result
 
@@ -1096,8 +1102,8 @@ class DoubleHelixEvolutionEngine:
         """
         Helix_1 Discovery Strand: Quantum/chaos/exploration terms.
 
-        Forward strand with exploration/discovery focus.
-        Includes all quantum, chaos, and computational terms.
+        Forward strand with exploration/discovery focus. Includes all quantum, chaos, and
+        computational terms.
         """
         strand = state.copy()
 
@@ -1155,8 +1161,8 @@ class DoubleHelixEvolutionEngine:
         """
         Helix_2 Ethical Verification Strand: Purity/benevolence terms.
 
-        Backward/verification strand with ethical focus.
-        Includes ethical refinement, Light/Love, immutable purity, and boundedness.
+        Backward/verification strand with ethical focus. Includes ethical refinement, Light/Love,
+        immutable purity, and boundedness.
         """
         strand = self.np.zeros_like(state)
 
@@ -1327,7 +1333,8 @@ class DoubleHelixEvolutionEngine:
         return energy_gradient * 0.05
 
     def _term_V(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """𝐕: Vibration harmonics with adaptive filtering.
+        """
+        𝐕: Vibration harmonics with adaptive filtering.
 
         When enable_adaptive_filtering is True, uses advanced filtering methods:
         - Wavelet denoising for non-stationary signals (seismic, medical vitals)
@@ -1476,8 +1483,8 @@ class DoubleHelixEvolutionEngine:
         """
         Ω: Asymptotic horizons for long-term forecasting.
 
-        Computes lim_{k→∞} ∑ (1/k) * Φ^k(𝔄_t) truncated to k=100.
-        Uses fractal Φ iteratively for long-horizon prescience.
+        Computes lim_{k→∞} ∑ (1/k) * Φ^k(𝔄_t) truncated to k=100. Uses fractal Φ iteratively for
+        long-horizon prescience.
         """
         k_max = 100
         accumulator = self.np.zeros_like(state)

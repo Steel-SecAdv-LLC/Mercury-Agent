@@ -1,5 +1,6 @@
 """
 Mercury Agent - Centralized Constants and Magic Numbers
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Consolidates magic numbers, thresholds, and configuration constants
@@ -244,7 +245,8 @@ def sigmoid_benevolence_gate(
 
 @dataclass(frozen=True)
 class DomainHarmonicConstants:
-    """Domain-specific fundamental frequencies for harmonic analysis.
+    """
+    Domain-specific fundamental frequencies for harmonic analysis.
 
     Replaces the universal Schumann resonance (7.83 Hz) with
     domain-appropriate frequencies. For domains with unknown
@@ -269,7 +271,8 @@ DOMAIN_HARMONICS = DomainHarmonicConstants()
 
 
 def get_domain_fundamentals(domain: str) -> tuple[float, ...] | None:
-    """Get fundamental frequencies for a domain.
+    """
+    Get fundamental frequencies for a domain.
 
     Args:
         domain: Domain name.
@@ -298,7 +301,8 @@ def get_domain_fundamentals(domain: str) -> tuple[float, ...] | None:
 
 @dataclass(frozen=True)
 class RecursionConvergenceConstants:
-    """Convergence bounds for recursive computations.
+    """
+    Convergence bounds for recursive computations.
 
     Implements Banach contraction mapping constraints:
         d(R(x), R(y)) ≤ α · d(x, y) with α < 1

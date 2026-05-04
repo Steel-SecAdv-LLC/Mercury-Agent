@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -110,11 +108,10 @@ class TruthDecipherResult:
 
 class TruthDecipherFramework(LoggerMixin):
     """
-    Unified orchestrator for anomaly discovery, identification,
-    ethical evaluation, and resolution.
+    Unified orchestrator for anomaly discovery, identification, ethical evaluation, and resolution.
 
-    Implements a 4-phase pipeline that ensures all anomaly handling
-    follows ethical guidelines and leverages adaptive self-healing.
+    Implements a 4-phase pipeline that ensures all anomaly handling follows ethical guidelines and
+    leverages adaptive self-healing.
     """
 
     def __init__(
@@ -171,8 +168,9 @@ class TruthDecipherFramework(LoggerMixin):
         context: dict[str, Any] | None = None,
     ) -> TruthDecipherResult:
         """
-        Main orchestrator: Run all 5 phases to discover, analyze,
-        identify, ethically evaluate, and resolve anomalies.
+        Main orchestrator: Run all 5 phases to discover, analyze, identify, ethically evaluate, and
+
+        resolve anomalies.
 
         Enhanced with cognitive layer for:
         - Uncertainty quantification (epistemic vs aleatoric)
@@ -281,6 +279,7 @@ class TruthDecipherFramework(LoggerMixin):
     ) -> dict[str, Any]:
         """
         Phase 1: Discovery - Detect anomalies using OmniMercuryEngine
+
         and discover novel classes.
 
         Args:
@@ -366,6 +365,7 @@ class TruthDecipherFramework(LoggerMixin):
     ) -> EthicsResult:
         """
         Phase 3: Ethical Course Determination - Evaluate proposed actions
+
         against 8 ethical principles.
 
         Args:
@@ -408,6 +408,7 @@ class TruthDecipherFramework(LoggerMixin):
     ) -> dict[str, Any]:
         """
         Phase 4: Resolution - Apply automated fixes using ThreeRMechanism,
+
         AgenticAutonomy, and CRISPRInspiredSelfHealing.
 
         Args:

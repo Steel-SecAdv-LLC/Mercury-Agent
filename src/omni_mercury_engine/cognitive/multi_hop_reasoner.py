@@ -1,11 +1,9 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 """
 
 from __future__ import annotations
@@ -70,6 +68,7 @@ class Proposition:
     timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.prop_id,
             "content": self.content,
@@ -92,6 +91,7 @@ class InferenceRule:
     explanation_template: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.rule_id,
             "premises": self.premises,
@@ -128,6 +128,7 @@ class ReasoningChain:
     computation_time_ms: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.chain_id,
             "type": self.reasoning_type.value,

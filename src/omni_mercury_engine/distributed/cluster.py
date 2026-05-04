@@ -1,8 +1,8 @@
 """
 Distributed Processing Cluster for Mercury Agent.
 
-Provides multi-node anomaly detection with automatic workload distribution,
-fault tolerance, and horizontal scaling capabilities.
+Provides multi-node anomaly detection with automatic workload distribution, fault tolerance, and
+horizontal scaling capabilities.
 """
 
 from __future__ import annotations
@@ -134,8 +134,8 @@ class WorkStealingScheduler:
     """
     Work-stealing scheduler for load balancing.
 
-    Implements a distributed scheduling algorithm where idle workers
-    can "steal" tasks from busy workers' queues.
+    Implements a distributed scheduling algorithm where idle workers can "steal" tasks from busy
+    workers' queues.
     """
 
     def __init__(
@@ -158,6 +158,7 @@ class WorkStealingScheduler:
 
     async def submit(self, task: DistributedTask) -> None:
         """Submit a task to the local queue."""
+
         async with self._lock:
             task.assigned_node = self._node_id
             task.status = TaskStatus.ASSIGNED
@@ -188,6 +189,7 @@ class WorkStealingScheduler:
 
     async def complete_task(self, task_id: str, result: TaskResult) -> None:
         """Mark a task as completed."""
+
         async with self._lock:
             task = self._running_tasks.pop(task_id, None)
             if task:
@@ -196,6 +198,7 @@ class WorkStealingScheduler:
 
     async def get_stealable_tasks(self, count: int) -> list[DistributedTask]:
         """Get tasks that can be stolen by other nodes."""
+
         async with self._lock:
             if len(self._local_queue) <= 1:
                 return []
@@ -591,8 +594,8 @@ class DistributedMercuryCluster:
     """
     High-level interface for distributed Mercury Agent operations.
 
-    Provides simple API for distributed anomaly detection with automatic
-    load balancing, fault tolerance, and result aggregation.
+    Provides simple API for distributed anomaly detection with automatic load balancing, fault
+    tolerance, and result aggregation.
     """
 
     def __init__(

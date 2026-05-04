@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -128,7 +126,8 @@ class _LegacyOmniAvaEquation:
         sigma_immutable: float | None = None,
         lambda_lyapunov: float | None = None,
     ):
-        """Initialize Omni-Ava Equation (OAE).
+        """
+        Initialize Omni-Ava Equation (OAE).
 
         Args:
             ethical_compliance_threshold: Ethical compliance threshold η_Ethical (0.93-0.96)
@@ -180,7 +179,8 @@ class _LegacyOmniAvaEquation:
         # Backward-compatible parameter alias
         sigma_immutable_override: float | None = None,
     ) -> AnomalyFusionResult:
-        """Compute Omni-Ava Equation (OAE) score.
+        """
+        Compute Omni-Ava Equation (OAE) score.
 
         Args:
             recursion_score: R(x) from hierarchical feature extraction
@@ -240,7 +240,8 @@ class _LegacyOmniAvaEquation:
         attention_weights: NDArray[Any],
         learning_rate: float = 0.01,
     ) -> None:
-        """Update weights via attention fusion.
+        """
+        Update weights via attention fusion.
 
         Args:
             attention_weights: Attention scores from fusion layer [w_R, w_H, w_O]
@@ -261,7 +262,8 @@ class _LegacyOmniAvaEquation:
         self.weights = {k: v / total for k, v in self.weights.items()}
 
     def verify_lyapunov_stability(self, window_size: int = 10) -> tuple[bool, float]:
-        """Verify Lyapunov stability condition.
+        """
+        Verify Lyapunov stability condition.
 
         Checks that the system converges at rate O(e^{-lambda*t}).
 
@@ -302,7 +304,8 @@ class _LegacyOmniAvaEquation:
         return is_stable, estimated_lambda
 
     def get_dominance_proof(self) -> dict[str, Any]:
-        """Generate mathematical proof of fusion equation dominance over baselines.
+        """
+        Generate mathematical proof of fusion equation dominance over baselines.
 
         Returns:
             Dictionary containing proof elements for MATH_DERIVATIONS.md
@@ -378,7 +381,8 @@ class _LegacyOAEWeightOptimizer:
         max_iterations: int = 100,
         tolerance: float = 1e-6,
     ) -> None:
-        """Initialize OAE weight optimizer.
+        """
+        Initialize OAE weight optimizer.
 
         Args:
             domain: Domain for ethical threshold selection
@@ -416,7 +420,8 @@ class _LegacyOAEWeightOptimizer:
         weights: np.ndarray,
         X: np.ndarray,
     ) -> np.ndarray:
-        """Compute OAE scores for given weights and input data.
+        """
+        Compute OAE scores for given weights and input data.
 
         Args:
             weights: Array [w_R, w_H, w_O]
@@ -437,7 +442,8 @@ class _LegacyOAEWeightOptimizer:
         y: np.ndarray,
         threshold: float = 0.5,
     ) -> float:
-        """Objective function to minimize (negative F1 score).
+        """
+        Objective function to minimize (negative F1 score).
 
         Args:
             weights: Array [w_R, w_H, w_O]
@@ -468,7 +474,8 @@ class _LegacyOAEWeightOptimizer:
         y: list[int] | np.ndarray,
         threshold: float = 0.5,
     ) -> dict[str, Any]:
-        """Optimize OAE weights on labeled data.
+        """
+        Optimize OAE weights on labeled data.
 
         Args:
             X: Training data - list of (R, H, O) score tuples or array
@@ -543,7 +550,8 @@ class _LegacyOAEWeightOptimizer:
         return optimization_result
 
     def get_optimized_equation(self) -> OmniAvaEquation | None:
-        """Get OmniAvaEquation instance with optimized weights.
+        """
+        Get OmniAvaEquation instance with optimized weights.
 
         Returns:
             OmniAvaEquation with optimized weights, or None if not optimized
@@ -562,9 +570,9 @@ class _LegacyOAEWeightOptimizer:
 
 
 class _LegacyRecursionEngine:
-    """
-    Implements recursive self-referential processing for hierarchical
-    feature extraction and multi-level optimization.
+    """Implements recursive self-referential processing for hierarchical feature extraction and
+
+    multi-level optimization.
     """
 
     def __init__(self, max_depth: int = 5) -> None:
@@ -629,9 +637,9 @@ class _LegacyRecursionEngine:
 
 
 class _LegacyResonanceEngine:
-    """
-    Implements frequency-domain signal amplification using Fourier analysis
-    for pattern enhancement and anomaly detection.
+    """Implements frequency-domain signal amplification using Fourier analysis for pattern
+
+    enhancement and anomaly detection.
     """
 
     def __init__(self, sampling_rate: float = 1.0) -> None:
@@ -753,10 +761,11 @@ class _LegacyEvolutionStrategy(Enum):
 
 @dataclass
 class _LegacyRefactoringConfig:
-    """Configuration for automatic refactoring operations.
+    """
+    Configuration for automatic refactoring operations.
 
-    Mathematical constants are sourced from the centralized
-    MathematicalConstants module for precision and consistency.
+    Mathematical constants are sourced from the centralized MathematicalConstants module for
+    precision and consistency.
     """
 
     apply_refactorings: bool = False
@@ -1052,14 +1061,15 @@ class CognitiveComplexityVisitor(ast.NodeVisitor):
 
 class RefactoringEngine:
     """
-    Implements dynamic code optimization through AST manipulation
-    for continuous performance improvement.
+    Implements dynamic code optimization through AST manipulation for continuous performance
 
-    Supports both suggestion mode (default) and automatic application mode
-    with safeguards including backup, rollback, and user confirmation.
+    improvement.
 
-    Uses centralized RNG for reproducible random operations.
-    Thread-safe cache access when parallel processing is enabled.
+    Supports both suggestion mode (default) and automatic application mode with safeguards including
+    backup, rollback, and user confirmation.
+
+    Uses centralized RNG for reproducible random operations. Thread-safe cache access when parallel
+    processing is enabled.
     """
 
     def __init__(
@@ -1075,6 +1085,7 @@ class RefactoringEngine:
         self._rng = rng or get_global_rng()
 
     def analyze_function_complexity(self, func: Callable[..., Any]) -> dict[str, Any]:
+        """Analyze function complexity."""
         try:
             source = inspect.getsource(func)
             source = textwrap.dedent(source)
@@ -1283,6 +1294,7 @@ class RefactoringEngine:
         }
 
     def suggest_refactorings(self, func: Callable[..., Any]) -> list[dict[str, str]]:
+        """Suggest refactorings."""
         metrics = self.analyze_function_complexity(func)
 
         if "error" in metrics:
@@ -1454,8 +1466,8 @@ class RefactoringEngine:
         """
         Apply AST transformations based on suggestions.
 
-        This is a basic implementation that demonstrates the concept.
-        Production use would require more sophisticated transformation logic.
+        This is a basic implementation that demonstrates the concept. Production use would require
+        more sophisticated transformation logic.
         """
         dedented_source = textwrap.dedent(source_code)
 
@@ -1514,8 +1526,8 @@ class RefactoringEngine:
         """
         Analyze function complexity using harmonic (frequency) analysis.
 
-        Inspired by Harmonic Analysis Engine document.
-        Applies FFT to code metrics to identify periodic patterns and anomalies.
+        Inspired by Harmonic Analysis Engine document. Applies FFT to code metrics to identify
+        periodic patterns and anomalies.
         """
         func_id = f"{func.__module__}.{func.__name__}"
 
@@ -1570,8 +1582,8 @@ class RefactoringEngine:
         """
         Explore multiple refactoring paths using quantum-inspired superposition.
 
-        Inspired by CIIS Quantum Enhancement Module document.
-        Evaluates multiple refactoring strategies simultaneously.
+        Inspired by CIIS Quantum Enhancement Module document. Evaluates multiple refactoring
+        strategies simultaneously.
         """
         if num_paths is None:
             num_paths = self.config.quantum_num_paths
@@ -1624,8 +1636,8 @@ class RefactoringEngine:
         """
         Detect recurring patterns in code using resonance analysis.
 
-        Inspired by Resonance patterns in CIIS and Harmonic Analysis documents.
-        Identifies repetitive structures that could benefit from refactoring.
+        Inspired by Resonance patterns in CIIS and Harmonic Analysis documents. Identifies
+        repetitive structures that could benefit from refactoring.
         """
         try:
             source = inspect.getsource(func)
@@ -1757,8 +1769,8 @@ class RefactoringEngine:
         """
         Orchestrate multiple refactoring strategies and select the best.
 
-        Inspired by Meta-Orchestration Engine document.
-        Coordinates complexity analysis, harmonic analysis, quantum paths, and resonance.
+        Inspired by Meta-Orchestration Engine document. Coordinates complexity analysis, harmonic
+        analysis, quantum paths, and resonance.
         """
         if strategies is None:
             strategies = ["complexity", "harmonic", "quantum", "resonance"]
@@ -2069,6 +2081,7 @@ class RefactoringEngine:
         return max_depth
 
     def optimize_data_structure(self, data: Any, target_operation: str = "lookup") -> Any:
+        """Optimize data structure."""
         if target_operation == "lookup":
             if isinstance(data, list):
                 return set(data) if all(isinstance(x, (str, int, float)) for x in data) else data
@@ -2234,7 +2247,8 @@ class RefactoringEngine:
 
 
 class RefactoringTransformer(ast.NodeTransformer):
-    """AST transformer that applies real refactoring transformations.
+    """
+    AST transformer that applies real refactoring transformations.
 
     Supported transformations:
 
@@ -2338,7 +2352,8 @@ class RefactoringTransformer(ast.NodeTransformer):
     # ------------------------------------------------------------------
 
     def _hoist_repeated_constants(self, node: ast.FunctionDef) -> ast.FunctionDef:
-        """Extract numeric/string literals used two or more times into named locals.
+        """
+        Extract numeric/string literals used two or more times into named locals.
 
         Assigns each repeated literal to a ``_const_<n>`` variable inserted
         after the docstring and replaces subsequent occurrences with the
@@ -2578,6 +2593,7 @@ class RefactoringTransformer(ast.NodeTransformer):
 class ThreeRMechanism:
     """
     Unified Recursion-Resonance-Refactoring mechanism for adaptive
+
     anomaly detection enhancement with weighted fusion Equation integration.
 
     The 3R mechanism combines three mathematical perspectives:
@@ -2605,7 +2621,8 @@ class ThreeRMechanism:
         neural_input_dim: int = 64,
         neural_d_model: int = 128,
     ):
-        """Initialize 3R Mechanism with weighted fusion Equation and neural verification.
+        """
+        Initialize 3R Mechanism with weighted fusion Equation and neural verification.
 
         The neural verifier (ThreeRAnomalyTransformer) is created internally and connected
         directly to the 3R mechanism for dual-verification anomaly detection. This provides
@@ -2653,10 +2670,11 @@ class ThreeRMechanism:
         )
 
     def _init_neural_verifier(self, ethical_threshold: float) -> None:
-        """Initialize the neural verifier (ThreeRAnomalyTransformer).
+        """
+        Initialize the neural verifier (ThreeRAnomalyTransformer).
 
-        Lazy-loads torch and creates the neural verifier for dual verification.
-        This is called automatically during __init__.
+        Lazy-loads torch and creates the neural verifier for dual verification. This is called
+        automatically during __init__.
         """
         try:
             from omni_mercury_engine.ml.three_r_attention import ThreeRAnomalyTransformer
@@ -2680,7 +2698,8 @@ class ThreeRMechanism:
             self._torch_available = False
 
     def _compute_neural_score(self, data: NDArray[Any]) -> float | None:
-        """Compute neural anomaly score using ThreeRAnomalyTransformer.
+        """
+        Compute neural anomaly score using ThreeRAnomalyTransformer.
 
         Routes the input data through the neural verifier for secondary verification.
         This is the simple router connection between 3R mechanism and neural network.
@@ -2738,6 +2757,7 @@ class ThreeRMechanism:
     def enhance_features(
         self, data: NDArray[Any], enable_recursion: bool = True, enable_resonance: bool = True
     ) -> NDArray[Any]:
+        """Enhance features."""
         enhanced = data.copy()
 
         if enable_recursion:
@@ -2756,9 +2776,11 @@ class ThreeRMechanism:
     def detect_with_resonance(
         self, signal_data: NDArray[Any], threshold_std: float = 3.0
     ) -> dict[str, Any]:
+        """Detect with resonance."""
         return self.resonance_engine.detect_resonance_anomalies(signal_data, threshold_std)
 
     def optimize_component(self, component: Callable[..., Any]) -> dict[str, Any]:
+        """Optimize component."""
         complexity_metrics = self.refactoring_engine.analyze_function_complexity(component)
 
         anomaly_results = self.refactoring_engine.detect_code_anomalies(component)
@@ -2781,6 +2803,7 @@ class ThreeRMechanism:
         refinement_fn: Callable[..., Any],
         max_iterations: int = 5,
     ) -> NDArray[Any]:
+        """Recursive anomaly refinement."""
         return self.recursion_engine.recursive_transform(
             initial_scores, refinement_fn, depth=0, threshold=0.001
         )
@@ -2889,7 +2912,8 @@ class ThreeRMechanism:
         )
 
     def get_dominance_proof(self) -> dict[str, Any]:
-        """Get mathematical proof of dominance for documentation.
+        """
+        Get mathematical proof of dominance for documentation.
 
         Returns:
             Dictionary containing proof elements for MATH_DERIVATIONS.md
@@ -2897,7 +2921,8 @@ class ThreeRMechanism:
         return self.fusion.get_dominance_proof()  # type: ignore[attr-defined, no-any-return]
 
     def verify_stability(self) -> tuple[bool, float]:
-        """Verify Lyapunov stability of the 3R mechanism.
+        """
+        Verify Lyapunov stability of the 3R mechanism.
 
         Returns:
             Tuple of (is_stable, estimated_decay_rate)
@@ -2909,7 +2934,8 @@ class ThreeRMechanism:
         attention_weights: NDArray[Any],
         learning_rate: float = 0.01,
     ) -> None:
-        """Update weighted fusion weights via attention fusion from GOSNN.
+        """
+        Update weighted fusion weights via attention fusion from GOSNN.
 
         Args:
             attention_weights: Attention scores from fusion layer [w_R, w_H, w_O]

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -38,6 +36,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class EngineConfig:
+    """Engine config."""
+
     enable_fusion: bool = True
     enable_3r_mechanism: bool = True
     max_recursion_depth: int = 5
@@ -49,6 +49,8 @@ class EngineConfig:
 
 
 class EvolutionStrategy(Enum):
+    """Evolution strategy."""
+
     GRADIENT_DESCENT = "gradient_descent"
     GENETIC_ALGORITHM = "genetic_algorithm"
     HILL_CLIMBING = "hill_climbing"
@@ -56,6 +58,8 @@ class EvolutionStrategy(Enum):
 
 
 class EvolutionEngine:
+    """Evolution engine."""
+
     def __init__(
         self,
         state_dim: int = 100,
@@ -80,11 +84,13 @@ class EvolutionEngine:
     def evaluate_fitness(
         self, individual: np.ndarray[Any, Any], fitness_fn: Callable[[np.ndarray[Any, Any]], float]
     ) -> float:
+        """Evaluate fitness."""
         return float(fitness_fn(individual))
 
     def evolve_generation(
         self, fitness_fn: Callable[[np.ndarray[Any, Any]], float]
     ) -> dict[str, Any]:
+        """Evolve generation."""
         fitness_scores = np.array(
             [self.evaluate_fitness(ind, fitness_fn) for ind in self.population]
         )
@@ -142,6 +148,8 @@ class EvolutionEngine:
 
 
 class SecurityEngine:
+    """Security engine."""
+
     def __init__(self) -> None:
         self.threat_patterns = self._load_threat_patterns()
         self.rate_limit_window = 60
@@ -164,6 +172,7 @@ class SecurityEngine:
         }
 
     def detect_threats(self, input_data: str) -> dict[str, Any]:
+        """Detect threats."""
         import re
 
         threats = []
@@ -176,6 +185,7 @@ class SecurityEngine:
         return {"is_threat": len(threats) > 0, "threats": threats, "num_threats": len(threats)}
 
     def check_rate_limit(self, identifier: str) -> bool:
+        """Check rate limit."""
         import time
 
         current_time = time.time()
@@ -197,6 +207,8 @@ class SecurityEngine:
 
 
 class IntegrationEngine:
+    """Integration engine."""
+
     def __init__(self) -> None:
         self.integrations: dict[str, dict[str, Any]] = {}
 
@@ -207,6 +219,7 @@ class IntegrationEngine:
         auth_type: str = "api_key",
         rate_limit: int = 1000,
     ) -> None:
+        """Register integration."""
         self.integrations[integration_id] = {
             "endpoint_url": endpoint_url,
             "auth_type": auth_type,
@@ -222,6 +235,7 @@ class IntegrationEngine:
         endpoint: str,
         params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        """Make request."""
         if integration_id not in self.integrations:
             return {"error": f"Unknown integration: {integration_id}"}
 
@@ -235,6 +249,8 @@ class IntegrationEngine:
 
 
 class OmniMercury:
+    """Omni mercury."""
+
     def __init__(self, config: EngineConfig | None = None) -> None:
         self.config = config or EngineConfig()
 
@@ -263,6 +279,7 @@ class OmniMercury:
     def detect_anomaly(
         self, data: np.ndarray[Any, Any], use_3r_enhancement: bool = True
     ) -> dict[str, Any]:
+        """Detect anomaly."""
         enhanced_data = data
 
         if use_3r_enhancement and self.config.enable_3r_mechanism and self.three_r:
@@ -304,6 +321,7 @@ class OmniMercury:
         return float(anomaly_score)
 
     def validate_input_security(self, input_data: str) -> dict[str, Any]:
+        """Validate input security."""
         if not self.config.enable_security or not self.security_engine:
             return {"secure": True, "message": "Security checks disabled"}
 
@@ -312,6 +330,7 @@ class OmniMercury:
     def evolve_detector(
         self, fitness_fn: Callable[[np.ndarray[Any, Any]], float], num_generations: int = 10
     ) -> dict[str, Any]:
+        """Evolve detector."""
         if not self.config.enable_evolution or not self.evolution_engine:
             return {"error": "Evolution disabled"}
 

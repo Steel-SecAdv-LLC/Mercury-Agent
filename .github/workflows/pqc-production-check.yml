@@ -144,8 +144,18 @@ jobs:
       - name: Run security tests with real PQC requirement
         env:
           AMA_REQUIRE_REAL_PQC: "true"
+        # Blocking — the previous ``|| echo "Some tests may fail without
+        # AMA native C library"`` was a silent escape hatch.  By the time
+        # this step runs, the workflow has already:
+        #   - cloned and built AMA Cryptography (``v3.1.0`` tag),
+        #   - exported ``LD_LIBRARY_PATH`` to the AMA build/lib,
+        #   - sanity-checked that ``DILITHIUM_AVAILABLE``, ``SPHINCS_AVAILABLE``
+        #     and ``KYBER_AVAILABLE`` are all ``True`` against the real
+        #     backend (see the previous step).
+        # If the security suite still fails after all of that, the failure
+        # is real and the gate must trip.
         run: |
-          pytest tests/security/ -v --tb=short || echo "Some tests may fail without AMA native C library"
+          pytest tests/security/ -v --tb=short
 
       - name: Run AMA Cryptography Known-Answer Tests (KAT)
         # Phase 2 audit cure.  The KAT suites pin:

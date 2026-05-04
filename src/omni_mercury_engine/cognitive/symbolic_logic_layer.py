@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -186,24 +184,31 @@ class FallbackGraph:
         self.edges: list[tuple[str, str, dict[str, Any]]] = []
 
     def add_node(self, node_id: str, **attrs: Any) -> None:
+        """Add node."""
         self.nodes[node_id] = attrs
 
     def add_edge(self, source: str, target: str, **attrs: Any) -> None:
+        """Add edge."""
         self.edges.append((source, target, attrs))
 
     def has_node(self, node_id: str) -> bool:
+        """Has node."""
         return node_id in self.nodes
 
     def predecessors(self, node_id: str) -> list[str]:
+        """Predecessors."""
         return [s for s, t, _ in self.edges if t == node_id]
 
     def successors(self, node_id: str) -> list[str]:
+        """Successors."""
         return [t for s, t, _ in self.edges if s == node_id]
 
     def number_of_nodes(self) -> int:
+        """Number of nodes."""
         return len(self.nodes)
 
     def number_of_edges(self) -> int:
+        """Number of edges."""
         return len(self.edges)
 
 
@@ -211,8 +216,8 @@ class LogicGraph:
     """
     Logic Graph for symbolic reasoning.
 
-    Uses NetworkX (or fallback) to represent rules as a directed graph
-    where nodes are propositions and edges are implications.
+    Uses NetworkX (or fallback) to represent rules as a directed graph where nodes are propositions
+    and edges are implications.
     """
 
     graph: nx.DiGraph[str] | FallbackGraph
@@ -472,8 +477,8 @@ class SymbolicReasoner:
     """
     Symbolic Reasoner for explainable decision making.
 
-    Combines logic graph inference with threshold evaluation
-    to produce explainable decisions with full audit trails.
+    Combines logic graph inference with threshold evaluation to produce explainable decisions with
+    full audit trails.
     """
 
     def __init__(

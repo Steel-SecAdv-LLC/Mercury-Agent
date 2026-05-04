@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -166,14 +165,17 @@ class USGSGeomagnetismSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "usgs_geomagnetism"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.MAGNETOMETER]
 
     def _calculate_disturbance_level(self, values: dict[str, float]) -> AlertLevel:
-        """Calculate disturbance level from magnetic field values.
+        """
+        Calculate disturbance level from magnetic field values.
 
         Uses deviation from quiet-time baseline to estimate geomagnetic activity.
         """
@@ -377,10 +379,12 @@ class INTERMAGNETSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "intermagnet"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.MAGNETOMETER]
 
     async def _fetch_impl(
@@ -389,7 +393,8 @@ class INTERMAGNETSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch magnetometer data from INTERMAGNET.
+        """
+        Fetch magnetometer data from INTERMAGNET.
 
         Note: This is a simplified implementation. Full INTERMAGNET access
         requires specific data format handling (IAGA2002, CDF).
@@ -459,7 +464,8 @@ class SuperMAGSource(DataSourceBase):
         password: str | None = None,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """Initialize SuperMAG data source.
+        """
+        Initialize SuperMAG data source.
 
         Args:
             username: SuperMAG account username (optional)
@@ -480,10 +486,12 @@ class SuperMAGSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "supermag"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.MAGNETOMETER]
 
     async def _fetch_impl(
@@ -492,7 +500,8 @@ class SuperMAGSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch magnetometer data from SuperMAG.
+        """
+        Fetch magnetometer data from SuperMAG.
 
         Note: Full SuperMAG API access requires authentication and specific
         API endpoints. This provides metadata about available indices.
@@ -601,17 +610,20 @@ class HeartMathGCMSSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "heartmath_gcms"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.SCHUMANN_RESONANCE, DataSourceType.MAGNETOMETER]
 
     def _calculate_coherence_level(self, power_data: dict[str, float]) -> AlertLevel:
-        """Calculate coherence level from Schumann resonance power.
+        """
+        Calculate coherence level from Schumann resonance power.
 
-        Higher coherence (more pronounced peaks) indicates stronger
-        Earth-ionosphere resonance coupling.
+        Higher coherence (more pronounced peaks) indicates stronger Earth-ionosphere resonance
+        coupling.
         """
         # This is a simplified model - actual coherence calculation requires
         # spectral analysis of the full waveform
@@ -632,7 +644,8 @@ class HeartMathGCMSSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch Schumann resonance data from HeartMath GCMS.
+        """
+        Fetch Schumann resonance data from HeartMath GCMS.
 
         Note: The actual HeartMath GCMS API may require specific access.
         This implementation provides structured data format.
@@ -734,10 +747,12 @@ class BGSELFStationSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "bgs_elf"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.ELF_VLF, DataSourceType.SCHUMANN_RESONANCE]
 
     def _welch_power_estimate(
@@ -747,7 +762,8 @@ class BGSELFStationSource(DataSourceBase):
         target_freq: float,
         window_size: int = 256,
     ) -> float:
-        """Estimate power at target frequency using Welch's method.
+        """
+        Estimate power at target frequency using Welch's method.
 
         Args:
             signal: Time-domain signal
@@ -790,7 +806,8 @@ class BGSELFStationSource(DataSourceBase):
         signal: np.ndarray,
         fs: float = 100.0,
     ) -> dict[str, float]:
-        """Extract Schumann resonance power from ELF signal.
+        """
+        Extract Schumann resonance power from ELF signal.
 
         Uses Welch's method with Hann windowing to estimate power
         at each resonance frequency.
@@ -811,10 +828,10 @@ class BGSELFStationSource(DataSourceBase):
         return powers
 
     def _calculate_resonance_quality(self, powers: dict[str, float]) -> AlertLevel:
-        """Calculate resonance quality from power distribution.
+        """
+        Calculate resonance quality from power distribution.
 
-        Higher SR1/SR2 ratio and clear harmonic structure indicates
-        better resonance quality.
+        Higher SR1/SR2 ratio and clear harmonic structure indicates better resonance quality.
         """
         sr1 = powers.get("SR1", 0)
         sr2 = powers.get("SR2", 0)
@@ -840,7 +857,8 @@ class BGSELFStationSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch ELF/Schumann resonance data from BGS.
+        """
+        Fetch ELF/Schumann resonance data from BGS.
 
         Note: Actual BGS data access may require specific protocols.
         This implementation demonstrates the data structure and processing.

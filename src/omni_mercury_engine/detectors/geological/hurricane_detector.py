@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -67,7 +65,7 @@ from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class SaffirSimpsonCategory(Enum):
-    """Saffir-Simpson Hurricane Wind Scale categories"""
+    """Saffir-Simpson Hurricane Wind Scale categories."""
 
     TROPICAL_DEPRESSION = "tropical_depression"
     TROPICAL_STORM = "tropical_storm"
@@ -80,7 +78,7 @@ class SaffirSimpsonCategory(Enum):
 
 
 class CycloneType(Enum):
-    """Types of tropical cyclones by basin"""
+    """Types of tropical cyclones by basin."""
 
     HURRICANE = "hurricane"  # Atlantic, Eastern Pacific
     TYPHOON = "typhoon"  # Western Pacific
@@ -90,7 +88,7 @@ class CycloneType(Enum):
 
 @dataclass
 class HurricanePredictionResult:
-    """Hurricane/cyclone prediction results"""
+    """Hurricane/cyclone prediction results."""
 
     cyclone_detected: bool
     confidence: float
@@ -316,8 +314,8 @@ class ResonanceFrequencyAmplifier:
     """
     FFT-based resonance frequency amplifier for storm signal detection.
 
-    Implements the Resonance Engine component of 3R for amplifying
-    weak cyclone signatures in atmospheric data.
+    Implements the Resonance Engine component of 3R for amplifying weak cyclone signatures in
+    atmospheric data.
     """
 
     def __init__(self) -> None:

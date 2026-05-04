@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Enhanced Neurosymbolic Engine - State-of-the-Art Neuro-Symbolic AI
 
@@ -125,7 +124,7 @@ class FuzzyOperators:
 
     @staticmethod
     def forall_pmean(x: torch.Tensor, p: float = 2.0, dim: int = -1) -> torch.Tensor:
-        """pMean aggregator (generalized mean) - smoother gradients."""
+        """Pmean aggregator (generalized mean) - smoother gradients."""
         return torch.pow(torch.mean(torch.pow(x, p), dim=dim), 1 / p)
 
     @staticmethod
@@ -215,7 +214,8 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
         self.forall_op = FuzzyOperators.forall_pmean  # Smoother gradients
 
     def ground_predicates(self, x: torch.Tensor) -> torch.Tensor:
-        """Ground all predicates for input features.
+        """
+        Ground all predicates for input features.
 
         Args:
             x: Input features [batch, input_dim]
@@ -237,7 +237,8 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
         predicate_values: torch.Tensor,
         formula: str,
     ) -> torch.Tensor:
-        """Evaluate a logical formula given predicate groundings.
+        """
+        Evaluate a logical formula given predicate groundings.
 
         Args:
             predicate_values: [batch, num_predicates]
@@ -291,7 +292,8 @@ class EnhancedLogicTensorNetwork(nn.Module if TORCH_AVAILABLE else object):  # t
             raise ValueError(f"Cannot parse expression: {expr}")
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        """Forward pass with predicate grounding and formula evaluation.
+        """
+        Forward pass with predicate grounding and formula evaluation.
 
         Args:
             x: Input features [batch, input_dim]
@@ -343,7 +345,8 @@ class GraphEdge:
 
 @dataclass
 class TemporalRule:
-    """Temporal logic rule with time constraints.
+    """
+    Temporal logic rule with time constraints.
 
     Format: IF premise THEN conclusion [WITHIN time_window]
     """
@@ -706,7 +709,8 @@ class KnowledgeGraphBridge:
         relation: str,
         obj: str,
     ) -> float:
-        """Infer confidence in a relation.
+        """
+        Infer confidence in a relation.
 
         Uses graph traversal to find supporting paths.
         """
@@ -965,7 +969,7 @@ class CausalReasoningModule:
         intervention: dict[str, float],
     ) -> dict[str, float]:
         """
-        Answer counterfactual query: "What if X had been different?"
+        Answer counterfactual query: "What if X had been different?".
 
         Args:
             observation: What was actually observed

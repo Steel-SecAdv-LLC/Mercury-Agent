@@ -158,6 +158,7 @@ class RaftLog:
 
     async def append(self, entry: LogEntry) -> None:
         """Append an entry to the log."""
+
         async with self._lock:
             self._entries.append(entry)
 
@@ -175,6 +176,7 @@ class RaftLog:
 
         Returns True if entries were successfully appended.
         """
+
         async with self._lock:
             if prev_index > 0:
                 if prev_index > self.last_index:
@@ -266,6 +268,7 @@ class StateMachine(Generic[T]):
 
     async def apply(self, entry: LogEntry) -> T | None:
         """Apply a log entry to the state machine."""
+
         async with self._lock:
             if entry.index <= self._last_applied:
                 return None
@@ -541,6 +544,7 @@ class RaftNode:
         request: RequestVoteRequest,
     ) -> RequestVoteResponse:
         """Handle incoming vote request."""
+
         async with self._lock:
             if request.term > self._current_term:
                 self._current_term = request.term
@@ -572,6 +576,7 @@ class RaftNode:
         request: AppendEntriesRequest,
     ) -> AppendEntriesResponse:
         """Handle incoming append entries request."""
+
         async with self._lock:
             if request.term > self._current_term:
                 self._current_term = request.term
@@ -637,6 +642,7 @@ class RaftNode:
 
     async def _start_election(self) -> None:
         """Start a new election."""
+
         async with self._lock:
             self._current_term += 1
             self._state = NodeState.CANDIDATE
@@ -671,6 +677,7 @@ class RaftNode:
 
     async def _process_vote_response(self, response: RequestVoteResponse) -> None:
         """Process a vote response."""
+
         async with self._lock:
             if response.term > self._current_term:
                 self._current_term = response.term

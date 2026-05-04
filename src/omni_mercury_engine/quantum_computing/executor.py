@@ -1,8 +1,8 @@
 """
 Quantum Circuit Execution for Mercury Agent.
 
-Provides unified execution interface for quantum circuits on simulators
-and real quantum hardware through Qiskit.
+Provides unified execution interface for quantum circuits on simulators and real quantum hardware
+through Qiskit.
 """
 
 from __future__ import annotations

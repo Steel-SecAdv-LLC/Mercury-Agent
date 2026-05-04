@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -96,8 +94,8 @@ if TORCH_AVAILABLE:
         """
         Hierarchical micro-pattern scanner using multi-scale convolutions.
 
-        Implements the Recursion Engine component of 3R for multi-scale
-        pattern detection at progressively finer granularities.
+        Implements the Recursion Engine component of 3R for multi-scale pattern detection at
+        progressively finer granularities.
         """
 
         def __init__(self, input_dim: int = 64, num_scales: int = 4) -> None:
@@ -164,8 +162,8 @@ class ResonanceAnalyzer:
     """
     FFT-based resonance analysis for frequency-domain micro-anomalies.
 
-    Implements the Resonance Engine component of 3R for detecting
-    harmonic anomalies and periodic micro-patterns.
+    Implements the Resonance Engine component of 3R for detecting harmonic anomalies and periodic
+    micro-patterns.
     """
 
     def __init__(self, fundamental_freq: float = 7.83) -> None:

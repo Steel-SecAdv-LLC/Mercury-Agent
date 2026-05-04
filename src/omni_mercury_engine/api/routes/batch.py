@@ -80,7 +80,8 @@ class BatchJob:
 
 
 class BatchJobStore:
-    """In-memory batch job store with TTL-based cleanup.
+    """
+    In-memory batch job store with TTL-based cleanup.
 
     Production deployment should use Redis or a database backend.
     """
@@ -485,7 +486,8 @@ async def _process_chunk(
 
 
 async def _send_callback(url: str, job_id: str, status: JobStatus) -> None:
-    """Send webhook callback for job completion.
+    """
+    Send webhook callback for job completion.
 
     The URL has already been validated by BatchDetectRequest.validate_callback_url
     to ensure it uses HTTPS and does not target private/internal addresses.

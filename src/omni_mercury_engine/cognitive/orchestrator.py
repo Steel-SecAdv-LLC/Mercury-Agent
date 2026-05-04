@@ -1,11 +1,9 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 """
 
 from __future__ import annotations
@@ -98,6 +96,7 @@ class CognitiveAnalysisResult:
     analysis_time_ms: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "anomaly_detected": self.anomaly_detected,
             "anomaly_score": self.anomaly_score,

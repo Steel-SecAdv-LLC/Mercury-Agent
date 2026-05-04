@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -229,7 +227,11 @@ class PreExecutionBlockingGate:
         logging.info(f"Added blocked pattern: {pattern} -> {category.value}")
 
     def remove_blocked_pattern(self, pattern: str) -> bool:
-        """Remove a blocked pattern. Returns True if removed."""
+        """
+        Remove a blocked pattern.
+
+        Returns True if removed.
+        """
         if pattern in self.blocked_patterns:
             del self.blocked_patterns[pattern]
             logging.info(f"Removed blocked pattern: {pattern}")
@@ -450,8 +452,8 @@ class EthicalAutonomyGovernor:
         """
         Check COMPASSION: Does this minimize harm and prioritize user well-being?
 
-        Evaluates safety features like backups, confirmations, rollback mechanisms,
-        and survivor-first principles for humanitarian applications.
+        Evaluates safety features like backups, confirmations, rollback mechanisms, and survivor-
+        first principles for humanitarian applications.
         """
         score = 0.55  # Slightly elevated base for ethical default
 

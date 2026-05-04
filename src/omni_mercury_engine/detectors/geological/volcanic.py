@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -65,7 +63,7 @@ from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class VolcanicActivityLevel(Enum):
-    """USGS volcanic alert levels"""
+    """USGS volcanic alert levels."""
 
     NORMAL = "normal"
     ADVISORY = "advisory"
@@ -74,7 +72,7 @@ class VolcanicActivityLevel(Enum):
 
 
 class EruptionType(Enum):
-    """Eruption classifications"""
+    """Eruption classifications."""
 
     NO_ERUPTION = "no_eruption"
     PHREATIC = "phreatic_steam"
@@ -86,7 +84,7 @@ class EruptionType(Enum):
 
 @dataclass
 class VolcanicPredictionResult:
-    """Volcanic eruption prediction results"""
+    """Volcanic eruption prediction results."""
 
     eruption_imminent: bool
     confidence: float
@@ -322,7 +320,8 @@ class InSARDeformationDetector:
 
 
 class VolcanicStateHMM:
-    """Hidden Markov Model for volcanic activity state transitions.
+    """
+    Hidden Markov Model for volcanic activity state transitions.
 
     Models volcanic activity as a sequence of hidden states:
     - QUIESCENT: Normal background activity
@@ -346,7 +345,8 @@ class VolcanicStateHMM:
         n_states: int = 5,
         phi: float = 1.618033988749895,
     ):
-        """Initialize volcanic HMM.
+        """
+        Initialize volcanic HMM.
 
         Args:
             n_states: Number of hidden states (default: 5)
@@ -383,7 +383,8 @@ class VolcanicStateHMM:
         self.state_history: list[int] = []
 
     def _initialize_transition_matrix(self) -> np.ndarray[Any, Any]:
-        """Initialize state transition probabilities.
+        """
+        Initialize state transition probabilities.
 
         Returns:
             Transition matrix [n_states x n_states]
@@ -407,7 +408,8 @@ class VolcanicStateHMM:
         return T
 
     def _initialize_emission_matrix(self) -> np.ndarray[Any, Any]:
-        """Initialize emission probabilities.
+        """
+        Initialize emission probabilities.
 
         Returns:
             Emission matrix [n_states x n_observables]
@@ -431,7 +433,8 @@ class VolcanicStateHMM:
         self,
         observations: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Update state belief given new observations (forward algorithm step).
+        """
+        Update state belief given new observations (forward algorithm step).
 
         Args:
             observations: Binary array [seismic, thermal, gas, deformation]
@@ -465,7 +468,8 @@ class VolcanicStateHMM:
         return updated_belief
 
     def get_most_likely_state(self) -> tuple[int, str, float]:
-        """Get the most likely current state.
+        """
+        Get the most likely current state.
 
         Returns:
             Tuple of (state_index, state_name, probability)
@@ -474,7 +478,8 @@ class VolcanicStateHMM:
         return state_idx, self.state_names[state_idx], float(self.state_belief[state_idx])
 
     def predict_next_state(self) -> tuple[int, str, float]:
-        """Predict the most likely next state.
+        """
+        Predict the most likely next state.
 
         Returns:
             Tuple of (state_index, state_name, probability)
@@ -486,7 +491,8 @@ class VolcanicStateHMM:
         return state_idx, self.state_names[state_idx], float(next_belief[state_idx])
 
     def get_eruption_probability(self) -> float:
-        """Get probability of being in or transitioning to eruptive state.
+        """
+        Get probability of being in or transitioning to eruptive state.
 
         Returns:
             Combined probability of eruptive activity
@@ -507,7 +513,8 @@ class VolcanicStateHMM:
 
 
 class RefactoringAdaptiveOptimizer:
-    """3R Refactoring mechanism for adaptive volcanic model optimization.
+    """
+    3R Refactoring mechanism for adaptive volcanic model optimization.
 
     Implements dynamic parameter adjustment based on prediction performance,
     enabling the model to adapt to changing volcanic behavior patterns.
@@ -521,7 +528,8 @@ class RefactoringAdaptiveOptimizer:
         phi: float = 1.618033988749895,
         history_window: int = 100,
     ):
-        """Initialize refactoring optimizer.
+        """
+        Initialize refactoring optimizer.
 
         Args:
             learning_rate: Base learning rate for parameter updates
@@ -550,7 +558,8 @@ class RefactoringAdaptiveOptimizer:
         prediction: dict[str, Any],
         actual_outcome: dict[str, Any] | None = None,
     ) -> None:
-        """Record a prediction for performance tracking.
+        """
+        Record a prediction for performance tracking.
 
         Args:
             prediction: Prediction result dictionary
@@ -581,7 +590,8 @@ class RefactoringAdaptiveOptimizer:
         prediction: dict[str, Any],
         actual: dict[str, Any],
     ) -> float:
-        """Compute prediction error.
+        """
+        Compute prediction error.
 
         Args:
             prediction: Predicted values
@@ -613,7 +623,8 @@ class RefactoringAdaptiveOptimizer:
         return float(np.mean(errors)) if errors else 0.5
 
     def adapt_parameters(self) -> dict[str, float]:
-        """Adapt model parameters based on performance history.
+        """
+        Adapt model parameters based on performance history.
 
         Returns:
             Dictionary of adapted parameters
@@ -666,7 +677,8 @@ class RefactoringAdaptiveOptimizer:
         }
 
     def get_adapted_confidence(self, raw_confidence: float) -> float:
-        """Apply calibration to raw confidence score.
+        """
+        Apply calibration to raw confidence score.
 
         Args:
             raw_confidence: Raw model confidence (0-1)
@@ -678,7 +690,8 @@ class RefactoringAdaptiveOptimizer:
         return float(np.clip(calibrated, 0.0, 1.0))
 
     def get_adapted_threshold(self, base_threshold: float) -> float:
-        """Apply adjustment to detection threshold.
+        """
+        Apply adjustment to detection threshold.
 
         Args:
             base_threshold: Base detection threshold
@@ -770,7 +783,8 @@ class VolcanicEruptionDetector:
         enable_refactoring: bool = True,
         rng: DeterministicRNG | None = None,
     ):
-        """Initialize volcanic eruption detector.
+        """
+        Initialize volcanic eruption detector.
 
         Args:
             enable_seismic: Enable seismic swarm detection
@@ -936,7 +950,7 @@ class VolcanicEruptionDetector:
         return result
 
     def _analyze_seismic(self, seismic_sequence: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze seismic swarm activity"""
+        """Analyze seismic swarm activity."""
         if self.seismic_detector is None:
             return {"swarm_detected": False, "confidence": 0.0, "attention_weights": []}
 
@@ -972,8 +986,7 @@ class VolcanicEruptionDetector:
         return float(correlation)
 
     def _forecast_eruption(self, volcano_data: dict[str, Any], indicators: float) -> dict[str, Any]:
-        """Forecast eruption using ML model"""
-
+        """Forecast eruption using ML model."""
         if "fused_features" in volcano_data:
             features = volcano_data["fused_features"]
         else:
@@ -1004,8 +1017,7 @@ class VolcanicEruptionDetector:
         }
 
     def _determine_alert_level(self, indicators: float, confidence: float) -> str:
-        """Determine USGS-style alert level"""
-
+        """Determine USGS-style alert level."""
         if indicators >= 3 and confidence > 0.8:
             return VolcanicActivityLevel.WARNING.value
         elif indicators >= 2 and confidence > 0.6:
@@ -1016,8 +1028,7 @@ class VolcanicEruptionDetector:
             return VolcanicActivityLevel.NORMAL.value
 
     def _identify_hazard_zones(self, result: VolcanicPredictionResult) -> list[str]:
-        """Identify volcanic hazard zones"""
-
+        """Identify volcanic hazard zones."""
         zones = []
 
         if result.eruption_imminent:
@@ -1034,8 +1045,7 @@ class VolcanicEruptionDetector:
         return zones
 
     def _generate_early_warning(self, result: VolcanicPredictionResult) -> list[str]:
-        """Generate early warning actions"""
-
+        """Generate early warning actions."""
         actions = []
 
         if result.alert_level == "warning":
@@ -1053,8 +1063,7 @@ class VolcanicEruptionDetector:
         return actions
 
     def _generate_evacuation_plan(self, result: VolcanicPredictionResult) -> list[str]:
-        """Generate evacuation recommendations"""
-
+        """Generate evacuation recommendations."""
         recs = []
 
         if result.alert_level in ["warning", "watch"]:

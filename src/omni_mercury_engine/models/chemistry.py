@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -68,7 +66,7 @@ from torch import nn
 
 
 class ElementGroup(Enum):
-    """Periodic table groups"""
+    """Periodic table groups."""
 
     ALKALI_METALS = 1
     ALKALINE_EARTH = 2
@@ -83,7 +81,7 @@ class ElementGroup(Enum):
 
 @dataclass
 class ChemicalAnomalyResult:
-    """Result from chemical anomaly detection"""
+    """Result from chemical anomaly detection."""
 
     anomaly_detected: bool
     anomaly_type: str
@@ -105,8 +103,8 @@ class PeriodicTableEncoder(nn.Module):
     """
     Neural network encoder for periodic table relationships.
 
-    Uses graph neural network concepts to encode element relationships
-    based on periodic table structure with golden ratio optimization.
+    Uses graph neural network concepts to encode element relationships based on periodic table
+    structure with golden ratio optimization.
     """
 
     def __init__(self, num_elements: int = 118, embedding_dim: int = 64) -> None:
@@ -163,9 +161,8 @@ class ChemistryAnomalyDetector:
     """
     Chemistry Discipline Anomaly Detector.
 
-    Comprehensive chemical anomaly detection across elements, isotopes,
-    reactions, and molecular structures using periodic table relationships
-    and nuclear chemistry principles.
+    Comprehensive chemical anomaly detection across elements, isotopes, reactions, and molecular
+    structures using periodic table relationships and nuclear chemistry principles.
     """
 
     def __init__(
@@ -210,7 +207,7 @@ class ChemistryAnomalyDetector:
         self.logger.info("Chemistry Anomaly Detector initialized")
 
     def _initialize_element_data(self) -> dict[int, dict[str, Any]]:
-        """Initialize periodic table element data"""
+        """Initialize periodic table element data."""
         elements = {}
 
         noble_gases = [2, 10, 18, 36, 54, 86, 118]
@@ -264,7 +261,7 @@ class ChemistryAnomalyDetector:
         return base_radius - period_decrease + group_increase
 
     def _initialize_isotope_data(self) -> dict[str, dict[str, Any]]:
-        """Initialize isotope stability and decay data"""
+        """Initialize isotope stability and decay data."""
         return {
             "H-1": {"mass": 1, "stable": True, "abundance": 99.98},
             "H-2": {"mass": 2, "stable": True, "abundance": 0.02},
@@ -281,8 +278,8 @@ class ChemistryAnomalyDetector:
         """
         Initialize alchemical knowledge base.
 
-        Historical alchemy discovered many chemical principles before
-        modern science. This knowledge base establishes symbolic connections.
+        Historical alchemy discovered many chemical principles before modern science. This knowledge
+        base establishes symbolic connections.
         """
         return {
             "classical_elements": {
@@ -403,7 +400,7 @@ class ChemistryAnomalyDetector:
         return result
 
     def _analyze_elemental_composition(self, composition: dict[str, float]) -> list[dict[str, Any]]:
-        """Analyze elemental composition for anomalies"""
+        """Analyze elemental composition for anomalies."""
         anomalies = []
 
         for element_symbol, abundance in composition.items():
@@ -429,7 +426,7 @@ class ChemistryAnomalyDetector:
         return anomalies
 
     def _analyze_isotope_ratios(self, isotope_ratios: dict[str, float]) -> list[dict[str, Any]]:
-        """Analyze isotope ratios for decay anomalies"""
+        """Analyze isotope ratios for decay anomalies."""
         anomalies = []
 
         for isotope_name, measured_ratio in isotope_ratios.items():
@@ -469,7 +466,7 @@ class ChemistryAnomalyDetector:
         return anomalies
 
     def _analyze_reaction_kinetics(self, reaction_rates: dict[str, float]) -> list[dict[str, Any]]:
-        """Analyze reaction rate anomalies"""
+        """Analyze reaction rate anomalies."""
         anomalies = []
 
         for reaction_name, measured_rate in reaction_rates.items():
@@ -493,7 +490,7 @@ class ChemistryAnomalyDetector:
         return anomalies
 
     def _check_periodic_law_violations(self, element_anomalies: list[dict[str, Any]]) -> list[str]:
-        """Check for violations of periodic law patterns"""
+        """Check for violations of periodic law patterns."""
         violations = []
 
         if len(element_anomalies) >= 3:
@@ -514,7 +511,7 @@ class ChemistryAnomalyDetector:
     def _assess_stability(
         self, element_anomalies: list[dict[str, Any]], isotope_anomalies: list[dict[str, Any]]
     ) -> list[str]:
-        """Assess chemical/nuclear stability concerns"""
+        """Assess chemical/nuclear stability concerns."""
         concerns = []
 
         for isotope_anom in isotope_anomalies:
@@ -532,7 +529,7 @@ class ChemistryAnomalyDetector:
         iso_anom: list[dict[str, Any]],
         react_anom: list[dict[str, Any]],
     ) -> str:
-        """Classify primary anomaly type"""
+        """Classify primary anomaly type."""
         if iso_anom:
             return "isotopic"
         elif react_anom:
@@ -548,7 +545,7 @@ class ChemistryAnomalyDetector:
         iso_anom: list[dict[str, Any]],
         react_anom: list[dict[str, Any]],
     ) -> float:
-        """Compute overall detection confidence"""
+        """Compute overall detection confidence."""
         total_anomalies = len(elem_anom) + len(iso_anom) + len(react_anom)
 
         if total_anomalies == 0:
@@ -565,7 +562,7 @@ class ChemistryAnomalyDetector:
         iso_anom: list[dict[str, Any]],
         stability: list[str],
     ) -> list[str]:
-        """Generate chemistry analysis recommendations"""
+        """Generate chemistry analysis recommendations."""
         recommendations = []
 
         if anomaly_type == "isotopic":
@@ -593,7 +590,7 @@ class ChemistryAnomalyDetector:
     def _correlate_alchemical_knowledge(
         self, chemical_data: dict[str, Any], element_anomalies: list[dict[str, Any]]
     ) -> dict[str, Any]:
-        """Correlate with historical alchemical knowledge"""
+        """Correlate with historical alchemical knowledge."""
         correlation: dict[str, Any] = {
             "alchemical_metals_present": [],
             "classical_element_balance": {},
@@ -656,7 +653,7 @@ class ChemistryAnomalyDetector:
         return symbol_map.get(symbol, 0)
 
     def _get_expected_abundance_range(self, element_symbol: str) -> tuple[float, float]:
-        """Get expected abundance range for element"""
+        """Get expected abundance range for element."""
         common_ranges = {
             "O": (40.0, 60.0),
             "Si": (20.0, 30.0),
@@ -666,11 +663,11 @@ class ChemistryAnomalyDetector:
         return common_ranges.get(element_symbol, (0.01, 10.0))
 
     def _estimate_expected_rate(self, reaction_name: str) -> float:
-        """Estimate expected reaction rate"""
+        """Estimate expected reaction rate."""
         return 1.0
 
     def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
-        """Extract features for ML fusion integration"""
+        """Extract features for ML fusion integration."""
         features = []
 
         if "elemental_composition" in data:
@@ -688,7 +685,7 @@ class ChemistryAnomalyDetector:
         return torch.tensor(features[:10], dtype=torch.float32).unsqueeze(0)
 
     def predict(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Predict for engine integration"""
+        """Predict for engine integration."""
         result = self.detect_chemical_anomaly(data)
 
         return {

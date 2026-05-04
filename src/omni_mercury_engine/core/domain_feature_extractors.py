@@ -1,5 +1,6 @@
 """
 Mercury Agent - Domain-Specific Feature Extractors
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Advanced feature extraction for domain-specific anomaly detection:

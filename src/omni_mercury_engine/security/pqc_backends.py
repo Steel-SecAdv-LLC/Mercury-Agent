@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -273,10 +271,11 @@ AVA_GUARDIAN_AVAILABLE = AMA_CRYPTOGRAPHY_AVAILABLE
 
 
 class PQCBackend(Enum):
-    """Available PQC backend implementations.
+    """
+    Available PQC backend implementations.
 
-    Only ``AMA_CRYPTOGRAPHY`` is supported.  ``AVA_GUARDIAN`` remains as a
-    backward-compatibility alias that resolves to the same enum member.
+    Only ``AMA_CRYPTOGRAPHY`` is supported.  ``AVA_GUARDIAN`` remains as a backward-compatibility
+    alias that resolves to the same enum member.
     """
 
     AMA_CRYPTOGRAPHY = "ama-cryptography"
@@ -527,15 +526,15 @@ def _slhdsa_param_sizes(param_set: str) -> tuple[int, int, int]:
 
 
 def generate_slhdsa_keypair(param_set: str = "SHAKE-128s") -> SlhDsaKeyPair:
-    """Generate a FIPS 205 SLH-DSA keypair via AMA Cryptography.
+    """
+    Generate a FIPS 205 SLH-DSA keypair via AMA Cryptography.
 
-    The default parameter set is SHAKE-128s (NIST Level 1) since that is the
-    set Mercury's NIST FIPS KAT pins exercise. Pass ``"SHA2-256f"`` for the
-    NIST Level 5 SHA2-family target.
+    The default parameter set is SHAKE-128s (NIST Level 1) since that is the set Mercury's NIST FIPS
+    KAT pins exercise. Pass ``"SHA2-256f"`` for the NIST Level 5 SHA2-family target.
 
-    Returns a defensive-copied ``SlhDsaKeyPair`` so the AMA-side
-    ``_secure_memzero`` finalizer does not zero out Mercury's bytes when the
-    AMA wrapper falls out of scope (same pattern as ``generate_dilithium_keypair``).
+    Returns a defensive-copied ``SlhDsaKeyPair`` so the AMA-side ``_secure_memzero`` finalizer does
+    not zero out Mercury's bytes when the AMA wrapper falls out of scope (same pattern as
+    ``generate_dilithium_keypair``).
     """
     if not SLHDSA_AVAILABLE:
         raise RuntimeError(
@@ -567,12 +566,12 @@ def generate_slhdsa_keypair_from_seed(
     pk_seed: bytes,
     param_set: str = "SHAKE-128s",
 ) -> SlhDsaKeyPair:
-    """Derive a FIPS 205 §10.1 SLH-DSA keypair from caller-supplied seeds.
+    """
+    Derive a FIPS 205 §10.1 SLH-DSA keypair from caller-supplied seeds.
 
-    All three seed inputs must be exactly ``n`` bytes (16 for SHAKE-128s,
-    32 for SHA2-256f). The defensive copy on the way out follows the same
-    INVARIANT-6 pattern as the random-keygen path; AMA itself wipes the
-    seed scratch buffers on the way through the C boundary.
+    All three seed inputs must be exactly ``n`` bytes (16 for SHAKE-128s, 32 for SHA2-256f). The
+    defensive copy on the way out follows the same INVARIANT-6 pattern as the random-keygen path;
+    AMA itself wipes the seed scratch buffers on the way through the C boundary.
     """
     if not SLHDSA_AVAILABLE:
         raise RuntimeError(
@@ -659,7 +658,8 @@ def slhdsa_sign_internal(
     addrnd: bytes,
     param_set: str = "SHAKE-128s",
 ) -> bytes:
-    """FIPS 205 internal-interface SLH-DSA sign with caller-supplied ``addrnd``.
+    """
+    FIPS 205 internal-interface SLH-DSA sign with caller-supplied ``addrnd``.
 
     Used by the NIST ACVP hedged sigGen KAT replay path: the test harness
     pre-applies the FIPS 205 §10.2 ctx wrapper to the message and replays
@@ -751,8 +751,8 @@ class CryptoAuditTrail:
     """
     Cryptographic audit trail for PQC operations.
 
-    Provides tamper-evident logging of all cryptographic operations
-    for security compliance and forensic analysis.
+    Provides tamper-evident logging of all cryptographic operations for security compliance and
+    forensic analysis.
     """
 
     def __init__(self, max_entries: int = 10000) -> None:

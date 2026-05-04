@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -97,7 +95,8 @@ class UCFCrimeDataset(BaseVideoDataset):
     DATASET_URL = "https://www.crcv.ucf.edu/projects/real-world/"
 
     def __init__(self, config: UCFCrimeConfig | dict[str, Any] | None = None) -> None:
-        """Initialize UCF-Crime dataset.
+        """
+        Initialize UCF-Crime dataset.
 
         Args:
             config: Dataset configuration
@@ -150,7 +149,8 @@ class UCFCrimeDataset(BaseVideoDataset):
                     self._videos.append((video_dir, 1, temporal_annotations))
 
     def _load_temporal_annotations(self, video_path: Path) -> np.ndarray[Any, Any] | None:
-        """Load temporal annotations for a video.
+        """
+        Load temporal annotations for a video.
 
         Args:
             video_path: Path to video file or directory
@@ -181,7 +181,8 @@ class UCFCrimeDataset(BaseVideoDataset):
         return None
 
     def get_anomaly_statistics(self) -> dict[str, Any]:
-        """Get statistics about anomaly types in the dataset.
+        """
+        Get statistics about anomaly types in the dataset.
 
         Returns:
             Dict with anomaly type counts
@@ -203,7 +204,8 @@ class UCFCrimeDataset(BaseVideoDataset):
 
     @classmethod
     def get_anomaly_classes(cls) -> list[str]:
-        """Get list of all UCF-Crime anomaly classes.
+        """
+        Get list of all UCF-Crime anomaly classes.
 
         Returns:
             List of anomaly class names
@@ -212,7 +214,8 @@ class UCFCrimeDataset(BaseVideoDataset):
 
     @classmethod
     def get_all_anomaly_types(cls) -> list[str]:
-        """Get list of all UCF-Crime anomaly types (alias for get_anomaly_classes).
+        """
+        Get list of all UCF-Crime anomaly types (alias for get_anomaly_classes).
 
         Returns:
             List of anomaly type names

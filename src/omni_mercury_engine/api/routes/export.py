@@ -127,10 +127,11 @@ class ExportJob:
 
 
 class DataStore:
-    """In-memory data store for demonstration.
+    """
+    In-memory data store for demonstration.
 
-    Production deployment should use a proper time-series database
-    (InfluxDB, TimescaleDB) or data warehouse (BigQuery, Snowflake).
+    Production deployment should use a proper time-series database (InfluxDB, TimescaleDB) or data
+    warehouse (BigQuery, Snowflake).
     """
 
     def __init__(self) -> None:

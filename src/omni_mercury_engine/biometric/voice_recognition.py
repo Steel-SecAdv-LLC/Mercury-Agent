@@ -338,9 +338,7 @@ class PitchExtractor:
 
 
 class EnergyExtractor:
-    """
-    Extract energy contour from audio frames.
-    """
+    """Extract energy contour from audio frames."""
 
     def __init__(self, floor: float = 1e-10) -> None:
         """Initialize the energy extractor."""
@@ -412,9 +410,7 @@ class SpeakerEmbedding:
 
 
 class VoiceMatcher:
-    """
-    Match voice samples using embedding similarity.
-    """
+    """Match voice samples using embedding similarity."""
 
     def __init__(
         self,

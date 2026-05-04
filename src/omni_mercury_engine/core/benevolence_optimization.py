@@ -1,5 +1,6 @@
 """
 Mercury Agent - Multi-Objective Benevolence Optimization
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -103,8 +104,8 @@ class BenevolenceLoss:
     """
     Computes benevolence loss for optimization.
 
-    Benevolence measures the degree to which actions promote
-    well-being and minimize harm. Higher is better (target >= 0.99).
+    Benevolence measures the degree to which actions promote well-being and minimize harm. Higher is
+    better (target >= 0.99).
     """
 
     def __init__(
@@ -348,8 +349,8 @@ class ParetoOptimizer:
     """
     Pareto optimization for multi-objective benevolence optimization.
 
-    Finds the Pareto front of non-dominated solutions trading off
-    detection performance, benevolence, and fairness.
+    Finds the Pareto front of non-dominated solutions trading off detection performance,
+    benevolence, and fairness.
     """
 
     def __init__(

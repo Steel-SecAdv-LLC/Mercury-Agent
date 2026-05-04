@@ -1,5 +1,6 @@
 """
 Mercury Agent - Secure Audit Logging System
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -251,8 +252,7 @@ class SecureHashChain:
     """
     Cryptographically secure hash chain for audit log integrity.
 
-    Each event is linked to the previous via SHA-256 hash,
-    making tampering detectable.
+    Each event is linked to the previous via SHA-256 hash, making tampering detectable.
     """
 
     def __init__(self, hmac_key: bytes | None = None):
@@ -614,7 +614,8 @@ class SecureAuditLogger:
         self._write_events(events_to_write)
 
     def _write_events(self, events: list[AuditEvent]) -> None:
-        """Write events to log file with robust error handling.
+        """
+        Write events to log file with robust error handling.
 
         SECURITY: Audit log write failures are critical - they indicate
         potential data loss in the audit trail. This method will raise

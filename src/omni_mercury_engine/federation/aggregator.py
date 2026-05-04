@@ -48,7 +48,8 @@ from omni_mercury_engine.federation.statistics import FittedStatistics
 
 
 class FederatedAggregator:
-    """Aggregates FittedStatistics from multiple federated nodes.
+    """
+    Aggregates FittedStatistics from multiple federated nodes.
 
     Supports:
     - Weighted averaging based on sample size per node
@@ -69,7 +70,8 @@ class FederatedAggregator:
         self._round: int = 0
 
     def submit(self, stats: FittedStatistics) -> None:
-        """Submit statistics from a node.
+        """
+        Submit statistics from a node.
 
         Validates freshness, sample count, and feature dimensionality.
         """
@@ -94,7 +96,8 @@ class FederatedAggregator:
         self._submissions.append(stats)
 
     def aggregate(self) -> FittedStatistics:
-        """Combine all submitted statistics via weighted FedAvg.
+        """
+        Combine all submitted statistics via weighted FedAvg.
 
         Returns:
             Global FittedStatistics representing the federated model.
@@ -188,7 +191,8 @@ class FederatedAggregator:
 
     @staticmethod
     def to_detector(stats: FittedStatistics) -> Any:
-        """Reconstruct a working MercuryAnomalyDetector from FittedStatistics.
+        """
+        Reconstruct a working MercuryAnomalyDetector from FittedStatistics.
 
         This is the CRITICAL bridge that makes federation complete.
         Without this method, aggregated statistics are useless.

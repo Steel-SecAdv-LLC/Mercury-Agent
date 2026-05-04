@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -252,7 +250,8 @@ class TriadicPhiWeighting:
     """
 
     def __init__(self, num_heads: int = 32) -> None:
-        """Initialize triadic phi-weighting.
+        """
+        Initialize triadic phi-weighting.
 
         Args:
             num_heads: Number of attention heads (should be divisible by 3 for
@@ -285,7 +284,8 @@ class TriadicPhiWeighting:
         return weights
 
     def apply(self, attention_scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Apply triadic phi-weighting to attention scores.
+        """
+        Apply triadic phi-weighting to attention scores.
 
         Args:
             attention_scores: Raw attention scores [num_heads, seq_len, seq_len]
@@ -307,7 +307,8 @@ class TriadicPhiWeighting:
         return np.asarray(weighted)  # type: ignore[no-any-return, unused-ignore]
 
     def compute_harmonic_synergy(self, attention_output: np.ndarray[Any, Any]) -> float:
-        """Compute harmonic synergy score from attention output.
+        """
+        Compute harmonic synergy score from attention output.
 
         The synergy score measures how well the triadic weighting produces
         coherent frequency patterns (H(omega) in the weighted fusion Equation).
@@ -359,7 +360,8 @@ class MultiHeadAttentionFusion:
         max_dimensions: int = 37,
         enable_triadic_phi: bool = True,
     ):
-        """Initialize multi-head attention fusion.
+        """
+        Initialize multi-head attention fusion.
 
         Args:
             d_model: Model dimension (default 512)
@@ -547,7 +549,8 @@ class GlobalOmniScalarNetwork:
         num_attention_heads: int = 32,
         enable_triadic_phi: bool = True,
     ):
-        """Initialize the Global Omni-Scalar Network.
+        """
+        Initialize the Global Omni-Scalar Network.
 
         Args:
             device: Computation device ('cpu' or 'cuda')
@@ -598,11 +601,11 @@ class GlobalOmniScalarNetwork:
         )
 
     def _initialize_default_scalars(self) -> None:
-        """Initialize default ethical and system scalars with omni- prefix.
+        """
+        Initialize default ethical and system scalars with omni- prefix.
 
-        All scalars use the omni- prefix for unified naming convention.
-        Legacy aliases (without omni- prefix) are maintained for backward
-        compatibility and will be deprecated in v2.0.
+        All scalars use the omni- prefix for unified naming convention. Legacy aliases (without
+        omni- prefix) are maintained for backward compatibility and will be deprecated in v2.0.
         """
         # Core ethical scalars with omni- prefix
         # omnibenevolence uses ETHICAL.BENEVOLENCE_IMMUTABLE (0.99)
@@ -768,7 +771,8 @@ class GlobalOmniScalarNetwork:
         self._initialize_legacy_aliases()
 
     def _initialize_legacy_aliases(self) -> None:
-        """Initialize backward-compatible legacy aliases (deprecated in v2.0).
+        """
+        Initialize backward-compatible legacy aliases (deprecated in v2.0).
 
         Maps old scalar names to new omni-prefixed names for seamless migration.
         """
@@ -818,7 +822,8 @@ class GlobalOmniScalarNetwork:
         }
 
     def resolve_scalar_name(self, name: str) -> str:
-        """Resolve a scalar name, supporting legacy aliases.
+        """
+        Resolve a scalar name, supporting legacy aliases.
 
         Args:
             name: Scalar name (may be legacy or omni-prefixed)
@@ -835,7 +840,8 @@ class GlobalOmniScalarNetwork:
         return name
 
     def get_scalar(self, name: str, default: float = 0.0) -> float:
-        """Get a scalar value by name, supporting legacy aliases.
+        """
+        Get a scalar value by name, supporting legacy aliases.
 
         Args:
             name: Scalar name (may be legacy or omni-prefixed)
@@ -1197,7 +1203,8 @@ class GlobalOmniScalarNetwork:
         domain_weights: dict[str, float] | None = None,
         aggregation_method: str = "geometric_mean",
     ) -> dict[str, Any]:
-        """Compute hierarchical aggregation of omni-scalars (Phase 3).
+        """
+        Compute hierarchical aggregation of omni-scalars (Phase 3).
 
         Implements 3-level hierarchical aggregation:
 

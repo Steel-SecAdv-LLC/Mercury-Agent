@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Resilience and error recovery utilities for Mercury Agent.
@@ -95,7 +96,8 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 @dataclass
 class CircuitBreakerConfig:
-    """Configuration for circuit breaker.
+    """
+    Configuration for circuit breaker.
 
     Attributes:
         failure_threshold: Number of failures before opening circuit.
@@ -173,7 +175,8 @@ class CircuitBreaker:
         # Backwards compatibility alias
         recovery_timeout: float | None = None,
     ) -> None:
-        """Initialize circuit breaker.
+        """
+        Initialize circuit breaker.
 
         Args:
             failure_threshold: Failures before opening.
@@ -263,7 +266,8 @@ class CircuitBreaker:
         return time.time() - self._last_failure_time >= current_timeout
 
     def _get_current_timeout(self) -> float:
-        """Calculate current timeout with optional exponential backoff and jitter.
+        """
+        Calculate current timeout with optional exponential backoff and jitter.
 
         Returns:
             The calculated timeout in seconds, considering exponential backoff
@@ -384,10 +388,11 @@ class CircuitBreaker:
         return cast("F", wrapper)  # type: ignore[return-value, unused-ignore]
 
     def reset(self) -> None:
-        """Manually reset the circuit breaker.
+        """
+        Manually reset the circuit breaker.
 
-        This resets the circuit to CLOSED state and clears all failure/success
-        counts, but preserves total statistics.
+        This resets the circuit to CLOSED state and clears all failure/success counts, but preserves
+        total statistics.
         """
         with self._lock:
             self._state = CircuitState.CLOSED
@@ -448,7 +453,8 @@ def retry(
     exceptions: tuple[type[Exception], ...] = (Exception,),
     on_retry: Callable[[Exception, int], None] | None = None,
 ) -> Callable[[F], F]:
-    """Decorator for retry with exponential backoff.
+    """
+    Decorator for retry with exponential backoff.
 
     Args:
         max_attempts: Maximum number of attempts.
@@ -523,7 +529,8 @@ class GracefulShutdown:
         timeout: float = 30.0,
         signals: list[int] | None = None,
     ) -> None:
-        """Initialize graceful shutdown handler.
+        """
+        Initialize graceful shutdown handler.
 
         Args:
             timeout: Maximum time to wait for shutdown completion.
@@ -556,7 +563,8 @@ class GracefulShutdown:
         self.initiate_shutdown()
 
     def register_handler(self, handler: Callable[[], None]) -> None:
-        """Register a cleanup handler.
+        """
+        Register a cleanup handler.
 
         Args:
             handler: Function to call during shutdown.
@@ -566,7 +574,8 @@ class GracefulShutdown:
 
     @contextmanager
     def track_request(self) -> Generator[Any, None, None]:
-        """Context manager to track in-flight requests.
+        """
+        Context manager to track in-flight requests.
 
         Yields:
             None
@@ -653,7 +662,8 @@ class Bulkhead:
         timeout: float = 30.0,
         name: str = "default",
     ) -> None:
-        """Initialize bulkhead.
+        """
+        Initialize bulkhead.
 
         Args:
             max_concurrent: Maximum concurrent executions.
@@ -671,7 +681,8 @@ class Bulkhead:
 
     @contextmanager
     def acquire(self, timeout: float | None = None) -> Generator[Any, None, None]:
-        """Acquire a slot in the bulkhead.
+        """
+        Acquire a slot in the bulkhead.
 
         Args:
             timeout: Override default timeout.
@@ -743,7 +754,8 @@ class HealthChecker:
         name: str,
         check_fn: Callable[[], HealthStatus],
     ) -> None:
-        """Add a health check.
+        """
+        Add a health check.
 
         Args:
             name: Name of the check.
@@ -752,7 +764,8 @@ class HealthChecker:
         self._checks[name] = check_fn
 
     def check(self, name: str) -> HealthStatus:
-        """Run a specific health check.
+        """
+        Run a specific health check.
 
         Args:
             name: Name of the check.
@@ -777,7 +790,8 @@ class HealthChecker:
             )
 
     def check_all(self) -> dict[str, HealthStatus]:
-        """Run all health checks.
+        """
+        Run all health checks.
 
         Returns:
             Dictionary of check names to statuses.
@@ -788,7 +802,8 @@ class HealthChecker:
         return results
 
     def is_healthy(self) -> bool:
-        """Check if all checks pass.
+        """
+        Check if all checks pass.
 
         Returns:
             True if all checks are healthy.
@@ -797,7 +812,8 @@ class HealthChecker:
 
 
 def timeout(seconds: float) -> Callable[[F], F]:
-    """Decorator to add timeout to a function.
+    """
+    Decorator to add timeout to a function.
 
     Args:
         seconds: Timeout in seconds.

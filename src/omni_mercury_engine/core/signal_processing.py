@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -61,7 +59,8 @@ class FilterType(Enum):
 
 @dataclass
 class FilterConfig:
-    """Configuration for adaptive filtering.
+    """
+    Configuration for adaptive filtering.
 
     Attributes:
         filter_type: Type of filter to apply
@@ -100,7 +99,8 @@ class AdaptiveNoiseFilter:
     """
 
     def __init__(self, config: FilterConfig | None = None) -> None:
-        """Initialize adaptive noise filter.
+        """
+        Initialize adaptive noise filter.
 
         Args:
             config: Filter configuration. Uses defaults if None.
@@ -110,7 +110,8 @@ class AdaptiveNoiseFilter:
         self._kalman_covariance: float = 1.0
 
     def apply(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Apply configured filter to input data.
+        """
+        Apply configured filter to input data.
 
         Args:
             data: Input signal array
@@ -143,10 +144,11 @@ class AdaptiveNoiseFilter:
         return np.real(filtered)
 
     def _wavelet_denoise(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Wavelet denoising using soft thresholding.
+        """
+        Wavelet denoising using soft thresholding.
 
-        Implements Donoho-Johnstone wavelet shrinkage for non-stationary signals.
-        Particularly effective for seismic data, medical vitals, and crisis signals.
+        Implements Donoho-Johnstone wavelet shrinkage for non-stationary signals. Particularly
+        effective for seismic data, medical vitals, and crisis signals.
         """
         level = min(self.config.wavelet_level, int(np.log2(len(data))) - 1)
         if level < 1:
@@ -222,11 +224,11 @@ class AdaptiveNoiseFilter:
         return np.asarray(np.sign(data) * np.maximum(np.abs(data) - threshold, 0))  # type: ignore[no-any-return, unused-ignore]
 
     def _kalman_filter(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Kalman filter for optimal temporal noise reduction.
+        """
+        Kalman filter for optimal temporal noise reduction.
 
-        Implements a simple 1D Kalman filter optimal for time-series data
-        with Gaussian noise. Particularly effective for sensor data and
-        continuous monitoring applications.
+        Implements a simple 1D Kalman filter optimal for time-series data with Gaussian noise.
+        Particularly effective for sensor data and continuous monitoring applications.
         """
         n = len(data)
         filtered = np.zeros(n)
@@ -254,11 +256,11 @@ class AdaptiveNoiseFilter:
         return filtered
 
     def _savitzky_golay(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Savitzky-Golay filter for smoothing while preserving features.
+        """
+        Savitzky-Golay filter for smoothing while preserving features.
 
-        Preserves higher moments of the signal (peaks, valleys) better than
-        simple moving average. Ideal for spectroscopic data and signals
-        where feature preservation is critical.
+        Preserves higher moments of the signal (peaks, valleys) better than simple moving average.
+        Ideal for spectroscopic data and signals where feature preservation is critical.
         """
         window = self.config.window_size
         if window % 2 == 0:
@@ -275,10 +277,11 @@ class AdaptiveNoiseFilter:
             return data.copy()
 
     def _adaptive_bandpass(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Adaptive bandpass filter with automatic frequency selection.
+        """
+        Adaptive bandpass filter with automatic frequency selection.
 
-        Analyzes signal spectrum to determine optimal passband, then applies
-        Butterworth bandpass filter. Useful when signal characteristics vary.
+        Analyzes signal spectrum to determine optimal passband, then applies Butterworth bandpass
+        filter. Useful when signal characteristics vary.
         """
         fft_vals = np.fft.fft(data)
         freqs = np.fft.fftfreq(len(data))
@@ -311,18 +314,19 @@ class AdaptiveNoiseFilter:
             return data.copy()
 
     def _median_filter(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Median filter for impulse noise removal.
+        """
+        Median filter for impulse noise removal.
 
-        Effective for removing salt-and-pepper noise and outliers while
-        preserving edges. Useful for sensor data with occasional spikes.
+        Effective for removing salt-and-pepper noise and outliers while preserving edges. Useful for
+        sensor data with occasional spikes.
         """
         return np.asarray(signal.medfilt(data, kernel_size=min(self.config.window_size, len(data))))  # type: ignore[no-any-return, unused-ignore]
 
     def _ema_filter(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Exponential moving average filter.
+        """
+        Exponential moving average filter.
 
-        Simple but effective for real-time applications where computational
-        efficiency is important.
+        Simple but effective for real-time applications where computational efficiency is important.
         """
         alpha = self.config.ema_alpha
         filtered = np.zeros_like(data)
@@ -355,7 +359,8 @@ class MultiStageFilter:
     """
 
     def __init__(self, stages: list[FilterConfig] | None = None) -> None:
-        """Initialize multi-stage filter.
+        """
+        Initialize multi-stage filter.
 
         Args:
             stages: List of filter configurations to apply in sequence.
@@ -364,7 +369,8 @@ class MultiStageFilter:
         self.filters = [AdaptiveNoiseFilter(config) for config in self.stages]
 
     def apply(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Apply all filter stages in sequence.
+        """
+        Apply all filter stages in sequence.
 
         Args:
             data: Input signal array
@@ -378,7 +384,8 @@ class MultiStageFilter:
         return result
 
     def add_stage(self, config: FilterConfig) -> None:
-        """Add a filter stage to the pipeline.
+        """
+        Add a filter stage to the pipeline.
 
         Args:
             config: Filter configuration for new stage
@@ -391,7 +398,8 @@ def compute_rolling_statistics(
     data: np.ndarray[Any, Any],
     window_size: int = 10,
 ) -> dict[str, np.ndarray[Any, Any]]:
-    """Compute rolling window statistics for feature engineering.
+    """
+    Compute rolling window statistics for feature engineering.
 
     Args:
         data: Input signal array
@@ -431,7 +439,8 @@ def compute_temporal_lag_features(
     data: np.ndarray[Any, Any],
     lags: list[int] | None = None,
 ) -> dict[str, np.ndarray[Any, Any]]:
-    """Compute temporal lag features for multi-scale dependency analysis.
+    """
+    Compute temporal lag features for multi-scale dependency analysis.
 
     Args:
         data: Input signal array
@@ -463,7 +472,8 @@ def compute_temporal_lag_features(
 def compute_interaction_features(
     features_dict: dict[str, np.ndarray[Any, Any]],
 ) -> dict[str, np.ndarray[Any, Any]]:
-    """Compute interaction features between detector outputs.
+    """
+    Compute interaction features between detector outputs.
 
     Creates cross-correlation and product features for enhanced detection.
 

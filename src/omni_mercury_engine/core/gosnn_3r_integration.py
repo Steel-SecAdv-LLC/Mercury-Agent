@@ -1,5 +1,6 @@
 """
 Mercury Agent - GOSNN ↔ 3R Bidirectional Feedback Integration
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Implements bidirectional synaptic integration between:
@@ -98,8 +99,8 @@ class SlidingWindowNormalizer:
     """
     Sliding window normalization for time-series inputs.
 
-    Maintains running statistics and normalizes incoming data
-    based on recent history, adapting to non-stationary distributions.
+    Maintains running statistics and normalizes incoming data based on recent history, adapting to
+    non-stationary distributions.
     """
 
     def __init__(self, config: SlidingWindowConfig | None = None):
@@ -758,8 +759,8 @@ class CrossDomainTransferManager:
     """
     Manages cross-domain transfer learning between GOSNN-3R integrations.
 
-    Pre-trains on high-data domains (Security, Space) then fine-tunes
-    on low-data domains (Medical, Humanitarian).
+    Pre-trains on high-data domains (Security, Space) then fine-tunes on low-data domains (Medical,
+    Humanitarian).
     """
 
     # Domain hierarchy for transfer (source → targets)

@@ -1,5 +1,6 @@
 """
 Mercury Agent - Consolidated Domain Metrics Module
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -137,8 +138,8 @@ class MetricsCalculator:
     """
     Unified metrics calculator for all domains.
 
-    Computes comprehensive metrics suite including standard ML metrics,
-    domain-specific metrics, and ethical/benevolence metrics.
+    Computes comprehensive metrics suite including standard ML metrics, domain-specific metrics, and
+    ethical/benevolence metrics.
     """
 
     def __init__(
@@ -578,9 +579,7 @@ class MetricsCalculator:
 
 
 class DomainSpecificMetrics:
-    """
-    Domain-specific metrics for specialized detectors.
-    """
+    """Domain-specific metrics for specialized detectors."""
 
     @staticmethod
     def compute_temporal_metrics(

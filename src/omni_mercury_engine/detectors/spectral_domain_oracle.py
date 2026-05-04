@@ -1,8 +1,9 @@
-"""Backward-compatibility shim for the renamed spectral_domain_frequency module.
+"""
+Backward-compatibility shim for the renamed spectral_domain_frequency module.
 
-The Spectral Domain Frequency detector (formerly Spectral Domain Sound Oracle)
-was renamed to better reflect its purpose. This module re-exports all public
-symbols so that existing imports from ``spectral_domain_oracle`` continue to work.
+The Spectral Domain Frequency detector (formerly Spectral Domain Sound Oracle) was renamed to better
+reflect its purpose. This module re-exports all public symbols so that existing imports from
+``spectral_domain_oracle`` continue to work.
 
 New code should import from ``spectral_domain_frequency`` directly.
 """

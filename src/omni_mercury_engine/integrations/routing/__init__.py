@@ -1,6 +1,4 @@
-"""
-Request routing and fallback handling components.
-"""
+"""Request routing and fallback handling components."""
 
 from __future__ import annotations
 

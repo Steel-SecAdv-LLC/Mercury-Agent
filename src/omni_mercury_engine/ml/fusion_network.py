@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -60,16 +58,18 @@ __all__ = [
 
 
 class FusionNetwork(nn.Module):
-    """Multi-modality fusion network for combining features from multiple input sources.
+    """
+    Multi-modality fusion network for combining features from multiple input sources.
 
-    Implements a flexible architecture that encodes each modality separately
-    then fuses them through a learned fusion layer for unified representation.
+    Implements a flexible architecture that encodes each modality separately then fuses them through
+    a learned fusion layer for unified representation.
     """
 
     def __init__(
         self, input_dims: list[int], output_dim: int, hidden_dim: int | None = None
     ) -> None:
-        """Initialize fusion network.
+        """
+        Initialize fusion network.
 
         Args:
             input_dims: List of input dimensions for each modality
@@ -101,7 +101,8 @@ class FusionNetwork(nn.Module):
         )
 
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
-        """Forward pass through fusion network.
+        """
+        Forward pass through fusion network.
 
         Args:
             inputs: List of tensors, one per modality [batch_size, input_dim_i]
@@ -115,14 +116,16 @@ class FusionNetwork(nn.Module):
 
 
 class GatedFusion(nn.Module):
-    """Gated fusion mechanism for combining two input tensors.
+    """
+    Gated fusion mechanism for combining two input tensors.
 
-    Uses a learned gating mechanism to dynamically weight the contribution
-    of each input based on their content.
+    Uses a learned gating mechanism to dynamically weight the contribution of each input based on
+    their content.
     """
 
     def __init__(self, input_dim: int, hidden_dim: int) -> None:
-        """Initialize gated fusion.
+        """
+        Initialize gated fusion.
 
         Args:
             input_dim: Dimension of each input tensor
@@ -142,7 +145,8 @@ class GatedFusion(nn.Module):
     def forward(
         self, x1: torch.Tensor, x2: torch.Tensor, return_gate: bool = False
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass through gated fusion.
+        """
+        Forward pass through gated fusion.
 
         Args:
             x1: First input tensor [batch_size, input_dim]
@@ -162,14 +166,16 @@ class GatedFusion(nn.Module):
 
 
 class MultimodalFusion(nn.Module):
-    """Multimodal fusion with named modalities and optional learned weights.
+    """
+    Multimodal fusion with named modalities and optional learned weights.
 
-    Supports dictionary-based input where each key is a modality name
-    and handles missing modalities gracefully.
+    Supports dictionary-based input where each key is a modality name and handles missing modalities
+    gracefully.
     """
 
     def __init__(self, modality_dims: dict[str, int], output_dim: int) -> None:
-        """Initialize multimodal fusion.
+        """
+        Initialize multimodal fusion.
 
         Args:
             modality_dims: Dict mapping modality names to their dimensions
@@ -200,7 +206,8 @@ class MultimodalFusion(nn.Module):
         )
 
     def forward(self, inputs: dict[str, torch.Tensor]) -> torch.Tensor:
-        """Forward pass through multimodal fusion.
+        """
+        Forward pass through multimodal fusion.
 
         Args:
             inputs: Dict mapping modality names to tensors [batch_size, modality_dim]
@@ -259,7 +266,8 @@ class TemporalSequenceEncoder(nn.Module):
         bidirectional: bool = True,
         kernel_sizes: list[int] | None = None,
     ) -> None:
-        """Initialize temporal sequence encoder.
+        """
+        Initialize temporal sequence encoder.
 
         Args:
             input_dim: Input feature dimension at each timestep
@@ -350,7 +358,8 @@ class TemporalSequenceEncoder(nn.Module):
         mask: torch.Tensor | None = None,
         return_sequence: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass preserving temporal dependencies.
+        """
+        Forward pass preserving temporal dependencies.
 
         Args:
             x: Input tensor [batch_size, seq_len, input_dim]
@@ -395,7 +404,8 @@ class TemporalSequenceEncoder(nn.Module):
         return output
 
     def get_temporal_features(self, x: torch.Tensor, pool: str = "last") -> torch.Tensor:
-        """Get temporal features with specified pooling strategy.
+        """
+        Get temporal features with specified pooling strategy.
 
         Args:
             x: Input tensor [batch_size, seq_len, input_dim]
@@ -450,7 +460,8 @@ class FocalLoss(nn.Module):
         reduction: str = "mean",
         label_smoothing: float = 0.0,
     ) -> None:
-        """Initialize focal loss.
+        """
+        Initialize focal loss.
 
         Args:
             alpha: Weighting factor for positive class (0-1).
@@ -472,7 +483,8 @@ class FocalLoss(nn.Module):
         targets: torch.Tensor,
         sample_weights: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Compute focal loss.
+        """
+        Compute focal loss.
 
         Args:
             inputs: Predicted probabilities [batch_size] or [batch_size, 1]
@@ -543,7 +555,8 @@ class LabelSmoothingLoss(nn.Module):
         smoothing: float = 0.1,
         reduction: str = "mean",
     ) -> None:
-        """Initialize label smoothing loss.
+        """
+        Initialize label smoothing loss.
 
         Args:
             smoothing: Smoothing factor (0-1). 0.1 recommended.
@@ -560,7 +573,8 @@ class LabelSmoothingLoss(nn.Module):
         inputs: torch.Tensor,
         targets: torch.Tensor,
     ) -> torch.Tensor:
-        """Compute label smoothing loss.
+        """
+        Compute label smoothing loss.
 
         Args:
             inputs: Predicted probabilities [batch_size] or [batch_size, 1]
@@ -702,7 +716,8 @@ class OmniFusionModel(nn.Module):
         input_dim: int,
         device: torch.device,
     ) -> nn.Module:
-        """Get or create a projection layer for dynamic feature dimensions.
+        """
+        Get or create a projection layer for dynamic feature dimensions.
 
         This addresses Issue #6: Feature Dimension Mismatch in Fusion Model.
         Previously, new layers were created on every forward pass causing:
@@ -868,7 +883,8 @@ class OmniFusionModel(nn.Module):
         log_interval: int = 10,
         device: str = "cpu",
     ) -> dict[str, Any]:
-        """Train fusion model with advanced optimizers for accelerated convergence.
+        """
+        Train fusion model with advanced optimizers for accelerated convergence.
 
         Integrates SyntheticGradient, DifferenceTargetPropagation, and AuxiliaryMaxVariance
         optimizers for 2-3x training speedup with Lyapunov stability guarantees.
@@ -1283,7 +1299,8 @@ class STEMDisciplineRouter:
     def route(
         self, data: torch.Tensor, discipline: str, data_type: str | None = None
     ) -> dict[str, float]:
-        """Route data to appropriate engines based on STEM discipline.
+        """
+        Route data to appropriate engines based on STEM discipline.
 
         Args:
             data: Input data tensor
@@ -1339,7 +1356,8 @@ class STEMDisciplineRouter:
         }
 
     def explain_routing(self, discipline: str) -> dict[str, Any]:
-        """Explain why engines were prioritized for a discipline.
+        """
+        Explain why engines were prioritized for a discipline.
 
         Args:
             discipline: STEM discipline

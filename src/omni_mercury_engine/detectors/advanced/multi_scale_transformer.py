@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Multi-Scale Transformer for Time-Series Anomaly Detection
 
@@ -251,8 +250,8 @@ class AssociationDiscrepancy(nn.Module):
     """
     Association Discrepancy module from Anomaly Transformer.
 
-    Measures the discrepancy between prior-association and series-association
-    to identify anomalies that break normal temporal patterns.
+    Measures the discrepancy between prior-association and series-association to identify anomalies
+    that break normal temporal patterns.
     """
 
     def __init__(self, d_model: int, n_heads: int = 8) -> None:
@@ -701,8 +700,8 @@ def _point_adjust(
     """
     Point-adjustment for time-series evaluation.
 
-    If any point in an anomaly segment is detected, mark the entire segment.
-    This is standard practice for time-series anomaly detection evaluation.
+    If any point in an anomaly segment is detected, mark the entire segment. This is standard
+    practice for time-series anomaly detection evaluation.
     """
     adjusted = predictions.copy()
 

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -67,7 +65,8 @@ class ForecastResult(dict[str, Any]):
         horizon: int | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize ForecastResult.
+        """
+        Initialize ForecastResult.
 
         Args:
             *args: Positional arguments passed to dict
@@ -113,7 +112,8 @@ class ForecastResult(dict[str, Any]):
 
 @dataclass
 class FoundationModelConfig:
-    """Configuration for foundation model adapters.
+    """
+    Configuration for foundation model adapters.
 
     Attributes:
         model_name: Model identifier
@@ -137,7 +137,8 @@ class FoundationModelConfig:
 
 
 class BaseFoundationModel(BaseModel):
-    """Abstract base class for foundation model adapters.
+    """
+    Abstract base class for foundation model adapters.
 
     Provides common interface for time-series foundation models
     including forecasting and anomaly detection.
@@ -148,7 +149,8 @@ class BaseFoundationModel(BaseModel):
     """
 
     def __init__(self, config: FoundationModelConfig | dict[str, Any] | None = None) -> None:
-        """Initialize foundation model adapter.
+        """
+        Initialize foundation model adapter.
 
         Args:
             config: Model configuration
@@ -183,7 +185,8 @@ class BaseFoundationModel(BaseModel):
         series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """Generate forecasts for time series.
+        """
+        Generate forecasts for time series.
 
         Args:
             series: Input time series [T] or [B, T]
@@ -202,7 +205,8 @@ class BaseFoundationModel(BaseModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """Detect anomalies in time series.
+        """
+        Detect anomalies in time series.
 
         Args:
             series: Input time series [T] or [B, T]
@@ -216,7 +220,8 @@ class BaseFoundationModel(BaseModel):
         pass
 
     def predict(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Make predictions (forecasts) on data.
+        """
+        Make predictions (forecasts) on data.
 
         Args:
             data: Input time series
@@ -235,7 +240,8 @@ class BaseFoundationModel(BaseModel):
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """Extract features for ML fusion pipeline.
+        """
+        Extract features for ML fusion pipeline.
 
         Args:
             data: Input time series [T] or [B, T]
@@ -277,7 +283,8 @@ class BaseFoundationModel(BaseModel):
         series: np.ndarray[Any, Any],
         results: dict[str, Any],
     ) -> np.ndarray[Any, Any]:
-        """Compute feature statistics from detection results.
+        """
+        Compute feature statistics from detection results.
 
         Args:
             series: Input series
@@ -327,7 +334,8 @@ class BaseFoundationModel(BaseModel):
 
 
 class BaseFoundationAdapter(BaseFoundationModel):
-    """Concrete adapter class for foundation models.
+    """
+    Concrete adapter class for foundation models.
 
     Provides a non-abstract implementation that can be instantiated
     for testing and as a base for custom adapters.
@@ -343,7 +351,8 @@ class BaseFoundationAdapter(BaseFoundationModel):
         self,
         foundation_config: FoundationModelConfig | None = None,
     ) -> None:
-        """Initialize the foundation adapter.
+        """
+        Initialize the foundation adapter.
 
         Args:
             foundation_config: Model configuration
@@ -366,7 +375,8 @@ class BaseFoundationAdapter(BaseFoundationModel):
         self,
         series: np.ndarray,
     ) -> tuple[float, float]:
-        """Estimate linear trend using least squares.
+        """
+        Estimate linear trend using least squares.
 
         Args:
             series: 1D time series array
@@ -391,7 +401,8 @@ class BaseFoundationAdapter(BaseFoundationModel):
         alpha: float = 0.3,
         beta: float = 0.1,
     ) -> tuple[float, float]:
-        """Double exponential smoothing (Holt's method).
+        """
+        Double exponential smoothing (Holt's method).
 
         Args:
             series: 1D time series array
@@ -421,7 +432,8 @@ class BaseFoundationAdapter(BaseFoundationModel):
         series: np.ndarray,
         max_period: int = 52,
     ) -> tuple[int | None, np.ndarray | None]:
-        """Detect seasonal period using autocorrelation.
+        """
+        Detect seasonal period using autocorrelation.
 
         Args:
             series: 1D time series array
@@ -468,7 +480,8 @@ class BaseFoundationAdapter(BaseFoundationModel):
         n_bootstrap: int = 100,
         confidence: float = 0.95,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Estimate confidence intervals via residual bootstrapping.
+        """
+        Estimate confidence intervals via residual bootstrapping.
 
         Args:
             series: Historical series
@@ -514,7 +527,8 @@ class BaseFoundationAdapter(BaseFoundationModel):
         series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """Generate forecasts using statistical methods.
+        """
+        Generate forecasts using statistical methods.
 
         Combines exponential smoothing, trend extrapolation, and
         seasonal decomposition for robust time series forecasting.
@@ -580,7 +594,8 @@ class BaseFoundationAdapter(BaseFoundationModel):
         series: np.ndarray[Any, Any] | torch.Tensor,
         threshold: float | None = None,
     ) -> dict[str, Any]:
-        """Detect anomalies using statistical z-score method.
+        """
+        Detect anomalies using statistical z-score method.
 
         Args:
             series: Input time series (1D or 2D with batch dimension)

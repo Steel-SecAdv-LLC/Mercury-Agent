@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -71,7 +69,7 @@ from torch import nn
 
 
 class PsiPhenomenon(str):
-    """Types of psi phenomena"""
+    """Types of psi phenomena."""
 
     TELEPATHY = "telepathy"
     CLAIRVOYANCE = "clairvoyance"
@@ -84,7 +82,7 @@ class PsiPhenomenon(str):
 
 @dataclass
 class ParapsychologyResult:
-    """Result from parapsychology anomaly detection"""
+    """Result from parapsychology anomaly detection."""
 
     anomaly_detected: bool
     psi_type: str
@@ -110,8 +108,8 @@ class ConsciousnessFieldAnalyzer(nn.Module):
     """
     Neural network for consciousness field coherence analysis.
 
-    Inspired by Global Consciousness Project methodology with neural
-    pattern recognition for detecting deviations from randomness.
+    Inspired by Global Consciousness Project methodology with neural pattern recognition for
+    detecting deviations from randomness.
     """
 
     def __init__(self, sequence_length: int = 100) -> None:
@@ -159,8 +157,8 @@ class ParapsychologyDetector:
     """
     Parapsychology Anomaly Detector.
 
-    Statistical analysis tool for detecting deviations from chance in
-    psi experiments and consciousness research using rigorous methodology.
+    Statistical analysis tool for detecting deviations from chance in psi experiments and
+    consciousness research using rigorous methodology.
     """
 
     def __init__(
@@ -203,7 +201,7 @@ class ParapsychologyDetector:
         self.logger.info(f"Parapsychology Detector initialized (p < {significance_threshold})")
 
     def _initialize_baselines(self) -> dict[str, dict[str, Any]]:
-        """Initialize expected baseline distributions"""
+        """Initialize expected baseline distributions."""
         return {
             "esp_cards": {
                 "expected_hit_rate": 0.20,
@@ -330,7 +328,7 @@ class ParapsychologyDetector:
     def _determine_psi_type(
         self, experimental_data: dict[str, Any], metadata: dict[str, Any] | None
     ) -> str:
-        """Determine type of psi phenomenon being tested"""
+        """Determine type of psi phenomenon being tested."""
         if metadata and "experiment_type" in metadata:
             return str(metadata["experiment_type"])
 
@@ -422,7 +420,7 @@ class ParapsychologyDetector:
     def _compute_confidence_interval(
         self, effect_size: float, n: int, confidence_level: float = 0.95
     ) -> tuple[float, float]:
-        """Compute confidence interval for effect size"""
+        """Compute confidence interval for effect size."""
         if n < 2:
             return (effect_size, effect_size)
 
@@ -451,7 +449,7 @@ class ParapsychologyDetector:
     def _compare_with_control(
         self, experimental_data: dict[str, Any], control_data: dict[str, Any]
     ) -> dict[str, Any]:
-        """Compare experimental condition with control"""
+        """Compare experimental condition with control."""
         comparison = {
             "control_p_value": None,
             "experimental_stronger": False,
@@ -483,7 +481,7 @@ class ParapsychologyDetector:
         return comparison
 
     def _analyze_temporal_patterns(self, experimental_data: dict[str, Any]) -> dict[str, Any]:
-        """Analyze temporal evolution of psi effects"""
+        """Analyze temporal evolution of psi effects."""
         temporal = {"decline_effect": False, "trend": "stable"}
 
         if "trial_results" in experimental_data:
@@ -512,7 +510,7 @@ class ParapsychologyDetector:
     def _generate_recommendations(
         self, psi_type: str, p_value: float, effect_size: float, significant: bool
     ) -> list[str]:
-        """Generate research recommendations"""
+        """Generate research recommendations."""
         recommendations = []
 
         if significant:
@@ -540,7 +538,7 @@ class ParapsychologyDetector:
     def _correlate_consciousness_states(
         self, experimental_data: dict[str, Any], metadata: dict[str, Any] | None
     ) -> dict[str, Any]:
-        """Correlate results with consciousness states"""
+        """Correlate results with consciousness states."""
         meditation_state: int | None = None
         group_coherence: bool | None = None
         insights: list[str] = []
@@ -563,7 +561,7 @@ class ParapsychologyDetector:
         }
 
     def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
-        """Extract features for ML fusion integration"""
+        """Extract features for ML fusion integration."""
         features = []
 
         if "trial_results" in data:
@@ -586,7 +584,7 @@ class ParapsychologyDetector:
         return torch.tensor(features[:8], dtype=torch.float32).unsqueeze(0)
 
     def predict(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Predict for engine integration"""
+        """Predict for engine integration."""
         result = self.detect_psi_anomaly(data)
 
         anomaly_score = (1.0 - result.p_value) if result.anomaly_detected else 0.0

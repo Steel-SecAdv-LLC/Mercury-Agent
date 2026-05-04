@@ -1,14 +1,13 @@
-"""DEPRECATED: This module uses sklearn for anomaly detection.
+"""
+DEPRECATED: This module uses sklearn for anomaly detection.
 
-Mercury's production detector is MercuryAnomalyDetector in
-detectors/statistical.py. This module is retained for reference
-only and will be removed in a future release.
+Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This module is
+retained for reference only and will be removed in a future release.
 
 Do not import this module in production or benchmark code paths.
 
-Original: Stacking and Bayesian Model Averaging Fusion.
-Copyright (C) 2025 Steel Security Advisors LLC
-License: GPL-3.0-or-later
+Original: Stacking and Bayesian Model Averaging Fusion. Copyright (C) 2025 Steel Security Advisors
+LLC License: GPL-3.0-or-later
 """
 
 from __future__ import annotations
@@ -40,11 +39,14 @@ SIGMA_IMMUTABLE_DEFAULT = 0.96
 class BaseDetector(Protocol):
     """Protocol for base detectors in ensemble."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> None: ...
+    def fit(self, X: np.ndarray, y: np.ndarray) -> None:
+        """Fit the detector to ``(X, y)``."""
 
-    def predict(self, X: np.ndarray) -> np.ndarray: ...
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Return hard-label predictions for ``X``."""
 
-    def predict_proba(self, X: np.ndarray) -> np.ndarray: ...
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """Return calibrated class probabilities for ``X``."""
 
 
 @dataclass
@@ -348,7 +350,8 @@ class BayesianModelAveraging:
     def add_detector(
         self, name: str, detector: Any, ethical_score: float | None = None
     ) -> BayesianModelAveraging:
-        """Add a detector to the ensemble.
+        """
+        Add a detector to the ensemble.
 
         Args:
             name: Unique name for detector
@@ -530,9 +533,8 @@ class EthicallyConstrainedFusion:
     """
     Fusion with ethical constraints integrated from GOSNN.
 
-    Learns optimal detector weights while ensuring ethical
-    compliance through sigma_Immutable threshold gating and
-    benevolence weighting.
+    Learns optimal detector weights while ensuring ethical compliance through sigma_Immutable
+    threshold gating and benevolence weighting.
     """
 
     def __init__(

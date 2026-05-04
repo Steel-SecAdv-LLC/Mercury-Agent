@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -48,7 +47,8 @@ __all__ = [
 
 
 class NeurosymbolicEngineDeprecationWarning(DeprecationWarning):
-    """Custom deprecation warning for neurosymbolic_engine module.
+    """
+    Custom deprecation warning for neurosymbolic_engine module.
 
     This warning is issued when importing from the deprecated
     omni_mercury_engine.core.neurosymbolic_engine module.

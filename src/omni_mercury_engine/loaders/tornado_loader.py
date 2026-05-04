@@ -1,13 +1,11 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Domain loader for tornado data from the NOAA Storm Prediction Center (SPC).
 
-Connects to the SPC tornado archive CSV and daily storm reports feed
-to provide severe weather data for Mercury anomaly detection.  Ground truth
-events cover major tornado outbreaks where EF3+ tornadoes are labeled as
-anomalies against a background of weaker (EF0-EF2) events.
+Connects to the SPC tornado archive CSV and daily storm reports feed to provide severe weather data
+for Mercury anomaly detection.  Ground truth events cover major tornado outbreaks where EF3+
+tornadoes are labeled as anomalies against a background of weaker (EF0-EF2) events.
 """
 
 from __future__ import annotations
@@ -113,7 +111,8 @@ _TORNADO_DENSITY_CENTROID_LON = -97.5
 
 
 class TornadoLoader(BaseDomainLoader):
-    """Loader for tornado data from the NOAA Storm Prediction Center.
+    """
+    Loader for tornado data from the NOAA Storm Prediction Center.
 
     Uses two SPC data sources:
 
@@ -153,7 +152,8 @@ class TornadoLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """Fetch today's tornado reports from the SPC daily storm reports.
+        """
+        Fetch today's tornado reports from the SPC daily storm reports.
 
         Returns:
             DataFrame with tornado report columns parsed from the SPC
@@ -179,7 +179,8 @@ class TornadoLoader(BaseDomainLoader):
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """Fetch tornado records for a specific historical event.
+        """
+        Fetch tornado records for a specific historical event.
 
         Loads the full SPC tornado archive and filters to the date range
         associated with the requested event.
@@ -234,7 +235,8 @@ class TornadoLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """Return the catalog of ground truth tornado events.
+        """
+        Return the catalog of ground truth tornado events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -253,7 +255,8 @@ class TornadoLoader(BaseDomainLoader):
         return events
 
     def get_ground_truth(self, event_id: str) -> np.ndarray:
-        """Generate binary anomaly labels for a historical tornado event.
+        """
+        Generate binary anomaly labels for a historical tornado event.
 
         Labeling strategy: a tornado is labeled *anomalous* (``1``) if
         its EF-scale rating (``mag`` column) is 3 or higher (EF3+).
@@ -297,7 +300,8 @@ class TornadoLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
-        """Transform raw tornado data into a feature matrix.
+        """
+        Transform raw tornado data into a feature matrix.
 
         Engineered features (per tornado row):
 
@@ -389,7 +393,8 @@ class TornadoLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _load_archive(self) -> pd.DataFrame:
-        """Load the full SPC tornado archive CSV with caching.
+        """
+        Load the full SPC tornado archive CSV with caching.
 
         Returns:
             DataFrame containing the complete 1950-2023 tornado archive.
@@ -438,7 +443,8 @@ class TornadoLoader(BaseDomainLoader):
         start_date: pd.Timestamp,
         end_date: pd.Timestamp,
     ) -> pd.DataFrame:
-        """Filter archive DataFrame to a specific date range.
+        """
+        Filter archive DataFrame to a specific date range.
 
         Constructs a date from the ``yr``, ``mo``, ``dy`` columns (or
         the ``date`` column if available) and selects rows within the
@@ -468,7 +474,8 @@ class TornadoLoader(BaseDomainLoader):
 
     @staticmethod
     def _normalise_daily_report(df: pd.DataFrame) -> pd.DataFrame:
-        """Normalise SPC daily storm report columns to match archive schema.
+        """
+        Normalise SPC daily storm report columns to match archive schema.
 
         The daily report CSV may have a different layout than the
         historical archive.  This method renames and aligns columns
@@ -497,7 +504,8 @@ class TornadoLoader(BaseDomainLoader):
 
     @staticmethod
     def _parse_timestamps(df: pd.DataFrame) -> list[pd.Timestamp]:
-        """Parse date and time information from the tornado DataFrame.
+        """
+        Parse date and time information from the tornado DataFrame.
 
         Attempts to construct timestamps from the ``date`` and ``time``
         columns, falling back to ``yr``, ``mo``, ``dy`` columns if
@@ -550,7 +558,8 @@ class TornadoLoader(BaseDomainLoader):
         longitudes: np.ndarray,
         radius_km: float = 100.0,
     ) -> np.ndarray:
-        """Compute temporal clustering: tornado count per hour in surrounding region.
+        """
+        Compute temporal clustering: tornado count per hour in surrounding region.
 
         For each tornado, counts the number of other tornadoes occurring
         within the same hour and within the specified radius.
@@ -600,7 +609,8 @@ class TornadoLoader(BaseDomainLoader):
         latitudes: np.ndarray,
         longitudes: np.ndarray,
     ) -> np.ndarray:
-        """Compute distance from the historical tornado density centroid.
+        """
+        Compute distance from the historical tornado density centroid.
 
         Returns the great-circle distance in km from each tornado's
         start point to the approximate centroid of US tornado activity
@@ -638,7 +648,8 @@ def _haversine_km(
     lat2: float,
     lon2: float,
 ) -> float:
-    """Compute great-circle distance between two points using the haversine formula.
+    """
+    Compute great-circle distance between two points using the haversine formula.
 
     Args:
         lat1: Latitude of point 1 in decimal degrees.
