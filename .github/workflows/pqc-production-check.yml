@@ -54,12 +54,21 @@ jobs:
           # ctx-aware ML-DSA-65 sign + ``slhdsa_sign_deterministic`` /
           # ``slhdsa_verify`` for FIPS 205 SLH-DSA-SHAKE-128s NIST L1) plus
           # the FIPS 204 §6.2 Algorithm 7 line 3 fix that pins
-          # ``rnd = 0^256`` in deterministic mode. Until v3.1.0 carries a
-          # tagged release on AMA's main branch, pin the source branch
-          # explicitly so verify-real-pqc reproduces the NIST vectors
-          # byte-for-byte. Once v3.1.0 ships and merges into AMA main this
-          # pin should flip to a tag (``--branch v3.1.0``) for reproducibility.
-          AMA_REF: copilot/fix-fips-204-205-kat-gaps
+          # ``rnd = 0^256`` in deterministic mode.
+          #
+          # AMA Cryptography PR #290 (merge commit 24c7fc7) landed on
+          # ``main`` on 2026-05-04 and was tagged ``v3.1.0`` from that
+          # same commit. The tag ships the FIPS 204 §6.2 Algorithm 7
+          # rnd fix, the FIPS 204 §5.2 ctx-aware ``dilithium_sign_ctx``
+          # surface, the FIPS 205 NIST L1 SLH-DSA-SHAKE-128s public
+          # surface, the POST verify-only KAT against pinned NIST
+          # ACVP-Server tcId=342, INVARIANT-6 SK-wipe, no-alloc
+          # ``sha2_HT``, and the refreshed integrity digest. Pinning
+          # this CI job to the immutable tag (rather than the moving
+          # ``main`` branch) gives the byte-exact NIST ACVP
+          # reproduction in ``tests/security/test_nist_fips_kat.py``
+          # a stable reproducibility anchor.
+          AMA_REF: v3.1.0
         run: |
           # Clone and build the native C library explicitly via cmake so the
           # compiled shared objects are available before the Python install.
