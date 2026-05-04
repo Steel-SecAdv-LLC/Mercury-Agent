@@ -84,14 +84,24 @@ def _previous_snapshot(path: Path) -> dict[str, Any] | None:
 
 def _summary(data: dict[str, Any]) -> dict[str, Any]:
     summary = data.get("summary") or {}
+    # ``benchmarks/mercury_benchmark.py`` writes provenance under
+    # ``data["metadata"]`` (git_commit, timestamp, python_version, …).
+    # Older fixtures and externally-produced result files used to put
+    # the same fields at the top level (``data["commit"]``,
+    # ``data["timestamp"]``, ``data["run_timestamp"]``, …).  The
+    # canonical nested path takes precedence; the flat fallbacks are
+    # kept so the script still renders historical runs cleanly.
+    metadata = data.get("metadata") or {}
     return {
         "mean_auc": summary.get("mean_auc"),
         "median_auc": summary.get("median_auc"),
         "mean_oracle_f1": summary.get("mean_oracle_f1"),
         "successful": summary.get("successful"),
         "total": summary.get("total") or summary.get("n_datasets") or summary.get("successful"),
-        "timestamp": data.get("timestamp") or data.get("run_timestamp"),
-        "commit": data.get("commit") or data.get("git_commit"),
+        "timestamp": (
+            metadata.get("timestamp") or data.get("timestamp") or data.get("run_timestamp")
+        ),
+        "commit": (metadata.get("git_commit") or data.get("commit") or data.get("git_commit")),
     }
 
 

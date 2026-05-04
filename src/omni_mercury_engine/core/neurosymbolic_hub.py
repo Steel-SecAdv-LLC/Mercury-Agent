@@ -1395,6 +1395,7 @@ class NeuroSymbolicHub:
         from omni_mercury_engine.security.sigma_immutable_gate import (
             SIGMA_IMMUTABLE_ETHICAL_DIMS,
             SIGMA_IMMUTABLE_INPUT_DIM,
+            SIGMA_USED_BAND_END,
             project_benevolence_to_sigma_band,
         )
 
@@ -1412,17 +1413,17 @@ class NeuroSymbolicHub:
         # midpoint), with the per-sample neural / symbolic / fused /
         # row signal adding small ±0.4 perturbation around centre so
         # the σ_Immutable verdict tracks per-sample inputs without
-        # drifting into the network's negative-band response.
-        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:180] = 1.0
+        # drifting into the network's negative-band response.  The end
+        # index is sourced from :data:`SIGMA_USED_BAND_END` so the
+        # boundary cannot drift away from the corpus / trainer layout.
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
         scaled_neural = float(np.clip(neural_score, 0.0, 1.0))
         scaled_symbolic = float(np.clip(symbolic_score, 0.0, 1.0))
         scaled_fused = float(np.clip(fused_score, 0.0, 1.0))
         # Three head dimensions immediately after the ethical band carry
         # the neural / symbolic / fused per-sample scores.
         vector[SIGMA_IMMUTABLE_ETHICAL_DIMS] = 1.0 + 0.4 * (scaled_neural - 0.5) * 2.0
-        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS + 1] = (
-            1.0 + 0.4 * (scaled_symbolic - 0.5) * 2.0
-        )
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS + 1] = 1.0 + 0.4 * (scaled_symbolic - 0.5) * 2.0
         vector[SIGMA_IMMUTABLE_ETHICAL_DIMS + 2] = 1.0 + 0.4 * (scaled_fused - 0.5) * 2.0
 
         # Per-sample row signal: small perturbation in the 30 dims that

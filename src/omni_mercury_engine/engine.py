@@ -115,6 +115,24 @@ from omni_mercury_engine.core.global_omni_scalar_network import (
     get_global_scalar_network,
 )
 
+# ---------------------------------------------------------------------------
+# σ_Immutable / GOSNN testing-only bypass.
+#
+# Production code MUST NOT toggle this flag.  It exists so unit tests
+# that exercise non-GOSNN code paths can opt out of σ_Immutable's
+# corpus / weights bootstrap when running on stripped-down CI images
+# (no torch, no signed corpus).  Setting it True turns every
+# ``detect_with_fusion`` call into a benevolence-only check; the
+# engine still runs the BenevolenceScorer hard gate, but skips the
+# σ_Immutable second gate.
+#
+# At every public call site, the ``_enable_gosnn`` parameter is private
+# (leading underscore) — public callers cannot bypass σ_Immutable.
+# Tests set this module-level flag explicitly via monkeypatch so the
+# bypass is auditable from outside the test file.
+# ---------------------------------------------------------------------------
+_GOSNN_TESTING_BYPASS: bool = False
+
 # Core detectors - always imported (lightweight base classes)
 from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
@@ -1963,14 +1981,18 @@ class OmniMercuryEngine(LoggerMixin):
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
     ) -> None:
         """
-        Hard ethical gate at the engine decision boundary.
+        Dual hard ethical gate at the engine decision boundary.
 
-        Raises :class:`EthicalConstraintViolationError` if the action
-        described by ``("anomaly_detection", domain)`` does not score at
-        or above the
-        :class:`~omni_mercury_engine.cognitive.ethical_bounding.MINIMUM_BENEVOLENCE_FLOOR`
-        on the
-        :class:`~omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`.
+        Both gates fail closed:
+
+        * :class:`~omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`
+          — keyword/context primitive raised as
+          ``EthicalConstraintViolationError(check="benevolence")``.
+        * :class:`~omni_mercury_engine.security.sigma_immutable_gate.SigmaImmutableGate`
+          — trained 256-D σ_Immutable network raised as
+          ``EthicalConstraintViolationError(check="sigma_immutable")``;
+          a missing trained network or signed corpus raises
+          ``check="gosnn_unavailable"``.
 
         The action description is intentionally self-contained and
         positive-keyword-rich (``audit``, ``verify``, ``protect``,
@@ -1978,7 +2000,7 @@ class OmniMercuryEngine(LoggerMixin):
         purpose* (anomaly detection for safety auditing), not the
         anomalous payload itself.  This mirrors the orchestrator's
         contract so that both top-level boundaries enforce the same
-        primitive with the same threshold semantics.
+        primitives with the same threshold semantics.
 
         Args:
             domain: Caller-supplied domain hint, used as context only.
@@ -2000,9 +2022,42 @@ class OmniMercuryEngine(LoggerMixin):
             "data_shape": getattr(data, "shape", None),
         }
         # ``enforce`` raises EthicalConstraintViolationError on violation;
-        # legitimate calls return the EthicalScore (which we discard — the
-        # engine's caller does not need it, only the contract).
-        self._boundary_scorer.enforce(action, context)
+        # legitimate calls return an EthicalScore that the σ_Immutable
+        # projection helper consumes below.
+        ethical_score = self._boundary_scorer.enforce(action, context)
+
+        # ------------------------------------------------------------
+        # σ_Immutable second hard ethical gate.  Fails closed unless the
+        # process-wide test-only ``_GOSNN_TESTING_BYPASS`` flag is set.
+        # ------------------------------------------------------------
+        if _GOSNN_TESTING_BYPASS:
+            return
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            SIGMA_IMMUTABLE_ETHICAL_DIMS,
+            SIGMA_IMMUTABLE_INPUT_DIM,
+            SIGMA_USED_BAND_END,
+            project_benevolence_to_sigma_band,
+        )
+
+        ethical_value = project_benevolence_to_sigma_band(float(ethical_score.benevolence_score))
+        sigma_vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
+        sigma_vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = ethical_value
+        # Centre the non-ethical active band at the training U[0, 2]
+        # midpoint so a synthetic projected vector lives in the
+        # network's most-confident region for the corresponding
+        # benevolence verdict.
+        sigma_vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
+
+        self._sigma_immutable_gate.enforce(
+            action=(f"OmniMercuryEngine._enforce_ethics_at_boundary:" f"domain={safe_domain}"),
+            scalar_vector=sigma_vector,
+            details={
+                "boundary": "OmniMercuryEngine._enforce_ethics_at_boundary",
+                "domain": safe_domain,
+                "benevolence_score": float(ethical_score.benevolence_score),
+                "data_shape": getattr(data, "shape", None),
+            },
+        )
 
     def _extract_detector_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
@@ -2142,7 +2197,7 @@ class OmniMercuryEngine(LoggerMixin):
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         domain: str | None = None,
-        enable_gosnn: bool = True,
+        _enable_gosnn: bool = True,
     ) -> dict[str, Any]:
         """
         Detect anomalies using ML fusion with GOSNN synaptic integration.
@@ -2150,27 +2205,38 @@ class OmniMercuryEngine(LoggerMixin):
         This method combines outputs from all detectors and models using a
         neural network fusion approach with attention-based weighting. It
         integrates with the Global Omni-Scalar Network (GOSNN) for scalar
-        enhancement and records σ_Immutable as informational metadata.
+        enhancement and runs the σ_Immutable second hard ethical gate.
 
         Decision boundary:
-            Before GOSNN integration, the method enforces a hard ethical gate
-            via ``_enforce_ethics_at_boundary()`` using
-            :class:`BenevolenceScorer.enforce`. If the benevolence score is
-            impermissible, ``EthicalViolation`` is raised with
-            ``check="benevolence"`` — detection does not proceed.
+            The method enforces TWO hard ethical gates in order:
 
-        GOSNN Integration (Synaptic Fusion — informational, not the gate):
+            1. ``BenevolenceScorer.enforce`` — keyword/context-driven gate
+               raised as ``EthicalConstraintViolationError(check="benevolence")``.
+            2. ``SigmaImmutableGate.enforce`` — trained 256-D scalar
+               network raised as
+               ``EthicalConstraintViolationError(check="sigma_immutable")``.
+               When GOSNN itself cannot run, the method raises
+               ``check="gosnn_unavailable"`` rather than degrading to
+               advisory metadata.
+
+        GOSNN Integration (Synaptic Fusion + σ_Immutable input source):
             1. Extract features from all detectors and models
             2. Call GOSNN.get_enhanced_scalars() for scalar enhancement
             3. Apply 32-head attention with triadic phi-weighting
             4. Feed enhanced scalars back to fusion for adaptive weighting
-            5. Record σ_Immutable score in ``gosnn_metadata`` as a signal
+            5. Score the full 256-D scalar vector through σ_Immutable
 
         Args:
             data: Input data for detection.
             domain: Optional domain identifier for GOSNN threshold tuning
-                    (e.g., "medical" uses 0.93 fallback instead of 0.96 default)
-            enable_gosnn: Enable GOSNN synaptic integration (default True)
+                    (e.g., "medical" uses 0.93 fallback instead of 0.96 default).
+            _enable_gosnn: PRIVATE testing knob.  Production callers must
+                leave this at the default (``True``).  Setting it to
+                ``False`` from production code raises
+                ``check="gosnn_unavailable"`` because skipping GOSNN
+                would also skip the σ_Immutable second hard gate.  Unit
+                tests that need to bypass GOSNN must additionally set
+                the module-level :data:`_GOSNN_TESTING_BYPASS` flag.
 
         Returns:
             Dictionary containing:
@@ -2180,21 +2246,26 @@ class OmniMercuryEngine(LoggerMixin):
                 - severity: Anomaly severity score
                 - detector_importance: Dict of detector weights
                 - mode: Detection mode ('fusion')
-                - gosnn_metadata: GOSNN integration metadata (if enabled):
-                    - sigma_immutable_score: σ_Immutable score (informational)
-                    - ethical_gate_passed: σ_Immutable threshold check (informational;
-                      the real gate is the BenevolenceScorer above)
+                - gosnn_metadata: GOSNN + σ_Immutable evaluation metadata:
+                    - sigma_immutable_score: σ_Immutable score
+                    - ethical_gate_passed: σ_Immutable threshold check
+                    - sigma_immutable_threshold: decision threshold used
+                    - sigma_immutable_backend: ``"torch"`` for the trained
+                      network, ``"unavailable"`` if the network could not
+                      run (the engine raises before returning in that case).
                     - harmonic_synergy: H(ω) component for weighted fusion
                     - intelligence_contribution: GOSNN intelligence score
                     - warnings: Any ethical warnings
-                    - fallback_mode: True if GOSNN errored (detection continues)
 
         Raises:
-            EthicalViolation: When benevolence score is below threshold.
+            EthicalConstraintViolationError: With ``check="benevolence"``
+                when BenevolenceScorer fails;
+                ``check="sigma_immutable"`` when σ_Immutable scores below
+                threshold; ``check="gosnn_unavailable"`` when GOSNN cannot
+                be evaluated and the testing bypass is off.
 
         Note:
             Falls back to basic detection if not in fusion mode.
-            GOSNN integration can be disabled via enable_gosnn=False for testing.
         """
         if self.mode != "fusion":
             return self.detect(data)
@@ -2235,11 +2306,45 @@ class OmniMercuryEngine(LoggerMixin):
         # metadata path is gone (auditors saw it as defensive theatre).
         # ------------------------------------------------------------
         gosnn_metadata: dict[str, Any] = {}
-        if not enable_gosnn:
-            # Deliberately disabling GOSNN at the call site — only the
-            # benevolence scorer above applies.  Tests can still drive
-            # this branch; production callers should leave GOSNN on.
-            pass
+        if not _enable_gosnn:
+            # ``_enable_gosnn=False`` requests skipping the GOSNN +
+            # σ_Immutable second hard gate.  Production code MUST NOT
+            # take this path — skipping σ_Immutable downgrades the
+            # boundary to a single-gate (BenevolenceScorer-only) check
+            # and the locked May-2026 audit forbids advisory σ_Immutable.
+            #
+            # The only legitimate caller is a unit test that has set
+            # the module-level ``_GOSNN_TESTING_BYPASS`` flag, which is
+            # a deliberate, auditable opt-out.  Anything else fails
+            # closed with ``check="gosnn_unavailable"``.
+            if not _GOSNN_TESTING_BYPASS:
+                raise EthicalConstraintViolationError(
+                    action=(
+                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
+                    ),
+                    score=0.0,
+                    threshold=self._sigma_immutable_gate.threshold,
+                    check="gosnn_unavailable",
+                    details={
+                        "boundary": "OmniMercuryEngine.detect_with_fusion",
+                        "domain": domain,
+                        "underlying_error": (
+                            "_enable_gosnn=False requested without "
+                            "_GOSNN_TESTING_BYPASS — σ_Immutable second "
+                            "hard gate cannot run, boundary fails closed."
+                        ),
+                    },
+                )
+            gosnn_metadata = {
+                "ethical_gate_passed": None,
+                "sigma_immutable_score": None,
+                "sigma_immutable_threshold": self._sigma_immutable_gate.threshold,
+                "sigma_immutable_backend": "testing_bypass",
+                "warnings": [
+                    "σ_Immutable bypassed via _GOSNN_TESTING_BYPASS — "
+                    "unit-test path only, not safe for production."
+                ],
+            }
         else:
             try:
                 gosnn = get_global_scalar_network(
@@ -2265,13 +2370,10 @@ class OmniMercuryEngine(LoggerMixin):
                 # exact same scalar vector GOSNN scored, so the engine
                 # boundary's verdict matches the gate baked into GOSNN.
                 full_scalars = gosnn._collect_all_scalars()
-                scalar_vector = np.array(
-                    list(full_scalars.values()), dtype=np.float64
-                )
+                scalar_vector = np.array(list(full_scalars.values()), dtype=np.float64)
                 evaluation = self._sigma_immutable_gate.enforce(
                     action=(
-                        f"OmniMercuryEngine.detect_with_fusion:"
-                        f"domain={domain or 'general'}"
+                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
                     ),
                     scalar_vector=scalar_vector,
                     details={
@@ -2287,9 +2389,7 @@ class OmniMercuryEngine(LoggerMixin):
                     "sigma_immutable_threshold": evaluation.threshold,
                     "sigma_immutable_backend": evaluation.backend,
                     "harmonic_synergy": gosnn.last_harmonic_synergy,
-                    "intelligence_contribution": (
-                        enhancement_result.intelligence_contribution
-                    ),
+                    "intelligence_contribution": (enhancement_result.intelligence_contribution),
                     "warnings": enhancement_result.warnings,
                     "enhancement_fusion_score": enhancement_result.fusion_score,
                 }
@@ -2326,8 +2426,7 @@ class OmniMercuryEngine(LoggerMixin):
 
                 raise _EthicalErr(
                     action=(
-                        f"OmniMercuryEngine.detect_with_fusion:"
-                        f"domain={domain or 'general'}"
+                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
                     ),
                     score=0.0,
                     threshold=self._sigma_immutable_gate.threshold,
@@ -2407,7 +2506,7 @@ class OmniMercuryEngine(LoggerMixin):
         calibration_method: str = "auto",
         contamination: float | None = None,
         domain: str | None = None,
-        enable_gosnn: bool = True,
+        _enable_gosnn: bool = True,
     ) -> dict[str, Any]:
         """Detect anomalies using ML fusion with automatic threshold calibration.
 
@@ -2428,7 +2527,8 @@ class OmniMercuryEngine(LoggerMixin):
                 - "optimal_f1": Find threshold maximizing F1 (requires labels)
             contamination: Expected anomaly ratio (if known)
             domain: Domain identifier for GOSNN threshold tuning
-            enable_gosnn: Enable GOSNN synaptic integration
+            _enable_gosnn: PRIVATE testing knob (see ``detect_with_fusion``).
+                Production code must leave this at the default ``True``.
 
         Returns:
             Dictionary containing:
@@ -2460,7 +2560,7 @@ class OmniMercuryEngine(LoggerMixin):
         fusion_result = self.detect_with_fusion(
             data=data,
             domain=domain,
-            enable_gosnn=enable_gosnn,
+            _enable_gosnn=_enable_gosnn,
         )
 
         # Get fusion probability

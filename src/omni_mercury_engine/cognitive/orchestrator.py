@@ -616,6 +616,7 @@ class CognitiveOrchestrator(LoggerMixin):
         from omni_mercury_engine.security.sigma_immutable_gate import (
             SIGMA_IMMUTABLE_ETHICAL_DIMS,
             SIGMA_IMMUTABLE_INPUT_DIM,
+            SIGMA_USED_BAND_END,
             project_benevolence_to_sigma_band,
         )
 
@@ -636,9 +637,12 @@ class CognitiveOrchestrator(LoggerMixin):
         # Projection lives in
         # :func:`security.sigma_immutable_gate.project_benevolence_to_sigma_band`
         # so the same calibration is shared with the hub-side builder.
+        # The non-ethical-band end is sourced from
+        # :data:`SIGMA_USED_BAND_END` so the orchestrator, the hub, the
+        # corpus, and the trainer all agree on the layout.
         ethical_value = project_benevolence_to_sigma_band(benevolence_score)
         vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = ethical_value
-        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:180] = 1.0
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
         # Per-sample signal perturbation lives in the 33-dim window
         # ``[ETHICAL_DIMS, ETHICAL_DIMS + 33)`` (== ``[27, 60)`` for the
         # canonical layout), which mirrors the region the hub-side
@@ -647,9 +651,7 @@ class CognitiveOrchestrator(LoggerMixin):
         # so it is broadcast uniformly across the window.
         signal_perturbation = float(np.clip(0.5 * severity + 0.5 * anomaly_prob, 0.0, 1.0))
         signal_window_end = SIGMA_IMMUTABLE_ETHICAL_DIMS + 33
-        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:signal_window_end] = (
-            1.0 + 0.4 * signal_perturbation
-        )
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:signal_window_end] = 1.0 + 0.4 * signal_perturbation
         return vector
 
     def learn_from_feedback(

@@ -53,6 +53,42 @@ SIGMA_IMMUTABLE_INPUT_DIM: int = 256
 SIGMA_IMMUTABLE_DEFAULT_THRESHOLD: float = 0.93
 
 # ---------------------------------------------------------------------------
+# σ_Immutable layout constants — single source of truth.
+#
+# The σ_Immutable scalar vector is 256-D:
+#
+#   indices [0,   SIGMA_ETHICAL_BAND_END)    — ethical scalars (27 dims)
+#   indices [SIGMA_ETHICAL_BAND_END, SIGMA_USED_BAND_END)
+#                                              — non-ethical active band
+#                                                (153 dims, training U[0,2])
+#   indices [SIGMA_USED_BAND_END, SIGMA_IMMUTABLE_DIM)
+#                                              — zero-padded reserved tail
+#                                                (76 dims)
+#
+# These constants are imported by ``sigma_immutable_corpus``, the
+# orchestrator, and the neurosymbolic hub so the layout cannot drift
+# between the trainer, the corpus, and the boundary builders.
+# ---------------------------------------------------------------------------
+
+#: Total width of the σ_Immutable scalar vector (256-D).
+SIGMA_IMMUTABLE_DIM: int = SIGMA_IMMUTABLE_INPUT_DIM
+
+#: Index just past the last ethical-band column (27).  Mirrors
+#: :data:`SIGMA_IMMUTABLE_ETHICAL_DIMS`.
+SIGMA_ETHICAL_BAND_END: int = 27
+
+#: Index just past the last actively-used column (180).  The remaining
+#: ``SIGMA_IMMUTABLE_DIM - SIGMA_USED_BAND_END`` (76) columns are
+#: deterministically zero-padded so the corpus and the trainer share an
+#: identical "reserved tail" the gate never reads.
+SIGMA_USED_BAND_END: int = 180
+
+#: Public alias used by :mod:`sigma_immutable_corpus` and the trainer
+#: scripts so corpus-side code does not have to reach into a layout
+#: constant whose name speaks of ranges rather than the corpus.
+CORPUS_USED_DIM: int = SIGMA_USED_BAND_END
+
+# ---------------------------------------------------------------------------
 # σ_Immutable input-vector calibration constants.
 #
 # The σ_Immutable network was trained on samples drawn from ``U[0, 2]``,
@@ -66,8 +102,10 @@ SIGMA_IMMUTABLE_DEFAULT_THRESHOLD: float = 0.93
 # ---------------------------------------------------------------------------
 
 #: Width of the per-sample ethical band — the leading slice of the input
-#: vector that carries the projected benevolence signal.
-SIGMA_IMMUTABLE_ETHICAL_DIMS: int = 27
+#: vector that carries the projected benevolence signal.  Kept as an
+#: alias of :data:`SIGMA_ETHICAL_BAND_END` so legacy callers continue to
+#: import either name.
+SIGMA_IMMUTABLE_ETHICAL_DIMS: int = SIGMA_ETHICAL_BAND_END
 
 #: Lower bound for permissible benevolence values inside the trained
 #: positive band.  Matches MINIMUM_BENEVOLENCE_FLOOR (0.70) projected up.
@@ -294,9 +332,7 @@ class SigmaImmutableGate:
         except ImportError as exc:
             # The corpus module itself is missing — that is a build
             # error, not a soft fallback.
-            self._corpus_error = (
-                f"σ_Immutable corpus module unavailable: {exc}"
-            )
+            self._corpus_error = f"σ_Immutable corpus module unavailable: {exc}"
             logger.error(self._corpus_error)
         except Exception as exc:
             # ``CorpusVerificationError`` is the documented type but we
@@ -448,9 +484,18 @@ def get_sigma_immutable_gate() -> SigmaImmutableGate:
 
 
 __all__ = [
+    "CORPUS_USED_DIM",
+    "SIGMA_ETHICAL_BAND_END",
     "SIGMA_IMMUTABLE_DEFAULT_THRESHOLD",
+    "SIGMA_IMMUTABLE_DIM",
+    "SIGMA_IMMUTABLE_ETHICAL_DIMS",
+    "SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH",
     "SIGMA_IMMUTABLE_INPUT_DIM",
+    "SIGMA_IMMUTABLE_PERMISSIBLE_HIGH",
+    "SIGMA_IMMUTABLE_PERMISSIBLE_LOW",
+    "SIGMA_USED_BAND_END",
     "SigmaImmutableEvaluation",
     "SigmaImmutableGate",
     "get_sigma_immutable_gate",
+    "project_benevolence_to_sigma_band",
 ]

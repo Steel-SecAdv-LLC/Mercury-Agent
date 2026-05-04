@@ -70,6 +70,20 @@ jobs:
     name: Run Mercury Benchmarks
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # Defence-in-depth self-trigger guard.  GitHub already honours
+    # ``[skip ci]`` in commit messages (see the auto-commit step at the
+    # bottom of this file), but `paths`-filtered ``push`` triggers can
+    # still race the skip-token check, so we additionally refuse to run
+    # when the head commit was written by *this* workflow.  Both
+    # markers — ``[skip benchmark]`` and the
+    # ``ci(benchmark): persist latest run`` subject prefix — are
+    # produced exclusively by the auto-commit step below.
+    if: >-
+      github.event_name != 'push' ||
+      (
+        !contains(github.event.head_commit.message, '[skip benchmark]') &&
+        !startsWith(github.event.head_commit.message, 'ci(benchmark): persist latest run')
+      )
 
     steps:
       - name: Checkout code
@@ -262,7 +276,11 @@ jobs:
           mean_auc=$(python -c "import json; print(f\"{json.load(open('benchmarks/mercury_benchmark_results.json'))['summary']['mean_auc']:.4f}\")")
           mean_f1=$(python -c "import json; print(f\"{json.load(open('benchmarks/mercury_benchmark_results.json'))['summary']['mean_oracle_f1']:.4f}\")")
 
-          git commit -m "ci(benchmark): persist latest run (AUC=${mean_auc}, F1=${mean_f1})" \
+          # Subject prefix and ``[skip benchmark]`` marker are both
+          # checked by the workflow-level ``if:`` guard above, so this
+          # commit cannot re-trigger the benchmark job even on rare
+          # ``[skip ci]`` race conditions.
+          git commit -m "ci(benchmark): persist latest run (AUC=${mean_auc}, F1=${mean_f1}) [skip benchmark]" \
                      -m "Auto-committed by .github/workflows/benchmark.yml from ${GITHUB_SHA}." \
                      -m "[skip ci]"
           git push origin HEAD:${GITHUB_REF#refs/heads/}

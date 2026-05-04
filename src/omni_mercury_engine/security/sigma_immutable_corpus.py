@@ -52,9 +52,20 @@ CORPUS_SIG_PATH: Path = _PACKAGE_ROOT / "security" / "sigma_immutable_corpus.sig
 CORPUS_POSITIVE: int = 64
 CORPUS_NEGATIVE: int = 64
 CORPUS_TOTAL: int = CORPUS_POSITIVE + CORPUS_NEGATIVE
-CORPUS_INPUT_DIM: int = 256
-CORPUS_USED_DIM: int = 180  # remaining 76 dims are zero-padding
-CORPUS_ETHICAL_DIMS: int = 27
+
+# Layout constants are owned by :mod:`sigma_immutable_gate` so the
+# trainer, the corpus, and every decision boundary share a single
+# definition.  See the module-level "σ_Immutable layout constants"
+# block in ``sigma_immutable_gate.py`` for the canonical layout.
+from omni_mercury_engine.security.sigma_immutable_gate import (
+    SIGMA_ETHICAL_BAND_END as _SIGMA_ETHICAL_BAND_END,
+    SIGMA_IMMUTABLE_DIM as _SIGMA_IMMUTABLE_DIM,
+    SIGMA_USED_BAND_END as _SIGMA_USED_BAND_END,
+)
+
+CORPUS_INPUT_DIM: int = _SIGMA_IMMUTABLE_DIM
+CORPUS_USED_DIM: int = _SIGMA_USED_BAND_END  # remaining dims are zero-padding
+CORPUS_ETHICAL_DIMS: int = _SIGMA_ETHICAL_BAND_END
 CORPUS_THRESHOLD: float = 0.93
 CORPUS_SEED: int = 42
 
@@ -143,12 +154,10 @@ def generate_corpus(
 
     # Positives: ethical band U[threshold, 2.0] in critical dims, U[0, 2] elsewhere.
     for i in range(n_positive):
-        features[i, :ethical_dims] = rng.uniform(
-            threshold, 2.0, ethical_dims
-        ).astype(np.float32)
-        features[i, ethical_dims:used_dim] = rng.uniform(
-            0.0, 2.0, used_dim - ethical_dims
-        ).astype(np.float32)
+        features[i, :ethical_dims] = rng.uniform(threshold, 2.0, ethical_dims).astype(np.float32)
+        features[i, ethical_dims:used_dim] = rng.uniform(0.0, 2.0, used_dim - ethical_dims).astype(
+            np.float32
+        )
         labels[i] = 1.0
 
     # Negatives: realistic background, then 1..5 critical dims pulled below threshold.
@@ -218,9 +227,7 @@ def _canonical_bytes(
         "n_samples": int(features.shape[0]),
         # ``float.hex`` is lossless and locale-free; ``round-trip`` via
         # ``float.fromhex`` reconstructs bit-exact values.
-        "features_hex": [
-            [float(v).hex() for v in row] for row in features.tolist()
-        ],
+        "features_hex": [[float(v).hex() for v in row] for row in features.tolist()],
         "labels_hex": [float(v).hex() for v in labels.tolist()],
     }
     return (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
@@ -339,13 +346,9 @@ def sign_and_persist_corpus(
             "omitted": True,
             "omission_reason": str(exc),
         }
-        logger.warning(
-            "ML-DSA-65 signing skipped (AMA PQC backend missing): %s", exc
-        )
+        logger.warning("ML-DSA-65 signing skipped (AMA PQC backend missing): %s", exc)
 
-    sig_bytes = (
-        json.dumps(signature_payload, sort_keys=True, indent=2) + "\n"
-    ).encode("utf-8")
+    sig_bytes = (json.dumps(signature_payload, sort_keys=True, indent=2) + "\n").encode("utf-8")
     sig_path.parent.mkdir(parents=True, exist_ok=True)
     sig_path.write_bytes(sig_bytes)
     logger.info("σ_Immutable corpus signatures written to %s", sig_path)
@@ -401,8 +404,7 @@ def load_signature_payload(
     signatures = payload.get("signatures")
     if not isinstance(signatures, dict) or ED25519_ALG not in signatures:
         raise CorpusVerificationError(
-            "σ_Immutable signature payload is missing the mandatory "
-            f"{ED25519_ALG!r} entry."
+            "σ_Immutable signature payload is missing the mandatory " f"{ED25519_ALG!r} entry."
         )
 
     return payload
@@ -467,9 +469,7 @@ def verify_corpus_signatures(
         Signature(
             signature=bytes.fromhex(ed["signature_hex"]),
             algorithm=AlgorithmType.ED25519,
-            public_key_hash=hashlib.sha3_256(
-                bytes.fromhex(ed["public_key_hex"])
-            ).hexdigest()[:16],
+            public_key_hash=hashlib.sha3_256(bytes.fromhex(ed["public_key_hex"])).hexdigest()[:16],
         ),
         bytes.fromhex(ed["public_key_hex"]),
     )
