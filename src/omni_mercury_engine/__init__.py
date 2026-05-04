@@ -17,10 +17,32 @@ https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Mercury Agent: ML-Centric Anomaly Detection Framework
+Mercury Agent: Neuro-Symbolic AI Framework
 
-A unified toolkit for anomaly detection across security, biometrics, temporal patterns,
-and multi-dimensional data using neural network fusion of specialized detectors.
+Mercury Agent is a comprehensive neuro-symbolic AI platform.  It hybridises a
+deep-learning core (76+ ``torch.nn.Module`` subclasses spanning visual,
+behavioural, physics-based, fusion and differentiable-logic theorem-proving
+subsystems) with an explicit symbolic layer (knowledge graphs, rule bases,
+formal verification, AST-based code analysis and case-based reasoning),
+wired together through ``core.neurosymbolic_hub.NeuroSymbolicHub`` and
+``cognitive.neurosymbolic_fusion.NeurosymbolicFusionEngine`` to produce
+explainable, ethically-bounded decisions across security, medical,
+environmental, humanitarian and infrastructure domains.
+
+The framework ships:
+
+* A 7-phase cognitive evolution stack (neural memory → symbolic logic →
+  hybrid fusion → enhanced anomaly detection → autonomous OODA agent →
+  ethical bounding → cognitive evolution / self-improvement).
+* 22+ specialised detection engines and 14 live real-world data loaders
+  (USGS, NOAA, NASA, FEMA, EPA, financial, energy, network security, …).
+* A ``NeuroSymbolicHub`` enforcing a hard benevolence floor of 0.70 at
+  every decision boundary.
+* Post-quantum cryptography (Kyber-1024 / ML-DSA-65 / SPHINCS+),
+  federated learning, conformal prediction, FastAPI server and CLI.
+
+Anomaly detection is one of the capabilities this AI exposes — not the
+limit of what it is.
 """
 
 from typing import TYPE_CHECKING

@@ -17,7 +17,7 @@ https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Safeguards module for Mercury Agent anomaly detection framework.
+Safeguards module for the Mercury Agent neuro-symbolic AI framework.
 
 This module provides nano-scale safeguards for micro-anomaly detection,
 implementing the N term from the Lyapunov stability framework.

@@ -2,8 +2,10 @@
 
 Version `1.6.0` — Steel-SecAdv-LLC.
 
-Mercury Agent is the orchestration / cognition layer of the
-FIND**Ω**YOU stack.  It is paired with
+Mercury Agent is the **neuro-symbolic AI** orchestration / cognition layer
+of the FIND**Ω**YOU stack — a hybrid of deep-learning detectors, an
+explicit symbolic reasoning layer, a 7-phase cognitive evolution
+architecture and hard ethical bounding.  It is paired with
 [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
 for the post-quantum cryptographic substrate.
 

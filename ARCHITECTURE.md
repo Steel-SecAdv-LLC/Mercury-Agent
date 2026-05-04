@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Mercury Agent implements a ML-Centric Hybrid Fusion architecture that integrates 22+ diverse scientific and computational paradigms into a unified anomaly detection framework. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 22+ diverse scientific and computational paradigms — a deep-learning core (76+ `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -1024,7 +1024,7 @@ is_stable = OmniCodes.validate_stability(min_total=50.0)  # True
 
 ## Conclusion
 
-The Mercury Agent successfully integrates **22+ detection engines** with **11 infrastructure monitoring modules** across **8 major frameworks** into a production-ready ML-centric platform. The hybrid fusion approach balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
+The Mercury Agent successfully integrates **22+ detection engines** with **11 infrastructure monitoring modules** across **8 major frameworks** into a production-grade neuro-symbolic AI platform. The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
 
 ### Core ML Achievements:
 - ✅ Hybrid fusion (feature + decision level) with multi-head attention

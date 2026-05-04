@@ -574,11 +574,14 @@ class MemoryMonitor:
 
 
 class OmniMercuryEngine(LoggerMixin):
-    """Unified anomaly detection engine with ML-Centric Hybrid Fusion.
+    """Unified neuro-symbolic detection engine with hybrid fusion.
 
-    This is the main entry point for the Mercury Agent anomaly detection system.
-    It integrates 13 specialized detection engines through neural network
-    fusion to provide comprehensive multi-domain anomaly detection.
+    This is the main entry point for the Mercury Agent neuro-symbolic AI
+    platform.  It combines a deep-learning core (specialised neural
+    detectors and a multi-head attention fusion network) with an explicit
+    symbolic layer (knowledge graphs, rule bases, formal verification) and
+    a hard ethical-governance gate, exposing the result as a unified
+    multi-domain anomaly-detection capability.
 
     The engine supports multiple operation modes:
         - **fusion**: Neural network fusion of all detectors (default)

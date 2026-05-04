@@ -9,11 +9,14 @@
 
 ## 1. Overview
 
-Mercury Agent implements a multi-paradigm anomaly detection framework built on a
-mathematically grounded fusion architecture. The core mathematical framework is
-the **Omni-Ava Equation (OAE)**, which combines three orthogonal
-detection signals -- Recursion, Resonance, and Optimization -- through
-golden-ratio-weighted convex combination, modulated by a sigmoid ethical gate.
+Mercury Agent is a neuro-symbolic AI framework built on a mathematically
+grounded hybrid-fusion architecture. Multi-paradigm anomaly detection is
+one of the capabilities this AI exposes; the underlying engine combines
+neural pattern recognition with explicit symbolic reasoning and hard
+ethical bounding. The core mathematical framework is the **Omni-Ava
+Equation (OAE)**, which combines three orthogonal detection signals --
+Recursion, Resonance, and Optimization -- through golden-ratio-weighted
+convex combination, modulated by a sigmoid ethical gate.
 
 The framework guarantees:
 
