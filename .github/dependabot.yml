@@ -15,10 +15,14 @@ updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "daily"
+      # Weekly to reduce PR churn for a solo maintainer; security alerts
+      # still open immediately regardless of this schedule.
+      interval: "weekly"
+      day: "monday"
       time: "06:00"
       timezone: "America/New_York"
-    open-pull-requests-limit: 15
+    # Cap concurrent Dependabot PRs so the queue stays reviewable.
+    open-pull-requests-limit: 5
     reviewers:
       - "Steel-SecAdv-LLC/security-team"
     labels:
@@ -28,13 +32,16 @@ updates:
     commit-message:
       prefix: "deps(pip)"
       include: "scope"
-    # Group security updates for faster review
+    # Group updates so non-security version bumps batch into one PR per
+    # group instead of one PR per package.
     groups:
+      # All security updates collapse into a single PR for fast review.
       security-updates:
         applies-to: security-updates
         patterns:
           - "*"
       ml-dependencies:
+        applies-to: version-updates
         patterns:
           - "torch*"
           - "numpy"
@@ -42,17 +49,19 @@ updates:
           - "scikit-learn"
           - "pandas"
       web-dependencies:
+        applies-to: version-updates
         patterns:
           - "fastapi"
           - "uvicorn"
           - "streamlit"
           - "httpx"
       crypto-dependencies:
+        applies-to: version-updates
         patterns:
           - "cryptography"
           - "bcrypt"
-      # New group for security-critical packages
       security-critical:
+        applies-to: version-updates
         patterns:
           - "pip"
           - "setuptools"
@@ -61,11 +70,33 @@ updates:
           - "requests"
           - "urllib3"
           - "certifi"
-    # Ignore major version updates for ML libs (may break compatibility)
+      # Catch-all: every other version update batches into a single PR
+      # so we don't get one PR per package each week. Dependabot evaluates
+      # groups in order, so packages already claimed by the groups above
+      # (ml-/web-/crypto-/security-critical) are excluded here by design.
+      python-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignore major version updates for libraries with frequent breaking
+    # changes; bump these manually when the maintainer has bandwidth.
     ignore:
       - dependency-name: "torch"
         update-types: ["version-update:semver-major"]
       - dependency-name: "numpy"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "scipy"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pandas"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "scikit-learn"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "fastapi"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pydantic"
         update-types: ["version-update:semver-major"]
     # Vulnerability alerts configuration
     # Prioritize security updates over feature updates
@@ -89,6 +120,10 @@ updates:
     commit-message:
       prefix: "deps(docker)"
       include: "scope"
+    groups:
+      docker-images:
+        patterns:
+          - "*"
 
   # GitHub Actions workflows
   - package-ecosystem: "github-actions"
@@ -108,6 +143,10 @@ updates:
     commit-message:
       prefix: "deps(actions)"
       include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   # Helm charts
   - package-ecosystem: "helm"
@@ -124,3 +163,7 @@ updates:
     commit-message:
       prefix: "deps(helm)"
       include: "scope"
+    groups:
+      helm-charts:
+        patterns:
+          - "*"
