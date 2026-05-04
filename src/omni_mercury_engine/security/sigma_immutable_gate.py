@@ -202,7 +202,7 @@ class SigmaImmutableGate:
                 f"σ_Immutable corpus module unavailable: {exc}"
             )
             logger.error(self._corpus_error)
-        except Exception as exc:  # noqa: BLE001 - captured & re-raised on use
+        except Exception as exc:
             # ``CorpusVerificationError`` is the documented type but we
             # surface any unexpected failure (file missing, JSON broken,
             # checksum mismatch) — they all mean the corpus is no
