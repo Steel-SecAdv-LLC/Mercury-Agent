@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 BANNER = """

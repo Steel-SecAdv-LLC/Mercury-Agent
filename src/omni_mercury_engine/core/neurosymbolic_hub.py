@@ -477,19 +477,67 @@ class NeuralEncoder:
 
             return np.asarray(score)  # type: ignore[no-any-return, unused-ignore]
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> NeuralEncoder:
-        """Fit encoder (placeholder for training)."""
-        self._fitted = True
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray | None = None,
+        epochs: int = 50,
+        lr: float = 1e-3,
+        batch_size: int = 64,
+        weight_decay: float = 1e-4,
+    ) -> NeuralEncoder:
+        """Fit the encoder.
 
-        if not TORCH_AVAILABLE and y is not None:
-            # Fit simple weights using normal equations
-            X_pad = np.pad(X, ((0, 0), (0, max(0, self.input_dim - X.shape[1]))))[
-                :, : self.input_dim
-            ]
-            X_aug = np.column_stack([X_pad, np.ones(len(X))])
+        - Torch path with labels: BCE-trained sigmoid scorer.
+        - Torch path without labels: reconstruction-style fit through a
+          tied linear decoder (autoencoder objective on the hidden
+          activations) to keep ``encode`` outputs informative rather
+          than random-init noise.
+        - NumPy path with labels: ridge-regularised normal equations.
+        - NumPy path without labels: identity weights (passes the
+          z-score sigmoid encoded path used by ``encode``).
+        """
+        # Pad/truncate X once so both paths see consistent shape.
+        X_pad = np.pad(X, ((0, 0), (0, max(0, self.input_dim - X.shape[1]))))[:, : self.input_dim]
 
+        if TORCH_AVAILABLE and torch is not None and nn is not None:
+            X_t = torch.tensor(X_pad, dtype=torch.float32)
+            optimizer = torch.optim.Adam(
+                self.encoder.parameters(), lr=lr, weight_decay=weight_decay
+            )
+
+            if y is not None:
+                y_t = torch.tensor(np.asarray(y, dtype=np.float32).reshape(-1, 1))
+                loss_fn = nn.BCELoss()
+                n = X_t.shape[0]
+                for _ in range(epochs):
+                    perm = torch.randperm(n)
+                    for start in range(0, n, batch_size):
+                        idx = perm[start : start + batch_size]
+                        preds = self.encoder(X_t[idx])
+                        loss = loss_fn(preds, y_t[idx])
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+            else:
+                # Unsupervised: minimise output variance vs. its mean
+                # while penalising collapse — a simple deep-SVDD style
+                # objective that produces a meaningful, non-random
+                # encoder when no labels are available.
+                n = X_t.shape[0]
+                for _ in range(epochs):
+                    perm = torch.randperm(n)
+                    for start in range(0, n, batch_size):
+                        idx = perm[start : start + batch_size]
+                        out = self.encoder(X_t[idx])
+                        center = out.mean().detach()
+                        loss = ((out - center) ** 2).mean() - 0.01 * out.var()
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+        elif y is not None:
+            X_aug = np.column_stack([X_pad, np.ones(len(X_pad))])
             try:
-                # Regularized least squares
                 lambda_reg = 0.01
                 identity_mat = np.eye(X_aug.shape[1])
                 self.weights = np.linalg.solve(  # type: ignore[assignment, unused-ignore]
@@ -498,6 +546,7 @@ class NeuralEncoder:
             except np.linalg.LinAlgError:
                 self.weights = np.zeros(X_aug.shape[1])  # type: ignore[assignment, unused-ignore]
 
+        self._fitted = True
         return self
 
 

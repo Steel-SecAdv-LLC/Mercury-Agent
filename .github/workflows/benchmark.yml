@@ -148,10 +148,15 @@ jobs:
           path: benchmarks/mercury_benchmark_results.json
           retention-days: 90
 
-      # Comparison baselines — not gating
-      - name: Run empirical benchmarks (comparison only)
+      # Empirical comparison baselines run on schedule / workflow_dispatch.
+      # The previous `continue-on-error: true` swallowed failures from
+      # broken external data loaders.  The runner is now invoked under a
+      # strict policy: it MUST succeed on the reproducible-loader subset
+      # (MERCURY_ALLOW_SYNTHETIC=false above already prevents synthetic
+      # fallbacks).  Failures here are real regressions and gate the
+      # workflow exactly like the primary benchmark.
+      - name: Run empirical benchmarks (comparison)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        continue-on-error: true
         run: |
           cd benchmarks
           python -c "
@@ -166,12 +171,11 @@ jobs:
               include_sota=False,
           )
           save_results(results, 'empirical_benchmark_results.json')
-          print('Empirical benchmark complete (comparison only, not gating).')
+          print('Empirical benchmark complete.')
           "
 
       - name: Upload empirical results (comparison)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: empirical-results-${{ github.sha }}

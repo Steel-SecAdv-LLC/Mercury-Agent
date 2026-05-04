@@ -148,8 +148,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2. New module `federated_learning/gosnn_coupling.py` provides
      bidirectional GOSNN scalar coupling (`GOSNNCouplingServer` +
      `GOSNNCouplingClient` + `GOSNNUpdate` / `GOSNNGlobalState` payloads)
-     with FedAvg-weighted aggregation and BLAKE2b digest checks on every
-     leg, replacing the prior one-way (server → client) integration.
+     with FedAvg-weighted aggregation and SHA3-256 digest checks on every
+     leg (anchored to AMA Cryptography's
+     ``CryptoPackageConfig.hash_algorithm`` standard), replacing the prior
+     one-way (server → client) integration.
   Suite `tests/federated/test_no_silent_failure.py` (12 tests) pins
   conformal-misconfig raising for each flavour of upstream failure, the
   explicit-opt-out path returning `confidence_intervals=None`, full

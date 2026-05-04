@@ -7,8 +7,23 @@ Replaces the prior one-way (server → client) integration flagged by the
 ROADMAP's federated-learning row. Provides a deterministic, hash-checked
 round-trip protocol so a client can publish its local GOSNN scalar update
 to the server, the server can fold it into the global state via FedAvg,
-and the client can read the updated global state back — with cryptographic
-proof (BLAKE2b digest) that each direction was actually applied.
+and the client can read the updated global state back.
+
+Integrity layer
+---------------
+Every payload is digested with **SHA3-256** (FIPS 202), matching the
+``hash_algorithm = "sha3-256"`` standard pinned by Mercury's AMA
+Cryptography surface (``security/crypto_api.py::CryptoPackageConfig``).
+This anchors federated-learning integrity to the same hash function the
+rest of the AMA-backed crypto stack uses for content hashes, so a Mercury
+deployment with the AMA native C library built will see identical hash
+outputs from this module and from
+``MercuryCrypto.create_crypto_package(...).data_hash``.
+
+Authenticated signing of updates with Ed25519 / ML-DSA-65 sits above this
+layer and is deferred to ``federated_learning/server.py`` /
+``client.py`` — this module only owns the protocol shape and the hash
+contract, not key distribution.
 
 Out of scope: this module does not perform federated *training* of GOSNN
 weights — that is the federated_learning/server.py + client.py responsibility.
@@ -33,9 +48,17 @@ logger = logging.getLogger(__name__)
 
 
 def _digest(weights: NDArray[np.float64]) -> str:
-    """BLAKE2b-128 digest of contiguous float64 weight bytes."""
+    """SHA3-256 digest of contiguous float64 weight bytes.
+
+    SHA3-256 (FIPS 202) is the content-hash standard pinned by Mercury's
+    AMA Cryptography surface — see
+    ``security/crypto_api.py::CryptoPackageConfig.hash_algorithm`` —
+    so federated-coupling integrity hashes line up with the
+    ``CryptoPackageResult.data_hash`` field produced by the AMA
+    ``create_crypto_package`` pipeline for the same byte stream.
+    """
     arr = np.ascontiguousarray(weights, dtype=np.float64)
-    return hashlib.blake2b(arr.tobytes(), digest_size=16).hexdigest()
+    return hashlib.sha3_256(arr.tobytes()).hexdigest()
 
 
 @dataclass

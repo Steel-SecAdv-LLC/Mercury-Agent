@@ -42,7 +42,7 @@ SIGMA_IMMUTABLE_DEFAULT = 0.96
 LYAPUNOV_LAMBDA = LYAPUNOV.LAMBDA_CONVERGENCE
 
 
-class ConformalMisconfigurationError(RuntimeError):
+class ConformalMisconfigurationError(ValueError):
     """Raised when conformal prediction was requested but cannot run.
 
     Replaces the prior silent-failure path
@@ -52,6 +52,13 @@ class ConformalMisconfigurationError(RuntimeError):
     without conformal intervals must construct the integration with
     ``use_conformal=False`` — they cannot accidentally degrade into the no-
     interval mode by misconfiguring the conformal predictor.
+
+    Inherits from ``ValueError`` (not ``RuntimeError``) so the canonical
+    "configuration is invalid" pytest pattern (``pytest.raises(ValueError,
+    match=...)``) catches it without needing to know the new typed-exception
+    name.  The original exception object is preserved on ``self.original``
+    for diagnostics — Wave A's
+    ``tests/federated/test_no_silent_failure.py`` pins that contract.
     """
 
     def __init__(self, original: BaseException) -> None:

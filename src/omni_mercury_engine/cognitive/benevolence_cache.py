@@ -65,8 +65,16 @@ def _canonicalise(action: str, context: dict[str, Any]) -> str:
 
 
 def _hash_payload(payload: str) -> str:
-    """Stable, collision-resistant 128-bit blake2b digest."""
-    return hashlib.blake2b(payload.encode("utf-8"), digest_size=16).hexdigest()
+    """Stable, collision-resistant 128-bit SHA3-256 (FIPS 202) digest.
+
+    Truncated to 16 bytes (128 bits) for cache-key compactness; the
+    full SHA3-256 algorithm is the same one pinned as the content-hash
+    standard by Mercury's AMA Cryptography surface
+    (``security/crypto_api.py::CryptoPackageConfig.hash_algorithm``),
+    so cache keys hash-align with on-the-wire AMA payload hashes for
+    the same canonicalised input.
+    """
+    return hashlib.sha3_256(payload.encode("utf-8")).hexdigest()[:32]
 
 
 class CachedBenevolenceScorer:
