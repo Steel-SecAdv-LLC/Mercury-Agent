@@ -51,21 +51,16 @@ from typing import Any
 
 AMA_CRYPTO_API_AVAILABLE = False
 
-# AMA classes / helpers are imported under private ``_ama_*`` aliases so the
-# fallback branch below can rebind them to ``None`` without mypy raising
-# "Cannot assign to a type" / "Incompatible types in assignment" — the same
-# pattern is used in ``pqc_backends.py``.  Public-facing references inside
-# this module continue to use the unprefixed names through guarded
-# ``AMA_CRYPTO_API_AVAILABLE`` blocks; the ``Any | None`` annotations make
-# the rebinding mypy-clean while preserving runtime behaviour.
-_AmaAESGCMProvider: Any | None = None
-_AmaAlgorithmType: Any | None = None
-_AmaCryptography: Any | None = None
-_AmaCryptoPackageConfig: Any | None = None
-_AmaCryptoPackageResult: Any | None = None
-_ama_create_crypto_package: Any | None = None
-_ama_get_pqc_capabilities: Any | None = None
-
+# AMA classes / helpers are imported under private ``_Ama*`` / ``_ama_*``
+# aliases so the fallback branch below can rebind them to ``None`` without
+# mypy raising "Cannot assign to a type" / "Incompatible types in
+# assignment".  This mirrors the same pattern in ``pqc_backends.py``: a
+# narrowly-scoped ``# type: ignore`` on the fallback assignments declares
+# the rebinding intentional, and the public-facing names below are typed
+# ``Any`` so callers gated on ``AMA_CRYPTO_API_AVAILABLE`` can use them
+# as classes / callables.  Runtime behaviour is unchanged — calling
+# ``None`` (when AMA is missing) still raises ``TypeError`` at the point
+# of misuse, which is the correct fail-loud signal.
 try:
     from ama_cryptography.crypto_api import (
         AESGCMProvider as _AmaAESGCMProvider,
@@ -87,12 +82,18 @@ except ImportError:
         stacklevel=2,
     )
 
+    _AmaAESGCMProvider = None  # type: ignore[assignment, misc, unused-ignore]
+    _AmaAlgorithmType = None  # type: ignore[assignment, misc, unused-ignore]
+    _AmaCryptography = None  # type: ignore[assignment, misc, unused-ignore]
+    _AmaCryptoPackageConfig = None  # type: ignore[assignment, misc, unused-ignore]
+    _AmaCryptoPackageResult = None  # type: ignore[assignment, misc, unused-ignore]
+    _ama_create_crypto_package = None  # type: ignore[assignment, misc, unused-ignore]
+    _ama_get_pqc_capabilities = None  # type: ignore[assignment, misc, unused-ignore]
+
 # Public aliases — kept for backward compatibility with any downstream
 # importer that referenced the old ``AESGCMProvider`` / ``AmaCryptography``
-# names directly.  They are typed ``Any`` so callers gated on
-# ``AMA_CRYPTO_API_AVAILABLE`` can use them as classes/callables, while
-# unconditional use without that gate is correctly rejected by the runtime
-# (calling ``None`` raises ``TypeError``).
+# names directly.  Typed ``Any`` so callers gated on the
+# ``AMA_CRYPTO_API_AVAILABLE`` flag can use them as classes / callables.
 AESGCMProvider: Any = _AmaAESGCMProvider
 AmaAlgorithmType: Any = _AmaAlgorithmType
 AmaCryptography: Any = _AmaCryptography

@@ -196,7 +196,7 @@ except ImportError:
         # one branch executes.  ``# type: ignore`` is scoped narrowly to
         # the redefinition signal so the rest of the file stays strictly
         # type-checked.
-        from ava_guardian.pqc_backends import (  # type: ignore[no-redef]
+        from ava_guardian.pqc_backends import (  # type: ignore[no-redef, unused-ignore]
             DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
             KYBER_AVAILABLE as _KYBER_AVAILABLE,
             DilithiumKeyPair,
