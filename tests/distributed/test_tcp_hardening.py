@@ -16,11 +16,32 @@ import asyncio
 import json
 import multiprocessing
 import os
+import shutil
 import ssl
 import struct
+import subprocess
 import tempfile
 
 import pytest
+
+# These tests use the system ``openssl`` CLI to mint a self-signed CA
+# + leaf for the mutual-TLS round-trip and 3-node cluster scenarios.
+# OpenSSL is universally available on the Linux runners we target
+# (Ubuntu image plus our Dockerfiles), but to keep the suite portable
+# (e.g. minimal Windows / Alpine dev containers, sandboxed CI agents
+# without a TLS toolchain) we skip these tests rather than hard-fail
+# at collection when the binary is missing.  The skip preserves the
+# positive contract assertions for environments that *can* run them
+# without inventing a silent pass for environments that can't.
+_OPENSSL = shutil.which("openssl")
+requires_openssl = pytest.mark.skipif(
+    _OPENSSL is None,
+    reason=(
+        "openssl CLI not available on PATH \u2014 these tests mint a "
+        "self-signed CA + leaf via openssl(1).  Install OpenSSL or "
+        "run the suite on a runner that provides it."
+    ),
+)
 
 from omni_mercury_engine.distributed.raft_consensus import (
     ClusterConfiguration,
@@ -52,9 +73,6 @@ def _generate_tls_assets(
     Returns (server_ctx, client_ctx) configured for mutual TLS.
     Both contexts trust only the ephemeral CA.
     """
-    # Use stdlib ssl with OpenSSL commands via subprocess to generate certs
-    import subprocess
-
     ca_key = os.path.join(tmpdir, "ca.key")
     ca_cert = os.path.join(tmpdir, "ca.crt")
     node_key = os.path.join(tmpdir, "node.key")
@@ -168,6 +186,7 @@ def _generate_tls_assets(
 # ---------------------------------------------------------------------------
 
 
+@requires_openssl
 async def test_mutual_tls_round_trip() -> None:
     """Two transports with mutual TLS exchange a RequestVote RPC."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -395,6 +414,7 @@ def _run_raft_node(
     _aio.run(_main())
 
 
+@requires_openssl
 @pytest.mark.timeout(30)
 def test_subprocess_three_node_cluster() -> None:
     """Three Raft nodes in separate processes elect a leader."""

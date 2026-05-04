@@ -369,11 +369,29 @@ class TCPMessageTransport(MessageTransport):
 
     async def _send(self, addr: tuple[str, int], envelope: dict[str, Any]) -> None:
         host, port = addr
-        reader, writer = await asyncio.open_connection(
-            host=host,
-            port=port,
-            ssl=self._client_ssl_context,
-        )
+        # Bound TCP/TLS handshake establishment by ``CONNECT_TIMEOUT``
+        # independently of the outer ``RPC_TIMEOUT``.  Without this,
+        # a peer whose handshake stalls (e.g. dropped SYN-ACK on a
+        # partitioned network, or a TLS server that never replies
+        # to ``ClientHello``) would hold the Raft node inside
+        # ``open_connection`` until the OS-level TCP timeout fires
+        # — far longer than the election heartbeat and long enough
+        # to break leader election.  ``asyncio.wait_for`` cancels
+        # the underlying connect coroutine on timeout; we then
+        # re-raise as ``TimeoutError`` so ``_send_and_wait`` treats
+        # it as an RPC failure and returns ``None``.
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(
+                    host=host,
+                    port=port,
+                    ssl=self._client_ssl_context,
+                ),
+                timeout=CONNECT_TIMEOUT,
+            )
+        except TimeoutError:
+            logger.debug("Connect to %s:%s timed out after %.1fs", host, port, CONNECT_TIMEOUT)
+            raise
         try:
             payload = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
             writer.write(_frame(payload))
@@ -420,8 +438,34 @@ class TCPMessageTransport(MessageTransport):
                     envelope.get("from"),
                 )
                 return
+            # Recipient binding: the envelope's signed ``to`` field must
+            # match this node's id.  Without this check, a signed
+            # envelope addressed to peer ``A`` could be routed to peer
+            # ``B`` and accepted (the signature is valid for the
+            # original envelope contents).  Rejecting mismatched ``to``
+            # also defends against misconfigured peers.
+            recipient = envelope.get("to")
+            if recipient != self._node_id:
+                logger.warning(
+                    "Rejected inbound frame on %s: addressed to %r, not us",
+                    self._node_id,
+                    recipient,
+                )
+                return
             sender = envelope.get("from", "")
             request_id = envelope.get("request_id", "")
+            # ``request_id`` MUST be a non-empty string — otherwise the
+            # replay-tracking dict would key every malformed envelope
+            # under the same ``(sender, "")`` slot, which both poisons
+            # the replay window for that sender and silently lets a
+            # second malformed envelope past the dedupe gate.
+            if not isinstance(request_id, str) or not request_id:
+                logger.warning(
+                    "Rejected inbound frame on %s: missing/empty request_id from %s",
+                    self._node_id,
+                    sender,
+                )
+                return
             if self._is_replay(sender, request_id):
                 logger.warning(
                     "Rejected replay on %s: request_id=%s from %s",
