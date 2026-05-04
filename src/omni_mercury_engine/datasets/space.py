@@ -385,6 +385,20 @@ class NASAExoplanetLoader(DatasetLoader):
                 "semi_major_axis": np.random.lognormal(-0.5, 1),  # AU
                 "inclination": np.random.uniform(80, 90),  # degrees
             }
+            # Mass-radius relation (Chen & Kipping 2017,
+            # arXiv:1603.08614): for sub-Neptunian bodies M ∝ R^3.7
+            # is the high-end of the empirical scatter, while gas
+            # giants flatten near M ∝ R^0.6.  We use a piecewise
+            # power law in Earth-mass / Earth-radius units and add
+            # log-normal scatter so the synthetic mass distribution
+            # is consistent with NASA Exoplanet Archive ``pl_bmasse``
+            # (the column ``TAP_COLUMNS["planet_mass"]`` queries).
+            radius_earths = params["planet_radius"]
+            if radius_earths < 1.5:
+                mass_mean = radius_earths**3.7
+            else:
+                mass_mean = (1.5**3.7) * (radius_earths / 1.5) ** 0.6
+            params["planet_mass"] = float(mass_mean * np.random.lognormal(0.0, 0.25))
 
             feature_vec = [params[f] for f in self.FEATURE_NAMES]
             features.append(feature_vec)
