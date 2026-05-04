@@ -92,7 +92,12 @@ def run_audit() -> int:
     # T3 — PreExecutionBlockingGate: blocks known dangerous patterns
     # ------------------------------------------------------------------
     print("\n[T3] PreExecutionBlockingGate — hard-block verification")
-    gate = PreExecutionBlockingGate(enable_blocking=True)
+    # The May 2026 Phase 2 audit cure removed ``enable_blocking`` and
+    # ``allow_overrides`` from the gate's constructor because a single
+    # ``False`` at construction silently disabled all protection.
+    # Blocking is now permanent — there is no off-switch — so the gate
+    # is constructed bare.
+    gate = PreExecutionBlockingGate()
 
     _destructive_patterns = [
         "delete_all",
@@ -131,14 +136,35 @@ def run_audit() -> int:
         _fail("Blocked param 'skip_validation=True' not rejected — parameter guard broken")
         failures.append("T3: blocked param not rejected")
 
-    # Disabling gate should allow everything
-    gate_off = PreExecutionBlockingGate(enable_blocking=False)
-    result_off = gate_off.check_action(action_type="delete_all")
-    if not result_off.blocked:
-        _pass("enable_blocking=False correctly bypasses gate (expected for testing)")
+    # Hardening contract: ``enable_blocking`` and ``allow_overrides`` are
+    # removed.  Asserting the constructor rejects the legacy kwargs is the
+    # positive evidence that the May 2026 Phase 2 footgun cure is in
+    # effect — i.e., a stale caller cannot silently disable blocking by
+    # passing ``enable_blocking=False`` (which previously bypassed the
+    # entire gate without raising).
+    try:
+        PreExecutionBlockingGate(enable_blocking=False)  # type: ignore[call-arg]
+    except TypeError:
+        _pass(
+            "PreExecutionBlockingGate rejects legacy ``enable_blocking`` kwarg (Phase 2 hardening intact)"
+        )
     else:
-        _fail("enable_blocking=False still blocked — gate off-switch broken")
-        failures.append("T3: gate off-switch broken")
+        _fail(
+            "PreExecutionBlockingGate accepted ``enable_blocking=False`` — off-switch reintroduced!"
+        )
+        failures.append("T3: legacy off-switch kwarg silently accepted")
+
+    try:
+        PreExecutionBlockingGate(allow_overrides=True)  # type: ignore[call-arg]
+    except TypeError:
+        _pass(
+            "PreExecutionBlockingGate rejects legacy ``allow_overrides`` kwarg (Phase 2 hardening intact)"
+        )
+    else:
+        _fail(
+            "PreExecutionBlockingGate accepted ``allow_overrides=True`` — overrides reintroduced!"
+        )
+        failures.append("T3: legacy override kwarg silently accepted")
 
     # ------------------------------------------------------------------
     # T4 — EthicalAutonomyGovernor: end-to-end action evaluation
