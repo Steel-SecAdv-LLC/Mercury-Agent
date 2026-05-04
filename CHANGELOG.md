@@ -112,14 +112,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `OmniMercuryEngine.detect_with_fusion` (and the `_calibrated`
     variant) raises with `check="benevolence"` via a per-engine
     `BenevolenceScorer.enforce` call against an action description
-    rich in defensive-purpose keywords. The σ_Immutable network is
-    now trained (99.6% val_acc on a labelled scalar-vector corpus;
-    weights persisted at `security/sigma_immutable_weights.pt`) and
-    serves as a second independent gate alongside BenevolenceScorer.
-    Its output remains in `result["gosnn_metadata"]` as an
-    informational signal at the engine boundary — the hard
-    enforcement gate is benevolence.  The previous "fall back to
-    `ethical_gate_passed=True` if GOSNN errors" path is deleted.
+    rich in defensive-purpose keywords.  The boundary scorer is
+    constructed eagerly at engine init so the first concurrent call
+    cannot race the gate.  σ_Immutable is now trained (99.6% val_acc
+    on a labelled scalar-vector corpus; weights persisted at
+    `src/omni_mercury_engine/security/sigma_immutable_weights.pt`)
+    and `EthicalGate.evaluate` gates its torch path on
+    `self._trained`.  At the engine boundary σ_Immutable remains
+    *informational* in `result["gosnn_metadata"]` — the only hard
+    enforcement gate is `BenevolenceScorer.enforce`.  Promotion of
+    σ_Immutable to a second hard gate (and raising of
+    `EthicalConstraintViolationError` with `check="sigma_immutable"`
+    or `check="gosnn_unavailable"`) is deferred to a follow-up PR;
+    those `check` field values are reserved in the exception schema
+    but are not raised by any code path on the merge tip.  The
+    previous "fall back to `ethical_gate_passed=True` if GOSNN
+    errors" path is deleted.
   Decision-boundary contract documented in
   `src/omni_mercury_engine/ethical/__init__.py`. New regression
   suite at `tests/ethical/test_hard_enforcement.py` (13 tests, wired

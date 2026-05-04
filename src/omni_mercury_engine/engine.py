@@ -681,9 +681,21 @@ class OmniMercuryEngine(LoggerMixin):
         # Thread pool for parallel processing
         self._executor: ThreadPoolExecutor | None = None
 
-        # Ethical boundary scorer — lazily initialised on first use by
-        # _enforce_ethics_at_boundary, declared here for mypy --strict.
-        self._boundary_scorer: BenevolenceScorer | None = None
+        # Ethical boundary scorer — constructed eagerly at engine init so
+        # the first call to ``detect_with_fusion`` cannot race the gate
+        # under concurrent first-callers (a lazy ``if is None`` check
+        # would let two threads both enter the construction branch).
+        # ``BenevolenceScorer.__init__`` is cheap (no I/O, no model
+        # weights) so eager construction is the simpler correct
+        # alternative to a memoise-behind-a-lock pattern.
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            MINIMUM_BENEVOLENCE_FLOOR as _MINIMUM_BENEVOLENCE_FLOOR,
+            BenevolenceScorer as _BenevolenceScorer,
+        )
+
+        self._boundary_scorer: BenevolenceScorer = _BenevolenceScorer(
+            benevolence_threshold=_MINIMUM_BENEVOLENCE_FLOOR
+        )
 
         self._init_detectors()
         self._init_models()
@@ -1952,16 +1964,6 @@ class OmniMercuryEngine(LoggerMixin):
             domain: Caller-supplied domain hint, used as context only.
             data: The input being detected (used for shape/size context).
         """
-        from omni_mercury_engine.cognitive.ethical_bounding import (
-            MINIMUM_BENEVOLENCE_FLOOR,
-            BenevolenceScorer,
-        )
-
-        if self._boundary_scorer is None:
-            self._boundary_scorer = BenevolenceScorer(
-                benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR
-            )
-
         safe_domain = domain if isinstance(domain, str) else "general"
         # Action keywords intentionally evidence the engine's defensive
         # purpose — audit, verify, protect, research — so the scorer
