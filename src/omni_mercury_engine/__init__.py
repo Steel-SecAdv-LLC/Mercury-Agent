@@ -20,11 +20,12 @@ from __future__ import annotations
 Mercury Agent: Neuro-Symbolic AI Framework
 
 Mercury Agent is a comprehensive neuro-symbolic AI platform.  It hybridises a
-deep-learning core (76+ ``torch.nn.Module`` subclasses spanning visual,
+deep-learning core (163 ``torch.nn.Module`` subclasses spanning visual,
 behavioural, physics-based, fusion and differentiable-logic theorem-proving
-subsystems) with an explicit symbolic layer (knowledge graphs, rule bases,
-formal verification, AST-based code analysis and case-based reasoning),
-wired together through ``core.neurosymbolic_hub.NeuroSymbolicHub`` and
+subsystems, imported across 120 source files) with an explicit symbolic
+layer (knowledge graphs, rule bases, formal verification, AST-based code
+analysis and case-based reasoning), wired together through
+``core.neurosymbolic_hub.NeuroSymbolicHub`` and
 ``cognitive.neurosymbolic_fusion.NeurosymbolicFusionEngine`` to produce
 explainable, ethically-bounded decisions across security, medical,
 environmental, humanitarian and infrastructure domains.
