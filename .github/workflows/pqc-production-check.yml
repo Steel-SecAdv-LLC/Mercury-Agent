@@ -36,7 +36,15 @@ jobs:
           # the subsequent ``pip install --no-build-isolation`` of
           # ama-cryptography to resolve ``setuptools.build_meta``.
           python -m pip install "setuptools>=61.0" wheel "cmake>=3.16"
-          pip install -e ".[dev]"
+          # The verify-real-pqc job exercises the security suite end-to-end,
+          # which includes ``tests/security/test_jwt_auth.py`` and
+          # ``tests/security/test_audit_improvements.py``. Both reach the
+          # FastAPI-backed ``omni_mercury_engine.api.auth`` module at import
+          # time. ``[dev]`` alone yields a ``ModuleNotFoundError: fastapi``
+          # collection error on those files, so install the ``[api]`` extra
+          # alongside ``[dev]`` to satisfy the ``api/auth.py`` runtime
+          # contract under CI.
+          pip install -e ".[dev,api]"
 
       - name: Build AMA Cryptography native C library
         env:
@@ -151,9 +159,9 @@ jobs:
             tests/security/test_ama_kat.py \
             tests/security/test_nist_fips_kat.py \
             tests/security/test_crypto_api.py \
-            --cov=src/omni_mercury_engine/security/crypto_api \
-            --cov=src/omni_mercury_engine/security/pqc_backends \
-            --cov=src/omni_mercury_engine/security/pqc_guards \
+            --cov=omni_mercury_engine.security.crypto_api \
+            --cov=omni_mercury_engine.security.pqc_backends \
+            --cov=omni_mercury_engine.security.pqc_guards \
             --cov-report=term \
             --cov-report=xml:pqc-coverage.xml
 
