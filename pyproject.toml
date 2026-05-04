@@ -111,7 +111,7 @@ api = [
 # SOTA anomaly detection models (TranAD, MAAT, etc.)
 sota = [
     "mercury-agent[ml]",
-    "einops>=0.7.0",
+    "einops>=0.8.2",
 ]
 
 # LLM integration for zero-shot anomaly detection
