@@ -140,6 +140,16 @@ class GOSNNCouplingServer:
     def ingest(self, update: GOSNNUpdate) -> None:
         """Record one client's update for the current round.
 
+        The server stores a frozen snapshot of the update so that a
+        client (or any other holder of a reference to the original
+        ``update`` object) cannot mutate ``update.weights`` after
+        ingest and silently change the next ``aggregate()`` result —
+        the digest is verified at ingest time, not again at aggregation.
+        We achieve this by copying ``weights`` into a contiguous,
+        write-protected buffer and reconstructing the dataclass; the
+        recomputed digest on the snapshot is what the rest of the
+        pipeline trusts.
+
         Raises:
             GOSNNCouplingError: If the update's shape doesn't match the
                 global weight vector, the update's recomputed digest
@@ -157,13 +167,25 @@ class GOSNNCouplingServer:
                 f"GOSNN update from {update.client_id!r} failed digest check "
                 f"(expected {update.digest}, recomputed {recomputed})"
             )
+        # Defensive deep snapshot.  ``np.array(..., copy=True)`` always
+        # allocates a new buffer; ``writeable=False`` makes any
+        # downstream attempt to mutate the stored array fail loudly
+        # rather than silently corrupting an in-flight aggregation.
+        frozen_weights = np.array(update.weights, dtype=np.float64, copy=True)
+        frozen_weights.setflags(write=False)
+        snapshot = GOSNNUpdate(
+            client_id=update.client_id,
+            round_num=update.round_num,
+            weights=frozen_weights,
+            n_samples=update.n_samples,
+        )
         with self._lock:
-            if update.round_num != self._round_num:
+            if snapshot.round_num != self._round_num:
                 raise GOSNNCouplingError(
-                    f"GOSNN update from {update.client_id!r} targets round "
-                    f"{update.round_num}, server is at round {self._round_num}"
+                    f"GOSNN update from {snapshot.client_id!r} targets round "
+                    f"{snapshot.round_num}, server is at round {self._round_num}"
                 )
-            self._pending_updates[update.client_id] = update
+            self._pending_updates[snapshot.client_id] = snapshot
 
     def aggregate(self) -> GOSNNGlobalState:
         """Aggregate pending updates into the global state and advance the round.

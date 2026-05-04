@@ -336,17 +336,20 @@ def axis_transferability(seed: int) -> AxisResult:
         in_out[i], _ = composer_in.fuse(float(n_a[i]), float(s_a[i]))
     auc_in = _auroc(y_a, in_out)
 
-    # Cross-domain: warm composer on A, evaluate on B (no reset).
-    composer_cross = FibringComposer(domain="medical")
+    # Cross-domain: a composer carrying domain-B affinity bias is warmed on
+    # domain-A observations (correlation history + window state) and then
+    # evaluated on domain-B data.  This is the genuine transfer measurement
+    # — the running window state was learned on A but the affinity bias is
+    # B's, so the AUROC ratio against the in-domain run isolates how much
+    # signal survives the transfer.  (A prior revision constructed a second
+    # medical-bias composer warmed on A but never read from it; that was
+    # dead code and has been removed.)
+    composer_cross = FibringComposer(domain="financial")
     for n_val, s_val in zip(n_a, s_a, strict=True):
         composer_cross.observe(float(n_val), float(s_val))
     cross_out = np.empty_like(n_b, dtype=float)
-    composer_cross_eval = FibringComposer(domain="financial")
-    # Carry the warmed history into a different domain by replaying observations.
-    for n_val, s_val in zip(n_a, s_a, strict=True):
-        composer_cross_eval.observe(float(n_val), float(s_val))
     for i in range(len(n_b)):
-        cross_out[i], _ = composer_cross_eval.fuse(float(n_b[i]), float(s_b[i]))
+        cross_out[i], _ = composer_cross.fuse(float(n_b[i]), float(s_b[i]))
     auc_cross = _auroc(y_b, cross_out)
 
     score = float(np.clip(auc_cross / max(auc_in, 1e-9), 0.0, 1.0))

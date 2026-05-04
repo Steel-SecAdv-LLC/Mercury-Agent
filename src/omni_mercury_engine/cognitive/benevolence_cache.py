@@ -10,7 +10,7 @@ re-running the full scoring pipeline.
 Three invariants are pinned by ``tests/ethical/test_benevolence_cache.py``:
 
 1. **Ruleset-version invalidation.** Every cache key is prefixed with
-   :attr:`omni_mercury_engine.core.centralized_constants.centralized_constants.ETHICAL.RULESET_VERSION`.
+   :attr:`omni_mercury_engine.core.centralized_constants.ETHICAL.RULESET_VERSION`.
    When that version is bumped (or monkey-patched in tests), keys produced
    under the new version cannot collide with old entries, and the cache also
    actively purges stale-version entries on the first lookup after a bump.

@@ -488,14 +488,28 @@ class NeuralEncoder:
     ) -> NeuralEncoder:
         """Fit the encoder.
 
-        - Torch path with labels: BCE-trained sigmoid scorer.
-        - Torch path without labels: reconstruction-style fit through a
-          tied linear decoder (autoencoder objective on the hidden
-          activations) to keep ``encode`` outputs informative rather
-          than random-init noise.
-        - NumPy path with labels: ridge-regularised normal equations.
-        - NumPy path without labels: identity weights (passes the
-          z-score sigmoid encoded path used by ``encode``).
+        - **Torch path, with labels**: BCE-trained sigmoid scorer
+          (Adam, ``weight_decay`` L2-regularised).
+        - **Torch path, without labels**: a deep-SVDD-style center
+          objective — minimise the squared deviation of every output
+          from a frozen running center while subtracting a small
+          biased-variance term to discourage feature collapse.  No
+          decoder is involved.  The biased variance
+          (``unbiased=False``) and a ``last-batch-merge`` policy
+          (any trailing batch of size < 2 is folded into the previous
+          batch) together guarantee no NaN even when ``len(X) %
+          batch_size == 1``.
+        - **NumPy path, with labels**: ridge-regularised normal
+          equations populate ``self.weights``.  ``encode()``'s NumPy
+          branch does not consume those weights today (it computes a
+          z-score sigmoid directly), so the weights are diagnostic
+          state the caller can inspect; future numpy-path work can
+          plug them in without changing the fit contract.
+        - **NumPy path, without labels**: no fit step is performed —
+          ``encode()``'s deterministic z-score sigmoid path needs no
+          parameters and is well-defined on the un-fit state.
+          ``self._fitted`` is still set so callers see the same
+          contract as the labelled path.
         """
         # Pad/truncate X once so both paths see consistent shape.
         X_pad = np.pad(X, ((0, 0), (0, max(0, self.input_dim - X.shape[1]))))[:, : self.input_dim]
@@ -505,14 +519,29 @@ class NeuralEncoder:
             optimizer = torch.optim.Adam(
                 self.encoder.parameters(), lr=lr, weight_decay=weight_decay
             )
+            n = X_t.shape[0]
+
+            def _safe_batch_starts(total: int, bs: int) -> list[int]:
+                """Yield batch starts, merging a size-1 trailing remainder.
+
+                A trailing batch of size 1 makes biased BCE / SVDD
+                variance terms numerically degenerate; merging it into
+                the previous batch keeps every step's batch ≥ 2 without
+                dropping any samples.
+                """
+                if total <= bs:
+                    return [0]
+                last = ((total - 1) // bs) * bs
+                if total - last == 1 and last >= bs:
+                    last -= bs  # extend the second-to-last batch by one
+                return list(range(0, last, bs)) + [last]
 
             if y is not None:
                 y_t = torch.tensor(np.asarray(y, dtype=np.float32).reshape(-1, 1))
                 loss_fn = nn.BCELoss()
-                n = X_t.shape[0]
                 for _ in range(epochs):
                     perm = torch.randperm(n)
-                    for start in range(0, n, batch_size):
+                    for start in _safe_batch_starts(n, batch_size):
                         idx = perm[start : start + batch_size]
                         preds = self.encoder(X_t[idx])
                         loss = loss_fn(preds, y_t[idx])
@@ -520,18 +549,21 @@ class NeuralEncoder:
                         loss.backward()
                         optimizer.step()
             else:
-                # Unsupervised: minimise output variance vs. its mean
-                # while penalising collapse — a simple deep-SVDD style
-                # objective that produces a meaningful, non-random
-                # encoder when no labels are available.
-                n = X_t.shape[0]
+                # Deep-SVDD-style: pull every output toward a frozen
+                # running center while subtracting biased variance to
+                # avoid trivial collapse.
                 for _ in range(epochs):
                     perm = torch.randperm(n)
-                    for start in range(0, n, batch_size):
+                    for start in _safe_batch_starts(n, batch_size):
                         idx = perm[start : start + batch_size]
                         out = self.encoder(X_t[idx])
                         center = out.mean().detach()
-                        loss = ((out - center) ** 2).mean() - 0.01 * out.var()
+                        # ``unbiased=False`` (i.e. divide by N, not
+                        # N-1) is the bias-variance choice consistent
+                        # with deep-SVDD and is the only form that is
+                        # well-defined for batch size 1, so a single
+                        # short batch never produces NaN.
+                        loss = ((out - center) ** 2).mean() - 0.01 * out.var(unbiased=False)
                         optimizer.zero_grad()
                         loss.backward()
                         optimizer.step()

@@ -733,10 +733,16 @@ def create_fusion_ensemble(
         method: Fusion method. Recognised values:
 
             - ``"fibring"`` *(default)*: Returns an
-              :class:`EthicallyConstrainedFusion` configured with phi-weighted
-              base weights. This is the named composition that pairs with the
-              hub-level :data:`FusionMode.FIBRING`: phi-weighted base +
-              correlation-aware decorrelation + per-detector ethical weighting.
+              :class:`EthicallyConstrainedFusion` constructed with
+              ``use_golden_ratio=True``.  This is the named composition
+              that pairs with the hub-level :data:`FusionMode.FIBRING`:
+              golden-ratio-aware base + correlation-aware decorrelation
+              + per-detector ethical weighting.  Phi-weighted base
+              initialisation is applied by ``EthicallyConstrainedFusion.fit``
+              when there are at least three detectors; for ensembles with
+              fewer than three detectors the base falls back to uniform
+              weights, with the ethical-weighting and decorrelation
+              layers still active.
             - ``"ethical"``: Alias for the fibring path retained for
               backwards compatibility with existing callers.
             - ``"stacking"``: Stacked-generalisation meta-learner.

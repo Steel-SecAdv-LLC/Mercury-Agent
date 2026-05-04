@@ -840,6 +840,12 @@ class AdaptiveDomainThresholdManager:
         )
         path: list[float] = [threshold]
         converged = False
+        # Number of successfully completed refinement steps.  Always equals
+        # ``len(path) - 1`` so the documented invariant
+        # ``len(threshold_path) == iterations + 1`` holds on every return
+        # path (happy-path convergence, full-budget exhaustion, and the
+        # early-degeneracy break below).
+        iterations_completed = 0
 
         for iteration in range(1, max_iterations + 1):
             # Soft anomaly responsibility per sample.
@@ -855,10 +861,16 @@ class AdaptiveDomainThresholdManager:
             sum_one_minus_gamma = float(np.sum(1.0 - gamma))
 
             # Both clusters must be populated (at least a tiny weight) to make
-            # progress; otherwise we're already at a degenerate boundary.
+            # progress; otherwise we're already at a degenerate boundary —
+            # the current ``threshold`` is the fixed point and no refinement
+            # step happens this iteration.  Return the real
+            # ``iterations_completed`` (not ``max_iterations``) so the
+            # ``len(path) == iterations + 1`` invariant survives, and so
+            # callers auditing convergence-budget telemetry see the true
+            # cost of the call.
             if sum_gamma < 1e-9 or sum_one_minus_gamma < 1e-9:
                 converged = True
-                break
+                return threshold, iterations_completed, converged, path
 
             mu_anom = float(np.sum(gamma * scores) / sum_gamma)
             mu_norm = float(np.sum((1.0 - gamma) * scores) / sum_one_minus_gamma)
@@ -871,13 +883,13 @@ class AdaptiveDomainThresholdManager:
             delta = abs(new_threshold - threshold)
             threshold = new_threshold
             path.append(threshold)
+            iterations_completed = iteration
 
             if delta < epsilon:
                 converged = True
-                # iteration is the count of completed steps
-                return threshold, iteration, converged, path
+                return threshold, iterations_completed, converged, path
 
-        return threshold, max_iterations, converged, path
+        return threshold, iterations_completed, converged, path
 
     def calibrate_iterative(
         self,

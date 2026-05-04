@@ -199,6 +199,39 @@ def test_gosnn_client_receive_rejects_corrupted_global_state() -> None:
         client.receive(state)
 
 
+def test_gosnn_ingest_is_immune_to_post_ingest_weight_mutation() -> None:
+    """Mutating the post-ingest update payload must not affect aggregation.
+
+    Pinning the defensive-snapshot contract.  Without this, a holder of
+    the original ``GOSNNUpdate`` object (the publishing client, a
+    transport layer buffering it for retransmission, etc.) could mutate
+    ``update.weights`` after ``ingest()`` returned and silently change
+    the next ``aggregate()`` result — the digest is verified at
+    ingest time and not again at aggregation, so the protection has to
+    be a deep copy at storage time.
+    """
+    initial = np.array([0.0, 0.0, 0.0, 0.0])
+    server = GOSNNCouplingServer(initial_weights=initial)
+    client = GOSNNCouplingClient(client_id="A", local_weights=initial)
+
+    expected = np.array([1.0, 2.0, 3.0, 4.0])
+    update = client.publish(round_num=0, local_update=expected.copy(), n_samples=10)
+    server.ingest(update)
+
+    # Try to mutate the published payload buffer post-ingest.  Whether
+    # the assignment raises (because numpy flagged the buffer as
+    # read-only) or succeeds (because the assignment hit the
+    # client-side copy), the server's internal snapshot must remain
+    # untouched.
+    try:
+        update.weights[:] = -999.0
+    except (ValueError, RuntimeError):
+        pass
+
+    state = server.aggregate()
+    np.testing.assert_allclose(state.weights, expected)
+
+
 def test_gosnn_round_trip_preserves_information_across_three_rounds() -> None:
     """Full client → server → client round-trip survives multiple rounds."""
     rng = np.random.default_rng(7)
