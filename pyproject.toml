@@ -80,7 +80,7 @@ visual = [
 # Vision-Language Model detectors (AnyAnomaly, LAVAD)
 vlm = [
     "transformers>=4.36.0",
-    "accelerate>=0.25.0",
+    "accelerate>=1.13.0",
 ]
 
 # Foundation model adapters (TimeGPT, Chronos, etc.)
@@ -117,7 +117,7 @@ sota = [
 # LLM integration for zero-shot anomaly detection
 llm = [
     "transformers>=4.36.0",
-    "accelerate>=0.25.0",
+    "accelerate>=1.13.0",
     "openai>=1.0.0",
     "anthropic>=0.8.0",
 ]
