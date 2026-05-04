@@ -152,7 +152,7 @@ streaming = [
 # Efficiency optimizations
 optimization = [
     "joblib>=1.3.0",
-    "psutil>=5.9.0",
+    "psutil>=7.2.2",
 ]
 
 # Benchmarking and evaluation
