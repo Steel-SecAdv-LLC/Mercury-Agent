@@ -76,26 +76,26 @@ def _mldsa65_siggen_vectors() -> list:
     ids=[f"mldsa65-sigGen-tc{v['tcId']}" for v in _mldsa65_siggen_vectors()],
 )
 def test_mldsa65_nist_siggen_verify(vector: dict) -> None:
-    """Verify NIST ML-DSA-65 sigGen expected signature with AMA verify."""
-    from omni_mercury_engine.security.pqc_backends import dilithium_sign
+    """NIST ML-DSA-65 sigGen vectors are byte-exact under FIPS 204 §5.2 ctx sign.
+
+    The curated NIST ACVP vectors (tcIds 31–33) all carry a non-empty
+    ``context`` field, so the byte-exact reproducibility contract requires
+    the ctx-aware signer (``M' = 0x00 || IntegerToBytes(|ctx|, 1) || ctx || M``).
+    Signing with the legacy context-blind ``dilithium_sign`` would produce
+    a sibling-but-different signature and silently miss the spec.
+    """
+    from omni_mercury_engine.security.pqc_backends import dilithium_sign_ctx
 
     sk = bytes.fromhex(vector["sk"])
     message = bytes.fromhex(vector["message"])
+    ctx = bytes.fromhex(vector.get("context", ""))
     expected_sig = bytes.fromhex(vector["signature"])
 
-    # Primary KAT: AMA's dilithium_sign must produce the same signature as
-    # the NIST reference (FIPS 204 deterministic signing).
-    produced_sig = dilithium_sign(message, sk)
+    produced_sig = dilithium_sign_ctx(message, sk, ctx)
     assert produced_sig == expected_sig, (
         f"ML-DSA-65 sigGen tc{vector['tcId']}: AMA signature differs from NIST reference. "
         f"Produced {len(produced_sig)} bytes, expected {len(expected_sig)} bytes."
     )
-
-    # Cross-check: the produced signature must also pass AMA verify.
-    # ML-DSA-65 sk is 4032 bytes; we derive pk by signing+verifying
-    # with the same sk (the verify function should accept the NIST sig).
-    # Note: verify requires pk which is not in the NIST sigGen prompt;
-    # this assertion is only reachable if signing produces the correct output.
 
 
 # ---------------------------------------------------------------------------
@@ -145,19 +145,31 @@ def _slhdsa_siggen_vectors() -> list:
     ids=[f"slhdsa-sigGen-tc{v['tcId']}" for v in _slhdsa_siggen_vectors()],
 )
 def test_slhdsa_nist_siggen_verify(vector: dict) -> None:
-    """Verify NIST SLH-DSA-SHAKE-128s sigGen expected signature with AMA verify."""
-    from omni_mercury_engine.security.pqc_backends import sphincs_sign
+    """NIST SLH-DSA-SHAKE-128s sigGen vectors are byte-exact under FIPS 205 §10.2.
+
+    The curated NIST ACVP-Server vectors (tcIds 214–216) are the
+    deterministic external/pure subset — ``additionalRandomness`` is
+    absent, so AMA's ``slhdsa_sign_deterministic`` (which sets
+    ``addrnd = PK.seed`` per FIPS 205 §10.2) is the only path that
+    reproduces them byte-for-byte. Calling ``slhdsa_sign`` (the hedged
+    default) instead would mix in fresh randomness and produce a
+    sibling-but-different signature — a silent KAT miss.
+
+    The legacy ``sphincs_sign`` symbol still targets SLH-DSA-SHA2-256f
+    (NIST L5) and is incompatible with these L1 vectors regardless of
+    determinism, hence the explicit ``param_set='SHAKE-128s'`` here.
+    """
+    from omni_mercury_engine.security.pqc_backends import slhdsa_sign_deterministic
 
     sk = bytes.fromhex(vector["sk"])
     message = bytes.fromhex(vector["message"])
+    ctx = bytes.fromhex(vector.get("context", ""))
     expected_sig = bytes.fromhex(vector["signature"])
 
-    # SLH-DSA sigGen vectors provide sk but not pk.  We test signing
-    # determinism: AMA's sphincs_sign with the NIST sk+message must
-    # produce the exact NIST reference signature.
-    produced_sig = sphincs_sign(message, sk)
+    produced_sig = slhdsa_sign_deterministic(message, sk, ctx, param_set="SHAKE-128s")
     assert produced_sig == expected_sig, (
-        f"SLH-DSA sigGen tc{vector['tcId']}: AMA signature differs from NIST reference. "
+        f"SLH-DSA-SHAKE-128s sigGen tc{vector['tcId']}: "
+        f"AMA signature differs from NIST reference. "
         f"Produced {len(produced_sig)} bytes, expected {len(expected_sig)} bytes."
     )
 

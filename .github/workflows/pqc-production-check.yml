@@ -39,12 +39,26 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Build AMA Cryptography native C library
+        env:
+          # FIPS 204/205 KAT pinning (Phase 2): the byte-exact NIST ACVP
+          # reproduction in ``tests/security/test_nist_fips_kat.py`` requires
+          # the AMA v3.1.0 surface (``dilithium_sign_ctx`` for FIPS 204 §5.2
+          # ctx-aware ML-DSA-65 sign + ``slhdsa_sign_deterministic`` /
+          # ``slhdsa_verify`` for FIPS 205 SLH-DSA-SHAKE-128s NIST L1) plus
+          # the FIPS 204 §6.2 Algorithm 7 line 3 fix that pins
+          # ``rnd = 0^256`` in deterministic mode. Until v3.1.0 carries a
+          # tagged release on AMA's main branch, pin the source branch
+          # explicitly so verify-real-pqc reproduces the NIST vectors
+          # byte-for-byte. Once v3.1.0 ships and merges into AMA main this
+          # pin should flip to a tag (``--branch v3.1.0``) for reproducibility.
+          AMA_REF: copilot/fix-fips-204-205-kat-gaps
         run: |
           # Clone and build the native C library explicitly via cmake so the
           # compiled shared objects are available before the Python install.
           # This satisfies INVARIANT-7 (native HMAC/HKDF/SHA3 backends required)
           # which is enforced by ama_cryptography.crypto_api at import time.
-          git clone --depth 1 https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
+          git clone --branch "${AMA_REF}" --depth 1 \
+            https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
           cd /tmp/ama-cryptography
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \

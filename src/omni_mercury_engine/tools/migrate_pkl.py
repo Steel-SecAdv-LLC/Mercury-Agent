@@ -77,7 +77,32 @@ _HARDENED_SENTINEL = "MERCURY_MIGRATE_PKL_HARDENED"
 # poisoned ``sitecustomize``. ``VIRTUAL_ENV`` is forwarded so a venv's
 # own ``site-packages`` (which the editable install resolves through the
 # venv's ``sys.path``, not via ``PYTHONPATH``) remains discoverable.
-_FORWARDED_ENV = ("PATH", "LANG", "LC_ALL", "VIRTUAL_ENV", "HOME")
+#
+# ``LD_LIBRARY_PATH`` / ``DYLD_LIBRARY_PATH`` are forwarded so the AMA
+# Cryptography native C library (``libama_cryptography.so``) remains
+# resolvable when AMA is installed from a build tree (CI's standard
+# install path) rather than via a system package manager. INVARIANT-7
+# in ``ama_cryptography.crypto_api`` refuses to operate without the
+# native HMAC/HKDF/SHA3 backends, so the hardened child must inherit
+# the same loader search path the parent used to satisfy that invariant.
+# The path is set by the operator's deployment environment, not by
+# untrusted pickle content, so this preserves the threat model: the
+# load-bearing isolation is the process boundary, not env-flag scrubbing.
+# ``LD_PRELOAD`` is *not* forwarded; that is the actual injection vector.
+_FORWARDED_ENV = (
+    "PATH",
+    "LANG",
+    "LC_ALL",
+    "VIRTUAL_ENV",
+    "HOME",
+    "LD_LIBRARY_PATH",
+    "DYLD_LIBRARY_PATH",
+    # AMA Cryptography honours ``AMA_NO_CYTHON`` and ``AMA_REQUIRE_REAL_PQC``
+    # at import time; without them the hardened child would refuse to load
+    # the native backend in CI / containerised production deployments.
+    "AMA_NO_CYTHON",
+    "AMA_REQUIRE_REAL_PQC",
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:

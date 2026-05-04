@@ -61,14 +61,58 @@ class TestJWTAuthMissingKey:
             with pytest.raises(ValueError, match="JWT_SECRET_KEY"):
                 JWTAuth(allow_dev_fallback=False)
 
-    def test_jwt_auth_missing_key_production_raises(self):
-        """Test JWT auth raises error in production without key."""
+    def test_jwt_auth_missing_key_production_derives_from_ama_hd(self):
+        """In production w/ AMA available, JWT key is derived from HD key management.
+
+        FIPS 204/205 substrate is online: ``get_auth_key_manager()`` delegates
+        to AMA's HD key management which yields a deterministic ``jwt_sign``
+        key material. The constructor must therefore *succeed* (no ValueError)
+        and ``self.secret_key`` must be populated. Pre-PR-#167 the test
+        asserted ValueError unconditionally, which silently masked the AMA
+        success path the moment the upstream library landed; splitting the
+        contract into two paths surfaces both branches honestly.
+        """
         with patch.dict(os.environ, {"MERCURY_AGENT_ENV": "production"}, clear=True):
             os.environ.pop("JWT_SECRET_KEY", None)
 
             from omni_mercury_engine.api.auth import JWTAuth
 
-            with pytest.raises(ValueError, match="production"):
+            try:
+                from ama_cryptography.crypto_api import HMAC_HKDF_AVAILABLE
+            except ImportError:
+                pytest.skip("AMA Cryptography not installed; HD path unreachable.")
+            if not HMAC_HKDF_AVAILABLE:
+                pytest.skip("AMA native HMAC/HKDF backend unavailable; HD path unreachable.")
+
+            auth = JWTAuth()
+            assert (
+                auth.secret_key is not None and len(auth.secret_key) > 0
+            ), "AMA HD-derived JWT key must populate self.secret_key in production."
+            assert auth.using_fallback is False
+
+    def test_jwt_auth_missing_key_production_raises_when_ama_unavailable(self):
+        """In production w/o AMA, JWTAuth raises ValueError pinning the HD failure.
+
+        Mocks ``get_auth_key_manager`` to raise (the same surface signature
+        the constructor sees when AMA is import-broken or the native backend
+        is missing) and asserts the constructor raises ``ValueError`` whose
+        message names ``production`` so operators know to set
+        ``JWT_SECRET_KEY`` rather than relying on HD derivation.
+        """
+        from unittest.mock import patch as _patch
+
+        with patch.dict(os.environ, {"MERCURY_AGENT_ENV": "production"}, clear=True):
+            os.environ.pop("JWT_SECRET_KEY", None)
+
+            from omni_mercury_engine.api.auth import JWTAuth
+
+            with (
+                _patch(
+                    "omni_mercury_engine.api.auth.get_auth_key_manager",
+                    side_effect=RuntimeError("AMA HD key management unavailable in test"),
+                ),
+                pytest.raises(ValueError, match="production"),
+            ):
                 JWTAuth()
 
 
