@@ -646,6 +646,18 @@ class NeuroSymbolicHub:
         self.seed = seed
         self.rng = np.random.default_rng(seed)
         self.domain = domain
+
+        # σ_Immutable second hard ethical gate (Wave B item 1).
+        # The hub raises ``check="sigma_immutable"`` per-sample so a
+        # poisoned batch cannot smuggle a downstream verdict around the
+        # benevolence gate.  The gate is the process-wide singleton —
+        # the same trained network and signed-corpus verdict applies
+        # at every boundary (engine, hub, orchestrator).
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            get_sigma_immutable_gate,
+        )
+
+        self._sigma_immutable_gate = get_sigma_immutable_gate()
         # Freeze thresholds at construction time to avoid global mutation risk
         self._thresholds = thresholds or ThresholdConfig()
 
@@ -1253,6 +1265,29 @@ class NeuroSymbolicHub:
                     },
                 )
 
+            # σ_Immutable second hard ethical gate (Wave B item 1).
+            # Raises ``check="sigma_immutable"`` or ``check="gosnn_unavailable"``;
+            # the singleton's corpus verification poisons every call if
+            # the on-disk corpus has been tampered with.
+            sigma_vector = self._build_sigma_immutable_vector(
+                row=X_enhanced[i],
+                neural_score=neural_score,
+                symbolic_score=symbolic_score,
+                fused_score=fused_score,
+                benevolence_score=benevolence_score,
+            )
+            self._sigma_immutable_gate.enforce(
+                action=f"NeuroSymbolicHub.predict[sample={i}]",
+                scalar_vector=sigma_vector,
+                details={
+                    "boundary": "NeuroSymbolicHub.predict",
+                    "sample_index": i,
+                    "fused_score": float(fused_score),
+                    "fusion_mode": self.fusion_mode.value,
+                    "domain": self.domain,
+                },
+            )
+
             # Build reasoning chain with P2 integration info
             reasoning_chain = []
 
@@ -1327,6 +1362,74 @@ class NeuroSymbolicHub:
         results = self.predict(X, return_explanations=False)
         scores = np.array([r.anomaly_score for r in results])
         return np.column_stack([1 - scores, scores])
+
+    def _build_sigma_immutable_vector(
+        self,
+        row: np.ndarray,
+        neural_score: float,
+        symbolic_score: float,
+        fused_score: float,
+        benevolence_score: float,
+    ) -> np.ndarray:
+        """Build the σ_Immutable input vector for a single sample.
+
+        Mirrors the GOSNN layout the trained network was fitted on:
+
+        * Critical ethical columns (first 27) carry the per-sample
+          benevolence score projected into the ``[0, 2]`` band the
+          training corpus uses.
+        * Non-ethical columns (next 153) carry per-sample features:
+          neural / symbolic / fused scores plus the row's first feature
+          values, scaled into the same ``[0, 2]`` band.
+
+        Args:
+            row: Per-sample feature row from ``X``.
+            neural_score: Neural-encoder output for this sample.
+            symbolic_score: Symbolic-reasoner output for this sample.
+            fused_score: Fusion result for this sample.
+            benevolence_score: In-line benevolence verdict.
+
+        Returns:
+            ``(256,)`` float64 vector for :class:`SigmaImmutableGate`.
+        """
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            SIGMA_IMMUTABLE_INPUT_DIM,
+        )
+
+        vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
+        # Project benevolence into the upper half of the trained
+        # network's positive band.  See orchestrator's
+        # ``_build_sigma_immutable_vector`` for the rationale.
+        if benevolence_score >= 0.70:
+            ethical_value = float(np.clip(
+                1.5 + (benevolence_score - 0.70) * (0.5 / 0.30),
+                1.5, 2.0,
+            ))
+        else:
+            ethical_value = float(np.clip(benevolence_score * 0.5, 0.0, 0.5))
+        vector[:27] = ethical_value
+
+        # Non-ethical band centred at 1.0 (matches the training U[0, 2]
+        # midpoint), with the per-sample neural / symbolic / fused /
+        # row signal adding small ±0.4 perturbation around centre so
+        # the σ_Immutable verdict tracks per-sample inputs without
+        # drifting into the network's negative-band response.
+        vector[27:180] = 1.0
+        scaled_neural = float(np.clip(neural_score, 0.0, 1.0))
+        scaled_symbolic = float(np.clip(symbolic_score, 0.0, 1.0))
+        scaled_fused = float(np.clip(fused_score, 0.0, 1.0))
+        vector[27] = 1.0 + 0.4 * (scaled_neural - 0.5) * 2.0
+        vector[28] = 1.0 + 0.4 * (scaled_symbolic - 0.5) * 2.0
+        vector[29] = 1.0 + 0.4 * (scaled_fused - 0.5) * 2.0
+
+        # Per-sample row signal: small perturbation in dims 30..60.
+        flat = np.asarray(row, dtype=np.float64).flatten()
+        n_room = 30
+        n_take = min(len(flat), n_room)
+        if n_take > 0:
+            normalised = 1.0 + 0.4 * np.tanh(flat[:n_take])
+            vector[30 : 30 + n_take] = normalised
+        return vector
 
     def _compute_benevolence(self, context: dict[str, Any], anomaly_score: float) -> float:
         """

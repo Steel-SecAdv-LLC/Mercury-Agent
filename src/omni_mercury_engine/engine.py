@@ -106,6 +106,9 @@ except ImportError:
     torch = None  # type: ignore[assignment, unused-ignore]
     TORCH_AVAILABLE = False
 
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    EthicalConstraintViolationError,
+)
 from omni_mercury_engine.core.config import EngineConfig
 from omni_mercury_engine.core.global_omni_scalar_network import (
     ScalarGroup,
@@ -699,6 +702,20 @@ class OmniMercuryEngine(LoggerMixin):
         self._boundary_scorer: BenevolenceScorer = _BenevolenceScorer(
             benevolence_threshold=_MINIMUM_BENEVOLENCE_FLOOR
         )
+
+        # σ_Immutable second hard ethical gate (Wave B item 1).  Loaded
+        # eagerly for the same reason as the benevolence scorer above:
+        # the first ``detect_with_fusion`` call cannot race the gate's
+        # corpus-verification step.  The gate is a process-wide
+        # singleton — every boundary (engine, hub, orchestrator)
+        # observes the same trained network and the same signed-corpus
+        # verdict, so a corpus tampering at startup poisons every
+        # decision boundary uniformly.
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            get_sigma_immutable_gate,
+        )
+
+        self._sigma_immutable_gate = get_sigma_immutable_gate()
 
         self._init_detectors()
         self._init_models()
@@ -2206,11 +2223,25 @@ class OmniMercuryEngine(LoggerMixin):
         # ------------------------------------------------------------
         self._enforce_ethics_at_boundary(domain=domain, data=data)
 
-        # GOSNN Synaptic Integration (informational; not the gate)
+        # ------------------------------------------------------------
+        # σ_Immutable: second hard ethical gate (Wave B item 1).
+        #
+        # The trained network at security/sigma_immutable_weights.pt
+        # serves as an independent learned check on the full
+        # 256-dimensional GOSNN scalar vector.  GOSNN is no longer
+        # optional for the verdict — its unavailability raises
+        # ``check="gosnn_unavailable"`` rather than degrading silently
+        # to fallback metadata.  The previous ``fallback_mode=True``
+        # metadata path is gone (auditors saw it as defensive theatre).
+        # ------------------------------------------------------------
         gosnn_metadata: dict[str, Any] = {}
-        if enable_gosnn:
+        if not enable_gosnn:
+            # Deliberately disabling GOSNN at the call site — only the
+            # benevolence scorer above applies.  Tests can still drive
+            # this branch; production callers should leave GOSNN on.
+            pass
+        else:
             try:
-                # Get GOSNN singleton with domain-appropriate threshold
                 gosnn = get_global_scalar_network(
                     device=str(self.device),
                     domain=domain,
@@ -2218,34 +2249,51 @@ class OmniMercuryEngine(LoggerMixin):
                     enable_triadic_phi=True,
                 )
 
-                # Prepare base scalars from detector scores for enhancement
                 base_scalars = {
                     f"detector_{name}_score": float(np.mean(score))
                     for name, score in all_scores.items()
                     if isinstance(score, (np.ndarray, float, int))
                 }
 
-                # Get enhanced scalars with ethical gating and harmonic synergy
                 enhancement_result = gosnn.get_enhanced_scalars(
                     requesting_component="OmniMercuryEngine.detect_with_fusion",
                     base_scalars=base_scalars,
                     context={"domain": domain, "data_shape": getattr(data, "shape", None)},
                 )
 
-                # Store GOSNN metadata for transparency.  ``ethical_gate_passed``
-                # remains in the payload as a *signal*, not a *gate* — the
-                # actual enforcement happened above via
-                # :meth:`_enforce_ethics_at_boundary`.
+                # Hard σ_Immutable enforcement — evaluate against the
+                # exact same scalar vector GOSNN scored, so the engine
+                # boundary's verdict matches the gate baked into GOSNN.
+                full_scalars = gosnn._collect_all_scalars()
+                scalar_vector = np.array(
+                    list(full_scalars.values()), dtype=np.float64
+                )
+                evaluation = self._sigma_immutable_gate.enforce(
+                    action=(
+                        f"OmniMercuryEngine.detect_with_fusion:"
+                        f"domain={domain or 'general'}"
+                    ),
+                    scalar_vector=scalar_vector,
+                    details={
+                        "boundary": "OmniMercuryEngine.detect_with_fusion",
+                        "domain": domain,
+                        "data_shape": getattr(data, "shape", None),
+                    },
+                )
+
                 gosnn_metadata = {
-                    "ethical_gate_passed": enhancement_result.ethical_gate_passed,
-                    "sigma_immutable_score": enhancement_result.fusion_score,
+                    "ethical_gate_passed": evaluation.passes,
+                    "sigma_immutable_score": evaluation.score,
+                    "sigma_immutable_threshold": evaluation.threshold,
+                    "sigma_immutable_backend": evaluation.backend,
                     "harmonic_synergy": gosnn.last_harmonic_synergy,
-                    "intelligence_contribution": enhancement_result.intelligence_contribution,
+                    "intelligence_contribution": (
+                        enhancement_result.intelligence_contribution
+                    ),
                     "warnings": enhancement_result.warnings,
-                    "sigma_immutable_threshold": gosnn.sigma_immutable_threshold,
+                    "enhancement_fusion_score": enhancement_result.fusion_score,
                 }
 
-                # Register detector scalars with GOSNN for bidirectional feedback
                 gosnn.register_scalars(
                     component_name="fusion_detectors",
                     scalars=enhancement_result.enhanced_scalars,
@@ -2254,26 +2302,42 @@ class OmniMercuryEngine(LoggerMixin):
                 )
 
                 logger.debug(
-                    f"GOSNN integration: ethical_gate={enhancement_result.ethical_gate_passed}, "
-                    f"harmonic_synergy={gosnn.last_harmonic_synergy:.3f}"
+                    "GOSNN integration: σ_Immutable=%s (score=%.3f, "
+                    "threshold=%.3f), harmonic_synergy=%.3f",
+                    evaluation.passes,
+                    evaluation.score,
+                    evaluation.threshold,
+                    gosnn.last_harmonic_synergy,
                 )
 
-            except Exception as e:
-                # GOSNN is informational metadata — its failure must not
-                # silently weaken the verdict, but it also does not block
-                # detection now that the actual gate ran above.  Surface
-                # the error in the metadata so downstream auditors see it.
-                logger.warning(
-                    "GOSNN integration error: %s. Detection proceeds "
-                    "because the BenevolenceScorer boundary already ran.",
-                    e,
+            except EthicalConstraintViolationError:
+                # σ_Immutable violation already raised — propagate
+                # without wrapping; the caller's audit log needs the
+                # original ``check`` value.
+                raise
+            except Exception as exc:
+                # GOSNN itself errored (singleton init blew up, the
+                # 32-head attention faulted, …).  This is now a hard
+                # ``check="gosnn_unavailable"`` failure — the σ_Immutable
+                # second gate cannot run, and the engine fails closed.
+                from omni_mercury_engine.cognitive.ethical_bounding import (
+                    EthicalConstraintViolationError as _EthicalErr,
                 )
-                gosnn_metadata = {
-                    "ethical_gate_passed": None,
-                    "sigma_immutable_score": None,
-                    "error": str(e),
-                    "fallback_mode": True,
-                }
+
+                raise _EthicalErr(
+                    action=(
+                        f"OmniMercuryEngine.detect_with_fusion:"
+                        f"domain={domain or 'general'}"
+                    ),
+                    score=0.0,
+                    threshold=self._sigma_immutable_gate.threshold,
+                    check="gosnn_unavailable",
+                    details={
+                        "boundary": "OmniMercuryEngine.detect_with_fusion",
+                        "domain": domain,
+                        "underlying_error": f"{type(exc).__name__}: {exc}",
+                    },
+                ) from exc
 
         fusion_result = self.fusion_inference.predict(
             all_features,
