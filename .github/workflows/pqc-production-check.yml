@@ -152,18 +152,52 @@ jobs:
       - name: Publish PQC coverage number for the README badge
         # Generates the coverage figure cited in the README PQC section
         # so the published number is measured-and-published evidence
-        # rather than "unaudited" framing.  Coverage is scoped to the
-        # crypto*.py + pqc*.py surface only.
+        # rather than "unaudited" framing. Coverage is scoped to the
+        # crypto*.py + pqc*.py surface via a dedicated ``.coveragerc``
+        # written inline below.
+        #
+        # We deliberately invoke ``coverage run -m pytest`` rather than
+        # ``pytest --cov`` because pytest-cov 7.x + numpy 2.x together
+        # race on numpy's "cannot load module more than once per
+        # process" guard when pytest-cov pre-imports the configured
+        # source modules during ``pytest_configure`` while
+        # ``tests/conftest.py`` is also importing numpy at collection
+        # time. ``coverage run`` initialises tracing before pytest is
+        # imported, which avoids the pre-import path entirely.
+        #
+        # The config uses ``source = src/omni_mercury_engine/security``
+        # (directory) plus ``include = .../crypto_api.py``,
+        # ``.../pqc_backends.py``, ``.../pqc_guards.py`` to scope the
+        # report to the three crypto modules without tripping
+        # coverage's "module-not-imported" path-resolution mismatch
+        # that ``source = <dotted-module>`` produces under editable
+        # installs (the ``pip install -e`` package import maps to
+        # ``src/`` paths in ``__file__`` but coverage's source resolver
+        # only resolves dotted names against ``site-packages``).
         run: |
-          pytest \
+          {
+            printf '[run]\n'
+            printf 'source =\n'
+            printf '    src/omni_mercury_engine/security\n'
+            printf 'branch = true\n'
+            printf '\n'
+            printf '[report]\n'
+            printf 'precision = 2\n'
+            printf 'show_missing = true\n'
+            printf 'fail_under = 0\n'
+            printf 'include =\n'
+            printf '    src/omni_mercury_engine/security/crypto_api.py\n'
+            printf '    src/omni_mercury_engine/security/pqc_backends.py\n'
+            printf '    src/omni_mercury_engine/security/pqc_guards.py\n'
+          } > /tmp/pqc-coveragerc
+          coverage erase --rcfile=/tmp/pqc-coveragerc
+          coverage run --rcfile=/tmp/pqc-coveragerc -m pytest \
             tests/security/test_ama_kat.py \
             tests/security/test_nist_fips_kat.py \
             tests/security/test_crypto_api.py \
-            --cov=omni_mercury_engine.security.crypto_api \
-            --cov=omni_mercury_engine.security.pqc_backends \
-            --cov=omni_mercury_engine.security.pqc_guards \
-            --cov-report=term \
-            --cov-report=xml:pqc-coverage.xml
+            -q
+          coverage report --rcfile=/tmp/pqc-coveragerc
+          coverage xml --rcfile=/tmp/pqc-coveragerc -o pqc-coverage.xml
 
       - name: Upload PQC coverage artifact
         uses: actions/upload-artifact@v4
