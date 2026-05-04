@@ -82,7 +82,28 @@ def _generate_tls_assets(
         check=True,
         capture_output=True,
     )
-    # Generate node key + CSR
+    # Generate node key + CSR.  ``TCPMessageTransport`` binds to
+    # ``127.0.0.1`` and connects to peers via that same IP literal, so
+    # the leaf certificate must carry ``subjectAltName = IP:127.0.0.1,
+    # DNS:localhost`` — a bare ``CN=localhost`` is rejected by modern
+    # Python ``ssl`` (RFC 6125 / CABF requirement) with the
+    # ``IP address mismatch`` error.  We pin the SAN explicitly through
+    # an ephemeral OpenSSL config so the CSR (and the signed leaf via
+    # ``-copy_extensions copy``) carry the SAN deterministically.
+    san_cnf = os.path.join(tmpdir, "san.cnf")
+    with open(san_cnf, "w", encoding="utf-8") as fh:
+        fh.write(
+            "[req]\n"
+            "distinguished_name = req_dn\n"
+            "req_extensions = req_ext\n"
+            "prompt = no\n"
+            "\n"
+            "[req_dn]\n"
+            "CN = localhost\n"
+            "\n"
+            "[req_ext]\n"
+            "subjectAltName = IP:127.0.0.1, DNS:localhost\n"
+        )
     subprocess.run(
         [
             "openssl",
@@ -94,13 +115,15 @@ def _generate_tls_assets(
             "-out",
             node_csr,
             "-nodes",
-            "-subj",
-            "/CN=localhost",
+            "-config",
+            san_cnf,
         ],
         check=True,
         capture_output=True,
     )
-    # Sign node cert with CA
+    # Sign node cert with CA, copying the CSR's SAN extension into the
+    # signed leaf.  ``-copy_extensions copy`` is required because
+    # ``openssl x509 -req`` strips CSR extensions by default.
     subprocess.run(
         [
             "openssl",
@@ -117,6 +140,10 @@ def _generate_tls_assets(
             node_cert,
             "-days",
             "1",
+            "-extfile",
+            san_cnf,
+            "-extensions",
+            "req_ext",
         ],
         check=True,
         capture_output=True,
@@ -354,8 +381,13 @@ def _run_raft_node(
                 break
             await _aio.sleep(0.1)
 
+        # ``NodeState`` uses ``Enum + auto()``, so ``.value`` is an
+        # opaque integer (1/2/3) — the parent process keys off the
+        # name (``leader``/``candidate``/``follower``) so we serialise
+        # via ``.name.lower()`` to keep the contract human-readable
+        # and stable across reorderings of the enum members.
         with open(result_path, "w") as f:
-            f.write(f"{node.state.value}:{node.current_term}")
+            f.write(f"{node.state.name.lower()}:{node.current_term}")
 
         await node.stop()
         await transport.stop()

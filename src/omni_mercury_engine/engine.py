@@ -1145,7 +1145,7 @@ class OmniMercuryEngine(LoggerMixin):
 
     def enable_llm_enhancement(
         self,
-        provider: str = "mock",
+        provider: str,
         model_name: str | None = None,
         api_key: str | None = None,
         timeout_seconds: float = 30.0,
@@ -1156,12 +1156,26 @@ class OmniMercuryEngine(LoggerMixin):
         anomalies using zero-shot classification. This is a non-blocking
         optional stage that enhances detection results with interpretability.
 
+        Phase 2 audit cure: ``provider`` is now required and an
+        unrecognised string raises ``ValueError`` instead of silently
+        falling back to ``LLMProvider.MOCK``.  The legacy default
+        (``provider="mock"``) routed production traffic through
+        ``MockLLMAdapter`` whenever a caller forgot to specify a
+        provider; with the mock-cure in place that fallback would be
+        a hard-fail at the next call anyway, so we surface the
+        misconfiguration here at enable time with a clear error.
+
         Args:
-            provider: LLM provider name ('mock', 'huggingface', 'openai').
-                Default 'mock' for testing without API calls.
+            provider: LLM provider name (e.g. ``"huggingface"``,
+                ``"openai"``).  Must match a member of
+                :class:`LLMProvider` (case-insensitive).
             model_name: Model identifier for the provider.
             api_key: API key for the provider (if required).
             timeout_seconds: Maximum time to wait for LLM response.
+
+        Raises:
+            ValueError: If ``provider`` is not a recognised
+                :class:`LLMProvider` member.
 
         Example:
             >>> engine = OmniMercuryEngine()
@@ -1172,9 +1186,13 @@ class OmniMercuryEngine(LoggerMixin):
         """
         try:
             llm_provider = LLMProvider(provider.lower())
-        except ValueError:
-            llm_provider = LLMProvider.MOCK
-            logger.warning(f"Unknown LLM provider '{provider}', using mock")
+        except ValueError as exc:
+            supported = sorted(p.value for p in LLMProvider)
+            raise ValueError(
+                f"Unknown LLM provider {provider!r}. "
+                f"Supported providers: {supported}.  "
+                "Silent mock fallback is not permitted (Phase 2 audit cure)."
+            ) from exc
 
         llm_config = LLMConfig(
             provider=llm_provider,

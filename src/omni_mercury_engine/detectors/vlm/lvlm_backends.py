@@ -330,15 +330,21 @@ class MockLVLMBackend(LVLMBackend):
         self,
         images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
-    ) -> str:  # pragma: no cover
-        raise NotImplementedError
+    ) -> str:
+        raise NotImplementedError(
+            "MockLVLMBackend cannot be used in production. "
+            "Configure a real LVLM backend (e.g. Qwen2VL, MiniCPMV, LLaVA)."
+        )
 
     def vqa(
         self,
         image: Image.Image | np.ndarray[Any, Any] | torch.Tensor,
         question: str,
-    ) -> str:  # pragma: no cover
-        raise NotImplementedError
+    ) -> str:
+        raise NotImplementedError(
+            "MockLVLMBackend cannot be used in production. "
+            "Configure a real LVLM backend (e.g. Qwen2VL, MiniCPMV, LLaVA)."
+        )
 
 
 def get_lvlm_backend(
@@ -370,8 +376,16 @@ def get_lvlm_backend(
         model_name = model_type
 
     if model_type not in backends:
-        logger.warning(f"Unknown model type {model_type}, using mock backend")
-        model_type = "mock"
+        # Phase 2 audit cure: silent fall-through to ``MockLVLMBackend``
+        # for an unknown ``model_type`` is forbidden — production code
+        # would otherwise route through a backend whose ``initialize``,
+        # ``generate``, and ``vqa`` are all hard-fail stubs, surfacing
+        # the loss of a real model only at first use rather than at
+        # configuration time.  Raise here so the misconfiguration is
+        # caught at the factory boundary.
+        raise ValueError(
+            f"Unknown LVLM model_type {model_type!r}. " f"Supported: {sorted(backends)}."
+        )
 
     backend_class = backends[model_type]
     return backend_class(model_name, device, **kwargs)

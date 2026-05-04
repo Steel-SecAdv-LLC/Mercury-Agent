@@ -437,15 +437,30 @@ class ZeroShotAnomalyDetector:
             self.adapter = self._create_adapter()
 
     def _create_adapter(self) -> BaseLLMAdapter:
-        """Create appropriate adapter based on config."""
+        """Create appropriate adapter based on config.
+
+        Phase 2 audit cure: an unsupported / unimplemented provider must
+        not silently fall back to ``MockLLMAdapter`` — that path masked
+        misconfiguration and routed production traffic through a
+        hard-fail mock.  ``MockLLMAdapter`` itself raises
+        ``NotImplementedError`` at construction, so the explicit
+        ``LLMProvider.MOCK`` branch below is preserved purely as a
+        loud-fail signal (the operator opted into mock and gets the
+        cure's error message immediately).  Any other unsupported
+        provider raises ``NotImplementedError`` directly with a
+        message that names every supported provider.
+        """
         if self.config.provider == LLMProvider.MOCK:
             return MockLLMAdapter(self.config)
         elif self.config.provider == LLMProvider.HUGGINGFACE:
             return HuggingFaceLLMAdapter(self.config)
         else:
-            # Default to mock for unsupported providers
-            logger.warning(f"Provider {self.config.provider} not fully implemented, using mock")
-            return MockLLMAdapter(self.config)
+            raise NotImplementedError(
+                f"LLM provider {self.config.provider!r} has no adapter "
+                "implementation in this build.  Configure a supported "
+                "provider (currently: HUGGINGFACE).  Silent mock "
+                "degradation is not permitted (Phase 2 audit cure)."
+            )
 
     def detect(
         self,

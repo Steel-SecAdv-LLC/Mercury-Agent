@@ -57,27 +57,42 @@ class TestTimeGPTAdapter:
         adapter = TimeGPTAdapter(config=config)
         assert adapter.config.fh == 14
 
-    def test_timegpt_detect_mock(self, univariate_data):
-        """Test TimeGPT anomaly detection with mock mode."""
+    def test_timegpt_detect_without_api_key_hard_fails(self, univariate_data, monkeypatch):
+        """TimeGPT must raise ``NotImplementedError`` when no API key
+        is configured.
+
+        Phase 2 audit cure (commit 4d29bf1): the legacy "silent mock
+        mode" fallback that returned synthetic detection scores when
+        ``NIXTLA_API_KEY`` was unset has been removed.  This is the
+        positive contract assertion — a future regression that
+        reintroduces silent degradation will trip ``pytest.raises``.
+        """
         from omni_mercury_engine.models.foundation import TimeGPTAdapter
 
-        # Without API key, should use mock mode
+        monkeypatch.delenv("NIXTLA_API_KEY", raising=False)
         adapter = TimeGPTAdapter()
-        result = adapter.detect(univariate_data)
 
-        assert "scores" in result
-        assert "is_anomaly" in result
+        with pytest.raises(
+            NotImplementedError,
+            match=r"No Nixtla API key|nixtla package not installed",
+        ):
+            adapter.detect(univariate_data)
 
-    def test_timegpt_forecast(self, univariate_data):
-        """Test TimeGPT forecasting."""
+    def test_timegpt_forecast_without_api_key_hard_fails(self, univariate_data, monkeypatch):
+        """TimeGPT.forecast must raise ``NotImplementedError`` without
+        an API key — same contract as ``detect``.  See
+        ``test_timegpt_detect_without_api_key_hard_fails``.
+        """
         from omni_mercury_engine.models.foundation import TimeGPTAdapter
 
+        monkeypatch.delenv("NIXTLA_API_KEY", raising=False)
         adapter = TimeGPTAdapter()
-        forecast = adapter.forecast(univariate_data, horizon=10)
 
-        assert forecast is not None
-        assert "forecast" in forecast
-        assert len(forecast["forecast"]) == 10
+        with pytest.raises(
+            NotImplementedError,
+            match=r"No Nixtla API key|nixtla package not installed",
+        ):
+            adapter.forecast(univariate_data, horizon=10)
 
 
 class TestChronosAdapter:
@@ -103,25 +118,47 @@ class TestChronosAdapter:
         adapter = ChronosAdapter(config=config)
         assert adapter.config.prediction_length == 24
 
-    def test_chronos_detect_mock(self, univariate_data):
-        """Test Chronos anomaly detection with mock mode."""
+    def test_chronos_detect_without_package_hard_fails(self, univariate_data):
+        """Chronos must raise ``NotImplementedError`` when
+        ``chronos-forecasting`` is not installed.
+
+        Phase 2 audit cure (commit 4d29bf1): the legacy "silent mock
+        mode" fallback that returned synthetic detection scores when
+        the ``chronos-forecasting`` package was missing has been
+        removed.  This is the positive contract assertion.
+        """
         from omni_mercury_engine.models.foundation import ChronosAdapter
 
+        chronos_installed = importlib.util.find_spec("chronos") is not None
+        if chronos_installed:
+            pytest.skip(
+                "chronos-forecasting is installed in this environment — "
+                "the silent-mock cure can only be verified when the "
+                "package is absent."
+            )
+
         adapter = ChronosAdapter()
-        result = adapter.detect(univariate_data)
+        with pytest.raises(NotImplementedError, match="chronos-forecasting package not installed"):
+            adapter.detect(univariate_data)
 
-        assert "scores" in result
-        assert "is_anomaly" in result
-        assert "forecasts" in result
-
-    def test_chronos_forecast(self, univariate_data):
-        """Test Chronos forecasting."""
+    def test_chronos_forecast_without_package_hard_fails(self, univariate_data):
+        """Chronos.forecast must raise ``NotImplementedError`` without
+        the ``chronos-forecasting`` package — same contract as
+        ``detect``.  See ``test_chronos_detect_without_package_hard_fails``.
+        """
         from omni_mercury_engine.models.foundation import ChronosAdapter
 
-        adapter = ChronosAdapter()
-        forecast = adapter.forecast(univariate_data, horizon=10)
+        chronos_installed = importlib.util.find_spec("chronos") is not None
+        if chronos_installed:
+            pytest.skip(
+                "chronos-forecasting is installed in this environment — "
+                "the silent-mock cure can only be verified when the "
+                "package is absent."
+            )
 
-        assert forecast is not None
+        adapter = ChronosAdapter()
+        with pytest.raises(NotImplementedError, match="chronos-forecasting package not installed"):
+            adapter.forecast(univariate_data, horizon=10)
 
 
 class TestMatrixProfileAdapter:
