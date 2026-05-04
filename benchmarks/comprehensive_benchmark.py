@@ -33,13 +33,13 @@ import time
 from typing import Any
 
 import numpy as np
-from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
 
 from benchmarks.real_data_benchmarks import (
     MIMICDemoBenchmark,
     NSLKDDBenchmark,
 )
 from omni_mercury_engine.infrastructure import InfrastructureCoordinator
+from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score
 from omni_mercury_engine.models.simulation import SimulationModule
 from omni_mercury_engine.space.space_exploration_analyzer import SpaceExplorationAnalyzer
 

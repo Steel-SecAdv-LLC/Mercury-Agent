@@ -38,6 +38,7 @@ from omni_mercury_engine.core.centralized_constants import (
     MATH,
 )
 from omni_mercury_engine.core.config import ThresholdConfig
+from omni_mercury_engine.core.fibring_fusion import FibringComposer
 
 # Domain-specific feature extraction (P2 Integration)
 try:
@@ -110,7 +111,13 @@ except ImportError:
 
 
 class FusionMode(Enum):
-    """Fusion modes for neuro-symbolic integration."""
+    """Fusion modes for neuro-symbolic integration.
+
+    FIBRING is the named default and composes three already-present
+    primitives — Phi-weighted base, correlation-aware decorrelation
+    (running window), and per-domain affinity bias — into a single
+    NSAI-taxonomy-faithful mode. See ``core.fibring_fusion.FibringComposer``.
+    """
 
     NEURAL_DOMINANT = "neural_dominant"  # 70% neural, 30% symbolic
     SYMBOLIC_DOMINANT = "symbolic_dominant"  # 30% neural, 70% symbolic
@@ -119,6 +126,7 @@ class FusionMode(Enum):
     ADAPTIVE = "adaptive"  # Context-dependent weighting
     STACKING = "stacking"  # Meta-learner fusion
     BMA = "bma"  # Bayesian Model Averaging
+    FIBRING = "fibring"  # PHI base + decorrelator + domain affinity (NSAI fibring)
 
 
 @dataclass
@@ -469,19 +477,99 @@ class NeuralEncoder:
 
             return np.asarray(score)  # type: ignore[no-any-return, unused-ignore]
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> NeuralEncoder:
-        """Fit encoder (placeholder for training)."""
-        self._fitted = True
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray | None = None,
+        epochs: int = 50,
+        lr: float = 1e-3,
+        batch_size: int = 64,
+        weight_decay: float = 1e-4,
+    ) -> NeuralEncoder:
+        """Fit the encoder.
 
-        if not TORCH_AVAILABLE and y is not None:
-            # Fit simple weights using normal equations
-            X_pad = np.pad(X, ((0, 0), (0, max(0, self.input_dim - X.shape[1]))))[
-                :, : self.input_dim
-            ]
-            X_aug = np.column_stack([X_pad, np.ones(len(X))])
+        - **Torch path, with labels**: BCE-trained sigmoid scorer
+          (Adam, ``weight_decay`` L2-regularised).
+        - **Torch path, without labels**: a deep-SVDD-style center
+          objective — minimise the squared deviation of every output
+          from a frozen running center while subtracting a small
+          biased-variance term to discourage feature collapse.  No
+          decoder is involved.  The biased variance
+          (``unbiased=False``) and a ``last-batch-merge`` policy
+          (any trailing batch of size < 2 is folded into the previous
+          batch) together guarantee no NaN even when ``len(X) %
+          batch_size == 1``.
+        - **NumPy path, with labels**: ridge-regularised normal
+          equations populate ``self.weights``.  ``encode()``'s NumPy
+          branch does not consume those weights today (it computes a
+          z-score sigmoid directly), so the weights are diagnostic
+          state the caller can inspect; future numpy-path work can
+          plug them in without changing the fit contract.
+        - **NumPy path, without labels**: no fit step is performed —
+          ``encode()``'s deterministic z-score sigmoid path needs no
+          parameters and is well-defined on the un-fit state.
+          ``self._fitted`` is still set so callers see the same
+          contract as the labelled path.
+        """
+        # Pad/truncate X once so both paths see consistent shape.
+        X_pad = np.pad(X, ((0, 0), (0, max(0, self.input_dim - X.shape[1]))))[:, : self.input_dim]
 
+        if TORCH_AVAILABLE and torch is not None and nn is not None:
+            X_t = torch.tensor(X_pad, dtype=torch.float32)
+            optimizer = torch.optim.Adam(
+                self.encoder.parameters(), lr=lr, weight_decay=weight_decay
+            )
+            n = X_t.shape[0]
+
+            def _safe_batch_starts(total: int, bs: int) -> list[int]:
+                """Yield batch starts, merging a size-1 trailing remainder.
+
+                A trailing batch of size 1 makes biased BCE / SVDD
+                variance terms numerically degenerate; merging it into
+                the previous batch keeps every step's batch ≥ 2 without
+                dropping any samples.
+                """
+                if total <= bs:
+                    return [0]
+                last = ((total - 1) // bs) * bs
+                if total - last == 1 and last >= bs:
+                    last -= bs  # extend the second-to-last batch by one
+                return list(range(0, last, bs)) + [last]
+
+            if y is not None:
+                y_t = torch.tensor(np.asarray(y, dtype=np.float32).reshape(-1, 1))
+                loss_fn = nn.BCELoss()
+                for _ in range(epochs):
+                    perm = torch.randperm(n)
+                    for start in _safe_batch_starts(n, batch_size):
+                        idx = perm[start : start + batch_size]
+                        preds = self.encoder(X_t[idx])
+                        loss = loss_fn(preds, y_t[idx])
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+            else:
+                # Deep-SVDD-style: pull every output toward a frozen
+                # running center while subtracting biased variance to
+                # avoid trivial collapse.
+                for _ in range(epochs):
+                    perm = torch.randperm(n)
+                    for start in _safe_batch_starts(n, batch_size):
+                        idx = perm[start : start + batch_size]
+                        out = self.encoder(X_t[idx])
+                        center = out.mean().detach()
+                        # ``unbiased=False`` (i.e. divide by N, not
+                        # N-1) is the bias-variance choice consistent
+                        # with deep-SVDD and is the only form that is
+                        # well-defined for batch size 1, so a single
+                        # short batch never produces NaN.
+                        loss = ((out - center) ** 2).mean() - 0.01 * out.var(unbiased=False)
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+        elif y is not None:
+            X_aug = np.column_stack([X_pad, np.ones(len(X_pad))])
             try:
-                # Regularized least squares
                 lambda_reg = 0.01
                 identity_mat = np.eye(X_aug.shape[1])
                 self.weights = np.linalg.solve(  # type: ignore[assignment, unused-ignore]
@@ -490,6 +578,7 @@ class NeuralEncoder:
             except np.linalg.LinAlgError:
                 self.weights = np.zeros(X_aug.shape[1])  # type: ignore[assignment, unused-ignore]
 
+        self._fitted = True
         return self
 
 
@@ -511,7 +600,7 @@ class NeuroSymbolicHub:
     def __init__(
         self,
         input_dim: int = 64,
-        fusion_mode: FusionMode = FusionMode.PHI_WEIGHTED,
+        fusion_mode: FusionMode = FusionMode.FIBRING,
         sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
         benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
         use_calibration: bool = True,
@@ -569,6 +658,11 @@ class NeuroSymbolicHub:
         # Fusion weights (learned or fixed)
         self._neural_weight = PHI / (1 + PHI)  # ~0.618 for phi-weighted
         self._symbolic_weight = 1 / (1 + PHI)  # ~0.382 for phi-weighted
+
+        # Fibring composer: stateful per-hub composition for FusionMode.FIBRING.
+        # Held unconditionally so users can introspect / reset it even when
+        # operating in another mode.
+        self._fibring_composer = FibringComposer(domain=domain)
 
         # Calibrator
         self._calibrator: Any = None
@@ -1033,6 +1127,13 @@ class NeuroSymbolicHub:
                 symbolic_weight = 1 / (1 + PHI)
                 fused_score = neural_weight * neural_score + symbolic_weight * symbolic_score
 
+            elif self.fusion_mode == FusionMode.FIBRING:
+                fused_score, fibring_weights = self._fibring_composer.fuse(
+                    neural_score, symbolic_score
+                )
+                neural_weight = fibring_weights.neural_weight
+                symbolic_weight = fibring_weights.symbolic_weight
+
             elif self.fusion_mode == FusionMode.NEURAL_DOMINANT:
                 neural_weight = 0.7
                 symbolic_weight = 0.3
@@ -1309,7 +1410,7 @@ class NeuroSymbolicHub:
 
 def create_neurosymbolic_hub(
     input_dim: int = 64,
-    fusion_mode: str = "phi_weighted",
+    fusion_mode: str = "fibring",
     **kwargs: Any,
 ) -> NeuroSymbolicHub:
     """
@@ -1317,7 +1418,9 @@ def create_neurosymbolic_hub(
 
     Args:
         input_dim: Input feature dimension
-        fusion_mode: Fusion mode string
+        fusion_mode: Fusion mode string. Defaults to "fibring", which composes
+            Phi-weighted base, correlation-aware decorrelation, and per-domain
+            affinity bias (NSAI fibring pattern).
         **kwargs: Additional arguments
 
     Returns:
@@ -1331,9 +1434,10 @@ def create_neurosymbolic_hub(
         "adaptive": FusionMode.ADAPTIVE,
         "stacking": FusionMode.STACKING,
         "bma": FusionMode.BMA,
+        "fibring": FusionMode.FIBRING,
     }
 
-    mode = mode_map.get(fusion_mode, FusionMode.PHI_WEIGHTED)
+    mode = mode_map.get(fusion_mode, FusionMode.FIBRING)
 
     return NeuroSymbolicHub(
         input_dim=input_dim,

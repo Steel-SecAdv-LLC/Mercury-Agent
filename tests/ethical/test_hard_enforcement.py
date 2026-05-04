@@ -300,3 +300,82 @@ class TestEngineFusionBoundary:
         gosnn_metadata = result.get("gosnn_metadata", {})
         assert gosnn_metadata.get("fallback_mode") is True
         assert "simulated GOSNN outage" in gosnn_metadata.get("error", "")
+
+
+# ---------------------------------------------------------------------------
+# Reserved-check regression stubs (Wave B — σ_Immutable promotion).
+#
+# The exception schema reserves ``check="sigma_immutable"`` and
+# ``check="gosnn_unavailable"`` for the follow-up PR that promotes
+# σ_Immutable from informational metadata to a second hard ethical gate.
+# Today no production code path raises with those values: the
+# ``EthicalConstraintViolationError`` is raised only on
+# ``check="benevolence"`` (verified by the suites above).
+#
+# These two tests XFAIL with ``strict=True`` so a future change that
+# accidentally reserves but never raises one of these checks (or a
+# rebase that drops the reservation entirely) surfaces immediately:
+#
+# * If the contract still says "reserved but not raised" → xfail (expected).
+# * If Wave B promotes σ_Immutable and starts raising one of the checks →
+#   the xfail flips to xpass and ``strict=True`` turns that into a
+#   regular failure, forcing whoever lands the promotion to flip these
+#   markers off in the same PR.
+#
+# This is the locking mechanism the post-PR-167 punch-list called for.
+# ---------------------------------------------------------------------------
+
+
+class TestReservedChecksWaveB:
+    """Lock the σ_Immutable / gosnn_unavailable reservation contract.
+
+    These markers must flip from xfail → xpass in the σ_Immutable promotion
+    PR (Wave B item 1).  ``strict=True`` ensures the flip is forced, not
+    silent.
+    """
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "Wave B: σ_Immutable promotion to a second hard ethical gate "
+            "is reserved but not yet raised by any code path. "
+            "When promotion lands, this xfail must flip to xpass and the "
+            "marker must be removed in the same PR."
+        ),
+    )
+    def test_sigma_immutable_check_raises(self) -> None:
+        """Until Wave B, no production path raises with check=sigma_immutable."""
+        engine = _make_engine_in_fusion_mode()
+        with pytest.raises(EthicalViolation) as exc_info:
+            engine.detect_with_fusion(np.random.RandomState(1).randn(4, 8))
+        # If we ever reach this assertion it means σ_Immutable became the
+        # raised check — and the ``strict=True`` xfail will turn the xpass
+        # into a build-time failure, forcing the contract update.
+        assert exc_info.value.check == "sigma_immutable"
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "Wave B: ``check='gosnn_unavailable'`` is reserved for the σ_Immutable "
+            "promotion PR.  Today GOSNN unavailability is recorded as "
+            "fallback_mode=True metadata (verified by "
+            "test_detect_with_fusion_metadata_when_gosnn_unavailable above) and "
+            "is not a hard violation.  When Wave B promotes it to a hard "
+            "gate, this xfail flips to xpass and the marker must be removed."
+        ),
+    )
+    def test_gosnn_unavailable_check_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Until Wave B, GOSNN outage is metadata, not a raised violation."""
+        from omni_mercury_engine import engine as engine_module
+
+        engine = _make_engine_in_fusion_mode()
+
+        def _boom(**kwargs):
+            raise RuntimeError("simulated GOSNN outage for reservation regression")
+
+        monkeypatch.setattr(engine_module, "get_global_scalar_network", _boom)
+
+        with pytest.raises(EthicalViolation) as exc_info:
+            engine.detect_with_fusion(np.random.RandomState(2).randn(4, 8))
+        # See sibling test for the strict-xfail flip mechanism.
+        assert exc_info.value.check == "gosnn_unavailable"

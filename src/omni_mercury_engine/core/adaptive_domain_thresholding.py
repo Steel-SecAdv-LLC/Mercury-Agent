@@ -785,6 +785,166 @@ class AdaptiveDomainThresholdManager:
 
         return float(new_threshold)
 
+    def _cooperative_refine_threshold(
+        self,
+        scores: NDArray[np.float64],
+        threshold_seed: float,
+        max_iterations: int = 4,
+        epsilon: float = 1e-3,
+        sigmoid_temperature: float = 0.05,
+    ) -> tuple[float, int, bool, list[float]]:
+        """One-step-EM cooperative refinement of a 1-D anomaly threshold.
+
+        Each iteration:
+
+        1. Computes soft anomaly responsibilities ``γ_i = sigmoid((s_i − t) / T)``
+           where ``t`` is the current threshold and ``T`` is a small temperature.
+        2. Re-estimates the two component means
+           ``μ_anom = Σ γ_i s_i / Σ γ_i`` and ``μ_norm = Σ (1−γ_i) s_i / Σ (1−γ_i)``.
+        3. Sets the new threshold to their midpoint, clipped to bounds.
+        4. Stops once ``|t_{k+1} − t_k| < ε`` or after ``max_iterations`` steps.
+
+        This is a contraction map on the 1-D score axis, so under mild
+        conditions (both clusters non-empty, scores bounded) the iteration
+        either converges within a few steps or stays bounded — it does not
+        oscillate, because each step moves toward the midpoint of the two
+        soft cluster centroids and the centroids themselves shift smoothly.
+
+        Args:
+            scores: Anomaly scores in [0, 1] for the current batch.
+            threshold_seed: Initial threshold (typically the one-shot result).
+            max_iterations: Hard cap on the number of refinement steps.
+            epsilon: Convergence tolerance on |Δthreshold|.
+            sigmoid_temperature: Soft-assignment temperature; smaller values
+                make the assignment closer to a hard partition at the
+                threshold.
+
+        Returns:
+            ``(refined_threshold, iterations_used, converged, threshold_path)``
+            where ``threshold_path`` is the sequence
+            ``[seed, t_1, t_2, …]`` for diagnostics / no-oscillation tests.
+        """
+        if max_iterations < 1:
+            raise ValueError(f"max_iterations must be >= 1, got {max_iterations}")
+        if epsilon <= 0.0:
+            raise ValueError(f"epsilon must be > 0, got {epsilon}")
+        if sigmoid_temperature <= 0.0:
+            raise ValueError(f"sigmoid_temperature must be > 0, got {sigmoid_temperature}")
+
+        scores = np.asarray(scores, dtype=np.float64).flatten()
+        if scores.size == 0:
+            return float(threshold_seed), 0, True, [float(threshold_seed)]
+
+        threshold = float(
+            np.clip(threshold_seed, self.config.min_threshold, self.config.max_threshold)
+        )
+        path: list[float] = [threshold]
+        converged = False
+        # Number of successfully completed refinement steps.  Always equals
+        # ``len(path) - 1`` so the documented invariant
+        # ``len(threshold_path) == iterations + 1`` holds on every return
+        # path (happy-path convergence, full-budget exhaustion, and the
+        # early-degeneracy break below).
+        iterations_completed = 0
+
+        for iteration in range(1, max_iterations + 1):
+            # Soft anomaly responsibility per sample.
+            z = (scores - threshold) / sigmoid_temperature
+            # Numerically stable sigmoid.
+            gamma = np.where(
+                z >= 0,
+                1.0 / (1.0 + np.exp(-z)),
+                np.exp(z) / (1.0 + np.exp(z)),
+            )
+
+            sum_gamma = float(np.sum(gamma))
+            sum_one_minus_gamma = float(np.sum(1.0 - gamma))
+
+            # Both clusters must be populated (at least a tiny weight) to make
+            # progress; otherwise we're already at a degenerate boundary —
+            # the current ``threshold`` is the fixed point and no refinement
+            # step happens this iteration.  Return the real
+            # ``iterations_completed`` (not ``max_iterations``) so the
+            # ``len(path) == iterations + 1`` invariant survives, and so
+            # callers auditing convergence-budget telemetry see the true
+            # cost of the call.
+            if sum_gamma < 1e-9 or sum_one_minus_gamma < 1e-9:
+                converged = True
+                return threshold, iterations_completed, converged, path
+
+            mu_anom = float(np.sum(gamma * scores) / sum_gamma)
+            mu_norm = float(np.sum((1.0 - gamma) * scores) / sum_one_minus_gamma)
+
+            new_threshold = 0.5 * (mu_anom + mu_norm)
+            new_threshold = float(
+                np.clip(new_threshold, self.config.min_threshold, self.config.max_threshold)
+            )
+
+            delta = abs(new_threshold - threshold)
+            threshold = new_threshold
+            path.append(threshold)
+            iterations_completed = iteration
+
+            if delta < epsilon:
+                converged = True
+                return threshold, iterations_completed, converged, path
+
+        return threshold, iterations_completed, converged, path
+
+    def calibrate_iterative(
+        self,
+        scores: NDArray[np.float64],
+        labels: NDArray[np.int32] | None = None,
+        max_iterations: int = 4,
+        epsilon: float = 1e-3,
+        sigmoid_temperature: float = 0.05,
+    ) -> dict[str, Any]:
+        """Calibrate then iteratively refine the threshold to a fixed point.
+
+        Runs the existing one-shot :meth:`calibrate` then applies the
+        cooperative EM-style refinement of :meth:`_cooperative_refine_threshold`.
+        Returns the calibration result alongside convergence diagnostics so
+        callers can audit how many iterations the cooperative loop used.
+
+        Args:
+            scores: Raw anomaly scores.
+            labels: Optional ground-truth labels for the seed calibration.
+            max_iterations: Hard cap on the cooperative loop (default 4).
+            epsilon: Convergence tolerance on |Δthreshold| (default 1e-3).
+            sigmoid_temperature: Soft-assignment temperature for the EM step.
+
+        Returns:
+            A dictionary with keys:
+
+            - ``"calibration"``: the underlying :class:`DomainCalibrationResult`.
+            - ``"refined_threshold"``: the post-refinement threshold.
+            - ``"iterations"``: number of cooperative steps actually performed.
+            - ``"converged"``: bool — True iff |Δt| dropped below ε within budget.
+            - ``"threshold_path"``: the sequence of thresholds visited
+              (length ``iterations + 1``).
+        """
+        result = self.calibrate(scores, labels)
+
+        refined, iterations, converged, path = self._cooperative_refine_threshold(
+            result.calibrated_scores,
+            result.threshold,
+            max_iterations=max_iterations,
+            epsilon=epsilon,
+            sigmoid_temperature=sigmoid_temperature,
+        )
+
+        # Persist the refined threshold so subsequent get_threshold() calls see it.
+        self._current_threshold = refined
+        self._threshold_history.append(refined)
+
+        return {
+            "calibration": result,
+            "refined_threshold": refined,
+            "iterations": iterations,
+            "converged": converged,
+            "threshold_path": path,
+        }
+
     def _compute_confidence(self, scores: NDArray[np.float64], threshold: float) -> float:
         """Compute confidence in the calibration."""
         n = len(scores)

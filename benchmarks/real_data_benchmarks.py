@@ -42,16 +42,17 @@ from urllib.request import urlretrieve
 
 import numpy as np
 import pandas as pd
+
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.ml.mercury_ml import (
+    LabelEncoder,
+    StandardScaler,
+    StratifiedKFold,
     f1_score,
     precision_score,
     recall_score,
     roc_auc_score,
 )
-from omni_mercury_engine.ml.mercury_ml import StratifiedKFold
-from omni_mercury_engine.ml.mercury_ml import LabelEncoder, StandardScaler
-
-from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

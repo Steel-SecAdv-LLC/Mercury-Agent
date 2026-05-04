@@ -721,7 +721,7 @@ class EthicallyConstrainedFusion:
 
 def create_fusion_ensemble(
     detectors: dict[str, Any],
-    method: str = "stacking",
+    method: str = "fibring",
     ethical_scores: dict[str, float] | None = None,
     **kwargs: Any,
 ) -> StackingFusion | BayesianModelAveraging | EthicallyConstrainedFusion:
@@ -730,25 +730,48 @@ def create_fusion_ensemble(
 
     Args:
         detectors: Dictionary of detector name to detector
-        method: Fusion method ("stacking", "bma", "ethical")
-        ethical_scores: Ethical scores for each detector (for "ethical" method)
-        **kwargs: Additional arguments for specific methods
+        method: Fusion method. Recognised values:
+
+            - ``"fibring"`` *(default)*: Returns an
+              :class:`EthicallyConstrainedFusion` constructed with
+              ``use_golden_ratio=True``.  This is the named composition
+              that pairs with the hub-level :data:`FusionMode.FIBRING`:
+              golden-ratio-aware base + correlation-aware decorrelation
+              + per-detector ethical weighting.  Phi-weighted base
+              initialisation is applied by ``EthicallyConstrainedFusion.fit``
+              when there are at least three detectors; for ensembles with
+              fewer than three detectors the base falls back to uniform
+              weights, with the ethical-weighting and decorrelation
+              layers still active.
+            - ``"ethical"``: Alias for the fibring path retained for
+              backwards compatibility with existing callers.
+            - ``"stacking"``: Stacked-generalisation meta-learner.
+            - ``"bma"``: Bayesian model averaging.
+
+        ethical_scores: Ethical scores for each detector (used by ``"ethical"``
+            and ``"fibring"`` methods). Defaults to 1.0 when absent.
+        **kwargs: Additional arguments for specific methods. For ``"fibring"``,
+            ``use_golden_ratio`` defaults to True.
 
     Returns:
-        Configured fusion ensemble
+        Configured fusion ensemble.
     """
     ensemble: StackingFusion | BayesianModelAveraging | EthicallyConstrainedFusion
     if method == "stacking":
         ensemble = StackingFusion(**kwargs)
     elif method == "bma":
         ensemble = BayesianModelAveraging(**kwargs)
-    elif method == "ethical":
+    elif method in ("ethical", "fibring"):
+        # Fibring at the ensemble level is the EthicallyConstrainedFusion with
+        # phi-weighted base. The hub-level FibringComposer (core/fibring_fusion.py)
+        # provides the streaming decorrelator + domain-affinity bias on top.
+        kwargs.setdefault("use_golden_ratio", True)
         ensemble = EthicallyConstrainedFusion(**kwargs)
     else:
         raise ValueError(f"Unknown fusion method: {method}")
 
     for name, detector in detectors.items():
-        if method == "ethical" and ethical_scores:
+        if method in ("ethical", "fibring") and ethical_scores:
             ensemble.add_detector(name, detector, ethical_scores.get(name, 1.0))
         else:
             ensemble.add_detector(name, detector)

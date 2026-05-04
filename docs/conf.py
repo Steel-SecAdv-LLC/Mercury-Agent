@@ -47,7 +47,7 @@ with (_REPO_ROOT / "pyproject.toml").open("rb") as _f:
     _pyproject = tomllib.load(_f)
 release = str(_pyproject.get("project", {}).get("version", "0.0.0"))
 version = ".".join(release.split(".")[:2])
-copyright = "Steel-SecAdv-LLC. Released under MIT."  # noqa: A001 - sphinx convention
+copyright = "Steel-SecAdv-LLC. Released under MIT."
 
 # -----------------------------------------------------------------------------
 # Extensions

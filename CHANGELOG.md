@@ -134,6 +134,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   into the `Neuro-Symbolic Tests` CI job) makes a benevolence-threshold
   regression a build-time failure. ROADMAP cross-cutting "Ethics
   enforcement" row flips from Stubbed to Functional.
+### Added (Wave A — post-PR-167 punch list, items 3, 4, 6, 7, 9)
+
+- **Federated silent-failure gaps closed (item 9).** Two distinct gaps the
+  2026-03 in-tree audit (`docs/COMPREHENSIVE_REPO_AUDIT.md` §1) flagged on
+  the federated/GOSNN path are now closed:
+  1. `core/gosnn_integration.py::GOSNNIntegration.detect()` no longer
+     swallows conformal failures into `confidence_intervals=None`. New
+     exception `ConformalMisconfigurationError` is raised on any
+     `(ValueError, RuntimeError, AttributeError)` from the conformal
+     predictor when `use_conformal=True`. Callers who want no intervals
+     must opt out explicitly with `use_conformal=False`.
+  2. New module `federated_learning/gosnn_coupling.py` provides
+     bidirectional GOSNN scalar coupling (`GOSNNCouplingServer` +
+     `GOSNNCouplingClient` + `GOSNNUpdate` / `GOSNNGlobalState` payloads)
+     with FedAvg-weighted aggregation and SHA3-256 digest checks on every
+     leg (anchored to AMA Cryptography's
+     ``CryptoPackageConfig.hash_algorithm`` standard), replacing the prior
+     one-way (server → client) integration.
+  Suite `tests/federated/test_no_silent_failure.py` (12 tests) pins
+  conformal-misconfig raising for each flavour of upstream failure, the
+  explicit-opt-out path returning `confidence_intervals=None`, full
+  client → server → client round-trips, FedAvg correctness, multi-round
+  state convergence, and rejection of shape / round / digest mismatches.
+- **Seven-axis evaluation matrix.** New runner
+  `benchmarks/seven_axis_runner.py` produces a deterministic JSON + markdown
+  report across the seven NSAI evaluation axes (Generalization, Scalability,
+  Data Efficiency, Reasoning, Robustness, Transferability, Interpretability)
+  using only NumPy and the existing Mercury fusion primitives. The benchmark
+  CI workflow (`.github/workflows/benchmark.yml`) runs the runner and uploads
+  `benchmarks/seven_axis_results.json` as an artifact. The corresponding
+  section in `docs/BENCHMARKS.md` is regenerated from the runner's output
+  via `python -m benchmarks.seven_axis_runner --regenerate-docs` (delimited
+  by `## Seven-Axis Evaluation Matrix` … `<!-- end seven-axis-section -->`,
+  so it cannot be hand-edited without the next regeneration overwriting
+  it). Suite `tests/benchmarks/test_seven_axis_runner.py` (9 tests) pins the
+  axis names, score bounds, JSON round-trip, idempotent docs regeneration,
+  in-place section replacement, and per-axis determinism (with a documented
+  tolerance for the wall-clock-based Scalability axis).
+- **Benevolence-decision cache (`CachedBenevolenceScorer`).** New
+  `cognitive/benevolence_cache.py` provides a thread-safe LRU wrapper around
+  `BenevolenceScorer.enforce`. Cache keys are prefixed with
+  `ETHICAL.RULESET_VERSION` (new constant in `core/centralized_constants.py`)
+  so bumping the ruleset atomically purges every stale entry. **Violations
+  are never cached** — `EthicalConstraintViolationError` propagates without
+  insertion, so positive cases always recompute. Suite
+  `tests/ethical/test_benevolence_cache.py` (12 tests) pins ruleset-version
+  invalidation, identical-input cache hits, never-cache-violations, LRU
+  eviction at capacity, dict-order canonicalisation, and recovery-after-
+  violation behaviour.
+- **Cooperative convergence loop in `AdaptiveDomainThresholdManager`.** New
+  `calibrate_iterative()` and `_cooperative_refine_threshold()` methods perform
+  a 1-D EM-style mean-shift between the two soft score-mode centroids, with a
+  bounded budget (default `max_iterations=4`, `epsilon=1e-3`). Returns full
+  convergence diagnostics (`iterations`, `converged`, `threshold_path`).
+  Regression suite `tests/core/test_adaptive_threshold_convergence.py` (8 tests)
+  pins (a) convergence within the 4-iteration / ε=1e-3 budget on synthetic
+  drift, (b) wall-clock cost ≤ 1.3× the one-shot path, (c) no oscillation on
+  stationary input (≤1 sign-change in the threshold path), and (d) the loop
+  is idempotent at its fixed point.
+- **`FusionMode.FIBRING` is the named default top-level fusion mode.** Composes
+  three already-present primitives — Phi-weighted base, correlation-aware
+  decorrelation (sliding window), and per-domain affinity bias — in a single
+  NSAI-taxonomy-faithful mode. New module `core/fibring_fusion.py` (`FibringComposer`,
+  `FibringWeights`, `DOMAIN_AFFINITY_BIAS`). `NeuroSymbolicHub.__init__` and
+  `create_neurosymbolic_hub` now default to `FusionMode.FIBRING` /
+  `fusion_mode="fibring"`. `create_fusion_ensemble` defaults to `method="fibring"`,
+  which returns an `EthicallyConstrainedFusion` with phi-weighted base. New
+  regression suite `tests/core/test_fibring_default.py` (13 tests) pins the
+  default routing, the composer's phi-baseline / decorrelation / affinity behaviour,
+  and an ablation against BALANCED on a deterministic channel-symmetric synthetic
+  workload (no AUROC or Brier regression). See `docs/ARCHITECTURE.md` §
+  "Neuro-Symbolic Fusion (NSAI Taxonomy)".
 
 ### Security
 

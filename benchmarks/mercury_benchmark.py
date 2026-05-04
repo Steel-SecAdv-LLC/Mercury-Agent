@@ -27,8 +27,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from omni_mercury_engine.ml.mercury_ml import f1_score, precision_score, recall_score, roc_auc_score
-from omni_mercury_engine.ml.mercury_ml import StandardScaler
+
+from omni_mercury_engine.ml.mercury_ml import (
+    StandardScaler,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 # ---------------------------------------------------------------------------
 # Ensure src/ is on the path

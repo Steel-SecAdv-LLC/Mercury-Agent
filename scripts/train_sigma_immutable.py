@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import torch
-    import torch.nn as nn
+    from torch import nn
     from torch.utils.data import DataLoader, TensorDataset
 except ImportError:
     logger.error("PyTorch is required to train σ_Immutable: pip install torch")
@@ -102,7 +102,6 @@ def generate_dataset(
     y = np.zeros(n_samples, dtype=np.float32)
 
     n_positive = n_samples // 2
-    n_negative = n_samples - n_positive
 
     # --- positive samples ---
     for i in range(n_positive):

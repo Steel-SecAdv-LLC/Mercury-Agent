@@ -120,6 +120,54 @@ From `core/config.py`:
 | financial | disabled | Oracle skipped |
 | humanitarian | disabled | Oracle skipped |
 
+## Neuro-Symbolic Fusion (NSAI Taxonomy)
+
+Mercury's neuro-symbolic fusion is implemented at two levels:
+
+- **Hub level** (`core/neurosymbolic_hub.py`): combines a single neural
+  score with a single symbolic score per sample.
+- **Ensemble level** (`core/stacking_fusion.py`): combines `N` detector
+  predictions for stacking / BMA / phi-weighted ethical fusion.
+
+### Top-level fusion mode: FIBRING (default)
+
+The hub-level default is `FusionMode.FIBRING`. In the NSAI taxonomy
+(Garcez & Lamb 2020; Sarker et al. 2021) "fibring" denotes the
+architectural pattern in which one reasoning system is *fibred* over
+another — a hierarchical composition rather than a sequential pipeline
+or independent parallel branches. Mercury already implemented every
+piece of the pattern; FIBRING simply names the composition.
+
+The composer is `core/fibring_fusion.py::FibringComposer` and it stacks
+three primitives:
+
+1. **Phi-weighted base** — golden-ratio split between neural and
+   symbolic (`φ/(1+φ) ≈ 0.618`, `1/(1+φ) ≈ 0.382`).
+2. **Correlation-aware decorrelation** — a sliding window tracks recent
+   `(neural, symbolic)` pairs; once the window has at least
+   `MIN_SAMPLES_FOR_DECORRELATION` entries and `|Pearson r| ≥ 0.85`,
+   the lower-variance (redundant) component is shrunk by `1 / (1 + |r|)`.
+   Mirrors the math_arrest `CorrelationAwareDecorrelator` already used
+   for the 21-probe ensemble.
+3. **Per-domain affinity bias** — table in
+   `core/fibring_fusion.py::DOMAIN_AFFINITY_BIAS` tilts weights toward
+   the modality empirically stronger for the domain (medical, ethical,
+   conflict → symbolic; geomagnetic, earthquake, tsunami, marine,
+   pandemic, financial → neural). Bias is then renormalised so the
+   final weights still sum to 1.
+
+The composition is **causal**: weights for sample `t` are computed from
+window contents at time `t-1`; the new pair is appended only after
+composition.
+
+The ensemble-level factory `create_fusion_ensemble(method="fibring")`
+returns the existing `EthicallyConstrainedFusion` with `use_golden_ratio=True`,
+which is the natural ensemble-level dual of the hub-level FIBRING mode.
+
+Tests: `tests/core/test_fibring_default.py` pins default routing,
+composer behaviour, and an ablation against BALANCED on a deterministic
+channel-symmetric synthetic workload (no AUROC or Brier regression).
+
 ## Cognitive Module Wiring
 
 ```
