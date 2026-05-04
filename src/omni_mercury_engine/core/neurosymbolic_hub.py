@@ -38,6 +38,7 @@ from omni_mercury_engine.core.centralized_constants import (
     MATH,
 )
 from omni_mercury_engine.core.config import ThresholdConfig
+from omni_mercury_engine.core.fibring_fusion import FibringComposer
 
 # Domain-specific feature extraction (P2 Integration)
 try:
@@ -110,7 +111,13 @@ except ImportError:
 
 
 class FusionMode(Enum):
-    """Fusion modes for neuro-symbolic integration."""
+    """Fusion modes for neuro-symbolic integration.
+
+    FIBRING is the named default and composes three already-present
+    primitives — Phi-weighted base, correlation-aware decorrelation
+    (running window), and per-domain affinity bias — into a single
+    NSAI-taxonomy-faithful mode. See ``core.fibring_fusion.FibringComposer``.
+    """
 
     NEURAL_DOMINANT = "neural_dominant"  # 70% neural, 30% symbolic
     SYMBOLIC_DOMINANT = "symbolic_dominant"  # 30% neural, 70% symbolic
@@ -119,6 +126,7 @@ class FusionMode(Enum):
     ADAPTIVE = "adaptive"  # Context-dependent weighting
     STACKING = "stacking"  # Meta-learner fusion
     BMA = "bma"  # Bayesian Model Averaging
+    FIBRING = "fibring"  # PHI base + decorrelator + domain affinity (NSAI fibring)
 
 
 @dataclass
@@ -511,7 +519,7 @@ class NeuroSymbolicHub:
     def __init__(
         self,
         input_dim: int = 64,
-        fusion_mode: FusionMode = FusionMode.PHI_WEIGHTED,
+        fusion_mode: FusionMode = FusionMode.FIBRING,
         sigma_immutable: float = SIGMA_IMMUTABLE_DEFAULT,
         benevolence_threshold: float = BENEVOLENCE_THRESHOLD,
         use_calibration: bool = True,
@@ -569,6 +577,11 @@ class NeuroSymbolicHub:
         # Fusion weights (learned or fixed)
         self._neural_weight = PHI / (1 + PHI)  # ~0.618 for phi-weighted
         self._symbolic_weight = 1 / (1 + PHI)  # ~0.382 for phi-weighted
+
+        # Fibring composer: stateful per-hub composition for FusionMode.FIBRING.
+        # Held unconditionally so users can introspect / reset it even when
+        # operating in another mode.
+        self._fibring_composer = FibringComposer(domain=domain)
 
         # Calibrator
         self._calibrator: Any = None
@@ -1033,6 +1046,13 @@ class NeuroSymbolicHub:
                 symbolic_weight = 1 / (1 + PHI)
                 fused_score = neural_weight * neural_score + symbolic_weight * symbolic_score
 
+            elif self.fusion_mode == FusionMode.FIBRING:
+                fused_score, fibring_weights = self._fibring_composer.fuse(
+                    neural_score, symbolic_score
+                )
+                neural_weight = fibring_weights.neural_weight
+                symbolic_weight = fibring_weights.symbolic_weight
+
             elif self.fusion_mode == FusionMode.NEURAL_DOMINANT:
                 neural_weight = 0.7
                 symbolic_weight = 0.3
@@ -1309,7 +1329,7 @@ class NeuroSymbolicHub:
 
 def create_neurosymbolic_hub(
     input_dim: int = 64,
-    fusion_mode: str = "phi_weighted",
+    fusion_mode: str = "fibring",
     **kwargs: Any,
 ) -> NeuroSymbolicHub:
     """
@@ -1317,7 +1337,9 @@ def create_neurosymbolic_hub(
 
     Args:
         input_dim: Input feature dimension
-        fusion_mode: Fusion mode string
+        fusion_mode: Fusion mode string. Defaults to "fibring", which composes
+            Phi-weighted base, correlation-aware decorrelation, and per-domain
+            affinity bias (NSAI fibring pattern).
         **kwargs: Additional arguments
 
     Returns:
@@ -1331,9 +1353,10 @@ def create_neurosymbolic_hub(
         "adaptive": FusionMode.ADAPTIVE,
         "stacking": FusionMode.STACKING,
         "bma": FusionMode.BMA,
+        "fibring": FusionMode.FIBRING,
     }
 
-    mode = mode_map.get(fusion_mode, FusionMode.PHI_WEIGHTED)
+    mode = mode_map.get(fusion_mode, FusionMode.FIBRING)
 
     return NeuroSymbolicHub(
         input_dim=input_dim,

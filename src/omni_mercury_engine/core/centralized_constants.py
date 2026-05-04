@@ -137,6 +137,14 @@ class EthicalConstants:
     # Origin: ethical_alignment_engine.py
     PATTERN_DETECTION_THRESHOLD: float = 0.6
 
+    # Ruleset version — used by the benevolence-decision cache
+    # (cognitive/benevolence_cache.py) as part of the cache key. Bumping
+    # this constant atomically invalidates every cached decision so a
+    # change to the ethical ruleset cannot be served from a stale cache.
+    # Format: monotonically increasing integer; bump on any semantic change
+    # to scoring weights, principle definitions, or threshold floors.
+    RULESET_VERSION: int = 1
+
 
 ETHICAL = EthicalConstants()
 

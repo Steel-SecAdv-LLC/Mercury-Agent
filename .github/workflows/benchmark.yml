@@ -178,6 +178,27 @@ jobs:
           path: benchmarks/empirical_benchmark_results.json
           retention-days: 90
 
+      # Seven-axis evaluation matrix (Generalization, Scalability, Data
+      # Efficiency, Reasoning, Robustness, Transferability, Interpretability).
+      # Deterministic for a fixed seed on every axis except Scalability,
+      # which inherently measures wall-clock. The runner emits a JSON
+      # report which is uploaded as a CI artifact; the corresponding
+      # markdown section in docs/BENCHMARKS.md is regenerated locally
+      # by contributors via `--regenerate-docs` (the markers
+      # ## Seven-Axis Evaluation Matrix … <!-- end seven-axis-section -->
+      # guarantee the section was produced by the runner, not hand-edited).
+      - name: Run seven-axis evaluation matrix
+        run: |
+          python -m benchmarks.seven_axis_runner \
+            --json benchmarks/seven_axis_results.json
+
+      - name: Upload seven-axis results
+        uses: actions/upload-artifact@v4
+        with:
+          name: seven-axis-results-${{ github.sha }}
+          path: benchmarks/seven_axis_results.json
+          retention-days: 90
+
   # ===========================================================================
   # Performance Regression Check
   # ===========================================================================

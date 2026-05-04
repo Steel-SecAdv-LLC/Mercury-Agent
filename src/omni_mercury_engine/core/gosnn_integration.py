@@ -41,6 +41,31 @@ BENEVOLENCE_THRESHOLD = ETHICAL.BENEVOLENCE_IMMUTABLE
 SIGMA_IMMUTABLE_DEFAULT = 0.96
 LYAPUNOV_LAMBDA = LYAPUNOV.LAMBDA_CONVERGENCE
 
+
+class ConformalMisconfigurationError(RuntimeError):
+    """Raised when conformal prediction was requested but cannot run.
+
+    Replaces the prior silent-failure path
+    (``except (ValueError, RuntimeError, AttributeError): confidence_intervals = None``)
+    that the 2026-03 in-tree audit (``docs/COMPREHENSIVE_REPO_AUDIT.md`` §1.4)
+    flagged as a silent-failure gap. Callers that genuinely want to operate
+    without conformal intervals must construct the integration with
+    ``use_conformal=False`` — they cannot accidentally degrade into the no-
+    interval mode by misconfiguring the conformal predictor.
+    """
+
+    def __init__(self, original: BaseException) -> None:
+        self.original = original
+        super().__init__(
+            f"Conformal prediction was enabled (use_conformal=True) but the "
+            f"predictor failed at inference time with "
+            f"{type(original).__name__}: {original}. Disable conformal "
+            "explicitly with use_conformal=False or fix the predictor "
+            "configuration; the engine will not silently return "
+            "confidence_intervals=None."
+        )
+
+
 # Performance optimization constants
 CACHE_MAX_SIZE = 1000  # Maximum cache entries
 CACHE_TTL_SECONDS = 300  # Cache time-to-live
@@ -634,15 +659,29 @@ class GOSNNIntegration:
         else:
             calibrated_scores = fused_scores
 
-        # Apply conformal prediction.  When the user has explicitly opted
-        # in via ``use_conformal=True`` and a calibrated predictor exists,
-        # any failure during ``predict`` is a real bug — silently
-        # swallowing it (the previous behaviour) leaves callers with
-        # ``confidence_intervals=None`` and no signal that the contract
-        # was broken.  Per the May-2026 audit cure, propagate the error.
+        # Apply conformal prediction.
+        #
+        # Two-mode contract (replaces prior silent-failure path):
+        #   1. use_conformal=False  → conformal disabled at construction;
+        #      ``self._conformal is None``; ``confidence_intervals`` is None
+        #      and the caller saw exactly that contract.
+        #   2. use_conformal=True   → conformal enabled; if predict() raises
+        #      we re-raise as ``ConformalMisconfigurationError`` instead of
+        #      silently returning None. The engine refuses to degrade into
+        #      "intervals unavailable" without the caller noticing.
         confidence_intervals = None
         if self._conformal is not None:
-            confidence_intervals = self._conformal.predict(X)
+            try:
+                confidence_intervals = self._conformal.predict(X)
+            except (ValueError, RuntimeError, AttributeError) as e:
+                logger.error(
+                    "Conformal prediction failed (%s): %s. Raising "
+                    "ConformalMisconfigurationError instead of silently "
+                    "returning confidence_intervals=None.",
+                    type(e).__name__,
+                    e,
+                )
+                raise ConformalMisconfigurationError(e) from e
 
         # Compute adaptive threshold
         threshold = self._compute_adaptive_threshold(calibrated_scores)
