@@ -40,6 +40,78 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
 from omni_mercury_engine.ethical import EthicalViolation
 
 # ---------------------------------------------------------------------------
+# Realistic-input fixtures.
+#
+# Earlier revisions of this suite exercised the boundaries with bare
+# ``np.random.RandomState(seed).randn(rows, cols)`` matrices.  Pure
+# Gaussian noise is a poor stand-in for the byte-rate / packet-count /
+# duration-skewed feature vectors the production detectors actually
+# consume, so the regressions only sampled an idealised slice of the
+# input distribution.  ``_synthetic_traffic_batch`` builds a small but
+# structurally realistic batch that mixes:
+#
+# * positive, right-skewed counters (packet/byte rates) via a log-normal
+#   draw,
+# * bounded ratios in [0, 1] (TCP-flag / protocol mixes) via a Beta
+#   draw,
+# * zero-mean float deltas (timing jitter, entropy residuals) via a
+#   Gaussian draw,
+# * a small fraction of clearly-anomalous rows whose counter columns
+#   are pushed several sigma above the benign mean — the same shape an
+#   exfil burst or scan wave would present to a flow-level detector.
+#
+# The output is float64, contiguous, and shape-compatible with both
+# ``OmniMercuryEngine.detect_with_fusion`` and
+# ``NeuroSymbolicHub.predict``.
+# ---------------------------------------------------------------------------
+
+
+def _synthetic_traffic_batch(
+    seed: int,
+    rows: int,
+    cols: int,
+    anomaly_fraction: float = 0.25,
+) -> np.ndarray:
+    """Return a structured ``(rows, cols)`` traffic-like feature batch.
+
+    Args:
+        seed: Deterministic RNG seed.
+        rows: Number of feature vectors (samples) in the batch.
+        cols: Feature width.  Must be ``>= 3``.
+        anomaly_fraction: Fraction of rows whose counter columns are
+            pushed into the anomalous regime.
+
+    Returns:
+        A ``float64`` ``(rows, cols)`` array combining log-normal
+        counters, Beta-distributed ratios, and Gaussian deltas, with a
+        deterministic anomalous tail.
+    """
+    if cols < 3:
+        raise ValueError("cols must be >= 3 for the traffic-like layout")
+    rng = np.random.default_rng(seed)
+
+    # Three column groups, evenly distributed across the available
+    # width, modelling counters / ratios / deltas respectively.
+    counter_cols = max(1, cols // 3)
+    ratio_cols = max(1, cols // 3)
+    delta_cols = cols - counter_cols - ratio_cols
+
+    counters = rng.lognormal(mean=0.0, sigma=0.75, size=(rows, counter_cols))
+    ratios = rng.beta(a=2.0, b=5.0, size=(rows, ratio_cols))
+    deltas = rng.normal(loc=0.0, scale=0.5, size=(rows, delta_cols))
+
+    batch = np.concatenate([counters, ratios, deltas], axis=1).astype(np.float64)
+
+    # Push a deterministic minority of rows several sigma above the
+    # benign counter mean so the batch covers both regimes.
+    n_anom = max(1, round(rows * anomaly_fraction))
+    anom_idx = rng.choice(rows, size=n_anom, replace=False)
+    batch[anom_idx, :counter_cols] *= 6.0
+
+    return np.ascontiguousarray(batch)
+
+
+# ---------------------------------------------------------------------------
 # Sanity: the canonical names alias the same class.
 # ---------------------------------------------------------------------------
 
@@ -193,7 +265,7 @@ class TestNeuroSymbolicHubBoundary:
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
-        X = np.random.RandomState(0).randn(2, 32)
+        X = _synthetic_traffic_batch(seed=0, rows=2, cols=32)
 
         with pytest.raises(EthicalViolation) as exc_info:
             hub.predict(X)
@@ -243,7 +315,7 @@ class TestNeuroSymbolicHubBoundary:
             ),
         )
 
-        X = np.random.RandomState(1).randn(2, 32)
+        X = _synthetic_traffic_batch(seed=1, rows=2, cols=32)
         results = hub.predict(X)
         assert len(results) == 2
         for res in results:
@@ -281,7 +353,7 @@ class TestEngineFusionBoundary:
         engine._boundary_scorer.benevolence_threshold = 1.01
 
         with pytest.raises(EthicalViolation) as exc_info:
-            engine.detect_with_fusion(np.random.RandomState(0).randn(4, 8))
+            engine.detect_with_fusion(_synthetic_traffic_batch(seed=0, rows=4, cols=8))
 
         assert exc_info.value.check == "benevolence"
         assert exc_info.value.threshold == 1.01
@@ -293,7 +365,7 @@ class TestEngineFusionBoundary:
         # The engine's _enforce_ethics_at_boundary uses positive-keyword
         # action text plus MINIMUM_BENEVOLENCE_FLOOR, so legitimate
         # detection requests must clear the gate without modification.
-        result = engine.detect_with_fusion(np.random.RandomState(0).randn(4, 8))
+        result = engine.detect_with_fusion(_synthetic_traffic_batch(seed=0, rows=4, cols=8))
         assert "anomaly_prob" in result
         # GOSNN metadata stays informational — it must be present even
         # though it is no longer the gate.
@@ -319,7 +391,7 @@ class TestEngineFusionBoundary:
         monkeypatch.setattr(engine_module, "get_global_scalar_network", _boom)
 
         with pytest.raises(EthicalViolation) as exc_info:
-            engine.detect_with_fusion(np.random.RandomState(0).randn(4, 8))
+            engine.detect_with_fusion(_synthetic_traffic_batch(seed=0, rows=4, cols=8))
         assert exc_info.value.check == "gosnn_unavailable"
         assert "simulated GOSNN outage" in exc_info.value.details["underlying_error"]
 
@@ -345,11 +417,8 @@ class TestEngineFusionBoundary:
 class TestReservedChecksWaveB:
     """σ_Immutable and ``gosnn_unavailable`` are now hard gates."""
 
-    def test_sigma_immutable_check_raises(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_sigma_immutable_check_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """σ_Immutable raises with ``check="sigma_immutable"`` on sub-threshold."""
-        from omni_mercury_engine.security import sigma_immutable_gate as sig_module
 
         engine = _make_engine_in_fusion_mode()
 
@@ -373,12 +442,10 @@ class TestReservedChecksWaveB:
                 details=merged,
             )
 
-        monkeypatch.setattr(
-            engine._sigma_immutable_gate, "enforce", _force_failure
-        )
+        monkeypatch.setattr(engine._sigma_immutable_gate, "enforce", _force_failure)
 
         with pytest.raises(EthicalViolation) as exc_info:
-            engine.detect_with_fusion(np.random.RandomState(1).randn(4, 8))
+            engine.detect_with_fusion(_synthetic_traffic_batch(seed=1, rows=4, cols=8))
         assert exc_info.value.check == "sigma_immutable"
         assert exc_info.value.score < exc_info.value.threshold
 
@@ -394,5 +461,5 @@ class TestReservedChecksWaveB:
         monkeypatch.setattr(engine_module, "get_global_scalar_network", _boom)
 
         with pytest.raises(EthicalViolation) as exc_info:
-            engine.detect_with_fusion(np.random.RandomState(2).randn(4, 8))
+            engine.detect_with_fusion(_synthetic_traffic_batch(seed=2, rows=4, cols=8))
         assert exc_info.value.check == "gosnn_unavailable"
