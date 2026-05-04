@@ -51,6 +51,96 @@ _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 SIGMA_IMMUTABLE_INPUT_DIM: int = 256
 SIGMA_IMMUTABLE_DEFAULT_THRESHOLD: float = 0.93
 
+# ---------------------------------------------------------------------------
+# σ_Immutable input-vector calibration constants.
+#
+# The σ_Immutable network was trained on samples drawn from ``U[0, 2]``,
+# with the ethical band ``[1.5, 2.0]`` reserved for "permissible" signals
+# (anchored at 1.5 = MINIMUM_BENEVOLENCE_FLOOR projected up, peaking at
+# 2.0 for fully-aligned actions).  Any benevolence value below
+# MINIMUM_BENEVOLENCE_FLOOR is mapped into ``[0.0, 0.5]`` so the gate
+# fires.  These constants pin the projection so it can never silently
+# drift between the two boundaries that build σ_Immutable input vectors
+# (``NeuroSymbolicHub`` and ``CognitiveOrchestrator``).
+# ---------------------------------------------------------------------------
+
+#: Width of the per-sample ethical band — the leading slice of the input
+#: vector that carries the projected benevolence signal.
+SIGMA_IMMUTABLE_ETHICAL_DIMS: int = 27
+
+#: Lower bound for permissible benevolence values inside the trained
+#: positive band.  Matches MINIMUM_BENEVOLENCE_FLOOR (0.70) projected up.
+SIGMA_IMMUTABLE_PERMISSIBLE_LOW: float = 1.5
+
+#: Upper bound for permissible benevolence values inside the trained
+#: positive band.  Matches the upper end of ``U[0, 2]`` training support.
+SIGMA_IMMUTABLE_PERMISSIBLE_HIGH: float = 2.0
+
+#: Upper bound for impermissible benevolence values (forces σ_Immutable
+#: below the calibrated decision threshold).
+SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH: float = 0.5
+
+#: Width of the trained positive band in benevolence units (1.0 - 0.70).
+_PERMISSIBLE_INPUT_RANGE: float = 1.0 - 0.70
+
+
+def project_benevolence_to_sigma_band(benevolence_score: float) -> float:
+    """Project a clamped benevolence score into the σ_Immutable input band.
+
+    The σ_Immutable trainer (``scripts/train_sigma_immutable.py``)
+    expects each sample's ethical-band slice (the first
+    :data:`SIGMA_IMMUTABLE_ETHICAL_DIMS` dimensions of every 256-D input
+    vector) to be drawn from one of two regions:
+
+    * ``benevolence_score >= MINIMUM_BENEVOLENCE_FLOOR`` (0.70) — linear
+      lift into ``[SIGMA_IMMUTABLE_PERMISSIBLE_LOW,
+      SIGMA_IMMUTABLE_PERMISSIBLE_HIGH]`` (i.e. ``[1.5, 2.0]``); benevolence
+      has already been independently checked by ``BenevolenceScorer.enforce``
+      so by the time σ_Immutable runs the analysis is known-permissible
+      and we project it into the part of the distribution the network is
+      most confident about.
+    * ``benevolence_score < 0.70`` (a defensive bypass) — linear damp
+      into ``[0.0, SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH]`` so σ_Immutable
+      still fires.
+
+    Args:
+        benevolence_score: Already-clamped benevolence verdict in [0, 1].
+
+    Returns:
+        Float in ``[0.0, SIGMA_IMMUTABLE_PERMISSIBLE_HIGH]`` ready to be
+        broadcast into the leading
+        :data:`SIGMA_IMMUTABLE_ETHICAL_DIMS` dimensions of a σ_Immutable
+        input vector.
+    """
+    from omni_mercury_engine.cognitive.ethical_bounding import (
+        MINIMUM_BENEVOLENCE_FLOOR,
+    )
+
+    if benevolence_score >= MINIMUM_BENEVOLENCE_FLOOR:
+        scale = (SIGMA_IMMUTABLE_PERMISSIBLE_HIGH - SIGMA_IMMUTABLE_PERMISSIBLE_LOW) / (
+            _PERMISSIBLE_INPUT_RANGE
+        )
+        return float(
+            np.clip(
+                SIGMA_IMMUTABLE_PERMISSIBLE_LOW
+                + (benevolence_score - MINIMUM_BENEVOLENCE_FLOOR) * scale,
+                SIGMA_IMMUTABLE_PERMISSIBLE_LOW,
+                SIGMA_IMMUTABLE_PERMISSIBLE_HIGH,
+            )
+        )
+    # When benevolence is below the floor, dampen linearly into
+    # [0, SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH] (== [0, 0.5]) so the gate
+    # response stays in the network's negative band.  This matches the
+    # original ``benevolence_score * 0.5`` mapping used at both
+    # boundaries before extraction.
+    return float(
+        np.clip(
+            benevolence_score * SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH,
+            0.0,
+            SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH,
+        )
+    )
+
 
 @dataclass(frozen=True)
 class SigmaImmutableEvaluation:
@@ -163,8 +253,15 @@ class SigmaImmutableGate:
                 threshold=self._threshold,
             )
         except ImportError as exc:
+            # The actual import failure may be torch (the GOSNN module
+            # imports torch at top level), an EthicalGate dependency, or
+            # the global_omni_scalar_network module itself.  Surface the
+            # raw ImportError name + module so the on-call doesn't have
+            # to guess whether to install torch or fix a packaging miss.
             self._gate_load_error = (
-                f"torch / GOSNN unavailable for σ_Immutable: {exc}"
+                "σ_Immutable EthicalGate could not be imported "
+                f"({exc.__class__.__name__}: {exc}); the boundary will "
+                "fail closed with check='gosnn_unavailable'."
             )
             logger.warning(self._gate_load_error)
             return

@@ -1393,42 +1393,51 @@ class NeuroSymbolicHub:
             ``(256,)`` float64 vector for :class:`SigmaImmutableGate`.
         """
         from omni_mercury_engine.security.sigma_immutable_gate import (
+            SIGMA_IMMUTABLE_ETHICAL_DIMS,
             SIGMA_IMMUTABLE_INPUT_DIM,
+            project_benevolence_to_sigma_band,
         )
 
         vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
         # Project benevolence into the upper half of the trained
         # network's positive band.  See orchestrator's
-        # ``_build_sigma_immutable_vector`` for the rationale.
-        if benevolence_score >= 0.70:
-            ethical_value = float(np.clip(
-                1.5 + (benevolence_score - 0.70) * (0.5 / 0.30),
-                1.5, 2.0,
-            ))
-        else:
-            ethical_value = float(np.clip(benevolence_score * 0.5, 0.0, 0.5))
-        vector[:27] = ethical_value
+        # ``_build_sigma_immutable_vector`` for the rationale; the
+        # projection itself lives in
+        # :func:`security.sigma_immutable_gate.project_benevolence_to_sigma_band`
+        # so both boundaries can never silently drift apart.
+        ethical_value = project_benevolence_to_sigma_band(benevolence_score)
+        vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = ethical_value
 
         # Non-ethical band centred at 1.0 (matches the training U[0, 2]
         # midpoint), with the per-sample neural / symbolic / fused /
         # row signal adding small ±0.4 perturbation around centre so
         # the σ_Immutable verdict tracks per-sample inputs without
         # drifting into the network's negative-band response.
-        vector[27:180] = 1.0
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:180] = 1.0
         scaled_neural = float(np.clip(neural_score, 0.0, 1.0))
         scaled_symbolic = float(np.clip(symbolic_score, 0.0, 1.0))
         scaled_fused = float(np.clip(fused_score, 0.0, 1.0))
-        vector[27] = 1.0 + 0.4 * (scaled_neural - 0.5) * 2.0
-        vector[28] = 1.0 + 0.4 * (scaled_symbolic - 0.5) * 2.0
-        vector[29] = 1.0 + 0.4 * (scaled_fused - 0.5) * 2.0
+        # Three head dimensions immediately after the ethical band carry
+        # the neural / symbolic / fused per-sample scores.
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS] = 1.0 + 0.4 * (scaled_neural - 0.5) * 2.0
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS + 1] = (
+            1.0 + 0.4 * (scaled_symbolic - 0.5) * 2.0
+        )
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS + 2] = 1.0 + 0.4 * (scaled_fused - 0.5) * 2.0
 
-        # Per-sample row signal: small perturbation in dims 30..60.
-        flat = np.asarray(row, dtype=np.float64).flatten()
+        # Per-sample row signal: small perturbation in the 30 dims that
+        # immediately follow the three head dimensions (so we land in
+        # ``[ETHICAL_DIMS+3, ETHICAL_DIMS+33)`` == ``[30, 60)`` for the
+        # canonical ``ETHICAL_DIMS=27`` layout).  Width matches the
+        # orchestrator's per-sample perturbation window so both
+        # boundaries write into the same logical region.
+        row_signal_start = SIGMA_IMMUTABLE_ETHICAL_DIMS + 3
         n_room = 30
+        flat = np.asarray(row, dtype=np.float64).flatten()
         n_take = min(len(flat), n_room)
         if n_take > 0:
             normalised = 1.0 + 0.4 * np.tanh(flat[:n_take])
-            vector[30 : 30 + n_take] = normalised
+            vector[row_signal_start : row_signal_start + n_take] = normalised
         return vector
 
     def _compute_benevolence(self, context: dict[str, Any], anomaly_score: float) -> float:

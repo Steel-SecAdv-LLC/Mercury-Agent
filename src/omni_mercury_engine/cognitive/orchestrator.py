@@ -610,7 +610,9 @@ class CognitiveOrchestrator(LoggerMixin):
             :meth:`SigmaImmutableGate.enforce`.
         """
         from omni_mercury_engine.security.sigma_immutable_gate import (
+            SIGMA_IMMUTABLE_ETHICAL_DIMS,
             SIGMA_IMMUTABLE_INPUT_DIM,
+            project_benevolence_to_sigma_band,
         )
 
         vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
@@ -626,17 +628,24 @@ class CognitiveOrchestrator(LoggerMixin):
         #   distribution the network is most confident about.
         # * ``benevolence < 0.70`` (a defensive bypass) → maps below
         #   threshold so σ_Immutable still fires.
-        if benevolence_score >= 0.70:
-            ethical_value = float(np.clip(
-                1.5 + (benevolence_score - 0.70) * (0.5 / 0.30),
-                1.5, 2.0,
-            ))
-        else:
-            ethical_value = float(np.clip(benevolence_score * 0.5, 0.0, 0.5))
-        vector[:27] = ethical_value
-        vector[27:180] = 1.0
+        #
+        # Projection lives in
+        # :func:`security.sigma_immutable_gate.project_benevolence_to_sigma_band`
+        # so the same calibration is shared with the hub-side builder.
+        ethical_value = project_benevolence_to_sigma_band(benevolence_score)
+        vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = ethical_value
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:180] = 1.0
+        # Per-sample signal perturbation lives in the 33-dim window
+        # ``[ETHICAL_DIMS, ETHICAL_DIMS + 33)`` (== ``[27, 60)`` for the
+        # canonical layout), which mirrors the region the hub-side
+        # builder uses for its three head dims plus 30-dim row signal.
+        # The orchestrator has only one scalar (severity+anomaly_prob)
+        # so it is broadcast uniformly across the window.
         signal_perturbation = float(np.clip(0.5 * severity + 0.5 * anomaly_prob, 0.0, 1.0))
-        vector[27:60] = 1.0 + 0.4 * signal_perturbation
+        signal_window_end = SIGMA_IMMUTABLE_ETHICAL_DIMS + 33
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:signal_window_end] = (
+            1.0 + 0.4 * signal_perturbation
+        )
         return vector
 
     def learn_from_feedback(
