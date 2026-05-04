@@ -106,10 +106,12 @@ class CachedBenevolenceScorer:
     # ------------------------------------------------------------------
     @property
     def capacity(self) -> int:
+        """Maximum number of cached entries before LRU eviction kicks in."""
         return self._capacity
 
     @property
     def underlying_scorer(self) -> BenevolenceScorer:
+        """Return the wrapped scorer (for tests and introspection)."""
         return self._scorer
 
     @property
@@ -119,6 +121,7 @@ class CachedBenevolenceScorer:
 
     @property
     def stats(self) -> dict[str, int]:
+        """Return live counters: hits, misses, violations_uncached, size, capacity, ruleset_version."""
         with self._lock:
             return {
                 "hits": self._hits,

@@ -112,16 +112,19 @@ class GOSNNCouplingServer:
 
     @property
     def global_weights(self) -> NDArray[np.float64]:
+        """Return a defensive copy of the current global weight vector."""
         with self._lock:
             return self._global_weights.copy()
 
     @property
     def round_num(self) -> int:
+        """Return the round number the server is currently accepting updates for."""
         with self._lock:
             return self._round_num
 
     @property
     def n_pending_updates(self) -> int:
+        """Return the count of client updates ingested into the current round."""
         with self._lock:
             return len(self._pending_updates)
 
@@ -214,15 +217,18 @@ class GOSNNCouplingClient:
 
     @property
     def client_id(self) -> str:
+        """Return this client's stable identifier used in publish/aggregate."""
         return self._client_id
 
     @property
     def local_weights(self) -> NDArray[np.float64]:
+        """Return a defensive copy of the client's current local weight vector."""
         with self._lock:
             return self._local_weights.copy()
 
     @property
     def last_received_state(self) -> GOSNNGlobalState | None:
+        """Return the most recent global state installed via ``receive`` (or None)."""
         with self._lock:
             return self._last_received_state
 

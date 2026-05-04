@@ -1,5 +1,5 @@
-"""
-Mercury Agent - Fibring Fusion Composer
+"""Mercury Agent - Fibring Fusion Composer.
+
 Copyright (C) 2026 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -133,14 +133,17 @@ class FibringComposer:
 
     @property
     def domain(self) -> str:
+        """Return the affinity-bias domain key this composer was constructed for."""
         return self._domain
 
     @property
     def window_size(self) -> int:
+        """Return the sliding-window size used by the decorrelation primitive."""
         return self._window_size
 
     @property
     def history_length(self) -> int:
+        """Return the number of (neural, symbolic) pairs currently in the window."""
         return len(self._neural_history)
 
     def reset(self) -> None:
