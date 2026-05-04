@@ -333,6 +333,10 @@ class CognitiveOrchestrator(LoggerMixin):
         # Extract core detection values
         anomaly_detected = detection_result.get("is_anomaly", False)
         anomaly_score = detection_result.get("anomaly_prob", 0.0)
+        # Alias kept for downstream code that takes the value via the
+        # semantic ``anomaly_prob`` kwarg (e.g. _build_sigma_immutable_vector
+        # and the external API payload).  Same value, two consumer-facing
+        # names — do not collapse without renaming the kwarg.
         anomaly_prob = anomaly_score
         severity = detection_result.get("severity", 0.0)
 

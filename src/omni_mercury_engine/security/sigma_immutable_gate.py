@@ -41,6 +41,7 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
+    MINIMUM_BENEVOLENCE_FLOOR,
     EthicalConstraintViolationError,
 )
 
@@ -80,8 +81,10 @@ SIGMA_IMMUTABLE_PERMISSIBLE_HIGH: float = 2.0
 #: below the calibrated decision threshold).
 SIGMA_IMMUTABLE_IMPERMISSIBLE_HIGH: float = 0.5
 
-#: Width of the trained positive band in benevolence units (1.0 - 0.70).
-_PERMISSIBLE_INPUT_RANGE: float = 1.0 - 0.70
+#: Width of the trained positive band in benevolence units, derived
+#: from MINIMUM_BENEVOLENCE_FLOOR so a future floor change propagates
+#: automatically.
+_PERMISSIBLE_INPUT_RANGE: float = 1.0 - MINIMUM_BENEVOLENCE_FLOOR
 
 
 def project_benevolence_to_sigma_band(benevolence_score: float) -> float:
@@ -112,10 +115,6 @@ def project_benevolence_to_sigma_band(benevolence_score: float) -> float:
         :data:`SIGMA_IMMUTABLE_ETHICAL_DIMS` dimensions of a σ_Immutable
         input vector.
     """
-    from omni_mercury_engine.cognitive.ethical_bounding import (
-        MINIMUM_BENEVOLENCE_FLOOR,
-    )
-
     if benevolence_score >= MINIMUM_BENEVOLENCE_FLOOR:
         scale = (SIGMA_IMMUTABLE_PERMISSIBLE_HIGH - SIGMA_IMMUTABLE_PERMISSIBLE_LOW) / (
             _PERMISSIBLE_INPUT_RANGE
