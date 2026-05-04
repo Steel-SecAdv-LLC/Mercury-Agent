@@ -134,7 +134,7 @@ benchmark-comparison = [
 
 # Fairness and bias mitigation
 fairness = [
-    "fairlearn>=0.9.0",
+    "fairlearn>=0.13.0",
 ]
 
 # Post-Quantum Cryptography - Primary backend (AMA Cryptography)
