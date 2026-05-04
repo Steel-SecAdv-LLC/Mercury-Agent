@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -48,7 +46,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class EnsembleConfig(FoundationModelConfig):
-    """Configuration for foundation model ensemble.
+    """
+    Configuration for foundation model ensemble.
 
     Attributes:
         models: List of model names to include
@@ -99,7 +98,8 @@ class FoundationEnsemble(BaseFoundationModel):
     }
 
     def __init__(self, config: EnsembleConfig | dict[str, Any] | None = None) -> None:
-        """Initialize ensemble.
+        """
+        Initialize ensemble.
 
         Args:
             config: Ensemble configuration
@@ -131,10 +131,11 @@ class FoundationEnsemble(BaseFoundationModel):
 
     @config.setter
     def config(self, value: dict[str, Any] | EnsembleConfig) -> None:
-        """Set config (required for base class compatibility).
+        """
+        Store the underlying config object (required for base class compatibility).
 
-        The base class sets self.config to a dict during __init__.
-        We intercept this and store it, but always return the typed config.
+        The base class sets self.config to a dict during __init__. We intercept this and store it,
+        but always return the typed config.
         """
         if isinstance(value, EnsembleConfig):
             self.ensemble_config = value
@@ -171,7 +172,8 @@ class FoundationEnsemble(BaseFoundationModel):
         series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """Generate ensemble forecasts.
+        """
+        Generate ensemble forecasts.
 
         Args:
             series: Input time series
@@ -245,7 +247,8 @@ class FoundationEnsemble(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """Detect anomalies using ensemble.
+        """
+        Detect anomalies using ensemble.
 
         Args:
             series: Input time series
@@ -327,7 +330,8 @@ class FoundationEnsemble(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """Detect anomalies using ensemble.
+        """
+        Detect anomalies using ensemble.
 
         This is the primary detection interface that provides compatibility
         with the expected test interface.
@@ -348,7 +352,8 @@ class FoundationEnsemble(BaseFoundationModel):
         arrays: list[np.ndarray[Any, Any]],
         weights: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Aggregate arrays using specified method.
+        """
+        Aggregate arrays using specified method.
 
         Args:
             arrays: List of arrays to aggregate
@@ -382,7 +387,8 @@ class FoundationEnsemble(BaseFoundationModel):
         arrays: list[np.ndarray[Any, Any]],
         weights: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Aggregate 1D arrays with length matching.
+        """
+        Aggregate 1D arrays with length matching.
 
         Args:
             arrays: List of 1D arrays
@@ -403,7 +409,8 @@ class FoundationEnsemble(BaseFoundationModel):
         model: BaseFoundationModel,
         weight: float = 1.0,
     ) -> None:
-        """Add a model to the ensemble.
+        """
+        Add a model to the ensemble.
 
         Args:
             name: Model identifier
@@ -420,7 +427,8 @@ class FoundationEnsemble(BaseFoundationModel):
         self._weights = self._weights / self._weights.sum()
 
     def get_model_weights(self) -> dict[str, float]:
-        """Get current model weights.
+        """
+        Get current model weights.
 
         Returns:
             Dict mapping model names to weights

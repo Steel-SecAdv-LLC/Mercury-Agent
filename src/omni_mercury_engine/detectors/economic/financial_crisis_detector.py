@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -59,7 +57,7 @@ from torch import nn
 
 
 class CrisisType(Enum):
-    """Financial crisis classifications"""
+    """Financial crisis classifications."""
 
     MARKET_CRASH = "market_crash"
     BANKING_CRISIS = "banking_crisis"
@@ -70,7 +68,7 @@ class CrisisType(Enum):
 
 
 class CrisisSeverity(Enum):
-    """Crisis severity levels"""
+    """Crisis severity levels."""
 
     STABLE = "stable"
     STRESS = "stress"
@@ -81,7 +79,7 @@ class CrisisSeverity(Enum):
 
 @dataclass
 class FinancialCrisisPredictionResult:
-    """Financial crisis prediction results"""
+    """Financial crisis prediction results."""
 
     crisis_imminent: bool
     confidence: float
@@ -109,9 +107,7 @@ class FinancialCrisisPredictionResult:
 
 
 class MarketCrashDetector:
-    """
-    Stock market crash detection via volatility and momentum.
-    """
+    """Stock market crash detection via volatility and momentum."""
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
@@ -156,9 +152,7 @@ class MarketCrashDetector:
 
 
 class BankingStressDetector:
-    """
-    Banking sector stress detection via credit metrics.
-    """
+    """Banking sector stress detection via credit metrics."""
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
@@ -205,9 +199,7 @@ class BankingStressDetector:
 
 
 class FraudDetector(nn.Module):
-    """
-    Algorithmic trading fraud and market manipulation detection.
-    """
+    """Algorithmic trading fraud and market manipulation detection."""
 
     def __init__(self, input_dim: int = 64) -> None:
         super().__init__()
@@ -230,8 +222,7 @@ class FraudDetector(nn.Module):
         )
 
     def forward(self, trading_patterns: torch.Tensor) -> torch.Tensor:
-        """Detect fraudulent trading patterns"""
-
+        """Detect fraudulent trading patterns."""
         features = self.pattern_encoder(trading_patterns)
         fraud_prob = self.fraud_classifier(features)
 
@@ -239,9 +230,7 @@ class FraudDetector(nn.Module):
 
 
 class SystemicRiskAnalyzer:
-    """
-    Systemic risk assessment via network contagion modeling.
-    """
+    """Systemic risk assessment via network contagion modeling."""
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
@@ -400,7 +389,7 @@ class FinancialCrisisDetector:
         return result
 
     def _detect_fraud(self, trading_data: dict[str, Any]) -> dict[str, Any]:
-        """Detect fraudulent trading patterns"""
+        """Detect fraudulent trading patterns."""
         if self.fraud_detector is None:
             return {"fraud_detected": False, "fraud_probability": 0.0}
 
@@ -427,8 +416,7 @@ class FinancialCrisisDetector:
     def _determine_severity(
         self, indicators: float, result: FinancialCrisisPredictionResult
     ) -> str:
-        """Determine crisis severity level"""
-
+        """Determine crisis severity level."""
         if indicators >= 3 and result.systemic_risk_score > 0.8:
             return CrisisSeverity.SYSTEMIC_COLLAPSE.value
         elif indicators >= 2 and result.contagion_probability > 0.7:
@@ -443,8 +431,7 @@ class FinancialCrisisDetector:
     def _generate_policy_recommendations(
         self, result: FinancialCrisisPredictionResult
     ) -> list[str]:
-        """Generate policy recommendations"""
-
+        """Generate policy recommendations."""
         recommendations = []
 
         if result.severity_level in ["systemic_collapse", "severe_crisis"]:
@@ -465,8 +452,7 @@ class FinancialCrisisDetector:
         return recommendations
 
     def _generate_interventions(self, result: FinancialCrisisPredictionResult) -> list[str]:
-        """Generate intervention actions"""
-
+        """Generate intervention actions."""
         interventions = []
 
         if result.severity_level == "systemic_collapse":
@@ -486,8 +472,7 @@ class FinancialCrisisDetector:
     def _identify_affected_sectors(
         self, result: FinancialCrisisPredictionResult, data: dict[str, Any]
     ) -> list[str]:
-        """Identify affected economic sectors"""
-
+        """Identify affected economic sectors."""
         sectors = []
 
         if result.banking_stress:

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -108,8 +106,8 @@ class ConvergenceMonitor(BaseCallback):
     """
     Monitors training convergence.
 
-    Tracks reward convergence and determines when training has converged.
-    Implements early stopping based on reward plateau detection.
+    Tracks reward convergence and determines when training has converged. Implements early stopping
+    based on reward plateau detection.
     """
 
     def __init__(
@@ -281,9 +279,11 @@ class PPOTrainer:
     def _initialize_model(self) -> None:
         """Initialize PPO model."""
         if not HAS_STABLE_BASELINES:
-            logger.warning("stable-baselines3 not available, using mock model")
-            self.model = None
-            return
+            raise NotImplementedError(
+                "stable-baselines3 not available. Install with: "
+                "pip install stable-baselines3. Silent mock degradation "
+                "is not permitted (Phase 2 audit cure)."
+            )
 
         try:
             self.model = PPO(
@@ -306,8 +306,10 @@ class PPOTrainer:
 
             logger.info("PPO model initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize PPO model: {e}")
-            self.model = None
+            raise NotImplementedError(
+                f"Failed to initialize PPO model: {e}. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            ) from e
 
     def pretrain(
         self,
@@ -370,8 +372,10 @@ class PPOTrainer:
             except Exception as e:
                 logger.error(f"Training failed: {e}")
         else:
-            logger.warning("No model available, using mock training")
-            self._mock_pretrain(total_timesteps)
+            raise RuntimeError(
+                "No PPO model available for pretraining. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
 
         self.stats.training_time = time.time() - start_time
 
@@ -540,8 +544,8 @@ class MultiEnvPPOTrainer(PPOTrainer):
     """
     PPO Trainer for multiple environments.
 
-    Trains on multiple benchmark datasets simultaneously for
-    robust anomaly detection across domains.
+    Trains on multiple benchmark datasets simultaneously for robust anomaly detection across
+    domains.
     """
 
     def __init__(

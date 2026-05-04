@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -235,11 +233,12 @@ class AdaptiveDefenseSystem:
         return features
 
     def _generate_signature_id(self, feature_vector: npt.NDArray[np.floating[Any]]) -> str:
-        """Generate unique ID for signature based on feature vector.
+        """
+        Generate unique ID for signature based on feature vector.
 
-        Uses hashlib.sha3_256 for stable, reproducible hashing across Python sessions.
-        Python's built-in hash() is randomized per-session (PEP 456) and would
-        produce different IDs for the same feature vector across runs.
+        Uses hashlib.sha3_256 for stable, reproducible hashing across Python sessions. Python's
+        built-in hash() is randomized per-session (PEP 456) and would produce different IDs for the
+        same feature vector across runs.
         """
         import hashlib
 
@@ -309,7 +308,8 @@ class AdaptiveDefenseSystem:
         return self.load_library(filepath)
 
     def update_online_statistics(self, data: npt.NDArray[np.floating[Any]]) -> None:
-        """Update running statistics with new data sample (Welford's algorithm).
+        """
+        Update running statistics with new data sample (Welford's algorithm).
 
         Implements incremental mean and variance computation for online learning.
         Uses exponential forgetting to adapt to concept drift.
@@ -341,7 +341,8 @@ class AdaptiveDefenseSystem:
         self._update_sliding_window(features)
 
     def _update_sliding_window(self, features: npt.NDArray[np.floating[Any]]) -> None:
-        """Update sliding window and detect concept drift.
+        """
+        Update sliding window and detect concept drift.
 
         Args:
             features: Feature vector to add to window
@@ -406,7 +407,8 @@ class AdaptiveDefenseSystem:
         )
 
     def adapt_signature(self, signature_id: str, new_data: npt.NDArray[np.floating[Any]]) -> bool:
-        """Incrementally adapt an existing signature with new data.
+        """
+        Incrementally adapt an existing signature with new data.
 
         Args:
             signature_id: ID of signature to adapt
@@ -435,7 +437,8 @@ class AdaptiveDefenseSystem:
         return True
 
     def get_online_learning_stats(self) -> dict[str, Any]:
-        """Get online learning statistics.
+        """
+        Get online learning statistics.
 
         Returns:
             Dictionary with online learning statistics

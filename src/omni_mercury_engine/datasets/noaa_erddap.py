@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 NOAA ERDDAP — Oceanographic and Climate Dataset Loader
 
@@ -39,7 +38,8 @@ logger = logging.getLogger(__name__)
 
 
 class NOAAERDDAPLoader(DatasetLoader):
-    """NOAA ERDDAP oceanographic data loader.
+    """
+    NOAA ERDDAP oceanographic data loader.
 
     Fetches gridded oceanographic data (sea level anomaly, chlorophyll-a)
     from NOAA's ERDDAP REST API. No authentication required.
@@ -71,7 +71,8 @@ class NOAAERDDAPLoader(DatasetLoader):
         self._is_real_data = False
 
     def download(self) -> bool:
-        """Download ERDDAP data via REST CSV API.
+        """
+        Download ERDDAP data via REST CSV API.
 
         Returns:
             True on success.

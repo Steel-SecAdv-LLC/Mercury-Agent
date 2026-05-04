@@ -305,7 +305,8 @@ class HyperbandBracket:
         return next_budget
 
     def mark_complete(self, trial_id: str) -> None:
-        """Mark trial as complete.
+        """
+        Mark trial as complete.
 
         Adds trial to completed set so it won't be re-scheduled.
         """
@@ -419,7 +420,8 @@ class ASHAScheduler(TrialScheduler):
         return None
 
     def on_trial_complete(self, trial_id: str) -> None:
-        """Handle trial completion.
+        """
+        Handle trial completion.
 
         Cleans up per-trial tracking state.
         """

@@ -116,6 +116,7 @@ class Explanation:
     faithfulness_scores: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "explanation_id": self.explanation_id,
             "explanation_type": self.explanation_type.value,
@@ -155,8 +156,7 @@ class SHAPExplainer(BaseExplainer):
     """
     SHAP-based explainer for anomaly detection models.
 
-    Uses Kernel SHAP for model-agnostic explanations with
-    game-theoretic feature attribution.
+    Uses Kernel SHAP for model-agnostic explanations with game-theoretic feature attribution.
     """
 
     def __init__(
@@ -317,8 +317,7 @@ class LIMEExplainer(BaseExplainer):
     """
     LIME-based explainer for anomaly detection models.
 
-    Provides local interpretable explanations using
-    surrogate linear models.
+    Provides local interpretable explanations using surrogate linear models.
     """
 
     def __init__(
@@ -485,8 +484,7 @@ class IntegratedGradientsExplainer(BaseExplainer):
     """
     Integrated Gradients explainer for differentiable models.
 
-    Provides theoretically grounded attributions using
-    path integrals from baseline to input.
+    Provides theoretically grounded attributions using path integrals from baseline to input.
     """
 
     def __init__(
@@ -660,8 +658,7 @@ class CounterfactualExplainer:
     """
     Generate counterfactual explanations.
 
-    Finds minimal changes to input that flip the prediction,
-    answering "what would need to change?"
+    Finds minimal changes to input that flip the prediction, answering "what would need to change?"
     """
 
     def __init__(
@@ -917,8 +914,8 @@ class ExplainabilityEngine:
     """
     Unified explainability engine combining multiple explanation methods.
 
-    Provides a single interface for generating and evaluating explanations
-    using SHAP, LIME, Integrated Gradients, and counterfactuals.
+    Provides a single interface for generating and evaluating explanations using SHAP, LIME,
+    Integrated Gradients, and counterfactuals.
     """
 
     def __init__(

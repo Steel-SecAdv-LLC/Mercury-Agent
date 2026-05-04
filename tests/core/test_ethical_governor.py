@@ -23,7 +23,11 @@ Tests for Ethical Governor module
 """
 
 import numpy as np
+import pytest
 
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    EthicalConstraintViolationError,
+)
 from omni_mercury_engine.core.ethical_config import DEFAULT_CONFIG
 from omni_mercury_engine.core.ethical_governor import (
     BiasMetrics,
@@ -126,18 +130,14 @@ class TestEthicalAutonomyGovernor:
         """Test initialization."""
         governor = EthicalAutonomyGovernor()
 
-        assert governor.enable_bias_audits is True
-        assert governor.enable_sigma_directives is True
         assert governor.p_value_threshold == 0.05
         assert governor.ethical_threshold == 0.8
         assert governor.sigma_directive is not None
 
-    def test_initialization_disabled(self):
-        """Test initialization with features disabled."""
-        governor = EthicalAutonomyGovernor(enable_bias_audits=False, enable_sigma_directives=False)
-
-        assert governor.enable_bias_audits is False
-        assert governor.sigma_directive is None
+    def test_governance_always_active(self):
+        """Bias audits and sigma directives are always active — no off-switch."""
+        governor = EthicalAutonomyGovernor()
+        assert governor.sigma_directive is not None
 
     def test_evaluate_decision_ethical(self):
         """Test evaluating ethical decision."""
@@ -156,14 +156,101 @@ class TestEthicalAutonomyGovernor:
         assert decision.action == "ethical_action"
 
     def test_evaluate_decision_with_data(self):
-        """Test evaluating decision with data for bias audit."""
+        """Test evaluating decision with data for bias audit.
+
+        Uses balanced data (zeros) and a complete Sigma Directive
+        signal set so the bias audit and the directive both pass; the
+        test is verifying that the data-bearing path runs end-to-end,
+        not that random noise trips the rollback boundary.
+        """
         governor = EthicalAutonomyGovernor()
-        data = np.random.randn(100)
-        context = {}
+        data = np.zeros(100)
+        context = {
+            "fairness_score": 0.9,
+            "bias_detected": False,
+            "societal_benefit": 0.9,
+            "potential_harm": 0.1,
+            "harm_prevention": 0.9,
+            "suffering_mitigation": 0.9,
+            "transparency": 0.9,
+            "honesty": 0.9,
+        }
 
         decision = governor.evaluate_decision("test_action", context, data)
 
         assert isinstance(decision, EthicalDecision)
+        assert decision.bias_audit_passed is True
+        assert decision.rollback_triggered is False
+
+    def test_evaluate_decision_raises_on_rollback(self):
+        """Phase 2 contract: rollback raises ``EthicalConstraintViolationError``.
+
+        Regression for the May-2026 audit cure that promoted
+        governance rollback from a silent ``rollback_triggered=True``
+        record to a hard raise at the decision boundary.  A subsequent
+        downgrade to a logger.warning or a quiet return path must fail
+        this test.
+        """
+        governor = EthicalAutonomyGovernor(ethical_threshold=0.8)
+        bad_context = {
+            "fairness_score": 0.1,
+            "bias_detected": True,
+            "societal_benefit": 0.1,
+            "potential_harm": 0.9,
+        }
+
+        with pytest.raises(EthicalConstraintViolationError) as exc_info:
+            governor.evaluate_decision("bad_action", bad_context)
+
+        assert exc_info.value.check == "governance_rollback"
+        assert exc_info.value.action == "bad_action"
+        assert exc_info.value.threshold == 0.8
+        assert "decision_id" in exc_info.value.details
+        assert len(governor.rollback_history) == 1
+        assert governor.rollback_history[0].rollback_triggered is True
+        assert governor.decision_history == []
+
+    def test_compute_ethical_score_uses_behaviour_signals(self):
+        """Score must vary with per-decision behaviour signals.
+
+        Regression for the hidden weakness where
+        ``_compute_ethical_score`` ignored the context entirely and
+        returned the scalar baseline (~1.23) for every input, leaving
+        the rollback gate to lean entirely on the bias audit and Sigma
+        Directive.  The Phase 2 cure makes the score modulate on
+        fairness/benefit/harm/transparency/honesty signals.
+        """
+        governor = EthicalAutonomyGovernor()
+
+        good = governor._compute_ethical_score(
+            "x",
+            {
+                "fairness_score": 0.95,
+                "societal_benefit": 0.95,
+                "potential_harm": 0.05,
+                "harm_prevention": 0.95,
+                "suffering_mitigation": 0.95,
+                "transparency": 0.95,
+                "honesty": 0.95,
+            },
+        )
+        bad = governor._compute_ethical_score(
+            "x",
+            {
+                "fairness_score": 0.05,
+                "societal_benefit": 0.05,
+                "potential_harm": 0.95,
+                "harm_prevention": 0.05,
+                "suffering_mitigation": 0.05,
+                "transparency": 0.05,
+                "honesty": 0.05,
+                "bias_detected": True,
+            },
+        )
+
+        assert good > bad
+        assert bad < governor.ethical_threshold
+        assert good > governor.ethical_threshold
 
     def test_compute_ethical_score(self):
         """Test ethical score computation."""

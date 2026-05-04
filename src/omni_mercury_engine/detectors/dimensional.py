@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -52,10 +50,11 @@ if TYPE_CHECKING:
 
 
 class _NativePCA:
-    """Minimal PCA via truncated SVD (no sklearn dependency).
+    """
+    Minimal PCA via truncated SVD (no sklearn dependency).
 
-    Supports fit / transform / inverse_transform with the same API surface
-    that DimensionalAnalyzer requires.
+    Supports fit / transform / inverse_transform with the same API surface that DimensionalAnalyzer
+    requires.
     """
 
     def __init__(self, n_components: int) -> None:
@@ -111,7 +110,8 @@ class DimensionalWeights:
 if TORCH_AVAILABLE:
 
     class NeuralProjection(nn.Module):
-        """Neural network autoencoder for dimensionality reduction.
+        """
+        Neural network autoencoder for dimensionality reduction.
 
         A symmetric encoder-decoder architecture that learns compressed
         representations of input data. Reconstruction error serves as
@@ -127,7 +127,8 @@ if TORCH_AVAILABLE:
         """
 
         def __init__(self, input_dim: int, latent_dim: int) -> None:
-            """Initialize autoencoder architecture.
+            """
+            Initialize autoencoder architecture.
 
             Args:
                 input_dim: Input feature dimension.
@@ -149,7 +150,8 @@ if TORCH_AVAILABLE:
             )
 
         def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-            """Forward pass through encoder and decoder.
+            """
+            Forward pass through encoder and decoder.
 
             Args:
                 x: Input tensor of shape (batch_size, input_dim).
@@ -203,7 +205,8 @@ class DimensionalAnalyzer(BaseDetector):
     MIN_SAMPLES_FOR_PCA = 2
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize DimensionalAnalyzer with configuration.
+        """
+        Initialize DimensionalAnalyzer with configuration.
 
         Args:
             config: Configuration dictionary with optional keys:
@@ -445,7 +448,8 @@ class DimensionalAnalyzer(BaseDetector):
         }
 
     def _safe_normalize(self, scores: NDArray[np.float64]) -> NDArray[np.float64]:
-        """Safely normalize scores to [0, 1] range.
+        """
+        Safely normalize scores to [0, 1] range.
 
         Handles edge cases including constant arrays and NaN/Inf values.
 
@@ -468,7 +472,7 @@ class DimensionalAnalyzer(BaseDetector):
         return np.clip((scores - score_min) / score_range, 0.0, 1.0)
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """Extract dimensional features for ML fusion"""
+        """Extract dimensional features for ML fusion."""
         if not self._is_fitted:
             if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
                 self.fit(data.cpu().numpy())
@@ -505,6 +509,7 @@ class DimensionalAnalyzer(BaseDetector):
     def _compute_spectral_signature(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """
         Compute baseline spectral signature using Fourier transform
+
         DB term: Dimensional Code-Breaking via frequency analysis
         """
         if data.ndim == 1:
@@ -521,9 +526,9 @@ class DimensionalAnalyzer(BaseDetector):
         return mean_signature
 
     def _dimensional_code_breaking(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """
-        DB Term: Dimensional Code-Breaking Detection
-        Detects anomalies via spectral divergence in Fourier space
+        """DB Term: Dimensional Code-Breaking Detection Detects anomalies via spectral divergence in
+
+        Fourier space.
         """
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -561,7 +566,7 @@ class DimensionalAnalyzer(BaseDetector):
         return scores
 
     def _compute_phase_coherence(self, signal: np.ndarray[Any, Any]) -> float:
-        """Compute phase coherence for DB term"""
+        """Compute phase coherence for DB term."""
         if len(signal) < 4:
             return 1.0
 
@@ -576,7 +581,7 @@ class DimensionalAnalyzer(BaseDetector):
         return float(max(0.0, min(1.0, coherence)))
 
     def _compute_harmonic_distortion(self, signal: np.ndarray[Any, Any]) -> float:
-        """Compute total harmonic distortion for DB term"""
+        """Compute total harmonic distortion for DB term."""
         if len(signal) < 8:
             return 0.0
 

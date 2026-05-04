@@ -15,10 +15,11 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
 
 
 class LyapunovChaosProbe(BaseEquationProbe):
-    """Detect chaos onset via nearest-neighbor trajectory divergence.
+    """
+    Detect chaos onset via nearest-neighbor trajectory divergence.
 
-    For each sample, finds the nearest neighbor (with an exclusion zone),
-    then measures how quickly their trajectories diverge over a horizon k.
+    For each sample, finds the nearest neighbor (with an exclusion zone), then measures how quickly
+    their trajectories diverge over a horizon k.
     """
 
     def __init__(self) -> None:
@@ -32,7 +33,8 @@ class LyapunovChaosProbe(BaseEquationProbe):
     def _compute_divergence(
         x: npt.NDArray[np.float64], k: int, exclusion: int = 3
     ) -> npt.NDArray[np.float64]:
-        """Compute nearest-neighbor divergence rates.
+        """
+        Compute nearest-neighbor divergence rates.
 
         Args:
             x: 1-D signal.

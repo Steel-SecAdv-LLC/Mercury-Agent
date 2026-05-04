@@ -1,11 +1,10 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Standardized dataset metadata for all loaders.
 
-Every dataset object returned by a loader must carry metadata including
-data_source, source_url, sha256, record_count, anomaly_ratio, etc.
+Every dataset object returned by a loader must carry metadata including data_source, source_url,
+sha256, record_count, anomaly_ratio, etc.
 """
 
 from __future__ import annotations
@@ -20,7 +19,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class LoaderDatasetMetadata:
-    """Metadata that every loader must attach to its returned data.
+    """
+    Metadata that every loader must attach to its returned data.
 
     Attributes:
         data_source: One of "live", "cached", "synthetic".
@@ -53,7 +53,8 @@ class LoaderDatasetMetadata:
 
 @dataclass
 class LoaderDataset:
-    """Standardized dataset returned by every loader.
+    """
+    Standardized dataset returned by every loader.
 
     Attributes:
         X: Feature matrix of shape (n_samples, n_features).

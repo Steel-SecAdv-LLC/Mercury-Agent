@@ -134,8 +134,8 @@ class TPESampler(Sampler):
     """
     Tree-structured Parzen Estimator (TPE) sampler.
 
-    Models P(x|y) using two distributions: one for good configurations
-    and one for bad configurations, then samples from the ratio.
+    Models P(x|y) using two distributions: one for good configurations and one for bad
+    configurations, then samples from the ratio.
     """
 
     def __init__(
@@ -452,8 +452,8 @@ class BayesianOptimizer:
     """
     Bayesian Optimization for hyperparameter tuning.
 
-    Combines a sampler (TPE or GP) with optional early stopping
-    via trial schedulers (Hyperband, ASHA).
+    Combines a sampler (TPE or GP) with optional early stopping via trial schedulers (Hyperband,
+    ASHA).
     """
 
     def __init__(

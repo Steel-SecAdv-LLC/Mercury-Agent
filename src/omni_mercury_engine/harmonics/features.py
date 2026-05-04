@@ -321,9 +321,7 @@ class HarmonicFeatureExtractor:
 
 
 class HarmonicSimilarity:
-    """
-    Compute similarity between harmonic representations.
-    """
+    """Compute similarity between harmonic representations."""
 
     def __init__(
         self,

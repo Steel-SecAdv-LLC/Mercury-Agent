@@ -1,10 +1,11 @@
-"""Differential privacy for federated sufficient statistics.
+"""
+Differential privacy for federated sufficient statistics.
 
 Implements the Gaussian mechanism for (epsilon, delta)-differential privacy.
 
-IMPORTANT: Sensitivity is set by a CLIPPING NORM, not derived from the data.
-Data-dependent sensitivity would leak information through the noise
-calibration itself, defeating the purpose of DP.
+IMPORTANT: Sensitivity is set by a CLIPPING NORM, not derived from the data. Data-dependent
+sensitivity would leak information through the noise calibration itself, defeating the purpose of
+DP.
 
 Reference: Dwork & Roth, "The Algorithmic Foundations of Differential Privacy"
 """

@@ -1,5 +1,6 @@
 """
 Mercury Agent - Advanced Ensemble Coordinator
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -167,8 +168,8 @@ class BayesianWeightOptimizer(WeightOptimizer):
     """
     Bayesian weight optimization using Thompson Sampling.
 
-    Maintains Beta distributions for each detector's success rate
-    and samples weights proportionally.
+    Maintains Beta distributions for each detector's success rate and samples weights
+    proportionally.
     """
 
     def __init__(
@@ -445,8 +446,8 @@ class CascadingPipeline:
     """
     Cascading detection pipeline for efficiency.
 
-    Runs cheap/fast detectors first, only using expensive detectors
-    when initial detectors are uncertain.
+    Runs cheap/fast detectors first, only using expensive detectors when initial detectors are
+    uncertain.
     """
 
     def __init__(

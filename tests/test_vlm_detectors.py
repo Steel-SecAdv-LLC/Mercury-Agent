@@ -137,21 +137,25 @@ class TestLAVADDetector:
         )
         assert detector.scene_context is not None
 
-    def test_lavad_detect_video_mock(self, sample_video_frames):
-        """Test LAVAD video detection with mock backend."""
+    def test_lavad_detect_video_mock_hard_fails(self, sample_video_frames):
+        """``LAVADDetector(config=LAVADConfig(llm_model="mock"))`` must
+        raise when ``detect_video`` is called.
+
+        Phase 2 audit cure (commit 4d29bf1): ``MockLVLMBackend.initialize``
+        and ``MockLLMAdapter.__init__`` are hard-fails — silent mock
+        degradation is not permitted in production.  This test pins the
+        positive contract: a stale caller that wires up a "mock" LVLM /
+        LLM in production must trip ``NotImplementedError``.
+        """
         from omni_mercury_engine.detectors.vlm import LAVADDetector
         from omni_mercury_engine.detectors.vlm.lavad import LAVADConfig
 
         config = LAVADConfig(llm_model="mock", vlm_model="mock")
         detector = LAVADDetector(config=config)
 
-        # Stack frames into video tensor
         video = torch.stack(sample_video_frames)
-        result = detector.detect_video(video)
-
-        assert "scores" in result
-        assert "frame_scores" in result
-        assert "captions" in result
+        with pytest.raises(NotImplementedError, match="cannot be used in production"):
+            detector.detect_video(video)
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
@@ -204,24 +208,39 @@ class TestContextProviders:
 class TestLVLMBackends:
     """Tests for LVLM backend implementations."""
 
-    def test_mock_backend(self):
-        """Test mock LVLM backend."""
+    def test_mock_backend_hard_fails_on_use(self):
+        """``MockLVLMBackend`` must raise ``NotImplementedError`` the
+        moment its model is used.
+
+        Phase 2 audit cure (commit 4d29bf1): ``MockLVLMBackend`` may be
+        constructed (so the registry / factory layout stays uniform)
+        but ``initialize`` is a hard-fail, which means any real call
+        — VQA, generation, feature extraction — short-circuits to
+        ``NotImplementedError`` rather than silently returning fake
+        scores.  This test pins that contract.
+        """
         from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
 
         backend = get_lvlm_backend("mock")
         assert backend is not None
 
-        # Test VQA
-        response = backend.vqa(
-            image=torch.randn(3, 224, 224),
-            question="What is in this image?",
-        )
-        assert isinstance(response, str)
+        with pytest.raises(NotImplementedError, match="cannot be used in production"):
+            backend.vqa(
+                image=torch.randn(3, 224, 224),
+                question="What is in this image?",
+            )
 
-    def test_backend_factory(self):
-        """Test backend factory function."""
+    def test_backend_factory_rejects_unknown_model_type(self):
+        """``get_lvlm_backend("unknown")`` must raise ``ValueError``.
+
+        Phase 2 audit cure: the legacy fall-through to
+        ``MockLVLMBackend`` for an unknown ``model_type`` masked
+        configuration errors and silently routed production traffic
+        through the mock backend (whose internal methods are all
+        hard-fail stubs).  The factory now raises at configuration
+        time, surfacing the typo / wiring error immediately.
+        """
         from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
 
-        # Test that unsupported backends raise error or return mock
-        backend = get_lvlm_backend("unknown")
-        assert backend is not None  # Falls back to mock
+        with pytest.raises(ValueError, match="Unknown LVLM model_type"):
+            get_lvlm_backend("unknown")

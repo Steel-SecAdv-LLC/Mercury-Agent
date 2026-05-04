@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -50,7 +48,7 @@ from torch import nn
 
 
 class EmanationType(Enum):
-    """Electromagnetic emanation types"""
+    """Electromagnetic emanation types."""
 
     VIDEO_DISPLAY = "video_display_emanation"
     KEYBOARD = "keyboard_emanation"
@@ -62,7 +60,7 @@ class EmanationType(Enum):
 
 
 class TEMPESTThreatLevel(Enum):
-    """TEMPEST threat classification"""
+    """TEMPEST threat classification."""
 
     NO_THREAT = "no_threat"
     LOW = "low_risk"
@@ -73,7 +71,7 @@ class TEMPESTThreatLevel(Enum):
 
 @dataclass
 class TEMPESTAnalysisResult:
-    """TEMPEST detection results"""
+    """TEMPEST detection results."""
 
     emanation_detected: bool
     confidence: float
@@ -160,7 +158,7 @@ class RFSpectrumAnalyzer:
     def _detect_band_emanation(
         self, frequencies: list[float], power_levels: list[float], freq_min: float, freq_max: float
     ) -> dict[str, Any]:
-        """Detect emanations in specific frequency band"""
+        """Detect emanations in specific frequency band."""
         band_indices = [i for i, f in enumerate(frequencies) if freq_min <= f <= freq_max]
 
         if not band_indices:
@@ -292,7 +290,7 @@ class SideChannelVulnerabilityAssessor:
         }
 
     def _check_compliance(self, equipment_data: dict[str, Any]) -> dict[str, bool]:
-        """Check TEMPEST/EMSEC compliance"""
+        """Check TEMPEST/EMSEC compliance."""
         compliance = {}
 
         em_shielding = equipment_data.get("em_shielding_db", 0.0)
@@ -310,9 +308,7 @@ class SideChannelVulnerabilityAssessor:
 
 
 class EMSECCountermeasureGenerator:
-    """
-    Generate EMSEC countermeasures and mitigation strategies.
-    """
+    """Generate EMSEC countermeasures and mitigation strategies."""
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
@@ -372,9 +368,9 @@ class EMSECCountermeasureGenerator:
 
 
 class TEMPESTDetector:
-    """
-    Comprehensive TEMPEST detection system integrating RF spectrum analysis,
-    video emanation detection, vulnerability assessment, and countermeasure generation.
+    """Comprehensive TEMPEST detection system integrating RF spectrum analysis, video emanation
+
+    detection, vulnerability assessment, and countermeasure generation.
     """
 
     def __init__(
@@ -486,7 +482,7 @@ class TEMPESTDetector:
         return result
 
     def _analyze_video_emanation(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze video emanation for reconstruction feasibility"""
+        """Analyze video emanation for reconstruction feasibility."""
         if self.video_detector is None:
             return {"reconstruction_feasibility": 0.0, "estimated_resolution": "low"}
 
@@ -508,7 +504,7 @@ class TEMPESTDetector:
         }
 
     def _assess_threat_level(self, result: TEMPESTAnalysisResult) -> str:
-        """Assess overall TEMPEST threat level"""
+        """Assess overall TEMPEST threat level."""
         if result.compromising_potential > 0.8 or result.reconstruction_feasibility > 0.8:
             return TEMPESTThreatLevel.CRITICAL.value
         elif result.compromising_potential > 0.6 or result.reconstruction_feasibility > 0.6:
@@ -521,7 +517,7 @@ class TEMPESTDetector:
             return TEMPESTThreatLevel.NO_THREAT.value
 
     def _calculate_risk_score(self, result: TEMPESTAnalysisResult) -> float:
-        """Calculate overall TEMPEST risk score"""
+        """Calculate overall TEMPEST risk score."""
         base_score = result.confidence
 
         if result.compromising_potential > 0:

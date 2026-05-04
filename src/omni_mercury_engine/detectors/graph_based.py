@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -40,7 +38,8 @@ from omni_mercury_engine.core.base import BaseDetector
 
 
 class GraphAnomalyDetector(BaseDetector):
-    """Detect anomalies in graph-structured data.
+    """
+    Detect anomalies in graph-structured data.
 
     Note: This detector uses z-score thresholds (default 3.0) rather than
     normalized [0, 1] score thresholds used by other detectors. The threshold
@@ -103,6 +102,7 @@ class GraphAnomalyDetector(BaseDetector):
         return torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
     def is_fitted(self) -> bool:
+        """Is fitted."""
         return self.fitted
 
     def _array_to_graph(self, data: np.ndarray[Any, Any]) -> nx.Graph:

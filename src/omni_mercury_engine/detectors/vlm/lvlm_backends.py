@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -56,7 +54,8 @@ class LVLMBackend(ABC):
         max_new_tokens: int = 256,
         temperature: float = 0.1,
     ):
-        """Initialize LVLM backend.
+        """
+        Initialize LVLM backend.
 
         Args:
             model_name: HuggingFace model identifier
@@ -84,7 +83,8 @@ class LVLMBackend(ABC):
         images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
-        """Generate response for visual question.
+        """
+        Generate response for visual question.
 
         Args:
             images: Input images (single image or sequence)
@@ -313,42 +313,42 @@ class LLaVABackend(LVLMBackend):
 
 
 class MockLVLMBackend(LVLMBackend):
-    """Mock backend for testing without actual models."""
+    """
+    Mock LVLM backend — hard-fails at construction.
+
+    Phase 2 audit cure: silent mock degradation is not permitted in
+    production.  Instantiating this class raises ``NotImplementedError``
+    so operators are forced to configure a real vision-language model.
+    """
 
     def initialize(self) -> None:
-        """No-op initialization."""
-        logger.info("Using Mock LVLM backend (for testing)")
+        """Initialize."""
+        raise NotImplementedError(
+            "MockLVLMBackend cannot be used in production. "
+            "Configure a real LVLM backend (e.g. Qwen2VL, MiniCPMV, LLaVA)."
+        )
 
     def generate(
         self,
         images: list[Image.Image] | list[np.ndarray[Any, Any]],
         prompt: str,
     ) -> str:
-        """Generate mock response."""
-        # Simple heuristic for testing
-        if "anomaly" in prompt.lower() or "unusual" in prompt.lower():
-            return (
-                "Based on my analysis of the image(s), I do not detect any "
-                "clear anomalies. The scene appears normal with typical "
-                "activity patterns. Confidence: 0.2"
-            )
-        return "The image shows a typical scene with no unusual elements."
+        """Generate."""
+        raise NotImplementedError(
+            "MockLVLMBackend cannot be used in production. "
+            "Configure a real LVLM backend (e.g. Qwen2VL, MiniCPMV, LLaVA)."
+        )
 
     def vqa(
         self,
         image: Image.Image | np.ndarray[Any, Any] | torch.Tensor,
         question: str,
     ) -> str:
-        """Visual Question Answering for test compatibility.
-
-        Args:
-            image: Input image
-            question: Question about the image
-
-        Returns:
-            Answer string
-        """
-        return self.generate([image] if not isinstance(image, list) else image, question)  # type: ignore[arg-type, unused-ignore]
+        """Vqa."""
+        raise NotImplementedError(
+            "MockLVLMBackend cannot be used in production. "
+            "Configure a real LVLM backend (e.g. Qwen2VL, MiniCPMV, LLaVA)."
+        )
 
 
 def get_lvlm_backend(
@@ -357,7 +357,8 @@ def get_lvlm_backend(
     device: str = "cuda",
     **kwargs: Any,
 ) -> LVLMBackend:
-    """Factory function to get appropriate LVLM backend.
+    """
+    Factory function to get appropriate LVLM backend.
 
     Args:
         model_type: Type of LVLM ('qwen2_vl', 'minicpm_v', 'llava', 'mock')
@@ -380,8 +381,16 @@ def get_lvlm_backend(
         model_name = model_type
 
     if model_type not in backends:
-        logger.warning(f"Unknown model type {model_type}, using mock backend")
-        model_type = "mock"
+        # Phase 2 audit cure: silent fall-through to ``MockLVLMBackend``
+        # for an unknown ``model_type`` is forbidden — production code
+        # would otherwise route through a backend whose ``initialize``,
+        # ``generate``, and ``vqa`` are all hard-fail stubs, surfacing
+        # the loss of a real model only at first use rather than at
+        # configuration time.  Raise here so the misconfiguration is
+        # caught at the factory boundary.
+        raise ValueError(
+            f"Unknown LVLM model_type {model_type!r}. " f"Supported: {sorted(backends)}."
+        )
 
     backend_class = backends[model_type]
     return backend_class(model_name, device, **kwargs)

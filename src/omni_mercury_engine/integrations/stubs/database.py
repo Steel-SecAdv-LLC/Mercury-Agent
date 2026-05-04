@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -33,7 +34,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class QueryResult:
-    """Database query result.
+    """
+    Database query result.
 
     Attributes:
         rows: Result rows.
@@ -89,7 +91,8 @@ class DatabaseStub:
         latency_ms: tuple[int, int] = (5, 50),
         failure_rate: float = 0.0,
     ):
-        """Initialize database stub.
+        """
+        Initialize database stub.
 
         Args:
             seed: Random seed for reproducibility.
@@ -221,7 +224,8 @@ class DatabaseStub:
         return filtered
 
     async def query(self, sql: str) -> QueryResult:
-        """Execute a SELECT query.
+        """
+        Execute a SELECT query.
 
         Args:
             sql: SQL query string.
@@ -266,7 +270,8 @@ class DatabaseStub:
             raise DatabaseError(f"Query error: {e}", query=sql) from e
 
     async def execute(self, sql: str) -> QueryResult:
-        """Execute an INSERT/UPDATE/DELETE/CREATE/DROP query.
+        """
+        Execute an INSERT/UPDATE/DELETE/CREATE/DROP query.
 
         Args:
             sql: SQL statement.
@@ -365,7 +370,8 @@ class DatabaseStub:
         )
 
     async def transaction(self) -> TransactionContext:
-        """Start a transaction.
+        """
+        Start a transaction.
 
         Returns:
             Transaction context manager.
@@ -378,7 +384,8 @@ class DatabaseStub:
         columns: list[str],
         initial_data: list[dict[str, Any]] | None = None,
     ) -> None:
-        """Create a new table.
+        """
+        Create a new table.
 
         Args:
             name: Table name.
@@ -401,7 +408,8 @@ class DatabaseStub:
         }
 
     async def health_check(self) -> dict[str, Any]:
-        """Check database health.
+        """
+        Check database health.
 
         Returns:
             Health status.
@@ -420,7 +428,8 @@ class DatabaseStub:
             }
 
     async def connect(self) -> bool:
-        """Connect to the database.
+        """
+        Connect to the database.
 
         Returns:
             True if connection successful.
@@ -436,7 +445,8 @@ class DatabaseStub:
         self._connected = False
 
     async def is_connected(self) -> bool:
-        """Check if connected to database.
+        """
+        Check if connected to database.
 
         Returns:
             True if connected.
@@ -460,7 +470,8 @@ class DatabaseStub:
         self._in_transaction = False
 
     async def list_tables(self) -> list[str]:
-        """List all tables in the database.
+        """
+        List all tables in the database.
 
         Returns:
             List of table names.
@@ -470,7 +481,8 @@ class DatabaseStub:
         return list(self._tables.keys())
 
     async def describe(self, table: str) -> list[str]:
-        """Get schema for a table.
+        """
+        Get schema for a table.
 
         Args:
             table: Table name.
@@ -490,7 +502,8 @@ class DatabaseStub:
         return self._schemas[table]
 
     async def get_stats(self) -> dict[str, Any]:
-        """Get database statistics.
+        """
+        Get database statistics.
 
         Returns:
             Dictionary with database statistics.
@@ -592,7 +605,8 @@ class AsyncDatabase:
         max_connections: int = 10,
         fallback_to_stub: bool = True,
     ):
-        """Initialize async database.
+        """
+        Initialize async database.
 
         Args:
             backend: Database backend to use.
@@ -628,7 +642,8 @@ class AsyncDatabase:
 
     @classmethod
     def from_env(cls) -> AsyncDatabase:
-        """Create database from environment variables.
+        """
+        Create database from environment variables.
 
         Environment variables:
             DATABASE_BACKEND: Backend type (postgresql, sqlite, stub)
@@ -664,7 +679,8 @@ class AsyncDatabase:
         )
 
     async def connect(self) -> bool:
-        """Connect to the database.
+        """
+        Connect to the database.
 
         Returns:
             True if connection successful.
@@ -753,7 +769,8 @@ class AsyncDatabase:
         logger.info("Database connection closed")
 
     async def query(self, sql: str, *args: Any) -> QueryResult:
-        """Execute a SELECT query.
+        """
+        Execute a SELECT query.
 
         Args:
             sql: SQL query string.
@@ -832,7 +849,8 @@ class AsyncDatabase:
         )
 
     async def execute(self, sql: str, *args: Any) -> QueryResult:
-        """Execute an INSERT/UPDATE/DELETE/CREATE/DROP query.
+        """
+        Execute an INSERT/UPDATE/DELETE/CREATE/DROP query.
 
         Args:
             sql: SQL statement.
@@ -911,7 +929,8 @@ class AsyncDatabase:
         )
 
     async def executemany(self, sql: str, args_list: list[tuple[Any, ...]]) -> QueryResult:
-        """Execute a statement with multiple parameter sets.
+        """
+        Execute a statement with multiple parameter sets.
 
         Args:
             sql: SQL statement with placeholders.
@@ -968,7 +987,8 @@ class AsyncDatabase:
             raise DatabaseError(str(e), query=sql) from e
 
     async def transaction(self) -> AsyncTransactionContext:
-        """Start a transaction.
+        """
+        Start a transaction.
 
         Returns:
             Transaction context manager.
@@ -976,7 +996,8 @@ class AsyncDatabase:
         return AsyncTransactionContext(self)
 
     async def health_check(self) -> dict[str, Any]:
-        """Check database health.
+        """
+        Check database health.
 
         Returns:
             Health status.

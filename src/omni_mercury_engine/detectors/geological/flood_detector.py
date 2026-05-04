@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -66,7 +64,7 @@ from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
 
 class FloodSeverity(Enum):
-    """Flood severity classification"""
+    """Flood severity classification."""
 
     MINOR = "minor"
     MODERATE = "moderate"
@@ -76,7 +74,7 @@ class FloodSeverity(Enum):
 
 
 class FloodType(Enum):
-    """Types of flooding"""
+    """Types of flooding."""
 
     FLASH = "flash"
     RIVER = "river"
@@ -89,7 +87,7 @@ class FloodType(Enum):
 
 @dataclass
 class FloodPredictionResult:
-    """Flood prediction results"""
+    """Flood prediction results."""
 
     flood_likely: bool
     confidence: float
@@ -362,8 +360,8 @@ class FloodPredictionOptimizer:
     """
     Dynamic model optimization engine for flood prediction.
 
-    Implements iterative prediction refinement based on observed data
-    for continuously improving flood prediction accuracy.
+    Implements iterative prediction refinement based on observed data for continuously improving
+    flood prediction accuracy.
     """
 
     def __init__(self, max_iterations: int = 10, convergence_threshold: float = 0.01) -> None:

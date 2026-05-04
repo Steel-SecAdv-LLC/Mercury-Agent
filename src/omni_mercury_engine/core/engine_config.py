@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -67,7 +65,8 @@ class FusionMode(StrEnum):
 
 
 class EthicalConfig(BaseModel):
-    """Ethical governance configuration with domain-specific thresholds.
+    """
+    Ethical governance configuration with domain-specific thresholds.
 
     Ethical thresholds are adjusted based on domain risk:
     - High-risk domains (cyber, medical): sigma_immutable >= 0.93
@@ -86,14 +85,6 @@ class EthicalConfig(BaseModel):
         ge=0.90,
         le=1.0,
         description="Benevolence threshold for net-positive outcomes.",
-    )
-    enable_bias_audits: bool = Field(
-        default=True,
-        description="Enable Fairlearn-compatible bias auditing.",
-    )
-    enable_sigma_directives: bool = Field(
-        default=True,
-        description="Enable Σ Directive overrides for critical situations.",
     )
     p_value_threshold: float = Field(
         default=0.05,
@@ -304,7 +295,8 @@ class DetectorConfig(BaseModel):
 
 
 class MercuryEngineConfig(BaseModel):
-    """Main Mercury Agent Engine Configuration.
+    """
+    Main Mercury Agent Engine Configuration.
 
     Provides centralized, validated configuration with:
     - Domain-specific ethical thresholds
@@ -384,7 +376,8 @@ class MercuryEngineConfig(BaseModel):
             }
 
     def get_ethical_threshold_for_domain(self, domain: DomainType | str | None = None) -> float:
-        """Get domain-appropriate ethical threshold.
+        """
+        Get domain-appropriate ethical threshold.
 
         Args:
             domain: Domain override, or use configured domain.
@@ -424,7 +417,8 @@ class MercuryEngineConfig(BaseModel):
 
     @classmethod
     def for_domain(cls, domain: DomainType | str, **kwargs: Any) -> MercuryEngineConfig:
-        """Create domain-optimized configuration.
+        """
+        Create domain-optimized configuration.
 
         Args:
             domain: Target domain for optimization.

@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Time-Series Anomaly Detection Benchmark Loaders
 
@@ -457,7 +456,8 @@ class SMAPMSLLoader(DatasetLoader):
         self.dataset = config.preprocessing.get("dataset", "SMAP")  # SMAP or MSL
 
     def download(self) -> bool:
-        """Download REAL SMAP/MSL data.
+        """
+        Download REAL SMAP/MSL data.
 
         The original S3 URL (s3-us-west-2.amazonaws.com/telemanom/data.zip) returns 403.
         Labels are fetched from the GitHub repo. For the actual telemetry data, users must

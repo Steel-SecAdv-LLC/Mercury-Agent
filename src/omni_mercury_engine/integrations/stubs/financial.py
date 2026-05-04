@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -54,7 +55,8 @@ class MarketStatus(Enum):
 
 @dataclass
 class SecurityPrice:
-    """Security price data.
+    """
+    Security price data.
 
     Attributes:
         symbol: Security symbol/ticker.
@@ -103,7 +105,8 @@ class SecurityPrice:
 
 @dataclass
 class MarketData:
-    """Market-wide data.
+    """
+    Market-wide data.
 
     Attributes:
         index_name: Market index name.
@@ -197,7 +200,8 @@ class FinancialServiceStub:
         latency_ms: tuple[int, int] = (20, 100),
         failure_rate: float = 0.0,
     ):
-        """Initialize financial stub.
+        """
+        Initialize financial stub.
 
         Args:
             seed: Random seed for reproducibility.
@@ -261,7 +265,8 @@ class FinancialServiceStub:
         )
 
     async def get_price(self, symbol: str) -> SecurityPrice:
-        """Get current price for symbol.
+        """
+        Get current price for symbol.
 
         Args:
             symbol: Security symbol.
@@ -281,7 +286,8 @@ class FinancialServiceStub:
         return price
 
     async def get_prices(self, symbols: list[str]) -> dict[str, SecurityPrice]:
-        """Get prices for multiple symbols.
+        """
+        Get prices for multiple symbols.
 
         Args:
             symbols: List of security symbols.
@@ -296,7 +302,8 @@ class FinancialServiceStub:
         return {symbol.upper(): self._generate_price(symbol.upper()) for symbol in symbols}
 
     async def get_market_data(self, index: str = "SPX") -> MarketData:
-        """Get market index data.
+        """
+        Get market index data.
 
         Args:
             index: Index symbol (SPX, DJI, IXIC, etc.).
@@ -352,7 +359,8 @@ class FinancialServiceStub:
         days: int = 30,
         interval: str = "1d",
     ) -> list[HistoricalBar]:
-        """Get historical price data.
+        """
+        Get historical price data.
 
         Args:
             symbol: Security symbol.
@@ -398,7 +406,8 @@ class FinancialServiceStub:
         return bars
 
     async def get_signal(self, symbol: str) -> TradingSignal:
-        """Get trading signal for symbol.
+        """
+        Get trading signal for symbol.
 
         Args:
             symbol: Security symbol.
@@ -432,7 +441,8 @@ class FinancialServiceStub:
         symbol: str,
         threshold: float = 2.0,
     ) -> dict[str, Any]:
-        """Detect price anomalies for symbol.
+        """
+        Detect price anomalies for symbol.
 
         Args:
             symbol: Security symbol.
@@ -511,39 +521,42 @@ class FinancialService:
         api_key: str | None = None,
         timeout: int = 30,
         cache_ttl: int = 60,
-        fallback_to_stub: bool = True,
     ):
-        """Initialize financial service.
+        """
+        Initialize financial service.
+
+        The ``fallback_to_stub`` parameter was removed in the May 2026
+        Phase 2 audit cure — silent fallback to stub data is not
+        permitted.  If the configured provider fails, the error
+        propagates to the caller.
 
         Args:
             provider: API provider to use.
             api_key: API key for Alpha Vantage (not needed for Yahoo/Stub).
             timeout: Request timeout in seconds.
             cache_ttl: Cache time-to-live in seconds.
-            fallback_to_stub: Fall back to stub on API failures.
         """
         self.provider = provider
         self.api_key = api_key or os.getenv("ALPHA_VANTAGE_API_KEY")
         self.timeout = timeout
         self.cache_ttl = cache_ttl
-        self.fallback_to_stub = fallback_to_stub
 
         # Price cache with TTL
         self._cache: dict[str, tuple[SecurityPrice, datetime]] = {}
         self._call_count = 0
         self._api_errors = 0
 
-        # Stub fallback
+        # Stub instance for explicit STUB provider only
         self._stub = FinancialServiceStub()
 
         # Validate Alpha Vantage configuration
         if provider == FinancialAPIProvider.ALPHA_VANTAGE and not self.api_key:
-            logger.warning(
+            raise NotImplementedError(
                 "Alpha Vantage requires an API key. Set ALPHA_VANTAGE_API_KEY "
                 "environment variable or provide api_key parameter. "
-                "Falling back to stub mode."
+                "Silent fallback to stub mode is not permitted "
+                "(Phase 2 audit cure)."
             )
-            self.provider = FinancialAPIProvider.STUB
 
     def _get_cached(self, symbol: str) -> SecurityPrice | None:
         """Get cached price if still valid."""
@@ -558,7 +571,8 @@ class FinancialService:
         self._cache[symbol] = (price, datetime.now())
 
     async def _fetch_alpha_vantage(self, symbol: str) -> SecurityPrice:
-        """Fetch price from Alpha Vantage API.
+        """
+        Fetch price from Alpha Vantage API.
 
         API Documentation: https://www.alphavantage.co/documentation/
         """
@@ -611,7 +625,8 @@ class FinancialService:
         )
 
     async def _fetch_yahoo_finance(self, symbol: str) -> SecurityPrice:
-        """Fetch price from Yahoo Finance API.
+        """
+        Fetch price from Yahoo Finance API.
 
         Uses the public Yahoo Finance chart API endpoint.
         """
@@ -677,10 +692,8 @@ class FinancialService:
         )
 
     async def get_price(self, symbol: str) -> SecurityPrice:
-        """Get current price for symbol.
-
-        Attempts to fetch from configured API provider, with automatic
-        fallback to stub on failure if enabled.
+        """
+        Get current price for symbol.
 
         Args:
             symbol: Security symbol/ticker.
@@ -689,7 +702,7 @@ class FinancialService:
             Current price data.
 
         Raises:
-            ValueError: If symbol is invalid or API fails without fallback.
+            ValueError: If symbol is invalid or API fails.
         """
         self._call_count += 1
 
@@ -698,33 +711,24 @@ class FinancialService:
         if cached:
             return cached
 
-        # Use stub if configured
+        # Use stub if explicitly configured
         if self.provider == FinancialAPIProvider.STUB:
             return await self._stub.get_price(symbol)
 
-        try:
-            if self.provider == FinancialAPIProvider.ALPHA_VANTAGE:
-                price = await self._fetch_alpha_vantage(symbol)
-            elif self.provider == FinancialAPIProvider.YAHOO_FINANCE:
-                price = await self._fetch_yahoo_finance(symbol)
-            else:
-                price = await self._stub.get_price(symbol)
+        if self.provider == FinancialAPIProvider.ALPHA_VANTAGE:
+            price = await self._fetch_alpha_vantage(symbol)
+        elif self.provider == FinancialAPIProvider.YAHOO_FINANCE:
+            price = await self._fetch_yahoo_finance(symbol)
+        else:
+            raise ValueError(f"Unknown financial API provider: {self.provider}")
 
-            # Cache successful result
-            self._set_cached(symbol, price)
-            return price
-
-        except Exception as e:
-            self._api_errors += 1
-            logger.warning(f"Financial API error for {symbol}: {e}")
-
-            if self.fallback_to_stub:
-                logger.info(f"Falling back to stub for {symbol}")
-                return await self._stub.get_price(symbol)
-            raise
+        # Cache successful result
+        self._set_cached(symbol, price)
+        return price
 
     async def get_prices(self, symbols: list[str]) -> dict[str, SecurityPrice]:
-        """Get prices for multiple symbols.
+        """
+        Get prices for multiple symbols.
 
         Args:
             symbols: List of security symbols.
@@ -746,7 +750,8 @@ class FinancialService:
         days: int = 30,
         interval: str = "1d",
     ) -> list[HistoricalBar]:
-        """Get historical price data.
+        """
+        Get historical price data.
 
         Args:
             symbol: Security symbol.
@@ -766,7 +771,7 @@ class FinancialService:
         if self.provider == FinancialAPIProvider.ALPHA_VANTAGE:
             return await self._fetch_alpha_vantage_history(symbol, days)
 
-        return await self._stub.get_history(symbol, days, interval)
+        raise ValueError(f"Unknown financial API provider: {self.provider}")
 
     async def _fetch_yahoo_history(
         self,
@@ -850,7 +855,10 @@ class FinancialService:
     ) -> list[HistoricalBar]:
         """Fetch historical data from Alpha Vantage."""
         if not self.api_key:
-            return await self._stub.get_history(symbol, days)
+            raise NotImplementedError(
+                "Alpha Vantage API key required for historical data. "
+                "Silent fallback to stub is not permitted (Phase 2 audit cure)."
+            )
 
         # Use TIME_SERIES_DAILY for daily data
         params = {
@@ -948,5 +956,4 @@ def create_financial_service(
     return FinancialService(
         provider=provider_enum,
         api_key=api_key,
-        fallback_to_stub=True,
     )

@@ -1,6 +1,5 @@
-"""
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+r"""
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Medical Dataset Loaders: MIMIC-III, MIMIC-IV, PhysioNet
 
@@ -91,7 +90,8 @@ class MIMICLoader(DatasetLoader):
     FEATURE_NAMES = VITAL_FEATURES + LAB_FEATURES
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize MIMIC loader.
+        """
+        Initialize MIMIC loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -110,7 +110,11 @@ class MIMICLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """MIMIC-III requires PhysioNet credentials. Check for local files."""
+        """
+        MIMIC-III requires PhysioNet credentials.
+
+        Check for local files.
+        """
         # Check for local path first
         if self.local_path:
             local_dir = Path(self.local_path)
@@ -230,7 +234,8 @@ class MIMICLoader(DatasetLoader):
     def _load_real_mimic(
         self, data_dir: Path | None = None
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load and process real MIMIC-III tables with proper outcome labels.
+        """
+        Load and process real MIMIC-III tables with proper outcome labels.
 
         Extracts features from CHARTEVENTS and labels from multiple outcome sources:
         - ADMISSIONS table (hospital mortality)
@@ -517,7 +522,8 @@ class PhysioNetLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download or load PhysioNet data.
+        """
+        Download or load PhysioNet data.
 
         Most PhysioNet datasets require credentialing. For open access datasets,
         use wfdb library to download directly.
@@ -658,11 +664,11 @@ class SepsisDataset(MIMICLoader):
         super().__init__(config)
 
     def download(self) -> bool:
-        """Download or generate sepsis data.
+        """
+        Download or generate sepsis data.
 
-        Unlike the parent MIMICLoader, SepsisDataset supports synthetic
-        generation because sepsis prediction research benefits from
-        configurable prevalence rates in test/development data.
+        Unlike the parent MIMICLoader, SepsisDataset supports synthetic generation because sepsis
+        prediction research benefits from configurable prevalence rates in test/development data.
         """
         # Try real MIMIC data first (inherited behaviour without the raise)
         if self.local_path:

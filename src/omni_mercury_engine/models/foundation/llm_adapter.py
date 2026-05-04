@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -254,42 +252,27 @@ Context:
 
 
 class MockLLMAdapter(BaseLLMAdapter):
-    """Mock LLM adapter for testing without API calls."""
+    """
+    Mock LLM adapter — hard-fails at construction.
+
+    Phase 2 audit cure: silent mock degradation is not permitted in
+    production.  Instantiating this class raises ``NotImplementedError``
+    so operators are forced to configure a real LLM provider.
+    """
 
     def __init__(self, config: LLMConfig | None = None):
-        """Initialize mock adapter."""
-        super().__init__(config or LLMConfig(provider=LLMProvider.MOCK))
-        self._is_available = True
-        logger.warning(
-            "MockLLMAdapter is active — responses are heuristic-only, not from a real LLM. "
-            "Set a supported LLMProvider (e.g. HUGGINGFACE) for production use."
+        raise NotImplementedError(
+            "MockLLMAdapter cannot be used in production. "
+            "Configure a real LLM provider (e.g. LLMProvider.HUGGINGFACE)."
         )
 
-    def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """Generate mock response."""
-        # Simple heuristic: longer prompts or prompts mentioning certain keywords
-        # are more likely to be anomalies
-        is_anomaly = (
-            "error" in prompt.lower()
-            or "unusual" in prompt.lower()
-            or "spike" in prompt.lower()
-            or len(prompt) > 1000
-        )
+    def generate(self, prompt: str, system_prompt: str | None = None) -> str:  # pragma: no cover
+        """Generate."""
+        raise NotImplementedError
 
-        return json.dumps(
-            {
-                "is_anomaly": is_anomaly,
-                "anomaly_score": 0.85 if is_anomaly else 0.15,
-                "confidence": 0.75,
-                "category": "mock_anomaly" if is_anomaly else "normal",
-                "explanation": "Mock analysis: "
-                + ("Detected anomaly indicators" if is_anomaly else "Data appears normal"),
-            }
-        )
-
-    def is_available(self) -> bool:
-        """Mock adapter is always available."""
-        return True
+    def is_available(self) -> bool:  # pragma: no cover
+        """Is available."""
+        return False
 
 
 class HuggingFaceLLMAdapter(BaseLLMAdapter):
@@ -318,7 +301,8 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def _load_model(self) -> None:
-        """Lazy load the model.
+        """
+        Lazy load the model.
 
         Security Note: For supply chain security (CWE-494), we require revision
         pinning when loading models from HuggingFace Hub. Set config.revision to
@@ -431,8 +415,8 @@ class ZeroShotAnomalyDetector:
     """
     Zero-shot anomaly detector using LLM prompting.
 
-    Provides anomaly detection without training by leveraging
-    LLM's world knowledge and reasoning capabilities.
+    Provides anomaly detection without training by leveraging LLM's world knowledge and reasoning
+    capabilities.
     """
 
     def __init__(
@@ -455,15 +439,31 @@ class ZeroShotAnomalyDetector:
             self.adapter = self._create_adapter()
 
     def _create_adapter(self) -> BaseLLMAdapter:
-        """Create appropriate adapter based on config."""
+        """
+        Create appropriate adapter based on config.
+
+        Phase 2 audit cure: an unsupported / unimplemented provider must
+        not silently fall back to ``MockLLMAdapter`` — that path masked
+        misconfiguration and routed production traffic through a
+        hard-fail mock.  ``MockLLMAdapter`` itself raises
+        ``NotImplementedError`` at construction, so the explicit
+        ``LLMProvider.MOCK`` branch below is preserved purely as a
+        loud-fail signal (the operator opted into mock and gets the
+        cure's error message immediately).  Any other unsupported
+        provider raises ``NotImplementedError`` directly with a
+        message that names every supported provider.
+        """
         if self.config.provider == LLMProvider.MOCK:
             return MockLLMAdapter(self.config)
         elif self.config.provider == LLMProvider.HUGGINGFACE:
             return HuggingFaceLLMAdapter(self.config)
         else:
-            # Default to mock for unsupported providers
-            logger.warning(f"Provider {self.config.provider} not fully implemented, using mock")
-            return MockLLMAdapter(self.config)
+            raise NotImplementedError(
+                f"LLM provider {self.config.provider!r} has no adapter "
+                "implementation in this build.  Configure a supported "
+                "provider (currently: HUGGINGFACE).  Silent mock "
+                "degradation is not permitted (Phase 2 audit cure)."
+            )
 
     def detect(
         self,
@@ -545,8 +545,8 @@ class TextLogAnomalyDetector:
     """
     Specialized detector for text and log anomalies.
 
-    Uses LLM understanding of log patterns, error messages,
-    and text semantics for anomaly detection.
+    Uses LLM understanding of log patterns, error messages, and text semantics for anomaly
+    detection.
     """
 
     def __init__(

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -53,7 +51,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class LAVADConfig(VLMConfig):
-    """Configuration for LAVAD detector.
+    """
+    Configuration for LAVAD detector.
 
     Attributes:
         caption_model: Model for frame captioning
@@ -92,7 +91,8 @@ class LAVADDetector(BaseVLMDetector):
     """
 
     def __init__(self, config: LAVADConfig | dict[str, Any] | None = None) -> None:
-        """Initialize LAVAD detector.
+        """
+        Initialize LAVAD detector.
 
         Args:
             config: Detector configuration
@@ -122,7 +122,8 @@ class LAVADDetector(BaseVLMDetector):
         expected_activities: list[str] | None = None,
         anomaly_types: list[str] | None = None,
     ) -> None:
-        """Set scene context for detection.
+        """
+        Set scene context for detection.
 
         Args:
             scene_description: Description of the scene
@@ -136,7 +137,8 @@ class LAVADDetector(BaseVLMDetector):
         }
 
     def detect_video(self, video: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies in video.
+        """
+        Detect anomalies in video.
 
         Args:
             video: Video tensor [T, C, H, W]
@@ -185,7 +187,8 @@ class LAVADDetector(BaseVLMDetector):
         captions: list[str],
         anomaly_description: str,
     ) -> str:
-        """Create LLM reasoning prompt from captions.
+        """
+        Create LLM reasoning prompt from captions.
 
         Args:
             captions: Sequence of frame captions
@@ -264,7 +267,8 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         return frames
 
     def _generate_caption(self, frame: np.ndarray[Any, Any]) -> str:
-        """Generate caption for a single frame.
+        """
+        Generate caption for a single frame.
 
         Args:
             frame: Frame array [C, H, W]
@@ -298,7 +302,8 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         return str(caption)
 
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies using caption + reasoning pipeline.
+        """
+        Detect anomalies using caption + reasoning pipeline.
 
         Args:
             data: Video frames [T, C, H, W]
@@ -400,7 +405,8 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         self,
         captions: list[str],
     ) -> tuple[bool, float, str]:
-        """Simple keyword-based analysis without LLM.
+        """
+        Simple keyword-based analysis without LLM.
 
         Args:
             captions: Frame captions
@@ -463,7 +469,8 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         scores: np.ndarray[Any, Any],
         captions: list[str],
     ) -> torch.Tensor:
-        """Generate feature representation.
+        """
+        Generate feature representation.
 
         Args:
             scores: Frame scores

@@ -1,5 +1,6 @@
 """
 Mercury Agent - Probability Calibration Module
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -363,8 +364,8 @@ class CalibrationEnsemble:
     """
     Ensemble of calibration methods with automatic selection.
 
-    Combines multiple calibration approaches and selects the best
-    based on validation performance (Brier score).
+    Combines multiple calibration approaches and selects the best based on validation performance
+    (Brier score).
     """
 
     def __init__(self) -> None:
@@ -598,7 +599,8 @@ def _extract_calibration_scores(
     detector: Any,
     X: np.ndarray,
 ) -> tuple[np.ndarray | None, str]:
-    """Extract probability-like scores from any detector for calibration.
+    """
+    Extract probability-like scores from any detector for calibration.
 
     Uses a multi-strategy fallback cascade:
     1. predict_proba - Standard probability output (preferred)
@@ -667,7 +669,8 @@ def _synthesize_probabilities_from_predictions(
     predictions: np.ndarray,
     X: np.ndarray,
 ) -> np.ndarray:
-    """Synthesize continuous probabilities from binary predictions.
+    """
+    Synthesize continuous probabilities from binary predictions.
 
     Creates differentiated probability scores for samples within
     each class based on feature characteristics.
@@ -724,7 +727,8 @@ def _compute_feature_variation(X: np.ndarray) -> np.ndarray:
 
 
 def _compute_statistical_scores_for_calibration(X: np.ndarray) -> np.ndarray:
-    """Compute statistical anomaly scores when detector provides no scoring.
+    """
+    Compute statistical anomaly scores when detector provides no scoring.
 
     Combines multiple statistical methods:
     - Mahalanobis-like distance (using diagonal covariance)

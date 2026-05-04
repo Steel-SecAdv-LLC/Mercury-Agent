@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -41,7 +39,7 @@ except ImportError:
 
 
 class BanishmentAction(Enum):
-    """Actions for threat handling"""
+    """Actions for threat handling."""
 
     BANISH = "banish"
     VOID = "void"
@@ -52,6 +50,7 @@ class BanishmentAction(Enum):
 class ThreatDetector:
     """
     Detect common security threats:
+
     - SQL injection
     - XSS attacks
     - Path traversal
@@ -83,7 +82,7 @@ class ThreatDetector:
         ]
 
     def detect_sql_injection(self, payload: str) -> dict[str, Any]:
-        """Detect SQL injection attempts"""
+        """Detect SQL injection attempts."""
         matches = []
 
         for pattern in self.sql_patterns:
@@ -100,7 +99,7 @@ class ThreatDetector:
         }
 
     def detect_xss(self, payload: str) -> dict[str, Any]:
-        """Detect XSS attacks"""
+        """Detect XSS attacks."""
         matches = []
 
         for pattern in self.xss_patterns:
@@ -117,7 +116,7 @@ class ThreatDetector:
         }
 
     def detect_path_traversal(self, payload: str) -> dict[str, Any]:
-        """Detect path traversal attempts"""
+        """Detect path traversal attempts."""
         matches = []
 
         for pattern in self.path_traversal_patterns:
@@ -134,7 +133,7 @@ class ThreatDetector:
         }
 
     def detect_all(self, payload: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Run all threat detection checks with banishment recommendation"""
+        """Run all threat detection checks with banishment recommendation."""
         sql_result = self.detect_sql_injection(payload)
         xss_result = self.detect_xss(payload)
         path_result = self.detect_path_traversal(payload)
@@ -165,7 +164,8 @@ class ThreatDetector:
 
     @staticmethod
     def hash_password(password: str) -> str:
-        """Hash password using bcrypt (preferred) or PBKDF2 fallback.
+        """
+        Hash password using bcrypt (preferred) or PBKDF2 fallback.
 
         Returns:
             Hashed password string. Format depends on available library.
@@ -183,7 +183,8 @@ class ThreatDetector:
 
     @staticmethod
     def verify_password(password: str, hashed: str) -> bool:
-        """Verify password against hash.
+        """
+        Verify password against hash.
 
         Supports both bcrypt and PBKDF2 formats.
         """
@@ -209,8 +210,9 @@ class ThreatDetector:
         context: dict[str, Any],
     ) -> dict[str, Any]:
         """
-        Assess validity of detected threats to reduce false positives
-        Extracted from Banish_Void_Undue Threat Engine
+        Assess validity of detected threats to reduce false positives Extracted from
+
+        Banish_Void_Undue Threat Engine.
 
         Args:
             threats: List of detected threats
@@ -255,8 +257,7 @@ class ThreatDetector:
     @staticmethod
     def evaluate_temporal_relevance(context: dict[str, Any]) -> float:
         """
-        Evaluate temporal relevance of threat
-        Recent threats are more relevant
+        Evaluate temporal relevance of threat Recent threats are more relevant.
 
         Args:
             context: Context with timestamp information
@@ -284,8 +285,7 @@ class ThreatDetector:
         context: dict[str, Any],
     ) -> float:
         """
-        Evaluate ethical alignment of threat response
-        Ensures survivor-first principles
+        Evaluate ethical alignment of threat response Ensures survivor-first principles.
 
         Args:
             threats: List of threats

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -154,7 +152,8 @@ class UserBehaviorClass(Enum):
 
 @dataclass
 class UserInteraction:
-    """Single user interaction event.
+    """
+    Single user interaction event.
 
     Attributes:
         timestamp: Unix timestamp of interaction
@@ -225,7 +224,8 @@ class UIUXConfig:
 
 @dataclass
 class ClickAnalysis:
-    """Analysis results for click patterns.
+    """
+    Analysis results for click patterns.
 
     Attributes:
         total_clicks: Total number of clicks
@@ -248,7 +248,8 @@ class ClickAnalysis:
 
 @dataclass
 class ScrollAnalysis:
-    """Analysis results for scroll behavior.
+    """
+    Analysis results for scroll behavior.
 
     Attributes:
         total_scrolls: Total scroll events
@@ -269,7 +270,8 @@ class ScrollAnalysis:
 
 @dataclass
 class NavigationAnalysis:
-    """Analysis results for navigation patterns.
+    """
+    Analysis results for navigation patterns.
 
     Attributes:
         pages_visited: Number of unique pages
@@ -290,7 +292,8 @@ class NavigationAnalysis:
 
 @dataclass
 class SessionAnalysis:
-    """Complete session analysis results.
+    """
+    Complete session analysis results.
 
     Attributes:
         session_duration: Total session duration
@@ -313,7 +316,8 @@ class SessionAnalysis:
 
 @dataclass
 class UIUXAnomalyResult:
-    """Complete UI/UX anomaly detection result.
+    """
+    Complete UI/UX anomaly detection result.
 
     Attributes:
         anomaly_score: Overall anomaly score [0, 1]
@@ -348,7 +352,8 @@ class UIUXAnomalyResult:
 
 
 class InteractionSequenceEncoder(nn.Module):
-    """Encoder for sequences of user interactions.
+    """
+    Encoder for sequences of user interactions.
 
     Uses LSTM with attention to learn representations of interaction patterns.
     """
@@ -360,7 +365,8 @@ class InteractionSequenceEncoder(nn.Module):
         output_dim: int = 32,
         num_layers: int = 2,
     ) -> None:
-        """Initialize interaction sequence encoder.
+        """
+        Initialize interaction sequence encoder.
 
         Args:
             input_dim: Input feature dimension per interaction
@@ -404,7 +410,8 @@ class InteractionSequenceEncoder(nn.Module):
         features: torch.Tensor,
         type_indices: torch.Tensor,
     ) -> torch.Tensor:
-        """Forward pass through encoder.
+        """
+        Forward pass through encoder.
 
         Args:
             features: Interaction features [batch, seq_len, input_dim]
@@ -432,10 +439,11 @@ class InteractionSequenceEncoder(nn.Module):
 
 
 class MouseTrajectoryNetwork(nn.Module):
-    """Neural network for analyzing mouse trajectory patterns.
+    """
+    Neural network for analyzing mouse trajectory patterns.
 
-    Detects abnormal movement patterns, bot-like behavior, and
-    frustration indicators from cursor trajectories.
+    Detects abnormal movement patterns, bot-like behavior, and frustration indicators from cursor
+    trajectories.
     """
 
     def __init__(
@@ -443,7 +451,8 @@ class MouseTrajectoryNetwork(nn.Module):
         hidden_dim: int = 32,
         output_dim: int = 16,
     ) -> None:
-        """Initialize mouse trajectory network.
+        """
+        Initialize mouse trajectory network.
 
         Args:
             hidden_dim: Hidden layer dimension
@@ -477,7 +486,8 @@ class MouseTrajectoryNetwork(nn.Module):
         )
 
     def forward(self, trajectory: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Analyze mouse trajectory.
+        """
+        Analyze mouse trajectory.
 
         Args:
             trajectory: Mouse trajectory [batch, seq_len, 4] (x, y, vx, vy)
@@ -504,7 +514,8 @@ class MouseTrajectoryNetwork(nn.Module):
 
 
 class ClickPatternNetwork(nn.Module):
-    """Network for analyzing click patterns.
+    """
+    Network for analyzing click patterns.
 
     Detects rage clicks, dead clicks, and other click anomalies.
     """
@@ -515,7 +526,8 @@ class ClickPatternNetwork(nn.Module):
         hidden_dim: int = 32,
         output_dim: int = 16,
     ) -> None:
-        """Initialize click pattern network.
+        """
+        Initialize click pattern network.
 
         Args:
             input_dim: Input feature dimension per click
@@ -550,7 +562,8 @@ class ClickPatternNetwork(nn.Module):
         self,
         click_features: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Analyze click patterns.
+        """
+        Analyze click patterns.
 
         Args:
             click_features: Click features [batch, seq_len, input_dim]
@@ -580,7 +593,8 @@ class ClickPatternNetwork(nn.Module):
 
 
 class BehaviorClassificationNetwork(nn.Module):
-    """Network for classifying user behavior types.
+    """
+    Network for classifying user behavior types.
 
     Combines multiple signal sources to classify overall behavior pattern.
     """
@@ -593,7 +607,8 @@ class BehaviorClassificationNetwork(nn.Module):
         nav_dim: int = 8,
         num_classes: int = len(UserBehaviorClass),
     ) -> None:
-        """Initialize behavior classification network.
+        """
+        Initialize behavior classification network.
 
         Args:
             click_dim: Click feature dimension
@@ -623,7 +638,8 @@ class BehaviorClassificationNetwork(nn.Module):
         scroll_features: torch.Tensor,
         nav_features: torch.Tensor,
     ) -> torch.Tensor:
-        """Classify user behavior.
+        """
+        Classify user behavior.
 
         Args:
             click_features: Click pattern features
@@ -672,7 +688,8 @@ class UIUXAnomalyDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize UI/UX anomaly detector.
+        """
+        Initialize UI/UX anomaly detector.
 
         Args:
             config: Configuration dictionary. See UIUXConfig.
@@ -746,7 +763,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self,
         interactions: list[UserInteraction] | list[list[UserInteraction]],  # type: ignore[override, unused-ignore]
     ) -> UIUXAnomalyDetector:
-        """Fit detector on reference/training data.
+        """
+        Fit detector on reference/training data.
 
         Args:
             interactions: Single session or list of sessions of interactions
@@ -849,7 +867,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self,
         interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
     ) -> dict[str, Any]:
-        """Detect UI/UX anomalies in user interactions.
+        """
+        Detect UI/UX anomalies in user interactions.
 
         Args:
             interactions: List of user interactions for a session,
@@ -875,7 +894,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self,
         interactions: list[UserInteraction],
     ) -> dict[str, Any]:
-        """Perform full analysis on user interactions.
+        """
+        Perform full analysis on user interactions.
 
         Args:
             interactions: List of user interactions
@@ -956,7 +976,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self,
         features: np.ndarray | torch.Tensor,
     ) -> dict[str, Any]:
-        """Detect from pre-computed features (for ML fusion).
+        """
+        Detect from pre-computed features (for ML fusion).
 
         Args:
             features: Feature array
@@ -991,7 +1012,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self,
         interactions: list[UserInteraction] | np.ndarray | torch.Tensor,
     ) -> torch.Tensor:
-        """Extract features for ML fusion.
+        """
+        Extract features for ML fusion.
 
         Args:
             interactions: User interactions or pre-computed features
@@ -1013,7 +1035,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self,
         interactions: list[UserInteraction],
     ) -> np.ndarray:
-        """Extract numerical features from interactions.
+        """
+        Extract numerical features from interactions.
 
         Args:
             interactions: List of user interactions
@@ -1085,7 +1108,8 @@ class UIUXAnomalyDetector(BaseDetector):
         return features[:64]  # Ensure fixed size
 
     def _analyze_clicks(self, interactions: list[UserInteraction]) -> ClickAnalysis:
-        """Analyze click patterns.
+        """
+        Analyze click patterns.
 
         Args:
             interactions: List of user interactions
@@ -1184,7 +1208,8 @@ class UIUXAnomalyDetector(BaseDetector):
         )
 
     def _analyze_scrolls(self, interactions: list[UserInteraction]) -> ScrollAnalysis:
-        """Analyze scroll behavior.
+        """
+        Analyze scroll behavior.
 
         Args:
             interactions: List of user interactions
@@ -1251,7 +1276,8 @@ class UIUXAnomalyDetector(BaseDetector):
         )
 
     def _analyze_navigation(self, interactions: list[UserInteraction]) -> NavigationAnalysis:
-        """Analyze navigation patterns.
+        """
+        Analyze navigation patterns.
 
         Args:
             interactions: List of user interactions
@@ -1317,7 +1343,8 @@ class UIUXAnomalyDetector(BaseDetector):
         )
 
     def _analyze_session(self, interactions: list[UserInteraction]) -> SessionAnalysis:
-        """Analyze complete session.
+        """
+        Analyze complete session.
 
         Args:
             interactions: List of user interactions
@@ -1402,7 +1429,8 @@ class UIUXAnomalyDetector(BaseDetector):
         nav_analysis: NavigationAnalysis,
         session_duration: float,
     ) -> UserBehaviorClass:
-        """Classify user behavior type.
+        """
+        Classify user behavior type.
 
         Args:
             click_analysis: Click pattern analysis
@@ -1447,7 +1475,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self,
         interactions: list[UserInteraction],
     ) -> float:
-        """Compute mouse trajectory anomaly score.
+        """
+        Compute mouse trajectory anomaly score.
 
         Args:
             interactions: List of user interactions
@@ -1496,7 +1525,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self,
         interactions: list[UserInteraction],
     ) -> float:
-        """Compute timing pattern anomaly score.
+        """
+        Compute timing pattern anomaly score.
 
         Args:
             interactions: List of user interactions
@@ -1529,7 +1559,8 @@ class UIUXAnomalyDetector(BaseDetector):
         self,
         interactions: list[UserInteraction],
     ) -> float:
-        """Estimate probability of bot behavior.
+        """
+        Estimate probability of bot behavior.
 
         Args:
             interactions: List of user interactions
@@ -1616,7 +1647,8 @@ class UIUXAnomalyDetector(BaseDetector):
         mouse_score: float,
         bot_probability: float,
     ) -> list[AnomalyCategory]:
-        """Collect all detected anomaly categories.
+        """
+        Collect all detected anomaly categories.
 
         Args:
             click_analysis: Click analysis results
@@ -1673,7 +1705,8 @@ class UIUXAnomalyDetector(BaseDetector):
         timing_score: float,
         bot_probability: float,
     ) -> float:
-        """Compute combined anomaly score using golden ratio weighting.
+        """
+        Compute combined anomaly score using golden ratio weighting.
 
         Args:
             click_analysis: Click analysis results
@@ -1733,7 +1766,8 @@ class UIUXAnomalyDetector(BaseDetector):
         scroll_analysis: ScrollAnalysis,
         navigation_analysis: NavigationAnalysis,
     ) -> list[str]:
-        """Generate UX improvement recommendations.
+        """
+        Generate UX improvement recommendations.
 
         Args:
             categories: Detected anomaly categories
@@ -1800,7 +1834,8 @@ class UIUXAnomalyDetector(BaseDetector):
         return recommendations
 
     def _create_default_result(self) -> dict[str, Any]:
-        """Create default result for short sessions.
+        """
+        Create default result for short sessions.
 
         Returns:
             Default detection result dictionary
@@ -1895,7 +1930,8 @@ def detect_rage_clicks(
     time_threshold: float = 0.5,
     count_threshold: int = 3,
 ) -> list[tuple[int, int]]:
-    """Detect rage click sequences.
+    """
+    Detect rage click sequences.
 
     Args:
         clicks: List of click interactions
@@ -1933,7 +1969,8 @@ def compute_click_heatmap(
     height: int = 1080,
     grid_size: int = 20,
 ) -> np.ndarray:
-    """Compute click density heatmap.
+    """
+    Compute click density heatmap.
 
     Args:
         clicks: List of click interactions
@@ -1960,7 +1997,8 @@ def compute_click_heatmap(
 def analyze_navigation_flow(
     interactions: list[UserInteraction],
 ) -> dict[str, Any]:
-    """Analyze navigation flow patterns.
+    """
+    Analyze navigation flow patterns.
 
     Args:
         interactions: List of user interactions

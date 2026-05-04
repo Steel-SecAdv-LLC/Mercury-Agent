@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -69,7 +67,8 @@ __all__ = [
 
 @dataclass
 class TrainingConfig:
-    """Configuration for model training.
+    """
+    Configuration for model training.
 
     Validates parameters and provides sensible defaults for training loops.
     """
@@ -94,14 +93,16 @@ class TrainingConfig:
 
 
 class EarlyStopping:
-    """Early stopping callback to prevent overfitting.
+    """
+    Early stopping callback to prevent overfitting.
 
-    Monitors a metric and stops training when no improvement is seen
-    for a specified number of epochs (patience).
+    Monitors a metric and stops training when no improvement is seen for a specified number of
+    epochs (patience).
     """
 
     def __init__(self, patience: int = 5, min_delta: float = 0.0, mode: str = "min") -> None:
-        """Initialize early stopping.
+        """
+        Initialize early stopping.
 
         Args:
             patience: Number of epochs to wait for improvement
@@ -116,7 +117,8 @@ class EarlyStopping:
         self.early_stop = False
 
     def __call__(self, metric: float) -> bool:
-        """Check if training should stop.
+        """
+        Check if training should stop.
 
         Args:
             metric: Current metric value to evaluate
@@ -140,10 +142,11 @@ class EarlyStopping:
 
 
 class LearningRateScheduler:
-    """Wrapper for PyTorch learning rate schedulers.
+    """
+    Wrapper for PyTorch learning rate schedulers.
 
-    Provides a unified interface for different scheduler types
-    including step decay and cosine annealing.
+    Provides a unified interface for different scheduler types including step decay and cosine
+    annealing.
     """
 
     def __init__(
@@ -156,7 +159,8 @@ class LearningRateScheduler:
         eta_min: float = 0.0,
         **kwargs: Any,
     ):
-        """Initialize learning rate scheduler.
+        """
+        Initialize learning rate scheduler.
 
         Args:
             optimizer: PyTorch optimizer to schedule
@@ -186,7 +190,8 @@ class LearningRateScheduler:
             raise ValueError(f"Unknown scheduler mode: {mode}")
 
     def step(self, metric: float | None = None) -> None:
-        """Advance the scheduler by one step.
+        """
+        Advance the scheduler by one step.
 
         Args:
             metric: Metric value for plateau scheduler
@@ -203,10 +208,11 @@ class LearningRateScheduler:
 
 
 class Trainer:
-    """General-purpose trainer for PyTorch models.
+    """
+    General-purpose trainer for PyTorch models.
 
-    Provides training loop, validation, checkpointing, and
-    integration with early stopping and learning rate scheduling.
+    Provides training loop, validation, checkpointing, and integration with early stopping and
+    learning rate scheduling.
     """
 
     def __init__(
@@ -215,7 +221,8 @@ class Trainer:
         config: TrainingConfig,
         criterion: nn.Module | None = None,
     ):
-        """Initialize trainer.
+        """
+        Initialize trainer.
 
         Args:
             model: PyTorch model to train
@@ -260,7 +267,8 @@ class Trainer:
         self.epoch = 0
 
     def train_step(self, x: torch.Tensor, y: torch.Tensor) -> float:
-        """Execute a single training step.
+        """
+        Execute a single training step.
 
         Args:
             x: Input tensor
@@ -286,7 +294,8 @@ class Trainer:
         return float(loss.item())
 
     def validate_step(self, x: torch.Tensor, y: torch.Tensor) -> float:
-        """Execute a single validation step.
+        """
+        Execute a single validation step.
 
         Args:
             x: Input tensor
@@ -306,7 +315,8 @@ class Trainer:
         return float(loss.item())
 
     def save_checkpoint(self, path: str) -> None:
-        """Save model checkpoint.
+        """
+        Save model checkpoint.
 
         Args:
             path: Path to save checkpoint
@@ -324,7 +334,8 @@ class Trainer:
         torch.save(checkpoint, path)
 
     def load_checkpoint(self, path: str, *, allow_unsafe: bool = False) -> None:
-        """Load model checkpoint.
+        """
+        Load model checkpoint.
 
         Args:
             path: Path to checkpoint file
@@ -377,9 +388,7 @@ class Trainer:
 
 
 class MercuryOptimizer(optim.Optimizer):
-    """
-    Base Mercury optimizer with state evolution dynamics
-    """
+    """Base Mercury optimizer with state evolution dynamics."""
 
     def __init__(
         self,
@@ -393,6 +402,7 @@ class MercuryOptimizer(optim.Optimizer):
         super().__init__(params, defaults)
 
     def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
+        """Step."""
         loss = None
         if closure is not None:
             loss = closure()
@@ -430,9 +440,7 @@ class MercuryOptimizer(optim.Optimizer):
 
 
 class MercuryMomentumOptimizer(optim.Optimizer):
-    """
-    Mercury optimizer with momentum variant
-    """
+    """Mercury optimizer with momentum variant."""
 
     def __init__(
         self, params: Any, lr: float = 0.001, alpha: float = 0.1, momentum: float = 0.9
@@ -441,6 +449,7 @@ class MercuryMomentumOptimizer(optim.Optimizer):
         super().__init__(params, defaults)
 
     def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
+        """Step."""
         loss = None
         if closure is not None:
             loss = closure()
@@ -471,9 +480,7 @@ class MercuryMomentumOptimizer(optim.Optimizer):
 
 
 class MercuryExponentialDecayOptimizer(optim.Optimizer):
-    """
-    Mercury optimizer with exponential decay
-    """
+    """Mercury optimizer with exponential decay."""
 
     def __init__(
         self, params: Any, lr: float = 0.001, alpha: float = 0.1, decay_rate: float = 0.99
@@ -482,6 +489,7 @@ class MercuryExponentialDecayOptimizer(optim.Optimizer):
         super().__init__(params, defaults)
 
     def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
+        """Step."""
         loss = None
         if closure is not None:
             loss = closure()
@@ -514,9 +522,7 @@ class MercuryExponentialDecayOptimizer(optim.Optimizer):
 
 
 class MercuryHarmonicOptimizer(optim.Optimizer):
-    """
-    Mercury optimizer with harmonic oscillator variant
-    """
+    """Mercury optimizer with harmonic oscillator variant."""
 
     def __init__(
         self, params: Any, lr: float = 0.001, alpha: float = 0.1, omega: float = 0.1
@@ -525,6 +531,7 @@ class MercuryHarmonicOptimizer(optim.Optimizer):
         super().__init__(params, defaults)
 
     def step(self, closure: Callable[[], float] | None = None) -> float | None:  # type: ignore[override, unused-ignore]
+        """Step."""
         loss = None
         if closure is not None:
             loss = closure()
@@ -635,7 +642,11 @@ class LyapunovAnomalyLoss(nn.Module):
         self.total_steps = 0
 
     def reset_state(self) -> None:
-        """Reset previous scores state. Call at start of each epoch."""
+        """
+        Reset previous scores state.
+
+        Call at start of each epoch.
+        """
         self.prev_scores = None
 
     def forward(
@@ -746,9 +757,7 @@ class LyapunovAnomalyLoss(nn.Module):
 def create_mercury_optimizer(
     params: Any, variant: str = "base", lr: float = 0.001, **kwargs: Any
 ) -> optim.Optimizer:
-    """
-    Factory function to create Mercury optimizer variants
-    """
+    """Factory function to create Mercury optimizer variants."""
     if variant == "base":
         return MercuryOptimizer(params, lr=lr, **kwargs)
     elif variant == "momentum":
@@ -767,7 +776,7 @@ class AnomalyDataset(
         | tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]
     ]
 ):
-    """Dataset for anomaly detection training"""
+    """Dataset for anomaly detection training."""
 
     def __init__(
         self,
@@ -847,6 +856,7 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         self.save_hyperparameters(ignore=["model"])
 
     def forward(self, detector_features: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        """Forward."""
         result: dict[str, torch.Tensor] = self.model(detector_features, return_attention=True)
         return result
 
@@ -855,6 +865,7 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         batch: tuple[dict[str, torch.Tensor], torch.Tensor],
         batch_idx: int,
     ) -> torch.Tensor:
+        """Training step."""
         features, labels = batch
 
         outputs = self.forward(features)
@@ -887,6 +898,7 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         batch: tuple[dict[str, torch.Tensor], torch.Tensor],
         batch_idx: int,
     ) -> None:
+        """Validation step."""
         features, labels = batch
 
         outputs = self.forward(features)
@@ -914,6 +926,7 @@ class FusionTrainer(_LightningBase):  # type: ignore[misc, valid-type]
         self.log("val_accuracy", accuracy)
 
     def configure_optimizers(self) -> dict[str, Any]:
+        """Configure optimizers."""
         optimizer_type = getattr(self, "optimizer_type", "adamw")
 
         if optimizer_type.startswith("ava_"):

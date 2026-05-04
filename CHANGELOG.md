@@ -17,6 +17,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Anomaly Detection
+
+- **21-probe Anomaly Math Arrest is the dominant path** (Phase 2 ITEM
+  2). End-to-end audit confirms `AnomalyMathArrest` registers all 21
+  mathematically-independent probes and discriminates injected
+  anomalies across `earthquake` / `tsunami` / `pandemic` / `marine` /
+  `geomagnetic` / `default` domain-affinity orderings. No live
+  `IsolationForest` import or instantiation remains in `src/` — the
+  only references are documentation strings explaining what the
+  ensemble replaced. Regression suite:
+  `tests/detectors/test_math_arrest_dominant_path.py` (11 tests).
+  ROADMAP cross-cutting "21-probe Anomaly Math Arrest ensemble" row
+  flips to Functional.
+
+### GOSNN Placeholders
+
+- **`gosnn_optimizer.optimize` no longer fabricates random attention
+  tensors** (Phase 2 ITEM 3). The previous `rng.standard_normal((32,
+  16, 16))` fallback is deleted. When no `AttentionProvider` is
+  configured (or the configured one raises), the attention-overhead
+  metric is *skipped* and that fact is surfaced in
+  `OptimizationResult.recommendations`. Real tensors flow only via
+  `AttentionProvider.get_attention`.
+- **Conformal-prediction failures propagate** in
+  `GOSNNIntegration.detect`. The blanket
+  `except (ValueError, RuntimeError, AttributeError)` that left
+  `confidence_intervals=None` is gone — callers now see the underlying
+  exception. Regression: `tests/core/test_gosnn_placeholder_cures.py`.
+
+### Distributed Processing
+
+- **Native pure-stdlib TCP MessageTransport for Raft** (Phase 2 ITEM
+  4). New `omni_mercury_engine.distributed.tcp_transport`:
+  `asyncio.start_server` + length-prefixed binary frames + per-message
+  Ed25519 signatures via Mercury's own AMA Cryptography surface. No
+  third-party RPC framework, no protobuf, no msgpack, no zeromq — the
+  wire format is Mercury's own. The five `NotImplementedError` sites
+  in `raft_consensus.py` are gone; `RaftCluster(use_in_memory_transport=False)`
+  now constructs real network nodes. Integration test
+  `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects`
+  spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and
+  confirms re-election. ROADMAP "Distributed Processing" row flips to
+  Functional.
+
+### Cryptography
+
+- **AMA Cryptography Known-Answer Tests + measured coverage** (Phase
+  2 ITEM 5). New `tests/security/test_ama_kat.py` pins:
+  - Ed25519 RFC 8032 §7.1 vectors bit-for-bit (always run).
+  - ML-DSA-65 / Kyber-1024 / SPHINCS+ round-trips and ML-DSA
+    deterministic-signing reproducibility (run when AMA's PQC
+    backend is installed; skip — never silently pass — otherwise).
+  The `pqc-production-check.yml` workflow runs the KATs on every PR
+  and publishes a coverage XML for `crypto_api.py` + `pqc_backends.py`
+  + `pqc_guards.py` as the `pqc-coverage` artifact. README PQC
+  section now cites the in-repo evidence rather than external-audit
+  framing.
+
+### TODO / FIXME Discipline
+
+- **Inline markers restored** for unresolved findings from
+  `docs/COMPREHENSIVE_REPO_AUDIT.md` (Phase 2 ITEM 6). High-impact
+  cited lines now carry
+  `# TODO(audit-2026-03, severity=critical|high|medium|low):` markers
+  at the cited locations
+  (`core/ai_ethics.py:139,141`, `core/ethical_governor.py:209-210`,
+  `core/three_r/fusion.py:91`). Findings closed by Phase 2 (GOSNN
+  attention placeholder, GOSNN dead `_fusion`, conformal silent
+  failure, ethics-decision-boundary advisory mode) are marked
+  **CLOSED** in the audit doc with citations to the regression
+  suites. `CONTRIBUTING.md` codifies the rule going forward: every
+  new `TODO` / `FIXME` MUST include a severity tag and a citing
+  reference.
+
+### Ethics
+
+- **Hard ethics enforcement at the decision boundary** (Phase 2 audit
+  cure, May 2026). Every top-level inference path now raises
+  `EthicalViolation` (re-exported from
+  `omni_mercury_engine.cognitive.ethical_bounding.EthicalConstraintViolationError`)
+  on benevolence-threshold violation, replacing the prior
+  logger.warning / `ethical_violations`-list / `strict_ethics`-flag
+  advisory paths. Boundary surfaces:
+  - `CognitiveOrchestrator.analyze` raises with `check="benevolence"`
+    when the per-analysis benevolence score falls below the scorer's
+    threshold. The `strict_ethics=False` constructor argument is
+    deprecated and ignored — passing `False` emits a
+    `DeprecationWarning` and the gate still fires.
+  - `NeuroSymbolicHub.predict` raises with `check="benevolence"` for
+    any sample whose computed benevolence is below
+    `benevolence_threshold` (replaces the prior
+    `result.ethical_compliant=False` advisory return).
+  - `OmniMercuryEngine.detect_with_fusion` (and the `_calibrated`
+    variant) raises with `check="benevolence"` via a per-engine
+    `BenevolenceScorer.enforce` call against an action description
+    rich in defensive-purpose keywords.  The boundary scorer is
+    constructed eagerly at engine init so the first concurrent call
+    cannot race the gate.  σ_Immutable is now trained (99.6% val_acc
+    on a labelled scalar-vector corpus; weights persisted at
+    `src/omni_mercury_engine/security/sigma_immutable_weights.pt`)
+    and `EthicalGate.evaluate` gates its torch path on
+    `self._trained`.  At the engine boundary σ_Immutable remains
+    *informational* in `result["gosnn_metadata"]` — the only hard
+    enforcement gate is `BenevolenceScorer.enforce`.  Promotion of
+    σ_Immutable to a second hard gate (and raising of
+    `EthicalConstraintViolationError` with `check="sigma_immutable"`
+    or `check="gosnn_unavailable"`) is deferred to a follow-up PR;
+    those `check` field values are reserved in the exception schema
+    but are not raised by any code path on the merge tip.  The
+    previous "fall back to `ethical_gate_passed=True` if GOSNN
+    errors" path is deleted.
+  Decision-boundary contract documented in
+  `src/omni_mercury_engine/ethical/__init__.py`. New regression
+  suite at `tests/ethical/test_hard_enforcement.py` (13 tests, wired
+  into the `Neuro-Symbolic Tests` CI job) makes a benevolence-threshold
+  regression a build-time failure. ROADMAP cross-cutting "Ethics
+  enforcement" row flips from Stubbed to Functional.
+
 ### Security
 
 - **Pickle code path removed from training pipeline.** The legacy

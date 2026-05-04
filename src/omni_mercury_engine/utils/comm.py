@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -38,7 +36,7 @@ if TYPE_CHECKING:
 
 
 class MessagePriority(Enum):
-    """Message priority levels"""
+    """Message priority levels."""
 
     LOW = 1
     NORMAL = 2
@@ -48,7 +46,7 @@ class MessagePriority(Enum):
 
 @dataclass
 class Message:
-    """Lightweight message structure"""
+    """Lightweight message structure."""
 
     sender: str
     recipient: str
@@ -58,7 +56,7 @@ class Message:
     message_id: str = field(default_factory=lambda: f"msg_{datetime.now().timestamp()}")
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert message to dictionary"""
+        """Convert message to dictionary."""
         return {
             "sender": self.sender,
             "recipient": self.recipient,
@@ -70,7 +68,7 @@ class Message:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Message:
-        """Create message from dictionary"""
+        """Create message from dictionary."""
         return cls(
             sender=data["sender"],
             recipient=data["recipient"],
@@ -82,9 +80,9 @@ class Message:
 
 
 class AsyncMessageQueue:
-    """
-    Asynchronous message queue for inter-process communication
-    Useful for distributed anomaly detection processing
+    """Asynchronous message queue for inter-process communication Useful for distributed anomaly
+
+    detection processing.
     """
 
     def __init__(self, max_size: int = 1000) -> None:
@@ -98,7 +96,7 @@ class AsyncMessageQueue:
 
     async def send(self, message: Message) -> bool:
         """
-        Send message to queue
+        Send message to queue.
 
         Args:
             message: Message to send
@@ -117,7 +115,7 @@ class AsyncMessageQueue:
 
     async def receive(self, timeout: float | None = None) -> Message | None:
         """
-        Receive message from queue
+        Receive message from queue.
 
         Args:
             timeout: Timeout in seconds
@@ -142,7 +140,7 @@ class AsyncMessageQueue:
 
     def register_handler(self, message_type: str, handler: Callable[..., Any]) -> None:
         """
-        Register handler for specific message type
+        Register handler for specific message type.
 
         Args:
             message_type: Type of message to handle
@@ -153,9 +151,9 @@ class AsyncMessageQueue:
         self.handlers[message_type].append(handler)
 
     async def process_messages(self) -> None:
-        """
-        Process messages using registered handlers
-        Run this in a background task for automatic processing
+        """Process messages using registered handlers Run this in a background task for automatic
+
+        processing.
         """
         while True:
             message = await self.receive()
@@ -178,14 +176,14 @@ class AsyncMessageQueue:
                         self.stats["errors"] += 1
 
     def get_stats(self) -> dict[str, int]:
-        """Get queue statistics"""
+        """Get queue statistics."""
         return self.stats.copy()
 
 
 class SimplePubSub:
-    """
-    Simple publish-subscribe pattern for event-driven communication
-    Useful for broadcasting anomaly detection results
+    """Simple publish-subscribe pattern for event-driven communication Useful for broadcasting
+
+    anomaly detection results.
     """
 
     def __init__(self) -> None:
@@ -193,7 +191,7 @@ class SimplePubSub:
 
     def subscribe(self, topic: str, callback: Callable[..., Any]) -> None:
         """
-        Subscribe to a topic
+        Subscribe to a topic.
 
         Args:
             topic: Topic name
@@ -205,7 +203,7 @@ class SimplePubSub:
 
     def unsubscribe(self, topic: str, callback: Callable[..., Any]) -> None:
         """
-        Unsubscribe from a topic
+        Unsubscribe from a topic.
 
         Args:
             topic: Topic name
@@ -216,7 +214,7 @@ class SimplePubSub:
 
     def publish(self, topic: str, message: Any) -> None:
         """
-        Publish message to topic
+        Publish message to topic.
 
         Args:
             topic: Topic name
@@ -232,7 +230,7 @@ class SimplePubSub:
 
     async def publish_async(self, topic: str, message: Any) -> None:
         """
-        Asynchronously publish message to topic
+        Asynchronously publish message to topic.
 
         Args:
             topic: Topic name

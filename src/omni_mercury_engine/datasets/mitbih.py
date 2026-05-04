@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 MIT-BIH Arrhythmia Database Loader
 
@@ -86,7 +85,8 @@ NORMAL_SYMBOLS = {"N", "L", "R", "e", "j"}
 
 
 class MITBIHLoader(DatasetLoader):
-    """MIT-BIH Arrhythmia Database loader.
+    """
+    MIT-BIH Arrhythmia Database loader.
 
     Downloads 48 half-hour ECG recordings from PhysioNet. Each recording
     has cardiologist-annotated beat labels. Non-normal beats are labeled
@@ -116,7 +116,8 @@ class MITBIHLoader(DatasetLoader):
         self.segment_length = config.preprocessing.get("segment_length", 360)
 
     def download(self) -> bool:
-        """Download MIT-BIH records via wfdb.
+        """
+        Download MIT-BIH records via wfdb.
 
         Raises:
             DataSourceUnavailableError: If wfdb is not installed or download fails.
@@ -215,6 +216,7 @@ class MITBIHLoader(DatasetLoader):
         return ((data - mean) / std).astype(np.float32)
 
     def get_metadata(self) -> dict[str, Any]:
+        """Get metadata."""
         features, labels = self.load()
         return {
             "name": "MIT-BIH Arrhythmia Database",

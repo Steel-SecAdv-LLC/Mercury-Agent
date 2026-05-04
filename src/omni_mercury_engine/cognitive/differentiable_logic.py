@@ -159,15 +159,19 @@ class ProductTNorm(DifferentiableTNorm):
     """Product t-norm for smooth gradients."""
 
     def conjunction(self, a: float, b: float) -> float:
+        """Conjunction."""
         return a * b
 
     def disjunction(self, a: float, b: float) -> float:
+        """Disjunction."""
         return a + b - a * b
 
     def negation(self, a: float) -> float:
+        """Negation."""
         return 1.0 - a
 
     def implication(self, a: float, b: float) -> float:
+        """Implication."""
         return min(1.0, b / (a + 1e-8))
 
 
@@ -175,15 +179,19 @@ class LukasiewiczTNorm(DifferentiableTNorm):
     """Lukasiewicz t-norm for probabilistic semantics."""
 
     def conjunction(self, a: float, b: float) -> float:
+        """Conjunction."""
         return max(0.0, a + b - 1.0)
 
     def disjunction(self, a: float, b: float) -> float:
+        """Disjunction."""
         return min(1.0, a + b)
 
     def negation(self, a: float) -> float:
+        """Negation."""
         return 1.0 - a
 
     def implication(self, a: float, b: float) -> float:
+        """Implication."""
         return min(1.0, 1.0 - a + b)
 
 
@@ -191,15 +199,19 @@ class GodelTNorm(DifferentiableTNorm):
     """Godel t-norm (minimum/maximum)."""
 
     def conjunction(self, a: float, b: float) -> float:
+        """Conjunction."""
         return min(a, b)
 
     def disjunction(self, a: float, b: float) -> float:
+        """Disjunction."""
         return max(a, b)
 
     def negation(self, a: float) -> float:
+        """Negation."""
         return 1.0 if a == 0.0 else 0.0
 
     def implication(self, a: float, b: float) -> float:
+        """Implication."""
         return 1.0 if a <= b else b
 
 
@@ -224,6 +236,7 @@ if TORCH_AVAILABLE:
             )
 
         def forward(self, predicate_ids: torch.Tensor) -> torch.Tensor:
+            """Forward."""
             embedded = self.embedding(predicate_ids)
             encoded = self.encoder(embedded)
             return F.normalize(encoded, p=2, dim=-1)
@@ -268,7 +281,8 @@ if TORCH_AVAILABLE:
             head_embedding: torch.Tensor,
             rule_mask: torch.Tensor | None = None,
         ) -> tuple[torch.Tensor, torch.Tensor]:
-            """Apply rules differentiably.
+            """
+            Apply rules differentiably.
 
             Args:
                 body_embeddings: [batch, n_body_atoms, embed_dim]
@@ -361,7 +375,8 @@ if TORCH_AVAILABLE:
             knowledge_base: torch.Tensor,
             max_steps: int | None = None,
         ) -> tuple[torch.Tensor, list[torch.Tensor]]:
-            """Prove a goal using differentiable backward chaining.
+            """
+            Prove a goal using differentiable backward chaining.
 
             Args:
                 goal: [batch, n_goals, predicate_dim] - Goals to prove
@@ -459,7 +474,8 @@ if TORCH_AVAILABLE:
             intervention: torch.Tensor,
             context: torch.Tensor,
         ) -> torch.Tensor:
-            """Predict outcome under intervention.
+            """
+            Predict outcome under intervention.
 
             Args:
                 original_fact: Original fact embedding
@@ -476,10 +492,11 @@ if TORCH_AVAILABLE:
 
 
 class DifferentiableLogicEngine:
-    """Main engine for differentiable logic programming.
+    """
+    Main engine for differentiable logic programming.
 
-    Combines neural network components with symbolic reasoning
-    for end-to-end differentiable inference.
+    Combines neural network components with symbolic reasoning for end-to-end differentiable
+    inference.
     """
 
     def __init__(
@@ -575,7 +592,8 @@ class DifferentiableLogicEngine:
         confidence: float = 0.9,
         learnable: bool = True,
     ) -> DifferentiableRule:
-        """Add a differentiable rule.
+        """
+        Add a differentiable rule.
 
         Args:
             head: (predicate_name, arguments) for rule head
@@ -650,7 +668,8 @@ class DifferentiableLogicEngine:
         max_depth: int | None = None,
         include_counterfactuals: bool = False,
     ) -> InferenceResult:
-        """Perform differentiable inference on a query.
+        """
+        Perform differentiable inference on a query.
 
         Args:
             query: (predicate_name, arguments) to prove
@@ -923,7 +942,8 @@ class DifferentiableLogicEngine:
         expected_probability: float,
         learning_rate: float = 0.01,
     ) -> dict[str, float]:
-        """Active learning: adjust rule weights from user feedback.
+        """
+        Active learning: adjust rule weights from user feedback.
 
         Args:
             query: Query that was evaluated

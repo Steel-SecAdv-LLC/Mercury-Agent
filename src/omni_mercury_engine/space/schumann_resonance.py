@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -81,7 +79,7 @@ _NNBase: type = nn.Module if TORCH_AVAILABLE else object  # type: ignore[assignm
 
 @dataclass
 class SchumannAnomalyResult:
-    """Result from Schumann resonance anomaly detection"""
+    """Result from Schumann resonance anomaly detection."""
 
     anomaly_detected: bool
     anomaly_type: str
@@ -107,8 +105,7 @@ class SchumannHarmonicAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
     """
     Neural network for Schumann harmonic pattern analysis.
 
-    Uses 1D CNN + LSTM for temporal ELF spectrum analysis with golden ratio
-    optimized filter banks.
+    Uses 1D CNN + LSTM for temporal ELF spectrum analysis with golden ratio optimized filter banks.
     """
 
     def __init__(self, spectrum_size: int = 512) -> None:
@@ -183,8 +180,8 @@ class SchumannResonanceDetector:
     """
     Schumann Resonance Anomaly Detector.
 
-    Monitors Earth-ionosphere electromagnetic cavity resonances for anomalies
-    that may correlate with seismic, climate, or space weather events.
+    Monitors Earth-ionosphere electromagnetic cavity resonances for anomalies that may correlate
+    with seismic, climate, or space weather events.
     """
 
     def __init__(
@@ -232,7 +229,8 @@ class SchumannResonanceDetector:
 
     @property
     def fundamental_freq(self) -> float:
-        """Return the fundamental Schumann resonance frequency (~7.83 Hz).
+        """
+        Return the fundamental Schumann resonance frequency (~7.83 Hz).
 
         The fundamental frequency of the Earth-ionosphere cavity resonance.
         This is the first mode of the Schumann resonances.
@@ -246,9 +244,8 @@ class SchumannResonanceDetector:
         """
         Initialize ancient knowledge correlations.
 
-        Ancient civilizations observed natural cycles that correlate with
-        electromagnetic phenomena. This establishes symbolic connections
-        for neurosymbolic reasoning.
+        Ancient civilizations observed natural cycles that correlate with electromagnetic phenomena.
+        This establishes symbolic connections for neurosymbolic reasoning.
         """
         return {
             "solar_cycles": {
@@ -391,7 +388,7 @@ class SchumannResonanceDetector:
     def _detect_fundamental(
         self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]
     ) -> tuple[float, float]:
-        """Detect fundamental Schumann resonance frequency"""
+        """Detect fundamental Schumann resonance frequency."""
         search_range = (frequencies >= 6.0) & (frequencies <= 10.0)
 
         search_spectrum = power_spectrum[search_range]
@@ -409,7 +406,7 @@ class SchumannResonanceDetector:
     def _analyze_harmonics(
         self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]
     ) -> list[float]:
-        """Analyze deviations in harmonic frequencies"""
+        """Analyze deviations in harmonic frequencies."""
         deviations = []
 
         for harmonic_freq in self.schumann_frequencies[1:]:
@@ -432,7 +429,7 @@ class SchumannResonanceDetector:
     def _detect_amplitude_anomaly(
         self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]
     ) -> bool:
-        """Detect amplitude anomalies in Schumann resonances"""
+        """Detect amplitude anomalies in Schumann resonances."""
         schumann_band = (frequencies >= 5.0) & (frequencies <= 40.0)
         schumann_power = power_spectrum[schumann_band]
 
@@ -451,7 +448,7 @@ class SchumannResonanceDetector:
     def _detect_spectrum_shift(
         self, power_spectrum: np.ndarray[Any, Any], frequencies: np.ndarray[Any, Any]
     ) -> bool:
-        """Detect significant shifts in power spectrum distribution"""
+        """Detect significant shifts in power spectrum distribution."""
         low_band = (frequencies >= 5.0) & (frequencies <= 15.0)
         high_band = (frequencies >= 15.0) & (frequencies <= 40.0)
 
@@ -470,7 +467,7 @@ class SchumannResonanceDetector:
     def _process_temporal_history(
         self, temporal_history: list[np.ndarray[Any, Any]]
     ) -> torch.Tensor:
-        """Process temporal history of spectra"""
+        """Process temporal history of spectra."""
         sequence_length = min(len(temporal_history), 10)
 
         temporal_spectra = np.zeros((1, sequence_length, 103), dtype=np.float32)
@@ -487,7 +484,7 @@ class SchumannResonanceDetector:
         harmonic_deviations: list[float],
         amplitude_anomaly: bool,
     ) -> list[str]:
-        """Correlate anomalies with potential geophysical events"""
+        """Correlate anomalies with potential geophysical events."""
         events = []
 
         if fundamental_deviation > 0.5:
@@ -509,7 +506,7 @@ class SchumannResonanceDetector:
     def _analyze_temporal_pattern(
         self, temporal_history: list[np.ndarray[Any, Any]]
     ) -> dict[str, Any]:
-        """Analyze temporal evolution of resonance patterns"""
+        """Analyze temporal evolution of resonance patterns."""
         if not temporal_history or len(temporal_history) < 2:
             return {}
 
@@ -532,7 +529,7 @@ class SchumannResonanceDetector:
     def _generate_recommendations(
         self, anomaly_type: str, risk_score: float, correlated_events: list[str]
     ) -> list[str]:
-        """Generate monitoring recommendations"""
+        """Generate monitoring recommendations."""
         recommendations = []
 
         if risk_score > 0.8:
@@ -560,7 +557,7 @@ class SchumannResonanceDetector:
         temporal_pattern: dict[str, Any] | None,
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        """Correlate with ancient astronomical/geophysical cycles"""
+        """Correlate with ancient astronomical/geophysical cycles."""
         correlations: dict[str, list[str]] = {
             "detected_cycles": [],
             "symbolic_significance": [],
@@ -588,7 +585,7 @@ class SchumannResonanceDetector:
         return correlations
 
     def extract_features(self, data: np.ndarray[Any, Any]) -> torch.Tensor:
-        """Extract features for ML fusion integration"""
+        """Extract features for ML fusion integration."""
         power, freqs = self._compute_power_spectrum(data)
 
         features = []
@@ -604,7 +601,7 @@ class SchumannResonanceDetector:
         return torch.tensor(features_array, dtype=torch.float32).unsqueeze(0)
 
     def predict(self, data: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict for engine integration"""
+        """Predict for engine integration."""
         result = self.detect_resonance_anomaly(data)
 
         return {

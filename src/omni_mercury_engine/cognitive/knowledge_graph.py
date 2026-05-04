@@ -1,11 +1,9 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 """
 
 from __future__ import annotations
@@ -135,6 +133,7 @@ class KnowledgeNode:
     cluster_id: int = -1  # Cluster assignment
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.node_id,
             "type": self.node_type.value,
@@ -163,6 +162,7 @@ class KnowledgeEdge:
     bidirectional: bool = False
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "source": self.source_id,
             "target": self.target_id,
@@ -184,6 +184,7 @@ class TraversalResult:
     total_confidence: float
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "path": self.path,
             "nodes": [n.to_dict() for n in self.nodes],
@@ -207,6 +208,7 @@ class OntologyClass:
     embedding: np.ndarray[Any, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "uri": self.uri,
             "name": self.name,
@@ -236,6 +238,7 @@ class OntologyProperty:
     embedding: np.ndarray[Any, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "uri": self.uri,
             "name": self.name,
@@ -582,8 +585,8 @@ class RandomWalkEmbedding:
     """
     Learn node embeddings via random walks (DeepWalk/Node2Vec inspired).
 
-    Uses truncated random walks to sample node context,
-    then learns embeddings via skip-gram with negative sampling.
+    Uses truncated random walks to sample node context, then learns embeddings via skip-gram with
+    negative sampling.
     """
 
     def __init__(

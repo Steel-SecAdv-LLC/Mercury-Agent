@@ -1,5 +1,6 @@
 """
 Mercury Agent - SHAP Explainability Integration
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -737,8 +738,7 @@ class AnomalyExplainer:
     """
     Unified anomaly detection explainer.
 
-    Combines multiple explainability methods for comprehensive
-    anomaly explanations.
+    Combines multiple explainability methods for comprehensive anomaly explanations.
     """
 
     def __init__(

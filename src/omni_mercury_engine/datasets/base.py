@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Base classes for real-world dataset loading and management.
 """
@@ -43,7 +42,8 @@ logger = logging.getLogger(__name__)
 
 
 def safe_urlretrieve(url: str, filename: str | Path) -> None:
-    """Safely download a file from a URL with scheme and domain validation.
+    """
+    Safely download a file from a URL with scheme and domain validation.
 
     Only allows https:// and http:// schemes to prevent file:// or other
     potentially dangerous URL schemes. For HTTPS URLs, validates against
@@ -159,6 +159,7 @@ class DatasetMetadata:
     preprocessing_applied: list[str]
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "name": self.name,
             "version": self.version,
@@ -175,7 +176,8 @@ class DatasetMetadata:
 
 
 class DatasetLoader(ABC):
-    """Abstract base class for dataset loaders.
+    """
+    Abstract base class for dataset loaders.
 
     All real-world dataset loaders inherit from this class.
     Provides standardized interface for:
@@ -193,7 +195,8 @@ class DatasetLoader(ABC):
     REQUIRES_CREDENTIALS: bool = False
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize dataset loader.
+        """
+        Initialize dataset loader.
 
         Args:
             config: Dataset configuration
@@ -213,7 +216,8 @@ class DatasetLoader(ABC):
 
     @abstractmethod
     def download(self) -> bool:
-        """Download dataset from source.
+        """
+        Download dataset from source.
 
         Returns:
             True if successful, False otherwise
@@ -222,7 +226,8 @@ class DatasetLoader(ABC):
 
     @abstractmethod
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load raw data from files.
+        """
+        Load raw data from files.
 
         Returns:
             Tuple of (features, labels)
@@ -231,7 +236,8 @@ class DatasetLoader(ABC):
 
     @abstractmethod
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Apply dataset-specific preprocessing.
+        """
+        Apply dataset-specific preprocessing.
 
         Args:
             data: Raw feature data
@@ -244,7 +250,8 @@ class DatasetLoader(ABC):
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Load dataset with specified split.
+        """
+        Load dataset with specified split.
 
         Args:
             split: Which split to return
@@ -372,7 +379,8 @@ class DatasetLoader(ABC):
         return self.data_path.exists() and any(self.data_path.iterdir())
 
     def get_metadata(self) -> DatasetMetadata | dict[str, Any]:
-        """Get dataset metadata.
+        """
+        Get dataset metadata.
 
         Returns:
             DatasetMetadata object or dict with metadata.
@@ -427,7 +435,8 @@ class DatasetLoader(ABC):
             yield features[i], labels[i]
 
     def to_pytorch_dataset(self, split: DatasetSplit = DatasetSplit.TRAIN) -> Any:
-        """Convert to PyTorch Dataset.
+        """
+        Convert to PyTorch Dataset.
 
         Args:
             split: Which split to convert
@@ -460,7 +469,8 @@ class DatasetLoader(ABC):
         shuffle: bool = True,
         num_workers: int = 0,
     ) -> Any:
-        """Get PyTorch DataLoader.
+        """
+        Get PyTorch DataLoader.
 
         Args:
             split: Which split to use

@@ -1,5 +1,6 @@
 """
 Mercury Agent - Concept Drift Evaluation Framework
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -80,10 +81,12 @@ class TemporalSplit:
 
     @property
     def train_size(self) -> int:
+        """Train size."""
         return self.train_end - self.train_start
 
     @property
     def test_size(self) -> int:
+        """Test size."""
         return self.test_end - self.test_start
 
 

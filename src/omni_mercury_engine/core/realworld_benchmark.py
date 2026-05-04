@@ -1,5 +1,6 @@
 """
 Mercury Agent - Real-World Benchmark Runner
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -664,9 +665,14 @@ class RealWorldBenchmarkRunner:
         y_true: np.ndarray,
         y_pred: np.ndarray,
     ) -> tuple[float, float]:
-        """Compute event-based F1 and time-to-detection."""
+        """Compute event-based F1 and time-to-detection.
 
-        # Extract events
+        Extracts contiguous-1 runs from each label sequence and scores
+        them as events; reports event-level F1 plus the average sample
+        delay between the start of a true event and the first predicted
+        positive inside it.
+        """
+
         def get_events(arr: np.ndarray) -> list[tuple[int, int]]:
             events: list[tuple[int, int]] = []
             in_event = False

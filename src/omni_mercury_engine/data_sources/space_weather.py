@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -133,10 +132,12 @@ class NASADONKISource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "nasa_donki"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [
             DataSourceType.SOLAR_FLARE,
             DataSourceType.CME,
@@ -427,7 +428,8 @@ class NASANeoWsSource(DataSourceBase):
         days_forward: int = 7,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """Initialize NASA NeoWs data source.
+        """
+        Initialize NASA NeoWs data source.
 
         Args:
             api_key: NASA API key
@@ -449,10 +451,12 @@ class NASANeoWsSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "nasa_neows"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.NEAR_EARTH_OBJECT]
 
     def _calculate_hazard_level(self, neo: dict[str, Any]) -> AlertLevel:
@@ -654,10 +658,12 @@ class NOAASWPCSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "noaa_swpc"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [
             DataSourceType.SOLAR_WIND,
             DataSourceType.GEOMAGNETIC_STORM,
@@ -1036,10 +1042,12 @@ class NASAEONETSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "nasa_eonet"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.NATURAL_EVENT]
 
     def _category_to_alert_level(self, category: str, geometry: list[Any]) -> AlertLevel:
@@ -1188,10 +1196,12 @@ class SolarSystemOpenDataSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "solar_system_opendata"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.CELESTIAL_BODY]
 
     async def _fetch_impl(

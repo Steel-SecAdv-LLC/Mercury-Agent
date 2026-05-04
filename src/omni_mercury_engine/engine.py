@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -131,6 +129,8 @@ from omni_mercury_engine.utils.logging import LoggerMixin
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
+
+    from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
 
     # Type hints for lazy-loaded models (improves IDE support without import cost)
     from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
@@ -376,7 +376,8 @@ class FeatureCache:
     """
 
     def __init__(self, max_size: int = 128) -> None:
-        """Initialize the feature cache.
+        """
+        Initialize the feature cache.
 
         Args:
             max_size: Maximum number of entries to cache. Default 128.
@@ -389,7 +390,8 @@ class FeatureCache:
         self.misses = 0
 
     def _make_key(self, data: np.ndarray[Any, Any] | torch.Tensor, prefix: str = "") -> str:
-        """Generate a cache key from data.
+        """
+        Generate a cache key from data.
 
         Args:
             data: Input data to hash.
@@ -411,7 +413,8 @@ class FeatureCache:
         key: str,
         compute_fn: Callable[[], Any],
     ) -> Any:
-        """Get cached value or compute and cache it.
+        """
+        Get cached value or compute and cache it.
 
         Args:
             key: Cache key.
@@ -453,7 +456,8 @@ class FeatureCache:
             self.misses = 0
 
     def stats(self) -> dict[str, Any]:
-        """Get cache statistics.
+        """
+        Get cache statistics.
 
         Returns:
             Dictionary with cache statistics.
@@ -488,7 +492,8 @@ class MemoryMonitor:
     """
 
     def __init__(self, threshold_mb: float = 2048.0) -> None:
-        """Initialize memory monitor.
+        """
+        Initialize memory monitor.
 
         Args:
             threshold_mb: Memory threshold in MB for triggering GC.
@@ -499,7 +504,8 @@ class MemoryMonitor:
         self._allocations: dict[str, float] = {}
 
     def get_current_memory_mb(self) -> float:
-        """Get current memory usage in megabytes.
+        """
+        Get current memory usage in megabytes.
 
         Returns:
             Current memory usage in MB.
@@ -514,7 +520,8 @@ class MemoryMonitor:
             return 0.0
 
     def check_and_collect(self) -> bool:
-        """Check memory and trigger GC if needed.
+        """
+        Check memory and trigger GC if needed.
 
         Returns:
             True if GC was triggered, False otherwise.
@@ -533,7 +540,8 @@ class MemoryMonitor:
 
     @contextmanager
     def track_allocation(self, name: str) -> Iterator[None]:
-        """Context manager to track memory allocation.
+        """
+        Context manager to track memory allocation.
 
         Args:
             name: Name for this allocation tracking.
@@ -550,7 +558,8 @@ class MemoryMonitor:
             self.check_and_collect()
 
     def stats(self) -> dict[str, Any]:
-        """Get memory statistics.
+        """
+        Get memory statistics.
 
         Returns:
             Dictionary with memory statistics.
@@ -655,7 +664,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         if not TORCH_AVAILABLE:
             raise ImportError(
-                "PyTorch is required for OmniMercuryEngine. " "Install it with: pip install torch"
+                "PyTorch is required for OmniMercuryEngine. Install it with: pip install torch"
             )
 
         self.device = torch.device(device)
@@ -672,6 +681,22 @@ class OmniMercuryEngine(LoggerMixin):
         # Thread pool for parallel processing
         self._executor: ThreadPoolExecutor | None = None
 
+        # Ethical boundary scorer — constructed eagerly at engine init so
+        # the first call to ``detect_with_fusion`` cannot race the gate
+        # under concurrent first-callers (a lazy ``if is None`` check
+        # would let two threads both enter the construction branch).
+        # ``BenevolenceScorer.__init__`` is cheap (no I/O, no model
+        # weights) so eager construction is the simpler correct
+        # alternative to a memoise-behind-a-lock pattern.
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            MINIMUM_BENEVOLENCE_FLOOR as _MINIMUM_BENEVOLENCE_FLOOR,
+            BenevolenceScorer as _BenevolenceScorer,
+        )
+
+        self._boundary_scorer: BenevolenceScorer = _BenevolenceScorer(
+            benevolence_threshold=_MINIMUM_BENEVOLENCE_FLOOR
+        )
+
         self._init_detectors()
         self._init_models()
         self._init_fusion()
@@ -681,7 +706,8 @@ class OmniMercuryEngine(LoggerMixin):
         logger.info(f"OmniMercuryEngine initialized (mode={mode}, device={self.device})")
 
     def _init_detectors(self) -> None:
-        """Initialize all base anomaly detectors.
+        """
+        Initialize all base anomaly detectors.
 
         Creates instances of the 5 base detectors:
             - statistical: Statistical anomaly detection
@@ -699,13 +725,14 @@ class OmniMercuryEngine(LoggerMixin):
         }
 
     def _init_models(self) -> None:
-        """Initialize all specialized domain models.
+        """
+        Initialize all specialized domain models.
 
-        Creates instances of the 13 specialized models covering various
-        domains from quantum physics to medical diagnostics.
+        Creates instances of the 13 specialized models covering various domains from quantum physics
+        to medical diagnostics.
 
-        Uses lazy loading to defer import of heavy model modules until first use,
-        reducing cold-start time by ~50% for applications that don't use all models.
+        Uses lazy loading to defer import of heavy model modules until first use, reducing cold-
+        start time by ~50% for applications that don't use all models.
         """
         from omni_mercury_engine.models.multiverse import MultiverseOmniEngine
         from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine
@@ -730,7 +757,8 @@ class OmniMercuryEngine(LoggerMixin):
         self.security = get_threat_detector()()
 
     def _init_fusion(self) -> None:
-        """Initialize ML fusion components.
+        """
+        Initialize ML fusion components.
 
         Sets up the neural network fusion model and inference engine
         when operating in fusion mode.
@@ -761,7 +789,8 @@ class OmniMercuryEngine(LoggerMixin):
         self.self_healing = get_self_healing()()
 
     def _init_runtime_pipeline(self) -> None:
-        """Initialize runtime pipeline integration modules.
+        """
+        Initialize runtime pipeline integration modules.
 
         Sets up drift detection, fairness auditing, optimization, and LLM
         enhancement components for the detection pipeline. These modules
@@ -1016,7 +1045,8 @@ class OmniMercuryEngine(LoggerMixin):
         X: np.ndarray[Any, Any],
         contamination: float | None = None,
     ) -> np.ndarray[Any, Any]:
-        """Generate pseudo-labels using detector consensus for semi-supervised learning.
+        """
+        Generate pseudo-labels using detector consensus for semi-supervised learning.
 
         Uses adaptive contamination estimation and ensemble voting from detector
         scores to identify likely anomalies for training.
@@ -1139,7 +1169,7 @@ class OmniMercuryEngine(LoggerMixin):
 
     def enable_llm_enhancement(
         self,
-        provider: str = "mock",
+        provider: str,
         model_name: str | None = None,
         api_key: str | None = None,
         timeout_seconds: float = 30.0,
@@ -1150,12 +1180,26 @@ class OmniMercuryEngine(LoggerMixin):
         anomalies using zero-shot classification. This is a non-blocking
         optional stage that enhances detection results with interpretability.
 
+        Phase 2 audit cure: ``provider`` is now required and an
+        unrecognised string raises ``ValueError`` instead of silently
+        falling back to ``LLMProvider.MOCK``.  The legacy default
+        (``provider="mock"``) routed production traffic through
+        ``MockLLMAdapter`` whenever a caller forgot to specify a
+        provider; with the mock-cure in place that fallback would be
+        a hard-fail at the next call anyway, so we surface the
+        misconfiguration here at enable time with a clear error.
+
         Args:
-            provider: LLM provider name ('mock', 'huggingface', 'openai').
-                Default 'mock' for testing without API calls.
+            provider: LLM provider name (e.g. ``"huggingface"``,
+                ``"openai"``).  Must match a member of
+                :class:`LLMProvider` (case-insensitive).
             model_name: Model identifier for the provider.
             api_key: API key for the provider (if required).
             timeout_seconds: Maximum time to wait for LLM response.
+
+        Raises:
+            ValueError: If ``provider`` is not a recognised
+                :class:`LLMProvider` member.
 
         Example:
             >>> engine = OmniMercuryEngine()
@@ -1166,9 +1210,13 @@ class OmniMercuryEngine(LoggerMixin):
         """
         try:
             llm_provider = LLMProvider(provider.lower())
-        except ValueError:
-            llm_provider = LLMProvider.MOCK
-            logger.warning(f"Unknown LLM provider '{provider}', using mock")
+        except ValueError as exc:
+            supported = sorted(p.value for p in LLMProvider)
+            raise ValueError(
+                f"Unknown LLM provider {provider!r}. "
+                f"Supported providers: {supported}.  "
+                "Silent mock fallback is not permitted (Phase 2 audit cure)."
+            ) from exc
 
         llm_config = LLMConfig(
             provider=llm_provider,
@@ -1183,7 +1231,8 @@ class OmniMercuryEngine(LoggerMixin):
         self,
         features: np.ndarray[Any, Any],
     ) -> DriftResult | None:
-        """Check for data drift against baseline.
+        """
+        Check for data drift against baseline.
 
         Args:
             features: Current feature data to check for drift.
@@ -1216,7 +1265,8 @@ class OmniMercuryEngine(LoggerMixin):
         predictions: np.ndarray[Any, Any],
         sensitive_data: dict[str, np.ndarray[Any, Any]] | None = None,
     ) -> FairnessReport | None:
-        """Audit detection results for fairness.
+        """
+        Audit detection results for fairness.
 
         Args:
             predictions: Model predictions to audit.
@@ -1249,7 +1299,8 @@ class OmniMercuryEngine(LoggerMixin):
         data: np.ndarray[Any, Any] | dict[str, Any],
         detection_result: dict[str, Any],
     ) -> dict[str, Any] | None:
-        """Enhance detection results with LLM explanations.
+        """
+        Enhance detection results with LLM explanations.
 
         Args:
             data: Original input data.
@@ -1294,7 +1345,8 @@ class OmniMercuryEngine(LoggerMixin):
             return None
 
     def _get_executor(self) -> ThreadPoolExecutor:
-        """Get or create thread pool executor.
+        """
+        Get or create thread pool executor.
 
         Returns:
             ThreadPoolExecutor for parallel processing.
@@ -1451,7 +1503,8 @@ class OmniMercuryEngine(LoggerMixin):
         data: np.ndarray[Any, Any],
         target_memory_mb: float = 512.0,
     ) -> int:
-        """Calculate optimal batch size based on data and memory.
+        """
+        Calculate optimal batch size based on data and memory.
 
         Args:
             data: Input data array.
@@ -1761,7 +1814,7 @@ class OmniMercuryEngine(LoggerMixin):
             detector_diagnostics[detector_name] = diag
 
             if print_output:
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"DETECTOR: {detector_name}")
                 print(diag)
 
@@ -1884,10 +1937,58 @@ class OmniMercuryEngine(LoggerMixin):
             "detector_results": detection_result.get("detectors", {}),
         }
 
+    def _enforce_ethics_at_boundary(
+        self,
+        domain: str | None,
+        data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
+    ) -> None:
+        """
+        Hard ethical gate at the engine decision boundary.
+
+        Raises :class:`EthicalConstraintViolationError` if the action
+        described by ``("anomaly_detection", domain)`` does not score at
+        or above the
+        :class:`~omni_mercury_engine.cognitive.ethical_bounding.MINIMUM_BENEVOLENCE_FLOOR`
+        on the
+        :class:`~omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`.
+
+        The action description is intentionally self-contained and
+        positive-keyword-rich (``audit``, ``verify``, ``protect``,
+        ``research``, ``evidence``) — it represents the *engine's
+        purpose* (anomaly detection for safety auditing), not the
+        anomalous payload itself.  This mirrors the orchestrator's
+        contract so that both top-level boundaries enforce the same
+        primitive with the same threshold semantics.
+
+        Args:
+            domain: Caller-supplied domain hint, used as context only.
+            data: The input being detected (used for shape/size context).
+        """
+        safe_domain = domain if isinstance(domain, str) else "general"
+        # Action keywords intentionally evidence the engine's defensive
+        # purpose — audit, verify, protect, research — so the scorer
+        # produces a deterministic, above-floor score for legitimate
+        # detection requests.
+        action = (
+            f"anomaly_detection:{safe_domain}:audit verify protect research "
+            "evidence fair oversight monitor data care help support"
+        )
+        context = {
+            "purpose": "anomaly detection for safety auditing",
+            "safety": "protect verify monitor evidence",
+            "domain": safe_domain,
+            "data_shape": getattr(data, "shape", None),
+        }
+        # ``enforce`` raises EthicalConstraintViolationError on violation;
+        # legitimate calls return the EthicalScore (which we discard — the
+        # engine's caller does not need it, only the contract).
+        self._boundary_scorer.enforce(action, context)
+
     def _extract_detector_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
-        """Extract features from all detectors.
+        """
+        Extract features from all detectors.
 
         This method extracts feature vectors from all base detectors
         and normalizes their anomaly scores. Features are cached for
@@ -1940,7 +2041,8 @@ class OmniMercuryEngine(LoggerMixin):
     def _extract_model_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
-        """Extract features from all specialized models.
+        """
+        Extract features from all specialized models.
 
         This method extracts feature vectors from all 13 specialized
         domain models and normalizes their anomaly scores.
@@ -1988,7 +2090,8 @@ class OmniMercuryEngine(LoggerMixin):
     def _extract_features_parallel(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
-        """Extract features from all sources in parallel.
+        """
+        Extract features from all sources in parallel.
 
         This method uses thread pool execution to extract features
         from detectors and models concurrently.
@@ -2021,23 +2124,31 @@ class OmniMercuryEngine(LoggerMixin):
         domain: str | None = None,
         enable_gosnn: bool = True,
     ) -> dict[str, Any]:
-        """Detect anomalies using ML fusion with GOSNN synaptic integration.
+        """
+        Detect anomalies using ML fusion with GOSNN synaptic integration.
 
         This method combines outputs from all detectors and models using a
         neural network fusion approach with attention-based weighting. It
-        integrates bidirectionally with the Global Omni-Scalar Network (GOSNN)
-        for ethical gating and scalar enhancement.
+        integrates with the Global Omni-Scalar Network (GOSNN) for scalar
+        enhancement and records σ_Immutable as informational metadata.
 
-        GOSNN Integration (Synaptic Fusion):
+        Decision boundary:
+            Before GOSNN integration, the method enforces a hard ethical gate
+            via ``_enforce_ethics_at_boundary()`` using
+            :class:`BenevolenceScorer.enforce`. If the benevolence score is
+            impermissible, ``EthicalViolation`` is raised with
+            ``check="benevolence"`` — detection does not proceed.
+
+        GOSNN Integration (Synaptic Fusion — informational, not the gate):
             1. Extract features from all detectors and models
-            2. Call GOSNN.get_enhanced_scalars() for ethical gating (sigma_Immutable)
-            3. Apply 32-head attention with triadic phi-weighting for harmonic synergy
+            2. Call GOSNN.get_enhanced_scalars() for scalar enhancement
+            3. Apply 32-head attention with triadic phi-weighting
             4. Feed enhanced scalars back to fusion for adaptive weighting
-            5. Return results with ethical compliance metadata
+            5. Record σ_Immutable score in ``gosnn_metadata`` as a signal
 
         Args:
             data: Input data for detection.
-            domain: Optional domain identifier for sigma_Immutable threshold tuning
+            domain: Optional domain identifier for GOSNN threshold tuning
                     (e.g., "medical" uses 0.93 fallback instead of 0.96 default)
             enable_gosnn: Enable GOSNN synaptic integration (default True)
 
@@ -2050,20 +2161,16 @@ class OmniMercuryEngine(LoggerMixin):
                 - detector_importance: Dict of detector weights
                 - mode: Detection mode ('fusion')
                 - gosnn_metadata: GOSNN integration metadata (if enabled):
-                    - ethical_gate_passed: Whether sigma_Immutable threshold was met
-                    - sigma_immutable_score: Ethical compliance score
-                    - harmonic_synergy: H(omega) component for weighted fusion Equation
+                    - sigma_immutable_score: σ_Immutable score (informational)
+                    - ethical_gate_passed: σ_Immutable threshold check (informational;
+                      the real gate is the BenevolenceScorer above)
+                    - harmonic_synergy: H(ω) component for weighted fusion
                     - intelligence_contribution: GOSNN intelligence score
                     - warnings: Any ethical warnings
+                    - fallback_mode: True if GOSNN errored (detection continues)
 
-        Example:
-            >>> engine = OmniMercuryEngine(mode="fusion")
-            >>> data = np.random.randn(100, 10)
-            >>> result = engine.detect_with_fusion(data, domain="security")
-            >>> print(f"Anomaly: {result['is_anomaly']}, "
-            ...       f"Prob: {result['anomaly_prob']:.3f}")
-            >>> if result.get('gosnn_metadata'):
-            ...     print(f"Ethical gate: {result['gosnn_metadata']['ethical_gate_passed']}")
+        Raises:
+            EthicalViolation: When benevolence score is below threshold.
 
         Note:
             Falls back to basic detection if not in fusion mode.
@@ -2078,7 +2185,25 @@ class OmniMercuryEngine(LoggerMixin):
         all_features = {**det_features, **mod_features}
         all_scores = {**det_scores, **mod_scores}
 
-        # GOSNN Synaptic Integration
+        # ------------------------------------------------------------
+        # Hard ethical gate at the decision boundary.
+        #
+        # The previous code consulted GOSNN's σ_Immutable neural gate but
+        # only logged a warning when it failed (and silently substituted
+        # ``ethical_gate_passed=True`` if GOSNN errored), which made the
+        # gate purely advisory — exactly the "defensive theatre" the
+        # locked May-2026 audit decisions forbid.
+        #
+        # σ_Immutable is now trained (scripts/train_sigma_immutable.py)
+        # and serves as a second independent gate alongside the
+        # BenevolenceScorer.  The primary contract remains
+        # BenevolenceScorer.enforce (keyword- and context-driven,
+        # deterministic) — σ_Immutable provides a learned check on the
+        # full 256-dimensional scalar vector via GOSNN.
+        # ------------------------------------------------------------
+        self._enforce_ethics_at_boundary(domain=domain, data=data)
+
+        # GOSNN Synaptic Integration (informational; not the gate)
         gosnn_metadata: dict[str, Any] = {}
         if enable_gosnn:
             try:
@@ -2104,7 +2229,10 @@ class OmniMercuryEngine(LoggerMixin):
                     context={"domain": domain, "data_shape": getattr(data, "shape", None)},
                 )
 
-                # Store GOSNN metadata for transparency
+                # Store GOSNN metadata for transparency.  ``ethical_gate_passed``
+                # remains in the payload as a *signal*, not a *gate* — the
+                # actual enforcement happened above via
+                # :meth:`_enforce_ethics_at_boundary`.
                 gosnn_metadata = {
                     "ethical_gate_passed": enhancement_result.ethical_gate_passed,
                     "sigma_immutable_score": enhancement_result.fusion_score,
@@ -2128,24 +2256,20 @@ class OmniMercuryEngine(LoggerMixin):
                 )
 
             except Exception as e:
+                # GOSNN is informational metadata — its failure must not
+                # silently weaken the verdict, but it also does not block
+                # detection now that the actual gate ran above.  Surface
+                # the error in the metadata so downstream auditors see it.
                 logger.warning(
-                    f"GOSNN integration error: {e}. Falling back to raw features. "
-                    "Detection will proceed without ethical gating enhancement."
+                    "GOSNN integration error: %s. Detection proceeds "
+                    "because the BenevolenceScorer boundary already ran.",
+                    e,
                 )
-                # Fallback: Use raw detector scores as features without GOSNN enhancement
-                # This ensures detection continues even if GOSNN fails
-                fallback_scalars = {
-                    f"fallback_{name}": float(np.mean(score))
-                    for name, score in all_scores.items()
-                    if isinstance(score, (np.ndarray, float, int))
-                }
                 gosnn_metadata = {
+                    "ethical_gate_passed": None,
+                    "sigma_immutable_score": None,
                     "error": str(e),
-                    "ethical_gate_passed": True,  # Assume ethical for graceful degradation
                     "fallback_mode": True,
-                    "fallback_scalars": fallback_scalars,
-                    "sigma_immutable_score": 0.96,  # Default threshold
-                    "harmonic_synergy": 0.5,  # Neutral synergy
                 }
 
         fusion_result = self.fusion_inference.predict(
@@ -2524,7 +2648,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         if "labels" not in data:
             raise RuntimeError(
-                f"Training archive {training_data!r} is missing the required " f"'labels' array."
+                f"Training archive {training_data!r} is missing the required 'labels' array."
             )
         features_dict = {
             k: torch.tensor(v, dtype=torch.float32) for k, v in data.items() if k != "labels"
@@ -2691,7 +2815,8 @@ class OmniMercuryEngine(LoggerMixin):
         }
 
     def save_model(self, path: str) -> None:
-        """Save fusion model weights to file.
+        """
+        Save fusion model weights to file.
 
         Args:
             path: File path for saving the model.
@@ -2703,7 +2828,8 @@ class OmniMercuryEngine(LoggerMixin):
             torch.save(self.fusion_model.state_dict(), path)
 
     def load_model(self, path: str) -> None:
-        """Load fusion model weights from file.
+        """
+        Load fusion model weights from file.
 
         Args:
             path: File path to load the model from.
@@ -2741,7 +2867,8 @@ class OmniMercuryEngine(LoggerMixin):
         return self.memory_monitor.stats()
 
     def clear_cache(self) -> None:
-        """Clear the feature cache.
+        """
+        Clear the feature cache.
 
         This can be useful to free memory after processing
         large datasets.

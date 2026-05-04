@@ -126,16 +126,31 @@ class TestCognitiveOrchestratorEthicalGate:
     """Tests for ethical gate wiring into CognitiveOrchestrator."""
 
     def test_analyze_includes_benevolence_score(self):
+        """analyze() always scores benevolence; the result exposes both
+        the score and the permissibility flag."""
+        import warnings
+
         from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
-        orchestrator = CognitiveOrchestrator(
-            enable_plasticity=False,
-            enable_causal=False,
-            enable_ipb=False,
-            enable_cbr=False,
-            enable_indicators=False,
-            strict_ethics=False,  # advisory mode for testing
-        )
+        # ``strict_ethics=False`` is deprecated and ignored — passing it
+        # must not silently disable the gate, only emit a warning.
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            orchestrator = CognitiveOrchestrator(
+                enable_plasticity=False,
+                enable_causal=False,
+                enable_ipb=False,
+                enable_cbr=False,
+                enable_indicators=False,
+                strict_ethics=False,
+            )
+            assert orchestrator.strict_ethics is True
+            assert any(
+                issubclass(w.category, DeprecationWarning)
+                and "strict_ethics=False" in str(w.message)
+                for w in captured
+            )
+
         result = orchestrator.analyze(
             detection_result={"is_anomaly": False, "anomaly_prob": 0.1, "severity": 0.1},
             context={"domain": "general"},

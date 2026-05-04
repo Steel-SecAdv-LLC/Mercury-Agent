@@ -1,5 +1,6 @@
 """
 Mercury Agent - GOSNN ↔ 3R Bidirectional Feedback Integration
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Implements bidirectional synaptic integration between:
@@ -98,8 +99,8 @@ class SlidingWindowNormalizer:
     """
     Sliding window normalization for time-series inputs.
 
-    Maintains running statistics and normalizes incoming data
-    based on recent history, adapting to non-stationary distributions.
+    Maintains running statistics and normalizes incoming data based on recent history, adapting to
+    non-stationary distributions.
     """
 
     def __init__(self, config: SlidingWindowConfig | None = None):
@@ -203,8 +204,12 @@ class SlidingWindowNormalizer:
 
         with self._lock:
             if self._n_samples < self.config.min_samples:
-                # Not enough data, return as-is
-                return data
+                raise RuntimeError(
+                    f"Sliding-window normalization requires at least "
+                    f"{self.config.min_samples} samples, but only "
+                    f"{self._n_samples} have been observed. "
+                    "Silent passthrough is not permitted (Phase 2 audit cure)."
+                )
 
             if self.config.normalization == "standard":
                 if self._mean is not None and self._std is not None:
@@ -218,7 +223,11 @@ class SlidingWindowNormalizer:
                 if self._median is not None and self._iqr is not None:
                     return (data - self._median) / self._iqr
 
-            return data
+            raise RuntimeError(
+                f"Sliding-window statistics for '{self.config.normalization}' "
+                "are not available despite sufficient samples. "
+                "Silent passthrough is not permitted (Phase 2 audit cure)."
+            )
 
     def normalize_with_ema(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
         """
@@ -750,8 +759,8 @@ class CrossDomainTransferManager:
     """
     Manages cross-domain transfer learning between GOSNN-3R integrations.
 
-    Pre-trains on high-data domains (Security, Space) then fine-tunes
-    on low-data domains (Medical, Humanitarian).
+    Pre-trains on high-data domains (Security, Space) then fine-tunes on low-data domains (Medical,
+    Humanitarian).
     """
 
     # Domain hierarchy for transfer (source → targets)

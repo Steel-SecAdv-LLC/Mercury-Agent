@@ -1,5 +1,6 @@
 """
 Mercury Agent - Conformal Prediction for Uncertainty Quantification
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -356,8 +357,8 @@ class ConformalAnomalyDetector:
     """
     Wrapper for anomaly detectors with conformal prediction.
 
-    Provides distribution-free uncertainty quantification for any
-    anomaly detector, with guaranteed coverage at specified level.
+    Provides distribution-free uncertainty quantification for any anomaly detector, with guaranteed
+    coverage at specified level.
     """
 
     def __init__(
@@ -449,7 +450,8 @@ class ConformalAnomalyDetector:
         return self
 
     def _get_anomaly_scores(self, X: np.ndarray) -> np.ndarray:
-        """Get anomaly scores from base detector with robust fallback cascade.
+        """
+        Get anomaly scores from base detector with robust fallback cascade.
 
         Implements a multi-strategy fallback mechanism to obtain continuous
         anomaly scores from any detector, regardless of its API.
@@ -528,7 +530,8 @@ class ConformalAnomalyDetector:
         return self._compute_ensemble_anomaly_scores(X)
 
     def _compute_ensemble_anomaly_scores(self, X: np.ndarray) -> np.ndarray:
-        """Compute anomaly scores using ensemble of statistical methods.
+        """
+        Compute anomaly scores using ensemble of statistical methods.
 
         Uses multiple lightweight statistical approaches to estimate
         anomaly likelihood when detector doesn't provide scores directly.
@@ -647,7 +650,8 @@ class ConformalAnomalyDetector:
         X_test: np.ndarray,
         y_test: np.ndarray,
     ) -> CoverageResult:
-        """Evaluate prediction accuracy on test set.
+        """
+        Evaluate prediction accuracy on test set.
 
         NOTE: Despite the name, this method measures overall classification
         accuracy (predictions == y_test), NOT the conformal coverage guarantee.
@@ -821,7 +825,8 @@ class MondrianConformalPredictor:
         group_ids: np.ndarray,
         alpha: float = 0.1,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Predict anomalies with per-group confidence intervals.
+        """
+        Predict anomalies with per-group confidence intervals.
 
         Returns predictions along with lower and upper confidence bounds
         on the anomaly scores, providing ``(1 - alpha)`` confidence
@@ -903,9 +908,8 @@ class ConformalCalibrationBridge:
     """
     Bridge between conformal prediction and the calibration pipeline.
 
-    Integrates conformal uncertainty quantification into the threshold
-    calibration process, providing distribution-free coverage guarantees
-    on top of calibrated thresholds.
+    Integrates conformal uncertainty quantification into the threshold calibration process,
+    providing distribution-free coverage guarantees on top of calibrated thresholds.
     """
 
     def __init__(
@@ -1098,7 +1102,8 @@ def _extract_detector_scores(detector: Any, X: np.ndarray) -> np.ndarray:
 
 
 def _compute_statistical_anomaly_scores(X: np.ndarray) -> np.ndarray:
-    """Compute anomaly scores using ensemble of statistical methods.
+    """
+    Compute anomaly scores using ensemble of statistical methods.
 
     Fallback when detector doesn't provide any scoring method.
 

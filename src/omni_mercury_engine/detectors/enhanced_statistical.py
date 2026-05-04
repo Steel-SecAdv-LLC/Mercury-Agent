@@ -1,7 +1,8 @@
-"""DEPRECATED: This module uses sklearn (LOF, DBSCAN, MinCovDet, NearestNeighbors)
-for anomaly detection. Mercury's production detector is MercuryAnomalyDetector
-in detectors/statistical.py. This module is retained for reference only and will
-be removed in a future release.
+"""
+DEPRECATED: This module uses sklearn (LOF, DBSCAN, MinCovDet, NearestNeighbors) for anomaly
+
+detection. Mercury's production detector is MercuryAnomalyDetector in detectors/statistical.py. This
+module is retained for reference only and will be removed in a future release.
 
 Do not import this module in production or benchmark code paths.
 
@@ -466,10 +467,11 @@ class MCDDetector:
         self._fitted = False
 
     def fit(self, X: NDArray[np.float64]) -> MCDDetector:
-        """Fit the MCD detector using Mercury-native robust covariance estimation.
+        """
+        Fit the MCD detector using Mercury-native robust covariance estimation.
 
-        Uses an iterative concentration step approach (FastMCD algorithm):
-        repeatedly select the subset with smallest covariance determinant.
+        Uses an iterative concentration step approach (FastMCD algorithm): repeatedly select the
+        subset with smallest covariance determinant.
         """
         X = np.asarray(X)
         if X.ndim == 1:

@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -43,7 +44,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class BandOverlap:
-    """A single overlapping frequency band between two domains.
+    """
+    A single overlapping frequency band between two domains.
 
     Attributes:
         domain_a: First domain name.
@@ -70,7 +72,8 @@ class BandOverlap:
 
 @dataclass
 class CrossDomainCorrelation:
-    """Result of cross-domain frequency correlation analysis.
+    """
+    Result of cross-domain frequency correlation analysis.
 
     Attributes:
         correlation_score: Overall cross-domain correlation [0, 1].
@@ -161,7 +164,8 @@ def _compute_overlap(
 
 
 class CrossDomainFrequencyCorrelator:
-    """Detect overlapping significant frequency bands across domains.
+    """
+    Detect overlapping significant frequency bands across domains.
 
     This module takes a dict of ``{domain: FrequencyInfluenceVector}``
     from concurrent SpectralDomainFrequency instances and identifies
@@ -178,7 +182,8 @@ class CrossDomainFrequencyCorrelator:
         significance_threshold: float = 0.3,
         alert_thresholds: dict[str, float] | None = None,
     ) -> None:
-        """Initialise the correlator.
+        """
+        Initialise the correlator.
 
         Args:
             significance_threshold: Minimum anomaly score in both bands
@@ -198,7 +203,8 @@ class CrossDomainFrequencyCorrelator:
         self,
         domain_vectors: dict[str, Any],
     ) -> CrossDomainCorrelation:
-        """Analyse cross-domain frequency correlations.
+        """
+        Analyse cross-domain frequency correlations.
 
         Args:
             domain_vectors: Mapping of domain name to

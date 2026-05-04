@@ -29,15 +29,21 @@ mock fallbacks that silently degrade functionality without operator awareness.
 
 ### Critical Issues
 
-1. **Placeholder Attention Tensors** (`gosnn_optimizer.py:531-533`)
-   - Comment: `"# (This is a placeholder - actual attention tensors would come from model)"`
-   - Uses dummy random tensor `(32,16,16)` instead of real model data
-   - All attention overhead metrics are computed on synthetic data
+1. ~~**Placeholder Attention Tensors**~~ **CLOSED** (`gosnn_optimizer.py:553-588`, Phase 2 ITEM 3)
+   - The random-tensor fallback is gone. When no
+     ``AttentionProvider`` is configured (or the configured one
+     raises), ``GOSNNOptimizer.optimize`` skips the metric and
+     surfaces "Attention overhead metric skipped" in
+     ``recommendations`` so downstream auditors can see the metric
+     was not computed. Real tensors flow only via
+     ``AttentionProvider.get_attention``.
+   - Regression: ``tests/core/test_gosnn_placeholder_cures.py``.
 
-2. **Dead Code: `self._fusion`** (`gosnn_integration.py:336`)
-   - `self._fusion = None` initialized but **never used anywhere**
-   - Fusion strategy is hardcoded inline in `_fuse_predictions()`, not through the fusion object
-   - Stacking/BMA fusion objects are created but discarded
+2. ~~**Dead Code: `self._fusion`**~~ **CLOSED** (Phase 2 ITEM 3)
+   - The ``self._fusion = None`` attribute has been removed; the
+     fusion strategy is now selected by
+     ``GOSNNIntegration.fusion_method`` and applied inline in
+     ``_fuse_predictions``. No object lingers unused.
 
 3. **Unverified Method Assumptions** (`gosnn_optimizer.py:492, 578`)
    - Calls `_collect_all_scalars()` on GOSNN object without checking the method exists
@@ -45,9 +51,13 @@ mock fallbacks that silently degrade functionality without operator awareness.
 
 ### High Issues
 
-4. **Conformal Prediction Silently Fails** (`gosnn_integration.py:637-642`)
-   - Catches `(ValueError, RuntimeError, AttributeError)`, logs, continues
-   - `confidence_intervals` silently becomes `None` with no fallback strategy
+4. ~~**Conformal Prediction Silently Fails**~~ **CLOSED** (Phase 2 ITEM 3)
+   - The blanket ``except (ValueError, RuntimeError, AttributeError)``
+     in ``GOSNNIntegration.detect`` is gone. Conformal failures now
+     propagate to the caller — silent ``confidence_intervals=None``
+     is no longer the contract.
+   - Regression:
+     ``tests/core/test_gosnn_placeholder_cures.py::TestConformalPropagation``.
 
 5. **Silent Domain Setup Failures** (`gosnn_integration.py:416-431`)
    - Failed domain loads are logged as warnings but domain is silently disabled
@@ -190,6 +200,18 @@ no automated response or recovery pipeline.
 The 8 ethical pillars (Compassion, Evidence, Justice, Altruism, Control, Character,
 Competence, Commitment) are implemented as **scoring functions that return recommendations**.
 No pillar actually blocks execution.
+
+> **Phase 2 update (May 2026):** the *decision boundary* surfaces —
+> ``CognitiveOrchestrator.analyze``, ``NeuroSymbolicHub.predict``, and
+> ``OmniMercuryEngine.detect_with_fusion`` / ``_calibrated`` — now raise
+> ``EthicalViolation`` on benevolence-threshold violation. The
+> ``strict_ethics=False`` opt-out is deprecated and ignored. See
+> ``src/omni_mercury_engine/ethical/__init__.py`` for the full
+> contract and ``tests/ethical/test_hard_enforcement.py`` for the
+> regression suite. The remaining bypass vectors below (governor,
+> ai_ethics gate, ``sigma_immutable`` clamp) carry inline TODO
+> markers tagged ``audit-2026-03`` and are tracked for the next
+> sweep.
 
 ### Bypass Vectors (6 identified)
 

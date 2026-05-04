@@ -1,16 +1,15 @@
-"""Mercury Agent — native ML primitives (numpy/scipy only).
+"""
+Mercury Agent — native ML primitives (numpy/scipy only).
 
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) Steel Security Advisors LLC
+# SPDX-License-Identifier: GPL-3.0-only # Copyright (C) Steel Security Advisors LLC
 
-Mercury Agent is an original product with its own production-built systems.
-This module provides Mercury-native implementations of standard ML utilities
-(metrics, preprocessing, model selection, classical models) using only
-numpy and scipy — no external ML library dependencies.
+Mercury Agent is an original product with its own production-built systems. This module provides
+Mercury-native implementations of standard ML utilities (metrics, preprocessing, model selection,
+classical models) using only numpy and scipy — no external ML library dependencies.
 
-These are general-purpose ML building blocks (metrics, scalers, CV splitters,
-classical models) used internally by Mercury's detection pipeline.  They are
-standard algorithms documented in their respective docstrings.
+These are general-purpose ML building blocks (metrics, scalers, CV splitters, classical models) used
+internally by Mercury's detection pipeline.  They are standard algorithms documented in their
+respective docstrings.
 """
 
 from __future__ import annotations
@@ -126,7 +125,8 @@ def confusion_matrix(
     *,
     labels: NDArray[np.number[Any]] | None = None,
 ) -> NDArray[np.number[Any]]:
-    """Compute confusion matrix.
+    """
+    Compute confusion matrix.
 
     Parameters
     ----------
@@ -218,7 +218,8 @@ def _weighted_metric(
 
 
 def roc_auc_score(y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[Any]]) -> float:
-    """Compute Area Under the ROC Curve using the trapezoidal rule.
+    """
+    Compute Area Under the ROC Curve using the trapezoidal rule.
 
     Equivalent to the Wilcoxon-Mann-Whitney statistic.
     """
@@ -350,7 +351,8 @@ def calibration_curve(
     n_bins: int = 10,
     strategy: str = "uniform",
 ) -> tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]:
-    """Compute calibration curve (reliability diagram data).
+    """
+    Compute calibration curve (reliability diagram data).
 
     Returns (fraction_of_positives, mean_predicted_value) per bin.
     """
@@ -399,6 +401,7 @@ class KFold:
     def split(
         self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]] | None = None
     ) -> list[tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]]:
+        """Split."""
         n = len(X)
         indices = np.arange(n)
         if self.shuffle:
@@ -418,6 +421,7 @@ class KFold:
         return folds
 
     def get_n_splits(self) -> int:
+        """Get n splits."""
         return self.n_splits
 
 
@@ -438,6 +442,7 @@ class StratifiedKFold:
     def split(
         self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]
     ) -> list[tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]]:
+        """Split."""
         y = np.asarray(y)
         classes = np.unique(y)
         rng = np.random.RandomState(self.random_state) if self.shuffle else None
@@ -472,7 +477,8 @@ class StratifiedKFold:
 
 
 class StratifiedShuffleSplit:
-    """Stratified shuffle-split cross-validator.
+    """
+    Stratified shuffle-split cross-validator.
 
     Provides train/test indices that preserve class proportions.
     """
@@ -491,6 +497,7 @@ class StratifiedShuffleSplit:
     def split(
         self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]
     ) -> list[tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]]:
+        """Split."""
         y = np.asarray(y)
         n = len(y)
         classes = np.unique(y)
@@ -624,6 +631,7 @@ class StandardScaler:
         self.scale_: NDArray[np.number[Any]] | None = None
 
     def fit(self, X: NDArray[np.number[Any]]) -> StandardScaler:
+        """Fit."""
         X = np.asarray(X, dtype=np.float64)
         self.mean_ = X.mean(axis=0)
         self.scale_ = X.std(axis=0)
@@ -631,13 +639,16 @@ class StandardScaler:
         return self
 
     def transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Transform."""
         assert self.mean_ is not None and self.scale_ is not None
         return (np.asarray(X, dtype=np.float64) - self.mean_) / self.scale_
 
     def fit_transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Fit transform."""
         return self.fit(X).transform(X)
 
     def inverse_transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Inverse transform."""
         assert self.mean_ is not None and self.scale_ is not None
         return np.asarray(X, dtype=np.float64) * self.scale_ + self.mean_
 
@@ -649,19 +660,23 @@ class LabelEncoder:
         self.classes_: NDArray[np.number[Any]] | None = None
 
     def fit(self, y: NDArray[np.number[Any]]) -> LabelEncoder:
+        """Fit."""
         self.classes_ = np.unique(y)
         return self
 
     def transform(self, y: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Transform."""
         assert self.classes_ is not None
         y = np.asarray(y)
         mapping = {c: i for i, c in enumerate(self.classes_)}
         return np.array([mapping[v] for v in y], dtype=int)
 
     def fit_transform(self, y: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Fit transform."""
         return self.fit(y).transform(y)
 
     def inverse_transform(self, y: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Inverse transform."""
         assert self.classes_ is not None
         return self.classes_[np.asarray(y, dtype=int)]
 
@@ -682,6 +697,7 @@ class PCA:
         self.explained_variance_ratio_: NDArray[np.number[Any]] = np.empty(0)
 
     def fit(self, X: NDArray[np.number[Any]]) -> PCA:
+        """Fit."""
         X = np.asarray(X, dtype=np.float64)
         n_samples = X.shape[0]
         self.mean_ = X.mean(axis=0)
@@ -699,12 +715,15 @@ class PCA:
         return self
 
     def transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Transform."""
         return (np.asarray(X, dtype=np.float64) - self.mean_) @ self.components_.T
 
     def fit_transform(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Fit transform."""
         return self.fit(X).transform(X)
 
     def inverse_transform(self, X_reduced: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Inverse transform."""
         return np.asarray(X_reduced, dtype=np.float64) @ self.components_ + self.mean_
 
 
@@ -733,6 +752,7 @@ class KMeans:
         self.inertia_: float = 0.0
 
     def fit(self, X: NDArray[np.number[Any]]) -> KMeans:
+        """Fit."""
         X = np.asarray(X, dtype=np.float64)
         rng = np.random.RandomState(self.random_state)
         n_samples = X.shape[0]
@@ -765,11 +785,13 @@ class KMeans:
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict."""
         assert self.cluster_centers_ is not None
         dists = cdist(np.asarray(X, dtype=np.float64), self.cluster_centers_)
         return np.argmin(dists, axis=1)
 
     def fit_predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Fit predict."""
         self.fit(X)
         assert self.labels_ is not None
         return self.labels_
@@ -791,6 +813,7 @@ class DBSCAN:
         self.core_sample_indices_: NDArray[np.number[Any]] = np.empty(0, dtype=int)
 
     def fit_predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Fit predict."""
         X = np.asarray(X, dtype=np.float64)
         n = len(X)
         dists = cdist(X, X, metric=self.metric)
@@ -843,12 +866,14 @@ class NearestNeighbors:
         self._X: NDArray[np.number[Any]] | None = None
 
     def fit(self, X: NDArray[np.number[Any]]) -> NearestNeighbors:
+        """Fit."""
         self._X = np.asarray(X, dtype=np.float64)
         return self
 
     def kneighbors(
         self, X: NDArray[np.number[Any]] | None = None, n_neighbors: int | None = None
     ) -> tuple[NDArray[np.number[Any]], NDArray[np.number[Any]]]:
+        """Kneighbors."""
         assert self._X is not None
         if X is None:
             X = self._X
@@ -886,6 +911,7 @@ class LogisticRegression:
         self.classes_: NDArray[np.number[Any]] = np.empty(0)
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> LogisticRegression:
+        """Fit."""
         from scipy.optimize import minimize
 
         X = np.asarray(X, dtype=np.float64)
@@ -929,10 +955,12 @@ class LogisticRegression:
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict."""
         prob = self.predict_proba(X)
         return self.classes_[(prob[:, 1] >= 0.5).astype(int)]
 
     def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict proba."""
         X = np.asarray(X, dtype=np.float64)
         z = X @ self.coef_.T + self.intercept_
         z = np.clip(z.ravel(), -500, 500)
@@ -941,7 +969,8 @@ class LogisticRegression:
 
 
 class SGDClassifier:
-    """SGD classifier for online learning (sklearn-free reimplementation).
+    """
+    SGD classifier for online learning (sklearn-free reimplementation).
 
     Based on standard stochastic gradient descent with hinge/log loss.
     """
@@ -978,6 +1007,7 @@ class SGDClassifier:
         y: NDArray[np.number[Any]],
         classes: NDArray[np.number[Any]] | None = None,
     ) -> SGDClassifier:
+        """Partial fit."""
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         if classes is not None:
@@ -1011,12 +1041,14 @@ class SGDClassifier:
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict."""
         assert self._w is not None and self._classes is not None
         X = np.asarray(X, dtype=np.float64)
         scores = X @ self._w + self._b
         return self._classes[(scores >= 0).astype(int)]
 
     def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict proba."""
         assert self._w is not None
         X = np.asarray(X, dtype=np.float64)
         z = X @ self._w + self._b
@@ -1024,12 +1056,14 @@ class SGDClassifier:
         return np.column_stack([1 - p1, p1])
 
     def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Decision function."""
         assert self._w is not None
         return np.asarray(X, dtype=np.float64) @ self._w + self._b
 
 
 class PassiveAggressiveClassifier:
-    """Passive-Aggressive classifier (sklearn-free reimplementation).
+    """
+    Passive-Aggressive classifier (sklearn-free reimplementation).
 
     Algorithm by Crammer, Dekel, Keshet, Shalev-Shwartz & Singer (2006).
 
@@ -1063,6 +1097,7 @@ class PassiveAggressiveClassifier:
         y: NDArray[np.number[Any]],
         classes: NDArray[np.number[Any]] | None = None,
     ) -> PassiveAggressiveClassifier:
+        """Partial fit."""
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         if classes is not None:
@@ -1089,11 +1124,13 @@ class PassiveAggressiveClassifier:
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict."""
         assert self._w is not None and self._classes is not None
         scores = np.asarray(X, dtype=np.float64) @ self._w + self._b
         return self._classes[(scores >= 0).astype(int)]
 
     def decision_function(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Decision function."""
         assert self._w is not None
         return np.asarray(X, dtype=np.float64) @ self._w + self._b
 
@@ -1104,7 +1141,8 @@ class PassiveAggressiveClassifier:
 
 
 class GradientBoostingClassifier:
-    """Gradient Boosting using decision stumps (sklearn-free reimplementation).
+    """
+    Gradient Boosting using decision stumps (sklearn-free reimplementation).
 
     Based on Friedman (2001). Simplified to binary classification with
     decision stumps as weak learners.
@@ -1133,6 +1171,7 @@ class GradientBoostingClassifier:
     def fit(
         self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]
     ) -> GradientBoostingClassifier:
+        """Fit."""
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         self.classes_ = np.unique(y)
@@ -1160,11 +1199,13 @@ class GradientBoostingClassifier:
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict."""
         proba = self.predict_proba(X)
         assert self.classes_ is not None
         return self.classes_[(proba[:, 1] >= 0.5).astype(int)]
 
     def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict proba."""
         X = np.asarray(X, dtype=np.float64)
         F = np.full(len(X), self._init_pred)
         for stump in self._stumps:
@@ -1174,7 +1215,8 @@ class GradientBoostingClassifier:
 
 
 class RandomForestClassifier:
-    """Random Forest classifier (sklearn-free reimplementation).
+    """
+    Random Forest classifier (sklearn-free reimplementation).
 
     Ensemble of bootstrapped decision stumps. Based on Breiman (2001).
 
@@ -1197,6 +1239,7 @@ class RandomForestClassifier:
         self.feature_importances_: NDArray[np.number[Any]] = np.empty(0)
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> RandomForestClassifier:
+        """Fit."""
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         self.classes_ = np.unique(y)
@@ -1219,10 +1262,12 @@ class RandomForestClassifier:
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict."""
         proba = self.predict_proba(X)
         return self.classes_[np.argmax(proba, axis=1)]
 
     def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict proba."""
         X = np.asarray(X, dtype=np.float64)
         n_classes = len(self.classes_)
         class_vals = self.classes_.astype(np.float64)
@@ -1238,10 +1283,11 @@ class RandomForestClassifier:
 
 
 class SVC:
-    """SVC using kernel-based scoring (sklearn-free reimplementation).
+    """
+    SVC using kernel-based scoring (sklearn-free reimplementation).
 
-    Lightweight RBF-kernel similarity scorer. Based on the support
-    vector classification framework of Vapnik (1995).
+    Lightweight RBF-kernel similarity scorer. Based on the support vector classification framework
+    of Vapnik (1995).
     """
 
     def __init__(
@@ -1262,6 +1308,7 @@ class SVC:
         self.classes_: NDArray[np.number[Any]] | None = None
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> SVC:
+        """Fit."""
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         self._X_train = X
@@ -1273,11 +1320,13 @@ class SVC:
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict."""
         proba = self.predict_proba(X)
         assert self.classes_ is not None
         return self.classes_[np.argmax(proba, axis=1)]
 
     def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict proba."""
         assert self._X_train is not None and self._y_train is not None
         X = np.asarray(X, dtype=np.float64)
         K = np.exp(-self._gamma * cdist(X, self._X_train, metric="sqeuclidean"))
@@ -1367,7 +1416,8 @@ class _DecisionStump:
 
 
 class GaussianMixture:
-    """Gaussian Mixture Model via EM (sklearn-free reimplementation).
+    """
+    Gaussian Mixture Model via EM (sklearn-free reimplementation).
 
     Expectation-Maximization algorithm by Dempster, Laird & Rubin (1977).
 
@@ -1393,6 +1443,7 @@ class GaussianMixture:
         self.weights_: NDArray[np.number[Any]] = np.empty(0)
 
     def fit(self, X: NDArray[np.number[Any]]) -> GaussianMixture:
+        """Fit."""
         X = np.asarray(X, dtype=np.float64)
         n, d = X.shape
         rng = np.random.RandomState(self.random_state)
@@ -1454,7 +1505,8 @@ class GaussianMixture:
 def mutual_info_classif(
     X: NDArray[np.number[Any]], y: NDArray[np.number[Any]], *, random_state: int | None = None
 ) -> NDArray[np.number[Any]]:
-    """Estimate mutual information between features and discrete target.
+    """
+    Estimate mutual information between features and discrete target.
 
     Uses a histogram-based approximation.
     """
@@ -1515,7 +1567,8 @@ def make_classification(
     random_state: int | None = None,
     **kwargs: Any,
 ) -> tuple[NDArray[np.floating[Any]], NDArray[np.intp]]:
-    """Generate a random n-class classification problem (Mercury-native).
+    """
+    Generate a random n-class classification problem (Mercury-native).
 
     Parameters match sklearn's make_classification for compatibility.
     """
@@ -1549,7 +1602,8 @@ def make_blobs(
     random_state: int | None = None,
     **kwargs: Any,
 ) -> tuple[NDArray[np.floating[Any]], NDArray[np.intp]]:
-    """Generate isotropic Gaussian blobs (Mercury-native).
+    """
+    Generate isotropic Gaussian blobs (Mercury-native).
 
     Parameters match sklearn's make_blobs for compatibility.
     """
@@ -1575,7 +1629,8 @@ def make_blobs(
 
 
 class IsotonicRegression:
-    """Isotonic regression via pool adjacent violators (sklearn-free reimplementation).
+    """
+    Isotonic regression via pool adjacent violators (sklearn-free reimplementation).
 
     Algorithm by Barlow, Bartholomew, Bremner & Brunk (1972).
     """
@@ -1593,6 +1648,7 @@ class IsotonicRegression:
         self._y: NDArray[np.floating[Any]] | None = None
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> IsotonicRegression:
+        """Fit."""
         X = np.asarray(X, dtype=np.float64).ravel()
         y = np.asarray(y, dtype=np.float64).ravel()
 
@@ -1639,6 +1695,7 @@ class IsotonicRegression:
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
+        """Predict."""
         assert self._x is not None and self._y is not None
         X = np.asarray(X, dtype=np.float64).ravel()
         result = np.interp(X, self._x, self._y)

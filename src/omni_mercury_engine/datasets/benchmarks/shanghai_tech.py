@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -84,7 +82,8 @@ class ShanghaiTechDataset(BaseVideoDataset):
     NUM_SCENES = 13
 
     def __init__(self, config: ShanghaiTechConfig | dict[str, Any] | None = None) -> None:
-        """Initialize Shanghai Tech dataset.
+        """
+        Initialize Shanghai Tech dataset.
 
         Args:
             config: Dataset configuration
@@ -141,7 +140,8 @@ class ShanghaiTechDataset(BaseVideoDataset):
                 self._videos.append((video_file, label, temporal_annotations))
 
     def _load_frame_annotations(self, video_path: Path) -> np.ndarray[Any, Any] | None:
-        """Load frame-level annotations for a video.
+        """
+        Load frame-level annotations for a video.
 
         Args:
             video_path: Path to video file or directory
@@ -175,7 +175,8 @@ class ShanghaiTechDataset(BaseVideoDataset):
         return None
 
     def get_scene_statistics(self) -> dict[str, Any]:
-        """Get statistics about scenes in the dataset.
+        """
+        Get statistics about scenes in the dataset.
 
         Returns:
             Dict with scene-level statistics
@@ -201,7 +202,8 @@ class ShanghaiTechDataset(BaseVideoDataset):
 
     @classmethod
     def get_num_scenes(cls) -> int:
-        """Get number of scenes in the dataset.
+        """
+        Get number of scenes in the dataset.
 
         Returns:
             Number of scenes

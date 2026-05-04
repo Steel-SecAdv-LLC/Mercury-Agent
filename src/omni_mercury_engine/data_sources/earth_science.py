@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -77,7 +76,8 @@ class USGSEarthquakeSource(DataSourceBase):
         days_back: int = 7,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """Initialize USGS Earthquake data source.
+        """
+        Initialize USGS Earthquake data source.
 
         Args:
             min_magnitude: Minimum earthquake magnitude to fetch
@@ -100,10 +100,12 @@ class USGSEarthquakeSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "usgs_earthquake"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.EARTHQUAKE]
 
     def _magnitude_to_alert_level(self, magnitude: float) -> AlertLevel:
@@ -277,10 +279,12 @@ class USGSVolcanoSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "usgs_volcano"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.VOLCANO]
 
     def _alert_level_to_level(self, alert: str) -> AlertLevel:
@@ -299,7 +303,8 @@ class USGSVolcanoSource(DataSourceBase):
         end_time: datetime | None = None,
         **kwargs: Any,
     ) -> list[DataPoint]:
-        """Fetch volcano data from USGS.
+        """
+        Fetch volcano data from USGS.
 
         Note: The actual USGS volcano API structure may vary.
         This implementation provides structured volcano data.
@@ -380,10 +385,12 @@ class NOAANWPSSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "noaa_nwps"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.FLOOD]
 
     def _flood_stage_to_alert(self, stage: str | None) -> AlertLevel:
@@ -541,10 +548,12 @@ class NOAACOOPSSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return f"noaa_coops_{self._station_id}"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.TIDE]
 
     async def _fetch_product(
@@ -679,7 +688,8 @@ class NWSWeatherAlertsSource(DataSourceBase):
         event_types: list[str] | None = None,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """Initialize NWS Weather Alerts data source.
+        """
+        Initialize NWS Weather Alerts data source.
 
         Args:
             state: Two-letter state code (e.g., "CA", "TX")
@@ -706,11 +716,13 @@ class NWSWeatherAlertsSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         suffix = self._state or self._zone or "all"
         return f"nws_alerts_{suffix}"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.WEATHER_ALERT]
 
     def _severity_to_alert_level(self, severity: str) -> AlertLevel:
@@ -855,7 +867,8 @@ class EPAAirNowSource(DataSourceBase):
         zip_code: str | None = None,
         config: DataSourceConfig | None = None,
     ) -> None:
-        """Initialize EPA AirNow data source.
+        """
+        Initialize EPA AirNow data source.
 
         Args:
             api_key: AirNow API key
@@ -881,10 +894,12 @@ class EPAAirNowSource(DataSourceBase):
 
     @property
     def source_id(self) -> str:
+        """Source id."""
         return "epa_airnow"
 
     @property
     def default_source_types(self) -> list[DataSourceType]:
+        """Default source types."""
         return [DataSourceType.AIR_QUALITY]
 
     def _aqi_to_alert_level(self, aqi: int) -> AlertLevel:

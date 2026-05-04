@@ -124,10 +124,11 @@ class Model:
 
 
 class ModelRegistry:
-    """Model registry with versioning and lifecycle management.
+    """
+    Model registry with versioning and lifecycle management.
 
-    Thread-safe model management with file-based storage.
-    Production deployment should use object storage (S3, GCS) with database metadata.
+    Thread-safe model management with file-based storage. Production deployment should use object
+    storage (S3, GCS) with database metadata.
     """
 
     def __init__(self, storage_path: str | None = None) -> None:

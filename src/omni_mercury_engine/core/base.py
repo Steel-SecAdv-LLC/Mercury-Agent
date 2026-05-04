@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -60,7 +58,8 @@ if TYPE_CHECKING:
 
 # Type definitions for interface contracts
 class DetectorResult(TypedDict, total=False):
-    """Standard result format for detector.detect() method.
+    """
+    Standard result format for detector.detect() method.
 
     Required (one of the following):
         anomaly_score: Anomaly score in [0, 1] range
@@ -95,7 +94,8 @@ class DetectorResult(TypedDict, total=False):
 
 
 class ModelResult(TypedDict, total=False):
-    """Standard result format for model.predict() method.
+    """
+    Standard result format for model.predict() method.
 
     Required keys:
         anomaly_scores: Array of anomaly scores
@@ -155,7 +155,8 @@ class DetectorMetrics:
 
 
 def validate_detector_result(func: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
-    """Decorator to validate detector.detect() return format.
+    """
+    Decorator to validate detector.detect() return format.
 
     Ensures the result contains required keys and values are in valid ranges.
     """
@@ -190,7 +191,8 @@ def validate_detector_result(func: Callable[..., dict[str, Any]]) -> Callable[..
 
 
 def validate_model_result(func: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
-    """Decorator to validate model.predict() return format.
+    """
+    Decorator to validate model.predict() return format.
 
     Ensures the result contains required keys for fusion compatibility.
     """
@@ -272,7 +274,8 @@ class BaseDetector(ABC):
     OPTIONAL_RESULT_KEYS = {"severity", "confidence", "uncertainty", "scores", "metadata"}
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize detector with configuration.
+        """
+        Initialize detector with configuration.
 
         Args:
             config: Configuration dictionary with detector parameters.
@@ -319,7 +322,8 @@ class BaseDetector(ABC):
 
     @property
     def config(self) -> Any:
-        """Get detector configuration.
+        """
+        Get detector configuration.
 
         Returns:
             Configuration dict or typed config object.
@@ -364,7 +368,8 @@ class BaseDetector(ABC):
 
     @abstractmethod
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies in data.
+        """
+        Detect anomalies in data.
 
         Args:
             data: Input data array or tensor.
@@ -388,7 +393,8 @@ class BaseDetector(ABC):
         self,
         data: np.ndarray[Any, Any] | torch.Tensor,
     ) -> np.ndarray[Any, Any] | torch.Tensor:
-        """Extract features for ML fusion.
+        """
+        Extract features for ML fusion.
 
         Args:
             data: Input data array or tensor.
@@ -403,7 +409,8 @@ class BaseDetector(ABC):
         pass
 
     def is_fitted(self) -> bool:
-        """Check if detector has been fitted.
+        """
+        Check if detector has been fitted.
 
         Returns:
             True if detector has been fitted, False otherwise.
@@ -571,7 +578,8 @@ class BaseDetector(ABC):
 
 
 class BaseModel(ABC):
-    """Abstract base class for all models.
+    """
+    Abstract base class for all models.
 
     All models MUST implement the following interface:
         - predict(data): Make predictions and return standardized result
@@ -587,7 +595,8 @@ class BaseModel(ABC):
     OPTIONAL_RESULT_KEYS = {"class_predictions", "probabilities", "features", "uncertainty"}
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize model with configuration.
+        """
+        Initialize model with configuration.
 
         Args:
             config: Configuration dictionary with model parameters.
@@ -599,7 +608,8 @@ class BaseModel(ABC):
 
     @property
     def config(self) -> Any:
-        """Get model configuration.
+        """
+        Get model configuration.
 
         Returns:
             Configuration dict or typed config object.
@@ -624,7 +634,8 @@ class BaseModel(ABC):
 
     @abstractmethod
     def predict(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
-        """Make predictions on data.
+        """
+        Make predictions on data.
 
         Args:
             data: Input data array or tensor.
@@ -644,7 +655,8 @@ class BaseModel(ABC):
 
     @abstractmethod
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """Extract features for ML fusion.
+        """
+        Extract features for ML fusion.
 
         Args:
             data: Input data array or tensor.
@@ -657,7 +669,8 @@ class BaseModel(ABC):
     def get_uncertainty(
         self, data: np.ndarray[Any, Any] | torch.Tensor
     ) -> np.ndarray[Any, Any] | torch.Tensor:
-        """Estimate uncertainty for fusion weighting.
+        """
+        Estimate uncertainty for fusion weighting.
 
         Default implementation returns zeros.
         Override for uncertainty-aware models.
@@ -668,7 +681,6 @@ class BaseModel(ABC):
         Returns:
             Uncertainty tensor of shape [batch_size].
         """
-
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             return torch.zeros(data.shape[0])
         if TORCH_AVAILABLE:
@@ -681,14 +693,16 @@ class BaseModel(ABC):
 if TORCH_AVAILABLE:
 
     class BaseEncoder(nn.Module):
-        """Abstract base class for feature encoders.
+        """
+        Abstract base class for feature encoders.
 
-        Encoders transform variable-length or heterogeneous inputs
-        into fixed-size embeddings suitable for fusion.
+        Encoders transform variable-length or heterogeneous inputs into fixed-size embeddings
+        suitable for fusion.
         """
 
         def __init__(self, input_dim: int, output_dim: int) -> None:
-            """Initialize encoder.
+            """
+            Initialize encoder.
 
             Args:
                 input_dim: Input feature dimension.
@@ -700,7 +714,8 @@ if TORCH_AVAILABLE:
 
         @abstractmethod
         def forward(self, x: torch.Tensor) -> torch.Tensor:
-            """Encode input features to fixed-size embedding.
+            """
+            Encode input features to fixed-size embedding.
 
             Args:
                 x: Input tensor of shape [batch_size, input_dim].
@@ -723,10 +738,11 @@ else:
 
 @dataclass
 class FusionInterface:
-    """Interface specification for fusion-compatible components.
+    """
+    Interface specification for fusion-compatible components.
 
-    Documents the contract that detectors and models must satisfy
-    for integration with the fusion pipeline.
+    Documents the contract that detectors and models must satisfy for integration with the fusion
+    pipeline.
     """
 
     # Detector interface

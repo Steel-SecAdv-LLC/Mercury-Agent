@@ -203,9 +203,9 @@ class CounterfactualGenerator(ABC):
 
 class WachterCounterfactual(CounterfactualGenerator):
     """
-    Wachter et al. counterfactual generation.
+    Wachter et al.
 
-    Uses gradient-based optimization to find counterfactuals that
+    counterfactual generation.     Uses gradient-based optimization to find counterfactuals that
     minimize distance while achieving the desired prediction.
     """
 
@@ -367,8 +367,7 @@ class DiCECounterfactual(CounterfactualGenerator):
     """
     DiCE: Diverse Counterfactual Explanations.
 
-    Generates a diverse set of counterfactuals using a diversity-promoting
-    loss function.
+    Generates a diverse set of counterfactuals using a diversity-promoting loss function.
     """
 
     def __init__(
@@ -525,8 +524,8 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
     """
     Growing Spheres counterfactual generation.
 
-    Finds counterfactuals by growing hyperspheres around the instance
-    until the decision boundary is crossed.
+    Finds counterfactuals by growing hyperspheres around the instance until the decision boundary is
+    crossed.
     """
 
     def __init__(

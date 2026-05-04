@@ -1,8 +1,8 @@
 """
 External service stubs for testing and development.
 
-These stubs provide mock implementations of external services,
-allowing development and testing without actual service dependencies.
+These stubs provide mock implementations of external services, allowing development and testing
+without actual service dependencies.
 """
 
 from __future__ import annotations

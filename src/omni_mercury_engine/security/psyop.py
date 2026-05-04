@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -101,7 +99,8 @@ class NarrativeType(Enum):
 
 @dataclass
 class TargetAudienceProfile:
-    """Profile of a target audience for PSYOP analysis.
+    """
+    Profile of a target audience for PSYOP analysis.
 
     Attributes:
         audience_id: Unique identifier for the audience segment.
@@ -125,7 +124,8 @@ class TargetAudienceProfile:
 
 @dataclass
 class NarrativeAnalysis:
-    """Analysis of a narrative or message.
+    """
+    Analysis of a narrative or message.
 
     Attributes:
         narrative_id: Unique identifier.
@@ -154,7 +154,8 @@ class NarrativeAnalysis:
 
 @dataclass
 class InfluenceCampaignDetection:
-    """Detection results for influence campaign analysis.
+    """
+    Detection results for influence campaign analysis.
 
     Attributes:
         campaign_id: Unique identifier.
@@ -182,7 +183,8 @@ class InfluenceCampaignDetection:
 
 @dataclass
 class InformationEnvironmentState:
-    """State of the information environment.
+    """
+    State of the information environment.
 
     Attributes:
         environment_id: Unique identifier.

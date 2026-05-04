@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -105,8 +103,8 @@ class FairnessAuditor:
     """
     Fairness auditor for anomaly detection models.
 
-    Computes fairness metrics across protected groups and
-    identifies potential bias in anomaly scoring.
+    Computes fairness metrics across protected groups and identifies potential bias in anomaly
+    scoring.
     """
 
     def __init__(self, config: BiasAuditConfig | None = None):
@@ -450,8 +448,7 @@ class BiasmitigationProcessor:
     """
     Post-processing bias mitigation.
 
-    Applies threshold optimization and other post-hoc
-    corrections to reduce bias in predictions.
+    Applies threshold optimization and other post-hoc corrections to reduce bias in predictions.
     """
 
     def __init__(

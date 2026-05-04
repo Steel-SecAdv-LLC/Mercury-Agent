@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 ADBench — Tabular Anomaly Detection Benchmark Datasets
 
@@ -96,7 +95,8 @@ _NAME_TO_INDEX: dict[str, tuple[int, str]] = {
 
 
 class ADBenchLoader(DatasetLoader):
-    """ADBench tabular anomaly detection dataset loader.
+    """
+    ADBench tabular anomaly detection dataset loader.
 
     Downloads real NPZ files from the ADBench GitHub repository. Each file
     contains feature matrix X and label vector y with ground-truth anomaly
@@ -162,7 +162,8 @@ class ADBenchLoader(DatasetLoader):
         return f"{self.BASE_URL}{self.npz_filename}"
 
     def download(self) -> bool:
-        """Download the selected ADBench dataset NPZ from GitHub.
+        """
+        Download the selected ADBench dataset NPZ from GitHub.
 
         Returns:
             True on success.

@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Security Dataset Loaders: NSL-KDD, CICIDS, Threat Intelligence
 
@@ -175,7 +174,8 @@ class NSLKDDLoader(DatasetLoader):
     }
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize NSL-KDD loader.
+        """
+        Initialize NSL-KDD loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -196,7 +196,8 @@ class NSLKDDLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download NSL-KDD dataset from GitHub.
+        """
+        Download NSL-KDD dataset from GitHub.
 
         Returns:
             True if download successful, False otherwise.
@@ -276,7 +277,8 @@ class NSLKDDLoader(DatasetLoader):
             ) from e
 
     def _process_nslkdd_dataframe(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        """Process NSL-KDD dataframe: encode categoricals and labels.
+        """
+        Process NSL-KDD dataframe: encode categoricals and labels.
 
         Args:
             df: Raw NSL-KDD dataframe
@@ -325,7 +327,8 @@ class NSLKDDLoader(DatasetLoader):
         return features, labels
 
     def _create_synthetic_fallback(self) -> bool:
-        """Create synthetic NSL-KDD-like data as fallback.
+        """
+        Create synthetic NSL-KDD-like data as fallback.
 
         WARNING: Results from synthetic data do NOT reflect real-world performance.
         """
@@ -413,7 +416,8 @@ class NSLKDDLoader(DatasetLoader):
         raise FileNotFoundError("NSL-KDD data not found. Run download() first.")
 
     def load_data(self) -> tuple[np.ndarray, np.ndarray]:
-        """Load NSL-KDD dataset features and labels.
+        """
+        Load NSL-KDD dataset features and labels.
 
         This is the main entry point for loading the dataset.
         Automatically downloads if not present.
@@ -569,7 +573,8 @@ class CICIDSLoader(DatasetLoader):
     }
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize CICIDS loader.
+        """
+        Initialize CICIDS loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -652,7 +657,8 @@ class CICIDSLoader(DatasetLoader):
         )
 
     def _load_from_local_path(self) -> bool:
-        """Load CICIDS data from a local file or directory.
+        """
+        Load CICIDS data from a local file or directory.
 
         Supports:
         - Single CSV file
@@ -875,7 +881,8 @@ class CICIDSLoader(DatasetLoader):
             return False
 
     def _process_cicids_dataframe(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        """Process CICIDS dataframe: clean data and encode labels.
+        """
+        Process CICIDS dataframe: clean data and encode labels.
 
         Args:
             df: Raw CICIDS dataframe with features and label column
@@ -941,7 +948,8 @@ class CICIDSLoader(DatasetLoader):
         return features, labels
 
     def _clean_cicids_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Clean CICIDS data: handle infinity, NaN, and negative values.
+        """
+        Clean CICIDS data: handle infinity, NaN, and negative values.
 
         CICIDS 2017 has known data quality issues:
         - Infinity values in flow rate features
@@ -978,7 +986,8 @@ class CICIDSLoader(DatasetLoader):
         return df
 
     def _encode_label(self, label: str) -> int:
-        """Encode a label string to integer.
+        """
+        Encode a label string to integer.
 
         Args:
             label: Attack type string (e.g., 'BENIGN', 'DDoS')
@@ -1003,10 +1012,11 @@ class CICIDSLoader(DatasetLoader):
         return 15
 
     def _create_synthetic_fallback(self) -> bool:
-        """Create synthetic CICIDS-like data as fallback.
+        """
+        Create synthetic CICIDS-like data as fallback.
 
-        This is a FALLBACK ONLY when real data cannot be downloaded.
-        Results from synthetic data do NOT reflect real-world performance.
+        This is a FALLBACK ONLY when real data cannot be downloaded. Results from synthetic data do
+        NOT reflect real-world performance.
         """
         logger.warning(
             "Creating SYNTHETIC CICIDS approximation. "
@@ -1141,7 +1151,8 @@ class CICIDSLoader(DatasetLoader):
         raise FileNotFoundError("CICIDS data not found. Run download() first.")
 
     def load_data(self) -> tuple[np.ndarray, np.ndarray]:
-        """Load CICIDS dataset features and labels.
+        """
+        Load CICIDS dataset features and labels.
 
         This is the main entry point for loading the dataset.
         Automatically downloads if not present.
@@ -1159,7 +1170,8 @@ class CICIDSLoader(DatasetLoader):
             return self._load_raw()
 
     def preprocess(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Preprocess network flow features.
+        """
+        Preprocess network flow features.
 
         Applied transformations:
         1. Replace remaining inf/nan with 0
@@ -1295,7 +1307,8 @@ class ThreatIntelLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download real MITRE ATT&CK data.
+        """
+        Download real MITRE ATT&CK data.
 
         Returns:
             True if download successful, False otherwise.
@@ -1366,7 +1379,8 @@ class ThreatIntelLoader(DatasetLoader):
     def _process_mitre_data(
         self, techniques: list[dict[str, Any]]
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Process MITRE ATT&CK techniques into features.
+        """
+        Process MITRE ATT&CK techniques into features.
 
         Args:
             techniques: List of attack-pattern objects from STIX

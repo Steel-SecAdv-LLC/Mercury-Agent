@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -120,8 +118,7 @@ class FeatureConcatFusion(BaseFusionModule):
     """
     Feature concatenation fusion with optional projection.
 
-    Simply concatenates features from all modalities and optionally
-    projects to a lower dimension.
+    Simply concatenates features from all modalities and optionally projects to a lower dimension.
     """
 
     def __init__(
@@ -201,8 +198,7 @@ class AttentionFusion(BaseFusionModule, nn.Module):
     """
     Attention-based fusion that learns cross-modal interactions.
 
-    Uses multi-head attention to weight features from different
-    modalities based on their relevance.
+    Uses multi-head attention to weight features from different modalities based on their relevance.
     """
 
     def __init__(
@@ -318,8 +314,7 @@ class ScoreWeightedFusion(BaseFusionModule):
     """
     Score-level fusion with learned or fixed weights.
 
-    Combines anomaly scores from multiple detectors using
-    weighted averaging.
+    Combines anomaly scores from multiple detectors using weighted averaging.
     """
 
     def __init__(
@@ -406,8 +401,7 @@ class DecisionConfidenceFusion(BaseFusionModule):
     """
     Decision-level fusion with confidence weighting.
 
-    Makes final decision based on detector predictions weighted
-    by their confidence.
+    Makes final decision based on detector predictions weighted by their confidence.
     """
 
     def __init__(
@@ -687,8 +681,8 @@ class MultiModalFusionOptimizer:
     """
     High-level optimizer for multi-modal anomaly detection fusion.
 
-    Manages multiple fusion strategies and selects optimal approach
-    based on validation performance or input characteristics.
+    Manages multiple fusion strategies and selects optimal approach based on validation performance
+    or input characteristics.
     """
 
     def __init__(

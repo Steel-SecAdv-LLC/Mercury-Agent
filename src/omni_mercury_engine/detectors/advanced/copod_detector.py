@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 COPOD: Copula-Based Outlier Detection
 
@@ -132,8 +131,8 @@ class COPODDetector:
         """
         Compute tail probability scores using skewness-weighted combination.
 
-        For positively skewed features, focus on right tail.
-        For negatively skewed features, focus on left tail.
+        For positively skewed features, focus on right tail. For negatively skewed features, focus
+        on left tail.
         """
         # Avoid log(0) by clipping
         left_ecdf = np.clip(left_ecdf, 1e-10, 1 - 1e-10)

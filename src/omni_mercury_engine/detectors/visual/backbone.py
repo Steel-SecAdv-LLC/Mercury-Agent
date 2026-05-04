@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -66,7 +64,8 @@ def get_backbone(
     backbone_name: str,
     pretrained: bool = True,
 ) -> nn.Module:
-    """Get a pre-trained backbone network.
+    """
+    Get a pre-trained backbone network.
 
     Args:
         backbone_name: Name of backbone architecture
@@ -138,7 +137,8 @@ class FeatureExtractor(nn.Module):
         device: torch.device | str = "cpu",
         pretrained: bool = True,
     ):
-        """Initialize feature extractor.
+        """
+        Initialize feature extractor.
 
         Args:
             backbone_name: Pre-trained backbone architecture name
@@ -218,7 +218,8 @@ class FeatureExtractor(nn.Module):
         x: torch.Tensor,
         return_dict: bool = True,
     ) -> dict[str, torch.Tensor] | torch.Tensor:
-        """Extract multi-scale features from input images.
+        """
+        Extract multi-scale features from input images.
 
         Args:
             x: Input images [B, 3, H, W]
@@ -261,10 +262,10 @@ class FeatureExtractor(nn.Module):
 
 
 class MultiScaleFeatureAggregator(nn.Module):
-    """Aggregate multi-scale features into a unified representation.
+    """
+    Aggregate multi-scale features into a unified representation.
 
-    Combines features from different layers using adaptive pooling
-    and optional learned projections.
+    Combines features from different layers using adaptive pooling and optional learned projections.
     """
 
     def __init__(
@@ -273,7 +274,8 @@ class MultiScaleFeatureAggregator(nn.Module):
         output_dim: int = 512,
         pool_size: tuple[int, int] = (1, 1),
     ):
-        """Initialize aggregator.
+        """
+        Initialize aggregator.
 
         Args:
             feature_dims: Dict mapping layer names to feature dimensions
@@ -298,7 +300,8 @@ class MultiScaleFeatureAggregator(nn.Module):
         )
 
     def forward(self, features: dict[str, torch.Tensor]) -> torch.Tensor:
-        """Aggregate multi-scale features.
+        """
+        Aggregate multi-scale features.
 
         Args:
             features: Dict mapping layer names to feature tensors [B, C, H, W]
@@ -317,10 +320,11 @@ class MultiScaleFeatureAggregator(nn.Module):
 
 
 class PatchEmbedding(nn.Module):
-    """Extract patch-level embeddings from feature maps.
+    """
+    Extract patch-level embeddings from feature maps.
 
-    Converts spatial feature maps into sequences of patch embeddings
-    for memory bank and attention-based methods.
+    Converts spatial feature maps into sequences of patch embeddings for memory bank and attention-
+    based methods.
     """
 
     def __init__(
@@ -356,7 +360,8 @@ class PatchEmbedding(nn.Module):
             self.output_dim = patch_dim
 
     def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, tuple[int, int]]:
-        """Extract patch embeddings from feature map.
+        """
+        Extract patch embeddings from feature map.
 
         Args:
             features: Feature map [B, C, H, W]

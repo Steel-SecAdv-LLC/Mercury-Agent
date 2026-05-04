@@ -224,7 +224,8 @@ class InMemoryAuditHandler(AuditLogHandler):
 
 
 class FileAuditHandler(AuditLogHandler):
-    """File-based audit log handler with rotation and proper resource management.
+    """
+    File-based audit log handler with rotation and proper resource management.
 
     Supports context manager protocol for safe resource cleanup:
         with FileAuditHandler('/var/log/mercury') as handler:
@@ -249,7 +250,8 @@ class FileAuditHandler(AuditLogHandler):
         self._rotate_if_needed()
 
     def close(self) -> None:
-        """Close the current log file and release resources.
+        """
+        Close the current log file and release resources.
 
         Thread-safe method that can be called multiple times without error.
         """
@@ -275,7 +277,8 @@ class FileAuditHandler(AuditLogHandler):
         self.close()
 
     def __del__(self) -> None:
-        """Ensure file handle is closed during garbage collection.
+        """
+        Ensure file handle is closed during garbage collection.
 
         Note: Exceptions in __del__ cannot be safely raised and logging may fail
         if the logging module has already been torn down during interpreter shutdown.
@@ -287,7 +290,8 @@ class FileAuditHandler(AuditLogHandler):
             pass
 
     def emit(self, event: AuditEvent) -> None:
-        """Emit an audit event to file.
+        """
+        Emit an audit event to file.
 
         Raises:
             RuntimeError: If handler has been closed.
@@ -426,6 +430,7 @@ class AuditLogger:
     _lock = threading.Lock()
 
     def __new__(cls, *args: Any, **kwargs: Any) -> AuditLogger:
+        """New."""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -567,6 +572,7 @@ class DistributedTracer:
     _lock = threading.Lock()
 
     def __new__(cls, *args: Any, **kwargs: Any) -> DistributedTracer:
+        """New."""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -700,6 +706,7 @@ class MetricsCollector:
     _class_lock = threading.Lock()
 
     def __new__(cls, *args: Any, **kwargs: Any) -> MetricsCollector:
+        """New."""
         if cls._instance is None:
             with cls._class_lock:
                 if cls._instance is None:

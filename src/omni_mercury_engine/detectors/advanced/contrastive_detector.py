@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Contrastive Learning Detector for Anomaly Detection
 
@@ -76,8 +75,8 @@ class TimeSeriesAugmenter:
     """
     Augmentation strategies for time-series data.
 
-    Generates diverse views of the same sample while preserving
-    essential characteristics for contrastive learning.
+    Generates diverse views of the same sample while preserving essential characteristics for
+    contrastive learning.
     """
 
     def __init__(
@@ -201,8 +200,7 @@ class ProjectionHead(nn.Module):
     """
     Projection head for contrastive learning.
 
-    Maps representations to a lower-dimensional space where
-    contrastive loss is computed.
+    Maps representations to a lower-dimensional space where contrastive loss is computed.
     """
 
     def __init__(

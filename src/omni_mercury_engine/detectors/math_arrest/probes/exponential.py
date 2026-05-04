@@ -18,7 +18,8 @@ from omni_mercury_engine.detectors.math_arrest.base_probe import (
 
 
 def _ewma(x: npt.NDArray[np.float64], lam: float) -> npt.NDArray[np.float64]:
-    """Compute exponentially weighted moving average.
+    """
+    Compute exponentially weighted moving average.
 
     Args:
         x: Input signal.
@@ -36,10 +37,11 @@ def _ewma(x: npt.NDArray[np.float64], lam: float) -> npt.NDArray[np.float64]:
 
 
 class ExponentialDecayProbe(BaseEquationProbe):
-    """Detect signal degradation using optimal-lambda EWMA residuals.
+    """
+    Detect signal degradation using optimal-lambda EWMA residuals.
 
-    The optimal smoothing parameter lambda is found by minimizing
-    training MSE via ``scipy.optimize.minimize_scalar``.
+    The optimal smoothing parameter lambda is found by minimizing training MSE via
+    ``scipy.optimize.minimize_scalar``.
     """
 
     def __init__(self) -> None:

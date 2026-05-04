@@ -1,5 +1,6 @@
 """
 Mercury Agent - 3R Mechanism Engines
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Core engines for the 3R (Recursion-Resonance-Refactoring) Mechanism.
@@ -20,11 +21,12 @@ if TYPE_CHECKING:
 
 class RecursionEngine:
     """
-    Implements recursive self-referential processing for hierarchical
-    feature extraction and multi-level optimization.
+    Implements recursive self-referential processing for hierarchical feature extraction and multi-
 
-    The recursion component R(x) of the OAE provides hierarchical feature
-    extraction through self-referential processing patterns.
+    level optimization.
+
+    The recursion component R(x) of the OAE provides hierarchical feature extraction through self-
+    referential processing patterns.
     """
 
     def __init__(self, max_depth: int = 5) -> None:
@@ -152,11 +154,12 @@ class RecursionEngine:
 
 class ResonanceEngine:
     """
-    Implements frequency-domain signal amplification using Fourier analysis
-    for pattern enhancement and anomaly detection.
+    Implements frequency-domain signal amplification using Fourier analysis for pattern enhancement
 
-    The resonance component H(omega) of the OAE provides frequency-domain
-    analysis for detecting harmonic patterns in data.
+    and anomaly detection.
+
+    The resonance component H(omega) of the OAE provides frequency-domain analysis for detecting
+    harmonic patterns in data.
     """
 
     def __init__(self, sampling_rate: float = 1.0) -> None:

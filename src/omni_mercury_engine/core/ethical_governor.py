@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -206,8 +204,6 @@ class EthicalAutonomyGovernor:
     def __init__(
         self,
         ethical_scalars: EthicalScalars | None = None,
-        enable_bias_audits: bool = True,
-        enable_sigma_directives: bool = True,
         p_value_threshold: float = 0.05,
         ethical_threshold: float = 0.8,
         rng: DeterministicRNG | None = None,
@@ -216,29 +212,27 @@ class EthicalAutonomyGovernor:
         """
         Initialize Ethical Autonomy Governor.
 
+        Bias audits and Sigma Directive overrides are always active —
+        there is no off-switch.  The ``enable_bias_audits`` and
+        ``enable_sigma_directives`` parameters were removed in the
+        May 2026 Phase 2 audit cure because ``False`` at construction
+        silently bypassed all governance.
+
         Args:
             ethical_scalars: Ethical scalar configuration
-            enable_bias_audits: Enable bias auditing
-            enable_sigma_directives: Enable Sigma Directive overrides
             p_value_threshold: Statistical significance threshold
             ethical_threshold: Minimum ethical score threshold
             rng: Optional DeterministicRNG for reproducibility
             thresholds: Threshold configuration (frozen at construction time)
         """
         self.ethical_scalars = ethical_scalars or DEFAULT_CONFIG.ethical_scalars
-        self.enable_bias_audits = enable_bias_audits
-        self.enable_sigma_directives = enable_sigma_directives
         self.p_value_threshold = p_value_threshold
         self.ethical_threshold = ethical_threshold
         self._rng = rng or get_global_rng()
         # Freeze thresholds at construction time to avoid global mutation risk
         self._thresholds = thresholds or ThresholdConfig()
 
-        self.sigma_directive: SigmaDirective | None = (
-            SigmaDirective(self.ethical_scalars, self._thresholds)
-            if enable_sigma_directives
-            else None
-        )
+        self.sigma_directive = SigmaDirective(self.ethical_scalars, self._thresholds)
 
         self.decision_history: list[EthicalDecision] = []
         self.rollback_history: list[EthicalDecision] = []
@@ -262,19 +256,18 @@ class EthicalAutonomyGovernor:
         ethical_score = self._compute_ethical_score(action, context)
 
         bias_audit_passed = True
-        if self.enable_bias_audits and data is not None:
+        if data is not None:
             bias_metrics = self._audit_bias(data, context)
             bias_audit_passed = not bias_metrics.bias_detected
 
         p_value = self._statistical_validation(ethical_score, context)
 
         sigma_directive_applied = False
-        if self.enable_sigma_directives and self.sigma_directive:
-            allow, reasoning = self.sigma_directive.apply_directive(action, context)
-            sigma_directive_applied = not allow
+        allow, reasoning = self.sigma_directive.apply_directive(action, context)
+        sigma_directive_applied = not allow
 
-            if not allow:
-                context["sigma_override_reasoning"] = reasoning
+        if not allow:
+            context["sigma_override_reasoning"] = reasoning
 
         decision = EthicalDecision(
             decision_id=decision_id,
@@ -288,21 +281,49 @@ class EthicalAutonomyGovernor:
         if self._should_rollback(decision):
             decision.rollback_triggered = True
             self.rollback_history.append(decision)
-        else:
-            self.decision_history.append(decision)
+            from omni_mercury_engine.cognitive.ethical_bounding import (
+                EthicalConstraintViolationError,
+            )
 
+            raise EthicalConstraintViolationError(
+                action=action,
+                score=ethical_score,
+                threshold=self.ethical_threshold,
+                check="governance_rollback",
+                details={
+                    "decision_id": decision_id,
+                    "bias_audit_passed": bias_audit_passed,
+                    "p_value": p_value,
+                    "sigma_directive_applied": sigma_directive_applied,
+                },
+            )
+
+        self.decision_history.append(decision)
         return decision
 
     def _compute_ethical_score(self, action: str, context: dict[str, Any]) -> float:
         """
-        Compute ethical score using ~150 ethical scalars.
+        Compute ethical score from agent ethical scalars and per-decision behaviour signals.
+
+        The base score reflects the agent's intrinsic ethical alignment
+        (drawn from ~150 ``EthicalScalars``).  When the caller supplies
+        per-decision behaviour signals (``fairness_score``, the
+        ``societal_benefit``/``potential_harm`` net,
+        ``harm_prevention``, ``suffering_mitigation``, ``transparency``,
+        ``honesty``, or ``bias_detected``), the base is multiplicatively
+        modulated by the mean of those signals so that bad contexts
+        yield low scores and good contexts yield high scores.  Without
+        this modulation, the score collapsed to ~1.23 for every input
+        and the rollback gate had to lean entirely on the bias audit
+        and Sigma Directive — a hidden weakness closed by the Phase 2
+        audit cure.
 
         Args:
             action: Action to evaluate
             context: Context with ethical implications
 
         Returns:
-            Ethical score (0.0 to 2.0, normalized by scalars)
+            Ethical score (0.0 to ~2.5, scalar-normalized)
         """
         relevant_scalars = []
 
@@ -322,7 +343,28 @@ class EthicalAutonomyGovernor:
             ]
         )
 
-        base_score = np.mean(relevant_scalars) if relevant_scalars else 1.0
+        base_score = float(np.mean(relevant_scalars)) if relevant_scalars else 1.0
+
+        behaviour_signals: list[float] = []
+        if "fairness_score" in context:
+            behaviour_signals.append(float(context["fairness_score"]))
+        if "societal_benefit" in context or "potential_harm" in context:
+            net = float(context.get("societal_benefit", 0.5)) - float(
+                context.get("potential_harm", 0.0)
+            )
+            behaviour_signals.append(max(0.0, min(1.0, net)))
+        if "harm_prevention" in context:
+            behaviour_signals.append(float(context["harm_prevention"]))
+        if "suffering_mitigation" in context:
+            behaviour_signals.append(float(context["suffering_mitigation"]))
+        if "transparency" in context:
+            behaviour_signals.append(float(context["transparency"]))
+        if "honesty" in context:
+            behaviour_signals.append(float(context["honesty"]))
+        if context.get("bias_detected", False):
+            behaviour_signals.append(0.0)
+
+        behaviour_modifier = float(np.mean(behaviour_signals)) if behaviour_signals else 1.0
 
         context_modifier = 1.0
         if context.get("critical", False):
@@ -330,7 +372,7 @@ class EthicalAutonomyGovernor:
         if context.get("humanitarian", False):
             context_modifier *= self.ethical_scalars.omni_disaster_response
 
-        return float(base_score * context_modifier)
+        return float(base_score * behaviour_modifier * context_modifier)
 
     def _audit_bias(self, data: np.ndarray[Any, Any], context: dict[str, Any]) -> BiasMetrics:
         """

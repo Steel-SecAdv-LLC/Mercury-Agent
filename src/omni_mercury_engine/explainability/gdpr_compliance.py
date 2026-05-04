@@ -90,9 +90,8 @@ class ExplanationReport:
     """
     GDPR-compliant explanation report.
 
-    Contains all information required for Article 22 compliance,
-    including meaningful information about the logic involved,
-    significance, and envisaged consequences.
+    Contains all information required for Article 22 compliance, including meaningful information
+    about the logic involved, significance, and envisaged consequences.
     """
 
     report_id: str

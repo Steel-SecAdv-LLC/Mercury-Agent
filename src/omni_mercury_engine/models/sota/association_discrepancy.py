@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Association Discrepancy Module - Anomaly Transformer (ICLR 2022)
 
@@ -48,7 +47,8 @@ __all__ = [
 
 @dataclass
 class AssociationConfig:
-    """Configuration for Association Discrepancy module.
+    """
+    Configuration for Association Discrepancy module.
 
     Attributes:
         d_model: Model dimension (embedding size)

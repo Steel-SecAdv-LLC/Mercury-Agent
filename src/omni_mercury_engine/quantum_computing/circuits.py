@@ -284,8 +284,8 @@ class QuantumCircuitBuilder:
     """
     Build quantum circuits for anomaly detection.
 
-    Provides factory methods for creating various types of quantum circuits
-    including encoding circuits, variational circuits, and feature maps.
+    Provides factory methods for creating various types of quantum circuits including encoding
+    circuits, variational circuits, and feature maps.
     """
 
     def __init__(self, use_qiskit: bool = True) -> None:

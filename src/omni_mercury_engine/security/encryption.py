@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -45,9 +43,9 @@ class QuantumResistantEncryption:
     """
     Quantum-resistant encryption using lattice-based cryptography principles.
 
-    Implements simplified Kyber-inspired KEM using Learning With Errors (LWE).
-    This is a deterministic demo implementation for testing; noise set to zero for stability.
-    Production PQC is provided by AMA Cryptography (see pqc_backends.py).
+    Implements simplified Kyber-inspired KEM using Learning With Errors (LWE). This is a
+    deterministic demo implementation for testing; noise set to zero for stability. Production PQC
+    is provided by AMA Cryptography (see pqc_backends.py).
     """
 
     def __init__(self, security_level: int = 256) -> None:
@@ -212,7 +210,7 @@ class QuantumResistantEncryption:
 
 
 class SecureDataHandler:
-    """Handle sensitive data securely with quantum-resistant options"""
+    """Handle sensitive data securely with quantum-resistant options."""
 
     qr_encryption: QuantumResistantEncryption | None
     public_key: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None
@@ -235,19 +233,19 @@ class SecureDataHandler:
             self.private_key = None
 
     def sanitize_input(self, data: str) -> str:
-        """Sanitize user input"""
+        """Sanitize user input."""
         sanitized = data.replace("<", "&lt;").replace(">", "&gt;")
         sanitized = sanitized.replace("'", "&#39;").replace('"', "&quot;")
         return sanitized
 
     def encode_data(self, data: str | bytes) -> str:
-        """Base64 encode data"""
+        """Base64 encode data."""
         if isinstance(data, str):
             data = data.encode()
         return base64.b64encode(data).decode()
 
     def decode_data(self, encoded: str) -> bytes:
-        """Base64 decode data"""
+        """Base64 decode data."""
         return base64.b64decode(encoded.encode())
 
     def encrypt_quantum_resistant(self, data: str | bytes) -> bytes:

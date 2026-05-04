@@ -161,6 +161,38 @@ Option 3: Install Visual Studio Build Tools
 5. **Cyclomatic Complexity**: Keep complexity <10 per function
 6. **Single Responsibility**: One function/class = one job
 
+### TODO / FIXME Discipline
+
+Every new ``TODO`` or ``FIXME`` marker added to ``src/`` MUST include:
+
+1. A **severity tag** — one of ``critical``, ``high``, ``medium``, or
+   ``low``. The tag is the engineering signal a future reviewer uses
+   to triage the marker. ``critical`` means "must be addressed before
+   this surface ships to production"; ``low`` means "cosmetic / nice
+   to have".
+2. A **citing reference** — an audit-doc tag (``audit-YYYY-MM``), an
+   issue number (``gh-1234``), or a design-doc anchor. Markers
+   without a reference are unmoored: a future engineer cannot tell
+   whether the issue is real or whether anyone is tracking it.
+
+The canonical form is::
+
+    # TODO(<reference>, severity=<level>):
+    #   <one-line description of what is missing or wrong>
+
+Example::
+
+    # TODO(audit-2026-03, severity=critical):
+    #   PreExecutionBlockingGate has an off switch — single ``False``
+    #   here disables all blocking. Tracked until enable_blocking
+    #   is removed.
+
+Bare ``TODO`` / ``FIXME`` comments without a severity tag and a
+reference will fail review. ``grep -rE 'TODO\(|FIXME\(' src/`` is
+the canonical inventory query — markers that do not match the
+``TAG(reference, severity=...)`` shape do not exist as far as the
+codebase is concerned.
+
 ### Python Style
 
 We follow PEP 8 with some modifications:

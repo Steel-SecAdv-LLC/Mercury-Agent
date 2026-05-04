@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -55,7 +53,8 @@ class ChaoticMap:
 
     @staticmethod
     def tent_map(x: float, mu: float = 2.0) -> float:
-        """Tent chaotic map.
+        """
+        Tent chaotic map.
 
         Args:
             x: Current value in [0, 1]
@@ -89,7 +88,8 @@ class ChaosEvolutionOptimizer:
     def __init__(
         self, config: dict[str, Any] | None = None, rng: DeterministicRNG | None = None
     ) -> None:
-        """Initialize chaos-evolutionary optimizer.
+        """
+        Initialize chaos-evolutionary optimizer.
 
         Args:
             config: Configuration including:
@@ -128,7 +128,8 @@ class ChaosEvolutionOptimizer:
     def _initialize_population(
         self, dim: int, bounds: list[tuple[float, float]]
     ) -> np.ndarray[Any, Any]:
-        """Initialize population with random solutions.
+        """
+        Initialize population with random solutions.
 
         Args:
             dim: Problem dimensionality
@@ -150,7 +151,8 @@ class ChaosEvolutionOptimizer:
         chaos_value: float,
         bounds: list[tuple[float, float]],
     ) -> np.ndarray[Any, Any]:
-        """Perform one chaos game step for fractal-based position update.
+        """
+        Perform one chaos game step for fractal-based position update.
 
         Based on CGO's fractal self-similarity and chaos game methodology.
 
@@ -184,7 +186,8 @@ class ChaosEvolutionOptimizer:
         dim: int,
         bounds: list[tuple[float, float]],
     ) -> dict[str, Any]:
-        """Run chaos-evolutionary optimization.
+        """
+        Run chaos-evolutionary optimization.
 
         Args:
             objective_function: Function to minimize (takes array, returns scalar)
@@ -246,7 +249,8 @@ class ChaosEvolutionOptimizer:
         parameter_space: dict[str, tuple[float, float]],
         evaluation_function: Callable[[dict[str, float]], float],
     ) -> dict[str, Any]:
-        """Tune hyperparameters for anomaly detection system.
+        """
+        Tune hyperparameters for anomaly detection system.
 
         Args:
             parameter_space: Dict mapping parameter names to (min, max) bounds
@@ -282,7 +286,8 @@ class ChaosEvolutionOptimizer:
         num_hypotheses: int = 10,
         chaos_intensity: float = 0.1,
     ) -> list[np.ndarray[Any, Any]]:
-        """Generate creative hypothesis variations using controlled chaos.
+        """
+        Generate creative hypothesis variations using controlled chaos.
 
         Inspired by: AI and Human Creativity: Can Chaos Theory Make Machines
         Think Differently (Unite.AI)

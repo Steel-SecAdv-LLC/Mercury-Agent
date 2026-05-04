@@ -1,5 +1,6 @@
 """
 Mercury Agent - System-Level Mathematical Coherence Verification
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -50,7 +51,8 @@ __all__ = [
 
 @dataclass(frozen=True)
 class PipelineStage:
-    """A single stage in the detection pipeline signal flow.
+    """
+    A single stage in the detection pipeline signal flow.
 
     Attributes:
         name: Human-readable stage name.
@@ -70,11 +72,12 @@ class PipelineStage:
 
 @dataclass
 class SignalFlowGraph:
-    """Describes how signals propagate through the Mercury detection pipeline.
+    """
+    Describes how signals propagate through the Mercury detection pipeline.
 
-    The graph is a linear sequence of PipelineStage nodes.  Each node
-    specifies the expected input/output score ranges and the normalization
-    method used, enabling automated handoff verification.
+    The graph is a linear sequence of PipelineStage nodes.  Each node specifies the expected
+    input/output score ranges and the normalization method used, enabling automated handoff
+    verification.
     """
 
     stages: list[PipelineStage] = field(default_factory=list)
@@ -83,7 +86,8 @@ class SignalFlowGraph:
 
     @classmethod
     def build_default(cls) -> SignalFlowGraph:
-        """Build the default Mercury Agent signal flow graph.
+        """
+        Build the default Mercury Agent signal flow graph.
 
         This captures the canonical pipeline:
         raw data -> feature extraction -> per-detector scoring ->
@@ -191,16 +195,18 @@ class HandoffResult:
 
 
 class NormalizationVerifier:
-    """Verifies that score ranges are compatible at every stage boundary.
+    """
+    Verifies that score ranges are compatible at every stage boundary.
 
-    For each pair of adjacent stages (A -> B) in the signal flow graph,
-    checks that A.output_range is contained within B.input_range.  If not,
-    a normalization mismatch exists that can cause silent score corruption.
+    For each pair of adjacent stages (A -> B) in the signal flow graph, checks that A.output_range
+    is contained within B.input_range.  If not, a normalization mismatch exists that can cause
+    silent score corruption.
     """
 
     @staticmethod
     def verify(graph: SignalFlowGraph) -> list[HandoffResult]:
-        """Run handoff verification across the entire pipeline.
+        """
+        Run handoff verification across the entire pipeline.
 
         Args:
             graph: The signal flow graph to verify.
@@ -278,7 +284,8 @@ class LyapunovRuntimeEnforcer:
         halt_on_violation: bool = False,
         grace_steps: int = 5,
     ):
-        """Initialize enforcer.
+        """
+        Initialize enforcer.
 
         Args:
             lambda_convergence: Decay rate (lambda in V_dot <= -lambda*V).
@@ -305,7 +312,8 @@ class LyapunovRuntimeEnforcer:
         self._history: list[float] = []
 
     def check(self, v_current: float) -> bool:
-        """Check Lyapunov condition for current step.
+        """
+        Check Lyapunov condition for current step.
 
         Args:
             v_current: Current value of the Lyapunov function V(t).
@@ -377,7 +385,8 @@ class LyapunovRuntimeEnforcer:
         return len(self._violations) / checked
 
     def get_stability_report(self) -> dict[str, Any]:
-        """Get a comprehensive stability report.
+        """
+        Get a comprehensive stability report.
 
         Returns:
             Dict with stability metrics and history.
@@ -418,7 +427,8 @@ def run_coherence_audit(
     fusion_scores: list[float] | None = None,
     halt_on_violation: bool = False,
 ) -> CoherenceReport:
-    """Run a full Phase 6 system-level coherence audit.
+    """
+    Run a full Phase 6 system-level coherence audit.
 
     This function:
     1. Builds the default signal flow graph

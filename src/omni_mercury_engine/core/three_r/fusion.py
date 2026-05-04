@@ -1,5 +1,6 @@
 """
 Mercury Agent - 3R Mechanism Fusion
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Omni-Ava Equation (OAE) implementation for unified precision scoring.
@@ -88,11 +89,24 @@ class OmniAvaEquation:
         if lambda_lyapunov is not None:
             convergence_rate = lambda_lyapunov
 
-        clamped = max(0.90, min(0.99, ethical_compliance_threshold))
+        # CLOSED(audit-2026-03, severity=high, commit=Phase2):
+        #   Floor tightened from 0.90 to domain default (0.93).  The
+        #   parameter is clamped at construction — callers cannot drop
+        #   below the domain-calibrated value.
+        from omni_mercury_engine.core.centralized_constants import ETHICAL
+
+        floor = ETHICAL.SIGMA_IMMUTABLE_MEDICAL  # 0.93 — lowest domain floor
+        clamped = max(floor, min(0.99, ethical_compliance_threshold))
         if clamped != ethical_compliance_threshold:
+            # Do not interpolate the supplied or clamped value into the log
+            # record — CodeQL's py/clear-text-logging-sensitive-data taints
+            # ``clamped`` via the parameter and the security review (alerts
+            # 877, 878) flags any inclusion of the threshold in log output.
+            # The fact-of-clamping is sufficient diagnostic; the floor and
+            # ceiling are documented in source and ``ETHICAL`` constants.
             logger.warning(
-                f"ethical_compliance_threshold={ethical_compliance_threshold:.4f} "
-                f"clamped to [{0.90}, {0.99}] -> {clamped:.4f}"
+                "ethical_compliance_threshold outside permitted range; "
+                "value clamped to the domain-calibrated floor"
             )
         # Use object.__setattr__ so the immutability guard (set below) doesn't
         # trigger during construction.
@@ -184,8 +198,7 @@ class OmniAvaEquation:
         # Validate benevolence_score range
         if benevolence_score is not None and not (0.0 <= benevolence_score <= 1.0):
             logger.warning(
-                f"benevolence_score={benevolence_score:.4f} outside [0, 1], "
-                "clamping to valid range"
+                f"benevolence_score={benevolence_score:.4f} outside [0, 1], clamping to valid range"
             )
             benevolence_score = max(0.0, min(1.0, benevolence_score))
 
@@ -300,8 +313,8 @@ class OAEWeightOptimizer:
     """
     Optimizer for OAE weights using gradient-based methods.
 
-    Learns optimal weights (w_R, w_H, w_O) to maximize anomaly detection performance
-    while maintaining ethical constraints.
+    Learns optimal weights (w_R, w_H, w_O) to maximize anomaly detection performance while
+    maintaining ethical constraints.
     """
 
     def __init__(
@@ -394,7 +407,8 @@ class OAEWeightOptimizer:
 
 
 class DomainAdaptiveOAEWeights:
-    """Domain-adaptive weight profiles for the OAE equation.
+    """
+    Domain-adaptive weight profiles for the OAE equation.
 
     When cross-domain weight variance exceeds a threshold (default 10%),
     this class maintains per-domain weight profiles learned from empirical
@@ -426,7 +440,8 @@ class DomainAdaptiveOAEWeights:
         o_score: float,
         target: float,
     ) -> None:
-        """Record an observation for domain-specific weight learning.
+        """
+        Record an observation for domain-specific weight learning.
 
         Args:
             domain: Domain identifier (e.g. "medical", "security").
@@ -441,7 +456,8 @@ class DomainAdaptiveOAEWeights:
         self._domain_scores[key].append((r_score, h_score, o_score, target))
 
     def fit_domain_profiles(self, min_samples: int = 30) -> dict[str, dict[str, float]]:
-        """Fit per-domain weight profiles from recorded observations.
+        """
+        Fit per-domain weight profiles from recorded observations.
 
         Only creates a domain-specific profile when enough data exists.
         Returns the mapping of domain -> weight dict.
@@ -488,7 +504,8 @@ class DomainAdaptiveOAEWeights:
         return dict(self._domain_profiles)
 
     def get_weights(self, domain: str) -> dict[str, float]:
-        """Get weights for a specific domain.
+        """
+        Get weights for a specific domain.
 
         Returns domain-specific profile if available, otherwise defaults.
 
@@ -534,7 +551,8 @@ class BanachRecursion:
         max_depth: int = RECURSION.MAX_DEPTH,
         convergence_tolerance: float = RECURSION.CONVERGENCE_TOLERANCE,
     ):
-        """Initialize convergence-bounded recursion.
+        """
+        Initialize convergence-bounded recursion.
 
         Args:
             alpha_raw: Raw contraction parameter (before sigmoid constraint).
@@ -574,7 +592,8 @@ class BanachRecursion:
             return float(z / (1.0 + z))
 
     def set_alpha(self, alpha_raw: float) -> float:
-        """Set contraction factor from raw value via sigmoid constraint.
+        """
+        Set contraction factor from raw value via sigmoid constraint.
 
         Args:
             alpha_raw: Unconstrained parameter.
@@ -586,7 +605,8 @@ class BanachRecursion:
         return self.alpha
 
     def compute_error_bound(self, x0_norm: float, depth: int | None = None) -> float:
-        """Compute theoretical error bound after d iterations.
+        """
+        Compute theoretical error bound after d iterations.
 
         Error bound: err ≤ α^d · ‖x₀ - R(x₀)‖ / (1 - α)
 

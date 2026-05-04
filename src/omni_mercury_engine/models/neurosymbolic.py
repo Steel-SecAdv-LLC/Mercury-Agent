@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -89,7 +87,8 @@ class ReasoningMode(Enum):
 
 @dataclass
 class SymbolicRule:
-    """Represents a symbolic logical rule with explainability support.
+    """
+    Represents a symbolic logical rule with explainability support.
 
     Attributes:
         premise: Logical condition(s) that must be satisfied
@@ -124,7 +123,8 @@ class SymbolicRule:
 
 @dataclass
 class ReasoningResult:
-    """Result from symbolic or hybrid reasoning.
+    """
+    Result from symbolic or hybrid reasoning.
 
     Attributes:
         result: Whether the query was derived
@@ -148,6 +148,7 @@ class ReasoningResult:
 class LogicTensorNetwork:
     """
     Logic Tensor Network for combining neural and symbolic reasoning.
+
     Implements fuzzy logic operations over neural network outputs.
     """
 
@@ -167,7 +168,7 @@ class LogicTensorNetwork:
             self.logic_head = nn.Linear(hidden_dim // 2, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass through LTN"""
+        """Forward pass through LTN."""
         if not TORCH_AVAILABLE:
             raise RuntimeError("PyTorch required for neural forward pass")
         features = self.encoder(x)
@@ -192,7 +193,8 @@ class SymbolicReasoningLayer:
         temporal_logic: bool = True,
         graph_based: bool = True,
     ):
-        """Initialize symbolic reasoning layer.
+        """
+        Initialize symbolic reasoning layer.
 
         Args:
             explainability_threshold: Min confidence for explanations
@@ -320,7 +322,8 @@ class NeurosymbolicEngine:
         reasoning_mode: ReasoningMode = ReasoningMode.HYBRID,
         explainability_threshold: float = 0.7,
     ):
-        """Initialize Neurosymbolic Engine.
+        """
+        Initialize Neurosymbolic Engine.
 
         Args:
             input_dim: Input feature dimension for LTN
@@ -360,7 +363,7 @@ class NeurosymbolicEngine:
         logging.info(f"NeurosymbolicEngine initialized (mode={reasoning_mode.value})")
 
     def _initialize_ethical_rules(self) -> None:
-        """Initialize fundamental ethical rules"""
+        """Initialize fundamental ethical rules."""
         ethical_rules = [
             SymbolicRule(
                 premise="missing_person AND child", conclusion="priority_high", confidence=1.0
@@ -428,7 +431,7 @@ class NeurosymbolicEngine:
             self.symbolic_layer.add_rule(rule)
 
     def add_fact(self, fact: str) -> None:
-        """Add a fact to the knowledge base"""
+        """Add a fact to the knowledge base."""
         self.facts.add(fact)
         logging.info(f"Added fact: {fact}")
 
@@ -581,7 +584,8 @@ class NeurosymbolicEngine:
         context: dict[str, Any] | None = None,
         mode: ReasoningMode | None = None,
     ) -> dict[str, Any]:
-        """Predict anomalies using neurosymbolic reasoning.
+        """
+        Predict anomalies using neurosymbolic reasoning.
 
         Args:
             data: Input data array
@@ -654,7 +658,8 @@ class NeurosymbolicEngine:
         data: np.ndarray[Any, Any],
         context: dict[str, Any],
     ) -> ReasoningResult:
-        """Perform hybrid neuro-symbolic inference on a single sample.
+        """
+        Perform hybrid neuro-symbolic inference on a single sample.
 
         Args:
             data: Input feature vector
@@ -667,7 +672,8 @@ class NeurosymbolicEngine:
         return self.symbolic_layer.reason(neural_score, context)
 
     def explain(self, reasoning_result: ReasoningResult) -> str:
-        """Generate human-readable explanation of reasoning result.
+        """
+        Generate human-readable explanation of reasoning result.
 
         Args:
             reasoning_result: Result from hybrid_inference
@@ -678,7 +684,8 @@ class NeurosymbolicEngine:
         return self.symbolic_layer.explain_decision(reasoning_result)
 
     def add_rule(self, rule: SymbolicRule) -> None:
-        """Add a custom rule to both knowledge base and symbolic layer.
+        """
+        Add a custom rule to both knowledge base and symbolic layer.
 
         Args:
             rule: SymbolicRule to add
@@ -687,7 +694,8 @@ class NeurosymbolicEngine:
         self.symbolic_layer.add_rule(rule)
 
     def get_statistics(self) -> dict[str, Any]:
-        """Get engine statistics.
+        """
+        Get engine statistics.
 
         Returns:
             Dictionary with engine statistics

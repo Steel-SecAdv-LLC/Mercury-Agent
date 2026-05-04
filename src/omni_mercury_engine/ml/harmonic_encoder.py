@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -51,9 +49,9 @@ except ImportError:
 
 
 class SphericalHarmonicDecomposer:
-    """
-    Spherical harmonic decomposition for 3D surface analysis
-    Provides rotation-invariant feature extraction for facial biometrics
+    """Spherical harmonic decomposition for 3D surface analysis Provides rotation-invariant feature
+
+    extraction for facial biometrics.
     """
 
     def __init__(self, l_max: int = 10) -> None:
@@ -64,7 +62,7 @@ class SphericalHarmonicDecomposer:
         self, points: np.ndarray[Any, Any], values: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
         """
-        Decompose 3D surface into spherical harmonic coefficients
+        Decompose 3D surface into spherical harmonic coefficients.
 
         Args:
             points: Array of shape (N, 3) containing (x, y, z) coordinates
@@ -93,7 +91,7 @@ class SphericalHarmonicDecomposer:
         phi: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
         """
-        Reconstruct surface from spherical harmonic coefficients
+        Reconstruct surface from spherical harmonic coefficients.
 
         Args:
             coefficients: Spherical harmonic coefficients
@@ -118,8 +116,9 @@ class SphericalHarmonicDecomposer:
         self, coefficients: np.ndarray[Any, Any]
     ) -> np.ndarray[Any, Any]:
         """
-        Compute rotation-invariant features from spherical harmonic coefficients
-        Uses power spectrum which is rotation-invariant
+        Compute rotation-invariant features from spherical harmonic coefficients Uses power spectrum
+
+        which is rotation-invariant.
 
         Args:
             coefficients: Spherical harmonic coefficients
@@ -162,16 +161,14 @@ class SphericalHarmonicDecomposer:
 
 
 class FourierHarmonicAnalyzer:
-    """
-    Fourier harmonic analysis for frequency-domain pattern extraction
-    """
+    """Fourier harmonic analysis for frequency-domain pattern extraction."""
 
     def __init__(self, num_harmonics: int = 8) -> None:
         self.num_harmonics = num_harmonics
 
     def extract_harmonics(self, signal: np.ndarray[Any, Any]) -> dict[str, np.ndarray[Any, Any]]:
         """
-        Extract harmonic components from signal using FFT
+        Extract harmonic components from signal using FFT.
 
         Args:
             signal: Input signal (1D array)
@@ -202,7 +199,7 @@ class FourierHarmonicAnalyzer:
         self, signal: np.ndarray[Any, Any], low_freq: float, high_freq: float
     ) -> np.ndarray[Any, Any]:
         """
-        Apply bandpass filter to signal
+        Apply bandpass filter to signal.
 
         Args:
             signal: Input signal
@@ -226,6 +223,7 @@ class FourierHarmonicAnalyzer:
 class QuantumHarmonicOscillator:
     """
     Quantum harmonic oscillator model for state evolution.
+
     Based on quantum mechanics principles for coherent state evolution.
     """
 
@@ -236,7 +234,7 @@ class QuantumHarmonicOscillator:
 
     def energy_level(self, n: int) -> float:
         """
-        Compute energy of quantum harmonic oscillator at level n
+        Compute energy of quantum harmonic oscillator at level n.
 
         Args:
             n: Quantum number (non-negative integer)
@@ -248,7 +246,7 @@ class QuantumHarmonicOscillator:
 
     def wavefunction(self, x: np.ndarray[Any, Any], n: int) -> np.ndarray[Any, Any]:
         """
-        Compute wavefunction for quantum harmonic oscillator
+        Compute wavefunction for quantum harmonic oscillator.
 
         Args:
             x: Position array
@@ -274,7 +272,7 @@ class QuantumHarmonicOscillator:
         self, psi_0: np.ndarray[Any, Any], t: float, n_max: int = 10
     ) -> np.ndarray[Any, Any]:
         """
-        Evolve quantum state in time
+        Evolve quantum state in time.
 
         Args:
             psi_0: Initial state
@@ -302,9 +300,7 @@ class QuantumHarmonicOscillator:
 if TORCH_AVAILABLE:
 
     class HarmonicEncoder(nn.Module):
-        """
-        PyTorch module wrapping harmonic analysis for ML fusion
-        """
+        """PyTorch module wrapping harmonic analysis for ML fusion."""
 
         def __init__(
             self,
@@ -328,7 +324,7 @@ if TORCH_AVAILABLE:
             signal: torch.Tensor | None = None,
         ) -> torch.Tensor:
             """
-            Extract harmonic features from 3D surface or 1D signal
+            Extract harmonic features from 3D surface or 1D signal.
 
             Args:
                 points: 3D surface points (N, 3)

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -115,7 +113,8 @@ class EnergyState(Enum):
 
 @dataclass
 class AccelerationDynamicsConfig:
-    """Configuration for acceleration dynamics analysis.
+    """
+    Configuration for acceleration dynamics analysis.
 
     Attributes:
         time_step: Time step between samples (default 1.0)
@@ -147,7 +146,8 @@ class AccelerationDynamicsConfig:
 
 @dataclass
 class KinematicFeatures:
-    """Extracted kinematic features from time-series.
+    """
+    Extracted kinematic features from time-series.
 
     Attributes:
         position: Original signal (position analog)
@@ -184,7 +184,8 @@ class KinematicFeatures:
 
 @dataclass
 class PhaseSpaceFeatures:
-    """Phase space analysis features.
+    """
+    Phase space analysis features.
 
     Attributes:
         trajectory: Phase space trajectory [time, embedding_dim]
@@ -209,7 +210,8 @@ class PhaseSpaceFeatures:
 
 @dataclass
 class AccelerationAnomalyResult:
-    """Complete anomaly detection result.
+    """
+    Complete anomaly detection result.
 
     Attributes:
         anomaly_score: Overall anomaly score [0, 1]
@@ -245,10 +247,11 @@ class AccelerationAnomalyResult:
 if TORCH_AVAILABLE:
 
     class MotionEncoder(nn.Module):
-        """Neural network encoder for motion feature extraction.
+        """
+        Neural network encoder for motion feature extraction.
 
-        Learns representations from kinematic features that capture
-        normal motion patterns and detect deviations.
+        Learns representations from kinematic features that capture normal motion patterns and
+        detect deviations.
         """
 
         def __init__(
@@ -258,7 +261,8 @@ if TORCH_AVAILABLE:
             output_dim: int = 32,
             num_layers: int = 2,
         ) -> None:
-            """Initialize motion encoder.
+            """
+            Initialize motion encoder.
 
             Args:
                 input_dim: Number of kinematic input features
@@ -296,7 +300,8 @@ if TORCH_AVAILABLE:
             )
 
         def forward(self, x: torch.Tensor) -> torch.Tensor:
-            """Forward pass through motion encoder.
+            """
+            Forward pass through motion encoder.
 
             Args:
                 x: Kinematic features [batch, time, input_dim]
@@ -315,10 +320,10 @@ if TORCH_AVAILABLE:
             return self.output_proj(context)
 
     class PhaseSpaceNetwork(nn.Module):
-        """Neural network for phase space trajectory analysis.
+        """
+        Neural network for phase space trajectory analysis.
 
-        Processes phase space embeddings to detect chaotic behavior
-        and trajectory anomalies.
+        Processes phase space embeddings to detect chaotic behavior and trajectory anomalies.
         """
 
         def __init__(
@@ -327,7 +332,8 @@ if TORCH_AVAILABLE:
             hidden_dim: int = 32,
             output_dim: int = 16,
         ) -> None:
-            """Initialize phase space network.
+            """
+            Initialize phase space network.
 
             Args:
                 embedding_dim: Phase space embedding dimension
@@ -368,7 +374,8 @@ if TORCH_AVAILABLE:
             self,
             trajectory: torch.Tensor,
         ) -> tuple[torch.Tensor, torch.Tensor]:
-            """Forward pass through phase space network.
+            """
+            Forward pass through phase space network.
 
             Args:
                 trajectory: Phase space trajectory [batch, time, embedding_dim]
@@ -393,10 +400,11 @@ if TORCH_AVAILABLE:
             return features, chaos_score
 
     class EnergyConservationNetwork(nn.Module):
-        """Network for detecting energy conservation violations.
+        """
+        Network for detecting energy conservation violations.
 
-        Learns to predict energy at each timestep and flags deviations
-        that indicate anomalous energy injection or dissipation.
+        Learns to predict energy at each timestep and flags deviations that indicate anomalous
+        energy injection or dissipation.
         """
 
         def __init__(
@@ -404,7 +412,8 @@ if TORCH_AVAILABLE:
             input_dim: int = 3,  # KE, PE, momentum
             hidden_dim: int = 32,
         ) -> None:
-            """Initialize energy conservation network.
+            """
+            Initialize energy conservation network.
 
             Args:
                 input_dim: Number of energy-related inputs
@@ -433,7 +442,8 @@ if TORCH_AVAILABLE:
             self,
             energy_features: torch.Tensor,
         ) -> tuple[torch.Tensor, torch.Tensor]:
-            """Detect energy conservation violations.
+            """
+            Detect energy conservation violations.
 
             Args:
                 energy_features: Energy features [batch, time, input_dim]
@@ -504,7 +514,8 @@ class AccelerationDynamicsDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize acceleration dynamics detector.
+        """
+        Initialize acceleration dynamics detector.
 
         Args:
             config: Configuration dictionary. See AccelerationDynamicsConfig.
@@ -568,7 +579,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         self._energy_network.eval()
 
     def fit(self, data: np.ndarray | torch.Tensor) -> AccelerationDynamicsDetector:
-        """Fit detector on reference/training data.
+        """
+        Fit detector on reference/training data.
 
         Args:
             data: Time-series data [num_samples] or [batch, num_samples]
@@ -626,7 +638,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return self
 
     def detect(self, data: np.ndarray | torch.Tensor) -> dict[str, Any]:
-        """Detect anomalies using acceleration dynamics analysis.
+        """
+        Detect anomalies using acceleration dynamics analysis.
 
         Args:
             data: Time-series data [num_samples] or [batch, num_samples]
@@ -696,7 +709,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         }
 
     def extract_features(self, data: np.ndarray | torch.Tensor) -> torch.Tensor:
-        """Extract features for ML fusion.
+        """
+        Extract features for ML fusion.
 
         Args:
             data: Time-series data
@@ -774,7 +788,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return torch.tensor(np.array(all_features), dtype=torch.float32)
 
     def _analyze_sample(self, signal: np.ndarray) -> AccelerationAnomalyResult:
-        """Perform complete analysis on a single sample.
+        """
+        Perform complete analysis on a single sample.
 
         Args:
             signal: Time-series signal
@@ -925,7 +940,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         acceleration: np.ndarray,
         jerk: np.ndarray,
     ) -> MotionState:
-        """Classify the motion state from kinematic features.
+        """
+        Classify the motion state from kinematic features.
 
         Args:
             velocity: Velocity array
@@ -974,7 +990,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return MotionState.ANOMALOUS
 
     def _classify_energy_state(self, total_energy: np.ndarray) -> EnergyState:
-        """Classify energy conservation state.
+        """
+        Classify energy conservation state.
 
         Args:
             total_energy: Total energy array
@@ -1001,7 +1018,8 @@ class AccelerationDynamicsDetector(BaseDetector):
             return EnergyState.UNSTABLE
 
     def _analyze_phase_space(self, signal: np.ndarray) -> PhaseSpaceFeatures:
-        """Analyze phase space trajectory.
+        """
+        Analyze phase space trajectory.
 
         Constructs phase space embedding using delay coordinates and
         computes dynamical systems metrics.
@@ -1056,7 +1074,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         dim: int,
         delay: int,
     ) -> np.ndarray:
-        """Construct delay coordinate embedding.
+        """
+        Construct delay coordinate embedding.
 
         Creates phase space reconstruction: [x(t), x(t-τ), x(t-2τ), ...]
 
@@ -1082,7 +1101,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return embedding
 
     def _estimate_lyapunov_exponent(self, trajectory: np.ndarray) -> float:
-        """Estimate largest Lyapunov exponent.
+        """
+        Estimate largest Lyapunov exponent.
 
         Uses the method of Wolf et al. (1985) for estimating the largest
         Lyapunov exponent from time series.
@@ -1125,7 +1145,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return float(np.mean(divergences))
 
     def _estimate_correlation_dimension(self, trajectory: np.ndarray) -> float:
-        """Estimate correlation dimension using Grassberger-Procaccia algorithm.
+        """
+        Estimate correlation dimension using Grassberger-Procaccia algorithm.
 
         Args:
             trajectory: Phase space trajectory
@@ -1185,7 +1206,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         trajectory: np.ndarray,
         threshold_percentile: float = 10.0,
     ) -> tuple[float, float]:
-        """Compute recurrence quantification analysis metrics.
+        """
+        Compute recurrence quantification analysis metrics.
 
         Args:
             trajectory: Phase space trajectory
@@ -1246,7 +1268,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return float(rr), float(det)
 
     def _compute_phase_entropy(self, trajectory: np.ndarray) -> float:
-        """Compute entropy of phase space distribution.
+        """
+        Compute entropy of phase space distribution.
 
         Args:
             trajectory: Phase space trajectory
@@ -1280,7 +1303,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         corr_dim: float,
         recurrence_rate: float,
     ) -> str:
-        """Classify the type of attractor.
+        """
+        Classify the type of attractor.
 
         Args:
             lyapunov: Lyapunov exponent
@@ -1323,7 +1347,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return float(np.clip(max_z / 3.0, 0.0, 1.0))
 
     def _compute_acceleration_anomaly(self, features: KinematicFeatures) -> float:
-        """Compute acceleration-based anomaly score.
+        """
+        Compute acceleration-based anomaly score.
 
         Args:
             features: Kinematic features
@@ -1338,7 +1363,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return float(np.clip(max_z / 3.0, 0.0, 1.0))
 
     def _compute_jerk_anomaly(self, features: KinematicFeatures) -> float:
-        """Compute jerk-based anomaly score.
+        """
+        Compute jerk-based anomaly score.
 
         High jerk indicates sudden changes in acceleration, often anomalous.
 
@@ -1356,7 +1382,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return float(np.clip(max_z * sensitivity / 5.0, 0.0, 1.0))
 
     def _compute_energy_anomaly(self, features: KinematicFeatures) -> float:
-        """Compute energy conservation anomaly score.
+        """
+        Compute energy conservation anomaly score.
 
         Checks for unexpected energy changes that violate conservation.
 
@@ -1380,7 +1407,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         return float(np.clip(anomaly, 0.0, 1.0))
 
     def _compute_chaos_anomaly(self, features: PhaseSpaceFeatures) -> float:
-        """Compute chaos-based anomaly score.
+        """
+        Compute chaos-based anomaly score.
 
         Higher Lyapunov exponents indicate more chaotic (potentially anomalous) behavior.
 
@@ -1407,7 +1435,8 @@ class AccelerationDynamicsDetector(BaseDetector):
         kin_features: KinematicFeatures,
         phase_features: PhaseSpaceFeatures,
     ) -> tuple[list[int], list[str]]:
-        """Find specific timestamps of anomalies.
+        """
+        Find specific timestamps of anomalies.
 
         Args:
             kin_features: Kinematic features

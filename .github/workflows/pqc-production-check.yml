@@ -36,15 +36,46 @@ jobs:
           # the subsequent ``pip install --no-build-isolation`` of
           # ama-cryptography to resolve ``setuptools.build_meta``.
           python -m pip install "setuptools>=61.0" wheel "cmake>=3.16"
-          pip install -e ".[dev]"
+          # The verify-real-pqc job exercises the security suite end-to-end,
+          # which includes ``tests/security/test_jwt_auth.py`` and
+          # ``tests/security/test_audit_improvements.py``. Both reach the
+          # FastAPI-backed ``omni_mercury_engine.api.auth`` module at import
+          # time. ``[dev]`` alone yields a ``ModuleNotFoundError: fastapi``
+          # collection error on those files, so install the ``[api]`` extra
+          # alongside ``[dev]`` to satisfy the ``api/auth.py`` runtime
+          # contract under CI.
+          pip install -e ".[dev,api]"
 
       - name: Build AMA Cryptography native C library
+        env:
+          # FIPS 204/205 KAT pinning (Phase 2): the byte-exact NIST ACVP
+          # reproduction in ``tests/security/test_nist_fips_kat.py`` requires
+          # the AMA v3.1.0 surface (``dilithium_sign_ctx`` for FIPS 204 §5.2
+          # ctx-aware ML-DSA-65 sign + ``slhdsa_sign_deterministic`` /
+          # ``slhdsa_verify`` for FIPS 205 SLH-DSA-SHAKE-128s NIST L1) plus
+          # the FIPS 204 §6.2 Algorithm 7 line 3 fix that pins
+          # ``rnd = 0^256`` in deterministic mode.
+          #
+          # AMA Cryptography PR #290 (merge commit 24c7fc7) landed on
+          # ``main`` on 2026-05-04 and was tagged ``v3.1.0`` from that
+          # same commit. The tag ships the FIPS 204 §6.2 Algorithm 7
+          # rnd fix, the FIPS 204 §5.2 ctx-aware ``dilithium_sign_ctx``
+          # surface, the FIPS 205 NIST L1 SLH-DSA-SHAKE-128s public
+          # surface, the POST verify-only KAT against pinned NIST
+          # ACVP-Server tcId=342, INVARIANT-6 SK-wipe, no-alloc
+          # ``sha2_HT``, and the refreshed integrity digest. Pinning
+          # this CI job to the immutable tag (rather than the moving
+          # ``main`` branch) gives the byte-exact NIST ACVP
+          # reproduction in ``tests/security/test_nist_fips_kat.py``
+          # a stable reproducibility anchor.
+          AMA_REF: v3.1.0
         run: |
           # Clone and build the native C library explicitly via cmake so the
           # compiled shared objects are available before the Python install.
           # This satisfies INVARIANT-7 (native HMAC/HKDF/SHA3 backends required)
           # which is enforced by ama_cryptography.crypto_api at import time.
-          git clone --depth 1 https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
+          git clone --branch "${AMA_REF}" --depth 1 \
+            https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
           cd /tmp/ama-cryptography
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
@@ -113,8 +144,86 @@ jobs:
       - name: Run security tests with real PQC requirement
         env:
           AMA_REQUIRE_REAL_PQC: "true"
+        # Blocking — the previous ``|| echo "Some tests may fail without
+        # AMA native C library"`` was a silent escape hatch.  By the time
+        # this step runs, the workflow has already:
+        #   - cloned and built AMA Cryptography (``v3.1.0`` tag),
+        #   - exported ``LD_LIBRARY_PATH`` to the AMA build/lib,
+        #   - sanity-checked that ``DILITHIUM_AVAILABLE``, ``SPHINCS_AVAILABLE``
+        #     and ``KYBER_AVAILABLE`` are all ``True`` against the real
+        #     backend (see the previous step).
+        # If the security suite still fails after all of that, the failure
+        # is real and the gate must trip.
         run: |
-          pytest tests/security/ -v --tb=short || echo "Some tests may fail without AMA native C library"
+          pytest tests/security/ -v --tb=short
+
+      - name: Run AMA Cryptography Known-Answer Tests (KAT)
+        # Phase 2 audit cure.  The KAT suites pin:
+        #   - Ed25519 RFC 8032 §7.1 vectors (always run)
+        #   - ML-DSA-65 / Kyber-1024 / SPHINCS+ round-trip
+        #   - Deterministic-seed reproducibility for ML-DSA signing
+        #   - NIST FIPS 203/204/205 ACVP-Server reference vectors
+        #     (bit-for-bit sigGen, decapsulation checks)
+        # A regression in any KAT is a build-time failure.
+        run: |
+          pytest tests/security/test_ama_kat.py tests/security/test_nist_fips_kat.py -v --tb=short
+
+      - name: Publish PQC coverage number for the README badge
+        # Generates the coverage figure cited in the README PQC section
+        # so the published number is measured-and-published evidence
+        # rather than "unaudited" framing. Coverage is scoped to the
+        # crypto*.py + pqc*.py surface via a dedicated ``.coveragerc``
+        # written inline below.
+        #
+        # We deliberately invoke ``coverage run -m pytest`` rather than
+        # ``pytest --cov`` because pytest-cov 7.x + numpy 2.x together
+        # race on numpy's "cannot load module more than once per
+        # process" guard when pytest-cov pre-imports the configured
+        # source modules during ``pytest_configure`` while
+        # ``tests/conftest.py`` is also importing numpy at collection
+        # time. ``coverage run`` initialises tracing before pytest is
+        # imported, which avoids the pre-import path entirely.
+        #
+        # The config uses ``source = src/omni_mercury_engine/security``
+        # (directory) plus ``include = .../crypto_api.py``,
+        # ``.../pqc_backends.py``, ``.../pqc_guards.py`` to scope the
+        # report to the three crypto modules without tripping
+        # coverage's "module-not-imported" path-resolution mismatch
+        # that ``source = <dotted-module>`` produces under editable
+        # installs (the ``pip install -e`` package import maps to
+        # ``src/`` paths in ``__file__`` but coverage's source resolver
+        # only resolves dotted names against ``site-packages``).
+        run: |
+          {
+            printf '[run]\n'
+            printf 'source =\n'
+            printf '    src/omni_mercury_engine/security\n'
+            printf 'branch = true\n'
+            printf '\n'
+            printf '[report]\n'
+            printf 'precision = 2\n'
+            printf 'show_missing = true\n'
+            printf 'fail_under = 0\n'
+            printf 'include =\n'
+            printf '    src/omni_mercury_engine/security/crypto_api.py\n'
+            printf '    src/omni_mercury_engine/security/pqc_backends.py\n'
+            printf '    src/omni_mercury_engine/security/pqc_guards.py\n'
+          } > /tmp/pqc-coveragerc
+          coverage erase --rcfile=/tmp/pqc-coveragerc
+          coverage run --rcfile=/tmp/pqc-coveragerc -m pytest \
+            tests/security/test_ama_kat.py \
+            tests/security/test_nist_fips_kat.py \
+            tests/security/test_crypto_api.py \
+            -q
+          coverage report --rcfile=/tmp/pqc-coveragerc
+          coverage xml --rcfile=/tmp/pqc-coveragerc -o pqc-coverage.xml
+
+      - name: Upload PQC coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pqc-coverage
+          path: pqc-coverage.xml
+          if-no-files-found: warn
 
       - name: Verify PQC production readiness
         run: |

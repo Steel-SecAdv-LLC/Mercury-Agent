@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -191,8 +190,8 @@ class OllamaLLMAdapter(BaseLLMAdapter):
     """
     Ollama LLM adapter for local model inference.
 
-    Provides offline-first LLM capability with support for
-    multiple open-source models (Llama, Mistral, Phi, etc.)
+    Provides offline-first LLM capability with support for multiple open-source models (Llama,
+    Mistral, Phi, etc.)
     """
 
     def __init__(
@@ -439,9 +438,8 @@ class TemplateLLMAdapter(BaseLLMAdapter):
     """
     Template-based fallback adapter for offline operation.
 
-    Provides intelligent template responses when no LLM is available.
-    Uses pattern matching and rule-based responses to maintain
-    basic conversational capability.
+    Provides intelligent template responses when no LLM is available. Uses pattern matching and
+    rule-based responses to maintain basic conversational capability.
     """
 
     def __init__(self, config: LLMConfig | None = None):
@@ -574,12 +572,13 @@ class OpenAICloudAdapter(BaseLLMAdapter):
     """
     OpenAI cloud adapter for GPT models.
 
-    Provides integration with OpenAI's API for high-capability
-    language model inference when local models are unavailable.
+    Provides integration with OpenAI's API for high-capability language model inference when local
+    models are unavailable.
     """
 
     def __init__(self, config: LLMConfig):
-        """Initialize OpenAI adapter.
+        """
+        Initialize OpenAI adapter.
 
         Args:
             config: LLM configuration with API key
@@ -598,7 +597,8 @@ class OpenAICloudAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """Generate text using OpenAI API.
+        """
+        Generate text using OpenAI API.
 
         Args:
             prompt: User prompt
@@ -675,12 +675,13 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
     """
     Anthropic cloud adapter for Claude models.
 
-    Provides integration with Anthropic's API for Claude model
-    inference when local models are unavailable.
+    Provides integration with Anthropic's API for Claude model inference when local models are
+    unavailable.
     """
 
     def __init__(self, config: LLMConfig):
-        """Initialize Anthropic adapter.
+        """
+        Initialize Anthropic adapter.
 
         Args:
             config: LLM configuration with API key
@@ -699,7 +700,8 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """Generate text using Anthropic API.
+        """
+        Generate text using Anthropic API.
 
         Args:
             prompt: User prompt
@@ -776,12 +778,12 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
     """
     HuggingFace Inference API adapter.
 
-    Provides integration with HuggingFace's hosted inference API
-    for various open-source models.
+    Provides integration with HuggingFace's hosted inference API for various open-source models.
     """
 
     def __init__(self, config: LLMConfig):
-        """Initialize HuggingFace adapter.
+        """
+        Initialize HuggingFace adapter.
 
         Args:
             config: LLM configuration with API key
@@ -800,7 +802,8 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
-        """Generate text using HuggingFace Inference API.
+        """
+        Generate text using HuggingFace Inference API.
 
         Args:
             prompt: User prompt
@@ -943,11 +946,11 @@ class FallbackLLMChain:
         logger.info("LLM chain using template fallback")
 
     def _create_cloud_adapter(self) -> BaseLLMAdapter | None:
-        """Create cloud adapter based on configuration.
+        """
+        Create cloud adapter based on configuration.
 
-        Supports OpenAI, Anthropic, and HuggingFace cloud providers.
-        Each provider requires appropriate API keys set via environment
-        variables or configuration.
+        Supports OpenAI, Anthropic, and HuggingFace cloud providers. Each provider requires
+        appropriate API keys set via environment variables or configuration.
         """
         if not self.cloud_config:
             return None

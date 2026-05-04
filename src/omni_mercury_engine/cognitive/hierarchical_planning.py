@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -153,7 +151,8 @@ class Goal:
 
 @dataclass
 class Option:
-    """A temporally extended action (option).
+    """
+    A temporally extended action (option).
 
     Options are multi-step policies that run until termination.
 
@@ -207,7 +206,8 @@ class Option:
 
 @dataclass
 class Subgoal:
-    """A subgoal in the tactical layer.
+    """
+    A subgoal in the tactical layer.
 
     Bridges strategic goals and operational actions.
 
@@ -236,7 +236,8 @@ class Subgoal:
 
 @dataclass
 class PlanNode:
-    """A node in the hierarchical plan tree.
+    """
+    A node in the hierarchical plan tree.
 
     Attributes:
         node_id: Unique identifier
@@ -265,7 +266,8 @@ class PlanNode:
 
 @dataclass
 class HierarchicalPlan:
-    """A complete hierarchical plan.
+    """
+    A complete hierarchical plan.
 
     Attributes:
         plan_id: Unique identifier
@@ -302,7 +304,8 @@ class HierarchicalPlan:
 
 @dataclass
 class PlanExecutionState:
-    """State of plan execution.
+    """
+    State of plan execution.
 
     Attributes:
         plan: The plan being executed
@@ -343,7 +346,8 @@ class HierarchicalValueFunction:
         discount: float = DEFAULT_DISCOUNT,
         num_levels: int = 3,
     ):
-        """Initialize value function.
+        """
+        Initialize value function.
 
         Args:
             discount: Discount factor (gamma)
@@ -367,7 +371,8 @@ class HierarchicalValueFunction:
         state: dict[str, Any],
         goal: Goal,
     ) -> float:
-        """Get value estimate for state-goal pair.
+        """
+        Get value estimate for state-goal pair.
 
         Args:
             state: Current state
@@ -385,7 +390,8 @@ class HierarchicalValueFunction:
         subgoal: Subgoal,
         parent_goal: Goal,
     ) -> float:
-        """Get completion value for subgoal.
+        """
+        Get completion value for subgoal.
 
         Args:
             state: Current state
@@ -407,7 +413,8 @@ class HierarchicalValueFunction:
         next_state: dict[str, Any],
         done: bool,
     ) -> None:
-        """Update value estimate with TD learning.
+        """
+        Update value estimate with TD learning.
 
         Args:
             state: Current state
@@ -437,7 +444,8 @@ class HierarchicalValueFunction:
         state: dict[str, Any],
         option: str,
     ) -> float:
-        """Compute value for state-option pair (simplified API).
+        """
+        Compute value for state-option pair (simplified API).
 
         Args:
             state: Current state dict
@@ -480,12 +488,12 @@ class GoalDecomposer:
     """
     Decomposes high-level goals into subgoals.
 
-    Uses domain knowledge and learned patterns to
-    create meaningful goal hierarchies.
+    Uses domain knowledge and learned patterns to create meaningful goal hierarchies.
     """
 
     def __init__(self, max_subgoals: int = MAX_SUBGOALS):
-        """Initialize decomposer.
+        """
+        Initialize decomposer.
 
         Args:
             max_subgoals: Maximum subgoals per goal
@@ -526,7 +534,8 @@ class GoalDecomposer:
         goal: Goal | dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> list[Subgoal] | list[dict[str, Any]]:
-        """Decompose a goal into subgoals.
+        """
+        Decompose a goal into subgoals.
 
         Args:
             goal: Goal to decompose (Goal object or dict)
@@ -639,12 +648,12 @@ class OptionLibrary:
     """
     Library of reusable options (skills).
 
-    Manages temporally extended actions that can be
-    composed to achieve complex goals.
+    Manages temporally extended actions that can be composed to achieve complex goals.
     """
 
     def __init__(self, max_options: int = MAX_OPTIONS):
-        """Initialize option library.
+        """
+        Initialize option library.
 
         Args:
             max_options: Maximum options to store
@@ -720,7 +729,8 @@ class OptionLibrary:
         state: dict[str, Any],
         goal: Goal | None = None,
     ) -> list[dict[str, Any]]:
-        """Get options applicable in current state.
+        """
+        Get options applicable in current state.
 
         Args:
             state: Current state
@@ -764,7 +774,8 @@ class OptionLibrary:
         policy: dict[str, Any] | None = None,
         termination_condition: dict[str, Any] | None = None,
     ) -> None:
-        """Add a new option to the library.
+        """
+        Add a new option to the library.
 
         Args:
             option: Option to add (original API)
@@ -800,7 +811,8 @@ class OptionLibrary:
         reward: float,
         success: bool,
     ) -> None:
-        """Record option usage for learning.
+        """
+        Record option usage for learning.
 
         Args:
             option_id: Option that was used
@@ -866,7 +878,8 @@ class HierarchicalPlanner:
         planning_horizon: int = PLANNING_HORIZON,
         discount: float = DEFAULT_DISCOUNT,
     ):
-        """Initialize hierarchical planner.
+        """
+        Initialize hierarchical planner.
 
         Args:
             planner_type: Type of hierarchical planner
@@ -913,7 +926,8 @@ class HierarchicalPlanner:
         postconditions: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Goal:
-        """Create a new goal.
+        """
+        Create a new goal.
 
         Args:
             description: Goal description
@@ -949,7 +963,8 @@ class HierarchicalPlanner:
         current_state: dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> HierarchicalPlan:
-        """Create a hierarchical plan for a goal.
+        """
+        Create a hierarchical plan for a goal.
 
         Args:
             root_goal: Top-level goal to achieve
@@ -1010,7 +1025,8 @@ class HierarchicalPlanner:
         goal: dict[str, Any],
         state: dict[str, Any],
     ) -> dict[str, Any]:
-        """Create a plan from goal and state dicts (simplified API).
+        """
+        Create a plan from goal and state dicts (simplified API).
 
         Args:
             goal: Goal specification dict with objective, priority, deadline
@@ -1077,7 +1093,8 @@ class HierarchicalPlanner:
         state: dict[str, Any],
         execution_state: PlanExecutionState,
     ) -> tuple[str, Option | None]:
-        """Select next action based on current plan.
+        """
+        Select next action based on current plan.
 
         Args:
             state: Current state
@@ -1117,7 +1134,8 @@ class HierarchicalPlanner:
         next_state: dict[str, Any],
         execution_state: PlanExecutionState,
     ) -> None:
-        """Update planner based on feedback.
+        """
+        Update planner based on feedback.
 
         Args:
             state: State before action
@@ -1156,7 +1174,8 @@ class HierarchicalPlanner:
         current_state: dict[str, Any],
         reason: str = "goal_failed",
     ) -> HierarchicalPlan:
-        """Replan due to failure or changed conditions.
+        """
+        Replan due to failure or changed conditions.
 
         Args:
             execution_state: Current execution state
@@ -1301,15 +1320,15 @@ class AnomalyHierarchicalPlanner:
     """
     Hierarchical planner specialized for anomaly detection.
 
-    Provides domain-specific planning for Mercury Agent's
-    anomaly detection and response tasks.
+    Provides domain-specific planning for Mercury Agent's anomaly detection and response tasks.
     """
 
     def __init__(
         self,
         planner: HierarchicalPlanner | None = None,
     ):
-        """Initialize anomaly hierarchical planner.
+        """
+        Initialize anomaly hierarchical planner.
 
         Args:
             planner: Base hierarchical planner
@@ -1342,7 +1361,8 @@ class AnomalyHierarchicalPlanner:
         urgency: str = "normal",
         context: dict[str, Any] | None = None,
     ) -> HierarchicalPlan:
-        """Plan a complete detection cycle.
+        """
+        Plan a complete detection cycle.
 
         Args:
             data_source: Source of data to analyze
@@ -1381,7 +1401,8 @@ class AnomalyHierarchicalPlanner:
         severity: float | None = None,
         context: dict[str, Any] | None = None,
     ) -> HierarchicalPlan | dict[str, Any]:
-        """Plan response to detected anomaly.
+        """
+        Plan response to detected anomaly.
 
         Args:
             anomaly_or_type: Type of anomaly detected (str) or anomaly dict
@@ -1445,7 +1466,8 @@ class AnomalyHierarchicalPlanner:
         system_state: dict[str, Any],
         execution_state: PlanExecutionState,
     ) -> dict[str, Any]:
-        """Get current recommended action.
+        """
+        Get current recommended action.
 
         Args:
             system_state: Current system state

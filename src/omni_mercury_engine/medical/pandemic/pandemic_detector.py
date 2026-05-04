@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -60,7 +58,7 @@ from torch import nn
 
 
 class OutbreakSeverity(Enum):
-    """Outbreak severity levels"""
+    """Outbreak severity levels."""
 
     SPORADIC = "sporadic"
     CLUSTER = "cluster"
@@ -70,7 +68,7 @@ class OutbreakSeverity(Enum):
 
 
 class VariantConcern(Enum):
-    """WHO variant classifications"""
+    """WHO variant classifications."""
 
     MONITORING = "variant_under_monitoring"
     INTEREST = "variant_of_interest"
@@ -80,7 +78,7 @@ class VariantConcern(Enum):
 
 @dataclass
 class PandemicPredictionResult:
-    """Pandemic prediction results"""
+    """Pandemic prediction results."""
 
     outbreak_detected: bool
     confidence: float
@@ -241,8 +239,7 @@ class TransmissionNetworkAnalyzer(nn.Module):
         )
 
     def forward(self, network_features: torch.Tensor) -> torch.Tensor:
-        """Detect transmission hotspots"""
-
+        """Detect transmission hotspots."""
         features = self.network_encoder(network_features)
         hotspot_prob = self.hotspot_detector(features)
 
@@ -336,8 +333,7 @@ class PandemicDetector:
         return result
 
     def _analyze_transmission_network(self, network_data: dict[str, Any]) -> list[str]:
-        """Analyze transmission network for hotspots"""
-
+        """Analyze transmission network for hotspots."""
         if "network_features" in network_data:
             features = network_data["network_features"]
         else:
@@ -362,8 +358,7 @@ class PandemicDetector:
         return hotspots
 
     def _determine_severity(self, result: PandemicPredictionResult, data: dict[str, Any]) -> str:
-        """Determine outbreak severity level"""
-
+        """Determine outbreak severity level."""
         geographic_spread = data.get("geographic_spread", {})
         countries_affected = geographic_spread.get("countries_affected", 0)
         continents_affected = geographic_spread.get("continents_affected", 0)
@@ -380,8 +375,7 @@ class PandemicDetector:
             return OutbreakSeverity.SPORADIC.value
 
     def _generate_public_health_actions(self, result: PandemicPredictionResult) -> list[str]:
-        """Generate public health actions"""
-
+        """Generate public health actions."""
         actions = []
 
         if result.severity_level == "pandemic":
@@ -402,8 +396,7 @@ class PandemicDetector:
         return actions
 
     def _generate_containment_measures(self, result: PandemicPredictionResult) -> list[str]:
-        """Generate containment measures"""
-
+        """Generate containment measures."""
         measures = []
 
         if result.severity_level in ["outbreak", "epidemic", "pandemic"]:

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -55,7 +53,7 @@ from typing import Any
 
 
 class EcosystemHealth(Enum):
-    """Ecosystem health status"""
+    """Ecosystem health status."""
 
     THRIVING = "thriving"
     HEALTHY = "healthy"
@@ -67,7 +65,7 @@ class EcosystemHealth(Enum):
 
 @dataclass
 class BiodiversityPredictionResult:
-    """Marine biodiversity prediction results"""
+    """Marine biodiversity prediction results."""
 
     ecosystem_threatened: bool
     confidence: float
@@ -90,14 +88,13 @@ class BiodiversityPredictionResult:
 
 
 class CoralBleachingDetector:
-    """Coral bleaching detection from temperature and stress indicators"""
+    """Coral bleaching detection from temperature and stress indicators."""
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def detect_coral_bleaching(self, coral_data: dict[str, Any]) -> dict[str, Any]:
-        """Detect coral bleaching events"""
-
+        """Detect coral bleaching events."""
         sst_anomaly_c = coral_data.get("sst_anomaly_c", 0.0)
         degree_heating_weeks = coral_data.get("degree_heating_weeks", 0.0)
 
@@ -121,7 +118,7 @@ class CoralBleachingDetector:
 
 
 class MarineBiodiversityDetector:
-    """Comprehensive marine biodiversity monitoring system"""
+    """Comprehensive marine biodiversity monitoring system."""
 
     def __init__(self) -> None:
         self.coral_detector = CoralBleachingDetector()
@@ -130,8 +127,7 @@ class MarineBiodiversityDetector:
     def predict_biodiversity_threat(
         self, marine_data: dict[str, Any]
     ) -> BiodiversityPredictionResult:
-        """Predict marine ecosystem threats"""
-
+        """Predict marine ecosystem threats."""
         result = BiodiversityPredictionResult(
             ecosystem_threatened=False, confidence=0.0, health_status="healthy"
         )
@@ -171,8 +167,7 @@ class MarineBiodiversityDetector:
         return result
 
     def _generate_conservation_actions(self, result: BiodiversityPredictionResult) -> list[str]:
-        """Generate conservation recommendations"""
-
+        """Generate conservation recommendations."""
         actions = []
 
         if result.coral_bleaching_detected:

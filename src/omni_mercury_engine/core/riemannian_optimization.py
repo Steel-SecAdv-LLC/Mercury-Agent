@@ -1,5 +1,6 @@
 """
 Mercury Agent - Phase 4D: Riemannian Optimization
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -121,11 +122,11 @@ class Manifold(abc.ABC):
         y: np.ndarray[Any, Any],
         v: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Transport tangent vector *v* from T_x M to T_y M.
+        """
+        Transport tangent vector *v* from T_x M to T_y M.
 
-        Default implementation uses the vector-transport-by-retraction
-        (identity), which is a first-order approximation.  Subclasses
-        may override with exact parallel transport.
+        Default implementation uses the vector-transport-by-retraction (identity), which is a first-
+        order approximation.  Subclasses may override with exact parallel transport.
         """
         return v.copy()
 
@@ -142,7 +143,8 @@ class SimplexManifold(Manifold):
     """
 
     def __init__(self, dimension: int | None = None) -> None:
-        """Initialise the simplex manifold.
+        """
+        Initialise the simplex manifold.
 
         Args:
             dimension: Expected dimensionality (used for validation only).
@@ -167,10 +169,11 @@ class SimplexManifold(Manifold):
     # -- Manifold interface -----------------------------------------------
 
     def project(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Project an arbitrary point onto the probability simplex.
+        """
+        Project an arbitrary point onto the probability simplex.
 
-        Uses the algorithm of Duchi et al. (2008) "Efficient Projections
-        onto the l1-Ball for Learning in High Dimensions".
+        Uses the algorithm of Duchi et al. (2008) "Efficient Projections onto the l1-Ball for
+        Learning in High Dimensions".
         """
         self._validate(x)
         n = x.shape[-1]
@@ -302,7 +305,8 @@ class SPDManifold(Manifold):
         *,
         min_eigenvalue: float = _SPD_MIN_EIGENVALUE,
     ) -> None:
-        """Initialise the SPD manifold.
+        """
+        Initialise the SPD manifold.
 
         Args:
             size: Expected matrix size n (for n x n matrices).
@@ -362,7 +366,8 @@ class SPDManifold(Manifold):
     # -- Manifold interface -----------------------------------------------
 
     def project(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Project a matrix onto the SPD cone.
+        """
+        Project a matrix onto the SPD cone.
 
         1. Symmetrise the matrix.
         2. Eigendecompose and clamp eigenvalues to ``min_eigenvalue``.
@@ -375,7 +380,8 @@ class SPDManifold(Manifold):
         return result
 
     def retraction(self, x: np.ndarray[Any, Any], v: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Retraction on the SPD manifold.
+        """
+        Retraction on the SPD manifold.
 
         Uses the first-order approximation: project(X + V).
         This is cheaper than the full exponential map while staying on
@@ -484,7 +490,8 @@ class RiemannianGradientDescent:
         armijo_sigma: float = 1e-4,
         max_armijo_iters: int = 25,
     ) -> None:
-        """Initialise the Riemannian gradient descent optimiser.
+        """
+        Initialise the Riemannian gradient descent optimiser.
 
         Args:
             manifold: The Riemannian manifold to optimise on.
@@ -551,7 +558,8 @@ class RiemannianGradientDescent:
         objective_fn: Callable[[np.ndarray[Any, Any]], float] | None = None,
         f_x: float | None = None,
     ) -> np.ndarray[Any, Any]:
-        """Perform a single Riemannian gradient descent step.
+        """
+        Perform a single Riemannian gradient descent step.
 
         Args:
             x: Current point on the manifold.
@@ -581,7 +589,8 @@ class RiemannianGradientDescent:
         max_iter: int = _DEFAULT_MAX_ITER,
         tol: float = _DEFAULT_TOL,
     ) -> OptimizationResult:
-        """Run Riemannian gradient descent to convergence.
+        """
+        Run Riemannian gradient descent to convergence.
 
         Args:
             x0: Initial point (should be on the manifold).
@@ -638,7 +647,8 @@ class RiemannianGradientDescent:
 # Riemannian Adam
 # ---------------------------------------------------------------------------
 class RiemannianAdam:
-    """Adam optimiser adapted for Riemannian manifolds.
+    """
+    Adam optimiser adapted for Riemannian manifolds.
 
     Maintains exponential moving averages of the gradient (first moment)
     and its squared norm (second moment) in the tangent space, using
@@ -658,7 +668,8 @@ class RiemannianAdam:
         beta2: float = 0.999,
         epsilon: float = 1e-8,
     ) -> None:
-        """Initialise Riemannian Adam.
+        """
+        Initialise Riemannian Adam.
 
         Args:
             manifold: The Riemannian manifold to optimise on.
@@ -697,7 +708,8 @@ class RiemannianAdam:
         x: np.ndarray[Any, Any],
         grad: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Perform a single Riemannian Adam step.
+        """
+        Perform a single Riemannian Adam step.
 
         Args:
             x: Current point on the manifold.
@@ -749,7 +761,8 @@ class RiemannianAdam:
         max_iter: int = _DEFAULT_MAX_ITER,
         tol: float = _DEFAULT_TOL,
     ) -> OptimizationResult:
-        """Run Riemannian Adam to convergence.
+        """
+        Run Riemannian Adam to convergence.
 
         Args:
             x0: Initial point (should be on the manifold).
@@ -851,7 +864,8 @@ class ConstrainedParameterOptimizer:
         armijo_beta: float = 0.5,
         armijo_sigma: float = 1e-4,
     ) -> None:
-        """Initialise the constrained parameter optimiser.
+        """
+        Initialise the constrained parameter optimiser.
 
         Args:
             optimizer_type: ``"adam"`` or ``"rgd"`` (Riemannian gradient
@@ -912,7 +926,8 @@ class ConstrainedParameterOptimizer:
         max_iter: int | None = None,
         tol: float | None = None,
     ) -> OptimizationResult:
-        """Optimise weights constrained to the probability simplex.
+        """
+        Optimise weights constrained to the probability simplex.
 
         This is the recommended method for learning OAE weights
         (w_R, w_H, w_O) because it respects the simplex constraint
@@ -968,7 +983,8 @@ class ConstrainedParameterOptimizer:
         max_iter: int | None = None,
         tol: float | None = None,
     ) -> OptimizationResult:
-        """Optimise a matrix constrained to be symmetric positive definite.
+        """
+        Optimise a matrix constrained to be symmetric positive definite.
 
         This is the recommended method for learning covariance
         parameters in statistical models, because every iterate is
@@ -1021,7 +1037,8 @@ class ConstrainedParameterOptimizer:
         max_iter: int | None = None,
         tol: float | None = None,
     ) -> OptimizationResult:
-        """Convenience wrapper specifically for OAE weight optimisation.
+        """
+        Convenience wrapper specifically for OAE weight optimisation.
 
         OAE uses three weights (w_R, w_H, w_O) that must lie on the
         probability simplex.  If no objective/gradient are provided a

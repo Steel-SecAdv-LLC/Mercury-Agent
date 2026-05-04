@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -48,7 +46,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ChronosConfig(FoundationModelConfig):
-    """Configuration for Chronos adapter.
+    """
+    Configuration for Chronos adapter.
 
     Attributes:
         model_size: Model size variant ('tiny', 'mini', 'small', 'base', 'large')
@@ -89,7 +88,8 @@ class ChronosAdapter(BaseFoundationModel):
     }
 
     def __init__(self, config: ChronosConfig | dict[str, Any] | None = None) -> None:
-        """Initialize Chronos adapter.
+        """
+        Initialize Chronos adapter.
 
         Args:
             config: Adapter configuration
@@ -117,10 +117,11 @@ class ChronosAdapter(BaseFoundationModel):
 
     @config.setter
     def config(self, value: dict[str, Any] | ChronosConfig) -> None:
-        """Set config (required for base class compatibility).
+        """
+        Store the underlying config object (required for base class compatibility).
 
-        The base class sets self.config to a dict during __init__.
-        We intercept this and store it, but always return the typed config.
+        The base class sets self.config to a dict during __init__. We intercept this and store it,
+        but always return the typed config.
         """
         if isinstance(value, ChronosConfig):
             self.chronos_config = value
@@ -142,18 +143,19 @@ class ChronosAdapter(BaseFoundationModel):
             logger.info("Chronos model loaded successfully")
 
         except ImportError:
-            logger.warning(
+            raise NotImplementedError(
                 "chronos-forecasting package not installed. "
-                "Install with: pip install chronos-forecasting"
+                "Install with: pip install chronos-forecasting. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
             )
-            self._pipeline = None
 
     def forecast(
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """Generate probabilistic forecasts using Chronos.
+        """
+        Generate probabilistic forecasts using Chronos.
 
         Args:
             series: Input time series [T] or [B, T]
@@ -196,14 +198,17 @@ class ChronosAdapter(BaseFoundationModel):
             except Exception as e:
                 logger.warning(f"Chronos forecast failed: {e}")
 
-        # Fallback to mock forecast
-        return self._mock_forecast(series.numpy(), horizon)
+        raise RuntimeError(
+            "Chronos pipeline is not available and forecast failed. "
+            "Silent mock degradation is not permitted (Phase 2 audit cure)."
+        )
 
     def detect_anomalies(
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """Detect anomalies using prediction intervals.
+        """
+        Detect anomalies using prediction intervals.
 
         Anomalies are points that fall outside the prediction
         intervals from one-step-ahead forecasting.
@@ -253,10 +258,11 @@ class ChronosAdapter(BaseFoundationModel):
                         # Anomaly score = normalized distance from median
                         scores[t] = abs(s[t] - median) / iqr
                     else:
-                        # Mock: use z-score
-                        mean = np.mean(s[t - context_len : t])
-                        std = max(np.std(s[t - context_len : t]), 1e-6)
-                        scores[t] = abs(s[t] - mean) / std
+                        raise RuntimeError(
+                            "Chronos pipeline is not available. "
+                            "Silent mock degradation is not permitted "
+                            "(Phase 2 audit cure)."
+                        )
 
                 except Exception as e:
                     logger.debug(f"Prediction at t={t} failed: {e}")
@@ -286,7 +292,8 @@ class ChronosAdapter(BaseFoundationModel):
         series: np.ndarray[Any, Any],
         horizon: int,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """Mock forecast using simple methods.
+        """
+        Mock forecast using simple methods.
 
         Args:
             series: Input series [B, T]
@@ -322,7 +329,8 @@ class ChronosAdapter(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """Detect anomalies in time series data.
+        """
+        Detect anomalies in time series data.
 
         This is the primary detection interface that wraps detect_anomalies
         for a consistent API across all foundation model adapters.
@@ -339,7 +347,8 @@ class ChronosAdapter(BaseFoundationModel):
         return result
 
     def get_model_info(self) -> dict[str, Any]:
-        """Get information about the loaded model.
+        """
+        Get information about the loaded model.
 
         Returns:
             Dict with model information

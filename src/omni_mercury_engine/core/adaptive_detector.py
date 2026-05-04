@@ -1,7 +1,8 @@
-"""Adaptive Detector Module for Mercury-Agent.
+"""
+Adaptive Detector Module for Mercury-Agent.
 
-Addresses specific weaknesses identified in benchmark analysis.
-All detection is Mercury-native (numpy/scipy only) — zero sklearn dependency.
+Addresses specific weaknesses identified in benchmark analysis. All detection is Mercury-native
+(numpy/scipy only) — zero sklearn dependency.
 
 Copyright (C) 2025 Steel Security Advisors LLC
 """
@@ -186,8 +187,8 @@ class AdaptiveThresholdCalibrator:
         """
         Bimodal distribution calibration.
 
-        Assumes scores come from a mixture of normal and anomalous distributions.
-        Finds the valley between the two modes.
+        Assumes scores come from a mixture of normal and anomalous distributions. Finds the valley
+        between the two modes.
         """
         threshold, predictions = self._otsu_calibration(scores)
 
@@ -202,8 +203,7 @@ class AdaptiveThresholdCalibrator:
         """
         Estimate contamination ratio from score distribution.
 
-        Uses the "knee" detection method to find where scores
-        transition from normal to anomalous.
+        Uses the "knee" detection method to find where scores transition from normal to anomalous.
         """
         sorted_scores = np.sort(scores)
         n = len(sorted_scores)
@@ -490,8 +490,8 @@ class AdaptiveAnomalyDetector:
     """
     Main adaptive detector that combines all improvements.
 
-    Automatically profiles the dataset and applies appropriate
-    detection strategies.  All detection is Mercury-native (no sklearn).
+    Automatically profiles the dataset and applies appropriate detection strategies.  All detection
+    is Mercury-native (no sklearn).
     """
 
     def __init__(
@@ -725,7 +725,8 @@ class AdaptiveAnomalyDetector:
         )
 
     def _detect_covariance(self, X: NDArray[np.float64]) -> DetectionResult:
-        """Detection strategy for covariance-structured data.
+        """
+        Detection strategy for covariance-structured data.
 
         Uses Mercury-native CovarianceAwareDetector (Mahalanobis distance).
         """
@@ -814,10 +815,11 @@ class AdaptiveAnomalyDetector:
         )
 
     def _detect_generic(self, X: NDArray[np.float64]) -> DetectionResult:
-        """Generic detection strategy using Mercury-native random projections.
+        """
+        Generic detection strategy using Mercury-native random projections.
 
-        Random projections are robust across diverse data types and don't
-        assume specific distribution shapes.
+        Random projections are robust across diverse data types and don't assume specific
+        distribution shapes.
         """
         proj_detector = _MercuryRandomProjectionDetector(
             contamination=self.contamination,

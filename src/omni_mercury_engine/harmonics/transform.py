@@ -242,8 +242,8 @@ class SphericalHarmonicTransform:
     """
     Fast spherical harmonic transform.
 
-    Implements forward and inverse SH transforms with support for
-    high l_max values using numerically stable algorithms.
+    Implements forward and inverse SH transforms with support for high l_max values using
+    numerically stable algorithms.
     """
 
     def __init__(

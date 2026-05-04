@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -62,7 +63,8 @@ class FallbackReason(Enum):
 
 @dataclass
 class FallbackResult(Generic[T]):  # noqa: UP046 - Generic[T] required for Python 3.11 compatibility
-    """Result from fallback chain execution.
+    """
+    Result from fallback chain execution.
 
     Attributes:
         value: The result value (if successful).
@@ -113,7 +115,8 @@ class FallbackHandler:
     error_count: int = field(default=0, repr=False)
 
     async def execute(self, *args: Any, **kwargs: Any) -> Any:
-        """Execute the handler.
+        """
+        Execute the handler.
 
         Args:
             *args: Positional arguments for handler.
@@ -147,7 +150,8 @@ class FallbackHandler:
             raise
 
     def should_execute(self, *args: Any, **kwargs: Any) -> bool:
-        """Check if handler should execute.
+        """
+        Check if handler should execute.
 
         Args:
             *args: Positional arguments to pass to condition.
@@ -213,7 +217,8 @@ class FallbackChain:
         name: str = "default",
         fail_fast: bool = False,
     ):
-        """Initialize fallback chain.
+        """
+        Initialize fallback chain.
 
         Args:
             name: Chain name for logging.
@@ -270,7 +275,8 @@ class FallbackChain:
         timeout: float | None = None,
         **kwargs: Any,
     ) -> Callable[..., Any]:
-        """Decorator to add a handler.
+        """
+        Decorator to add a handler.
 
         Args:
             priority: Execution priority.
@@ -299,7 +305,8 @@ class FallbackChain:
         *args: Any,
         **kwargs: Any,
     ) -> FallbackResult[Any]:
-        """Execute the fallback chain.
+        """
+        Execute the fallback chain.
 
         Tries handlers in priority order until one succeeds.
 
@@ -385,7 +392,8 @@ class FallbackChain:
         return list(self._handlers)
 
     def get_metrics(self) -> dict[str, Any]:
-        """Get chain metrics.
+        """
+        Get chain metrics.
 
         Returns:
             Dictionary with execution counts and handler metrics.
@@ -432,7 +440,8 @@ class FallbackRegistry:
         name: str,
         chain: FallbackChain | None = None,
     ) -> FallbackChain:
-        """Register a fallback chain.
+        """
+        Register a fallback chain.
 
         Args:
             name: Chain name.
@@ -456,7 +465,8 @@ class FallbackRegistry:
         *args: Any,
         **kwargs: Any,
     ) -> FallbackResult[Any]:
-        """Execute a named chain.
+        """
+        Execute a named chain.
 
         Args:
             name: Chain name.

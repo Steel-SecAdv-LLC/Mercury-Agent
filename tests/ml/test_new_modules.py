@@ -28,6 +28,7 @@ Tests for new modules added in Caduceus ⚚'s branch:
 """
 
 import numpy as np
+import pytest
 
 
 class TestDriftDetection:
@@ -225,41 +226,41 @@ class TestOptimization:
 
 
 class TestLLMAdapter:
-    """Tests for LLM adapter module."""
+    """Tests for LLM adapter module.
 
-    def test_mock_adapter_available(self) -> None:
-        """Mock adapter should always be available."""
+    Phase 2 audit cure (commit 4d29bf1): silent mock degradation is
+    forbidden — ``MockLLMAdapter`` raises ``NotImplementedError`` at
+    construction.  These tests now encode that contract as a positive
+    assertion: a future regression that re-introduces a working
+    ``MockLLMAdapter`` (or any other silent-mock fallback in the
+    adapter / factory paths) will trip ``pytest.raises`` and surface
+    the loss of hardening immediately.
+    """
+
+    def test_mock_adapter_hard_fails_at_construction(self) -> None:
+        """``MockLLMAdapter()`` must raise ``NotImplementedError``.
+
+        Encodes the Phase 2 cure: a stale caller cannot silently
+        fall back to a mock LLM in production.  The error message
+        must reference the cure so operators recognise the contract.
+        """
         from omni_mercury_engine.models.foundation.llm_adapter import MockLLMAdapter
 
-        adapter = MockLLMAdapter()
-        assert adapter.is_available()
+        with pytest.raises(NotImplementedError, match="cannot be used in production"):
+            MockLLMAdapter()
 
-    def test_mock_adapter_generates_valid_json(self) -> None:
-        """Mock adapter should generate valid JSON response."""
-        import json
-
-        from omni_mercury_engine.models.foundation.llm_adapter import MockLLMAdapter
-
-        adapter = MockLLMAdapter()
-        response = adapter.generate("test prompt")
-
-        parsed = json.loads(response)
-        assert "is_anomaly" in parsed
-        assert "anomaly_score" in parsed
-        assert "confidence" in parsed
-
-    def test_zero_shot_detector_returns_dict(self) -> None:
-        """ZeroShotAnomalyDetector should return fusion-compatible dict."""
+    def test_zero_shot_detector_default_config_hard_fails(self) -> None:
+        """``ZeroShotAnomalyDetector()`` with the default LLM config (which
+        targets ``LLMProvider.MOCK``) must raise ``NotImplementedError`` at
+        construction — ``_create_adapter`` must not silently fall back to a
+        mock adapter when no real provider is configured.
+        """
         from omni_mercury_engine.models.foundation.llm_adapter import (
             ZeroShotAnomalyDetector,
         )
 
-        detector = ZeroShotAnomalyDetector()
-        result = detector.detect("test data")
-
-        assert "anomaly_score" in result
-        assert "is_anomaly" in result
-        assert 0.0 <= result["anomaly_score"] <= 1.0
+        with pytest.raises(NotImplementedError, match="cannot be used in production"):
+            ZeroShotAnomalyDetector()
 
     def test_llm_anomaly_result_to_dict(self) -> None:
         """LLMAnomalyResult should convert to fusion-compatible dict."""
@@ -280,13 +281,15 @@ class TestLLMAdapter:
         assert d["is_anomaly"] is True
         assert d["confidence"] == 0.9
 
-    def test_create_llm_detector_factory(self) -> None:
-        """Factory should create detector with mock provider."""
+    def test_create_llm_detector_factory_rejects_mock(self) -> None:
+        """``create_llm_detector(provider="mock")`` must raise — the
+        factory path is one of the silent-mock fallback surfaces hardened
+        by the Phase 2 cure and must stay closed.
+        """
         from omni_mercury_engine.models.foundation.llm_adapter import create_llm_detector
 
-        detector = create_llm_detector(provider="mock")
-        assert detector is not None
-        assert detector.adapter.is_available()
+        with pytest.raises(NotImplementedError, match="cannot be used in production"):
+            create_llm_detector(provider="mock")
 
 
 class TestEngineConfig:

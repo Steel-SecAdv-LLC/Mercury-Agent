@@ -1,11 +1,9 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 """
 
 from __future__ import annotations
@@ -92,6 +90,7 @@ class UncertaintyEstimate:
     is_overconfident: bool = False  # High confidence despite poor calibration
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "prediction": self.prediction,
             "epistemic": self.epistemic,
@@ -123,6 +122,7 @@ class CalibrationResult:
     reliability_diagram: dict[str, list[float]]
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "ece": self.ece,
             "mce": self.mce,
@@ -137,13 +137,14 @@ class MCDropoutWrapper:
     """
     Monte Carlo Dropout wrapper for PyTorch models.
 
-    Enables dropout at inference time for epistemic uncertainty estimation.
-    Based on Gal & Ghahramani (2016).
+    Enables dropout at inference time for epistemic uncertainty estimation. Based on Gal &
+    Ghahramani (2016).
     """
 
     def __init__(self, model: Any, dropout_rate: float = 0.1) -> None:
         """
         Args:
+
             model: PyTorch model with dropout layers
             dropout_rate: Dropout probability (if not already in model)
         """
@@ -214,8 +215,7 @@ class TemperatureScaler:
     """
     Temperature scaling for neural network calibration.
 
-    Learns a single temperature parameter to scale logits,
-    optimized via NLL on a validation set.
+    Learns a single temperature parameter to scale logits, optimized via NLL on a validation set.
     Based on Guo et al. (2017).
     """
 
@@ -290,9 +290,8 @@ class AdaptiveConformalInference:
     """
     Adaptive Conformal Inference for online uncertainty quantification.
 
-    Provides distribution-free prediction intervals with finite-sample
-    coverage guarantees that adapt to distribution shift.
-    Based on Gibbs & Candes (2021).
+    Provides distribution-free prediction intervals with finite-sample coverage guarantees that
+    adapt to distribution shift. Based on Gibbs & Candes (2021).
     """
 
     def __init__(
@@ -303,6 +302,7 @@ class AdaptiveConformalInference:
     ):
         """
         Args:
+
             target_coverage: Target coverage level (1 - alpha)
             gamma: Learning rate for alpha adjustment
             window_size: Size of calibration window
@@ -400,8 +400,8 @@ class HeteroscedasticEstimator:
     """
     Estimates input-dependent (heteroscedastic) aleatoric uncertainty.
 
-    Uses local variance estimation or learns a variance prediction head.
-    Based on Kendall & Gal (2017).
+    Uses local variance estimation or learns a variance prediction head. Based on Kendall & Gal
+    (2017).
     """
 
     def __init__(self, window_size: int = 50, min_samples: int = 10) -> None:
@@ -1258,10 +1258,11 @@ class UncertaintyQuantifier:
         return float(np.clip(confidence, 0.01, 0.99))
 
     def _compute_ece(self) -> float:
-        """Compute current Expected Calibration Error using vectorized operations.
+        """
+        Compute current Expected Calibration Error using vectorized operations.
 
-        Vectorized implementation for O(n) performance instead of O(n²) with loops.
-        Uses numpy histogram and binned statistics for efficient binning.
+        Vectorized implementation for O(n) performance instead of O(n²) with loops. Uses numpy
+        histogram and binned statistics for efficient binning.
         """
         if len(self._outcomes) < 20:
             return 0.1  # Default for limited data

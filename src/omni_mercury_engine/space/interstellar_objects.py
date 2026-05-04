@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -77,7 +75,7 @@ _NNBase: type = nn.Module if TORCH_AVAILABLE else object  # type: ignore[assignm
 
 
 class ISOAnomalyType(Enum):
-    """Types of interstellar object anomalies"""
+    """Types of interstellar object anomalies."""
 
     ORBITAL = "orbital_trajectory"
     ACCELERATION = "non_gravitational_acceleration"
@@ -89,7 +87,7 @@ class ISOAnomalyType(Enum):
 
 
 class NaturalExplanationConfidence(Enum):
-    """Confidence in natural explanations"""
+    """Confidence in natural explanations."""
 
     WELL_EXPLAINED = "well_explained_naturally"
     LIKELY_NATURAL = "likely_natural"
@@ -100,7 +98,7 @@ class NaturalExplanationConfidence(Enum):
 
 @dataclass
 class InterstellarObjectResult:
-    """Result from interstellar object anomaly analysis"""
+    """Result from interstellar object anomaly analysis."""
 
     object_designation: str
     anomaly_detected: bool
@@ -124,8 +122,8 @@ class InterstellarObjectAnalyzer(_NNBase):  # type: ignore[misc, unused-ignore]
     """
     Neural network for interstellar object anomaly analysis.
 
-    Uses attention mechanisms to correlate multi-wavelength observations,
-    orbital parameters, and physical characteristics.
+    Uses attention mechanisms to correlate multi-wavelength observations, orbital parameters, and
+    physical characteristics.
     """
 
     def __init__(self, input_dim: int = 96) -> None:
@@ -225,8 +223,8 @@ class InterstellarObjectDetector:
     """
     Interstellar Object Anomaly Detector.
 
-    Analyzes interstellar objects for unusual characteristics that deviate from
-    expectations for natural solar system bodies or known interstellar comets/asteroids.
+    Analyzes interstellar objects for unusual characteristics that deviate from expectations for
+    natural solar system bodies or known interstellar comets/asteroids.
     """
 
     def __init__(self, enable_artificial_origin_test: bool = False) -> None:
@@ -265,7 +263,7 @@ class InterstellarObjectDetector:
         )
 
     def _initialize_iso_database(self) -> dict[str, dict[str, Any]]:
-        """Initialize known interstellar object database"""
+        """Initialize known interstellar object database."""
         return {
             "1I/Oumuamua": {
                 "discovery_date": "2017-10-19",
@@ -394,7 +392,7 @@ class InterstellarObjectDetector:
     def _extract_features(
         self, iso_data: dict[str, Any]
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Extract orbital, spectroscopic, and physical features"""
+        """Extract orbital, spectroscopic, and physical features."""
         orbital_params = iso_data.get("orbital_parameters", {})
         orbital_features = np.array(
             [
@@ -485,7 +483,7 @@ class InterstellarObjectDetector:
         return orbital_features, spectro_features, physical_features
 
     def _analyze_orbital_anomalies(self, iso_data: dict[str, Any]) -> list[str]:
-        """Analyze orbital parameter anomalies"""
+        """Analyze orbital parameter anomalies."""
         anomalies = []
         orbital = iso_data.get("orbital_parameters", {})
 
@@ -508,7 +506,7 @@ class InterstellarObjectDetector:
         return anomalies
 
     def _analyze_spectroscopic_anomalies(self, iso_data: dict[str, Any]) -> list[str]:
-        """Analyze spectroscopic anomalies"""
+        """Analyze spectroscopic anomalies."""
         anomalies = []
         spectro = iso_data.get("spectroscopy", {})
 
@@ -533,7 +531,7 @@ class InterstellarObjectDetector:
         return anomalies
 
     def _analyze_morphological_anomalies(self, iso_data: dict[str, Any]) -> list[str]:
-        """Analyze morphological anomalies"""
+        """Analyze morphological anomalies."""
         anomalies = []
         morphology = iso_data.get("morphology", {})
 
@@ -563,7 +561,7 @@ class InterstellarObjectDetector:
         spectro_anomalies: list[str],
         morphological_anomalies: list[str],
     ) -> str:
-        """Assess confidence in natural explanations"""
+        """Assess confidence in natural explanations."""
         total_anomalies = (
             len(orbital_anomalies) + len(spectro_anomalies) + len(morphological_anomalies)
         )
@@ -582,7 +580,7 @@ class InterstellarObjectDetector:
     def _generate_alternative_hypotheses(
         self, iso_data: dict[str, Any], natural_explanation: str, anomaly_score: float
     ) -> list[str]:
-        """Generate alternative hypotheses for unusual observations"""
+        """Generate alternative hypotheses for unusual observations."""
         hypotheses = []
 
         hypotheses.append("Natural interstellar comet (pristine composition)")
@@ -604,7 +602,7 @@ class InterstellarObjectDetector:
     def _recommend_follow_up_observations(
         self, iso_data: dict[str, Any], anomaly_type: str
     ) -> list[str]:
-        """Recommend follow-up observations"""
+        """Recommend follow-up observations."""
         recommendations = []
 
         if "orbital" in anomaly_type.lower():
@@ -627,7 +625,7 @@ class InterstellarObjectDetector:
     def _comparative_analysis(
         self, iso_data: dict[str, Any], comparison_objects: list[dict[str, Any]]
     ) -> dict[str, Any]:
-        """Compare ISO with solar system objects"""
+        """Compare ISO with solar system objects."""
         orbital = iso_data.get("orbital_parameters", {})
 
         similar_objects = []
@@ -651,7 +649,7 @@ class InterstellarObjectDetector:
     def _assess_scientific_significance(
         self, anomaly_score: float, natural_explanation: str
     ) -> float:
-        """Assess scientific significance of detection"""
+        """Assess scientific significance of detection."""
         base_significance = anomaly_score
 
         if natural_explanation == NaturalExplanationConfidence.HIGHLY_ANOMALOUS.value:

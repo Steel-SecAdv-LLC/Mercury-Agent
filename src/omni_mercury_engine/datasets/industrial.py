@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Industrial Control System (ICS) Dataset Loaders
 
@@ -188,7 +187,7 @@ class SWaTLoader(DatasetLoader):
         return np.asarray((data - mean) / std)  # type: ignore[no-any-return, unused-ignore]
 
     def download(self) -> bool:
-        """SWaT requires iTrust institutional registration."""
+        """Direct downloads are gated; ``SWaT`` requires iTrust institutional registration."""
         logger.info(
             "SWaT dataset requires credentials. "
             "Register at: https://itrust.sutd.edu.sg/itrust-labs-datasets/"

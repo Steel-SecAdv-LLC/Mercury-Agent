@@ -1,5 +1,6 @@
 """
 Mercury Agent - Enhanced Neuro-Symbolic Hub
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -540,7 +541,18 @@ class NeuroSymbolicHub:
         self.input_dim = input_dim
         self.fusion_mode = fusion_mode
         self.sigma_immutable = sigma_immutable
-        self.benevolence_threshold = benevolence_threshold
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            MINIMUM_BENEVOLENCE_FLOOR,
+        )
+
+        if benevolence_threshold < MINIMUM_BENEVOLENCE_FLOOR:
+            logger.warning(
+                "benevolence_threshold=%.4f below absolute minimum %.4f; " "clamping to floor",
+                benevolence_threshold,
+                MINIMUM_BENEVOLENCE_FLOOR,
+            )
+            benevolence_threshold = MINIMUM_BENEVOLENCE_FLOOR
+        self._benevolence_threshold = benevolence_threshold
         self.use_calibration = use_calibration
         self.seed = seed
         self.rng = np.random.default_rng(seed)
@@ -618,6 +630,26 @@ class NeuroSymbolicHub:
             f"sigma_immutable={sigma_immutable}, benevolence≥{benevolence_threshold}, "
             f"domain={domain or 'general'}"
         )
+
+    @property
+    def benevolence_threshold(self) -> float:
+        """Approval threshold, always at or above ``MINIMUM_BENEVOLENCE_FLOOR``."""
+        return self._benevolence_threshold
+
+    @benevolence_threshold.setter
+    def benevolence_threshold(self, value: float) -> None:
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            MINIMUM_BENEVOLENCE_FLOOR,
+        )
+
+        if value < MINIMUM_BENEVOLENCE_FLOOR:
+            logger.warning(
+                "benevolence_threshold=%.4f below absolute minimum %.4f; " "clamping to floor",
+                value,
+                MINIMUM_BENEVOLENCE_FLOOR,
+            )
+            value = MINIMUM_BENEVOLENCE_FLOOR
+        self._benevolence_threshold = value
 
     def _initialize_default_rules(self) -> None:
         """Initialize default symbolic rules."""
@@ -697,7 +729,8 @@ class NeuroSymbolicHub:
             self.knowledge_graph.add_rule(rule)
 
     def _initialize_domain_rules(self, domain: str) -> None:
-        """Initialize domain-specific symbolic rules.
+        """
+        Initialize domain-specific symbolic rules.
 
         Args:
             domain: Domain name ('medical', 'financial', 'infrastructure')
@@ -1090,14 +1123,33 @@ class NeuroSymbolicHub:
                 except Exception as e:
                     logger.warning(f"GOSNN-3R integration failed: {e}")
 
-            # Check ethical compliance
+            # Check ethical compliance — hard gate at the decision boundary.
+            # The previous behavior was to record the violation in
+            # ``ethical_violations`` and continue silently; per the May 2026
+            # ethics-enforcement contract (see
+            # ``src/omni_mercury_engine/ethical/__init__.py``), every
+            # impermissible sample must raise.
             benevolence_score = self._compute_benevolence(sample_context, fused_score)
             ethical_compliant = benevolence_score >= self.benevolence_threshold
-            ethical_violations = []
+            ethical_violations: list[str] = []
 
             if not ethical_compliant:
-                ethical_violations.append(
-                    f"Benevolence {benevolence_score:.3f} < {self.benevolence_threshold}"
+                from omni_mercury_engine.cognitive.ethical_bounding import (
+                    EthicalConstraintViolationError,
+                )
+
+                raise EthicalConstraintViolationError(
+                    action=f"NeuroSymbolicHub.predict[sample={i}]",
+                    score=benevolence_score,
+                    threshold=self.benevolence_threshold,
+                    check="benevolence",
+                    details={
+                        "sample_index": i,
+                        "fused_score": float(fused_score),
+                        "neural_score": float(neural_score),
+                        "symbolic_score": float(symbolic_score),
+                        "fusion_mode": self.fusion_mode.value,
+                    },
                 )
 
             # Build reasoning chain with P2 integration info

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -38,7 +36,8 @@ class QuantumKernelMachine:
     """Quantum-inspired kernel machine for anomaly detection."""
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize quantum kernel machine.
+        """
+        Initialize quantum kernel machine.
 
         Args:
             config: Configuration including:
@@ -57,7 +56,8 @@ class QuantumKernelMachine:
         self.anomaly_threshold: float | None = None
 
     def quantum_inspired_kernel(self, x1: np.ndarray[Any, Any], x2: np.ndarray[Any, Any]) -> float:
-        """Compute quantum-inspired kernel between two samples.
+        """
+        Compute quantum-inspired kernel between two samples.
 
         Inspired by quantum circuits with entanglement, but implemented classically.
         Based on the data encoding circuit from the Nature paper.
@@ -80,7 +80,8 @@ class QuantumKernelMachine:
         return float(kernel_value)
 
     def _quantum_feature_map(self, x: np.ndarray[Any, Any], depth: int) -> np.ndarray[Any, Any]:
-        """Apply quantum-inspired feature map with entanglement.
+        """
+        Apply quantum-inspired feature map with entanglement.
 
         Simulates the effect of quantum data encoding circuits with multiple
         layers of rotation and entanglement gates.
@@ -117,7 +118,8 @@ class QuantumKernelMachine:
         X: np.ndarray[Any, Any],
         kernel_func: Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any]], float] | None = None,
     ) -> np.ndarray[Any, Any]:
-        """Compute kernel matrix for dataset.
+        """
+        Compute kernel matrix for dataset.
 
         Args:
             X: Data matrix (n_samples, n_features)
@@ -143,7 +145,8 @@ class QuantumKernelMachine:
         return K
 
     def fit(self, training_data: np.ndarray[Any, Any]) -> None:
-        """Fit quantum kernel machine on training data.
+        """
+        Fit quantum kernel machine on training data.
 
         Args:
             training_data: In-distribution training samples
@@ -157,7 +160,8 @@ class QuantumKernelMachine:
         self.anomaly_threshold = float(np.mean(train_scores) - 3 * np.std(train_scores))
 
     def predict(self, test_data: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Predict anomalies using quantum kernel machine.
+        """
+        Predict anomalies using quantum kernel machine.
 
         Args:
             test_data: Test samples to evaluate

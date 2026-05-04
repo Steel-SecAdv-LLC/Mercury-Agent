@@ -1,5 +1,6 @@
 """
 Mercury Agent - Feature Extraction Pipeline
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This module provides enhanced feature extraction capabilities including:
@@ -97,8 +98,8 @@ class FeatureStandardizer:
     """
     Feature standardization pipeline with multiple scaling strategies.
 
-    Supports StandardScaler, MinMaxScaler, RobustScaler, and MaxAbsScaler
-    with automatic fitting and transformation.
+    Supports StandardScaler, MinMaxScaler, RobustScaler, and MaxAbsScaler with automatic fitting and
+    transformation.
     """
 
     def __init__(self, strategy: ScalingStrategy = ScalingStrategy.STANDARD):
@@ -240,8 +241,8 @@ class FeatureSelector:
     """
     Feature selection using mutual information and importance scoring.
 
-    Supports mutual information-based selection and can integrate with
-    SHAP for model-agnostic feature importance.
+    Supports mutual information-based selection and can integrate with SHAP for model-agnostic
+    feature importance.
     """
 
     def __init__(
@@ -371,8 +372,7 @@ class FeatureImputer:
     """
     Feature imputation for failed detectors using historical patterns.
 
-    Tracks historical feature statistics and imputes missing features
-    when detectors fail.
+    Tracks historical feature statistics and imputes missing features when detectors fail.
     """
 
     def __init__(self, strategy: str = "mean", max_history: int = 1000):
@@ -454,8 +454,7 @@ class FeatureVersionManager:
     """
     Feature versioning with schema validation.
 
-    Tracks feature schema versions and validates extracted features
-    against expected schemas.
+    Tracks feature schema versions and validates extracted features against expected schemas.
     """
 
     def __init__(self) -> None:
@@ -721,8 +720,8 @@ class FeatureStore:
     """
     Feature store with caching support.
 
-    Provides caching for extracted features with configurable backends
-    (in-memory or Redis) and TTL support.
+    Provides caching for extracted features with configurable backends (in-memory or Redis) and TTL
+    support.
     """
 
     def __init__(
@@ -843,8 +842,8 @@ class FeaturePipeline:
     """
     Complete feature extraction pipeline combining all components.
 
-    Integrates standardization, selection, imputation, versioning, and caching
-    into a unified pipeline.
+    Integrates standardization, selection, imputation, versioning, and caching into a unified
+    pipeline.
     """
 
     def __init__(

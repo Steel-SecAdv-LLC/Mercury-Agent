@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -54,6 +52,7 @@ import os
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -136,16 +135,28 @@ class EnhancementResult:
 
 class EthicalGate:
     """
-    Neural network gate for ethical compliance verification.
+    Trained neural network gate for ethical compliance verification.
 
-    Blocks operations if ethical score falls below σ_Immutable threshold (0.93).
-    Uses a simple feedforward network: 256 → 64 → 1 with Sigmoid activation.
+    Architecture: ``Linear(256, 64) → ReLU → Linear(64, 1) → Sigmoid``.
+
+    The gate is trained by ``scripts/train_sigma_immutable.py`` on a
+    labelled scalar-vector corpus (see that script's docstring for the
+    labelling source).  Trained weights are persisted at
+    ``security/sigma_immutable_weights.pt`` and loaded at construction
+    time.  If the weights file is absent or PyTorch is unavailable, the
+    gate falls back to a deterministic NumPy heuristic.
+
+    The gate is a *second independent check* alongside
+    :class:`~omni_mercury_engine.cognitive.ethical_bounding.BenevolenceScorer`.
     """
+
+    _WEIGHTS_RELPATH = "security/sigma_immutable_weights.pt"
 
     def __init__(self, input_dim: int = 256, threshold: float = 0.93) -> None:
         self.threshold = threshold
         self.input_dim = input_dim
         self.logger = logging.getLogger(__name__)
+        self._trained = False
 
         if TORCH_AVAILABLE:
             self.gate_network = nn.Sequential(
@@ -154,8 +165,29 @@ class EthicalGate:
                 nn.Linear(64, 1),
                 nn.Sigmoid(),
             )
+            self._try_load_trained_weights()
         else:
             self.gate_network = None  # type: ignore[assignment, unused-ignore]
+
+    def _try_load_trained_weights(self) -> None:
+        """Load trained weights from the in-repo artifact if present."""
+        # Resolve weights path relative to the package root
+        pkg_root = Path(__file__).resolve().parent.parent
+        weights_path = pkg_root / self._WEIGHTS_RELPATH
+        if not weights_path.exists():
+            self.logger.debug(
+                "σ_Immutable weights not found at %s; using untrained gate",
+                weights_path,
+            )
+            return
+        try:
+            state_dict = torch.load(weights_path, map_location="cpu", weights_only=True)
+            self.gate_network.load_state_dict(state_dict)
+            self.gate_network.eval()
+            self._trained = True
+            self.logger.info("σ_Immutable: loaded trained weights from %s", weights_path)
+        except Exception as exc:
+            self.logger.warning("σ_Immutable: failed to load weights: %s", exc)
 
     def evaluate(self, scalar_vector: np.ndarray[Any, Any]) -> tuple[bool, float]:
         """
@@ -171,7 +203,7 @@ class EthicalGate:
             self.logger.warning("NaN detected in scalar_vector; replacing with zeros")
             scalar_vector = np.nan_to_num(scalar_vector, nan=0.0)
 
-        if self.gate_network is not None and TORCH_AVAILABLE:
+        if self.gate_network is not None and TORCH_AVAILABLE and self._trained:
             padded = np.zeros(self.input_dim)
             padded[: min(len(scalar_vector), self.input_dim)] = scalar_vector[: self.input_dim]
 
@@ -218,7 +250,8 @@ class TriadicPhiWeighting:
     """
 
     def __init__(self, num_heads: int = 32) -> None:
-        """Initialize triadic phi-weighting.
+        """
+        Initialize triadic phi-weighting.
 
         Args:
             num_heads: Number of attention heads (should be divisible by 3 for
@@ -251,7 +284,8 @@ class TriadicPhiWeighting:
         return weights
 
     def apply(self, attention_scores: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Apply triadic phi-weighting to attention scores.
+        """
+        Apply triadic phi-weighting to attention scores.
 
         Args:
             attention_scores: Raw attention scores [num_heads, seq_len, seq_len]
@@ -273,7 +307,8 @@ class TriadicPhiWeighting:
         return np.asarray(weighted)  # type: ignore[no-any-return, unused-ignore]
 
     def compute_harmonic_synergy(self, attention_output: np.ndarray[Any, Any]) -> float:
-        """Compute harmonic synergy score from attention output.
+        """
+        Compute harmonic synergy score from attention output.
 
         The synergy score measures how well the triadic weighting produces
         coherent frequency patterns (H(omega) in the weighted fusion Equation).
@@ -325,7 +360,8 @@ class MultiHeadAttentionFusion:
         max_dimensions: int = 37,
         enable_triadic_phi: bool = True,
     ):
-        """Initialize multi-head attention fusion.
+        """
+        Initialize multi-head attention fusion.
 
         Args:
             d_model: Model dimension (default 512)
@@ -513,7 +549,8 @@ class GlobalOmniScalarNetwork:
         num_attention_heads: int = 32,
         enable_triadic_phi: bool = True,
     ):
-        """Initialize the Global Omni-Scalar Network.
+        """
+        Initialize the Global Omni-Scalar Network.
 
         Args:
             device: Computation device ('cpu' or 'cuda')
@@ -564,11 +601,11 @@ class GlobalOmniScalarNetwork:
         )
 
     def _initialize_default_scalars(self) -> None:
-        """Initialize default ethical and system scalars with omni- prefix.
+        """
+        Initialize default ethical and system scalars with omni- prefix.
 
-        All scalars use the omni- prefix for unified naming convention.
-        Legacy aliases (without omni- prefix) are maintained for backward
-        compatibility and will be deprecated in v2.0.
+        All scalars use the omni- prefix for unified naming convention. Legacy aliases (without
+        omni- prefix) are maintained for backward compatibility and will be deprecated in v2.0.
         """
         # Core ethical scalars with omni- prefix
         # omnibenevolence uses ETHICAL.BENEVOLENCE_IMMUTABLE (0.99)
@@ -734,7 +771,8 @@ class GlobalOmniScalarNetwork:
         self._initialize_legacy_aliases()
 
     def _initialize_legacy_aliases(self) -> None:
-        """Initialize backward-compatible legacy aliases (deprecated in v2.0).
+        """
+        Initialize backward-compatible legacy aliases (deprecated in v2.0).
 
         Maps old scalar names to new omni-prefixed names for seamless migration.
         """
@@ -784,7 +822,8 @@ class GlobalOmniScalarNetwork:
         }
 
     def resolve_scalar_name(self, name: str) -> str:
-        """Resolve a scalar name, supporting legacy aliases.
+        """
+        Resolve a scalar name, supporting legacy aliases.
 
         Args:
             name: Scalar name (may be legacy or omni-prefixed)
@@ -801,7 +840,8 @@ class GlobalOmniScalarNetwork:
         return name
 
     def get_scalar(self, name: str, default: float = 0.0) -> float:
-        """Get a scalar value by name, supporting legacy aliases.
+        """
+        Get a scalar value by name, supporting legacy aliases.
 
         Args:
             name: Scalar name (may be legacy or omni-prefixed)
@@ -1163,7 +1203,8 @@ class GlobalOmniScalarNetwork:
         domain_weights: dict[str, float] | None = None,
         aggregation_method: str = "geometric_mean",
     ) -> dict[str, Any]:
-        """Compute hierarchical aggregation of omni-scalars (Phase 3).
+        """
+        Compute hierarchical aggregation of omni-scalars (Phase 3).
 
         Implements 3-level hierarchical aggregation:
 

@@ -1,11 +1,9 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 """
 
 from __future__ import annotations
@@ -98,6 +96,7 @@ class CognitiveAnalysisResult:
     analysis_time_ms: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "anomaly_detected": self.anomaly_detected,
             "anomaly_score": self.anomaly_score,
@@ -188,16 +187,29 @@ class CognitiveOrchestrator(LoggerMixin):
             enable_ipb: Enable intelligence preparation
             enable_cbr: Enable case-based reasoning
             enable_indicators: Enable indicator development
-            strict_ethics: When ``True`` (default), the orchestrator scores
-                the analysis action via
-                :meth:`BenevolenceScorer.score_action` using
-                ``MINIMUM_BENEVOLENCE_FLOOR`` (0.70) as its threshold and
-                raises
+            strict_ethics: **Deprecated and ignored.**  Ethics enforcement
+                at the orchestrator decision boundary is unconditional:
+                :meth:`analyze` always scores the analysis action and raises
                 :class:`~omni_mercury_engine.cognitive.ethical_bounding.EthicalConstraintViolationError`
-                if the action is not permissible.
-                Set to ``False`` only for testing or internal advisory scoring.
+                if the action is not permissible.  Passing ``False`` emits
+                a :class:`DeprecationWarning` and has no effect — the gate
+                remains active.  See ``src/omni_mercury_engine/ethical/__init__.py``
+                for the full decision-boundary contract.
         """
-        self.strict_ethics = strict_ethics
+        if not strict_ethics:
+            import warnings
+
+            warnings.warn(
+                "CognitiveOrchestrator(strict_ethics=False) is deprecated and "
+                "ignored — ethics enforcement at the analyze() decision "
+                "boundary is unconditional. The flag will be removed in a "
+                "future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        # Always enforce — the attribute is kept for backwards introspection
+        # but it no longer gates anything.
+        self.strict_ethics = True
 
         # The orchestrator's internal ethical gate uses MINIMUM_BENEVOLENCE_FLOOR
         # as its threshold.  This ensures internal cognitive analysis passes
@@ -506,7 +518,7 @@ class CognitiveOrchestrator(LoggerMixin):
         result.benevolence_score = ethical_result.benevolence_score
         result.ethical_permissible = ethical_result.is_permissible
 
-        if self.strict_ethics and not ethical_result.is_permissible:
+        if not ethical_result.is_permissible:
             # Record timing on the local result before raising so the
             # measurement is captured in any logging path that handles
             # the partial result; the timing is also surfaced on the

@@ -63,7 +63,11 @@ class PrivacyBudget:
         )
 
     def spend(self, epsilon: float, delta: float = 0.0) -> bool:
-        """Spend privacy budget. Returns False if insufficient."""
+        """
+        Spend privacy budget.
+
+        Returns False if insufficient.
+        """
         if not self.can_spend(epsilon, delta):
             return False
         self.spent_epsilon += epsilon
@@ -76,8 +80,8 @@ class PrivacyAccountant:
     """
     Privacy accountant for tracking cumulative privacy loss.
 
-    Supports multiple composition theorems including basic, advanced,
-    and Renyi differential privacy (RDP) composition.
+    Supports multiple composition theorems including basic, advanced, and Renyi differential privacy
+    (RDP) composition.
     """
 
     total_epsilon: float
@@ -375,8 +379,8 @@ class SecureAggregator:
     """
     Secure aggregation for federated learning.
 
-    Implements secure sum with differential privacy, ensuring
-    the server only learns the aggregate, not individual updates.
+    Implements secure sum with differential privacy, ensuring the server only learns the aggregate,
+    not individual updates.
     """
 
     def __init__(
@@ -462,8 +466,8 @@ class LocalDifferentialPrivacy:
     """
     Local Differential Privacy for client-side privatization.
 
-    Each client adds noise locally before sending to the server,
-    providing stronger privacy guarantees than central DP.
+    Each client adds noise locally before sending to the server, providing stronger privacy
+    guarantees than central DP.
     """
 
     def __init__(

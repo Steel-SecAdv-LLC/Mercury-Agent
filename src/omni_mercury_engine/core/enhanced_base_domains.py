@@ -1,5 +1,6 @@
 """
 Mercury Agent - Enhanced Base Domain Detectors
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -127,8 +128,8 @@ class AdaptiveThresholdOptimizer:
         """
         Compute threshold using Otsu's method.
 
-        Otsu's method finds the threshold that minimizes within-class variance,
-        effectively separating normal from anomalous samples.
+        Otsu's method finds the threshold that minimizes within-class variance, effectively
+        separating normal from anomalous samples.
         """
         # Normalize scores to [0, 1]
         scores_norm = (scores - scores.min()) / (scores.max() - scores.min() + 1e-10)
@@ -297,9 +298,8 @@ class EventBasedMetrics:
     """
     Event-based metrics for time-series anomaly detection.
 
-    Evaluates detection at the event level rather than point level,
-    more appropriate for real-world applications where contiguous
-    anomalous segments matter.
+    Evaluates detection at the event level rather than point level, more appropriate for real-world
+    applications where contiguous anomalous segments matter.
     """
 
     def __init__(self, tolerance: int = 0, min_event_length: int = 1):
@@ -553,8 +553,8 @@ class ParallelDetectorExecutor:
     """
     Parallel execution of multiple detectors for efficiency.
 
-    Uses ThreadPoolExecutor to run detectors concurrently,
-    reducing latency for multi-detector fusion.
+    Uses ThreadPoolExecutor to run detectors concurrently, reducing latency for multi-detector
+    fusion.
     """
 
     def __init__(self, max_workers: int = 4, timeout: float = 30.0):

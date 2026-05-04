@@ -1,17 +1,14 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Domain loader for pandemic/outbreak data from WHO and Our World in Data.
 
-Connects to the Our World in Data COVID-19 dataset and the WHO Global
-Health Observatory (GHO) OData API to provide epidemiological time-series
-data for Mercury anomaly detection.  Supports six pathogen classes:
-virus, bacteria, fungus, parasite, prion, and biosurveillance.
+Connects to the Our World in Data COVID-19 dataset and the WHO Global Health Observatory (GHO) OData
+API to provide epidemiological time-series data for Mercury anomaly detection.  Supports six
+pathogen classes: virus, bacteria, fungus, parasite, prion, and biosurveillance.
 
-Ground truth events cover major pandemic waves where rapid acceleration
-of case counts is labeled as anomalous against a background of normal
-transmission dynamics.
+Ground truth events cover major pandemic waves where rapid acceleration of case counts is labeled as
+anomalous against a background of normal transmission dynamics.
 """
 
 from __future__ import annotations
@@ -247,7 +244,8 @@ _BASELINE_WINDOW_DAYS = 30
 
 
 class PandemicLoader(BaseDomainLoader):
-    """Loader for pandemic and outbreak data from OWID and WHO.
+    """
+    Loader for pandemic and outbreak data from OWID and WHO.
 
     Supports six pathogen classes: virus, bacteria, fungus, parasite,
     prion, and biosurveillance.
@@ -302,7 +300,8 @@ class PandemicLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def fetch_realtime(self) -> pd.DataFrame:
-        """Fetch the most recent pandemic data from Our World in Data.
+        """
+        Fetch the most recent pandemic data from Our World in Data.
 
         Downloads the full OWID COVID-19 CSV, caches it locally, and
         returns the last 30 days of global data.
@@ -333,7 +332,8 @@ class PandemicLoader(BaseDomainLoader):
         return recent
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """Fetch data for a specific historical pandemic event.
+        """
+        Fetch data for a specific historical pandemic event.
 
         Args:
             event_id: Key into the ground truth catalog (e.g.
@@ -404,7 +404,8 @@ class PandemicLoader(BaseDomainLoader):
         return df
 
     def list_events(self) -> list[dict[str, Any]]:
-        """Return the catalog of ground truth pandemic events.
+        """
+        Return the catalog of ground truth pandemic events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
@@ -423,7 +424,8 @@ class PandemicLoader(BaseDomainLoader):
         return events
 
     def list_pathogen_classes(self) -> list[str]:
-        """Return distinct pathogen classes available in the event catalog.
+        """
+        Return distinct pathogen classes available in the event catalog.
 
         Returns:
             Sorted list of unique pathogen class strings.
@@ -431,7 +433,8 @@ class PandemicLoader(BaseDomainLoader):
         return sorted({e.get("pathogen_class", "unknown") for e in _EVENT_CATALOG.values()})
 
     def get_ground_truth(self, event_id: str) -> np.ndarray:
-        """Generate binary anomaly labels for a historical pandemic event.
+        """
+        Generate binary anomaly labels for a historical pandemic event.
 
         Labeling strategy: a day is labeled *anomalous* (``1``) when the
         7-day rolling average of new cases exceeds twice the mean of
@@ -521,7 +524,8 @@ class PandemicLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def engineer_features(self, raw_data: pd.DataFrame) -> np.ndarray:
-        """Transform raw pandemic data into a feature matrix.
+        """
+        Transform raw pandemic data into a feature matrix.
 
         Engineered features (per day):
 
@@ -671,7 +675,8 @@ class PandemicLoader(BaseDomainLoader):
         start_date: str,
         end_date: str,
     ) -> pd.DataFrame:
-        """Fetch from WHO Global Health Observatory OData API.
+        """
+        Fetch from WHO Global Health Observatory OData API.
 
         Endpoint: ``{_WHO_GHO_BASE_URL}/{indicator}``
         Filter: ``$filter=SpatialDim eq '{country}'``
@@ -784,7 +789,8 @@ class PandemicLoader(BaseDomainLoader):
         start_date: str,
         end_date: str,
     ) -> pd.DataFrame:
-        """Fetch WHO health emergency data for biosurveillance.
+        """
+        Fetch WHO health emergency data for biosurveillance.
 
         Uses the WHO Emergencies Hub API to retrieve health emergency
         declarations.  Constructs a monthly time series of alert
@@ -880,7 +886,8 @@ class PandemicLoader(BaseDomainLoader):
     # ------------------------------------------------------------------
 
     def _load_owid_data(self) -> pd.DataFrame:
-        """Load the full OWID COVID-19 dataset, using cache when available.
+        """
+        Load the full OWID COVID-19 dataset, using cache when available.
 
         The OWID CSV is ~60MB.  This method caches the raw CSV as a
         Parquet file in the loader's cache directory to avoid repeated
@@ -917,7 +924,8 @@ class PandemicLoader(BaseDomainLoader):
         return df
 
     def _fetch_owid_event(self, event: dict[str, Any]) -> pd.DataFrame:
-        """Fetch OWID data filtered by location and date range.
+        """
+        Fetch OWID data filtered by location and date range.
 
         Args:
             event: Event metadata dict from ``_EVENT_CATALOG``.
@@ -945,7 +953,8 @@ class PandemicLoader(BaseDomainLoader):
         return df
 
     def _fetch_who_gho_event(self, event: dict[str, Any]) -> pd.DataFrame:
-        """Fetch disease data from the WHO GHO OData API.
+        """
+        Fetch disease data from the WHO GHO OData API.
 
         The WHO GHO API provides aggregated surveillance data for
         various diseases.  For the 2014 Ebola event, we query the
@@ -1018,7 +1027,8 @@ class PandemicLoader(BaseDomainLoader):
 
     @staticmethod
     def _synthetic_ebola_2014() -> pd.DataFrame:
-        """Generate a synthetic Ebola 2014 time-series from WHO reports.
+        """
+        Generate a synthetic Ebola 2014 time-series from WHO reports.
 
         The WHO GHO API does not always provide daily-granularity Ebola
         data.  This method produces a synthetic daily time-series based
@@ -1079,7 +1089,8 @@ class PandemicLoader(BaseDomainLoader):
 
     @staticmethod
     def _rolling_mean(values: np.ndarray, window: int = 7) -> np.ndarray:
-        """Compute a trailing rolling mean over a 1-D array.
+        """
+        Compute a trailing rolling mean over a 1-D array.
 
         Args:
             values: 1-D array of numeric values.
@@ -1104,7 +1115,8 @@ class PandemicLoader(BaseDomainLoader):
         new_cases: np.ndarray,
         lag: int = 7,
     ) -> np.ndarray:
-        """Compute case growth rate as ratio of current to lagged values.
+        """
+        Compute case growth rate as ratio of current to lagged values.
 
         The growth rate is defined as:
             ``new_cases[i] / new_cases[i - lag]``

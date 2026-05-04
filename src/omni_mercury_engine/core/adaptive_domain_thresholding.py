@@ -1,5 +1,6 @@
 """
 Mercury Agent - Adaptive Per-Domain Thresholding System
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 Advanced thresholding system with per-domain optimization:
@@ -259,8 +260,8 @@ class IsotonicCalibrator:
     """
     Isotonic regression for probability calibration.
 
-    Fits a non-decreasing function to map scores to probabilities.
-    More flexible than Platt scaling but requires more data.
+    Fits a non-decreasing function to map scores to probabilities. More flexible than Platt scaling
+    but requires more data.
     """
 
     def __init__(self, out_of_bounds: str = "clip"):
@@ -939,8 +940,8 @@ class DomainEnsembleWeightOptimizer:
     """
     Domain-specific ensemble weighting optimizer.
 
-    Learns optimal weights for combining multiple detectors per domain,
-    extending the OAEWeightOptimizer with domain awareness.
+    Learns optimal weights for combining multiple detectors per domain, extending the
+    OAEWeightOptimizer with domain awareness.
     """
 
     def __init__(

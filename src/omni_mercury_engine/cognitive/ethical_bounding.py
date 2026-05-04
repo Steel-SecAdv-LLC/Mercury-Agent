@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -56,17 +54,29 @@ MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
 
 
 class EthicalConstraintViolationError(RuntimeError):
-    """Raised when a hard ethical constraint is violated and execution must halt.
+    """
+    Raised when a hard ethical constraint is violated and execution must halt.
 
     Unlike the advisory :meth:`BenevolenceScorer.score_action` path (which
     returns ``is_permissible=False`` and leaves enforcement to the caller),
     this exception propagates up the call stack so that impermissible actions
     **cannot** be silently ignored.
 
+    The same class is re-exported from :mod:`omni_mercury_engine.ethical` as
+    ``EthicalViolation`` — that is the canonical name to use at new decision
+    boundaries.  ``EthicalConstraintViolationError`` is retained so existing
+    catch sites and tests keep working.
+
     Attributes:
         action: The action that triggered the violation.
         score: The computed benevolence score.
         threshold: The minimum required benevolence score.
+        check: Identifier for which gate raised — ``"benevolence"`` for the
+            scorer-based check, ``"sigma_immutable"`` for GOSNN's neural
+            ethical gate, ``"gosnn_unavailable"`` when the gate could not be
+            evaluated and the boundary failed closed.
+        details: Optional structured context (e.g., domain, requesting
+            component, raw scalar vector summary) for downstream auditing.
         analysis_time_ms: Optional wall-clock time for the analysis run that
             triggered the violation, captured by the orchestrator before the
             exception was raised.  ``None`` when the raiser did not measure it.
@@ -78,15 +88,20 @@ class EthicalConstraintViolationError(RuntimeError):
         score: float,
         threshold: float,
         analysis_time_ms: float | None = None,
+        *,
+        check: str = "benevolence",
+        details: dict[str, Any] | None = None,
     ) -> None:
         self.action = action
         self.score = score
         self.threshold = threshold
+        self.check = check
+        self.details = details or {}
         self.analysis_time_ms = analysis_time_ms
         super().__init__(
-            f"Ethical constraint violated for action '{action}': "
-            f"benevolence_score={score:.4f} < threshold={threshold:.4f}. "
-            "Execution blocked."
+            f"Ethical constraint '{check}' violated for action '{action}': "
+            f"score={score:.4f} < threshold={threshold:.4f}. "
+            "Execution blocked at the decision boundary."
         )
 
 
@@ -192,8 +207,7 @@ class HarmReducer:
     """
     Evaluates and minimizes potential harm from actions.
 
-    Uses weighted scoring across harm categories to ensure
-    actions minimize negative impacts.
+    Uses weighted scoring across harm categories to ensure actions minimize negative impacts.
     """
 
     HARM_WEIGHTS = {
@@ -275,8 +289,7 @@ class BenefitMaximizer:
     """
     Evaluates and maximizes potential benefits from actions.
 
-    Uses weighted scoring across benefit categories to ensure
-    actions maximize positive impacts.
+    Uses weighted scoring across benefit categories to ensure actions maximize positive impacts.
     """
 
     BENEFIT_WEIGHTS = {
@@ -566,8 +579,7 @@ class ValuePreserver:
     """
     Value preservation module for maintaining positive outcomes.
 
-    Ensures actions default to positive outcomes and preserve
-    important values.
+    Ensures actions default to positive outcomes and preserve important values.
     """
 
     CORE_VALUES = [
@@ -679,8 +691,8 @@ class BenevolenceScorer:
     """
     Main benevolence scoring engine.
 
-    Combines harm reduction, benefit maximization, equity,
-    empathy, and value preservation into a unified score.
+    Combines harm reduction, benefit maximization, equity, empathy, and value preservation into a
+    unified score.
     """
 
     BENEVOLENCE_THRESHOLD = 0.99
@@ -807,7 +819,8 @@ class BenevolenceScorer:
         action: str,
         context: dict[str, Any],
     ) -> EthicalScore:
-        """Score an action and raise on violation — the *mandatory* gate.
+        """
+        Score an action and raise on violation — the *mandatory* gate.
 
         Unlike :meth:`score_action`, which returns the result regardless of
         permissibility, ``enforce`` raises

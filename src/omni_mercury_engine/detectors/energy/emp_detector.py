@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -58,7 +56,7 @@ from torch import nn
 
 
 class EMPType(Enum):
-    """EMP classifications"""
+    """EMP classifications."""
 
     HEMP = "high_altitude_emp"
     NUCLEAR_EMP = "nuclear_emp"
@@ -69,7 +67,7 @@ class EMPType(Enum):
 
 
 class ThreatLevel(Enum):
-    """Threat severity levels"""
+    """Threat severity levels."""
 
     BENIGN = "benign"
     ANOMALOUS = "anomalous"
@@ -80,7 +78,7 @@ class ThreatLevel(Enum):
 
 @dataclass
 class EMPPredictionResult:
-    """EMP prediction results"""
+    """EMP prediction results."""
 
     emp_detected: bool
     confidence: float
@@ -223,10 +221,12 @@ class IntentionalEMIDetector(nn.Module):
         )
 
     def forward(self, em_signature: torch.Tensor) -> torch.Tensor:
-        """Classify intentional vs. natural EM events.
+        """
+        Classify intentional vs.
 
-        Note: This model uses BatchNorm which requires batch_size > 1 during
-        training. For inference with any batch size, call model.eval() first.
+        natural EM events.
+                Note: This model uses BatchNorm which requires batch_size > 1 during
+                training. For inference with any batch size, call model.eval() first.
         """
         # Ensure eval mode for inference to handle batch_size=1 with BatchNorm
         was_training = self.training
@@ -337,7 +337,7 @@ class EMPDetector:
         return result
 
     def _classify_intentional_attack(self, signature_data: dict[str, Any]) -> dict[str, Any]:
-        """Classify intentional electromagnetic attack"""
+        """Classify intentional electromagnetic attack."""
         if self.emi_detector is None:
             return {"attack_detected": False, "attack_probability": 0.0}
 
@@ -362,8 +362,7 @@ class EMPDetector:
         }
 
     def _assess_threat_level(self, result: EMPPredictionResult, components: int) -> str:
-        """Assess overall threat level"""
-
+        """Assess overall threat level."""
         if result.emp_type == "nuclear_emp" or result.intentional_attack_probability > 0.8:
             return ThreatLevel.CRITICAL.value
         elif components >= 2:
@@ -376,8 +375,7 @@ class EMPDetector:
             return ThreatLevel.BENIGN.value
 
     def _identify_affected_infrastructure(self, result: EMPPredictionResult) -> list[str]:
-        """Identify affected critical infrastructure"""
-
+        """Identify affected critical infrastructure."""
         infrastructure = []
 
         if result.e1_component_detected:
@@ -404,8 +402,7 @@ class EMPDetector:
         return list(set(infrastructure))
 
     def _generate_protective_actions(self, result: EMPPredictionResult) -> list[str]:
-        """Generate protective actions"""
-
+        """Generate protective actions."""
         actions = []
 
         if result.threat_level == "critical":
@@ -424,8 +421,7 @@ class EMPDetector:
         return actions
 
     def _generate_recovery_actions(self, result: EMPPredictionResult) -> list[str]:
-        """Generate recovery actions"""
-
+        """Generate recovery actions."""
         recovery = []
 
         if result.emp_detected:

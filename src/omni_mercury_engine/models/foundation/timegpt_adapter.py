@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -95,7 +93,8 @@ class TimeGPTAdapter(BaseFoundationModel):
     """
 
     def __init__(self, config: TimeGPTConfig | dict[str, Any] | None = None) -> None:
-        """Initialize TimeGPT adapter.
+        """
+        Initialize TimeGPT adapter.
 
         Args:
             config: Adapter configuration including API key
@@ -118,10 +117,11 @@ class TimeGPTAdapter(BaseFoundationModel):
 
     @config.setter
     def config(self, value: dict[str, Any] | TimeGPTConfig) -> None:
-        """Set config (required for base class compatibility).
+        """
+        Store the underlying config object (required for base class compatibility).
 
-        The base class sets self.config to a dict during __init__.
-        We intercept this and store it, but always return the typed config.
+        The base class sets self.config to a dict during __init__. We intercept this and store it,
+        but always return the typed config.
         """
         if isinstance(value, TimeGPTConfig):
             self.timegpt_config = value
@@ -140,22 +140,28 @@ class TimeGPTAdapter(BaseFoundationModel):
                 api_key = os.environ.get("NIXTLA_API_KEY")
 
             if api_key is None:
-                logger.warning("No Nixtla API key provided. TimeGPT will use mock mode.")
-                self._client = None
+                raise NotImplementedError(
+                    "No Nixtla API key provided. Set NIXTLA_API_KEY or pass "
+                    "api_key in TimeGPTConfig. Silent mock degradation is not "
+                    "permitted (Phase 2 audit cure)."
+                )
             else:
                 self._client = NixtlaClient(api_key=api_key)
                 logger.info("TimeGPT client initialized successfully")
 
         except ImportError:
-            logger.warning("nixtla package not installed. " "Install with: pip install nixtla")
-            self._client = None
+            raise NotImplementedError(
+                "nixtla package not installed. Install with: pip install nixtla. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
 
     def _to_dataframe(
         self,
         series: np.ndarray[Any, Any],
         start_time: str | pd.Timestamp | None = None,
     ) -> pd.DataFrame:
-        """Convert numpy array to pandas DataFrame for TimeGPT.
+        """
+        Convert numpy array to pandas DataFrame for TimeGPT.
 
         Args:
             series: Time series array [T]
@@ -195,7 +201,8 @@ class TimeGPTAdapter(BaseFoundationModel):
         series: np.ndarray[Any, Any] | torch.Tensor,
         horizon: int | None = None,
     ) -> dict[str, np.ndarray[Any, Any]]:
-        """Generate forecasts using TimeGPT.
+        """
+        Generate forecasts using TimeGPT.
 
         Args:
             series: Input time series [T] or [B, T]
@@ -328,7 +335,8 @@ class TimeGPTAdapter(BaseFoundationModel):
         }
 
     def _mock_forecast(self, series: np.ndarray[Any, Any], horizon: int) -> np.ndarray[Any, Any]:
-        """Simple mock forecast using linear trend.
+        """
+        Simple mock forecast using linear trend.
 
         Args:
             series: Input series
@@ -348,7 +356,8 @@ class TimeGPTAdapter(BaseFoundationModel):
         series: np.ndarray[Any, Any],
         window: int = 20,
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Mock anomaly detection using rolling statistics.
+        """
+        Mock anomaly detection using rolling statistics.
 
         Args:
             series: Input series
@@ -388,7 +397,8 @@ class TimeGPTAdapter(BaseFoundationModel):
         self,
         series: np.ndarray[Any, Any] | torch.Tensor,
     ) -> dict[str, Any]:
-        """Detect anomalies in time series data.
+        """
+        Detect anomalies in time series data.
 
         This is the primary detection interface that wraps detect_anomalies
         for a consistent API across all foundation model adapters.
@@ -406,7 +416,8 @@ class TimeGPTAdapter(BaseFoundationModel):
         series: np.ndarray[Any, Any] | torch.Tensor,
         steps: int = 100,
     ) -> TimeGPTAdapter:
-        """Fine-tune TimeGPT on domain data.
+        """
+        Fine-tune TimeGPT on domain data.
 
         Args:
             series: Training time series

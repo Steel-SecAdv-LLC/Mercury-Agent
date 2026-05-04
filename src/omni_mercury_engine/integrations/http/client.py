@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -60,7 +61,8 @@ class HTTPMethod(Enum):
 
 @dataclass
 class HTTPClientConfig:
-    """Configuration for HTTP client.
+    """
+    Configuration for HTTP client.
 
     Attributes:
         base_url: Base URL for all requests.
@@ -89,7 +91,8 @@ class HTTPClientConfig:
 
 @dataclass
 class HTTPResponse:
-    """HTTP response wrapper.
+    """
+    HTTP response wrapper.
 
     Attributes:
         status_code: HTTP status code.
@@ -106,7 +109,8 @@ class HTTPResponse:
     url: str
 
     def json(self) -> Any:
-        """Parse response as JSON.
+        """
+        Parse response as JSON.
 
         Returns:
             Parsed JSON data.
@@ -117,7 +121,8 @@ class HTTPResponse:
         return json.loads(self.content.decode("utf-8"))
 
     def text(self) -> str:
-        """Get response as text.
+        """
+        Get response as text.
 
         Returns:
             Response content as string.
@@ -153,7 +158,8 @@ class CircuitOpenError(HTTPError):
 
 
 class HTTPCircuitBreaker:
-    """Circuit breaker for HTTP requests.
+    """
+    Circuit breaker for HTTP requests.
 
     Tracks failures per endpoint and opens circuit when threshold exceeded.
     """
@@ -260,7 +266,8 @@ class HTTPClient:
         headers: dict[str, str] | None = None,
         **kwargs: Any,
     ):
-        """Initialize HTTP client.
+        """
+        Initialize HTTP client.
 
         Args:
             base_url: Base URL for all requests.
@@ -333,7 +340,8 @@ class HTTPClient:
         json_data: Any = None,
         params: dict[str, Any] | None = None,
     ) -> HTTPResponse:
-        """Execute HTTP request with aiohttp or fallback to stub.
+        """
+        Execute HTTP request with aiohttp or fallback to stub.
 
         Uses aiohttp for production requests when available. Falls back to
         stub implementation for testing or when aiohttp is not installed.
@@ -381,10 +389,11 @@ class HTTPClient:
         params: dict[str, Any] | None = None,
         start_time: float = 0.0,
     ) -> HTTPResponse:
-        """Execute request using aiohttp.
+        """
+        Execute request using aiohttp.
 
-        Production-ready implementation with proper SSL handling,
-        connection pooling, and timeout management.
+        Production-ready implementation with proper SSL handling, connection pooling, and timeout
+        management.
         """
         # Configure SSL context for security
         ssl_context: ssl.SSLContext | bool
@@ -449,7 +458,8 @@ class HTTPClient:
         params: dict[str, Any] | None = None,
         start_time: float = 0.0,
     ) -> HTTPResponse:
-        """Execute stub request for testing when aiohttp is not available.
+        """
+        Execute stub request for testing when aiohttp is not available.
 
         Provides deterministic responses for testing without network access.
         """
@@ -497,7 +507,8 @@ class HTTPClient:
         timeout: float | None = None,
         raise_for_status: bool = True,
     ) -> HTTPResponse:
-        """Make HTTP request with resilience patterns.
+        """
+        Make HTTP request with resilience patterns.
 
         Args:
             method: HTTP method.
@@ -656,7 +667,8 @@ class HTTPClient:
         return await self.request(HTTPMethod.DELETE, endpoint, **kwargs)
 
     def get_metrics(self) -> dict[str, Any]:
-        """Get client metrics.
+        """
+        Get client metrics.
 
         Returns:
             Dictionary with request counts, errors, and latency.

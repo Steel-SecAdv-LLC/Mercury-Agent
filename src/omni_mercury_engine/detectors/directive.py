@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -25,10 +23,9 @@ warnings.warn(
     DeprecationWarning,
     stacklevel=2,
 )
-
-"""DEPRECATED: This module uses sklearn (PCA) for anomaly detection.
-Mercury's production detector is MercuryAnomalyDetector in
-detectors/statistical.py. This module is retained for reference only.
+"""
+DEPRECATED: This module uses sklearn (PCA) for anomaly detection. Mercury's production detector is
+MercuryAnomalyDetector in detectors/statistical.py. This module is retained for reference only.
 
 Original: Sigma Directive detector implementing PCP, GSIS, RMD, and EOA protocols.
 
@@ -122,11 +119,11 @@ class DirectiveWeights:
 
 @dataclass
 class _ThreadLocalState:
-    """Thread-local state for SigmaDirectiveDetector.
+    """
+    Thread-local state for SigmaDirectiveDetector.
 
-    Ensures thread safety by isolating mutable state per thread.
-    Each thread gets its own memory buffer, preventing race conditions
-    during concurrent detect() calls.
+    Ensures thread safety by isolating mutable state per thread. Each thread gets its own memory
+    buffer, preventing race conditions during concurrent detect() calls.
     """
 
     memory_buffer: deque[NDArray[np.float64]] = field(default_factory=deque)
@@ -176,7 +173,8 @@ class SigmaDirectiveDetector(BaseDetector):
     """
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
-        """Initialize SigmaDirectiveDetector with configuration.
+        """
+        Initialize SigmaDirectiveDetector with configuration.
 
         Args:
             config: Configuration dictionary with optional keys:
@@ -220,7 +218,8 @@ class SigmaDirectiveDetector(BaseDetector):
             raise ValueError(f"memory_depth must be >= 1, got {self.memory_depth}")
 
     def _get_thread_state(self) -> _ThreadLocalState:
-        """Get or create thread-local state.
+        """
+        Get or create thread-local state.
 
         Returns:
             Thread-local state instance with isolated memory buffer.
@@ -233,21 +232,22 @@ class SigmaDirectiveDetector(BaseDetector):
         return state
 
     def clear_memory(self) -> None:
-        """Clear the memory buffer for the current thread.
+        """
+        Clear the memory buffer for the current thread.
 
-        Call this method between independent detection sessions to prevent
-        memory from one session affecting another. This is automatically
-        handled per-thread, but explicit clearing may be desired for
-        deterministic behavior in single-threaded scenarios.
+        Call this method between independent detection sessions to prevent memory from one session
+        affecting another. This is automatically handled per-thread, but explicit clearing may be
+        desired for deterministic behavior in single-threaded scenarios.
         """
         state = self._get_thread_state()
         state.memory_buffer.clear()
 
     def reset_state(self) -> None:
-        """Reset all mutable state including memory buffer.
+        """
+        Reset all mutable state including memory buffer.
 
-        This provides a full reset equivalent to creating a new detector
-        instance while preserving fitted parameters (baseline_pattern).
+        This provides a full reset equivalent to creating a new detector instance while preserving
+        fitted parameters (baseline_pattern).
         """
         self.clear_memory()
         # Reset calibration state from base class
@@ -434,7 +434,7 @@ class SigmaDirectiveDetector(BaseDetector):
         }
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
-        """Extract Sigma protocol features for ML fusion"""
+        """Extract Sigma protocol features for ML fusion."""
         if TORCH_AVAILABLE and isinstance(data, torch.Tensor):
             data = data.cpu().numpy()
         assert isinstance(data, np.ndarray)
@@ -465,14 +465,14 @@ class SigmaDirectiveDetector(BaseDetector):
         return torch.tensor(features, dtype=torch.float32)
 
     def _pattern_convergence_protocol(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """PCP: Detect pattern convergence anomalies.
+        """
+        PCP: Detect pattern convergence anomalies.
 
-        Returns continuous scores without hard clipping to preserve
-        ranking information for downstream fusion models.
+        Returns continuous scores without hard clipping to preserve ranking information for
+        downstream fusion models.
 
-        Fix for Issue #7: No Score Continuity. Previously used
-        np.minimum(..., 1.0) which capped scores, losing differentiation
-        between extreme anomalies. Now uses soft normalization.
+        Fix for Issue #7: No Score Continuity. Previously used np.minimum(..., 1.0) which capped
+        scores, losing differentiation between extreme anomalies. Now uses soft normalization.
         """
         if data.ndim == 1:
             data = data.reshape(-1, 1)
@@ -504,7 +504,8 @@ class SigmaDirectiveDetector(BaseDetector):
         return scores * self.stability_factor
 
     def _recursive_memory_dynamics(self, data: NDArray[np.float64]) -> NDArray[np.float64]:
-        """RMD: Detect anomalies using recursive memory dynamics.
+        """
+        RMD: Detect anomalies using recursive memory dynamics.
 
         Tracks a sliding window of recent samples and detects anomalies based
         on deviation from the memory mean. This captures temporal patterns
@@ -545,7 +546,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return scores
 
     def _ethical_oversight_amplifier(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """EOA: Amplify detection of ethically significant anomalies"""
+        """EOA: Amplify detection of ethically significant anomalies."""
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
@@ -555,9 +556,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return magnitude_norm
 
     def _quantum_pattern_containment(self, data: np.ndarray[Any, Any]) -> dict[str, float]:
-        """
-        Quantum Pattern Containment Protocol (QPCP)
-        """
+        """Quantum Pattern Containment Protocol (QPCP)"""
         if data.ndim == 1:
             data = data.reshape(-1, 1)
 
@@ -577,9 +576,9 @@ class SigmaDirectiveDetector(BaseDetector):
         return pattern_scores
 
     def _nano_scale_detection(self, data: np.ndarray[Any, Any]) -> dict[str, float]:
-        """
-        Nano-Scale Detection & Response System (NDRS)
-        Enhanced N term with dimensional downsampling for micro-anomaly detection
+        """Nano-Scale Detection & Response System (NDRS) Enhanced N term with dimensional
+
+        downsampling for micro-anomaly detection.
         """
         if data.ndim == 1:
             data = data.reshape(-1)
@@ -605,9 +604,7 @@ class SigmaDirectiveDetector(BaseDetector):
         }
 
     def _harmonic_anomaly_detection(self, data: np.ndarray[Any, Any]) -> float:
-        """
-        Harmonic anomaly detection using FFT
-        """
+        """Harmonic anomaly detection using FFT."""
         signal = data if data.ndim == 1 else data.flatten()
 
         if len(signal) < 8:
@@ -640,9 +637,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
     @staticmethod
     def _molecular_hash_function(data: bytes) -> float:
-        """
-        Molecular-level hash function for nano-scale integrity
-        """
+        """Molecular-level hash function for nano-scale integrity."""
         hash_obj = hashlib.sha3_256(data)
         hash_bytes = hash_obj.digest()
 
@@ -659,9 +654,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
     @staticmethod
     def _quantum_dot_checksum(data: bytes) -> float:
-        """
-        Quantum dot-inspired checksum
-        """
+        """Quantum dot-inspired checksum."""
         current = data
         checksum = 0.0
 
@@ -676,9 +669,7 @@ class SigmaDirectiveDetector(BaseDetector):
 
     @staticmethod
     def _detect_bit_anomalies(data: bytes) -> float:
-        """
-        Detect bit-level anomalies
-        """
+        """Detect bit-level anomalies."""
         if len(data) < 2:
             return 0.0
 
@@ -693,9 +684,7 @@ class SigmaDirectiveDetector(BaseDetector):
         return float(anomaly_rate)
 
     def _detect_micro_anomalies(self, data: np.ndarray[Any, Any]) -> float:
-        """
-        N Term Enhancement: Detect micro-anomalies at sub-feature level
-        """
+        """N Term Enhancement: Detect micro-anomalies at sub-feature level."""
         if data.size < 4:
             return 0.0
 
@@ -720,9 +709,9 @@ class SigmaDirectiveDetector(BaseDetector):
         return float(min(micro_score, 1.0))
 
     def _dimensional_downsampling_detection(self, data: np.ndarray[Any, Any]) -> float:
-        """
-        N Term Enhancement: Dimensional downsampling for micro-anomaly detection
-        Downsample to low dimensions to detect subtle micro-patterns
+        """N Term Enhancement: Dimensional downsampling for micro-anomaly detection Downsample to
+
+        low dimensions to detect subtle micro-patterns.
         """
         data_2d = data.reshape(-1, 1) if data.ndim == 1 else data
 

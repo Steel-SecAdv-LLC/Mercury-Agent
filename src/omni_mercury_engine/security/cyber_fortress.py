@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -76,8 +74,8 @@ class ResonanceHashIntegrityChecker(LoggerMixin):
     """
     Novel hash integrity checking using resonance amplification.
 
-    Uses ResonanceEngine to detect weak signals in hash chains that
-    indicate drift, tampering, or emerging vulnerabilities.
+    Uses ResonanceEngine to detect weak signals in hash chains that indicate drift, tampering, or
+    emerging vulnerabilities.
     """
 
     def __init__(self, threshold_std: float = 10.0) -> None:
@@ -182,8 +180,8 @@ class MultiverseZeroDaySimulator(LoggerMixin):
     """
     Novel zero-day attack simulation using multiverse optimization.
 
-    Explores parallel attack pathways to identify potential zero-day
-    vulnerabilities before they are discovered by attackers.
+    Explores parallel attack pathways to identify potential zero-day vulnerabilities before they are
+    discovered by attackers.
     """
 
     def __init__(self, num_universes: int = 20) -> None:
@@ -259,8 +257,8 @@ if TORCH_AVAILABLE:
         """
         Novel encrypted traffic behavioral anomaly detection.
 
-        Uses PyTorch GNN to detect anomalies in encrypted network traffic
-        based on behavioral patterns without decryption.
+        Uses PyTorch GNN to detect anomalies in encrypted network traffic based on behavioral
+        patterns without decryption.
         """
 
         def __init__(self) -> None:

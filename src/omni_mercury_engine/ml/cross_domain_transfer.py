@@ -1,5 +1,6 @@
 """
 Mercury Agent - Cross-Domain Transfer Learning Framework
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -268,8 +269,8 @@ class MMDAdapter(BaseDomainAdapter):
     """
     Maximum Mean Discrepancy (MMD) based domain adaptation.
 
-    Minimizes the distribution discrepancy between domains
-    in a reproducing kernel Hilbert space (RKHS).
+    Minimizes the distribution discrepancy between domains in a reproducing kernel Hilbert space
+    (RKHS).
     """
 
     def __init__(
@@ -1374,7 +1375,8 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         source_y: NDArray[np.int64],
         transport_plan: NDArray[np.float64],
     ) -> NDArray[np.int64]:
-        """Propagate labels from source to target via transport plan.
+        """
+        Propagate labels from source to target via transport plan.
 
         For each target sample, compute weighted vote from source labels
         based on transport plan coupling.
@@ -1408,20 +1410,22 @@ class OptimalTransportAdapter(BaseDomainAdapter):
         return target_labels
 
     def transform(self, X: NDArray[np.float64], domain: str = "target") -> NDArray[np.float64]:
-        """Transform using OT barycentric projection.
+        """
+        Transform using OT barycentric projection.
 
-        For new samples, computes barycentric projection via nearest neighbors
-        in the transport space.
+        For new samples, computes barycentric projection via nearest neighbors in the transport
+        space.
         """
         if self.source_mean is None or self.source_std is None:
             raise ValueError("Adapter not fitted")
         return (X - self.source_mean) / self.source_std
 
     def predict(self, X: NDArray[np.float64]) -> NDArray[np.int64]:
-        """Predict using OT-based label propagation.
+        """
+        Predict using OT-based label propagation.
 
-        For samples in the fitted target set, returns propagated labels.
-        For new samples, uses nearest neighbor in transported source space.
+        For samples in the fitted target set, returns propagated labels. For new samples, uses
+        nearest neighbor in transported source space.
         """
         if self.source_X is None or self.source_y is None or self.source_transported is None:
             raise ValueError("Adapter not fitted")
@@ -1473,8 +1477,8 @@ class CrossDomainTransferLearner:
     """
     Unified cross-domain transfer learning for security anomaly detection.
 
-    Supports training on one dataset (e.g., NSL-KDD) and testing on
-    another (e.g., CICIDS) with domain adaptation.
+    Supports training on one dataset (e.g., NSL-KDD) and testing on another (e.g., CICIDS) with
+    domain adaptation.
     """
 
     def __init__(

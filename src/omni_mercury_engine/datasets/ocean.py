@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -114,7 +113,8 @@ class NOAABuoyLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize NOAA Buoy loader.
+        """
+        Initialize NOAA Buoy loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -134,7 +134,8 @@ class NOAABuoyLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download real-time buoy data from NOAA NDBC.
+        """
+        Download real-time buoy data from NOAA NDBC.
 
         Returns:
             True if download successful, False otherwise.
@@ -235,7 +236,8 @@ class NOAABuoyLoader(DatasetLoader):
             )
 
     def _process_buoy_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        """Process buoy data for anomaly detection with comprehensive missing value handling.
+        """
+        Process buoy data for anomaly detection with comprehensive missing value handling.
 
         Implements a multi-strategy approach for oceanographic data quality:
         1. Sensor-specific missing value codes identification
@@ -507,7 +509,8 @@ class NOAABuoyLoader(DatasetLoader):
         raise FileNotFoundError("NOAA buoy data not found. Run download() first.")
 
     def load_data(self) -> tuple[np.ndarray, np.ndarray]:
-        """Load NOAA buoy dataset.
+        """
+        Load NOAA buoy dataset.
 
         Returns:
             Tuple of (features, labels) numpy arrays

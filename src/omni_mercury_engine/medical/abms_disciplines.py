@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -62,7 +60,7 @@ except ImportError:
 
 
 class ABMSBoard(Enum):
-    """ABMS Medical Board Categories"""
+    """ABMS Medical Board Categories."""
 
     ALLERGY_IMMUNOLOGY = "allergy_immunology"
     ANESTHESIOLOGY = "anesthesiology"
@@ -92,7 +90,7 @@ class ABMSBoard(Enum):
 
 @dataclass
 class MedicalAnomalyResult:
-    """Result from ABMS-based medical anomaly detection"""
+    """Result from ABMS-based medical anomaly detection."""
 
     primary_board: str
     subspecialty: str | None = None
@@ -195,8 +193,8 @@ class ABMSDisciplineDetector:
     """
     ABMS Medical Disciplines Anomaly Detector.
 
-    Integrates 24 ABMS boards with 150+ subspecialties for comprehensive
-    medical anomaly detection across all major medical specialties.
+    Integrates 24 ABMS boards with 150+ subspecialties for comprehensive medical anomaly detection
+    across all major medical specialties.
     """
 
     def __init__(
@@ -459,7 +457,7 @@ class ABMSDisciplineDetector:
         }
 
     def _initialize_medical_kb(self) -> dict[str, dict[str, Any]]:
-        """Initialize medical knowledge base for neurosymbolic reasoning"""
+        """Initialize medical knowledge base for neurosymbolic reasoning."""
         return {
             "cardiac_indicators": {
                 "chest_pain": ["cardiovascular_disease", "interventional_cardiology"],
@@ -621,7 +619,7 @@ class ABMSDisciplineDetector:
     def _determine_primary_specialty(
         self, predictions: dict[str, torch.Tensor], patient_data: dict[str, Any]
     ) -> tuple[str, float, str | None]:
-        """Determine primary specialty and confidence from predictions"""
+        """Determine primary specialty and confidence from predictions."""
         max_confidence = 0.0
         primary_board = ABMSBoard.INTERNAL_MEDICINE.value
 
@@ -643,7 +641,7 @@ class ABMSDisciplineDetector:
     def _identify_clinical_indicators(
         self, patient_data: dict[str, Any], primary_board: str
     ) -> list[str]:
-        """Identify key clinical indicators for the primary specialty"""
+        """Identify key clinical indicators for the primary specialty."""
         indicators = []
 
         vitals = patient_data.get("vitals", {})
@@ -664,7 +662,7 @@ class ABMSDisciplineDetector:
     def _recommend_consultations(
         self, primary_board: str, subspecialty: str | None, indicators: list[str]
     ) -> list[str]:
-        """Recommend consultations based on specialty and indicators"""
+        """Recommend consultations based on specialty and indicators."""
         consultations = [primary_board]
 
         if subspecialty:
@@ -685,7 +683,7 @@ class ABMSDisciplineDetector:
     def _generate_treatment_considerations(
         self, primary_board: str, subspecialty: str | None, risk_score: float
     ) -> list[str]:
-        """Generate treatment considerations based on specialty"""
+        """Generate treatment considerations based on specialty."""
         treatments = []
 
         if risk_score > 0.8:
@@ -709,7 +707,7 @@ class ABMSDisciplineDetector:
         return treatments[:6]
 
     def _assess_urgency(self, risk_score: float, indicators: list[str]) -> str:
-        """Assess clinical urgency level"""
+        """Assess clinical urgency level."""
         critical_indicators = ["chest_pain", "altered_consciousness", "severe_bleeding", "stroke"]
 
         if any(ind in indicators for ind in critical_indicators):
@@ -725,7 +723,7 @@ class ABMSDisciplineDetector:
     def _apply_symbolic_reasoning(
         self, patient_data: dict[str, Any], primary_board: str, indicators: list[str]
     ) -> dict[str, Any]:
-        """Apply neurosymbolic medical reasoning"""
+        """Apply neurosymbolic medical reasoning."""
         reasoning: dict[str, list[str]] = {
             "rules_applied": [],
             "deductions": [],
@@ -748,12 +746,12 @@ class ABMSDisciplineDetector:
         return reasoning
 
     def extract_features(self, data: dict[str, Any]) -> torch.Tensor:
-        """Extract features for ML fusion integration"""
+        """Extract features for ML fusion integration."""
         features = self._extract_clinical_features(data)
         return torch.tensor(features, dtype=torch.float32).unsqueeze(0)
 
     def predict(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Predict for engine integration"""
+        """Predict for engine integration."""
         result = self.detect_medical_anomaly(data)
 
         return {
@@ -769,7 +767,8 @@ class ABMSDisciplineDetector:
         specialty: str,
         include_reasoning: bool = False,
     ) -> MedicalAnomalyResult:
-        """Detect anomalies for a specific specialty.
+        """
+        Detect anomalies for a specific specialty.
 
         Args:
             data: Input data as numpy array or tensor (shape: [features])
@@ -848,7 +847,8 @@ class ABMSDisciplineDetector:
     def detect_all(
         self, data: np.ndarray[Any, Any] | torch.Tensor
     ) -> dict[str, MedicalAnomalyResult]:
-        """Detect anomalies across all ABMS specialties.
+        """
+        Detect anomalies across all ABMS specialties.
 
         Args:
             data: Input data as numpy array or tensor

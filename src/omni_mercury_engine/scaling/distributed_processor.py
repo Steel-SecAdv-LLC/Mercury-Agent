@@ -1,5 +1,6 @@
 """
 Mercury Agent - Distributed Processing Module
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -187,13 +188,16 @@ class ThreadWorkerPool(WorkerPool):
         self._executor = ThreadPoolExecutor(max_workers=num_workers)
 
     def submit(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Submit."""
         return self._executor.submit(func, *args, **kwargs)
 
     def map(self, func: Callable[..., Any], items: list[Any]) -> list[Any]:
+        """Map."""
         futures = [self._executor.submit(func, item) for item in items]
         return [f.result() for f in as_completed(futures)]
 
     def shutdown(self) -> None:
+        """Shutdown."""
         self._executor.shutdown(wait=True)
 
 
@@ -205,12 +209,15 @@ class ProcessWorkerPool(WorkerPool):
         self._executor = ProcessPoolExecutor(max_workers=num_workers)
 
     def submit(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Submit."""
         return self._executor.submit(func, *args, **kwargs)
 
     def map(self, func: Callable[..., Any], items: list[Any]) -> list[Any]:
+        """Map."""
         return list(self._executor.map(func, items))
 
     def shutdown(self) -> None:
+        """Shutdown."""
         self._executor.shutdown(wait=True)
 
 

@@ -1,11 +1,9 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 """
 
 from __future__ import annotations
@@ -87,6 +85,7 @@ class EnvironmentDefinition:
     timeline: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "domain": self.domain.value,
             "aoi": self.area_of_interest,
@@ -111,6 +110,7 @@ class EnvironmentEffect:
     dependencies: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.effect_id,
             "description": self.description,
@@ -136,6 +136,7 @@ class ThreatCapability:
     overall_rating: float  # 0-1
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.threat_id,
             "name": self.threat_name,
@@ -164,6 +165,7 @@ class ThreatCOA:
     countermeasures: list[str]
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.coa_id,
             "type": self.coa_type.value,
@@ -194,6 +196,7 @@ class BattlefieldAssessment:
     confidence: float
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.assessment_id,
             "timestamp": self.timestamp,

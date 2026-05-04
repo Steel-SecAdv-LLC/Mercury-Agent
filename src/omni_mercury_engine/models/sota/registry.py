@@ -36,7 +36,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ModelInfo:
-    """Information about a registered SOTA model.
+    """
+    Information about a registered SOTA model.
 
     Attributes:
         name: Model identifier
@@ -143,7 +144,8 @@ class SOTARegistry:
         default_config: dict[str, Any] | None = None,
         supported_tasks: list[str] | None = None,
     ) -> None:
-        """Register a SOTA model in the registry.
+        """
+        Register a SOTA model in the registry.
 
         Args:
             name: Unique identifier for the model
@@ -170,7 +172,8 @@ class SOTARegistry:
 
     @classmethod
     def get(cls, name: str, **config_overrides: Any) -> nn.Module:
-        """Get a configured model instance.
+        """
+        Get a configured model instance.
 
         Args:
             name: Model identifier
@@ -201,7 +204,8 @@ class SOTARegistry:
 
     @classmethod
     def get_model_info(cls, name: str) -> ModelInfo:
-        """Get information about a registered model.
+        """
+        Get information about a registered model.
 
         Args:
             name: Model identifier
@@ -222,7 +226,8 @@ class SOTARegistry:
 
     @classmethod
     def list_models(cls) -> list[str]:
-        """List all registered model names.
+        """
+        List all registered model names.
 
         Returns:
             List of model identifiers
@@ -232,7 +237,8 @@ class SOTARegistry:
 
     @classmethod
     def list_models_detailed(cls) -> list[ModelInfo]:
-        """List all registered models with full details.
+        """
+        List all registered models with full details.
 
         Returns:
             List of ModelInfo dataclasses
@@ -242,7 +248,8 @@ class SOTARegistry:
 
     @classmethod
     def is_registered(cls, name: str) -> bool:
-        """Check if a model is registered.
+        """
+        Check if a model is registered.
 
         Args:
             name: Model identifier
@@ -255,7 +262,8 @@ class SOTARegistry:
 
     @classmethod
     def unregister(cls, name: str) -> bool:
-        """Unregister a model from the registry.
+        """
+        Unregister a model from the registry.
 
         Args:
             name: Model identifier
@@ -271,7 +279,8 @@ class SOTARegistry:
 
     @classmethod
     def clear(cls) -> None:
-        """Clear all registered models.
+        """
+        Clear all registered models.
 
         Warning: This will remove all models including defaults.
         Call _register_default_models() to restore defaults.
@@ -298,7 +307,8 @@ def get_model(name: str, **config_overrides: Any) -> nn.Module:
 
 
 def list_models() -> list[str]:
-    """Convenience function to list available models.
+    """
+    Convenience function to list available models.
 
     Returns:
         List of model identifiers

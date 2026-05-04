@@ -65,6 +65,11 @@ class TestNeuroSymbolicHub:
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
+        # Test-only: bypass the setter's floor-clamp so synthetic random
+        # inputs (whose benevolence sits in the ~0.65–0.75 band) do not
+        # trigger the hard ethical gate.  This test exercises explanations,
+        # not ethical enforcement.
+        hub._benevolence_threshold = 0.0
 
         X = np.random.randn(3, 32)
         results = hub.predict(X, return_explanations=True)
@@ -79,7 +84,17 @@ class TestNeuroSymbolicHub:
             assert 0 <= result.confidence <= 1
 
     def test_benevolence_enforcement(self):
-        """Test benevolence ≥0.99 enforcement."""
+        """Hard ethical decision boundary: predict() raises on violation.
+
+        With ``benevolence_threshold=0.99`` and untrained-encoder inputs
+        the per-sample benevolence will fall below the threshold, and
+        ``predict()`` must raise ``EthicalConstraintViolationError`` —
+        the previous advisory ``ethical_violations`` list is no longer
+        the contract at this boundary.
+        """
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
         hub = NeuroSymbolicHub(
@@ -91,14 +106,12 @@ class TestNeuroSymbolicHub:
         )
 
         X = np.random.randn(3, 64)
-        results = hub.predict(X)
+        with pytest.raises(EthicalConstraintViolationError) as exc_info:
+            hub.predict(X)
 
-        for result in results:
-            # Check benevolence is computed
-            assert hasattr(result, "benevolence_score")
-            # If not compliant, should have violations
-            if not result.ethical_compliant:
-                assert len(result.ethical_violations) > 0
+        assert exc_info.value.check == "benevolence"
+        assert exc_info.value.threshold == 0.99
+        assert exc_info.value.score < 0.99
 
     def test_knowledge_graph_rules(self):
         """Test symbolic rules fire correctly."""
@@ -113,6 +126,9 @@ class TestNeuroSymbolicHub:
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
+        # Test-only: bypass the setter's floor-clamp.  This test exercises
+        # rule-firing, not ethical enforcement.
+        hub._benevolence_threshold = 0.0
 
         # Add custom rule
         hub.add_rule(
@@ -142,6 +158,9 @@ class TestNeuroSymbolicHub:
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
+        # Test-only: bypass the floor-clamp.  This test exercises GOSNN
+        # scalar integration, not ethical enforcement.
+        hub._benevolence_threshold = 0.0
 
         # Run some inferences (reduced from 5 to 3 for faster execution)
         X = np.random.randn(3, 64)
@@ -370,6 +389,9 @@ class TestRealWorldBenchmark:
         class NSHWrapper:
             def __init__(self):
                 self.hub = NeuroSymbolicHub(input_dim=38, seed=SEED)
+                # Test-only: bypass the floor-clamp.  This benchmark
+                # wrapper tests scoring, not ethical enforcement.
+                self.hub._benevolence_threshold = 0.0
 
             def fit(self, X, y=None):
                 self.hub.fit(X, y)
@@ -423,6 +445,9 @@ class TestIntegration:
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
+        # Test-only: bypass the floor-clamp.  This test exercises the
+        # scoring pipeline, not ethical enforcement.
+        hub._benevolence_threshold = 0.0
 
         # Fit with labeled data (reduced size for faster execution)
         # Use 50% threshold to ensure both classes are represented
@@ -500,6 +525,9 @@ class TestIntegration:
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
+        # Test-only: bypass the floor-clamp.  This test exercises the
+        # end-to-end pipeline, not ethical enforcement.
+        hub._benevolence_threshold = 0.0
         gosnn = GlobalOmniScalarNetwork()
         optimizer = GOSNNOptimizer(seed=SEED)
 

@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -58,7 +56,7 @@ from torch import nn
 
 
 class SolarFlareClass(Enum):
-    """NOAA solar flare classifications"""
+    """NOAA solar flare classifications."""
 
     A = "A"
     B = "B"
@@ -68,7 +66,7 @@ class SolarFlareClass(Enum):
 
 
 class GeostormScale(Enum):
-    """NOAA geomagnetic storm G-scale"""
+    """NOAA geomagnetic storm G-scale."""
 
     G0 = "none"
     G1 = "minor"
@@ -80,7 +78,7 @@ class GeostormScale(Enum):
 
 @dataclass
 class SolarStormPredictionResult:
-    """Solar storm prediction results"""
+    """Solar storm prediction results."""
 
     solar_storm_imminent: bool
     confidence: float
@@ -112,9 +110,7 @@ class SolarStormPredictionResult:
 
 
 class SolarFlareDetector:
-    """
-    Real-time solar flare detection from X-ray flux.
-    """
+    """Real-time solar flare detection from X-ray flux."""
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
@@ -156,8 +152,7 @@ class SolarFlareDetector:
         }
 
     def _classify_flare(self, flux: float) -> tuple[str, float]:
-        """Classify solar flare by X-ray flux"""
-
+        """Classify solar flare by X-ray flux."""
         if flux >= 1e-4:
             return "X", flux / 1e-4
         elif flux >= 1e-5:
@@ -171,9 +166,7 @@ class SolarFlareDetector:
 
 
 class CMETracker:
-    """
-    Coronal Mass Ejection tracking and arrival prediction.
-    """
+    """Coronal Mass Ejection tracking and arrival prediction."""
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
@@ -358,7 +351,7 @@ class SolarStormDetector:
         return result
 
     def _predict_geomagnetic_storm(self, magnetosphere_data: dict[str, Any]) -> dict[str, Any]:
-        """Predict geomagnetic storm using ML model"""
+        """Predict geomagnetic storm using ML model."""
         if self.geomag_predictor is None:
             return {"kp_index": 0.0, "storm_level": GeostormScale.G0.value, "confidence": 0.0}
 
@@ -389,8 +382,7 @@ class SolarStormDetector:
         }
 
     def _classify_geostorm(self, kp_index: float) -> str:
-        """Classify geomagnetic storm by Kp index"""
-
+        """Classify geomagnetic storm by Kp index."""
         if kp_index >= 9:
             return GeostormScale.G5.value
         elif kp_index >= 8:
@@ -405,8 +397,7 @@ class SolarStormDetector:
             return GeostormScale.G0.value
 
     def _assess_grid_risk(self, result: SolarStormPredictionResult) -> str:
-        """Assess power grid vulnerability"""
-
+        """Assess power grid vulnerability."""
         if result.storm_severity in ["extreme", "severe"]:
             return "critical"
         elif result.storm_severity == "strong":
@@ -417,8 +408,7 @@ class SolarStormDetector:
             return "low"
 
     def _assess_satellite_risk(self, result: SolarStormPredictionResult) -> str:
-        """Assess satellite disruption risk"""
-
+        """Assess satellite disruption risk."""
         if result.radiation_storm and result.storm_severity in ["extreme", "severe"]:
             return "critical"
         elif result.cme_detected:
@@ -427,8 +417,7 @@ class SolarStormDetector:
             return "low"
 
     def _assess_comm_risk(self, result: SolarStormPredictionResult) -> str:
-        """Assess communication disruption risk"""
-
+        """Assess communication disruption risk."""
         if result.radio_blackout:
             return "critical"
         elif result.flare_class in ["M", "X"]:
@@ -437,8 +426,7 @@ class SolarStormDetector:
             return "low"
 
     def _correlate_schumann(self, schumann_data: np.ndarray[Any, Any]) -> float:
-        """Correlate Schumann resonance with solar activity"""
-
+        """Correlate Schumann resonance with solar activity."""
         schumann_mean = np.mean(schumann_data)
         baseline_freq = 7.83
 
@@ -448,8 +436,7 @@ class SolarStormDetector:
         return float(correlation)
 
     def _generate_protective_actions(self, result: SolarStormPredictionResult) -> list[str]:
-        """Generate protective actions"""
-
+        """Generate protective actions."""
         actions = []
 
         if result.power_grid_risk in ["critical", "high"]:
@@ -467,8 +454,7 @@ class SolarStormDetector:
         return actions
 
     def _generate_infrastructure_alerts(self, result: SolarStormPredictionResult) -> list[str]:
-        """Generate infrastructure alerts"""
-
+        """Generate infrastructure alerts."""
         alerts = []
 
         if result.storm_severity in ["extreme", "severe"]:

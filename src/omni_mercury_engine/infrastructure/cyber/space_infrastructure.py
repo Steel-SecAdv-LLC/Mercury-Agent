@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -32,10 +30,11 @@ import numpy as np
 
 
 class SpaceInfrastructureMonitor:
-    """Space infrastructure anomaly detector (EU Critical Entities unique sector).
+    """
+    Space infrastructure anomaly detector (EU Critical Entities unique sector).
 
-    Monitors satellites, ground stations, launch facilities for anomalies.
-    Unique to EU Critical Entities Directive (not in CISA 16 sectors).
+    Monitors satellites, ground stations, launch facilities for anomalies. Unique to EU Critical
+    Entities Directive (not in CISA 16 sectors).
     """
 
     def __init__(self) -> None:
@@ -66,7 +65,8 @@ class SpaceInfrastructureMonitor:
         asset_id: str,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Detect anomalies in space infrastructure using z-score analysis.
+        """
+        Detect anomalies in space infrastructure using z-score analysis.
 
         Args:
             data: Sensor/telemetry data from the space asset (numpy array)

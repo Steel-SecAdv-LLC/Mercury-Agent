@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -52,7 +50,7 @@ from omni_mercury_engine.utils.logging import LoggerMixin
 
 @dataclass
 class OverwatchNexusResult:
-    """Result from Overwatch Nexus and Response threat assessment"""
+    """Result from Overwatch Nexus and Response threat assessment."""
 
     threat_detected: bool
     threat_level: str
@@ -73,7 +71,7 @@ class OverwatchNexusResult:
 
 class OverwatchNexus(LoggerMixin):
     """
-    Overwatch Nexus and Response Engine for Ethical Counterintelligence
+    Overwatch Nexus and Response Engine for Ethical Counterintelligence.
 
     Features:
     - Proactive CI threat detection (foreign penetration, insider risks, anomalies)
@@ -379,8 +377,8 @@ class OverwatchNexus(LoggerMixin):
         """
         Extract CI-specific features for ML fusion integration.
 
-        Enables Overwatch Nexus and Response module to integrate with existing
-        hybrid fusion architecture (core/fusion.py).
+        Enables Overwatch Nexus and Response module to integrate with existing hybrid fusion
+        architecture (core/fusion.py).
         """
         if isinstance(data, np.ndarray):
             features = torch.tensor(data, dtype=torch.float32)

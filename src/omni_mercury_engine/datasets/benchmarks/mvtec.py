@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -55,7 +53,8 @@ MVTEC_CATEGORIES: list[str] = [
 
 @dataclass
 class MVTecADConfig(BaseDatasetConfig):
-    """Configuration for MVTec AD dataset.
+    """
+    Configuration for MVTec AD dataset.
 
     Attributes:
         root: Root directory for dataset
@@ -92,7 +91,8 @@ class MVTecADDataset(BaseImageDataset):
     DATASET_URL = "https://www.mvtec.com/company/research/datasets/mvtec-ad"
 
     def __init__(self, config: MVTecADConfig | dict[str, Any] | None = None) -> None:
-        """Initialize MVTec AD dataset.
+        """
+        Initialize MVTec AD dataset.
 
         Args:
             config: Dataset configuration
@@ -144,7 +144,8 @@ class MVTecADDataset(BaseImageDataset):
                     self._samples.append((img_path, label, mask_path))
 
     def get_category_info(self) -> dict[str, Any]:
-        """Get information about the current category.
+        """
+        Get information about the current category.
 
         Returns:
             Dict with category statistics
@@ -162,7 +163,8 @@ class MVTecADDataset(BaseImageDataset):
 
     @classmethod
     def get_categories(cls) -> list[str]:
-        """Get list of all MVTec AD categories.
+        """
+        Get list of all MVTec AD categories.
 
         Returns:
             List of category names
@@ -171,7 +173,8 @@ class MVTecADDataset(BaseImageDataset):
 
     @classmethod
     def get_all_categories(cls) -> list[str]:
-        """Get list of all MVTec AD categories (alias for get_categories).
+        """
+        Get list of all MVTec AD categories (alias for get_categories).
 
         Returns:
             List of category names

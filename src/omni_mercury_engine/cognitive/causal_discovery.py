@@ -1,11 +1,9 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 """
 
 from __future__ import annotations
@@ -78,6 +76,7 @@ class CausalEdge:
     )  # Conditioning set that separated
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "source": self.source,
             "target": self.target,
@@ -103,6 +102,7 @@ class CausalGraph:
     timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.graph_id,
             "nodes": self.nodes,
@@ -179,6 +179,7 @@ class CausalEffect:
     balance_score: float = 0.0  # Covariate balance after matching
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "cause": self.cause,
             "effect": self.effect,
@@ -211,6 +212,7 @@ class CounterfactualResult:
     robustness_value: float = 0.0  # How much confounding needed to nullify
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "query": self.query,
             "factual": self.factual_outcome,
@@ -404,6 +406,7 @@ class PropensityScoreEstimator:
     def __init__(self, treatment: np.ndarray[Any, Any], covariates: np.ndarray[Any, Any]) -> None:
         """
         Args:
+
             treatment: Binary treatment indicator (0/1)
             covariates: Covariate matrix (n x p)
         """

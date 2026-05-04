@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 TranAD: Deep Transformer Networks for Anomaly Detection (VLDB 2022)
 
@@ -48,7 +47,8 @@ __all__ = [
 
 @dataclass
 class TranADConfig:
-    """Configuration for TranAD model.
+    """
+    Configuration for TranAD model.
 
     Attributes:
         input_dim: Number of input features
@@ -478,8 +478,8 @@ class Discriminator(nn.Module):
     """
     Discriminator for TranAD adversarial training.
 
-    Distinguishes between real and reconstructed sequences to improve
-    reconstruction quality through adversarial learning.
+    Distinguishes between real and reconstructed sequences to improve reconstruction quality through
+    adversarial learning.
     """
 
     def __init__(self, input_dim: int, hidden_dim: int = 256) -> None:
@@ -651,7 +651,8 @@ class MAMLOptimizer:
         self.meta_optimizer = Adam(model.parameters(), lr=outer_lr)
 
     def clone_model(self) -> TranADModel:
-        """Create an efficient copy of the model for inner loop.
+        """
+        Create an efficient copy of the model for inner loop.
 
         P3: Optimized for MAML meta-learning using state_dict approach
         instead of slow pickle-based deepcopy (~10-50x speedup).

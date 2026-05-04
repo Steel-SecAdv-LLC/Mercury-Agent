@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -113,7 +111,8 @@ class MemoryEfficientFeatureCache:
     """
 
     def __init__(self, config: CacheConfig | None = None) -> None:
-        """Initialize feature cache.
+        """
+        Initialize feature cache.
 
         Args:
             config: Cache configuration
@@ -131,7 +130,8 @@ class MemoryEfficientFeatureCache:
         data: np.ndarray[Any, Any] | torch.Tensor,
         force: bool = False,
     ) -> bool:
-        """Store feature data in cache.
+        """
+        Store feature data in cache.
 
         Args:
             key: Cache key
@@ -186,7 +186,8 @@ class MemoryEfficientFeatureCache:
             return True
 
     def get(self, key: str) -> np.ndarray[Any, Any] | torch.Tensor | None:
-        """Retrieve feature data from cache.
+        """
+        Retrieve feature data from cache.
 
         Args:
             key: Cache key
@@ -222,7 +223,8 @@ class MemoryEfficientFeatureCache:
     def _process_data(
         self, data: np.ndarray[Any, Any] | torch.Tensor
     ) -> tuple[np.ndarray[Any, Any], bool, Any]:
-        """Process data for storage with quantization and sparsification.
+        """
+        Process data for storage with quantization and sparsification.
 
         Args:
             data: Input data
@@ -255,7 +257,8 @@ class MemoryEfficientFeatureCache:
         return np_data, is_sparse, sparse_indices
 
     def _quantize_int8(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        """Quantize data to INT8.
+        """
+        Quantize data to INT8.
 
         Args:
             data: Input data
@@ -272,7 +275,8 @@ class MemoryEfficientFeatureCache:
         return np.asarray(quantized)
 
     def _reconstruct_data(self, entry: CacheEntry) -> np.ndarray[Any, Any]:
-        """Reconstruct original data from cache entry.
+        """
+        Reconstruct original data from cache entry.
 
         Args:
             entry: Cache entry
@@ -302,7 +306,8 @@ class MemoryEfficientFeatureCache:
         return np.asarray(data)
 
     def _estimate_memory(self, data: np.ndarray[Any, Any]) -> int:
-        """Estimate memory usage of data.
+        """
+        Estimate memory usage of data.
 
         Args:
             data: Data to estimate
@@ -319,7 +324,8 @@ class MemoryEfficientFeatureCache:
             self._remove_entry(oldest_key)
 
     def _remove_entry(self, key: str) -> None:
-        """Remove entry from cache.
+        """
+        Remove entry from cache.
 
         Args:
             key: Key to remove
@@ -335,7 +341,8 @@ class MemoryEfficientFeatureCache:
             self._total_memory_bytes = 0
 
     def get_stats(self) -> dict[str, Any]:
-        """Get cache statistics.
+        """
+        Get cache statistics.
 
         Returns:
             Dictionary with cache statistics
@@ -357,7 +364,8 @@ class MemoryEfficientFeatureCache:
             }
 
     def contains(self, key: str) -> bool:
-        """Check if key exists in cache.
+        """
+        Check if key exists in cache.
 
         Args:
             key: Key to check
@@ -373,12 +381,13 @@ class IncrementalFeatureComputer:
     """
     Incremental feature computation for efficient updates.
 
-    Only recomputes features that have changed, caching intermediate
-    results for faster subsequent computations.
+    Only recomputes features that have changed, caching intermediate results for faster subsequent
+    computations.
     """
 
     def __init__(self, cache: MemoryEfficientFeatureCache | None = None) -> None:
-        """Initialize incremental feature computer.
+        """
+        Initialize incremental feature computer.
 
         Args:
             cache: Optional feature cache to use
@@ -387,7 +396,8 @@ class IncrementalFeatureComputer:
         self._data_hashes: dict[str, str] = {}
 
     def compute_hash(self, data: np.ndarray[Any, Any] | torch.Tensor) -> str:
-        """Compute hash of data for change detection.
+        """
+        Compute hash of data for change detection.
 
         Args:
             data: Data to hash
@@ -402,7 +412,8 @@ class IncrementalFeatureComputer:
         return hashlib.sha3_256(data.tobytes()).hexdigest()
 
     def needs_update(self, key: str, data: np.ndarray[Any, Any] | torch.Tensor) -> bool:
-        """Check if features need to be recomputed.
+        """
+        Check if features need to be recomputed.
 
         Args:
             key: Feature key
@@ -422,7 +433,8 @@ class IncrementalFeatureComputer:
         data: np.ndarray[Any, Any] | torch.Tensor,
         features: np.ndarray[Any, Any] | torch.Tensor,
     ) -> None:
-        """Update cached features.
+        """
+        Update cached features.
 
         Args:
             key: Feature key
@@ -433,7 +445,8 @@ class IncrementalFeatureComputer:
         self.cache.put(key, features)
 
     def get_features(self, key: str) -> np.ndarray[Any, Any] | torch.Tensor | None:
-        """Get cached features.
+        """
+        Get cached features.
 
         Args:
             key: Feature key
@@ -449,7 +462,8 @@ def compute_feature_importance(
     labels: np.ndarray[Any, Any] | None = None,
     method: str = "variance",
 ) -> np.ndarray[Any, Any]:
-    """Compute feature importance for feature selection.
+    """
+    Compute feature importance for feature selection.
 
     Args:
         features: Feature matrix [n_samples, n_features]
@@ -493,7 +507,8 @@ def select_top_features(
     k: int | None = None,
     threshold: float | None = None,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-    """Select top features based on importance scores.
+    """
+    Select top features based on importance scores.
 
     Args:
         features: Feature matrix [n_samples, n_features]

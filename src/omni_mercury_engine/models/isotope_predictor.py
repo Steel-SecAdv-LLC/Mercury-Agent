@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -49,7 +47,7 @@ from torch import nn
 
 
 class IsotopeType(Enum):
-    """Isotope classifications"""
+    """Isotope classifications."""
 
     NATURAL = "natural_isotope"
     ENRICHED = "enriched_uranium"
@@ -61,7 +59,7 @@ class IsotopeType(Enum):
 
 
 class ThreatLevel(Enum):
-    """Radiological threat levels"""
+    """Radiological threat levels."""
 
     SAFE = "safe"
     LOW = "low_risk"
@@ -72,7 +70,7 @@ class ThreatLevel(Enum):
 
 @dataclass
 class IsotopePredictionResult:
-    """Isotope analysis results"""
+    """Isotope analysis results."""
 
     anomaly_detected: bool
     confidence: float
@@ -194,8 +192,7 @@ class NuclearForensicsAnalyzer:
         }
 
     def _classify_enrichment(self, u235_u238_ratio: float) -> str:
-        """Classify enrichment level"""
-
+        """Classify enrichment level."""
         if u235_u238_ratio < 0.004:
             return "depleted"
         elif u235_u238_ratio < 0.01:
@@ -208,16 +205,14 @@ class NuclearForensicsAnalyzer:
             return "highly_enriched"
 
     def _calculate_enrichment_percent(self, u235_u238_ratio: float) -> float:
-        """Calculate U-235 enrichment percentage"""
-
+        """Calculate U-235 enrichment percentage."""
         u235_fraction = u235_u238_ratio / (1 + u235_u238_ratio)
         enrichment_pct = u235_fraction * 100
 
         return min(enrichment_pct, 100.0)
 
     def _infer_production_method(self, u235_u238: float, u234_u238: float) -> str:
-        """Infer uranium enrichment method from isotope ratios"""
-
+        """Infer uranium enrichment method from isotope ratios."""
         theoretical_u234_u238 = u235_u238 * 0.0076
 
         ratio_deviation = abs(u234_u238 - theoretical_u234_u238) / theoretical_u234_u238
@@ -230,8 +225,7 @@ class NuclearForensicsAnalyzer:
             return "chemical_or_unknown"
 
     def _estimate_material_age(self, ratios: dict[str, float]) -> float:
-        """Estimate material age from decay products"""
-
+        """Estimate material age from decay products."""
         if "Pa231_U235" in ratios:
             pa231_u235 = ratios["Pa231_U235"]
 
@@ -243,8 +237,7 @@ class NuclearForensicsAnalyzer:
         return 0.0
 
     def _identify_origin_indicators(self, ratios: dict[str, float], enrichment: str) -> list[str]:
-        """Identify origin indicators from isotope signature"""
-
+        """Identify origin indicators from isotope signature."""
         indicators = []
 
         if "Pu239_Pu240" in ratios:
@@ -264,8 +257,7 @@ class NuclearForensicsAnalyzer:
         return indicators
 
     def _calculate_forensic_confidence(self, ratios: dict[str, float]) -> float:
-        """Calculate confidence in forensic attribution"""
-
+        """Calculate confidence in forensic attribution."""
         confidence = 0.5
 
         if "U235_U238" in ratios:
@@ -340,8 +332,7 @@ class RadiologicalThreatAssessor:
         }
 
     def _generate_regulatory_alerts(self, indicators: list[str], enrichment: float) -> list[str]:
-        """Generate regulatory compliance alerts"""
-
+        """Generate regulatory compliance alerts."""
         alerts = []
 
         if enrichment > 0.20:
@@ -441,7 +432,7 @@ class IsotopePredictor:
         return result
 
     def _analyze_with_ml(self, features: np.ndarray[Any, Any]) -> dict[str, Any]:
-        """Analyze isotopes with ML model"""
+        """Analyze isotopes with ML model."""
         if self.ratio_analyzer is None:
             return {
                 "isotope_type": "natural_isotope",
@@ -479,8 +470,7 @@ class IsotopePredictor:
         }
 
     def _generate_recommendations(self, result: IsotopePredictionResult) -> list[str]:
-        """Generate recommendations based on isotope analysis"""
-
+        """Generate recommendations based on isotope analysis."""
         recs = []
 
         if result.threat_level in ["high_risk", "critical_threat"]:

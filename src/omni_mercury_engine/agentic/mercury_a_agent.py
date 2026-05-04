@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -471,11 +469,11 @@ class MercuryPlanner:
     """
     Goal decomposition and task orchestration with domain-specific planning.
 
-    Supports specialized planning for medical, security, energy, infrastructure,
-    humanitarian, scientific, and financial domains.
+    Supports specialized planning for medical, security, energy, infrastructure, humanitarian,
+    scientific, and financial domains.
 
-    Now includes Bayesian confidence calibration that replaces the fixed 0.76
-    heuristic with a learned, continuously improving confidence model.
+    Now includes Bayesian confidence calibration that replaces the fixed 0.76 heuristic with a
+    learned, continuously improving confidence model.
     """
 
     def __init__(self, calibrator: BayesianConfidenceCalibrator | None = None) -> None:
@@ -762,18 +760,19 @@ class MercuryPlanner:
 
 class MercuryAgent:
     """
-    Mercury A. Autonomous Agent - Main Orchestrator.
+    Mercury A.
 
-    Combines planning, execution, reasoning, and learning capabilities
-    with comprehensive memory systems and ethical constraints.
+    Autonomous Agent - Main Orchestrator.
+        Combines planning, execution, reasoning, and learning capabilities
+        with comprehensive memory systems and ethical constraints.
 
-    Features:
-    - Multi-mode operation (dormant, reasoning, executing, learning, reflecting)
-    - Domain-specific task planning
-    - Chain-of-thought reasoning
-    - Four-tier memory system
-    - Ethical constraint enforcement
-    - Bayesian confidence calibration (replaces fixed 0.76 heuristic)
+        Features:
+        - Multi-mode operation (dormant, reasoning, executing, learning, reflecting)
+        - Domain-specific task planning
+        - Chain-of-thought reasoning
+        - Four-tier memory system
+        - Ethical constraint enforcement
+        - Bayesian confidence calibration (replaces fixed 0.76 heuristic)
     """
 
     def __init__(

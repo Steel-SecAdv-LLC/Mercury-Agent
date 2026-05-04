@@ -1,18 +1,17 @@
-"""Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+"""
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -184,7 +183,8 @@ class ThreeRAttentionBlock(nn.Module):
         resonance_engine: ResonanceEngine,
         training_data: np.ndarray,
     ) -> None:
-        """Initialize H(ω) frequencies from actual ResonanceEngine.
+        """
+        Initialize H(ω) frequencies from actual ResonanceEngine.
 
         This grounds the spectral prior in real data frequencies rather than
         random initialization, improving convergence and accuracy.
@@ -192,7 +192,6 @@ class ThreeRAttentionBlock(nn.Module):
         Args:
             resonance_engine: Instance of ResonanceEngine from three_r_mechanism.py
             training_data: Training data array for frequency extraction
-
         """
         freqs, mags = resonance_engine.compute_resonance_spectrum(training_data)
 
@@ -212,7 +211,8 @@ class ThreeRAttentionBlock(nn.Module):
         x: torch.Tensor,
         return_component_outputs: bool = False,
     ) -> tuple[torch.Tensor, dict[str, Any]]:
-        """Forward pass implementing all 3Rs with OAE fusion.
+        """
+        Forward pass implementing all 3Rs with OAE fusion.
 
         Args:
             x: Input tensor [batch_size, seq_len, d_model]
@@ -227,7 +227,6 @@ class ThreeRAttentionBlock(nn.Module):
                 - fusion_weights: {"w_R": float, "w_H": float, "w_O": float}
                 - anomaly_scores: Per-sample anomaly scores [batch_size]
                 - discrepancy: KL divergence map [batch_size, seq_len]
-
         """
         B, T, D = x.shape
         device = x.device
@@ -449,7 +448,8 @@ class ThreeRAnomalyTransformer(nn.Module):
         x: torch.Tensor,
         return_latent: bool = False,
     ) -> dict[str, torch.Tensor]:
-        """Forward pass through 3R Anomaly Transformer.
+        """
+        Forward pass through 3R Anomaly Transformer.
 
         Args:
             x: Input tensor [batch_size, seq_len, input_dim]
@@ -461,7 +461,6 @@ class ThreeRAnomalyTransformer(nn.Module):
                 - anomaly_scores: Per-sample anomaly scores [batch_size]
                 - layer_scores: List of per-layer score dicts
                 - discrepancy: Final layer discrepancy [batch_size, seq_len]
-
         """
         B, T, _ = x.shape
 
@@ -500,12 +499,12 @@ class ThreeRAnomalyTransformer(nn.Module):
         resonance_engine: ResonanceEngine,
         training_data: np.ndarray,
     ) -> None:
-        """Initialize all layers from ResonanceEngine frequencies.
+        """
+        Initialize all layers from ResonanceEngine frequencies.
 
         Args:
             resonance_engine: Instance of ResonanceEngine
             training_data: Training data for frequency extraction
-
         """
         for layer in self.layers:
             layer.init_from_resonance_engine(resonance_engine, training_data)  # type: ignore[operator, unused-ignore]

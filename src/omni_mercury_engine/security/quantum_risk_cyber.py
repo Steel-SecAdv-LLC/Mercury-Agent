@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -79,8 +77,8 @@ class QuantumRiskCyber:
     """
     Quantum cybersecurity risk management system.
 
-    Implements quantum threat detection, post-quantum cryptography readiness,
-    and risk assessment inspired by Bain 2025 report findings.
+    Implements quantum threat detection, post-quantum cryptography readiness, and risk assessment
+    inspired by Bain 2025 report findings.
     """
 
     def __init__(
@@ -527,7 +525,8 @@ class QuantumRiskCyber:
 
 
 class PostQuantumMigrationPlanner:
-    """Post-quantum cryptography migration planning system.
+    """
+    Post-quantum cryptography migration planning system.
 
     Models quantum computing threats to current encryption and plans
     migration to NIST Post-Quantum Cryptography standards.
@@ -589,7 +588,8 @@ class PostQuantumMigrationPlanner:
     def assess_algorithm_vulnerability(
         self, algorithm: str, key_size: int, usage_context: str = "general"
     ) -> dict[str, Any]:
-        """Assess vulnerability of current cryptographic algorithm.
+        """
+        Assess vulnerability of current cryptographic algorithm.
 
         Args:
             algorithm: Current algorithm (e.g., 'RSA', 'ECC', 'AES')
@@ -693,7 +693,8 @@ class PostQuantumMigrationPlanner:
     def create_migration_plan(
         self, current_systems: list[dict[str, Any]], timeline_months: int = 24
     ) -> dict[str, Any]:
-        """Create comprehensive migration plan to post-quantum cryptography.
+        """
+        Create comprehensive migration plan to post-quantum cryptography.
 
         Args:
             current_systems: List of dicts with 'algorithm', 'key_size', 'usage', 'criticality'
@@ -812,7 +813,8 @@ class PostQuantumMigrationPlanner:
     def monitor_migration_progress(
         self, plan: dict[str, Any], completed_milestones: list[str]
     ) -> dict[str, Any]:
-        """Monitor progress of PQC migration plan.
+        """
+        Monitor progress of PQC migration plan.
 
         Args:
             plan: Migration plan from create_migration_plan()
@@ -852,7 +854,8 @@ class PostQuantumMigrationPlanner:
         }
 
     def explain_pqc_algorithms(self) -> dict[str, Any]:
-        """Provide detailed explanation of NIST PQC algorithms.
+        """
+        Provide detailed explanation of NIST PQC algorithms.
 
         Returns:
             Educational content about post-quantum cryptography

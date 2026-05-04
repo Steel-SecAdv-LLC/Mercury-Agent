@@ -1,5 +1,6 @@
 """
 Mercury Agent - GOSNN Integration Layer
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -131,8 +132,7 @@ class GOSNNPerformanceMonitor:
     """
     Performance monitor for GOSNN operations.
 
-    Tracks latency, throughput, and identifies bottlenecks
-    for optimization targeting <2% overhead.
+    Tracks latency, throughput, and identifies bottlenecks for optimization targeting <2% overhead.
     """
 
     def __init__(self, max_entries: int = 5000) -> None:
@@ -264,11 +264,14 @@ class IntegrationResult:
 class DetectorProtocol(Protocol):
     """Protocol for detectors in the integration layer."""
 
-    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Any: ...
+    def fit(self, X: np.ndarray, y: np.ndarray | None = None) -> Any:
+        """Fit the detector to ``(X, y)`` and return the fit handle."""
 
-    def detect(self, X: np.ndarray) -> dict[str, Any]: ...
+    def detect(self, X: np.ndarray) -> dict[str, Any]:
+        """Run detection on ``X`` and return a result dict."""
 
-    def extract_features(self, X: np.ndarray) -> np.ndarray: ...
+    def extract_features(self, X: np.ndarray) -> np.ndarray:
+        """Extract a feature matrix from ``X`` for the integration layer."""
 
 
 @dataclass
@@ -631,18 +634,15 @@ class GOSNNIntegration:
         else:
             calibrated_scores = fused_scores
 
-        # Apply conformal prediction
+        # Apply conformal prediction.  When the user has explicitly opted
+        # in via ``use_conformal=True`` and a calibrated predictor exists,
+        # any failure during ``predict`` is a real bug — silently
+        # swallowing it (the previous behaviour) leaves callers with
+        # ``confidence_intervals=None`` and no signal that the contract
+        # was broken.  Per the May-2026 audit cure, propagate the error.
         confidence_intervals = None
         if self._conformal is not None:
-            try:
-                confidence_intervals = self._conformal.predict(X)
-            except (ValueError, RuntimeError, AttributeError) as e:
-                # Conformal prediction failed - degraded state, intervals unavailable
-                logger.warning(
-                    "Conformal prediction skipped: %s: %s — confidence_intervals will be None",
-                    type(e).__name__,
-                    e,
-                )
+            confidence_intervals = self._conformal.predict(X)
 
         # Compute adaptive threshold
         threshold = self._compute_adaptive_threshold(calibrated_scores)

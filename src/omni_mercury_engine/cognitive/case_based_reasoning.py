@@ -1,11 +1,9 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 """
 
 from __future__ import annotations
@@ -75,6 +73,7 @@ class Case:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "id": self.case_id,
             "problem": self.problem_description,
@@ -98,6 +97,7 @@ class RetrievalResult:
     retrieval_time_ms: float
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "num_retrieved": len(self.retrieved_cases),
             "best_match": self.best_match.case_id if self.best_match else None,
@@ -117,6 +117,7 @@ class AdaptationResult:
     explanation: str
 
     def to_dict(self) -> dict[str, Any]:
+        """To dict."""
         return {
             "source_case": self.source_case.case_id,
             "adapted_solution": self.adapted_solution,

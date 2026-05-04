@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -190,7 +188,15 @@ try:
     logger.info("AMA Cryptography PQC backends loaded successfully")
 except ImportError:
     try:
-        from ava_guardian.pqc_backends import (
+        # ``ava-guardian`` is the legacy distribution name for the same PQC
+        # surface; it is kept as a compatibility shim for installs that
+        # haven't migrated to ``ama-cryptography`` yet.  mypy raises
+        # ``[no-redef]`` because the names are conditionally defined twice
+        # (once per import branch) — by design, since at runtime exactly
+        # one branch executes.  ``# type: ignore`` is scoped narrowly to
+        # the redefinition signal so the rest of the file stays strictly
+        # type-checked.
+        from ava_guardian.pqc_backends import (  # type: ignore[no-redef, unused-ignore]
             DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
             KYBER_AVAILABLE as _KYBER_AVAILABLE,
             DilithiumKeyPair,
@@ -286,7 +292,8 @@ class _TimingAnomaly:
 
 
 class EWMATimingMonitor:
-    """Exponentially Weighted Moving Average timing monitor.
+    """
+    Exponentially Weighted Moving Average timing monitor.
 
     Detects timing anomalies in cryptographic operations with <2% overhead.
     Uses EWMA for mean tracking and MAD for robust variance estimation.
@@ -360,10 +367,11 @@ class EWMATimingMonitor:
         return 0.5
 
     def get_security_report(self) -> dict[str, Any]:
-        """Generate a security report compatible with AMA PostureEvaluator.
+        """
+        Generate a security report compatible with AMA PostureEvaluator.
 
-        Translates EWMA/MAD timing data into the ``monitor_report`` format
-        that ``PostureEvaluator.evaluate()`` consumes.
+        Translates EWMA/MAD timing data into the ``monitor_report`` format that
+        ``PostureEvaluator.evaluate()`` consumes.
         """
         recent_alerts: list[dict[str, Any]] = []
         total_alerts = 0
@@ -399,7 +407,8 @@ class EWMATimingMonitor:
 
 
 class MercuryGuardianAdapter:
-    """Adapter integrating AMA Cryptography PQC with Mercury Agent.
+    """
+    Adapter integrating AMA Cryptography PQC with Mercury Agent.
 
     Provides post-quantum cryptographic operations with:
     - EWMA/MAD timing anomaly detection
@@ -452,7 +461,8 @@ class MercuryGuardianAdapter:
 
     @staticmethod
     def _sanitize_scalars(scalars: dict[str, Any]) -> dict[str, float]:
-        """Coerce a scalar dict to finite ``float`` values for GOSNN.
+        """
+        Coerce a scalar dict to finite ``float`` values for GOSNN.
 
         GOSNN's state machine assumes finite numeric inputs.  A NaN/Inf or
         non-numeric value would propagate through ``register_scalars`` and
@@ -549,11 +559,11 @@ class MercuryGuardianAdapter:
             logger.warning(f"GOSNN synapse failed: {e}")
 
     def _evaluate_posture_from_gosnn(self) -> None:
-        """Feed GOSNN security scalar state into AMA PostureEvaluator.
+        """
+        Feed GOSNN security scalar state into AMA PostureEvaluator.
 
-        Reads GOSNN security scalars and constructs a monitor report
-        that the PostureEvaluator can consume.  The evaluation result
-        is then registered back into GOSNN as ScalarGroup.SECURITY,
+        Reads GOSNN security scalars and constructs a monitor report that the PostureEvaluator can
+        consume.  The evaluation result is then registered back into GOSNN as ScalarGroup.SECURITY,
         completing the bidirectional loop.
         """
         try:
@@ -612,7 +622,8 @@ class MercuryGuardianAdapter:
         security_scalars: dict[str, float],
         ethical_scalars: dict[str, float],
     ) -> dict[str, Any]:
-        """Build a monitor report from GOSNN scalars for PostureEvaluator.
+        """
+        Build a monitor report from GOSNN scalars for PostureEvaluator.
 
         Translates the full system context (GOSNN security + ethical scalars)
         plus local timing monitor data into the report format consumed by
@@ -702,10 +713,11 @@ class MercuryGuardianAdapter:
                 logger.debug(f"Could not register algorithm switch to GOSNN: {e}")
 
     def evaluate_posture(self) -> PostureEvaluation:
-        """Manually trigger a posture evaluation cycle.
+        """
+        Manually trigger a posture evaluation cycle.
 
-        Reads GOSNN state and returns the posture evaluation.  The result
-        is also registered into GOSNN as ScalarGroup.SECURITY.
+        Reads GOSNN state and returns the posture evaluation.  The result is also registered into
+        GOSNN as ScalarGroup.SECURITY.
         """
         self._evaluate_posture_from_gosnn()
         if self._last_posture_evaluation is not None:
@@ -767,7 +779,15 @@ class MercuryGuardianAdapter:
             if self._dilithium_keypair is None:
                 logger.warning("No Dilithium keypair available")
                 return None
-            private_key = self._dilithium_keypair.secret_key
+            # Defensive ``bytes`` cast: ``DilithiumKeyPair.secret_key`` is
+            # typed ``bytes | bytearray`` so AMA can hand back its native
+            # mutable buffer for zero-copy fast paths.  Mercury's
+            # ``private_key`` parameter is ``bytes | None`` and the inner
+            # ``dilithium_sign`` API only accepts ``bytes`` here, so we
+            # snapshot to immutable ``bytes`` at the boundary.  This is
+            # also what stops AMA's ``_secure_memzero`` finalizer from
+            # blanking the buffer mid-sign (see commit 3110a3e).
+            private_key = bytes(self._dilithium_keypair.secret_key)
 
         start_time = time.perf_counter()
         try:
@@ -942,7 +962,9 @@ class MercuryGuardianAdapter:
             if self._kyber_keypair is None:
                 logger.warning("No Kyber keypair available")
                 return None
-            secret_key = self._kyber_keypair.secret_key
+            # Defensive ``bytes`` cast — see the matching comment in
+            # ``sign_dilithium`` for the lifetime / mypy rationale.
+            secret_key = bytes(self._kyber_keypair.secret_key)
 
         start_time = time.perf_counter()
         try:

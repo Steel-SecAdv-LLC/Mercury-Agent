@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -52,7 +50,7 @@ from torch import nn
 
 
 class TrafficAnomalyType(Enum):
-    """Network traffic anomaly classifications"""
+    """Network traffic anomaly classifications."""
 
     NORMAL = "normal_traffic"
     PORT_SCAN = "port_scanning"
@@ -66,7 +64,7 @@ class TrafficAnomalyType(Enum):
 
 @dataclass
 class TrafficAnalysisResult:
-    """Traffic analysis results"""
+    """Traffic analysis results."""
 
     anomaly_detected: bool
     confidence: float
@@ -156,14 +154,14 @@ class NetworkFlowAnalyzer:
     def _detect_port_scanning(
         self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set[Any]]
     ) -> bool:
-        """Detect port scanning activity"""
+        """Detect port scanning activity."""
         for src_ip, port_set in ports_accessed.items():
             if len(port_set) > 20 and flows_per_src[src_ip] > 50:
                 return True
         return False
 
     def _detect_ddos(self, flows_per_dst: dict[str, Any]) -> bool:
-        """Detect DDoS attack patterns"""
+        """Detect DDoS attack patterns."""
         if not flows_per_dst:
             return False
 
@@ -175,7 +173,7 @@ class NetworkFlowAnalyzer:
     def _detect_data_exfiltration(
         self, byte_volumes: list[int], flow_data: list[dict[str, Any]]
     ) -> bool:
-        """Detect data exfiltration patterns"""
+        """Detect data exfiltration patterns."""
         if not byte_volumes:
             return False
 
@@ -197,7 +195,7 @@ class NetworkFlowAnalyzer:
     def _identify_suspicious_sources(
         self, flows_per_src: dict[str, Any], ports_accessed: dict[str, set[Any]]
     ) -> list[str]:
-        """Identify suspicious source IPs"""
+        """Identify suspicious source IPs."""
         suspicious = []
 
         for src_ip, flow_count in flows_per_src.items():
@@ -297,7 +295,7 @@ class EncryptedTrafficFingerprinter:
         }
 
     def _analyze_tls_parameters(self, handshake: dict[str, Any]) -> bool:
-        """Analyze TLS parameters for suspicious patterns"""
+        """Analyze TLS parameters for suspicious patterns."""
         cipher_suites = handshake.get("cipher_suites", [])
         extensions = handshake.get("extensions", [])
 
@@ -308,7 +306,7 @@ class EncryptedTrafficFingerprinter:
         return len(extensions) > 20
 
     def _identify_risk_indicators(self, handshake: dict[str, Any]) -> list[str]:
-        """Identify TLS risk indicators"""
+        """Identify TLS risk indicators."""
         indicators = []
 
         if handshake.get("tls_version") in ["SSLv2", "SSLv3", "TLS1.0"]:
@@ -372,7 +370,7 @@ class CovertChannelDetector:
         }
 
     def _detect_timing_channel(self, traffic: dict[str, Any]) -> dict[str, bool | float]:
-        """Detect timing-based covert channels"""
+        """Detect timing-based covert channels."""
         packet_times = traffic.get("packet_timestamps", [])
 
         if len(packet_times) < 10:
@@ -390,7 +388,7 @@ class CovertChannelDetector:
         }
 
     def _detect_storage_channel(self, traffic: dict[str, Any]) -> dict[str, bool | float]:
-        """Detect storage-based covert channels"""
+        """Detect storage-based covert channels."""
         packet_sizes = traffic.get("packet_sizes", [])
 
         if len(packet_sizes) < 10:
@@ -409,7 +407,7 @@ class CovertChannelDetector:
     def _detect_protocol_field_manipulation(
         self, traffic: dict[str, Any]
     ) -> dict[str, bool | float]:
-        """Detect protocol field manipulation for covert channels"""
+        """Detect protocol field manipulation for covert channels."""
         protocol_fields = traffic.get("protocol_fields", {})
 
         suspicious_fields = []
@@ -433,7 +431,7 @@ class CovertChannelDetector:
         return {"detected": detected, "confidence": 0.8 if detected else 0.0}
 
     def _calculate_entropy(self, data: list[Any]) -> float:
-        """Calculate Shannon entropy of data"""
+        """Calculate Shannon entropy of data."""
         if not data:
             return 0.0
 
@@ -446,7 +444,7 @@ class CovertChannelDetector:
         return float(entropy)
 
     def _detect_pattern_in_sequence(self, sequence: list[int]) -> bool:
-        """Detect non-random patterns in sequence"""
+        """Detect non-random patterns in sequence."""
         if len(sequence) < 5:
             return False
 
@@ -456,7 +454,7 @@ class CovertChannelDetector:
         return bool(diff_std < float(np.mean(diffs)) * 0.1)
 
     def _generate_covert_channel_recommendations(self, channels: list[str]) -> list[str]:
-        """Generate recommendations for covert channel mitigation"""
+        """Generate recommendations for covert channel mitigation."""
         recs = []
 
         if "timing_channel" in channels:
@@ -475,9 +473,9 @@ class CovertChannelDetector:
 
 
 class TrafficAnalysisEngine:
-    """
-    Comprehensive traffic analysis engine integrating flow analysis,
-    graph-based detection, encrypted traffic fingerprinting, and covert channel detection.
+    """Comprehensive traffic analysis engine integrating flow analysis, graph-based detection,
+
+    encrypted traffic fingerprinting, and covert channel detection.
     """
 
     def __init__(
@@ -571,7 +569,7 @@ class TrafficAnalysisEngine:
         return result
 
     def _calculate_risk_score(self, result: TrafficAnalysisResult) -> float:
-        """Calculate overall traffic risk score"""
+        """Calculate overall traffic risk score."""
         base_score = result.confidence
 
         if result.anomaly_type in ["data_exfiltration", "covert_channel"]:
@@ -590,7 +588,7 @@ class TrafficAnalysisEngine:
     def _extract_attribution_indicators(
         self, traffic_data: dict[str, Any], result: TrafficAnalysisResult
     ) -> list[str]:
-        """Extract indicators for threat attribution"""
+        """Extract indicators for threat attribution."""
         indicators = []
 
         if result.flow_statistics.get("unique_sources", 0) == 1:

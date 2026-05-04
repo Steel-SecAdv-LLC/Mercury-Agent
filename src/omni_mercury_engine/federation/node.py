@@ -1,4 +1,5 @@
-"""Federated node -- runs MercuryAnomalyDetector locally, exports fitted state.
+"""
+Federated node -- runs MercuryAnomalyDetector locally, exports fitted state.
 
 Each node:
 1. Receives local data (never leaves the node)
@@ -41,7 +42,8 @@ class FederatedNode:
         self._data_hash = ""
 
     def fit(self, X: np.ndarray) -> None:
-        """Fit MercuryAnomalyDetector on local data.
+        """
+        Fit MercuryAnomalyDetector on local data.
 
         Args:
             X: Local training data, shape (n_samples, n_features).

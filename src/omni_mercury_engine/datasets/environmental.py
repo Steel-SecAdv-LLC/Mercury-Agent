@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Environmental Dataset Loaders: USGS Earthquake, NOAA Weather, Wildfire Data
 
@@ -88,7 +87,8 @@ class USGSEarthquakeLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download real earthquake data from USGS API.
+        """
+        Download real earthquake data from USGS API.
 
         Returns:
             True if download successful, False otherwise.
@@ -174,7 +174,8 @@ class USGSEarthquakeLoader(DatasetLoader):
     def _process_usgs_geojson(
         self, features_list: list[dict[str, Any]]
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Process USGS GeoJSON earthquake data.
+        """
+        Process USGS GeoJSON earthquake data.
 
         Args:
             features_list: List of GeoJSON feature objects
@@ -385,7 +386,8 @@ class NOAAWeatherLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download real weather data from Open-Meteo API.
+        """
+        Download real weather data from Open-Meteo API.
 
         Returns:
             True if download successful, False otherwise.
@@ -498,7 +500,8 @@ class NOAAWeatherLoader(DatasetLoader):
             return False
 
     def _create_synthetic_weather(self) -> bool:
-        """Create synthetic weather observation data.
+        """
+        Create synthetic weather observation data.
 
         Generates data matching FEATURE_NAMES:
         temperature, humidity, pressure, wind_speed, wind_direction,
@@ -621,7 +624,8 @@ class WildfireDataLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download real fire data from NASA FIRMS.
+        """
+        Download real fire data from NASA FIRMS.
 
         Returns:
             True if download successful, False otherwise.
@@ -692,7 +696,8 @@ class WildfireDataLoader(DatasetLoader):
             return False
 
     def _process_firms_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        """Process NASA FIRMS CSV data.
+        """
+        Process NASA FIRMS CSV data.
 
         Args:
             df: Raw FIRMS dataframe
@@ -906,7 +911,8 @@ class USGSGeochemistryLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize USGS Geochemistry loader.
+        """
+        Initialize USGS Geochemistry loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -934,7 +940,8 @@ class USGSGeochemistryLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download geochemistry data from USGS MRData or generate synthetic.
+        """
+        Download geochemistry data from USGS MRData or generate synthetic.
 
         Returns:
             True if download successful, False otherwise.

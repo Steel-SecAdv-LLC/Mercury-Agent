@@ -1,5 +1,6 @@
 """
 Mercury Agent - GOSNN Hub Optimizer
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -79,8 +80,7 @@ class ScalarImportanceAnalyzer:
     """
     SHAP-inspired importance analysis for GOSNN scalars.
 
-    Computes importance scores for each scalar by measuring
-    their contribution to the final output.
+    Computes importance scores for each scalar by measuring their contribution to the final output.
     """
 
     def __init__(self, seed: int = 42):
@@ -326,17 +326,18 @@ class EthicalGateOptimizer:
 
 
 class AttentionProvider(ABC):
-    """Interface for supplying real attention tensors to the optimizer.
+    """
+    Interface for supplying real attention tensors to the optimizer.
 
-    Concrete implementations should wrap the GOSNN model (or any attention-
-    producing module) and return the most recent attention scores when
-    ``get_attention`` is called.  Plugging in a provider replaces the
-    placeholder random tensor that was previously hard-coded.
+    Concrete implementations should wrap the GOSNN model (or any attention- producing module) and
+    return the most recent attention scores when ``get_attention`` is called.  Plugging in a
+    provider replaces the placeholder random tensor that was previously hard-coded.
     """
 
     @abstractmethod
     def get_attention(self) -> np.ndarray:
-        """Return attention scores with shape ``(num_heads, seq_len, seq_len)``.
+        """
+        Return attention scores with shape ``(num_heads, seq_len, seq_len)``.
 
         Raises:
             RuntimeError: If attention data is unavailable (e.g. model not
@@ -550,29 +551,40 @@ class GOSNNOptimizer:
                 "Consider RLHF-style loss adjustment."
             )
 
-        # Optimize attention — use real tensors when an AttentionProvider is
-        # configured; fall back to a deterministic placeholder with a warning.
+        # Optimize attention — only when an AttentionProvider is wired and
+        # produces real tensors.  The previous code fell back to
+        # ``rng.standard_normal((32, 16, 16))`` so a metric was always
+        # produced; per the May-2026 audit cure (no random fallbacks for
+        # model-derived metrics) we now skip the metric entirely and
+        # surface that fact in ``recommendations`` so downstream auditors
+        # know the optimizer did not see real attention.
+        attention_overhead: float | None = None
         if self._attention_provider is not None:
             try:
                 attention_data = self._attention_provider.get_attention()
-            except RuntimeError:
+            except RuntimeError as exc:
                 logger.warning(
-                    "AttentionProvider.get_attention() raised RuntimeError; "
-                    "falling back to placeholder attention tensor."
+                    "AttentionProvider.get_attention() raised RuntimeError "
+                    "(%s); skipping attention overhead metric for this run.",
+                    exc,
                 )
-                rng = np.random.default_rng(seed=self.seed)
-                attention_data = rng.standard_normal((32, 16, 16))
+                recommendations.append(
+                    "Attention overhead metric skipped: AttentionProvider "
+                    "raised at get_attention()."
+                )
+            else:
+                _, attention_overhead = self.attention_optimizer.optimize_attention(attention_data)
         else:
             logger.warning(
-                "No AttentionProvider configured — attention overhead metrics "
-                "are computed on a placeholder tensor.  Wire an "
-                "AttentionProvider for production accuracy."
+                "No AttentionProvider configured — skipping attention "
+                "overhead metric.  Wire an AttentionProvider that returns "
+                "model-derived tensors for production accuracy."
             )
-            rng = np.random.default_rng(seed=self.seed)
-            attention_data = rng.standard_normal((32, 16, 16))
-        _, attention_overhead = self.attention_optimizer.optimize_attention(attention_data)
+            recommendations.append(
+                "Attention overhead metric skipped: no AttentionProvider " "configured."
+            )
 
-        if attention_overhead > self.target_overhead:
+        if attention_overhead is not None and attention_overhead > self.target_overhead:
             recommendations.append(
                 f"Attention overhead {attention_overhead:.1f}% > target {self.target_overhead}%. "
                 "Consider reducing sequence length or heads."

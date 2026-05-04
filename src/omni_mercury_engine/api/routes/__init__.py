@@ -1,5 +1,5 @@
 """
-Mercury Agent API Routes Package
+Mercury Agent API Routes Package.
 
 Provides modular API route organization:
 - detection: Anomaly detection endpoints

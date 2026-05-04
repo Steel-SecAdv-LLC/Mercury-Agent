@@ -1,5 +1,6 @@
 """
 Mercury Agent - Cryptographic Operations Module
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 P3: PyO3-based high-performance cryptographic operations.

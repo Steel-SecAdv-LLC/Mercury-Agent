@@ -10,7 +10,7 @@
 
 ![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
-[![PQC: Kyber768](https://img.shields.io/badge/PQC-Kyber768%2FDilithium3-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
+[![PQC: Kyber-1024/ML-DSA-65](https://img.shields.io/badge/PQC-Kyber--1024%2FML--DSA--65%2FSPHINCS%2B-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
 [![Tests](https://img.shields.io/badge/tests-5100%2B%20collected-brightgreen.svg)](tests/)
@@ -1531,6 +1531,26 @@ The **AMA Cryptography adapter** provides post-quantum cryptographic security wi
 - **Kyber-1024**: Post-quantum key encapsulation (NIST Level 5)
 - **ML-DSA-65 (Dilithium)**: Post-quantum digital signatures (192-bit quantum security)
 - **EWMA/MAD Timing Monitor**: <2% overhead anomaly detection
+
+**Correctness evidence (in-repo, measured-and-published):**
+- **Known-Answer Tests:** `tests/security/test_ama_kat.py` pins
+  Ed25519 RFC 8032 §7.1 vectors bit-for-bit, ML-DSA-65 round-trip,
+  Kyber-1024 encaps/decaps round-trip, SPHINCS+ round-trip, and
+  ML-DSA deterministic-signing reproducibility. Runs on every PR
+  via the `PQC Production Readiness` workflow.
+- **NIST FIPS KAT vectors:** `tests/security/test_nist_fips_kat.py`
+  verifies bit-for-bit reproducibility against curated NIST ACVP-Server
+  test vectors (FIPS 203/204/205): ML-DSA-65 deterministic sigGen,
+  ML-KEM-1024 decapsulation, SLH-DSA-SHAKE-128s sigGen.
+  Source: [usnistgov/ACVP-Server](https://github.com/usnistgov/ACVP-Server).
+- **Measured coverage:** the `PQC Production Readiness` CI workflow
+  publishes pytest-cov coverage for `security/crypto_api.py` +
+  `security/pqc_backends.py` + `security/pqc_guards.py` as a CI
+  artifact (`pqc-coverage`).  Without the AMA native C library:
+  `crypto_api.py` 62%, `pqc_backends.py` 43%, `pqc_guards.py` 24%.
+  With AMA native lib installed (CI `verify-real-pqc` job): all PQC
+  codepaths are exercised, raising coverage to its measured ceiling.
+  Published, not "unaudited" framing.
 
 **Security Features:**
 - Attack simulation (timing, replay, side_channel)

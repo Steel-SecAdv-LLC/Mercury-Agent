@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -67,8 +65,8 @@ class SETICosmicSignalAnalyzer:
     """
     SETI-like cosmic signal anomaly detection using resonance analysis.
 
-    Detects non-natural patterns in cosmic signals that may indicate
-    technological signatures of non-human intelligence.
+    Detects non-natural patterns in cosmic signals that may indicate technological signatures of
+    non-human intelligence.
     """
 
     def __init__(self, threshold_std: float = 4.0) -> None:
@@ -261,8 +259,8 @@ class BioSignalPatternRecognizer:
     """
     Bio-signal pattern recognition for detecting life indicators.
 
-    Analyzes environmental/space data for biosignature patterns
-    (e.g., atmospheric gas ratios, periodic biological rhythms).
+    Analyzes environmental/space data for biosignature patterns (e.g., atmospheric gas ratios,
+    periodic biological rhythms).
     """
 
     def __init__(self) -> None:
@@ -372,8 +370,8 @@ class MultiverseContactProtocolExplorer:
     """
     Multiverse-based exploration of contact protocols.
 
-    Uses multiverse optimization to explore potential communication
-    strategies for establishing contact with non-human intelligence.
+    Uses multiverse optimization to explore potential communication strategies for establishing
+    contact with non-human intelligence.
     """
 
     def __init__(self, num_universes: int = 30) -> None:
@@ -447,9 +445,9 @@ class MultiverseContactProtocolExplorer:
 
 
 class EmergentLifeDetector:
-    """
-    Unified emergent life detector integrating SETI, biosignatures,
-    and contact protocol exploration.
+    """Unified emergent life detector integrating SETI, biosignatures, and contact protocol
+
+    exploration.
     """
 
     def __init__(

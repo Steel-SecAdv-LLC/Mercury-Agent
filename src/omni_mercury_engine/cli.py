@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -59,7 +57,7 @@ def _get_engine(*args: Any, **kwargs: Any) -> Any:
 @click.group()
 @click.version_option(version="1.6.0")
 def main() -> None:
-    """Mercury Agent: ML-Centric Anomaly Detection Framework"""
+    """Mercury Agent: ML-Centric Anomaly Detection Framework."""
     pass
 
 
@@ -69,7 +67,7 @@ def main() -> None:
 @click.option("--output", "-o", help="Output file for results")
 @click.option("--threshold", "-t", default=0.5, type=float, help="Anomaly threshold")
 def detect(input: str, detector: str, output: str, threshold: float) -> None:
-    """Detect anomalies in data"""
+    """Detect anomalies in data."""
     engine = _get_engine(mode=detector)
 
     data = _load_data(input)
@@ -90,7 +88,7 @@ def detect(input: str, detector: str, output: str, threshold: float) -> None:
 @click.option("--reference", "-r", required=True, help="Reference face image")
 @click.option("--test", "-t", help="Test face image to match")
 def biometric(reference: str, test: str) -> None:
-    """Biometric face matching"""
+    """Biometric face matching."""
     engine = _get_engine()
 
     result = engine.detect_biometric(reference, test)
@@ -101,7 +99,7 @@ def biometric(reference: str, test: str) -> None:
 @main.command()
 @click.option("--payload", "-p", required=True, help="Payload to check for threats")
 def security(payload: str) -> None:
-    """Security threat detection"""
+    """Security threat detection."""
     engine = _get_engine()
 
     result = engine.detect_security_threat(payload)
@@ -114,7 +112,7 @@ def security(payload: str) -> None:
 @click.option("--output", "-o", required=True, help="Model output path")
 @click.option("--epochs", "-e", default=50, type=int, help="Training epochs")
 def train(data: str, output: str, epochs: int) -> None:
-    """Train fusion model"""
+    """Train fusion model."""
     try:
         engine = _get_engine(mode="fusion")
 
@@ -132,7 +130,7 @@ def train(data: str, output: str, epochs: int) -> None:
 @click.option("--input", "-i", required=True, help="Input data file")
 @click.option("--model", "-m", default="fusion", help="Model type")
 def explain(input: str, model: str) -> None:
-    """Explain anomaly detection decision"""
+    """Explain anomaly detection decision."""
     try:
         engine = _get_engine(mode=model)
 
@@ -155,7 +153,7 @@ def explain(input: str, model: str) -> None:
 
 
 def _load_data(filepath: str) -> np.ndarray[Any, Any]:
-    """Load data from file"""
+    """Load data from file."""
     path = Path(filepath)
 
     if path.suffix == ".json":
@@ -182,7 +180,7 @@ def _load_data(filepath: str) -> np.ndarray[Any, Any]:
 
 @main.group()
 def physics() -> None:
-    """Physics-inspired anomaly detection commands"""
+    """Physics-inspired anomaly detection commands."""
     pass
 
 
@@ -829,7 +827,6 @@ def _start_voice_conversation(
     offline: bool,
 ) -> None:
     """Start the interactive voice conversation loop."""
-
     # Print banner
     click.echo("\n" + "=" * 60)
     click.echo("  Mercury Agent - Interactive Voice Interface")

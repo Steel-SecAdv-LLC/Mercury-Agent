@@ -1,6 +1,5 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
 Climate and Oceanographic Dataset Loaders - Advanced Marine Data Integration
 
@@ -99,7 +98,8 @@ class SimonsCMAPLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize Simons CMAP loader.
+        """
+        Initialize Simons CMAP loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -129,7 +129,8 @@ class SimonsCMAPLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download ocean data from Simons CMAP or generate synthetic.
+        """
+        Download ocean data from Simons CMAP or generate synthetic.
 
         Returns:
             True if download successful, False otherwise.
@@ -160,7 +161,8 @@ class SimonsCMAPLoader(DatasetLoader):
         )
 
     def _build_cmap_query(self) -> str:
-        """Build a safe SQL query for the pycmap API with validated numeric bounds.
+        """
+        Build a safe SQL query for the pycmap API with validated numeric bounds.
 
         This method constructs a SQL query for the Simons CMAP API using only
         validated numeric values. All bounds are validated to be within acceptable
@@ -266,7 +268,8 @@ class SimonsCMAPLoader(DatasetLoader):
             return False
 
     def _process_cmap_data(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        """Process CMAP query results.
+        """
+        Process CMAP query results.
 
         Args:
             df: DataFrame from CMAP query
@@ -445,7 +448,8 @@ class WorldOceanDatabaseLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize WOD loader.
+        """
+        Initialize WOD loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -473,7 +477,8 @@ class WorldOceanDatabaseLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download WOD data from NCEI.
+        """
+        Download WOD data from NCEI.
 
         Note: Full WOD data requires bulk download or WODselect tool.
         This loader uses pre-sorted geographic data when available.
@@ -501,7 +506,6 @@ class WorldOceanDatabaseLoader(DatasetLoader):
 
     def _download_wod_sample(self) -> bool:
         """Attempt to download WOD sample data."""
-
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
         cache_file = dataset_dir / "wod_real.npz"
@@ -650,7 +654,8 @@ class CopernicusSeaLevelLoader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize Copernicus sea level loader.
+        """
+        Initialize Copernicus sea level loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -682,7 +687,8 @@ class CopernicusSeaLevelLoader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download sea level data from Copernicus CDS.
+        """
+        Download sea level data from Copernicus CDS.
 
         Requires CDS API credentials. Register at:
         https://cds.climate.copernicus.eu/user/register
@@ -948,7 +954,8 @@ class CopernicusERA5Loader(DatasetLoader):
     ]
 
     def __init__(self, config: DatasetConfig) -> None:
-        """Initialize ERA5 loader.
+        """
+        Initialize ERA5 loader.
 
         Args:
             config: Dataset configuration. Preprocessing options:
@@ -984,7 +991,8 @@ class CopernicusERA5Loader(DatasetLoader):
         return self._is_real_data
 
     def download(self) -> bool:
-        """Download ERA5 reanalysis data from Copernicus CDS.
+        """
+        Download ERA5 reanalysis data from Copernicus CDS.
 
         Returns:
             True if download successful, False otherwise.

@@ -1,9 +1,8 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-Custom exceptions for dataset loading.
-Zero silent failures — every loader either returns real data or raises.
+Custom exceptions for dataset loading. Zero silent failures — every loader either returns real data
+or raises.
 """
 
 from __future__ import annotations
@@ -36,7 +35,8 @@ ALLOW_SYNTHETIC = _DynamicSyntheticFlag()
 
 
 class DataSourceUnavailableError(RuntimeError):
-    """Raised when a real data source cannot be reached and synthetic fallback is disabled.
+    """
+    Raised when a real data source cannot be reached and synthetic fallback is disabled.
 
     This exception replaces all silent synthetic fallbacks. Every loader must
     either return real (or cached) data with verified metadata, or raise this
@@ -75,7 +75,8 @@ class DataSourceUnavailableError(RuntimeError):
 
 
 def check_synthetic_allowed(loader_name: str, reason: str = "") -> bool:
-    """Check whether synthetic fallback is permitted.
+    """
+    Check whether synthetic fallback is permitted.
 
     Args:
         loader_name: Name of the requesting loader.

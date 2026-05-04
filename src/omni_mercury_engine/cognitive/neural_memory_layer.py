@@ -1,19 +1,17 @@
 """
-Mercury Agent
-Copyright (C) 2025 Steel Security Advisors LLC
+Mercury Agent Copyright (C) 2025 Steel Security Advisors LLC.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see https://www.gnu.org/licenses/.
+You should have received a copy of the GNU General Public License along with this program. If not,
+see
+https://www.gnu.org/licenses/.
 """
 
 from __future__ import annotations
@@ -123,8 +121,8 @@ class MemoryVectorizer:
     """
     Vectorize memory entries into dense embeddings.
 
-    Uses lightweight feature extraction to convert memory content
-    into fixed-dimensional vectors suitable for clustering and similarity.
+    Uses lightweight feature extraction to convert memory content into fixed-dimensional vectors
+    suitable for clustering and similarity.
     """
 
     def __init__(self, embedding_dim: int = 64) -> None:
@@ -232,8 +230,8 @@ class KMeansClusterer:
     """
     K-means clustering for memory embeddings.
 
-    Lightweight implementation suitable for real-time clustering
-    of memory entries without external dependencies.
+    Lightweight implementation suitable for real-time clustering of memory entries without external
+    dependencies.
     """
 
     def __init__(
@@ -328,8 +326,7 @@ class PatternDetector:
     """
     Detect patterns from clustered memory embeddings.
 
-    Identifies anomalies, trends, cycles, and escalations
-    from temporal sequences of memory entries.
+    Identifies anomalies, trends, cycles, and escalations from temporal sequences of memory entries.
     """
 
     def __init__(
@@ -539,8 +536,7 @@ class AnomalyPredictor:
     """
     Predict future anomalies from detected patterns.
 
-    Uses pattern history and Bayesian-inspired confidence
-    to forecast potential anomalies.
+    Uses pattern history and Bayesian-inspired confidence to forecast potential anomalies.
     """
 
     def __init__(

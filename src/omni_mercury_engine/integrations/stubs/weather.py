@@ -1,5 +1,6 @@
 """
 Mercury Agent
+
 Copyright (C) 2025 Steel Security Advisors LLC
 
 This program is free software: you can redistribute it and/or modify
@@ -49,7 +50,8 @@ class WeatherCondition(Enum):
 
 @dataclass
 class WeatherData:
-    """Weather data structure.
+    """
+    Weather data structure.
 
     Attributes:
         location: Location name or coordinates.
@@ -147,7 +149,8 @@ class WeatherServiceStub:
         latency_ms: tuple[int, int] = (50, 200),
         failure_rate: float = 0.0,
     ):
-        """Initialize weather stub.
+        """
+        Initialize weather stub.
 
         Args:
             seed: Random seed for reproducibility.
@@ -222,7 +225,8 @@ class WeatherServiceStub:
         )
 
     async def get_current(self, location: str) -> WeatherData:
-        """Get current weather for location.
+        """
+        Get current weather for location.
 
         Args:
             location: Location name or coordinates.
@@ -246,7 +250,8 @@ class WeatherServiceStub:
         location: str,
         days: int = 7,
     ) -> list[WeatherForecast]:
-        """Get weather forecast.
+        """
+        Get weather forecast.
 
         Args:
             location: Location name.
@@ -281,7 +286,8 @@ class WeatherServiceStub:
         return forecasts
 
     async def get_alerts(self, location: str) -> list[dict[str, Any]]:
-        """Get weather alerts for location.
+        """
+        Get weather alerts for location.
 
         Args:
             location: Location name.
@@ -392,39 +398,41 @@ class WeatherService:
         api_key: str | None = None,
         timeout: int = 30,
         cache_ttl: int = 300,  # 5 minutes
-        fallback_to_stub: bool = True,
     ):
-        """Initialize weather service.
+        """
+        Initialize weather service.
+
+        The ``fallback_to_stub`` parameter was removed in the May 2026
+        Phase 2 audit cure — silent fallback to stub data is not
+        permitted.
 
         Args:
             provider: API provider to use.
             api_key: API key for OpenWeatherMap (not needed for NOAA/Stub).
             timeout: Request timeout in seconds.
             cache_ttl: Cache time-to-live in seconds.
-            fallback_to_stub: Fall back to stub on API failures.
         """
         self.provider = provider
         self.api_key = api_key or os.getenv("OPENWEATHERMAP_API_KEY")
         self.timeout = timeout
         self.cache_ttl = cache_ttl
-        self.fallback_to_stub = fallback_to_stub
 
         # Cache with TTL
         self._cache: dict[str, tuple[WeatherData, datetime]] = {}
         self._call_count = 0
         self._api_errors = 0
 
-        # Stub fallback
+        # Stub instance for explicit STUB provider only
         self._stub = WeatherServiceStub()
 
         # Validate OpenWeatherMap configuration
         if provider == WeatherAPIProvider.OPENWEATHERMAP and not self.api_key:
-            logger.warning(
+            raise NotImplementedError(
                 "OpenWeatherMap requires an API key. Set OPENWEATHERMAP_API_KEY "
                 "environment variable or provide api_key parameter. "
-                "Falling back to stub mode."
+                "Silent fallback to stub mode is not permitted "
+                "(Phase 2 audit cure)."
             )
-            self.provider = WeatherAPIProvider.STUB
 
     def _get_cached(self, key: str) -> WeatherData | None:
         """Get cached data if still valid."""
@@ -443,7 +451,8 @@ class WeatherService:
         return self.OWM_CONDITION_MAP.get(code, WeatherCondition.CLOUDY)
 
     async def _fetch_openweathermap(self, location: str) -> WeatherData:
-        """Fetch weather from OpenWeatherMap API.
+        """
+        Fetch weather from OpenWeatherMap API.
 
         API Documentation: https://openweathermap.org/api
         """
@@ -566,7 +575,8 @@ class WeatherService:
         return await loop.run_in_executor(None, fetch)
 
     async def _fetch_noaa(self, lat: float, lon: float) -> WeatherData:
-        """Fetch weather from NOAA National Weather Service API.
+        """
+        Fetch weather from NOAA National Weather Service API.
 
         API Documentation: https://www.weather.gov/documentation/services-web-api
         Only works for US locations.
@@ -648,7 +658,8 @@ class WeatherService:
         )
 
     async def get_current(self, location: str) -> WeatherData:
-        """Get current weather for location.
+        """
+        Get current weather for location.
 
         Args:
             location: Location name (city, address).
@@ -669,31 +680,19 @@ class WeatherService:
         if self.provider == WeatherAPIProvider.STUB:
             return await self._stub.get_current(location)
 
-        try:
-            if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
-                data = await self._fetch_openweathermap(location)
-            elif self.provider == WeatherAPIProvider.NOAA:
-                # NOAA requires coordinates, cannot use city name directly
-                raise ValueError(
-                    "NOAA API requires coordinates. Use get_current_by_coords() instead."
-                )
-            else:
-                data = await self._stub.get_current(location)
+        if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
+            data = await self._fetch_openweathermap(location)
+        elif self.provider == WeatherAPIProvider.NOAA:
+            raise ValueError("NOAA API requires coordinates. Use get_current_by_coords() instead.")
+        else:
+            raise ValueError(f"Unknown weather API provider: {self.provider}")
 
-            self._set_cached(location, data)
-            return data
-
-        except Exception as e:
-            self._api_errors += 1
-            logger.warning(f"Weather API error for {location}: {e}")
-
-            if self.fallback_to_stub:
-                logger.info(f"Falling back to stub for {location}")
-                return await self._stub.get_current(location)
-            raise
+        self._set_cached(location, data)
+        return data
 
     async def get_current_by_coords(self, lat: float, lon: float) -> WeatherData:
-        """Get current weather by coordinates.
+        """
+        Get current weather by coordinates.
 
         Args:
             lat: Latitude.
@@ -712,31 +711,23 @@ class WeatherService:
         if self.provider == WeatherAPIProvider.STUB:
             return await self._stub.get_current(cache_key)
 
-        try:
-            if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
-                data = await self._fetch_openweathermap_by_coords(lat, lon)
-            elif self.provider == WeatherAPIProvider.NOAA:
-                data = await self._fetch_noaa(lat, lon)
-            else:
-                data = await self._stub.get_current(cache_key)
+        if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
+            data = await self._fetch_openweathermap_by_coords(lat, lon)
+        elif self.provider == WeatherAPIProvider.NOAA:
+            data = await self._fetch_noaa(lat, lon)
+        else:
+            raise ValueError(f"Unknown weather API provider: {self.provider}")
 
-            self._set_cached(cache_key, data)
-            return data
-
-        except Exception as e:
-            self._api_errors += 1
-            logger.warning(f"Weather API error for ({lat}, {lon}): {e}")
-
-            if self.fallback_to_stub:
-                return await self._stub.get_current(cache_key)
-            raise
+        self._set_cached(cache_key, data)
+        return data
 
     async def get_forecast(
         self,
         location: str,
         days: int = 7,
     ) -> list[WeatherForecast]:
-        """Get weather forecast.
+        """
+        Get weather forecast.
 
         Args:
             location: Location name.
@@ -753,13 +744,18 @@ class WeatherService:
         if self.provider == WeatherAPIProvider.OPENWEATHERMAP:
             return await self._fetch_owm_forecast(location, days)
 
-        # For NOAA, fall back to stub
-        return await self._stub.get_forecast(location, days)
+        raise ValueError(
+            f"Forecast not supported for provider {self.provider}. "
+            "Silent fallback to stub is not permitted (Phase 2 audit cure)."
+        )
 
     async def _fetch_owm_forecast(self, location: str, days: int) -> list[WeatherForecast]:
         """Fetch forecast from OpenWeatherMap."""
         if not self.api_key:
-            return await self._stub.get_forecast(location, days)
+            raise NotImplementedError(
+                "OpenWeatherMap API key required for forecast. "
+                "Silent fallback to stub is not permitted (Phase 2 audit cure)."
+            )
 
         params = {
             "q": location,
@@ -827,7 +823,8 @@ class WeatherService:
         return forecasts
 
     async def get_alerts(self, location: str) -> list[dict[str, Any]]:
-        """Get weather alerts for location.
+        """
+        Get weather alerts for location.
 
         Args:
             location: Location name.
@@ -899,5 +896,4 @@ def create_weather_service(
     return WeatherService(
         provider=provider_enum,
         api_key=api_key,
-        fallback_to_stub=True,
     )
