@@ -7,6 +7,10 @@ on:
     branches: [ main ]
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday
+  # Manual dispatch is the recovery path when a push to ``main`` is
+  # accidentally suppressed by a skip-directive substring in the squash
+  # merge commit message (see CONTRIBUTING.md "Squash-merge gotcha").
+  workflow_dispatch:
 
 permissions:
   contents: read
