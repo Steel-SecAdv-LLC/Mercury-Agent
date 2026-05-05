@@ -5,6 +5,10 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  # Manual dispatch is the recovery path when a push to ``main`` is
+  # accidentally suppressed by a ``[skip ci]`` substring in the squash
+  # merge commit message (see CONTRIBUTING.md "Squash-merge gotcha").
+  workflow_dispatch:
 
 jobs:
   docker:

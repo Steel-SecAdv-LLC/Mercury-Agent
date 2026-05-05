@@ -343,6 +343,41 @@ Follow conventional commits:
 - `perf`: Performance improvement
 - `chore`: Maintenance tasks
 
+### Squash-merge gotcha — never embed `[skip ci]` literals in PR descriptions
+
+When you click **Squash & merge** on a PR, GitHub copies the PR title and
+the entire PR body verbatim into the squash commit message that lands on
+`main`. GitHub Actions then parses every push commit message and skips
+**all** workflows on that push if it contains any of the magic substrings:
+
+* ``[skip ci]``
+* ``[ci skip]``
+* ``[no ci]``
+* ``[skip actions]``
+* ``[actions skip]``
+
+This means a PR description that *legitimately documents* an auto-commit
+marker (for example, "the auto-commit step emits `[skip ci]` so it does
+not re-trigger itself") will silently suppress every workflow on the
+merge commit — Benchmark Pipeline, CI/CD, Security, Docker, Auto-Format,
+PQC checks, all of them. Branch protection still allows the merge, but
+no validation runs against `main`.
+
+**Avoid this by:**
+
+1. Replacing the literal substring in PR descriptions with a non-matching
+   form, e.g. ``[skip&nbsp;ci]``, ``[skip-ci]`` (hyphen instead of space),
+   or surrounding it with backticks **and** writing it as
+   ``\[skip ci\]`` so the rendered text shows the directive but the
+   commit-message scanner does not match.
+2. If the PR genuinely needs to use the marker (rare), use a **merge
+   commit** strategy instead of squash so the PR body stays out of the
+   commit message.
+3. If you only realise after merging, recover by manually dispatching
+   each workflow from the **Actions** tab → workflow → **Run workflow**.
+   Every push-triggered workflow in `.github/workflows/` also exposes
+   ``workflow_dispatch:`` for exactly this recovery path.
+
 ### PR Template
 
 ```markdown
