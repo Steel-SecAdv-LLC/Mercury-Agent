@@ -83,6 +83,36 @@ class TestAnyAnomalyDetector:
         detector.set_reference_normal(frames)
         assert len(detector.reference_frames) > 0
 
+    def test_anyanomaly_mock_backend_factory_hard_fails(self):
+        """Failure-mode coverage on the detect-path:
+        ``MockLVLMBackend`` is intentionally a hard-fail (Phase 2 audit
+        cure: silent mock degradation is not permitted in production).
+        Pin that contract — any path that reaches
+        ``MockLVLMBackend.initialize()`` must raise
+        ``NotImplementedError`` rather than producing fabricated
+        outputs that could be mistaken for real detections.
+
+        This used to be exercised indirectly via the deleted
+        ``test_anyanomaly_detect_mock``, which constructed an
+        ``AnyAnomalyDetector`` with the now-removed ``backend="mock"``
+        config field and called ``detector.detect(...)``.  That test
+        was permanently skipped because the failure mode is
+        intentional, but dropping it left the file with no
+        AnyAnomaly detect-path coverage.  This smoke replaces that
+        coverage at the factory boundary, where the contract actually
+        lives, without requiring a real VLM checkpoint or a CUDA
+        runner."""
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import (
+            MockLVLMBackend,
+            get_lvlm_backend,
+        )
+
+        backend = get_lvlm_backend(model_type="mock")
+        assert isinstance(backend, MockLVLMBackend)
+
+        with pytest.raises(NotImplementedError, match="cannot be used in production"):
+            backend.initialize()
+
 
 @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
 class TestLAVADDetector:

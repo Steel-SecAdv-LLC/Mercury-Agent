@@ -79,6 +79,21 @@ if TYPE_CHECKING:
 # automatic fail-closed behaviour at import time; deployments that do not
 # get a soft import.
 # ---------------------------------------------------------------------------
+_PQC_BUILD_RECOVERY_HINT = (
+    "Build the AMA-Cryptography native library from a clone of the upstream\n"
+    "repo (Mercury-Agent has no CMakeLists.txt of its own):\n"
+    "  git clone --depth 1 --branch v3.1.0 \\\n"
+    "      https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography\n"
+    "  cd /tmp/ama-cryptography\n"
+    "  cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
+    "  AMA_NO_CYTHON=1 pip install --no-build-isolation .\n"
+    "  export LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:"
+    "/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}\n"
+    "See docs/INSTALLATION.md 'Post-Quantum Cryptography backend' for the\n"
+    "verified procedure (mirrors .github/workflows/pqc-production-check.yml)."
+)
+
+
 def _enforce_pqc_production_gate() -> None:
     """Fail-closed PQC startup gate.
 
@@ -88,6 +103,14 @@ def _enforce_pqc_production_gate() -> None:
     ``security/`` and stays free of ``cryptography``-stack side effects.
     The fail-closed path (env var set, native lib missing) raises before
     any heavier package work.
+
+    Algorithm coverage matches ``check_pqc_production_readiness``: the
+    gate fails closed unless **all three** AMA algorithms are loadable
+    (ML-DSA-65 via ``dilithium``, Kyber-1024 via ``kyber``, SPHINCS+ via
+    ``sphincs``).  Any partial build is rejected because Mercury still
+    exposes the Kyber and SPHINCS surfaces elsewhere, and a Dilithium-
+    only install would let the process start in a cryptographically
+    incomplete state.
     """
     import os
 
@@ -97,24 +120,28 @@ def _enforce_pqc_production_gate() -> None:
     if not require_real:
         return
 
-    try:
-        from ama_cryptography import dilithium as _ama_dilithium
-    except ImportError as exc:
-        raise RuntimeError(
-            "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography native "
-            "C backend is not loadable (`import ama_cryptography.dilithium` "
-            "failed). Build the native library:\n"
-            "  cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
-            "and ensure LD_LIBRARY_PATH points at the build output. See "
-            "docs/INSTALLATION.md 'Post-Quantum Cryptography backend'."
-        ) from exc
+    missing: list[str] = []
+    submodules = (
+        ("dilithium", "DILITHIUM_AVAILABLE", "ML-DSA-65 (Dilithium)"),
+        ("kyber", "KYBER_AVAILABLE", "Kyber-1024"),
+        ("sphincs", "SPHINCS_AVAILABLE", "SPHINCS+"),
+    )
+    import importlib
 
-    if not getattr(_ama_dilithium, "DILITHIUM_AVAILABLE", False):
+    for module_name, flag_name, friendly in submodules:
+        try:
+            mod = importlib.import_module(f"ama_cryptography.{module_name}")
+        except ImportError:
+            missing.append(friendly)
+            continue
+        if not getattr(mod, flag_name, False):
+            missing.append(friendly)
+
+    if missing:
         raise RuntimeError(
-            "AMA_REQUIRE_REAL_PQC=true but ML-DSA-65 (Dilithium) is not "
-            "available from the installed ama_cryptography package "
-            "(`ama_cryptography.dilithium.DILITHIUM_AVAILABLE` is False). "
-            "Rebuild AMA Cryptography with -DAMA_USE_NATIVE_PQC=ON."
+            "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography native C "
+            f"backend is incomplete; missing or unavailable: {', '.join(missing)}.\n"
+            f"{_PQC_BUILD_RECOVERY_HINT}"
         )
 
 

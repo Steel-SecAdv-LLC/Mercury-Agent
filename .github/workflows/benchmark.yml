@@ -179,19 +179,31 @@ jobs:
       # four reasons (1) PR-required, (2) 22 status checks expected,
       # (3) CodeQL must finish, (4) commits must be verified-signed.
       # ``scripts/persist_benchmark_to_pr.py`` uses the GitHub Git
-      # Database API to commit on a feature branch — API-driven
-      # commits are auto-signed by ``github-actions[bot]`` (rule 4
-      # satisfied), and a PR is opened against ``main`` (rule 1
-      # satisfied).  Status checks (rule 2 / 3) run on the PR.
+      # Database API to commit on a feature branch.  Rule 4 is
+      # satisfied externally: GitHub auto-signs commits made via the
+      # Git Database API on behalf of ``github-actions[bot]`` with
+      # its web-flow signing key, **only when the call is
+      # authenticated with the workflow's own ``GITHUB_TOKEN``** (or
+      # a GitHub App installation token allowed to act as the bot).
+      # A PR is opened against ``main`` (rule 1 satisfied); status
+      # checks (rule 2 / 3) run on the PR.
       #
       # Caveat:  PRs whose head was pushed by the default
       # ``GITHUB_TOKEN`` do NOT trigger downstream workflows by
       # design (GitHub's loop-prevention).  The PR therefore lands
-      # with all required checks pending until either a maintainer
-      # re-runs the CI workflow on the PR head or a Personal Access
-      # Token (or GitHub App token) is configured as
-      # ``BENCHMARK_BOT_TOKEN`` in repo secrets and used here in
-      # place of ``GITHUB_TOKEN``.
+      # with all required checks pending; a maintainer must re-run
+      # the CI workflow on the PR head (or push an empty commit on
+      # the persistence branch) to unblock them.
+      #
+      # Do NOT swap ``GITHUB_TOKEN`` for a Personal Access Token
+      # (``BENCHMARK_BOT_TOKEN``) just to break the loop-prevention.
+      # The persister does not submit a detached commit signature,
+      # so PAT-authenticated Git Database commits land
+      # ``Unverified`` and fail rule 4 of the protection ruleset.
+      # The ``secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN``
+      # fallback below is wired so a future *GitHub App
+      # installation token* (which DOES get auto-signed when acting
+      # as the bot) can be substituted, not so a PAT can be.
       #
       # Order matters: this step runs immediately after the gating
       # mercury benchmark + artifact upload, BEFORE the supplementary
@@ -252,9 +264,21 @@ jobs:
           Required status checks on this PR start as **pending** because
           GitHub Actions does not trigger downstream workflows from
           events caused by the default \`GITHUB_TOKEN\`.  To run them,
-          either re-run the CI workflow manually against this PR head
-          or configure a Personal Access Token as \`BENCHMARK_BOT_TOKEN\`
-          in repo secrets so the bot push triggers CI.
+          re-run the CI workflow manually against this PR head, or
+          re-trigger via a maintainer-pushed empty commit on this
+          branch.
+
+          Do **not** swap \`GITHUB_TOKEN\` for a Personal Access Token
+          (\`BENCHMARK_BOT_TOKEN\`) just to unblock the pending checks
+          — \`scripts/persist_benchmark_to_pr.py\` does not submit a
+          detached commit signature, and Git Database commits made
+          with a PAT are not auto-signed by GitHub.  They would land
+          \`Unverified\` and fail the protection ruleset.  The only
+          token that produces a verified commit on this path today is
+          the workflow's own \`GITHUB_TOKEN\` acting as
+          \`github-actions[bot]\`, or a GitHub App installation token
+          allowed to act as the bot.  See the persister module
+          docstring 'Signature handling' section for the full contract.
 
           [skip ci]" \
             --files benchmarks/mercury_benchmark_results.json README.md
@@ -341,12 +365,20 @@ jobs:
             exit 0
           fi
 
+          # ``--no-pr-metadata-update`` is critical here: the earlier
+          # "Open PR with mercury results" step already set a metric-rich
+          # title (with AUC/F1) and a body containing CI-unblock
+          # instructions.  Without this flag, the persister would PATCH
+          # the PR title/body to the generic seven-axis text below,
+          # erasing the metrics on every successful run.  We only want
+          # this step to *append a commit* to the existing PR.
           python scripts/persist_benchmark_to_pr.py \
             --base main \
             --branch ci/benchmark-results \
             --commit-message "ci(benchmark): add seven-axis results [skip benchmark]" \
             --pr-title "ci(benchmark): auto-update Latest Benchmark Results" \
             --pr-body "Seven-axis JSON appended by .github/workflows/benchmark.yml from ${GITHUB_SHA}." \
+            --no-pr-metadata-update \
             --files \
               benchmarks/mercury_benchmark_results.json \
               benchmarks/seven_axis_results.json \

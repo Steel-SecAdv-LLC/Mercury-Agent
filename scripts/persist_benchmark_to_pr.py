@@ -51,11 +51,18 @@ caused by the default ``GITHUB_TOKEN``.  The PR opened by this script
 will therefore start with all required status checks **pending** and
 will need to be unblocked by either:
 
-  - re-running the CI workflow manually on the PR head SHA,
-  - configuring a Personal Access Token (or GitHub App token) as
-    ``BENCHMARK_BOT_TOKEN`` in repo secrets and consuming that here
-    in place of ``GITHUB_TOKEN``, or
-  - a maintainer pushing an empty commit to the PR head branch.
+  - re-running the CI workflow manually on the PR head SHA, or
+  - a maintainer pushing an empty commit to the persistence branch.
+
+**Do not** swap ``GITHUB_TOKEN`` for a Personal Access Token via
+``BENCHMARK_BOT_TOKEN`` to break the loop-prevention.  As described
+in "Signature handling" above, this script does not submit a detached
+signature, so PAT-authenticated Git Database commits land
+``Unverified`` and fail rule 4 of the protection ruleset.  The
+``secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN`` fallback is
+wired so a future *GitHub App installation token* (which DOES get
+auto-signed when acting as the bot) can be substituted, not so a
+PAT can be.
 
 This script does not enable auto-merge — that is intentionally a
 maintainer decision.  Run with ``--enable-automerge`` to opt in.
@@ -183,7 +190,17 @@ def create_commit(
 
 
 def upsert_branch_ref(owner: str, repo: str, branch: str, commit_sha: str, token: str) -> None:
-    """Create branch ref, or fast-forward / force-update it if it already exists."""
+    """Create branch ref, or fast-forward / force-update it if it already exists.
+
+    The fallback to PATCH is intentionally narrow: GitHub returns
+    HTTP 422 for several distinct validation failures (invalid ref name,
+    bad SHA, ref already exists, etc.).  Treating every 422 as
+    "branch already exists" would mask the real failure by retrying a
+    PATCH against a ref that was never created.  We therefore require
+    the response body to specifically contain ``Reference already exists``
+    before falling through; any other ``RuntimeError`` is re-raised
+    unchanged so callers see the original create-ref error.
+    """
     try:
         _api(
             "POST",
@@ -194,8 +211,7 @@ def upsert_branch_ref(owner: str, repo: str, branch: str, commit_sha: str, token
         print(f"  Created branch ref refs/heads/{branch}")
         return
     except RuntimeError as exc:
-        msg = str(exc)
-        if "Reference already exists" not in msg and "HTTP 422" not in msg:
+        if "Reference already exists" not in str(exc):
             raise
 
     # Branch exists; force-update it to the new commit.
@@ -317,6 +333,17 @@ def main() -> int:
         help="Repo-relative paths to commit (missing files are skipped with a warning)",
     )
     parser.add_argument(
+        "--no-pr-metadata-update",
+        action="store_true",
+        help=(
+            "If the open PR already exists, do NOT PATCH its title/body "
+            "to the values supplied here.  Use on follow-up persistence "
+            "steps in the same workflow run that should append commits "
+            "to the existing PR without overwriting the metric-rich "
+            "title/body the earlier step set."
+        ),
+    )
+    parser.add_argument(
         "--enable-automerge",
         action="store_true",
         help="Enable PR auto-merge (squash) — only takes effect once required checks pass",
@@ -398,9 +425,13 @@ def main() -> int:
                 "to preserve required-check approvals on the bot PR."
             )
             existing_pr = find_open_pr(owner, repo, args.branch, args.base, token)
-            if existing_pr is not None:
+            if existing_pr is not None and not args.no_pr_metadata_update:
                 update_pull_request(owner, repo, existing_pr, args.pr_title, args.pr_body, token)
                 print(f"  refreshed PR #{existing_pr} title/body only.")
+            elif existing_pr is not None:
+                print(
+                    f"  PR #{existing_pr} title/body left untouched " "(--no-pr-metadata-update)."
+                )
             return 0
 
     commit_sha = create_commit(owner, repo, args.commit_message, tree_sha, base_sha, token)
@@ -418,9 +449,19 @@ def main() -> int:
         # existing PR without refreshing those fields, every rerun will
         # keep displaying the *first* run's metrics in the PR header
         # while the underlying tree advances.  PATCH the title/body now
-        # so reviewers see numbers that match the latest commit.
-        update_pull_request(owner, repo, existing, args.pr_title, args.pr_body, token)
-        print(f"  reused existing open PR #{existing}; refreshed title and body")
+        # so reviewers see numbers that match the latest commit — UNLESS
+        # ``--no-pr-metadata-update`` is set, which lets follow-up
+        # persistence steps in the same workflow run append commits
+        # without overwriting the metric-rich title set by an earlier
+        # step.
+        if not args.no_pr_metadata_update:
+            update_pull_request(owner, repo, existing, args.pr_title, args.pr_body, token)
+            print(f"  reused existing open PR #{existing}; refreshed title and body")
+        else:
+            print(
+                f"  reused existing open PR #{existing}; title/body left untouched "
+                "(--no-pr-metadata-update)."
+            )
         pr_number = existing
     else:
         pr_number = create_pull_request(

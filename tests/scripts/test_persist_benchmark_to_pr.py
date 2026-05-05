@@ -18,7 +18,6 @@ the public functions and ``main()`` with synthetic responses.
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -149,6 +148,31 @@ class TestUpsertBranchRef:
         assert fake_api.patched == {"sha": "abc1234", "force": True}, (  # type: ignore[attr-defined]
             "Existing-ref path must force-update with the new commit SHA."
         )
+
+    def test_other_422_reasons_are_reraised(
+        self, persister: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GitHub returns HTTP 422 for a *family* of validation failures
+        (invalid ref name, bad SHA, ref already exists, ...).  Only the
+        'Reference already exists' case may fall through to the PATCH
+        fallback; any other 422 must surface so callers see the real
+        create-ref failure rather than a silent retry against a ref
+        that was never created."""
+
+        def fake_api(method: str, path: str, token: str, payload: Any = None) -> Any:
+            if method == "POST" and path == "/repos/o/r/git/refs":
+                raise RuntimeError("HTTP 422 — Validation Failed: invalid ref name")
+            raise AssertionError(
+                f"PATCH must NOT be attempted when 422 is for a "
+                f"different reason; got: {method} {path}"
+            )
+
+        monkeypatch.setattr(persister, "_api", fake_api)
+
+        with pytest.raises(RuntimeError, match="invalid ref name"):
+            persister.upsert_branch_ref(  # type: ignore[attr-defined]
+                "o", "r", "feature", "abc1234", "tok"
+            )
 
 
 class TestNoopAgainstExistingBranch:

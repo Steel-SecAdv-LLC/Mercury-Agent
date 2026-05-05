@@ -269,14 +269,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Caveat — initial CI on the bot PR is pending:** GitHub
     deliberately does not trigger downstream workflows from events
     caused by the default `GITHUB_TOKEN`, so the 22 required
-    checks land **pending** on the bot PR and need to be unblocked
-    by either re-running the CI workflow manually on the PR head
-    or configuring a Personal Access Token (or GitHub App token)
-    as `BENCHMARK_BOT_TOKEN` in repo secrets — the workflow reads
-    `secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN`, so
-    setting that secret automatically switches every future
-    benchmark run to the trigger-aware token without further
-    workflow edits.
+    checks land **pending** on the bot PR.  Unblock by re-running
+    the CI workflow manually on the PR head, or by pushing an
+    empty commit on the persistence branch as a maintainer.  Do
+    **not** swap `GITHUB_TOKEN` for a Personal Access Token via
+    `BENCHMARK_BOT_TOKEN` to break the loop-prevention: the
+    persister does not submit a detached commit signature, and
+    PAT-authenticated Git Database commits are not auto-signed by
+    GitHub — they land `Unverified` and fail rule 4 of the
+    protection ruleset.  The `secrets.BENCHMARK_BOT_TOKEN ||
+    secrets.GITHUB_TOKEN` fallback is wired so a future *GitHub
+    App installation token* (which DOES get auto-signed when
+    acting as the bot) can be substituted, not so a PAT can be.
   - **Auto-merge is not enabled by default.**  The persister
     script accepts `--enable-automerge --merge-method squash` for
     deployments that want the PR to merge as soon as required
