@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import sys
 import types
+import warnings
 
 import pytest
 
@@ -95,56 +96,83 @@ class TestFailClosedWhenLibMissing:
         assert "AMA_NO_CYTHON=1" in msg
 
 
-class TestFailClosedOnPartialBuild:
-    """When a partially built install has Dilithium but not Kyber/SPHINCS,
-    the gate must reject it — Mercury exposes those algorithms elsewhere
-    and a partial build is a cryptographically incomplete state."""
+class TestHardRequiredFlags:
+    """Dilithium and Kyber are hard-required.  SPHINCS+ is intentionally
+    soft-required (see the ``_pqc_gate.py`` rationale: the upstream
+    ``pqc-production-check.yml`` workflow doesn't assert
+    ``SPHINCS_AVAILABLE`` on a real v3.1.0 build, so requiring it here
+    would produce false-positive partial-install rejections)."""
 
-    def test_raises_when_only_dilithium_is_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_raises_when_dilithium_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
-        _install_fake_ama(monkeypatch, dilithium=True, kyber=False, sphincs=False)
+        _install_fake_ama(monkeypatch, dilithium=False, kyber=True, sphincs=True)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            _enforce_pqc_production_gate()
+
+        msg = str(excinfo.value)
+        assert "Dilithium" in msg or "ML-DSA-65" in msg
+        assert "Kyber" not in msg
+
+    def test_raises_when_kyber_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
+        _install_fake_ama(monkeypatch, dilithium=True, kyber=False, sphincs=True)
 
         with pytest.raises(RuntimeError) as excinfo:
             _enforce_pqc_production_gate()
 
         msg = str(excinfo.value)
         assert "Kyber" in msg
-        assert "SPHINCS" in msg
-        # Dilithium WAS available, so it must NOT be listed.
         assert "Dilithium" not in msg and "ML-DSA-65" not in msg
 
-    def test_raises_when_attribute_is_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """If the attribute is absent on ``ama_cryptography``, treat as
-        unavailable.  Mirrors what ``getattr(..., default=False)`` does
-        when an older AMA version doesn't define one of the flags."""
+
+class TestSoftRequiredSphincs:
+    """A missing SPHINCS surface emits ``UserWarning`` but does not
+    raise.  This matches what the verify-real-pqc CI lane will see on
+    a real AMA v3.1.0 build (where SPHINCS_AVAILABLE is not always
+    populated even after a successful native build)."""
+
+    def test_warns_but_does_not_raise_when_sphincs_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
+        _install_fake_ama(monkeypatch, dilithium=True, kyber=True, sphincs=False)
+
+        with pytest.warns(UserWarning, match="SPHINCS"):
+            _enforce_pqc_production_gate()
+
+    def test_warns_when_sphincs_attribute_is_absent(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Older AMA versions that don't define ``SPHINCS_AVAILABLE`` at
+        all are still treated as soft-warning, not hard failure."""
         monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
         _install_fake_ama(monkeypatch, dilithium=True, kyber=True, sphincs=None)
 
-        with pytest.raises(RuntimeError) as excinfo:
+        with pytest.warns(UserWarning, match="SPHINCS"):
             _enforce_pqc_production_gate()
-
-        msg = str(excinfo.value)
-        assert "SPHINCS" in msg
 
 
 class TestPassesOnCompleteInstall:
     def test_returns_silently_when_all_three_flags_true(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Mirrors the ``verify-real-pqc`` workflow's expectation:
-        when AMA is built and the top-level package exposes all three
-        ``*_AVAILABLE`` flags as True, the gate is a no-op."""
+        """When AMA is built and exposes all three ``*_AVAILABLE`` flags
+        as True, the gate is a silent no-op (no warning, no exception)."""
         monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
         _install_fake_ama(monkeypatch, dilithium=True, kyber=True, sphincs=True)
 
-        _enforce_pqc_production_gate()  # must not raise
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # any warning would now raise
+            _enforce_pqc_production_gate()
 
 
 class TestErrorMessageContents:
-    def test_message_lists_only_missing_algos(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """An operator hitting the gate must see the *full* list of
-        missing algorithms, not just the first one — so they don't
-        rebuild, hit the next missing one, and have to build again."""
+    def test_message_lists_missing_hard_required_only(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When both hard-required flags are missing, both are named so
+        an operator can fix them in one rebuild.  SPHINCS is intentionally
+        omitted from the hard-failure message even when also missing
+        (the warning path covers SPHINCS separately)."""
         monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
         _install_fake_ama(monkeypatch, dilithium=False, kyber=False, sphincs=False)
 
@@ -154,4 +182,4 @@ class TestErrorMessageContents:
         msg = str(excinfo.value)
         assert "Dilithium" in msg or "ML-DSA-65" in msg
         assert "Kyber" in msg
-        assert "SPHINCS" in msg
+        assert "SPHINCS" not in msg
