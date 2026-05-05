@@ -14,21 +14,51 @@ incomplete state.  Without the env var, the gate is a no-op and the
 package imports against the soft PQC stubs in ``security/pqc_backends.py``
 for development convenience.
 
-These tests call the gate function directly with monkeypatched env and
-``importlib.import_module`` so each case is hermetic — they do not
-re-trigger the package-level self-call (which already ran once when
-the test process imported ``omni_mercury_engine``).
+These tests inject a fake ``ama_cryptography`` module into
+``sys.modules`` with the three ``*_AVAILABLE`` flags set to chosen
+values, then invoke the gate directly.  This matches the gate's
+actual contract (it reads top-level package attributes, mirroring
+how ``security/pqc_backends.py`` consumes them) and avoids any
+dependence on whether ``ama_cryptography`` is installed in the test
+environment.
 """
 
 from __future__ import annotations
 
-import importlib
+import sys
 import types
-from typing import Any
 
 import pytest
 
 from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
+
+
+def _install_fake_ama(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    dilithium: bool | None,
+    kyber: bool | None,
+    sphincs: bool | None,
+) -> None:
+    """Inject a fake ``ama_cryptography`` package into ``sys.modules``.
+
+    Each flag may be ``True``, ``False``, or ``None``.  ``None`` means
+    the attribute is omitted entirely (so ``getattr(..., default=False)``
+    falls through to ``False``).
+    """
+    fake = types.ModuleType("ama_cryptography")
+    if dilithium is not None:
+        fake.DILITHIUM_AVAILABLE = dilithium  # type: ignore[attr-defined]
+    if kyber is not None:
+        fake.KYBER_AVAILABLE = kyber  # type: ignore[attr-defined]
+    if sphincs is not None:
+        fake.SPHINCS_AVAILABLE = sphincs  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "ama_cryptography", fake)
+
+
+def _uninstall_ama(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make ``import ama_cryptography`` raise ``ImportError``."""
+    monkeypatch.setitem(sys.modules, "ama_cryptography", None)  # type: ignore[arg-type]
 
 
 class TestNoOpWhenEnvUnset:
@@ -51,28 +81,15 @@ class TestFailClosedWhenLibMissing:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
-        # Force every ``ama_cryptography.*`` import to fail.
-        original_import = importlib.import_module
-
-        def fail_for_ama(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name.startswith("ama_cryptography"):
-                raise ImportError(f"stubbed: {name} not available")
-            return original_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(importlib, "import_module", fail_for_ama)
+        _uninstall_ama(monkeypatch)
 
         with pytest.raises(RuntimeError) as excinfo:
             _enforce_pqc_production_gate()
 
         msg = str(excinfo.value)
         assert "AMA_REQUIRE_REAL_PQC=true" in msg
-        # Every algorithm is missing here — confirm the message names
-        # all three so an operator hitting this gate sees the full list.
-        assert "Dilithium" in msg or "ML-DSA-65" in msg
-        assert "Kyber" in msg
-        assert "SPHINCS" in msg
-        # Recovery hint must point at the verified clone-and-build path,
-        # not the broken `cmake -B build` from the Mercury checkout.
+        assert "import ama_cryptography failed" in msg
+        # Recovery hint must point at the verified clone-and-build path.
         assert "git clone" in msg
         assert "AMA-Cryptography.git" in msg
         assert "AMA_NO_CYTHON=1" in msg
@@ -81,25 +98,11 @@ class TestFailClosedWhenLibMissing:
 class TestFailClosedOnPartialBuild:
     """When a partially built install has Dilithium but not Kyber/SPHINCS,
     the gate must reject it — Mercury exposes those algorithms elsewhere
-    and a partial build is a cryptographically incomplete state, which
-    matches the contract on ``security.pqc_guards.check_pqc_production_readiness``."""
+    and a partial build is a cryptographically incomplete state."""
 
     def test_raises_when_only_dilithium_is_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
-
-        fake_dilithium = types.ModuleType("ama_cryptography.dilithium")
-        fake_dilithium.DILITHIUM_AVAILABLE = True  # type: ignore[attr-defined]
-
-        original_import = importlib.import_module
-
-        def selective_import(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name == "ama_cryptography.dilithium":
-                return fake_dilithium
-            if name in ("ama_cryptography.kyber", "ama_cryptography.sphincs"):
-                raise ImportError(f"stubbed: {name} not available")
-            return original_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(importlib, "import_module", selective_import)
+        _install_fake_ama(monkeypatch, dilithium=True, kyber=False, sphincs=False)
 
         with pytest.raises(RuntimeError) as excinfo:
             _enforce_pqc_production_gate()
@@ -110,59 +113,45 @@ class TestFailClosedOnPartialBuild:
         # Dilithium WAS available, so it must NOT be listed.
         assert "Dilithium" not in msg and "ML-DSA-65" not in msg
 
-    def test_raises_when_flag_is_false_even_if_module_imports(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Module loadable but `*_AVAILABLE` flag is False (the post-import
-        runtime probe failed) — gate must still reject."""
+    def test_raises_when_attribute_is_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """If the attribute is absent on ``ama_cryptography``, treat as
+        unavailable.  Mirrors what ``getattr(..., default=False)`` does
+        when an older AMA version doesn't define one of the flags."""
         monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
+        _install_fake_ama(monkeypatch, dilithium=True, kyber=True, sphincs=None)
 
-        all_loaded_with_flags_false: dict[str, types.ModuleType] = {}
-        for name, flag in [
-            ("ama_cryptography.dilithium", "DILITHIUM_AVAILABLE"),
-            ("ama_cryptography.kyber", "KYBER_AVAILABLE"),
-            ("ama_cryptography.sphincs", "SPHINCS_AVAILABLE"),
-        ]:
-            mod = types.ModuleType(name)
-            setattr(mod, flag, False)
-            all_loaded_with_flags_false[name] = mod
-
-        original_import = importlib.import_module
-
-        def serve_fakes(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name in all_loaded_with_flags_false:
-                return all_loaded_with_flags_false[name]
-            return original_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(importlib, "import_module", serve_fakes)
-
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError) as excinfo:
             _enforce_pqc_production_gate()
+
+        msg = str(excinfo.value)
+        assert "SPHINCS" in msg
 
 
 class TestPassesOnCompleteInstall:
-    def test_returns_silently_when_all_three_algos_available(
+    def test_returns_silently_when_all_three_flags_true(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Mirrors the ``verify-real-pqc`` workflow's expectation:
+        when AMA is built and the top-level package exposes all three
+        ``*_AVAILABLE`` flags as True, the gate is a no-op."""
         monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
-
-        complete: dict[str, types.ModuleType] = {}
-        for name, flag in [
-            ("ama_cryptography.dilithium", "DILITHIUM_AVAILABLE"),
-            ("ama_cryptography.kyber", "KYBER_AVAILABLE"),
-            ("ama_cryptography.sphincs", "SPHINCS_AVAILABLE"),
-        ]:
-            mod = types.ModuleType(name)
-            setattr(mod, flag, True)
-            complete[name] = mod
-
-        original_import = importlib.import_module
-
-        def serve_fakes(name: str, *args: Any, **kwargs: Any) -> Any:
-            if name in complete:
-                return complete[name]
-            return original_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(importlib, "import_module", serve_fakes)
+        _install_fake_ama(monkeypatch, dilithium=True, kyber=True, sphincs=True)
 
         _enforce_pqc_production_gate()  # must not raise
+
+
+class TestErrorMessageContents:
+    def test_message_lists_only_missing_algos(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An operator hitting the gate must see the *full* list of
+        missing algorithms, not just the first one — so they don't
+        rebuild, hit the next missing one, and have to build again."""
+        monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
+        _install_fake_ama(monkeypatch, dilithium=False, kyber=False, sphincs=False)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            _enforce_pqc_production_gate()
+
+        msg = str(excinfo.value)
+        assert "Dilithium" in msg or "ML-DSA-65" in msg
+        assert "Kyber" in msg
+        assert "SPHINCS" in msg

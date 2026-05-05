@@ -25,7 +25,6 @@ re-binding to keep the public package surface clean.
 
 from __future__ import annotations
 
-import importlib
 import os
 
 _PQC_BUILD_RECOVERY_HINT = (
@@ -42,29 +41,46 @@ _PQC_BUILD_RECOVERY_HINT = (
     "verified procedure (mirrors .github/workflows/pqc-production-check.yml)."
 )
 
-_PQC_SUBMODULES: tuple[tuple[str, str, str], ...] = (
-    ("dilithium", "DILITHIUM_AVAILABLE", "ML-DSA-65 (Dilithium)"),
-    ("kyber", "KYBER_AVAILABLE", "Kyber-1024"),
-    ("sphincs", "SPHINCS_AVAILABLE", "SPHINCS+"),
+_PQC_FLAGS: tuple[tuple[str, str], ...] = (
+    ("DILITHIUM_AVAILABLE", "ML-DSA-65 (Dilithium)"),
+    ("KYBER_AVAILABLE", "Kyber-1024"),
+    ("SPHINCS_AVAILABLE", "SPHINCS+"),
 )
 
 
 def _enforce_pqc_production_gate() -> None:
-    """Fail-closed PQC startup gate.  See module docstring for the contract."""
+    """Fail-closed PQC startup gate.  See module docstring for the contract.
+
+    Reads the three ``*_AVAILABLE`` flags from the **top-level**
+    ``ama_cryptography`` package, matching how
+    ``security/pqc_backends.py`` already consumes them
+    (``from ama_cryptography import DILITHIUM_AVAILABLE, ...``).  Earlier
+    iterations of this gate read the flags from per-algorithm submodules
+    (``ama_cryptography.dilithium.DILITHIUM_AVAILABLE``), which the
+    actual AMA v3.1.0 surface does not always populate identically to
+    the top-level constants — so a real verified-real-pqc CI run with
+    a successful build could trigger a false-positive partial-install
+    rejection.  Reading from the top level keeps this gate consistent
+    with the rest of the codebase's view of AMA availability.
+    """
     require_real = os.environ.get(
         "AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC", "")
     ).lower() in ("true", "1", "yes")
     if not require_real:
         return
 
+    try:
+        import ama_cryptography
+    except ImportError as exc:
+        raise RuntimeError(
+            "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography Python "
+            "package is not importable (import ama_cryptography failed).\n"
+            f"{_PQC_BUILD_RECOVERY_HINT}"
+        ) from exc
+
     missing: list[str] = []
-    for module_name, flag_name, friendly in _PQC_SUBMODULES:
-        try:
-            mod = importlib.import_module(f"ama_cryptography.{module_name}")
-        except ImportError:
-            missing.append(friendly)
-            continue
-        if not getattr(mod, flag_name, False):
+    for flag_name, friendly in _PQC_FLAGS:
+        if not getattr(ama_cryptography, flag_name, False):
             missing.append(friendly)
 
     if missing:
