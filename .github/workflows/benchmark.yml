@@ -173,14 +173,36 @@ jobs:
       # ---------------------------------------------------------------
       # Persist the latest mercury run + regenerated README block.
       #
-      # Order matters: this step runs IMMEDIATELY after the gating
-      # mercury benchmark (and its artifact upload) succeeds, BEFORE
-      # the supplementary empirical / seven-axis steps below.  That
-      # way an external-loader regression in the empirical step (or a
-      # seven-axis runner failure) cannot block the README auto-commit
-      # — the empirical / seven-axis failures still fail the
-      # workflow as a whole, but the public benchmark numbers refresh
-      # on every push to main / weekly schedule / workflow_dispatch.
+      # KNOWN LIMITATION (2026-05-05):  This step constructs and
+      # ATTEMPTS the auto-commit, but the actual ``git push`` is
+      # currently rejected by ``main``'s branch protection ruleset:
+      #
+      #   - "Changes must be made through a pull request."
+      #   - "22 of 22 required status checks are expected."
+      #   - "Code scanning is waiting for results from CodeQL."
+      #   - "Commits must have verified signatures."
+      #
+      # ``github-actions[bot]`` commits made via plain ``git push``
+      # are unsigned and bypass the PR requirement, so every prior
+      # auto-commit attempt has been rejected — which is why
+      # ``benchmarks/mercury_benchmark_results.json`` has never
+      # appeared on ``main`` (the README "Latest Benchmark Results"
+      # block stays in ``_pending first auto-commit_`` state
+      # accordingly).  Tracked separately; the fix path is one of:
+      # (a) PR-based push via the Git Database API
+      #     (auto-signs commits, satisfies the PR rule),
+      # (b) GPG-sign bot commits in CI, or
+      # (c) exempt ``github-actions[bot]`` from the signed-commit /
+      #     PR-required ruleset for the ``ci(benchmark): persist
+      #     latest run`` commit pattern.
+      #
+      # Order matters: this step still runs immediately after the
+      # gating mercury benchmark + artifact upload, BEFORE the
+      # supplementary empirical and seven-axis steps below.  When
+      # the push protection issue is resolved, that ordering means
+      # the README block reflects the gating mercury numbers in a
+      # focused single commit and is not bundled with the larger
+      # seven-axis JSON.
       #
       # Pull-request runs are intentionally skipped: PRs from forks
       # cannot push, and even from the same repo we want the merged

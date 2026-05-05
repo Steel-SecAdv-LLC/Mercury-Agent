@@ -122,18 +122,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Code Quality
 
-- **CI coverage floor raised from 10% to 30% / 75% (2026-05-05).**
-  The previous 10% / 10% (`COVERAGE_THRESHOLD_CORE` / `COVERAGE_THRESHOLD_FULL`)
-  floor in `.github/workflows/ci.yml` was scaffolding from the era
-  when MyPy strict-mode churn was repeatedly breaking CI; that churn
-  has been resolved (strict mode is on for `omni_mercury_engine.*`
-  and the 569 surviving suppressions are `[unused-ignore]`-paired so
-  they auto-clear as third-party stubs improve). The CI floor is now
-  a non-trivial bar — 30% for the targeted core subset, 75% for the
-  full 6,300-test suite — leaving a 10-point cushion below the 85%
-  aspirational target in `pyproject.toml [tool.coverage.report]`.
-  `.coveragerc fail_under` is aligned to 75 to match. Failing PRs
-  should add tests, not lower the bar.
+- **CI coverage floor raised from 10% to 15% / 35% (2026-05-05).**
+  The previous 10% / 10% (`COVERAGE_THRESHOLD_CORE` /
+  `COVERAGE_THRESHOLD_FULL`) floor in `.github/workflows/ci.yml`
+  was scaffolding from the era when MyPy strict-mode churn was
+  repeatedly breaking CI; that churn has been resolved (strict mode
+  is on for `omni_mercury_engine.*` and the 569 surviving
+  suppressions are `[unused-ignore]`-paired so they auto-clear as
+  third-party stubs improve). An interim CI run on this branch
+  measured the actual full-suite line coverage at **36.03%**, so
+  the honest CI floor is set just below that — 35 — to defend the
+  measured baseline without immediately failing CI for unrelated
+  reasons. CORE is set to 15 since the core job runs a strictly
+  smaller subset of tests against the full source tree. The 85
+  `pyproject.toml [tool.coverage.report] fail_under` target stays
+  in place as the strict aspirational nightly bar; a dedicated
+  coverage push is planned to close the 36 → 85 gap. `.coveragerc
+  fail_under` is aligned to 35 so local runs and CI agree.
 - **Differential-privacy noise no longer draws from global `np.random`.**
   `federation/privacy.py::DifferentialPrivacy` now owns a per-instance
   `np.random.Generator` (constructed with `default_rng(rng_or_None)`)
@@ -192,6 +197,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tooling
 
+- **`benchmark.yml` push paths filter removed; auto-commit ordering
+  reorganised; root-cause of broken auto-commit identified
+  (2026-05-05).** Three findings:
+  - The `on.push.paths` filter on the benchmark workflow restricted
+    triggers to `benchmarks/**` or `src/omni_mercury_engine/**`
+    only.  Recent merges to `main` (e.g. PR #187 — Dependabot
+    consolidation, helm/Dockerfile/workflows-only) didn't touch
+    those paths, so the workflow never ran on those pushes and the
+    auto-commit step never had a chance to fire.  Filter removed:
+    every push to `main` / `develop` now triggers the benchmark
+    workflow regardless of which paths changed.
+  - The "Update README" + "Commit and push" steps were moved to
+    run immediately after the gating mercury benchmark step (and
+    its artifact upload), before the supplementary empirical and
+    seven-axis steps.  This is a structural cleanup: when the push
+    issue below is resolved, mercury+README will commit in a
+    focused single commit with the canonical
+    `ci(benchmark): persist latest run` subject, and seven-axis
+    will commit as a follow-up.
+  - **Root cause of "Latest Benchmark Results" never updating
+    on `main`:** the bot's `git push origin HEAD:main` is rejected
+    by `main`'s branch protection ruleset (verified from run #660
+    log).  The four blocking rules: "Changes must be made through
+    a pull request", "22 of 22 required status checks", "Code
+    scanning is waiting for results from CodeQL", and "Commits
+    must have verified signatures" (the latter found 1 violation:
+    the unsigned `github-actions[bot]` commit).  Every prior
+    auto-commit attempt has been rejected for the same reasons,
+    which is why `benchmarks/mercury_benchmark_results.json` has
+    never appeared on `main` and the README "Latest Benchmark
+    Results" block stays in `_pending first auto-commit_` state.
+    The workflow comment block in `.github/workflows/benchmark.yml`
+    documents the limitation and the three fix paths
+    (PR + Git-Database-API-signed commits, CI GPG signing, or a
+    targeted ruleset exemption for the bot).
 - **`scripts/update_readme_benchmarks.py` reads canonical metadata**
   (`data["metadata"]["git_commit"]` / `data["metadata"]["timestamp"]`)
   before falling back to the older flat `data["commit"]` /
