@@ -30,8 +30,10 @@ try:
     import torch
 
     HAS_TORCH = True
+    HAS_CUDA = bool(torch.cuda.is_available())
 except ImportError:
     HAS_TORCH = False
+    HAS_CUDA = False
 
 
 pytestmark = pytest.mark.vlm
@@ -82,7 +84,10 @@ class TestAnyAnomalyDetector:
         detector.set_reference_normal(frames)
         assert len(detector.reference_frames) > 0
 
-    @pytest.mark.skip(reason="Hangs without GPU/model weights — environment-specific")
+    @pytest.mark.skipif(
+        not HAS_CUDA,
+        reason="AnyAnomaly mock-backend detect path hangs without CUDA + model weights",
+    )
     def test_anyanomaly_detect_mock(self, sample_image):
         """Test AnyAnomaly detection with mock backend."""
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector

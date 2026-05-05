@@ -629,6 +629,7 @@ class FederatedAnomalyDetector:
         epsilon: float = 1.0,
         delta: float = 1e-5,
         aggregation: str = "fedavg",
+        seed: int | None = None,
     ) -> None:
         """
         Initialize federated anomaly detector.
@@ -642,6 +643,12 @@ class FederatedAnomalyDetector:
             epsilon: Privacy budget
             delta: Privacy parameter delta
             aggregation: Aggregation strategy
+            seed: Optional seed for the per-instance numpy `Generator`
+                used to draw the initial server weights. Federated
+                experiments and audit reconciliation need
+                deterministic initialisation; pass an explicit seed in
+                those cases. The legacy global `np.random` state is
+                never used.
         """
         self._model_dim = model_dim
         self._n_rounds = n_rounds
@@ -651,6 +658,7 @@ class FederatedAnomalyDetector:
         self._epsilon = epsilon
         self._delta = delta
         self._aggregation = aggregation
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         self._weights: np.ndarray | None = None
         self._mean: np.ndarray | None = None
@@ -703,7 +711,7 @@ class FederatedAnomalyDetector:
         if not self._clients:
             raise ValueError("No clients registered")
 
-        initial_weights = np.random.randn(self._model_dim) * 0.01
+        initial_weights = self._rng.standard_normal(self._model_dim) * 0.01
 
         config = ServerConfig(
             n_rounds=self._n_rounds,

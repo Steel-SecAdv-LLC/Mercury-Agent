@@ -16,9 +16,14 @@ omit =
 precision = 2
 show_missing = true
 skip_covered = false
-# CI runs partial test subsets; threshold must be achievable by those runs.
-# Full-suite goal (85%) is in pyproject.toml [tool.coverage.report].
-fail_under = 10
+# Local / nightly floor for tools that read `.coveragerc` instead of
+# `pyproject.toml`.  Aligned with the CI full-suite floor in
+# `.github/workflows/ci.yml` (COVERAGE_THRESHOLD_FULL).  The
+# `pyproject.toml` `[tool.coverage.report] fail_under = 85` remains
+# the strict aspirational bar for nightly runs.  See the comment block
+# in `ci.yml` for the rationale behind ramping up from the legacy
+# 10% scaffolding floor.
+fail_under = 75
 exclude_lines =
     pragma: no cover
     def __repr__

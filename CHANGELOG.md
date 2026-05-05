@@ -120,6 +120,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     6,300+ tests, ~280,950 LOC); replaced unverifiable
     "85%+ coverage" with "measured per release".
 
+### Code Quality
+
+- **CI coverage floor raised from 10% to 30% / 75% (2026-05-05).**
+  The previous 10% / 10% (`COVERAGE_THRESHOLD_CORE` / `COVERAGE_THRESHOLD_FULL`)
+  floor in `.github/workflows/ci.yml` was scaffolding from the era
+  when MyPy strict-mode churn was repeatedly breaking CI; that churn
+  has been resolved (strict mode is on for `omni_mercury_engine.*`
+  and the 569 surviving suppressions are `[unused-ignore]`-paired so
+  they auto-clear as third-party stubs improve). The CI floor is now
+  a non-trivial bar — 30% for the targeted core subset, 75% for the
+  full 6,300-test suite — leaving a 10-point cushion below the 85%
+  aspirational target in `pyproject.toml [tool.coverage.report]`.
+  `.coveragerc fail_under` is aligned to 75 to match. Failing PRs
+  should add tests, not lower the bar.
+- **Differential-privacy noise no longer draws from global `np.random`.**
+  `federation/privacy.py::DifferentialPrivacy` now owns a per-instance
+  `np.random.Generator` (constructed with `default_rng(rng_or_None)`)
+  and routes every noise draw — vector statistics, the symmetric
+  precision-matrix perturbation, the log-determinant scalar — through
+  it.  Callers can pass an explicit `rng` for audited / reproducible
+  deployments; the legacy `np.random.normal(...)` global-state path
+  is removed entirely.  This was a real DP-guarantee defect: a caller
+  that called `np.random.seed(...)` elsewhere in the same process
+  could de-randomise the privacy noise without touching this module.
+- **Federated learning RNG plumbed through.** `federated_learning`:
+  - `SGDTrainer` and `FedProxTrainer` now accept `seed: int | None`
+    and shuffle minibatches via a per-instance `Generator`
+    (`np.random.permutation` global-state calls removed).
+  - `ClientManager` accepts `seed`; `random` and `weighted` selection
+    strategies now use `self._rng.choice(...)` (`np.random.choice`
+    global-state calls removed). Cross-organisational federated
+    rounds can now be reconciled deterministically by passing the
+    same seed to every participant.
+  - `FederatedAnomalyDetector` accepts `seed` and draws the initial
+    server weight vector via `self._rng.standard_normal(...)`
+    (was `np.random.randn(...) * 0.01`).
+- **`MercuryEquationEngine` (`core/double_helix_engine.py`) RNG
+  plumbed through.**  The ethical-matrix initialisation, Hamiltonian
+  symmetric matrix, Boltzmann-sampling noise, simulated-annealing
+  exploration and Lyapunov-chaos perturbation all now draw from a
+  per-instance `np.random.Generator` (constructor `seed: int | None`).
+- **Tests:**
+  - `tests/test_vlm_detectors.py::test_anyanomaly_detect_mock` was
+    `@pytest.mark.skip(...)` (unconditional — always skipped) with a
+    reason that *described* a CUDA dependency; it is now
+    `@pytest.mark.skipif(not HAS_CUDA, ...)` so the test actually
+    runs on GPU runners.
+  - `tests/detectors/test_enhanced_geological_detectors.py` —
+    `test_recursion_synapse_integration`,
+    `test_resonance_synapse_integration`, and
+    `test_refactoring_synapse_integration` previously skipped on
+    `if not detector.enable_X` even though their fixtures explicitly
+    construct the detector with that flag set, so the skip path was
+    hiding an integration test that should have always been running.
+    Replaced the `pytest.skip(...)` with an `assert` that surfaces
+    the integration coverage instead of silently masking it.
+- **Tracked debt (not fixed in this sweep):** 34 unpaired
+  `# type: ignore[no-redef]` suppressions across
+  `safeguards/nano_safeguards.py`,
+  `detectors/geological/disaster_detectors.py`,
+  `detectors/acceleration_dynamics.py`,
+  `detectors/dimensional.py`,
+  `integrations/mercury_amacrypto.py`,
+  `ml/harmonic_encoder.py`,
+  `medical/abms_disciplines.py`. These guard repeated stub-class
+  redefinitions across optional-dependency branches and should be
+  refactored to a Protocol-or-inheritance pattern; tracked for a
+  follow-up PR rather than churning the boundary code in this
+  documentation/quality sweep.
+
 ### Tooling
 
 - **`scripts/update_readme_benchmarks.py` reads canonical metadata**
