@@ -228,10 +228,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     which is why `benchmarks/mercury_benchmark_results.json` has
     never appeared on `main` and the README "Latest Benchmark
     Results" block stays in `_pending first auto-commit_` state.
-    The workflow comment block in `.github/workflows/benchmark.yml`
-    documents the limitation and the three fix paths
-    (PR + Git-Database-API-signed commits, CI GPG signing, or a
-    targeted ruleset exemption for the bot).
+- **Benchmark auto-commit replaced with PR-based, API-signed flow
+  (Option A).** New `scripts/persist_benchmark_to_pr.py` uses the
+  GitHub Git Database API directly (`/git/blobs`, `/git/trees`,
+  `/git/commits`, `/git/refs`) to commit on the
+  `ci/benchmark-results` feature branch.  Commits made via the
+  API are auto-signed by `github-actions[bot]` (satisfies rule 4,
+  *Commits must have verified signatures*).  The script then opens
+  a PR into `main` (satisfies rule 1, *Changes must be made
+  through a pull request*).  The 22 required status checks (rule
+  2) run on the PR.  Both the mercury+README commit and the
+  follow-up seven-axis commit re-use the same feature branch — the
+  script force-updates the ref, so a single PR collects both
+  changes rather than opening two PRs.
+  - **Caveat — initial CI on the bot PR is pending:** GitHub
+    deliberately does not trigger downstream workflows from events
+    caused by the default `GITHUB_TOKEN`, so the 22 required
+    checks land **pending** on the bot PR and need to be unblocked
+    by either re-running the CI workflow manually on the PR head
+    or configuring a Personal Access Token (or GitHub App token)
+    as `BENCHMARK_BOT_TOKEN` in repo secrets — the workflow reads
+    `secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN`, so
+    setting that secret automatically switches every future
+    benchmark run to the trigger-aware token without further
+    workflow edits.
+  - **Auto-merge is not enabled by default.**  The persister
+    script accepts `--enable-automerge --merge-method squash` for
+    deployments that want the PR to merge as soon as required
+    checks pass; the workflow does not pass that flag yet — that
+    is an explicit maintainer policy decision.
 - **`scripts/update_readme_benchmarks.py` reads canonical metadata**
   (`data["metadata"]["git_commit"]` / `data["metadata"]["timestamp"]`)
   before falling back to the older flat `data["commit"]` /
