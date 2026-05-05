@@ -5,7 +5,7 @@
 # =============================================================================
 # Stage 1: Builder - Install dependencies in a full environment
 # =============================================================================
-FROM python:3.14-slim-bookworm AS builder
+FROM python:3.12-slim-bookworm AS builder
 
 # Install build dependencies
 RUN apt-get update && \
@@ -44,7 +44,7 @@ COPY . /app
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only runtime dependencies
 # =============================================================================
-FROM python:3.14-slim-bookworm AS runtime
+FROM python:3.12-slim-bookworm AS runtime
 
 # Build arguments for flexibility
 ARG USERNAME=mercuryagent
