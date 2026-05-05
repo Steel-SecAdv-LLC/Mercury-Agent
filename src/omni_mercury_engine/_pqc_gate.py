@@ -63,8 +63,8 @@ _PQC_BUILD_RECOVERY_HINT = (
 _PQC_HARD_REQUIRED: tuple[tuple[str, str], ...] = (
     ("DILITHIUM_AVAILABLE", "ML-DSA-65 (Dilithium)"),
     ("KYBER_AVAILABLE", "Kyber-1024"),
+    ("SPHINCS_AVAILABLE", "SPHINCS+"),
 )
-_PQC_SOFT_REQUIRED: tuple[tuple[str, str], ...] = (("SPHINCS_AVAILABLE", "SPHINCS+"),)
 
 
 def _enforce_pqc_production_gate() -> None:
@@ -107,30 +107,9 @@ def _enforce_pqc_production_gate() -> None:
         if not getattr(ama_pqc_backends, flag_name, False)
     ]
 
-    if missing_hard:
+    if missing:
         raise RuntimeError(
             "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography native C "
-            f"backend is incomplete; missing or unavailable: {', '.join(missing_hard)}.\n"
+            f"backend is incomplete; missing or unavailable: {', '.join(missing)}.\n"
             f"{_PQC_BUILD_RECOVERY_HINT}"
-        )
-
-    missing_soft: list[str] = [
-        friendly
-        for flag_name, friendly in _PQC_SOFT_REQUIRED
-        if not getattr(ama_pqc_backends, flag_name, False)
-    ]
-
-    if missing_soft:
-        import warnings
-
-        warnings.warn(
-            "AMA_REQUIRE_REAL_PQC=true and the AMA Cryptography native C "
-            "backend is loadable, but the following soft-required surface "
-            f"is unavailable: {', '.join(missing_soft)}.  Mercury will "
-            "import but any code path that uses this surface will degrade "
-            "to the soft PQC stub at call time.  See "
-            "docs/INSTALLATION.md 'Post-Quantum Cryptography backend' for "
-            "the full build-with-all-algorithms procedure.",
-            UserWarning,
-            stacklevel=2,
         )

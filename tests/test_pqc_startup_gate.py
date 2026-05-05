@@ -32,20 +32,20 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-def _gate() -> Callable[[], None]:
-    """Lazy import of the gate function.
+def _scrub_real_pqc_env() -> dict[str, str]:
+    """Save and clear the AMA_REQUIRE_REAL_PQC env vars.
 
-    Imported inside the call so module collection does NOT trigger
-    ``omni_mercury_engine.__init__``'s package-level self-call before
-    the per-test ``monkeypatch`` fixture has had a chance to scrub
-    ``AMA_REQUIRE_REAL_PQC`` from the environment.  Without this lazy
-    pattern, a CI lane that sets the env var globally would fail
-    collection on this file rather than the per-test cases reaching
-    their assertions.
+    Returns the saved values so callers can restore them.  We avoid
+    ``monkeypatch`` here because the cleanup ordering between
+    ``monkeypatch`` and module-level imports of ``omni_mercury_engine``
+    can produce false positives when the suite is run with the env
+    var set globally.
     """
-    from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
-
-    return _enforce_pqc_production_gate
+    saved: dict[str, str] = {}
+    for name in ("AMA_REQUIRE_REAL_PQC", "AVA_REQUIRE_REAL_PQC"):
+        if name in os.environ:
+            saved[name] = os.environ.pop(name)
+    return saved
 
 
 def _scrub_real_pqc_env() -> dict[str, str]:

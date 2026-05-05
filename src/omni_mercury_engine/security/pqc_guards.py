@@ -124,6 +124,8 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
             missing.append("ML-DSA-65 (Dilithium)")
         if not KYBER_AVAILABLE:
             missing.append("Kyber-1024")
+        if not SPHINCS_AVAILABLE:
+            missing.append("SPHINCS+")
         if missing:
             # Reuse the canonical recovery hint defined alongside the
             # import-time gate so the two raise paths give operators
