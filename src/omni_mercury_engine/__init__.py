@@ -68,82 +68,17 @@ if TYPE_CHECKING:
 # Production PQC gate.
 #
 # When ``AMA_REQUIRE_REAL_PQC=true`` (or the legacy ``AVA_REQUIRE_REAL_PQC``)
-# is set in the environment, package import refuses to proceed unless the
-# AMA Cryptography native C backend is actually loadable.  Without the env
-# var, Mercury continues to import against the stub PQC functions in
-# ``security/pqc_backends.py`` for development convenience — there is no
-# automatic fail in dev mode by design.
+# is set, ``omni_mercury_engine`` package import refuses to proceed unless
+# the AMA Cryptography native C backend is fully loadable.  Without the env
+# var, the gate is a no-op and Mercury imports against the soft PQC stubs
+# in ``security/pqc_backends.py`` for development convenience.
 #
-# This is the gate referenced by ``docs/index.md`` and ``docs/INSTALLATION.md``
-# as "the production startup gate".  Deployments that set the env var get
-# automatic fail-closed behaviour at import time; deployments that do not
-# get a soft import.
+# Implementation lives in ``omni_mercury_engine._pqc_gate`` so it has a
+# stable importable location for unit tests; the function is invoked once
+# here at package-load time and then the local re-binding is deleted to
+# keep the public package surface clean.
 # ---------------------------------------------------------------------------
-_PQC_BUILD_RECOVERY_HINT = (
-    "Build the AMA-Cryptography native library from a clone of the upstream\n"
-    "repo (Mercury-Agent has no CMakeLists.txt of its own):\n"
-    "  git clone --depth 1 --branch v3.1.0 \\\n"
-    "      https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography\n"
-    "  cd /tmp/ama-cryptography\n"
-    "  cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
-    "  AMA_NO_CYTHON=1 pip install --no-build-isolation .\n"
-    "  export LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:"
-    "/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}\n"
-    "See docs/INSTALLATION.md 'Post-Quantum Cryptography backend' for the\n"
-    "verified procedure (mirrors .github/workflows/pqc-production-check.yml)."
-)
-
-
-def _enforce_pqc_production_gate() -> None:
-    """Fail-closed PQC startup gate.
-
-    Inlined rather than dispatched through
-    ``security.pqc_guards.check_pqc_production_readiness`` so the no-op
-    path (env var unset, the dev-mode default) imports nothing from
-    ``security/`` and stays free of ``cryptography``-stack side effects.
-    The fail-closed path (env var set, native lib missing) raises before
-    any heavier package work.
-
-    Algorithm coverage matches ``check_pqc_production_readiness``: the
-    gate fails closed unless **all three** AMA algorithms are loadable
-    (ML-DSA-65 via ``dilithium``, Kyber-1024 via ``kyber``, SPHINCS+ via
-    ``sphincs``).  Any partial build is rejected because Mercury still
-    exposes the Kyber and SPHINCS surfaces elsewhere, and a Dilithium-
-    only install would let the process start in a cryptographically
-    incomplete state.
-    """
-    import os
-
-    require_real = os.environ.get(
-        "AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC", "")
-    ).lower() in ("true", "1", "yes")
-    if not require_real:
-        return
-
-    missing: list[str] = []
-    submodules = (
-        ("dilithium", "DILITHIUM_AVAILABLE", "ML-DSA-65 (Dilithium)"),
-        ("kyber", "KYBER_AVAILABLE", "Kyber-1024"),
-        ("sphincs", "SPHINCS_AVAILABLE", "SPHINCS+"),
-    )
-    import importlib
-
-    for module_name, flag_name, friendly in submodules:
-        try:
-            mod = importlib.import_module(f"ama_cryptography.{module_name}")
-        except ImportError:
-            missing.append(friendly)
-            continue
-        if not getattr(mod, flag_name, False):
-            missing.append(friendly)
-
-    if missing:
-        raise RuntimeError(
-            "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography native C "
-            f"backend is incomplete; missing or unavailable: {', '.join(missing)}.\n"
-            f"{_PQC_BUILD_RECOVERY_HINT}"
-        )
-
+from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
 
 _enforce_pqc_production_gate()
 del _enforce_pqc_production_gate
