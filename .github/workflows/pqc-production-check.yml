@@ -11,6 +11,10 @@ on:
       - 'src/omni_mercury_engine/security/**'
       - 'src/omni_mercury_engine/integrations/mercury_amacrypto.py'
       - '.github/workflows/pqc-production-check.yml'
+  # Manual dispatch is the recovery path when a push to ``main`` is
+  # accidentally suppressed by a skip-directive substring in the squash
+  # merge commit message (see CONTRIBUTING.md "Squash-merge gotcha").
+  workflow_dispatch:
 
 jobs:
   verify-real-pqc:
