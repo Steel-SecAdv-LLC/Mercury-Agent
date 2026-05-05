@@ -55,12 +55,13 @@ backend (see `SECURITY.md` and PRs #144, #162). The package import
 is guarded — `security/pqc_backends.py` catches `ImportError` and
 keeps Mercury importable with stub functions, so a developer
 without the native library can still load the package — but
-`check_pqc_production_readiness()` (in `security/pqc_guards.py`)
-fails closed when `AMA_REQUIRE_REAL_PQC=true` and the native
-library is missing. **The guard is opt-in:** it is not invoked
-from any startup path in `src/omni_mercury_engine/` today;
-deployments that want a hard PQC gate must call it explicitly
-during their own bootstrap.
+an inlined production-gate check at package import time
+(`omni_mercury_engine/__init__.py::_enforce_pqc_production_gate`)
+fails closed when `AMA_REQUIRE_REAL_PQC=true` and the AMA Cryptography
+native C backend is not loadable. With the env var set, `import
+omni_mercury_engine` raises `RuntimeError` before any other package
+state is materialised, so production deployments cannot accidentally
+fall through to stub PQC functions.
 
 For production, build and install the native library from the
 upstream AMA-Cryptography repository (note: the `cmake` step
@@ -90,13 +91,12 @@ export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
 cd /path/to/Mercury-Agent
 ```
 
-With `AMA_REQUIRE_REAL_PQC=true`, an explicit call to
-`check_pqc_production_readiness()` refuses to proceed if the
-native library is unloadable. The check is **not** wired into
-Mercury's package import path today — deployments that need a
-hard PQC gate must invoke it from their own bootstrap (e.g. an
-application entrypoint or a container `CMD` wrapper). Without
-the env var set, Mercury imports against stub PQC functions for
+With `AMA_REQUIRE_REAL_PQC=true`, the inlined production-gate
+check at `omni_mercury_engine/__init__.py::_enforce_pqc_production_gate`
+runs at package import and refuses to proceed if the native library
+is unloadable — `import omni_mercury_engine` raises `RuntimeError`
+before any other package state is materialised. Without the env
+var set, Mercury imports against stub PQC functions for
 development convenience. There is no fallback chain to a non-AMA
 backend.
 

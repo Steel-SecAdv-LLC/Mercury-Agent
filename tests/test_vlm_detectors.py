@@ -84,29 +84,6 @@ class TestAnyAnomalyDetector:
         detector.set_reference_normal(frames)
         assert len(detector.reference_frames) > 0
 
-    @pytest.mark.skip(
-        reason=(
-            "AnyAnomaly 'mock' backend is not wired into "
-            "AnyAnomalyDetector._initialize_model (selection still uses "
-            "vlm_config.model_type), and MockLVLMBackend.initialize() "
-            "raises NotImplementedError; this test will hang or fail "
-            "until the mock backend is implemented. Tracked in ROADMAP."
-        )
-    )
-    def test_anyanomaly_detect_mock(self, sample_image):
-        """Test AnyAnomaly detection with mock backend."""
-        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
-        from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
-
-        config = AnyAnomalyConfig(backend="mock")
-        detector = AnyAnomalyDetector(config=config)
-        detector.set_anomaly_definition("A person running")
-
-        result = detector.detect(sample_image)
-        assert "scores" in result
-        assert "reasoning" in result
-        assert "is_anomaly" in result
-
 
 @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
 class TestLAVADDetector:

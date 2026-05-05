@@ -289,6 +289,7 @@ class SecureAggregatorWrapper(Aggregator):
         delta: float = 1e-5,
         max_grad_norm: float = 1.0,
         min_clients: int = 3,
+        seed: int | None = None,
     ) -> None:
         """Initialize secure aggregator."""
         self._secure_agg = SecureAggregator(
@@ -296,6 +297,7 @@ class SecureAggregatorWrapper(Aggregator):
             epsilon=epsilon,
             delta=delta,
             min_clients=min_clients,
+            seed=seed,
         )
         self._max_grad_norm = max_grad_norm
 
@@ -376,6 +378,7 @@ class FederatedServer:
         self._global_weights = initial_weights.copy()
         self._config = config or ServerConfig()
         self._eval_fn = eval_fn
+        self._seed = seed
 
         self._client_manager = ClientManager(
             min_clients=self._config.min_clients,
@@ -395,6 +398,7 @@ class FederatedServer:
                 epsilon=self._config.epsilon,
                 delta=self._config.delta,
                 max_grad_norm=self._config.max_grad_norm,
+                seed=seed,
             )
 
     def _create_aggregator(self) -> Aggregator:
@@ -411,6 +415,7 @@ class FederatedServer:
                 delta=self._config.delta,
                 max_grad_norm=self._config.max_grad_norm,
                 min_clients=self._config.min_clients,
+                seed=self._seed,
             )
         else:
             return FedAvgAggregator(learning_rate=self._config.server_learning_rate)
@@ -651,27 +656,25 @@ class FederatedAnomalyDetector:
             epsilon: Privacy budget
             delta: Privacy parameter delta
             aggregation: Aggregation strategy
-            seed: Optional seed for the per-instance numpy `Generator`
+            seed: Optional seed for the per-instance numpy ``Generator``
                 that controls **all** stochastic surfaces inside the
                 federated training loop:
 
                 - the initial server-weights draw (``standard_normal``);
                 - the per-client :class:`SGDTrainer` minibatch-shuffle
                   seed (one distinct sub-seed per ``add_client`` call);
+                - the per-client :class:`PrivacyEngine` Gaussian /
+                  Laplace noise seed (one distinct sub-seed per
+                  ``add_client`` call when ``use_privacy=True``);
                 - the embedded :class:`ClientManager`'s
-                  ``random`` / ``weighted`` selection seed.
+                  ``random`` / ``weighted`` selection seed; and
+                - the server-side :class:`PrivacyEngine` /
+                  :class:`SecureAggregatorWrapper` noise seed.
 
-                With an explicit seed and ``use_privacy=False``, two
-                runs with the same ``add_client`` order produce
-                identical final weights. The legacy global
+                With an explicit seed, two runs with the same
+                ``add_client`` order produce identical final weights
+                regardless of ``use_privacy``. The legacy global
                 ``np.random`` state is never used.
-
-                Privacy noise (``GaussianMechanism`` /
-                ``LaplaceMechanism`` in ``federated_learning/privacy.py``)
-                still draws from an unseeded ``default_rng()``; if you
-                need bit-for-bit determinism with ``use_privacy=True``,
-                that is a separate concern tracked in
-                ``docs/ROADMAP.md``.
         """
         self._model_dim = model_dim
         self._n_rounds = n_rounds
@@ -728,6 +731,7 @@ class FederatedAnomalyDetector:
         )
 
         client_trainer_seed = int(self._rng.integers(0, 2**31 - 1))
+        client_privacy_seed = int(self._rng.integers(0, 2**31 - 1))
         trainer = SGDTrainer(seed=client_trainer_seed)
 
         client = FederatedClient(
@@ -735,6 +739,7 @@ class FederatedAnomalyDetector:
             local_data=(X, y),
             config=config,
             trainer=trainer,
+            privacy_seed=client_privacy_seed,
         )
         self._clients.append(client)
 

@@ -426,6 +426,7 @@ class FederatedClient:
         local_data: tuple[np.ndarray, np.ndarray | None],
         config: ClientConfig | None = None,
         trainer: LocalTrainer | None = None,
+        privacy_seed: int | None = None,
     ) -> None:
         """
         Initialize federated client.
@@ -435,6 +436,10 @@ class FederatedClient:
             local_data: Local training data (X, y) or (X, None) for unsupervised
             config: Client configuration
             trainer: Local trainer instance
+            privacy_seed: Optional seed forwarded to the auto-constructed
+                :class:`PrivacyEngine` so DP noise is reproducible per
+                client. Has no effect when ``config.use_privacy`` is
+                ``False``.
         """
         self._client_id = client_id
         self._local_data = local_data
@@ -454,6 +459,7 @@ class FederatedClient:
                 delta=self._config.delta,
                 max_grad_norm=self._config.max_grad_norm,
                 noise_multiplier=self._config.noise_multiplier,
+                seed=privacy_seed,
             )
 
         self._local_ldp: LocalDifferentialPrivacy | None = None

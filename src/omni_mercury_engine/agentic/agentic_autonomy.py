@@ -117,6 +117,7 @@ class AgenticAutonomy:
         self,
         autonomy_level: float = 0.8,
         learning_config: LearningConfig | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize agentic autonomy system.
@@ -124,6 +125,11 @@ class AgenticAutonomy:
         Args:
             autonomy_level: Level of autonomy (0-1), higher = more autonomous
             learning_config: Configuration for reinforcement learning
+            seed: Optional seed for the per-instance numpy ``Generator``
+                that drives experience-replay batch sampling and
+                exploration / random action selection.  Pass an
+                explicit seed for reproducible RL audits; the legacy
+                global ``np.random`` state is never used.
         """
         self.autonomy_level = autonomy_level
         self.state = AgentState.IDLE
@@ -135,6 +141,7 @@ class AgenticAutonomy:
         self.experience_buffer: deque[Experience] = deque(maxlen=self.learning_config.memory_size)
         self.exploration_rate = self.learning_config.exploration_rate
         self.policy_metrics = PolicyMetrics()
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Q-table: maps (state_bucket, action_type) -> Q-value
         # State buckets are discretized state representations
@@ -369,7 +376,7 @@ class AgenticAutonomy:
             return
 
         # Sample random batch
-        indices = np.random.choice(
+        indices = self._rng.choice(
             len(self.experience_buffer),
             size=self.learning_config.batch_size,
             replace=False,
@@ -439,8 +446,8 @@ class AgenticAutonomy:
             available_actions = self.ACTION_TYPES
 
         # Epsilon-greedy exploration
-        if np.random.random() < self.exploration_rate:
-            return str(np.random.choice(available_actions))
+        if self._rng.random() < self.exploration_rate:
+            return str(self._rng.choice(available_actions))
 
         # Greedy selection based on Q-values
         q_values = [

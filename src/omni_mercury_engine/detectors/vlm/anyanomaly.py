@@ -64,17 +64,23 @@ class AnyAnomalyConfig(VLMConfig):
         use_segment_voting: Aggregate votes across segments
         action_focused: Emphasize action-based anomalies
         appearance_focused: Emphasize appearance-based anomalies
-        backend: LVLM backend type (for test compatibility)
         context_window: Number of context frames
         enable_positional_context: Enable positional context
         enable_temporal_context: Enable temporal context
+
+    Note:
+        The LVLM backend is selected via the inherited ``model_type``
+        field on :class:`VLMConfig`, which ``AnyAnomalyDetector._initialize_model``
+        forwards to :func:`omni_mercury_engine.detectors.vlm.lvlm_backends.get_lvlm_backend`.
+        There is no separate ``backend`` field; a configuration like
+        ``AnyAnomalyConfig(model_type=VLMModelType.QWEN2_VL)`` is the
+        supported pattern.
     """
 
     segment_overlap: int = 4
     use_segment_voting: bool = True
     action_focused: bool = True
     appearance_focused: bool = True
-    backend: str = "qwen2_vl"  # LVLM backend type
     context_window: int = 4  # Number of context frames
     enable_positional_context: bool = True  # Enable positional context
     enable_temporal_context: bool = True  # Enable temporal context

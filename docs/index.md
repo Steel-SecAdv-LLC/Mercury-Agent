@@ -26,13 +26,18 @@ for the post-quantum cryptographic substrate.
   guarded — `security/pqc_backends.py` catches `ImportError` and
   keeps Mercury importable with stub functions, so a developer
   without the native library can still load the package — but
-  `check_pqc_production_readiness()` (in `security/pqc_guards.py`)
-  fails closed when `AMA_REQUIRE_REAL_PQC=true` and the native
-  library is missing. **The guard is opt-in:** it is not invoked
-  from any startup path in `src/omni_mercury_engine/` today;
-  deployments that want a hard PQC gate must call it explicitly
-  during their own bootstrap. See [`SECURITY.md`](../SECURITY.md)
-  for the full contract.
+  the package import path runs an inlined production-gate check
+  (`omni_mercury_engine/__init__.py::_enforce_pqc_production_gate`)
+  that fails closed when `AMA_REQUIRE_REAL_PQC=true` and the native
+  AMA Cryptography library is missing or partially built. The gate
+  is automatic: `import omni_mercury_engine` raises `RuntimeError`
+  before any other package state is materialised. With the env var
+  unset (the dev-mode default), the gate is a no-op and the soft
+  PQC stubs from `security/pqc_backends.py` carry development.
+  `security/pqc_guards.check_pqc_production_readiness()` remains
+  available for callers that want the same check at a finer
+  boundary. See [`SECURITY.md`](../SECURITY.md) for the full
+  contract.
 - **Two distinct benchmark cuts.** The README headline is the
   **64/75 reproducibility set** (Mean AUC 0.8285, Mean Oracle F1
   0.6370). CI's regression-gate floor is the **51/55**

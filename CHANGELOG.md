@@ -172,16 +172,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per-instance `np.random.Generator` (constructor `seed: int | None`).
 - **Tests:**
   - `tests/test_vlm_detectors.py::test_anyanomaly_detect_mock`
-    remains `@pytest.mark.skip(...)` (unconditional) with a
-    truthful reason: `AnyAnomalyConfig(backend="mock")` is not
-    wired into `AnyAnomalyDetector._initialize_model` (selection
-    still uses `vlm_config.model_type`), and
-    `MockLVLMBackend.initialize()` raises `NotImplementedError`,
-    so the test would hang or fail until the mock backend is
-    implemented. Tracked in `docs/ROADMAP.md`. (An interim
-    `skipif(not HAS_CUDA, ...)` form was tried in this branch but
-    reverted — it would have turned a hidden skip into a
-    hang/failure on GPU runners.)
+    deleted. `MockLVLMBackend` is intentionally a hard-fail by
+    design (Phase 2 audit cure: silent mock degradation is not
+    permitted in production), so any test that exercises it would
+    have to fight that design. The dead `backend` field on
+    `AnyAnomalyConfig` is also removed; backend selection has
+    always been driven by the inherited `VLMConfig.model_type`
+    field, which the factory in `lvlm_backends.get_lvlm_backend`
+    consumes.
   - `tests/detectors/test_enhanced_geological_detectors.py` —
     `test_recursion_synapse_integration`,
     `test_resonance_synapse_integration`, and

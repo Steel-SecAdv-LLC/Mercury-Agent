@@ -63,6 +63,64 @@ if TYPE_CHECKING:
     )
     from omni_mercury_engine.engine import OmniMercuryEngine as OmniMercuryEngine
 
+
+# ---------------------------------------------------------------------------
+# Production PQC gate.
+#
+# When ``AMA_REQUIRE_REAL_PQC=true`` (or the legacy ``AVA_REQUIRE_REAL_PQC``)
+# is set in the environment, package import refuses to proceed unless the
+# AMA Cryptography native C backend is actually loadable.  Without the env
+# var, Mercury continues to import against the stub PQC functions in
+# ``security/pqc_backends.py`` for development convenience — there is no
+# automatic fail in dev mode by design.
+#
+# This is the gate referenced by ``docs/index.md`` and ``docs/INSTALLATION.md``
+# as "the production startup gate".  Deployments that set the env var get
+# automatic fail-closed behaviour at import time; deployments that do not
+# get a soft import.
+# ---------------------------------------------------------------------------
+def _enforce_pqc_production_gate() -> None:
+    """Fail-closed PQC startup gate.
+
+    Inlined rather than dispatched through
+    ``security.pqc_guards.check_pqc_production_readiness`` so the no-op
+    path (env var unset, the dev-mode default) imports nothing from
+    ``security/`` and stays free of ``cryptography``-stack side effects.
+    The fail-closed path (env var set, native lib missing) raises before
+    any heavier package work.
+    """
+    import os
+
+    require_real = os.environ.get(
+        "AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC", "")
+    ).lower() in ("true", "1", "yes")
+    if not require_real:
+        return
+
+    try:
+        from ama_cryptography import dilithium as _ama_dilithium
+    except ImportError as exc:
+        raise RuntimeError(
+            "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography native "
+            "C backend is not loadable (`import ama_cryptography.dilithium` "
+            "failed). Build the native library:\n"
+            "  cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build\n"
+            "and ensure LD_LIBRARY_PATH points at the build output. See "
+            "docs/INSTALLATION.md 'Post-Quantum Cryptography backend'."
+        ) from exc
+
+    if not getattr(_ama_dilithium, "DILITHIUM_AVAILABLE", False):
+        raise RuntimeError(
+            "AMA_REQUIRE_REAL_PQC=true but ML-DSA-65 (Dilithium) is not "
+            "available from the installed ama_cryptography package "
+            "(`ama_cryptography.dilithium.DILITHIUM_AVAILABLE` is False). "
+            "Rebuild AMA Cryptography with -DAMA_USE_NATIVE_PQC=ON."
+        )
+
+
+_enforce_pqc_production_gate()
+del _enforce_pqc_production_gate
+
 # Lazy imports to support running without ML dependencies (torch)
 # The OmniMercuryEngine requires torch, but we defer the import to allow
 # CLI help commands and other lightweight operations to work without it.

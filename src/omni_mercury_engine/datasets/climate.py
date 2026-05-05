@@ -322,7 +322,7 @@ class SimonsCMAPLoader(DatasetLoader):
 
     def _create_synthetic_ocean(self) -> bool:
         """Create synthetic oceanographic data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
         # Generate oceanographic features based on realistic distributions
@@ -331,25 +331,25 @@ class SimonsCMAPLoader(DatasetLoader):
 
         for _ in range(n_samples):
             # Generate location (global ocean distribution)
-            lat = np.random.uniform(-60, 60)
-            lon = np.random.uniform(-180, 180)
-            depth = np.random.exponential(100)  # Most samples near surface
+            lat = rng.uniform(-60, 60)
+            lon = rng.uniform(-180, 180)
+            depth = rng.exponential(100)  # Most samples near surface
 
             # Temperature profile (decreases with depth, varies by latitude)
             surface_temp = 28 - 0.3 * abs(lat)  # Warmer at equator
-            temp = surface_temp * np.exp(-depth / 500) + np.random.normal(0, 1)
+            temp = surface_temp * np.exp(-depth / 500) + rng.normal(0, 1)
 
             # Salinity (relatively stable, varies slightly with location)
-            salinity = 35 + np.random.normal(0, 0.5) + 0.01 * depth
+            salinity = 35 + rng.normal(0, 0.5) + 0.01 * depth
 
             # Chlorophyll (higher in upwelling regions, surface)
-            chl = np.random.exponential(0.3) * np.exp(-depth / 50)
+            chl = rng.exponential(0.3) * np.exp(-depth / 50)
 
             # Nitrate (increases with depth due to remineralization)
-            nitrate = 0.5 + 30 * (1 - np.exp(-depth / 200)) + np.random.normal(0, 2)
+            nitrate = 0.5 + 30 * (1 - np.exp(-depth / 200)) + rng.normal(0, 2)
 
             # Oxygen (decreases with depth, minimum around 400-800m)
-            oxygen = 8 - 5 * np.exp(-((depth - 600) ** 2) / 50000) + np.random.normal(0, 0.5)
+            oxygen = 8 - 5 * np.exp(-((depth - 600) ** 2) / 50000) + rng.normal(0, 0.5)
 
             feature_vec = [lat, lon, depth, temp, salinity, chl, max(nitrate, 0), max(oxygen, 0)]
             features.append(feature_vec)
@@ -537,7 +537,7 @@ class WorldOceanDatabaseLoader(DatasetLoader):
 
     def _create_synthetic_wod(self) -> bool:
         """Create synthetic WOD-like profile data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
         # Generate oceanographic profiles
@@ -546,27 +546,27 @@ class WorldOceanDatabaseLoader(DatasetLoader):
 
         for _ in range(n_samples):
             # Random location in ocean regions
-            lat = np.random.uniform(-80, 80)
-            lon = np.random.uniform(-180, 180)
+            lat = rng.uniform(-80, 80)
+            lon = rng.uniform(-180, 180)
 
             # Generate depth profile (surface to 2000m for Argo-like data)
-            depth = np.random.exponential(200)
+            depth = rng.exponential(200)
 
             # Temperature profile based on depth and latitude
             # Surface temperature varies with latitude
-            sst = 28 - 0.4 * abs(lat) + np.random.normal(0, 2)
+            sst = 28 - 0.4 * abs(lat) + rng.normal(0, 2)
             # Temperature decreases exponentially with depth
-            temp = 2 + (sst - 2) * np.exp(-depth / 300) + np.random.normal(0, 0.5)
+            temp = 2 + (sst - 2) * np.exp(-depth / 300) + rng.normal(0, 0.5)
 
             # Salinity profile
             # Surface salinity varies (higher in subtropics due to evaporation)
-            sss = 35 + 0.5 * np.exp(-((abs(lat) - 25) ** 2) / 100) + np.random.normal(0, 0.2)
-            salinity = sss + 0.01 * depth * (1 - np.exp(-depth / 500)) + np.random.normal(0, 0.1)
+            sss = 35 + 0.5 * np.exp(-((abs(lat) - 25) ** 2) / 100) + rng.normal(0, 0.2)
+            salinity = sss + 0.01 * depth * (1 - np.exp(-depth / 500)) + rng.normal(0, 0.1)
 
             # Date (random within year range)
-            year = np.random.randint(self.year_range[0], self.year_range[1] + 1)
-            month = np.random.randint(1, 13)
-            day = np.random.randint(1, 29)
+            year = int(rng.integers(self.year_range[0], self.year_range[1] + 1))
+            month = int(rng.integers(1, 13))
+            day = int(rng.integers(1, 29))
 
             feature_vec = [lat, lon, depth, temp, salinity, year, month, day]
             features.append(feature_vec)
@@ -815,7 +815,7 @@ class CopernicusSeaLevelLoader(DatasetLoader):
 
     def _create_synthetic_sea_level(self) -> bool:
         """Create synthetic sea level anomaly data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
         features = []
@@ -823,24 +823,24 @@ class CopernicusSeaLevelLoader(DatasetLoader):
 
         for _ in range(n_samples):
             # Random ocean location
-            lat = np.random.uniform(-60, 60)
-            lon = np.random.uniform(-180, 180)
+            lat = rng.uniform(-60, 60)
+            lon = rng.uniform(-180, 180)
 
             # Sea level anomaly (global mean ~0, regional variations)
             # El Nino/La Nina patterns in tropical Pacific
             enso_effect = 0.1 * np.sin(2 * np.pi * lon / 360) if abs(lat) < 20 else 0
-            seasonal = 0.05 * np.sin(2 * np.pi * np.random.random())
-            sla = enso_effect + seasonal + np.random.normal(0, 0.05)
+            seasonal = 0.05 * np.sin(2 * np.pi * rng.random())
+            sla = enso_effect + seasonal + rng.normal(0, 0.05)
 
             # Absolute dynamic topography
-            adt = 0.5 + sla + np.random.normal(0, 0.01)
+            adt = 0.5 + sla + rng.normal(0, 0.01)
 
             # Geostrophic velocities (derived from sea level gradients)
-            ugos = np.random.normal(0, 0.1)
-            vgos = np.random.normal(0, 0.1)
+            ugos = rng.normal(0, 0.1)
+            vgos = rng.normal(0, 0.1)
 
-            year = np.random.randint(self.year_range[0], self.year_range[1] + 1)
-            month = np.random.randint(1, 13)
+            year = int(rng.integers(self.year_range[0], self.year_range[1] + 1))
+            month = int(rng.integers(1, 13))
 
             feature_vec = [lat, lon, sla, adt, ugos, vgos, year, month]
             features.append(feature_vec)
@@ -1145,7 +1145,7 @@ class CopernicusERA5Loader(DatasetLoader):
 
     def _create_synthetic_era5(self) -> bool:
         """Create synthetic ERA5-like atmospheric reanalysis data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
         features = []
@@ -1155,32 +1155,32 @@ class CopernicusERA5Loader(DatasetLoader):
         lon_range = (self.region["lon_min"], self.region["lon_max"])
 
         for _ in range(n_samples):
-            lat = np.random.uniform(*lat_range)
-            lon = np.random.uniform(*lon_range)
+            lat = rng.uniform(*lat_range)
+            lon = rng.uniform(*lon_range)
 
             # Temperature varies with latitude and season
             base_temp = 25 - 0.5 * abs(lat - 35)
-            month = np.random.randint(1, 13)
+            month = int(rng.integers(1, 13))
             seasonal = 10 * np.sin(2 * np.pi * (month - 1) / 12)
-            temp_2m = base_temp + seasonal + np.random.normal(0, 3)
+            temp_2m = base_temp + seasonal + rng.normal(0, 3)
 
             # Dewpoint slightly lower than temperature
-            dewpoint_2m = temp_2m - np.random.exponential(5)
+            dewpoint_2m = temp_2m - rng.exponential(5)
 
             # Wind components
-            u_wind = np.random.normal(0, 5)
-            v_wind = np.random.normal(0, 5)
+            u_wind = rng.normal(0, 5)
+            v_wind = rng.normal(0, 5)
 
             # Surface pressure (varies with altitude and weather)
-            pressure = np.random.normal(1013, 10)
+            pressure = rng.normal(1013, 10)
 
             # Precipitation (exponential with seasonal variation)
             precip_rate = 0.5 + 0.3 * np.sin(2 * np.pi * (month - 3) / 12)
-            precipitation = np.random.exponential(precip_rate) if np.random.random() > 0.7 else 0
+            precipitation = rng.exponential(precip_rate) if rng.random() > 0.7 else 0
 
-            year = np.random.randint(self.year_range[0], self.year_range[1] + 1)
-            day = np.random.randint(1, 29)
-            hour = np.random.choice(self.hours)
+            year = int(rng.integers(self.year_range[0], self.year_range[1] + 1))
+            day = int(rng.integers(1, 29))
+            hour = rng.choice(self.hours)
 
             feature_vec = [
                 lat,
