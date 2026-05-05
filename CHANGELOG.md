@@ -196,19 +196,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     hiding an integration test that should have always been running.
     Replaced the `pytest.skip(...)` with an `assert` that surfaces
     the integration coverage instead of silently masking it.
-- **Tracked debt (not fixed in this sweep):** 34 unpaired
-  `# type: ignore[no-redef]` suppressions across
-  `safeguards/nano_safeguards.py`,
-  `detectors/geological/disaster_detectors.py`,
+- **Tracked debt (not fixed in this sweep):** 35 unpaired
+  `# type: ignore[no-redef]` suppressions across **15** files
+  (verified via `grep -rln '# type: ignore\[no-redef\]' src/`):
+  `core/adaptive_fusion.py`, `core/base.py`, `core/config.py`,
+  `core/fusion.py`, `core/three_r_mechanism.py`,
   `detectors/acceleration_dynamics.py`,
   `detectors/dimensional.py`,
-  `integrations/mercury_amacrypto.py`,
-  `ml/harmonic_encoder.py`,
-  `medical/abms_disciplines.py`. These guard repeated stub-class
+  `detectors/geological/disaster_detectors.py`,
+  `integrations/mercury_amacrypto.py` (8 — the heaviest single
+  file), `medical/abms_disciplines.py`,
+  `ml/harmonic_encoder.py`, `safeguards/nano_safeguards.py`,
+  `security/crypto_api.py`, `security/cyber_fortress.py`,
+  `utils/resilience.py`. These guard repeated stub-class
   redefinitions across optional-dependency branches and should be
-  refactored to a Protocol-or-inheritance pattern; tracked for a
-  follow-up PR rather than churning the boundary code in this
-  documentation/quality sweep.
+  refactored to a Protocol-or-inheritance pattern (or to per-file
+  ``_stubs.py`` modules consumed via
+  ``try: from real import X; except ImportError: from ._stubs import X``).
+  Tracked for a focused follow-up PR rather than churning the
+  boundary code in this documentation/quality sweep.
 
 ### Tooling
 
@@ -272,15 +278,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     checks land **pending** on the bot PR.  Unblock by re-running
     the CI workflow manually on the PR head, or by pushing an
     empty commit on the persistence branch as a maintainer.  Do
-    **not** swap `GITHUB_TOKEN` for a Personal Access Token via
-    `BENCHMARK_BOT_TOKEN` to break the loop-prevention: the
-    persister does not submit a detached commit signature, and
-    PAT-authenticated Git Database commits are not auto-signed by
-    GitHub — they land `Unverified` and fail rule 4 of the
-    protection ruleset.  The `secrets.BENCHMARK_BOT_TOKEN ||
-    secrets.GITHUB_TOKEN` fallback is wired so a future *GitHub
-    App installation token* (which DOES get auto-signed when
-    acting as the bot) can be substituted, not so a PAT can be.
+    **not** swap `GITHUB_TOKEN` for a Personal Access Token to
+    break the loop-prevention: the persister does not submit a
+    detached commit signature, and PAT-authenticated Git Database
+    commits are not auto-signed by GitHub — they land `Unverified`
+    and fail rule 4 of the protection ruleset.  The persister
+    steps in `.github/workflows/benchmark.yml` therefore export
+    `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` unconditionally.
+    An earlier iteration of the workflow used a
+    `secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN`
+    expression to leave room for a future GitHub App installation
+    token, but the expression cannot distinguish a PAT from an
+    App token by secret name; the fallback was removed in this
+    branch.  Wiring an installation token requires a separately
+    named secret (e.g. `BENCHMARK_BOT_APP_TOKEN`) and is a
+    focused-PR job.
   - **Auto-merge is not enabled by default.**  The persister
     script accepts `--enable-automerge --merge-method squash` for
     deployments that want the PR to merge as soon as required

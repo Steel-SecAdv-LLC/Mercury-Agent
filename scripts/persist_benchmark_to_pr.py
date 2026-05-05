@@ -54,15 +54,20 @@ will need to be unblocked by either:
   - re-running the CI workflow manually on the PR head SHA, or
   - a maintainer pushing an empty commit to the persistence branch.
 
-**Do not** swap ``GITHUB_TOKEN`` for a Personal Access Token via
-``BENCHMARK_BOT_TOKEN`` to break the loop-prevention.  As described
-in "Signature handling" above, this script does not submit a detached
-signature, so PAT-authenticated Git Database commits land
-``Unverified`` and fail rule 4 of the protection ruleset.  The
-``secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN`` fallback is
-wired so a future *GitHub App installation token* (which DOES get
-auto-signed when acting as the bot) can be substituted, not so a
-PAT can be.
+**Do not** swap ``GITHUB_TOKEN`` for a Personal Access Token to
+break the loop-prevention.  As described in "Signature handling"
+above, this script does not submit a detached signature, so
+PAT-authenticated Git Database commits land ``Unverified`` and fail
+rule 4 of the protection ruleset.  The benchmark workflow's
+persister steps therefore export
+``GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`` unconditionally.  An
+earlier iteration of the workflow used a
+``secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN`` expression
+to leave room for a future GitHub App installation token, but the
+expression cannot distinguish a PAT from an App token by secret
+name; the fallback was removed.  Wiring an installation token in
+the future requires a separately named secret (e.g.
+``BENCHMARK_BOT_APP_TOKEN``) and is a focused-PR job.
 
 This script does not enable auto-merge — that is intentionally a
 maintainer decision.  Run with ``--enable-automerge`` to opt in.
@@ -435,14 +440,52 @@ def main() -> int:
                 "to preserve required-check approvals on the bot PR."
             )
             existing_pr = find_open_pr(owner, repo, args.branch, args.base, token)
-            if existing_pr is not None and not args.no_pr_metadata_update:
-                update_pull_request(owner, repo, existing_pr, args.pr_title, args.pr_body, token)
-                print(f"  refreshed PR #{existing_pr} title/body only.")
-            elif existing_pr is not None:
+            if existing_pr is not None:
+                # Existing PR for the same head/base: refresh title/body
+                # (unless explicitly opted out) and honour --enable-automerge.
+                # Skipping the auto-merge call here would mean a rerun of
+                # the workflow with --enable-automerge passed cannot turn
+                # auto-merge ON for an already-open PR, which is exactly
+                # the maintainer-facing operation the flag is meant to do.
+                if not args.no_pr_metadata_update:
+                    update_pull_request(
+                        owner, repo, existing_pr, args.pr_title, args.pr_body, token
+                    )
+                    print(f"  refreshed PR #{existing_pr} title/body only.")
+                else:
+                    print(
+                        f"  PR #{existing_pr} title/body left untouched "
+                        "(--no-pr-metadata-update)."
+                    )
+                if args.enable_automerge:
+                    enable_automerge(owner, repo, existing_pr, args.merge_method, token)
+                return 0
+            else:
+                # Branch already has the desired tree but there's no open
+                # PR — most likely a previously open PR was closed without
+                # deleting the branch.  Without this fall-through, the
+                # latest benchmark artefacts would be stranded on
+                # ``ci/benchmark-results`` with no path back to ``main``,
+                # and subsequent identical reruns would keep returning
+                # here without ever publishing the update.  Open a fresh
+                # PR with the same head SHA so the loop is unblocked.
                 print(
-                    f"  PR #{existing_pr} title/body left untouched " "(--no-pr-metadata-update)."
+                    f"  no open PR for head {args.branch} -> {args.base}; "
+                    "opening a fresh PR against the existing branch head."
                 )
-            return 0
+                pr_number = create_pull_request(
+                    owner,
+                    repo,
+                    args.pr_title,
+                    args.pr_body,
+                    args.branch,
+                    args.base,
+                    token,
+                )
+                print(f"  opened PR #{pr_number}")
+                if args.enable_automerge:
+                    enable_automerge(owner, repo, pr_number, args.merge_method, token)
+                return 0
 
     commit_sha = create_commit(owner, repo, args.commit_message, tree_sha, base_sha, token)
     print(

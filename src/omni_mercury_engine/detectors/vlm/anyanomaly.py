@@ -65,16 +65,22 @@ class AnyAnomalyConfig(VLMConfig):
         action_focused: Emphasize action-based anomalies
         appearance_focused: Emphasize appearance-based anomalies
         context_window: Number of context frames
-        enable_positional_context: Enable positional context
-        enable_temporal_context: Enable temporal context
+        enable_positional_context: Alias for the inherited
+            ``use_position_context`` field on :class:`VLMConfig`.
+            ``AnyAnomalyDetector.__init__`` propagates this onto
+            ``use_position_context`` so either field name drives the
+            same context-provider construction.
+        enable_temporal_context: Alias for the inherited
+            ``use_temporal_context``; same propagation contract.
 
     Note:
         The LVLM backend is selected via the inherited ``model_type``
         field on :class:`VLMConfig`, which ``AnyAnomalyDetector._initialize_model``
         forwards to :func:`omni_mercury_engine.detectors.vlm.lvlm_backends.get_lvlm_backend`.
         There is no separate ``backend`` field; a configuration like
-        ``AnyAnomalyConfig(model_type=VLMModelType.QWEN2_VL)`` is the
-        supported pattern.
+        ``AnyAnomalyConfig(model_type=LVLMType.QWEN2_VL)`` is the
+        supported pattern.  ``LVLMType`` is exported from
+        :mod:`omni_mercury_engine.detectors.vlm.base_vlm`.
     """
 
     segment_overlap: int = 4
@@ -82,8 +88,12 @@ class AnyAnomalyConfig(VLMConfig):
     action_focused: bool = True
     appearance_focused: bool = True
     context_window: int = 4  # Number of context frames
-    enable_positional_context: bool = True  # Enable positional context
-    enable_temporal_context: bool = True  # Enable temporal context
+    # Alias fields: propagated onto the inherited ``use_position_context`` /
+    # ``use_temporal_context`` in ``AnyAnomalyDetector.__init__`` so the new
+    # field names are not inert.  Default to ``None`` so an explicit user
+    # value overrides the inherited default; ``None`` means "do not override".
+    enable_positional_context: bool | None = None
+    enable_temporal_context: bool | None = None
 
 
 class AnyAnomalyDetector(BaseVLMDetector):
@@ -117,6 +127,19 @@ class AnyAnomalyDetector(BaseVLMDetector):
             config = AnyAnomalyConfig()
         elif isinstance(config, dict):
             config = AnyAnomalyConfig(**config)
+
+        # Propagate the AnyAnomaly-specific alias fields onto the
+        # inherited VLMConfig fields they shadow.  Without this, a
+        # caller that sets ``enable_temporal_context=False`` on
+        # AnyAnomalyConfig would still get a temporal context
+        # provider because the constructor below reads
+        # ``config.use_temporal_context`` (the inherited field), which
+        # defaults to True regardless of the alias value.  ``None``
+        # means "no override", preserving the inherited default.
+        if config.enable_positional_context is not None:
+            config.use_position_context = config.enable_positional_context
+        if config.enable_temporal_context is not None:
+            config.use_temporal_context = config.enable_temporal_context
 
         super().__init__(config)
         self.any_config: AnyAnomalyConfig = config

@@ -205,14 +205,19 @@ jobs:
       # the persistence branch) to unblock them.
       #
       # Do NOT swap ``GITHUB_TOKEN`` for a Personal Access Token
-      # (``BENCHMARK_BOT_TOKEN``) just to break the loop-prevention.
-      # The persister does not submit a detached commit signature,
-      # so PAT-authenticated Git Database commits land
-      # ``Unverified`` and fail rule 4 of the protection ruleset.
-      # The ``secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN``
-      # fallback below is wired so a future *GitHub App
-      # installation token* (which DOES get auto-signed when acting
-      # as the bot) can be substituted, not so a PAT can be.
+      # to break the loop-prevention.  The persister does not submit
+      # a detached commit signature, so PAT-authenticated Git
+      # Database commits land ``Unverified`` and fail rule 4 of the
+      # protection ruleset.  The persister steps below export
+      # ``GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`` unconditionally
+      # for that reason.  An earlier iteration of this file used a
+      # ``secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN``
+      # expression to leave room for a future GitHub App installation
+      # token, but the expression cannot distinguish a PAT from an
+      # App token by inspecting the secret name — so the fallback
+      # was removed.  Wiring an installation token in the future
+      # requires a separately named secret (e.g.
+      # ``BENCHMARK_BOT_APP_TOKEN``) and is a focused-PR job.
       #
       # Order matters: this step runs immediately after the gating
       # mercury benchmark + artifact upload, BEFORE the supplementary

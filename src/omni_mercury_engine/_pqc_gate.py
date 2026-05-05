@@ -24,10 +24,23 @@ Algorithm coverage:
   imports without it; any code path that needs SPHINCS+ will fall
   through to the soft stub at call time.
 
-This matches ``security.pqc_guards.check_pqc_production_readiness`` after
-that helper was strengthened in the same branch.  Both raise paths share
-the ``_PQC_BUILD_RECOVERY_HINT`` constant so operators see identical
-remediation steps regardless of which gate they hit.
+The flags are read from ``ama_cryptography.pqc_backends`` — the
+canonical location, matching what ``security/pqc_backends.py`` reads
+via ``from ama_cryptography.pqc_backends import DILITHIUM_AVAILABLE,
+KYBER_AVAILABLE, SPHINCS_AVAILABLE``.  The top-level ``ama_cryptography``
+package and per-algorithm submodules
+(``ama_cryptography.dilithium``, etc.) are NOT reliable sources for
+these flags on the real v3.1.0 install — earlier iterations of this
+gate read from those locations and produced false-positive
+partial-install rejections.
+
+The gate's contract matches
+``security.pqc_guards.check_pqc_production_readiness`` after that
+helper was strengthened in the same branch; the two are independent
+implementations (the helper does NOT delegate to the gate, nor vice
+versa) and they share the ``_PQC_BUILD_RECOVERY_HINT`` constant so
+operators see identical remediation steps regardless of which path
+they hit.
 
 Lives in its own module rather than inline in ``__init__.py`` so the gate
 function has a stable, importable location for unit tests; ``__init__.py``
@@ -77,17 +90,20 @@ _PQC_SOFT_REQUIRED: tuple[tuple[str, str], ...] = (("SPHINCS_AVAILABLE", "SPHINC
 def _enforce_pqc_production_gate() -> None:
     """Fail-closed PQC startup gate.  See module docstring for the contract.
 
-    Reads the ``*_AVAILABLE`` flags from the **top-level**
-    ``ama_cryptography`` package, matching how
+    Reads the ``*_AVAILABLE`` flags from ``ama_cryptography.pqc_backends``
+    (the canonical location), matching how
     ``security/pqc_backends.py`` already consumes them
-    (``from ama_cryptography import DILITHIUM_AVAILABLE, ...``).  Earlier
-    iterations of this gate read the flags from per-algorithm submodules
-    (``ama_cryptography.dilithium.DILITHIUM_AVAILABLE``), which the
-    actual AMA v3.1.0 surface does not always populate identically to
-    the top-level constants — so a real verified-real-pqc CI run with
-    a successful build could trigger a false-positive partial-install
-    rejection.  Reading from the top level keeps this gate consistent
-    with the rest of the codebase's view of AMA availability.
+    (``from ama_cryptography.pqc_backends import DILITHIUM_AVAILABLE,
+    KYBER_AVAILABLE, SPHINCS_AVAILABLE``).  Earlier iterations of this
+    gate read the flags from per-algorithm submodules
+    (``ama_cryptography.dilithium.DILITHIUM_AVAILABLE``) and from the
+    top-level package (``ama_cryptography.DILITHIUM_AVAILABLE``).
+    Neither location is reliably populated by the real AMA v3.1.0
+    install — the canonical location is the ``pqc_backends`` submodule,
+    which is where Mercury's own ``security/pqc_backends.py`` reads
+    them.  Aligning the gate with that reader keeps both views of AMA
+    availability consistent and stops false-positive partial-install
+    rejections in the verify-real-pqc CI lane.
     """
     require_real = os.environ.get(
         "AMA_REQUIRE_REAL_PQC", os.environ.get("AVA_REQUIRE_REAL_PQC", "")
@@ -96,18 +112,19 @@ def _enforce_pqc_production_gate() -> None:
         return
 
     try:
-        import ama_cryptography
+        import ama_cryptography.pqc_backends as ama_pqc_backends
     except ImportError as exc:
         raise RuntimeError(
             "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography Python "
-            "package is not importable (import ama_cryptography failed).\n"
+            "package is not importable "
+            "(import ama_cryptography.pqc_backends failed).\n"
             f"{_PQC_BUILD_RECOVERY_HINT}"
         ) from exc
 
     missing_hard: list[str] = [
         friendly
         for flag_name, friendly in _PQC_HARD_REQUIRED
-        if not getattr(ama_cryptography, flag_name, False)
+        if not getattr(ama_pqc_backends, flag_name, False)
     ]
 
     if missing_hard:
@@ -120,7 +137,7 @@ def _enforce_pqc_production_gate() -> None:
     missing_soft: list[str] = [
         friendly
         for flag_name, friendly in _PQC_SOFT_REQUIRED
-        if not getattr(ama_cryptography, flag_name, False)
+        if not getattr(ama_pqc_backends, flag_name, False)
     ]
 
     if missing_soft:

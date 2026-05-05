@@ -113,14 +113,19 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
         # Reject any partial install on the hard-required surfaces:
         # Mercury exposes Dilithium and Kyber surfaces and a Dilithium-
         # only build would let the process start in a cryptographically
-        # incomplete state.  This matches the contract on
-        # ``omni_mercury_engine._pqc_gate._enforce_pqc_production_gate``.
-        # SPHINCS+ is intentionally NOT in the hard-required set here —
-        # see the rationale in ``_pqc_gate.py``: the upstream
+        # incomplete state.
+        #
+        # ``omni_mercury_engine._pqc_gate._enforce_pqc_production_gate``
+        # is an *independent* implementation of the same contract — it
+        # does NOT call into this helper, nor does this helper call into
+        # it.  The two are kept in sync by sharing the
+        # ``_PQC_BUILD_RECOVERY_HINT`` constant and by mirrored unit
+        # tests; see ``_pqc_gate.py`` for the rationale on why SPHINCS+
+        # is intentionally not in the hard-required set (the upstream
         # ``pqc-production-check.yml`` workflow only asserts
         # ``DILITHIUM_AVAILABLE`` and ``KYBER_AVAILABLE``, and including
         # SPHINCS as a hard requirement would produce false-positive
-        # rejections on real AMA v3.1.0 builds.  A missing SPHINCS
+        # rejections on real AMA v3.1.0 builds).  A missing SPHINCS
         # surface still emits a ``PQCProductionWarning`` below.
         missing = []
         if not DILITHIUM_AVAILABLE:
