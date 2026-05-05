@@ -50,21 +50,48 @@ used for cross-domain transfer, calibration baselines, and benchmark comparisons
 
 ## Post-Quantum Cryptography backend
 
-Mercury Agent hard-requires **AMA Cryptography** as the sole PQC
-backend (see `SECURITY.md` and PR #144). For local development
-without PQC features the package will load with `AMA_REQUIRE_REAL_PQC`
-unset; for production or any path that exercises crypto, install and
-build the native library:
+Mercury Agent uses **AMA Cryptography** as the sole supported PQC
+backend (see `SECURITY.md` and PRs #144, #162). The package import
+is guarded — `security/pqc_backends.py` catches `ImportError` and
+keeps Mercury importable with stub functions, so a developer
+without the native library can still load the package — but
+`check_pqc_production_readiness()` fails closed when
+`AMA_REQUIRE_REAL_PQC=true` and the native library is missing,
+and that gate runs on every production startup path.
+
+For production, build and install the native library from the
+upstream AMA-Cryptography repository (note: the `cmake` step
+operates on the AMA-Cryptography checkout, **not** on the
+Mercury-Agent repo, which has no `CMakeLists.txt` of its own).
+The canonical build steps are exercised by
+`.github/workflows/pqc-production-check.yml` (currently pinned to
+`AMA_REF: v3.1.0`):
 
 ```bash
-pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git"
-cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
+# 1. Clone and build the AMA-Cryptography native library
+git clone --depth 1 --branch v3.1.0 \
+    https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
+cd /tmp/ama-cryptography
+cmake -B build -DAMA_USE_NATIVE_PQC=ON
+cmake --build build
+
+# 2. Install the Python package from the same checkout
+AMA_NO_CYTHON=1 pip install --no-build-isolation .
+
+# 3. Export the runtime loader path and the production gates
+export LD_LIBRARY_PATH="/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
 export AMA_REQUIRE_REAL_PQC=true
 export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
+
+# 4. Return to the Mercury-Agent checkout for the rest of the install
+cd /path/to/Mercury-Agent
 ```
 
-If `AMA_REQUIRE_REAL_PQC=true` is set and the native library is not
-present, Mercury refuses to start. There is no fallback chain.
+With `AMA_REQUIRE_REAL_PQC=true` the production-readiness check at
+startup refuses to proceed if the native library is unloadable;
+without the env var set, Mercury imports against stub PQC
+functions for development convenience. There is no fallback chain
+to a non-AMA backend.
 
 ## Verify Installation
 

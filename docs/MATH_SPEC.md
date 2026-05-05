@@ -3,7 +3,7 @@
 **Version:** 1.6.0
 **Date:** 2026-05-05
 **Status:** Living Document
-**Cross-references:** `ARCHITECTURE.md` §"Dual-Gate Hard Ethical Enforcement", `docs/ROUTING_GUIDE.md`
+**Cross-references:** top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md) §"Dual-Gate Hard Ethical Enforcement", [`ROUTING_GUIDE.md`](ROUTING_GUIDE.md)
 
 ---
 
@@ -220,11 +220,23 @@ fails closed across every boundary uniformly.
 
 **Test-only bypass.** The `enable_gosnn` parameter on the public
 `detect_with_fusion` / `detect_with_fusion_calibrated` surface was
-renamed to the private `_enable_gosnn`; production callers cannot
+renamed to the private `_enable_gosnn`; production *callers* cannot
 disable σ_Immutable. Tests that need to bypass GOSNN must set the
 auditable module-level flag
-`omni_mercury_engine.engine._GOSNN_TESTING_BYPASS = True`. No
-production code path reads this flag.
+`omni_mercury_engine.engine._GOSNN_TESTING_BYPASS = True`.
+
+The flag itself **is** read from production control flow
+(`engine.py` consults it before σ_Immutable enforcement and again
+when `_enable_gosnn=False` is requested), so the contract is "the
+flag is intended for unit tests only", not "no production code
+path reads it". Production deployments must therefore audit at
+container-build time that
+`omni_mercury_engine.engine._GOSNN_TESTING_BYPASS is False`; a
+separate mypy / runtime guard
+(`tests/security/test_sigma_immutable_kat.py`) asserts the flag
+defaults to `False` at module import. Setting the flag in
+production is a deliberate, auditable opt-out — not an
+inadvertent bypass.
 
 **Composition with the sigmoid gate.** σ_Immutable runs *after* the
 benevolence sigmoid of Section 2.1.3 has been enforced (so $b \geq

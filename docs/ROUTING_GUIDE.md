@@ -3,18 +3,27 @@
 Mercury Agent provides a flexible routing infrastructure for request handling, pattern matching, and graceful degradation through fallback chains. This guide covers the core routing components and demonstrates how to integrate them with the detection pipeline.
 
 > **Hard ethical gates run *inside* the prediction call, not at the
-> route layer.** Routes and fallback chains never see, attenuate, or
-> bypass the dual ethical contract. Every public boundary surface
-> reached from a route — `OmniMercuryEngine.detect_with_fusion`,
+> route layer.** Routes never see, attenuate, or bypass the dual
+> ethical contract. Every public boundary surface reached from a
+> route — `OmniMercuryEngine.detect_with_fusion`,
 > `detect_with_fusion_calibrated`, `CognitiveOrchestrator.analyze`,
 > `NeuroSymbolicHub.predict` — runs **Benevolence then σ_Immutable**
 > as mandatory hard gates (Wave B, PR #179) and raises
-> `EthicalConstraintViolationError(check=…)` on failure. Routing
-> fallback handlers **must** propagate this exception or translate it
-> to an HTTP 4xx; substituting a "default response" that hides the
-> ethical refusal is a contract violation. See
-> `ARCHITECTURE.md` §"Dual-Gate Hard Ethical Enforcement" and
-> `docs/MATH_SPEC.md` §2.1.5 for the full contract.
+> `EthicalConstraintViolationError(check=…)` on failure.
+>
+> **Fallback chains do not mask ethical refusals.**
+> `FallbackChain.execute()` (`integrations/routing/fallback.py`)
+> previously caught generic `Exception` and advanced to the next
+> handler unless `fail_fast=True`, which would have allowed an
+> `EthicalConstraintViolationError` from a wrapped detection
+> handler to be silently substituted with a "default response".
+> The chain now special-cases that exception and re-raises it
+> unconditionally regardless of `fail_fast`, so an ethical refusal
+> propagates out of the chain even when other failure modes are
+> still being absorbed. See the top-level
+> [`../ARCHITECTURE.md`](../ARCHITECTURE.md) §"Dual-Gate Hard
+> Ethical Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
+> for the full contract.
 
 ## Overview
 

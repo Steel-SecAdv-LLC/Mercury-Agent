@@ -19,10 +19,10 @@ remediation programme.*
 > | Pickle-based training-data loader              | PR #166 (Phase 1 audit cure) | Pickle code path **deleted**; safe loaders only |
 > | Honest benchmarks                              | PR #166      | 64/75 reproducibility framing canonical; aspirational ROADMAP claims removed |
 > | CVE remediation, version bump, CHANGELOG       | PR #165 (v1.6.0) | v1.6.0 released |
-> | AMA Cryptography fragmentation                 | PR #144, PR #162 | AMA Cryptography v2.0 is the **sole** PQC backend; Mercury refuses to start without it under `AMA_REQUIRE_REAL_PQC=true` |
+> | AMA Cryptography fragmentation                 | PR #144, PR #162; CI now pinned to AMA Cryptography **v3.1.0** in `.github/workflows/pqc-production-check.yml` (`AMA_REF: v3.1.0`) | AMA Cryptography is the **sole** PQC backend. Mercury imports successfully without it (the loader catches `ImportError` and falls back to stub functions) but `check_pqc_production_readiness()` is the gate that fails closed when `AMA_REQUIRE_REAL_PQC=true` and the native library is missing |
 > | Federated learning silent failures             | PR #168 (Wave A) | Silent-failure fixes landed; benevolence cache, threshold convergence, fibring default, seven-axis matrix |
 >
-> Consult `CHANGELOG.md`, `docs/ROADMAP.md`, and `ARCHITECTURE.md`
+> Consult `CHANGELOG.md`, `docs/ROADMAP.md`, and the top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md)
 > §"Dual-Gate Hard Ethical Enforcement" for the current contract.
 
 ---
@@ -38,7 +38,7 @@ mock fallbacks that silently degrade functionality without operator awareness.
 > **Status update (2026-05-05):** The "advisory rather than mandatory"
 > characterization is no longer accurate as of PR #179 (Wave B). The
 > Benevolence and σ_Immutable gates are mandatory hard gates at every
-> public boundary surface; refer to `ARCHITECTURE.md` for the current
+> public boundary surface; refer to the top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md) for the current
 > contract.
 
 ### Severity Overview
@@ -510,9 +510,11 @@ all hard-fail PRs on findings outside the documented accept-lists.**
 | Date | Branch | Items Resolved |
 |------|--------|----------------|
 | 2026-03-11 | `claude/apply-branding-optimize-YYHEA` | Items 2, 4, 8-partial, 10-partial, 12, 14, 16, 20-partial, 21, 23-partial |
-| 2026-03-11 | PRs #142, #144, #146 (cherry-picked) | Black formatting, AMA Crypto v2.0 consolidation, MyPy/monitoring fixes |
+| 2026-03-11 | PRs #142, #144, #146 (cherry-picked) | Black formatting, AMA Crypto consolidation (v2.0 at the time; pin advanced to v3.1.0 in PR #162 / pqc-production-check workflow), MyPy/monitoring fixes |
 | 2026-03-11 | `claude/improve-previous-work-k2tWf` | Items 1, 3, 5-partial, 6, 7, 10-continued |
 
-*Last updated: 2026-05-02 (PR #148 — Safety + pip-audit BLOCKING; CVE audit doc; click/typer pin)*
+*Original audit footer: 2026-05-02 (PR #148 — Safety + pip-audit BLOCKING; CVE audit doc; click/typer pin). Status banner at the top of this document was added on 2026-05-05 to reflect post-Wave-B current state; the body text below remains the original audit verbatim.*
 
-*Remaining high-priority open items: P1-9 (pin AMA Crypto), P1-11 (coverage threshold), P1-13 (requirements.lock), P1-15 (OpenTelemetry), P2-17 (GOSNN config), P2-18 (domain policies), P2-19 (intersectional fairness), P2-22 (load tests in CI), P2-24 (3R-Resilience), P2-25 (bidirectional GOSNN-3R).*
+*Open-items list as of the original audit (2026-05-02): P1-9 (pin AMA Crypto), P1-11 (coverage threshold), P1-13 (requirements.lock), P1-15 (OpenTelemetry), P2-17 (GOSNN config), P2-18 (domain policies), P2-19 (intersectional fairness), P2-22 (load tests in CI), P2-24 (3R-Resilience), P2-25 (bidirectional GOSNN-3R).*
+
+*Updated status (2026-05-05): P1-9 resolved — `.github/workflows/pqc-production-check.yml` now pins AMA Cryptography to `v3.1.0`. P1-11 resolved — CI coverage thresholds raised from 10/10 to 30/75 in `.github/workflows/ci.yml` and `.coveragerc fail_under` aligned to 75. The remaining items are still tracked in `docs/ROADMAP.md`.*

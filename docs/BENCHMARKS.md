@@ -1,17 +1,25 @@
 # Mercury Agent Benchmark Results
 
-> **Reproducibility note (canonical figure: 64 / 75).** The headline
-> figure quoted across the project (README, CHANGELOG `[Unreleased]`,
-> CI gate annotations) is **64 reproducible datasets of 75 attempted**:
-> 47 ADBench + 28 domain loaders, of which 11 fail to load due to
-> unavailable / rate-limited external sources and 1 (FEMA Disaster) is
-> a known-broken loader producing inverted scores. The aggregate table
-> in this document (55 attempted / 51 successful) reports the
-> `mercury_benchmark.py` direct run that gates CI on the
-> `MercuryAnomalyDetector` ensemble in isolation; both views report
-> the same measured baseline (mean ROC-AUC 0.803, mean Oracle F1
-> 0.589). See README §"Empirical Benchmark Results" and
-> `docs/ROADMAP.md` for tracked loader fixes.
+> **Reproducibility note — two distinct cuts of the validation set.**
+> The README headline benchmark figure is the **64 / 75
+> reproducibility set** (47 ADBench + 28 domain loaders, 11
+> external sources unavailable, 1 known-broken loader), measured at
+> **Mean ROC-AUC 0.8285 / Mean Oracle F1 0.6370 / Median ROC-AUC
+> 0.9091** after the Oracle pipeline fix and dataset expansion
+> (README §"Empirical Benchmark Results").
+>
+> The aggregate table below in this document is a **separate
+> earlier run** of `benchmarks/mercury_benchmark.py` over the
+> 55-attempt / 51-success subset that gates CI on the
+> `MercuryAnomalyDetector` ensemble in isolation, and reports
+> **Mean ROC-AUC 0.8030 / Mean Oracle F1 0.5886** — the legacy
+> baseline that the README explicitly compares against
+> ("improved from 0.8030 on 51 datasets to 0.8285 on 64/75").
+>
+> The two figures are **not** the same measured baseline; the 64/75
+> view is the current public headline and the 51/55 view is the CI
+> regression-gate floor. See `docs/ROADMAP.md` for the loader fixes
+> that close the remaining 11-dataset gap.
 
 ## What This Measures
 

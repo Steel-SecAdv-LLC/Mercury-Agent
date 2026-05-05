@@ -1,12 +1,15 @@
 # Mercury-Agent Data Sources
 
-Last verified: 2026-02-15 (data-source inventory; canonical
-benchmarking figure is the **64 reproducible / 75 attempted** set
-documented in the README and `CHANGELOG.md` `[Unreleased]` section).
-Benchmark run captured in this file: 51/55 datasets loaded
-successfully via the `mercury_benchmark.py` direct path. Both views
-report the same measured baseline (mean AUC 0.803, mean Oracle F1
-0.589); see `docs/BENCHMARKS.md` for the reconciliation note.
+Last verified: 2026-02-15. The canonical public benchmarking figure
+is the **64 reproducible / 75 attempted** set documented in the
+README "Empirical Benchmark Results" section (Mean AUC 0.8285,
+Mean Oracle F1 0.6370, after the Oracle pipeline fix and dataset
+expansion). The benchmark run captured below in this file is a
+**separate earlier 51/55** run of `mercury_benchmark.py` that
+reports Mean AUC 0.8030 / Mean Oracle F1 0.5886 — the legacy
+baseline the README explicitly improves upon. The two views are
+not the same measured baseline; see `docs/BENCHMARKS.md` for the
+full reconciliation.
 
 ## Successfully Loading (51 datasets)
 

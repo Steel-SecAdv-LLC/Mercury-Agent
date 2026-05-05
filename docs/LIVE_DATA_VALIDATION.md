@@ -4,25 +4,35 @@
 
 Mercury's anomaly detection is validated on real-world datasets — no
 synthetic data, no tuning. Results are measured, not estimated. Two
-overlapping cuts of the validation set are referenced across the
-documentation:
+distinct cuts of the validation set are referenced across the
+documentation, and they report **different** measured baselines:
 
-- **Canonical reproducibility set: 64 / 75.** 47 ADBench tabular +
-  28 domain loaders attempted; 11 unavailable / rate-limited external
-  sources and 1 known-broken loader (FEMA Disaster) excluded. This is
-  the headline figure in the README and `CHANGELOG.md`.
-- **`mercury_benchmark.py` direct CI gate: 51 / 55.** The subset that
-  the CI benchmark workflow runs against the
-  `MercuryAnomalyDetector` ensemble in isolation (47 ADBench + 4
-  domain-specific loaders).
+- **Canonical reproducibility set: 64 / 75 — public headline.**
+  47 ADBench tabular + 28 domain loaders attempted; 11 external
+  sources unavailable / rate-limited and 1 known-broken loader
+  (FEMA Disaster) excluded. Measured **Mean AUC 0.8285 / Median
+  0.9091 / Mean Oracle F1 0.6370** after the Oracle pipeline fix
+  and dataset expansion. This is the headline figure in the README
+  and `CHANGELOG.md`.
+- **`mercury_benchmark.py` direct CI gate: 51 / 55 — legacy
+  baseline.** The earlier subset that the CI benchmark workflow
+  runs against the `MercuryAnomalyDetector` ensemble in isolation
+  (47 ADBench + 4 domain-specific loaders). Measured **Mean AUC
+  0.8030 / Median 0.8852 / Mean Oracle F1 0.5886**. The README
+  explicitly notes "Mean AUC increased from 0.8030 (51 datasets) to
+  0.8285 (64/75 datasets)".
 
-Both views report the same measured baseline.
+The numbers below are from the **51/55 legacy baseline** captured in
+`benchmarks/mercury_benchmark_results.json`; for the current public
+headline metrics consult the README "Empirical Benchmark Results"
+section.
 
-**Current measured performance** (from `benchmarks/mercury_benchmark_results.json`):
+**51/55 baseline performance** (from `benchmarks/mercury_benchmark_results.json`):
 - Mean AUC: 0.8030
 - Median AUC: 0.8852
 - Mean Oracle F1: 0.5886
-- Datasets: 51/55 successful (CI subset) / 64/75 canonical
+- Datasets: 51/55 successful (legacy CI gate)
+- Public headline (64/75): Mean AUC 0.8285 / Mean Oracle F1 0.6370
 
 ## Running Validation Locally
 

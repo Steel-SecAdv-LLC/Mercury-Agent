@@ -15,19 +15,38 @@ for the post-quantum cryptographic substrate.
   `detect` / `analyze` / `predict` surface runs **two independent
   mandatory hard ethical gates** — Benevolence, then σ_Immutable —
   and raises `EthicalConstraintViolationError(check=…)` on failure.
-  There is no advisory mode. See `ARCHITECTURE.md` §"Dual-Gate Hard
-  Ethical Enforcement" and `MATH_SPEC.md` §"Ethical Gating".
-- **Sole PQC backend.** AMA Cryptography is hard-required as the only
-  post-quantum cryptographic backend (PR #144); Mercury refuses to
-  start without it when `AMA_REQUIRE_REAL_PQC=true`. See `SECURITY.md`.
-- **Honest benchmarks.** All 1.x benchmark numbers in this repo are
-  computed over the **64 reproducible datasets** of 75 attempted; 11
-  external sources are unavailable / rate-limited and 1 loader
-  (FEMA Disaster) is known-broken. See `BENCHMARKS.md` and the README
-  "Empirical Benchmark Results" section.
-- **No pickle code path.** The training-data loader was rewritten in
-  PR #166 to remove `pickle` entirely; all artifacts use safe
-  serialization formats (npz / json / safetensors).
+  There is no advisory mode. See the top-level
+  [`ARCHITECTURE.md`](../ARCHITECTURE.md) §"Dual-Gate Hard Ethical
+  Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
+  "σ_Immutable Hard Gate (Wave B, PR #179)".
+- **Sole PQC backend (with a soft import path for non-PQC dev).**
+  AMA Cryptography (pinned to **v3.1.0** in
+  `.github/workflows/pqc-production-check.yml`) is the only
+  supported post-quantum backend (PR #144). The package import is
+  guarded — `security/pqc_backends.py` catches `ImportError` and
+  keeps Mercury importable with stub functions, so a developer
+  without the native library can still load the package — but
+  `check_pqc_production_readiness()` fails closed when
+  `AMA_REQUIRE_REAL_PQC=true` and the native library is missing,
+  and that gate runs on every production startup path. See
+  [`SECURITY.md`](../SECURITY.md) for the full contract.
+- **Two distinct benchmark cuts.** The README headline is the
+  **64/75 reproducibility set** (Mean AUC 0.8285, Mean Oracle F1
+  0.6370). CI's regression-gate floor is the **51/55**
+  `mercury_benchmark.py` direct path (Mean AUC 0.8030, Mean Oracle
+  F1 0.5886, the legacy baseline the 64/75 run improves on). See
+  [`BENCHMARKS.md`](BENCHMARKS.md) for the full reconciliation and
+  the README "Empirical Benchmark Results" section for the public
+  headline.
+- **Pickle removed from the training-data path; not a blanket ban.**
+  PR #166 deleted the `pickle` code path from the training-data
+  loader; benchmark and dataset artefacts use npz / json /
+  safetensors. The repo still ships
+  `security/sigma_immutable_weights.pt` and loads it via
+  `torch.load(..., weights_only=True)` (the safe-tensor torch
+  loader path), so PyTorch's `.pt` format is still in use for
+  trained-model weights — this is intentional and not a `pickle`
+  fall-back.
 
 ## Navigation
 
