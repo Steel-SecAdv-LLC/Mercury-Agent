@@ -87,7 +87,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Free up disk space
         run: |
@@ -97,12 +97,12 @@ jobs:
           docker system prune -af --volumes || true
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.PIP_CACHE_DIR }}
           key: ${{ runner.os }}-pip-benchmark-${{ hashFiles('pyproject.toml') }}
@@ -159,7 +159,7 @@ jobs:
           "
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results-${{ github.sha }}
           path: benchmarks/mercury_benchmark_results.json
@@ -193,7 +193,7 @@ jobs:
 
       - name: Upload empirical results (comparison)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: empirical-results-${{ github.sha }}
           path: benchmarks/empirical_benchmark_results.json
@@ -214,7 +214,7 @@ jobs:
             --json benchmarks/seven_axis_results.json
 
       - name: Upload seven-axis results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: seven-axis-results-${{ github.sha }}
           path: benchmarks/seven_axis_results.json
@@ -296,7 +296,7 @@ jobs:
 
     steps:
       - name: Download current benchmark results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: benchmark-results-${{ github.sha }}
           path: current
