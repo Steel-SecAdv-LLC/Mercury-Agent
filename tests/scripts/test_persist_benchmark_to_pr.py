@@ -151,6 +151,87 @@ class TestUpsertBranchRef:
         )
 
 
+class TestNoopAgainstExistingBranch:
+    """Pin the round-3 fix: when the persistence branch already exists and
+    its head commit's tree matches what we would create, skip the commit +
+    force-push so required-check approvals on the bot PR are preserved."""
+
+    def test_skips_commit_and_force_push_when_existing_tree_matches(
+        self,
+        persister: object,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        # Stage a file the persister will read off disk.
+        f = tmp_path / "result.json"
+        f.write_text('{"x": 1}\n', encoding="utf-8")
+
+        # The blob/tree/commit SHAs are arbitrary as long as the
+        # mock returns the same tree_sha for the new tree AND for
+        # the existing branch head's commit tree.
+        same_tree = "TREE-MATCH"
+
+        def fake_api(method: str, path: str, token: str, payload: Any = None) -> Any:
+            # base ref + base commit tree
+            if method == "GET" and path == "/repos/o/r/git/ref/heads/main":
+                return {"object": {"sha": "main-sha"}}
+            if method == "GET" and path == "/repos/o/r/git/commits/main-sha":
+                return {"sha": "main-sha", "tree": {"sha": "main-tree"}}
+            # blob create
+            if method == "POST" and path == "/repos/o/r/git/blobs":
+                return {"sha": "blob-sha"}
+            # tree create
+            if method == "POST" and path == "/repos/o/r/git/trees":
+                return {"sha": same_tree}
+            # branch already exists and points at a commit whose tree matches
+            if method == "GET" and path == "/repos/o/r/git/ref/heads/feature":
+                return {"object": {"sha": "branch-sha"}}
+            if method == "GET" and path == "/repos/o/r/git/commits/branch-sha":
+                return {"sha": "branch-sha", "tree": {"sha": same_tree}}
+            # PR exists; refresh title/body must hit PATCH
+            if method == "GET" and path == "/repos/o/r/pulls?state=open&base=main&head=o:feature":
+                return [{"number": 99}]
+            if method == "PATCH" and path == "/repos/o/r/pulls/99":
+                fake_api.patched = payload  # type: ignore[attr-defined]
+                return {"number": 99}
+            raise AssertionError(f"unexpected API call in no-op-vs-existing path: {method} {path}")
+
+        fake_api.patched = None  # type: ignore[attr-defined]
+
+        monkeypatch.setattr(persister, "_api", fake_api)
+        monkeypatch.setenv("GITHUB_TOKEN", "tok")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "persist_benchmark_to_pr.py",
+                "--base",
+                "main",
+                "--branch",
+                "feature",
+                "--commit-message",
+                "noop run",
+                "--pr-title",
+                "fresh title",
+                "--pr-body",
+                "fresh body",
+                "--files",
+                str(f),
+            ],
+        )
+
+        rc = persister.main()  # type: ignore[attr-defined]
+
+        assert rc == 0
+        # The PATCH MUST have run with the fresh title/body; if it
+        # didn't, the no-op path silently swallowed the metadata refresh
+        # and the bot PR would keep stale numbers.
+        assert fake_api.patched == {"title": "fresh title", "body": "fresh body"}, (  # type: ignore[attr-defined]
+            "No-op-vs-existing path must still PATCH the PR title/body."
+        )
+
+
 class TestFindOpenPr:
     def test_returns_pr_number_when_match(self, persister: object) -> None:
         api = _RecordingApi(

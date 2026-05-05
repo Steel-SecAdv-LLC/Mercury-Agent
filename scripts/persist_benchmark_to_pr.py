@@ -377,6 +377,32 @@ def main() -> int:
         print("  tree identical to base; nothing to commit.")
         return 0
 
+    # If the persistence branch already exists and its head commit's
+    # tree matches what we would create, skip the commit + force-push.
+    # Without this, every no-change rerun would force-update the
+    # branch ref to a fresh commit SHA with identical content, which
+    # resets required-check approvals on the bot PR.  The PR metadata
+    # PATCH below still runs so a maintainer-visible rerun is recorded
+    # in the PR title/body.
+    try:
+        existing_branch_head = get_branch_sha(owner, repo, args.branch, token)
+    except RuntimeError:
+        existing_branch_head = None
+
+    if existing_branch_head is not None:
+        existing_tree_sha = get_commit_tree_sha(owner, repo, existing_branch_head, token)
+        if existing_tree_sha == tree_sha:
+            print(
+                f"  tree identical to existing {args.branch} HEAD "
+                f"({existing_branch_head[:8]}); skipping commit + branch update "
+                "to preserve required-check approvals on the bot PR."
+            )
+            existing_pr = find_open_pr(owner, repo, args.branch, args.base, token)
+            if existing_pr is not None:
+                update_pull_request(owner, repo, existing_pr, args.pr_title, args.pr_body, token)
+                print(f"  refreshed PR #{existing_pr} title/body only.")
+            return 0
+
     commit_sha = create_commit(owner, repo, args.commit_message, tree_sha, base_sha, token)
     print(
         f"  commit: {commit_sha[:8]} "
