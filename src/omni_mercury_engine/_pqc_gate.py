@@ -117,7 +117,7 @@ def _enforce_pqc_production_gate() -> None:
     missing_soft: list[str] = [
         friendly
         for flag_name, friendly in _PQC_SOFT_REQUIRED
-        if not getattr(ama_cryptography, flag_name, False)
+        if not getattr(ama_pqc_backends, flag_name, False)
     ]
 
     if missing_soft:

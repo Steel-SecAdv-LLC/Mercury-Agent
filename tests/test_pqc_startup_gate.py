@@ -28,7 +28,24 @@ from __future__ import annotations
 
 import os
 
-from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+def _gate() -> Callable[[], None]:
+    """Lazy import of the gate function.
+
+    Imported inside the call so module collection does NOT trigger
+    ``omni_mercury_engine.__init__``'s package-level self-call before
+    the per-test ``monkeypatch`` fixture has had a chance to scrub
+    ``AMA_REQUIRE_REAL_PQC`` from the environment.  Without this lazy
+    pattern, a CI lane that sets the env var globally would fail
+    collection on this file rather than the per-test cases reaching
+    their assertions.
+    """
+    from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
+
+    return _enforce_pqc_production_gate
 
 
 def _scrub_real_pqc_env() -> dict[str, str]:
