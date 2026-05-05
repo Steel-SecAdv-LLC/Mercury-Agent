@@ -2,6 +2,20 @@
 
 Mercury Agent provides a flexible routing infrastructure for request handling, pattern matching, and graceful degradation through fallback chains. This guide covers the core routing components and demonstrates how to integrate them with the detection pipeline.
 
+> **Hard ethical gates run *inside* the prediction call, not at the
+> route layer.** Routes and fallback chains never see, attenuate, or
+> bypass the dual ethical contract. Every public boundary surface
+> reached from a route — `OmniMercuryEngine.detect_with_fusion`,
+> `detect_with_fusion_calibrated`, `CognitiveOrchestrator.analyze`,
+> `NeuroSymbolicHub.predict` — runs **Benevolence then σ_Immutable**
+> as mandatory hard gates (Wave B, PR #179) and raises
+> `EthicalConstraintViolationError(check=…)` on failure. Routing
+> fallback handlers **must** propagate this exception or translate it
+> to an HTTP 4xx; substituting a "default response" that hides the
+> ethical refusal is a contract violation. See
+> `ARCHITECTURE.md` §"Dual-Gate Hard Ethical Enforcement" and
+> `docs/MATH_SPEC.md` §2.1.5 for the full contract.
+
 ## Overview
 
 The routing infrastructure consists of two main systems:
@@ -9,7 +23,7 @@ The routing infrastructure consists of two main systems:
 1. **RequestRouter**: URL pattern matching with middleware support for HTTP-style request routing
 2. **FallbackChain**: Priority-based handler chains for graceful degradation when primary services fail
 
-Both systems are designed to work together, enabling robust request handling with automatic fallback to cached or default responses when external services are unavailable.
+Both systems are designed to work together, enabling robust request handling with automatic fallback to cached or default responses when external services are unavailable. **Fallback only applies to data-source / connectivity / latency failures; it does not apply to ethical gate refusals.**
 
 ## RequestRouter
 

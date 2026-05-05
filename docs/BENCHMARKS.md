@@ -1,5 +1,18 @@
 # Mercury Agent Benchmark Results
 
+> **Reproducibility note (canonical figure: 64 / 75).** The headline
+> figure quoted across the project (README, CHANGELOG `[Unreleased]`,
+> CI gate annotations) is **64 reproducible datasets of 75 attempted**:
+> 47 ADBench + 28 domain loaders, of which 11 fail to load due to
+> unavailable / rate-limited external sources and 1 (FEMA Disaster) is
+> a known-broken loader producing inverted scores. The aggregate table
+> in this document (55 attempted / 51 successful) reports the
+> `mercury_benchmark.py` direct run that gates CI on the
+> `MercuryAnomalyDetector` ensemble in isolation; both views report
+> the same measured baseline (mean ROC-AUC 0.803, mean Oracle F1
+> 0.589). See README §"Empirical Benchmark Results" and
+> `docs/ROADMAP.md` for tracked loader fixes.
+
 ## What This Measures
 
 This document reports the empirical performance of `MercuryAnomalyDetector` — Mercury's

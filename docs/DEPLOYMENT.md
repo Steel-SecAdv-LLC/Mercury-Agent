@@ -379,12 +379,25 @@ docker run -d --name mercury-agent \
 
 ### Ethics audit failures in CI
 
-**Symptom:** CI ethics-audit job shows `FAIL` but continues (advisory gate).
+**Symptom:** CI ethics-audit job shows `FAIL`.
+
+> The CI ethics-audit gate is **non-advisory** as of Wave B (PR #179).
+> A failing run blocks merge; the dual hard gates (Benevolence,
+> σ_Immutable) at every public boundary surface raise
+> `EthicalConstraintViolationError(check=…)` rather than logging and
+> continuing. See `ARCHITECTURE.md` §"Dual-Gate Hard Ethical
+> Enforcement".
 
 - Review the specific test(s) that failed in the CI log
 - `T3` failures: `PreExecutionBlockingGate` pattern list may be incomplete
 - `T4` failures: `EthicalAutonomyGovernor` scoring thresholds may need calibration
 - `T5` failures: `ethical_compliance_threshold` immutability guard is broken — do not deploy
+- `check="sigma_immutable"` failures: regenerate the signed σ corpus with
+  `python scripts/train_sigma_immutable.py` after confirming the input
+  data lineage; never bypass by setting `_GOSNN_TESTING_BYPASS` outside tests
+- `check="gosnn_unavailable"` failures: GOSNN model artefacts are missing or
+  the load path is failing — investigate the model registry; do not ship a
+  fallback that returns predictions without GOSNN
 
 ### Coverage below target
 

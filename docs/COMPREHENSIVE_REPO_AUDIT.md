@@ -3,6 +3,27 @@
 **Date:** 2026-03-11
 **Auditor:** Automated deep-dive analysis
 **Scope:** GOSNN, 3R, Ethical Pillars, Hidden/Silenced Issues, Production Readiness
+**Status (as of 2026-05-05):** *Historical document — preserved as the
+audit that motivated the Phase 1 / Phase 2 / Wave A / Wave B
+remediation programme.*
+
+> **Resolution status banner.** Many of the CRITICAL and HIGH findings
+> in this document have been remediated in subsequent PRs. Do **not**
+> read this audit as a description of current state without
+> cross-checking against:
+>
+> | Finding theme                                  | Resolved by | Current state |
+> |------------------------------------------------|-------------|---------------|
+> | Ethics framework "advisory rather than mandatory" | PR #167 (Phase 2 Item 1), PR #179 (Wave B) | Hard-enforced dual gate at every public boundary; raises `EthicalConstraintViolationError` |
+> | σ_Immutable not raised from any code path      | PR #179 (Wave B) | Mandatory hard gate; private `_enable_gosnn` plus auditable `_GOSNN_TESTING_BYPASS` flag |
+> | Pickle-based training-data loader              | PR #166 (Phase 1 audit cure) | Pickle code path **deleted**; safe loaders only |
+> | Honest benchmarks                              | PR #166      | 64/75 reproducibility framing canonical; aspirational ROADMAP claims removed |
+> | CVE remediation, version bump, CHANGELOG       | PR #165 (v1.6.0) | v1.6.0 released |
+> | AMA Cryptography fragmentation                 | PR #144, PR #162 | AMA Cryptography v2.0 is the **sole** PQC backend; Mercury refuses to start without it under `AMA_REQUIRE_REAL_PQC=true` |
+> | Federated learning silent failures             | PR #168 (Wave A) | Silent-failure fixes landed; benevolence cache, threshold convergence, fibring default, seven-axis matrix |
+>
+> Consult `CHANGELOG.md`, `docs/ROADMAP.md`, and `ARCHITECTURE.md`
+> §"Dual-Gate Hard Ethical Enforcement" for the current contract.
 
 ---
 
@@ -13,6 +34,12 @@ Mercury-Agent has strong architectural foundations but suffers from a consistent
 rather than mandatory, GOSNN has placeholder data where real model tensors should flow,
 the CI pipeline soft-fails on critical security/ethics gates, and production code contains
 mock fallbacks that silently degrade functionality without operator awareness.
+
+> **Status update (2026-05-05):** The "advisory rather than mandatory"
+> characterization is no longer accurate as of PR #179 (Wave B). The
+> Benevolence and σ_Immutable gates are mandatory hard gates at every
+> public boundary surface; refer to `ARCHITECTURE.md` for the current
+> contract.
 
 ### Severity Overview
 

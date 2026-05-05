@@ -1,7 +1,12 @@
 # Mercury-Agent Data Sources
 
-Last verified: 2026-02-15
-Benchmark run: 51/55 datasets loaded successfully
+Last verified: 2026-02-15 (data-source inventory; canonical
+benchmarking figure is the **64 reproducible / 75 attempted** set
+documented in the README and `CHANGELOG.md` `[Unreleased]` section).
+Benchmark run captured in this file: 51/55 datasets loaded
+successfully via the `mercury_benchmark.py` direct path. Both views
+report the same measured baseline (mean AUC 0.803, mean Oracle F1
+0.589); see `docs/BENCHMARKS.md` for the reconciliation note.
 
 ## Successfully Loading (51 datasets)
 

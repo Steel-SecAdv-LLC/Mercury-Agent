@@ -62,6 +62,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   must run BenevolenceScorer **and** σ_Immutable in order, or fail
   closed with the matching `check=…` value.
 
+### Documentation
+
+- **Project-wide documentation refresh (2026-05-05).** All 29 markdown
+  files audited against current code state at v1.6.0; corrective
+  edits landed in a single sweep on
+  `claude/organize-project-directory-IIqcr`:
+  - `SECURITY.md` — Supported-Versions table rewritten (was listing
+    1.5.x as current with no v1.6.x entry); now declares 1.6.x as
+    current, 1.5.x as previous (critical-CVE only), <1.5 EOL.
+    `Last Updated` refreshed.
+  - `README.md` — GOSNN section's "Ethical Gating" key-feature
+    bullet rewritten to document the Wave B σ_Immutable hard-gate
+    contract (was describing the old `≥0.93 with configurable
+    fallback for medical domains` and a now-deleted `gosnn_metadata.fallback_mode=True`
+    silent-fallback path). New decision-boundary contract callout
+    added under the Status banner. Header date and footer
+    `Last updated` refreshed.
+  - `docs/MATH_SPEC.md` — new §2.1.5 "σ_Immutable Hard Gate (Wave B,
+    PR #179)" added: boundary-contract piecewise definition, σ
+    vector layout (`SIGMA_IMMUTABLE_DIM=256`,
+    `SIGMA_ETHICAL_BAND_END=27`, `SIGMA_USED_BAND_END=180`),
+    threshold provenance, test-only bypass note, composition with
+    the sigmoid benevolence gate. Date refreshed.
+  - `docs/index.md` — landing page rewritten to surface the Wave B
+    dual-gate contract, AMA Cryptography sole-backend hard-require,
+    honest-benchmark framing (64/75), and pickle-removal up front;
+    `COMPREHENSIVE_REPO_AUDIT` added to the toctree.
+  - `docs/ROUTING_GUIDE.md` — top-of-file callout that hard ethical
+    gates run *inside* the prediction call and **must not** be
+    masked by fallback handlers. "Fallback only applies to
+    data-source / connectivity / latency failures" clarification
+    added to the Overview.
+  - `docs/COMPREHENSIVE_REPO_AUDIT.md` — historical-document banner
+    and resolution-status table mapping the original CRITICAL/HIGH
+    findings to the PRs that remediated them (#166 / #167 / #168 /
+    #144 / #162 / #165 / #179).
+  - `docs/BENCHMARKS.md`, `docs/DATASOURCES.md`,
+    `docs/LIVE_DATA_VALIDATION.md` — reconciled the local 51/55
+    figure with the canonical 64/75 reproducibility set; both views
+    report the same measured AUC 0.803 / Oracle F1 0.589 baseline.
+  - `docs/INSTALLATION.md` — added "Post-Quantum Cryptography
+    backend" section documenting the AMA Cryptography hard-require
+    (`AMA_REQUIRE_REAL_PQC=true`); added C-toolchain / CMake
+    requirements.
+  - `docs/DEPLOYMENT.md` — Ethics-audit-failures-in-CI subsection
+    rewritten: the gate is non-advisory; added remediation guidance
+    for `check="sigma_immutable"` and `check="gosnn_unavailable"`
+    failures.
+  - `CONTRIBUTING.md` — "What NOT to Contribute" tightened to
+    explicitly forbid weakening the Wave B dual-gate contract,
+    reintroducing `pickle`, or adding a non-AMA Cryptography PQC
+    backend. Document Version → 2.4, `Last Updated` refreshed,
+    `Applies to` row added.
+  - `ARCHITECTURE.md` — "System Scale" footer block re-derived from
+    the current tree (42 subpackages verified, 276 test files /
+    6,300+ tests, ~280,950 LOC); replaced unverifiable
+    "85%+ coverage" with "measured per release".
+
 ### Tooling
 
 - **`scripts/update_readme_benchmarks.py` reads canonical metadata**

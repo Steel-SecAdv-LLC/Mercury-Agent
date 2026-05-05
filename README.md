@@ -45,7 +45,7 @@
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
 **Version:** v1.6.0
-**Date:** 2026-02-09
+**Date:** 2026-05-05
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
@@ -71,7 +71,17 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-03-04
+> **Last Updated:** 2026-05-05
+>
+> **Decision-boundary contract (Wave B, PR #179):** Every public
+> `detect_with_fusion` / `detect_with_fusion_calibrated` /
+> `CognitiveOrchestrator.analyze` / `NeuroSymbolicHub.predict` call
+> runs **two independent mandatory hard ethical gates** —
+> Benevolence then σ_Immutable — and aborts with a typed
+> `EthicalConstraintViolationError` if either fails. There is no
+> advisory mode and no public flag that disables either gate. See
+> [`ARCHITECTURE.md` §"Dual-Gate Hard Ethical Enforcement"](ARCHITECTURE.md#dual-gate-hard-ethical-enforcement)
+> for the full contract.
 
 ---
 
@@ -1569,15 +1579,15 @@ The **GlobalOmniScalarNetwork (GOSNN)** is the intelligence fusion hub aggregati
 - **ADVANCED_REASONING (~15)**: Logic, inference, knowledge synthesis
 
 **Key Features:**
-- **Ethical Gating**: σ_Immutable threshold (≥0.93) with configurable fallback for medical domains
+- **Hard Ethical Gate (Wave B, PR #179)**: σ_Immutable is the **second mandatory hard gate** at every public detect / analyze / predict surface, running after the Benevolence gate. A score below threshold raises `EthicalConstraintViolationError(check="sigma_immutable")`; if GOSNN itself cannot run, the boundary raises `EthicalConstraintViolationError(check="gosnn_unavailable")`. There is no advisory mode and no public flag that disables either gate (test-only bypass requires the auditable module-level `omni_mercury_engine.engine._GOSNN_TESTING_BYPASS` flag).
 - **32-Head Triadic φ-Weighting**: Multi-head attention with golden ratio optimization
 - **Harmonic Synergy**: Bidirectional synapse connections to 3R mechanism
-- **Error Handling**: Logged fallbacks instead of silent failures
+- **Single source of truth for σ layout**: `SIGMA_IMMUTABLE_DIM=256`, `SIGMA_ETHICAL_BAND_END=27`, `SIGMA_USED_BAND_END=180` exported from `omni_mercury_engine.security.sigma_immutable_gate`.
 
 **Bidirectional Synapses:**
 - Detectors → GOSNN ethical gate ↔ 3R adaptive O(θ)
 - Enhanced detectors register scalars with `omni_` prefix
-- Fallback to raw features on GOSNN error with warning logs
+- **No silent GOSNN fallback**: a GOSNN failure now raises `check="gosnn_unavailable"` and aborts the call (Wave B fail-closed contract). The previous `gosnn_metadata.fallback_mode=True` path has been removed.
 
 </details>
 
@@ -2054,6 +2064,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 </div>
 
-*Last updated: 2026-03-04*
+*Last updated: 2026-05-05*
 
 </div>

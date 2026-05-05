@@ -1,9 +1,16 @@
 # Installation
 
+Applies to Mercury Agent **v1.6.x**. Last updated: 2026-05-05.
+
 ## Requirements
 
 - Python >= 3.11
 - pip >= 21.0
+- A C toolchain (clang or gcc) and CMake >= 3.20 for the AMA
+  Cryptography native PQC build (see "Post-Quantum Cryptography
+  backend" below); only required when running with
+  `AMA_REQUIRE_REAL_PQC=true`, but production deployments **must**
+  enable it.
 
 ## Quick Start
 
@@ -40,6 +47,24 @@ The core anomaly detection path (`MercuryAnomalyDetector`) requires only:
 
 scikit-learn is **not** required for core detection. It is an optional dependency
 used for cross-domain transfer, calibration baselines, and benchmark comparisons.
+
+## Post-Quantum Cryptography backend
+
+Mercury Agent hard-requires **AMA Cryptography** as the sole PQC
+backend (see `SECURITY.md` and PR #144). For local development
+without PQC features the package will load with `AMA_REQUIRE_REAL_PQC`
+unset; for production or any path that exercises crypto, install and
+build the native library:
+
+```bash
+pip install "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git"
+cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build
+export AMA_REQUIRE_REAL_PQC=true
+export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
+```
+
+If `AMA_REQUIRE_REAL_PQC=true` is set and the native library is not
+present, Mercury refuses to start. There is no fallback chain.
 
 ## Verify Installation
 

@@ -2,14 +2,27 @@
 
 ## Overview
 
-Mercury's anomaly detection is validated on 51 real-world datasets (47 ADBench tabular
-datasets + 4 domain-specific loaders). Results are measured, not estimated.
+Mercury's anomaly detection is validated on real-world datasets — no
+synthetic data, no tuning. Results are measured, not estimated. Two
+overlapping cuts of the validation set are referenced across the
+documentation:
+
+- **Canonical reproducibility set: 64 / 75.** 47 ADBench tabular +
+  28 domain loaders attempted; 11 unavailable / rate-limited external
+  sources and 1 known-broken loader (FEMA Disaster) excluded. This is
+  the headline figure in the README and `CHANGELOG.md`.
+- **`mercury_benchmark.py` direct CI gate: 51 / 55.** The subset that
+  the CI benchmark workflow runs against the
+  `MercuryAnomalyDetector` ensemble in isolation (47 ADBench + 4
+  domain-specific loaders).
+
+Both views report the same measured baseline.
 
 **Current measured performance** (from `benchmarks/mercury_benchmark_results.json`):
 - Mean AUC: 0.8030
 - Median AUC: 0.8852
 - Mean Oracle F1: 0.5886
-- Datasets: 51/55 successful
+- Datasets: 51/55 successful (CI subset) / 64/75 canonical
 
 ## Running Validation Locally
 
