@@ -32,7 +32,9 @@ The routing infrastructure consists of two main systems:
 1. **RequestRouter**: URL pattern matching with middleware support for HTTP-style request routing
 2. **FallbackChain**: Priority-based handler chains for graceful degradation when primary services fail
 
-Both systems are designed to work together, enabling robust request handling with automatic fallback to cached or default responses when external services are unavailable. **Fallback only applies to data-source / connectivity / latency failures; it does not apply to ethical gate refusals.**
+Both systems are designed to work together, enabling robust request handling with automatic fallback to cached or default responses when external services are unavailable.
+
+**Important fallback-chain semantics.** `FallbackChain.execute()` catches the **generic `Exception`** base class and advances to the next handler unless `fail_fast=True`. The only exception that is special-cased and always re-raised is `EthicalConstraintViolationError` (added in this PR). All other handler exceptions — including application bugs, `KeyError`, `ValueError`, network errors, etc. — are absorbed by the chain and treated as a fallback trigger by default. This is the intended graceful-degradation contract for *connectivity / latency / data-source* failures, but operators should be aware that it will also mask logic bugs in handlers; surface those by setting `fail_fast=True` on the chain or by adding explicit type-narrowing in your handler before raising.
 
 ## RequestRouter
 

@@ -100,8 +100,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     #144 / #162 / #165 / #179).
   - `docs/BENCHMARKS.md`, `docs/DATASOURCES.md`,
     `docs/LIVE_DATA_VALIDATION.md` — reconciled the local 51/55
-    figure with the canonical 64/75 reproducibility set; both views
-    report the same measured AUC 0.803 / Oracle F1 0.589 baseline.
+    figure with the canonical 64/75 reproducibility set as **two
+    distinct measured baselines**: 64/75 = Mean AUC **0.8285** /
+    Mean Oracle F1 **0.6370** (current README headline after the
+    Oracle pipeline fix and dataset expansion); 51/55 = Mean AUC
+    **0.8030** / Mean Oracle F1 **0.5886** (legacy CI
+    regression-gate floor that the 64/75 run improved on).
   - `docs/INSTALLATION.md` — added "Post-Quantum Cryptography
     backend" section documenting the AMA Cryptography hard-require
     (`AMA_REQUIRE_REAL_PQC=true`); added C-toolchain / CMake
@@ -167,11 +171,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exploration and Lyapunov-chaos perturbation all now draw from a
   per-instance `np.random.Generator` (constructor `seed: int | None`).
 - **Tests:**
-  - `tests/test_vlm_detectors.py::test_anyanomaly_detect_mock` was
-    `@pytest.mark.skip(...)` (unconditional — always skipped) with a
-    reason that *described* a CUDA dependency; it is now
-    `@pytest.mark.skipif(not HAS_CUDA, ...)` so the test actually
-    runs on GPU runners.
+  - `tests/test_vlm_detectors.py::test_anyanomaly_detect_mock`
+    remains `@pytest.mark.skip(...)` (unconditional) with a
+    truthful reason: `AnyAnomalyConfig(backend="mock")` is not
+    wired into `AnyAnomalyDetector._initialize_model` (selection
+    still uses `vlm_config.model_type`), and
+    `MockLVLMBackend.initialize()` raises `NotImplementedError`,
+    so the test would hang or fail until the mock backend is
+    implemented. Tracked in `docs/ROADMAP.md`. (An interim
+    `skipif(not HAS_CUDA, ...)` form was tried in this branch but
+    reverted — it would have turned a hidden skip into a
+    hang/failure on GPU runners.)
   - `tests/detectors/test_enhanced_geological_detectors.py` —
     `test_recursion_synapse_integration`,
     `test_resonance_synapse_integration`, and

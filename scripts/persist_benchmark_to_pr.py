@@ -62,6 +62,7 @@ Exit codes:
     1  - hard failure (auth missing, API rejected the call, file
          missing in CI workspace, etc.).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -164,9 +165,7 @@ def create_commit(
     return str(response["sha"])
 
 
-def upsert_branch_ref(
-    owner: str, repo: str, branch: str, commit_sha: str, token: str
-) -> None:
+def upsert_branch_ref(owner: str, repo: str, branch: str, commit_sha: str, token: str) -> None:
     """Create branch ref, or fast-forward / force-update it if it already exists."""
     try:
         _api(
@@ -192,9 +191,7 @@ def upsert_branch_ref(
     print(f"  Force-updated existing branch ref refs/heads/{branch}")
 
 
-def find_open_pr(
-    owner: str, repo: str, head_branch: str, base: str, token: str
-) -> int | None:
+def find_open_pr(owner: str, repo: str, head_branch: str, base: str, token: str) -> int | None:
     head = f"{owner}:{head_branch}"
     encoded_head = urllib.parse.quote(head, safe=":")
     response = _api(
@@ -225,9 +222,7 @@ def create_pull_request(
     return int(response["number"])
 
 
-def enable_automerge(
-    owner: str, repo: str, pr_number: int, merge_method: str, token: str
-) -> None:
+def enable_automerge(owner: str, repo: str, pr_number: int, merge_method: str, token: str) -> None:
     """Enable PR auto-merge via the GraphQL API (REST has no auto-merge endpoint)."""
     pr = _api("GET", f"/repos/{owner}/{repo}/pulls/{pr_number}", token)
     pr_node_id = pr["node_id"]
@@ -342,9 +337,7 @@ def main() -> int:
         print("  tree identical to base; nothing to commit.")
         return 0
 
-    commit_sha = create_commit(
-        owner, repo, args.commit_message, tree_sha, base_sha, token
-    )
+    commit_sha = create_commit(owner, repo, args.commit_message, tree_sha, base_sha, token)
     print(f"  commit: {commit_sha[:8]} (auto-signed by github-actions[bot])")
 
     upsert_branch_ref(owner, repo, args.branch, commit_sha, token)

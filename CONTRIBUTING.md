@@ -90,9 +90,15 @@ Please **DO NOT** submit pull requests that:
   Enforcement" and `docs/MATH_SPEC.md` §2.1.5.
 - Introduce unproven or experimental algorithms without validation
 - Add unnecessary dependencies
-- Reintroduce `pickle` for training data, model artefacts, or any
-  cross-process serialization (PR #166 deleted the pickle code
-  path; safe formats only — npz / json / safetensors / parquet)
+- Reintroduce `pickle` for training data or arbitrary cross-process
+  serialization (PR #166 deleted that code path). For dataset and
+  benchmark artefacts use `npz` / `json` / `safetensors` /
+  `parquet`. Trained-model weights may continue to ship as PyTorch
+  `.pt` files **provided** they are loaded via
+  `torch.load(..., weights_only=True)` (the safe-tensor torch
+  loader path used by `security/sigma_immutable_weights.pt`).
+  Plain `pickle.load` / `torch.load(weights_only=False)` is the
+  banned surface, not the `.pt` extension.
 - Add a non-AMA-Cryptography PQC backend (PR #144 made AMA
   Cryptography the **sole** PQC backend; Mercury hard-requires it
   under `AMA_REQUIRE_REAL_PQC=true`)

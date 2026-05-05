@@ -26,10 +26,13 @@ for the post-quantum cryptographic substrate.
   guarded — `security/pqc_backends.py` catches `ImportError` and
   keeps Mercury importable with stub functions, so a developer
   without the native library can still load the package — but
-  `check_pqc_production_readiness()` fails closed when
-  `AMA_REQUIRE_REAL_PQC=true` and the native library is missing,
-  and that gate runs on every production startup path. See
-  [`SECURITY.md`](../SECURITY.md) for the full contract.
+  `check_pqc_production_readiness()` (in `security/pqc_guards.py`)
+  fails closed when `AMA_REQUIRE_REAL_PQC=true` and the native
+  library is missing. **The guard is opt-in:** it is not invoked
+  from any startup path in `src/omni_mercury_engine/` today;
+  deployments that want a hard PQC gate must call it explicitly
+  during their own bootstrap. See [`SECURITY.md`](../SECURITY.md)
+  for the full contract.
 - **Two distinct benchmark cuts.** The README headline is the
   **64/75 reproducibility set** (Mean AUC 0.8285, Mean Oracle F1
   0.6370). CI's regression-gate floor is the **51/55**
