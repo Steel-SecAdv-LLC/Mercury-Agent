@@ -1,14 +1,20 @@
 # Mercury Agent Dependabot Configuration
-# Automated dependency updates for security and maintenance
+# Automated dependency updates for security and maintenance.
+#
+# The ``registries:`` top-level key was previously declared with a
+# ``pypi`` entry that no ``updates:`` block referenced.  Dependabot's
+# schema validator (which runs on every push to ``main``) rejects
+# unused registry declarations with::
+#
+#     The property '#/registries' includes the "pypi" registry which
+#     is not used in any of the configurations
+#
+# Public pypi.org is Dependabot's default index for
+# ``package-ecosystem: "pip"`` updates, so the explicit registry was
+# also redundant — removing it both fixes the validator and matches
+# the actual behaviour we already had.
 
 version: 2
-
-registries:
-  # PyPI registry (public)
-  pypi:
-    type: python-index
-    url: https://pypi.org/simple
-    replaces-base: true
 
 updates:
   # Python dependencies (pip)
