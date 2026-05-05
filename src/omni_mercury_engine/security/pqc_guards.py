@@ -110,28 +110,22 @@ def check_pqc_production_readiness() -> dict[str, bool | str]:
     )
 
     if require_real:
-        # Reject any partial install on the hard-required surfaces:
-        # Mercury exposes Dilithium and Kyber surfaces and a Dilithium-
-        # only build would let the process start in a cryptographically
-        # incomplete state.
+        # Reject any partial install: Mercury exposes Dilithium, Kyber,
+        # AND SPHINCS+ surfaces, and a Dilithium-only build would let
+        # the process start in a cryptographically incomplete state.
         #
         # ``omni_mercury_engine._pqc_gate._enforce_pqc_production_gate``
         # is an *independent* implementation of the same contract — it
         # does NOT call into this helper, nor does this helper call into
         # it.  The two are kept in sync by sharing the
-        # ``_PQC_BUILD_RECOVERY_HINT`` constant and by mirrored unit
-        # tests; see ``_pqc_gate.py`` for the rationale on why SPHINCS+
-        # is intentionally not in the hard-required set (the upstream
-        # ``pqc-production-check.yml`` workflow only asserts
-        # ``DILITHIUM_AVAILABLE`` and ``KYBER_AVAILABLE``, and including
-        # SPHINCS as a hard requirement would produce false-positive
-        # rejections on real AMA v3.1.0 builds).  A missing SPHINCS
-        # surface still emits a ``PQCProductionWarning`` below.
+        # ``_PQC_BUILD_RECOVERY_HINT`` constant.
         missing = []
         if not DILITHIUM_AVAILABLE:
             missing.append("ML-DSA-65 (Dilithium)")
         if not KYBER_AVAILABLE:
             missing.append("Kyber-1024")
+        if not SPHINCS_AVAILABLE:
+            missing.append("SPHINCS+")
         if missing:
             # Reuse the canonical recovery hint defined alongside the
             # import-time gate so the two raise paths give operators

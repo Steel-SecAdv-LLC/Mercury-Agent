@@ -10,37 +10,31 @@ var, ``_enforce_pqc_production_gate`` is a no-op and Mercury imports
 against the soft PQC stubs in ``security.pqc_backends`` for development
 convenience.
 
-Algorithm coverage:
-
-- **Hard-required** (gate raises ``RuntimeError`` when missing):
-  ``DILITHIUM_AVAILABLE`` (ML-DSA-65) and ``KYBER_AVAILABLE`` (Kyber-1024).
-  These match the assertions in
-  ``.github/workflows/pqc-production-check.yml`` for a real v3.1.0 build.
-- **Soft-required** (gate emits ``UserWarning`` but does not raise):
-  ``SPHINCS_AVAILABLE``.  SPHINCS+ is documented as part of v3.1.0 but
-  the upstream flag is not consistently populated even on a successful
-  native build, so making it a hard-required flag would produce
-  false-positive rejections in the real-pqc CI lane.  Mercury still
-  imports without it; any code path that needs SPHINCS+ will fall
-  through to the soft stub at call time.
+Algorithm coverage matches
+``security.pqc_guards.check_pqc_production_readiness``: the gate
+fails closed unless **all three** AMA algorithms are loadable —
+ML-DSA-65 (``DILITHIUM_AVAILABLE``), Kyber-1024
+(``KYBER_AVAILABLE``), and SPHINCS+ (``SPHINCS_AVAILABLE``).  Any
+partial build is rejected because Mercury exposes all three
+surfaces and a Dilithium-only install would let the process start
+in a cryptographically incomplete state.
 
 The flags are read from ``ama_cryptography.pqc_backends`` — the
-canonical location, matching what ``security/pqc_backends.py`` reads
-via ``from ama_cryptography.pqc_backends import DILITHIUM_AVAILABLE,
-KYBER_AVAILABLE, SPHINCS_AVAILABLE``.  The top-level ``ama_cryptography``
-package and per-algorithm submodules
-(``ama_cryptography.dilithium``, etc.) are NOT reliable sources for
-these flags on the real v3.1.0 install — earlier iterations of this
+canonical location matching what ``security/pqc_backends.py`` reads
+(``from ama_cryptography.pqc_backends import DILITHIUM_AVAILABLE,
+KYBER_AVAILABLE, SPHINCS_AVAILABLE``).  The top-level
+``ama_cryptography`` package and per-algorithm submodules
+(``ama_cryptography.dilithium``, etc.) are NOT reliable sources
+for these flags on a real install — earlier iterations of this
 gate read from those locations and produced false-positive
 partial-install rejections.
 
-The gate's contract matches
-``security.pqc_guards.check_pqc_production_readiness`` after that
-helper was strengthened in the same branch; the two are independent
-implementations (the helper does NOT delegate to the gate, nor vice
-versa) and they share the ``_PQC_BUILD_RECOVERY_HINT`` constant so
-operators see identical remediation steps regardless of which path
-they hit.
+The two raise paths (this gate and
+``check_pqc_production_readiness``) are independent
+implementations of the same contract — neither delegates to the
+other.  They share the ``_PQC_BUILD_RECOVERY_HINT`` constant so
+operators see identical remediation steps regardless of which
+path raises.
 
 Lives in its own module rather than inline in ``__init__.py`` so the gate
 function has a stable, importable location for unit tests; ``__init__.py``
@@ -66,25 +60,11 @@ _PQC_BUILD_RECOVERY_HINT = (
     "verified procedure (mirrors .github/workflows/pqc-production-check.yml)."
 )
 
-# Hard-required flags: any one missing fails the gate closed.
-#
-# Why these two and not SPHINCS+: the upstream
-# ``.github/workflows/pqc-production-check.yml`` job that exercises a
-# real AMA v3.1.0 native build only asserts ``DILITHIUM_AVAILABLE`` and
-# ``KYBER_AVAILABLE`` (see lines 138-144 of that workflow); SPHINCS+ /
-# SLH-DSA support is documented as part of v3.1.0 but the
-# ``SPHINCS_AVAILABLE`` flag is not consistently set by the upstream
-# package even on a successful build.  Including it here as a
-# hard-required flag would produce false-positive partial-install
-# rejections in the verify-real-pqc CI lane and in any production
-# deployment that mirrors that build path.  SPHINCS remains a
-# soft-required flag below: a missing SPHINCS surface emits a
-# ``UserWarning`` but does not block startup.
 _PQC_HARD_REQUIRED: tuple[tuple[str, str], ...] = (
     ("DILITHIUM_AVAILABLE", "ML-DSA-65 (Dilithium)"),
     ("KYBER_AVAILABLE", "Kyber-1024"),
+    ("SPHINCS_AVAILABLE", "SPHINCS+"),
 )
-_PQC_SOFT_REQUIRED: tuple[tuple[str, str], ...] = (("SPHINCS_AVAILABLE", "SPHINCS+"),)
 
 
 def _enforce_pqc_production_gate() -> None:
@@ -121,36 +101,15 @@ def _enforce_pqc_production_gate() -> None:
             f"{_PQC_BUILD_RECOVERY_HINT}"
         ) from exc
 
-    missing_hard: list[str] = [
+    missing: list[str] = [
         friendly
         for flag_name, friendly in _PQC_HARD_REQUIRED
         if not getattr(ama_pqc_backends, flag_name, False)
     ]
 
-    if missing_hard:
+    if missing:
         raise RuntimeError(
             "AMA_REQUIRE_REAL_PQC=true but the AMA Cryptography native C "
-            f"backend is incomplete; missing or unavailable: {', '.join(missing_hard)}.\n"
+            f"backend is incomplete; missing or unavailable: {', '.join(missing)}.\n"
             f"{_PQC_BUILD_RECOVERY_HINT}"
-        )
-
-    missing_soft: list[str] = [
-        friendly
-        for flag_name, friendly in _PQC_SOFT_REQUIRED
-        if not getattr(ama_pqc_backends, flag_name, False)
-    ]
-
-    if missing_soft:
-        import warnings
-
-        warnings.warn(
-            "AMA_REQUIRE_REAL_PQC=true and the AMA Cryptography native C "
-            "backend is loadable, but the following soft-required surface "
-            f"is unavailable: {', '.join(missing_soft)}.  Mercury will "
-            "import but any code path that uses this surface will degrade "
-            "to the soft PQC stub at call time.  See "
-            "docs/INSTALLATION.md 'Post-Quantum Cryptography backend' for "
-            "the full build-with-all-algorithms procedure.",
-            UserWarning,
-            stacklevel=2,
         )
