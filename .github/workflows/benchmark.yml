@@ -202,11 +202,20 @@ jobs:
       # cannot push, and even from the same repo we want the merged
       # commit (not a transient PR head) to be the source of truth.
       # ---------------------------------------------------------------
+      # Persistence steps below only run when the workflow is anchored
+      # to ``refs/heads/main`` — for ``push`` events that is enforced by
+      # ``github.ref``, for ``workflow_dispatch`` and ``schedule`` we
+      # additionally check it explicitly.  Without that guard, manually
+      # dispatching this workflow from ``develop`` or a feature branch
+      # would benchmark *that* ref and then open a
+      # ``ci/benchmark-results -> main`` PR containing non-main numbers,
+      # silently rewriting ``main``'s headline benchmark block from a
+      # different code state than ``main`` actually carries.
       - name: Update README "Latest Benchmark Results" block
         if: |
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
+          (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         run: |
           python scripts/update_readme_benchmarks.py \
             --results benchmarks/mercury_benchmark_results.json \
@@ -216,8 +225,8 @@ jobs:
       - name: Open PR with mercury results + README block (API-signed)
         if: |
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
+          (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         env:
           GITHUB_TOKEN: ${{ secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -319,8 +328,8 @@ jobs:
         if: |
           always() && (
             (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-            github.event_name == 'schedule' ||
-            github.event_name == 'workflow_dispatch'
+            (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
+            (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
           )
         env:
           GITHUB_TOKEN: ${{ secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN }}

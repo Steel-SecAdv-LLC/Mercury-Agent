@@ -1082,7 +1082,7 @@ The Mercury Agent successfully integrates **22+ detection engines** with **11 in
 - ✅ Optional distributed computing support (AsyncMessageQueue, PubSub)
 - ✅ NIST SP 800-53 compliance (AC-2, AU-2, SC-13, SI-4)
 - ✅ Windows compatibility guidance (WSL, pre-built wheels, VS Build Tools)
-- ✅ Research-grade with **6,300+ tests across 276 test files**; CI enforces hard coverage floors (`COVERAGE_THRESHOLD_CORE=30`, `COVERAGE_THRESHOLD_FULL=75` in `.github/workflows/ci.yml`; `.coveragerc fail_under=75`) with `pyproject.toml fail_under=85` as the strict aspirational target.
+- ✅ Research-grade with **6,300+ tests across 276 test files**; CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml` (`COVERAGE_THRESHOLD_CORE=15` for the core subset, `COVERAGE_THRESHOLD_FULL=35` for the full suite — set just below the 36.03% interim measured baseline); `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under=85` remains the strict aspirational target for the planned coverage push.
 
 ### Infrastructure Monitoring Achievements:
 - ✅ **11 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific)

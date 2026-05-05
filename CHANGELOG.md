@@ -141,8 +141,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   smaller subset of tests against the full source tree. The 85
   `pyproject.toml [tool.coverage.report] fail_under` target stays
   in place as the strict aspirational nightly bar; a dedicated
-  coverage push is planned to close the 36 → 85 gap. `.coveragerc
-  fail_under` is aligned to 35 so local runs and CI agree.
+  coverage push is planned to close the 36 → 85 gap. `.coveragerc`
+  no longer sets `fail_under` at all (it used to, at the same
+  value as the full-suite job, but that made every `pytest --cov`
+  invocation across the repo silently inherit the same floor —
+  including partial-suite jobs like `neuro-symbolic-tests` whose
+  coverage shape is different); per-job CI floors are configured
+  via `--cov-fail-under=${{ env.COVERAGE_THRESHOLD_* }}` flags in
+  `.github/workflows/ci.yml` so they apply only to the jobs that
+  explicitly opt in.
 - **Differential-privacy noise no longer draws from global `np.random`.**
   `federation/privacy.py::DifferentialPrivacy` now owns a per-instance
   `np.random.Generator` (constructed with `default_rng(rng_or_None)`)
@@ -236,13 +243,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     which is why `benchmarks/mercury_benchmark_results.json` has
     never appeared on `main` and the README "Latest Benchmark
     Results" block stays in `_pending first auto-commit_` state.
-- **Benchmark auto-commit replaced with PR-based, API-signed flow
+- **Benchmark auto-commit replaced with PR-based API flow
   (Option A).** New `scripts/persist_benchmark_to_pr.py` uses the
   GitHub Git Database API directly (`/git/blobs`, `/git/trees`,
   `/git/commits`, `/git/refs`) to commit on the
-  `ci/benchmark-results` feature branch.  Commits made via the
-  API are auto-signed by `github-actions[bot]` (satisfies rule 4,
-  *Commits must have verified signatures*).  The script then opens
+  `ci/benchmark-results` feature branch. The script itself does
+  **not** supply a detached `signature` field in the
+  `POST /git/commits` payload; rule 4 (*commits must have verified
+  signatures*) is satisfied externally — GitHub auto-signs commits
+  made via the Git Database API on behalf of `github-actions[bot]`
+  with its web-flow signing key, but **only when the call is
+  authenticated with the workflow's `GITHUB_TOKEN`** (or a GitHub
+  App installation token that is allowed to act as the bot).  If
+  the workflow is reconfigured to use a Personal Access Token via
+  `BENCHMARK_BOT_TOKEN`, those commits will land **unverified**;
+  the alternative is to extend the persister to compute and submit
+  a detached PGP/SSH signature (out of scope for this branch).  The
+  script then opens
   a PR into `main` (satisfies rule 1, *Changes must be made
   through a pull request*).  The 22 required status checks (rule
   2) run on the PR.  Both the mercury+README commit and the

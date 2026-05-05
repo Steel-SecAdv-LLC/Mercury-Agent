@@ -1,11 +1,25 @@
 #!/usr/bin/env python3
 """
-Persist benchmark results to ``main`` via a PR with API-signed commits.
+Persist benchmark results to ``main`` via a PR using the Git Database API.
 
 Replaces the previous ``git commit && git push origin HEAD:main`` flow
 which was rejected by ``main``'s branch protection ruleset
 (``Changes must be made through a pull request`` +
 ``Commits must have verified signatures``).
+
+Signature handling
+------------------
+This script does **not** supply a detached ``signature`` field in the
+``POST /git/commits`` payload.  Rule 4 of the protection ruleset
+(*commits must have verified signatures*) is satisfied externally —
+GitHub auto-signs commits made via the Git Database API on behalf of
+``github-actions[bot]`` with its web-flow signing key, **but only when
+the call is authenticated with the workflow's ``GITHUB_TOKEN``** (or a
+GitHub App installation token that is allowed to act as the bot).  If
+the workflow is reconfigured to consume a Personal Access Token via
+``BENCHMARK_BOT_TOKEN``, the resulting commits will land **unverified**
+and will fail the ruleset; the alternative is to extend this script to
+compute and submit a detached PGP/SSH signature (not implemented).
 
 Strategy
 --------
@@ -17,15 +31,18 @@ GitHub Git Database API is used to:
     4. GET  /repos/{owner}/{repo}/git/commits/{sha}   — get base tree.
     5. POST /repos/{owner}/{repo}/git/trees           — new tree from base + blobs.
     6. POST /repos/{owner}/{repo}/git/commits         — create commit
-       (auto-signed by ``github-actions[bot]`` because it goes through
-       the API rather than ``git push``).
+       (signed externally by GitHub's web-flow key when the API call is
+       authenticated as ``github-actions[bot]`` via ``GITHUB_TOKEN``;
+       unverified otherwise — see "Signature handling" above).
     7. POST /repos/{owner}/{repo}/git/refs            — create the
        feature-branch ref pointing at the new commit, OR
        PATCH /repos/{owner}/{repo}/git/refs/heads/{branch} (force) if
        the branch already exists from a prior run.
     8. POST /repos/{owner}/{repo}/pulls               — open a PR
        from the feature branch into ``base`` (skipped if a PR is
-       already open for the same head/base pair).
+       already open for the same head/base pair; in that case the
+       existing PR is updated with the freshly supplied
+       ``--pr-title`` and ``--pr-body``).
 
 Caveat
 ------
@@ -222,6 +239,29 @@ def create_pull_request(
     return int(response["number"])
 
 
+def update_pull_request(
+    owner: str,
+    repo: str,
+    pr_number: int,
+    title: str,
+    body: str,
+    token: str,
+) -> None:
+    """PATCH the title and body of an existing open PR.
+
+    Used when a benchmark rerun produces a fresh AUC/F1 but the
+    persistence branch already has an open PR — without this, the
+    PR header would keep the metrics from the first run while the
+    underlying tree advances.
+    """
+    _api(
+        "PATCH",
+        f"/repos/{owner}/{repo}/pulls/{pr_number}",
+        token,
+        payload={"title": title, "body": body},
+    )
+
+
 def enable_automerge(owner: str, repo: str, pr_number: int, merge_method: str, token: str) -> None:
     """Enable PR auto-merge via the GraphQL API (REST has no auto-merge endpoint)."""
     pr = _api("GET", f"/repos/{owner}/{repo}/pulls/{pr_number}", token)
@@ -338,13 +378,23 @@ def main() -> int:
         return 0
 
     commit_sha = create_commit(owner, repo, args.commit_message, tree_sha, base_sha, token)
-    print(f"  commit: {commit_sha[:8]} (auto-signed by github-actions[bot])")
+    print(
+        f"  commit: {commit_sha[:8]} "
+        "(GitHub-signed when authenticated as github-actions[bot]; see module docstring)"
+    )
 
     upsert_branch_ref(owner, repo, args.branch, commit_sha, token)
 
     existing = find_open_pr(owner, repo, args.branch, args.base, token)
     if existing is not None:
-        print(f"  reused existing open PR #{existing}")
+        # The benchmark workflow encodes the current AUC / F1 / commit SHA
+        # into ``--pr-title`` and ``--pr-body``.  If we silently reuse the
+        # existing PR without refreshing those fields, every rerun will
+        # keep displaying the *first* run's metrics in the PR header
+        # while the underlying tree advances.  PATCH the title/body now
+        # so reviewers see numbers that match the latest commit.
+        update_pull_request(owner, repo, existing, args.pr_title, args.pr_body, token)
+        print(f"  reused existing open PR #{existing}; refreshed title and body")
         pr_number = existing
     else:
         pr_number = create_pull_request(
