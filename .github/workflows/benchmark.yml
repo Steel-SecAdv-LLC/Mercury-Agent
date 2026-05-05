@@ -15,15 +15,24 @@ permissions:
 
 on:
   push:
-    # Run on every main / develop push so the README "Latest Benchmark
-    # Results" block is regenerated and committed back even on
-    # docs-only merges.  The previous ``paths:`` filter (only
-    # ``benchmarks/**`` or ``src/omni_mercury_engine/**``) meant that
-    # PR merges that did not touch those directories never refreshed
-    # the live-data block, leaving the README stuck on
-    # ``_pending first auto-commit_``.  Cost: ~30-min CI per main
-    # push; benefit: the public benchmark numbers actually update.
-    branches: [main, develop]
+    # Push trigger is ``main``-only by design.
+    #
+    # The ``main`` branch runs unfiltered so every merge into main
+    # refreshes the README "Latest Benchmark Results" block via the
+    # persistence steps below.  An earlier ``paths:`` filter on main
+    # (only ``benchmarks/**`` or ``src/omni_mercury_engine/**``) made
+    # docs-only merges never trigger a refresh, leaving the README
+    # stuck on ``_pending first auto-commit_``.  The cost on main is
+    # acceptable because the persistence steps actually publish new
+    # numbers.
+    #
+    # ``develop`` is intentionally absent: the persistence steps are
+    # all gated to ``refs/heads/main``, so a develop push would burn
+    # 30-120 minutes of CI without producing any published artefact.
+    # Develop branches are still validated through the
+    # ``pull_request`` trigger below when they open a PR into ``main``
+    # or ``develop``.
+    branches: [main]
   pull_request:
     # No path filter: every PR runs the regression gate so we never miss
     # a regression introduced by docs/config/CI changes that touch the
@@ -240,7 +249,18 @@ jobs:
           (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
           (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         env:
-          GITHUB_TOKEN: ${{ secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          # Use the workflow's GITHUB_TOKEN unconditionally so commits made
+          # via the Git Database API are auto-signed by GitHub's web-flow
+          # signing key on behalf of github-actions[bot].  A previous
+          # iteration of this file used ``secrets.BENCHMARK_BOT_TOKEN ||
+          # secrets.GITHUB_TOKEN``, but that expression cannot distinguish
+          # a GitHub App installation token from a Personal Access Token
+          # — and a PAT in BENCHMARK_BOT_TOKEN would produce *unverified*
+          # commits that fail rule 4 of the protection ruleset.  Wiring
+          # an installation token requires a separate well-named secret
+          # (e.g. BENCHMARK_BOT_APP_TOKEN) and should be done in a
+          # focused PR, not as a silent fallback here.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -356,7 +376,18 @@ jobs:
             (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
           )
         env:
-          GITHUB_TOKEN: ${{ secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          # Use the workflow's GITHUB_TOKEN unconditionally so commits made
+          # via the Git Database API are auto-signed by GitHub's web-flow
+          # signing key on behalf of github-actions[bot].  A previous
+          # iteration of this file used ``secrets.BENCHMARK_BOT_TOKEN ||
+          # secrets.GITHUB_TOKEN``, but that expression cannot distinguish
+          # a GitHub App installation token from a Personal Access Token
+          # — and a PAT in BENCHMARK_BOT_TOKEN would produce *unverified*
+          # commits that fail rule 4 of the protection ruleset.  Wiring
+          # an installation token requires a separate well-named secret
+          # (e.g. BENCHMARK_BOT_APP_TOKEN) and should be done in a
+          # focused PR, not as a silent fallback here.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail

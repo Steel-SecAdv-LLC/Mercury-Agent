@@ -175,6 +175,136 @@ class TestUpsertBranchRef:
             )
 
 
+class TestNoopBranchLookupErrorHandling:
+    """Pin the round-5 fix: the no-op-vs-existing-branch safeguard
+    must distinguish HTTP 404 (branch genuinely absent) from
+    transient API failures (403 / 500 / rate-limit / network).
+    Catching every ``RuntimeError`` would silently fall through to
+    commit + force-push on transient errors, churning required-check
+    approvals on the open bot PR for any blip."""
+
+    def test_404_treated_as_branch_absent(
+        self,
+        persister: object,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        f = tmp_path / "result.json"
+        f.write_text('{"x": 1}\n', encoding="utf-8")
+
+        same_tree = "TREE-A"
+
+        def fake_api(method: str, path: str, token: str, payload: Any = None) -> Any:
+            if method == "GET" and path == "/repos/o/r/git/ref/heads/main":
+                return {"object": {"sha": "main-sha"}}
+            if method == "GET" and path == "/repos/o/r/git/commits/main-sha":
+                return {"sha": "main-sha", "tree": {"sha": "main-tree"}}
+            if method == "POST" and path == "/repos/o/r/git/blobs":
+                return {"sha": "blob-sha"}
+            if method == "POST" and path == "/repos/o/r/git/trees":
+                return {"sha": same_tree}
+            # Branch genuinely absent: 404 must be swallowed and the
+            # script must continue to create the commit + ref normally.
+            if method == "GET" and path == "/repos/o/r/git/ref/heads/feature":
+                raise RuntimeError(
+                    "GitHub API GET .../git/ref/heads/feature failed: HTTP 404 — Not Found"
+                )
+            if method == "POST" and path == "/repos/o/r/git/commits":
+                return {"sha": "new-commit"}
+            if method == "POST" and path == "/repos/o/r/git/refs":
+                return {}
+            if method == "GET" and path == "/repos/o/r/pulls?state=open&base=main&head=o:feature":
+                return []
+            if method == "POST" and path == "/repos/o/r/pulls":
+                return {"number": 7}
+            raise AssertionError(f"unexpected: {method} {path}")
+
+        monkeypatch.setattr(persister, "_api", fake_api)
+        monkeypatch.setenv("GITHUB_TOKEN", "tok")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "p.py",
+                "--base",
+                "main",
+                "--branch",
+                "feature",
+                "--commit-message",
+                "msg",
+                "--pr-title",
+                "t",
+                "--pr-body",
+                "b",
+                "--files",
+                str(f),
+            ],
+        )
+
+        rc = persister.main()  # type: ignore[attr-defined]
+        assert rc == 0
+
+    def test_non_404_lookup_error_is_reraised(
+        self,
+        persister: object,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """Transient 500 / 403 / rate-limit must NOT be silently
+        treated as 'branch absent'; the persister must surface them
+        so the workflow run fails and the bot PR's approvals stay
+        intact."""
+        f = tmp_path / "result.json"
+        f.write_text('{"x": 1}\n', encoding="utf-8")
+
+        same_tree = "TREE-B"
+
+        def fake_api(method: str, path: str, token: str, payload: Any = None) -> Any:
+            if method == "GET" and path == "/repos/o/r/git/ref/heads/main":
+                return {"object": {"sha": "main-sha"}}
+            if method == "GET" and path == "/repos/o/r/git/commits/main-sha":
+                return {"sha": "main-sha", "tree": {"sha": "main-tree"}}
+            if method == "POST" and path == "/repos/o/r/git/blobs":
+                return {"sha": "blob-sha"}
+            if method == "POST" and path == "/repos/o/r/git/trees":
+                return {"sha": same_tree}
+            if method == "GET" and path == "/repos/o/r/git/ref/heads/feature":
+                raise RuntimeError(
+                    "GitHub API GET .../git/ref/heads/feature failed: HTTP 500 — Internal Server Error"
+                )
+            raise AssertionError(
+                f"persister must NOT continue past a 500 on the branch "
+                f"lookup; got: {method} {path}"
+            )
+
+        monkeypatch.setattr(persister, "_api", fake_api)
+        monkeypatch.setenv("GITHUB_TOKEN", "tok")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "p.py",
+                "--base",
+                "main",
+                "--branch",
+                "feature",
+                "--commit-message",
+                "msg",
+                "--pr-title",
+                "t",
+                "--pr-body",
+                "b",
+                "--files",
+                str(f),
+            ],
+        )
+
+        with pytest.raises(RuntimeError, match="HTTP 500"):
+            persister.main()  # type: ignore[attr-defined]
+
+
 class TestNoopAgainstExistingBranch:
     """Pin the round-3 fix: when the persistence branch already exists and
     its head commit's tree matches what we would create, skip the commit +

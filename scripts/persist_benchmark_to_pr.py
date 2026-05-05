@@ -411,9 +411,19 @@ def main() -> int:
     # resets required-check approvals on the bot PR.  The PR metadata
     # PATCH below still runs so a maintainer-visible rerun is recorded
     # in the PR title/body.
+    # Narrow the except: only treat HTTP 404 (branch genuinely doesn't
+    # exist) as "skip the no-op check".  A transient 403 / 500 /
+    # rate-limit / network error must NOT be swallowed here — if we
+    # silently fell through to commit + force-push under those
+    # conditions, we'd churn an open bot PR's required-check approvals
+    # on every transient API failure, defeating the whole point of
+    # this safeguard.  Re-raise anything else so the operator sees
+    # the real failure and the workflow fails loudly.
     try:
-        existing_branch_head = get_branch_sha(owner, repo, args.branch, token)
-    except RuntimeError:
+        existing_branch_head: str | None = get_branch_sha(owner, repo, args.branch, token)
+    except RuntimeError as exc:
+        if "HTTP 404" not in str(exc):
+            raise
         existing_branch_head = None
 
     if existing_branch_head is not None:
