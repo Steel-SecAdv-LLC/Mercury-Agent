@@ -27,11 +27,26 @@ Outputs
 -------
   - ``src/omni_mercury_engine/security/sigma_immutable_weights.pt``
     Serialised ``state_dict`` of the trained ``nn.Sequential``.
+  - ``src/omni_mercury_engine/security/sigma_immutable_corpus.json``
+    Audit-grade labelled corpus (Wave B item 2).  Float values are
+    persisted via ``float.hex`` so the file round-trips bit-exact.
+  - ``src/omni_mercury_engine/security/sigma_immutable_corpus.sig.json``
+    Ed25519 + ML-DSA-65 signatures (when AMA PQC is built) over the
+    corpus, produced via :class:`MercuryCrypto`.  Verified at engine
+    startup by :func:`verify_corpus_signatures`.
   - stdout: training metrics (loss, accuracy per epoch).
 
 Usage::
 
     python scripts/train_sigma_immutable.py [--epochs 200] [--seed 42]
+
+Determinism
+-----------
+With a fixed ``--seed`` the script writes a byte-identical
+``sigma_immutable_corpus.json`` on every invocation.  The signature
+file is *not* byte-identical between runs (Ed25519 + ML-DSA both use
+fresh keypairs each time), but the signatures themselves verify
+against the same corpus bytes.
 """
 
 from __future__ import annotations
@@ -256,6 +271,31 @@ def main() -> int:
     }
     REGISTRY_PATH.write_text(json.dumps(registry, indent=2) + "\n")
     logger.info("Registry written to %s (SHA-256: %s)", REGISTRY_PATH, sha256)
+
+    # ------------------------------------------------------------------
+    # Wave B item 2: persist + sign the labelled corpus deterministically.
+    # ------------------------------------------------------------------
+    # The corpus is a *small* audit-grade subset (128 samples) — separate
+    # from the 10k-sample training mix above — so reviewers can read it
+    # end-to-end and CI's Known-Answer Test can pin the network's
+    # outputs bit-for-bit.  Re-running this script with the same --seed
+    # writes a byte-identical sigma_immutable_corpus.json.
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+    from omni_mercury_engine.security.sigma_immutable_corpus import (
+        generate_corpus,
+        sign_and_persist_corpus,
+    )
+
+    bundle = generate_corpus(seed=args.seed)
+    sig_payload = sign_and_persist_corpus(bundle)
+    logger.info(
+        "σ_Immutable corpus persisted (%d positive + %d negative samples, "
+        "sha3-256=%s, signatures=%s).",
+        bundle.positive,
+        bundle.negative,
+        bundle.sha3_256,
+        sorted(sig_payload["signatures"].keys()),
+    )
 
     return 0
 

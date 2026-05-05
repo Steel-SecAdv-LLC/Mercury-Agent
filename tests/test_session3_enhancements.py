@@ -16,6 +16,33 @@ import pytest
 SEED = 42
 
 
+def _bypass_sigma_immutable(monkeypatch: pytest.MonkeyPatch, hub: object) -> None:
+    """Mock the σ_Immutable gate on ``hub`` so synthetic random inputs pass.
+
+    Wave B made σ_Immutable a mandatory hard ethical gate at the
+    :meth:`NeuroSymbolicHub.predict` boundary.  These integration tests
+    feed ``np.random.randn(...)`` into the hub to exercise GOSNN scalar
+    plumbing, fusion modes, explanations, and pipeline integration —
+    not ethical enforcement.  Random vectors do not satisfy the trained
+    256-D ethical gate, so the gate is mocked here to return a passing
+    evaluation.  The production-side σ_Immutable contract is exercised
+    by ``tests/ethical/test_hard_enforcement.py`` and
+    ``tests/security/test_sigma_immutable_kat.py`` which feed
+    realistic vectors.
+    """
+    from omni_mercury_engine.security.sigma_immutable_gate import (
+        SigmaImmutableEvaluation,
+    )
+
+    monkeypatch.setattr(
+        hub._sigma_immutable_gate,  # type: ignore[attr-defined]
+        "enforce",
+        lambda action, scalar_vector, details=None: SigmaImmutableEvaluation(
+            score=0.99, threshold=0.93, passes=True, backend="torch"
+        ),
+    )
+
+
 class TestNeuroSymbolicHub:
     """Tests for the enhanced neuro-symbolic hub."""
 
@@ -54,7 +81,7 @@ class TestNeuroSymbolicHub:
         assert abs(hub._symbolic_weight - expected_symbolic) < 0.01
         assert abs(hub._neural_weight + hub._symbolic_weight - 1.0) < 0.001
 
-    def test_predict_returns_explanations(self):
+    def test_predict_returns_explanations(self, monkeypatch: pytest.MonkeyPatch):
         """Test prediction returns explanations."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
@@ -70,6 +97,7 @@ class TestNeuroSymbolicHub:
         # trigger the hard ethical gate.  This test exercises explanations,
         # not ethical enforcement.
         hub._benevolence_threshold = 0.0
+        _bypass_sigma_immutable(monkeypatch, hub)
 
         X = np.random.randn(3, 32)
         results = hub.predict(X, return_explanations=True)
@@ -113,7 +141,7 @@ class TestNeuroSymbolicHub:
         assert exc_info.value.threshold == 0.99
         assert exc_info.value.score < 0.99
 
-    def test_knowledge_graph_rules(self):
+    def test_knowledge_graph_rules(self, monkeypatch: pytest.MonkeyPatch):
         """Test symbolic rules fire correctly."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
             NeuroSymbolicHub,
@@ -129,6 +157,7 @@ class TestNeuroSymbolicHub:
         # Test-only: bypass the setter's floor-clamp.  This test exercises
         # rule-firing, not ethical enforcement.
         hub._benevolence_threshold = 0.0
+        _bypass_sigma_immutable(monkeypatch, hub)
 
         # Add custom rule
         hub.add_rule(
@@ -148,7 +177,7 @@ class TestNeuroSymbolicHub:
         # Check rule was considered
         assert len(results) == 1
 
-    def test_gosnn_integration(self):
+    def test_gosnn_integration(self, monkeypatch: pytest.MonkeyPatch):
         """Test GOSNN scalar registration."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
@@ -161,6 +190,7 @@ class TestNeuroSymbolicHub:
         # Test-only: bypass the floor-clamp.  This test exercises GOSNN
         # scalar integration, not ethical enforcement.
         hub._benevolence_threshold = 0.0
+        _bypass_sigma_immutable(monkeypatch, hub)
 
         # Run some inferences (reduced from 5 to 3 for faster execution)
         X = np.random.randn(3, 64)
@@ -431,7 +461,7 @@ class TestRealWorldBenchmark:
 class TestIntegration:
     """Integration tests with previous sessions."""
 
-    def test_neurosymbolic_with_stacking_fusion(self):
+    def test_neurosymbolic_with_stacking_fusion(self, monkeypatch: pytest.MonkeyPatch):
         """Test neuro-symbolic hub with stacking fusion."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
             FusionMode,
@@ -448,6 +478,7 @@ class TestIntegration:
         # Test-only: bypass the floor-clamp.  This test exercises the
         # scoring pipeline, not ethical enforcement.
         hub._benevolence_threshold = 0.0
+        _bypass_sigma_immutable(monkeypatch, hub)
 
         # Fit with labeled data (reduced size for faster execution)
         # Use 50% threshold to ensure both classes are represented
@@ -505,7 +536,7 @@ class TestIntegration:
         except ImportError:
             pytest.skip("Calibration module not available")
 
-    def test_end_to_end_pipeline(self):
+    def test_end_to_end_pipeline(self, monkeypatch: pytest.MonkeyPatch):
         """Test complete pipeline from data to ethical detection."""
         from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
@@ -528,6 +559,8 @@ class TestIntegration:
         # Test-only: bypass the floor-clamp.  This test exercises the
         # end-to-end pipeline, not ethical enforcement.
         hub._benevolence_threshold = 0.0
+        _bypass_sigma_immutable(monkeypatch, hub)
+
         gosnn = GlobalOmniScalarNetwork()
         optimizer = GOSNNOptimizer(seed=SEED)
 

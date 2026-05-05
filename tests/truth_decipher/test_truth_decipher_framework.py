@@ -41,6 +41,45 @@ import numpy as np
 from omni_mercury_engine.truth_decipher import TruthDecipherFramework, TruthDecipherResult
 
 
+@pytest.fixture(autouse=True)
+def _bypass_sigma_immutable_for_framework(monkeypatch):
+    """Mock the σ_Immutable singleton's ``enforce`` for the whole file.
+
+    Wave B (PR #179) promoted σ_Immutable to a mandatory hard ethical
+    gate at ``OmniMercuryEngine.detect_with_fusion``.  These framework
+    integration tests feed synthetic ``np.random.randn(...)`` /
+    ``torch.randn(...)`` data into ``TruthDecipherFramework.decipher_truth``,
+    which transitively exercises the engine boundary.  The trained
+    256-D gate (threshold 0.93) rightly rejects such untrained-encoder
+    scalar vectors with score 0.0, which is the correct production
+    behaviour but breaks tests whose subject is the framework's
+    five-phase orchestration plumbing — discovery, cognitive analysis,
+    identification, ethics, resolution — not σ_Immutable.
+
+    The production-side σ_Immutable contract is exercised by
+    ``tests/ethical/test_hard_enforcement.py`` and the KAT suite at
+    ``tests/security/test_sigma_immutable_kat.py`` with realistic
+    vectors.  We monkeypatch :meth:`SigmaImmutableGate.enforce` on
+    the process-wide singleton so every transitive call lands on a
+    passing evaluation; the patch is automatically reverted by
+    ``monkeypatch`` at fixture teardown so it cannot leak between
+    tests.
+    """
+    from omni_mercury_engine.security.sigma_immutable_gate import (
+        SigmaImmutableEvaluation,
+        get_sigma_immutable_gate,
+    )
+
+    gate = get_sigma_immutable_gate()
+    monkeypatch.setattr(
+        gate,
+        "enforce",
+        lambda action, scalar_vector, details=None: SigmaImmutableEvaluation(
+            score=0.99, threshold=gate.threshold, passes=True, backend="torch"
+        ),
+    )
+
+
 class TestTruthDecipherFramework:
     """Test Truth Deciphering Framework orchestration."""
 

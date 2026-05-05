@@ -1,0 +1,16 @@
+{
+  "corpus_sha3_256": "d64d0bcbedca487c65726d0c0b5086ee81e5daa15bc1907e31a59b797dea6542",
+  "schema": "sigma_immutable_corpus_signatures/v1",
+  "signatures": {
+    "ed25519": {
+      "algorithm": "ed25519",
+      "public_key_hex": "484045dc6806325a6652ee35796decea0c4b6086972ff04feeeb54444d0e078d",
+      "signature_hex": "0d266158654d374bad3eec4880a9968fb0b41f701cd2f93f5be426effcbdf2f5a5285f1b0a5b3c79ecc8026f8de317894e9921806dfd194cb90cd35ca5482d0b"
+    },
+    "ml-dsa-65": {
+      "algorithm": "ml-dsa-65",
+      "omission_reason": "ML-DSA-65 not available in AMA Cryptography. Build the native C library: cmake -B build -DAMA_USE_NATIVE_PQC=ON && cmake --build build",
+      "omitted": true
+    }
+  }
+}

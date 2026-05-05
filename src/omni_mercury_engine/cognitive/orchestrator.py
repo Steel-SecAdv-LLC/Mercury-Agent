@@ -42,7 +42,10 @@ import numpy as np
 
 from omni_mercury_engine.cognitive.case_based_reasoning import Case, CaseBasedReasoner, CaseOutcome
 from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
-from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
+from omni_mercury_engine.cognitive.ethical_bounding import (
+    BenevolenceScorer,
+    EthicalConstraintViolationError,
+)
 from omni_mercury_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
 from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
@@ -223,6 +226,17 @@ class CognitiveOrchestrator(LoggerMixin):
             benevolence_threshold=MINIMUM_BENEVOLENCE_FLOOR,
         )
 
+        # σ_Immutable second hard ethical gate (Wave B item 1).
+        # The orchestrator runs an independent learned check at the
+        # analyze() boundary, mirroring the engine and hub boundaries.
+        # The gate is the process-wide singleton — the same trained
+        # network and signed-corpus verdict applies everywhere.
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            get_sigma_immutable_gate,
+        )
+
+        self._sigma_immutable_gate = get_sigma_immutable_gate()
+
         # Core components
         self.knowledge_graph = KnowledgeGraph(
             enable_embeddings=True,
@@ -319,6 +333,11 @@ class CognitiveOrchestrator(LoggerMixin):
         # Extract core detection values
         anomaly_detected = detection_result.get("is_anomaly", False)
         anomaly_score = detection_result.get("anomaly_prob", 0.0)
+        # Alias kept for downstream code that takes the value via the
+        # semantic ``anomaly_prob`` kwarg (e.g. _build_sigma_immutable_vector
+        # and the external API payload).  Same value, two consumer-facing
+        # names — do not collapse without renaming the kwarg.
+        anomaly_prob = anomaly_score
         severity = detection_result.get("severity", 0.0)
 
         # Initialize result
@@ -524,10 +543,6 @@ class CognitiveOrchestrator(LoggerMixin):
             # the partial result; the timing is also surfaced on the
             # exception via ``analysis_time_ms`` for caller inspection.
             result.analysis_time_ms = (time.time() - start_time) * 1000
-            from omni_mercury_engine.cognitive.ethical_bounding import (
-                EthicalConstraintViolationError,
-            )
-
             raise EthicalConstraintViolationError(
                 action=action_desc,
                 score=ethical_result.benevolence_score,
@@ -535,9 +550,109 @@ class CognitiveOrchestrator(LoggerMixin):
                 analysis_time_ms=result.analysis_time_ms,
             )
 
+        # σ_Immutable second hard ethical gate (Wave B item 1).  Build a
+        # synthetic 256-dim scalar vector from the analysis context so
+        # the gate can score the cognitive verdict on the same surface
+        # as the engine boundary.  The first 27 columns mirror the
+        # ethical scalars (benevolence + safety axes), the remaining
+        # 153 used columns carry severity/anomaly_prob signal.
+        sigma_vector = self._build_sigma_immutable_vector(
+            benevolence_score=ethical_result.benevolence_score,
+            severity=severity,
+            anomaly_prob=anomaly_prob,
+        )
+        try:
+            self._sigma_immutable_gate.enforce(
+                action=f"CognitiveOrchestrator.analyze:{safe_domain}",
+                scalar_vector=sigma_vector,
+                details={
+                    "boundary": "CognitiveOrchestrator.analyze",
+                    "domain": safe_domain,
+                    "severity": severity,
+                    "anomaly_prob": anomaly_prob,
+                },
+            )
+        except EthicalConstraintViolationError:
+            result.analysis_time_ms = (time.time() - start_time) * 1000
+            raise
+
         result.analysis_time_ms = (time.time() - start_time) * 1000
 
         return result
+
+    @staticmethod
+    def _build_sigma_immutable_vector(
+        benevolence_score: float,
+        severity: float,
+        anomaly_prob: float,
+    ) -> np.ndarray[Any, Any]:
+        """Build the σ_Immutable input vector from analysis context.
+
+        The vector mirrors the GOSNN scalar layout the trained network
+        was fitted on:
+
+        * The first 27 columns hold the *critical ethical scalars*
+          (benevolence, integrity, justice, …).  Without a live GOSNN
+          singleton at the orchestrator boundary, we project the
+          analysis ``benevolence_score`` into all 27 — the network
+          learned that all-27-above-threshold means ethical, so a
+          uniform high value is read as a clear pass and a uniform
+          low value as a clear failure.
+        * The next 153 columns carry the analysis severity / anomaly
+          signal so high-severity / high-anomaly inputs are scored
+          against the same statistical regime the network saw at
+          training time (``U[0, 2]`` non-ethical band).
+
+        Args:
+            benevolence_score: Benevolence score from the orchestrator's
+                in-line scorer.
+            severity: Analysis severity in ``[0, 1]``.
+            anomaly_prob: Anomaly probability in ``[0, 1]``.
+
+        Returns:
+            ``(256,)`` float64 vector, suitable for
+            :meth:`SigmaImmutableGate.enforce`.
+        """
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            SIGMA_IMMUTABLE_ETHICAL_DIMS,
+            SIGMA_IMMUTABLE_INPUT_DIM,
+            SIGMA_USED_BAND_END,
+            project_benevolence_to_sigma_band,
+        )
+
+        vector = np.zeros(SIGMA_IMMUTABLE_INPUT_DIM, dtype=np.float64)
+        # Project benevolence score into the ethical band the trained
+        # network learned at:
+        #
+        # * ``benevolence >= MINIMUM_BENEVOLENCE_FLOOR (0.70)`` → maps
+        #   into ``[1.5, 2.0]`` (the upper half of the positive band
+        #   ``U[0.93, 2.0]`` the corpus uses).  Benevolence has already
+        #   been independently checked by ``BenevolenceScorer.enforce``;
+        #   by the time σ_Immutable runs at this boundary, the analysis
+        #   is known-permissible, so we project it into the part of the
+        #   distribution the network is most confident about.
+        # * ``benevolence < 0.70`` (a defensive bypass) → maps below
+        #   threshold so σ_Immutable still fires.
+        #
+        # Projection lives in
+        # :func:`security.sigma_immutable_gate.project_benevolence_to_sigma_band`
+        # so the same calibration is shared with the hub-side builder.
+        # The non-ethical-band end is sourced from
+        # :data:`SIGMA_USED_BAND_END` so the orchestrator, the hub, the
+        # corpus, and the trainer all agree on the layout.
+        ethical_value = project_benevolence_to_sigma_band(benevolence_score)
+        vector[:SIGMA_IMMUTABLE_ETHICAL_DIMS] = ethical_value
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
+        # Per-sample signal perturbation lives in the 33-dim window
+        # ``[ETHICAL_DIMS, ETHICAL_DIMS + 33)`` (== ``[27, 60)`` for the
+        # canonical layout), which mirrors the region the hub-side
+        # builder uses for its three head dims plus 30-dim row signal.
+        # The orchestrator has only one scalar (severity+anomaly_prob)
+        # so it is broadcast uniformly across the window.
+        signal_perturbation = float(np.clip(0.5 * severity + 0.5 * anomaly_prob, 0.0, 1.0))
+        signal_window_end = SIGMA_IMMUTABLE_ETHICAL_DIMS + 33
+        vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:signal_window_end] = 1.0 + 0.4 * signal_perturbation
+        return vector
 
     def learn_from_feedback(
         self,

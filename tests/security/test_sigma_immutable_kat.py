@@ -21,28 +21,44 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from omni_mercury_engine.core.global_omni_scalar_network import EthicalGate
+from omni_mercury_engine.security.sigma_immutable_gate import (
+    SIGMA_ETHICAL_BAND_END,
+    SIGMA_IMMUTABLE_DEFAULT_THRESHOLD,
+    SIGMA_IMMUTABLE_DIM,
+    SIGMA_USED_BAND_END,
+)
 
 # ---------------------------------------------------------------------------
 # KAT vectors — hand-curated, deterministic
 #
 # Training data distribution (scripts/train_sigma_immutable.py):
-#   - Ethical scalars (indices 0-26): U[threshold, 2.0] for positive,
+#   - Ethical scalars (indices 0..SIGMA_ETHICAL_BAND_END):
+#     U[threshold, 2.0] for positive,
 #     1-5 drawn from U[0, threshold-0.01] for negative
-#   - Non-ethical scalars (indices 27-179): U[0.0, 2.0]
-#   - Remaining indices (180-255): zero-padded
+#   - Non-ethical scalars (indices SIGMA_ETHICAL_BAND_END..SIGMA_USED_BAND_END):
+#     U[0.0, 2.0]
+#   - Remaining indices (SIGMA_USED_BAND_END..SIGMA_IMMUTABLE_DIM):
+#     zero-padded
 # ---------------------------------------------------------------------------
+
+_NONETHICAL_DIMS = SIGMA_USED_BAND_END - SIGMA_ETHICAL_BAND_END
+_THRESHOLD = SIGMA_IMMUTABLE_DEFAULT_THRESHOLD
 
 # Deterministic RNG for non-ethical fill (seed=999, distinct from training)
 _rng = np.random.default_rng(999)
 
-# ── Positive vector: all 27 ethical scalars well above threshold ──
-KAT_POSITIVE = np.zeros(256, dtype=np.float32)
-KAT_POSITIVE[:27] = _rng.uniform(0.93, 2.0, 27).astype(np.float32)
-KAT_POSITIVE[27:180] = _rng.uniform(0.0, 2.0, 153).astype(np.float32)
+# ── Positive vector: all ethical scalars well above threshold ──
+KAT_POSITIVE = np.zeros(SIGMA_IMMUTABLE_DIM, dtype=np.float32)
+KAT_POSITIVE[:SIGMA_ETHICAL_BAND_END] = _rng.uniform(
+    _THRESHOLD, 2.0, SIGMA_ETHICAL_BAND_END
+).astype(np.float32)
+KAT_POSITIVE[SIGMA_ETHICAL_BAND_END:SIGMA_USED_BAND_END] = _rng.uniform(
+    0.0, 2.0, _NONETHICAL_DIMS
+).astype(np.float32)
 
 # ── Negative vector: 5 critical ethical scalars below threshold ──
-KAT_NEGATIVE = np.zeros(256, dtype=np.float32)
-KAT_NEGATIVE[:27] = np.array(
+KAT_NEGATIVE = np.zeros(SIGMA_IMMUTABLE_DIM, dtype=np.float32)
+KAT_NEGATIVE[:SIGMA_ETHICAL_BAND_END] = np.array(
     [
         0.1,
         0.2,
@@ -74,11 +90,13 @@ KAT_NEGATIVE[:27] = np.array(
     ],
     dtype=np.float32,
 )
-KAT_NEGATIVE[27:180] = _rng.uniform(0.0, 2.0, 153).astype(np.float32)
+KAT_NEGATIVE[SIGMA_ETHICAL_BAND_END:SIGMA_USED_BAND_END] = _rng.uniform(
+    0.0, 2.0, _NONETHICAL_DIMS
+).astype(np.float32)
 
-# ── All-low ethical vector: all 27 ethical scalars below threshold ──
-KAT_ALL_LOW = np.zeros(256, dtype=np.float32)
-KAT_ALL_LOW[:27] = np.array(
+# ── All-low ethical vector: all ethical scalars below threshold ──
+KAT_ALL_LOW = np.zeros(SIGMA_IMMUTABLE_DIM, dtype=np.float32)
+KAT_ALL_LOW[:SIGMA_ETHICAL_BAND_END] = np.array(
     [
         0.1,
         0.2,
@@ -110,7 +128,9 @@ KAT_ALL_LOW[:27] = np.array(
     ],
     dtype=np.float32,
 )
-KAT_ALL_LOW[27:180] = _rng.uniform(0.0, 2.0, 153).astype(np.float32)
+KAT_ALL_LOW[SIGMA_ETHICAL_BAND_END:SIGMA_USED_BAND_END] = _rng.uniform(
+    0.0, 2.0, _NONETHICAL_DIMS
+).astype(np.float32)
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +143,7 @@ class TestSigmaImmutableKAT:
 
     @pytest.fixture(autouse=True)
     def _gate(self) -> None:
-        self.gate = EthicalGate(threshold=0.93)
+        self.gate = EthicalGate(threshold=_THRESHOLD)
 
     def test_gate_loads_trained_weights(self) -> None:
         """The gate must load trained weights from the in-repo artifact."""
@@ -136,13 +156,13 @@ class TestSigmaImmutableKAT:
         """A known-good ethical scalar vector must pass the gate."""
         passes, score = self.gate.evaluate(KAT_POSITIVE)
         assert passes, f"KAT positive vector failed with score={score:.4f}"
-        assert score >= 0.93, f"Score {score:.4f} below threshold 0.93"
+        assert score >= _THRESHOLD, f"Score {score:.4f} below threshold {_THRESHOLD}"
 
     def test_negative_vector_fails(self) -> None:
         """A known-bad vector (5 ethical violations) must fail the gate."""
         passes, score = self.gate.evaluate(KAT_NEGATIVE)
         assert not passes, f"KAT negative vector incorrectly passed with score={score:.4f}"
-        assert score < 0.93, f"Score {score:.4f} unexpectedly above threshold 0.93"
+        assert score < _THRESHOLD, f"Score {score:.4f} unexpectedly above threshold {_THRESHOLD}"
 
     def test_all_low_fails(self) -> None:
         """A vector with all ethical scalars below threshold must fail."""
@@ -152,7 +172,7 @@ class TestSigmaImmutableKAT:
 
     def test_all_zeros_fails(self) -> None:
         """An all-zeros vector (no ethical signal) must fail the gate."""
-        zeros = np.zeros(256, dtype=np.float32)
+        zeros = np.zeros(SIGMA_IMMUTABLE_DIM, dtype=np.float32)
         passes, score = self.gate.evaluate(zeros)
         assert not passes, f"All-zeros vector passed with score={score:.4f}"
 
@@ -173,9 +193,9 @@ class TestSigmaImmutableKAT:
 
     def test_boundary_ethics_at_threshold(self) -> None:
         """Scalars exactly at threshold — the gate's learned boundary."""
-        boundary = np.zeros(256, dtype=np.float32)
-        boundary[:27] = 0.93
-        boundary[27:180] = 1.0
+        boundary = np.zeros(SIGMA_IMMUTABLE_DIM, dtype=np.float32)
+        boundary[:SIGMA_ETHICAL_BAND_END] = _THRESHOLD
+        boundary[SIGMA_ETHICAL_BAND_END:SIGMA_USED_BAND_END] = 1.0
         _, score = self.gate.evaluate(boundary)
         assert isinstance(score, float)
         assert 0.0 <= score <= 1.0

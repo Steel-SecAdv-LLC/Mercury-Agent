@@ -17,6 +17,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Wave B — σ_Immutable promoted to hard gate (deferred from PR #161)
+
+- **σ_Immutable is now the second mandatory hard ethical gate** at every
+  engine / hub / orchestrator decision boundary.  The Wave A landing
+  reserved `check="sigma_immutable"` and `check="gosnn_unavailable"` in
+  `EthicalConstraintViolationError`'s schema but did not raise them
+  from any code path; Wave B flips the contract:
+  - `OmniMercuryEngine._enforce_ethics_at_boundary` now runs both
+    `BenevolenceScorer.enforce` *and* `SigmaImmutableGate.enforce`
+    using a benevolence→σ-band projection helper
+    (`security.sigma_immutable_gate.project_benevolence_to_sigma_band`).
+  - `OmniMercuryEngine.detect_with_fusion` raises
+    `EthicalConstraintViolationError(check="sigma_immutable")` when
+    the trained σ_Immutable network scores below threshold for the
+    full GOSNN scalar state, and
+    `EthicalConstraintViolationError(check="gosnn_unavailable")` when
+    GOSNN itself cannot run.  The previous
+    "fall back to `gosnn_metadata.fallback_mode=True`" path is gone.
+  - The `enable_gosnn` parameter on `detect_with_fusion` and
+    `detect_with_fusion_calibrated` is renamed to the private
+    `_enable_gosnn` so production callers can no longer skip the
+    σ_Immutable gate.  Unit tests that need to bypass GOSNN must
+    additionally set the auditable module-level flag
+    `omni_mercury_engine.engine._GOSNN_TESTING_BYPASS`.
+  - `NeuroSymbolicHub.predict` and `CognitiveOrchestrator.analyze`
+    already wired σ_Immutable in Wave A; their σ-vector builders now
+    source the layout from a single source of truth.
+- **Single source of truth for the σ_Immutable layout.**
+  `security.sigma_immutable_gate` exports
+  `SIGMA_IMMUTABLE_DIM` (256), `SIGMA_ETHICAL_BAND_END` (27),
+  `SIGMA_USED_BAND_END` (180) and the public alias `CORPUS_USED_DIM`.
+  The corpus, the trainer, the orchestrator, the neurosymbolic hub,
+  and the KAT regression test all import from this single location;
+  the previous duplicate hard-coded ``180`` literals are gone.
+- **σ_Immutable hard-gate regression suite.** The Wave A
+  `tests/ethical/test_hard_enforcement.py::TestReservedChecksWaveB`
+  block already pinned the post-Wave-B contract; they were
+  `@pytest.mark.xfail(strict=True)` in Wave A and are positive tests
+  here.  No additional xfail markers ship in Wave B.
+- **Decision-boundary contract documented** in
+  `src/omni_mercury_engine/ethical/__init__.py` and
+  `ARCHITECTURE.md`: every public detect / analyze / predict surface
+  must run BenevolenceScorer **and** σ_Immutable in order, or fail
+  closed with the matching `check=…` value.
+
+### Tooling
+
+- **`scripts/update_readme_benchmarks.py` reads canonical metadata**
+  (`data["metadata"]["git_commit"]` / `data["metadata"]["timestamp"]`)
+  before falling back to the older flat `data["commit"]` /
+  `data["timestamp"]` keys, so the README block now renders the
+  correct provenance for runs produced by `benchmarks/mercury_benchmark.py`.
+  Regression: `tests/scripts/test_update_readme_benchmarks.py`.
+- **Benchmark workflow self-trigger guard.**
+  `.github/workflows/benchmark.yml` adds a defence-in-depth job-level
+  ``if:`` that refuses to run when the head commit was written by the
+  workflow's own auto-commit step (subject prefix
+  ``ci(benchmark): persist latest run`` and the ``[skip benchmark]``
+  marker).  GitHub's ``[skip ci]`` marker is still emitted as the
+  primary skip mechanism.
+
 ### Anomaly Detection
 
 - **21-probe Anomaly Math Arrest is the dominant path** (Phase 2 ITEM

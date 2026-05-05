@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Mercury Agent implements a ML-Centric Hybrid Fusion architecture that integrates 22+ diverse scientific and computational paradigms into a unified anomaly detection framework. This document describes the system architecture, data flow, and key design decisions.
+The Mercury Agent is a neuro-symbolic AI framework that integrates 22+ diverse scientific and computational paradigms — a deep-learning core (163 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 120 source files) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
 
 ## System Architecture Diagram
 
@@ -621,6 +621,52 @@ Infrastructure modules integrate seamlessly with the core 22+ detection engines:
 
 ## Security & Compliance
 
+### Dual-Gate Hard Ethical Enforcement
+
+Every public detect / analyze / predict surface in Mercury-Agent runs
+**two independent hard ethical gates** in order before returning any
+prediction.  There is no advisory mode and no public flag that disables
+either gate; failure modes raise
+`EthicalConstraintViolationError` with a machine-checkable `check=…`
+field and abort the call.
+
+```
+caller → boundary surface
+              │
+              ├── Gate 1: BenevolenceScorer.enforce(action, context)
+              │     └── raises check="benevolence" if score < threshold
+              │
+              ├── Gate 2: SigmaImmutableGate.enforce(scalar_vector)
+              │     └── raises check="sigma_immutable" if score < threshold
+              │     └── raises check="gosnn_unavailable" if GOSNN cannot run
+              │
+              └── return prediction
+```
+
+Boundary surfaces:
+
+| Surface                                                    | Gate 1                | Gate 2                       |
+| ---------------------------------------------------------- | --------------------- | ---------------------------- |
+| `OmniMercuryEngine.detect_with_fusion`                     | `check="benevolence"` | `check="sigma_immutable"` / `gosnn_unavailable` |
+| `OmniMercuryEngine.detect_with_fusion_calibrated`          | `check="benevolence"` | `check="sigma_immutable"` / `gosnn_unavailable` |
+| `CognitiveOrchestrator.analyze`                            | `check="benevolence"` | `check="sigma_immutable"`    |
+| `NeuroSymbolicHub.predict`                                 | `check="benevolence"` | `check="sigma_immutable"`    |
+
+**σ_Immutable layout** (constants in
+`omni_mercury_engine.security.sigma_immutable_gate`):
+
+```
+σ vector ∈ ℝ²⁵⁶
+  [0,   SIGMA_ETHICAL_BAND_END=27)   ethical scalars (benevolence-projected)
+  [27,  SIGMA_USED_BAND_END=180)     non-ethical active band
+  [180, 256)                         zero-padded reserved tail
+```
+
+`SigmaImmutableGate` is a thread-safe process-wide singleton; the
+engine, the hub, and the orchestrator all observe the same trained
+network and the same signed-corpus verdict, so a corpus tampering at
+startup poisons every decision boundary uniformly (fail-closed).
+
 ### NIST SP 800-53 Controls
 
 - **AC-2**: Account Management (rate limiting)
@@ -1024,7 +1070,7 @@ is_stable = OmniCodes.validate_stability(min_total=50.0)  # True
 
 ## Conclusion
 
-The Mercury Agent successfully integrates **22+ detection engines** with **11 infrastructure monitoring modules** across **8 major frameworks** into a production-ready ML-centric platform. The hybrid fusion approach balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
+The Mercury Agent successfully integrates **22+ detection engines** with **11 infrastructure monitoring modules** across **8 major frameworks** into a production-grade neuro-symbolic AI platform. The hybrid fusion approach — neural networks coupled to an explicit symbolic reasoning layer with hard ethical bounding — balances complexity and performance, with runtime configuration toggles and flexible module selection allowing users to customize feature depth and infrastructure coverage based on their specific requirements.
 
 ### Core ML Achievements:
 - ✅ Hybrid fusion (feature + decision level) with multi-head attention

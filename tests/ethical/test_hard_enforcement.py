@@ -40,6 +40,78 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
 from omni_mercury_engine.ethical import EthicalViolation
 
 # ---------------------------------------------------------------------------
+# Realistic-input fixtures.
+#
+# Earlier revisions of this suite exercised the boundaries with bare
+# ``np.random.RandomState(seed).randn(rows, cols)`` matrices.  Pure
+# Gaussian noise is a poor stand-in for the byte-rate / packet-count /
+# duration-skewed feature vectors the production detectors actually
+# consume, so the regressions only sampled an idealised slice of the
+# input distribution.  ``_synthetic_traffic_batch`` builds a small but
+# structurally realistic batch that mixes:
+#
+# * positive, right-skewed counters (packet/byte rates) via a log-normal
+#   draw,
+# * bounded ratios in [0, 1] (TCP-flag / protocol mixes) via a Beta
+#   draw,
+# * zero-mean float deltas (timing jitter, entropy residuals) via a
+#   Gaussian draw,
+# * a small fraction of clearly-anomalous rows whose counter columns
+#   are pushed several sigma above the benign mean — the same shape an
+#   exfil burst or scan wave would present to a flow-level detector.
+#
+# The output is float64, contiguous, and shape-compatible with both
+# ``OmniMercuryEngine.detect_with_fusion`` and
+# ``NeuroSymbolicHub.predict``.
+# ---------------------------------------------------------------------------
+
+
+def _synthetic_traffic_batch(
+    seed: int,
+    rows: int,
+    cols: int,
+    anomaly_fraction: float = 0.25,
+) -> np.ndarray:
+    """Return a structured ``(rows, cols)`` traffic-like feature batch.
+
+    Args:
+        seed: Deterministic RNG seed.
+        rows: Number of feature vectors (samples) in the batch.
+        cols: Feature width.  Must be ``>= 3``.
+        anomaly_fraction: Fraction of rows whose counter columns are
+            pushed into the anomalous regime.
+
+    Returns:
+        A ``float64`` ``(rows, cols)`` array combining log-normal
+        counters, Beta-distributed ratios, and Gaussian deltas, with a
+        deterministic anomalous tail.
+    """
+    if cols < 3:
+        raise ValueError("cols must be >= 3 for the traffic-like layout")
+    rng = np.random.default_rng(seed)
+
+    # Three column groups, evenly distributed across the available
+    # width, modelling counters / ratios / deltas respectively.
+    counter_cols = max(1, cols // 3)
+    ratio_cols = max(1, cols // 3)
+    delta_cols = cols - counter_cols - ratio_cols
+
+    counters = rng.lognormal(mean=0.0, sigma=0.75, size=(rows, counter_cols))
+    ratios = rng.beta(a=2.0, b=5.0, size=(rows, ratio_cols))
+    deltas = rng.normal(loc=0.0, scale=0.5, size=(rows, delta_cols))
+
+    batch = np.concatenate([counters, ratios, deltas], axis=1).astype(np.float64)
+
+    # Push a deterministic minority of rows several sigma above the
+    # benign counter mean so the batch covers both regimes.
+    n_anom = max(1, round(rows * anomaly_fraction))
+    anom_idx = rng.choice(rows, size=n_anom, replace=False)
+    batch[anom_idx, :counter_cols] *= 6.0
+
+    return np.ascontiguousarray(batch)
+
+
+# ---------------------------------------------------------------------------
 # Sanity: the canonical names alias the same class.
 # ---------------------------------------------------------------------------
 
@@ -193,7 +265,7 @@ class TestNeuroSymbolicHubBoundary:
             enable_adaptive_thresholding=False,
             enable_gosnn_3r=False,
         )
-        X = np.random.RandomState(0).randn(2, 32)
+        X = _synthetic_traffic_batch(seed=0, rows=2, cols=32)
 
         with pytest.raises(EthicalViolation) as exc_info:
             hub.predict(X)
@@ -203,8 +275,13 @@ class TestNeuroSymbolicHubBoundary:
         assert exc_info.value.score < 0.99
         assert "sample_index" in exc_info.value.details
 
-    def test_predict_returns_results_on_legitimate_threshold(self) -> None:
+    def test_predict_returns_results_on_legitimate_threshold(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            SigmaImmutableEvaluation,
+        )
 
         # ``benevolence_threshold`` clamps to ``MINIMUM_BENEVOLENCE_FLOOR``
         # (0.70).  With an untrained encoder + random inputs the realised
@@ -225,7 +302,20 @@ class TestNeuroSymbolicHubBoundary:
         # inputs, not that the gate fires.
         hub._benevolence_threshold = 0.0
 
-        X = np.random.RandomState(1).randn(2, 32)
+        # Wave B: σ_Immutable is now an independent hard gate that fires
+        # at sub-threshold benevolence by design.  This test deliberately
+        # bypasses the benevolence floor to exercise the *predict* return
+        # path on benign inputs; bypassing σ_Immutable in tests is the
+        # contract — a real production caller cannot reach this state.
+        monkeypatch.setattr(
+            hub._sigma_immutable_gate,
+            "enforce",
+            lambda action, scalar_vector, details=None: SigmaImmutableEvaluation(
+                score=0.99, threshold=0.93, passes=True, backend="torch"
+            ),
+        )
+
+        X = _synthetic_traffic_batch(seed=1, rows=2, cols=32)
         results = hub.predict(X)
         assert len(results) == 2
         for res in results:
@@ -263,7 +353,7 @@ class TestEngineFusionBoundary:
         engine._boundary_scorer.benevolence_threshold = 1.01
 
         with pytest.raises(EthicalViolation) as exc_info:
-            engine.detect_with_fusion(np.random.RandomState(0).randn(4, 8))
+            engine.detect_with_fusion(_synthetic_traffic_batch(seed=0, rows=4, cols=8))
 
         assert exc_info.value.check == "benevolence"
         assert exc_info.value.threshold == 1.01
@@ -275,18 +365,22 @@ class TestEngineFusionBoundary:
         # The engine's _enforce_ethics_at_boundary uses positive-keyword
         # action text plus MINIMUM_BENEVOLENCE_FLOOR, so legitimate
         # detection requests must clear the gate without modification.
-        result = engine.detect_with_fusion(np.random.RandomState(0).randn(4, 8))
+        result = engine.detect_with_fusion(_synthetic_traffic_batch(seed=0, rows=4, cols=8))
         assert "anomaly_prob" in result
         # GOSNN metadata stays informational — it must be present even
         # though it is no longer the gate.
         assert "gosnn_metadata" in result
 
-    def test_detect_with_fusion_metadata_when_gosnn_unavailable(
+    def test_detect_with_fusion_raises_when_gosnn_unavailable(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """If GOSNN errors, detection still proceeds (the gate already
-        ran) but the metadata records ``fallback_mode=True`` and the
-        original error so auditors can see the degradation."""
+        """When GOSNN errors, the engine raises ``check='gosnn_unavailable'``.
+
+        The σ_Immutable promotion (Wave B item 1) deletes the previous
+        ``fallback_mode=True`` metadata path: if GOSNN cannot run, the
+        second hard ethical gate cannot run either, and the engine
+        fails closed at the boundary instead of degrading silently.
+        """
         from omni_mercury_engine import engine as engine_module
 
         engine = _make_engine_in_fusion_mode()
@@ -296,86 +390,76 @@ class TestEngineFusionBoundary:
 
         monkeypatch.setattr(engine_module, "get_global_scalar_network", _boom)
 
-        result = engine.detect_with_fusion(np.random.RandomState(0).randn(4, 8))
-        gosnn_metadata = result.get("gosnn_metadata", {})
-        assert gosnn_metadata.get("fallback_mode") is True
-        assert "simulated GOSNN outage" in gosnn_metadata.get("error", "")
+        with pytest.raises(EthicalViolation) as exc_info:
+            engine.detect_with_fusion(_synthetic_traffic_batch(seed=0, rows=4, cols=8))
+        assert exc_info.value.check == "gosnn_unavailable"
+        assert "simulated GOSNN outage" in exc_info.value.details["underlying_error"]
 
 
 # ---------------------------------------------------------------------------
-# Reserved-check regression stubs (Wave B — σ_Immutable promotion).
+# Wave B: σ_Immutable + gosnn_unavailable contract — promoted to hard gates.
 #
-# The exception schema reserves ``check="sigma_immutable"`` and
-# ``check="gosnn_unavailable"`` for the follow-up PR that promotes
-# σ_Immutable from informational metadata to a second hard ethical gate.
-# Today no production code path raises with those values: the
-# ``EthicalConstraintViolationError`` is raised only on
-# ``check="benevolence"`` (verified by the suites above).
+# These two tests pin the post-Wave-B contract:
 #
-# These two tests XFAIL with ``strict=True`` so a future change that
-# accidentally reserves but never raises one of these checks (or a
-# rebase that drops the reservation entirely) surfaces immediately:
+# * If σ_Immutable scores below threshold at the engine boundary, the
+#   engine raises ``EthicalConstraintViolationError(check="sigma_immutable")``.
+# * If GOSNN cannot be evaluated at all, the engine raises
+#   ``EthicalConstraintViolationError(check="gosnn_unavailable")`` instead
+#   of silently writing ``fallback_mode=True`` metadata.
 #
-# * If the contract still says "reserved but not raised" → xfail (expected).
-# * If Wave B promotes σ_Immutable and starts raising one of the checks →
-#   the xfail flips to xpass and ``strict=True`` turns that into a
-#   regular failure, forcing whoever lands the promotion to flip these
-#   markers off in the same PR.
-#
-# This is the locking mechanism the post-PR-167 punch-list called for.
+# Both started life as ``@pytest.mark.xfail(strict=True)`` markers in
+# Wave A; Wave B flips them to positive tests in the same PR (the
+# strict-xfail mechanism would otherwise turn the xpass into a failure
+# the moment promotion landed, forcing the marker removal).
 # ---------------------------------------------------------------------------
 
 
 class TestReservedChecksWaveB:
-    """Lock the σ_Immutable / gosnn_unavailable reservation contract.
+    """σ_Immutable and ``gosnn_unavailable`` are now hard gates."""
 
-    These markers must flip from xfail → xpass in the σ_Immutable promotion
-    PR (Wave B item 1).  ``strict=True`` ensures the flip is forced, not
-    silent.
-    """
+    def test_sigma_immutable_check_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """σ_Immutable raises with ``check="sigma_immutable"`` on sub-threshold."""
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Wave B: σ_Immutable promotion to a second hard ethical gate "
-            "is reserved but not yet raised by any code path. "
-            "When promotion lands, this xfail must flip to xpass and the "
-            "marker must be removed in the same PR."
-        ),
-    )
-    def test_sigma_immutable_check_raises(self) -> None:
-        """Until Wave B, no production path raises with check=sigma_immutable."""
         engine = _make_engine_in_fusion_mode()
-        with pytest.raises(EthicalViolation) as exc_info:
-            engine.detect_with_fusion(np.random.RandomState(1).randn(4, 8))
-        # If we ever reach this assertion it means σ_Immutable became the
-        # raised check — and the ``strict=True`` xfail will turn the xpass
-        # into a build-time failure, forcing the contract update.
-        assert exc_info.value.check == "sigma_immutable"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Wave B: ``check='gosnn_unavailable'`` is reserved for the σ_Immutable "
-            "promotion PR.  Today GOSNN unavailability is recorded as "
-            "fallback_mode=True metadata (verified by "
-            "test_detect_with_fusion_metadata_when_gosnn_unavailable above) and "
-            "is not a hard violation.  When Wave B promotes it to a hard "
-            "gate, this xfail flips to xpass and the marker must be removed."
-        ),
-    )
+        # Force the σ_Immutable gate to score below threshold for every
+        # input — equivalent to a poisoned scalar vector — so the
+        # boundary deterministically fires the second hard gate.
+        def _force_failure(action, scalar_vector, details=None):
+            from omni_mercury_engine.cognitive.ethical_bounding import (
+                EthicalConstraintViolationError,
+            )
+
+            merged = {"action": action}
+            if details:
+                merged.update(details)
+            merged["sigma_immutable_score"] = 0.10
+            raise EthicalConstraintViolationError(
+                action=action,
+                score=0.10,
+                threshold=engine._sigma_immutable_gate.threshold,
+                check="sigma_immutable",
+                details=merged,
+            )
+
+        monkeypatch.setattr(engine._sigma_immutable_gate, "enforce", _force_failure)
+
+        with pytest.raises(EthicalViolation) as exc_info:
+            engine.detect_with_fusion(_synthetic_traffic_batch(seed=1, rows=4, cols=8))
+        assert exc_info.value.check == "sigma_immutable"
+        assert exc_info.value.score < exc_info.value.threshold
+
     def test_gosnn_unavailable_check_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Until Wave B, GOSNN outage is metadata, not a raised violation."""
+        """GOSNN outage now raises ``check="gosnn_unavailable"``."""
         from omni_mercury_engine import engine as engine_module
 
         engine = _make_engine_in_fusion_mode()
 
         def _boom(**kwargs):
-            raise RuntimeError("simulated GOSNN outage for reservation regression")
+            raise RuntimeError("simulated GOSNN outage for hard-gate regression")
 
         monkeypatch.setattr(engine_module, "get_global_scalar_network", _boom)
 
         with pytest.raises(EthicalViolation) as exc_info:
-            engine.detect_with_fusion(np.random.RandomState(2).randn(4, 8))
-        # See sibling test for the strict-xfail flip mechanism.
+            engine.detect_with_fusion(_synthetic_traffic_batch(seed=2, rows=4, cols=8))
         assert exc_info.value.check == "gosnn_unavailable"

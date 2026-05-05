@@ -126,10 +126,12 @@ dmypy.json
 .pyre/
 
 # Generated benchmark output (regenerate with scripts in benchmarks/)
+# Result JSONs are intentionally tracked: the most recent run is committed
+# back to the repo by .github/workflows/benchmark.yml so performance is
+# permanent, auditable, and visible in the README — not stuck in
+# 90-day-expiring CI artifacts.  Visualisations (PNG) stay generated.
 results/latest/
 benchmarks/*.png
-benchmarks/*_results.json
-!benchmarks/baseline_results.json
 
 # Generated report files (CI artifacts)
 live-data-report.json

@@ -13,7 +13,7 @@
 
 ## Overview
 
-This document provides guidelines for contributing to the Mercury Agent multi-domain anomaly detection framework. Mercury Agent is released under the GNU General Public License v3.0 as free and open-source software, accessible for universal use as a knowledge vault and bridge to AI/ML frontiers.
+This document provides guidelines for contributing to the Mercury Agent neuro-symbolic AI framework. Mercury Agent is released under the GNU General Public License v3.0 as free and open-source software, accessible for universal use as a knowledge vault and bridge to AI/ML frontiers.
 
 ---
 

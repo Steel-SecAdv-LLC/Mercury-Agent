@@ -4,9 +4,12 @@
 
 name: Benchmark Pipeline
 
-# Permissions required for PR comments and artifact uploads
+# Permissions required for PR comments, artifact uploads, and (on main only)
+# auto-committing the latest benchmark JSON + README "Latest Benchmark Results"
+# block back to the repository so the most recent live-data run is permanent
+# instead of expiring with the 90-day artifact retention.
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: read
 
@@ -17,10 +20,10 @@ on:
       - 'benchmarks/**'
       - 'src/omni_mercury_engine/**'
   pull_request:
+    # No path filter: every PR runs the regression gate so we never miss
+    # a regression introduced by docs/config/CI changes that touch the
+    # data path indirectly.  Per project policy: benchmark every PR.
     branches: [main, develop]
-    paths:
-      - 'benchmarks/**'
-      - 'src/omni_mercury_engine/**'
   workflow_dispatch:
     inputs:
       include_time_series:
@@ -67,6 +70,20 @@ jobs:
     name: Run Mercury Benchmarks
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # Defence-in-depth self-trigger guard.  GitHub already honours
+    # ``[skip ci]`` in commit messages (see the auto-commit step at the
+    # bottom of this file), but `paths`-filtered ``push`` triggers can
+    # still race the skip-token check, so we additionally refuse to run
+    # when the head commit was written by *this* workflow.  Both
+    # markers — ``[skip benchmark]`` and the
+    # ``ci(benchmark): persist latest run`` subject prefix — are
+    # produced exclusively by the auto-commit step below.
+    if: >-
+      github.event_name != 'push' ||
+      (
+        !contains(github.event.head_commit.message, '[skip benchmark]') &&
+        !startsWith(github.event.head_commit.message, 'ci(benchmark): persist latest run')
+      )
 
     steps:
       - name: Checkout code
@@ -202,6 +219,71 @@ jobs:
           name: seven-axis-results-${{ github.sha }}
           path: benchmarks/seven_axis_results.json
           retention-days: 90
+
+      # ---------------------------------------------------------------
+      # Persist the latest run.
+      #
+      # On push-to-main and on the weekly schedule, commit the freshly
+      # produced result JSONs back to the repo and regenerate the
+      # "Latest Benchmark Results" block in README.md (delimited by
+      # <!-- BENCHMARK:START --> … <!-- BENCHMARK:END -->) so the most
+      # recent live-data run is permanent and visible — not stuck in
+      # 90-day-expiring CI artifacts.
+      #
+      # Pull-request runs are intentionally skipped: PRs from forks
+      # cannot push, and even from the same repo we want the merged
+      # commit (not a transient PR head) to be the source of truth.
+      # ---------------------------------------------------------------
+      - name: Update README "Latest Benchmark Results" block
+        if: |
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        run: |
+          python scripts/update_readme_benchmarks.py \
+            --results benchmarks/mercury_benchmark_results.json \
+            --readme README.md \
+            --commit-sha "${{ github.sha }}"
+
+      - name: Commit and push updated results
+        if: |
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Stage every result JSON the run produced (mercury, seven-axis,
+          # empirical when present) plus the regenerated README block.
+          git add \
+            benchmarks/mercury_benchmark_results.json \
+            benchmarks/seven_axis_results.json \
+            README.md
+          if [ -f benchmarks/empirical_benchmark_results.json ]; then
+            git add benchmarks/empirical_benchmark_results.json
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No benchmark changes to commit."
+            exit 0
+          fi
+
+          # Pull current AUC for the commit message.
+          mean_auc=$(python -c "import json; print(f\"{json.load(open('benchmarks/mercury_benchmark_results.json'))['summary']['mean_auc']:.4f}\")")
+          mean_f1=$(python -c "import json; print(f\"{json.load(open('benchmarks/mercury_benchmark_results.json'))['summary']['mean_oracle_f1']:.4f}\")")
+
+          # Subject prefix and ``[skip benchmark]`` marker are both
+          # checked by the workflow-level ``if:`` guard above, so this
+          # commit cannot re-trigger the benchmark job even on rare
+          # ``[skip ci]`` race conditions.
+          git commit -m "ci(benchmark): persist latest run (AUC=${mean_auc}, F1=${mean_f1}) [skip benchmark]" \
+                     -m "Auto-committed by .github/workflows/benchmark.yml from ${GITHUB_SHA}." \
+                     -m "[skip ci]"
+          git push origin HEAD:${GITHUB_REF#refs/heads/}
 
   # ===========================================================================
   # Performance Regression Check
