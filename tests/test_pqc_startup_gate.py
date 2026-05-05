@@ -84,9 +84,7 @@ class TestFailClosedOnPartialBuild:
     and a partial build is a cryptographically incomplete state, which
     matches the contract on ``security.pqc_guards.check_pqc_production_readiness``."""
 
-    def test_raises_when_only_dilithium_is_available(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_raises_when_only_dilithium_is_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("AMA_REQUIRE_REAL_PQC", "true")
 
         fake_dilithium = types.ModuleType("ama_cryptography.dilithium")
