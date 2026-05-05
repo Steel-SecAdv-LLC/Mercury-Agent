@@ -56,7 +56,7 @@ dependencies = [
     "pillow>=12.2.0",  # Security: CVE-2026-25990, CVE-2026-40192
     "requests>=2.33.1",  # Security: CVE-2026-25645
     "tqdm>=4.65.0",
-    "networkx>=3.0",
+    "networkx>=3.6.1",
     "defusedxml>=0.7.1",
 ]
 
@@ -80,12 +80,12 @@ visual = [
 # Vision-Language Model detectors (AnyAnomaly, LAVAD)
 vlm = [
     "transformers>=4.36.0",
-    "accelerate>=0.25.0",
+    "accelerate>=1.13.0",
 ]
 
 # Foundation model adapters (TimeGPT, Chronos, etc.)
 foundation = [
-    "stumpy>=1.12.0",
+    "stumpy>=1.14.1",
     "nixtla>=0.5.0",
 ]
 
@@ -101,9 +101,9 @@ face = [
 
 # API server
 api = [
-    "fastapi>=0.109.0",
+    "fastapi>=0.136.1",
     "httpx>=0.28.1",
-    "uvicorn>=0.25.0",
+    "uvicorn>=0.46.0",
     "python-multipart>=0.0.9",  # Required by FastAPI for form/file handling
     "pyjwt>=2.12.0",  # CVE-2026-32597 (crit header validation); lazy-imported by api/auth.py
 ]
@@ -111,13 +111,13 @@ api = [
 # SOTA anomaly detection models (TranAD, MAAT, etc.)
 sota = [
     "mercury-agent[ml]",
-    "einops>=0.7.0",
+    "einops>=0.8.2",
 ]
 
 # LLM integration for zero-shot anomaly detection
 llm = [
     "transformers>=4.36.0",
-    "accelerate>=0.25.0",
+    "accelerate>=1.13.0",
     "openai>=1.0.0",
     "anthropic>=0.8.0",
 ]
@@ -134,7 +134,7 @@ benchmark-comparison = [
 
 # Fairness and bias mitigation
 fairness = [
-    "fairlearn>=0.9.0",
+    "fairlearn>=0.13.0",
 ]
 
 # Post-Quantum Cryptography - Primary backend (AMA Cryptography)
@@ -152,14 +152,14 @@ streaming = [
 # Efficiency optimizations
 optimization = [
     "joblib>=1.3.0",
-    "psutil>=5.9.0",
+    "psutil>=7.2.2",
 ]
 
 # Benchmarking and evaluation
 benchmark = [
     "hypothesis>=6.0.0",
     "joblib>=1.3.0",
-    "matplotlib>=3.7.0",
+    "matplotlib>=3.10.9",
 ]
 
 # Development tools
@@ -168,7 +168,7 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
     "pytest-timeout>=2.2.0",
-    "pytest-mock>=3.12.0",
+    "pytest-mock>=3.15.1",
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
     "black>=26.3.1,<27.0.0",  # CVE-2026-32274
