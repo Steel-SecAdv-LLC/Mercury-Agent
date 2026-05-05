@@ -5,15 +5,19 @@ on:
     branches: [ main ]
   push:
     branches: [ main, feature/* ]
+  # Manual dispatch is the recovery path when a push to ``main`` is
+  # accidentally suppressed by a skip-directive substring in the squash
+  # merge commit message (see CONTRIBUTING.md "Squash-merge gotcha").
+  workflow_dispatch:
 
 jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'

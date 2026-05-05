@@ -343,6 +343,51 @@ Follow conventional commits:
 - `perf`: Performance improvement
 - `chore`: Maintenance tasks
 
+### Squash-merge gotcha — never embed skip-directive literals in PR descriptions
+
+When you click **Squash & merge** on a PR, GitHub copies the PR title and
+the entire PR body verbatim into the squash commit message that lands on
+`main`. GitHub Actions then parses every push commit message and skips
+**all** workflows on that push if it contains any of the magic substrings
+(shown here with backslash-escaped brackets so this file itself does not
+match the scanner):
+
+* ``\[skip ci\]``
+* ``\[ci skip\]``
+* ``\[no ci\]``
+* ``\[skip actions\]``
+* ``\[actions skip\]``
+
+This means a PR description that *legitimately documents* an auto-commit
+marker (for example, "the auto-commit step emits the skip-ci directive
+so it does not re-trigger itself") will silently suppress every workflow
+on the merge commit — Benchmark Pipeline, CI/CD, Security, Docker,
+Auto-Format, PQC checks, all of them. Branch protection still allows
+the merge, but no validation runs against `main`.
+
+**Avoid this by:**
+
+1. **Never write the literal substring in the PR body.** The scanner does
+   a plain substring match on the raw commit message; markdown styling
+   (backticks, bold, code fences) does not affect the match. Use a form
+   that does not contain the literal characters in sequence:
+   - Hyphenate it: ``[skip-ci]`` instead of ``[skip ci]``.
+   - Escape one or both brackets: ``\[skip ci\]`` (the backslash makes
+     the raw text ``\[skip ci\]``, which has no ``[skip ci]`` substring).
+   - Replace the space with a non-breaking space (U+00A0): the rendered
+     text reads identically but the byte sequence does not match.
+2. **Audit every commit on the branch, not just the PR body.** GitHub
+   Actions parses *every* commit message in a push. If you use a
+   merge-commit (instead of squash) strategy, individual commits with
+   skip-directives in their bodies still trip the filter on push. PR
+   #182's history (`d3a2a0c` → `ffc2cc6`) is the canonical example: an
+   empty trigger commit was added on top so HEAD's message did not match
+   the scanner.
+3. **If you only realise after merging, recover by manually dispatching**
+   each suppressed workflow from the **Actions** tab → workflow → **Run
+   workflow**. Every push-triggered workflow in `.github/workflows/`
+   exposes ``workflow_dispatch:`` for exactly this recovery path.
+
 ### PR Template
 
 ```markdown
