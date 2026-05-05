@@ -57,7 +57,6 @@ class TestAnyAnomalyDetector:
         from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
 
         config = AnyAnomalyConfig(
-            backend="mock",
             context_window=4,
             enable_positional_context=True,
             enable_temporal_context=False,
