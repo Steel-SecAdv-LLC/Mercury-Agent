@@ -21,10 +21,10 @@ jobs:
     name: Dependency Security Scan
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "3.12"
         cache: 'pip'
@@ -52,7 +52,7 @@ jobs:
       run: bandit -r src/omni_mercury_engine/ -f json -o bandit-report.json --severity-level medium
 
     - name: Upload Security Reports
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: security-reports
         path: |
@@ -65,7 +65,7 @@ jobs:
     name: Container Security Scan (Trivy)
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Free disk space
       run: |
@@ -141,7 +141,7 @@ jobs:
     name: Filesystem Security Scan (Trivy)
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Run Trivy filesystem scanner
       uses: aquasecurity/trivy-action@master
@@ -169,7 +169,7 @@ jobs:
     name: Secret Detection
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
 
@@ -190,7 +190,7 @@ jobs:
       matrix:
         language: [ 'python' ]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v4
