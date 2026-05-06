@@ -652,9 +652,7 @@ class FEMAHazardMitigationLoader(DatasetLoader):
             year = rng.integers(self.year_range[0], self.year_range[1] + 1)
 
             project_type_code = rng.integers(0, len(project_types))
-            status_code = rng.choice(
-                [0, 1, 2], p=[0.2, 0.3, 0.5]
-            )  # pending, active, complete
+            status_code = rng.choice([0, 1, 2], p=[0.2, 0.3, 0.5])  # pending, active, complete
             program_type_code = rng.integers(0, 3)  # HMGP, PDM, FMA
 
             feature_vec = [
