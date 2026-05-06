@@ -196,25 +196,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     hiding an integration test that should have always been running.
     Replaced the `pytest.skip(...)` with an `assert` that surfaces
     the integration coverage instead of silently masking it.
-- **Tracked debt (not fixed in this sweep):** 35 unpaired
-  `# type: ignore[no-redef]` suppressions across **15** files
-  (verified via `grep -rln '# type: ignore\[no-redef\]' src/`):
-  `core/adaptive_fusion.py`, `core/base.py`, `core/config.py`,
-  `core/fusion.py`, `core/three_r_mechanism.py`,
+- **Type-redefition suppressions eliminated (7 files).**
+  Integrated from `copilot/refactor-34-unpaired-type-redefinitions`:
+  function-stub fallbacks (`def Foo(*args): raise ImportError`) replaced
+  with proper stub classes that preserve type identity, and optional-dep
+  import guards restructured to `if TYPE_CHECKING: ... else: try: ...`
+  so mypy sees the real types without runtime cost.  Files refactored:
   `detectors/acceleration_dynamics.py`,
   `detectors/dimensional.py`,
   `detectors/geological/disaster_detectors.py`,
-  `integrations/mercury_amacrypto.py` (8 — the heaviest single
-  file), `medical/abms_disciplines.py`,
-  `ml/harmonic_encoder.py`, `safeguards/nano_safeguards.py`,
+  `integrations/mercury_amacrypto.py` (8 suppressions — the heaviest
+  single file), `medical/abms_disciplines.py`,
+  `ml/harmonic_encoder.py`, `safeguards/nano_safeguards.py`.
+- **RNG cure extended to dataset generators.**
+  Synthetic fallback generators in `datasets/disaster.py` (FEMA
+  declarations, hazard mitigation) and `datasets/security.py` (NSL-KDD,
+  CICIDS, MITRE ATT&CK) converted from `np.random.seed()` +
+  `np.random.*()` global-state draws to per-method
+  `np.random.default_rng(seed)` instances. CICIDS flow generators
+  (`_generate_benign_flow`, `_generate_dos_flow`,
+  `_generate_portscan_flow`, `_generate_attack_flow`) now accept an
+  explicit `rng` parameter threaded from the caller.  All
+  `max_samples` down-sampling sites also converted.
+- **Tracked debt (partially resolved):** The original 35 unpaired
+  `# type: ignore[no-redef]` suppressions are now reduced to
+  ~28 across **8** remaining files:
+  `core/adaptive_fusion.py`, `core/base.py`, `core/config.py`,
+  `core/fusion.py`, `core/three_r_mechanism.py`,
   `security/crypto_api.py`, `security/cyber_fortress.py`,
-  `utils/resilience.py`. These guard repeated stub-class
-  redefinitions across optional-dependency branches and should be
-  refactored to a Protocol-or-inheritance pattern (or to per-file
-  ``_stubs.py`` modules consumed via
-  ``try: from real import X; except ImportError: from ._stubs import X``).
-  Tracked for a focused follow-up PR rather than churning the
-  boundary code in this documentation/quality sweep.
+  `utils/resilience.py`.  These should be refactored to a
+  Protocol-or-inheritance pattern in a focused follow-up PR.
+  ~250 unseeded `np.random` call sites remain in cognitive,
+  model, and remaining dataset modules; tracked for a dedicated
+  RNG-cure follow-up.
 
 ### Tooling
 
