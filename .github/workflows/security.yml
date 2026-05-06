@@ -31,7 +31,7 @@ jobs:
 
     - name: Install security tools
       run: |
-        pip install --upgrade "pip>=26.0"
+        pip install --upgrade "pip>=26.1"
         pip install safety bandit pip-audit
 
     - name: Run Safety check
@@ -110,13 +110,17 @@ jobs:
         format: 'sarif'
         output: 'trivy-results.sarif'
         severity: 'CRITICAL,HIGH,MEDIUM'
+        limit-severities-for-sarif: true
         vuln-type: 'os,library'
         # Ignore unfixed vulnerabilities to reduce noise
         ignore-unfixed: true
-        # Skip duplicate detection across layers
+        # Skip duplicate detection across layers and huge ML header files
+        # that cause context-deadline-exceeded timeouts in secret scanning
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
+        skip-files: 'opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
         # Honor documented risk acceptances in .trivyignore
         trivyignores: .trivyignore
+        timeout: '15m'
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v4
