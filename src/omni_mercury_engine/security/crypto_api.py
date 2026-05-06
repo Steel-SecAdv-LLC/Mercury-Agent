@@ -429,6 +429,7 @@ class HybridSignatureProvider:
 # ---------------------------------------------------------------------------
 
 # Map Mercury SecurityLevel → AMA AlgorithmType
+_SECURITY_LEVEL_TO_AMA: dict[SecurityLevel, Any]
 if AMA_CRYPTO_API_AVAILABLE and AmaAlgorithmType is not None:
     _SECURITY_LEVEL_TO_AMA = {
         SecurityLevel.CLASSICAL: AmaAlgorithmType.ED25519,
@@ -436,7 +437,7 @@ if AMA_CRYPTO_API_AVAILABLE and AmaAlgorithmType is not None:
         SecurityLevel.HYBRID: AmaAlgorithmType.HYBRID_SIG,
     }
 else:
-    _SECURITY_LEVEL_TO_AMA: dict[SecurityLevel, Any] = {}  # type: ignore[no-redef]
+    _SECURITY_LEVEL_TO_AMA = {}
 
 
 class MercuryCrypto:

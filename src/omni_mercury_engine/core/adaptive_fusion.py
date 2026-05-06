@@ -21,16 +21,26 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     import torch
     import torch.nn.functional as F
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        import torch.nn.functional as F
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        torch = None  # type: ignore[assignment, unused-ignore]
+        F = None  # type: ignore[assignment, unused-ignore]
+        nn = None  # type: ignore[assignment, unused-ignore]
+        TORCH_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +90,7 @@ class AttentionVisualization:
         return [(self.detector_names[idx.item()], val.item()) for idx, val in zip(indices, values)]
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class TemperatureScaledAttention(nn.Module):
         """
@@ -753,27 +763,43 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def TemperatureScaledAttention(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class TemperatureScaledAttention:
         """Stub: TemperatureScaledAttention requires PyTorch."""
-        raise ImportError(
-            "TemperatureScaledAttention requires PyTorch. Install with: pip install torch"
-        )
 
-    def SparseAttention(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "TemperatureScaledAttention requires PyTorch. Install with: pip install torch"
+            )
+
+    class SparseAttention:
         """Stub: SparseAttention requires PyTorch."""
-        raise ImportError("SparseAttention requires PyTorch. Install with: pip install torch")
 
-    def AdaptiveHeadAttention(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("SparseAttention requires PyTorch. Install with: pip install torch")
+
+    class AdaptiveHeadAttention:
         """Stub: AdaptiveHeadAttention requires PyTorch."""
-        raise ImportError("AdaptiveHeadAttention requires PyTorch. Install with: pip install torch")
 
-    def UncertaintyQuantifier(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "AdaptiveHeadAttention requires PyTorch. Install with: pip install torch"
+            )
+
+    class UncertaintyQuantifier:
         """Stub: UncertaintyQuantifier requires PyTorch."""
-        raise ImportError("UncertaintyQuantifier requires PyTorch. Install with: pip install torch")
 
-    def AdaptiveFusionLayer(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "UncertaintyQuantifier requires PyTorch. Install with: pip install torch"
+            )
+
+    class AdaptiveFusionLayer:
         """Stub: AdaptiveFusionLayer requires PyTorch."""
-        raise ImportError("AdaptiveFusionLayer requires PyTorch. Install with: pip install torch")
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "AdaptiveFusionLayer requires PyTorch. Install with: pip install torch"
+            )
 
 
 def create_attention_heatmap(

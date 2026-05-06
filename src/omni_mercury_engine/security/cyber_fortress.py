@@ -38,17 +38,25 @@ Research sources:
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-try:
+if TYPE_CHECKING:
     import torch
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        torch = None  # type: ignore[assignment, unused-ignore]
+        nn = None  # type: ignore[assignment, unused-ignore]
+        TORCH_AVAILABLE = False
 
 from omni_mercury_engine.core.three_r_mechanism import ResonanceEngine, ThreeRMechanism
 from omni_mercury_engine.models.multiverse import MultiverseOmniEngine
@@ -251,7 +259,7 @@ class MultiverseZeroDaySimulator(LoggerMixin):
         return recs
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class EncryptedTrafficAnomalyDetector(LoggerMixin):
         """
@@ -371,11 +379,13 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def EncryptedTrafficAnomalyDetector(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class EncryptedTrafficAnomalyDetector:
         """Stub: EncryptedTrafficAnomalyDetector requires PyTorch."""
-        raise ImportError(
-            "EncryptedTrafficAnomalyDetector requires PyTorch. Install with: pip install torch"
-        )
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "EncryptedTrafficAnomalyDetector requires PyTorch. Install with: pip install torch"
+            )
 
 
 class CyberFortress(LoggerMixin):
