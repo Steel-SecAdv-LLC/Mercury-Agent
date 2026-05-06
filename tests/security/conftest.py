@@ -42,8 +42,7 @@ _CI_ENV_VARS = ("CI", "GITHUB_ACTIONS", "GITLAB_CI")
 def _is_ci() -> bool:
     """Return True if running inside a CI environment."""
     return any(
-        os.environ.get(var, "").strip().lower() in ("true", "1", "yes")
-        for var in _CI_ENV_VARS
+        os.environ.get(var, "").strip().lower() in ("true", "1", "yes") for var in _CI_ENV_VARS
     )
 
 
