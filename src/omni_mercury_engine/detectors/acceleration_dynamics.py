@@ -485,9 +485,7 @@ else:
         """Stub: PhaseSpaceNetwork requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
-            raise ImportError(
-                "PhaseSpaceNetwork requires PyTorch. Install with: pip install torch"
-            )
+            raise ImportError("PhaseSpaceNetwork requires PyTorch. Install with: pip install torch")
 
     class EnergyConservationNetwork:
         """Stub: EnergyConservationNetwork requires PyTorch."""

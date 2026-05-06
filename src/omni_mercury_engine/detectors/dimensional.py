@@ -175,9 +175,7 @@ else:
         """Stub: NeuralProjection requires PyTorch."""
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
-            raise ImportError(
-                "NeuralProjection requires PyTorch. Install with: pip install torch"
-            )
+            raise ImportError("NeuralProjection requires PyTorch. Install with: pip install torch")
 
 
 class DimensionalAnalyzer(BaseDetector):

@@ -257,9 +257,7 @@ else:
             DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
             KYBER_AVAILABLE = _KYBER_AVAILABLE
             _PQC_BACKEND_SOURCE = "ava_guardian"
-            logger.info(
-                "AMA Cryptography PQC backends loaded via ava-guardian compatibility shim"
-            )
+            logger.info("AMA Cryptography PQC backends loaded via ava-guardian compatibility shim")
         except ImportError:
             # _PQC_BACKEND_SOURCE remains "stub" — tracked at module top.
             logger.warning(
