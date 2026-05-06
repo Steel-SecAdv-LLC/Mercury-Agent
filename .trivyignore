@@ -60,7 +60,7 @@ CVE-2025-14104
 # 6. Production containers do not run pip install at runtime
 #
 # Mitigations Applied:
-# - pip upgraded to >=26.0 (fixes CVE-2025-8869 and CVE-2026-1703)
+# - pip upgraded to >=26.1 (fixes CVE-2025-8869, CVE-2026-1703, CVE-2026-6357)
 # - Python 3.12 PEP 706 makes vulnerable fallback unreachable
 # - setuptools upgraded to >=78.1.1 (CVE-2025-47273)
 # - HTTPS-only package downloads enforced
@@ -86,11 +86,11 @@ CVE-2025-8869
 # - Privileges Required: None
 # - User Interaction: Required (user must install malicious wheel)
 #
-# Status: FIXED — pip upgraded to >=26.0 in both builder and runtime stages.
-# This entry is retained for audit continuity; Trivy will not flag pip>=26.0.
+# Status: FIXED — pip upgraded to >=26.1 in both builder and runtime stages.
+# This entry is retained for audit continuity; Trivy will not flag pip>=26.1.
 #
 # Justification for Acceptance:
-# 1. pip is upgraded to >=26.0 in builder stage (venv) and runtime stage
+# 1. pip is upgraded to >=26.1 in builder stage (venv) and runtime stage
 #    (system Python), fully resolving the vulnerability.
 # 2. All packages installed from trusted PyPI sources over HTTPS.
 # 3. No untrusted or user-provided wheel archives are processed.
@@ -98,14 +98,14 @@ CVE-2025-8869
 # 5. Container runs as non-root user limiting filesystem read impact.
 #
 # Mitigations Applied:
-# - pip upgraded to >=26.0 in Dockerfile (builder + runtime stages)
+# - pip upgraded to >=26.1 in Dockerfile (builder + runtime stages)
 # - HTTPS-only package downloads enforced
 # - No --trusted-host flags used
 # - Non-root execution (USER mercuryagent)
-# - All CI workflows pin pip to >=26.0
+# - All CI workflows pin pip to >=26.1
 #
-# Review Date: 2026-03-10
-# Expiry: 2026-06-10
+# Review Date: 2026-05-06
+# Expiry: 2026-08-06
 CVE-2026-1703
 
 # =============================================================================
@@ -295,6 +295,45 @@ CVE-2025-7458
 CVE-2023-45853
 
 # =============================================================================
+# CVE-2026-6357: pip arbitrary code injection via self-update check
+# =============================================================================
+# Severity: Medium (CVSS 4.0 by PSF; Snyk rates as High 7.1)
+# Component: pip (<26.1)
+# Description: pip prior to 26.1 imports well-known module names AFTER
+#              installing wheel files during the self-update version check.
+#              An attacker who supplies a malicious wheel package can overwrite
+#              pip's own modules, achieving arbitrary code execution when pip
+#              re-imports them at the end of the command.
+#
+# Status: FIXED — pip upgraded to >=26.1 in both builder and runtime stages.
+# This entry is retained for audit continuity; Trivy will not flag pip>=26.1.
+#
+# Risk Assessment:
+# - CVSS 4.0: AV:L/AC:L/AT:P/PR:H/UI:A — requires local access,
+#   high privileges, and active user interaction (installing a package)
+# - Attack Vector: Local
+# - Privileges Required: High
+# - User Interaction: Active (user must install a malicious wheel)
+#
+# Justification for Acceptance:
+# 1. pip is upgraded to >=26.1 in Dockerfile builder and runtime stages,
+#    fully resolving the vulnerability.
+# 2. All packages installed from trusted PyPI sources over HTTPS.
+# 3. Production containers do not run pip install at runtime.
+# 4. Container runs as non-root user (USER mercuryagent).
+# 5. No untrusted or user-provided wheel archives are processed.
+#
+# Mitigations Applied:
+# - pip upgraded to >=26.1 in Dockerfile (builder + runtime stages)
+# - HTTPS-only package downloads enforced
+# - Non-root execution (USER mercuryagent)
+# - All CI workflows pin pip to >=26.1
+#
+# Review Date: 2026-05-06
+# Expiry: 2026-08-06
+CVE-2026-6357
+
+# =============================================================================
 # False Positives
 # =============================================================================
 # None currently identified
@@ -302,11 +341,16 @@ CVE-2023-45853
 # =============================================================================
 # Accepted Risks Summary
 # =============================================================================
-# Total Accepted: 9 CVEs
-# Critical: 2 (CVE-2025-7458, CVE-2023-45853) - No fix available
+# Total Accepted: 10 CVEs
+# Critical: 2 (CVE-2025-7458, CVE-2023-45853) - No fix available in Debian
 # High: 3 (CVE-2025-68973, CVE-2025-13601, CVE-2025-6020) - No fix available
-# Medium: 3 (CVE-2025-14104, CVE-2025-8869, CVE-2025-7709)
-# Low: 1 (CVE-2026-1703) - FIXED by pip>=26.0 upgrade (retained for audit trail)
+# Medium: 4 (CVE-2025-14104, CVE-2025-8869, CVE-2025-7709, CVE-2026-6357)
+# Low: 1 (CVE-2026-1703) - FIXED by pip>=26.1 upgrade (retained for audit)
+#
+# FIXED by pip>=26.1 upgrade (3 CVEs):
+#   CVE-2025-8869 (symlink extraction in sdist archives)
+#   CVE-2026-1703  (path traversal in wheel archives)
+#   CVE-2026-6357  (arbitrary code injection via self-update check)
 #
 # All accepted vulnerabilities have:
 # - Documented justification
@@ -316,10 +360,11 @@ CVE-2023-45853
 #
 # Note: All HIGH/CRITICAL CVEs have NO FIX AVAILABLE in Debian bookworm.
 # These are accepted risks with documented mitigations until upstream patches
-# are released. The docker.yml workflow now uses ignore-unfixed to prevent
-# these from appearing in the GitHub Security tab.
+# are released. The CI workflow uses ignore-unfixed and limit-severities-for-sarif
+# to scope the blocking gate to CRITICAL/HIGH findings only.
 #
-# pip CVEs (CVE-2025-8869, CVE-2026-1703) are FIXED by pip>=26.0 upgrade in
-# both Dockerfile builder and runtime stages, and in all CI workflows.
+# pip CVEs (CVE-2025-8869, CVE-2026-1703, CVE-2026-6357) are FIXED by pip>=26.1
+# upgrade in both Dockerfile builder and runtime stages, and in all CI workflows.
 #
+# Last Updated: 2026-05-06
 # Security Contact: steel.sa.llc@gmail.com

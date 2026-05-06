@@ -518,6 +518,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **CVE-2026-6357 remediated in Docker image (pip arbitrary code injection).**
+  The `python:3.12-slim-bookworm` base image ships pip 25.0.1, which is
+  vulnerable to arbitrary code execution via the self-update check logic
+  when installing a malicious wheel package. Both Dockerfile builder and
+  runtime stages now pin `pip>=26.1` (was `>=26.0`), eliminating
+  CVE-2026-6357, CVE-2025-8869, and CVE-2026-1703 in a single version bump.
+  The `.trivyignore` audit trail updated with CVE-2026-6357 entry.
+- **Trivy CI scan hardened with `limit-severities-for-sarif: true`.**
+  The `aquasecurity/trivy-action` SARIF format mode was dropping the severity
+  filter, causing MEDIUM-severity pip CVEs to trigger the CRITICAL/HIGH
+  blocking gate. Adding `limit-severities-for-sarif: true` ensures the SARIF
+  report and exit-code respect the `severity: CRITICAL,HIGH` policy.
 - **Pickle code path removed from training pipeline.** The legacy
   `.pkl` / `.pickle` branch in `OmniMercuryEngine.train_fusion_model`
   has been deleted. Pickle is structurally a code-execution format and
