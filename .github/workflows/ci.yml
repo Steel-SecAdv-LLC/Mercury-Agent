@@ -539,6 +539,45 @@ jobs:
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
 
+      - name: Install build toolchain for AMA Cryptography native library
+        # ``ml-tests`` collects everything under ``tests/``, including
+        # ``tests/security/test_pqc_gate_real_ama.py`` which imports
+        # ``ama_cryptography.pqc_backends`` at module scope and would
+        # fail collection if the native library were absent.  We build
+        # AMA Cryptography v3.1.0 here using the same procedure as
+        # ``.github/workflows/pqc-production-check.yml::verify-real-pqc``
+        # so the real-AMA tests run against the same dependency in
+        # both lanes — no mock, no skip, no silent stub.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config
+
+      - name: Build AMA Cryptography native C library
+        env:
+          AMA_REF: v3.1.0
+        run: |
+          git clone --branch "${AMA_REF}" --depth 1 \
+            https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
+          cd /tmp/ama-cryptography
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DAMA_USE_NATIVE_PQC=ON \
+            -DAMA_BUILD_SHARED=ON \
+            -DAMA_BUILD_STATIC=ON \
+            -DAMA_BUILD_TESTS=OFF \
+            -DAMA_BUILD_EXAMPLES=OFF
+          cmake --build build -j "$(nproc)"
+
+      - name: Install AMA Cryptography Python package
+        run: |
+          cd /tmp/ama-cryptography
+          AMA_NO_CYTHON=1 pip install --no-build-isolation .
+          {
+            echo "LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
+            echo "AMA_NO_CYTHON=1"
+          } >> "$GITHUB_ENV"
+
       - name: Run full test suite with parallelization
         env:
           TORCH_HOME: ~/.cache/torch
