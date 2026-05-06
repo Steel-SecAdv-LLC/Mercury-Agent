@@ -1713,15 +1713,21 @@ class RefactoringEngine:
 
             import numpy as np
 
-            # SciPy 1.14+ removed sph_harm, use sph_harm_y instead
+            # SciPy 1.14+ removed sph_harm, use sph_harm_y instead.
+            # Bind both candidate spellings to a private name then expose
+            # ``sph_harm`` as a thin wrapper with a stable signature so mypy
+            # only ever sees one definition.
             try:
-                from scipy.special import sph_harm_y
+                from scipy.special import sph_harm_y as _sph_harm_y
 
                 def sph_harm(m: int, n: int, phi: float, theta: float) -> complex:
-                    return complex(sph_harm_y(n, m, theta, phi))
+                    return complex(_sph_harm_y(n, m, theta, phi))
 
             except ImportError:
-                from scipy.special import sph_harm  # type: ignore[no-redef]
+                from scipy.special import sph_harm as _sph_harm_legacy
+
+                def sph_harm(m: int, n: int, phi: float, theta: float) -> complex:
+                    return complex(_sph_harm_legacy(m, n, phi, theta))
 
             metrics = np.array(
                 [
