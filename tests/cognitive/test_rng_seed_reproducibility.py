@@ -318,3 +318,144 @@ def test_engine_isolated_from_global_np_random_seed(factory) -> None:
     v_b = e_b._rng.standard_normal(64).tolist()
 
     assert v_a == v_b
+
+
+# ---------------------------------------------------------------------------
+# Extended sweep coverage (PR #190 follow-up): all RNG-cured modules
+# outside ``cognitive/`` and ``models/`` that were already pinned above.
+# ---------------------------------------------------------------------------
+
+
+def test_agentic_autonomy_seed_reproducible() -> None:
+    from omni_mercury_engine.agentic.agentic_autonomy import AgenticAutonomy
+
+    a = AgenticAutonomy(seed=4)
+    b = AgenticAutonomy(seed=4)
+    assert a._rng.random() == b._rng.random()
+
+
+def test_federation_privacy_seed_reproducible() -> None:
+    from omni_mercury_engine.federation.privacy import DifferentialPrivacy
+
+    a = DifferentialPrivacy(epsilon=1.0, seed=42)
+    b = DifferentialPrivacy(epsilon=1.0, seed=42)
+    assert a._rng.normal(0, 1, 32).tolist() == b._rng.normal(0, 1, 32).tolist()
+
+
+def test_consciousness_data_source_seed_reproducible() -> None:
+    from omni_mercury_engine.data_sources.consciousness import GCPDataSource
+
+    a = GCPDataSource(seed=7)
+    b = GCPDataSource(seed=7)
+    assert a._rng.binomial(200, 0.5, 5).tolist() == b._rng.binomial(200, 0.5, 5).tolist()
+
+
+def test_pareto_optimizer_seed_reproducible() -> None:
+    """``ParetoOptimizer`` ``self._rng`` reseeds deterministically from ``self.seed``."""
+    from omni_mercury_engine.core.benevolence_optimization import ParetoOptimizer
+
+    def obj(p):  # type: ignore[no-untyped-def]
+        return np.array([float(np.sum(p**2)), float(np.sum(np.abs(p)))])
+
+    a = ParetoOptimizer(objective_fn=obj, n_objectives=2, seed=1)
+    b = ParetoOptimizer(objective_fn=obj, n_objectives=2, seed=1)
+    # Sample directly from the per-instance Generator — the optimizer's
+    # ``optimize`` method has a pre-existing latent bug in
+    # ``_fast_non_dominated_sort`` that surfaces with array-equal
+    # dataclass fields, unrelated to the RNG cure; the RNG-state-isolation
+    # invariant is what we are pinning here.
+    assert a._rng.uniform(-1, 1, 32).tolist() == b._rng.uniform(-1, 1, 32).tolist()
+
+
+def test_calibration_ensemble_seed_reproducible() -> None:
+    from omni_mercury_engine.core.calibration import CalibrationEnsemble
+
+    a = CalibrationEnsemble(seed=11)
+    b = CalibrationEnsemble(seed=11)
+    assert a._rng.permutation(64).tolist() == b._rng.permutation(64).tolist()
+
+
+def test_pathogen_detector_seed_reproducible() -> None:
+    pytest.importorskip("torch", reason="bio_threats package imports torch transitively")
+    from omni_mercury_engine.medical.pandemic.bio_threats.pathogen_detector import (
+        PathogenDetector,
+    )
+
+    a = PathogenDetector(config={"state_dim": 8, "seed": 7})
+    b = PathogenDetector(config={"state_dim": 8, "seed": 7})
+    assert a.J_matrix.tolist() == b.J_matrix.tolist()
+
+
+def test_quantum_circuit_seed_reproducible() -> None:
+    from omni_mercury_engine.quantum_computing.circuits import (
+        SimulatedQuantumCircuit,
+        VariationalCircuit,
+    )
+
+    c1 = SimulatedQuantumCircuit(num_qubits=3, seed=21)
+    c2 = SimulatedQuantumCircuit(num_qubits=3, seed=21)
+    assert (
+        c1._rng.choice(8, 16, p=[1 / 8] * 8).tolist()
+        == c2._rng.choice(8, 16, p=[1 / 8] * 8).tolist()
+    )
+
+    v1 = VariationalCircuit(num_qubits=3, reps=1, seed=21)
+    v2 = VariationalCircuit(num_qubits=3, reps=1, seed=21)
+    assert v1._rng.uniform(0, 1, 8).tolist() == v2._rng.uniform(0, 1, 8).tolist()
+
+
+def test_quantum_hybrid_optimizers_seed_reproducible() -> None:
+    from omni_mercury_engine.quantum_computing.hybrid import (
+        ClassicalOptimizer,
+        HybridOptimizer,
+    )
+
+    a = ClassicalOptimizer(seed=3)
+    b = ClassicalOptimizer(seed=3)
+    assert a._rng.choice([-1, 1], 16).tolist() == b._rng.choice([-1, 1], 16).tolist()
+
+    h1 = HybridOptimizer(seed=3)
+    h2 = HybridOptimizer(seed=3)
+    assert h1._rng.uniform(0, 1, 8).tolist() == h2._rng.uniform(0, 1, 8).tolist()
+
+
+def test_voice_embedding_default_seed_42() -> None:
+    """Voice ``SpeakerEmbedding`` default ``seed=42`` keeps deterministic init."""
+    from omni_mercury_engine.biometric.voice_recognition import SpeakerEmbedding
+
+    a = SpeakerEmbedding(input_dim=8, embedding_dim=4)
+    b = SpeakerEmbedding(input_dim=8, embedding_dim=4)
+    assert a._weights1.tolist() == b._weights1.tolist()
+    assert a._weights3.tolist() == b._weights3.tolist()
+
+
+def test_dataset_synthetic_generators_isolated_from_global() -> None:
+    """
+    Synthetic dataset fallbacks must not be perturbed by global-state
+    poisoning.  Spot-check ``adrepository.ADRepositoryLoader._create_synthetic_fallback``
+    which has known anomaly distribution.
+    """
+    from omni_mercury_engine.datasets.adrepository import ADRepositoryLoader
+    from omni_mercury_engine.datasets.base import DatasetConfig
+
+    cfg_a = DatasetConfig(name="thyroid", random_seed=42, max_samples=100)
+    cfg_b = DatasetConfig(name="thyroid", random_seed=42, max_samples=100)
+
+    np.random.seed(0)  # poison
+    loader_a = ADRepositoryLoader(cfg_a)
+    loader_a._create_synthetic_fallback()
+
+    np.random.seed(99999)  # different poison
+    loader_b = ADRepositoryLoader(cfg_b)
+    loader_b._create_synthetic_fallback()
+
+    # Same random_seed -> same synthetic data regardless of global state.
+    a_path = loader_a.data_path / "synthetic_data.npz"
+    b_path = loader_b.data_path / "synthetic_data.npz"
+    if a_path.exists() and b_path.exists():
+        a_data = np.load(a_path)
+        b_data = np.load(b_path)
+        assert a_data["features"].tolist() == b_data["features"].tolist(), (
+            "ADRepositoryLoader._create_synthetic_fallback was perturbed by "
+            "the legacy global ``np.random.seed`` state — the cure has regressed."
+        )

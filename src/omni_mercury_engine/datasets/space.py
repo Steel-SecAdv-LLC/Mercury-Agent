@@ -88,7 +88,7 @@ class SETILoader(DatasetLoader):
 
     def _create_synthetic_seti(self) -> bool:
         """Create synthetic SETI-like signal data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
         features = []
@@ -96,7 +96,7 @@ class SETILoader(DatasetLoader):
 
         for i in range(n_samples):
             # Create frequency-time spectrogram
-            spectrogram = self._generate_signal(i % len(self.SIGNAL_CLASSES))
+            spectrogram = self._generate_signal(i % len(self.SIGNAL_CLASSES), rng=rng)
             features.append(spectrogram.flatten())
 
             # 0 = noise (normal), 1 = potential signal (anomaly)
@@ -112,10 +112,25 @@ class SETILoader(DatasetLoader):
         logger.info(f"Generated {n_samples} SETI signal samples")
         return True
 
-    def _generate_signal(self, signal_type: int) -> np.ndarray[Any, Any]:
-        """Generate a synthetic SETI signal spectrogram."""
+    def _generate_signal(
+        self,
+        signal_type: int,
+        rng: np.random.Generator | None = None,
+    ) -> np.ndarray[Any, Any]:
+        """
+        Generate a synthetic SETI signal spectrogram.
+
+        Args:
+            signal_type: SETI signal class index.
+            rng: Optional caller-supplied ``Generator``.  ``None``
+                creates a fresh per-call ``default_rng()`` so this
+                helper never consumes the legacy global ``np.random``
+                state.
+        """
+        if rng is None:
+            rng = np.random.default_rng()
         # Create base noise floor
-        spectrogram = np.random.normal(0, 0.1, (self.frequency_bins, self.signal_length))
+        spectrogram = rng.normal(0, 0.1, (self.frequency_bins, self.signal_length))
 
         if signal_type == 0:  # squiggle
             # Variable frequency signal
@@ -125,22 +140,22 @@ class SETILoader(DatasetLoader):
                     self.frequency_bins / 2 + 30 * np.sin(2 * np.pi * i / self.signal_length)
                 )
                 if 0 <= f_idx < self.frequency_bins:
-                    spectrogram[f_idx, i] += float(np.random.uniform(0.5, 1.0))
+                    spectrogram[f_idx, i] += float(rng.uniform(0.5, 1.0))
 
         elif signal_type == 1:  # narrowband
             # Single frequency line
-            f_center = np.random.randint(50, self.frequency_bins - 50)
-            amplitude = float(np.random.uniform(0.5, 1.0))
+            f_center = rng.integers(50, self.frequency_bins - 50)
+            amplitude = float(rng.uniform(0.5, 1.0))
             spectrogram[f_center - 1 : f_center + 2, :] += amplitude
 
         elif signal_type == 2:  # narrowbanddrd (with doppler drift)
             # Drifting narrowband
-            f_start = np.random.randint(50, self.frequency_bins - 100)
-            drift_rate = float(np.random.uniform(-0.5, 0.5))
+            f_start = rng.integers(50, self.frequency_bins - 100)
+            drift_rate = float(rng.uniform(-0.5, 0.5))
             for t_idx in range(self.signal_length):
                 f = int(f_start + drift_rate * t_idx)
                 if 0 <= f < self.frequency_bins:
-                    spectrogram[f, t_idx] += float(np.random.uniform(0.5, 1.0))
+                    spectrogram[f, t_idx] += float(rng.uniform(0.5, 1.0))
 
         elif signal_type == 3:  # noise
             # Just background noise - no additional signal
@@ -148,22 +163,22 @@ class SETILoader(DatasetLoader):
 
         elif signal_type == 4:  # squarepulsednarrowband
             # Pulsed signal
-            f_center = np.random.randint(50, self.frequency_bins - 50)
-            pulse_period = np.random.randint(20, 50)
-            amplitude = float(np.random.uniform(0.5, 1.0))
+            f_center = rng.integers(50, self.frequency_bins - 50)
+            pulse_period = rng.integers(20, 50)
+            amplitude = float(rng.uniform(0.5, 1.0))
             for t_idx in range(0, self.signal_length, pulse_period):
                 end_t = min(t_idx + pulse_period // 2, self.signal_length)
                 spectrogram[f_center - 1 : f_center + 2, t_idx:end_t] += amplitude
 
         elif signal_type == 5:  # combined
             # Squiggle + pulsed
-            spectrogram = self._generate_signal(0)
-            spectrogram += self._generate_signal(4) * 0.5
+            spectrogram = self._generate_signal(0, rng=rng)
+            spectrogram += self._generate_signal(4, rng=rng) * 0.5
 
         elif signal_type == 6:  # brightpixel
             # Artifact - single bright pixel
-            f = np.random.randint(0, self.frequency_bins)
-            t = np.random.randint(0, self.signal_length)
+            f = rng.integers(0, self.frequency_bins)
+            t = rng.integers(0, self.signal_length)
             spectrogram[f, t] = 5.0  # Very bright
 
         return spectrogram
@@ -363,7 +378,7 @@ class NASAExoplanetLoader(DatasetLoader):
 
     def _create_synthetic_exoplanet(self) -> bool:
         """Create synthetic exoplanet detection data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 3000
 
         features = []
@@ -376,14 +391,14 @@ class NASAExoplanetLoader(DatasetLoader):
                 "planet_radius": np.random.lognormal(0, 0.8),  # Earth radii
                 "stellar_mass": np.random.lognormal(0, 0.3),  # Solar masses
                 "stellar_radius": np.random.lognormal(0, 0.3),  # Solar radii
-                "stellar_temp": np.random.normal(5500, 800),  # Kelvin
-                "transit_depth": np.random.exponential(0.001),  # fraction
+                "stellar_temp": rng.normal(5500, 800),  # Kelvin
+                "transit_depth": rng.exponential(0.001),  # fraction
                 "transit_duration": np.random.lognormal(1, 0.5),  # hours
                 "insolation_flux": np.random.lognormal(0, 1),  # Earth flux
-                "equilibrium_temp": np.random.normal(500, 300),  # Kelvin
-                "eccentricity": np.random.beta(1, 5),  # 0-1
+                "equilibrium_temp": rng.normal(500, 300),  # Kelvin
+                "eccentricity": rng.beta(1, 5),  # 0-1
                 "semi_major_axis": np.random.lognormal(-0.5, 1),  # AU
-                "inclination": np.random.uniform(80, 90),  # degrees
+                "inclination": rng.uniform(80, 90),  # degrees
             }
             # Mass-radius relation (Chen & Kipping 2017,
             # arXiv:1603.08614): for sub-Neptunian bodies M ∝ R^3.7
@@ -610,7 +625,7 @@ class SolarDynamicsLoader(DatasetLoader):
 
         # Apply max_samples limit with stratified sampling to ensure storm events
         if self.config.max_samples and len(features) > self.config.max_samples:
-            np.random.seed(self.config.random_seed)
+            rng = np.random.default_rng(self.config.random_seed)
 
             # Stratified sampling: ensure we get some storm events
             storm_indices = np.where(labels == 1)[0]
@@ -622,19 +637,19 @@ class SolarDynamicsLoader(DatasetLoader):
 
             # Sample from each class
             if len(storm_indices) > 0 and n_storms > 0:
-                storm_sample = np.random.choice(
+                storm_sample = rng.choice(
                     storm_indices, min(n_storms, len(storm_indices)), replace=False
                 )
             else:
                 storm_sample = np.array([], dtype=np.int64)
 
-            normal_sample = np.random.choice(
+            normal_sample = rng.choice(
                 normal_indices, min(n_normal, len(normal_indices)), replace=False
             )
 
             # Combine and shuffle
             indices = np.concatenate([storm_sample, normal_sample])
-            np.random.shuffle(indices)
+            rng.shuffle(indices)
 
             features = features[indices]
             labels = labels[indices]
@@ -643,7 +658,7 @@ class SolarDynamicsLoader(DatasetLoader):
 
     def _create_synthetic_solar(self) -> bool:
         """Create synthetic solar activity data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
         # Simulate solar cycle variations
@@ -651,13 +666,13 @@ class SolarDynamicsLoader(DatasetLoader):
         cycle = 0.5 + 0.5 * np.sin(t)
 
         # Generate X-ray flux data matching FEATURE_NAMES (xray_short, xray_long)
-        xray_short = np.random.exponential(1e-7, n_samples) * (1 + cycle)
-        xray_long = np.random.exponential(1e-6, n_samples) * (1 + cycle)
+        xray_short = rng.exponential(1e-7, n_samples) * (1 + cycle)
+        xray_long = rng.exponential(1e-6, n_samples) * (1 + cycle)
 
         # Additional parameters for storm detection
-        kp_index = np.random.randint(0, 9, n_samples).astype(float)
-        dst_index = np.random.normal(-20, 30, n_samples)
-        proton_flux_100mev = np.random.exponential(0.01, n_samples) * (1 + cycle)
+        kp_index = rng.integers(0, 9, n_samples).astype(float)
+        dst_index = rng.normal(-20, 30, n_samples)
+        proton_flux_100mev = rng.exponential(0.01, n_samples) * (1 + cycle)
 
         data = {
             "xray_short": xray_short,

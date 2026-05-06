@@ -338,8 +338,8 @@ class DatasetLoader(ABC):
 
         # Split data
         n = len(features)
-        np.random.seed(self.config.random_seed)
-        indices = np.random.permutation(n)
+        rng = np.random.default_rng(self.config.random_seed)
+        indices = rng.permutation(n)
 
         train_end = int(n * self.config.split_ratios[0])
         val_end = train_end + int(n * self.config.split_ratios[1])
