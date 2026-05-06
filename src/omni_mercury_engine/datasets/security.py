@@ -1498,13 +1498,13 @@ class ThreatIntelLoader(DatasetLoader):
 
             features.append(row)
 
-        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
-        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
+        features_arr = np.array(features, dtype=np.float32)
+        labels_arr = np.array(labels, dtype=np.int64)
 
         save_path = self.data_path / "synthetic_threat_intel.npz"
-        np.savez_compressed(save_path, features=features, labels=labels)
+        np.savez_compressed(save_path, features=features_arr, labels=labels_arr)
 
-        logger.info(f"Generated {n_samples} threat intel samples, {labels.sum()} threats")  # type: ignore[attr-defined, unused-ignore]
+        logger.info(f"Generated {n_samples} threat intel samples, {labels_arr.sum()} threats")
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
