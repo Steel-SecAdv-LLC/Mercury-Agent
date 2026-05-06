@@ -141,21 +141,27 @@ class MCDropoutWrapper:
     Ghahramani (2016).
     """
 
-    def __init__(self, model: Any, dropout_rate: float = 0.1, seed: int | None = None) -> None:
+    def __init__(self, model: Any, dropout_rate: float = 0.1) -> None:
         """
         Args:
 
             model: PyTorch model with dropout layers
             dropout_rate: Dropout probability (if not already in model)
-            seed: Optional seed for the per-instance ``Generator`` driving
-                Monte-Carlo perturbation of the input. ``None`` (default)
-                uses an OS-seeded ``Generator`` — same effective behavior
-                as before.
+
+        Note:
+            MC-Dropout sampling is driven entirely by ``torch.nn.Dropout``
+            stochasticity — this class performs no NumPy-based perturbation
+            and therefore intentionally does not own a ``np.random.Generator``.
+            For reproducibility, callers should seed PyTorch directly via
+            ``torch.manual_seed(...)`` before calling
+            ``predict_with_uncertainty``.  The MC-input-perturbation site
+            (``UncertaintyQuantifier._monte_carlo_sampling``) does own a
+            seeded NumPy ``Generator`` — pass ``seed=`` to
+            ``UncertaintyQuantifier`` for that path.
         """
         self.model = model
         self.dropout_rate = dropout_rate
         self._original_training_state = None
-        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def enable_dropout(self) -> None:
         """Enable dropout layers for MC sampling."""

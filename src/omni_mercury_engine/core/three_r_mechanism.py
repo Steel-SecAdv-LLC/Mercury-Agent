@@ -1713,20 +1713,41 @@ class RefactoringEngine:
 
             import numpy as np
 
-            # SciPy 1.14+ removed sph_harm, use sph_harm_y instead.
-            # Bind both candidate spellings to a private name then expose
-            # ``sph_harm`` as a thin wrapper with a stable signature so mypy
-            # only ever sees one definition.
+            # Spherical-harmonic compatibility shim.
+            #
+            # SciPy ≥ 1.14 removed the legacy ``sph_harm`` and replaced it
+            # with ``sph_harm_y``.  Both share positional shape
+            # ``(degree-arg, order-arg, angle, angle)`` but DISAGREE on
+            # which angle is which:
+            #
+            #     legacy   sph_harm   (m, n, θ_az,  φ_pol)   math convention
+            #     modern   sph_harm_y (n, m, θ_pol, φ_az)    physics convention
+            #
+            # The user-facing wrapper takes ``(m, n, phi, theta)`` where
+            # ``phi`` is azimuthal in [0, 2π] and ``theta`` is polar in
+            # [0, π] — matching the caller below
+            # (``theta = arccos(...)``, ``phi = arctan2(...)``) and the
+            # legacy ``sph_harm`` parameter naming the rest of the codebase
+            # has historically used.  Each underlying call below adapts to
+            # the SciPy that is actually installed; the resulting Y_l^m is
+            # numerically identical on either branch.  The cross-version
+            # equivalence is pinned by
+            # ``tests/core/test_three_r_sph_harm_compat.py``.
             try:
                 from scipy.special import sph_harm_y as _sph_harm_y
 
                 def sph_harm(m: int, n: int, phi: float, theta: float) -> complex:
+                    # modern: positional (n, m, θ_pol, φ_az) — pass the
+                    # caller's polar/azimuthal angles directly.
                     return complex(_sph_harm_y(n, m, theta, phi))
 
             except ImportError:
                 from scipy.special import sph_harm as _sph_harm_legacy
 
                 def sph_harm(m: int, n: int, phi: float, theta: float) -> complex:
+                    # legacy: positional (m, n, θ_az, φ_pol) — the legacy
+                    # function's third positional is the *azimuthal*
+                    # angle, so pass the caller's ``phi`` there.
                     return complex(_sph_harm_legacy(m, n, phi, theta))
 
             metrics = np.array(
@@ -2520,11 +2541,18 @@ class RefactoringTransformer(ast.NodeTransformer):
 
         class _ConstReplacer(ast.NodeTransformer):
             def visit_Constant(self, n: ast.Constant) -> ast.expr:
-                key = (type(n.value), n.value)
-                if key in sub_map:
-                    name_node = ast.Name(id=sub_map[key], ctx=ast.Load())
-                    ast.copy_location(name_node, n)
-                    return name_node
+                # Mirror the collector's isinstance filter so mypy can
+                # narrow ``n.value`` from ``ast.Constant.value`` (which is
+                # ``str | bytes | int | float | complex | EllipsisType |
+                # None``) down to the ``ConstKey`` value type. Without
+                # this guard the ``sub_map[key]`` lookup is rejected as
+                # ``[index]``-incompatible.
+                if isinstance(n.value, (int, float, str)) and not isinstance(n.value, bool):
+                    key: ConstKey = (type(n.value), n.value)
+                    if key in sub_map:
+                        name_node = ast.Name(id=sub_map[key], ctx=ast.Load())
+                        ast.copy_location(name_node, n)
+                        return name_node
                 return n
 
             # Mirror _ConstCollector: don't rewrite literals belonging to

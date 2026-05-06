@@ -131,17 +131,27 @@ class MemoryVectorizer:
 
         Args:
             embedding_dim: Dimension of output embeddings (default 64)
-            seed: Optional seed for the per-instance ``Generator`` driving
-                the random projection used in ``_project_to_dim``. Defaults
+            seed: Optional seed for the random projection used in
+                ``_project_to_dim``.  The projection matrix is rebuilt on
+                every call from a fresh ``np.random.default_rng(seed)`` so
+                the SAME ``MemoryVectorizer`` instance always produces the
+                SAME projection for a given input length — pass a different
+                ``seed`` to get a different projection identity.  Defaults
                 to ``42`` to preserve the deterministic behavior of the
-                previous ``np.random.seed(42)`` global-state call. Pass
-                ``None`` to use OS entropy instead.
+                previous ``np.random.seed(42)`` global-state call.  Pass
+                ``None`` to draw projection bytes from OS entropy on every
+                call (NOT recommended — projections become non-reproducible).
         """
         self.embedding_dim = embedding_dim
         self._vocab: dict[str, int] = {}
         self._vocab_size = 0
         self._idf_weights: dict[str, float] = {}
-        self._rng: np.random.Generator = np.random.default_rng(seed)
+        # Stored as the *projection seed*, not a Generator state, because
+        # ``_project_to_dim`` needs to rebuild the projection matrix
+        # deterministically on every call (using a stateful per-instance
+        # Generator would advance through the RNG stream and produce a
+        # different matrix on each call, breaking the projection identity).
+        self._projection_seed: int | None = seed
 
     def fit(self, memory_contents: list[dict[str, Any]]) -> None:
         """
@@ -225,10 +235,12 @@ class MemoryVectorizer:
         if len(sparse_vec) == 0:
             return np.zeros(self.embedding_dim)
 
-        # Use a fresh seeded ``Generator`` rather than ``self._rng`` so the
-        # projection matrix is identical across repeated calls (the seed
-        # drives the projection identity, not a stream of independent draws).
-        proj_rng = np.random.default_rng(42)
+        # Build the projection matrix deterministically from the
+        # constructor seed.  Using a fresh ``default_rng(seed)`` here (and
+        # not a long-lived per-instance Generator) is intentional: every
+        # call must regenerate the SAME projection matrix for a given
+        # input length, otherwise the projection identity would drift.
+        proj_rng = np.random.default_rng(self._projection_seed)
         projection = proj_rng.standard_normal((len(sparse_vec), self.embedding_dim))
         projection = projection / np.sqrt(self.embedding_dim)
 
