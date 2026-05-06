@@ -18,7 +18,10 @@ gating is whether pytest *collects* the file at all.
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Files that require the real AMA native library to be importable.
 _AMA_REQUIRED_FILES = {"test_pqc_gate_real_ama.py"}
