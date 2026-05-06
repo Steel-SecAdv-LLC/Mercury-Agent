@@ -244,13 +244,38 @@ def test_different_seeds_diverge() -> None:
     )
 
 
-def test_seed_none_uses_os_entropy() -> None:
-    """Without a seed, two engines should (with overwhelming probability) diverge."""
+def test_seed_none_does_not_inherit_legacy_global_seed() -> None:
+    """
+    The deterministic invariant of ``seed=None``: it must NOT pull the
+    initial state from the legacy ``np.random.seed(...)`` global.  If the
+    cure regressed and the constructor fell back to the global RNG, two
+    engines built immediately after identical ``np.random.seed(0)``
+    poisoning would produce identical sequences — this asserts they don't.
+
+    ``np.random.default_rng(None)`` reads OS entropy via ``SeedSequence``
+    (NumPy's documented contract), so a 256-sample collision between two
+    independently-OS-seeded streams is bounded above by 2**(-2048) — i.e.,
+    deterministically false in any timeline this test will ever run in.
+    The probabilistic phrasing ``with overwhelming probability`` in the
+    previous version of this test was technically accurate but obscured
+    what we are actually pinning: independence from the legacy global.
+    """
     from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
 
-    a = CausalDiscoveryEngine()
-    b = CausalDiscoveryEngine()
-    assert a._rng.standard_normal(32).tolist() != b._rng.standard_normal(32).tolist()
+    np.random.seed(0)
+    e_a = CausalDiscoveryEngine()  # seed=None
+    v_a = e_a._rng.standard_normal(256).tolist()
+
+    np.random.seed(0)
+    e_b = CausalDiscoveryEngine()  # seed=None, immediately after the same poisoning
+    v_b = e_b._rng.standard_normal(256).tolist()
+
+    assert v_a != v_b, (
+        "seed=None appears to be derived from the legacy np.random global "
+        "state — the cure has regressed.  Both engines produced identical "
+        "sequences after np.random.seed(0) was set immediately before each "
+        "construction; OS-entropy seeding cannot collide on 256 samples."
+    )
 
 
 @pytest.mark.parametrize(
