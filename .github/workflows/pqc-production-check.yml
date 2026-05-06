@@ -163,6 +163,7 @@ jobs:
       - name: Run security tests with real PQC requirement
         env:
           AMA_REQUIRE_REAL_PQC: "true"
+          MERCURY_PQC_REAL_AMA: "1"
         # Blocking — the previous ``|| echo "Some tests may fail without
         # AMA native C library"`` was a silent escape hatch.  By the time
         # this step runs, the workflow has already:

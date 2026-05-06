@@ -377,11 +377,28 @@ def main() -> int:
 
     files_to_commit: list[tuple[str, bytes]] = []
     for path_str in args.files:
-        path = Path(path_str)
-        if not path.exists():
+        # Validate that the path is a safe repo-relative path suitable
+        # for use as a Git tree entry.  The GitHub Git Database API
+        # rejects absolute paths and paths with traversal segments;
+        # catching these early produces a clear error rather than a
+        # cryptic 422 from the API.
+        normalized = Path(path_str)
+        if normalized.is_absolute():
+            print(
+                f"ERROR: --files path must be repo-relative, got absolute: {path_str}",
+                file=sys.stderr,
+            )
+            return 1
+        if ".." in normalized.parts:
+            print(
+                f"ERROR: --files path must not contain '..' segments: {path_str}",
+                file=sys.stderr,
+            )
+            return 1
+        if not normalized.exists():
             print(f"WARNING: skipping non-existent file: {path_str}")
             continue
-        files_to_commit.append((path_str, path.read_bytes()))
+        files_to_commit.append((path_str, normalized.read_bytes()))
 
     if not files_to_commit:
         print("No files to commit; nothing to do.")

@@ -26,12 +26,13 @@ for the post-quantum cryptographic substrate.
   guarded — `security/pqc_backends.py` catches `ImportError` and
   keeps Mercury importable with stub functions, so a developer
   without the native library can still load the package — but
-  the package import path runs an inlined production-gate check
-  (`omni_mercury_engine/__init__.py::_enforce_pqc_production_gate`)
-  that fails closed when `AMA_REQUIRE_REAL_PQC=true` and the native
-  AMA Cryptography library is missing or partially built. The gate
-  is automatic: `import omni_mercury_engine` raises `RuntimeError`
-  before any other package state is materialised. With the env var
+  the package import path runs a production-gate check
+  (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`,
+  invoked from `__init__.py` at import time) that fails closed when
+  `AMA_REQUIRE_REAL_PQC=true` and the native AMA Cryptography
+  library is missing or partially built. The gate is automatic:
+  `import omni_mercury_engine` raises `RuntimeError` before any
+  other package state is materialised. With the env var
   unset (the dev-mode default), the gate is a no-op and the soft
   PQC stubs from `security/pqc_backends.py` carry development.
   `security/pqc_guards.check_pqc_production_readiness()` remains

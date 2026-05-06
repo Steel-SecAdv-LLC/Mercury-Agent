@@ -55,10 +55,11 @@ backend (see `SECURITY.md` and PRs #144, #162). The package import
 is guarded — `security/pqc_backends.py` catches `ImportError` and
 keeps Mercury importable with stub functions, so a developer
 without the native library can still load the package — but
-an inlined production-gate check at package import time
-(`omni_mercury_engine/__init__.py::_enforce_pqc_production_gate`)
-fails closed when `AMA_REQUIRE_REAL_PQC=true` and the AMA Cryptography
-native C backend is not loadable. With the env var set, `import
+an import-time production-gate check
+(`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`,
+invoked from `__init__.py` at import time) fails closed when
+`AMA_REQUIRE_REAL_PQC=true` and the AMA Cryptography native C
+backend is not loadable. With the env var set, `import
 omni_mercury_engine` raises `RuntimeError` before any other package
 state is materialised, so production deployments cannot accidentally
 fall through to stub PQC functions.

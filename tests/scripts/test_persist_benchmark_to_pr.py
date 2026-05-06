@@ -191,6 +191,7 @@ class TestNoopBranchLookupErrorHandling:
     ) -> None:
         f = tmp_path / "result.json"
         f.write_text('{"x": 1}\n', encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
 
         same_tree = "TREE-A"
 
@@ -238,7 +239,7 @@ class TestNoopBranchLookupErrorHandling:
                 "--pr-body",
                 "b",
                 "--files",
-                str(f),
+                f.name,
             ],
         )
 
@@ -257,6 +258,7 @@ class TestNoopBranchLookupErrorHandling:
         intact."""
         f = tmp_path / "result.json"
         f.write_text('{"x": 1}\n', encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
 
         same_tree = "TREE-B"
 
@@ -297,7 +299,7 @@ class TestNoopBranchLookupErrorHandling:
                 "--pr-body",
                 "b",
                 "--files",
-                str(f),
+                f.name,
             ],
         )
 
@@ -319,6 +321,7 @@ class TestNoopAgainstExistingBranch:
         # Stage a file the persister will read off disk.
         f = tmp_path / "result.json"
         f.write_text('{"x": 1}\n', encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
 
         # The blob/tree/commit SHAs are arbitrary as long as the
         # mock returns the same tree_sha for the new tree AND for
@@ -371,7 +374,7 @@ class TestNoopAgainstExistingBranch:
                 "--pr-body",
                 "fresh body",
                 "--files",
-                str(f),
+                f.name,
             ],
         )
 

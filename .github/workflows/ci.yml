@@ -613,6 +613,7 @@ jobs:
       - name: Run full test suite with parallelization
         env:
           TORCH_HOME: ~/.cache/torch
+          MERCURY_PQC_REAL_AMA: "1"
         run: |
           # Run tests in parallel with 4 workers, 300s timeout per test
           # Coverage threshold enforced to ensure production readiness
