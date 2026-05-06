@@ -314,7 +314,7 @@ class FEMADisasterLoader(DatasetLoader):
 
     def _create_synthetic_disasters(self) -> bool:
         """Create synthetic disaster declaration data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
         features = []
@@ -339,44 +339,44 @@ class FEMADisasterLoader(DatasetLoader):
             disaster_number = 1000 + i
 
             # State selection (weighted towards disaster-prone states)
-            if np.random.random() < 0.7:
-                state_fips = np.random.choice(disaster_prone_states)
+            if rng.random() < 0.7:
+                state_fips = rng.choice(disaster_prone_states)
             else:
-                state_fips = np.random.randint(1, 57)
+                state_fips = rng.integers(1, 57)
 
             # Date within year range
-            year = np.random.randint(self.year_range[0], self.year_range[1] + 1)
+            year = rng.integers(self.year_range[0], self.year_range[1] + 1)
 
             # Seasonal patterns
             if state_fips in [12, 22, 48, 37, 45]:  # Hurricane states
-                month = np.random.choice([8, 9, 10], p=[0.3, 0.4, 0.3])
+                month = rng.choice([8, 9, 10], p=[0.3, 0.4, 0.3])
             elif state_fips in [40, 20, 1]:  # Tornado alley
-                month = np.random.choice([4, 5, 6], p=[0.3, 0.4, 0.3])
+                month = rng.choice([4, 5, 6], p=[0.3, 0.4, 0.3])
             elif state_fips == 6:  # California
-                month = np.random.choice([7, 8, 9, 10, 11], p=[0.1, 0.2, 0.2, 0.3, 0.2])
+                month = rng.choice([7, 8, 9, 10, 11], p=[0.1, 0.2, 0.2, 0.3, 0.2])
             else:
-                month = np.random.randint(1, 13)
+                month = rng.integers(1, 13)
 
-            day = np.random.randint(1, 29)
+            day = rng.integers(1, 29)
 
             # Incident type based on state
             if state_fips in [12, 22, 48, 37, 45]:
-                incident_code = np.random.choice([0, 1, 2])  # Hurricane, Flood, Severe Storm
+                incident_code = rng.choice([0, 1, 2])  # Hurricane, Flood, Severe Storm
             elif state_fips in [40, 20, 1]:
-                incident_code = np.random.choice([4, 2])  # Tornado, Severe Storm
+                incident_code = rng.choice([4, 2])  # Tornado, Severe Storm
             elif state_fips == 6:
-                incident_code = np.random.choice([3, 5])  # Fire, Earthquake
+                incident_code = rng.choice([3, 5])  # Fire, Earthquake
             else:
-                incident_code = np.random.randint(0, len(self.INCIDENT_TYPES))
+                incident_code = rng.integers(0, len(self.INCIDENT_TYPES))
 
             # Declaration type (DR is most common)
-            decl_code = np.random.choice([0, 1, 2], p=[0.7, 0.2, 0.1])
+            decl_code = rng.choice([0, 1, 2], p=[0.7, 0.2, 0.1])
 
             # Designated area (statewide vs county)
-            area_code = 1 if np.random.random() < 0.3 else 0
+            area_code = 1 if rng.random() < 0.3 else 0
 
             # Program flags (correlated with disaster severity)
-            severity = np.random.beta(2, 5)  # Skewed towards less severe
+            severity = rng.beta(2, 5)  # Skewed towards less severe
             ia_program = 1 if severity > 0.3 else 0
             pa_program = 1 if severity > 0.2 else 0
             hm_program = 1 if severity > 0.4 else 0
@@ -633,7 +633,7 @@ class FEMAHazardMitigationLoader(DatasetLoader):
 
     def _create_synthetic_mitigation(self) -> bool:
         """Create synthetic hazard mitigation project data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 3000
 
         features = []
@@ -643,19 +643,19 @@ class FEMAHazardMitigationLoader(DatasetLoader):
 
         for _ in range(n_samples):
             # Project cost (log-normal distribution)
-            project_amount = np.random.lognormal(12, 1.5)  # Mean ~$100K
+            project_amount = rng.lognormal(12, 1.5)  # Mean ~$100K
 
             # Federal share (typically 75%)
-            federal_share = project_amount * np.random.uniform(0.7, 0.9)
+            federal_share = project_amount * rng.uniform(0.7, 0.9)
 
-            state_fips = np.random.randint(1, 57)
-            year = np.random.randint(self.year_range[0], self.year_range[1] + 1)
+            state_fips = rng.integers(1, 57)
+            year = rng.integers(self.year_range[0], self.year_range[1] + 1)
 
-            project_type_code = np.random.randint(0, len(project_types))
-            status_code = np.random.choice(
+            project_type_code = rng.integers(0, len(project_types))
+            status_code = rng.choice(
                 [0, 1, 2], p=[0.2, 0.3, 0.5]
             )  # pending, active, complete
-            program_type_code = np.random.randint(0, 3)  # HMGP, PDM, FMA
+            program_type_code = rng.integers(0, 3)  # HMGP, PDM, FMA
 
             feature_vec = [
                 project_amount,
