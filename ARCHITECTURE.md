@@ -1082,7 +1082,7 @@ The Mercury Agent successfully integrates **22+ detection engines** with **11 in
 - ✅ Optional distributed computing support (AsyncMessageQueue, PubSub)
 - ✅ NIST SP 800-53 compliance (AC-2, AU-2, SC-13, SI-4)
 - ✅ Windows compatibility guidance (WSL, pre-built wheels, VS Build Tools)
-- ✅ Production-ready with **85%+ test coverage** (5,900+ tests across 227 test files)
+- ✅ Research-grade with **6,300+ tests across 276 test files**; CI enforces per-job hard coverage floors via `--cov-fail-under` flags in `.github/workflows/ci.yml` (`COVERAGE_THRESHOLD_CORE=15` for the core subset, `COVERAGE_THRESHOLD_FULL=35` for the full suite — set just below the 36.03% interim measured baseline); `.coveragerc` intentionally does not set `fail_under` (so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor designed for a different coverage shape); `pyproject.toml [tool.coverage.report] fail_under=85` remains the strict aspirational target for the planned coverage push.
 
 ### Infrastructure Monitoring Achievements:
 - ✅ **11 specialized modules** organized by impact theme (resilience, cyber, humanitarian, economic, scientific)
@@ -1104,12 +1104,22 @@ The Mercury Agent successfully integrates **22+ detection engines** with **11 in
 5. **Future-proofing**: Emerging technology monitoring across 9+ categories
 6. **Sustainable development**: World Bank sector tracking with net-positive impact scoring
 
-### System Scale:
-- **455 Python modules** across 42+ specialized packages
-- **5,900+ tests** (85%+ coverage) across 227 test files
-- **268,000+ lines of code** integrated across the codebase
-- **500KB+ documentation** with verified Wikipedia/official sources
-- **332KB research findings** covering 27+ topics with full citations
-- **322 optimization experiments** documented (Ava, ethical scalars, fusion weights, harmonics)
+### System Scale (verified 2026-05-05):
+- **42 top-level subpackages** under `src/omni_mercury_engine/`
+  (agentic, alerting, api, automl, biometric, cognitive, comparison,
+  core, crypto, data, data_sources, datasets, detectors, distributed,
+  emergent, energy, ethical, evaluation, explainability,
+  federated_learning, federation, gui, harmonics, infrastructure,
+  integrations, loaders, medical, metrics, ml, models, narrative,
+  ocean, quantum_computing, resilience, safeguards, scaling,
+  security, space, streaming, tools, utils, validation)
+- **~280,950 LOC** in `src/omni_mercury_engine/` (492 source files)
+- **276 test files / 6,300+ test functions** under `tests/`
+- **Coverage:** measured per release — see CI artefact, not a hard
+  pinned percentage
+- **Documentation:** 29 markdown files at the project surface
+  (top-level + `docs/` + ancillary READMEs)
+- **Optimization experiments:** logged under `benchmarks/`
+  (3R fusion, ethical scalars, fibring composer, seven-axis matrix)
 
 Mercury Agent bridges classical scientific methodologies with modern deep learning, implements biological defense mechanisms, integrates regenerative design principles, and maintains rigorous scientific standards with full system traceability via Omni-Codes. The system is **ethically aligned and freely accessible** under GPL v3 license for humanitarian impact.

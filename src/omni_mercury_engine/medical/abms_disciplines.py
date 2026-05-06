@@ -46,17 +46,23 @@ Medical professionals must review all findings before patient care decisions.
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-try:
+if TYPE_CHECKING:
     import torch
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        TORCH_AVAILABLE = False
 
 
 class ABMSBoard(Enum):
@@ -104,7 +110,7 @@ class MedicalAnomalyResult:
     neurosymbolic_reasoning: dict[str, Any] | None = None
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class MultiSpecialtyNeuralNet(nn.Module):
         """
@@ -182,11 +188,13 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def MultiSpecialtyNeuralNet(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class MultiSpecialtyNeuralNet:
         """Stub: MultiSpecialtyNeuralNet requires PyTorch."""
-        raise ImportError(
-            "MultiSpecialtyNeuralNet requires PyTorch. Install with: pip install torch"
-        )
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "MultiSpecialtyNeuralNet requires PyTorch. Install with: pip install torch"
+            )
 
 
 class ABMSDisciplineDetector:

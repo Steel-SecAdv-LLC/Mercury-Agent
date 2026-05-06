@@ -379,16 +379,42 @@ docker run -d --name mercury-agent \
 
 ### Ethics audit failures in CI
 
-**Symptom:** CI ethics-audit job shows `FAIL` but continues (advisory gate).
+**Symptom:** CI ethics-audit job shows `FAIL`.
+
+> The CI ethics-audit gate is **non-advisory** as of Wave B (PR #179).
+> A failing run blocks merge; the dual hard gates (Benevolence,
+> σ_Immutable) at every public boundary surface raise
+> `EthicalConstraintViolationError(check=…)` rather than logging and
+> continuing. See the top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md) §"Dual-Gate Hard Ethical
+> Enforcement".
 
 - Review the specific test(s) that failed in the CI log
 - `T3` failures: `PreExecutionBlockingGate` pattern list may be incomplete
 - `T4` failures: `EthicalAutonomyGovernor` scoring thresholds may need calibration
 - `T5` failures: `ethical_compliance_threshold` immutability guard is broken — do not deploy
+- `check="sigma_immutable"` failures: this code is raised by
+  `SigmaImmutableGate.enforce()` for **two** distinct cases — distinguish
+  them before remediating.
+  1. **Corpus verification failed** (signed-weights or vocab mismatch):
+     regenerate the signed σ corpus with
+     `python scripts/train_sigma_immutable.py` after confirming the input
+     data lineage. Look for "signature mismatch" / "vocab digest" /
+     "weights load" in the error context to confirm this case.
+  2. **Score below threshold** (the model is alive and signed, but the
+     input scored below the immutability bar): this is a **model /
+     threshold regression**, not a corpus-corruption failure. Investigate
+     the prompt or detector regression in the upstream pipeline; do
+     **not** regenerate the corpus, since that will not change the
+     scoring behaviour and may mask the real defect.
+  Never bypass either case by setting `_GOSNN_TESTING_BYPASS` outside
+  tests.
+- `check="gosnn_unavailable"` failures: GOSNN model artefacts are missing or
+  the load path is failing — investigate the model registry; do not ship a
+  fallback that returns predictions without GOSNN
 
 ### Coverage below target
 
-The repository targets 85% test coverage but CI enforces only 10%.
+The repository targets 85% test coverage (`pyproject.toml [tool.coverage.report] fail_under = 85`); CI currently enforces a measured floor of 35% on the full suite (`COVERAGE_THRESHOLD_FULL=35`) and 15% on the core subset (`COVERAGE_THRESHOLD_CORE=15`), per `.github/workflows/ci.yml`.
 To run coverage locally:
 
 ```bash

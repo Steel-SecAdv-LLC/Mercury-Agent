@@ -16,7 +16,7 @@ https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 """
 Harmonic analysis encoder using spherical harmonics and Fourier analysis.
@@ -26,26 +26,62 @@ Provides frequency-domain feature extraction for anomaly detection.
 
 import numpy as np
 
-try:
+if TYPE_CHECKING:
     import torch
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        TORCH_AVAILABLE = False
 
 from scipy.fft import fft, ifft
 
-# Handle scipy.special spherical harmonics API deprecation (scipy 1.14+)
-try:
-    from scipy.special import sph_harm_y
 
-    def _sph_harm(m: int, n: int, theta: np.ndarray, phi: np.ndarray) -> np.ndarray:
-        """Wrapper for spherical harmonics using new scipy API."""
-        return sph_harm_y(n, m, theta, phi)
+# Handle scipy.special spherical harmonics API deprecation (scipy 1.14+).
+# scipy 1.14 introduced ``sph_harm_y(n, m, theta, phi)`` and deprecated the
+# legacy ``sph_harm(m, n, theta, phi)``. We resolve the appropriate backend
+# exactly once via a closure factory so the public ``_sph_harm`` symbol has a
+# single canonical definition (no conditional redefinition / no ``no-redef``
+# suppression required).
+def _make_sph_harm() -> Any:
+    """Build a uniform ``_sph_harm(m, n, theta, phi)`` callable.
 
-except ImportError:
-    from scipy.special import sph_harm as _sph_harm  # type: ignore[no-redef]
+    Prefers the modern ``scipy.special.sph_harm_y`` API and falls back to the
+    legacy ``scipy.special.sph_harm`` symbol for older SciPy releases. The
+    returned callable always takes arguments in the legacy ``(m, n, theta,
+    phi)`` order so the rest of this module can be agnostic to the SciPy
+    version installed.
+    """
+    try:
+        from scipy.special import sph_harm_y as _sph_harm_y
+
+        def _impl(
+            m: int, n: int, theta: np.ndarray[Any, Any], phi: np.ndarray[Any, Any]
+        ) -> np.ndarray[Any, Any]:
+            # New API takes (n, m, theta, phi)
+            result: np.ndarray[Any, Any] = _sph_harm_y(n, m, theta, phi)
+            return result
+
+    except ImportError:
+        from scipy.special import sph_harm as _sph_harm_legacy
+
+        def _impl(
+            m: int, n: int, theta: np.ndarray[Any, Any], phi: np.ndarray[Any, Any]
+        ) -> np.ndarray[Any, Any]:
+            # Legacy API takes (m, n, theta, phi)
+            result: np.ndarray[Any, Any] = _sph_harm_legacy(m, n, theta, phi)
+            return result
+
+    return _impl
+
+
+_sph_harm = _make_sph_harm()
 
 
 class SphericalHarmonicDecomposer:
@@ -297,7 +333,7 @@ class QuantumHarmonicOscillator:
         return psi_t
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class HarmonicEncoder(nn.Module):
         """PyTorch module wrapping harmonic analysis for ML fusion."""
@@ -375,6 +411,8 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def HarmonicEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class HarmonicEncoder:
         """Stub: HarmonicEncoder requires PyTorch."""
-        raise ImportError("HarmonicEncoder requires PyTorch. Install with: pip install torch")
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("HarmonicEncoder requires PyTorch. Install with: pip install torch")

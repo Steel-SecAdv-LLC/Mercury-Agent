@@ -263,10 +263,20 @@ class GaussianMechanism(DifferentialPrivacyMechanism):
     Adds Gaussian noise calibrated to the L2 sensitivity.
     """
 
-    def __init__(self, delta: float = 1e-5) -> None:
-        """Initialize Gaussian mechanism."""
+    def __init__(self, delta: float = 1e-5, seed: int | None = None) -> None:
+        """Initialize Gaussian mechanism.
+
+        Args:
+            delta: (eps, delta)-DP delta parameter.
+            seed: Optional seed for the per-instance numpy ``Generator``
+                used to draw noise. Pass an explicit seed when the
+                caller needs reproducible privacy noise (audit trails,
+                regression tests). Without a seed the generator is
+                spawned from the OS entropy pool, which is the right
+                default for production deployments.
+        """
         self._delta = delta
-        self._rng = np.random.default_rng()
+        self._rng = np.random.default_rng(seed)
 
     def add_noise(
         self,
@@ -295,9 +305,15 @@ class LaplaceMechanism(DifferentialPrivacyMechanism):
     Adds Laplace noise calibrated to the L1 sensitivity.
     """
 
-    def __init__(self) -> None:
-        """Initialize Laplace mechanism."""
-        self._rng = np.random.default_rng()
+    def __init__(self, seed: int | None = None) -> None:
+        """Initialize Laplace mechanism.
+
+        Args:
+            seed: Optional seed for the per-instance numpy ``Generator``
+                used to draw noise. See :class:`GaussianMechanism` for
+                the seeding contract.
+        """
+        self._rng = np.random.default_rng(seed)
 
     def add_noise(
         self,
@@ -389,6 +405,7 @@ class SecureAggregator:
         epsilon: float = 1.0,
         delta: float = 1e-5,
         min_clients: int = 3,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize secure aggregator.
@@ -398,6 +415,8 @@ class SecureAggregator:
             epsilon: Privacy parameter epsilon
             delta: Privacy parameter delta (for Gaussian)
             min_clients: Minimum clients for aggregation
+            seed: Optional seed forwarded to the underlying noise
+                mechanism for reproducible privacy noise.
         """
         self._epsilon = epsilon
         self._delta = delta
@@ -405,9 +424,9 @@ class SecureAggregator:
 
         self._mechanism: DifferentialPrivacyMechanism
         if mechanism == "laplace":
-            self._mechanism = LaplaceMechanism()
+            self._mechanism = LaplaceMechanism(seed=seed)
         else:
-            self._mechanism = GaussianMechanism(delta)
+            self._mechanism = GaussianMechanism(delta, seed=seed)
 
         self._accountant = PrivacyAccountant(
             total_epsilon=epsilon * 100,
@@ -475,16 +494,25 @@ class LocalDifferentialPrivacy:
         epsilon: float = 1.0,
         mechanism: str = "gaussian",
         delta: float = 1e-5,
+        seed: int | None = None,
     ) -> None:
-        """Initialize LDP mechanism."""
+        """Initialize LDP mechanism.
+
+        Args:
+            epsilon: Per-call privacy parameter.
+            mechanism: ``"gaussian"`` or ``"laplace"``.
+            delta: Gaussian-mechanism delta (ignored for Laplace).
+            seed: Optional seed forwarded to the underlying noise
+                mechanism for reproducible privacy noise.
+        """
         self._epsilon = epsilon
         self._delta = delta
 
         self._mechanism: DifferentialPrivacyMechanism
         if mechanism == "laplace":
-            self._mechanism = LaplaceMechanism()
+            self._mechanism = LaplaceMechanism(seed=seed)
         else:
-            self._mechanism = GaussianMechanism(delta)
+            self._mechanism = GaussianMechanism(delta, seed=seed)
 
     def privatize(
         self,
@@ -586,6 +614,7 @@ class PrivacyEngine:
         noise_multiplier: float = 1.0,
         mechanism: str = "gaussian",
         composition: str = "rdp",
+        seed: int | None = None,
     ) -> None:
         """
         Initialize privacy engine.
@@ -597,6 +626,8 @@ class PrivacyEngine:
             noise_multiplier: Noise scale multiplier
             mechanism: "gaussian" or "laplace"
             composition: Privacy composition method
+            seed: Optional seed forwarded to the underlying noise
+                mechanism for reproducible privacy noise.
         """
         self._epsilon = epsilon
         self._delta = delta
@@ -608,9 +639,9 @@ class PrivacyEngine:
 
         self._mechanism: DifferentialPrivacyMechanism
         if mechanism == "laplace":
-            self._mechanism = LaplaceMechanism()
+            self._mechanism = LaplaceMechanism(seed=seed)
         else:
-            self._mechanism = GaussianMechanism(delta)
+            self._mechanism = GaussianMechanism(delta, seed=seed)
 
         self._accountant = PrivacyAccountant(
             total_epsilon=epsilon,

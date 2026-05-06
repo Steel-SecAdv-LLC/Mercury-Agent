@@ -372,15 +372,26 @@ class SpeakerEmbedding:
         self,
         input_dim: int = 39,
         embedding_dim: int = 256,
+        seed: int | None = 42,
     ) -> None:
-        """Initialize the embedding generator."""
+        """Initialize the embedding generator.
+
+        Args:
+            input_dim: Input feature dimension.
+            embedding_dim: Output embedding dimension.
+            seed: Optional seed for the per-instance numpy ``Generator``
+                used to initialise the demo embedding weights.  Default
+                ``42`` preserves the historical deterministic behaviour
+                without polluting the global ``np.random`` state.  Pass
+                ``None`` to draw fresh weights from the OS entropy pool.
+        """
         self._input_dim = input_dim
         self._embedding_dim = embedding_dim
 
-        np.random.seed(42)
-        self._weights1 = np.random.randn(input_dim, 128) * 0.1
-        self._weights2 = np.random.randn(128, 64) * 0.1
-        self._weights3 = np.random.randn(128, embedding_dim) * 0.1
+        rng = np.random.default_rng(seed)
+        self._weights1 = rng.standard_normal((input_dim, 128)) * 0.1
+        self._weights2 = rng.standard_normal((128, 64)) * 0.1
+        self._weights3 = rng.standard_normal((128, embedding_dim)) * 0.1
 
     def generate(self, features: np.ndarray) -> np.ndarray:
         """

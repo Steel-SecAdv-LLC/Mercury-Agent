@@ -62,8 +62,242 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   must run BenevolenceScorer **and** σ_Immutable in order, or fail
   closed with the matching `check=…` value.
 
+### Documentation
+
+- **Project-wide documentation refresh (2026-05-05).** All 29 markdown
+  files audited against current code state at v1.6.0; corrective
+  edits landed in a single sweep on
+  `claude/organize-project-directory-IIqcr`:
+  - `SECURITY.md` — Supported-Versions table rewritten (was listing
+    1.5.x as current with no v1.6.x entry); now declares 1.6.x as
+    current, 1.5.x as previous (critical-CVE only), <1.5 EOL.
+    `Last Updated` refreshed.
+  - `README.md` — GOSNN section's "Ethical Gating" key-feature
+    bullet rewritten to document the Wave B σ_Immutable hard-gate
+    contract (was describing the old `≥0.93 with configurable
+    fallback for medical domains` and a now-deleted `gosnn_metadata.fallback_mode=True`
+    silent-fallback path). New decision-boundary contract callout
+    added under the Status banner. Header date and footer
+    `Last updated` refreshed.
+  - `docs/MATH_SPEC.md` — new §2.1.5 "σ_Immutable Hard Gate (Wave B,
+    PR #179)" added: boundary-contract piecewise definition, σ
+    vector layout (`SIGMA_IMMUTABLE_DIM=256`,
+    `SIGMA_ETHICAL_BAND_END=27`, `SIGMA_USED_BAND_END=180`),
+    threshold provenance, test-only bypass note, composition with
+    the sigmoid benevolence gate. Date refreshed.
+  - `docs/index.md` — landing page rewritten to surface the Wave B
+    dual-gate contract, AMA Cryptography sole-backend hard-require,
+    honest-benchmark framing (64/75), and pickle-removal up front;
+    `COMPREHENSIVE_REPO_AUDIT` added to the toctree.
+  - `docs/ROUTING_GUIDE.md` — top-of-file callout that hard ethical
+    gates run *inside* the prediction call and **must not** be
+    masked by fallback handlers. "Fallback only applies to
+    data-source / connectivity / latency failures" clarification
+    added to the Overview.
+  - `docs/COMPREHENSIVE_REPO_AUDIT.md` — historical-document banner
+    and resolution-status table mapping the original CRITICAL/HIGH
+    findings to the PRs that remediated them (#166 / #167 / #168 /
+    #144 / #162 / #165 / #179).
+  - `docs/BENCHMARKS.md`, `docs/DATASOURCES.md`,
+    `docs/LIVE_DATA_VALIDATION.md` — reconciled the local 51/55
+    figure with the canonical 64/75 reproducibility set as **two
+    distinct measured baselines**: 64/75 = Mean AUC **0.8285** /
+    Mean Oracle F1 **0.6370** (current README headline after the
+    Oracle pipeline fix and dataset expansion); 51/55 = Mean AUC
+    **0.8030** / Mean Oracle F1 **0.5886** (legacy CI
+    regression-gate floor that the 64/75 run improved on).
+  - `docs/INSTALLATION.md` — added "Post-Quantum Cryptography
+    backend" section documenting the AMA Cryptography hard-require
+    (`AMA_REQUIRE_REAL_PQC=true`); added C-toolchain / CMake
+    requirements.
+  - `docs/DEPLOYMENT.md` — Ethics-audit-failures-in-CI subsection
+    rewritten: the gate is non-advisory; added remediation guidance
+    for `check="sigma_immutable"` and `check="gosnn_unavailable"`
+    failures.
+  - `CONTRIBUTING.md` — "What NOT to Contribute" tightened to
+    explicitly forbid weakening the Wave B dual-gate contract,
+    reintroducing `pickle`, or adding a non-AMA Cryptography PQC
+    backend. Document Version → 2.4, `Last Updated` refreshed,
+    `Applies to` row added.
+  - `ARCHITECTURE.md` — "System Scale" footer block re-derived from
+    the current tree (42 subpackages verified, 276 test files /
+    6,300+ tests, ~280,950 LOC); replaced unverifiable
+    "85%+ coverage" with "measured per release".
+
+### Code Quality
+
+- **CI coverage floor raised from 10% to 15% / 35% (2026-05-05).**
+  The previous 10% / 10% (`COVERAGE_THRESHOLD_CORE` /
+  `COVERAGE_THRESHOLD_FULL`) floor in `.github/workflows/ci.yml`
+  was scaffolding from the era when MyPy strict-mode churn was
+  repeatedly breaking CI; that churn has been resolved (strict mode
+  is on for `omni_mercury_engine.*` and the 569 surviving
+  suppressions are `[unused-ignore]`-paired so they auto-clear as
+  third-party stubs improve). An interim CI run on this branch
+  measured the actual full-suite line coverage at **36.03%**, so
+  the honest CI floor is set just below that — 35 — to defend the
+  measured baseline without immediately failing CI for unrelated
+  reasons. CORE is set to 15 since the core job runs a strictly
+  smaller subset of tests against the full source tree. The 85
+  `pyproject.toml [tool.coverage.report] fail_under` target stays
+  in place as the strict aspirational nightly bar; a dedicated
+  coverage push is planned to close the 36 → 85 gap. `.coveragerc`
+  no longer sets `fail_under` at all (it used to, at the same
+  value as the full-suite job, but that made every `pytest --cov`
+  invocation across the repo silently inherit the same floor —
+  including partial-suite jobs like `neuro-symbolic-tests` whose
+  coverage shape is different); per-job CI floors are configured
+  via `--cov-fail-under=${{ env.COVERAGE_THRESHOLD_* }}` flags in
+  `.github/workflows/ci.yml` so they apply only to the jobs that
+  explicitly opt in.
+- **Differential-privacy noise no longer draws from global `np.random`.**
+  `federation/privacy.py::DifferentialPrivacy` now owns a per-instance
+  `np.random.Generator` (constructed with `default_rng(rng_or_None)`)
+  and routes every noise draw — vector statistics, the symmetric
+  precision-matrix perturbation, the log-determinant scalar — through
+  it.  Callers can pass an explicit `rng` for audited / reproducible
+  deployments; the legacy `np.random.normal(...)` global-state path
+  is removed entirely.  This was a real DP-guarantee defect: a caller
+  that called `np.random.seed(...)` elsewhere in the same process
+  could de-randomise the privacy noise without touching this module.
+- **Federated learning RNG plumbed through.** `federated_learning`:
+  - `SGDTrainer` and `FedProxTrainer` now accept `seed: int | None`
+    and shuffle minibatches via a per-instance `Generator`
+    (`np.random.permutation` global-state calls removed).
+  - `ClientManager` accepts `seed`; `random` and `weighted` selection
+    strategies now use `self._rng.choice(...)` (`np.random.choice`
+    global-state calls removed). Cross-organisational federated
+    rounds can now be reconciled deterministically by passing the
+    same seed to every participant.
+  - `FederatedAnomalyDetector` accepts `seed` and draws the initial
+    server weight vector via `self._rng.standard_normal(...)`
+    (was `np.random.randn(...) * 0.01`).
+- **`MercuryEquationEngine` (`core/double_helix_engine.py`) RNG
+  plumbed through.**  The ethical-matrix initialisation, Hamiltonian
+  symmetric matrix, Boltzmann-sampling noise, simulated-annealing
+  exploration and Lyapunov-chaos perturbation all now draw from a
+  per-instance `np.random.Generator` (constructor `seed: int | None`).
+- **Tests:**
+  - `tests/test_vlm_detectors.py::test_anyanomaly_detect_mock`
+    deleted. `MockLVLMBackend` is intentionally a hard-fail by
+    design (Phase 2 audit cure: silent mock degradation is not
+    permitted in production), so any test that exercises it would
+    have to fight that design. The dead `backend` field on
+    `AnyAnomalyConfig` is also removed; backend selection has
+    always been driven by the inherited `VLMConfig.model_type`
+    field, which the factory in `lvlm_backends.get_lvlm_backend`
+    consumes.
+  - `tests/detectors/test_enhanced_geological_detectors.py` —
+    `test_recursion_synapse_integration`,
+    `test_resonance_synapse_integration`, and
+    `test_refactoring_synapse_integration` previously skipped on
+    `if not detector.enable_X` even though their fixtures explicitly
+    construct the detector with that flag set, so the skip path was
+    hiding an integration test that should have always been running.
+    Replaced the `pytest.skip(...)` with an `assert` that surfaces
+    the integration coverage instead of silently masking it.
+- **Tracked debt (not fixed in this sweep):** 35 unpaired
+  `# type: ignore[no-redef]` suppressions across **15** files
+  (verified via `grep -rln '# type: ignore\[no-redef\]' src/`):
+  `core/adaptive_fusion.py`, `core/base.py`, `core/config.py`,
+  `core/fusion.py`, `core/three_r_mechanism.py`,
+  `detectors/acceleration_dynamics.py`,
+  `detectors/dimensional.py`,
+  `detectors/geological/disaster_detectors.py`,
+  `integrations/mercury_amacrypto.py` (8 — the heaviest single
+  file), `medical/abms_disciplines.py`,
+  `ml/harmonic_encoder.py`, `safeguards/nano_safeguards.py`,
+  `security/crypto_api.py`, `security/cyber_fortress.py`,
+  `utils/resilience.py`. These guard repeated stub-class
+  redefinitions across optional-dependency branches and should be
+  refactored to a Protocol-or-inheritance pattern (or to per-file
+  ``_stubs.py`` modules consumed via
+  ``try: from real import X; except ImportError: from ._stubs import X``).
+  Tracked for a focused follow-up PR rather than churning the
+  boundary code in this documentation/quality sweep.
+
 ### Tooling
 
+- **`benchmark.yml` push paths filter removed; auto-commit ordering
+  reorganised; root-cause of broken auto-commit identified
+  (2026-05-05).** Three findings:
+  - The `on.push.paths` filter on the benchmark workflow restricted
+    triggers to `benchmarks/**` or `src/omni_mercury_engine/**`
+    only.  Recent merges to `main` (e.g. PR #187 — Dependabot
+    consolidation, helm/Dockerfile/workflows-only) didn't touch
+    those paths, so the workflow never ran on those pushes and the
+    auto-commit step never had a chance to fire.  Filter removed:
+    every push to `main` / `develop` now triggers the benchmark
+    workflow regardless of which paths changed.
+  - The "Update README" + "Commit and push" steps were moved to
+    run immediately after the gating mercury benchmark step (and
+    its artifact upload), before the supplementary empirical and
+    seven-axis steps.  This is a structural cleanup: when the push
+    issue below is resolved, mercury+README will commit in a
+    focused single commit with the canonical
+    `ci(benchmark): persist latest run` subject, and seven-axis
+    will commit as a follow-up.
+  - **Root cause of "Latest Benchmark Results" never updating
+    on `main`:** the bot's `git push origin HEAD:main` is rejected
+    by `main`'s branch protection ruleset (verified from run #660
+    log).  The four blocking rules: "Changes must be made through
+    a pull request", "22 of 22 required status checks", "Code
+    scanning is waiting for results from CodeQL", and "Commits
+    must have verified signatures" (the latter found 1 violation:
+    the unsigned `github-actions[bot]` commit).  Every prior
+    auto-commit attempt has been rejected for the same reasons,
+    which is why `benchmarks/mercury_benchmark_results.json` has
+    never appeared on `main` and the README "Latest Benchmark
+    Results" block stays in `_pending first auto-commit_` state.
+- **Benchmark auto-commit replaced with PR-based API flow
+  (Option A).** New `scripts/persist_benchmark_to_pr.py` uses the
+  GitHub Git Database API directly (`/git/blobs`, `/git/trees`,
+  `/git/commits`, `/git/refs`) to commit on the
+  `ci/benchmark-results` feature branch. The script itself does
+  **not** supply a detached `signature` field in the
+  `POST /git/commits` payload; rule 4 (*commits must have verified
+  signatures*) is satisfied externally — GitHub auto-signs commits
+  made via the Git Database API on behalf of `github-actions[bot]`
+  with its web-flow signing key, but **only when the call is
+  authenticated with the workflow's `GITHUB_TOKEN`** (or a GitHub
+  App installation token that is allowed to act as the bot).  If
+  the workflow is reconfigured to use a Personal Access Token via
+  `BENCHMARK_BOT_TOKEN`, those commits will land **unverified**;
+  the alternative is to extend the persister to compute and submit
+  a detached PGP/SSH signature (out of scope for this branch).  The
+  script then opens
+  a PR into `main` (satisfies rule 1, *Changes must be made
+  through a pull request*).  The 22 required status checks (rule
+  2) run on the PR.  Both the mercury+README commit and the
+  follow-up seven-axis commit re-use the same feature branch — the
+  script force-updates the ref, so a single PR collects both
+  changes rather than opening two PRs.
+  - **Caveat — initial CI on the bot PR is pending:** GitHub
+    deliberately does not trigger downstream workflows from events
+    caused by the default `GITHUB_TOKEN`, so the 22 required
+    checks land **pending** on the bot PR.  Unblock by re-running
+    the CI workflow manually on the PR head, or by pushing an
+    empty commit on the persistence branch as a maintainer.  Do
+    **not** swap `GITHUB_TOKEN` for a Personal Access Token to
+    break the loop-prevention: the persister does not submit a
+    detached commit signature, and PAT-authenticated Git Database
+    commits are not auto-signed by GitHub — they land `Unverified`
+    and fail rule 4 of the protection ruleset.  The persister
+    steps in `.github/workflows/benchmark.yml` therefore export
+    `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` unconditionally.
+    An earlier iteration of the workflow used a
+    `secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN`
+    expression to leave room for a future GitHub App installation
+    token, but the expression cannot distinguish a PAT from an
+    App token by secret name; the fallback was removed in this
+    branch.  Wiring an installation token requires a separately
+    named secret (e.g. `BENCHMARK_BOT_APP_TOKEN`) and is a
+    focused-PR job.
+  - **Auto-merge is not enabled by default.**  The persister
+    script accepts `--enable-automerge --merge-method squash` for
+    deployments that want the PR to merge as soon as required
+    checks pass; the workflow does not pass that flag yet — that
+    is an explicit maintainer policy decision.
 - **`scripts/update_readme_benchmarks.py` reads canonical metadata**
   (`data["metadata"]["git_commit"]` / `data["metadata"]["timestamp"]`)
   before falling back to the older flat `data["commit"]` /

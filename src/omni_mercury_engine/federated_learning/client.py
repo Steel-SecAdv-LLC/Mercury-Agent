@@ -208,6 +208,7 @@ class SGDTrainer(LocalTrainer):
         self,
         loss_fn: Callable[[np.ndarray, np.ndarray, np.ndarray], float] | None = None,
         grad_fn: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize SGD trainer.
@@ -215,9 +216,15 @@ class SGDTrainer(LocalTrainer):
         Args:
             loss_fn: Loss function(weights, X, y) -> loss
             grad_fn: Gradient function(weights, X, y) -> gradients
+            seed: Optional seed for the per-instance numpy `Generator`
+                used to shuffle minibatches. The legacy global
+                `np.random` state is never used, so the same seed
+                produces the same minibatch order regardless of other
+                code in the process.
         """
         self._loss_fn = loss_fn or self._default_loss
         self._grad_fn = grad_fn or self._default_gradient
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def _default_loss(
         self,
@@ -258,7 +265,7 @@ class SGDTrainer(LocalTrainer):
         n_batches = max(1, n_samples // config.batch_size)
 
         for epoch in range(config.local_epochs):
-            indices = np.random.permutation(n_samples)
+            indices = self._rng.permutation(n_samples)
             epoch_loss = 0.0
 
             for batch_idx in range(n_batches):
@@ -301,10 +308,20 @@ class FedProxTrainer(LocalTrainer):
         self,
         loss_fn: Callable[[np.ndarray, np.ndarray, np.ndarray], float] | None = None,
         grad_fn: Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None = None,
+        seed: int | None = None,
     ) -> None:
-        """Initialize FedProx trainer."""
+        """Initialize FedProx trainer.
+
+        Args:
+            loss_fn: Loss function(weights, X, y) -> loss
+            grad_fn: Gradient function(weights, X, y) -> gradients
+            seed: Optional seed for the per-instance numpy `Generator`
+                used to shuffle minibatches. The legacy global
+                `np.random` state is never used.
+        """
         self._loss_fn = loss_fn or self._default_loss
         self._grad_fn = grad_fn or self._default_gradient
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def _default_loss(
         self,
@@ -345,7 +362,7 @@ class FedProxTrainer(LocalTrainer):
         n_batches = max(1, n_samples // config.batch_size)
 
         for epoch in range(config.local_epochs):
-            indices = np.random.permutation(n_samples)
+            indices = self._rng.permutation(n_samples)
             epoch_loss = 0.0
 
             for batch_idx in range(n_batches):
@@ -409,6 +426,7 @@ class FederatedClient:
         local_data: tuple[np.ndarray, np.ndarray | None],
         config: ClientConfig | None = None,
         trainer: LocalTrainer | None = None,
+        privacy_seed: int | None = None,
     ) -> None:
         """
         Initialize federated client.
@@ -418,6 +436,10 @@ class FederatedClient:
             local_data: Local training data (X, y) or (X, None) for unsupervised
             config: Client configuration
             trainer: Local trainer instance
+            privacy_seed: Optional seed forwarded to the auto-constructed
+                :class:`PrivacyEngine` so DP noise is reproducible per
+                client. Has no effect when ``config.use_privacy`` is
+                ``False``.
         """
         self._client_id = client_id
         self._local_data = local_data
@@ -437,6 +459,7 @@ class FederatedClient:
                 delta=self._config.delta,
                 max_grad_norm=self._config.max_grad_norm,
                 noise_multiplier=self._config.noise_multiplier,
+                seed=privacy_seed,
             )
 
         self._local_ldp: LocalDifferentialPrivacy | None = None
@@ -600,6 +623,7 @@ class ClientManager:
         min_clients: int = 2,
         selection_fraction: float = 1.0,
         selection_strategy: str = "random",
+        seed: int | None = None,
     ) -> None:
         """
         Initialize client manager.
@@ -608,10 +632,17 @@ class ClientManager:
             min_clients: Minimum clients required per round
             selection_fraction: Fraction of clients to select
             selection_strategy: "random", "round_robin", or "weighted"
+            seed: Optional seed for the per-instance numpy `Generator`
+                used by the "random" and "weighted" selection
+                strategies. Cross-organisational federated rounds need
+                deterministic client selection for audit reconciliation;
+                pass an explicit seed in those deployments. The legacy
+                global `np.random` state is never used.
         """
         self._min_clients = min_clients
         self._selection_fraction = selection_fraction
         self._selection_strategy = selection_strategy
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         self._clients: dict[str, FederatedClient] = {}
         self._round_robin_idx = 0
@@ -668,7 +699,7 @@ class ClientManager:
         n_clients = min(n_clients, len(available))
 
         if self._selection_strategy == "random":
-            indices = np.random.choice(len(available), n_clients, replace=False)
+            indices = self._rng.choice(len(available), n_clients, replace=False)
             return [available[i] for i in indices]
 
         elif self._selection_strategy == "round_robin":
@@ -682,7 +713,7 @@ class ClientManager:
         elif self._selection_strategy == "weighted":
             weights = np.array([c.n_samples for c in available], dtype=float)
             weights /= weights.sum()
-            indices = np.random.choice(
+            indices = self._rng.choice(
                 len(available),
                 n_clients,
                 replace=False,

@@ -32,13 +32,19 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-try:
+if TYPE_CHECKING:
     import torch
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        TORCH_AVAILABLE = False
 
 from scipy.fft import fft
 
@@ -107,7 +113,7 @@ class DimensionalWeights:
             raise ValueError(f"db_blend must be in [0, 1], got {self.db_blend}")
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class NeuralProjection(nn.Module):
         """
@@ -165,9 +171,13 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def NeuralProjection(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class NeuralProjection:
         """Stub: NeuralProjection requires PyTorch."""
-        raise ImportError("NeuralProjection requires PyTorch. Install with: pip install torch")
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "NeuralProjection requires PyTorch. Install with: pip install torch"
+            )
 
 
 class DimensionalAnalyzer(BaseDetector):

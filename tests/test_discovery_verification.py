@@ -72,6 +72,36 @@ class TestDoubleHelixEngine:
         num_terms = len(engine.term_weights)
         assert num_terms >= 18, f"Expected 18+ terms, got {num_terms}"
 
+    def test_seed_makes_evolution_reproducible(self):
+        """Two MercuryEquationEngine instances with the same seed must
+        evolve identically across all stochastic terms (ethical-matrix
+        init, Hamiltonian symmetric matrix, Boltzmann sampling,
+        simulated-annealing exploration, Lyapunov chaos perturbation).
+        Different seeds must diverge."""
+        from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
+
+        rng = np.random.default_rng(0)
+        x0 = rng.standard_normal(8)
+
+        def _evolve(seed: int) -> np.ndarray:
+            engine = MercuryEquationEngine(dimension=8, seed=seed)
+            state = x0.copy()
+            for _ in range(20):
+                state, _contributions = engine.step(state)
+            return state
+
+        a = _evolve(seed=42)
+        b = _evolve(seed=42)
+        assert np.array_equal(a, b), (
+            "Same-seed MercuryEquationEngine runs diverged; seed is not "
+            "threading through every stochastic term."
+        )
+
+        c = _evolve(seed=43)
+        assert not np.array_equal(
+            a, c
+        ), "Different seeds produced identical evolution; seed has no effect."
+
 
 class TestEthicalScalars:
     """Verify ethical scalar framework claims."""

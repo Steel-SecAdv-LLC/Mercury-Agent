@@ -44,17 +44,23 @@ References:
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-try:
+if TYPE_CHECKING:
     import torch
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        TORCH_AVAILABLE = False
 
 from scipy.fft import fft
 
@@ -88,7 +94,7 @@ class NanoSafeguardResult:
     recommended_actions: list[str] = field(default_factory=list)
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class HierarchicalMicroScanner(nn.Module):
         """
@@ -151,11 +157,13 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def HierarchicalMicroScanner(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class HierarchicalMicroScanner:
         """Stub: HierarchicalMicroScanner requires PyTorch."""
-        raise ImportError(
-            "HierarchicalMicroScanner requires PyTorch. Install with: pip install torch"
-        )
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "HierarchicalMicroScanner requires PyTorch. Install with: pip install torch"
+            )
 
 
 class ResonanceAnalyzer:

@@ -40,6 +40,14 @@ class DifferentialPrivacy:
         delta: Probability of privacy breach. Default 1e-5.
         clip_norm: Maximum magnitude for any single statistic element.
             Default 10.0. Increase for data with larger dynamic range.
+        rng: Optional numpy `Generator` providing the noise source.  If
+            omitted, a fresh OS-seeded `np.random.default_rng()` is
+            constructed per instance — the global `np.random` legacy
+            state is **never** used, so a caller cannot accidentally
+            de-randomise the privacy noise via `np.random.seed(...)`
+            elsewhere in the process. For audited / reproducible
+            deployments pass an explicit `np.random.default_rng(seed)`
+            seeded from a documented entropy source.
     """
 
     def __init__(
@@ -47,6 +55,7 @@ class DifferentialPrivacy:
         epsilon: float,
         delta: float = 1e-5,
         clip_norm: float = 10.0,
+        rng: np.random.Generator | None = None,
     ) -> None:
         if epsilon <= 0:
             raise ValueError(f"epsilon must be positive, got {epsilon}")
@@ -59,6 +68,7 @@ class DifferentialPrivacy:
         self.delta = delta
         self.clip_norm = clip_norm
         self.sigma = np.sqrt(2.0 * np.log(1.25 / delta)) / epsilon
+        self._rng: np.random.Generator = rng if rng is not None else np.random.default_rng()
 
     def apply(self, stats: FittedStatistics) -> FittedStatistics:
         """Apply calibrated noise to all numeric statistics.
@@ -78,10 +88,12 @@ class DifferentialPrivacy:
         sensitivity = 2.0 * self.clip_norm / n
         noise_scale = sensitivity * self.sigma
 
-        # Helper: clip then noise an array
+        # Helper: clip then noise an array. Noise is drawn from the
+        # instance-owned Generator (never the global np.random state) so
+        # the (epsilon, delta)-DP guarantee is auditable.
         def clip_and_noise(arr: np.ndarray, non_negative: bool = False) -> np.ndarray:
             clipped = np.clip(arr, -self.clip_norm, self.clip_norm)
-            noised_arr = clipped + np.random.normal(0, noise_scale, arr.shape)
+            noised_arr = clipped + self._rng.normal(0, noise_scale, arr.shape)
             if non_negative:
                 noised_arr = np.maximum(noised_arr, 1e-12)
             return np.asarray(noised_arr)
@@ -101,14 +113,14 @@ class DifferentialPrivacy:
 
         # Noise precision matrix (must stay symmetric)
         clipped_cov = np.clip(noised.ig_cov_inv, -self.clip_norm, self.clip_norm)
-        noise_matrix = np.random.normal(0, noise_scale, clipped_cov.shape)
+        noise_matrix = self._rng.normal(0, noise_scale, clipped_cov.shape)
         noise_matrix = (noise_matrix + noise_matrix.T) / 2  # Symmetrize
         noised.ig_cov_inv = clipped_cov + noise_matrix
 
         # Noise scalar
         noised.ig_log_det = float(
             np.clip(noised.ig_log_det, -self.clip_norm, self.clip_norm)
-            + np.random.normal(0, noise_scale)
+            + self._rng.normal(0, noise_scale)
         )
 
         # Record privacy parameters

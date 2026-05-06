@@ -6,16 +6,16 @@ Mercury Agent is a security-focused AI framework developed by Steel Security Adv
 
 ## Supported Versions
 
-We provide security updates for the following versions:
+Security updates are provided for the latest minor release line. Older
+minor lines reach end-of-life when a new minor is published; users are
+expected to upgrade promptly. Critical CVEs may be back-ported to the
+immediately previous line at the maintainers' discretion.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.5.x   | :white_check_mark: |
-| 1.4.x   | :white_check_mark: |
-| 1.2.x   | :white_check_mark: |
-| 1.1.x   | :white_check_mark: |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+| Version | Status               | Security updates |
+| ------- | -------------------- | ---------------- |
+| 1.6.x   | **Current**          | :white_check_mark: |
+| 1.5.x   | Previous (EOL on next minor) | Critical CVEs only |
+| < 1.5   | End-of-life          | :x:              |
 
 ## Reporting a Vulnerability
 
@@ -250,5 +250,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-02-21*
+*Last Updated: 2026-05-05*
 *Version: 1.6.0*

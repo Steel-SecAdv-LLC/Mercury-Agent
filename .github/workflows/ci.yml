@@ -28,15 +28,31 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
-  # Core tests cover test_cli.py + tests/core/ + ensemble module tests
-  # (federation, alerting, loaders, streaming) against the full source tree.
-  # Threshold set to 10 to match reality; raise after adding tests or
-  # scoping --cov.
-  COVERAGE_THRESHOLD_CORE: 10
-  # Full suite (ML tests) covers all tests/ against the full source tree.
-  # pyproject.toml fail_under stays at 85 as the aspirational local/nightly
-  # target.  CI threshold kept conservative until coverage tooling is scoped.
-  COVERAGE_THRESHOLD_FULL: 10
+  # ---------------------------------------------------------------------
+  # Coverage thresholds.
+  #
+  # Measured baseline (full suite, 2026-05-05 CI run on
+  # claude/organize-project-directory-IIqcr): 36.03% lines covered.
+  # The previous 10/10 floor was MyPy-era scaffolding; the target
+  # quality bar in `pyproject.toml [tool.coverage.report]` is
+  # `fail_under = 85`.  A 75-point CI gate failed immediately because
+  # the codebase is genuinely at ~36% line coverage today, not
+  # because of regressions.
+  #
+  # Compromise floor pending a dedicated coverage push:
+  #   COVERAGE_THRESHOLD_CORE: 15  (core subset, was 30)
+  #   COVERAGE_THRESHOLD_FULL: 35  (full suite, was 75)
+  # 35 is "do not regress below the measured 36.03% baseline" with a
+  # 1-point cushion for CI noise.  15 is the matching floor for the
+  # core subset which exercises a strictly smaller fraction of src/
+  # against the full source tree.
+  #
+  # The 85-point pyproject target stays in place as the strict
+  # aspirational nightly bar.  Raise these CI floors as the dedicated
+  # coverage session lands tests; do not lower them back toward 10.
+  # ---------------------------------------------------------------------
+  COVERAGE_THRESHOLD_CORE: 15
+  COVERAGE_THRESHOLD_FULL: 35
 
 jobs:
   # ===========================================================================
@@ -522,6 +538,77 @@ jobs:
           python -m pip install --upgrade "pip>=26.0"
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
+
+      - name: Install build toolchain for AMA Cryptography native library
+        # ``ml-tests`` collects everything under ``tests/``, including
+        # ``tests/security/test_pqc_gate_real_ama.py`` which imports
+        # ``ama_cryptography.pqc_backends`` at module scope and would
+        # fail collection if the native library were absent.  We build
+        # AMA Cryptography v3.1.0 here using the same procedure as
+        # ``.github/workflows/pqc-production-check.yml::verify-real-pqc``
+        # so the real-AMA tests run against the same dependency in
+        # both lanes — no mock, no skip, no silent stub.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config
+
+      - name: Install AMA Cryptography PEP 517 build-system floors
+        # AMA Cryptography v3.1.0's ``setup.py`` runs a preflight check
+        # against the supply-chain floors declared in
+        # ``pyproject.toml [build-system].requires``:
+        #   * setuptools>=78.1.1  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5
+        #                           + closes Debian 68.x install_layout
+        #                           regression on bdist_wheel.
+        #   * wheel>=0.47.0       — GHSA-8rrh-rw8j-w5fx.
+        #   * cmake>=4.3.2        — Dependabot supply-chain floor.
+        # The subsequent ``pip install --no-build-isolation .`` step
+        # skips PEP 517 build-env creation (so the wheel-build can
+        # link against the libama_cryptography.so we just produced
+        # above without re-running CMake into a transient isolation
+        # dir), which means these floors must instead be present in
+        # the active environment.  Without the PyPI cmake shim,
+        # setup.py's ``_check_cmake_version()`` falls through to the
+        # system cmake (3.31.6 from apt) and aborts with the FATAL
+        # preflight error
+        #   ``cmake >= 4.3.2 required (found 3.31.6; reason:
+        #     Dependabot supply-chain floor)``.
+        # Pinning the floors explicitly here (rather than implicitly
+        # via ``cmake>=3.16`` and trusting the resolver to pick a
+        # 4.x) documents the supply-chain contract in CI itself.
+        # AMA_NO_CYTHON=1 in the install step below short-circuits the
+        # Cython / numpy floor checks, so they are intentionally not
+        # installed in this step.
+        run: |
+          python -m pip install --upgrade \
+            "setuptools>=78.1.1" \
+            "wheel>=0.47.0" \
+            "cmake>=4.3.2"
+
+      - name: Build AMA Cryptography native C library
+        env:
+          AMA_REF: v3.1.0
+        run: |
+          git clone --branch "${AMA_REF}" --depth 1 \
+            https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
+          cd /tmp/ama-cryptography
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DAMA_USE_NATIVE_PQC=ON \
+            -DAMA_BUILD_SHARED=ON \
+            -DAMA_BUILD_STATIC=ON \
+            -DAMA_BUILD_TESTS=OFF \
+            -DAMA_BUILD_EXAMPLES=OFF
+          cmake --build build -j "$(nproc)"
+
+      - name: Install AMA Cryptography Python package
+        run: |
+          cd /tmp/ama-cryptography
+          AMA_NO_CYTHON=1 pip install --no-build-isolation .
+          {
+            echo "LD_LIBRARY_PATH=/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
+            echo "AMA_NO_CYTHON=1"
+          } >> "$GITHUB_ENV"
 
       - name: Run full test suite with parallelization
         env:

@@ -51,19 +51,25 @@ Research foundations:
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-try:
+if TYPE_CHECKING:
     import torch
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    torch = None  # type: ignore[assignment, unused-ignore]
-    nn = None  # type: ignore[assignment, unused-ignore]
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        torch = None  # type: ignore[assignment, unused-ignore]
+        nn = None  # type: ignore[assignment, unused-ignore]
+        TORCH_AVAILABLE = False
 
 from scipy.ndimage import uniform_filter1d
 
@@ -244,7 +250,7 @@ class AccelerationAnomalyResult:
 # Neural Network Components
 # =============================================================================
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class MotionEncoder(nn.Module):
         """
@@ -469,19 +475,27 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def MotionEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class MotionEncoder:
         """Stub: MotionEncoder requires PyTorch."""
-        raise ImportError("MotionEncoder requires PyTorch. Install with: pip install torch")
 
-    def PhaseSpaceNetwork(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("MotionEncoder requires PyTorch. Install with: pip install torch")
+
+    class PhaseSpaceNetwork:
         """Stub: PhaseSpaceNetwork requires PyTorch."""
-        raise ImportError("PhaseSpaceNetwork requires PyTorch. Install with: pip install torch")
 
-    def EnergyConservationNetwork(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "PhaseSpaceNetwork requires PyTorch. Install with: pip install torch"
+            )
+
+    class EnergyConservationNetwork:
         """Stub: EnergyConservationNetwork requires PyTorch."""
-        raise ImportError(
-            "EnergyConservationNetwork requires PyTorch. Install with: pip install torch"
-        )
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "EnergyConservationNetwork requires PyTorch. Install with: pip install torch"
+            )
 
 
 # =============================================================================

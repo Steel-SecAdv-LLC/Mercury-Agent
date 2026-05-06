@@ -368,6 +368,30 @@ class FallbackChain:
                     ) from e
 
             except Exception as e:
+                # Wave B contract: hard ethical gate refusals from any
+                # handler must never be masked by a fallback handler.
+                # ``EthicalConstraintViolationError`` is raised by the
+                # public detect / analyze / predict surfaces in
+                # ``OmniMercuryEngine`` / ``CognitiveOrchestrator`` /
+                # ``NeuroSymbolicHub`` after Benevolence + σ_Immutable
+                # gating, and substituting a "default response" that
+                # hides the ethical refusal is a contract violation.
+                # Re-raise unconditionally regardless of ``fail_fast``.
+                # Imported lazily to avoid a hard import cycle between
+                # the routing layer and the cognitive layer.
+                from omni_mercury_engine.cognitive.ethical_bounding import (
+                    EthicalConstraintViolationError,
+                )
+
+                if isinstance(e, EthicalConstraintViolationError):
+                    logger.error(
+                        f"Chain '{self.name}' refusing to fall back: "
+                        f"handler '{handler.name}' raised "
+                        f"EthicalConstraintViolationError(check={e.check!r}); "
+                        f"propagating per Wave B hard-gate contract."
+                    )
+                    raise
+
                 fallback_count += 1
                 reason_msg = str(e)
                 reasons.append((handler.name, FallbackReason.EXCEPTION, reason_msg))
