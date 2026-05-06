@@ -121,9 +121,11 @@ class AnomalyDetector(LoggerMixin):
         latent_dim: int = 32,
         seq_len: int = 100,
         device: str = "auto",
+        seed: int | None = None,
     ):
         self.input_dim = input_dim
         self.seq_len = seq_len
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         if device == "auto":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -179,7 +181,7 @@ class AnomalyDetector(LoggerMixin):
 
         # Train/val split
         n_val = int(len(sequences) * val_split)
-        indices = np.random.permutation(len(sequences))
+        indices = self._rng.permutation(len(sequences))
         train_idx, val_idx = indices[n_val:], indices[:n_val]
 
         train_seqs = torch.FloatTensor(sequences[train_idx]).to(self.device)

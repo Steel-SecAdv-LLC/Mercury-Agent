@@ -280,6 +280,7 @@ class ThoughtGenerator:
         self,
         min_evidence_threshold: float = 0.3,
         enable_verification: bool = True,
+        seed: int | None = None,
     ):
         """
         Initialize thought generator.
@@ -287,10 +288,14 @@ class ThoughtGenerator:
         Args:
             min_evidence_threshold: Minimum evidence strength for conclusions
             enable_verification: Whether to generate verification thoughts
+            seed: Optional seed for the per-instance ``Generator`` driving
+                template selection. ``None`` (default) uses an OS-seeded
+                ``Generator`` — same effective behavior as before.
         """
         self.min_evidence_threshold = min_evidence_threshold
         self.enable_verification = enable_verification
         self._thought_counter = 0
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Thought templates for different types
         self._templates = {
@@ -358,7 +363,7 @@ class ThoughtGenerator:
 
         # Select template
         templates = self._templates.get(thought_type, ["Processing: {content}"])
-        template = np.random.choice(templates)
+        template = self._rng.choice(templates)
 
         # Generate content based on type and context
         content = self._fill_template(template, thought_type, context)
@@ -524,6 +529,7 @@ class ChainOfThoughtEngine:
         consistency_paths: int = 5,
         enable_verification: bool = True,
         min_confidence: float = 0.5,
+        seed: int | None = None,
     ):
         """
         Initialize Chain-of-Thought engine.
@@ -534,14 +540,22 @@ class ChainOfThoughtEngine:
             consistency_paths: Number of paths for self-consistency
             enable_verification: Enable verification steps
             min_confidence: Minimum confidence threshold
+            seed: Optional seed for the per-instance ``Generator`` driving
+                self-consistency variation and tree-of-thought branching.
+                ``None`` (default) uses an OS-seeded ``Generator`` — same
+                effective behavior as before. Propagated to the inner
+                ``ThoughtGenerator``.
         """
         self.default_strategy = default_strategy
         self.max_depth = min(max_depth, MAX_THOUGHT_DEPTH)
         self.consistency_paths = min(consistency_paths, MAX_CONSISTENCY_PATHS)
         self.enable_verification = enable_verification
         self.min_confidence = min_confidence
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
-        self.thought_generator = ThoughtGenerator(enable_verification=enable_verification)
+        self.thought_generator = ThoughtGenerator(
+            enable_verification=enable_verification, seed=seed
+        )
 
         self._chain_counter = 0
         self._stats = {
@@ -728,7 +742,7 @@ class ChainOfThoughtEngine:
             # Add randomness to context for diverse paths
             varied_context = context.copy()
             varied_context["path_seed"] = i
-            varied_context["variation"] = np.random.random()
+            varied_context["variation"] = self._rng.random()
 
             path = self._standard_cot(problem, varied_context)
             paths.append(path)
@@ -1198,7 +1212,7 @@ class ChainOfThoughtEngine:
         for depth in range(max_depth):
             # Randomly choose thought type
             thought_types = [ThoughtType.ANALYSIS, ThoughtType.INFERENCE, ThoughtType.HYPOTHESIS]
-            thought_type = np.random.choice(thought_types)  # type: ignore[arg-type, unused-ignore]
+            thought_type = self._rng.choice(thought_types)  # type: ignore[arg-type, unused-ignore]
 
             step_context = {
                 "subject": f"branch aspect {depth}",

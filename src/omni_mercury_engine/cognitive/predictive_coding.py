@@ -372,6 +372,7 @@ class HierarchicalPredictiveCoder:
         hidden_dims: list[int] | None = None,
         learning_rate: float = DEFAULT_LEARNING_RATE,
         num_levels: int | None = None,
+        seed: int | None = 42,
     ):
         """
         Initialize hierarchical predictive coder.
@@ -381,9 +382,15 @@ class HierarchicalPredictiveCoder:
             hidden_dims: Dimensions for each hidden level
             learning_rate: Learning rate for updates
             num_levels: Number of hierarchy levels (alternative to hidden_dims)
+            seed: Optional seed for the per-instance ``Generator`` driving
+                hierarchy weight initialization. Defaults to ``42`` to
+                preserve the deterministic behavior of the previous
+                ``np.random.seed(42)`` global-state call. Pass ``None`` to
+                use OS entropy instead.
         """
         self.input_dim = input_dim or 10
         self.learning_rate = learning_rate
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Handle num_levels parameter (test API)
         if num_levels is not None:
@@ -412,8 +419,6 @@ class HierarchicalPredictiveCoder:
 
     def _build_hierarchy(self) -> None:
         """Build the predictive hierarchy."""
-        np.random.seed(42)
-
         dims = [self.input_dim] + self.hidden_dims
 
         for i, level in enumerate(self.levels):
@@ -425,7 +430,7 @@ class HierarchicalPredictiveCoder:
                 scale = np.sqrt(2.0 / (input_dim + output_dim))
                 self.models[level] = GenerativeModel(
                     level=level,
-                    weights=np.random.randn(input_dim, output_dim) * scale,
+                    weights=self._rng.standard_normal((input_dim, output_dim)) * scale,
                     bias=np.zeros(output_dim),
                     learning_rate=self.learning_rate,
                 )

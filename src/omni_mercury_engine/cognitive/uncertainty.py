@@ -141,16 +141,21 @@ class MCDropoutWrapper:
     Ghahramani (2016).
     """
 
-    def __init__(self, model: Any, dropout_rate: float = 0.1) -> None:
+    def __init__(self, model: Any, dropout_rate: float = 0.1, seed: int | None = None) -> None:
         """
         Args:
 
             model: PyTorch model with dropout layers
             dropout_rate: Dropout probability (if not already in model)
+            seed: Optional seed for the per-instance ``Generator`` driving
+                Monte-Carlo perturbation of the input. ``None`` (default)
+                uses an OS-seeded ``Generator`` — same effective behavior
+                as before.
         """
         self.model = model
         self.dropout_rate = dropout_rate
         self._original_training_state = None
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def enable_dropout(self) -> None:
         """Enable dropout layers for MC sampling."""
@@ -504,6 +509,7 @@ class UncertaintyQuantifier:
         enable_aci: bool = True,
         aci_coverage: float = 0.9,
         bayesian_calibrator: Any | None = None,
+        seed: int | None = None,
     ):
         """
         Initialize Uncertainty Quantifier.
@@ -516,10 +522,15 @@ class UncertaintyQuantifier:
             aci_coverage: Target coverage for ACI
             bayesian_calibrator: Optional BayesianConfidenceCalibrator for
                 domain-specific confidence adjustment via Beta-Bernoulli model
+            seed: Optional seed for the per-instance ``Generator`` driving
+                Monte-Carlo perturbation of the input. ``None`` (default)
+                uses an OS-seeded ``Generator`` — same effective behavior
+                as before.
         """
         self.n_monte_carlo = n_monte_carlo
         self.calibration_bins = calibration_bins
         self.reliability_threshold = reliability_threshold
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Components
         self.temperature_scaler = TemperatureScaler()
@@ -1199,7 +1210,7 @@ class UncertaintyQuantifier:
             try:
                 # Add small noise to simulate stochastic prediction
                 # (In real MC Dropout, this comes from dropout layers)
-                noisy_input = input_data + np.random.randn(*input_data.shape) * 0.01
+                noisy_input = input_data + self._rng.standard_normal(input_data.shape) * 0.01
                 pred = prediction_function(noisy_input)
                 if isinstance(pred, np.ndarray):
                     samples.append(pred.flatten())
