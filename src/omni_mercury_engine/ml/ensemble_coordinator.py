@@ -177,6 +177,7 @@ class BayesianWeightOptimizer(WeightOptimizer):
         prior_alpha: float = 1.0,
         prior_beta: float = 1.0,
         exploration_bonus: float = 0.1,
+        seed: int | None = None,
     ):
         """
         Initialize Bayesian optimizer.
@@ -185,12 +186,16 @@ class BayesianWeightOptimizer(WeightOptimizer):
             prior_alpha: Prior alpha for Beta distribution
             prior_beta: Prior beta for Beta distribution
             exploration_bonus: Bonus for exploration
+            seed: Optional seed for the per-instance ``Generator`` driving
+                Beta-posterior sampling.  ``None`` (default) uses OS
+                entropy.
         """
         self.prior_alpha = prior_alpha
         self.prior_beta = prior_beta
         self.exploration_bonus = exploration_bonus
         self._alphas: dict[str, float] = {}
         self._betas: dict[str, float] = {}
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def optimize(
         self,
@@ -219,7 +224,7 @@ class BayesianWeightOptimizer(WeightOptimizer):
         # Sample from posterior distributions
         weights = {}
         for name in detector_scores:
-            sampled = np.random.beta(self._alphas[name], self._betas[name])
+            sampled = self._rng.beta(self._alphas[name], self._betas[name])
             # Add exploration bonus for less-used detectors
             uncertainty = np.sqrt(
                 self._alphas[name]

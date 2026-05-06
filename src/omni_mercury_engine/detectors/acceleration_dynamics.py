@@ -531,8 +531,11 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         Args:
             config: Configuration dictionary. See AccelerationDynamicsConfig.
+                ``config["seed"]`` (optional int) seeds the per-instance
+                ``Generator`` used for phase-space neighbour subsampling.
         """
         super().__init__(config)
+        self._rng: np.random.Generator = np.random.default_rng(self.config.get("seed"))
 
         # Parse configuration
         self._dynamics_config = AccelerationDynamicsConfig(
@@ -1172,7 +1175,7 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         # Compute pairwise distances (subsample for efficiency)
         if n > 50:
-            indices = np.random.choice(n, min(n, 50), replace=False)
+            indices = self._rng.choice(n, min(n, 50), replace=False)
             points = trajectory[indices]
         else:
             points = trajectory

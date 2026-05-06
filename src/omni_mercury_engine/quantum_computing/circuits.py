@@ -81,13 +81,25 @@ class SimulatedQuantumCircuit:
     Provides a compatible interface for circuit construction and simulation.
     """
 
-    def __init__(self, num_qubits: int, num_clbits: int = 0) -> None:
-        """Initialize simulated circuit."""
+    def __init__(self, num_qubits: int, num_clbits: int = 0, seed: int | None = None) -> None:
+        """
+        Initialize simulated circuit.
+
+        Args:
+            num_qubits: Number of qubits.
+            num_clbits: Number of classical bits.
+            seed: Optional seed for the per-instance ``Generator`` driving
+                measurement-outcome sampling in ``run`` /
+                ``simulate_with_shots``.  ``None`` (default) uses OS
+                entropy — same effective behavior as before, isolated
+                from the legacy global ``np.random`` state.
+        """
         self.num_qubits = num_qubits
         self.num_clbits = num_clbits
         self._gates: list[tuple[str, list[int], list[float]]] = []
         self._parameters: list[str] = []
         self._state: np.ndarray | None = None
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def h(self, qubit: int) -> SimulatedQuantumCircuit:
         """Hadamard gate."""
@@ -175,7 +187,7 @@ class SimulatedQuantumCircuit:
         probabilities = np.abs(state) ** 2
         probabilities = probabilities / np.sum(probabilities)
 
-        outcomes = np.random.choice(2**n, size=shots, p=probabilities)
+        outcomes = self._rng.choice(2**n, size=shots, p=probabilities)
         counts: dict[str, int] = {}
         for outcome in outcomes:
             bitstring = format(outcome, f"0{n}b")
@@ -524,14 +536,28 @@ class VariationalCircuit:
         ansatz: VariationalAnsatz = VariationalAnsatz.REAL_AMPLITUDES,
         reps: int = 2,
         entanglement: str = "linear",
+        seed: int | None = None,
     ) -> None:
-        """Initialize the variational circuit."""
+        """
+        Initialize the variational circuit.
+
+        Args:
+            num_qubits: Number of qubits.
+            ansatz: Ansatz family.
+            reps: Layer repetitions.
+            entanglement: Entanglement structure.
+            seed: Optional seed for the per-instance ``Generator`` driving
+                random-parameter initialization when ``build`` is called
+                without explicit ``parameters``.  ``None`` (default) uses
+                OS entropy.
+        """
         self._num_qubits = num_qubits
         self._ansatz = ansatz
         self._reps = reps
         self._entanglement = entanglement
         self._builder = QuantumCircuitBuilder()
         self._parameters: list[float] = []
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     @property
     def num_parameters(self) -> int:
@@ -556,7 +582,7 @@ class VariationalCircuit:
             Quantum circuit with variational structure
         """
         if parameters is None:
-            parameters = np.random.uniform(0, 2 * np.pi, self.num_parameters)
+            parameters = self._rng.uniform(0, 2 * np.pi, self.num_parameters)
 
         self._parameters = list(parameters)
 

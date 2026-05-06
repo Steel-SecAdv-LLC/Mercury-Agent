@@ -255,6 +255,7 @@ class GCPDataSource(DataSourceBase):
         self,
         analysis_types: list[GCPAnalysisType] | None = None,
         config: DataSourceConfig | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize GCP data source.
@@ -262,6 +263,11 @@ class GCPDataSource(DataSourceBase):
         Args:
             analysis_types: Types of analysis to perform
             config: Optional base configuration
+            seed: Optional seed for the per-instance ``Generator`` driving
+                synthetic-trial generation in ``_simulate_egg_data``.
+                ``None`` (default) uses OS entropy — same effective
+                behavior as before, but no longer perturbed by — or
+                perturbing — the legacy global ``np.random`` state.
         """
         base_config = config or DataSourceConfig()
         base_config.rate_limit = RateLimitConfig(
@@ -273,6 +279,7 @@ class GCPDataSource(DataSourceBase):
         super().__init__(base_config)
 
         self._analysis_types = analysis_types or list(GCPAnalysisType)
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     @property
     def source_id(self) -> str:
@@ -320,11 +327,11 @@ class GCPDataSource(DataSourceBase):
         for i, egg in enumerate(self.SAMPLE_EGGS[:n_eggs]):
             # Generate binomial trials (200 bits, p=0.5)
             # Add small anomaly if specified
-            trials = np.random.binomial(200, 0.5, n_samples)
+            trials = self._rng.binomial(200, 0.5, n_samples)
 
             # Add correlated anomaly component
             if anomaly_strength > 0:
-                common_signal = np.random.normal(0, anomaly_strength, n_samples)
+                common_signal = self._rng.normal(0, anomaly_strength, n_samples)
                 trials = trials + common_signal.astype(int)
                 trials = np.clip(trials, 0, 200)
 
@@ -553,8 +560,19 @@ class GCPDotSource(DataSourceBase):
     def __init__(
         self,
         config: DataSourceConfig | None = None,
+        seed: int | None = None,
     ) -> None:
-        """Initialize GCPDot data source."""
+        """
+        Initialize GCPDot data source.
+
+        Args:
+            config: Optional base configuration.
+            seed: Optional seed for the per-instance ``Generator`` driving
+                the simulated GCPDot deviation/rolling-window samples.
+                ``None`` (default) uses OS entropy — same effective
+                behavior as before, isolated from the legacy global
+                ``np.random`` state.
+        """
         base_config = config or DataSourceConfig()
         base_config.rate_limit = RateLimitConfig(
             requests_per_hour=60,
@@ -563,6 +581,7 @@ class GCPDotSource(DataSourceBase):
         base_config.cache = CacheConfig(ttl_seconds=300)
 
         super().__init__(base_config)
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     @property
     def source_id(self) -> str:
@@ -609,12 +628,12 @@ class GCPDotSource(DataSourceBase):
         """
         # Simulate current GCPDot state
         # In production, this would parse the actual GCPDot visualization data
-        current_deviation = np.random.normal(0, 1)
+        current_deviation = self._rng.normal(0, 1)
         color = self._deviation_to_color(current_deviation)
 
         # Calculate rolling statistics
         window_size = 60  # 1-hour window
-        rolling_deviations = np.random.normal(0, 1, window_size)
+        rolling_deviations = self._rng.normal(0, 1, window_size)
         cumulative = np.cumsum(rolling_deviations) / np.sqrt(np.arange(1, window_size + 1))
 
         data_point = DataPoint(

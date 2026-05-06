@@ -240,6 +240,7 @@ class MLPEncoder(FeatureEncoder):
         input_dim: int,
         hidden_dims: list[int] | None = None,
         embedding_dim: int = 64,
+        seed: int | None = 42,
     ):
         """
         Initialize MLP encoder.
@@ -248,6 +249,11 @@ class MLPEncoder(FeatureEncoder):
             input_dim: Input feature dimension
             hidden_dims: Hidden layer dimensions
             embedding_dim: Output embedding dimension
+            seed: Optional seed for the per-instance ``Generator`` driving
+                Xavier weight initialization.  Defaults to ``42`` to
+                preserve the deterministic behavior of the previous
+                ``np.random.seed(42)`` global-state call.  Pass ``None``
+                to use OS entropy.
         """
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims or [128, 64]
@@ -258,11 +264,11 @@ class MLPEncoder(FeatureEncoder):
         self.biases: list[np.ndarray[Any, Any]] = []
 
         dims = [input_dim] + self.hidden_dims + [embedding_dim]
-        np.random.seed(42)
+        rng = np.random.default_rng(seed)
         for i in range(len(dims) - 1):
             # Xavier initialization
             scale = np.sqrt(2.0 / (dims[i] + dims[i + 1]))
-            self.weights.append(np.random.randn(dims[i], dims[i + 1]) * scale)
+            self.weights.append(rng.standard_normal((dims[i], dims[i + 1])) * scale)
             self.biases.append(np.zeros(dims[i + 1]))
 
     def encode(self, x: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -656,6 +662,7 @@ class MAML:
         outer_lr: float = DEFAULT_OUTER_LR,
         inner_steps: int = DEFAULT_INNER_STEPS,
         first_order: bool = False,
+        seed: int | None = 42,
     ):
         """
         Initialize MAML.
@@ -668,6 +675,11 @@ class MAML:
             outer_lr: Learning rate for outer loop
             inner_steps: Number of inner loop steps
             first_order: Use first-order approximation (FOMAML)
+            seed: Optional seed for the per-instance ``Generator`` driving
+                parameter initialization.  Defaults to ``42`` to preserve
+                the deterministic behavior of the previous
+                ``np.random.seed(42)`` global-state call.  Pass ``None``
+                to use OS entropy.
         """
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -676,6 +688,7 @@ class MAML:
         self.outer_lr = outer_lr
         self.inner_steps = inner_steps
         self.first_order = first_order
+        self._init_seed: int | None = seed
 
         # Initialize parameters
         self._init_parameters()
@@ -692,16 +705,16 @@ class MAML:
 
     def _init_parameters(self) -> None:
         """Initialize model parameters."""
-        np.random.seed(42)
+        rng = np.random.default_rng(self._init_seed)
 
         # Two-layer network
         scale1 = np.sqrt(2.0 / (self.input_dim + self.hidden_dim))
         scale2 = np.sqrt(2.0 / (self.hidden_dim + self.output_dim))
 
         self.params = {
-            "W1": np.random.randn(self.input_dim, self.hidden_dim) * scale1,
+            "W1": rng.standard_normal((self.input_dim, self.hidden_dim)) * scale1,
             "b1": np.zeros(self.hidden_dim),
-            "W2": np.random.randn(self.hidden_dim, self.output_dim) * scale2,
+            "W2": rng.standard_normal((self.hidden_dim, self.output_dim)) * scale2,
             "b2": np.zeros(self.output_dim),
         }
 
@@ -1237,6 +1250,7 @@ class MetaLearningAdapter:
         embedding_dim: int = 64,
         n_way: int = DEFAULT_N_WAY,
         k_shot: int = DEFAULT_K_SHOT,
+        seed: int | None = None,
     ):
         """
         Initialize Meta-Learning Adapter.
@@ -1248,6 +1262,9 @@ class MetaLearningAdapter:
             embedding_dim: Embedding dimension
             n_way: Default number of classes per task
             k_shot: Default number of examples per class
+            seed: Optional seed for the per-instance ``Generator`` driving
+                episode-class and support/query sampling in
+                ``create_episodes``.  ``None`` (default) uses OS entropy.
         """
         self.input_dim = input_dim
         self.algorithm = algorithm
@@ -1255,6 +1272,7 @@ class MetaLearningAdapter:
         self.embedding_dim = embedding_dim
         self.n_way = n_way
         self.k_shot = k_shot
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Initialize algorithm
         self._init_algorithm()
@@ -1681,7 +1699,7 @@ class MetaLearningAdapter:
         for _ in range(n_episodes):
             # Sample classes
             if len(unique_classes) >= n_way:
-                selected_classes = np.random.choice(unique_classes, n_way, replace=False)
+                selected_classes = self._rng.choice(unique_classes, n_way, replace=False)
             else:
                 selected_classes = unique_classes
 
@@ -1694,7 +1712,7 @@ class MetaLearningAdapter:
                     # Not enough samples, use what we have
                     selected = class_indices
                 else:
-                    selected = np.random.choice(class_indices, k_shot + n_query, replace=False)
+                    selected = self._rng.choice(class_indices, k_shot + n_query, replace=False)
 
                 support_indices = selected[:k_shot]
                 query_indices = selected[k_shot : k_shot + n_query]

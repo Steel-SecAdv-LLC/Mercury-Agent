@@ -143,7 +143,7 @@ class MercuryEquationEngine:
 
     Example:
         engine = MercuryEquationEngine(dimension=64)
-        initial_state = np.random.randn(64)
+        initial_state = np.random.default_rng().standard_normal(64)
         final_state, history = engine.converge(initial_state, max_iter=100)
     """
 
@@ -153,8 +153,21 @@ class MercuryEquationEngine:
         config: EvolutionConfig | None = None,
         seed: int | None = None,
     ):
+        """
+        Args:
+            dimension: State-vector dimension.
+            config: Evolution configuration.
+            seed: Optional seed for the per-instance ``Generator`` driving
+                ethical-matrix initialization, Hamiltonian-projection
+                noise, Boltzmann-sampling noise, simulated-annealing
+                exploration and Lyapunov-chaos perturbation.  ``None``
+                (default) uses OS entropy — same effective behavior as
+                before, isolated from the legacy global ``np.random``
+                state.
+        """
         self.dimension = dimension
         self.config = config or EvolutionConfig(dimension=dimension)
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Per-instance Generator. Every stochastic term in this engine
         # (ethical-matrix init, Boltzmann sampling, simulated-annealing
