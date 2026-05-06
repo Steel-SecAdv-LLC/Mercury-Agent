@@ -220,8 +220,8 @@ class USGSEarthquakeLoader(DatasetLoader):
 
         # Apply max_samples limit
         if self.config.max_samples and len(features) > self.config.max_samples:
-            np.random.seed(self.config.random_seed)
-            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            rng = np.random.default_rng(self.config.random_seed)
+            indices = rng.choice(len(features), self.config.max_samples, replace=False)
             features = features[indices]
             labels = labels[indices]
 
@@ -229,7 +229,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def _create_synthetic_earthquake(self) -> bool:
         """Create synthetic earthquake catalog."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
         # Simulate global earthquake distribution
@@ -238,43 +238,43 @@ class USGSEarthquakeLoader(DatasetLoader):
 
         for _i in range(n_samples):
             # Spatial distribution (clustered around fault zones)
-            zone = np.random.choice(["pacific_rim", "mediterranean", "himalayan", "mid_atlantic"])
+            zone = rng.choice(["pacific_rim", "mediterranean", "himalayan", "mid_atlantic"])
 
             if zone == "pacific_rim":
-                lat = np.random.normal(35, 20)
-                lon = np.random.normal(140, 30)
+                lat = rng.normal(35, 20)
+                lon = rng.normal(140, 30)
             elif zone == "mediterranean":
-                lat = np.random.normal(38, 5)
-                lon = np.random.normal(20, 15)
+                lat = rng.normal(38, 5)
+                lon = rng.normal(20, 15)
             elif zone == "himalayan":
-                lat = np.random.normal(30, 5)
-                lon = np.random.normal(85, 10)
+                lat = rng.normal(30, 5)
+                lon = rng.normal(85, 10)
             else:
-                lat = np.random.normal(0, 30)
-                lon = np.random.normal(-30, 10)
+                lat = rng.normal(0, 30)
+                lon = rng.normal(-30, 10)
 
             # Gutenberg-Richter magnitude distribution
-            magnitude = np.random.exponential(1.0) + self.min_magnitude
+            magnitude = rng.exponential(1.0) + self.min_magnitude
 
             params = {
                 "latitude": np.clip(lat, -90, 90),
                 "longitude": np.clip(lon, -180, 180),
-                "depth": np.random.exponential(30),  # km
+                "depth": rng.exponential(30),  # km
                 "magnitude": magnitude,
-                "gap": np.random.uniform(20, 300),  # azimuthal gap
-                "dmin": np.random.exponential(0.5),  # distance to nearest station
-                "rms": np.random.exponential(0.3),  # residual
-                "nst": np.random.poisson(20),  # number of stations
-                "horizontal_error": np.random.exponential(2),
-                "depth_error": np.random.exponential(5),
-                "mag_error": np.random.exponential(0.2),
+                "gap": rng.uniform(20, 300),  # azimuthal gap
+                "dmin": rng.exponential(0.5),  # distance to nearest station
+                "rms": rng.exponential(0.3),  # residual
+                "nst": rng.poisson(20),  # number of stations
+                "horizontal_error": rng.exponential(2),
+                "depth_error": rng.exponential(5),
+                "mag_error": rng.exponential(0.2),
                 # Precursor features (simulated)
-                "previous_mag_7d": np.random.exponential(1) + 2,
-                "previous_count_7d": np.random.poisson(5),
-                "previous_energy_7d": np.random.exponential(1e10),
-                "b_value_local": np.random.normal(1.0, 0.2),
-                "time_since_last": np.random.exponential(24),  # hours
-                "distance_to_fault": np.random.exponential(10),  # km
+                "previous_mag_7d": rng.exponential(1) + 2,
+                "previous_count_7d": rng.poisson(5),
+                "previous_energy_7d": rng.exponential(1e10),
+                "b_value_local": rng.normal(1.0, 0.2),
+                "time_since_last": rng.exponential(24),  # hours
+                "distance_to_fault": rng.exponential(10),  # km
             }
 
             feature_vec = [params[f] for f in self.FEATURE_NAMES]
@@ -480,8 +480,8 @@ class NOAAWeatherLoader(DatasetLoader):
 
             # Apply max_samples limit
             if self.config.max_samples and len(features) > self.config.max_samples:
-                np.random.seed(self.config.random_seed)
-                indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+                rng = np.random.default_rng(self.config.random_seed)
+                indices = rng.choice(len(features), self.config.max_samples, replace=False)
                 features = features[indices]
                 labels = labels[indices]
 
@@ -507,7 +507,7 @@ class NOAAWeatherLoader(DatasetLoader):
         temperature, humidity, pressure, wind_speed, wind_direction,
         precipitation, cloud_cover, apparent_temperature
         """
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
         # Seasonal variation
@@ -516,14 +516,14 @@ class NOAAWeatherLoader(DatasetLoader):
 
         # Generate features matching FEATURE_NAMES exactly
         data = {
-            "temperature": 15 + 15 * seasonal + np.random.normal(0, 5, n_samples),
-            "humidity": np.clip(60 + 20 * np.random.randn(n_samples), 0, 100),
-            "pressure": 1013 + np.random.normal(0, 15, n_samples),
-            "wind_speed": np.random.exponential(5, n_samples),
-            "wind_direction": np.random.uniform(0, 360, n_samples),
-            "precipitation": np.random.exponential(2, n_samples),
-            "cloud_cover": np.clip(np.random.normal(50, 30, n_samples), 0, 100),
-            "apparent_temperature": 15 + 15 * seasonal + np.random.normal(0, 6, n_samples),
+            "temperature": 15 + 15 * seasonal + rng.normal(0, 5, n_samples),
+            "humidity": np.clip(60 + 20 * rng.standard_normal(n_samples), 0, 100),
+            "pressure": 1013 + rng.normal(0, 15, n_samples),
+            "wind_speed": rng.exponential(5, n_samples),
+            "wind_direction": rng.uniform(0, 360, n_samples),
+            "precipitation": rng.exponential(2, n_samples),
+            "cloud_cover": np.clip(rng.normal(50, 30, n_samples), 0, 100),
+            "apparent_temperature": 15 + 15 * seasonal + rng.normal(0, 6, n_samples),
         }
 
         features = np.column_stack([data[f] for f in self.FEATURE_NAMES])
@@ -742,8 +742,8 @@ class WildfireDataLoader(DatasetLoader):
 
         # Apply max_samples limit
         if self.config.max_samples and len(features) > self.config.max_samples:
-            np.random.seed(self.config.random_seed)
-            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            rng = np.random.default_rng(self.config.random_seed)
+            indices = rng.choice(len(features), self.config.max_samples, replace=False)
             features = features[indices]
             labels = labels[indices]
 
@@ -751,7 +751,7 @@ class WildfireDataLoader(DatasetLoader):
 
     def _create_synthetic_wildfire(self) -> bool:
         """Create synthetic wildfire detection data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
         features = []
@@ -759,66 +759,66 @@ class WildfireDataLoader(DatasetLoader):
 
         for _i in range(n_samples):
             # Fire-prone regions
-            region = np.random.choice(["western_us", "australia", "amazon", "mediterranean"])
+            region = rng.choice(["western_us", "australia", "amazon", "mediterranean"])
 
             if region == "western_us":
-                lat = np.random.normal(38, 5)
-                lon = np.random.normal(-120, 5)
+                lat = rng.normal(38, 5)
+                lon = rng.normal(-120, 5)
             elif region == "australia":
-                lat = np.random.normal(-33, 5)
-                lon = np.random.normal(148, 5)
+                lat = rng.normal(-33, 5)
+                lon = rng.normal(148, 5)
             elif region == "amazon":
-                lat = np.random.normal(-5, 5)
-                lon = np.random.normal(-60, 10)
+                lat = rng.normal(-5, 5)
+                lon = rng.normal(-60, 10)
             else:
-                lat = np.random.normal(40, 3)
-                lon = np.random.normal(15, 10)
+                lat = rng.normal(40, 3)
+                lon = rng.normal(15, 10)
 
             # Fire conditions
-            is_fire = np.random.random() < 0.3
+            is_fire = rng.random() < 0.3
 
             if is_fire:
                 params = {
                     "latitude": lat,
                     "longitude": lon,
-                    "brightness": np.random.uniform(320, 400),  # Kelvin
-                    "brightness_t31": np.random.uniform(290, 350),
-                    "frp": np.random.exponential(50),  # MW
-                    "confidence": np.random.uniform(50, 100),
-                    "scan": np.random.uniform(1, 4),
-                    "track": np.random.uniform(1, 4),
-                    "temperature": np.random.normal(35, 8),  # Hot
-                    "humidity": np.random.uniform(10, 40),  # Dry
-                    "wind_speed": np.random.exponential(8),
-                    "wind_direction": np.random.uniform(0, 360),
-                    "precipitation_7d": np.random.exponential(1),  # Low
-                    "fuel_moisture": np.random.uniform(5, 20),  # Low
-                    "ndvi": np.random.uniform(0.2, 0.6),
-                    "slope": np.random.exponential(10),
-                    "aspect": np.random.uniform(0, 360),
-                    "elevation": np.random.exponential(500),
+                    "brightness": rng.uniform(320, 400),  # Kelvin
+                    "brightness_t31": rng.uniform(290, 350),
+                    "frp": rng.exponential(50),  # MW
+                    "confidence": rng.uniform(50, 100),
+                    "scan": rng.uniform(1, 4),
+                    "track": rng.uniform(1, 4),
+                    "temperature": rng.normal(35, 8),  # Hot
+                    "humidity": rng.uniform(10, 40),  # Dry
+                    "wind_speed": rng.exponential(8),
+                    "wind_direction": rng.uniform(0, 360),
+                    "precipitation_7d": rng.exponential(1),  # Low
+                    "fuel_moisture": rng.uniform(5, 20),  # Low
+                    "ndvi": rng.uniform(0.2, 0.6),
+                    "slope": rng.exponential(10),
+                    "aspect": rng.uniform(0, 360),
+                    "elevation": rng.exponential(500),
                 }
                 labels.append(1)
             else:
                 params = {
                     "latitude": lat,
                     "longitude": lon,
-                    "brightness": np.random.uniform(280, 310),
-                    "brightness_t31": np.random.uniform(280, 300),
-                    "frp": np.random.exponential(2),
-                    "confidence": np.random.uniform(0, 30),
-                    "scan": np.random.uniform(1, 2),
-                    "track": np.random.uniform(1, 2),
-                    "temperature": np.random.normal(20, 10),
-                    "humidity": np.random.uniform(40, 90),
-                    "wind_speed": np.random.exponential(4),
-                    "wind_direction": np.random.uniform(0, 360),
-                    "precipitation_7d": np.random.exponential(10),
-                    "fuel_moisture": np.random.uniform(20, 50),
-                    "ndvi": np.random.uniform(0.3, 0.9),
-                    "slope": np.random.exponential(5),
-                    "aspect": np.random.uniform(0, 360),
-                    "elevation": np.random.exponential(300),
+                    "brightness": rng.uniform(280, 310),
+                    "brightness_t31": rng.uniform(280, 300),
+                    "frp": rng.exponential(2),
+                    "confidence": rng.uniform(0, 30),
+                    "scan": rng.uniform(1, 2),
+                    "track": rng.uniform(1, 2),
+                    "temperature": rng.normal(20, 10),
+                    "humidity": rng.uniform(40, 90),
+                    "wind_speed": rng.exponential(4),
+                    "wind_direction": rng.uniform(0, 360),
+                    "precipitation_7d": rng.exponential(10),
+                    "fuel_moisture": rng.uniform(20, 50),
+                    "ndvi": rng.uniform(0.3, 0.9),
+                    "slope": rng.exponential(5),
+                    "aspect": rng.uniform(0, 360),
+                    "elevation": rng.exponential(300),
                 }
                 labels.append(0)
 
@@ -970,7 +970,7 @@ class USGSGeochemistryLoader(DatasetLoader):
 
     def _create_synthetic_geochemistry(self) -> bool:
         """Create synthetic geochemistry data based on realistic distributions."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
         features = []
@@ -978,12 +978,12 @@ class USGSGeochemistryLoader(DatasetLoader):
 
         for _ in range(n_samples):
             # Random location within continental US
-            lat = np.random.uniform(self.region["lat_min"], self.region["lat_max"])
-            lon = np.random.uniform(self.region["lon_min"], self.region["lon_max"])
+            lat = rng.uniform(self.region["lat_min"], self.region["lat_max"])
+            lon = rng.uniform(self.region["lon_min"], self.region["lon_max"])
 
             # Heavy metals - lognormal distributions (mg/kg in soil)
             # Background levels with occasional contamination hotspots
-            is_contaminated = np.random.random() < 0.15  # 15% contamination rate
+            is_contaminated = rng.random() < 0.15  # 15% contamination rate
 
             if is_contaminated:
                 # Elevated levels at contamination sites
@@ -1007,7 +1007,7 @@ class USGSGeochemistryLoader(DatasetLoader):
             calcium = np.random.lognormal(8.0, 0.5)  # % CaO
 
             # pH (soil typically 4-9)
-            ph = np.clip(np.random.normal(6.5, 1.0), 4.0, 9.0)
+            ph = np.clip(rng.normal(6.5, 1.0), 4.0, 9.0)
 
             feature_vec = [
                 lat,

@@ -432,7 +432,7 @@ class MSDSLoader(DatasetLoader):
         self.data_path.mkdir(parents=True, exist_ok=True)
 
         # Generate correlated multi-source data
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
 
         n_features_per_source = 10
         total_features = n_features_per_source * self.n_sources
@@ -449,7 +449,7 @@ class MSDSLoader(DatasetLoader):
                 # Mix of shared and unique patterns
                 shared = 0.5 * base
                 unique = np.sin(0.2 * (s + 1) * (f + 1) * t / 10)
-                noise = 0.1 * np.random.randn(self.n_samples)
+                noise = 0.1 * rng.standard_normal(self.n_samples)
                 source_data[:, f] = shared + unique + noise
             features_list.append(source_data)
 
@@ -457,7 +457,7 @@ class MSDSLoader(DatasetLoader):
 
         # Generate correlated anomalies
         n_anomalies = int(self.n_samples * self.anomaly_ratio)
-        anomaly_indices = np.random.choice(self.n_samples, n_anomalies, replace=False)
+        anomaly_indices = rng.choice(self.n_samples, n_anomalies, replace=False)
 
         labels = np.zeros(self.n_samples)
         labels[anomaly_indices] = 1
@@ -465,9 +465,9 @@ class MSDSLoader(DatasetLoader):
         # Inject anomalies (affect multiple sources)
         for idx in anomaly_indices:
             # Random anomaly type
-            anomaly_type = np.random.choice(["spike", "drift", "noise"])
-            affected_sources = np.random.choice(
-                self.n_sources, np.random.randint(1, self.n_sources + 1), replace=False
+            anomaly_type = rng.choice(["spike", "drift", "noise"])
+            affected_sources = rng.choice(
+                self.n_sources, rng.integers(1, self.n_sources + 1), replace=False
             )
 
             for source in affected_sources:
@@ -475,11 +475,11 @@ class MSDSLoader(DatasetLoader):
                 end = start + n_features_per_source
 
                 if anomaly_type == "spike":
-                    features[idx, start:end] += np.random.randn(n_features_per_source) * 5
+                    features[idx, start:end] += rng.standard_normal(n_features_per_source) * 5
                 elif anomaly_type == "drift":
                     features[idx, start:end] += 3
                 else:
-                    features[idx, start:end] += np.random.randn(n_features_per_source) * 2
+                    features[idx, start:end] += rng.standard_normal(n_features_per_source) * 2
 
         # Save
         np.savez(
