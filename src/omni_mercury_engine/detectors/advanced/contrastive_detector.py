@@ -85,16 +85,24 @@ class TimeSeriesAugmenter:
         mask_ratio: float = 0.15,
         scale_range: tuple[float, float] = (0.8, 1.2),
         shift_range: tuple[float, float] = (-0.1, 0.1),
+        seed: int | None = None,
     ) -> None:
+        """
+        Args:
+            seed: Optional seed for the per-instance ``Generator`` driving
+                augmentation-type selection and feature-permutation
+                shuffling.  ``None`` (default) uses OS entropy.
+        """
         self.noise_std = noise_std
         self.mask_ratio = mask_ratio
         self.scale_range = scale_range
         self.shift_range = shift_range
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def augment(self, x: torch.Tensor) -> torch.Tensor:
         """Apply random augmentations to input."""
         # Randomly select augmentation
-        aug_type = np.random.choice(
+        aug_type = self._rng.choice(
             ["noise", "mask", "scale", "shift", "permute", "combined"],
             p=[0.2, 0.15, 0.2, 0.15, 0.1, 0.2],
         )
@@ -143,9 +151,9 @@ class TimeSeriesAugmenter:
         """Permute a subset of features."""
         n_features = x.shape[-1]
         n_permute = max(1, int(n_features * 0.2))
-        idx = np.random.choice(n_features, n_permute, replace=False)
+        idx = self._rng.choice(n_features, n_permute, replace=False)
         permuted = x.clone()
-        permuted[..., idx] = permuted[..., idx[np.random.permutation(n_permute)]]
+        permuted[..., idx] = permuted[..., idx[self._rng.permutation(n_permute)]]
         return permuted
 
 
@@ -348,6 +356,7 @@ class ContrastiveLearningDetector:
         batch_size: int = 256,
         learning_rate: float = 1e-3,
         device: str | None = None,
+        seed: int | None = None,
         **kwargs: Any,
     ) -> None:
         self.config = ContrastiveConfig(
@@ -367,6 +376,10 @@ class ContrastiveLearningDetector:
         self.train_representations: NDArray[np.float64] | None = None
         self.threshold: float = 0.0
         self._fitted = False
+        self._rng: np.random.Generator = np.random.default_rng(seed)
+        # Augmenter shares the seed when not None so its augmentations are
+        # reproducible alongside detector-level shuffling.
+        self._augmenter = TimeSeriesAugmenter(seed=seed)
 
     def fit(
         self,
@@ -398,7 +411,7 @@ class ContrastiveLearningDetector:
         # Split data
         n_samples = len(X)
         n_val = int(n_samples * validation_split)
-        indices = np.random.permutation(n_samples)
+        indices = self._rng.permutation(n_samples)
         train_idx, val_idx = indices[n_val:], indices[:n_val]
 
         X_train = torch.FloatTensor(X[train_idx]).to(self.device)

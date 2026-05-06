@@ -60,11 +60,23 @@ class ClassicalOptimizer:
         method: str = "cobyla",
         maxiter: int = 100,
         tol: float = 1e-6,
+        seed: int | None = None,
     ) -> None:
-        """Initialize the optimizer."""
+        """
+        Initialize the optimizer.
+
+        Args:
+            method: Optimization method.
+            maxiter: Maximum iterations.
+            tol: Convergence tolerance.
+            seed: Optional seed for the per-instance ``Generator`` driving
+                SPSA's ±1 perturbation direction. ``None`` (default) uses
+                OS entropy.
+        """
         self._method = method.lower()
         self._maxiter = maxiter
         self._tol = tol
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def minimize(
         self,
@@ -144,7 +156,7 @@ class ClassicalOptimizer:
             ak = a / (k + 1 + A) ** alpha
             ck = c / (k + 1) ** gamma
 
-            delta = np.random.choice([-1, 1], size=len(params))
+            delta = self._rng.choice([-1, 1], size=len(params))
 
             f_plus = objective(params + ck * delta)
             f_minus = objective(params - ck * delta)
@@ -202,13 +214,28 @@ class HybridOptimizer:
         executor: QuantumExecutor | None = None,
         optimizer_method: str = "cobyla",
         maxiter: int = 100,
+        seed: int | None = None,
     ) -> None:
-        """Initialize the hybrid optimizer."""
+        """
+        Initialize the hybrid optimizer.
+
+        Args:
+            executor: Optional quantum executor.
+            optimizer_method: Inner classical optimizer method.
+            maxiter: Maximum iterations.
+            seed: Optional seed for the per-instance ``Generator`` driving
+                random initial-parameter generation when the caller does
+                not supply ``initial_params``.  ``None`` (default) uses OS
+                entropy.  Threaded into the inner ``ClassicalOptimizer``
+                so SPSA perturbations are also reproducible under the
+                same seed.
+        """
         if executor is None:
             executor = QuantumExecutor()
         self._executor = executor
-        self._optimizer = ClassicalOptimizer(optimizer_method, maxiter)
+        self._optimizer = ClassicalOptimizer(optimizer_method, maxiter, seed=seed)
         self._builder = QuantumCircuitBuilder()
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def optimize(
         self,
@@ -228,7 +255,7 @@ class HybridOptimizer:
             OptimizationResult with optimal parameters
         """
         if initial_params is None:
-            initial_params = np.random.uniform(0, 2 * np.pi, variational_circuit.num_parameters)
+            initial_params = self._rng.uniform(0, 2 * np.pi, variational_circuit.num_parameters)
 
         def objective(params: np.ndarray) -> float:
             circuit = variational_circuit.build(params)
@@ -488,13 +515,25 @@ class QAOAAnomalyDetector:
         num_qubits: int,
         p: int = 2,
         executor: QuantumExecutor | None = None,
+        seed: int | None = None,
     ) -> None:
-        """Initialize the QAOA detector."""
+        """
+        Initialize the QAOA detector.
+
+        Args:
+            num_qubits: Number of qubits.
+            p: QAOA layer count.
+            executor: Optional quantum executor.
+            seed: Optional seed for the per-instance ``Generator`` driving
+                random initial-parameter generation in ``optimize``.
+                ``None`` (default) uses OS entropy.
+        """
         self._num_qubits = num_qubits
         self._p = p
         self._executor = executor or QuantumExecutor()
         self._optimal_params: np.ndarray | None = None
         self._builder = QuantumCircuitBuilder()
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def build_qaoa_circuit(
         self,
@@ -552,7 +591,7 @@ class QAOAAnomalyDetector:
 
         self._cost_terms = cost_terms
 
-        initial_params = np.random.uniform(0, np.pi, 2 * self._p)
+        initial_params = self._rng.uniform(0, np.pi, 2 * self._p)
 
         def objective(params: np.ndarray) -> float:
             gamma = list(params[: self._p])

@@ -83,6 +83,10 @@ class PathogenDetector:
         self.temperature = self.config.get("temperature", 1.0)
         self.energy_threshold = self.config.get("energy_threshold", -0.5)
 
+        # ``seed`` may be passed via ``config`` for reproducible coupling
+        # matrix initialization.  ``None`` (default) uses OS entropy.
+        self._rng: np.random.Generator = np.random.default_rng(self.config.get("seed"))
+
         self.J_matrix = self._initialize_coupling_matrix()
 
         self.known_pathogens = {
@@ -100,7 +104,7 @@ class PathogenDetector:
         Symmetric matrix representing pathogen state interactions.
         Positive couplings = cooperative (dangerous), negative = inhibitory.
         """
-        J = np.random.randn(self.state_dim, self.state_dim) * 0.01
+        J = self._rng.standard_normal((self.state_dim, self.state_dim)) * 0.01
         J = (J + J.T) / 2
 
         eigenvalues = np.linalg.eigvals(J)

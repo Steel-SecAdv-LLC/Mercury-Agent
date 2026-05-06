@@ -471,6 +471,7 @@ class MultiScaleTransformerDetector:
         batch_size: int = 64,
         device: str | None = None,
         use_point_adjustment: bool = True,
+        seed: int | None = None,
         **kwargs: Any,
     ) -> None:
         self.config = MultiScaleTransformerConfig(
@@ -489,6 +490,7 @@ class MultiScaleTransformerDetector:
         self.model: MultiScaleTransformerModel | None = None
         self.threshold: float = 0.0
         self._fitted = False
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def _create_windows(self, data: NDArray[np.float64], window_size: int) -> NDArray[np.float64]:
         """Create sliding windows from time series."""
@@ -529,7 +531,7 @@ class MultiScaleTransformerDetector:
         # Split data
         n_samples = len(X)
         n_val = int(n_samples * validation_split)
-        indices = np.random.permutation(n_samples)
+        indices = self._rng.permutation(n_samples)
         train_idx, val_idx = indices[n_val:], indices[:n_val]
 
         X_train = torch.FloatTensor(X[train_idx]).to(self.device)

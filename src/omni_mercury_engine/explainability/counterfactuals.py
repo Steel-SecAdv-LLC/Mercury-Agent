@@ -132,6 +132,7 @@ class CounterfactualGenerator(ABC):
         model: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | Any,
         feature_names: list[str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize counterfactual generator.
@@ -140,7 +141,12 @@ class CounterfactualGenerator(ABC):
             model: Model or prediction function
             feature_names: Optional feature names
             feature_constraints: Optional feature constraints
+            seed: Optional seed for the per-instance ``Generator`` shared
+                with all subclasses for initial-point sampling, growing-
+                spheres directions and DiCE candidate selection.  ``None``
+                (default) uses OS entropy.
         """
+        self._rng: np.random.Generator = np.random.default_rng(seed)
         if callable(model):
             self._predict = model
         elif hasattr(model, "predict_proba"):
@@ -217,6 +223,7 @@ class WachterCounterfactual(CounterfactualGenerator):
         lambda_param: float = 0.1,
         max_iterations: int = 1000,
         tolerance: float = 1e-6,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize Wachter counterfactual generator.
@@ -229,7 +236,7 @@ class WachterCounterfactual(CounterfactualGenerator):
             max_iterations: Maximum optimization iterations
             tolerance: Convergence tolerance
         """
-        super().__init__(model, feature_names, feature_constraints)
+        super().__init__(model, feature_names, feature_constraints, seed=seed)
         self._lambda = lambda_param
         self._max_iter = max_iterations
         self._tolerance = tolerance
@@ -254,7 +261,7 @@ class WachterCounterfactual(CounterfactualGenerator):
 
         counterfactuals = []
         for i in range(n_counterfactuals):
-            init_point = original + np.random.randn(len(original)) * 0.1 * (i + 1)
+            init_point = original + self._rng.standard_normal(len(original)) * 0.1 * (i + 1)
 
             cf = self._optimize(original, init_point, target_pred)
 
@@ -378,6 +385,7 @@ class DiCECounterfactual(CounterfactualGenerator):
         proximity_weight: float = 0.5,
         diversity_weight: float = 1.0,
         max_iterations: int = 500,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize DiCE counterfactual generator.
@@ -390,7 +398,7 @@ class DiCECounterfactual(CounterfactualGenerator):
             diversity_weight: Weight for diversity loss
             max_iterations: Maximum optimization iterations
         """
-        super().__init__(model, feature_names, feature_constraints)
+        super().__init__(model, feature_names, feature_constraints, seed=seed)
         self._proximity_weight = proximity_weight
         self._diversity_weight = diversity_weight
         self._max_iter = max_iterations
@@ -463,7 +471,9 @@ class DiCECounterfactual(CounterfactualGenerator):
         n_features = len(original)
         target_pred = float(target_class)
 
-        init_points = [original + np.random.randn(n_features) * 0.1 * (i + 1) for i in range(n_cfs)]
+        init_points = [
+            original + self._rng.standard_normal(n_features) * 0.1 * (i + 1) for i in range(n_cfs)
+        ]
         init_flat = np.concatenate(init_points)
 
         def objective(x_flat: np.ndarray[Any, Any]) -> float:
@@ -536,6 +546,7 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
         n_samples: int = 1000,
         step_size: float = 0.1,
         max_iterations: int = 100,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize Growing Spheres generator.
@@ -548,7 +559,7 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
             step_size: Sphere growth step
             max_iterations: Maximum growth iterations
         """
-        super().__init__(model, feature_names, feature_constraints)
+        super().__init__(model, feature_names, feature_constraints, seed=seed)
         self._n_samples = n_samples
         self._step_size = step_size
         self._max_iter = max_iterations
@@ -653,10 +664,10 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
         """Sample points uniformly on a hypersphere."""
         n_features = len(center)
 
-        directions = np.random.randn(n_samples, n_features)
+        directions = self._rng.standard_normal((n_samples, n_features))
         directions /= np.linalg.norm(directions, axis=1, keepdims=True)
 
-        radii = radius * np.random.uniform(0.8, 1.0, n_samples)
+        radii = radius * self._rng.uniform(0.8, 1.0, n_samples)
 
         samples = center + directions * radii[:, np.newaxis]
         return samples
@@ -699,6 +710,7 @@ class PrototypeCounterfactual(CounterfactualGenerator):
         feature_names: list[str] | None = None,
         feature_constraints: list[FeatureConstraint] | None = None,
         n_prototypes: int = 5,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize Prototype counterfactual generator.
@@ -711,7 +723,7 @@ class PrototypeCounterfactual(CounterfactualGenerator):
             feature_constraints: Feature constraints
             n_prototypes: Number of prototypes per class
         """
-        super().__init__(model, feature_names, feature_constraints)
+        super().__init__(model, feature_names, feature_constraints, seed=seed)
         self._training_data = training_data
         self._training_labels = training_labels
         self._n_prototypes = n_prototypes
@@ -729,7 +741,7 @@ class PrototypeCounterfactual(CounterfactualGenerator):
             if len(class_data) <= self._n_prototypes:
                 prototypes[int(label)] = class_data
             else:
-                indices = np.random.choice(
+                indices = self._rng.choice(
                     len(class_data),
                     self._n_prototypes,
                     replace=False,

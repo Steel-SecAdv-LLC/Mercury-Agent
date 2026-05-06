@@ -505,7 +505,9 @@ class RealWorldBenchmarkRunner:
         Returns:
             BenchmarkResult with all metrics
         """
-        np.random.seed(self.seed)
+        # ``StratifiedKFold(... random_state=self.seed)`` below already
+        # consumes ``self.seed`` directly; no global ``np.random`` state
+        # poisoning is needed here.
 
         X, y, info = self.load_dataset(dataset_name)
 

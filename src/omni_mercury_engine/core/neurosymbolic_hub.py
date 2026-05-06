@@ -958,7 +958,7 @@ class NeuroSymbolicHub:
         Returns:
             Self for method chaining
         """
-        np.random.seed(self.seed)
+        rng = np.random.default_rng(self.seed)
 
         # Fit neural encoder
         self.neural_encoder.fit(X, y)
@@ -967,7 +967,7 @@ class NeuroSymbolicHub:
         if y is not None and self.use_calibration:
             n = len(X)
             n_val = int(n * validation_split)
-            idx = np.random.permutation(n)
+            idx = rng.permutation(n)
             val_idx = idx[:n_val]
 
             X_val = X[val_idx]
