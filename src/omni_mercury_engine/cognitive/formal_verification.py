@@ -267,6 +267,7 @@ class ConstraintSolver:
         self,
         epsilon: float = DEFAULT_EPSILON,
         max_iterations: int = MAX_ITERATIONS,
+        seed: int | None = None,
     ):
         """
         Initialize constraint solver.
@@ -274,9 +275,14 @@ class ConstraintSolver:
         Args:
             epsilon: Tolerance for floating-point comparison
             max_iterations: Maximum iterations for search
+            seed: Optional seed for the per-instance ``Generator`` driving
+                random counterexample search. ``None`` (default) uses an
+                OS-seeded ``Generator`` — same effective behavior as
+                before.
         """
         self.epsilon = epsilon
         self.max_iterations = max_iterations
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def check_constraints(
         self,
@@ -442,7 +448,7 @@ class ConstraintSolver:
             # Generate random values
             values = {}
             for var, (lower, upper) in search_bounds.items():
-                values[var] = np.random.uniform(lower, upper)
+                values[var] = self._rng.uniform(lower, upper)
 
             # Check if constraints are violated
             satisfied, violated = self.check_constraints(constraints, values)

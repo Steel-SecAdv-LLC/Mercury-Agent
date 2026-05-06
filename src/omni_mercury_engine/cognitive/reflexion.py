@@ -763,6 +763,7 @@ class ReflexionEngine:
         max_refinement_iterations: int = MAX_REFINEMENT_ITERATIONS,
         experience_memory_size: int = MAX_EXPERIENCE_MEMORY,
         enable_ethical_review: bool = True,
+        seed: int | None = None,
     ):
         """
         Initialize Reflexion engine.
@@ -772,10 +773,15 @@ class ReflexionEngine:
             max_refinement_iterations: Maximum iterations for refinement
             experience_memory_size: Size of experience memory
             enable_ethical_review: Enable ethical reflection
+            seed: Optional seed for the per-instance ``Generator`` driving
+                feedback-template selection. ``None`` (default) uses an
+                OS-seeded ``Generator`` — same effective behavior as
+                before.
         """
         self.max_reflection_depth = max_reflection_depth
         self.max_refinement_iterations = max_refinement_iterations
         self.enable_ethical_review = enable_ethical_review
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         self.experience_memory = ExperienceMemory(max_size=experience_memory_size)
         self.heuristic_evaluator = HeuristicEvaluator()
@@ -1314,7 +1320,7 @@ class ReflexionEngine:
         templates = self._feedback_templates.get(
             feedback_type, self._feedback_templates[FeedbackType.NEUTRAL]
         )
-        template = np.random.choice(templates)
+        template = self._rng.choice(templates)
 
         content = template.format(
             action=decision.action,

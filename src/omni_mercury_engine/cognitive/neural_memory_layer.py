@@ -125,17 +125,23 @@ class MemoryVectorizer:
     suitable for clustering and similarity.
     """
 
-    def __init__(self, embedding_dim: int = 64) -> None:
+    def __init__(self, embedding_dim: int = 64, seed: int | None = 42) -> None:
         """
         Initialize memory vectorizer.
 
         Args:
             embedding_dim: Dimension of output embeddings (default 64)
+            seed: Optional seed for the per-instance ``Generator`` driving
+                the random projection used in ``_project_to_dim``. Defaults
+                to ``42`` to preserve the deterministic behavior of the
+                previous ``np.random.seed(42)`` global-state call. Pass
+                ``None`` to use OS entropy instead.
         """
         self.embedding_dim = embedding_dim
         self._vocab: dict[str, int] = {}
         self._vocab_size = 0
         self._idf_weights: dict[str, float] = {}
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def fit(self, memory_contents: list[dict[str, Any]]) -> None:
         """
@@ -219,8 +225,11 @@ class MemoryVectorizer:
         if len(sparse_vec) == 0:
             return np.zeros(self.embedding_dim)
 
-        np.random.seed(42)
-        projection = np.random.randn(len(sparse_vec), self.embedding_dim)
+        # Use a fresh seeded ``Generator`` rather than ``self._rng`` so the
+        # projection matrix is identical across repeated calls (the seed
+        # drives the projection identity, not a stream of independent draws).
+        proj_rng = np.random.default_rng(42)
+        projection = proj_rng.standard_normal((len(sparse_vec), self.embedding_dim))
         projection = projection / np.sqrt(self.embedding_dim)
 
         return sparse_vec @ projection
@@ -272,8 +281,11 @@ class KMeansClusterer:
         if n_samples < self.n_clusters:
             self.n_clusters = max(1, n_samples)
 
-        np.random.seed(self.random_state)
-        indices = np.random.choice(n_samples, self.n_clusters, replace=False)
+        # Per-call ``Generator`` so the centroid initialization is
+        # reproducible w.r.t. ``self.random_state`` without touching the
+        # global ``np.random`` state.
+        kmeans_rng = np.random.default_rng(self.random_state)
+        indices = kmeans_rng.choice(n_samples, self.n_clusters, replace=False)
         self.centroids = X[indices].copy()
 
         for _ in range(self.max_iter):

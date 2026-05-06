@@ -599,6 +599,7 @@ class RandomWalkEmbedding:
         q: float = 1.0,  # Node2Vec in-out parameter
         learning_rate: float = 0.025,
         negative_samples: int = 5,
+        seed: int | None = None,
     ):
         self.embedding_dim = embedding_dim
         self.walk_length = walk_length
@@ -608,6 +609,7 @@ class RandomWalkEmbedding:
         self.q = q
         self.learning_rate = learning_rate
         self.negative_samples = negative_samples
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         self.embeddings: dict[str, np.ndarray[Any, Any]] = {}
         self._node_to_idx: dict[str, int] = {}
@@ -638,8 +640,8 @@ class RandomWalkEmbedding:
 
         # Initialize embeddings randomly
         scale = 0.5 / self.embedding_dim
-        input_embeddings = np.random.randn(n_nodes, self.embedding_dim) * scale
-        output_embeddings = np.random.randn(n_nodes, self.embedding_dim) * scale
+        input_embeddings = self._rng.standard_normal((n_nodes, self.embedding_dim)) * scale
+        output_embeddings = self._rng.standard_normal((n_nodes, self.embedding_dim)) * scale
 
         # Generate random walks
         walks = self._generate_walks(adjacency, node_ids)
@@ -665,7 +667,7 @@ class RandomWalkEmbedding:
         walks = []
 
         for _ in range(self.num_walks):
-            np.random.shuffle(node_ids)
+            self._rng.shuffle(node_ids)
             for start in node_ids:
                 walk = self._random_walk(adjacency, start)
                 if len(walk) > 1:
@@ -709,7 +711,7 @@ class RandomWalkEmbedding:
             probs = np.array(weights)
             probs = probs / probs.sum()
 
-            next_idx = np.random.choice(len(neighbors), p=probs)
+            next_idx = self._rng.choice(len(neighbors), p=probs)
             next_node = neighbors[next_idx][0]
 
             prev = current
@@ -741,7 +743,7 @@ class RandomWalkEmbedding:
 
                 # Negative samples
                 for _ in range(self.negative_samples):
-                    neg = np.random.randint(n_nodes)
+                    neg = self._rng.integers(n_nodes)
                     if neg != center and neg != context:
                         self._sgd_update(center, neg, 0, input_emb, output_emb)
 
@@ -781,11 +783,13 @@ class GNNMessagePassing:
         num_layers: int = 2,
         aggregation: str = "mean",  # "mean", "sum", "max"
         activation: str = "relu",
+        seed: int | None = None,
     ):
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.aggregation = aggregation
         self.activation = activation
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         self._weights: list[np.ndarray[Any, Any]] = []
 
@@ -849,7 +853,7 @@ class GNNMessagePassing:
         for i in range(self.num_layers):
             # Xavier initialization
             scale = np.sqrt(2.0 / (dims[i] + dims[i + 1]))
-            W = np.random.randn(dims[i], dims[i + 1]) * scale
+            W = self._rng.standard_normal((dims[i], dims[i + 1])) * scale
             self._weights.append(W)
 
     def _normalize_adjacency(
@@ -1064,6 +1068,7 @@ class KnowledgeGraph:
         activation_decay: float = 0.1,
         gnn_layers: int = 2,
         ontology: Ontology | None = None,
+        seed: int | None = None,
     ):
         """
         Initialize Knowledge Graph.
@@ -1074,10 +1079,17 @@ class KnowledgeGraph:
             activation_decay: Decay rate for spreading activation
             gnn_layers: Number of GNN layers for message passing
             ontology: Optional ontology for typed predicates and inference
+            seed: Optional seed for the per-instance ``Generator`` driving
+                missing-feature initialization, candidate down-sampling
+                and the embedded ``RandomWalkEmbedding`` /
+                ``GNNMessagePassing`` components. ``None`` (default) uses
+                an OS-seeded ``Generator`` — same effective behavior as
+                before.
         """
         self.enable_embeddings = enable_embeddings
         self.embedding_dim = embedding_dim
         self.activation_decay = activation_decay
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Ontology support
         self.ontology = ontology or Ontology()
@@ -1093,8 +1105,8 @@ class KnowledgeGraph:
         self._triples: list[tuple[str, str, str, float]] = []
 
         # Embedding components
-        self._random_walk = RandomWalkEmbedding(embedding_dim=embedding_dim)
-        self._gnn = GNNMessagePassing(hidden_dim=embedding_dim, num_layers=gnn_layers)
+        self._random_walk = RandomWalkEmbedding(embedding_dim=embedding_dim, seed=seed)
+        self._gnn = GNNMessagePassing(hidden_dim=embedding_dim, num_layers=gnn_layers, seed=seed)
         self._link_predictor = LinkPredictor(method="dot")
 
         # Cached computations
@@ -1298,7 +1310,7 @@ class KnowledgeGraph:
                     if node.embedding is not None:
                         features[i] = node.embedding[: self.embedding_dim]
                     else:
-                        features[i] = np.random.randn(self.embedding_dim) * 0.1
+                        features[i] = self._rng.standard_normal(self.embedding_dim) * 0.1
 
                 # GNN forward pass
                 new_embeddings = self._gnn.forward(features, adj)
@@ -1545,7 +1557,7 @@ class KnowledgeGraph:
             # Limit candidates for efficiency
             if len(candidates) > 10000:
                 candidates = [
-                    candidates[i] for i in np.random.choice(len(candidates), 10000, replace=False)
+                    candidates[i] for i in self._rng.choice(len(candidates), 10000, replace=False)
                 ]
 
             predictions = self._link_predictor.predict_links(embeddings, candidates, threshold)
