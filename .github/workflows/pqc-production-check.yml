@@ -19,6 +19,12 @@ on:
 jobs:
   verify-real-pqc:
     runs-on: ubuntu-latest
+    env:
+      # All steps in this job collect from tests/security/, which loads
+      # conftest.py's CI safeguard.  Setting at job level ensures the
+      # PQC gate env var is visible to every step (pytest, coverage run,
+      # KAT), not just the main security-tests step.
+      MERCURY_PQC_REAL_AMA: "1"
     steps:
       - uses: actions/checkout@v6
 
@@ -35,7 +41,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           # AMA Cryptography v3.1.0's ``setup.py`` preflight enforces
           # the supply-chain floors declared in
           # ``pyproject.toml [build-system].requires``:

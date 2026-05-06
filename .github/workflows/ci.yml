@@ -85,7 +85,7 @@ jobs:
 
       - name: Install quality tools
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           pip install "black>=26.3.1,<27.0.0" flake8 mypy ruff pydocstyle
 
       - name: Run Black (formatting)
@@ -151,7 +151,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           # [ml] needed for torch type stubs used by mypy
           pip install -e ".[ml]"
           pip install mypy types-requests
@@ -189,7 +189,7 @@ jobs:
         # Pin upgrade target liberally — if the runner already ships a
         # newer pip, ``--upgrade`` is a no-op.  Failure here means a
         # genuine network / index issue and should fail the job.
-        run: python -m pip install --upgrade "pip>=26.0"
+        run: python -m pip install --upgrade "pip>=26.1"
 
       - name: Install bandit / safety / pip-audit
         # Three lightweight pure-Python tools.  Split from semgrep
@@ -359,7 +359,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           # [ml] provides torch/sklearn (moved out of core deps to keep
           # `pip install mercury-agent` lightweight).  Core tests exercise
           # engine, fusion, and detector code that needs the ML stack.
@@ -440,7 +440,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           # The cognitive stack exercises torch, sklearn, sympy, NetworkX
           # graph reasoning, and the Three-R mechanism, so [ml] extras are
           # required.  [dev] pulls in pytest plugins.
@@ -535,7 +535,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-timeout
 
@@ -662,7 +662,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[api,dev]"
           pip install pytest pytest-asyncio httpx fastapi uvicorn
 
@@ -705,7 +705,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           pip install numpy scipy torch scikit-learn sympy
 
       - name: Run ethics audit
@@ -743,7 +743,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           pip install -e .
           pip install pytest pytest-benchmark
 
@@ -910,7 +910,7 @@ jobs:
         # the autodoc-typehints extension would only crash with
         # ``Unknown event name: autodoc-process-signature``.
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           pip install sphinx sphinx-rtd-theme myst-parser
 
       - name: Build documentation

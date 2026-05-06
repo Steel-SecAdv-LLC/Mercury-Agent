@@ -97,7 +97,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[dev]"
 
       - name: Run tests
@@ -124,7 +124,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           pip install build twine
 
       - name: Update version in pyproject.toml
