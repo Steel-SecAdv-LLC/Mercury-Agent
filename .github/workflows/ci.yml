@@ -553,6 +553,38 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build pkg-config
 
+      - name: Install AMA Cryptography PEP 517 build-system floors
+        # AMA Cryptography v3.1.0's ``setup.py`` runs a preflight check
+        # against the supply-chain floors declared in
+        # ``pyproject.toml [build-system].requires``:
+        #   * setuptools>=78.1.1  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5
+        #                           + closes Debian 68.x install_layout
+        #                           regression on bdist_wheel.
+        #   * wheel>=0.47.0       — GHSA-8rrh-rw8j-w5fx.
+        #   * cmake>=4.3.2        — Dependabot supply-chain floor.
+        # The subsequent ``pip install --no-build-isolation .`` step
+        # skips PEP 517 build-env creation (so the wheel-build can
+        # link against the libama_cryptography.so we just produced
+        # above without re-running CMake into a transient isolation
+        # dir), which means these floors must instead be present in
+        # the active environment.  Without the PyPI cmake shim,
+        # setup.py's ``_check_cmake_version()`` falls through to the
+        # system cmake (3.31.6 from apt) and aborts with the FATAL
+        # preflight error
+        #   ``cmake >= 4.3.2 required (found 3.31.6; reason:
+        #     Dependabot supply-chain floor)``.
+        # Pinning the floors explicitly here (rather than implicitly
+        # via ``cmake>=3.16`` and trusting the resolver to pick a
+        # 4.x) documents the supply-chain contract in CI itself.
+        # AMA_NO_CYTHON=1 in the install step below short-circuits the
+        # Cython / numpy floor checks, so they are intentionally not
+        # installed in this step.
+        run: |
+          python -m pip install --upgrade \
+            "setuptools>=78.1.1" \
+            "wheel>=0.47.0" \
+            "cmake>=4.3.2"
+
       - name: Build AMA Cryptography native C library
         env:
           AMA_REF: v3.1.0
