@@ -49,36 +49,24 @@ def safe_urlretrieve(url: str, filename: str | Path) -> None:
     potentially dangerous URL schemes. For HTTPS URLs, validates against
     the TrustedEndpoints domain allowlist for SSRF protection.
 
+    Internally delegates to :func:`http_get_with_retry` so all callers
+    inherit User-Agent, exponential backoff, and 4xx-vs-5xx-aware retry
+    semantics — important for the bulk loaders (BATADAL, NAB, SMD,
+    SMAP/MSL, UCR, ADRepository) that hit GitHub raw under rate-limit
+    pressure during a benchmark run.
+
     Args:
         url: The URL to download from (must be http:// or https://)
         filename: The local path to save the file to
 
     Raises:
-        ValueError: If the URL scheme is not http or https
+        ValueError: If the URL scheme is not http or https.
     """
-    import logging
-    import urllib.request
-    from urllib.parse import urlparse
-
-    from omni_mercury_engine.security.input_validation import TrustedEndpoints
-
-    logger = logging.getLogger(__name__)
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
-
-    # Validate URL against trusted domain allowlist (SSRF protection)
-    if parsed.scheme == "https":
-        try:
-            TrustedEndpoints.validate_url(url)
-        except ValueError:
-            # Domain not in allowlist - log warning but allow for research datasets
-            logger.warning(
-                f"URL domain '{parsed.netloc}' not in trusted allowlist. "
-                "Proceeding with caution for dataset download."
-            )
-
-    urllib.request.urlretrieve(url, filename)  # nosec B310
+    body = http_get_with_retry(url, timeout=120)
+    target = Path(filename)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with open(target, "wb") as f:
+        f.write(body)
 
 
 # Default User-Agent. Many public dataset CDNs (raw.githubusercontent.com,

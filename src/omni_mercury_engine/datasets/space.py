@@ -28,7 +28,7 @@ except ImportError:
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
@@ -278,7 +278,6 @@ class NASAExoplanetLoader(DatasetLoader):
     def _download_from_nasa_tap(self) -> bool:
         """Download exoplanet data from NASA TAP service."""
         import urllib.parse
-        import urllib.request
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -303,13 +302,9 @@ class NASAExoplanetLoader(DatasetLoader):
             url = f"{self.NASA_TAP_URL}?{urllib.parse.urlencode(params)}"
             logger.info("Downloading exoplanet data from NASA Exoplanet Archive...")
 
-            # Validate URL before opening (SSRF protection via domain allowlist)
             TrustedEndpoints.validate_url(self.NASA_TAP_URL)
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-            )
-            with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
-                data = json.loads(response.read().decode("utf-8"))
+            content = http_get_with_retry(url, timeout=60)
+            data = json.loads(content.decode("utf-8"))
 
             # Parse TAP response
             records = data.get("data", []) if isinstance(data, dict) else data
@@ -530,8 +525,6 @@ class SolarDynamicsLoader(DatasetLoader):
 
     def _download_from_swpc(self) -> bool:
         """Download solar activity data from NOAA SWPC."""
-        import urllib.request
-
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
         cache_file = dataset_dir / "noaa_solar_real.npz"
@@ -546,13 +539,9 @@ class SolarDynamicsLoader(DatasetLoader):
             url = self.SWPC_URLS["xrays"]
             logger.info("Downloading solar X-ray data from NOAA SWPC...")
 
-            # Validate URL before opening (SSRF protection via domain allowlist)
             TrustedEndpoints.validate_url(url)
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-            )
-            with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
-                data = json.loads(response.read().decode("utf-8"))
+            content = http_get_with_retry(url, timeout=60)
+            data = json.loads(content.decode("utf-8"))
 
             if not data:
                 logger.warning("No solar data returned from NOAA SWPC")

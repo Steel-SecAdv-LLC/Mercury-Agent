@@ -28,7 +28,7 @@ except ImportError:
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
@@ -107,8 +107,8 @@ class USGSEarthquakeLoader(DatasetLoader):
 
     def _download_from_usgs(self) -> bool:
         """Download earthquake data from USGS Earthquake Hazards API."""
-        import urllib.request
-        from datetime import datetime, timedelta
+        import urllib.parse
+        from datetime import UTC, datetime, timedelta
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -120,8 +120,10 @@ class USGSEarthquakeLoader(DatasetLoader):
             return True
 
         try:
-            # Build API query for recent earthquakes
-            end_date = datetime.now()
+            # USGS fdsnws expects UTC; using naive datetime.now() can drop or
+            # double-count records around UTC day boundaries. The API's hard
+            # limit per request is 20000.
+            end_date = datetime.now(UTC)
             start_date = end_date - timedelta(days=self.days_back)
 
             params = {
@@ -133,19 +135,13 @@ class USGSEarthquakeLoader(DatasetLoader):
                 "orderby": "time",
             }
 
-            query_string = "&".join(f"{k}={v}" for k, v in params.items())
-            url = f"{self.USGS_API_URL}?{query_string}"
-
+            url = f"{self.USGS_API_URL}?{urllib.parse.urlencode(params)}"
+            TrustedEndpoints.validate_url(self.USGS_API_URL)
             logger.info(
                 f"Downloading earthquake data from USGS API (last {self.days_back} days)..."
             )
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            TrustedEndpoints.validate_url(self.USGS_API_URL)
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-            )
-            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
-                data = json.loads(response.read().decode("utf-8"))
+            content = http_get_with_retry(url, timeout=120)
+            data = json.loads(content.decode("utf-8"))
 
             features_list = data.get("features", [])
             if not features_list:
@@ -406,8 +402,8 @@ class NOAAWeatherLoader(DatasetLoader):
 
     def _download_from_open_meteo(self) -> bool:
         """Download weather data from Open-Meteo Archive API."""
-        import urllib.request
-        from datetime import datetime, timedelta
+        import urllib.parse
+        from datetime import UTC, datetime, timedelta
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -419,11 +415,14 @@ class NOAAWeatherLoader(DatasetLoader):
             return True
 
         try:
-            end_date = datetime.now() - timedelta(days=5)  # Archive has 5-day delay
+            # Open-Meteo Archive lags realtime by ~5 days; use UTC for stable
+            # day boundaries.
+            end_date = datetime.now(UTC) - timedelta(days=5)
             start_date = end_date - timedelta(days=self.days_back)
 
             all_features = []
 
+            TrustedEndpoints.validate_url(self.OPEN_METEO_URL)
             for loc in self.LOCATIONS:
                 params = {
                     "latitude": loc["lat"],
@@ -434,18 +433,17 @@ class NOAAWeatherLoader(DatasetLoader):
                     "wind_speed_10m,wind_direction_10m,precipitation,cloud_cover,"
                     "apparent_temperature",
                 }
-
-                query_string = "&".join(f"{k}={v}" for k, v in params.items())
-                url = f"{self.OPEN_METEO_URL}?{query_string}"
+                url = f"{self.OPEN_METEO_URL}?{urllib.parse.urlencode(params)}"
 
                 logger.info(f"Downloading weather data for {loc['name']}...")
-                # Validate URL before opening (SSRF protection via domain allowlist)
-                TrustedEndpoints.validate_url(self.OPEN_METEO_URL)
-                req = urllib.request.Request(
-                    url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-                )
-                with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
-                    data = json.loads(response.read().decode("utf-8"))
+                try:
+                    content = http_get_with_retry(url, timeout=60)
+                except Exception as e:  # noqa: BLE001 - per-location tolerant
+                    logger.warning(
+                        "Open-Meteo location %s failed: %s", loc["name"], e
+                    )
+                    continue
+                data = json.loads(content.decode("utf-8"))
 
                 hourly = data.get("hourly", {})
                 if not hourly:
@@ -644,8 +642,6 @@ class WildfireDataLoader(DatasetLoader):
 
     def _download_from_firms(self) -> bool:
         """Download active fire data from NASA FIRMS public CSV."""
-        import urllib.request
-
         if not PANDAS_AVAILABLE:
             logger.warning("pandas required for FIRMS CSV processing")
             return False
@@ -660,19 +656,35 @@ class WildfireDataLoader(DatasetLoader):
             return True
 
         try:
-            url = self.FIRMS_URLS.get(self.source, self.FIRMS_URLS["modis_7d"])
-            logger.info(f"Downloading fire data from NASA FIRMS ({self.source})...")
+            # Try the requested source first, then fall through to the other
+            # public 7-day archives. FIRMS occasionally rotates which sensor
+            # archive is current; cross-mirroring keeps the loader live even
+            # when one CSV path returns 404 mid-rotation.
+            preferred = self.FIRMS_URLS.get(self.source, self.FIRMS_URLS["modis_7d"])
+            ordered_urls: list[str] = [preferred]
+            for alt in self.FIRMS_URLS.values():
+                if alt not in ordered_urls:
+                    ordered_urls.append(alt)
 
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            TrustedEndpoints.validate_url(url)
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-            )
-            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
-                content = response.read().decode("utf-8")
+            content_text: str | None = None
+            last_err: Exception | None = None
+            for url in ordered_urls:
+                try:
+                    TrustedEndpoints.validate_url(url)
+                    logger.info("Downloading fire data from NASA FIRMS (%s)...", url)
+                    body = http_get_with_retry(url, timeout=120)
+                    content_text = body.decode("utf-8", errors="replace")
+                    break
+                except Exception as e:  # noqa: BLE001 - mirror failover
+                    last_err = e
+                    logger.info("FIRMS source %s failed: %s", url, e)
+                    continue
 
-            # Parse CSV
-            df = pd.read_csv(io.StringIO(content), low_memory=False)
+            if content_text is None:
+                logger.warning("All NASA FIRMS sources failed: %s", last_err)
+                return False
+
+            df = pd.read_csv(io.StringIO(content_text), low_memory=False)
             logger.info(f"Downloaded {len(df)} fire detection records")
 
             if len(df) == 0:

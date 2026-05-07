@@ -868,31 +868,15 @@ class CICIDSLoader(DatasetLoader):
             return True
 
         try:
+            from .base import http_get_with_retry
+
             logger.info(f"Downloading CICIDS 2017 from {source_name}: {url}")
 
-            # Download with timeout
-            import urllib.request
-            from urllib.parse import urlparse
-
-            parsed = urlparse(url)
-            if parsed.scheme not in ("http", "https"):
-                raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
-
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            # Note: Only HTTPS URLs from trusted domains are allowed
-            if parsed.scheme == "https":
-                try:
-                    TrustedEndpoints.validate_url(url)
-                except ValueError:
-                    # Domain not in allowlist - log warning but allow for research datasets
-                    logger.warning(
-                        f"URL domain '{parsed.netloc}' not in trusted allowlist. "
-                        "Proceeding with caution for research dataset download."
-                    )
-
-            # Use longer timeout for large files
-            with urllib.request.urlopen(url, timeout=300) as response:  # nosec B310
-                content = response.read()
+            # http_get_with_retry handles scheme + SSRF allowlist + retry
+            # internally. Distrinet/CIC are HTTP-only or off-allowlist mirrors,
+            # so the helper logs a warning and proceeds; large-file timeout
+            # bumped to 300s (CICIDS zip is multi-GB).
+            content = http_get_with_retry(url, timeout=300)
 
             # Process based on format
             if file_format == "zip":
