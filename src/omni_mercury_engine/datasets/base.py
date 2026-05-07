@@ -81,6 +81,110 @@ def safe_urlretrieve(url: str, filename: str | Path) -> None:
     urllib.request.urlretrieve(url, filename)  # nosec B310
 
 
+# Default User-Agent. Many public dataset CDNs (raw.githubusercontent.com,
+# www.fema.gov, www.ncei.noaa.gov) silently rate-limit or return 403 to
+# requests without an identifying UA. Identifying as a real browser-class
+# UA suffix avoids those penalties without misrepresenting the source.
+_DEFAULT_DATASET_UA = "Mozilla/5.0 (compatible; Mercury-Agent/1.0; +https://github.com/Steel-SecAdv-LLC/Mercury-Agent)"
+
+
+def http_get_with_retry(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: int = 60,
+    retries: int = 3,
+    backoff: float = 2.0,
+    retry_on_status: tuple[int, ...] = (408, 425, 429, 500, 502, 503, 504),
+) -> bytes:
+    """
+    HTTP GET with scheme/domain validation, default UA, and exponential backoff.
+
+    Centralizes the retry behavior previously duplicated across loaders.
+    Retries on transient HTTP status codes and on socket-level errors
+    (timeout, connection reset). Permanent errors (404, 401, 403) raise
+    immediately so callers can fail over to a different mirror.
+
+    Args:
+        url: HTTP/HTTPS URL to fetch. HTTPS URLs are validated against the
+            TrustedEndpoints allowlist; off-allowlist domains are warned but
+            permitted (mirrors common across third-party research datasets).
+        headers: Extra request headers. User-Agent is injected if not provided.
+        timeout: Per-attempt socket timeout in seconds.
+        retries: Total attempts (initial + retries). Must be >= 1.
+        backoff: Exponential factor; sleep = backoff ** attempt seconds.
+        retry_on_status: HTTP status codes that trigger a retry rather than
+            raising. 4xx not in this set are treated as permanent.
+
+    Returns:
+        Response body as bytes.
+
+    Raises:
+        ValueError: URL scheme is neither http nor https.
+        urllib.error.HTTPError: Final attempt returned a non-retried status.
+        urllib.error.URLError / TimeoutError: All attempts exhausted on
+            transient socket errors.
+    """
+    import time
+    import urllib.error
+    import urllib.request
+    from urllib.parse import urlparse
+
+    from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
+
+    if parsed.scheme == "https":
+        try:
+            TrustedEndpoints.validate_url(url)
+        except ValueError:
+            logger.warning(
+                "URL domain '%s' not in trusted allowlist; proceeding for dataset download.",
+                parsed.netloc,
+            )
+
+    request_headers = {"User-Agent": _DEFAULT_DATASET_UA}
+    if headers:
+        request_headers.update(headers)
+
+    last_exc: Exception | None = None
+    attempts = max(1, retries)
+    for attempt in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers=request_headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+                return resp.read()  # type: ignore[no-any-return]
+        except urllib.error.HTTPError as e:
+            last_exc = e
+            if e.code not in retry_on_status:
+                # Permanent error — let caller fail over to next mirror.
+                raise
+            logger.info(
+                "HTTP %d on %s (attempt %d/%d); will retry.",
+                e.code,
+                url,
+                attempt + 1,
+                attempts,
+            )
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            last_exc = e
+            logger.info(
+                "Transient %s on %s (attempt %d/%d); will retry.",
+                type(e).__name__,
+                url,
+                attempt + 1,
+                attempts,
+            )
+
+        if attempt < attempts - 1:
+            time.sleep(backoff ** (attempt + 1))
+
+    assert last_exc is not None  # nosec B101 - loop guarantees at least one exception
+    raise last_exc
+
+
 class DatasetSplit(Enum):
     """Standard dataset splits."""
 

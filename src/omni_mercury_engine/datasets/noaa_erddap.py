@@ -23,15 +23,14 @@ from __future__ import annotations
 import hashlib
 import logging
 import urllib.error
-import urllib.request
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -70,15 +69,26 @@ class NOAAERDDAPLoader(DatasetLoader):
         self.lon_range = config.preprocessing.get("lon_range", (-130.0, -60.0))
         self._is_real_data = False
 
+    # ERDDAP datasets are populated with a multi-day ingest lag. Requesting
+    # "now" almost always 404s (or returns "no data") because the most recent
+    # day hasn't been compiled yet. We start a week back and step further
+    # backward on failure, covering the published lag for both SSH and CHL.
+    _DATE_OFFSET_DAYS_DEFAULT = 7
+    _DATE_OFFSET_DAYS_FALLBACK = (7, 14, 21, 30)
+
     def download(self) -> bool:
         """
         Download ERDDAP data via REST CSV API.
+
+        Tries a sequence of past dates (offset by ``_DATE_OFFSET_DAYS_FALLBACK``
+        days) to absorb the dataset's ingest lag.
 
         Returns:
             True on success.
 
         Raises:
-            DataSourceUnavailableError: If ERDDAP is unreachable.
+            DataSourceUnavailableError: If ERDDAP is unreachable for every
+            candidate date.
         """
         cache_file = self.data_path / f"erddap_{self.dataset_type}.npz"
         if cache_file.exists():
@@ -87,51 +97,80 @@ class NOAAERDDAPLoader(DatasetLoader):
             return True
 
         base_url = self.SSH_URL if self.dataset_type == "ssh" else self.CHL_URL
-
-        # Build ERDDAP constraint URL for the most recent day available
-        now = datetime.now(UTC)
-        date_str = now.strftime("%Y-%m-%dT00:00:00Z")
         lat_min, lat_max = self.lat_range
         lon_min, lon_max = self.lon_range
+        now = datetime.now(UTC)
 
-        if self.dataset_type == "ssh":
-            var = "sla"
-            url = (
-                f"{base_url}?{var}[({date_str})][({lat_min}):({lat_max})][({lon_min}):({lon_max})]"
-            )
-        else:
-            var = "chlor_a"
-            url = f"{base_url}?{var}"
+        candidate_offsets = self._DATE_OFFSET_DAYS_FALLBACK
 
-        logger.info("Downloading ERDDAP %s data from %s", self.dataset_type, url[:100])
+        last_err: Exception | None = None
+        last_url = ""
+        for offset_days in candidate_offsets:
+            target = now - timedelta(days=offset_days)
+            date_str = target.strftime("%Y-%m-%dT00:00:00Z")
 
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310
-                content = resp.read()
+            if self.dataset_type == "ssh":
+                var = "sla"
+                url = (
+                    f"{base_url}?{var}[({date_str})]"
+                    f"[({lat_min}):({lat_max})][({lon_min}):({lon_max})]"
+                )
+            else:
+                var = "chlor_a"
+                # CHL endpoint exposes a single time series; date constraint omitted.
+                url = f"{base_url}?{var}"
+            last_url = url
 
-            text = content.decode("utf-8", errors="replace")
-            features, labels = self._parse_erddap_csv(text)
-
-            sha = hashlib.sha256(content).hexdigest()
-            self.data_path.mkdir(parents=True, exist_ok=True)
-            np.savez_compressed(cache_file, features=features, labels=labels, sha256=sha)
-            self._is_real_data = True
             logger.info(
-                "ERDDAP %s loaded: %d samples, %.1f%% anomalies",
+                "Downloading ERDDAP %s data (date %s, offset -%dd) from %s",
                 self.dataset_type,
-                len(features),
-                100.0 * labels.mean(),
+                date_str,
+                offset_days,
+                url[:100],
             )
-            return True
 
-        except Exception as e:
-            logger.error("ERDDAP download failed: %s", e)
-            raise DataSourceUnavailableError(
-                loader_name=f"NOAA-ERDDAP-{self.dataset_type}",
-                source_url=url,
-                reason=str(e),
-            ) from e
+            try:
+                content = http_get_with_retry(url, timeout=60)
+                text = content.decode("utf-8", errors="replace")
+                features, labels = self._parse_erddap_csv(text)
+
+                sha = hashlib.sha256(content).hexdigest()
+                self.data_path.mkdir(parents=True, exist_ok=True)
+                np.savez_compressed(cache_file, features=features, labels=labels, sha256=sha)
+                self._is_real_data = True
+                logger.info(
+                    "ERDDAP %s loaded: %d samples, %.1f%% anomalies (offset -%dd)",
+                    self.dataset_type,
+                    len(features),
+                    100.0 * labels.mean(),
+                    offset_days,
+                )
+                return True
+
+            except urllib.error.HTTPError as e:
+                last_err = e
+                logger.info(
+                    "ERDDAP %s offset -%dd: HTTP %d; trying earlier date",
+                    self.dataset_type,
+                    offset_days,
+                    e.code,
+                )
+                continue
+            except Exception as e:
+                last_err = e
+                logger.info(
+                    "ERDDAP %s offset -%dd failed: %s; trying earlier date",
+                    self.dataset_type,
+                    offset_days,
+                    e,
+                )
+                continue
+
+        raise DataSourceUnavailableError(
+            loader_name=f"NOAA-ERDDAP-{self.dataset_type}",
+            source_url=last_url,
+            reason=f"All ERDDAP date offsets failed: {last_err}",
+        ) from last_err
 
     def _parse_erddap_csv(self, text: str) -> tuple[np.ndarray, np.ndarray]:
         """Parse ERDDAP CSV response into features and labels."""

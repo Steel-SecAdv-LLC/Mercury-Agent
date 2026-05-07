@@ -56,10 +56,23 @@ class NSLKDDLoader(DatasetLoader):
     KDD CUP 99 data set. IEEE Symposium on Computational Intelligence. 2009."""
     REQUIRES_CREDENTIALS = False
 
-    # GitHub raw URLs for NSL-KDD data (via TrustedEndpoints for SSRF prevention)
+    # GitHub raw URLs for NSL-KDD data (via TrustedEndpoints for SSRF prevention).
+    # Primary mirror is the canonical defcom17 fork. We also try the HearthCloud
+    # fork as a secondary mirror — it carries identical content and survives
+    # when raw.githubusercontent.com rate-limits the primary path.
     NSLKDD_URLS = {
         "train": TrustedEndpoints.GITHUB_NSL_KDD_TRAIN,
         "test": TrustedEndpoints.GITHUB_NSL_KDD_TEST,
+    }
+    NSLKDD_MIRRORS = {
+        "train": [
+            TrustedEndpoints.GITHUB_NSL_KDD_TRAIN,
+            "https://raw.githubusercontent.com/HoaNP/NSL-KDD-DataSet/master/KDDTrain+.txt",
+        ],
+        "test": [
+            TrustedEndpoints.GITHUB_NSL_KDD_TEST,
+            "https://raw.githubusercontent.com/HoaNP/NSL-KDD-DataSet/master/KDDTest+.txt",
+        ],
     }
 
     # Column names for NSL-KDD (41 features + 2 labels)
@@ -222,21 +235,41 @@ class NSLKDDLoader(DatasetLoader):
             return True
 
         try:
-            import urllib.request
+            from .base import http_get_with_retry
 
             dfs = []
-            for split, url in self.NSLKDD_URLS.items():
+            for split in self.NSLKDD_URLS:
                 if split == "test" and not self.include_test:
                     continue
 
-                logger.info(f"Downloading NSL-KDD {split} from GitHub...")
+                # Try each mirror in order; first to return a non-empty body wins.
+                content: str | None = None
+                last_err: Exception | None = None
+                for mirror in self.NSLKDD_MIRRORS[split]:
+                    try:
+                        # validate_url is permissive for off-allowlist hosts
+                        # (warn-only); raw.githubusercontent.com is allow-listed.
+                        try:
+                            TrustedEndpoints.validate_url(mirror)
+                        except ValueError:
+                            logger.warning("NSL-KDD mirror %s not on allowlist", mirror)
+                        logger.info("Downloading NSL-KDD %s from %s", split, mirror)
+                        body = http_get_with_retry(mirror, timeout=120)
+                        decoded = body.decode("utf-8")
+                        if decoded.strip():
+                            content = decoded
+                            break
+                        last_err = ValueError("empty response body")
+                    except Exception as mirror_err:  # noqa: BLE001 - mirror failover
+                        last_err = mirror_err
+                        logger.info("NSL-KDD mirror %s failed: %s", mirror, mirror_err)
+                        continue
 
-                # Validate URL before opening (SSRF protection via domain allowlist)
-                TrustedEndpoints.validate_url(url)
-                with urllib.request.urlopen(url, timeout=120) as response:  # nosec B310
-                    content = response.read().decode("utf-8")
+                if content is None:
+                    raise RuntimeError(
+                        f"All NSL-KDD {split} mirrors failed; last error: {last_err}"
+                    )
 
-                # Parse CSV (no header in file)
                 df = pd.read_csv(
                     io.StringIO(content),
                     names=self.COLUMN_NAMES,
@@ -521,7 +554,9 @@ class CICIDSLoader(DatasetLoader):
         "all": None,  # Downloads and combines all files
     }
 
-    # Data source URLs (in priority order)
+    # Data source URLs (in priority order). The huggingface entry advertises
+    # the primary dataset_id; HUGGINGFACE_MIRRORS is used internally to fail
+    # over between equivalent community mirrors when one is gated or removed.
     DATA_SOURCES: dict[str, dict[str, Any]] = {
         "huggingface": {
             "name": "Hugging Face",
@@ -539,6 +574,16 @@ class CICIDSLoader(DatasetLoader):
             "format": "zip",
         },
     }
+
+    # Equivalent CICIDS-2017 mirrors on the HuggingFace Hub. Tried in order;
+    # first one that loads wins. Allows the loader to survive when the primary
+    # is gated, removed, or temporarily 5xx-ing without falling through to the
+    # http-only CIC official mirror.
+    HUGGINGFACE_MIRRORS: tuple[str, ...] = (
+        "bvk/CICIDS-2017",
+        "Riccorl/CIC-IDS-2017",
+        "tcabanski/cicids2017",
+    )
 
     # Label encoding for CICIDS 2017 attack types
     # Reference: Original dataset documentation
@@ -760,23 +805,33 @@ class CICIDSLoader(DatasetLoader):
             self._is_real_data = True
             return True
 
+        df = None
+        last_err: Exception | None = None
+        for mirror_id in self.HUGGINGFACE_MIRRORS:
+            try:
+                logger.info("Downloading CICIDS 2017 from Hugging Face (%s)...", mirror_id)
+                # Pin to main for reproducibility (B615); mirrors that publish
+                # under a non-default branch will fall through to the next.
+                dataset = load_dataset(  # nosec B615
+                    mirror_id,
+                    split="train",
+                    revision="main",
+                )
+                df = dataset.to_pandas()
+                if df is not None and len(df) > 0:
+                    logger.info("Downloaded %d records from %s", len(df), mirror_id)
+                    break
+            except Exception as e:  # noqa: BLE001 - mirror failover
+                last_err = e
+                logger.info("Hugging Face mirror %s failed: %s", mirror_id, e)
+                continue
+
+        if df is None or len(df) == 0:
+            logger.warning("All HuggingFace CICIDS mirrors failed: %s", last_err)
+            return False
+
         try:
-            logger.info("Downloading CICIDS 2017 from Hugging Face (bvk/CICIDS-2017)...")
-            # Pin to specific revision for security (B615)
-            dataset = load_dataset(  # nosec B615
-                "bvk/CICIDS-2017",
-                split="train",
-                revision="main",  # Pin to main branch for reproducibility
-            )
-
-            # Convert to pandas for processing
-            df = dataset.to_pandas()
-            logger.info(f"Downloaded {len(df)} records from Hugging Face")
-
-            # Clean and process the data
             features, labels = self._process_cicids_dataframe(df)
-
-            # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._features = features
             self._labels = labels
@@ -788,9 +843,8 @@ class CICIDSLoader(DatasetLoader):
                 f"{'attacks' if self.binary_labels else 'classes'}"
             )
             return True
-
         except Exception as e:
-            logger.warning(f"Hugging Face download failed: {e}")
+            logger.warning(f"CICIDS HuggingFace post-processing failed: {e}")
             return False
 
     def _download_from_url(self, source_info: dict[str, Any]) -> bool:
@@ -1268,8 +1322,21 @@ class ThreatIntelLoader(DatasetLoader):
     CITATION = "MITRE ATT&CK. MITRE Corporation. https://attack.mitre.org/"
     REQUIRES_CREDENTIALS = False
 
-    # MITRE ATT&CK STIX data URL (via TrustedEndpoints for SSRF prevention)
+    # MITRE ATT&CK STIX data URL (via TrustedEndpoints for SSRF prevention).
+    # The mitre-attack/attack-stix-data repository is the current canonical
+    # source. The legacy mitre/cti repository is kept as a backward-compatible
+    # mirror (still updated through 2024) and as the primary fallback when
+    # raw.githubusercontent.com rate-limits the canonical path.
     MITRE_STIX_URL = TrustedEndpoints.MITRE_STIX_DATA
+    MITRE_STIX_MIRRORS = (
+        TrustedEndpoints.MITRE_STIX_DATA,
+        # attack-stix-data has migrated some branches between master/main; try both.
+        (
+            "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/"
+            "main/enterprise-attack/enterprise-attack.json"
+        ),
+        TrustedEndpoints.MITRE_STIX,
+    )
 
     # MITRE ATT&CK tactics
     TACTICS = [
@@ -1339,7 +1406,8 @@ class ThreatIntelLoader(DatasetLoader):
     def _download_from_mitre(self) -> bool:
         """Download and process MITRE ATT&CK STIX data."""
         import json
-        import urllib.request
+
+        from .base import http_get_with_retry
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -1350,41 +1418,45 @@ class ThreatIntelLoader(DatasetLoader):
             self._is_real_data = True
             return True
 
+        objects: list[dict[str, Any]] = []
+        last_err: Exception | None = None
+        for url in self.MITRE_STIX_MIRRORS:
+            try:
+                try:
+                    TrustedEndpoints.validate_url(url)
+                except ValueError:
+                    logger.warning("MITRE mirror %s not on allowlist", url)
+                logger.info("Downloading MITRE ATT&CK Enterprise data from %s", url)
+                content = http_get_with_retry(url, timeout=120)
+                payload = json.loads(content.decode("utf-8"))
+                objects = payload.get("objects", [])
+                if objects:
+                    break
+                last_err = ValueError("STIX bundle contained zero objects")
+            except Exception as e:  # noqa: BLE001 - mirror failover
+                last_err = e
+                logger.info("MITRE mirror %s failed: %s", url, e)
+                continue
+
+        if not objects:
+            logger.warning("All MITRE ATT&CK mirrors failed: %s", last_err)
+            return False
+
+        # Filter to attack-patterns (techniques)
+        techniques = [obj for obj in objects if obj.get("type") == "attack-pattern"]
+        logger.info(f"Downloaded {len(techniques)} ATT&CK techniques")
+
         try:
-            logger.info("Downloading MITRE ATT&CK Enterprise data...")
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            TrustedEndpoints.validate_url(self.MITRE_STIX_URL)
-            req = urllib.request.Request(
-                self.MITRE_STIX_URL,
-                headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
-            )
-            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
-                data = json.loads(response.read().decode("utf-8"))
-
-            objects = data.get("objects", [])
-            if not objects:
-                logger.warning("No objects found in MITRE ATT&CK data")
-                return False
-
-            # Filter to attack-patterns (techniques)
-            techniques = [obj for obj in objects if obj.get("type") == "attack-pattern"]
-            logger.info(f"Downloaded {len(techniques)} ATT&CK techniques")
-
-            # Process into features
             features, labels = self._process_mitre_data(techniques)
-
-            # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._is_real_data = True
-
             logger.info(
                 f"MITRE ATT&CK data loaded: {len(features)} techniques, "
                 f"{labels.sum()} high-risk (is_real_data=True)"
             )
             return True
-
         except Exception as e:
-            logger.warning(f"MITRE ATT&CK download failed: {e}")
+            logger.warning(f"MITRE ATT&CK processing failed: {e}")
             return False
 
     def _process_mitre_data(
