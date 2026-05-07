@@ -150,10 +150,17 @@ class FEMADisasterLoader(DatasetLoader):
             reason="OpenFEMA API unavailable",
         )
 
+    # OpenFEMA enforces a hard server-side cap of 1000 records per request
+    # for v2 endpoints. Requesting larger $top returns HTTP 400. To respect
+    # this while still allowing larger requested sample counts we paginate
+    # via $skip.
+    _OPENFEMA_PAGE_SIZE = 1000
+
     def _download_from_fema(self) -> bool:
-        """Download disaster declarations from OpenFEMA API."""
+        """Download disaster declarations from OpenFEMA API with pagination."""
         import urllib.parse
-        import urllib.request
+
+        from .base import http_get_with_retry
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -165,62 +172,73 @@ class FEMADisasterLoader(DatasetLoader):
             return True
 
         try:
-            # Build OData filter query
-            filters = []
-
-            # Year filter
-            start_date = f"{self.year_range[0]}-01-01"
-            end_date = f"{self.year_range[1]}-12-31"
-            filters.append(f"declarationDate ge '{start_date}'")
-            filters.append(f"declarationDate le '{end_date}'")
-
-            # Declaration type filter
+            # OpenFEMA OData v4 requires ISO-8601 with millisecond precision
+            # and a lowercase 'z' literal. The previous bare 'YYYY-MM-DD' form
+            # was silently rejected by the v2 endpoint and returned an empty
+            # DisasterDeclarationsSummaries array, which manifested as the
+            # documented "FEMA Disaster — known broken" loader.
+            start_iso = f"{self.year_range[0]}-01-01T00:00:00.000z"
+            end_iso = f"{self.year_range[1]}-12-31T23:59:59.999z"
+            filters = [
+                f"declarationDate ge '{start_iso}'",
+                f"declarationDate le '{end_iso}'",
+            ]
             if self.declaration_types:
                 type_filter = " or ".join(
-                    [f"declarationType eq '{t}'" for t in self.declaration_types]
+                    f"declarationType eq '{t}'" for t in self.declaration_types
                 )
                 filters.append(f"({type_filter})")
-
             filter_string = " and ".join(filters)
 
-            # Build URL with parameters
-            params = {
-                "$filter": filter_string,
-                "$top": str(min(self.config.max_samples or 10000, 10000)),
-                "$orderby": "declarationDate desc",
-            }
+            target = self.config.max_samples or 10000
+            page_size = self._OPENFEMA_PAGE_SIZE
 
-            query_string = urllib.parse.urlencode(params)
-            url = f"{self.API_URL}?{query_string}"
-
-            logger.info("Downloading disaster data from OpenFEMA API...")
-            logger.debug(f"API URL: {url}")
-
-            # Rate limit
-            self._rate_limit()
-
-            # Validate URL before opening (SSRF protection via domain allowlist)
+            # SSRF: validate the canonical endpoint once; per-page URLs only
+            # vary by query string under the same host.
             TrustedEndpoints.validate_url(self.API_URL)
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-            )
 
-            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
-                data = json.loads(response.read().decode("utf-8"))
+            all_records: list[dict[str, Any]] = []
+            skip = 0
+            while len(all_records) < target:
+                page_top = min(page_size, target - len(all_records))
+                params = {
+                    "$filter": filter_string,
+                    "$top": str(page_top),
+                    "$skip": str(skip),
+                    "$orderby": "declarationDate desc",
+                }
+                url = f"{self.API_URL}?{urllib.parse.urlencode(params)}"
 
-            # OpenFEMA returns {metadata: {...}, DisasterDeclarationsSummaries: [...]}
-            records = data.get("DisasterDeclarationsSummaries", [])
+                self._rate_limit()
+                logger.info(
+                    "OpenFEMA page: $skip=%d $top=%d (collected %d/%d)",
+                    skip,
+                    page_top,
+                    len(all_records),
+                    target,
+                )
+                content = http_get_with_retry(url, timeout=120)
+                page = json.loads(content.decode("utf-8")).get(
+                    "DisasterDeclarationsSummaries", []
+                )
 
-            if not records:
+                if not page:
+                    # Empty page = end of result set; stop paginating.
+                    break
+
+                all_records.extend(page)
+                if len(page) < page_top:
+                    # Server returned fewer than asked → no more pages.
+                    break
+                skip += len(page)
+
+            if not all_records:
                 logger.warning("No disaster records returned from FEMA API")
                 return False
 
-            logger.info(f"Downloaded {len(records)} disaster declaration records")
+            logger.info(f"Downloaded {len(all_records)} disaster declaration records")
+            features, labels = self._process_fema_data(all_records)
 
-            # Process the data
-            features, labels = self._process_fema_data(records)
-
-            # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._is_real_data = True
 
@@ -530,12 +548,15 @@ class FEMAHazardMitigationLoader(DatasetLoader):
             reason="OpenFEMA Hazard Mitigation API unavailable",
         )
 
+    _OPENFEMA_PAGE_SIZE = 1000
+
     def _download_from_fema(self) -> bool:
-        """Download hazard mitigation grants from OpenFEMA API."""
+        """Download hazard mitigation grants from OpenFEMA API with pagination."""
         import urllib.parse
-        import urllib.request
 
         from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+        from .base import http_get_with_retry
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -548,31 +569,43 @@ class FEMAHazardMitigationLoader(DatasetLoader):
 
         try:
             api_url = TrustedEndpoints.FEMA_HAZARD_MITIGATION
-            params = {
-                "$top": str(min(self.config.max_samples or 5000, 5000)),
-                "$orderby": "dateApproved desc",
-            }
-            query_string = urllib.parse.urlencode(params)
-            url = f"{api_url}?{query_string}"
-
-            logger.info("Downloading hazard mitigation data from OpenFEMA API...")
-
             TrustedEndpoints.validate_url(api_url)
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-            )
 
-            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
-                data = json.loads(response.read().decode("utf-8"))
+            target = self.config.max_samples or 5000
+            page_size = self._OPENFEMA_PAGE_SIZE
 
-            records = data.get("HazardMitigationGrants", [])
-            if not records:
+            all_records: list[dict[str, Any]] = []
+            skip = 0
+            while len(all_records) < target:
+                page_top = min(page_size, target - len(all_records))
+                params = {
+                    "$top": str(page_top),
+                    "$skip": str(skip),
+                    "$orderby": "dateApproved desc",
+                }
+                url = f"{api_url}?{urllib.parse.urlencode(params)}"
+                logger.info(
+                    "OpenFEMA HMG page: $skip=%d $top=%d (collected %d/%d)",
+                    skip,
+                    page_top,
+                    len(all_records),
+                    target,
+                )
+                content = http_get_with_retry(url, timeout=120)
+                page = json.loads(content.decode("utf-8")).get("HazardMitigationGrants", [])
+                if not page:
+                    break
+                all_records.extend(page)
+                if len(page) < page_top:
+                    break
+                skip += len(page)
+
+            if not all_records:
                 logger.warning("No hazard mitigation records returned from FEMA API")
                 return False
 
-            logger.info(f"Downloaded {len(records)} hazard mitigation records")
-
-            features, labels = self._process_mitigation_data(records)
+            logger.info(f"Downloaded {len(all_records)} hazard mitigation records")
+            features, labels = self._process_mitigation_data(all_records)
 
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._is_real_data = True
