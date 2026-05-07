@@ -133,14 +133,12 @@ class NOAAGSODLoader(DatasetLoader):
                     )
                 except urllib.error.HTTPError as e:
                     logger.warning("  GSOD %d station %s: HTTP %d", candidate, station_id, e.code)
-                except Exception as e:  # noqa: BLE001 - per-station failure tolerated
+                except Exception as e:
                     logger.warning("  GSOD %d station %s failed: %s", candidate, station_id, e)
 
             if all_rows:
                 if candidate != self.year:
-                    logger.info(
-                        "GSOD %d returned no data; using %d instead", self.year, candidate
-                    )
+                    logger.info("GSOD %d returned no data; using %d instead", self.year, candidate)
                     self.year = candidate
                 return self._finalize(all_rows, cache_file)
 

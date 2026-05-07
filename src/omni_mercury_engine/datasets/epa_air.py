@@ -124,7 +124,9 @@ class EPAAirQualityLoader(DatasetLoader):
             except urllib.error.HTTPError as e:
                 last_err = e
                 if e.code == 404:
-                    logger.info("EPA PM2.5 %d not published (HTTP 404); trying older year", candidate)
+                    logger.info(
+                        "EPA PM2.5 %d not published (HTTP 404); trying older year", candidate
+                    )
                     continue
                 logger.warning("EPA download for %d failed: HTTP %d", candidate, e.code)
                 continue

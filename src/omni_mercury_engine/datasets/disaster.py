@@ -218,9 +218,7 @@ class FEMADisasterLoader(DatasetLoader):
                     target,
                 )
                 content = http_get_with_retry(url, timeout=120)
-                page = json.loads(content.decode("utf-8")).get(
-                    "DisasterDeclarationsSummaries", []
-                )
+                page = json.loads(content.decode("utf-8")).get("DisasterDeclarationsSummaries", [])
 
                 if not page:
                     # Empty page = end of result set; stop paginating.

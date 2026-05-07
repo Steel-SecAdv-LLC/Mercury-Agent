@@ -260,7 +260,7 @@ class NSLKDDLoader(DatasetLoader):
                             content = decoded
                             break
                         last_err = ValueError("empty response body")
-                    except Exception as mirror_err:  # noqa: BLE001 - mirror failover
+                    except Exception as mirror_err:
                         last_err = mirror_err
                         logger.info("NSL-KDD mirror %s failed: %s", mirror, mirror_err)
                         continue
@@ -821,7 +821,7 @@ class CICIDSLoader(DatasetLoader):
                 if df is not None and len(df) > 0:
                     logger.info("Downloaded %d records from %s", len(df), mirror_id)
                     break
-            except Exception as e:  # noqa: BLE001 - mirror failover
+            except Exception as e:
                 last_err = e
                 logger.info("Hugging Face mirror %s failed: %s", mirror_id, e)
                 continue
@@ -872,11 +872,14 @@ class CICIDSLoader(DatasetLoader):
 
             logger.info(f"Downloading CICIDS 2017 from {source_name}: {url}")
 
-            # http_get_with_retry handles scheme + SSRF allowlist + retry
-            # internally. Distrinet/CIC are HTTP-only or off-allowlist mirrors,
-            # so the helper logs a warning and proceeds; large-file timeout
-            # bumped to 300s (CICIDS zip is multi-GB).
-            content = http_get_with_retry(url, timeout=300)
+            # The CIC-Official mirror (http://205.174.165.80/...) is the one
+            # documented research source for the original CICIDS-2017 zip
+            # that publishes over plain HTTP. Distrinet is HTTPS on a domain
+            # that is already in the TrustedEndpoints allowlist. Opt-in to
+            # http://for the CIC-Official path; HTTPS Distrinet stays under
+            # the default strict policy.
+            allow_http = url.lower().startswith("http://")
+            content = http_get_with_retry(url, timeout=300, allow_http=allow_http)
 
             # Process based on format
             if file_format == "zip":
@@ -1417,7 +1420,7 @@ class ThreatIntelLoader(DatasetLoader):
                 if objects:
                     break
                 last_err = ValueError("STIX bundle contained zero objects")
-            except Exception as e:  # noqa: BLE001 - mirror failover
+            except Exception as e:
                 last_err = e
                 logger.info("MITRE mirror %s failed: %s", url, e)
                 continue

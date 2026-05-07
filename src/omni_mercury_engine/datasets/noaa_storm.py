@@ -102,7 +102,7 @@ class NOAAStormEventsLoader(DatasetLoader):
         """
         try:
             content = http_get_with_retry(self.STORM_BASE_URL, timeout=60)
-        except Exception as e:  # noqa: BLE001 - directory-listing failure is fatal
+        except Exception as e:
             raise DataSourceUnavailableError(
                 loader_name="NOAAStormEvents",
                 source_url=self.STORM_BASE_URL,
