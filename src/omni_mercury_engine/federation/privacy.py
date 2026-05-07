@@ -56,6 +56,7 @@ class DifferentialPrivacy:
         delta: float = 1e-5,
         clip_norm: float = 10.0,
         rng: np.random.Generator | None = None,
+        seed: int | None = None,
     ) -> None:
         if epsilon <= 0:
             raise ValueError(f"epsilon must be positive, got {epsilon}")
@@ -68,7 +69,10 @@ class DifferentialPrivacy:
         self.delta = delta
         self.clip_norm = clip_norm
         self.sigma = np.sqrt(2.0 * np.log(1.25 / delta)) / epsilon
-        self._rng: np.random.Generator = rng if rng is not None else np.random.default_rng()
+        if rng is not None:
+            self._rng: np.random.Generator = rng
+        else:
+            self._rng = np.random.default_rng(seed)
 
     def apply(self, stats: FittedStatistics) -> FittedStatistics:
         """Apply calibrated noise to all numeric statistics.
