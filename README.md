@@ -73,15 +73,6 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > **Status:** Research-grade | Community-tested | Not externally audited
 > **Last Updated:** 2026-05-05
 >
-> **Decision-boundary contract (Wave B, PR #179):** Every public
-> `detect_with_fusion` / `detect_with_fusion_calibrated` /
-> `CognitiveOrchestrator.analyze` / `NeuroSymbolicHub.predict` call
-> runs **two independent mandatory hard ethical gates** —
-> Benevolence then σ_Immutable — and aborts with a typed
-> `EthicalConstraintViolationError` if either fails. There is no
-> advisory mode and no public flag that disables either gate. See
-> [`ARCHITECTURE.md` §"Dual-Gate Hard Ethical Enforcement"](ARCHITECTURE.md#dual-gate-hard-ethical-enforcement)
-> for the full contract.
 
 ---
 
