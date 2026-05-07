@@ -438,10 +438,8 @@ class NOAAWeatherLoader(DatasetLoader):
                 logger.info(f"Downloading weather data for {loc['name']}...")
                 try:
                     content = http_get_with_retry(url, timeout=60)
-                except Exception as e:  # noqa: BLE001 - per-location tolerant
-                    logger.warning(
-                        "Open-Meteo location %s failed: %s", loc["name"], e
-                    )
+                except Exception as e:
+                    logger.warning("Open-Meteo location %s failed: %s", loc["name"], e)
                     continue
                 data = json.loads(content.decode("utf-8"))
 
@@ -675,7 +673,7 @@ class WildfireDataLoader(DatasetLoader):
                     body = http_get_with_retry(url, timeout=120)
                     content_text = body.decode("utf-8", errors="replace")
                     break
-                except Exception as e:  # noqa: BLE001 - mirror failover
+                except Exception as e:
                     last_err = e
                     logger.info("FIRMS source %s failed: %s", url, e)
                     continue

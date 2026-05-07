@@ -33,7 +33,6 @@ from omni_mercury_engine.datasets.security import (
     ThreatIntelLoader,
 )
 
-
 # ---------------------------------------------------------------------------
 # http_get_with_retry — shared helper
 # ---------------------------------------------------------------------------
@@ -44,7 +43,7 @@ class TestHttpGetWithRetry:
         payload = b"hello"
 
         class _Resp:
-            def __enter__(self) -> "_Resp":
+            def __enter__(self) -> _Resp:
                 return self
 
             def __exit__(self, *exc: Any) -> None:
@@ -62,7 +61,7 @@ class TestHttpGetWithRetry:
         payload = b"ok"
 
         class _Resp:
-            def __enter__(self) -> "_Resp":
+            def __enter__(self) -> _Resp:
                 return self
 
             def __exit__(self, *exc: Any) -> None:
@@ -85,9 +84,11 @@ class TestHttpGetWithRetry:
     def test_does_not_retry_on_404(self) -> None:
         err = urllib.error.HTTPError("https://www.fema.gov/x", 404, "missing", {}, None)  # type: ignore[arg-type]
 
-        with patch("urllib.request.urlopen", side_effect=err) as urlopen:
-            with pytest.raises(urllib.error.HTTPError):
-                http_get_with_retry("https://www.fema.gov/x", retries=3)
+        with (
+            patch("urllib.request.urlopen", side_effect=err) as urlopen,
+            pytest.raises(urllib.error.HTTPError),
+        ):
+            http_get_with_retry("https://www.fema.gov/x", retries=3)
         assert urlopen.call_count == 1
 
     def test_rejects_non_http_scheme(self) -> None:
@@ -218,13 +219,13 @@ class TestNOAAStormFilenameDiscovery:
         )
         loader = NOAAStormEventsLoader(config)
 
-        index_html = """
+        index_html = b"""
         <html><body>
         <a href="StormEvents_details-ftp_v1.0_d2023_c20240301.csv.gz">old</a>
         <a href="StormEvents_details-ftp_v1.0_d2023_c20240620.csv.gz">newer</a>
         <a href="StormEvents_details-ftp_v1.0_d2022_c20231120.csv.gz">2022</a>
         </body></html>
-        """.encode()
+        """
 
         csv_text = (
             "EVENT_TYPE,STATE_FIPS,BEGIN_YEARMONTH,DAMAGE_PROPERTY,DAMAGE_CROPS,"
@@ -365,8 +366,8 @@ class TestPublicSurface:
     def test_cicids_huggingface_mirrors_include_primary(self) -> None:
         assert "bvk/CICIDS-2017" in CICIDSLoader.HUGGINGFACE_MIRRORS
 
-    def test_erddap_offsets_monotonically_increasing(self) -> None:
-        offsets = NOAAERDDAPLoader._DATE_OFFSET_DAYS_FALLBACK
+    def test_erddap_ssh_offsets_monotonically_increasing(self) -> None:
+        offsets = NOAAERDDAPLoader._SSH_DATE_OFFSET_DAYS_FALLBACK
         assert list(offsets) == sorted(offsets)
         assert offsets[0] >= 1
 
@@ -380,9 +381,7 @@ class TestPublicSurface:
 
 
 class TestSafeUrlretrieveRetry:
-    def test_safe_urlretrieve_inherits_retry_and_writes_file(
-        self, tmp_path: Any
-    ) -> None:
+    def test_safe_urlretrieve_inherits_retry_and_writes_file(self, tmp_path: Any) -> None:
         from omni_mercury_engine.datasets.base import safe_urlretrieve
 
         payload = b"\x89\x50\x4e\x47fake-binary"  # arbitrary bytes
@@ -500,13 +499,13 @@ class TestNASAFIRMSMirrorFailover:
         loader = WildfireDataLoader(config)
 
         firms_csv = (
-            "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,"
-            "instrument,confidence,version,bright_t31,frp,daynight\n"
-            "34.05,-118.25,310.0,1.2,1.0,2024-06-15,1235,Aqua,MODIS,80,6.1NRT,"
-            "295.5,12.5,D\n"
-            "41.50,-122.30,330.0,1.0,1.0,2024-06-15,2010,Terra,MODIS,90,6.1NRT,"
-            "300.0,18.7,N\n"
-        ).encode()
+            b"latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,"
+            b"instrument,confidence,version,bright_t31,frp,daynight\n"
+            b"34.05,-118.25,310.0,1.2,1.0,2024-06-15,1235,Aqua,MODIS,80,6.1NRT,"
+            b"295.5,12.5,D\n"
+            b"41.50,-122.30,330.0,1.0,1.0,2024-06-15,2010,Terra,MODIS,90,6.1NRT,"
+            b"300.0,18.7,N\n"
+        )
 
         primary = loader.FIRMS_URLS["modis_7d"]
         called: list[str] = []

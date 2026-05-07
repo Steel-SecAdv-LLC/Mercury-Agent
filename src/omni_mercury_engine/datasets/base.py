@@ -84,6 +84,8 @@ def http_get_with_retry(
     retries: int = 3,
     backoff: float = 2.0,
     retry_on_status: tuple[int, ...] = (408, 425, 429, 500, 502, 503, 504),
+    allow_http: bool = False,
+    allow_untrusted: bool = False,
 ) -> bytes:
     """
     HTTP GET with scheme/domain validation, default UA, and exponential backoff.
@@ -93,22 +95,37 @@ def http_get_with_retry(
     (timeout, connection reset). Permanent errors (404, 401, 403) raise
     immediately so callers can fail over to a different mirror.
 
+    Security defaults:
+
+    * **HTTPS-only**: ``http://`` URLs are rejected unless the caller
+      explicitly opts in with ``allow_http=True``. This is required for
+      a small handful of legacy research mirrors that publish over plain
+      HTTP (e.g. CICIDS-2017 CIC-Official) and is never appropriate for
+      arbitrary user input.
+    * **Trusted allowlist enforced**: HTTPS URLs whose host is not in
+      ``TrustedEndpoints.TRUSTED_DOMAINS`` raise ``ValueError`` unless
+      the caller explicitly opts in with ``allow_untrusted=True``. The
+      opt-in is reserved for known community mirrors of public research
+      datasets (e.g. NSL-KDD HoaNP fork, third-party FIRMS rotations).
+
     Args:
-        url: HTTP/HTTPS URL to fetch. HTTPS URLs are validated against the
-            TrustedEndpoints allowlist; off-allowlist domains are warned but
-            permitted (mirrors common across third-party research datasets).
+        url: HTTP/HTTPS URL to fetch.
         headers: Extra request headers. User-Agent is injected if not provided.
         timeout: Per-attempt socket timeout in seconds.
         retries: Total attempts (initial + retries). Must be >= 1.
         backoff: Exponential factor; sleep = backoff ** attempt seconds.
         retry_on_status: HTTP status codes that trigger a retry rather than
             raising. 4xx not in this set are treated as permanent.
+        allow_http: Permit ``http://`` URLs. Default False (HTTPS-only).
+        allow_untrusted: Permit HTTPS URLs whose host is outside the
+            ``TrustedEndpoints`` allowlist. Default False (allowlist enforced).
 
     Returns:
         Response body as bytes.
 
     Raises:
-        ValueError: URL scheme is neither http nor https.
+        ValueError: URL scheme/domain not permitted under the security defaults
+            (or current opt-in flags).
         urllib.error.HTTPError: Final attempt returned a non-retried status.
         urllib.error.URLError / TimeoutError: All attempts exhausted on
             transient socket errors.
@@ -123,13 +140,20 @@ def http_get_with_retry(
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
+    if parsed.scheme == "http" and not allow_http:
+        raise ValueError(
+            f"http_get_with_retry: refusing http:// URL '{url}'. "
+            "Pass allow_http=True only for documented legacy research mirrors."
+        )
 
     if parsed.scheme == "https":
         try:
             TrustedEndpoints.validate_url(url)
         except ValueError:
+            if not allow_untrusted:
+                raise
             logger.warning(
-                "URL domain '%s' not in trusted allowlist; proceeding for dataset download.",
+                "URL domain '%s' not in trusted allowlist; proceeding (allow_untrusted=True).",
                 parsed.netloc,
             )
 
@@ -143,7 +167,8 @@ def http_get_with_retry(
         try:
             req = urllib.request.Request(url, headers=request_headers)
             with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-                return resp.read()  # type: ignore[no-any-return]
+                body: bytes = resp.read()
+                return body
         except urllib.error.HTTPError as e:
             last_exc = e
             if e.code not in retry_on_status:
