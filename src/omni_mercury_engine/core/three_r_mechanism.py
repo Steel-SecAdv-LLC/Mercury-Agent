@@ -2541,12 +2541,14 @@ class RefactoringTransformer(ast.NodeTransformer):
 
         class _ConstReplacer(ast.NodeTransformer):
             def visit_Constant(self, n: ast.Constant) -> ast.expr:
-                # Mirror the collector's isinstance filter so mypy can
-                # narrow ``n.value`` from ``ast.Constant.value`` (which is
-                # ``str | bytes | int | float | complex | EllipsisType |
-                # None``) down to the ``ConstKey`` value type. Without
-                # this guard the ``sub_map[key]`` lookup is rejected as
-                # ``[index]``-incompatible.
+                # Mirror _ConstCollector's accepted-value filter so the
+                # ConstKey lookup is type-correct: only int / float / str
+                # values (and not bool, which is an int subclass) can be
+                # hoisted. Constants of any other literal type — bytes,
+                # complex, None, Ellipsis — are left in place. This also
+                # prevents accidental substitution of a value whose
+                # (type, value) representation happens to collide with a
+                # hoisted key.
                 if isinstance(n.value, (int, float, str)) and not isinstance(n.value, bool):
                     key: ConstKey = (type(n.value), n.value)
                     if key in sub_map:
