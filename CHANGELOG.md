@@ -17,6 +17,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Branch Reconciliation (v1.6.0 stack — PRs #188–#191)
+
+- **PR #189** (Devin session `a7bea1074fbd420f9c9af8e6b3eea01f`): v1.6.0
+  corrective sweep — PQC gate, FallbackChain ethical re-raise, RNG cure
+  (138 sites across federated/climate/disaster/security), type-redef
+  elimination (7 files from `copilot/refactor-34`), documentation refresh.
+  Absorbs PR #188 (`claude/organize-project-directory-IIqcr`) in full.
+- **PR #190** (Claude session `audit-pqc-fallback-chain-Po2fD`): tracked-debt
+  sweep — remaining 17 type-redef suppressions eliminated across 8 files,
+  62 unseeded `np.random` sites cured in cognitive/ and models/ modules,
+  25-test RNG reproducibility regression suite added.
+  `DifferentialPrivacy` dual-API (`rng=` / `seed=`) bridge.
+- **PR #191** (Claude session `in-house-anomaly-datasets-vLn30`): dataset
+  loader hardening — FEMA OData ISO-8601, NOAA Storm filename discovery,
+  ERDDAP date offsets, EPA/GSOD year fallback, NSL-KDD/CICIDS/MITRE mirror
+  failover. `http_get_with_retry` shared helper with SSRF default-deny.
+  `_ConstReplacer` type-narrowing fix in `core/three_r_mechanism.py`.
+- **PR #188** (Copilot session `organize-project-directory-IIqcr`): fully
+  absorbed into PR #189; closed with attestation of commit SHAs
+  (e198858, 12d2887, cc70fc9, 7e20c5b, c032c91, fd51186, 0553f1a).
+
 ### Wave B — σ_Immutable promoted to hard gate (deferred from PR #161)
 
 - **σ_Immutable is now the second mandatory hard ethical gate** at every
