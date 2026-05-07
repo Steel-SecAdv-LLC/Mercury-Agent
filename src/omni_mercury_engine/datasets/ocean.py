@@ -35,7 +35,7 @@ except ImportError:
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
@@ -161,8 +161,6 @@ class NOAABuoyLoader(DatasetLoader):
             return True
 
         try:
-            import urllib.request
-
             all_data = []
 
             for station in self.stations:
@@ -172,14 +170,9 @@ class NOAABuoyLoader(DatasetLoader):
                         f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."
                     )
 
-                    # Validate URL before opening (SSRF protection via domain allowlist)
                     TrustedEndpoints.validate_url(self.DATASET_URL)
-                    req = urllib.request.Request(
-                        url,
-                        headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
-                    )
-                    with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
-                        content = response.read().decode("utf-8")
+                    body = http_get_with_retry(url, timeout=60)
+                    content = body.decode("utf-8", errors="replace")
 
                     # Parse the data (space-delimited, first row is header, second is units)
                     df = pd.read_csv(

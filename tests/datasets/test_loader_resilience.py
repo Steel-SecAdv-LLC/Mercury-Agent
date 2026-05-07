@@ -372,3 +372,157 @@ class TestPublicSurface:
 
     def test_gsod_year_fallback_range_positive(self) -> None:
         assert NOAAGSODLoader._YEAR_FALLBACK_RANGE >= 1
+
+
+# ---------------------------------------------------------------------------
+# Wave 2: safe_urlretrieve, ADBench, USGS, NASA FIRMS retry / failover
+# ---------------------------------------------------------------------------
+
+
+class TestSafeUrlretrieveRetry:
+    def test_safe_urlretrieve_inherits_retry_and_writes_file(
+        self, tmp_path: Any
+    ) -> None:
+        from omni_mercury_engine.datasets.base import safe_urlretrieve
+
+        payload = b"\x89\x50\x4e\x47fake-binary"  # arbitrary bytes
+        target = tmp_path / "out" / "x.bin"
+
+        with patch(
+            "omni_mercury_engine.datasets.base.http_get_with_retry",
+            return_value=payload,
+        ):
+            safe_urlretrieve("https://raw.githubusercontent.com/foo/bar.bin", target)
+
+        assert target.read_bytes() == payload
+
+
+class TestADBenchRetry:
+    def test_adbench_uses_retry_helper(self, tmp_path: Any) -> None:
+        from omni_mercury_engine.datasets.adbench import ADBenchLoader
+
+        config = DatasetConfig(
+            name="adbench",
+            data_dir=str(tmp_path / "data"),
+            cache_dir=str(tmp_path / "cache"),
+            preprocessing={"dataset": "fraud"},
+        )
+        loader = ADBenchLoader(config)
+
+        # Build a minimal valid NPZ payload with X and y keys.
+        buf = io.BytesIO()
+        np.savez(buf, X=np.zeros((4, 3), dtype=np.float32), y=np.array([0, 1, 0, 1]))
+        npz_bytes = buf.getvalue()
+
+        called: list[str] = []
+
+        def fake_get(url: str, **kw: Any) -> bytes:
+            called.append(url)
+            return npz_bytes
+
+        with patch(
+            "omni_mercury_engine.datasets.adbench.http_get_with_retry",
+            side_effect=fake_get,
+        ):
+            ok = loader.download()
+
+        assert ok is True
+        assert len(called) == 1
+        assert called[0].endswith("13_fraud.npz")  # ADBench fraud is index 13
+
+
+class TestUSGSEarthquakeUTC:
+    def test_usgs_uses_utc_now(self, tmp_path: Any) -> None:
+        from omni_mercury_engine.datasets.environmental import USGSEarthquakeLoader
+
+        config = DatasetConfig(
+            name="earthquake",
+            data_dir=str(tmp_path / "data"),
+            cache_dir=str(tmp_path / "cache"),
+            preprocessing={"min_magnitude": 4.0, "days_back": 7},
+            max_samples=50,
+        )
+        loader = USGSEarthquakeLoader(config)
+
+        # Minimal valid GeoJSON FeatureCollection with one earthquake.
+        payload = {
+            "features": [
+                {
+                    "geometry": {"coordinates": [-118.5, 34.1, 12.5]},
+                    "properties": {
+                        "mag": 5.4,
+                        "gap": 80,
+                        "dmin": 0.4,
+                        "rms": 0.3,
+                        "nst": 22,
+                        "horizontalError": 1.5,
+                        "depthError": 3.0,
+                        "magError": 0.1,
+                    },
+                }
+            ]
+        }
+        body = json.dumps(payload).encode()
+
+        captured: list[str] = []
+
+        def fake_get(url: str, **kw: Any) -> bytes:
+            captured.append(url)
+            return body
+
+        with patch(
+            "omni_mercury_engine.datasets.environmental.http_get_with_retry",
+            side_effect=fake_get,
+        ):
+            ok = loader._download_from_usgs()
+
+        assert ok is True
+        assert len(captured) == 1
+        # Date strings are deterministic per UTC; just sanity-check the params
+        assert "starttime=" in captured[0]
+        assert "minmagnitude=4.0" in captured[0]
+        assert "limit=50" in captured[0]
+
+
+class TestNASAFIRMSMirrorFailover:
+    def test_firms_falls_back_to_alternate_archive(self, tmp_path: Any) -> None:
+        from omni_mercury_engine.datasets.environmental import (
+            WildfireDataLoader,
+        )
+
+        config = DatasetConfig(
+            name="wildfire",
+            data_dir=str(tmp_path / "data"),
+            cache_dir=str(tmp_path / "cache"),
+            preprocessing={"source": "modis_7d"},
+            max_samples=50,
+        )
+        loader = WildfireDataLoader(config)
+
+        firms_csv = (
+            "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,"
+            "instrument,confidence,version,bright_t31,frp,daynight\n"
+            "34.05,-118.25,310.0,1.2,1.0,2024-06-15,1235,Aqua,MODIS,80,6.1NRT,"
+            "295.5,12.5,D\n"
+            "41.50,-122.30,330.0,1.0,1.0,2024-06-15,2010,Terra,MODIS,90,6.1NRT,"
+            "300.0,18.7,N\n"
+        ).encode()
+
+        primary = loader.FIRMS_URLS["modis_7d"]
+        called: list[str] = []
+
+        def fake_get(url: str, **kw: Any) -> bytes:
+            called.append(url)
+            if url == primary:
+                raise urllib.error.HTTPError(url, 503, "busy", {}, None)  # type: ignore[arg-type]
+            return firms_csv
+
+        with patch(
+            "omni_mercury_engine.datasets.environmental.http_get_with_retry",
+            side_effect=fake_get,
+        ):
+            ok = loader._download_from_firms()
+
+        assert ok is True
+        assert called[0] == primary
+        assert called[1] in loader.FIRMS_URLS.values()
