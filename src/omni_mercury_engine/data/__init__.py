@@ -51,13 +51,23 @@ from typing import Any
 # (``from omni_mercury_engine.data import benchmarks``) stay quiet.
 from omni_mercury_engine.datasets import benchmarks
 
+# Names already warned-about, so a long-running process that keeps
+# touching the same legacy attribute does not flood logs with
+# duplicate ``DeprecationWarning`` records.  Module state is fine
+# here — ``__getattr__`` is only ever invoked from a single import
+# context, and ``warnings.warn`` itself is thread-safe.
+_warned_names: set[str] = set()
+
 
 def __getattr__(name: str) -> Any:
     """Forward every other lookup into ``omni_mercury_engine.datasets``.
 
-    Emits a ``DeprecationWarning`` on each forwarded name so callers
-    are nudged toward the canonical import path without breaking
-    legacy ``from omni_mercury_engine.data import X`` imports.
+    Emits a ``DeprecationWarning`` the **first time** each name is
+    touched (subsequent accesses to the same name are silent) so
+    callers are nudged toward the canonical import path without
+    flooding long-running processes with duplicate warnings, and
+    without breaking legacy ``from omni_mercury_engine.data import X``
+    imports.
     """
     from omni_mercury_engine import datasets as _datasets
 
@@ -68,13 +78,15 @@ def __getattr__(name: str) -> Any:
             f"module {__name__!r} has no attribute {name!r} "
             f"(also not present in omni_mercury_engine.datasets)"
         ) from None
-    warnings.warn(
-        f"'omni_mercury_engine.data.{name}' is a deprecated re-export "
-        "of 'omni_mercury_engine.datasets'; import from "
-        "'omni_mercury_engine.datasets' directly.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
+    if name not in _warned_names:
+        _warned_names.add(name)
+        warnings.warn(
+            f"'omni_mercury_engine.data.{name}' is a deprecated re-export "
+            "of 'omni_mercury_engine.datasets'; import from "
+            "'omni_mercury_engine.datasets' directly.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     return value
 
 

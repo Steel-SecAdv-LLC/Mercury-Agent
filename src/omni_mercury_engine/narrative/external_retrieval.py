@@ -672,8 +672,17 @@ class DatabaseRetriever(BaseExternalRetriever):
             logger.warning(f"Invalid table name format: {target_table}")
             return None
 
-        # Build simple search query - table name validated above
-        return f"SELECT * FROM {target_table} LIMIT {max_results}"
+        # Build simple search query.
+        # B608 SAFETY CONTRACT: ``target_table`` is sourced from the
+        # ``sqlite_master`` system catalogue and validated against
+        # ``^[a-zA-Z_][a-zA-Z0-9_]*$`` immediately above this line —
+        # the regex rejects every SQL metacharacter.  ``max_results``
+        # is typed ``int`` at the caller's signature and never reaches
+        # this site as a string.  No user-controlled string flows into
+        # the f-string, so bandit's ``hardcoded_sql_expressions`` finding
+        # here is a static-analysis false positive (mirrored by the
+        # ``S608`` ruff lift in ``[tool.ruff.lint.per-file-ignores]``).
+        return f"SELECT * FROM {target_table} LIMIT {max_results}"  # nosec B608
 
     def execute_query(
         self,

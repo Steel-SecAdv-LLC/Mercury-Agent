@@ -143,9 +143,22 @@ class BiasDetector:
             # ``fairlearn`` install whose transitive deps (e.g. a stale
             # ``scikit-learn``) crash inside ``fairlearn.metrics`` at the
             # actual ``from fairlearn.metrics import …`` site.  Run the
-            # real import here via ``importlib.import_module`` and catch
-            # ``ImportError`` so the availability flag genuinely reflects
-            # what ``_compute_with_fairlearn`` will be able to do.
+            # real import here via ``importlib.import_module`` so the
+            # availability flag genuinely reflects what
+            # ``_compute_with_fairlearn`` will be able to do.
+            #
+            # The ``except`` catches ``Exception`` (not just
+            # ``ImportError``) because optional-dependency imports can
+            # fail with non-``ImportError`` types — ``RuntimeError`` from
+            # version-mismatch checks inside the package's ``__init__``,
+            # ``AttributeError`` from a stale transitive dep losing a
+            # symbol the package expects, ``OSError`` from missing
+            # binary/CUDA libraries, etc.  Letting any of these escape
+            # ``BiasDetector.__init__`` would defeat the whole point of
+            # an *optional*-dependency probe.  ``BaseException`` is
+            # deliberately not caught (KeyboardInterrupt / SystemExit
+            # remain propagating).
+            #
             # ``import_module`` keeps the probe out of the module-level
             # namespace, so the F401 ``unused-import`` rule does not fire
             # and no inline suppression is needed.
@@ -153,11 +166,12 @@ class BiasDetector:
 
             try:
                 importlib.import_module("fairlearn.metrics")
-            except ImportError as exc:
+            except Exception as exc:
                 self._fairlearn_available = False
                 logger.warning(
-                    "Fairlearn not importable (%s). Using built-in metrics. "
+                    "Fairlearn not importable (%s: %s). Using built-in metrics. "
                     "Install with: pip install fairlearn",
+                    type(exc).__name__,
                     exc,
                 )
             else:

@@ -133,26 +133,44 @@ class MatrixProfileDetector(BaseFoundationModel):
 
         # Real import (not ``find_spec``) so a STUMPY install whose
         # transitive deps fail to import is treated as unavailable.
+        # ``except Exception`` (not just ``ImportError``) because
+        # STUMPY ships compiled / vendored code: a broken numba JIT,
+        # a CUDA-stack mismatch, or a numpy ABI bump can surface at
+        # import time as ``OSError`` / ``RuntimeError`` /
+        # ``AttributeError`` rather than ``ImportError``, and a leaked
+        # exception here would crash callers that legitimately want
+        # to discover STUMPY is unusable on this host.  ``BaseException``
+        # is deliberately not caught (KeyboardInterrupt / SystemExit
+        # keep propagating).
         try:
             importlib.import_module("stumpy")
-        except ImportError as exc:
+        except Exception as exc:
             raise NotImplementedError(
-                "STUMPY not installed or not importable: "
-                f"{exc}. Install with: pip install stumpy. "
+                "STUMPY not installed or not importable "
+                f"({type(exc).__name__}: {exc}). "
+                "Install with: pip install stumpy. "
                 "Silent mock degradation is not permitted."
             ) from exc
 
         self._stumpy_available = True
         logger.info("STUMPY library loaded")
 
-        # Check GPU support — same reason: ``find_spec`` would not run the
-        # ``stumpy.gpu`` import code, and a broken CUDA stack on the host
-        # only manifests at the actual ``import stumpy.gpu`` site.
+        # Check GPU support — same reasoning amplified.  ``find_spec``
+        # would not run the ``stumpy.gpu`` import code, and a missing
+        # CUDA runtime surfaces at the real import site as ``OSError``
+        # (``cannot open shared object file``) rather than
+        # ``ImportError``.  Treat any import-time failure as "GPU
+        # unavailable, fall back to CPU" — the contract is graceful
+        # degradation for the GPU path, not for STUMPY itself.
         if self.mp_config.use_gpu:
             try:
                 importlib.import_module("stumpy.gpu")
-            except ImportError:
-                logger.info("STUMPY GPU not available, using CPU")
+            except Exception as exc:
+                logger.info(
+                    "STUMPY GPU not available (%s: %s); using CPU",
+                    type(exc).__name__,
+                    exc,
+                )
             else:
                 self._gpu_available = True
                 logger.info("STUMPY GPU acceleration available")
