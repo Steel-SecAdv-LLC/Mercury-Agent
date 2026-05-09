@@ -136,9 +136,9 @@ class TestNarrativeEngine:
                 "is_reliable": reliable,
             }
             result = engine.synthesize(detection)
-            assert result.confidence_level == expected, (
-                f"Failed for conf={conf}, reliable={reliable}"
-            )
+            assert (
+                result.confidence_level == expected
+            ), f"Failed for conf={conf}, reliable={reliable}"
 
     def test_recommendations_proportional_to_confidence(self, engine: NarrativeEngine) -> None:
         """Test that recommendations are proportional to confidence."""

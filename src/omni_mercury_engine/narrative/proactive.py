@@ -561,11 +561,7 @@ class ProactiveMonitor:
         severity_word = (
             "Critical"
             if severity > 0.8
-            else "High"
-            if severity > 0.6
-            else "Moderate"
-            if severity > 0.4
-            else "Low"
+            else "High" if severity > 0.6 else "Moderate" if severity > 0.4 else "Low"
         )
 
         if initiative_type == InitiativeType.ANOMALY_ALERT:

@@ -288,9 +288,9 @@ class TestConformalPrediction:
         empirical_coverage = np.mean(cal_scores <= threshold)
 
         # Allow some slack due to finite sample
-        assert abs(empirical_coverage - coverage) < 0.1, (
-            f"Coverage {empirical_coverage} far from target {coverage}"
-        )
+        assert (
+            abs(empirical_coverage - coverage) < 0.1
+        ), f"Coverage {empirical_coverage} far from target {coverage}"
 
     @given(st.floats(min_value=0.8, max_value=0.99))
     @settings(max_examples=20)
@@ -312,9 +312,9 @@ class TestConformalPrediction:
         stats = aci.get_coverage_stats()
 
         # Should be close to target after many updates
-        assert abs(stats["empirical_coverage"] - target_coverage) < 0.15, (
-            f"Adaptive coverage {stats['empirical_coverage']} far from {target_coverage}"
-        )
+        assert (
+            abs(stats["empirical_coverage"] - target_coverage) < 0.15
+        ), f"Adaptive coverage {stats['empirical_coverage']} far from {target_coverage}"
 
     def test_conformal_threshold_positive(self):
         """Conformal threshold should always be positive."""
@@ -382,9 +382,9 @@ class TestFusion:
         compliance = fusion.get_ethical_compliance()
 
         # Average ethical score should be >= threshold
-        assert compliance["average_ethical_score"] >= sigma_immutable * 0.9, (
-            f"Ethical score {compliance['average_ethical_score']} below threshold"
-        )
+        assert (
+            compliance["average_ethical_score"] >= sigma_immutable * 0.9
+        ), f"Ethical score {compliance['average_ethical_score']} below threshold"
 
     @given(st.floats(min_value=1.0, max_value=3.0))
     @settings(max_examples=10)
@@ -447,9 +447,9 @@ class TestBenevolenceOptimization:
 
     def test_benevolence_threshold_constant(self):
         """Verify benevolence threshold matches requirements."""
-        assert BENEVOLENCE_THRESHOLD == 0.99, (
-            f"Benevolence threshold {BENEVOLENCE_THRESHOLD} != 0.99"
-        )
+        assert (
+            BENEVOLENCE_THRESHOLD == 0.99
+        ), f"Benevolence threshold {BENEVOLENCE_THRESHOLD} != 0.99"
 
 
 # =============================================================================

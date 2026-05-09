@@ -545,9 +545,9 @@ class TestDomainCategoryMap:
     def test_all_values_are_cap_category(self):
         """Every value in the map must be a CAPCategory enum member."""
         for domain, category in DOMAIN_CATEGORY_MAP.items():
-            assert isinstance(category, CAPCategory), (
-                f"DOMAIN_CATEGORY_MAP['{domain}'] is {type(category)}, expected CAPCategory"
-            )
+            assert isinstance(
+                category, CAPCategory
+            ), f"DOMAIN_CATEGORY_MAP['{domain}'] is {type(category)}, expected CAPCategory"
 
     def test_earthquake_is_geo(self):
         """Earthquake domain should map to Geo category."""

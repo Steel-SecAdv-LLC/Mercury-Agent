@@ -85,9 +85,9 @@ class TestJWTAuthMissingKey:
                 pytest.skip("AMA native HMAC/HKDF backend unavailable; HD path unreachable.")
 
             auth = JWTAuth()
-            assert auth.secret_key is not None and len(auth.secret_key) > 0, (
-                "AMA HD-derived JWT key must populate self.secret_key in production."
-            )
+            assert (
+                auth.secret_key is not None and len(auth.secret_key) > 0
+            ), "AMA HD-derived JWT key must populate self.secret_key in production."
             assert auth.using_fallback is False
 
     def test_jwt_auth_missing_key_production_raises_when_ama_unavailable(self):

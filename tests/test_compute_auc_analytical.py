@@ -52,9 +52,9 @@ class TestComputeAucAnalytical:
         y_true = np.array([i % 2 for i in range(n)])
         y_scores = np.linspace(0, 1, n)
         auc = compute_auc(y_true, y_scores)
-        assert auc == pytest.approx(0.5, abs=0.02), (
-            f"Coin-flip interleaved: expected ~0.5, got {auc}"
-        )
+        assert auc == pytest.approx(
+            0.5, abs=0.02
+        ), f"Coin-flip interleaved: expected ~0.5, got {auc}"
 
     def test_single_class_returns_half(self) -> None:
         """Case 4: Only one class present — AUC must be 0.5 (undefined).

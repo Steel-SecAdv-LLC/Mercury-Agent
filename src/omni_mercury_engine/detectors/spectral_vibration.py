@@ -1380,7 +1380,9 @@ class SpectralVibrationDetector(BaseDetector):
                 spectrum_norm,
                 dtype=torch.float32,
                 device=self.device,
-            ).unsqueeze(0)  # [1, length]
+            ).unsqueeze(
+                0
+            )  # [1, length]
 
             features = self._cnn(spectrum_tensor)
 

@@ -64,9 +64,9 @@ def test_cooperative_loop_converges_within_budget_on_synthetic_drift() -> None:
     assert 1 <= result["iterations"] <= 4
     # The refined threshold sits between the two cluster means by construction.
     refined = result["refined_threshold"]
-    assert 0.30 < refined < 0.65, (
-        f"refined threshold {refined:.4f} did not fall between the two modes"
-    )
+    assert (
+        0.30 < refined < 0.65
+    ), f"refined threshold {refined:.4f} did not fall between the two modes"
 
 
 def test_cooperative_loop_respects_epsilon_strictly() -> None:
@@ -193,9 +193,9 @@ def test_cooperative_loop_does_not_oscillate_on_stationary_input() -> None:
     if len(significant) <= 1:
         return  # Trivially monotone.
     sign_changes = int(np.sum(np.sign(significant[1:]) != np.sign(significant[:-1])))
-    assert sign_changes <= 1, (
-        f"cooperative loop oscillated: path={path.tolist()} (sign_changes={sign_changes})"
-    )
+    assert (
+        sign_changes <= 1
+    ), f"cooperative loop oscillated: path={path.tolist()} (sign_changes={sign_changes})"
 
 
 def test_cooperative_loop_idempotent_at_fixed_point() -> None:

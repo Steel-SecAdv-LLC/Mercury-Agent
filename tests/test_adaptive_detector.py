@@ -409,9 +409,9 @@ class TestIntegration:
         anomaly_scores = [result.scores[i] for i in anomaly_indices]
         normal_scores = [result.scores[i] for i in range(n) if i not in anomaly_indices]
 
-        assert np.mean(anomaly_scores) > np.percentile(normal_scores, 80), (
-            "Anomalies should score above 80th percentile"
-        )
+        assert np.mean(anomaly_scores) > np.percentile(
+            normal_scores, 80
+        ), "Anomalies should score above 80th percentile"
 
 
 if __name__ == "__main__":

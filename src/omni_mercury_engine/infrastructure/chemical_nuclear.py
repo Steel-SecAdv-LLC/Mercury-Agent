@@ -133,9 +133,7 @@ class ChemicalNuclearDetector:
             "safety_status": (
                 "CRITICAL"
                 if any(a.get("requires_emergency_response") for a in anomalies.values())
-                else "WARNING"
-                if anomalies
-                else "NORMAL"
+                else "WARNING" if anomalies else "NORMAL"
             ),
             "cross_sector_impact": cross_sector_impact,
             "recommended_actions": self._generate_recommendations(anomalies),

@@ -586,9 +586,7 @@ class RigorousBenchmarkHarness:
                     else (
                         "medium"
                         if abs(cohens_d) > 0.5
-                        else "small"
-                        if abs(cohens_d) > 0.2
-                        else "negligible"
+                        else "small" if abs(cohens_d) > 0.2 else "negligible"
                     )
                 ),
             },

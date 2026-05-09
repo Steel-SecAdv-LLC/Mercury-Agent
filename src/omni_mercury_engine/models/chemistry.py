@@ -222,15 +222,7 @@ class ChemistryAnomalyDetector:
                 else (
                     2
                     if Z <= 10
-                    else 3
-                    if Z <= 18
-                    else 4
-                    if Z <= 36
-                    else 5
-                    if Z <= 54
-                    else 6
-                    if Z <= 86
-                    else 7
+                    else 3 if Z <= 18 else 4 if Z <= 36 else 5 if Z <= 54 else 6 if Z <= 86 else 7
                 )
             )
 

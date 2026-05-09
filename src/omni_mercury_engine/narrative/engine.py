@@ -544,11 +544,7 @@ class NarrativeEngine:
         severity_word = (
             "critical"
             if severity > 0.8
-            else "significant"
-            if severity > 0.6
-            else "moderate"
-            if severity > 0.4
-            else "minor"
+            else "significant" if severity > 0.6 else "moderate" if severity > 0.4 else "minor"
         )
 
         if style == NarrativeStyle.URGENT:

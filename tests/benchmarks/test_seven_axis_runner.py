@@ -75,9 +75,9 @@ def test_runner_is_deterministic_for_fixed_seed() -> None:
                 f"between runs ({a_score:.4f} vs {b_score:.4f})"
             )
         else:
-            assert a_score == b_score, (
-                f"{name}: deterministic axis was not reproducible ({a_score} vs {b_score})"
-            )
+            assert (
+                a_score == b_score
+            ), f"{name}: deterministic axis was not reproducible ({a_score} vs {b_score})"
 
 
 def test_json_payload_roundtrips() -> None:

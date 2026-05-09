@@ -1252,9 +1252,7 @@ class RefactoringEngine:
             "threshold_status": (
                 "OK"
                 if total_complexity <= 10
-                else "WARNING"
-                if total_complexity <= 15
-                else "CRITICAL"
+                else "WARNING" if total_complexity <= 15 else "CRITICAL"
             ),
         }
 

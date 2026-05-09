@@ -235,9 +235,9 @@ class TestInterfaceCompliance:
         sig = inspect.signature(cls.fetch_realtime)
         # Only parameter should be 'self'
         params = list(sig.parameters.keys())
-        assert params == ["self"], (
-            f"{class_name}.fetch_realtime should accept only 'self', got {params}"
-        )
+        assert params == [
+            "self"
+        ], f"{class_name}.fetch_realtime should accept only 'self', got {params}"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_fetch_historical_signature(
@@ -365,9 +365,9 @@ class TestListEvents:
         loader = _make_loader(module_path, class_name, tmp_path)
         events = loader.list_events()
         for idx, event in enumerate(events):
-            assert isinstance(event, dict), (
-                f"{class_name}.list_events()[{idx}] is not a dict: {type(event)}"
-            )
+            assert isinstance(
+                event, dict
+            ), f"{class_name}.list_events()[{idx}] is not a dict: {type(event)}"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_list_events_required_keys(
@@ -416,9 +416,9 @@ class TestListEvents:
         loader = _make_loader(module_path, class_name, tmp_path)
         events = loader.list_events()
         event_ids = [e["event_id"] for e in events]
-        assert len(event_ids) == len(set(event_ids)), (
-            f"{class_name}.list_events() contains duplicate event_ids"
-        )
+        assert len(event_ids) == len(
+            set(event_ids)
+        ), f"{class_name}.list_events() contains duplicate event_ids"
 
 
 # =========================================================================
@@ -800,12 +800,12 @@ class TestFeatureEngineering:
         mock_df = factory()
         features = loader.engineer_features(mock_df)
 
-        assert isinstance(features, np.ndarray), (
-            f"{class_name}.engineer_features() should return np.ndarray"
-        )
-        assert features.ndim == 2, (
-            f"{class_name}.engineer_features() should return a 2-D array, got {features.ndim}-D"
-        )
+        assert isinstance(
+            features, np.ndarray
+        ), f"{class_name}.engineer_features() should return np.ndarray"
+        assert (
+            features.ndim == 2
+        ), f"{class_name}.engineer_features() should return a 2-D array, got {features.ndim}-D"
 
     # Loaders that aggregate/bin input rows (output rows != input rows).
     _AGGREGATING_LOADERS = {"MarineLoader"}
@@ -827,9 +827,9 @@ class TestFeatureEngineering:
         if class_name in self._AGGREGATING_LOADERS:
             # MarineLoader bins into spatial grid cells so output rows
             # may differ from input rows.  Just verify non-zero output.
-            assert features.shape[0] > 0, (
-                f"{class_name}.engineer_features() returned 0 rows from {len(mock_df)} input rows"
-            )
+            assert (
+                features.shape[0] > 0
+            ), f"{class_name}.engineer_features() returned 0 rows from {len(mock_df)} input rows"
         else:
             assert features.shape[0] == len(mock_df), (
                 f"{class_name}.engineer_features() row count mismatch: "
@@ -868,9 +868,9 @@ class TestFeatureEngineering:
         features = loader.engineer_features(mock_df)
 
         inf_count = int(np.isinf(features).sum())
-        assert inf_count == 0, (
-            f"{class_name}.engineer_features() produced {inf_count} infinite values"
-        )
+        assert (
+            inf_count == 0
+        ), f"{class_name}.engineer_features() produced {inf_count} infinite values"
 
     @pytest.mark.parametrize("class_name,module_path,domain,requires_key", _LOADER_PARAMS)
     def test_engineer_features_positive_feature_count(
@@ -918,9 +918,9 @@ class TestFeatureEngineering:
         mock_df = factory()
         features = loader.engineer_features(mock_df)
 
-        assert np.issubdtype(features.dtype, np.floating), (
-            f"{class_name}.engineer_features() dtype is {features.dtype}, expected floating-point"
-        )
+        assert np.issubdtype(
+            features.dtype, np.floating
+        ), f"{class_name}.engineer_features() dtype is {features.dtype}, expected floating-point"
 
 
 # =========================================================================
@@ -1146,9 +1146,9 @@ class TestNoSklearnImports:
         new_modules = after - before
 
         sklearn_modules = [m for m in new_modules if m.startswith("sklearn")]
-        assert len(sklearn_modules) == 0, (
-            f"Importing {module_path} loaded sklearn modules: {sklearn_modules}"
-        )
+        assert (
+            len(sklearn_modules) == 0
+        ), f"Importing {module_path} loaded sklearn modules: {sklearn_modules}"
 
     def test_base_loader_no_sklearn(self) -> None:
         """The base loader itself does not import sklearn."""

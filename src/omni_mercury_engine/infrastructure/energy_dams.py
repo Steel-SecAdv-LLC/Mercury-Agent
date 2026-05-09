@@ -181,9 +181,7 @@ class EnergyDamsDetector:
             "safety_status": (
                 "CRITICAL"
                 if any(a.get("severity") == "CRITICAL" for a in anomalies.values())
-                else "WARNING"
-                if anomalies
-                else "SAFE"
+                else "WARNING" if anomalies else "SAFE"
             ),
             "downstream_impact": downstream_impact,
             "evacuation_recommended": any(

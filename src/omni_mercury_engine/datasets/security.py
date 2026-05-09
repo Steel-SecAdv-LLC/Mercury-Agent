@@ -408,9 +408,7 @@ class NSLKDDLoader(DatasetLoader):
             labels.append(
                 0
                 if attack_type == "normal"
-                else 1
-                if self.binary_labels
-                else self.CATEGORY_LABELS[attack_type]
+                else 1 if self.binary_labels else self.CATEGORY_LABELS[attack_type]
             )
 
         self._features = np.array(features, dtype=np.float32)

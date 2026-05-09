@@ -205,9 +205,7 @@ class WorldBankSectorsMonitor:
             "regenerative_potential": (
                 "net_positive"
                 if overall_score > 0.80
-                else "sustainable"
-                if overall_score > 0.65
-                else "needs_improvement"
+                else "sustainable" if overall_score > 0.65 else "needs_improvement"
             ),
         }
 

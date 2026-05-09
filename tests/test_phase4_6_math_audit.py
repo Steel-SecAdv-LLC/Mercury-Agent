@@ -723,9 +723,9 @@ class TestSPDManifold:
         y = np.array([[3.0, 0.3], [0.3, 1.5]])
         v = manifold.log_map(x, y)
         recovered = manifold.exp_map(x, v)
-        assert np.allclose(recovered, y, atol=0.1), (
-            f"exp(log(y)) should ≈ y.\nExpected:\n{y}\nGot:\n{recovered}"
-        )
+        assert np.allclose(
+            recovered, y, atol=0.1
+        ), f"exp(log(y)) should ≈ y.\nExpected:\n{y}\nGot:\n{recovered}"
 
 
 class TestCrossConformalPredictor:
@@ -747,9 +747,9 @@ class TestCrossConformalPredictor:
         # Max aggregation should produce threshold >= median of folds
         threshold = predictor.get_anomaly_threshold()
         median_threshold = float(np.median(predictor.fold_thresholds))
-        assert threshold >= median_threshold, (
-            f"Max-aggregated threshold {threshold} should be >= median {median_threshold}"
-        )
+        assert (
+            threshold >= median_threshold
+        ), f"Max-aggregated threshold {threshold} should be >= median {median_threshold}"
 
     def test_cross_conformal_all_folds_produce_thresholds(self) -> None:
         from omni_mercury_engine.core.conformal_prediction import CrossConformalPredictor
@@ -791,9 +791,9 @@ class TestWassersteinTriangleInequality:
         d_ab = wasserstein_distance_pd(dgm_a, dgm_b)
         d_bc = wasserstein_distance_pd(dgm_b, dgm_c)
         d_ac = wasserstein_distance_pd(dgm_a, dgm_c)
-        assert d_ac <= d_ab + d_bc + 1e-10, (
-            f"Triangle inequality violated: d(A,C)={d_ac} > d(A,B)+d(B,C)={d_ab + d_bc}"
-        )
+        assert (
+            d_ac <= d_ab + d_bc + 1e-10
+        ), f"Triangle inequality violated: d(A,C)={d_ac} > d(A,B)+d(B,C)={d_ab + d_bc}"
 
     def test_wasserstein_symmetry(self) -> None:
         """Wasserstein distance must be symmetric."""
@@ -827,15 +827,15 @@ class TestGoldenRatioWeightCorrectness:
         expected_h = 1.0 / phi_sum
         expected_o = (1.0 / phi) / phi_sum
 
-        assert abs(FUSION.OAE_WEIGHT_R - expected_r) < 0.001, (
-            f"w_R should be {expected_r:.6f}, got {FUSION.OAE_WEIGHT_R}"
-        )
-        assert abs(FUSION.OAE_WEIGHT_H - expected_h) < 0.001, (
-            f"w_H should be {expected_h:.6f}, got {FUSION.OAE_WEIGHT_H}"
-        )
-        assert abs(FUSION.OAE_WEIGHT_O - expected_o) < 0.001, (
-            f"w_O should be {expected_o:.6f}, got {FUSION.OAE_WEIGHT_O}"
-        )
+        assert (
+            abs(FUSION.OAE_WEIGHT_R - expected_r) < 0.001
+        ), f"w_R should be {expected_r:.6f}, got {FUSION.OAE_WEIGHT_R}"
+        assert (
+            abs(FUSION.OAE_WEIGHT_H - expected_h) < 0.001
+        ), f"w_H should be {expected_h:.6f}, got {FUSION.OAE_WEIGHT_H}"
+        assert (
+            abs(FUSION.OAE_WEIGHT_O - expected_o) < 0.001
+        ), f"w_O should be {expected_o:.6f}, got {FUSION.OAE_WEIGHT_O}"
 
     def test_aafe_weights_sum_to_one(self) -> None:
         from omni_mercury_engine.core.centralized_constants import FUSION

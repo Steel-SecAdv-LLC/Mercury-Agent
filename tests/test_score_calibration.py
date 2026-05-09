@@ -613,16 +613,16 @@ class TestReturnTypeConsistency:
         for method in methods:
             result = optimizer.optimize(scores, method=method, labels=labels)
 
-            assert isinstance(result, CalibrationResult), (
-                f"Method {method} didn't return CalibrationResult"
-            )
+            assert isinstance(
+                result, CalibrationResult
+            ), f"Method {method} didn't return CalibrationResult"
             assert isinstance(result.threshold, float), f"Method {method} threshold not float"
-            assert isinstance(result.predictions, np.ndarray), (
-                f"Method {method} predictions not ndarray"
-            )
-            assert len(result.predictions) == len(scores), (
-                f"Method {method} predictions length mismatch"
-            )
+            assert isinstance(
+                result.predictions, np.ndarray
+            ), f"Method {method} predictions not ndarray"
+            assert len(result.predictions) == len(
+                scores
+            ), f"Method {method} predictions length mismatch"
 
 
 if __name__ == "__main__":

@@ -339,9 +339,7 @@ class QuantumRiskCyber:
                         "urgency": (
                             "CRITICAL"
                             if priority_score > 50
-                            else "HIGH"
-                            if priority_score > 20
-                            else "MEDIUM"
+                            else "HIGH" if priority_score > 20 else "MEDIUM"
                         ),
                     }
                 )

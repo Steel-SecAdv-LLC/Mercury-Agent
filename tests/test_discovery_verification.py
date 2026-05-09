@@ -98,9 +98,9 @@ class TestDoubleHelixEngine:
         )
 
         c = _evolve(seed=43)
-        assert not np.array_equal(a, c), (
-            "Different seeds produced identical evolution; seed has no effect."
-        )
+        assert not np.array_equal(
+            a, c
+        ), "Different seeds produced identical evolution; seed has no effect."
 
 
 class TestEthicalScalars:

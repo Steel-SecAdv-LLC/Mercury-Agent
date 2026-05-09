@@ -279,9 +279,7 @@ class EpidemicForecaster:
             "healthcare_system_strain": (
                 "CRITICAL"
                 if peak_infections > 0.05 * self.population
-                else "MODERATE"
-                if peak_infections > 0.01 * self.population
-                else "LOW"
+                else "MODERATE" if peak_infections > 0.01 * self.population else "LOW"
             ),
         }
 

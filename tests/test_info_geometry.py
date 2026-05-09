@@ -281,9 +281,9 @@ class TestFisherMatrixCorrectness:
         # For identity cov, FIM ≈ I + lambda*I = (1+lambda)*I
         # The diagonal should be close to 1.0 (regularization is small)
         diag = np.diag(fisher)
-        assert np.allclose(diag, diag[0], atol=1e-6), (
-            "FIM diagonal should be uniform for identity cov"
-        )
+        assert np.allclose(
+            diag, diag[0], atol=1e-6
+        ), "FIM diagonal should be uniform for identity cov"
         assert diag[0] > 0.99, "FIM diagonal for identity cov should be close to 1.0"
 
     def test_fim_equals_cov_inverse_for_scaled_identity(self):
@@ -295,9 +295,9 @@ class TestFisherMatrixCorrectness:
         fisher = detector._compute_fisher_matrix(mean, cov)
         expected_diag = 1.0 / sigma_sq  # = 0.25
         diag = np.diag(fisher)
-        assert np.allclose(diag, expected_diag, atol=0.01), (
-            f"FIM diagonal for {sigma_sq}*I should be ~{expected_diag}, got {diag}"
-        )
+        assert np.allclose(
+            diag, expected_diag, atol=0.01
+        ), f"FIM diagonal for {sigma_sq}*I should be ~{expected_diag}, got {diag}"
 
     def test_fim_symmetry(self):
         """FIM must be symmetric."""

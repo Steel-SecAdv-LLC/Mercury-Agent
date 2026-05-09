@@ -211,18 +211,18 @@ class TestDataTypeDetection:
         X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert result == DataCharacteristics.UNKNOWN, (
-            f"Expected UNKNOWN for small data, got {result.value}"
-        )
+        assert (
+            result == DataCharacteristics.UNKNOWN
+        ), f"Expected UNKNOWN for small data, got {result.value}"
 
     def test_gaussian_tabular_detected(self) -> None:
         """Shuffled Gaussian data should be detected as TABULAR."""
         X, _ = _make_gaussian_dataset()
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert result == DataCharacteristics.TABULAR, (
-            f"Expected TABULAR for shuffled Gaussian, got {result.value}"
-        )
+        assert (
+            result == DataCharacteristics.TABULAR
+        ), f"Expected TABULAR for shuffled Gaussian, got {result.value}"
 
 
 class TestComponentPerformance:
@@ -275,9 +275,9 @@ class TestUnsupervisedAdaptiveWeighting:
         det = MercuryAnomalyDetector()
         det.fit(X)
         weights = det._adaptive_weights
-        assert weights[1] < 0.05, (
-            f"Kinematic weight on tabular data should be < 0.05, got {weights[1]:.4f}"
-        )
+        assert (
+            weights[1] < 0.05
+        ), f"Kinematic weight on tabular data should be < 0.05, got {weights[1]:.4f}"
 
     def test_temporal_preserves_kinematic(self) -> None:
         """KinematicScore weight should be preserved on temporal data."""
@@ -286,9 +286,9 @@ class TestUnsupervisedAdaptiveWeighting:
         det.fit(X)
         weights = det._adaptive_weights
         # On temporal data, kinematic should have some weight
-        assert weights[1] > 0.0, (
-            f"Kinematic weight on temporal data should be > 0, got {weights[1]:.4f}"
-        )
+        assert (
+            weights[1] > 0.0
+        ), f"Kinematic weight on temporal data should be > 0, got {weights[1]:.4f}"
 
     def test_weights_sum_to_one(self) -> None:
         """Adaptive weights must always sum to 1."""
@@ -304,9 +304,9 @@ class TestUnsupervisedAdaptiveWeighting:
         X, _ = _make_tabular_dataset()
         det = MercuryAnomalyDetector()
         det.fit(X)
-        assert np.all(det._adaptive_weights >= 0), (
-            f"Negative weights detected: {det._adaptive_weights}"
-        )
+        assert np.all(
+            det._adaptive_weights >= 0
+        ), f"Negative weights detected: {det._adaptive_weights}"
 
     def test_data_type_stored(self) -> None:
         """Data type should be stored after fit()."""
@@ -364,9 +364,9 @@ class TestPerComponentValidation:
         det.fit(X)
         result = det.validate()
         # Should have reasonable AUC on synthetic test
-        assert result["ensemble_auc"] >= 0.3, (
-            f"Ensemble AUC on validation: {result['ensemble_auc']:.4f}"
-        )
+        assert (
+            result["ensemble_auc"] >= 0.3
+        ), f"Ensemble AUC on validation: {result['ensemble_auc']:.4f}"
 
     def test_validate_unfitted_returns_safe(self) -> None:
         """Validate on unfitted detector should return safe defaults."""
@@ -508,9 +508,9 @@ class TestBackwardCompatibility:
             "threshold",
             "calibration_diagnostics",
         }
-        assert expected_keys.issubset(set(result.keys())), (
-            f"Missing keys: {expected_keys - set(result.keys())}"
-        )
+        assert expected_keys.issubset(
+            set(result.keys())
+        ), f"Missing keys: {expected_keys - set(result.keys())}"
 
     def test_detector_type_unchanged(self) -> None:
         X, _ = _make_gaussian_dataset()
@@ -637,9 +637,9 @@ class TestFrequencyDomainOracleNyquist:
 
         oracle = FrequencyDomainOracle({"domain": "environmental", "sample_rate": 20.0})
         weight_sum = sum(w for _, _, _, w in oracle._bands)
-        assert abs(weight_sum - 1.0) < 1e-6, (
-            f"Weights should sum to 1.0 after Nyquist filtering, got {weight_sum}"
-        )
+        assert (
+            abs(weight_sum - 1.0) < 1e-6
+        ), f"Weights should sum to 1.0 after Nyquist filtering, got {weight_sum}"
 
     def test_full_sample_rate_keeps_all_bands(self) -> None:
         from omni_mercury_engine.detectors.spectral_domain_oracle import (
@@ -856,9 +856,9 @@ class TestFrequencyDomainOracleConfig:
         oracle.fit(rng.standard_normal((5, 512)))
         result = oracle.detect(rng.standard_normal(512))
         iv = result["influence_vector"]
-        assert isinstance(iv.band_scores, dict), (
-            f"band_scores should be dict, got {type(iv.band_scores)}"
-        )
+        assert isinstance(
+            iv.band_scores, dict
+        ), f"band_scores should be dict, got {type(iv.band_scores)}"
 
 
 # ===========================================================================

@@ -499,13 +499,13 @@ class TestCrossDetector3RConsistency:
             if name == "flood":
                 # FloodDetector uses core_refactoring_engine for code analysis
                 # and prediction_optimizer for flood prediction refinement
-                assert hasattr(detector, "core_refactoring_engine"), (
-                    f"{name} missing core_refactoring_engine"
-                )
+                assert hasattr(
+                    detector, "core_refactoring_engine"
+                ), f"{name} missing core_refactoring_engine"
                 assert isinstance(detector.core_refactoring_engine, RefactoringEngine)
-                assert hasattr(detector, "prediction_optimizer"), (
-                    f"{name} missing prediction_optimizer"
-                )
+                assert hasattr(
+                    detector, "prediction_optimizer"
+                ), f"{name} missing prediction_optimizer"
                 assert isinstance(detector.prediction_optimizer, FloodPredictionOptimizer)
             else:
                 assert hasattr(detector, "refactoring_engine"), f"{name} missing refactoring_engine"

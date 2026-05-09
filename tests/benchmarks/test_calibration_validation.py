@@ -87,9 +87,9 @@ class TestRunCalibrationValidation:
             "delta_f1",
             "auc",
         }
-        assert expected_keys.issubset(result.keys()), (
-            f"Missing keys: {expected_keys - result.keys()}"
-        )
+        assert expected_keys.issubset(
+            result.keys()
+        ), f"Missing keys: {expected_keys - result.keys()}"
 
     def test_f1_values_in_range(self) -> None:
         X_train, y_train, _, X_test, y_test = _make_synthetic_data()
@@ -166,9 +166,9 @@ class TestRunFusionWeightAnalysis:
             "f1_at_learned_weights",
             "notes",
         }
-        assert expected_keys.issubset(result.keys()), (
-            f"Missing keys: {expected_keys - result.keys()}"
-        )
+        assert expected_keys.issubset(
+            result.keys()
+        ), f"Missing keys: {expected_keys - result.keys()}"
 
     def test_adaptive_weights_valid(self) -> None:
         X_train, y_train, _, X_test, y_test = _make_synthetic_data()

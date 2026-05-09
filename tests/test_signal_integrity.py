@@ -107,9 +107,9 @@ class TestContinuousScores:
 
         # Should be continuous [0, 1], not just binary
         unique_if = np.unique(if_scores)
-        assert len(unique_if) > 5, (
-            f"IF scores should be continuous, got {len(unique_if)} unique values"
-        )
+        assert (
+            len(unique_if) > 5
+        ), f"IF scores should be continuous, got {len(unique_if)} unique values"
 
     def test_backward_compatibility(self, detector, toy_data):
         """Verify legacy keys still exist for backward compatibility."""
@@ -177,9 +177,9 @@ class TestROCAUCImprovement:
         discrete_auc = roc_auc_score(y, discrete_scores)
 
         # Continuous should be at least as good, ideally better
-        assert continuous_auc >= discrete_auc - 0.01, (
-            f"Continuous AUC ({continuous_auc:.3f}) should be >= discrete AUC ({discrete_auc:.3f})"
-        )
+        assert (
+            continuous_auc >= discrete_auc - 0.01
+        ), f"Continuous AUC ({continuous_auc:.3f}) should be >= discrete AUC ({discrete_auc:.3f})"
 
 
 class TestAdaptiveContamination:

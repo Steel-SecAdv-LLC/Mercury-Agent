@@ -149,9 +149,9 @@ def test_aggregator_two_nodes(
     for i in range(_N_FEATURES):
         lo = min(stats_a.mean[i], stats_b.mean[i])
         hi = max(stats_a.mean[i], stats_b.mean[i])
-        assert lo <= global_stats.mean[i] <= hi, (
-            f"Feature {i}: aggregated mean {global_stats.mean[i]} not between {lo} and {hi}"
-        )
+        assert (
+            lo <= global_stats.mean[i] <= hi
+        ), f"Feature {i}: aggregated mean {global_stats.mean[i]} not between {lo} and {hi}"
 
     assert global_stats.n_samples == _N_SAMPLES_A + _N_SAMPLES_B
     assert global_stats.n_features == _N_FEATURES
@@ -249,9 +249,9 @@ def test_federated_detector_matches_centralized() -> None:
 
     # Scores should be positively correlated
     correlation = np.corrcoef(central_scores, fed_scores)[0, 1]
-    assert correlation > 0.5, (
-        f"Federated and centralized scores poorly correlated: r={correlation:.3f}"
-    )
+    assert (
+        correlation > 0.5
+    ), f"Federated and centralized scores poorly correlated: r={correlation:.3f}"
 
 
 # ---------------------------------------------------------------------------
