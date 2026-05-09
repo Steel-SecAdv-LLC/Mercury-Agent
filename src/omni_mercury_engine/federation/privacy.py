@@ -42,9 +42,9 @@ class DifferentialPrivacy:
             Default 10.0. Increase for data with larger dynamic range.
         rng: Optional numpy `Generator` providing the noise source.  If
             omitted, a fresh OS-seeded `np.random.default_rng()` is
-            constructed per instance — the global `np.random` legacy
-            state is **never** used, so a caller cannot accidentally
-            de-randomise the privacy noise via `np.random.seed(...)`
+            constructed per instance — the global numpy legacy state is
+            **never** used, so a caller cannot accidentally de-randomise
+            the privacy noise via a process-wide global-state seed call
             elsewhere in the process. For audited / reproducible
             deployments pass an explicit `np.random.default_rng(seed)`
             seeded from a documented entropy source.

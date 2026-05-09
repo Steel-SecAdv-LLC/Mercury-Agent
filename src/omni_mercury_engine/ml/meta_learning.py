@@ -252,7 +252,7 @@ class MLPEncoder(FeatureEncoder):
             seed: Optional seed for the per-instance ``Generator`` driving
                 Xavier weight initialization.  Defaults to ``42`` to
                 preserve the deterministic behavior of the previous
-                ``np.random.seed(42)`` global-state call.  Pass ``None``
+                global-state numpy seed call (seed=42).  Pass ``None``
                 to use OS entropy.
         """
         self.input_dim = input_dim
@@ -677,9 +677,9 @@ class MAML:
             first_order: Use first-order approximation (FOMAML)
             seed: Optional seed for the per-instance ``Generator`` driving
                 parameter initialization.  Defaults to ``42`` to preserve
-                the deterministic behavior of the previous
-                ``np.random.seed(42)`` global-state call.  Pass ``None``
-                to use OS entropy.
+                the deterministic behavior of the previous global-state
+                numpy seed call (seed=42).  Pass ``None`` to use OS
+                entropy.
         """
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim

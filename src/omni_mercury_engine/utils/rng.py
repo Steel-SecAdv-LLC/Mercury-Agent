@@ -85,8 +85,6 @@ class DeterministicRNG:
         """
         self._seed = seed
 
-        np.random.seed(seed)
-
         random.seed(seed)
 
         if TORCH_AVAILABLE and torch is not None:
@@ -310,12 +308,12 @@ class DeterministicRNG:
     @staticmethod
     def make_deterministic(seed: int = 42) -> None:
         """
-        Make all random operations deterministic across the entire environment.
+        Make Python and torch RNGs deterministic across the environment.
 
-        Args:
-            seed: Seed value for determinism
+        No longer touches numpy's legacy global state — every numpy-using
+        code path under ``src/`` constructs a per-instance
+        ``np.random.default_rng(seed)`` so the global is unreachable.
         """
-        np.random.seed(seed)
         random.seed(seed)
 
         if TORCH_AVAILABLE and torch is not None:

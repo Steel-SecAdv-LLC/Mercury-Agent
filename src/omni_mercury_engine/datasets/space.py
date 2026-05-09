@@ -387,17 +387,17 @@ class NASAExoplanetLoader(DatasetLoader):
         for _i in range(n_samples):
             # Generate realistic exoplanet parameters
             params = {
-                "orbital_period": np.random.lognormal(2, 1.5),  # days
-                "planet_radius": np.random.lognormal(0, 0.8),  # Earth radii
-                "stellar_mass": np.random.lognormal(0, 0.3),  # Solar masses
-                "stellar_radius": np.random.lognormal(0, 0.3),  # Solar radii
+                "orbital_period": rng.lognormal(2, 1.5),  # days
+                "planet_radius": rng.lognormal(0, 0.8),  # Earth radii
+                "stellar_mass": rng.lognormal(0, 0.3),  # Solar masses
+                "stellar_radius": rng.lognormal(0, 0.3),  # Solar radii
                 "stellar_temp": rng.normal(5500, 800),  # Kelvin
                 "transit_depth": rng.exponential(0.001),  # fraction
-                "transit_duration": np.random.lognormal(1, 0.5),  # hours
-                "insolation_flux": np.random.lognormal(0, 1),  # Earth flux
+                "transit_duration": rng.lognormal(1, 0.5),  # hours
+                "insolation_flux": rng.lognormal(0, 1),  # Earth flux
                 "equilibrium_temp": rng.normal(500, 300),  # Kelvin
                 "eccentricity": rng.beta(1, 5),  # 0-1
-                "semi_major_axis": np.random.lognormal(-0.5, 1),  # AU
+                "semi_major_axis": rng.lognormal(-0.5, 1),  # AU
                 "inclination": rng.uniform(80, 90),  # degrees
             }
             # Mass-radius relation (Chen & Kipping 2017,
@@ -413,7 +413,7 @@ class NASAExoplanetLoader(DatasetLoader):
                 mass_mean = radius_earths**3.7
             else:
                 mass_mean = (1.5**3.7) * (radius_earths / 1.5) ** 0.6
-            params["planet_mass"] = float(mass_mean * np.random.lognormal(0.0, 0.25))
+            params["planet_mass"] = float(mass_mean * rng.lognormal(0.0, 0.25))
 
             feature_vec = [params[f] for f in self.FEATURE_NAMES]
             features.append(feature_vec)

@@ -138,7 +138,7 @@ class MemoryVectorizer:
                 SAME projection for a given input length — pass a different
                 ``seed`` to get a different projection identity.  Defaults
                 to ``42`` to preserve the deterministic behavior of the
-                previous ``np.random.seed(42)`` global-state call.  Pass
+                previous global-state numpy seed call (seed=42).  Pass
                 ``None`` to draw projection bytes from OS entropy on every
                 call (NOT recommended — projections become non-reproducible).
         """

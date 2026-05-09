@@ -168,10 +168,10 @@ class MIMICLoader(DatasetLoader):
             "glucose": rng.normal(100, 30, n_samples),
             # Labs
             "lactate": rng.exponential(1.5, n_samples),
-            "creatinine": np.random.lognormal(0, 0.5, n_samples),
-            "bilirubin": np.random.lognormal(-0.5, 0.8, n_samples),
+            "creatinine": rng.lognormal(0, 0.5, n_samples),
+            "bilirubin": rng.lognormal(-0.5, 0.8, n_samples),
             "platelet_count": rng.normal(250, 80, n_samples),
-            "white_blood_cell": np.random.lognormal(2.2, 0.5, n_samples),
+            "white_blood_cell": rng.lognormal(2.2, 0.5, n_samples),
             "hemoglobin": rng.normal(12, 2, n_samples),
             "pao2": rng.normal(95, 15, n_samples),
             "paco2": rng.normal(40, 8, n_samples),

@@ -60,7 +60,7 @@ import numpy as np
 # symbol below. At runtime we attempt the real import and fall back to local
 # stub classes that match the real API surface. The stubs are therefore
 # defined exactly once on the runtime path, eliminating any need for
-# ``# type: ignore[no-redef]`` suppressions.
+# the no-redef type-ignore suppressions that earlier branches required.
 # ---------------------------------------------------------------------------
 if TYPE_CHECKING:
     from ama_cryptography.adaptive_posture import (
@@ -237,8 +237,8 @@ else:
             # surface; it is kept as a compatibility shim for installs that
             # haven't migrated to ``ama-cryptography`` yet. Mypy uses the
             # ``ama_cryptography.pqc_backends`` types via the TYPE_CHECKING
-            # branch above, so this runtime fallback does not require a
-            # ``# type: ignore[no-redef]`` annotation.
+            # branch above, so this runtime fallback does not require any
+            # no-redef type-ignore annotation.
             from ava_guardian.pqc_backends import (
                 DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
                 KYBER_AVAILABLE as _KYBER_AVAILABLE,

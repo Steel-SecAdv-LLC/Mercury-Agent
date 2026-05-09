@@ -156,19 +156,11 @@ class StackingFusion:
         if not self.detectors:
             raise ValueError("Must add detectors before fitting")
 
-        # Intentional global-state seeding: the downstream ``cross_val_predict``
-        # in ``mercury_ml`` is a thin sklearn shim whose internal ``KFold``
-        # consumes the legacy global ``np.random`` state when ``random_state``
-        # is not threaded through.  Until ``cross_val_predict`` accepts an
-        # explicit ``random_state``/``Generator`` parameter, calling
-        # ``np.random.seed(self.seed)`` here is the only way to keep the CV
-        # fold indices reproducible from ``self.seed``.  Tracked debt:
-        # surface ``random_state`` in ``mercury_ml.cross_val_predict`` so
-        # this site can graduate to ``np.random.default_rng(self.seed)``
-        # plumbing.
-        np.random.seed(self.seed)
-
-        # Import sklearn functions needed for cross-validation
+        # ``cross_val_predict`` now accepts an explicit ``random_state``
+        # parameter that is plumbed through to sklearn's
+        # ``StratifiedKFold(shuffle=True, random_state=...)`` so the CV
+        # fold indices are deterministic from ``self.seed`` without
+        # touching the legacy global numpy RNG state.
         try:
             from omni_mercury_engine.ml.mercury_ml import cross_val_predict
         except ImportError as e:
@@ -198,6 +190,7 @@ class StackingFusion:
                             y,
                             cv=self.cv_folds,
                             method="predict_proba",
+                            random_state=self.seed,
                         )
                         if oof_pred.ndim == 2:
                             oof_pred = oof_pred[:, 1]
@@ -207,6 +200,7 @@ class StackingFusion:
                             X,
                             y,
                             cv=self.cv_folds,
+                            random_state=self.seed,
                         ).astype(float)
                 else:
                     oof_pred = cross_val_predict(
@@ -214,6 +208,7 @@ class StackingFusion:
                         X,
                         y,
                         cv=self.cv_folds,
+                        random_state=self.seed,
                     ).astype(float)
 
                 meta_features.append(oof_pred)

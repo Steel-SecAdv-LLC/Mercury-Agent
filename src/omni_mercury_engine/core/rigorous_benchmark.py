@@ -163,11 +163,15 @@ class BenchmarkResult:
 
 
 def set_all_seeds(seed: int = GLOBAL_SEED) -> None:
-    """Set all random seeds for reproducibility."""
+    """Set Python and torch RNG seeds for reproducibility.
+
+    No longer touches numpy's legacy global state — every numpy-using
+    code path under ``src/`` constructs a per-instance
+    ``np.random.default_rng(seed)`` so the global is unreachable.
+    """
     import random
 
     random.seed(seed)
-    np.random.seed(seed)
 
     try:
         import torch

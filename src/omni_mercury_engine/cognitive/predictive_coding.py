@@ -385,7 +385,7 @@ class HierarchicalPredictiveCoder:
             seed: Optional seed for the per-instance ``Generator`` driving
                 hierarchy weight initialization. Defaults to ``42`` to
                 preserve the deterministic behavior of the previous
-                ``np.random.seed(42)`` global-state call. Pass ``None`` to
+                global-state numpy seed call (seed=42). Pass ``None`` to
                 use OS entropy instead.
         """
         self.input_dim = input_dim or 10

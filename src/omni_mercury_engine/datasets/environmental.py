@@ -987,24 +987,24 @@ class USGSGeochemistryLoader(DatasetLoader):
 
             if is_contaminated:
                 # Elevated levels at contamination sites
-                arsenic = np.random.lognormal(2.0, 1.0)  # Higher mean
-                lead = np.random.lognormal(5.0, 1.5)
-                mercury = np.random.lognormal(1.0, 1.2)
-                cadmium = np.random.lognormal(1.5, 1.0)
-                copper = np.random.lognormal(4.0, 1.0)
-                zinc = np.random.lognormal(5.0, 1.0)
+                arsenic = rng.lognormal(2.0, 1.0)  # Higher mean
+                lead = rng.lognormal(5.0, 1.5)
+                mercury = rng.lognormal(1.0, 1.2)
+                cadmium = rng.lognormal(1.5, 1.0)
+                copper = rng.lognormal(4.0, 1.0)
+                zinc = rng.lognormal(5.0, 1.0)
             else:
                 # Background levels
-                arsenic = np.random.lognormal(0.5, 0.8)
-                lead = np.random.lognormal(2.5, 0.8)
-                mercury = np.random.lognormal(-1.0, 0.8)
-                cadmium = np.random.lognormal(0.0, 0.6)
-                copper = np.random.lognormal(2.5, 0.6)
-                zinc = np.random.lognormal(3.5, 0.6)
+                arsenic = rng.lognormal(0.5, 0.8)
+                lead = rng.lognormal(2.5, 0.8)
+                mercury = rng.lognormal(-1.0, 0.8)
+                cadmium = rng.lognormal(0.0, 0.6)
+                copper = rng.lognormal(2.5, 0.6)
+                zinc = rng.lognormal(3.5, 0.6)
 
             # Major elements (typically stable)
-            iron = np.random.lognormal(10.0, 0.3)  # % Fe2O3
-            calcium = np.random.lognormal(8.0, 0.5)  # % CaO
+            iron = rng.lognormal(10.0, 0.3)  # % Fe2O3
+            calcium = rng.lognormal(8.0, 0.5)  # % CaO
 
             # pH (soil typically 4-9)
             ph = np.clip(rng.normal(6.5, 1.0), 4.0, 9.0)

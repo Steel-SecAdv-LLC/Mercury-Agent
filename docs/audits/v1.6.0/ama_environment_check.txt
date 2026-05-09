@@ -1,0 +1,23 @@
+=== AMA Repo Reachability (anonymous HTTPS) ===
+24c7fc7c218a5dd16fdf41a6ad4b36d70de4c3e9	HEAD
+
+=== Pinned tag (workflow): v3.1.0 ===
+ed5397e62b648be63b17bc1486c04c3c95ce6b7c	refs/tags/v3.1.0
+
+=== Toolchain ===
+cmake: cmake version 4.3.2
+ninja: 1.11.1
+pkg-config: 1.8.1
+gcc: gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+python3: Python 3.11.15
+
+=== Build-system floors (pinned in pqc-production-check.yml lines 61-63) ===
+setuptools>=78.1.1: 82.0.1
+wheel>=0.47.0: 0.47.0
+cmake>=4.3.2: 4.3.2
+pip>=26.1: 26.1.1
+
+=== Verification of $3.6 ===
+All build-system floors satisfied: YES
+AMA HEAD reachable over anonymous HTTPS: YES (24c7fc7c218a5dd16fdf41a6ad4b36d70de4c3e9)
+AMA pinned tag v3.1.0 reachable: YES

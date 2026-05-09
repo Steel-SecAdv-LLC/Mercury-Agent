@@ -566,9 +566,10 @@ def cross_val_predict(
     *,
     cv: int = 5,
     method: str = "predict",
+    random_state: int | None = 42,
 ) -> NDArray[np.number[Any]]:
     """Generate cross-validated predictions using stratified folds."""
-    kf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=42)
+    kf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
     predictions = None
 
     for train_idx, test_idx in kf.split(X, y):
@@ -599,9 +600,10 @@ def cross_val_score(
     y: NDArray[np.number[Any]],
     *,
     cv: int = 5,
+    random_state: int | None = 42,
 ) -> NDArray[np.number[Any]]:
     """Evaluate estimator by cross-validation, returning per-fold accuracy."""
-    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    kf = KFold(n_splits=cv, shuffle=True, random_state=random_state)
     scores: list[float] = []
 
     for train_idx, test_idx in kf.split(X, y):
