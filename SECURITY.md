@@ -62,6 +62,28 @@ Mercury Agent implements multiple layers of security:
 - **Type Safety**: Strict MyPy type checking enabled
 - **Code Review**: All changes require security review
 
+#### Two-tier dependency-CVE coverage
+
+Mercury Agent runs **two independent CVE gates** against
+complementary attack surfaces, both blocking on PRs:
+
+1. **Python-package layer** — `safety check` and `pip-audit` run
+   in `.github/workflows/ci.yml` against the `pip install -e ".[api]"`
+   resolution. Catches CVEs in PyPI packages and their direct
+   dependencies as Mercury would actually install them.
+2. **Image / OS layer** — `trivy` runs in `.github/workflows/security.yml`
+   against the built Docker image, covering the **full** runtime
+   install (`mercury-agent[all]` plus the base image's system
+   packages — glibc, openssl, util-linux, etc.). Catches CVEs in
+   OS-level libraries that the Python scanners cannot see.
+
+Per-CVE risk acceptance for the Python layer lives as inline
+`--ignore` rationale comments in `ci.yml`; per-CVE risk acceptance
+for the image/OS layer lives in `.trivyignore` (the entries
+surfaced in "Accepted Vulnerabilities" below). Both gates must be
+GREEN for a PR to merge — neither layer can silently mask a finding
+in the other's territory.
+
 ### Cryptographic Security
 
 - **Post-Quantum Cryptography**: PQC backends for future-proof encryption
