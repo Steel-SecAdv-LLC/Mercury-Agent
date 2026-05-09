@@ -306,7 +306,7 @@ class SpaceExplorationAnalyzer:
 
         if identified_lines:
             elements = {str(line["element"]) for line in identified_lines}
-            recommendations.append(f'Identified elements: {", ".join(elements)}')
+            recommendations.append(f"Identified elements: {', '.join(elements)}")
 
         return {
             "analysis_type": "spectral",
@@ -379,7 +379,7 @@ class SpaceExplorationAnalyzer:
                 f"Warning: {len(proximity_warnings)} close approach events detected"
             )
             recommendations.append(
-                f'Minimum separation: {min(w["separation_km"] for w in proximity_warnings):.2f} km'
+                f"Minimum separation: {min(w['separation_km'] for w in proximity_warnings):.2f} km"
             )
             recommendations.append("Recommend debris avoidance maneuver planning")
 

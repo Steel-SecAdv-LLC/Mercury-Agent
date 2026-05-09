@@ -408,7 +408,7 @@ class MultiverseContactProtocolExplorer:
         for i, universe in enumerate(sorted_universes[:5]):
             protocol_candidates.append(
                 {
-                    "protocol_id": f"PROTOCOL-{i+1}",
+                    "protocol_id": f"PROTOCOL-{i + 1}",
                     "fitness": float(universe.fitness),
                     "characteristics": {
                         "information_density": float(np.mean(universe.state_vector[:32])),

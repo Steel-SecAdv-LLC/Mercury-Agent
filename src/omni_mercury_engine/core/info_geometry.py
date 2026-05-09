@@ -733,7 +733,7 @@ class InformationGeometryDetector:
         """
         if self.reference_distribution is None:
             raise ValueError(
-                "Must fit reference distribution first using " "fit_reference_distribution()"
+                "Must fit reference distribution first using fit_reference_distribution()"
             )
 
         test_distribution = {

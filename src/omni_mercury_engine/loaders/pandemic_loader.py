@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Data source URLs
 # ---------------------------------------------------------------------------
 _OWID_CSV_URL = (
-    "https://raw.githubusercontent.com/owid/covid-19-data/" "master/public/data/owid-covid-data.csv"
+    "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv"
 )
 
 _WHO_GHO_BASE_URL = "https://ghoapi.azureedge.net/api"
@@ -176,7 +176,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "pathogen_class": "fungus",
         "pathogen": "Candida auris",
         "_stub_reason": (
-            "CDC C. auris data requires manual download. " "Placeholder for future integration."
+            "CDC C. auris data requires manual download. Placeholder for future integration."
         ),
     },
     # --- PARASITE (pathogen_class=parasite) ---
@@ -216,7 +216,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "source": "stub",
         "pathogen_class": "prion",
         "pathogen": "Prion (CJD)",
-        "_warning": "Annual data only. Insufficient density for " "real-time detection.",
+        "_warning": "Annual data only. Insufficient density for real-time detection.",
         "_stub_reason": ("CDC CJD data is published as annual PDF reports, not API."),
     },
     # --- BIOSURVEILLANCE (pathogen_class=biosurveillance) ---
@@ -349,7 +349,7 @@ class PandemicLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"pandemic_historical_{event_id}"
@@ -364,7 +364,7 @@ class PandemicLoader(BaseDomainLoader):
 
         if source == "stub":
             logger.warning(
-                "Data source for '%s' is a stub — no live API available. " "Reason: %s",
+                "Data source for '%s' is a stub — no live API available. Reason: %s",
                 event_id,
                 event.get("_stub_reason", "unknown"),
             )
@@ -455,7 +455,7 @@ class PandemicLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         event = _EVENT_CATALOG[event_id]
@@ -474,7 +474,7 @@ class PandemicLoader(BaseDomainLoader):
         # Density warning for sparse data
         if n_samples < 100:
             logger.warning(
-                "%s | N=%d | Insufficient density for reliable " "anomaly detection",
+                "%s | N=%d | Insufficient density for reliable anomaly detection",
                 event_id,
                 n_samples,
             )
@@ -717,7 +717,7 @@ class PandemicLoader(BaseDomainLoader):
         records = data.get("value", [])
         if not records:
             logger.warning(
-                "WHO GHO returned no records for indicator '%s' " "country='%s'.",
+                "WHO GHO returned no records for indicator '%s' country='%s'.",
                 indicator,
                 country,
             )
@@ -874,8 +874,7 @@ class PandemicLoader(BaseDomainLoader):
         df["total_cases"] = df["new_cases"].cumsum()
 
         logger.info(
-            "WHO Emergencies: constructed %d-month biosurveillance "
-            "time series (%d alerts total).",
+            "WHO Emergencies: constructed %d-month biosurveillance time series (%d alerts total).",
             len(df),
             len(alert_dates),
         )
@@ -1010,8 +1009,7 @@ class PandemicLoader(BaseDomainLoader):
 
             if df.empty:
                 logger.warning(
-                    "WHO GHO data empty after date filtering. "
-                    "Falling back to synthetic Ebola data."
+                    "WHO GHO data empty after date filtering. Falling back to synthetic Ebola data."
                 )
                 return self._synthetic_ebola_2014()
 
@@ -1020,7 +1018,7 @@ class PandemicLoader(BaseDomainLoader):
 
         except (ConnectionError, KeyError, TypeError) as exc:
             logger.warning(
-                "Failed to fetch WHO GHO data: %s. " "Falling back to synthetic Ebola data.",
+                "Failed to fetch WHO GHO data: %s. Falling back to synthetic Ebola data.",
                 exc,
             )
             return self._synthetic_ebola_2014()

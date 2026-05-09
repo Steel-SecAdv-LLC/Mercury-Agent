@@ -191,9 +191,7 @@ class ThresholdConfidenceInterval:
     def __str__(self) -> str:
         """Format confidence interval for display."""
         pct = int(self.confidence_level * 100)
-        return (
-            f"Threshold: {self.threshold:.4f} " f"({pct}% CI: [{self.lower:.4f}, {self.upper:.4f}])"
-        )
+        return f"Threshold: {self.threshold:.4f} ({pct}% CI: [{self.lower:.4f}, {self.upper:.4f}])"
 
     def contains(self, value: float) -> bool:
         """Check if a value falls within the confidence interval."""
@@ -1027,14 +1025,12 @@ class AutoThresholdOptimizer:
 
         except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
             logger.warning(
-                f"GMM fitting failed ({type(e).__name__}): {e}. "
-                "Falling back to percentile method."
+                f"GMM fitting failed ({type(e).__name__}): {e}. Falling back to percentile method."
             )
             return self._percentile_threshold(scores, contamination, fixed_threshold)
         except Exception as e:
             logger.error(
-                f"Unexpected error in GMM fitting: {e}. "
-                "This may indicate a bug - please report.",
+                f"Unexpected error in GMM fitting: {e}. This may indicate a bug - please report.",
                 exc_info=True,
             )
             return self._percentile_threshold(scores, contamination, fixed_threshold)

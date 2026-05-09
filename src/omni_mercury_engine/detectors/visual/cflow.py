@@ -369,7 +369,7 @@ class CFlowDetector(BaseVisualDetector):
             ).to(self.device)
 
             logger.info(
-                f"Initialized flow for {layer}: " f"in_channels={in_channels}, spatial=({h}, {w})"
+                f"Initialized flow for {layer}: in_channels={in_channels}, spatial=({h}, {w})"
             )
 
         self._initialized = True
@@ -461,7 +461,7 @@ class CFlowDetector(BaseVisualDetector):
             if (epoch + 1) % 10 == 0:
                 avg_loss = epoch_loss / max(n_batches, 1)
                 logger.info(
-                    f"Epoch {epoch + 1}/{self.cflow_config.num_epochs}, " f"NLL: {avg_loss:.4f}"
+                    f"Epoch {epoch + 1}/{self.cflow_config.num_epochs}, NLL: {avg_loss:.4f}"
                 )
 
         for flow in self.flows.values():

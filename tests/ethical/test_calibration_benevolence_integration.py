@@ -170,9 +170,9 @@ def test_calibrate_iterative_with_cache_converges_within_budget(
     result = _gated_calibration(manager, synthetic_drift_scores, cache)
 
     # Budget invariants from item 4.
-    assert (
-        result["iterations"] <= 4
-    ), f"convergence budget exceeded: iterations={result['iterations']}"
+    assert result["iterations"] <= 4, (
+        f"convergence budget exceeded: iterations={result['iterations']}"
+    )
     assert isinstance(result["converged"], (bool, np.bool_))
     # Path length is iterations + 1 (the seed threshold + one entry per step).
     assert len(result["threshold_path"]) == result["iterations"] + 1
@@ -240,7 +240,7 @@ def test_ruleset_version_bump_invalidates_without_breaking_budget(
 
         # Convergence-budget assertions still hold post-bump.
         assert second["iterations"] <= 4, (
-            f"convergence budget tripped after ruleset bump: " f"iterations={second['iterations']}"
+            f"convergence budget tripped after ruleset bump: iterations={second['iterations']}"
         )
         assert len(second["threshold_path"]) == second["iterations"] + 1
 

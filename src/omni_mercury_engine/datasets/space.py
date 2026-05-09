@@ -292,7 +292,7 @@ class NASAExoplanetLoader(DatasetLoader):
             # Build TAP/ADQL query
             columns = ",".join(self.TAP_COLUMNS.values())
             limit = min(self.config.max_samples or 5000, 5000)
-            query = f"select top {limit} {columns} from ps where pl_rade is not null"  # noqa: S608  # nosec B608
+            query = f"select top {limit} {columns} from ps where pl_rade is not null"
 
             params = {
                 "query": query,

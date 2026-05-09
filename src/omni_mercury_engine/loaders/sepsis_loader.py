@@ -291,7 +291,7 @@ class SepsisLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"sepsis_historical_{event_id}"
@@ -363,7 +363,7 @@ class SepsisLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -372,8 +372,7 @@ class SepsisLoader(BaseDomainLoader):
 
         if _LABEL_COL not in df.columns:
             logger.warning(
-                "SepsisLabel column not found in data for event '%s'. "
-                "Returning all-zero labels.",
+                "SepsisLabel column not found in data for event '%s'. Returning all-zero labels.",
                 event_id,
             )
             return np.zeros(len(df), dtype=np.int64)
@@ -522,7 +521,7 @@ class SepsisLoader(BaseDomainLoader):
             raise DataSourceUnavailableError(
                 loader_name="SepsisLoader",
                 source_url=url,
-                reason=(f"Failed to download training set {set_label} from " f"PhysioNet: {exc}"),
+                reason=(f"Failed to download training set {set_label} from PhysioNet: {exc}"),
             ) from exc
 
         return self._parse_zip_archive(raw_bytes, max_patients=max_patients)

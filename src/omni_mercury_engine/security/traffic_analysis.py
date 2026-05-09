@@ -563,7 +563,7 @@ class TrafficAnalysisEngine:
         result.attribution_indicators = self._extract_attribution_indicators(traffic_data, result)
 
         self.logger.info(
-            f"Traffic analysis: {result.anomaly_type}, " f"confidence={result.confidence:.2f}"
+            f"Traffic analysis: {result.anomaly_type}, confidence={result.confidence:.2f}"
         )
 
         return result

@@ -1288,8 +1288,7 @@ class MetaLearningAdapter:
         }
 
         logger.info(
-            f"MetaLearningAdapter initialized (algorithm={algorithm.value}, "
-            f"input_dim={input_dim})"
+            f"MetaLearningAdapter initialized (algorithm={algorithm.value}, input_dim={input_dim})"
         )
 
     def _init_algorithm(self) -> None:

@@ -29,7 +29,6 @@ from omni_mercury_engine.space import SpaceExplorationAnalyzer
 
 
 class TestSpaceExplorationIntegration:
-
     def test_hubble_cosmic_ray_detection_realistic(self):
         """Test cosmic ray detection with Hubble-like energy distribution."""
         analyzer = SpaceExplorationAnalyzer(config={"cosmic_ray_threshold": 3.5})

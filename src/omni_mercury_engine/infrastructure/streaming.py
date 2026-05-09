@@ -47,15 +47,17 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Callable  # noqa: TC003 - used in runtime annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from omni_mercury_engine.core.types import CircuitState
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -462,7 +464,7 @@ class KafkaStreamProducer(StreamProducer):
             from aiokafka import AIOKafkaProducer
         except ImportError:
             raise ImportError(
-                "aiokafka is required for Kafka streaming. " "Install with: pip install aiokafka"
+                "aiokafka is required for Kafka streaming. Install with: pip install aiokafka"
             )
 
         kafka_config = {
@@ -600,7 +602,7 @@ class KafkaStreamConsumer(StreamConsumer):
             from aiokafka import AIOKafkaConsumer
         except ImportError:
             raise ImportError(
-                "aiokafka is required for Kafka streaming. " "Install with: pip install aiokafka"
+                "aiokafka is required for Kafka streaming. Install with: pip install aiokafka"
             )
 
         kafka_config = {
@@ -720,7 +722,7 @@ class RedisStreamProducer(StreamProducer):
             import redis.asyncio as redis
         except ImportError:
             raise ImportError(
-                "redis is required for Redis streaming. " "Install with: pip install redis"
+                "redis is required for Redis streaming. Install with: pip install redis"
             )
 
         self._redis = redis.from_url(
@@ -841,7 +843,7 @@ class RedisStreamConsumer(StreamConsumer):
             import redis.asyncio as redis
         except ImportError:
             raise ImportError(
-                "redis is required for Redis streaming. " "Install with: pip install redis"
+                "redis is required for Redis streaming. Install with: pip install redis"
             )
 
         self._redis = redis.from_url(

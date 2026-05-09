@@ -189,7 +189,7 @@ def _require_torch() -> None:
     """Raise ImportError if torch is not available."""
     if not HAS_TORCH:
         raise ImportError(
-            "PyTorch is required for ML components. " "Install with: pip install torch torchvision"
+            "PyTorch is required for ML components. Install with: pip install torch torchvision"
         )
 
 

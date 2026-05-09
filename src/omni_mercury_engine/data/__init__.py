@@ -26,8 +26,6 @@ Deprecated:
     Import from omni_mercury_engine.datasets instead.
 """
 
-from omni_mercury_engine.datasets import *  # noqa: F403
-
 # Re-export the benchmarks submodule for backwards compatibility
 # (e.g., from omni_mercury_engine.data import benchmarks)
 from omni_mercury_engine.datasets import benchmarks

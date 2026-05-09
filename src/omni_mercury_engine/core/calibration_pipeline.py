@@ -670,7 +670,7 @@ class ThresholdCalibrationPipeline:
 
         if len(scores) != len(y):
             raise ValueError(
-                f"X and y must have the same number of samples, " f"got {len(scores)} and {len(y)}"
+                f"X and y must have the same number of samples, got {len(scores)} and {len(y)}"
             )
 
         unique_labels = np.unique(y)

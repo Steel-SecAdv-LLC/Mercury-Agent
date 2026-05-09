@@ -2040,8 +2040,7 @@ class KnowledgeGraph:
                 "property": prop_info,
                 "supporting_evidence": supporting,
                 "explanation": (
-                    f"Triple ({subject}, {predicate}, {obj}) exists with "
-                    f"confidence {triple[3]:.3f}"
+                    f"Triple ({subject}, {predicate}, {obj}) exists with confidence {triple[3]:.3f}"
                 ),
             }
 

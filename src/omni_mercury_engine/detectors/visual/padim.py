@@ -210,8 +210,7 @@ class PaDiMDetector(BaseVisualDetector):
         feature_dim = all_features_tensor.shape[2]
 
         logger.info(
-            f"Feature shape: {n_samples} samples, {n_positions} positions, "
-            f"{feature_dim} dimensions"
+            f"Feature shape: {n_samples} samples, {n_positions} positions, {feature_dim} dimensions"
         )
 
         # Create random projection if needed
@@ -223,7 +222,7 @@ class PaDiMDetector(BaseVisualDetector):
             # Apply projection
             all_features_tensor = torch.matmul(all_features_tensor, self.projection)
             logger.info(
-                f"Applied random projection: {feature_dim} -> " f"{self.padim_config.d_reduced}"
+                f"Applied random projection: {feature_dim} -> {self.padim_config.d_reduced}"
             )
 
         d = all_features_tensor.shape[2]

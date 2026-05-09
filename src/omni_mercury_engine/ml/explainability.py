@@ -852,8 +852,7 @@ class AnomalyExplainer:
         for feat in global_exp.feature_importances[: self.top_k_features]:
             direction_indicator = "+" if feat.direction == "positive" else "-"
             lines.append(
-                f"  {feat.rank}. {feat.feature_name}: "
-                f"{direction_indicator}{feat.importance:.4f}"
+                f"  {feat.rank}. {feat.feature_name}: {direction_indicator}{feat.importance:.4f}"
             )
 
         lines.extend(

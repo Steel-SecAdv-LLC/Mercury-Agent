@@ -282,11 +282,11 @@ def print_baseline_table(dataset: str, your_results: dict[str, float] | None = N
     baselines = BASELINE_RESULTS[dataset]
 
     lines = [
-        f"\n{'='*70}",
+        f"\n{'=' * 70}",
         f"BASELINE COMPARISON: {dataset}",
-        f"{'='*70}",
+        f"{'=' * 70}",
         f"{'Method':<25} {'Precision':>12} {'Recall':>12} {'F1':>12} {'Paper':>10}",
-        f"{'-'*70}",
+        f"{'-' * 70}",
     ]
 
     # Add baselines sorted by F1
@@ -310,7 +310,7 @@ def print_baseline_table(dataset: str, your_results: dict[str, float] | None = N
 
     # Add your results if provided
     if your_results:
-        lines.append(f"{'-'*70}")
+        lines.append(f"{'-' * 70}")
         prec = f"{your_results.get('precision', 0):.4f}"
         rec = f"{your_results.get('recall', 0):.4f}"
         f1_val = f"{your_results.get('f1', 0):.4f}"
@@ -318,7 +318,7 @@ def print_baseline_table(dataset: str, your_results: dict[str, float] | None = N
             f"{'** YOUR MODEL **':<25} {prec:>12} {rec:>12} {f1_val:>12} {'This work':>10}"
         )
 
-    lines.append(f"{'='*70}\n")
+    lines.append(f"{'=' * 70}\n")
 
     return "\n".join(lines)
 

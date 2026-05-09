@@ -277,7 +277,11 @@ class TestNSLKDDMirrorFailover:
         body = (nslkdd_row * 50).encode()
 
         primary_err = urllib.error.HTTPError(
-            NSLKDDLoader.NSLKDD_MIRRORS["train"][0], 429, "rate-limited", {}, None  # type: ignore[arg-type]
+            NSLKDDLoader.NSLKDD_MIRRORS["train"][0],
+            429,
+            "rate-limited",
+            {},
+            None,  # type: ignore[arg-type]
         )
 
         calls: list[str] = []

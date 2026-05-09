@@ -600,7 +600,8 @@ class AdversarialTrainer:
             # Generator adversarial loss (fool discriminator)
             fake_scores = self.model.discriminator(recon)
             g_adv_loss = F.binary_cross_entropy_with_logits(
-                fake_scores, torch.ones_like(fake_scores)  # Want discriminator to think it's real
+                fake_scores,
+                torch.ones_like(fake_scores),  # Want discriminator to think it's real
             )
             losses["generator_adversarial"] = g_adv_loss.item()
 

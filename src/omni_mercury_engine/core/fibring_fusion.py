@@ -119,8 +119,7 @@ class FibringComposer:
             raise ValueError(f"redundancy_threshold must be in (0, 1], got {redundancy_threshold}")
         if min_samples_for_decorrelation < 2:
             raise ValueError(
-                f"min_samples_for_decorrelation must be >= 2, "
-                f"got {min_samples_for_decorrelation}"
+                f"min_samples_for_decorrelation must be >= 2, got {min_samples_for_decorrelation}"
             )
 
         self._domain = (domain or "default").lower()

@@ -276,12 +276,12 @@ class TestOmniMercuryEngine:
         # For O(n log n), doubling n should roughly double time (plus log factor)
         # Using 5x tolerance - if this passes, the xfail becomes xpass (unexpected pass)
         # The key invariant is that time doesn't explode exponentially
-        assert (
-            times[1] < times[0] * 5
-        ), f"40-dim ({times[1]:.3f}s) should be < 5x 20-dim ({times[0]:.3f}s)"
-        assert (
-            times[2] < times[1] * 5
-        ), f"80-dim ({times[2]:.3f}s) should be < 5x 40-dim ({times[1]:.3f}s)"
+        assert times[1] < times[0] * 5, (
+            f"40-dim ({times[1]:.3f}s) should be < 5x 20-dim ({times[0]:.3f}s)"
+        )
+        assert times[2] < times[1] * 5, (
+            f"80-dim ({times[2]:.3f}s) should be < 5x 40-dim ({times[1]:.3f}s)"
+        )
 
     def test_double_helix_architecture(self):
         """Test double-helix DNA-inspired architecture."""

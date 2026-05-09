@@ -404,7 +404,7 @@ def load_signature_payload(
     signatures = payload.get("signatures")
     if not isinstance(signatures, dict) or ED25519_ALG not in signatures:
         raise CorpusVerificationError(
-            "σ_Immutable signature payload is missing the mandatory " f"{ED25519_ALG!r} entry."
+            f"σ_Immutable signature payload is missing the mandatory {ED25519_ALG!r} entry."
         )
 
     return payload

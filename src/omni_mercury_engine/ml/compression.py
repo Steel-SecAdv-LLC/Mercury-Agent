@@ -588,9 +588,7 @@ class ModelCompressor:
             buffer.seek(0)
             # weights_only=False required for full model (not just state_dict)
             # Safe here because buffer is self-serialized, not from external source
-            return torch.load(
-                buffer, map_location="cpu", weights_only=False
-            )  # nosec B614 - self-serialized model, not untrusted input
+            return torch.load(buffer, map_location="cpu", weights_only=False)  # nosec B614 - self-serialized model, not untrusted input
 
         except (TypeError, RuntimeError, AttributeError):
             # Fallback to standard deepcopy for edge cases

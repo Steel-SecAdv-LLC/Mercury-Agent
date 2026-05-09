@@ -29,7 +29,6 @@ Provides:
 
 import logging
 import threading
-from abc import ABC  # noqa: F401 - kept for potential future use
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, runtime_checkable

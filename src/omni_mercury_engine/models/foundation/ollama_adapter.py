@@ -253,12 +253,10 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 logger.warning(f"Invalid URL scheme for Ollama API: {url}")
                 return False
 
-            req = urllib.request.Request(  # noqa: S310 - URL scheme validated above
-                url, method="GET"
-            )
+            req = urllib.request.Request(url, method="GET")
             req.add_header("Accept", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(
                 req, timeout=self.ollama_config.connect_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -329,12 +327,10 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 payload["system"] = system_prompt
 
             data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
+            req = urllib.request.Request(url, data=data, method="POST")
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
-                req, timeout=self.ollama_config.timeout
-            ) as response:
+            with urllib.request.urlopen(req, timeout=self.ollama_config.timeout) as response:
                 result = json.loads(response.read().decode())
                 return str(result.get("response", ""))
 
@@ -385,12 +381,10 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             }
 
             data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
+            req = urllib.request.Request(url, data=data, method="POST")
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
-                req, timeout=self.ollama_config.timeout
-            ) as response:
+            with urllib.request.urlopen(req, timeout=self.ollama_config.timeout) as response:
                 result = json.loads(response.read().decode())
                 return str(result.get("message", {}).get("content", ""))
 

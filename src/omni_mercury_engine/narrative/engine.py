@@ -504,7 +504,7 @@ class NarrativeEngine:
             )
         elif confidence < 0.5:
             parts.append(
-                f"Moderate uncertainty (confidence: {confidence:.0%}). " "Verification recommended."
+                f"Moderate uncertainty (confidence: {confidence:.0%}). Verification recommended."
             )
         elif confidence < 0.7:
             parts.append(f"Reasonable confidence ({confidence:.0%}), but uncertainty remains.")
@@ -544,7 +544,11 @@ class NarrativeEngine:
         severity_word = (
             "critical"
             if severity > 0.8
-            else "significant" if severity > 0.6 else "moderate" if severity > 0.4 else "minor"
+            else "significant"
+            if severity > 0.6
+            else "moderate"
+            if severity > 0.4
+            else "minor"
         )
 
         if style == NarrativeStyle.URGENT:

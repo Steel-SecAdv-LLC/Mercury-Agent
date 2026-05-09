@@ -531,7 +531,7 @@ Reference ID: {decision_id}
             if negative_factors:
                 factor_names = [f[0] for f in negative_factors[:3]]
                 parts.append(
-                    f"Factors that contributed negatively include: " f"{', '.join(factor_names)}."
+                    f"Factors that contributed negatively include: {', '.join(factor_names)}."
                 )
 
         if level == ExplanationLevel.FULL:
@@ -562,7 +562,7 @@ Reference ID: {decision_id}
                 "personal aspects including behavior, preferences, or characteristics."
             ),
             DecisionCategory.STANDARD: (
-                "This decision may affect the services or information " "provided to you."
+                "This decision may affect the services or information provided to you."
             ),
         }
         return significance_map.get(category, significance_map[DecisionCategory.STANDARD])
@@ -587,7 +587,7 @@ Reference ID: {decision_id}
                 "communications. You have the right to object to profiling."
             ),
             DecisionCategory.STANDARD: (
-                "This may affect the content, recommendations, or services " "shown to you."
+                "This may affect the content, recommendations, or services shown to you."
             ),
         }
         return consequences_map.get(category, consequences_map[DecisionCategory.STANDARD])

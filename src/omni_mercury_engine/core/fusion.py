@@ -79,8 +79,7 @@ def _validate_tensor_devices(
     if len(devices) > 1:
         device_info = {name: str(t.device) for name, t in tensors.items()}
         raise ValueError(
-            f"Mixed devices in {context}: {device_info}. "
-            f"All tensors must be on the same device."
+            f"Mixed devices in {context}: {device_info}. All tensors must be on the same device."
         )
 
     if len(dtypes) > 1:
@@ -1532,9 +1531,9 @@ class DoubleHelixEvolutionEngine:
         Note: Octonions are non-associative, implemented via approximation.
         Full implementation requires numpy-quaternion extension.
         """
-        try:
-            import quaternion  # noqa: F401
+        import importlib.util
 
+        if importlib.util.find_spec("quaternion") is not None:
             o_real = float(self.np.mean(state))
             o_vec = state[:7] if len(state) >= 7 else self.np.pad(state, (0, 7 - len(state)))
             octonion_approx = self.np.concatenate([[o_real], o_vec])
@@ -1544,7 +1543,7 @@ class DoubleHelixEvolutionEngine:
             temp_result[: min(8, len(state))] = rotated[: min(8, len(state))]
             final_result: np.ndarray[Any, Any] = temp_result * self.xi
             return final_result
-        except ImportError:
+        else:
             n_pairs = len(state) // 2
             state_padded = self.np.pad(state, (0, 1)) if len(state) % 2 != 0 else state
 

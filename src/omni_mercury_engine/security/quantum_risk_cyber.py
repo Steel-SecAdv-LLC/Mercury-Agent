@@ -339,7 +339,9 @@ class QuantumRiskCyber:
                         "urgency": (
                             "CRITICAL"
                             if priority_score > 50
-                            else "HIGH" if priority_score > 20 else "MEDIUM"
+                            else "HIGH"
+                            if priority_score > 20
+                            else "MEDIUM"
                         ),
                     }
                 )
@@ -753,7 +755,7 @@ class PostQuantumMigrationPlanner:
 
         priority_systems = sorted(
             current_systems,
-            key=lambda x: (x.get("criticality", 0.5) * x.get("usage", 0.5)),
+            key=lambda x: x.get("criticality", 0.5) * x.get("usage", 0.5),
             reverse=True,
         )
 

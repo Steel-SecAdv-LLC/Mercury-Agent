@@ -113,9 +113,9 @@ class TestFusionTraining:
             late_loss = np.mean([h["train_loss"] for h in history[-3:]])
 
             # Loss should generally decrease (or at least not increase much)
-            assert (
-                late_loss <= early_loss * 1.5
-            ), f"Loss should not increase significantly: {early_loss:.4f} -> {late_loss:.4f}"
+            assert late_loss <= early_loss * 1.5, (
+                f"Loss should not increase significantly: {early_loss:.4f} -> {late_loss:.4f}"
+            )
 
     def test_early_stopping_works(self, engine, training_data):
         """Verify early stopping triggers when loss plateaus."""
@@ -342,9 +342,9 @@ class TestPseudoLabeling:
 
         # Should have approximately contamination * n_samples anomalies
         actual_rate = pseudo_labels.sum() / len(X)
-        assert (
-            abs(actual_rate - contamination) < 0.1
-        ), f"Pseudo-label rate {actual_rate:.2f} should be near {contamination}"
+        assert abs(actual_rate - contamination) < 0.1, (
+            f"Pseudo-label rate {actual_rate:.2f} should be near {contamination}"
+        )
 
 
 class TestEdgeCases:

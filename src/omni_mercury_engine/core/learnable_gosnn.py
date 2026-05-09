@@ -455,7 +455,7 @@ class LearnableGOSNN:
         self._initialize_default_scalars()
 
         logger.info(
-            f"LearnableGOSNN initialized " f"(n_scalars={n_scalars}, attention={attention_type})"
+            f"LearnableGOSNN initialized (n_scalars={n_scalars}, attention={attention_type})"
         )
 
     def _initialize_default_scalars(self) -> None:

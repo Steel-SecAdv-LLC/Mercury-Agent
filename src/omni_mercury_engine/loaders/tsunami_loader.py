@@ -183,7 +183,7 @@ class TsunamiLoader(BaseDomainLoader):
 
         if not frames:
             raise ConnectionError(
-                f"tsunami: could not retrieve data from any DART station. " f"Errors: {errors}"
+                f"tsunami: could not retrieve data from any DART station. Errors: {errors}"
             )
 
         combined = pd.concat(frames, ignore_index=True)
@@ -216,7 +216,7 @@ class TsunamiLoader(BaseDomainLoader):
             ValueError: If *event_id* is not recognised.
         """
         if event_id not in _EVENTS_BY_ID:
-            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENTS_BY_ID)}")
+            raise ValueError(f"Unknown event_id {event_id!r}. Available: {list(_EVENTS_BY_ID)}")
 
         # Try the cache first.
         cache_key = f"tsunami_historical_{event_id}"
@@ -269,7 +269,7 @@ class TsunamiLoader(BaseDomainLoader):
             ValueError: If *event_id* is not recognised.
         """
         if event_id not in _EVENTS_BY_ID:
-            raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENTS_BY_ID)}")
+            raise ValueError(f"Unknown event_id {event_id!r}. Available: {list(_EVENTS_BY_ID)}")
 
         event = _EVENTS_BY_ID[event_id]
         df = self.fetch_historical(event_id)

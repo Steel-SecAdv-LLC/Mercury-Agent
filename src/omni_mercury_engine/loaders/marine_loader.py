@@ -230,7 +230,7 @@ class MarineLoader(BaseDomainLoader):
 
         if not frames:
             raise ConnectionError(
-                "marine: could not retrieve occurrence data from OBIS " "for any indicator species."
+                "marine: could not retrieve occurrence data from OBIS for any indicator species."
             )
 
         df = pd.concat(frames, ignore_index=True)
@@ -266,7 +266,7 @@ class MarineLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id {event_id!r}. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"marine_historical_{event_id}"
@@ -330,8 +330,7 @@ class MarineLoader(BaseDomainLoader):
         all_frames = baseline_frames + event_frames
         if not all_frames:
             logger.warning(
-                "marine: no occurrence data retrieved for event '%s'. "
-                "Generating synthetic data.",
+                "marine: no occurrence data retrieved for event '%s'. Generating synthetic data.",
                 event_id,
             )
             df = self._synthesize_event(event)
@@ -390,7 +389,7 @@ class MarineLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id {event_id!r}. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)

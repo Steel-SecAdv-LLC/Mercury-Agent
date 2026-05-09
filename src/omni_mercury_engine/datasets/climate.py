@@ -136,12 +136,12 @@ class SimonsCMAPLoader(DatasetLoader):
             True if download successful, False otherwise.
         """
         # Try to use pycmap if available
-        try:
-            import pycmap  # noqa: F401
+        import importlib.util
 
+        if importlib.util.find_spec("pycmap") is not None:
             if self.api_key:
                 return self._download_via_pycmap()
-        except ImportError:
+        else:
             logger.info("pycmap not installed. Using sample data or synthetic fallback.")
 
         # Fall back to synthetic data with realistic oceanographic patterns
@@ -697,12 +697,12 @@ class CopernicusSeaLevelLoader(DatasetLoader):
             True if download successful, False otherwise.
         """
         # Try to use cdsapi if available
-        try:
-            import cdsapi  # noqa: F401
+        import importlib.util
 
+        if importlib.util.find_spec("cdsapi") is not None:
             if self.cds_api_key:
                 return self._download_via_cdsapi()
-        except ImportError:
+        else:
             logger.info("cdsapi not installed. Using synthetic fallback.")
 
         if ALLOW_SYNTHETIC:
@@ -998,12 +998,12 @@ class CopernicusERA5Loader(DatasetLoader):
             True if download successful, False otherwise.
         """
         # Try to use cdsapi if available
-        try:
-            import cdsapi  # noqa: F401
+        import importlib.util
 
+        if importlib.util.find_spec("cdsapi") is not None:
             if self.cds_api_key:
                 return self._download_via_cdsapi()
-        except ImportError:
+        else:
             logger.info("cdsapi not installed. Using synthetic fallback.")
 
         if ALLOW_SYNTHETIC:

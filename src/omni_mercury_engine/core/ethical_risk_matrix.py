@@ -483,12 +483,11 @@ class GDPRCompliance:
             dpia = context.get("data_protection_impact_assessment", {})
             if not dpia.get("conducted", False):
                 violations.append(
-                    "GDPR Art. 35: High-risk processing without Data Protection "
-                    "Impact Assessment"
+                    "GDPR Art. 35: High-risk processing without Data Protection Impact Assessment"
                 )
             elif not dpia.get("risk_mitigation_documented", False):
                 violations.append(
-                    "GDPR Art. 35(7): DPIA conducted but risk mitigation measures " "not documented"
+                    "GDPR Art. 35(7): DPIA conducted but risk mitigation measures not documented"
                 )
 
         # Chapter V: International transfers

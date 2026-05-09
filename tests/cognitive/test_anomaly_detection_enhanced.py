@@ -464,7 +464,7 @@ class TestIntegration:
                 memory_type="episodic",
                 content={"event": f"event_{i}", "value": i},
                 importance=0.5 + i * 0.05,
-                related_to=[f"m{i-1}"] if i > 0 else None,
+                related_to=[f"m{i - 1}"] if i > 0 else None,
             )
 
         for i in range(20):

@@ -103,8 +103,9 @@ class QuantumKernelMachine:
 
             for i in range(0, len(phi) - 1, 2):
                 phi[i], phi[i + 1] = phi[i] * phi[i + 1], phi[i] + phi[i + 1]
-                phi[i], phi[i + 1] = phi[i] / (np.abs(phi[i]) + 1e-10), phi[i + 1] / (
-                    np.abs(phi[i + 1]) + 1e-10
+                phi[i], phi[i + 1] = (
+                    phi[i] / (np.abs(phi[i]) + 1e-10),
+                    phi[i + 1] / (np.abs(phi[i + 1]) + 1e-10),
                 )
 
         return phi

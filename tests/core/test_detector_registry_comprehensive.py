@@ -220,7 +220,7 @@ class TestImportValidation:
         """Test that all manifest entries use trusted module paths."""
         for entry in DETECTOR_MANIFEST:
             assert entry.module_path.startswith("omni_mercury_engine."), (
-                f"Manifest entry '{entry.name}' has untrusted module path: " f"{entry.module_path}"
+                f"Manifest entry '{entry.name}' has untrusted module path: {entry.module_path}"
             )
 
     def test_untrusted_module_path_blocked(self):

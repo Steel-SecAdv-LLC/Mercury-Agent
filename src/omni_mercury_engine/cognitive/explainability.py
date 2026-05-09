@@ -30,10 +30,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    import lime as lime_module  # noqa: F401
-    import lime.lime_tabular as lime_tabular_module  # noqa: F401
-    import shap as shap_module  # noqa: F401
-
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -954,7 +950,7 @@ class ExplainabilityEngine:
         self.faithfulness_evaluator = FaithfulnessEvaluator()
 
         logger.info(
-            f"ExplainabilityEngine initialized " f"(SHAP={SHAP_AVAILABLE}, LIME={LIME_AVAILABLE})"
+            f"ExplainabilityEngine initialized (SHAP={SHAP_AVAILABLE}, LIME={LIME_AVAILABLE})"
         )
 
     def explain(

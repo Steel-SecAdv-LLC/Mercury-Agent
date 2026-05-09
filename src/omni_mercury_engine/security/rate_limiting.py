@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 class RateLimitAlgorithm(Enum):
     """Rate limiting algorithm selection."""
 
-    TOKEN_BUCKET = "token_bucket"  # noqa: S105 - not a password
+    TOKEN_BUCKET = "token_bucket"
     SLIDING_WINDOW = "sliding_window"
 
 

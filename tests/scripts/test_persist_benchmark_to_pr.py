@@ -276,8 +276,7 @@ class TestNoopBranchLookupErrorHandling:
                     "GitHub API GET .../git/ref/heads/feature failed: HTTP 500 — Internal Server Error"
                 )
             raise AssertionError(
-                f"persister must NOT continue past a 500 on the branch "
-                f"lookup; got: {method} {path}"
+                f"persister must NOT continue past a 500 on the branch lookup; got: {method} {path}"
             )
 
         monkeypatch.setattr(persister, "_api", fake_api)

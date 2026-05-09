@@ -155,9 +155,7 @@ class MethodNotAllowedError(Exception):
     """Raised when route exists but method not allowed."""
 
     def __init__(self, path: str, method: str, allowed: list[str]) -> None:
-        super().__init__(
-            f"Method {method} not allowed for {path}. " f"Allowed: {', '.join(allowed)}"
-        )
+        super().__init__(f"Method {method} not allowed for {path}. Allowed: {', '.join(allowed)}")
         self.path = path
         self.method = method
         self.allowed = allowed

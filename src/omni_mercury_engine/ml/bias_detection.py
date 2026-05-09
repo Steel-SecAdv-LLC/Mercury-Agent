@@ -138,12 +138,12 @@ class BiasDetector:
         }
 
         if use_fairlearn:
-            try:
-                import fairlearn.metrics  # noqa: F401
+            import importlib.util
 
+            if importlib.util.find_spec("fairlearn.metrics") is not None:
                 self._fairlearn_available = True
                 logger.info("Fairlearn available for bias detection")
-            except ImportError:
+            else:
                 self._fairlearn_available = False
                 logger.warning(
                     "Fairlearn not installed. Using built-in metrics. "

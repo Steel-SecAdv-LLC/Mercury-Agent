@@ -8,7 +8,7 @@ reflect its purpose. This module re-exports all public symbols so that existing 
 New code should import from ``spectral_domain_frequency`` directly.
 """
 
-from omni_mercury_engine.detectors.spectral_domain_frequency import (  # noqa: F401
+from omni_mercury_engine.detectors.spectral_domain_frequency import (
     DEFAULT_ALPHA,
     DOMAIN_ANOMALY_SPECTRAL_HINTS,
     DOMAIN_FREQUENCY_BANDS,
@@ -28,3 +28,24 @@ from omni_mercury_engine.detectors.spectral_domain_frequency import (  # noqa: F
     create_spectral_oracle,
     get_domain_frequency_bands,
 )
+
+__all__ = [
+    "DEFAULT_ALPHA",
+    "DOMAIN_ANOMALY_SPECTRAL_HINTS",
+    "DOMAIN_FREQUENCY_BANDS",
+    "EPSILON",
+    "PHI",
+    "FrequencyBandResult",
+    "FrequencyDomainOracle",
+    "FrequencyDomainOracleConfig",
+    "FrequencyInfluenceVector",
+    "FrequencyWeighting",
+    "SpectralDomainFrequency",
+    "SpectralDomainFrequencyConfig",
+    "SpectralDomainOracle",
+    "SpectralDomainOracleConfig",
+    "create_frequency_oracle",
+    "create_spectral_frequency",
+    "create_spectral_oracle",
+    "get_domain_frequency_bands",
+]

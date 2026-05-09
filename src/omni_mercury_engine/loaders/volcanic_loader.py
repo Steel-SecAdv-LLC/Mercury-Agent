@@ -230,7 +230,7 @@ class VolcanicLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"volcanic_historical_{event_id}"
@@ -254,7 +254,7 @@ class VolcanicLoader(BaseDomainLoader):
             raise DataSourceUnavailableError(
                 loader_name="VolcanicLoader",
                 source_url=_ALERTS_URL,
-                reason=(f"Cannot reach USGS volcano API for event " f"'{event_id}': {exc}"),
+                reason=(f"Cannot reach USGS volcano API for event '{event_id}': {exc}"),
             ) from exc
 
         df = self._alerts_to_dataframe(alerts_raw)
@@ -352,7 +352,7 @@ class VolcanicLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -370,7 +370,7 @@ class VolcanicLoader(BaseDomainLoader):
         ).astype(np.int64)
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total " "(WARNING/RED threshold).",
+            "Ground truth for '%s': %d anomalies / %d total (WARNING/RED threshold).",
             event_id,
             int(labels.sum()),
             len(labels),
@@ -606,8 +606,7 @@ class VolcanicLoader(BaseDomainLoader):
                     self._write_cache(cache_key, geo_df.to_dict(orient="list"))
             except Exception as exc:
                 logger.warning(
-                    "Could not fetch volcano list for geographic "
-                    "enrichment: %s. Filling with NaN.",
+                    "Could not fetch volcano list for geographic enrichment: %s. Filling with NaN.",
                     exc,
                 )
                 for col in ("latitude", "longitude", "elevation"):

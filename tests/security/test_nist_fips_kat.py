@@ -123,9 +123,9 @@ def test_mlkem1024_nist_decapsulation(vector: dict) -> None:
     expected_k = bytes.fromhex(vector["k"])
 
     recovered_k = kyber_decapsulate(c, dk)
-    assert (
-        recovered_k == expected_k
-    ), f"ML-KEM-1024 decaps tc{vector['tcId']}: AMA shared secret differs from NIST reference."
+    assert recovered_k == expected_k, (
+        f"ML-KEM-1024 decaps tc{vector['tcId']}: AMA shared secret differs from NIST reference."
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -414,7 +414,7 @@ class TreatmentPathwayOptimizer:
         for i, universe in enumerate(sorted_universes[:3]):
             treatment_pathways.append(
                 {
-                    "pathway_id": f"TREATMENT-{i+1}",
+                    "pathway_id": f"TREATMENT-{i + 1}",
                     "fitness": float(universe.fitness),
                     "efficacy_score": float(np.mean(universe.state_vector[:32])),
                     "safety_score": float(-np.std(universe.state_vector[32:64])),

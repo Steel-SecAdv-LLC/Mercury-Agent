@@ -77,9 +77,9 @@ class TestDetectorManifest:
 
     def test_manifest_names_unique(self) -> None:
         names = [e.name for e in DETECTOR_MANIFEST]
-        assert len(names) == len(
-            set(names)
-        ), f"Duplicate names: {[n for n in names if names.count(n) > 1]}"
+        assert len(names) == len(set(names)), (
+            f"Duplicate names: {[n for n in names if names.count(n) > 1]}"
+        )
 
     def test_all_entries_are_manifest_entry(self) -> None:
         for entry in DETECTOR_MANIFEST:
@@ -90,9 +90,9 @@ class TestDetectorManifest:
             assert entry.name, "Empty name in manifest"
             assert entry.module_path, f"Empty module_path for {entry.name}"
             assert entry.class_name, f"Empty class_name for {entry.name}"
-            assert isinstance(
-                entry.category, DetectorCategory
-            ), f"Invalid category for {entry.name}"
+            assert isinstance(entry.category, DetectorCategory), (
+                f"Invalid category for {entry.name}"
+            )
             assert entry.description, f"Empty description for {entry.name}"
 
     def test_categories_covered(self) -> None:

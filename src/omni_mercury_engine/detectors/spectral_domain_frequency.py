@@ -961,7 +961,7 @@ class SpectralDomainFrequency(BaseDetector):
         # Sanity: if interval is empty or inverted, fall back to (-inf, inf)
         if L >= U:
             logger.debug(
-                "SI truncation interval empty [%.4f, %.4f]; " "falling back to unconditional test.",
+                "SI truncation interval empty [%.4f, %.4f]; falling back to unconditional test.",
                 L,
                 U,
             )
@@ -1428,8 +1428,7 @@ class SpectralDomainFrequency(BaseDetector):
 
         self._is_fitted = True
         logger.info(
-            "SpectralDomainFrequency fitted on %d samples, domain=%s, "
-            "bands=%d (Nyquist=%.1f Hz)",
+            "SpectralDomainFrequency fitted on %d samples, domain=%s, bands=%d (Nyquist=%.1f Hz)",
             len(data),
             self._oracle_config.domain,
             len(self._bands),

@@ -129,27 +129,24 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def _initialize_model(self) -> None:
         """Check STUMPY availability."""
-        try:
-            import stumpy  # noqa: F401 - availability check
+        import importlib.util
 
-            self._stumpy_available = True
-            logger.info("STUMPY library loaded")
-
-            # Check GPU support
-            if self.mp_config.use_gpu:
-                import importlib.util
-
-                if importlib.util.find_spec("stumpy.gpu") is not None:
-                    self._gpu_available = True
-                    logger.info("STUMPY GPU acceleration available")
-                else:
-                    logger.info("STUMPY GPU not available, using CPU")
-
-        except ImportError:
+        if importlib.util.find_spec("stumpy") is None:
             raise NotImplementedError(
                 "STUMPY not installed. Install with: pip install stumpy. "
                 "Silent mock degradation is not permitted (Phase 2 audit cure)."
             )
+
+        self._stumpy_available = True
+        logger.info("STUMPY library loaded")
+
+        # Check GPU support
+        if self.mp_config.use_gpu:
+            if importlib.util.find_spec("stumpy.gpu") is not None:
+                self._gpu_available = True
+                logger.info("STUMPY GPU acceleration available")
+            else:
+                logger.info("STUMPY GPU not available, using CPU")
 
     def compute_matrix_profile(
         self,

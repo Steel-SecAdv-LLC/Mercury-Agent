@@ -365,8 +365,7 @@ class SchumannResonanceDetector:
         )
 
         self.logger.info(
-            f"Schumann anomaly: {anomaly_type} "
-            f"(f={fundamental_freq:.2f}Hz, risk={risk_score:.3f})"
+            f"Schumann anomaly: {anomaly_type} (f={fundamental_freq:.2f}Hz, risk={risk_score:.3f})"
         )
 
         return result

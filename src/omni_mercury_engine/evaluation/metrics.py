@@ -484,10 +484,10 @@ def print_metrics_report(metrics: AnomalyMetrics, dataset_name: str = "Unknown")
         Formatted report string
     """
     lines = [
-        f"\n{'='*60}",
+        f"\n{'=' * 60}",
         "ANOMALY DETECTION EVALUATION REPORT",
         f"Dataset: {dataset_name}",
-        f"{'='*60}",
+        f"{'=' * 60}",
         "",
         "ROC Analysis:",
         f"  AUC-ROC:        {metrics.auc_roc:.4f}",
@@ -521,6 +521,6 @@ def print_metrics_report(metrics: AnomalyMetrics, dataset_name: str = "Unknown")
         if metrics.range_based_f1 is not None:
             lines.append(f"  Range-Based F1:    {metrics.range_based_f1:.4f}")
 
-    lines.append(f"{'='*60}\n")
+    lines.append(f"{'=' * 60}\n")
 
     return "\n".join(lines)

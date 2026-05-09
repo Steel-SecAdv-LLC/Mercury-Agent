@@ -41,12 +41,8 @@ from omni_mercury_engine.security.crypto_api import Ed25519Provider
 # Vector #1 from RFC 8032 §7.1 (TEST 1).
 # secret key (32 bytes) | public key (32 bytes) | message | signature
 ED25519_RFC8032_TEST_1 = {
-    "secret_key": bytes.fromhex(
-        "9d61b19deffd5a60ba844af492ec2cc4" "4449c5697b326919703bac031cae7f60"
-    ),
-    "public_key": bytes.fromhex(
-        "d75a980182b10ab7d54bfed3c964073a" "0ee172f3daa62325af021a68f707511a"
-    ),
+    "secret_key": bytes.fromhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"),
+    "public_key": bytes.fromhex("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"),
     "message": b"",
     "signature": bytes.fromhex(
         "e5564300c360ac729086e2cc806e828a"
@@ -58,12 +54,8 @@ ED25519_RFC8032_TEST_1 = {
 
 # Vector #2 from RFC 8032 §7.1 (TEST 2 — single-byte message).
 ED25519_RFC8032_TEST_2 = {
-    "secret_key": bytes.fromhex(
-        "4ccd089b28ff96da9db6c346ec114e0f" "5b8a319f35aba624da8cf6ed4fb8a6fb"
-    ),
-    "public_key": bytes.fromhex(
-        "3d4017c3e843895a92b70aa74d1b7ebc" "9c982ccf2ec4968cc0cd55f12af4660c"
-    ),
+    "secret_key": bytes.fromhex("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb"),
+    "public_key": bytes.fromhex("3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"),
     "message": bytes.fromhex("72"),
     "signature": bytes.fromhex(
         "92a009a9f0d4cab8720e820b5f642540"

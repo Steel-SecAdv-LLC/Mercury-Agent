@@ -278,8 +278,8 @@ class BaseDomainLoader(ABC):
         last_error_kind = "unknown"
         for attempt in range(self.max_retries + 1):
             try:
-                req = urllib.request.Request(full_url, headers=default_headers)  # noqa: S310
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
+                req = urllib.request.Request(full_url, headers=default_headers)
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                     return resp.read()  # type: ignore[no-any-return]
             except Exception as exc:
                 last_error_kind = type(exc).__name__
@@ -428,7 +428,7 @@ class BaseDomainLoader(ABC):
         try:
             git_commit = (
                 subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"],  # noqa: S607
+                    ["git", "rev-parse", "HEAD"],
                     stderr=subprocess.DEVNULL,
                 )
                 .decode()

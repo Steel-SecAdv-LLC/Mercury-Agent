@@ -1164,7 +1164,7 @@ class CognitiveEvolutionEngine:
         self._safety_violations = 0
 
         logger.info(
-            f"CognitiveEvolutionEngine initialized with " f"safety_threshold={safety_threshold}"
+            f"CognitiveEvolutionEngine initialized with safety_threshold={safety_threshold}"
         )
 
     def run_improvement_cycle(

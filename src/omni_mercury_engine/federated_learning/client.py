@@ -688,7 +688,7 @@ class ClientManager:
         available = self.get_available_clients()
 
         if len(available) < self._min_clients:
-            logger.warning(f"Only {len(available)} clients available, " f"need {self._min_clients}")
+            logger.warning(f"Only {len(available)} clients available, need {self._min_clients}")
             return available
 
         if n_clients is None:

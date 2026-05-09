@@ -599,7 +599,7 @@ class DistributedTracer:
         self._initialized = True
 
         logger.info(
-            f"DistributedTracer initialized " f"(service={service_name}, otel={OTEL_AVAILABLE})"
+            f"DistributedTracer initialized (service={service_name}, otel={OTEL_AVAILABLE})"
         )
 
     def _setup_opentelemetry(self) -> None:

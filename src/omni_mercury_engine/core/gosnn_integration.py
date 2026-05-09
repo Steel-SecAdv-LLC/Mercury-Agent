@@ -592,7 +592,7 @@ class GOSNNIntegration:
 
         self._fitted = True
         logger.info(
-            f"GOSNNIntegration fitted: {len(self.domains)} domains, " f"fusion={self.fusion_method}"
+            f"GOSNNIntegration fitted: {len(self.domains)} domains, fusion={self.fusion_method}"
         )
 
         return self

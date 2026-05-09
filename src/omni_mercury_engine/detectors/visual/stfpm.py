@@ -325,7 +325,9 @@ class STFPMDetector(BaseVisualDetector):
 
             # Compute anomaly maps from feature discrepancy
             anomaly_maps = self._compute_anomaly_maps(
-                teacher_features, student_features, original_size  # type: ignore[arg-type, unused-ignore]
+                teacher_features,
+                student_features,
+                original_size,  # type: ignore[arg-type, unused-ignore]
             )
 
             # Image-level scores

@@ -547,8 +547,7 @@ class GOSNNOptimizer:
         if benevolence < BENEVOLENCE_MIN:
             gap = BENEVOLENCE_MIN - benevolence
             recommendations.append(
-                f"Benevolence gap: {gap:.3f} below threshold. "
-                "Consider RLHF-style loss adjustment."
+                f"Benevolence gap: {gap:.3f} below threshold. Consider RLHF-style loss adjustment."
             )
 
         # Optimize attention — only when an AttentionProvider is wired and
@@ -581,7 +580,7 @@ class GOSNNOptimizer:
                 "model-derived tensors for production accuracy."
             )
             recommendations.append(
-                "Attention overhead metric skipped: no AttentionProvider " "configured."
+                "Attention overhead metric skipped: no AttentionProvider configured."
             )
 
         if attention_overhead is not None and attention_overhead > self.target_overhead:

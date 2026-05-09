@@ -636,7 +636,7 @@ class NeuroSymbolicHub:
 
         if benevolence_threshold < MINIMUM_BENEVOLENCE_FLOOR:
             logger.warning(
-                "benevolence_threshold=%.4f below absolute minimum %.4f; " "clamping to floor",
+                "benevolence_threshold=%.4f below absolute minimum %.4f; clamping to floor",
                 benevolence_threshold,
                 MINIMUM_BENEVOLENCE_FLOOR,
             )
@@ -750,7 +750,7 @@ class NeuroSymbolicHub:
 
         if value < MINIMUM_BENEVOLENCE_FLOOR:
             logger.warning(
-                "benevolence_threshold=%.4f below absolute minimum %.4f; " "clamping to floor",
+                "benevolence_threshold=%.4f below absolute minimum %.4f; clamping to floor",
                 value,
                 MINIMUM_BENEVOLENCE_FLOOR,
             )

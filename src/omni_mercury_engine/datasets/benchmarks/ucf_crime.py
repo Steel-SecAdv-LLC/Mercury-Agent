@@ -28,12 +28,14 @@ Reference:
 """
 
 from dataclasses import dataclass
-from pathlib import Path  # noqa: TC003
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from .base_dataset import BaseDatasetConfig, BaseVideoDataset
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 UCF_ANOMALY_TYPES: list[str] = [
     "Abuse",

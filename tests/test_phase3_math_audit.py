@@ -75,9 +75,9 @@ class TestSigmoidBenevolenceGate:
         """Gate output must lie strictly in (0, 1) for any finite input."""
         for score in [0.0, 0.25, 0.5, 0.75, 0.9, 0.93, 0.95, 0.99, 1.0]:
             result: float = sigmoid_benevolence_gate(score)
-            assert (
-                0.0 < result < 1.0
-            ), f"sigmoid_benevolence_gate({score}) = {result} is not in (0, 1)"
+            assert 0.0 < result < 1.0, (
+                f"sigmoid_benevolence_gate({score}) = {result} is not in (0, 1)"
+            )
 
     def test_high_benevolence_yields_high_gate(self) -> None:
         """A benevolence score well above b0 should produce a gate near 1.
@@ -174,7 +174,7 @@ class TestSigmoidBenevolenceGate:
         for i in range(len(values) - 1):
             assert values[i] <= values[i + 1], (
                 f"Monotonicity violated: gate({scores[i]})={values[i]} > "
-                f"gate({scores[i+1]})={values[i+1]}"
+                f"gate({scores[i + 1]})={values[i + 1]}"
             )
 
     @pytest.mark.parametrize(
@@ -233,18 +233,18 @@ class TestBanachRecursion:
         """
         for raw in [-100.0, -10.0, -1.0, 0.0, 1.0, 10.0, 100.0, 1000.0]:
             br = BanachRecursion(alpha_raw=raw)
-            assert (
-                br.alpha <= br.alpha_max
-            ), f"alpha_raw={raw}: alpha={br.alpha} > alpha_max={br.alpha_max}"
+            assert br.alpha <= br.alpha_max, (
+                f"alpha_raw={raw}: alpha={br.alpha} > alpha_max={br.alpha_max}"
+            )
             assert br.alpha > 0.0
 
     def test_alpha_strictly_less_than_alpha_max_moderate_input(self) -> None:
         """For moderate alpha_raw values, alpha is strictly < alpha_max."""
         for raw in [-10.0, -1.0, 0.0, 1.0, 5.0]:
             br = BanachRecursion(alpha_raw=raw)
-            assert (
-                br.alpha < br.alpha_max
-            ), f"alpha_raw={raw}: alpha={br.alpha} >= alpha_max={br.alpha_max}"
+            assert br.alpha < br.alpha_max, (
+                f"alpha_raw={raw}: alpha={br.alpha} >= alpha_max={br.alpha_max}"
+            )
 
     def test_alpha_max_gte_one_raises_value_error(self) -> None:
         """alpha_max >= 1.0 must raise ValueError (convergence impossible)."""
@@ -487,9 +487,9 @@ class TestHierarchicalOmniScalarAggregation:
         network: GlobalOmniScalarNetwork = self._make_network()
         result: dict[str, Any] = network.compute_hierarchical_score()
         for cat_name, cat_score in result["category_scores"].items():
-            assert (
-                0.0 <= cat_score <= 1.0
-            ), f"Category '{cat_name}' score {cat_score} outside [0, 1]"
+            assert 0.0 <= cat_score <= 1.0, (
+                f"Category '{cat_name}' score {cat_score} outside [0, 1]"
+            )
 
     def test_all_five_categories_present(self) -> None:
         """All five categories should be present in the result."""
@@ -773,7 +773,7 @@ class TestOAEEnhancements:
         for i in range(len(bounds) - 1):
             assert bounds[i] > bounds[i + 1], (
                 f"Lyapunov bound not decreasing: step {i} ({bounds[i]}) >= "
-                f"step {i+1} ({bounds[i+1]})"
+                f"step {i + 1} ({bounds[i + 1]})"
             )
 
     def test_ethical_compliance_threshold_clamped(self) -> None:

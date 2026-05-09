@@ -240,8 +240,7 @@ class APIKeyStore:
                     "Generate with: openssl rand -hex 32"
                 )
             logger.warning(
-                "Using default API key hash salt. "
-                "Set API_KEY_HASH_SALT for production deployments."
+                "Using default API key hash salt. Set API_KEY_HASH_SALT for production deployments."
             )
         return hashlib.pbkdf2_hmac(
             hash_name="sha256",
@@ -449,9 +448,7 @@ class AuthKeyManager:
 
         if old_key_id in self._rotation.keys:
             self._rotation.initiate_rotation(old_key_id, new_key_id)
-            logger.info(
-                f"Key rotation initiated: {old_key_id} → {new_key_id} " f"(purpose={purpose})"
-            )
+            logger.info(f"Key rotation initiated: {old_key_id} → {new_key_id} (purpose={purpose})")
 
         return old_key_id, new_key_id
 
@@ -656,7 +653,7 @@ class JWTAuth:
                     derived = km.get_active_key_material("jwt_sign")
                     self.secret_key = derived.hex()
                     logger.info(
-                        "JWT signing key derived from AMA HD Key Management " "(purpose=jwt_sign)"
+                        "JWT signing key derived from AMA HD Key Management (purpose=jwt_sign)"
                     )
                 except Exception as e:
                     raise ValueError(

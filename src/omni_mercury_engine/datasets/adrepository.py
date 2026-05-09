@@ -258,7 +258,7 @@ class ADRepositoryLoader(DatasetLoader):
             f"ADRepositoryLoader initialized for '{dataset_name}' "
             f"({self.dataset_info['samples']} samples, "
             f"{self.dataset_info['features']} features, "
-            f"{self.dataset_info['anomaly_ratio']*100:.2f}% anomalies)"
+            f"{self.dataset_info['anomaly_ratio'] * 100:.2f}% anomalies)"
         )
 
     @property
@@ -340,10 +340,10 @@ class ADRepositoryLoader(DatasetLoader):
             if odds_info.get("requires_auth"):
                 instructions = odds_info.get("instructions", "Authentication required")
                 logger.warning(
-                    f"Dataset '{self.dataset_name}' requires authentication. " f"{instructions}"
+                    f"Dataset '{self.dataset_name}' requires authentication. {instructions}"
                 )
                 raise ValueError(
-                    f"Dataset '{self.dataset_name}' requires authentication. " f"{instructions}"
+                    f"Dataset '{self.dataset_name}' requires authentication. {instructions}"
                 )
 
             url = odds_info["url"]

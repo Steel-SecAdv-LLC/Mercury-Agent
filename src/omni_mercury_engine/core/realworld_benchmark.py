@@ -606,7 +606,7 @@ class RealWorldBenchmarkRunner:
                 }
             )
 
-            logger.debug(f"Fold {fold_idx + 1}/{self.n_folds}: " f"AUC={roc_auc:.3f}, F1={f1:.3f}")
+            logger.debug(f"Fold {fold_idx + 1}/{self.n_folds}: AUC={roc_auc:.3f}, F1={f1:.3f}")
 
         # Aggregate results
         metrics = BenchmarkMetrics(

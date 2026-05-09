@@ -543,9 +543,9 @@ class DimensionalAnalyzer(BaseDetector):
 
         scores = np.zeros(data.shape[0])
 
-        assert (
-            self.baseline_spectral_signature is not None
-        ), "Baseline spectral signature must be computed"
+        assert self.baseline_spectral_signature is not None, (
+            "Baseline spectral signature must be computed"
+        )
 
         for idx in range(data.shape[0]):
             sample = data[idx : idx + 1, :]

@@ -623,8 +623,7 @@ def slhdsa_sign(
     _, sk_len, _ = _slhdsa_param_sizes(param_set)
     if len(secret_key) != sk_len:
         raise ValueError(
-            f"FIPS 205 SLH-DSA-{param_set} secret key must be {sk_len} bytes; "
-            f"got {len(secret_key)}"
+            f"FIPS 205 SLH-DSA-{param_set} secret key must be {sk_len} bytes; got {len(secret_key)}"
         )
     return bytes(_ama_slhdsa_sign(message, secret_key, ctx, param_set))
 
@@ -646,8 +645,7 @@ def slhdsa_sign_deterministic(
     _, sk_len, _ = _slhdsa_param_sizes(param_set)
     if len(secret_key) != sk_len:
         raise ValueError(
-            f"FIPS 205 SLH-DSA-{param_set} secret key must be {sk_len} bytes; "
-            f"got {len(secret_key)}"
+            f"FIPS 205 SLH-DSA-{param_set} secret key must be {sk_len} bytes; got {len(secret_key)}"
         )
     return bytes(_ama_slhdsa_sign_deterministic(message, secret_key, ctx, param_set))
 
@@ -672,8 +670,7 @@ def slhdsa_sign_internal(
     _, sk_len, _ = _slhdsa_param_sizes(param_set)
     if len(secret_key) != sk_len:
         raise ValueError(
-            f"FIPS 205 SLH-DSA-{param_set} secret key must be {sk_len} bytes; "
-            f"got {len(secret_key)}"
+            f"FIPS 205 SLH-DSA-{param_set} secret key must be {sk_len} bytes; got {len(secret_key)}"
         )
     n = (
         SLHDSA_SHAKE_128S_PUBLIC_KEY_BYTES
@@ -700,8 +697,7 @@ def slhdsa_verify(
     pk_len, _, sig_len = _slhdsa_param_sizes(param_set)
     if len(public_key) != pk_len:
         raise ValueError(
-            f"FIPS 205 SLH-DSA-{param_set} public key must be {pk_len} bytes; "
-            f"got {len(public_key)}"
+            f"FIPS 205 SLH-DSA-{param_set} public key must be {pk_len} bytes; got {len(public_key)}"
         )
     if len(signature) != sig_len:
         # Wrong-size signatures cannot be valid for this parameter set; reject

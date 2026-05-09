@@ -82,7 +82,7 @@ class NOAAERDDAPLoader(DatasetLoader):
         """Construct the SSH ERDDAP URL with a time/lat/lon constraint."""
         lat_min, lat_max = self.lat_range
         lon_min, lon_max = self.lon_range
-        return f"{base_url}?sla[({date_str})]" f"[({lat_min}):({lat_max})][({lon_min}):({lon_max})]"
+        return f"{base_url}?sla[({date_str})][({lat_min}):({lat_max})][({lon_min}):({lon_max})]"
 
     def _persist(self, content: bytes, cache_file: Any) -> tuple[Any, Any]:
         """Parse, label, and persist an ERDDAP CSV response."""

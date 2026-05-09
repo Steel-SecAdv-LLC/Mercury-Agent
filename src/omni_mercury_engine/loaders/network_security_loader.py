@@ -308,9 +308,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
             ConnectionError: If the data source is unreachable.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}"
-            )
+            raise ValueError(f"Unknown event_id {event_id!r}. Available: {list(_EVENT_CATALOG)}")
 
         cache_key = f"network_security_historical_{event_id}"
         cached = self._read_cache(cache_key)
@@ -371,15 +369,13 @@ class NetworkSecurityLoader(BaseDomainLoader):
             ValueError: If *event_id* is not recognised.
         """
         if event_id not in _EVENT_CATALOG:
-            raise ValueError(
-                f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}"
-            )
+            raise ValueError(f"Unknown event_id {event_id!r}. Available: {list(_EVENT_CATALOG)}")
 
         # Try to load via existing dataset infrastructure first
         labels = self._load_labels_from_dataset(event_id)
         if labels is not None:
             logger.info(
-                "network_security: ground truth for '%s' -- " "%d anomalies / %d total.",
+                "network_security: ground truth for '%s' -- %d anomalies / %d total.",
                 event_id,
                 int(labels.sum()),
                 len(labels),
@@ -397,7 +393,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
             labels = np.zeros(len(df), dtype=np.int64)
 
         logger.info(
-            "network_security: ground truth for '%s' -- " "%d anomalies / %d total.",
+            "network_security: ground truth for '%s' -- %d anomalies / %d total.",
             event_id,
             int(labels.sum()),
             len(labels),
@@ -540,8 +536,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
 
         except Exception as exc:
             logger.debug(
-                "network_security: could not load labels via dataset "
-                "infrastructure for '%s': %s",
+                "network_security: could not load labels via dataset infrastructure for '%s': %s",
                 event_id,
                 exc,
             )
@@ -590,7 +585,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
 
         except Exception as exc:
             logger.debug(
-                "network_security: NSLKDDLoader failed (%s), " "falling back to direct download.",
+                "network_security: NSLKDDLoader failed (%s), falling back to direct download.",
                 exc,
             )
 
@@ -607,7 +602,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
         Raises:
             ConnectionError: If the download fails after retries.
         """
-        url = "https://raw.githubusercontent.com/defcom17/NSL_KDD/" "master/KDDTest+.txt"
+        url = "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTest+.txt"
         raw_bytes = self._fetch_url(url)
         text = raw_bytes.decode("utf-8", errors="replace")
 
@@ -708,7 +703,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
 
         except Exception as exc:
             logger.debug(
-                "network_security: BATADALLoader failed (%s), " "falling back to direct download.",
+                "network_security: BATADALLoader failed (%s), falling back to direct download.",
                 exc,
             )
 

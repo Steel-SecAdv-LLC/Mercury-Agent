@@ -2049,7 +2049,7 @@ class OmniMercuryEngine(LoggerMixin):
         sigma_vector[SIGMA_IMMUTABLE_ETHICAL_DIMS:SIGMA_USED_BAND_END] = 1.0
 
         self._sigma_immutable_gate.enforce(
-            action=(f"OmniMercuryEngine._enforce_ethics_at_boundary:" f"domain={safe_domain}"),
+            action=(f"OmniMercuryEngine._enforce_ethics_at_boundary:domain={safe_domain}"),
             scalar_vector=sigma_vector,
             details={
                 "boundary": "OmniMercuryEngine._enforce_ethics_at_boundary",
@@ -2319,9 +2319,7 @@ class OmniMercuryEngine(LoggerMixin):
             # closed with ``check="gosnn_unavailable"``.
             if not _GOSNN_TESTING_BYPASS:
                 raise EthicalConstraintViolationError(
-                    action=(
-                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
-                    ),
+                    action=(f"OmniMercuryEngine.detect_with_fusion:domain={domain or 'general'}"),
                     score=0.0,
                     threshold=self._sigma_immutable_gate.threshold,
                     check="gosnn_unavailable",
@@ -2372,9 +2370,7 @@ class OmniMercuryEngine(LoggerMixin):
                 full_scalars = gosnn._collect_all_scalars()
                 scalar_vector = np.array(list(full_scalars.values()), dtype=np.float64)
                 evaluation = self._sigma_immutable_gate.enforce(
-                    action=(
-                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
-                    ),
+                    action=(f"OmniMercuryEngine.detect_with_fusion:domain={domain or 'general'}"),
                     scalar_vector=scalar_vector,
                     details={
                         "boundary": "OmniMercuryEngine.detect_with_fusion",
@@ -2425,9 +2421,7 @@ class OmniMercuryEngine(LoggerMixin):
                 )
 
                 raise _EthicalErr(
-                    action=(
-                        f"OmniMercuryEngine.detect_with_fusion:" f"domain={domain or 'general'}"
-                    ),
+                    action=(f"OmniMercuryEngine.detect_with_fusion:domain={domain or 'general'}"),
                     score=0.0,
                     threshold=self._sigma_immutable_gate.threshold,
                     check="gosnn_unavailable",

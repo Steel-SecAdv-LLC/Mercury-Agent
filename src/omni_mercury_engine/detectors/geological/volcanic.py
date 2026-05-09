@@ -731,7 +731,9 @@ class EruptionForecastModel(nn.Module):
         )
 
         self.vei_estimator = nn.Sequential(
-            nn.Linear(128, 32), nn.ReLU(), nn.Linear(32, 8)  # VEI 0-7
+            nn.Linear(128, 32),
+            nn.ReLU(),
+            nn.Linear(32, 8),  # VEI 0-7
         )
 
         self.time_predictor = nn.Sequential(

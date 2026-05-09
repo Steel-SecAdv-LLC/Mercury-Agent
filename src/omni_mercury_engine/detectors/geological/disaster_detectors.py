@@ -1643,18 +1643,18 @@ def generate_synthetic_earthquake_data(
             p_wave_start = rng.integers(5, 15)
             p_wave_duration = rng.integers(5, 15)
             p_wave_intensity = magnitude / 8.0
-            spectrogram[
-                n_freq_bins // 2 :, p_wave_start : p_wave_start + p_wave_duration
-            ] += p_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, p_wave_duration))
+            spectrogram[n_freq_bins // 2 :, p_wave_start : p_wave_start + p_wave_duration] += (
+                p_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, p_wave_duration))
+            )
 
             # S-wave: Lower frequency (lower half), later arrival
             s_wave_start = p_wave_start + p_wave_duration + rng.integers(5, 15)
             s_wave_duration = rng.integers(10, 25)
             s_wave_intensity = magnitude / 6.0
             if s_wave_start + s_wave_duration < n_time_bins:
-                spectrogram[
-                    : n_freq_bins // 2, s_wave_start : s_wave_start + s_wave_duration
-                ] += s_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, s_wave_duration))
+                spectrogram[: n_freq_bins // 2, s_wave_start : s_wave_start + s_wave_duration] += (
+                    s_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, s_wave_duration))
+                )
         else:
             magnitudes[i] = rng.uniform(0.0, 2.0)
             # Background noise only
@@ -1712,9 +1712,9 @@ def load_dart_buoy_data(
     """
     circuit_breaker = get_data_loader_breaker("dart_buoy")
 
-    def _fetch_dart_data() -> (
-        tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]
-    ):
+    def _fetch_dart_data() -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
         url = f"{DART_BUOY_API_URL}/{station_id}.dart"
         if not url.startswith("https://"):
             raise RuntimeError("DART API URL must use HTTPS")
@@ -1851,9 +1851,9 @@ def load_usgs_earthquake_catalog(
     """
     circuit_breaker = get_data_loader_breaker("usgs_earthquake_catalog")
 
-    def _fetch_earthquake_data() -> (
-        tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]
-    ):
+    def _fetch_earthquake_data() -> tuple[
+        np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]
+    ]:
         end_time = datetime.utcnow()
         start_time = end_time - timedelta(days=days_back)
 
@@ -1905,18 +1905,18 @@ def load_usgs_earthquake_catalog(
             p_wave_intensity = mag / 8.0
 
             if p_wave_start + p_wave_duration < n_time_bins:
-                spectrogram[
-                    n_freq_bins // 2 :, p_wave_start : p_wave_start + p_wave_duration
-                ] += p_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, p_wave_duration))
+                spectrogram[n_freq_bins // 2 :, p_wave_start : p_wave_start + p_wave_duration] += (
+                    p_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, p_wave_duration))
+                )
 
             s_wave_start = p_wave_start + p_wave_duration + int(depth / 50)
             s_wave_duration = int(10 + mag * 2)
             s_wave_intensity = mag / 6.0
 
             if s_wave_start + s_wave_duration < n_time_bins:
-                spectrogram[
-                    : n_freq_bins // 2, s_wave_start : s_wave_start + s_wave_duration
-                ] += s_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, s_wave_duration))
+                spectrogram[: n_freq_bins // 2, s_wave_start : s_wave_start + s_wave_duration] += (
+                    s_wave_intensity * rng.uniform(0.5, 1.0, (n_freq_bins // 2, s_wave_duration))
+                )
 
             spectrograms[i, 0] = spectrogram
 

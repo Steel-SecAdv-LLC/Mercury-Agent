@@ -25,22 +25,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-QISKIT_AVAILABLE = False
 try:
-    from qiskit import (  # noqa: F401
-        ClassicalRegister as _ClassicalRegister,
-        QuantumCircuit,
-        QuantumRegister as _QuantumRegister,
-    )
-    from qiskit.circuit import (  # noqa: F401
-        Parameter as _Parameter,
-        ParameterVector as _ParameterVector,
-    )
+    from qiskit import QuantumCircuit
 
     QISKIT_AVAILABLE = True
 except ImportError:
     logger.debug("Qiskit not available, using simulation fallback")
     QuantumCircuit = None
+    QISKIT_AVAILABLE = False
 
 
 class EncodingType(Enum):

@@ -1195,7 +1195,9 @@ class AccelerationDynamicsDetector(BaseDetector):
 
         # Correlation sum for different radii
         radii = np.logspace(
-            float(np.log10(np.min(dist_arr[dist_arr > 0]))), float(np.log10(np.max(dist_arr))), 10  # type: ignore[operator, unused-ignore]
+            float(np.log10(np.min(dist_arr[dist_arr > 0]))),
+            float(np.log10(np.max(dist_arr))),
+            10,  # type: ignore[operator, unused-ignore]
         )
         correlations = []
 

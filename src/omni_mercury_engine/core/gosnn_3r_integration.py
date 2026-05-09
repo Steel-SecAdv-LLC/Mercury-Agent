@@ -835,8 +835,7 @@ class CrossDomainTransferManager:
         target.state.ethical_threshold = new_threshold
 
         logger.info(
-            f"Transferred weights from {source_domain} to {target_domain} "
-            f"(ratio={transfer_ratio})"
+            f"Transferred weights from {source_domain} to {target_domain} (ratio={transfer_ratio})"
         )
 
         return True

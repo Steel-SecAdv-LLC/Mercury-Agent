@@ -142,7 +142,7 @@ class LandslideLoader(BaseDomainLoader):
     """
 
     DOMAIN: str = "landslide"
-    SOURCE_URL: str = "https://maps.nccs.nasa.gov/arcgis/rest/services/" "global_landslide_catalog/"
+    SOURCE_URL: str = "https://maps.nccs.nasa.gov/arcgis/rest/services/global_landslide_catalog/"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
         "category_code",
@@ -221,7 +221,7 @@ class LandslideLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"landslide_historical_{event_id}"
@@ -259,9 +259,7 @@ class LandslideLoader(BaseDomainLoader):
                 event_id,
             )
             # Fallback: try a broader temporal-only query
-            fallback_where = (
-                f"event_date >= '{event['start']}' " f"AND event_date <= '{event['end']}'"
-            )
+            fallback_where = f"event_date >= '{event['start']}' AND event_date <= '{event['end']}'"
             fallback_params: dict[str, str] = {
                 "where": fallback_where,
                 "outFields": "*",
@@ -323,7 +321,7 @@ class LandslideLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -340,7 +338,7 @@ class LandslideLoader(BaseDomainLoader):
         labels = (fatality_mask | size_mask).astype(np.int64)
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total " "(fatal or large/very_large).",
+            "Ground truth for '%s': %d anomalies / %d total (fatal or large/very_large).",
             event_id,
             int(labels.sum()),
             len(labels),

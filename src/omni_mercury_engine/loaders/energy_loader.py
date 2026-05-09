@@ -230,7 +230,7 @@ class EnergyLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"energy_historical_{event_id}"
@@ -308,7 +308,7 @@ class EnergyLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -579,7 +579,7 @@ class EnergyLoader(BaseDomainLoader):
             grid_supply, solar_wind_speed, solar_wind_density, xray_class.
         """
         if not self._eia_api_key:
-            logger.warning("EIA API key not set; falling back to synthetic data " "for grid event.")
+            logger.warning("EIA API key not set; falling back to synthetic data for grid event.")
             return self._generate_synthetic_kp_series(event)
 
         params: dict[str, str] = {

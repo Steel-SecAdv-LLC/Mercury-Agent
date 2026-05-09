@@ -222,7 +222,15 @@ class ChemistryAnomalyDetector:
                 else (
                     2
                     if Z <= 10
-                    else 3 if Z <= 18 else 4 if Z <= 36 else 5 if Z <= 54 else 6 if Z <= 86 else 7
+                    else 3
+                    if Z <= 18
+                    else 4
+                    if Z <= 36
+                    else 5
+                    if Z <= 54
+                    else 6
+                    if Z <= 86
+                    else 7
                 )
             )
 
@@ -393,8 +401,7 @@ class ChemistryAnomalyDetector:
         )
 
         self.logger.info(
-            f"Chemical anomaly: {anomaly_type} "
-            f"(confidence={confidence:.3f}, risk={risk_score:.3f})"
+            f"Chemical anomaly: {anomaly_type} (confidence={confidence:.3f}, risk={risk_score:.3f})"
         )
 
         return result

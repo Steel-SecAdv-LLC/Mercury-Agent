@@ -493,7 +493,7 @@ class AgeProgressionEngine:
             self.facenet = None
 
         logger.info(
-            f"AgeProgressionEngine initialized (device={device}, " f"facenet={FACENET_AVAILABLE})"
+            f"AgeProgressionEngine initialized (device={device}, facenet={FACENET_AVAILABLE})"
         )
 
     def detect_and_align_face(self, image_path: str) -> np.ndarray[Any, Any] | None:

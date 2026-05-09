@@ -356,8 +356,7 @@ class CircuitBreaker:
         if self.state == CircuitState.OPEN:
             current_timeout = self._get_current_timeout()
             raise CircuitBreakerOpenError(
-                f"Circuit '{self.name}' is open, call rejected "
-                f"(timeout: {current_timeout:.1f}s)"
+                f"Circuit '{self.name}' is open, call rejected (timeout: {current_timeout:.1f}s)"
             )
 
         try:

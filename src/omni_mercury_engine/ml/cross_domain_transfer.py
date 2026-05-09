@@ -1602,8 +1602,7 @@ class CrossDomainTransferLearner:
 
         if self.verbose:
             logger.info(
-                f"Domain adaptation complete: "
-                f"MMD {self._mmd_before:.4f} -> {self._mmd_after:.4f}"
+                f"Domain adaptation complete: MMD {self._mmd_before:.4f} -> {self._mmd_after:.4f}"
             )
             logger.info(f"Adaptation time: {time.time() - start_time:.2f}s")
 

@@ -181,7 +181,9 @@ class EnergyDamsDetector:
             "safety_status": (
                 "CRITICAL"
                 if any(a.get("severity") == "CRITICAL" for a in anomalies.values())
-                else "WARNING" if anomalies else "SAFE"
+                else "WARNING"
+                if anomalies
+                else "SAFE"
             ),
             "downstream_impact": downstream_impact,
             "evacuation_recommended": any(
@@ -230,7 +232,7 @@ class EnergyDamsDetector:
                 "risk": "HIGH",
                 "probability": min(1.0, (critical_count * 0.4 + high_count * 0.2)),
                 "message": (
-                    "Energy sector failure will cascade to ALL critical " "infrastructure sectors"
+                    "Energy sector failure will cascade to ALL critical infrastructure sectors"
                 ),
             }
 

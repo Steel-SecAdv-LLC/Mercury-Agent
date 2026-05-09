@@ -767,7 +767,8 @@ class MAATModel(nn.Module):
             return {"attention_ratio": torch.tensor(0.5)}
 
         gates = torch.stack(
-            result["gates"], dim=0  # type: ignore[arg-type, unused-ignore]
+            result["gates"],
+            dim=0,  # type: ignore[arg-type, unused-ignore]
         )  # [layers, batch, seq, d_model]
 
         # Gate > 0.5 means attention preferred

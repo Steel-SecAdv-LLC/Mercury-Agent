@@ -339,9 +339,9 @@ def _make_bomb_npz(path: Path, *, ratio_target: float = 5000.0) -> None:
     with zipfile.ZipFile(path, "r") as zf:
         info = zf.infolist()[0]
         assert info.compress_size > 0
-        assert (
-            info.file_size / info.compress_size
-        ) > 1000, "test fixture failed to produce a zip-bomb-shaped ratio"
+        assert (info.file_size / info.compress_size) > 1000, (
+            "test fixture failed to produce a zip-bomb-shaped ratio"
+        )
 
 
 def test_zip_bomb_compression_ratio_rejected(tmp_path: Path) -> None:

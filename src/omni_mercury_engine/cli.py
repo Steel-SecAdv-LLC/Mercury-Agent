@@ -796,7 +796,7 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
         )
     except ImportError:
         click.echo(
-            "Error: uvicorn is required for the API server. " "Install with: pip install uvicorn"
+            "Error: uvicorn is required for the API server. Install with: pip install uvicorn"
         )
         raise SystemExit(1)
     except Exception as e:

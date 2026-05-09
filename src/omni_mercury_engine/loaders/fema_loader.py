@@ -350,7 +350,7 @@ class FEMALoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"fema_historical_{event_id}"
@@ -451,7 +451,7 @@ class FEMALoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -468,7 +468,7 @@ class FEMALoader(BaseDomainLoader):
         labels = (is_major_disaster & has_ia & has_pa).astype(np.int64)
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total " "(DR with both IA and PA).",
+            "Ground truth for '%s': %d anomalies / %d total (DR with both IA and PA).",
             event_id,
             int(labels.sum()),
             len(labels),

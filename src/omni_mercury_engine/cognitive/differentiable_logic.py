@@ -970,7 +970,7 @@ class DifferentiableLogicEngine:
                     rule.weight = np.clip(rule.weight + learning_rate * error, 0.01, 1.0)
                     weight_updates[rule_id] = rule.weight - old_weight
 
-        logger.info(f"Learning update: error={error:.3f}, " f"updated {len(weight_updates)} rules")
+        logger.info(f"Learning update: error={error:.3f}, updated {len(weight_updates)} rules")
 
         return weight_updates
 

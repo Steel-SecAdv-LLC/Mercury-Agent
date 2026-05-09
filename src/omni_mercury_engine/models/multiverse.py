@@ -233,7 +233,7 @@ class MultiverseOmniEngine:
         self.evaluate_universe(converged_universe, fitness_function)
 
         logging.info(
-            f"Multiverse converged to solution with fitness: " f"{converged_universe.fitness:.4f}"
+            f"Multiverse converged to solution with fitness: {converged_universe.fitness:.4f}"
         )
 
         return converged_universe

@@ -481,7 +481,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
             # Fit each detector with appropriate data
             if not isinstance(data, dict):
                 raise DetectorException(
-                    "Mixed data type requires dict with keys: " "'time_series', 'interactions'"
+                    "Mixed data type requires dict with keys: 'time_series', 'interactions'"
                 )
 
             if "time_series" in data:
@@ -501,7 +501,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
         else:
             raise DetectorException(
-                f"Unknown data_type: {data_type}. " "Use 'time_series', 'interactions', or 'mixed'."
+                f"Unknown data_type: {data_type}. Use 'time_series', 'interactions', or 'mixed'."
             )
 
         self._is_fitted = True

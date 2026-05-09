@@ -606,10 +606,12 @@ class FinancialFeatureExtractor(BaseDomainExtractor):
 
         # Financial-specific parameters
         self.seasonality_periods = config.financial_params.get(
-            "seasonality_periods", [7, 30, 365]  # Daily, weekly, monthly, yearly
+            "seasonality_periods",
+            [7, 30, 365],  # Daily, weekly, monthly, yearly
         )
         self.velocity_windows = config.financial_params.get(
-            "velocity_windows", [10, 50, 100]  # Short, medium, long term
+            "velocity_windows",
+            [10, 50, 100],  # Short, medium, long term
         )
 
     def extract(self, data: NDArray[np.float64]) -> DomainFeatureResult:

@@ -217,7 +217,7 @@ class MiniCPMVBackend(LVLMBackend):
 
         except ImportError as e:
             raise ImportError(
-                "transformers required for MiniCPM-V. " "Install with: pip install transformers"
+                "transformers required for MiniCPM-V. Install with: pip install transformers"
             ) from e
 
     def generate(
@@ -267,7 +267,7 @@ class LLaVABackend(LVLMBackend):
 
         except ImportError as e:
             raise ImportError(
-                "transformers required for LLaVA. " "Install with: pip install transformers"
+                "transformers required for LLaVA. Install with: pip install transformers"
             ) from e
 
     def generate(
@@ -388,9 +388,7 @@ def get_lvlm_backend(
         # the loss of a real model only at first use rather than at
         # configuration time.  Raise here so the misconfiguration is
         # caught at the factory boundary.
-        raise ValueError(
-            f"Unknown LVLM model_type {model_type!r}. " f"Supported: {sorted(backends)}."
-        )
+        raise ValueError(f"Unknown LVLM model_type {model_type!r}. Supported: {sorted(backends)}.")
 
     backend_class = backends[model_type]
     return backend_class(model_name, device, **kwargs)

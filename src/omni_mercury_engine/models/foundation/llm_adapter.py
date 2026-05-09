@@ -522,8 +522,8 @@ class ZeroShotAnomalyDetector:
             Natural language explanation
         """
         prompt = f"""Given the following anomaly detection result:
-Score: {detection_result.get('anomaly_score', 0)}
-Category: {detection_result.get('category', 'unknown')}
+Score: {detection_result.get("anomaly_score", 0)}
+Category: {detection_result.get("category", "unknown")}
 
 And the original data:
 {str(data)[:500]}

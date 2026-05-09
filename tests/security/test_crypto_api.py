@@ -272,9 +272,9 @@ class TestPostQuantumProviders:
         assert encapsulated.shared_secret is not None
 
         recovered = provider.decapsulate(encapsulated.ciphertext, keypair.secret_key)
-        assert (
-            recovered == encapsulated.shared_secret
-        ), "Kyber shared secrets should match after encap/decap"
+        assert recovered == encapsulated.shared_secret, (
+            "Kyber shared secrets should match after encap/decap"
+        )
 
     def test_sphincs_plus_signatures(self):
         """Test SPHINCS+ signature roundtrip."""
@@ -503,9 +503,9 @@ class TestPQCRealImplementation:
         encapsulated = kyber_encapsulate(keypair.public_key)
         recovered = kyber_decapsulate(encapsulated.ciphertext, keypair.secret_key)
 
-        assert (
-            recovered == encapsulated.shared_secret
-        ), "Kyber should produce matching shared secrets"
+        assert recovered == encapsulated.shared_secret, (
+            "Kyber should produce matching shared secrets"
+        )
 
     @pytest.mark.skipif(not SPHINCS_AVAILABLE, reason="SPHINCS+ not available")
     def test_real_sphincs_sign_verify_succeeds(self):

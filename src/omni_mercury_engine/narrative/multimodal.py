@@ -298,7 +298,7 @@ class MultiModalNarrator:
             for region in detection.regions:
                 pos = self._describe_position(region.x, region.y)
                 region_descriptions.append(
-                    f"{region.label} in {pos} region " f"(score: {region.anomaly_score:.2f})"
+                    f"{region.label} in {pos} region (score: {region.anomaly_score:.2f})"
                 )
 
             visual_description = f"Identified {len(detection.regions)} region(s) of interest: "

@@ -104,9 +104,9 @@ def few_shot_data() -> tuple[NDArray[np.float64], NDArray[np.int64]]:
 
 
 @pytest.fixture
-def transfer_data() -> (
-    tuple[NDArray[np.float64], NDArray[np.int64], NDArray[np.float64], NDArray[np.int64]]
-):
+def transfer_data() -> tuple[
+    NDArray[np.float64], NDArray[np.int64], NDArray[np.float64], NDArray[np.int64]
+]:
     """Generate source and target domain data."""
     np.random.seed(42)
 

@@ -41,7 +41,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "2025 Los Angeles Wildfires",
         "date": "2025-01-07",
         "description": (
-            "Palisades and Eaton fires in the Los Angeles metropolitan area, " "January 2025."
+            "Palisades and Eaton fires in the Los Angeles metropolitan area, January 2025."
         ),
         "area": "-119.0,33.5,-117.5,34.5",
         "country_code": None,
@@ -52,7 +52,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "maui_2023": {
         "name": "2023 Maui Wildfire",
         "date": "2023-08-08",
-        "description": ("Devastating wildfire in Lahaina, Maui, Hawaii, " "August 2023."),
+        "description": ("Devastating wildfire in Lahaina, Maui, Hawaii, August 2023."),
         "area": "-156.7,20.8,-156.4,21.0",
         "country_code": None,
         "start": "2023-08-08",
@@ -176,7 +176,7 @@ class WildfireLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         self._require_api_key()
@@ -252,7 +252,7 @@ class WildfireLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -267,7 +267,7 @@ class WildfireLoader(BaseDomainLoader):
 
         labels = (frp_clean >= threshold).astype(np.int64)
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total " "(FRP >= %.1f, 90th percentile).",
+            "Ground truth for '%s': %d anomalies / %d total (FRP >= %.1f, 90th percentile).",
             event_id,
             int(labels.sum()),
             len(labels),

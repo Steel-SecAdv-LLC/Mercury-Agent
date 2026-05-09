@@ -25,9 +25,10 @@ Provides abstract base classes for image and video anomaly detection datasets.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np  # noqa: TC002
+if TYPE_CHECKING:
+    import numpy as np
 
 try:
     import torch

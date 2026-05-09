@@ -107,7 +107,7 @@ def get_backbone(
         logger.warning("timm not available for extended backbone support")
 
     raise ValueError(
-        f"Unsupported backbone: {backbone_name}. " f"Supported: {list(backbone_map.keys())}"
+        f"Unsupported backbone: {backbone_name}. Supported: {list(backbone_map.keys())}"
     )
 
 

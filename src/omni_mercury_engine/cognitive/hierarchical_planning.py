@@ -912,8 +912,7 @@ class HierarchicalPlanner:
         }
 
         logger.info(
-            f"HierarchicalPlanner initialized (type={planner_type.value}, "
-            f"max_depth={max_depth})"
+            f"HierarchicalPlanner initialized (type={planner_type.value}, max_depth={max_depth})"
         )
 
     def create_goal(

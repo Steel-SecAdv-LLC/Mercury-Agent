@@ -518,9 +518,7 @@ class PPOTrainer:
         std_reward = float(np.std(episode_rewards))
 
         logger.info(
-            f"Evaluation complete: "
-            f"mean_reward={mean_reward:.4f}, "
-            f"std_reward={std_reward:.4f}"
+            f"Evaluation complete: mean_reward={mean_reward:.4f}, std_reward={std_reward:.4f}"
         )
 
         return mean_reward, std_reward

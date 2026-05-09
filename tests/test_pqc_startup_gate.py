@@ -28,24 +28,7 @@ from __future__ import annotations
 
 import os
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-
-def _scrub_real_pqc_env() -> dict[str, str]:
-    """Save and clear the AMA_REQUIRE_REAL_PQC env vars.
-
-    Returns the saved values so callers can restore them.  We avoid
-    ``monkeypatch`` here because the cleanup ordering between
-    ``monkeypatch`` and module-level imports of ``omni_mercury_engine``
-    can produce false positives when the suite is run with the env
-    var set globally.
-    """
-    saved: dict[str, str] = {}
-    for name in ("AMA_REQUIRE_REAL_PQC", "AVA_REQUIRE_REAL_PQC"):
-        if name in os.environ:
-            saved[name] = os.environ.pop(name)
-    return saved
+from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
 
 
 def _scrub_real_pqc_env() -> dict[str, str]:

@@ -154,8 +154,7 @@ class CachedBenevolenceScorer:
         purged = before - len(self._cache)
         if purged:
             logger.info(
-                "Benevolence cache: purged %d stale entries on ruleset version "
-                "transition %d → %d",
+                "Benevolence cache: purged %d stale entries on ruleset version transition %d → %d",
                 purged,
                 self._last_seen_ruleset_version,
                 current_version,

@@ -25,10 +25,9 @@ Deprecated:
 
 from __future__ import annotations
 
-# Re-export everything from canonical location
-from omni_mercury_engine.resilience.self_healing import *  # noqa: F401, F403
-
-# Explicit re-exports for type checking
+# Explicit re-exports of the canonical resilience.self_healing surface
+# (the previous wildcard import was redundant because every public name is
+# named explicitly below and listed in ``__all__``).
 from omni_mercury_engine.resilience.self_healing import (
     AdaptiveDefenseSystem,
     AnomalySignature,

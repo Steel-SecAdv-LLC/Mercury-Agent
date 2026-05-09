@@ -206,8 +206,7 @@ class MercuryEquationEngine:
         self.current_state: EvolutionState | None = None
 
         logger.info(
-            f"MercuryEquationEngine initialized (dim={dimension}, "
-            f"mode={self.config.mode.value})"
+            f"MercuryEquationEngine initialized (dim={dimension}, mode={self.config.mode.value})"
         )
 
     def _normalize_weights(self) -> None:

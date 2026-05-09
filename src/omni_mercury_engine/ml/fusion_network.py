@@ -1394,8 +1394,7 @@ class STEMDisciplineRouter:
                 "biometric for physiological signals"
             ),
             "chemistry": (
-                "Dimensional analysis for molecular structures, "
-                "statistical for reaction kinetics"
+                "Dimensional analysis for molecular structures, statistical for reaction kinetics"
             ),
         }
 

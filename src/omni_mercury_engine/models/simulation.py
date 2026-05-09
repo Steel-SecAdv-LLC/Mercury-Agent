@@ -135,7 +135,7 @@ class SimulationModule:
             "remaining_distance": distance_remaining,
             "insights": [
                 "Infinite series converges to finite limit (geometric series)",
-                f"After {iterations} steps, {convergence_rate*100:.4f}% of distance covered",
+                f"After {iterations} steps, {convergence_rate * 100:.4f}% of distance covered",
                 "Resolution: Mathematical limits resolve apparent paradox",
             ],
             "ethical_flags": [],
@@ -514,7 +514,7 @@ class SimulationModule:
             "status": "unsolved",
             "prize_amount": "$1,000,000",
             "analysis": (
-                "Relationship between algebraic cycles and cohomology " "in algebraic geometry"
+                "Relationship between algebraic cycles and cohomology in algebraic geometry"
             ),
             "insights": [
                 "Hodge conjecture: Deep connection in algebraic geometry",

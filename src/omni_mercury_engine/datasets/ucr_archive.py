@@ -153,8 +153,7 @@ class UCRLoader(DatasetLoader):
             self.download()
             if not train_file.exists():
                 raise FileNotFoundError(
-                    f"UCR dataset {self.dataset_name} not found. "
-                    "Please download from UCR archive."
+                    f"UCR dataset {self.dataset_name} not found. Please download from UCR archive."
                 )
 
         # Load train and test
@@ -314,8 +313,7 @@ class MBALoader(DatasetLoader):
 
         if not normal_file.exists():
             raise FileNotFoundError(
-                f"MBA data not found in {self.data_path}. "
-                "Download from CWRU Bearing Data Center."
+                f"MBA data not found in {self.data_path}. Download from CWRU Bearing Data Center."
             )
 
         features_list = []

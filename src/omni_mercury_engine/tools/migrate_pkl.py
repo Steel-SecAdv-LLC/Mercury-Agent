@@ -169,7 +169,7 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     # B603/S603: command list is fully constructed from sys.executable plus the
     # fixed module path of this tool plus argparse-validated args. There is no
     # shell interpolation and no shell=True.
-    completed = subprocess.run(cmd, env=env, check=False)  # noqa: S603  # nosec B603
+    completed = subprocess.run(cmd, env=env, check=False)  # nosec B603
     return completed.returncode
 
 

@@ -34,9 +34,9 @@ class TestResonanceScore:
         score_sine = detector._compute_resonance_score(sine).mean()
         score_noise = detector._compute_resonance_score(noise).mean()
 
-        assert (
-            score_noise > score_sine
-        ), f"Resonance: noise ({score_noise:.3f}) should be > sine ({score_sine:.3f})"
+        assert score_noise > score_sine, (
+            f"Resonance: noise ({score_noise:.3f}) should be > sine ({score_sine:.3f})"
+        )
 
     def test_small_dataset(self, detector: MercuryAnomalyDetector) -> None:
         """Resonance should not crash on n_samples < 32."""
@@ -88,9 +88,9 @@ class TestKinematicScore:
         score_smooth = detector._compute_kinematic_score(smooth).mean()
         score_jerky = detector._compute_kinematic_score(jerky).mean()
 
-        assert (
-            score_jerky > score_smooth
-        ), f"Kinematic: jerky ({score_jerky:.3f}) should be > smooth ({score_smooth:.3f})"
+        assert score_jerky > score_smooth, (
+            f"Kinematic: jerky ({score_jerky:.3f}) should be > smooth ({score_smooth:.3f})"
+        )
 
     def test_single_sample(self, detector: MercuryAnomalyDetector) -> None:
         """Single sample should return 0.5 (no dynamics)."""
@@ -142,9 +142,9 @@ class TestInfoGeometryScore:
         score_in = detector._compute_info_geometry_score(in_dist).mean()
         score_out = detector._compute_info_geometry_score(out_dist).mean()
 
-        assert (
-            score_out > score_in
-        ), f"InfoGeo: OOD ({score_out:.3f}) should be > in-dist ({score_in:.3f})"
+        assert score_out > score_in, (
+            f"InfoGeo: OOD ({score_out:.3f}) should be > in-dist ({score_in:.3f})"
+        )
 
     def test_singular_covariance(self, detector: MercuryAnomalyDetector) -> None:
         """Near-singular covariance (many more features than samples) should not crash."""
@@ -256,9 +256,9 @@ class TestEnsembleCombined:
 
     def test_no_isolation_forest_attribute(self, detector: MercuryAnomalyDetector) -> None:
         """Detector should not have an isolation_forest attribute."""
-        assert not hasattr(
-            detector, "isolation_forest"
-        ), "isolation_forest attribute should be removed"
+        assert not hasattr(detector, "isolation_forest"), (
+            "isolation_forest attribute should be removed"
+        )
 
     def test_1d_data(self, detector: MercuryAnomalyDetector) -> None:
         """1D input should work (reshaped to (n, 1) internally)."""

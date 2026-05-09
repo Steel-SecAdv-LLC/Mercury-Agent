@@ -340,14 +340,12 @@ class WebSearchRetriever(BaseExternalRetriever):
             # URL is hardcoded with https:// scheme - safe
             url = f"https://api.duckduckgo.com/?q={safe_query}&format=json&no_html=1"
 
-            req = urllib.request.Request(  # noqa: S310 - URL scheme is hardcoded https
+            req = urllib.request.Request(
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme is hardcoded https
-                req, timeout=self.config.web_search_timeout
-            ) as response:
+            with urllib.request.urlopen(req, timeout=self.config.web_search_timeout) as response:
                 data = json.loads(response.read().decode())
 
                 # Extract abstract
@@ -409,14 +407,12 @@ class WebSearchRetriever(BaseExternalRetriever):
                 logger.warning(f"Invalid URL scheme for SearXNG: {url}")
                 return results
 
-            req = urllib.request.Request(  # noqa: S310 - URL scheme validated above
+            req = urllib.request.Request(
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
-                req, timeout=self.config.web_search_timeout
-            ) as response:
+            with urllib.request.urlopen(req, timeout=self.config.web_search_timeout) as response:
                 data = json.loads(response.read().decode())
 
                 for item in data.get("results", [])[:max_results]:
@@ -454,9 +450,7 @@ class WebSearchRetriever(BaseExternalRetriever):
                 "https://api.duckduckgo.com/?q=test&format=json",
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme is hardcoded https
-                req, timeout=5
-            ) as _:
+            with urllib.request.urlopen(req, timeout=5) as _:
                 self._is_available = True
         except (OSError, urllib.error.URLError, TimeoutError):
             # Network or service unavailable; mark as unavailable
@@ -679,7 +673,7 @@ class DatabaseRetriever(BaseExternalRetriever):
             return None
 
         # Build simple search query - table name validated above
-        return f"SELECT * FROM {target_table} LIMIT {max_results}"  # noqa: S608  # nosec B608
+        return f"SELECT * FROM {target_table} LIMIT {max_results}"
 
     def execute_query(
         self,

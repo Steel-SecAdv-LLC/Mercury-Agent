@@ -955,7 +955,7 @@ class TrustedEndpoints:
     WHO_GHO_API = "https://ghoapi.azureedge.net/api/"
 
     # NASA Global Landslide Catalog (COOLR)
-    NASA_COOLR = "https://maps.nccs.nasa.gov/arcgis/rest/services/" "global_landslide_catalog/"
+    NASA_COOLR = "https://maps.nccs.nasa.gov/arcgis/rest/services/global_landslide_catalog/"
 
     # PhysioNet Sepsis Challenge 2019
     PHYSIONET_SEPSIS_2019 = "https://physionet.org/content/challenge-2019/"

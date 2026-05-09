@@ -130,7 +130,11 @@ class SpaceInfrastructureMonitor:
             "severity": (
                 "critical"
                 if anomaly_score > 5.0
-                else "high" if anomaly_score > 4.0 else "medium" if anomaly_detected else "low"
+                else "high"
+                if anomaly_score > 4.0
+                else "medium"
+                if anomaly_detected
+                else "low"
             ),
             "details": {
                 "anomaly_indices": anomaly_indices,

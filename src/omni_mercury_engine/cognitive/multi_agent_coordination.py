@@ -1006,8 +1006,7 @@ class AgentCoordinator:
         self._stats["coalitions_formed"] += 1
 
         logger.info(
-            f"Formed coalition {coalition_id} with {len(member_ids)} members "
-            f"(leader={leader_id})"
+            f"Formed coalition {coalition_id} with {len(member_ids)} members (leader={leader_id})"
         )
 
         return coalition

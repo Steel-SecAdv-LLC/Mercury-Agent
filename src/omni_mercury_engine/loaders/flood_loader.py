@@ -181,7 +181,7 @@ class FloodLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"flood_historical_{event_id}"
@@ -280,7 +280,7 @@ class FloodLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -364,12 +364,14 @@ class FloodLoader(BaseDomainLoader):
 
         # ---- deviation from rolling median (normalized) ----
         median_deviation = self._compute_median_deviation(
-            gauge_height, window=96  # ~24 hours at 15-min intervals
+            gauge_height,
+            window=96,  # ~24 hours at 15-min intervals
         )
 
         # ---- peak-to-baseline ratio ----
         peak_to_baseline = self._compute_peak_to_baseline(
-            gauge_height, window=288  # ~72 hours at 15-min intervals
+            gauge_height,
+            window=288,  # ~72 hours at 15-min intervals
         )
 
         # Stack into feature matrix

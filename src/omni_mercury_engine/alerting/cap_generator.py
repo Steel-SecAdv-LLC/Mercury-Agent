@@ -372,8 +372,7 @@ class CAPAlertGenerator:
 
         event_name = DOMAIN_EVENT_MAP.get(domain, "Anomaly")
         headline = (
-            f"Mercury {event_name} Alert: "
-            f"Score {max_score:.2f} ({n_anomalies} anomalies detected)"
+            f"Mercury {event_name} Alert: Score {max_score:.2f} ({n_anomalies} anomalies detected)"
         )
 
         desc_parts = [

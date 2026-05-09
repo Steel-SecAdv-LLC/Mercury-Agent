@@ -195,7 +195,7 @@ class GOSNNCouplingServer:
         with self._lock:
             if not self._pending_updates:
                 raise GOSNNCouplingError(
-                    f"Cannot aggregate round {self._round_num}: no client " "updates were ingested"
+                    f"Cannot aggregate round {self._round_num}: no client updates were ingested"
                 )
             total_samples = sum(u.n_samples for u in self._pending_updates.values())
             if total_samples <= 0:
@@ -268,7 +268,7 @@ class GOSNNCouplingClient:
             )
         if _digest(global_state.weights) != global_state.digest:
             raise GOSNNCouplingError(
-                f"Global state digest mismatch on receive at client " f"{self._client_id!r}"
+                f"Global state digest mismatch on receive at client {self._client_id!r}"
             )
         with self._lock:
             self._local_weights = np.ascontiguousarray(global_state.weights.copy())

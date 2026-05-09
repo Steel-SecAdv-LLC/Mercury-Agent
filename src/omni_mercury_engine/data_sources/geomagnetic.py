@@ -676,7 +676,7 @@ class HeartMathGCMSSource(DataSourceBase):
             power_data: dict[str, float] = {}
             for i, freq in enumerate(self.SCHUMANN_FREQUENCIES):
                 # Power typically decreases with harmonic number
-                power_data[f"mode_{i+1}_{freq}Hz"] = 10.0 / (i + 1)
+                power_data[f"mode_{i + 1}_{freq}Hz"] = 10.0 / (i + 1)
 
             schumann_data["power_spectrum"] = power_data
 

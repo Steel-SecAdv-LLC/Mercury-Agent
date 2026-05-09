@@ -76,7 +76,7 @@ def test_runner_is_deterministic_for_fixed_seed() -> None:
             )
         else:
             assert a_score == b_score, (
-                f"{name}: deterministic axis was not reproducible " f"({a_score} vs {b_score})"
+                f"{name}: deterministic axis was not reproducible ({a_score} vs {b_score})"
             )
 
 

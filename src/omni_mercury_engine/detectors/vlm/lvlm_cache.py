@@ -170,8 +170,7 @@ class LVLMBackendCache:
 
         self._initialized = True
         logger.info(
-            f"LVLMBackendCache initialized: max_memory={max_memory_gb}GB, "
-            f"max_models={max_models}"
+            f"LVLMBackendCache initialized: max_memory={max_memory_gb}GB, max_models={max_models}"
         )
 
     @classmethod

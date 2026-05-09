@@ -56,15 +56,15 @@ class TestTemporalSoftNormalization:
         extreme_score = extreme_result["scores"][-1]
 
         # All scores should be strictly ordered (soft normalization preserves ranking)
-        assert (
-            mild_score < moderate_score
-        ), f"Moderate ({moderate_score:.4f}) should be > mild ({mild_score:.4f})"
-        assert (
-            moderate_score < severe_score
-        ), f"Severe ({severe_score:.4f}) should be > moderate ({moderate_score:.4f})"
-        assert (
-            severe_score < extreme_score
-        ), f"Extreme ({extreme_score:.4f}) should be > severe ({severe_score:.4f})"
+        assert mild_score < moderate_score, (
+            f"Moderate ({moderate_score:.4f}) should be > mild ({mild_score:.4f})"
+        )
+        assert moderate_score < severe_score, (
+            f"Severe ({severe_score:.4f}) should be > moderate ({moderate_score:.4f})"
+        )
+        assert severe_score < extreme_score, (
+            f"Extreme ({extreme_score:.4f}) should be > severe ({severe_score:.4f})"
+        )
 
     def test_scores_approach_one_asymptotically(self, detector):
         """Verify scores approach 1.0 but never reach it (asymptotic behavior).
@@ -176,9 +176,9 @@ class TestDirectiveSoftNormalization:
         mild_rmd = mild_result["rmd_scores"][0]
         extreme_rmd = extreme_result["rmd_scores"][0]
 
-        assert (
-            mild_rmd < extreme_rmd
-        ), f"RMD should differentiate: mild {mild_rmd:.4f} < extreme {extreme_rmd:.4f}"
+        assert mild_rmd < extreme_rmd, (
+            f"RMD should differentiate: mild {mild_rmd:.4f} < extreme {extreme_rmd:.4f}"
+        )
 
     def test_combined_scores_preserve_ranking(self, detector, deterministic_rng):
         """Verify combined scores preserve anomaly ranking."""
@@ -280,9 +280,9 @@ class TestScoreContinuityRegression:
 
         # PCP scores must be strictly ordered (fails with hard clipping)
         assert pcp_10x < pcp_100x, f"PCP 100x ({pcp_100x:.6f}) should exceed 10x ({pcp_10x:.6f})"
-        assert (
-            pcp_100x < pcp_1000x
-        ), f"PCP 1000x ({pcp_1000x:.6f}) should exceed 100x ({pcp_100x:.6f})"
+        assert pcp_100x < pcp_1000x, (
+            f"PCP 1000x ({pcp_1000x:.6f}) should exceed 100x ({pcp_100x:.6f})"
+        )
         # Asymptotic: even extreme values should be < 1.0
         assert pcp_1000x < 1.0, f"PCP 1000x should be < 1.0, got {pcp_1000x:.6f}"
 
@@ -307,9 +307,9 @@ class TestScoreContinuityWithAutoCalibration:
         # Scores should be continuous (not discrete like old 5-value system)
         unique_scores = np.unique(result["scores"])
         # With 103 data points and continuous scoring, we expect many unique values
-        assert (
-            len(unique_scores) >= 5
-        ), f"Expected continuous scores, got only {len(unique_scores)} unique values"
+        assert len(unique_scores) >= 5, (
+            f"Expected continuous scores, got only {len(unique_scores)} unique values"
+        )
 
     def test_directive_auto_calibration_with_soft_scores(self, deterministic_rng):
         """Verify auto-calibration works with continuous soft-normalized scores."""

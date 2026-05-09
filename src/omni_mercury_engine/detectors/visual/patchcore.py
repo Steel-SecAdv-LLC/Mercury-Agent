@@ -219,7 +219,7 @@ class PatchCoreDetector(BaseVisualDetector):
             return embeddings
 
         logger.info(
-            f"Coreset sampling: {num_samples} -> {target_size} " f"({sampling_ratio * 100:.1f}%)"
+            f"Coreset sampling: {num_samples} -> {target_size} ({sampling_ratio * 100:.1f}%)"
         )
 
         # Move to CPU for sampling (memory intensive)
@@ -404,7 +404,9 @@ class PatchCoreDetector(BaseVisualDetector):
             patches = self._apply_local_neighborhood_aggregation(patches, patch_shape)
 
             batch_scores, batch_maps = self._compute_anomaly_scores(
-                patches, patch_shape, original_size  # type: ignore[arg-type, unused-ignore]
+                patches,
+                patch_shape,
+                original_size,  # type: ignore[arg-type, unused-ignore]
             )
 
             all_scores.append(batch_scores)

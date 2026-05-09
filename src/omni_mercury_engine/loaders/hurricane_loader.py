@@ -82,7 +82,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "Hurricane Harvey (2017)",
         "date": "2017-08-25",
         "description": (
-            "Category 4 hurricane that caused catastrophic flooding in " "southeastern Texas."
+            "Category 4 hurricane that caused catastrophic flooding in southeastern Texas."
         ),
         "sid": "2017232N14283",
         "basin": "NA",
@@ -159,8 +159,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "Hurricane Dorian (2019)",
         "date": "2019-09-01",
         "description": (
-            "Category 5 hurricane that devastated the Bahamas after "
-            "extreme rapid intensification."
+            "Category 5 hurricane that devastated the Bahamas after extreme rapid intensification."
         ),
         "sid": "2019236N10340",
         "basin": "NA",
@@ -181,7 +180,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "Hurricane Sandy (2012)",
         "date": "2012-10-29",
         "description": (
-            "Post-tropical cyclone that caused massive damage to the " "northeastern United States."
+            "Post-tropical cyclone that caused massive damage to the northeastern United States."
         ),
         "sid": "2012296N14283",
         "basin": "NA",
@@ -297,7 +296,7 @@ class HurricaneLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         cache_key = f"hurricane_historical_{event_id}"
@@ -367,7 +366,7 @@ class HurricaneLoader(BaseDomainLoader):
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
-                f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
+                f"Unknown event_id '{event_id}'. Available: {list(_EVENT_CATALOG.keys())}"
             )
 
         df = self.fetch_historical(event_id)
@@ -378,7 +377,7 @@ class HurricaneLoader(BaseDomainLoader):
         labels = self._label_rapid_intensification(wind)
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total " "(RI threshold >= %d kt / 24 h).",
+            "Ground truth for '%s': %d anomalies / %d total (RI threshold >= %d kt / 24 h).",
             event_id,
             int(labels.sum()),
             len(labels),

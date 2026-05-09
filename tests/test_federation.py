@@ -150,7 +150,7 @@ def test_aggregator_two_nodes(
         lo = min(stats_a.mean[i], stats_b.mean[i])
         hi = max(stats_a.mean[i], stats_b.mean[i])
         assert lo <= global_stats.mean[i] <= hi, (
-            f"Feature {i}: aggregated mean {global_stats.mean[i]} " f"not between {lo} and {hi}"
+            f"Feature {i}: aggregated mean {global_stats.mean[i]} not between {lo} and {hi}"
         )
 
     assert global_stats.n_samples == _N_SAMPLES_A + _N_SAMPLES_B
@@ -249,9 +249,9 @@ def test_federated_detector_matches_centralized() -> None:
 
     # Scores should be positively correlated
     correlation = np.corrcoef(central_scores, fed_scores)[0, 1]
-    assert (
-        correlation > 0.5
-    ), f"Federated and centralized scores poorly correlated: r={correlation:.3f}"
+    assert correlation > 0.5, (
+        f"Federated and centralized scores poorly correlated: r={correlation:.3f}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +491,7 @@ def test_federation_end_to_end_with_real_domain() -> None:
         X = loader.engineer_features(raw_data)
 
         if X is None or len(X) < 30:
-            pytest.skip(f"Insufficient earthquake data: " f"N={len(X) if X is not None else 0}")
+            pytest.skip(f"Insufficient earthquake data: N={len(X) if X is not None else 0}")
 
         # Split into 3 partitions
         n = len(X)
