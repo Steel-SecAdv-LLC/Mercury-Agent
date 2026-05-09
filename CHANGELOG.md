@@ -38,6 +38,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   absorbed into PR #189; closed with attestation of commit SHAs
   (e198858, 12d2887, cc70fc9, 7e20c5b, c032c91, fd51186, 0553f1a).
 
+### Rejected work (Mock = Gap doctrine)
+
+The following commits on `copilot/check-mercury-agent-capabilities` are
+**rejected, not absorbed**, because they mock `σ_Immutable.gate(...)` in
+tests — directly violating the v1.6.0 sweep's "Mock = Gap" doctrine for
+σ_Immutable verification:
+
+- `a992d0a` — `test(truth_decipher): mock σ_Immutable gate for framework
+  integration tests`
+- `a698012` — `test(session3): mock σ_Immutable gate for tests that bypass
+  benevolence`
+
+Any test that depended on the mocked σ_Immutable behaviour is to be
+rewritten against the real `SigmaImmutableGate` contract (the same gate
+that ships with PR #189's Wave B promotion) or deleted; mocks of the
+gate are not preserved under any condition.  See PR #189's body and
+`docs/audits/v1.6.0/absorption_manifest.md` for the full rejection
+record.
+
 ### Wave B — σ_Immutable promoted to hard gate (deferred from PR #161)
 
 - **σ_Immutable is now the second mandatory hard ethical gate** at every

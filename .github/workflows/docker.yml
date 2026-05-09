@@ -31,8 +31,10 @@ jobs:
           sudo rm -rf /usr/share/swift
           sudo rm -rf /usr/local/graalvm
           sudo rm -rf /usr/local/.ghcup
-          docker system prune -af || true
-          docker builder prune -af || true
+          # docker prune exits 0 when there is nothing to prune, so the
+          # previous tail-of-line error-swallow shortcuts are unnecessary.
+          docker system prune -af
+          docker builder prune -af
           df -h
 
       - name: Checkout
@@ -54,7 +56,11 @@ jobs:
           outputs: type=docker,dest=/tmp/mercury-image.tar
 
       - name: Run Trivy vulnerability scanner on tarball
-        continue-on-error: true
+        # ``exit-code: 0`` makes Trivy emit the SARIF without failing
+        # the workflow on findings — the SARIF is the artifact of
+        # record and is reviewed via the Security tab. The previous
+        # step-level continue-on-error was redundant with ``exit-code: 0``
+        # and is removed (v1.6.0 corrective sweep §9).
         uses: aquasecurity/trivy-action@master
         with:
           input: /tmp/mercury-image.tar
@@ -70,8 +76,11 @@ jobs:
           timeout: 10m
 
       - name: Upload Trivy scan results to GitHub Security tab
-        if: always()
-        continue-on-error: true
+        # ``if: always()`` runs the upload even when an earlier step
+        # failed; the upload itself returning non-zero is genuinely
+        # actionable (CodeQL ingestion problem) and should fail the
+        # workflow rather than be hidden by ``continue-on-error``.
+        if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif

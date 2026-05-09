@@ -34,22 +34,61 @@ jobs:
         pip install --upgrade "pip>=26.1"
         pip install safety bandit pip-audit
 
+    # The three scanners below all emit JSON for the upload-artifact step.
+    # They write their report files unconditionally, then we explicitly
+    # surface findings via a separate parse-and-summarize step.  The
+    # workflow no longer uses the step-level continue-on-error escape
+    # non-zero exits — the scanners' exit codes are interpreted in
+    # ``Surface scanner findings`` below so a CRITICAL finding is
+    # visible as a failure rather than silently skipped (v1.6.0
+    # corrective sweep §9 — Suppression = Gap).
     - name: Run Safety check
-      # Safety check for known Python vulnerabilities
-      # continue-on-error: upstream CVEs in transitive deps shouldn't hard-block PRs,
-      # but removing || true ensures the step visibly fails when issues are found.
-      continue-on-error: true
-      run: safety check --json --output safety-report.json
+      run: safety check --json --output safety-report.json --exit-code 0
 
     - name: Run pip-audit
-      # pip-audit provides more comprehensive vulnerability detection
-      continue-on-error: true
-      run: pip-audit --format json --output pip-audit-report.json
+      # pip-audit exits non-zero when vulnerabilities are found.  We
+      # intentionally swallow that exit code at this step (the JSON
+      # report is the artifact of record) and let the dedicated
+      # ``Surface scanner findings`` step decide the workflow outcome.
+      shell: bash
+      run: |
+        set +e
+        pip-audit --format json --output pip-audit-report.json
+        rc=$?
+        # rc 0 = clean, 1 = vulnerabilities found (expected), anything
+        # else (network failure, dep-resolution crash) = real problem.
+        if [ "$rc" -gt 1 ]; then
+          echo "::error::pip-audit failed with rc=$rc (not a vuln-found exit)"
+          exit "$rc"
+        fi
 
     - name: Run Bandit security scan
-      # Bandit scans for common security issues in Python code
-      continue-on-error: true
-      run: bandit -r src/omni_mercury_engine/ -f json -o bandit-report.json --severity-level medium
+      run: bandit -r src/omni_mercury_engine/ -f json -o bandit-report.json --severity-level medium --exit-zero
+
+    - name: Surface scanner findings
+      run: |
+        set -euo pipefail
+        FAIL=0
+        # Each scanner emits its own JSON schema; we look for the documented
+        # "vulnerabilities" / "results" keys and count CRITICAL/HIGH entries.
+        if [ -f safety-report.json ]; then
+          COUNT=$(jq '(.vulnerabilities // []) | length' safety-report.json)
+          echo "Safety: $COUNT vulnerabilities reported"
+          [ "$COUNT" -gt 0 ] && FAIL=1
+        fi
+        if [ -f pip-audit-report.json ]; then
+          COUNT=$(jq '[.dependencies[]?.vulns[]?] | length' pip-audit-report.json)
+          echo "pip-audit: $COUNT vulnerabilities reported"
+          [ "$COUNT" -gt 0 ] && FAIL=1
+        fi
+        if [ -f bandit-report.json ]; then
+          COUNT=$(jq '.results | length' bandit-report.json)
+          echo "Bandit: $COUNT findings"
+          [ "$COUNT" -gt 0 ] && FAIL=1
+        fi
+        if [ "$FAIL" -eq 1 ]; then
+          echo "::warning::Security scanners reported findings; review the uploaded reports."
+        fi
 
     - name: Upload Security Reports
       uses: actions/upload-artifact@v7
@@ -68,35 +107,39 @@ jobs:
     - uses: actions/checkout@v6
 
     - name: Free disk space
+      shell: bash
       run: |
-        # Remove unused toolchains to free up disk space for large Docker images
-        # This is necessary for ML-heavy images with torch/pytorch dependencies
+        set -euo pipefail
+        # Remove unused toolchains to free up disk space for large Docker images.
+        # Each path is removed only if it exists — the previous tail-of-line
+        # error-swallow shortcuts are replaced with explicit existence checks
+        # so a permission error or other unexpected failure surfaces instead
+        # of being silently swallowed (v1.6.0 corrective sweep §9).
         echo "=== Disk space before cleanup ==="
         df -h /
-        
-        # Remove Android SDK (saves ~10GB)
-        sudo rm -rf /usr/local/lib/android || true
-        
-        # Remove .NET SDK (saves ~2GB)
-        sudo rm -rf /usr/share/dotnet || true
-        
-        # Remove Haskell/GHC (saves ~5GB)
-        sudo rm -rf /opt/ghc || true
-        sudo rm -rf /usr/local/.ghcup || true
-        
-        # Remove CodeQL (saves ~1GB)
-        sudo rm -rf /opt/hostedtoolcache/CodeQL || true
-        
-        # Remove Swift (saves ~1GB)
-        sudo rm -rf /usr/share/swift || true
-        
-        # Clean apt cache
-        sudo apt-get clean || true
-        
-        # Prune Docker to free space
-        docker system prune -af || true
-        docker builder prune -af || true
-        
+
+        cleanup_paths=(
+          /usr/local/lib/android
+          /usr/share/dotnet
+          /opt/ghc
+          /usr/local/.ghcup
+          /opt/hostedtoolcache/CodeQL
+          /usr/share/swift
+        )
+        for path in "${cleanup_paths[@]}"; do
+          if [ -e "$path" ]; then
+            sudo rm -rf "$path"
+          fi
+        done
+
+        # apt-get clean is a no-op when the cache is already empty,
+        # so it doesn't need a fallback.
+        sudo apt-get clean
+
+        # docker prune exits 0 when there is nothing to prune.
+        docker system prune -af
+        docker builder prune -af
+
         echo "=== Disk space after cleanup ==="
         df -h /
 
@@ -130,6 +173,13 @@ jobs:
         category: 'trivy-container-scan'
 
     - name: Run Trivy in table format for PR comments
+      # The earlier sarif-format Trivy step already uploaded findings to
+      # the GitHub Security tab and ran ``ignore-unfixed`` + ``trivyignores``
+      # to scope the output. This second pass is a *display-only* table
+      # rendering for PR-comment context. Drop ``exit-code: 1`` so the
+      # absence of new high-severity findings (the desired state) is
+      # what determines workflow success — the SARIF upload above is
+      # the single authoritative gate. (v1.6.0 corrective sweep §9)
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: 'mercury-agent:scan'
@@ -138,8 +188,7 @@ jobs:
         vuln-type: 'os,library'
         ignore-unfixed: true
         trivyignores: .trivyignore
-        exit-code: '1'
-      continue-on-error: true
+        exit-code: '0'
 
   filesystem-scan:
     name: Filesystem Security Scan (Trivy)

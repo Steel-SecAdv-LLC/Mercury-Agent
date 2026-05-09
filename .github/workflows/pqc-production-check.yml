@@ -170,8 +170,10 @@ jobs:
         env:
           AMA_REQUIRE_REAL_PQC: "true"
           MERCURY_PQC_REAL_AMA: "1"
-        # Blocking — the previous ``|| echo "Some tests may fail without
-        # AMA native C library"`` was a silent escape hatch.  By the time
+        # Blocking — the previous tail-of-pipeline escape hatch
+        # (a hardcoded "Some tests may fail without AMA native C
+        # library" message) silently swallowed the gate failure.  By
+        # the time
         # this step runs, the workflow has already:
         #   - cloned and built AMA Cryptography (``v3.1.0`` tag),
         #   - exported ``LD_LIBRARY_PATH`` to the AMA build/lib,

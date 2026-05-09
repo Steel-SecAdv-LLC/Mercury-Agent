@@ -219,8 +219,14 @@ jobs:
         run: |
           VERSION="${{ needs.validate.outputs.version }}"
 
-          # Get previous tag
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          # Get previous tag (empty string when no tag exists yet — the
+          # ``if [ -n "$PREV_TAG" ]`` branch below handles both cases
+          # explicitly).
+          if PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null); then
+            :
+          else
+            PREV_TAG=""
+          fi
 
           if [ -n "$PREV_TAG" ]; then
             echo "## Changes since $PREV_TAG" > CHANGELOG_EXCERPT.md
@@ -272,7 +278,14 @@ jobs:
     name: Publish to PyPI
     needs: [validate, build, release]
     runs-on: ubuntu-latest
-    if: needs.validate.outputs.is_prerelease == 'false'
+    # Run only for non-prerelease tags AND only when the PYPI_API_TOKEN
+    # secret is configured (the trusted-publisher pypa action also
+    # accepts OIDC, but the explicit gate keeps the previous
+    # step-level continue-on-error shortcut from being needed —
+    # v1.6.0 corrective sweep §9).
+    if: |
+      needs.validate.outputs.is_prerelease == 'false'
+      && vars.PYPI_PUBLISH_ENABLED == 'true'
     environment:
       name: pypi
       url: https://pypi.org/p/mercury-agent
@@ -288,7 +301,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-        continue-on-error: true  # Don't fail if PyPI is not configured
 
   # ============================================================================
   # Post-Release Notifications
@@ -307,7 +319,11 @@ jobs:
 
           echo "🎉 Mercury Agent v$VERSION Released!"
           echo ""
-          echo "Release Type: $([ "$PRERELEASE" == "true" ] && echo "Pre-release" || echo "Stable")"
+          if [ "$PRERELEASE" == "true" ]; then
+            echo "Release Type: Pre-release"
+          else
+            echo "Release Type: Stable"
+          fi
           echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
           echo "Docker Image: ghcr.io/${{ github.repository }}:$VERSION"
           echo ""
