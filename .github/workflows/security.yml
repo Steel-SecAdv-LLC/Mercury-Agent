@@ -40,10 +40,33 @@ jobs:
     # workflow no longer uses the step-level continue-on-error escape
     # non-zero exits — the scanners' exit codes are interpreted in
     # ``Surface scanner findings`` below so a CRITICAL finding is
-    # visible as a failure rather than silently skipped (v1.6.0
-    # corrective sweep §9 — Suppression = Gap).
+    # visible as a failure rather than silently skipped.
     - name: Run Safety check
-      run: safety check --json --output safety-report.json --exit-code 0
+      # Three compatibility points relative to legacy invocations:
+      #
+      # 1. Safety ≥ 3.7 changed ``--output`` to take a format name only
+      #    (one of ``screen|text|json|bare|html``); writing the report
+      #    is done by redirecting stdout.  The pre-3.7 form
+      #    ``--output <path>`` exits 2 with ``Invalid value for '--output'``
+      #    before any scan runs.
+      # 2. Without ``--policy-file``, ``safety check`` auto-discovers
+      #    ``.safety-policy.yml`` (v3 schema), which the legacy ``check``
+      #    parser rejects with ``policy file version 3.0 ... not
+      #    supported``.  Passing the v2 shim file matches the blocking
+      #    Safety step in ``ci.yml`` (see ``.safety-policy-v2.yml``
+      #    header for the rationale).
+      # 3. Safety ≥ 3.7 replaced the value-taking ``--exit-code 0`` with
+      #    a boolean ``--continue-on-error`` flag (passing ``--exit-code 0``
+      #    now produces ``Got unexpected extra argument (0)``).  This step
+      #    is the non-blocking surface-and-summarize lane (the blocking
+      #    gate lives in ``ci.yml``), so we want exit 0 regardless of
+      #    findings — ``--continue-on-error`` is the new equivalent.
+      run: |
+        safety check \
+          --policy-file .safety-policy-v2.yml \
+          --output json \
+          --continue-on-error \
+          > safety-report.json
 
     - name: Run pip-audit
       # pip-audit exits non-zero when vulnerabilities are found.  We

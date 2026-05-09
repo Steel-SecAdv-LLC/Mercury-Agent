@@ -5,12 +5,12 @@
 # schedule so that CI can hard-fail on NEW vulnerabilities while allowing
 # known, risk-assessed exceptions through.
 #
-# Last Updated: 2026-05-02 (PR #148 — confirms documentation-only role
-#   alongside .safety-policy-v2.yml shim and per-CVE CLI ignore flags
-#   driven by docs/PYTHON_DEP_CVE_AUDIT.md; OS-level acceptances below
-#   continue to be enforced by Trivy via .trivyignore)
+# Last Updated: 2026-05-02 (documentation-only role alongside the
+#   .safety-policy-v2.yml legacy-parser shim and per-CVE CLI ignore
+#   flags wired into .github/workflows/ci.yml; OS-level acceptances
+#   below continue to be enforced by Trivy via .trivyignore.)
 # Reviewed By: Steel Security Advisors LLC
-# Next Review: 2026-08-02 (quarterly; aligned with PYTHON_DEP_CVE_AUDIT.md)
+# Next Review: 2026-08-02 (quarterly cadence)
 #
 # Reference: https://docs.safetycli.com/safety-docs/policy-file
 

@@ -219,16 +219,15 @@ jobs:
       - name: Run Safety (dependency vulnerabilities — BLOCKING)
         # Hard-blocking dep-CVE gate.  Risk-accepted CVEs are passed via
         # ``--ignore`` with a comma-separated Safety vulnerability-ID
-        # list.  Each ID's rationale and re-review date is documented
-        # in ``docs/PYTHON_DEP_CVE_AUDIT.md`` (the ``--ignore`` argument
-        # below is intentionally empty as of the audit date — every
-        # finding present in PR #148 was resolved by upgrade rather
-        # than acceptance, see the "Resolved upgrades" table in the
-        # audit doc).  Adding an ignore later requires:
-        #   1. Add the row to docs/PYTHON_DEP_CVE_AUDIT.md with
-        #      Disposition=IGNORE and a verifiable Rationale.
-        #   2. Append the Safety vuln-id to the comma-separated list
-        #      passed to ``--ignore`` here.
+        # list and a verifiable rationale comment at the call site.
+        # The ``--ignore`` argument below is intentionally empty — the
+        # current scan has no risk-accepted findings; everything is
+        # resolved by upgrade rather than acceptance.  Adding an
+        # ignore later requires (a) writing a brief rationale comment
+        # immediately above the ``--ignore`` flag describing what each
+        # vuln-id is and why it is accepted, and (b) appending the
+        # Safety vuln-id to the comma-separated list.
+        #
         # This sidesteps Safety v3.x's policy-file limitations (legacy
         # ``check`` rejects v3 policy files; v3-aware ``scan`` requires
         # Safety Cloud auth) while still enforcing per-CVE acceptance.
@@ -250,18 +249,16 @@ jobs:
           # ``pip install -e ".[api]"`` resolver downgrades click to a
           # version that breaks typer's import, and ``safety check``
           # crashes with ``TypeError: type 'Choice' is not subscriptable``
-          # before any vulnerability scanning happens.  Diagnosed via
-          # the diagnostic curl posts on PR #148 commits 6cc4bbd /
-          # 1952eb7 / 63ae1dc; fixed in commit ae7ad84.
+          # before any vulnerability scanning happens.
           pip install -e ".[api]" --upgrade "click>=8.2" "typer>=0.20"
           set +e
-          # ``--ignore`` is intentionally omitted while the audit-doc
-          # IGNORE list is empty — passing ``--ignore ""`` is ambiguous
-          # (some Safety versions treat an empty string as a single
-          # invalid vuln-id and exit non-zero before scanning).  When
-          # the first risk-accepted CVE is added to
-          # ``docs/PYTHON_DEP_CVE_AUDIT.md``, change this invocation to
-          # ``--ignore "<id1>,<id2>,..."`` with the ID(s) listed there.
+          # ``--ignore`` is intentionally omitted while the IGNORE list
+          # is empty — passing ``--ignore ""`` is ambiguous (some Safety
+          # versions treat an empty string as a single invalid vuln-id
+          # and exit non-zero before scanning).  When the first
+          # risk-accepted CVE is added, change this invocation to
+          # ``--ignore "<id1>,<id2>,..."`` and add a comment immediately
+          # above describing each id's rationale.
           safety check \
             --policy-file .safety-policy-v2.yml \
             --output json > safety-report.json
@@ -299,12 +296,12 @@ jobs:
 
       - name: Run pip-audit (PyPI/OSV advisories — BLOCKING)
         # Hard-blocking, parity with Safety above.  Risk-accepted CVEs
-        # are passed via repeated ``--ignore-vuln <id>`` flags.  Each
-        # ID's rationale and re-review date is documented in
-        # ``docs/PYTHON_DEP_CVE_AUDIT.md`` (the audit table is empty
-        # of accepted CVEs as of PR #148 — every prior finding was
-        # resolved by upgrade).  Adding an ignore later requires the
-        # same two-step process documented on the Safety step above.
+        # are passed via repeated ``--ignore-vuln <id>`` flags, each
+        # with a verifiable rationale comment immediately above the
+        # flag.  Currently no acceptances — every prior finding has
+        # been resolved by upgrade.  Adding an ignore later requires
+        # the same in-line rationale-comment process documented on
+        # the Safety step above.
         run: pip-audit --format json --output pip-audit-report.json
 
       - name: Run Semgrep (SAST — BLOCKING)

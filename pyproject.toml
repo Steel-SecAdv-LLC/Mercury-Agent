@@ -708,7 +708,23 @@ exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
 #   3. TrustedEndpoints.validate_url() validates domain against allowlist
 #   4. This provides architectural SSRF protection that bandit's static analysis cannot recognize
 #   5. See TrustedEndpoints.TRUSTED_DOMAINS for the complete allowlist
-skips = ["B101", "B311", "B310"]
+# B608: hardcoded_sql_expressions - SAFE in the two flagged sites because:
+#   1. ``datasets/space.py::_download_from_nasa_tap`` (line ~295) builds the
+#      TAP/ADQL query from ``self.TAP_COLUMNS.values()`` (a class-constant
+#      column list, never user input) and an integer ``limit`` clamped by
+#      ``min(self.config.max_samples or 5000, 5000)``.  No string from a
+#      caller flows into the f-string.
+#   2. ``narrative/external_retrieval.py::_build_sqlite_search`` (line ~676)
+#      selects ``target_table`` from ``sqlite_master`` and validates it
+#      against ``^[a-zA-Z_][a-zA-Z0-9_]*$`` immediately before the f-string;
+#      the regex rejects every SQL metacharacter.  ``max_results`` is
+#      typed as ``int`` at the function signature.
+#   This mirrors the ``S608`` per-file-ignore lifts already documented
+#   under ``[tool.ruff.lint.per-file-ignores]`` for the same two files;
+#   bandit lacks per-file skip support in ``pyproject.toml`` so the
+#   rule is scoped at the tool-config level instead.  Any new SQL
+#   string-construction site must demonstrate an equivalent contract.
+skips = ["B101", "B311", "B310", "B608"]
 targets = ["src/omni_mercury_engine"]
 
 [tool.bandit.assert_used]
