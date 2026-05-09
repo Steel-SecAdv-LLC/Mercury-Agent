@@ -138,17 +138,31 @@ class BiasDetector:
         }
 
         if use_fairlearn:
-            import importlib.util
+            # ``find_spec`` only verifies a loader exists; it does not run
+            # the package's import code, so it can return non-None for a
+            # ``fairlearn`` install whose transitive deps (e.g. a stale
+            # ``scikit-learn``) crash inside ``fairlearn.metrics`` at the
+            # actual ``from fairlearn.metrics import …`` site.  Run the
+            # real import here via ``importlib.import_module`` and catch
+            # ``ImportError`` so the availability flag genuinely reflects
+            # what ``_compute_with_fairlearn`` will be able to do.
+            # ``import_module`` keeps the probe out of the module-level
+            # namespace, so the F401 ``unused-import`` rule does not fire
+            # and no inline suppression is needed.
+            import importlib
 
-            if importlib.util.find_spec("fairlearn.metrics") is not None:
-                self._fairlearn_available = True
-                logger.info("Fairlearn available for bias detection")
-            else:
+            try:
+                importlib.import_module("fairlearn.metrics")
+            except ImportError as exc:
                 self._fairlearn_available = False
                 logger.warning(
-                    "Fairlearn not installed. Using built-in metrics. "
-                    "Install with: pip install fairlearn"
+                    "Fairlearn not importable (%s). Using built-in metrics. "
+                    "Install with: pip install fairlearn",
+                    exc,
                 )
+            else:
+                self._fairlearn_available = True
+                logger.info("Fairlearn available for bias detection")
 
     def evaluate(
         self,
