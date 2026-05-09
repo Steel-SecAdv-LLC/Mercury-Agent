@@ -210,7 +210,10 @@ class AnomalyMathArrest:
 
         # List of probe instances
         if spec and isinstance(spec[0], BaseEquationProbe):
-            return list(spec)
+            # Cast: the isinstance check above on the first element is the
+            # invariant for the rest of the list (callers pass either a
+            # homogeneous list[str] or a homogeneous list[BaseEquationProbe]).
+            return [p for p in spec if isinstance(p, BaseEquationProbe)]
 
         # List of class name strings — the ``BaseEquationProbe`` instance
         # branch above already returned, so every element here is expected

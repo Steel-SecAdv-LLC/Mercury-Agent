@@ -167,13 +167,11 @@ class MercuryEquationEngine:
         """
         self.dimension = dimension
         self.config = config or EvolutionConfig(dimension=dimension)
-        self._rng: np.random.Generator = np.random.default_rng(seed)
-
         # Per-instance Generator. Every stochastic term in this engine
         # (ethical-matrix init, Boltzmann sampling, simulated-annealing
         # exploration, Lyapunov chaos perturbation, Hamiltonian symmetric
         # matrix) draws from this Generator — never the legacy global
-        # `np.random` state — so reproducibility is in the caller's hands.
+        # numpy state — so reproducibility is in the caller's hands.
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
         self.ethical_matrix = self._initialize_ethical_matrix()

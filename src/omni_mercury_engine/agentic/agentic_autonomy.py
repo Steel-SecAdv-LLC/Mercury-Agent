@@ -142,7 +142,6 @@ class AgenticAutonomy:
         self.experience_buffer: deque[Experience] = deque(maxlen=self.learning_config.memory_size)
         self.exploration_rate = self.learning_config.exploration_rate
         self.policy_metrics = PolicyMetrics()
-        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Q-table: maps (state_bucket, action_type) -> Q-value
         # State buckets are discretized state representations
