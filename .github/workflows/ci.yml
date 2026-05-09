@@ -259,9 +259,22 @@ jobs:
           # risk-accepted CVE is added, change this invocation to
           # ``--ignore "<id1>,<id2>,..."`` and add a comment immediately
           # above describing each id's rationale.
+          #
+          # ``--save-json <path>`` (NOT ``--output json > path``) is used
+          # because Safety ≥ 3.7 prints a multi-line ``DEPRECATED`` banner
+          # to stdout BEFORE and AFTER the JSON document on every
+          # ``check`` invocation, regardless of ``--output`` format.
+          # Redirecting stdout therefore produces a file that starts
+          # with banner text and is rejected by ``jq`` with
+          # ``parse error: Invalid numeric literal at line 4, column 0``,
+          # silently disabling the per-CVE ``::error::`` annotations and
+          # the Job Summary block below.  ``--save-json`` writes the
+          # report content to the path directly (no banner mixed in),
+          # which is the only Safety 3.x flag that survives the
+          # banner-on-stdout behavior.
           safety check \
             --policy-file .safety-policy-v2.yml \
-            --output json > safety-report.json
+            --save-json safety-report.json
           rc=$?
           # On any non-zero exit, surface each finding as a GHA
           # ::error:: annotation (visible in the Checks tab UI without

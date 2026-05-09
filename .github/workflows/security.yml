@@ -42,11 +42,10 @@ jobs:
     # ``Surface scanner findings`` below so a CRITICAL finding is
     # visible as a failure rather than silently skipped.
     - name: Run Safety check
-      # Three compatibility points relative to legacy invocations:
+      # Four compatibility points relative to legacy invocations:
       #
       # 1. Safety ≥ 3.7 changed ``--output`` to take a format name only
-      #    (one of ``screen|text|json|bare|html``); writing the report
-      #    is done by redirecting stdout.  The pre-3.7 form
+      #    (one of ``screen|text|json|bare|html``); the pre-3.7 form
       #    ``--output <path>`` exits 2 with ``Invalid value for '--output'``
       #    before any scan runs.
       # 2. Without ``--policy-file``, ``safety check`` auto-discovers
@@ -61,12 +60,22 @@ jobs:
       #    is the non-blocking surface-and-summarize lane (the blocking
       #    gate lives in ``ci.yml``), so we want exit 0 regardless of
       #    findings — ``--continue-on-error`` is the new equivalent.
+      # 4. ``--save-json <path>`` (NOT ``--output json > path``) is used
+      #    because Safety ≥ 3.7 prints a multi-line ``DEPRECATED`` banner
+      #    on stdout BEFORE and AFTER the JSON document on every
+      #    ``check`` invocation, regardless of ``--output`` format.
+      #    Redirecting stdout therefore produces a file that ``jq``
+      #    rejects with ``parse error: Invalid numeric literal at line
+      #    4, column 0`` in the ``Surface scanner findings`` step below
+      #    — which, combined with that step's ``set -euo pipefail``,
+      #    would convert this whole surface-and-summarize lane into a
+      #    hard failure on every run.  ``--save-json`` writes the
+      #    report content to the path directly with no banner mixed in.
       run: |
         safety check \
           --policy-file .safety-policy-v2.yml \
-          --output json \
-          --continue-on-error \
-          > safety-report.json
+          --save-json safety-report.json \
+          --continue-on-error
 
     - name: Run pip-audit
       # pip-audit exits non-zero when vulnerabilities are found.  We
