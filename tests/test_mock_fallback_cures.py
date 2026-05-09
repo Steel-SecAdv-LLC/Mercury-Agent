@@ -2,10 +2,9 @@
 Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
-Phase 2 audit cure: regression tests asserting mock fallbacks are gone.
-
-Every mock listed in COMPREHENSIVE_REPO_AUDIT.md §4 must now raise
-``NotImplementedError`` at construction instead of silently degrading.
+Regression tests asserting that mock fallbacks are gone — every mocked
+component path that previously degraded silently must now raise
+``NotImplementedError`` at construction instead.
 """
 
 from __future__ import annotations

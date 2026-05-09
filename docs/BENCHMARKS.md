@@ -18,8 +18,8 @@
 >
 > The two figures are **not** the same measured baseline; the 64/75
 > view is the current public headline and the 51/55 view is the CI
-> regression-gate floor. See `docs/ROADMAP.md` for the loader fixes
-> that close the remaining 11-dataset gap.
+> regression-gate floor.  The remaining 11-dataset gap is the set
+> of external loaders awaiting upstream API fixes.
 
 ## What This Measures
 

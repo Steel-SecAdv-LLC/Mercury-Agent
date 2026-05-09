@@ -129,24 +129,33 @@ class MatrixProfileDetector(BaseFoundationModel):
 
     def _initialize_model(self) -> None:
         """Check STUMPY availability."""
-        import importlib.util
+        import importlib
 
-        if importlib.util.find_spec("stumpy") is None:
+        # Real import (not ``find_spec``) so a STUMPY install whose
+        # transitive deps fail to import is treated as unavailable.
+        try:
+            importlib.import_module("stumpy")
+        except ImportError as exc:
             raise NotImplementedError(
-                "STUMPY not installed. Install with: pip install stumpy. "
-                "Silent mock degradation is not permitted (Phase 2 audit cure)."
-            )
+                "STUMPY not installed or not importable: "
+                f"{exc}. Install with: pip install stumpy. "
+                "Silent mock degradation is not permitted."
+            ) from exc
 
         self._stumpy_available = True
         logger.info("STUMPY library loaded")
 
-        # Check GPU support
+        # Check GPU support — same reason: ``find_spec`` would not run the
+        # ``stumpy.gpu`` import code, and a broken CUDA stack on the host
+        # only manifests at the actual ``import stumpy.gpu`` site.
         if self.mp_config.use_gpu:
-            if importlib.util.find_spec("stumpy.gpu") is not None:
+            try:
+                importlib.import_module("stumpy.gpu")
+            except ImportError:
+                logger.info("STUMPY GPU not available, using CPU")
+            else:
                 self._gpu_available = True
                 logger.info("STUMPY GPU acceleration available")
-            else:
-                logger.info("STUMPY GPU not available, using CPU")
 
     def compute_matrix_profile(
         self,
@@ -195,7 +204,7 @@ class MatrixProfileDetector(BaseFoundationModel):
         except Exception as e:
             raise RuntimeError(
                 f"Matrix Profile computation failed: {e}. "
-                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+                "Silent mock degradation is not permitted."
             ) from e
 
     def find_discords(

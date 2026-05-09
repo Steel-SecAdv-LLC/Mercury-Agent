@@ -168,7 +168,7 @@ Measured on **64 reproducible real-world datasets\*** (of 75 attempted: 47 ADBen
 > computed over the **64 successful** datasets. Additionally, **1 of the 64**
 > (FEMA Disaster) is a known-broken loader producing inverted scores (AUC ≈ 0,
 > see line "Disaster (FEMA)" below). Both gaps have tracked owners and a
-> scheduled fix; see `docs/ROADMAP.md` for status.
+> scheduled fix.
 
 **Statistical Detector Ensemble:**
 
@@ -1259,7 +1259,6 @@ mypy src/
 | [docs/MATH_SPEC.md](docs/MATH_SPEC.md) | Mathematical foundations specification |
 | [docs/ORACLE_NOISE_COLOR.md](docs/ORACLE_NOISE_COLOR.md) | Oracle noise color calibration theory |
 | [docs/ROUTING_GUIDE.md](docs/ROUTING_GUIDE.md) | Request routing and fallback chains |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Feature roadmap and planned work |
 
 </details>
 

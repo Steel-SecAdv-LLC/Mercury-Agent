@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) Steel Security Advisors LLC
-"""Federated silent-failure regression suite (punch-list item 9).
+"""Federated silent-failure regression suite.
 
-Covers two gaps the 2026-03 in-tree audit
-(``docs/COMPREHENSIVE_REPO_AUDIT.md`` §1) flagged on the federated path:
+Covers two previously-silent gaps on the federated path:
 
 (A) Conformal prediction: previously caught
     ``(ValueError, RuntimeError, AttributeError)`` and silently set

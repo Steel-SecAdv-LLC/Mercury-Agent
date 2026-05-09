@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > StormEvents, NOAA ERDDAP, FEMA HazardMitigation), and 1 of the 64
 > (FEMA Disaster) is a known-broken loader producing inverted scores.
 > See the README "Empirical Benchmark Results" section for the full
-> reproducibility footnote and `docs/ROADMAP.md` for tracked fixes.
+> reproducibility footnote.
 
 ## [Unreleased]
 
@@ -51,11 +51,9 @@ tests — directly violating the v1.6.0 sweep's "Mock = Gap" doctrine for
   benevolence`
 
 Any test that depended on the mocked σ_Immutable behaviour is to be
-rewritten against the real `SigmaImmutableGate` contract (the same gate
-that ships with PR #189's Wave B promotion) or deleted; mocks of the
-gate are not preserved under any condition.  See PR #189's body and
-`docs/audits/v1.6.0/absorption_manifest.md` for the full rejection
-record.
+rewritten against the real `SigmaImmutableGate` contract or deleted;
+mocks of the gate are not preserved under any condition.  See PR #189's
+body for the full rejection record.
 
 ### Wave B — σ_Immutable promoted to hard gate (deferred from PR #161)
 
@@ -127,17 +125,12 @@ record.
     the sigmoid benevolence gate. Date refreshed.
   - `docs/index.md` — landing page rewritten to surface the Wave B
     dual-gate contract, AMA Cryptography sole-backend hard-require,
-    honest-benchmark framing (64/75), and pickle-removal up front;
-    `COMPREHENSIVE_REPO_AUDIT` added to the toctree.
+    honest-benchmark framing (64/75), and pickle-removal up front.
   - `docs/ROUTING_GUIDE.md` — top-of-file callout that hard ethical
     gates run *inside* the prediction call and **must not** be
     masked by fallback handlers. "Fallback only applies to
     data-source / connectivity / latency failures" clarification
     added to the Overview.
-  - `docs/COMPREHENSIVE_REPO_AUDIT.md` — historical-document banner
-    and resolution-status table mapping the original CRITICAL/HIGH
-    findings to the PRs that remediated them (#166 / #167 / #168 /
-    #144 / #162 / #165 / #179).
   - `docs/BENCHMARKS.md`, `docs/DATASOURCES.md`,
     `docs/LIVE_DATA_VALIDATION.md` — reconciled the local 51/55
     figure with the canonical 64/75 reproducibility set as **two
@@ -377,8 +370,6 @@ record.
   only references are documentation strings explaining what the
   ensemble replaced. Regression suite:
   `tests/detectors/test_math_arrest_dominant_path.py` (11 tests).
-  ROADMAP cross-cutting "21-probe Anomaly Math Arrest ensemble" row
-  flips to Functional.
 
 ### GOSNN Placeholders
 
@@ -407,8 +398,7 @@ record.
   now constructs real network nodes. Integration test
   `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects`
   spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and
-  confirms re-election. ROADMAP "Distributed Processing" row flips to
-  Functional.
+  confirms re-election.
 
 ### Cryptography
 
@@ -426,19 +416,14 @@ record.
 
 ### TODO / FIXME Discipline
 
-- **Inline markers restored** for unresolved findings from
-  `docs/COMPREHENSIVE_REPO_AUDIT.md` (Phase 2 ITEM 6). High-impact
-  cited lines now carry
+- **Inline markers restored** for unresolved high-impact findings.
+  Cited lines carry
   `# TODO(audit-2026-03, severity=critical|high|medium|low):` markers
   at the cited locations
   (`core/ai_ethics.py:139,141`, `core/ethical_governor.py:209-210`,
-  `core/three_r/fusion.py:91`). Findings closed by Phase 2 (GOSNN
-  attention placeholder, GOSNN dead `_fusion`, conformal silent
-  failure, ethics-decision-boundary advisory mode) are marked
-  **CLOSED** in the audit doc with citations to the regression
-  suites. `CONTRIBUTING.md` codifies the rule going forward: every
-  new `TODO` / `FIXME` MUST include a severity tag and a citing
-  reference.
+  `core/three_r/fusion.py:91`).  `CONTRIBUTING.md` codifies the rule
+  going forward: every new `TODO` / `FIXME` MUST include a severity
+  tag and a citing reference.
 
 ### Ethics
 
@@ -481,12 +466,10 @@ record.
   `src/omni_mercury_engine/ethical/__init__.py`. New regression
   suite at `tests/ethical/test_hard_enforcement.py` (13 tests, wired
   into the `Neuro-Symbolic Tests` CI job) makes a benevolence-threshold
-  regression a build-time failure. ROADMAP cross-cutting "Ethics
-  enforcement" row flips from Stubbed to Functional.
+  regression a build-time failure.
 ### Added (Wave A — post-PR-167 punch list, items 3, 4, 6, 7, 9)
 
-- **Federated silent-failure gaps closed (item 9).** Two distinct gaps the
-  2026-03 in-tree audit (`docs/COMPREHENSIVE_REPO_AUDIT.md` §1) flagged on
+- **Federated silent-failure gaps closed (item 9).** Two distinct gaps on
   the federated/GOSNN path are now closed:
   1. `core/gosnn_integration.py::GOSNNIntegration.detect()` no longer
      swallows conformal failures into `confidence_intervals=None`. New
@@ -806,7 +789,6 @@ record.
   to nonexistent benchmark results file; updated header and co-architects
 - CHANGELOG.md: Removed orphaned [Unreleased] section whose content was
   already captured in versioned entries (v1.1.0, v1.2.0)
-- docs/ROADMAP.md: Marked all 7 planned capabilities as implemented
 - CONTRIBUTING.md: Fixed Python version requirement from 3.12 to 3.11+
 - .gitignore: Added coverage for generated report files
 

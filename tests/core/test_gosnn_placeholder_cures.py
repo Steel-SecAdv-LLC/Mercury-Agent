@@ -2,9 +2,9 @@
 Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
-Phase 2 ITEM 3 regression: GOSNN placeholder cures.
+GOSNN placeholder-cure regression suite.
 
-Pins three contracts called out by docs/COMPREHENSIVE_REPO_AUDIT.md:
+Pins three contracts:
 
 1. ``GOSNNOptimizer.optimize`` does NOT generate random attention
    tensors when no ``AttentionProvider`` is configured.  Instead it

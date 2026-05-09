@@ -47,11 +47,12 @@ class ConformalMisconfigurationError(ValueError):
 
     Replaces the prior silent-failure path
     (``except (ValueError, RuntimeError, AttributeError): confidence_intervals = None``)
-    that the 2026-03 in-tree audit (``docs/COMPREHENSIVE_REPO_AUDIT.md`` §1.4)
-    flagged as a silent-failure gap. Callers that genuinely want to operate
-    without conformal intervals must construct the integration with
-    ``use_conformal=False`` — they cannot accidentally degrade into the no-
-    interval mode by misconfiguring the conformal predictor.
+    so a misconfigured conformal predictor surfaces as a typed exception
+    rather than a silent ``confidence_intervals=None`` degradation.
+    Callers that genuinely want to operate without conformal intervals
+    must construct the integration with ``use_conformal=False`` — they
+    cannot accidentally degrade into the no-interval mode by
+    misconfiguring the conformal predictor.
 
     Inherits from ``ValueError`` (not ``RuntimeError``) so the canonical
     "configuration is invalid" pytest pattern (``pytest.raises(ValueError,
