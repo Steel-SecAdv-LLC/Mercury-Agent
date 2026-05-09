@@ -289,7 +289,16 @@ class NASAExoplanetLoader(DatasetLoader):
             return True
 
         try:
-            # Build TAP/ADQL query
+            # Build TAP/ADQL query.
+            # B608 SAFETY CONTRACT: ``columns`` comes from
+            # ``self.TAP_COLUMNS.values()`` — a class-constant column
+            # list defined in this module, never user input.  ``limit``
+            # is an integer clamped by
+            # ``min(self.config.max_samples or 5000, 5000)``.  No
+            # caller-controlled string flows into this f-string, so the
+            # bandit ``hardcoded_sql_expressions`` finding here is a
+            # static-analysis false positive (mirrored by the ``S608``
+            # ruff lift in ``[tool.ruff.lint.per-file-ignores]``).
             columns = ",".join(self.TAP_COLUMNS.values())
             limit = min(self.config.max_samples or 5000, 5000)
             query = f"select top {limit} {columns} from ps where pl_rade is not null"  # noqa: S608  # nosec B608

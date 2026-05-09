@@ -142,11 +142,12 @@ class BiasDetector:
 
             try:
                 importlib.import_module("fairlearn.metrics")
-            except ImportError as exc:
+            except Exception as exc:
                 self._fairlearn_available = False
                 logger.warning(
-                    "Fairlearn not importable (%s). Using built-in metrics. "
+                    "Fairlearn not importable (%s: %s). Using built-in metrics. "
                     "Install with: pip install fairlearn",
+                    type(exc).__name__,
                     exc,
                 )
             else:

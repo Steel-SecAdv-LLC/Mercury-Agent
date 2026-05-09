@@ -678,7 +678,7 @@ class DatabaseRetriever(BaseExternalRetriever):
             logger.warning(f"Invalid table name format: {target_table}")
             return None
 
-        # Build simple search query - table name validated above
+        # Build simple search query - table name validated above.
         return f"SELECT * FROM {target_table} LIMIT {max_results}"  # noqa: S608  # nosec B608
 
     def execute_query(
