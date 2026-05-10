@@ -79,7 +79,11 @@ class Predicate:
 
     def __post_init__(self) -> None:
         if self.embedding is None:
-            self.embedding = np.random.randn(self.embedding_dim).astype(np.float32)
+            # Use a per-call ``Generator`` instance so the random embedding
+            # initialization does not consume — or be perturbed by — the
+            # legacy global ``np.random`` state.
+            _rng = np.random.default_rng()
+            self.embedding = _rng.standard_normal(self.embedding_dim).astype(np.float32)
             self.embedding = self.embedding / (np.linalg.norm(self.embedding) + 1e-8)
 
 

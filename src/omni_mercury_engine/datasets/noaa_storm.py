@@ -16,15 +16,15 @@ from __future__ import annotations
 import gzip
 import io
 import logging
+import re
 import urllib.error
-import urllib.request
 from typing import Any
 
 import numpy as np
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -86,6 +86,40 @@ class NOAAStormEventsLoader(DatasetLoader):
         self.year_start = config.preprocessing.get("year_start", current_year - 5)
         self.year_end = config.preprocessing.get("year_end", current_year)
 
+    # NCEI publishes per-year files of the form:
+    #   StormEvents_details-ftp_v1.0_d{YEAR}_c{COMPILE_DATE}.csv.gz
+    # The COMPILE_DATE component is required and varies per release. The
+    # previous loader hard-coded the URL without it and got HTTP 404 for
+    # every year. We discover the actual filename by parsing the directory
+    # listing and then download the most recent compile for the year.
+    _DETAIL_FILE_RE = re.compile(
+        r'href="(StormEvents_details-ftp_v1\.0_d(?P<year>\d{4})_c(?P<compile>\d{8})\.csv\.gz)"'
+    )
+
+    def _resolve_detail_filenames(self) -> dict[int, str]:
+        """
+        Fetch the NCEI directory index and map year -> latest compile filename.
+        """
+        try:
+            content = http_get_with_retry(self.STORM_BASE_URL, timeout=60)
+        except Exception as e:
+            raise DataSourceUnavailableError(
+                loader_name="NOAAStormEvents",
+                source_url=self.STORM_BASE_URL,
+                reason=f"Failed to fetch NCEI directory index: {e}",
+            ) from e
+
+        index_html = content.decode("utf-8", errors="replace")
+        latest: dict[int, tuple[str, str]] = {}
+        for match in self._DETAIL_FILE_RE.finditer(index_html):
+            year = int(match.group("year"))
+            compile_date = match.group("compile")
+            filename = match.group(1)
+            existing = latest.get(year)
+            if existing is None or compile_date > existing[0]:
+                latest[year] = (compile_date, filename)
+        return {year: name for year, (_, name) in latest.items()}
+
     def download(self) -> bool:
         """
         Download storm event detail CSVs from NCEI.
@@ -98,19 +132,23 @@ class NOAAStormEventsLoader(DatasetLoader):
             logger.info("Storm events already cached")
             return True
 
+        filename_by_year = self._resolve_detail_filenames()
         all_rows: list[list[float]] = []
 
         for year in range(self.year_start, self.year_end + 1):
-            # NCEI uses a consistent naming pattern; try the most common form
-            url = f"{self.STORM_BASE_URL}StormEvents_details-ftp_v1.0_d{year}.csv.gz"
+            filename = filename_by_year.get(year)
+            if filename is None:
+                logger.warning(
+                    "  Storm events %d: no published file in NCEI directory listing",
+                    year,
+                )
+                continue
+            url = f"{self.STORM_BASE_URL}{filename}"
 
             try:
-                logger.info("  Downloading storm events for %d...", year)
-                req = urllib.request.Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-                with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310
-                    content = resp.read()
+                logger.info("  Downloading storm events for %d (%s)...", year, filename)
+                content = http_get_with_retry(url, timeout=60)
 
-                # Decompress gzip
                 try:
                     text = gzip.decompress(content).decode("utf-8", errors="replace")
                 except gzip.BadGzipFile:

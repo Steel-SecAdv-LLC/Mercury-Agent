@@ -1140,6 +1140,7 @@ class MultiAgentDetectionSystem:
         num_agents: int = 5,
         strategy: CoordinationStrategy = CoordinationStrategy.DISTRIBUTED,
         consensus_method: ConsensusMethod = ConsensusMethod.CONFIDENCE_WEIGHTED,
+        seed: int | None = None,
     ):
         """
         Initialize multi-agent detection system.
@@ -1148,11 +1149,16 @@ class MultiAgentDetectionSystem:
             num_agents: Number of detection agents
             strategy: Coordination strategy
             consensus_method: Consensus method
+            seed: Optional seed for the per-instance ``Generator`` driving
+                agent threshold jitter. ``None`` (default) uses an
+                OS-seeded ``Generator`` — same effective behavior as
+                before.
         """
         self.coordinator = AgentCoordinator(
             strategy=strategy,
             consensus_method=consensus_method,
         )
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Create diverse set of agents
         self._create_agents(num_agents)
@@ -1176,7 +1182,7 @@ class MultiAgentDetectionSystem:
             agent = SimpleDetectionAgent(
                 agent_id=f"agent_{i:03d}",
                 role=role,
-                threshold=0.5 + np.random.uniform(-0.1, 0.1),
+                threshold=0.5 + self._rng.uniform(-0.1, 0.1),
             )
             self.coordinator.register_agent(agent)
 

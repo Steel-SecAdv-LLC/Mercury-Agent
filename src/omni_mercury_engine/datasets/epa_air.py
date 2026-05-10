@@ -16,7 +16,6 @@ from __future__ import annotations
 import io
 import logging
 import urllib.error
-import urllib.request
 import zipfile
 from typing import Any
 
@@ -24,7 +23,7 @@ import numpy as np
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -60,53 +59,90 @@ class EPAAirQualityLoader(DatasetLoader):
         super().__init__(config)
         self.year = config.preprocessing.get("year", 2023)
 
+    # EPA AQS publishes annual prebuilt files with a ~6 month lag from year-end.
+    # Requesting the current calendar year almost always 404s; fall through to
+    # progressively older years so the loader still returns a real dataset.
+    _YEAR_FALLBACK_RANGE = 3
+
     def download(self) -> bool:
         """
         Download EPA daily PM2.5 ZIP for the configured year.
 
+        If the requested year is not yet published (HTTP 404), automatically
+        fall back to the most recent prior year that is available, up to
+        ``_YEAR_FALLBACK_RANGE`` years back.
+
         Raises:
-            DataSourceUnavailableError: If EPA data is unreachable.
+            DataSourceUnavailableError: If no available year can be reached.
         """
-        cache_file = self.data_path / f"epa_pm25_{self.year}.npz"
-        if cache_file.exists():
-            logger.info("EPA PM2.5 %d already cached", self.year)
-            return True
+        candidate_years = [self.year - offset for offset in range(self._YEAR_FALLBACK_RANGE + 1)]
 
-        url = f"{self.EPA_BASE_URL}daily_88101_{self.year}.zip"
-        logger.info("Downloading EPA PM2.5 data for %d from %s", self.year, url)
+        last_err: Exception | None = None
+        last_url = ""
+        for candidate in candidate_years:
+            cache_file = self.data_path / f"epa_pm25_{candidate}.npz"
+            if cache_file.exists():
+                logger.info("EPA PM2.5 %d already cached", candidate)
+                if candidate != self.year:
+                    self.year = candidate
+                return True
 
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
-                content = resp.read()
+            url = f"{self.EPA_BASE_URL}daily_88101_{candidate}.zip"
+            last_url = url
+            logger.info("Downloading EPA PM2.5 data for %d from %s", candidate, url)
 
-            # Extract CSV from ZIP
-            with zipfile.ZipFile(io.BytesIO(content)) as zf:
-                csv_names = [n for n in zf.namelist() if n.endswith(".csv")]
-                if not csv_names:
-                    raise ValueError("No CSV found in EPA ZIP archive")
-                csv_text = zf.read(csv_names[0]).decode("utf-8", errors="replace")
+            try:
+                content = http_get_with_retry(url, timeout=120)
 
-            features, labels = self._parse_epa_csv(csv_text)
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    csv_names = [n for n in zf.namelist() if n.endswith(".csv")]
+                    if not csv_names:
+                        raise ValueError("No CSV found in EPA ZIP archive")
+                    csv_text = zf.read(csv_names[0]).decode("utf-8", errors="replace")
 
-            self.data_path.mkdir(parents=True, exist_ok=True)
-            np.savez_compressed(cache_file, features=features, labels=labels)
+                features, labels = self._parse_epa_csv(csv_text)
 
-            logger.info(
-                "EPA PM2.5 %d loaded: %d records, %.1f%% above AQI threshold",
-                self.year,
-                len(features),
-                100.0 * labels.mean(),
-            )
-            return True
+                self.data_path.mkdir(parents=True, exist_ok=True)
+                np.savez_compressed(cache_file, features=features, labels=labels)
 
-        except Exception as e:
-            logger.error("EPA download failed: %s", e)
-            raise DataSourceUnavailableError(
-                loader_name="EPA-AirQuality",
-                source_url=url,
-                reason=str(e),
-            ) from e
+                if candidate != self.year:
+                    logger.info(
+                        "EPA PM2.5 %d not yet published; using %d instead",
+                        self.year,
+                        candidate,
+                    )
+                    self.year = candidate
+
+                logger.info(
+                    "EPA PM2.5 %d loaded: %d records, %.1f%% above AQI threshold",
+                    candidate,
+                    len(features),
+                    100.0 * labels.mean(),
+                )
+                return True
+
+            except urllib.error.HTTPError as e:
+                last_err = e
+                if e.code == 404:
+                    logger.info(
+                        "EPA PM2.5 %d not published (HTTP 404); trying older year", candidate
+                    )
+                    continue
+                logger.warning("EPA download for %d failed: HTTP %d", candidate, e.code)
+                continue
+            except Exception as e:
+                last_err = e
+                logger.warning("EPA download for %d failed: %s", candidate, e)
+                continue
+
+        raise DataSourceUnavailableError(
+            loader_name="EPA-AirQuality",
+            source_url=last_url,
+            reason=(
+                f"No EPA PM2.5 file available for {self.year} or "
+                f"the prior {self._YEAR_FALLBACK_RANGE} years: {last_err}"
+            ),
+        ) from last_err
 
     def _parse_epa_csv(self, text: str) -> tuple[np.ndarray, np.ndarray]:
         """Parse EPA daily PM2.5 CSV."""

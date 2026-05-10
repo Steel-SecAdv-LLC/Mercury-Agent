@@ -143,7 +143,7 @@ class MercuryEquationEngine:
 
     Example:
         engine = MercuryEquationEngine(dimension=64)
-        initial_state = np.random.randn(64)
+        initial_state = np.random.default_rng().standard_normal(64)
         final_state, history = engine.converge(initial_state, max_iter=100)
     """
 
@@ -151,9 +151,30 @@ class MercuryEquationEngine:
         self,
         dimension: int = 64,
         config: EvolutionConfig | None = None,
+        seed: int | None = None,
     ):
+        """
+        Args:
+            dimension: State-vector dimension.
+            config: Evolution configuration.
+            seed: Optional seed for the per-instance ``Generator`` driving
+                ethical-matrix initialization, Hamiltonian-projection
+                noise, Boltzmann-sampling noise, simulated-annealing
+                exploration and Lyapunov-chaos perturbation.  ``None``
+                (default) uses OS entropy — same effective behavior as
+                before, isolated from the legacy global ``np.random``
+                state.
+        """
         self.dimension = dimension
         self.config = config or EvolutionConfig(dimension=dimension)
+        self._rng: np.random.Generator = np.random.default_rng(seed)
+
+        # Per-instance Generator. Every stochastic term in this engine
+        # (ethical-matrix init, Boltzmann sampling, simulated-annealing
+        # exploration, Lyapunov chaos perturbation, Hamiltonian symmetric
+        # matrix) draws from this Generator — never the legacy global
+        # `np.random` state — so reproducibility is in the caller's hands.
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         self.ethical_matrix = self._initialize_ethical_matrix()
 
@@ -198,7 +219,7 @@ class MercuryEquationEngine:
     def _initialize_ethical_matrix(self) -> np.ndarray[Any, Any]:
         """Initialize positive-definite ethical constraint matrix."""
         E = np.diag([PHI_CUBED] * self.dimension)
-        noise = np.random.randn(self.dimension, self.dimension) * 0.01 * PHI_CUBED
+        noise = self._rng.standard_normal((self.dimension, self.dimension)) * 0.01 * PHI_CUBED
         noise = (noise + noise.T) / 2
         E = E + noise
         min_eig = float(np.min(np.linalg.eigvals(E).real))
@@ -212,7 +233,7 @@ class MercuryEquationEngine:
             return np.zeros_like(state)
 
         # Create symmetric matrix for optimization landscape
-        H = np.random.randn(self.dimension, self.dimension)
+        H = self._rng.standard_normal((self.dimension, self.dimension))
         H = (H + H.T) / 2  # Symmetrize
 
         expectation = state @ H @ state
@@ -230,7 +251,7 @@ class MercuryEquationEngine:
         energy = -0.5 * state @ state
         boltzmann_factor = np.exp(-energy / max(temperature, 0.01))
 
-        noise = np.random.randn(self.dimension) * temperature
+        noise = self._rng.standard_normal(self.dimension) * temperature
         return np.asarray(boltzmann_factor * noise * 0.1)
 
     def _term_simulated_annealing(self, state: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -242,7 +263,7 @@ class MercuryEquationEngine:
         schedule = 1.0 / (1 + iteration * 0.1)  # Cooling schedule
 
         # Random exploration term (decays with temperature)
-        exploration = np.random.randn(self.dimension) * schedule
+        exploration = self._rng.standard_normal(self.dimension) * schedule
         # Gradient descent term (increases as temperature drops)
         gradient = -2 * state
 
@@ -314,7 +335,7 @@ class MercuryEquationEngine:
         if not self.config.enable_chaos_terms:
             return np.zeros_like(state)
 
-        perturbation = np.random.randn(self.dimension) * 0.001
+        perturbation = self._rng.standard_normal(self.dimension) * 0.001
         perturbed = state + perturbation
 
         divergence = np.linalg.norm(perturbed - state)

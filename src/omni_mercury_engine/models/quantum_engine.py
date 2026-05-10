@@ -63,11 +63,21 @@ class QuantumState:
         if norm > 0:
             self.amplitudes = self.amplitudes / norm
 
-    def measure(self) -> int:
-        """Measure the quantum state (collapse to classical state)."""
+    def measure(self, rng: np.random.Generator | None = None) -> int:
+        """
+        Measure the quantum state (collapse to classical state).
+
+        Args:
+            rng: Optional caller-supplied ``Generator``. ``None`` (default)
+                uses a fresh per-call ``np.random.default_rng()`` instance
+                rather than the global ``np.random`` state, so measurement
+                no longer perturbs — or is perturbed by — unrelated callers.
+        """
         probabilities = np.abs(self.amplitudes) ** 2
         probabilities = probabilities / probabilities.sum()
-        return int(np.random.choice(len(self.amplitudes), p=probabilities))
+        if rng is None:
+            rng = np.random.default_rng()
+        return int(rng.choice(len(self.amplitudes), p=probabilities))
 
     def get_probabilities(self) -> np.ndarray[Any, Any]:
         """Get measurement probabilities."""
@@ -263,9 +273,20 @@ class QuantumEngine:
         print(f"Found: {result.found}, Speedup: {result.speedup}x")
     """
 
-    def __init__(self) -> None:
+    def __init__(self, seed: int | None = None) -> None:
+        """
+        Initialize quantum engine.
+
+        Args:
+            seed: Optional seed for the per-instance ``Generator`` driving
+                simulated-annealing initialization, bit-flip selection and
+                Metropolis acceptance sampling. ``None`` (default) uses an
+                OS-seeded ``Generator`` — same effective behavior as
+                before.
+        """
         self.golden_ratio = 0.618
         self.quantum_factor = 1.2
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         self.omni_scalars = {
             "omni_quantum_coherence": 1.45,
@@ -528,7 +549,7 @@ class QuantumEngine:
             AnnealingResult with optimization outcome
         """
         try:
-            current_state = np.random.randint(0, 2, size=num_vars)
+            current_state = self._rng.integers(0, 2, size=num_vars)
             current_cost = cost_function(current_state)
 
             best_state = current_state.copy()
@@ -540,7 +561,7 @@ class QuantumEngine:
                 tunnel_prob = temperature * self.quantum_factor
 
                 new_state = current_state.copy()
-                flip_idx = np.random.randint(0, num_vars)
+                flip_idx = self._rng.integers(0, num_vars)
                 new_state[flip_idx] = 1 - new_state[flip_idx]
 
                 new_cost = cost_function(new_state)
@@ -554,7 +575,7 @@ class QuantumEngine:
                     accept_prob = np.exp(-delta_cost / (temperature + 1e-8))
                     accept_prob *= tunnel_prob
 
-                    if np.random.rand() < accept_prob:
+                    if self._rng.random() < accept_prob:
                         current_state = new_state
                         current_cost = new_cost
 

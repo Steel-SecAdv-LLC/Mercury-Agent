@@ -118,6 +118,7 @@ class ShapExplainer(ABC):
         self,
         model: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | Any,
         feature_names: list[str] | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize SHAP explainer.
@@ -125,7 +126,13 @@ class ShapExplainer(ABC):
         Args:
             model: Model or prediction function
             feature_names: Optional feature names
+            seed: Optional seed for the per-instance ``Generator`` shared
+                with all subclasses (``ExactShapExplainer``,
+                ``KernelShapExplainer``, ``SamplingShapExplainer``).
+                Drives coalition sampling and background permutation.
+                ``None`` (default) uses OS entropy.
         """
+        self._rng: np.random.Generator = np.random.default_rng(seed)
         if callable(model):
             self._predict = model
         elif hasattr(model, "predict"):
@@ -164,6 +171,7 @@ class ExactShapExplainer(ShapExplainer):
         model: Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] | Any,
         background_data: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize exact SHAP explainer.
@@ -173,7 +181,7 @@ class ExactShapExplainer(ShapExplainer):
             background_data: Background dataset for marginalization
             feature_names: Optional feature names
         """
-        super().__init__(model, feature_names)
+        super().__init__(model, feature_names, seed=seed)
         self._background = background_data
         self._n_features = background_data.shape[1]
 
@@ -279,6 +287,7 @@ class KernelShapExplainer(ShapExplainer):
         feature_names: list[str] | None = None,
         n_samples: int = 2048,
         regularization: float = 0.01,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize Kernel SHAP explainer.
@@ -290,7 +299,7 @@ class KernelShapExplainer(ShapExplainer):
             n_samples: Number of coalition samples
             regularization: Ridge regularization parameter
         """
-        super().__init__(model, feature_names)
+        super().__init__(model, feature_names, seed=seed)
         self._background = background_data
         self._n_samples = n_samples
         self._regularization = regularization
@@ -351,8 +360,8 @@ class KernelShapExplainer(ShapExplainer):
         weights.append(1e10)
 
         for _ in range(self._n_samples - 2):
-            size = np.random.randint(1, n)
-            features = np.random.choice(n, size, replace=False)
+            size = int(self._rng.integers(1, n))
+            features = self._rng.choice(n, size, replace=False)
             coalition = [0] * n
             for f in features:
                 coalition[f] = 1
@@ -419,6 +428,7 @@ class SamplingShapExplainer(ShapExplainer):
         background_data: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
         n_permutations: int = 100,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize Sampling SHAP explainer.
@@ -429,7 +439,7 @@ class SamplingShapExplainer(ShapExplainer):
             feature_names: Optional feature names
             n_permutations: Number of permutation samples
         """
-        super().__init__(model, feature_names)
+        super().__init__(model, feature_names, seed=seed)
         self._background = background_data
         self._n_permutations = n_permutations
         self._n_features = background_data.shape[1]
@@ -453,8 +463,8 @@ class SamplingShapExplainer(ShapExplainer):
         instance_pred = float(self._predict(x.reshape(1, -1))[0])
 
         for _ in range(self._n_permutations):
-            permutation = np.random.permutation(n)
-            bg_idx = np.random.randint(len(self._background))
+            permutation = self._rng.permutation(n)
+            bg_idx = int(self._rng.integers(len(self._background)))
             bg = self._background[bg_idx].copy()
 
             current = bg.copy()
@@ -504,6 +514,7 @@ class TreeShapExplainer(ShapExplainer):
         self,
         model: Any,
         feature_names: list[str] | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize Tree SHAP explainer.
@@ -512,7 +523,7 @@ class TreeShapExplainer(ShapExplainer):
             model: Tree-based model (must have tree structure accessible)
             feature_names: Optional feature names
         """
-        super().__init__(model, feature_names)
+        super().__init__(model, feature_names, seed=seed)
         self._model = model
 
         self._tree_info = self._extract_tree_info()
@@ -630,6 +641,7 @@ class LinearShapExplainer(ShapExplainer):
         model: Any,
         background_data: np.ndarray[Any, Any],
         feature_names: list[str] | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize Linear SHAP explainer.
@@ -639,7 +651,7 @@ class LinearShapExplainer(ShapExplainer):
             background_data: Background dataset for centering
             feature_names: Optional feature names
         """
-        super().__init__(model, feature_names)
+        super().__init__(model, feature_names, seed=seed)
         self._model = model
         self._background = background_data
         self._background_mean = np.mean(background_data, axis=0)

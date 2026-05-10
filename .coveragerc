@@ -16,9 +16,18 @@ omit =
 precision = 2
 show_missing = true
 skip_covered = false
-# CI runs partial test subsets; threshold must be achievable by those runs.
-# Full-suite goal (85%) is in pyproject.toml [tool.coverage.report].
-fail_under = 10
+# Note: ``fail_under`` is intentionally not set here.  It used to live
+# in this file but that made every ``pytest --cov`` invocation across
+# the repo silently inherit the same floor, including jobs like
+# ``neuro-symbolic-tests`` that run a partial suite and therefore
+# measure a different coverage shape than the full suite.  The
+# per-job CI floors are configured directly in
+# ``.github/workflows/ci.yml`` via ``--cov-fail-under=${{ env.* }}``
+# (currently ``COVERAGE_THRESHOLD_CORE=15`` and
+# ``COVERAGE_THRESHOLD_FULL=35``) so they apply only to the jobs
+# that explicitly opt in.  The ``pyproject.toml
+# [tool.coverage.report] fail_under = 85`` aspirational target
+# remains in place for tools that read pyproject coverage settings.
 exclude_lines =
     pragma: no cover
     def __repr__

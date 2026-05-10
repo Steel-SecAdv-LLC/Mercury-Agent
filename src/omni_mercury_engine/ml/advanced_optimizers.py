@@ -156,6 +156,7 @@ class SyntheticGradientPredictor:
         input_dim: int,
         hidden_dim: int = 128,
         output_dim: int | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize synthetic gradient predictor.
@@ -164,10 +165,16 @@ class SyntheticGradientPredictor:
             input_dim: Dimension of layer activations
             hidden_dim: Hidden layer dimension (default=128)
             output_dim: Output gradient dimension (default=input_dim)
+            seed: Optional seed for the per-instance ``Generator`` driving
+                weight initialization in the NumPy fallback path.  ``None``
+                (default) uses OS entropy.  PyTorch path uses
+                ``torch.nn.Linear`` defaults — call ``torch.manual_seed``
+                upstream if you need PyTorch-side reproducibility.
         """
         self.input_dim = input_dim
         self.output_dim = output_dim if output_dim is not None else input_dim
         self.hidden_dim = hidden_dim
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         if not TORCH_AVAILABLE:
             logger.warning("PyTorch not available, using numpy fallback")
@@ -178,11 +185,11 @@ class SyntheticGradientPredictor:
     def _init_numpy_predictor(self) -> None:
         """Initialize numpy-based predictor."""
         scale = 0.01
-        self.w1 = np.random.randn(self.input_dim, self.hidden_dim) * scale
+        self.w1 = self._rng.standard_normal((self.input_dim, self.hidden_dim)) * scale
         self.b1 = np.zeros(self.hidden_dim)
-        self.w2 = np.random.randn(self.hidden_dim, self.hidden_dim // 2) * scale
+        self.w2 = self._rng.standard_normal((self.hidden_dim, self.hidden_dim // 2)) * scale
         self.b2 = np.zeros(self.hidden_dim // 2)
-        self.w3 = np.random.randn(self.hidden_dim // 2, self.output_dim) * scale
+        self.w3 = self._rng.standard_normal((self.hidden_dim // 2, self.output_dim)) * scale
         self.b3 = np.zeros(self.output_dim)
         self.learning_rate = 0.01
 

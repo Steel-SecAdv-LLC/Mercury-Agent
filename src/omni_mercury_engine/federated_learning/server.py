@@ -289,6 +289,7 @@ class SecureAggregatorWrapper(Aggregator):
         delta: float = 1e-5,
         max_grad_norm: float = 1.0,
         min_clients: int = 3,
+        seed: int | None = None,
     ) -> None:
         """Initialize secure aggregator."""
         self._secure_agg = SecureAggregator(
@@ -296,6 +297,7 @@ class SecureAggregatorWrapper(Aggregator):
             epsilon=epsilon,
             delta=delta,
             min_clients=min_clients,
+            seed=seed,
         )
         self._max_grad_norm = max_grad_norm
 
@@ -357,6 +359,7 @@ class FederatedServer:
         initial_weights: np.ndarray,
         config: ServerConfig | None = None,
         eval_fn: Callable[[np.ndarray], dict[str, float]] | None = None,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize federated server.
@@ -365,14 +368,22 @@ class FederatedServer:
             initial_weights: Initial model weights
             config: Server configuration
             eval_fn: Optional evaluation function for global model
+            seed: Optional seed for the embedded :class:`ClientManager`'s
+                per-instance numpy ``Generator``. With a seed set, the
+                ``random`` and ``weighted`` client-selection strategies
+                become deterministic across runs; without it, selection
+                order varies. Pass an explicit seed for reproducible
+                federated experiments.
         """
         self._global_weights = initial_weights.copy()
         self._config = config or ServerConfig()
         self._eval_fn = eval_fn
+        self._seed = seed
 
         self._client_manager = ClientManager(
             min_clients=self._config.min_clients,
             selection_fraction=self._config.client_fraction,
+            seed=seed,
         )
 
         self._aggregator = self._create_aggregator()
@@ -387,6 +398,7 @@ class FederatedServer:
                 epsilon=self._config.epsilon,
                 delta=self._config.delta,
                 max_grad_norm=self._config.max_grad_norm,
+                seed=seed,
             )
 
     def _create_aggregator(self) -> Aggregator:
@@ -403,6 +415,7 @@ class FederatedServer:
                 delta=self._config.delta,
                 max_grad_norm=self._config.max_grad_norm,
                 min_clients=self._config.min_clients,
+                seed=self._seed,
             )
         else:
             return FedAvgAggregator(learning_rate=self._config.server_learning_rate)
@@ -629,6 +642,7 @@ class FederatedAnomalyDetector:
         epsilon: float = 1.0,
         delta: float = 1e-5,
         aggregation: str = "fedavg",
+        seed: int | None = None,
     ) -> None:
         """
         Initialize federated anomaly detector.
@@ -642,6 +656,25 @@ class FederatedAnomalyDetector:
             epsilon: Privacy budget
             delta: Privacy parameter delta
             aggregation: Aggregation strategy
+            seed: Optional seed for the per-instance numpy ``Generator``
+                that controls **all** stochastic surfaces inside the
+                federated training loop:
+
+                - the initial server-weights draw (``standard_normal``);
+                - the per-client :class:`SGDTrainer` minibatch-shuffle
+                  seed (one distinct sub-seed per ``add_client`` call);
+                - the per-client :class:`PrivacyEngine` Gaussian /
+                  Laplace noise seed (one distinct sub-seed per
+                  ``add_client`` call when ``use_privacy=True``);
+                - the embedded :class:`ClientManager`'s
+                  ``random`` / ``weighted`` selection seed; and
+                - the server-side :class:`PrivacyEngine` /
+                  :class:`SecureAggregatorWrapper` noise seed.
+
+                With an explicit seed, two runs with the same
+                ``add_client`` order produce identical final weights
+                regardless of ``use_privacy``. The legacy global
+                ``np.random`` state is never used.
         """
         self._model_dim = model_dim
         self._n_rounds = n_rounds
@@ -651,6 +684,7 @@ class FederatedAnomalyDetector:
         self._epsilon = epsilon
         self._delta = delta
         self._aggregation = aggregation
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         self._weights: np.ndarray | None = None
         self._mean: np.ndarray | None = None
@@ -674,8 +708,18 @@ class FederatedAnomalyDetector:
             client_id: Unique client identifier
             X: Local training data
             y: Optional labels
+
+        Notes:
+            When the detector was constructed with an explicit ``seed``,
+            each client receives an :class:`SGDTrainer` with a distinct
+            sub-seed drawn deterministically from ``self._rng``, so
+            minibatch-shuffle order is reproducible across runs and
+            distinct between clients within a single run.
         """
-        from omni_mercury_engine.federated_learning.client import ClientConfig
+        from omni_mercury_engine.federated_learning.client import (
+            ClientConfig,
+            SGDTrainer,
+        )
 
         config = ClientConfig(
             client_id=client_id,
@@ -686,10 +730,16 @@ class FederatedAnomalyDetector:
             delta=self._delta,
         )
 
+        client_trainer_seed = int(self._rng.integers(0, 2**31 - 1))
+        client_privacy_seed = int(self._rng.integers(0, 2**31 - 1))
+        trainer = SGDTrainer(seed=client_trainer_seed)
+
         client = FederatedClient(
             client_id=client_id,
             local_data=(X, y),
             config=config,
+            trainer=trainer,
+            privacy_seed=client_privacy_seed,
         )
         self._clients.append(client)
 
@@ -703,7 +753,8 @@ class FederatedAnomalyDetector:
         if not self._clients:
             raise ValueError("No clients registered")
 
-        initial_weights = np.random.randn(self._model_dim) * 0.01
+        initial_weights = self._rng.standard_normal(self._model_dim) * 0.01
+        server_seed = int(self._rng.integers(0, 2**31 - 1))
 
         config = ServerConfig(
             n_rounds=self._n_rounds,
@@ -719,6 +770,7 @@ class FederatedAnomalyDetector:
             initial_weights=initial_weights,
             config=config,
             eval_fn=self._evaluate_global,
+            seed=server_seed,
         )
 
         for client in self._clients:

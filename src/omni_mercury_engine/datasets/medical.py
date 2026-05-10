@@ -153,29 +153,29 @@ class MIMICLoader(DatasetLoader):
         """Create synthetic MIMIC-like data for testing."""
         logger.info("Generating synthetic MIMIC-like data for development")
 
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
         # Generate realistic ICU vital signs
         data = {
-            "heart_rate": np.random.normal(80, 20, n_samples),
-            "systolic_bp": np.random.normal(120, 25, n_samples),
-            "diastolic_bp": np.random.normal(80, 15, n_samples),
-            "mean_arterial_pressure": np.random.normal(90, 15, n_samples),
-            "respiratory_rate": np.random.normal(16, 4, n_samples),
-            "temperature": np.random.normal(37.0, 0.8, n_samples),
-            "spo2": np.clip(np.random.normal(96, 4, n_samples), 70, 100),
-            "glucose": np.random.normal(100, 30, n_samples),
+            "heart_rate": rng.normal(80, 20, n_samples),
+            "systolic_bp": rng.normal(120, 25, n_samples),
+            "diastolic_bp": rng.normal(80, 15, n_samples),
+            "mean_arterial_pressure": rng.normal(90, 15, n_samples),
+            "respiratory_rate": rng.normal(16, 4, n_samples),
+            "temperature": rng.normal(37.0, 0.8, n_samples),
+            "spo2": np.clip(rng.normal(96, 4, n_samples), 70, 100),
+            "glucose": rng.normal(100, 30, n_samples),
             # Labs
-            "lactate": np.random.exponential(1.5, n_samples),
+            "lactate": rng.exponential(1.5, n_samples),
             "creatinine": np.random.lognormal(0, 0.5, n_samples),
             "bilirubin": np.random.lognormal(-0.5, 0.8, n_samples),
-            "platelet_count": np.random.normal(250, 80, n_samples),
+            "platelet_count": rng.normal(250, 80, n_samples),
             "white_blood_cell": np.random.lognormal(2.2, 0.5, n_samples),
-            "hemoglobin": np.random.normal(12, 2, n_samples),
-            "pao2": np.random.normal(95, 15, n_samples),
-            "paco2": np.random.normal(40, 8, n_samples),
-            "ph": np.random.normal(7.4, 0.1, n_samples),
+            "hemoglobin": rng.normal(12, 2, n_samples),
+            "pao2": rng.normal(95, 15, n_samples),
+            "paco2": rng.normal(40, 8, n_samples),
+            "ph": rng.normal(7.4, 0.1, n_samples),
         }
 
         # Create anomaly labels based on clinical criteria
@@ -556,7 +556,7 @@ class PhysioNetLoader(DatasetLoader):
 
     def _create_synthetic_ecg(self) -> bool:
         """Create synthetic ECG data for testing."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
         signal_length = 360  # 1 second at 360 Hz
 
@@ -566,19 +566,19 @@ class PhysioNetLoader(DatasetLoader):
         for _i in range(n_samples):
             # Normal sinus rhythm
             t = np.linspace(0, 1, signal_length)
-            heart_rate = np.random.uniform(60, 100)
+            heart_rate = rng.uniform(60, 100)
             ecg = self._generate_ecg_beat(t, heart_rate)
 
             # Add noise
-            ecg += np.random.normal(0, 0.05, signal_length)
+            ecg += rng.normal(0, 0.05, signal_length)
 
             # 20% anomalies
-            if np.random.random() < 0.2:
+            if rng.random() < 0.2:
                 # Various arrhythmia patterns
-                anomaly_type = np.random.choice(["afib", "vt", "pvc", "noise"])
+                anomaly_type = rng.choice(["afib", "vt", "pvc", "noise"])
                 if anomaly_type == "afib":
                     # Irregular RR intervals
-                    ecg *= np.random.uniform(0.8, 1.2, signal_length)
+                    ecg *= rng.uniform(0.8, 1.2, signal_length)
                 elif anomaly_type == "vt":
                     # Wide QRS
                     ecg = self._generate_ecg_beat(t, 150)
@@ -587,7 +587,7 @@ class PhysioNetLoader(DatasetLoader):
                     ecg[180:220] *= 2.0
                 else:
                     # Noise artifact
-                    ecg += np.random.normal(0, 0.5, signal_length)
+                    ecg += rng.normal(0, 0.5, signal_length)
 
                 labels.append(1)
             else:
@@ -714,7 +714,7 @@ class SepsisDataset(MIMICLoader):
 
     def _create_synthetic_mimic(self) -> bool:
         """Create sepsis-focused synthetic data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
         # Generate with higher sepsis prevalence
@@ -723,29 +723,29 @@ class SepsisDataset(MIMICLoader):
 
         # 30% sepsis cases
         n_sepsis = int(n_samples * 0.3)
-        sepsis_idx = np.random.choice(n_samples, n_sepsis, replace=False)
+        sepsis_idx = rng.choice(n_samples, n_sepsis, replace=False)
 
         for feature in self.FEATURE_NAMES:
             # Generate feature values based on feature type
             if feature == "heart_rate":
-                values = np.random.normal(80, 15, n_samples)
-                values[sepsis_idx] = np.random.normal(110, 20, n_sepsis)  # Tachycardia
+                values = rng.normal(80, 15, n_samples)
+                values[sepsis_idx] = rng.normal(110, 20, n_sepsis)  # Tachycardia
             elif feature == "systolic_bp":
-                values = np.random.normal(120, 15, n_samples)
-                values[sepsis_idx] = np.random.normal(85, 15, n_sepsis)  # Hypotension
+                values = rng.normal(120, 15, n_samples)
+                values[sepsis_idx] = rng.normal(85, 15, n_sepsis)  # Hypotension
             elif feature == "respiratory_rate":
-                values = np.random.normal(14, 3, n_samples)
-                values[sepsis_idx] = np.random.normal(24, 5, n_sepsis)  # Tachypnea
+                values = rng.normal(14, 3, n_samples)
+                values[sepsis_idx] = rng.normal(24, 5, n_sepsis)  # Tachypnea
             elif feature == "lactate":
-                values = np.random.exponential(1.0, n_samples)
-                values[sepsis_idx] = np.random.exponential(3.0, n_sepsis)  # Elevated lactate
+                values = rng.exponential(1.0, n_samples)
+                values[sepsis_idx] = rng.exponential(3.0, n_sepsis)  # Elevated lactate
             elif feature == "white_blood_cell":
-                values = np.random.normal(8, 2, n_samples)
-                values[sepsis_idx] = np.random.choice(
-                    [np.random.normal(15, 3), np.random.normal(3, 1)], n_sepsis
+                values = rng.normal(8, 2, n_samples)
+                values[sepsis_idx] = rng.choice(
+                    [rng.normal(15, 3), rng.normal(3, 1)], n_sepsis
                 )  # Leukocytosis or leukopenia
             else:
-                values = np.random.normal(0, 1, n_samples)
+                values = rng.normal(0, 1, n_samples)
 
             data[feature] = values
 

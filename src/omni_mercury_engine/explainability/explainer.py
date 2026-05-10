@@ -229,6 +229,7 @@ class MercuryExplainer:
         shap_method: str = "auto",
         counterfactual_method: str = "wachter",
         contact_info: str = "support@organization.com",
+        seed: int | None = None,
     ) -> None:
         """
         Initialize Mercury Explainer.
@@ -246,6 +247,7 @@ class MercuryExplainer:
             counterfactual_method: Counterfactual method ("wachter", "dice", etc.)
             contact_info: Contact for GDPR requests
         """
+        self._rng: np.random.Generator = np.random.default_rng(seed)
         self._model = model
         self._background_data = background_data
         self._feature_names = feature_names or [
@@ -463,7 +465,7 @@ class MercuryExplainer:
             Dictionary of feature importances
         """
         if n_samples is not None and n_samples < len(X):
-            indices = np.random.choice(len(X), n_samples, replace=False)
+            indices = self._rng.choice(len(X), n_samples, replace=False)
             X = X[indices]
 
         global_explanation = self.explain_global(X)

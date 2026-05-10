@@ -383,7 +383,7 @@ class SHAPExplainer(BaseExplainer):
         # Compute importance for each feature
         for j in range(n_features):
             X_permuted = X.copy()
-            X_permuted[:, j] = np.random.permutation(X_permuted[:, j])
+            X_permuted[:, j] = self.rng.permutation(X_permuted[:, j])
 
             if hasattr(model, "predict_proba"):
                 permuted_preds = model.predict_proba(X_permuted)[:, 1]

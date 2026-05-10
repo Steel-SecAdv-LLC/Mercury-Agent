@@ -18,14 +18,13 @@ import csv
 import io
 import logging
 import urllib.error
-import urllib.request
 from typing import Any
 
 import numpy as np
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -93,42 +92,69 @@ class NOAAGSODLoader(DatasetLoader):
         self.year = config.preprocessing.get("year", 2023)
         self.stations = config.preprocessing.get("stations", DEFAULT_STATIONS)
 
+    # GSOD year-end roll-up lags real-time by months. Fall through to older
+    # years if the requested year directory is empty / 404 for every station.
+    _YEAR_FALLBACK_RANGE = 2
+
     def download(self) -> bool:
         """
         Download GSOD CSVs for configured stations and year.
 
+        Falls back to ``self.year - 1`` and ``self.year - 2`` if the
+        requested year has no published station files yet.
+
         Raises:
-            DataSourceUnavailableError: If no station data is retrievable.
+            DataSourceUnavailableError: If no station data is retrievable
+            from any candidate year.
         """
-        cache_file = self.data_path / f"gsod_{self.year}.npz"
-        if cache_file.exists():
-            logger.info("GSOD %d already cached", self.year)
-            return True
+        candidate_years = [self.year - offset for offset in range(self._YEAR_FALLBACK_RANGE + 1)]
 
-        all_rows: list[list[float]] = []
+        for candidate in candidate_years:
+            cache_file = self.data_path / f"gsod_{candidate}.npz"
+            if cache_file.exists():
+                logger.info("GSOD %d already cached", candidate)
+                if candidate != self.year:
+                    self.year = candidate
+                return True
 
-        for idx, station_id in enumerate(self.stations):
-            url = f"{self.GSOD_BASE}{self.year}/{station_id}.csv"
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-                with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
-                    text = resp.read().decode("utf-8", errors="replace")
+            all_rows: list[list[float]] = []
+            for idx, station_id in enumerate(self.stations):
+                url = f"{self.GSOD_BASE}{candidate}/{station_id}.csv"
+                try:
+                    body = http_get_with_retry(url, timeout=30)
+                    text = body.decode("utf-8", errors="replace")
+                    rows = self._parse_gsod_csv(text, idx)
+                    all_rows.extend(rows)
+                    logger.info(
+                        "  GSOD %d station %s: %d daily records",
+                        candidate,
+                        station_id,
+                        len(rows),
+                    )
+                except urllib.error.HTTPError as e:
+                    logger.warning("  GSOD %d station %s: HTTP %d", candidate, station_id, e.code)
+                except Exception as e:
+                    logger.warning("  GSOD %d station %s failed: %s", candidate, station_id, e)
 
-                rows = self._parse_gsod_csv(text, idx)
-                all_rows.extend(rows)
-                logger.info("  Station %s: %d daily records", station_id, len(rows))
+            if all_rows:
+                if candidate != self.year:
+                    logger.info("GSOD %d returned no data; using %d instead", self.year, candidate)
+                    self.year = candidate
+                return self._finalize(all_rows, cache_file)
 
-            except urllib.error.HTTPError as e:
-                logger.warning("  Station %s: HTTP %d", station_id, e.code)
-            except Exception as e:
-                logger.warning("  Station %s failed: %s", station_id, e)
+            logger.info("GSOD %d empty for all stations; trying older year", candidate)
 
-        if not all_rows:
-            raise DataSourceUnavailableError(
-                loader_name="NOAA-GSOD",
-                source_url=f"{self.GSOD_BASE}{self.year}/",
-                reason=f"No GSOD station data retrieved for {self.year}",
-            )
+        raise DataSourceUnavailableError(
+            loader_name="NOAA-GSOD",
+            source_url=f"{self.GSOD_BASE}{self.year}/",
+            reason=(
+                f"No GSOD station data retrieved for {self.year} or the prior "
+                f"{self._YEAR_FALLBACK_RANGE} years"
+            ),
+        )
+
+    def _finalize(self, all_rows: list[list[float]], cache_file: Any) -> bool:
+        """Build features/labels and persist the npz cache."""
 
         features = np.array(all_rows, dtype=np.float64)
 

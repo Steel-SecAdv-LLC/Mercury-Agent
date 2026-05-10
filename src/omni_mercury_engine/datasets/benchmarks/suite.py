@@ -603,9 +603,22 @@ class RealWorldBenchmarkSuite:
 
 
 # Baseline detectors for comparison
-def random_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Random baseline detector."""
-    return np.random.rand(len(features))
+def random_baseline(
+    features: np.ndarray[Any, Any],
+    rng: np.random.Generator | None = None,
+) -> np.ndarray[Any, Any]:
+    """
+    Random baseline detector.
+
+    Args:
+        features: Feature matrix (only ``len(features)`` is used).
+        rng: Optional caller-supplied ``Generator``.  ``None`` (default)
+            creates a fresh per-call ``default_rng()`` so this baseline
+            never consumes the legacy global ``np.random`` state.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    return rng.random(len(features))
 
 
 def mercury_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:

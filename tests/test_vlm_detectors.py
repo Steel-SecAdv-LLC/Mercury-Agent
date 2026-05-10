@@ -30,8 +30,10 @@ try:
     import torch
 
     HAS_TORCH = True
+    HAS_CUDA = bool(torch.cuda.is_available())
 except ImportError:
     HAS_TORCH = False
+    HAS_CUDA = False
 
 
 pytestmark = pytest.mark.vlm
@@ -55,7 +57,6 @@ class TestAnyAnomalyDetector:
         from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
 
         config = AnyAnomalyConfig(
-            backend="mock",
             context_window=4,
             enable_positional_context=True,
             enable_temporal_context=False,
@@ -82,20 +83,35 @@ class TestAnyAnomalyDetector:
         detector.set_reference_normal(frames)
         assert len(detector.reference_frames) > 0
 
-    @pytest.mark.skip(reason="Hangs without GPU/model weights — environment-specific")
-    def test_anyanomaly_detect_mock(self, sample_image):
-        """Test AnyAnomaly detection with mock backend."""
-        from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
-        from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
+    def test_anyanomaly_mock_backend_factory_hard_fails(self):
+        """Failure-mode coverage on the detect-path:
+        ``MockLVLMBackend`` is intentionally a hard-fail (Phase 2 audit
+        cure: silent mock degradation is not permitted in production).
+        Pin that contract — any path that reaches
+        ``MockLVLMBackend.initialize()`` must raise
+        ``NotImplementedError`` rather than producing fabricated
+        outputs that could be mistaken for real detections.
 
-        config = AnyAnomalyConfig(backend="mock")
-        detector = AnyAnomalyDetector(config=config)
-        detector.set_anomaly_definition("A person running")
+        This used to be exercised indirectly via the deleted
+        ``test_anyanomaly_detect_mock``, which constructed an
+        ``AnyAnomalyDetector`` with the now-removed ``backend="mock"``
+        config field and called ``detector.detect(...)``.  That test
+        was permanently skipped because the failure mode is
+        intentional, but dropping it left the file with no
+        AnyAnomaly detect-path coverage.  This smoke replaces that
+        coverage at the factory boundary, where the contract actually
+        lives, without requiring a real VLM checkpoint or a CUDA
+        runner."""
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import (
+            MockLVLMBackend,
+            get_lvlm_backend,
+        )
 
-        result = detector.detect(sample_image)
-        assert "scores" in result
-        assert "reasoning" in result
-        assert "is_anomaly" in result
+        backend = get_lvlm_backend(model_type="mock")
+        assert isinstance(backend, MockLVLMBackend)
+
+        with pytest.raises(NotImplementedError, match="cannot be used in production"):
+            backend.initialize()
 
 
 @pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")

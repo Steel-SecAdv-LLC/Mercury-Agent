@@ -244,11 +244,11 @@ def _do_migration(args: argparse.Namespace) -> int:
         return 3
     archive["labels"] = label_arr
 
-    # np.savez signature in numpy's type stubs declares the second
-    # positional as ``compress: bool``, but the runtime API explicitly
-    # accepts named ``ndarray`` kwargs. We rely on the documented runtime
-    # behaviour, not the stubs.
-    np.savez(str(dst), **archive)  # type: ignore[arg-type]
+    # Historical note: prior numpy stubs declared the second positional of
+    # ``np.savez`` as ``compress: bool`` while the runtime API explicitly
+    # accepts named ``ndarray`` kwargs.  Newer numpy stubs (2.x) correctly
+    # type the keyword form, so no ignore is needed.
+    np.savez(str(dst), **archive)
     print(f"wrote: {dst}", file=sys.stderr)
 
     if args.sign_key_hex:

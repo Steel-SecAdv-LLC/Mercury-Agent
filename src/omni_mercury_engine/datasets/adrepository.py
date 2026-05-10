@@ -423,7 +423,7 @@ class ADRepositoryLoader(DatasetLoader):
             "Results may not reflect real-world performance."
         )
 
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
 
         info = self.dataset_info
         n_samples = min(info["samples"], self.config.max_samples or info["samples"])
@@ -434,17 +434,17 @@ class ADRepositoryLoader(DatasetLoader):
         n_normal = n_samples - n_anomalies
 
         # Generate normal samples
-        normal_data = np.random.randn(n_normal, n_features)
+        normal_data = rng.standard_normal((n_normal, n_features))
 
         # Generate anomalies (shifted distribution)
-        anomaly_data = np.random.randn(n_anomalies, n_features) * 2 + 3
+        anomaly_data = rng.standard_normal((n_anomalies, n_features)) * 2 + 3
 
         # Combine
         self._features = np.vstack([normal_data, anomaly_data]).astype(np.float32)
         self._labels = np.array([0] * n_normal + [1] * n_anomalies, dtype=np.int64)
 
         # Shuffle
-        perm = np.random.permutation(n_samples)
+        perm = rng.permutation(n_samples)
         self._features = self._features[perm]
         self._labels = self._labels[perm]
 

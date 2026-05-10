@@ -44,18 +44,24 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.request import Request, urlopen
 
 import numpy as np
 
-try:
+if TYPE_CHECKING:
     import torch
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        TORCH_AVAILABLE = False
 
 from scipy import signal
 from scipy.fft import fft, fftfreq
@@ -202,7 +208,7 @@ class SolarFlarePredictionResult:
     affected_systems: list[str] = field(default_factory=list)
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class WaveformFFTAnalyzer(nn.Module):
         """
@@ -269,12 +275,16 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def WaveformFFTAnalyzer(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class WaveformFFTAnalyzer:
         """Stub: WaveformFFTAnalyzer requires PyTorch."""
-        raise ImportError("WaveformFFTAnalyzer requires PyTorch. Install with: pip install torch")
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "WaveformFFTAnalyzer requires PyTorch. Install with: pip install torch"
+            )
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class SeismicWaveAnalyzer(nn.Module):
         """
@@ -360,9 +370,13 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def SeismicWaveAnalyzer(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class SeismicWaveAnalyzer:
         """Stub: SeismicWaveAnalyzer requires PyTorch."""
-        raise ImportError("SeismicWaveAnalyzer requires PyTorch. Install with: pip install torch")
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "SeismicWaveAnalyzer requires PyTorch. Install with: pip install torch"
+            )
 
 
 class BayesianMeteorFilter:

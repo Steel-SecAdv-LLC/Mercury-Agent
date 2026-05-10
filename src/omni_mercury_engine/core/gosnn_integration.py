@@ -531,12 +531,12 @@ class GOSNNIntegration:
         Returns:
             Self for method chaining
         """
-        np.random.seed(self.seed)
+        rng = np.random.default_rng(self.seed)
 
         # Split for calibration
         n = len(X)
         n_val = int(n * validation_split)
-        idx = np.random.permutation(n)
+        idx = rng.permutation(n)
         train_idx, val_idx = idx[n_val:], idx[:n_val]
 
         X_train, X_val = X[train_idx], X[val_idx]

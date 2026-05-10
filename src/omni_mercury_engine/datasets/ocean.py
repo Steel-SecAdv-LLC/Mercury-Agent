@@ -35,7 +35,7 @@ except ImportError:
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import ALLOW_SYNTHETIC, DataSourceUnavailableError, check_synthetic_allowed
 
 logger = logging.getLogger(__name__)
@@ -161,8 +161,6 @@ class NOAABuoyLoader(DatasetLoader):
             return True
 
         try:
-            import urllib.request
-
             all_data = []
 
             for station in self.stations:
@@ -172,14 +170,9 @@ class NOAABuoyLoader(DatasetLoader):
                         f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."
                     )
 
-                    # Validate URL before opening (SSRF protection via domain allowlist)
                     TrustedEndpoints.validate_url(self.DATASET_URL)
-                    req = urllib.request.Request(
-                        url,
-                        headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
-                    )
-                    with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
-                        content = response.read().decode("utf-8")
+                    body = http_get_with_retry(url, timeout=60)
+                    content = body.decode("utf-8", errors="replace")
 
                     # Parse the data (space-delimited, first row is header, second is units)
                     df = pd.read_csv(
@@ -408,8 +401,8 @@ class NOAABuoyLoader(DatasetLoader):
 
         # Apply max_samples limit if specified
         if self.config.max_samples and len(features) > self.config.max_samples:
-            np.random.seed(self.config.random_seed)
-            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            rng = np.random.default_rng(self.config.random_seed)
+            indices = rng.choice(len(features), self.config.max_samples, replace=False)
             features = features[indices]
             labels = labels[indices]
 
@@ -422,7 +415,7 @@ class NOAABuoyLoader(DatasetLoader):
             "Results will NOT reflect real-world oceanographic patterns."
         )
 
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
         n_features = len(self.FEATURE_COLS)
 
@@ -430,35 +423,35 @@ class NOAABuoyLoader(DatasetLoader):
         features = np.zeros((n_samples, n_features))
 
         # WVHT - Wave height (meters), typically 0.5-5m
-        features[:, 0] = np.abs(np.random.normal(1.5, 0.8, n_samples))
+        features[:, 0] = np.abs(rng.normal(1.5, 0.8, n_samples))
 
         # DPD - Dominant wave period (seconds), typically 5-15s
-        features[:, 1] = np.random.normal(8, 2, n_samples)
+        features[:, 1] = rng.normal(8, 2, n_samples)
 
         # APD - Average wave period
-        features[:, 2] = features[:, 1] * np.random.uniform(0.7, 0.9, n_samples)
+        features[:, 2] = features[:, 1] * rng.uniform(0.7, 0.9, n_samples)
 
         # MWD - Mean wave direction (degrees)
-        features[:, 3] = np.random.uniform(0, 360, n_samples)
+        features[:, 3] = rng.uniform(0, 360, n_samples)
 
         # WTMP - Water temperature (°C), typically 10-25°C
-        features[:, 4] = np.random.normal(18, 4, n_samples)
+        features[:, 4] = rng.normal(18, 4, n_samples)
 
         # ATMP - Air temperature (°C)
-        features[:, 5] = features[:, 4] + np.random.normal(0, 2, n_samples)
+        features[:, 5] = features[:, 4] + rng.normal(0, 2, n_samples)
 
         # PRES - Atmospheric pressure (hPa), typically 990-1030
-        features[:, 6] = np.random.normal(1013, 10, n_samples)
+        features[:, 6] = rng.normal(1013, 10, n_samples)
 
         # WSPD - Wind speed (m/s)
-        features[:, 7] = np.abs(np.random.normal(5, 3, n_samples))
+        features[:, 7] = np.abs(rng.normal(5, 3, n_samples))
 
         # GST - Wind gust
-        features[:, 8] = features[:, 7] * np.random.uniform(1.2, 1.8, n_samples)
+        features[:, 8] = features[:, 7] * rng.uniform(1.2, 1.8, n_samples)
 
         # Inject some anomalies (~5%)
         n_anomalies = int(n_samples * 0.05)
-        anomaly_indices = np.random.choice(n_samples, n_anomalies, replace=False)
+        anomaly_indices = rng.choice(n_samples, n_anomalies, replace=False)
 
         # Extreme wave heights
         features[anomaly_indices[: n_anomalies // 3], 0] *= 5

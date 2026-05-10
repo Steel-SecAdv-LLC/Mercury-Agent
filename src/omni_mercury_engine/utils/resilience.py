@@ -57,19 +57,24 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-# Import CircuitState from canonical location with fallback for backwards compatibility
-try:
+# Import CircuitState from canonical location with fallback for backwards compatibility.
+# mypy always sees the canonical import via the TYPE_CHECKING branch so the
+# runtime fallback class definition is not seen as a redefinition.
+if TYPE_CHECKING:
     from omni_mercury_engine.core.types import CircuitState
-except ImportError:
-    # Fallback for backwards compatibility if core.types is not available
-    class CircuitState(Enum):  # type: ignore[no-redef]
-        """States for circuit breaker pattern."""
+else:
+    try:
+        from omni_mercury_engine.core.types import CircuitState
+    except ImportError:
+        # Fallback for backwards compatibility if core.types is not available
+        class CircuitState(Enum):
+            """States for circuit breaker pattern."""
 
-        CLOSED = auto()  # Normal operation
-        OPEN = auto()  # Failing, reject calls
-        HALF_OPEN = auto()  # Testing if service recovered
+            CLOSED = auto()  # Normal operation
+            OPEN = auto()  # Failing, reject calls
+            HALF_OPEN = auto()  # Testing if service recovered
 
 
 __all__ = [

@@ -62,7 +62,7 @@ Example:
         engine = OmniMercuryEngine(mode="fusion", device="cuda")
 
         # Detect anomalies
-        data = np.random.randn(100, 10)
+        data = np.random.default_rng().standard_normal((100, 10))
         result = engine.detect_with_fusion(data)
 
         print(f"Anomaly probability: {result['anomaly_prob']:.3f}")
@@ -71,7 +71,7 @@ Example:
     Batch processing for large datasets::
 
         engine = OmniMercuryEngine(mode="fusion")
-        large_data = np.random.randn(10000, 50)
+        large_data = np.random.default_rng().standard_normal((10000, 50))
 
         # Process in batches for memory efficiency
         results = engine.detect_batch(large_data, batch_size=64)
@@ -625,7 +625,7 @@ class OmniMercuryEngine(LoggerMixin):
         Basic detection::
 
             engine = OmniMercuryEngine()
-            data = np.random.randn(100, 10)
+            data = np.random.default_rng().standard_normal((100, 10))
             result = engine.detect(data)
 
         Fusion mode with GPU::
@@ -1420,7 +1420,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         Example:
             >>> engine = OmniMercuryEngine()
-            >>> data = np.random.randn(100, 10)
+            >>> data = np.random.default_rng().standard_normal((100, 10))
             >>> result = engine.detect(data, detector_types=["statistical"])
             >>> print(result["is_anomaly"])
             False
@@ -1487,7 +1487,7 @@ class OmniMercuryEngine(LoggerMixin):
 
         Example:
             >>> engine = OmniMercuryEngine(mode="fusion")
-            >>> large_data = np.random.randn(10000, 50)
+            >>> large_data = np.random.default_rng().standard_normal((10000, 50))
             >>> results = engine.detect_batch(large_data, batch_size=64)
             >>> anomaly_indices = [i for i, r in enumerate(results)
             ...                    if r.get("is_anomaly", False)]

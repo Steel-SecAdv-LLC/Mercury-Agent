@@ -411,13 +411,13 @@ class ConformalAnomalyDetector:
         Returns:
             Self for method chaining
         """
-        np.random.seed(self.seed)
+        rng = np.random.default_rng(self.seed)
 
         n = len(X)
         n_cal = int(n * self.calibration_fraction)
 
         # Split data
-        idx = np.random.permutation(n)
+        idx = rng.permutation(n)
         train_idx, cal_idx = idx[n_cal:], idx[:n_cal]
 
         X_train = X[train_idx]
@@ -519,7 +519,12 @@ class ConformalAnomalyDetector:
                 # Generic binary to continuous conversion
                 scores = predictions.astype(float)
                 # Add small noise for differentiation
-                scores = 0.3 + 0.4 * scores + 0.1 * np.random.rand(len(scores))
+                # Independent ``Generator`` driven by ``self.seed`` so the
+                # binary→continuous score smoothing is reproducible without
+                # touching the legacy global ``np.random`` state.
+                scores = (
+                    0.3 + 0.4 * scores + 0.1 * np.random.default_rng(self.seed).random(len(scores))
+                )
                 scores = np.clip(scores, 0.0, 1.0)
 
             return np.asarray(scores)  # type: ignore[no-any-return, unused-ignore]

@@ -625,6 +625,7 @@ class CausalDiscoveryEngine:
         enable_temporal: bool = True,
         max_lag: int = 5,
         n_bootstrap: int = 100,
+        seed: int | None = None,
     ):
         """
         Initialize Causal Discovery Engine.
@@ -635,12 +636,16 @@ class CausalDiscoveryEngine:
             enable_temporal: Enable Granger causality
             max_lag: Maximum time lag for temporal causation
             n_bootstrap: Number of bootstrap samples for CIs
+            seed: Optional seed for the per-instance ``Generator`` driving
+                bootstrap resampling. ``None`` (default) uses an OS-seeded
+                ``Generator`` — same effective behavior as before.
         """
         self.significance_level = significance_level
         self.max_conditioning_set = max_conditioning_set
         self.enable_temporal = enable_temporal
         self.max_lag = max_lag
         self.n_bootstrap = n_bootstrap
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Storage
         self._graphs: dict[str, CausalGraph] = {}
@@ -1286,7 +1291,7 @@ class CausalDiscoveryEngine:
 
         for _ in range(self.n_bootstrap):
             # Bootstrap sample
-            idx = np.random.choice(n, n, replace=True)
+            idx = self._rng.choice(n, n, replace=True)
             sample = data[idx]
 
             # Estimate ATE
@@ -1325,7 +1330,7 @@ class CausalDiscoveryEngine:
         n = len(data)
 
         for _ in range(self.n_bootstrap):
-            sample = np.random.choice(data, n, replace=True)
+            sample = self._rng.choice(data, n, replace=True)
             means.append(np.mean(sample))
 
         return (float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5)))

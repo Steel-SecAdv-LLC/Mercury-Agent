@@ -111,8 +111,10 @@ class TestLandslideDetector:
 
     def test_recursion_synapse_integration(self, landslide_detector, landslide_data):
         """Test 3R Recursion synapse is properly integrated."""
-        if not landslide_detector.enable_recursion:
-            pytest.skip("Recursion not enabled")
+        assert landslide_detector.enable_recursion, (
+            "fixture must construct LandslideDetector with enable_recursion=True; "
+            "the previous skip-on-not-enabled hid an untested integration path"
+        )
         result = landslide_detector.predict_landslide(landslide_data)
         assert result is not None
 
@@ -283,8 +285,10 @@ class TestWildfireDetector:
 
     def test_resonance_synapse_integration(self, wildfire_detector, wildfire_data):
         """Test 3R Resonance synapse is properly integrated."""
-        if not wildfire_detector.enable_resonance:
-            pytest.skip("Resonance not enabled")
+        assert wildfire_detector.enable_resonance, (
+            "fixture must construct WildfireDetector with enable_resonance=True; "
+            "the previous skip-on-not-enabled hid an untested integration path"
+        )
         result = wildfire_detector.predict_wildfire(wildfire_data)
         assert result is not None
 
@@ -463,8 +467,10 @@ class TestVolcanicEruptionDetector:
 
     def test_refactoring_synapse_integration(self, volcanic_detector, volcanic_data):
         """Test 3R Refactoring synapse is properly integrated."""
-        if not volcanic_detector.enable_refactoring:
-            pytest.skip("Refactoring not enabled")
+        assert volcanic_detector.enable_refactoring, (
+            "fixture must construct VolcanicEruptionDetector with enable_refactoring=True; "
+            "the previous skip-on-not-enabled hid an untested integration path"
+        )
         result = volcanic_detector.predict_eruption(volcanic_data)
         assert result is not None
 

@@ -4,10 +4,11 @@
 
 | Property | Value |
 |----------|-------|
-| Document Version | 2.3 |
-| Last Updated | 2026-02-21 |
+| Document Version | 2.4 |
+| Last Updated | 2026-05-05 |
 | Classification | Public |
 | Maintainer | Steel Security Advisors LLC |
+| Applies to | Mercury Agent v1.6.x |
 
 ---
 
@@ -78,10 +79,30 @@ We welcome contributions in the following areas:
 Please **DO NOT** submit pull requests that:
 
 - Weaken security in any way
-- Remove or bypass ethical safeguards
+- Remove or bypass ethical safeguards. In particular, the
+  **Wave B dual-gate hard ethical contract** (Benevolence then
+  σ_Immutable, raising `EthicalConstraintViolationError(check=…)`)
+  is non-negotiable at every public boundary surface. PRs that
+  re-introduce a public flag to disable a gate, restore a silent
+  GOSNN fallback, expose `_GOSNN_TESTING_BYPASS` to non-test code
+  paths, or drop one of the reserved `check=` codes will be
+  rejected. See `ARCHITECTURE.md` §"Dual-Gate Hard Ethical
+  Enforcement" and `docs/MATH_SPEC.md` §2.1.5.
 - Introduce unproven or experimental algorithms without validation
 - Add unnecessary dependencies
-- Include proprietary or non-GPL compatible code
+- Reintroduce `pickle` for training data or arbitrary cross-process
+  serialization (PR #166 deleted that code path). For dataset and
+  benchmark artefacts use `npz` / `json` / `safetensors` /
+  `parquet`. Trained-model weights may continue to ship as PyTorch
+  `.pt` files **provided** they are loaded via
+  `torch.load(..., weights_only=True)` (the safe-tensor torch
+  loader path used by `security/sigma_immutable_weights.pt`).
+  Plain `pickle.load` / `torch.load(weights_only=False)` is the
+  banned surface, not the `.pt` extension.
+- Add a non-AMA-Cryptography PQC backend (PR #144 made AMA
+  Cryptography the **sole** PQC backend; Mercury hard-requires it
+  under `AMA_REQUIRE_REAL_PQC=true`)
+- Include proprietary or non-GPL-compatible code
 - Lack proper testing and documentation
 
 ## Development Setup

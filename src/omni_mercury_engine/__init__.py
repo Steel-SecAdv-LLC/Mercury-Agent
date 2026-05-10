@@ -63,6 +63,26 @@ if TYPE_CHECKING:
     )
     from omni_mercury_engine.engine import OmniMercuryEngine as OmniMercuryEngine
 
+
+# ---------------------------------------------------------------------------
+# Production PQC gate.
+#
+# When ``AMA_REQUIRE_REAL_PQC=true`` (or the legacy ``AVA_REQUIRE_REAL_PQC``)
+# is set, ``omni_mercury_engine`` package import refuses to proceed unless
+# the AMA Cryptography native C backend is fully loadable.  Without the env
+# var, the gate is a no-op and Mercury imports against the soft PQC stubs
+# in ``security/pqc_backends.py`` for development convenience.
+#
+# Implementation lives in ``omni_mercury_engine._pqc_gate`` so it has a
+# stable importable location for unit tests; the function is invoked once
+# here at package-load time and then the local re-binding is deleted to
+# keep the public package surface clean.
+# ---------------------------------------------------------------------------
+from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
+
+_enforce_pqc_production_gate()
+del _enforce_pqc_production_gate
+
 # Lazy imports to support running without ML dependencies (torch)
 # The OmniMercuryEngine requires torch, but we defer the import to allow
 # CLI help commands and other lightweight operations to work without it.

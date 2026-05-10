@@ -105,6 +105,44 @@ class TestFederatedAnomalyDetector:
         except ValueError:
             pass
 
+    def test_seed_makes_full_loop_reproducible(self):
+        """Two runs with the same seed and add_client order must
+        produce identical final weights end-to-end across all
+        stochastic surfaces (initial-weights draw, per-client
+        SGDTrainer minibatch shuffle, per-client PrivacyEngine noise,
+        ClientManager selection, server-side PrivacyEngine noise).
+        Tested with ``use_privacy`` both off and on."""
+        rng = np.random.default_rng(0)
+        X1 = rng.standard_normal((80, 4))
+        X2 = rng.standard_normal((80, 4))
+
+        def _train_once(seed: int, use_privacy: bool) -> np.ndarray:
+            detector = FederatedAnomalyDetector(
+                model_dim=4,
+                n_rounds=3,
+                local_epochs=2,
+                use_privacy=use_privacy,
+                seed=seed,
+            )
+            detector.add_client("c1", X1.copy())
+            detector.add_client("c2", X2.copy())
+            result = detector.fit()
+            return result.final_weights
+
+        for use_privacy in (False, True):
+            w_a = _train_once(seed=42, use_privacy=use_privacy)
+            w_b = _train_once(seed=42, use_privacy=use_privacy)
+            assert np.array_equal(w_a, w_b), (
+                f"Same-seed runs diverged with use_privacy={use_privacy}; "
+                "seed is not threaded through every stochastic surface."
+            )
+
+            w_c = _train_once(seed=43, use_privacy=use_privacy)
+            assert not np.array_equal(w_a, w_c), (
+                f"Different seeds produced identical weights with "
+                f"use_privacy={use_privacy}; seed has no effect."
+            )
+
 
 class TestCISAFederatedCoordinator:
     """Tests for CISA Federated Coordinator."""

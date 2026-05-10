@@ -105,6 +105,10 @@ class PatchCoreDetector(BaseVisualDetector):
 
         super().__init__(config)
         self.patchcore_config: PatchCoreConfig = config
+        # ``PatchCoreConfig.seed`` (if present) drives the greedy
+        # coreset-subsampling RNG.  Falls back to the generic ``seed``
+        # config attribute if defined; otherwise OS entropy.
+        self._rng: np.random.Generator = np.random.default_rng(getattr(config, "seed", None))
 
         # Initialize backbone
         self._init_backbone()
@@ -222,7 +226,7 @@ class PatchCoreDetector(BaseVisualDetector):
         embeddings_np = embeddings.cpu().numpy()
 
         # Initialize with random point
-        indices = [np.random.randint(num_samples)]
+        indices = [int(self._rng.integers(num_samples))]
         selected = embeddings_np[indices]
 
         # Greedy selection

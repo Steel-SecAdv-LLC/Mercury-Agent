@@ -397,6 +397,7 @@ class HindsightRelabeler:
         self,
         anomaly_threshold: float = 0.5,
         improvement_threshold: float = 0.1,
+        seed: int | None = None,
     ):
         """
         Initialize relabeler.
@@ -404,9 +405,13 @@ class HindsightRelabeler:
         Args:
             anomaly_threshold: Threshold for anomaly classification
             improvement_threshold: Minimum improvement for relabeling
+            seed: Optional seed for deterministic random alternative selection
+                under ``RelabelingStrategy.RANDOM``. ``None`` (default) uses an
+                OS-seeded ``Generator`` — same effective behavior as before.
         """
         self.anomaly_threshold = anomaly_threshold
         self.improvement_threshold = improvement_threshold
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Action alternatives
         self._action_alternatives = {
@@ -490,7 +495,7 @@ class HindsightRelabeler:
             # Small improvement
             best_alt = "flag_for_review"
         else:  # RANDOM
-            best_alt = np.random.choice(alternatives)
+            best_alt = self._rng.choice(alternatives)
 
         expected_improvement = abs(credit) * 0.5  # Conservative estimate
 

@@ -164,6 +164,7 @@ class SHAPExplainer(BaseExplainer):
         background_data: np.ndarray[Any, Any] | None = None,
         n_samples: int = 100,
         link: str = "identity",
+        seed: int | None = None,
     ):
         """
         Initialize SHAP explainer.
@@ -172,11 +173,15 @@ class SHAPExplainer(BaseExplainer):
             background_data: Background dataset for SHAP values
             n_samples: Number of samples for Kernel SHAP
             link: Link function ("identity" or "logit")
+            seed: Optional seed for the per-instance ``Generator`` driving
+                Kernel-SHAP coalition sampling. ``None`` (default) uses an
+                OS-seeded ``Generator`` — same effective behavior as before.
         """
         self.background_data = background_data
         self.n_samples = n_samples
         self.link = link
         self._explainer: Any = None
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def _create_explainer(
         self,
@@ -270,7 +275,7 @@ class SHAPExplainer(BaseExplainer):
         n_samples = min(self.n_samples, 2**n_features)
 
         for _ in range(n_samples):
-            coalition = np.random.randint(0, 2, n_features)
+            coalition = self._rng.integers(0, 2, n_features)
 
             with_feature = baseline.copy()
             without_feature = baseline.copy()
@@ -326,6 +331,7 @@ class LIMEExplainer(BaseExplainer):
         mode: str = "regression",
         n_samples: int = 5000,
         kernel_width: float | None = None,
+        seed: int | None = None,
     ):
         """
         Initialize LIME explainer.
@@ -335,11 +341,16 @@ class LIMEExplainer(BaseExplainer):
             mode: "regression" or "classification"
             n_samples: Number of samples for local surrogate
             kernel_width: Kernel width for sample weighting
+            seed: Optional seed for the per-instance ``Generator`` driving
+                local-surrogate perturbation sampling. ``None`` (default)
+                uses an OS-seeded ``Generator`` — same effective behavior
+                as before.
         """
         self.training_data = training_data
         self.mode = mode
         self.n_samples = n_samples
         self.kernel_width = kernel_width
+        self._rng: np.random.Generator = np.random.default_rng(seed)
         self._explainer: Any = None
 
     def _create_explainer(
@@ -434,7 +445,7 @@ class LIMEExplainer(BaseExplainer):
         """Approximate LIME without LIME library."""
         n_features = len(instance)
 
-        samples = np.random.randn(self.n_samples, n_features) * 0.1 + instance
+        samples = self._rng.standard_normal((self.n_samples, n_features)) * 0.1 + instance
         predictions = model(samples).flatten()
 
         distances = np.sqrt(np.sum((samples - instance) ** 2, axis=1))

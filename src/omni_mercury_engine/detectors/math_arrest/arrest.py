@@ -210,7 +210,7 @@ class AnomalyMathArrest:
 
         # List of probe instances
         if spec and isinstance(spec[0], BaseEquationProbe):
-            return list(spec)  # type: ignore[arg-type]
+            return list(spec)
 
         # List of class name strings — the ``BaseEquationProbe`` instance
         # branch above already returned, so every element here is expected

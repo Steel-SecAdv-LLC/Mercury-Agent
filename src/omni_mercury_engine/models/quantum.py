@@ -78,6 +78,9 @@ class QuantumAnomalyModel:
         self.config = config or {}
         self.num_qubits = self.config.get("num_qubits", 8)
         self.entanglement_strength = self.config.get("entanglement_strength", 0.3)
+        # ``seed`` may be passed via ``config`` for reproducible noise-channel
+        # sampling; ``None`` (default) uses an OS-seeded ``Generator``.
+        self._rng: np.random.Generator = np.random.default_rng(self.config.get("seed"))
 
         # Decoherence resilience configuration
         self._decoherence_config: DecoherenceConfig | None = None
@@ -248,9 +251,9 @@ class QuantumAnomalyModel:
         if noise_type == "depolarizing":
             # Depolarizing channel: state -> (1-p)*state + p/3*(X*state + Y*state + Z*state)
             p = self._noise_model.depolarizing_rate
-            if np.random.random() < p:
+            if self._rng.random() < p:
                 # Apply random Pauli error
-                pauli_choice = np.random.choice(["I", "X", "Y", "Z"])
+                pauli_choice = self._rng.choice(["I", "X", "Y", "Z"])
                 state = self._apply_pauli(state, pauli_choice)
 
         elif noise_type == "amplitude_damping":
@@ -263,17 +266,17 @@ class QuantumAnomalyModel:
             # Phase damping: loss of off-diagonal coherence
             gamma = self._noise_model.phase_damping_rate
             # Apply random phase rotation
-            phase_noise = np.exp(1j * np.random.normal(0, gamma, len(state)))
+            phase_noise = np.exp(1j * self._rng.normal(0, gamma, len(state)))
             state = state * phase_noise
 
         elif noise_type == "bit_flip":
             p = self._noise_model.bit_flip_rate
-            if np.random.random() < p:
+            if self._rng.random() < p:
                 state = self._apply_pauli(state, "X")
 
         elif noise_type == "phase_flip":
             p = self._noise_model.phase_flip_rate
-            if np.random.random() < p:
+            if self._rng.random() < p:
                 state = self._apply_pauli(state, "Z")
 
         return state
