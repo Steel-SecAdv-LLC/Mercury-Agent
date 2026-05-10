@@ -35,20 +35,33 @@ jobs:
         pip install safety bandit pip-audit
 
     - name: Run Safety check
-      # Safety check for known Python vulnerabilities
-      # continue-on-error: upstream CVEs in transitive deps shouldn't hard-block PRs,
-      # but removing || true ensures the step visibly fails when issues are found.
-      continue-on-error: true
-      run: safety check --json --output safety-report.json
+      # Safety scans the installed dependency graph for known
+      # vulnerabilities.  This is BLOCKING — if Safety reports a
+      # CVE that is not already an accepted-risk entry in
+      # ``.safety-policy-v2.yml``, the job fails and the PR cannot
+      # merge until the CVE is either patched (dependency bump) or
+      # documented as an explicit risk acceptance in the policy
+      # file.  ``--exit-code`` mirrors the action's default but is
+      # named explicitly so future maintainers do not assume the
+      # step can be silently skipped.
+      run: safety check --json --output safety-report.json --policy-file .safety-policy-v2.yml
 
     - name: Run pip-audit
-      # pip-audit provides more comprehensive vulnerability detection
-      continue-on-error: true
+      # pip-audit cross-checks against PyPA's advisory database.
+      # BLOCKING for the same reasons as Safety above — any new
+      # finding fails the job until the dependency is bumped or
+      # the advisory is explicitly waived.
       run: pip-audit --format json --output pip-audit-report.json
 
     - name: Run Bandit security scan
-      # Bandit scans for common security issues in Python code
-      continue-on-error: true
+      # Bandit scans application source for common security
+      # anti-patterns at MEDIUM severity and above.  BLOCKING —
+      # any new finding is either a real bug or warrants an
+      # explicit ``# nosec`` annotation at the call site with a
+      # documented safety contract (the project doctrine forbids
+      # blanket suppression via ``[tool.bandit].skips`` for the
+      # specific finding type; see ``pyproject.toml`` for the
+      # global skip list, which is intentionally small).
       run: bandit -r src/omni_mercury_engine/ -f json -o bandit-report.json --severity-level medium
 
     - name: Upload Security Reports
@@ -130,6 +143,12 @@ jobs:
         category: 'trivy-container-scan'
 
     - name: Run Trivy in table format for PR comments
+      # Same scan surface as the SARIF run above, but rendered as a
+      # human-readable table for PR review.  BLOCKING at the
+      # CRITICAL/HIGH tier — anything findable here is also in the
+      # SARIF run (which already populates the GitHub Security tab);
+      # the table form is the gate that makes such findings visible
+      # in the PR review UI rather than only after merge.
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: 'mercury-agent:scan'
@@ -139,7 +158,6 @@ jobs:
         ignore-unfixed: true
         trivyignores: .trivyignore
         exit-code: '1'
-      continue-on-error: true
 
   filesystem-scan:
     name: Filesystem Security Scan (Trivy)

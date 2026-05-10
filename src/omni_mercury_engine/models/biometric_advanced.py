@@ -57,36 +57,61 @@ try:
 except ImportError:
     logger.warning("PyTorch not available, advanced biometric features limited")
 
+# Optional-dep imports below catch ``Exception`` (not just
+# ``ImportError``) because each of these packages can fail at import
+# time with non-``ImportError`` types — e.g. ``deepface`` transitively
+# imports ``retinaface`` which raises ``ValueError`` if ``tf-keras``
+# is missing on tensorflow >=2.16; ``facenet_pytorch`` and ``cv2``
+# raise ``OSError`` / ``RuntimeError`` on missing native libraries
+# or CUDA stack mismatches; ``face_recognition`` raises
+# ``RuntimeError`` if its dlib backend was built against a different
+# numpy ABI.  Letting any of those escape would break callers that
+# legitimately want to discover the optional dep is unusable on this
+# host and fall back to simulated embeddings.  ``BaseException`` is
+# deliberately not caught (``KeyboardInterrupt`` / ``SystemExit``
+# keep propagating).
 DEEPFACE_AVAILABLE = False
 try:
     from deepface import DeepFace
 
     DEEPFACE_AVAILABLE = True
-except ImportError:
-    logger.debug("DeepFace not available, using fallback embeddings")
+except Exception as _deepface_exc:
+    logger.debug(
+        "DeepFace not available (%s: %s), using fallback embeddings",
+        type(_deepface_exc).__name__,
+        _deepface_exc,
+    )
 
 FACE_RECOGNITION_AVAILABLE = False
 try:
     import face_recognition
 
     FACE_RECOGNITION_AVAILABLE = True
-except ImportError:
-    logger.debug("face_recognition not available")
+except Exception as _face_recognition_exc:
+    logger.debug(
+        "face_recognition not available (%s: %s)",
+        type(_face_recognition_exc).__name__,
+        _face_recognition_exc,
+    )
 
 CV2_AVAILABLE = False
 try:
     import cv2
 
     CV2_AVAILABLE = True
-except ImportError:
-    logger.debug("OpenCV not available, age progression limited")
+except Exception as _cv2_exc:
+    logger.debug(
+        "OpenCV not available (%s: %s), age progression limited",
+        type(_cv2_exc).__name__,
+        _cv2_exc,
+    )
 
 FACENET_AVAILABLE = False
 try:
     from facenet_pytorch import MTCNN, InceptionResnetV1
 
     FACENET_AVAILABLE = True
-except ImportError:
+except Exception:
     logger.debug("FaceNet-PyTorch not available")
 
 

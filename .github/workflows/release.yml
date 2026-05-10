@@ -284,11 +284,34 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Determine if PyPI publishing is configured
+        # ``pypa/gh-action-pypi-publish`` reads ``PYPI_TOKEN`` (or uses
+        # OIDC trusted publishing).  If neither is wired up, the
+        # publish step would error out.  Rather than swallowing the
+        # failure with ``continue-on-error: true`` (which leaves the
+        # release job green even when no artifact was actually
+        # published — silent dropout), this preflight checks for the
+        # token and sets an explicit ``enabled`` output that gates
+        # the publish step below.  A clear ``notice`` is emitted when
+        # publishing is skipped so the release log shows the reason.
+        id: pypi_check
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          if [ -n "${PYPI_TOKEN:-}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::PYPI_TOKEN is configured; PyPI publish will run."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::PYPI_TOKEN is not configured; PyPI publish will be skipped (intentional)."
+          fi
+
       - name: Publish to PyPI
+        if: steps.pypi_check.outputs.enabled == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-        continue-on-error: true  # Don't fail if PyPI is not configured
+          password: ${{ secrets.PYPI_TOKEN }}
 
   # ============================================================================
   # Post-Release Notifications
