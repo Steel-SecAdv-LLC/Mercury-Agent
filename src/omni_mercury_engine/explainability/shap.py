@@ -180,6 +180,9 @@ class ExactShapExplainer(ShapExplainer):
             model: Model or prediction function
             background_data: Background dataset for marginalization
             feature_names: Optional feature names
+            seed: Optional seed for the per-instance ``Generator``
+                driving exact-shap subset enumeration tie-breaking.
+                ``None`` (default) uses OS entropy.
         """
         super().__init__(model, feature_names, seed=seed)
         self._background = background_data
@@ -298,6 +301,9 @@ class KernelShapExplainer(ShapExplainer):
             feature_names: Optional feature names
             n_samples: Number of coalition samples
             regularization: Ridge regularization parameter
+            seed: Optional seed for the per-instance ``Generator``
+                driving coalition sampling.  ``None`` (default) uses
+                OS entropy.
         """
         super().__init__(model, feature_names, seed=seed)
         self._background = background_data
@@ -438,6 +444,9 @@ class SamplingShapExplainer(ShapExplainer):
             background_data: Background dataset
             feature_names: Optional feature names
             n_permutations: Number of permutation samples
+            seed: Optional seed for the per-instance ``Generator``
+                driving feature-permutation order.  ``None`` (default)
+                uses OS entropy.
         """
         super().__init__(model, feature_names, seed=seed)
         self._background = background_data
@@ -522,6 +531,11 @@ class TreeShapExplainer(ShapExplainer):
         Args:
             model: Tree-based model (must have tree structure accessible)
             feature_names: Optional feature names
+            seed: Optional seed forwarded to the base ``BaseSHAPExplainer``
+                ``Generator`` (Tree SHAP itself is deterministic given a
+                fixed input, but the base class uses the RNG for any
+                tie-breaking permutation).  ``None`` (default) uses OS
+                entropy.
         """
         super().__init__(model, feature_names, seed=seed)
         self._model = model
@@ -650,6 +664,11 @@ class LinearShapExplainer(ShapExplainer):
             model: Linear model (must have coef_ attribute)
             background_data: Background dataset for centering
             feature_names: Optional feature names
+            seed: Optional seed forwarded to the base ``BaseSHAPExplainer``
+                ``Generator`` (Linear SHAP is closed-form deterministic;
+                the seed is only consumed if the caller falls through to
+                a sampling-based fallback).  ``None`` (default) uses OS
+                entropy.
         """
         super().__init__(model, feature_names, seed=seed)
         self._model = model

@@ -170,7 +170,6 @@ class NOAABuoyLoader(DatasetLoader):
                         f"Downloading buoy {station} ({self.BUOY_STATIONS.get(station, 'Unknown')})..."
                     )
 
-                    TrustedEndpoints.validate_url(self.DATASET_URL)
                     body = http_get_with_retry(url, timeout=60)
                     content = body.decode("utf-8", errors="replace")
 

@@ -87,8 +87,18 @@ class TimeSeriesAugmenter:
         shift_range: tuple[float, float] = (-0.1, 0.1),
         seed: int | None = None,
     ) -> None:
-        """
+        """Initialize the augmenter with a per-instance RNG.
+
         Args:
+            noise_std: Standard deviation of Gaussian noise added in the
+                ``"noise"`` augmentation branch.
+            mask_ratio: Fraction of feature positions zeroed out in the
+                ``"mask"`` augmentation branch.
+            scale_range: ``(low, high)`` bounds of the uniform scale
+                multiplier applied in the ``"scale"`` augmentation
+                branch.
+            shift_range: ``(low, high)`` bounds of the uniform additive
+                shift applied in the ``"shift"`` augmentation branch.
             seed: Optional seed for the per-instance ``Generator`` driving
                 augmentation-type selection and feature-permutation
                 shuffling.  ``None`` (default) uses OS entropy.

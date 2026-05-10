@@ -72,12 +72,18 @@ def pytest_configure(config: pytest.Config) -> None:
     )
 
 
-def pytest_ignore_collect(collection_path: Path) -> bool:
+def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool:
     """Prevent collection of AMA-native tests unless the env flag is set.
 
     Returns True (ignore) when the file requires AMA and the
     ``MERCURY_PQC_REAL_AMA`` env var is not set to a truthy value.
+
+    The ``config`` argument is unused here, but pytest >=7 invokes this
+    hook with the ``Config`` object as the second positional parameter;
+    older signatures that only accept ``collection_path`` raise
+    ``TypeError`` during collection on modern pytest.
     """
+    del config
     if collection_path.name in _AMA_REQUIRED_FILES:
         flag = os.environ.get("MERCURY_PQC_REAL_AMA", "").strip()
         if flag not in ("1", "true", "yes"):

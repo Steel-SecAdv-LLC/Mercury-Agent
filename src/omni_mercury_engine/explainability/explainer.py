@@ -246,6 +246,11 @@ class MercuryExplainer:
             shap_method: SHAP method ("auto", "kernel", "sampling", etc.)
             counterfactual_method: Counterfactual method ("wachter", "dice", etc.)
             contact_info: Contact for GDPR requests
+            seed: Optional seed for the per-instance ``Generator``
+                driving subsampling in feature-importance estimation
+                (and forwarded to the underlying SHAP / counterfactual
+                generators that take a ``seed``).  ``None`` (default)
+                uses OS entropy.
         """
         self._rng: np.random.Generator = np.random.default_rng(seed)
         self._model = model

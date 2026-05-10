@@ -155,7 +155,6 @@ class NOAAGSODLoader(DatasetLoader):
 
     def _finalize(self, all_rows: list[list[float]], cache_file: Any) -> bool:
         """Build features/labels and persist the npz cache."""
-
         features = np.array(all_rows, dtype=np.float64)
 
         # 3-sigma anomaly labeling per station

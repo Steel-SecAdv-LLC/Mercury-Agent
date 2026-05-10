@@ -135,7 +135,6 @@ class AgenticAutonomy:
         self.state = AgentState.IDLE
         self.action_history: list[AgentAction] = []
         self.decision_threshold = 1.0 - autonomy_level
-        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Reinforcement learning components
         self.learning_config = learning_config or LearningConfig()

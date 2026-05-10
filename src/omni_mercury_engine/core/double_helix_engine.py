@@ -153,7 +153,8 @@ class MercuryEquationEngine:
         config: EvolutionConfig | None = None,
         seed: int | None = None,
     ):
-        """
+        """Initialize the engine with a per-instance RNG.
+
         Args:
             dimension: State-vector dimension.
             config: Evolution configuration.
@@ -167,8 +168,6 @@ class MercuryEquationEngine:
         """
         self.dimension = dimension
         self.config = config or EvolutionConfig(dimension=dimension)
-        self._rng: np.random.Generator = np.random.default_rng(seed)
-
         # Per-instance Generator. Every stochastic term in this engine
         # (ethical-matrix init, Boltzmann sampling, simulated-annealing
         # exploration, Lyapunov chaos perturbation, Hamiltonian symmetric

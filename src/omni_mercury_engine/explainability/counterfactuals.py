@@ -235,6 +235,10 @@ class WachterCounterfactual(CounterfactualGenerator):
             lambda_param: Trade-off between proximity and validity
             max_iterations: Maximum optimization iterations
             tolerance: Convergence tolerance
+            seed: Optional seed forwarded to the base
+                ``BaseCounterfactualGenerator`` ``Generator`` driving
+                gradient-step jitter and tie-breaking.  ``None``
+                (default) uses OS entropy.
         """
         super().__init__(model, feature_names, feature_constraints, seed=seed)
         self._lambda = lambda_param
@@ -397,6 +401,10 @@ class DiCECounterfactual(CounterfactualGenerator):
             proximity_weight: Weight for proximity loss
             diversity_weight: Weight for diversity loss
             max_iterations: Maximum optimization iterations
+            seed: Optional seed forwarded to the base
+                ``BaseCounterfactualGenerator`` ``Generator`` driving
+                diverse-counterfactual sampling.  ``None`` (default)
+                uses OS entropy.
         """
         super().__init__(model, feature_names, feature_constraints, seed=seed)
         self._proximity_weight = proximity_weight
@@ -558,6 +566,10 @@ class GrowingSpheresCounterfactual(CounterfactualGenerator):
             n_samples: Samples per sphere
             step_size: Sphere growth step
             max_iterations: Maximum growth iterations
+            seed: Optional seed forwarded to the base
+                ``BaseCounterfactualGenerator`` ``Generator`` driving
+                sphere-surface sampling.  ``None`` (default) uses OS
+                entropy.
         """
         super().__init__(model, feature_names, feature_constraints, seed=seed)
         self._n_samples = n_samples
@@ -722,6 +734,10 @@ class PrototypeCounterfactual(CounterfactualGenerator):
             feature_names: Feature names
             feature_constraints: Feature constraints
             n_prototypes: Number of prototypes per class
+            seed: Optional seed forwarded to the base
+                ``BaseCounterfactualGenerator`` ``Generator`` driving
+                prototype tie-breaking and any sampling fallbacks.
+                ``None`` (default) uses OS entropy.
         """
         super().__init__(model, feature_names, feature_constraints, seed=seed)
         self._training_data = training_data

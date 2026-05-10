@@ -97,9 +97,7 @@ class NOAAStormEventsLoader(DatasetLoader):
     )
 
     def _resolve_detail_filenames(self) -> dict[int, str]:
-        """
-        Fetch the NCEI directory index and map year -> latest compile filename.
-        """
+        """Fetch the NCEI directory index and map year -> latest compile filename."""
         try:
             content = http_get_with_retry(self.STORM_BASE_URL, timeout=60)
         except Exception as e:

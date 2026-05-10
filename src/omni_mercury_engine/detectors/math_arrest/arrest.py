@@ -208,9 +208,26 @@ class AnomalyMathArrest:
             names = PROBE_PRESETS[spec]
             return [_PROBE_REGISTRY[n]() for n in names]
 
-        # List of probe instances
+        # List of probe instances — verify every element is a
+        # ``BaseEquationProbe`` (the union type ``list[str] |
+        # list[BaseEquationProbe]`` permits a homogeneous list of either
+        # type, but a caller-constructed mixed list would still satisfy
+        # ``isinstance(spec[0], BaseEquationProbe)`` while slipping a
+        # ``str`` element past mypy's invariant ``list`` narrowing).
+        # Validate explicitly so the contract holds at runtime and the
+        # element type is provably ``BaseEquationProbe`` for the type
+        # checker as well.
         if spec and isinstance(spec[0], BaseEquationProbe):
-            return list(spec)
+            instances: list[BaseEquationProbe] = []
+            for item in spec:
+                if not isinstance(item, BaseEquationProbe):
+                    raise TypeError(
+                        "Heterogeneous probe list passed to _resolve_probes: "
+                        "first element is BaseEquationProbe but element "
+                        f"of type {type(item).__name__} found later in the list"
+                    )
+                instances.append(item)
+            return instances
 
         # List of class name strings — the ``BaseEquationProbe`` instance
         # branch above already returned, so every element here is expected
