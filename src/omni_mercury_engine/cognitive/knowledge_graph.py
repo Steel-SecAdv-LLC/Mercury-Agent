@@ -743,7 +743,7 @@ class RandomWalkEmbedding:
 
                 # Negative samples
                 for _ in range(self.negative_samples):
-                    neg = self._rng.integers(n_nodes)
+                    neg = int(self._rng.integers(n_nodes))
                     if neg != center and neg != context:
                         self._sgd_update(center, neg, 0, input_emb, output_emb)
 

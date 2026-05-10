@@ -178,9 +178,43 @@ def _do_migration(args: argparse.Namespace) -> int:
     # B403: pickle is intentionally used here -- this is the one-shot
     # operator migration tool whose entire purpose is to read a legacy
     # .pkl payload. The engine itself never imports pickle.
+    import io
     import pickle  # nosec B403
+    import zipfile
 
     import numpy as np
+    import numpy.lib.format as np_format
+
+    def _write_npz_archive(out_path: Path, arrays: dict[str, np.ndarray]) -> None:
+        """Write a dict of named ndarrays as an uncompressed .npz archive.
+
+        Equivalent in on-disk shape to ``numpy.savez(out_path, **arrays)``
+        — the .npz format is a zip of ``<name>.npy`` files written
+        with ``numpy.lib.format.write_array`` — but with two
+        engineering-grade differences this migration tool requires:
+
+        1. ``allow_pickle=False`` is hard-coded at the format-write
+           layer.  This is a pickle-migration tool; pickled object
+           arrays must never be re-emitted through it.  The caller
+           already filters object-dtype arrays out, so this is a
+           defence-in-depth contract.
+        2. The wrapper has a strict typed signature
+           (``dict[str, np.ndarray]``) instead of relying on
+           ``numpy.savez``'s ``**kwds: ArrayLike`` mypy stub, which
+           since numpy 2.x has declared a kw-only ``allow_pickle:
+           bool`` parameter that makes ``np.savez(file, **archive)``
+           ambiguous to the type checker.
+        """
+        with zipfile.ZipFile(
+            out_path,
+            mode="w",
+            compression=zipfile.ZIP_STORED,
+            allowZip64=True,
+        ) as zf:
+            for name, arr in arrays.items():
+                buf = io.BytesIO()
+                np_format.write_array(buf, arr, allow_pickle=False)
+                zf.writestr(f"{name}.npy", buf.getvalue())
 
     src = Path(args.input)
     dst = Path(args.output)
@@ -244,11 +278,7 @@ def _do_migration(args: argparse.Namespace) -> int:
         return 3
     archive["labels"] = label_arr
 
-    # Historical note: prior numpy stubs declared the second positional of
-    # ``np.savez`` as ``compress: bool`` while the runtime API explicitly
-    # accepts named ``ndarray`` kwargs.  Newer numpy stubs (2.x) correctly
-    # type the keyword form, so no ignore is needed.
-    np.savez(str(dst), **archive)
+    _write_npz_archive(dst, archive)
     print(f"wrote: {dst}", file=sys.stderr)
 
     if args.sign_key_hex:
