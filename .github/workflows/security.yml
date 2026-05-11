@@ -44,7 +44,7 @@ jobs:
       # file.  ``--exit-code`` mirrors the action's default but is
       # named explicitly so future maintainers do not assume the
       # step can be silently skipped.
-      run: safety check --json --output safety-report.json --policy-file .safety-policy-v2.yml
+      run: safety check --save-json safety-report.json --policy-file .safety-policy-v2.yml
 
     - name: Run pip-audit
       # pip-audit cross-checks against PyPA's advisory database.

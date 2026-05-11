@@ -30,10 +30,8 @@ try:
     import torch
 
     HAS_TORCH = True
-    HAS_CUDA = bool(torch.cuda.is_available())
 except ImportError:
     HAS_TORCH = False
-    HAS_CUDA = False
 
 
 pytestmark = pytest.mark.vlm
