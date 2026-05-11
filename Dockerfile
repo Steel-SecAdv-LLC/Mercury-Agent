@@ -75,6 +75,10 @@ LABEL security.scan-date="2026-01-09"
 # 3. No 256-byte username processing in application code
 # See .trivyignore for detailed justifications
 RUN apt-get update && \
+    # adduser: required by the upgraded apt package in python:3.13-slim-bookworm
+    # (absent from the slim base, causes "pkgProblemResolver::Resolve generated
+    # breaks" if apt-get upgrade runs before adduser is present).
+    apt-get install -y --no-install-recommends adduser && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
