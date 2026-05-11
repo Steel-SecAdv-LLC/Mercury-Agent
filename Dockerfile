@@ -75,9 +75,9 @@ LABEL security.scan-date="2026-01-09"
 # 3. No 256-byte username processing in application code
 # See .trivyignore for detailed justifications
 RUN apt-get update && \
-    # adduser: required by the upgraded apt package in python:3.13-slim-bookworm
-    # (absent from the slim base, causes "pkgProblemResolver::Resolve generated
-    # breaks" if apt-get upgrade runs before adduser is present).
+    # adduser: the upgraded apt in python:3.13+-slim-bookworm depends on it,
+    # but the slim base omits it.  Install before upgrade to unblock the
+    # dependency resolver.
     apt-get install -y --no-install-recommends adduser && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
@@ -85,17 +85,18 @@ RUN apt-get update && \
         libgomp1 \
         libgl1-mesa-glx \
         libglib2.0-0 && \
-    # Remove unnecessary packages to reduce attack surface
-    apt-get purge -y --auto-remove \
-        login \
-        passwd && \
     # Clean up to reduce image size and attack surface
     apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Remove setuid/setgid binaries that are not needed (separate layer so
-# an apt failure above is never silently masked by the trailing || true).
+# Security hardening: strip setuid/setgid bits from all binaries.
+# This replaces the previous "apt-get purge login passwd" approach which
+# broke on python:3.13-slim-bookworm due to the apt→adduser→passwd
+# dependency chain — purging passwd cascades into removing adduser,
+# which breaks the apt package manager.  Stripping SUID/SGID bits
+# achieves the same privilege-escalation mitigation without breaking
+# package dependencies.
 RUN find / -perm /6000 -type f -exec chmod a-s {} \; 2>/dev/null || true
 
 # Create non-root user for security (principle of least privilege)
