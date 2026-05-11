@@ -29,6 +29,28 @@ to ensure consistent test results across runs.
 import logging
 import os
 
+# Synthetic fallback contract for the unit-test suite.  The dataset
+# loaders are strict-by-default — they raise ``DataSourceUnavailableError``
+# rather than silently returning generated data — and that production
+# posture is preserved in main code.  The unit-test suite, however,
+# deliberately exercises the synthetic-fallback paths offline (no
+# network, no API keys), so we opt into synthetic generation here.
+#
+# This setting must be in the root conftest, not in any individual test
+# module, because pytest-xdist (used by the ``ml-tests`` job with
+# ``-n 4``) spawns workers that each import this conftest before any
+# test module is collected — guaranteeing the flag is set in every
+# worker before the dataset loaders read it.  Setting it at the
+# module-load time of a single test file (e.g. ``test_datasets.py``)
+# only worked when that file happened to be collected first by the
+# main process; under xdist the env var would not propagate to
+# workers that pick up dataset tests in other files first, and the
+# synthetic-fallback tests would non-deterministically fail.
+#
+# ``setdefault`` (not direct assignment) so the CI workflow YAML can
+# still pin the variable to ``"0"`` for an explicitly real-data run.
+os.environ.setdefault("MERCURY_ALLOW_SYNTHETIC", "1")
+
 import numpy as np
 import pytest
 

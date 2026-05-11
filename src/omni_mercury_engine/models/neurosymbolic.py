@@ -46,7 +46,7 @@ Example:
         engine.add_fact("child")
 
         # Neural inference
-        features = np.random.randn(10, 64)
+        features = np.random.default_rng().standard_normal((10, 64))
         result = engine.predict(features)
 
         # Symbolic inference

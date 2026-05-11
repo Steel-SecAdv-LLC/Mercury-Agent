@@ -1143,9 +1143,11 @@ class EnhancedNeurosymbolicEngine:
         use_knowledge_graph: bool = True,
         use_meta_cognition: bool = True,
         use_causal: bool = True,
+        seed: int | None = None,
     ) -> None:
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Logic Tensor Network
         self.ltn: EnhancedLogicTensorNetwork | None = None
@@ -1305,7 +1307,7 @@ class EnhancedNeurosymbolicEngine:
 
         else:
             # Fallback to simple scoring
-            result["anomaly_scores"] = np.random.rand(len(features) if features.ndim == 2 else 1)
+            result["anomaly_scores"] = self._rng.random(len(features) if features.ndim == 2 else 1)
 
         # 2. Temporal reasoning
         temporal_result = self.temporal_reasoner.reason(

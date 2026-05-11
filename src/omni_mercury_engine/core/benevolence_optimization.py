@@ -382,6 +382,10 @@ class ParetoOptimizer:
         self.mutation_rate = mutation_rate
         self.crossover_rate = crossover_rate
         self.seed = seed
+        # Per-instance ``Generator`` so the genetic-algorithm loop is
+        # reproducible from ``seed`` without touching — or being touched
+        # by — the legacy global ``np.random`` state.
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def optimize(
         self,
@@ -398,12 +402,15 @@ class ParetoOptimizer:
         Returns:
             ParetoFront with non-dominated solutions
         """
-        np.random.seed(self.seed)
+        # Reset the per-instance Generator at the start of ``optimize`` so
+        # repeated calls on the same instance with the same ``self.seed``
+        # produce identical Pareto fronts.
+        self._rng = np.random.default_rng(self.seed)
 
         # Initialize population
         population = []
         for _ in range(self.population_size):
-            params = np.array([np.random.uniform(low, high) for low, high in bounds])
+            params = np.array([self._rng.uniform(low, high) for low, high in bounds])
             objectives = self.objective_fn(params)
             population.append(ParetoSolution(params, objectives))
 
@@ -429,11 +436,11 @@ class ParetoOptimizer:
             offspring: list[ParetoSolution] = []
             while len(offspring) < self.population_size:
                 # Tournament selection
-                p1, p2 = np.random.choice(len(parents), 2, replace=False)
+                p1, p2 = self._rng.choice(len(parents), 2, replace=False)
                 parent1, parent2 = parents[p1], parents[p2]
 
                 # Crossover
-                if np.random.random() < self.crossover_rate:
+                if self._rng.random() < self.crossover_rate:
                     child_params = self._sbx_crossover(
                         parent1.parameters, parent2.parameters, bounds
                     )
@@ -441,7 +448,7 @@ class ParetoOptimizer:
                     child_params = parent1.parameters.copy()
 
                 # Mutation
-                if np.random.random() < self.mutation_rate:
+                if self._rng.random() < self.mutation_rate:
                     child_params = self._polynomial_mutation(child_params, bounds)
 
                 objectives = self.objective_fn(child_params)
@@ -566,14 +573,14 @@ class ParetoOptimizer:
         child = np.zeros_like(p1)
 
         for i in range(len(p1)):
-            if np.random.random() < 0.5:
+            if self._rng.random() < 0.5:
                 if abs(p1[i] - p2[i]) > 1e-10:
                     y1, y2 = min(p1[i], p2[i]), max(p1[i], p2[i])
                     lo, hi = bounds[i]
 
                     beta = 1.0 + 2.0 * (y1 - lo) / (y2 - y1)
                     alpha = 2.0 - beta ** (-(eta + 1))
-                    u = np.random.random()
+                    u = self._rng.random()
 
                     if u <= 1.0 / alpha:
                         betaq = (u * alpha) ** (1.0 / (eta + 1))
@@ -599,11 +606,11 @@ class ParetoOptimizer:
         mutated = params.copy()
 
         for i in range(len(params)):
-            if np.random.random() < 1.0 / len(params):
+            if self._rng.random() < 1.0 / len(params):
                 lo, hi = bounds[i]
                 delta_max = hi - lo
 
-                u = np.random.random()
+                u = self._rng.random()
                 if u < 0.5:
                     delta = (2 * u) ** (1 / (eta + 1)) - 1
                 else:

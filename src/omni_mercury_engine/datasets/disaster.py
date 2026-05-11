@@ -150,10 +150,17 @@ class FEMADisasterLoader(DatasetLoader):
             reason="OpenFEMA API unavailable",
         )
 
+    # OpenFEMA enforces a hard server-side cap of 1000 records per request
+    # for v2 endpoints. Requesting larger $top returns HTTP 400. To respect
+    # this while still allowing larger requested sample counts we paginate
+    # via $skip.
+    _OPENFEMA_PAGE_SIZE = 1000
+
     def _download_from_fema(self) -> bool:
-        """Download disaster declarations from OpenFEMA API."""
+        """Download disaster declarations from OpenFEMA API with pagination."""
         import urllib.parse
-        import urllib.request
+
+        from .base import http_get_with_retry
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -165,62 +172,71 @@ class FEMADisasterLoader(DatasetLoader):
             return True
 
         try:
-            # Build OData filter query
-            filters = []
-
-            # Year filter
-            start_date = f"{self.year_range[0]}-01-01"
-            end_date = f"{self.year_range[1]}-12-31"
-            filters.append(f"declarationDate ge '{start_date}'")
-            filters.append(f"declarationDate le '{end_date}'")
-
-            # Declaration type filter
+            # OpenFEMA OData v4 requires ISO-8601 with millisecond precision
+            # and a lowercase 'z' literal. The previous bare 'YYYY-MM-DD' form
+            # was silently rejected by the v2 endpoint and returned an empty
+            # DisasterDeclarationsSummaries array, which manifested as the
+            # documented "FEMA Disaster — known broken" loader.
+            start_iso = f"{self.year_range[0]}-01-01T00:00:00.000z"
+            end_iso = f"{self.year_range[1]}-12-31T23:59:59.999z"
+            filters = [
+                f"declarationDate ge '{start_iso}'",
+                f"declarationDate le '{end_iso}'",
+            ]
             if self.declaration_types:
                 type_filter = " or ".join(
-                    [f"declarationType eq '{t}'" for t in self.declaration_types]
+                    f"declarationType eq '{t}'" for t in self.declaration_types
                 )
                 filters.append(f"({type_filter})")
-
             filter_string = " and ".join(filters)
 
-            # Build URL with parameters
-            params = {
-                "$filter": filter_string,
-                "$top": str(min(self.config.max_samples or 10000, 10000)),
-                "$orderby": "declarationDate desc",
-            }
+            target = self.config.max_samples or 10000
+            page_size = self._OPENFEMA_PAGE_SIZE
 
-            query_string = urllib.parse.urlencode(params)
-            url = f"{self.API_URL}?{query_string}"
-
-            logger.info("Downloading disaster data from OpenFEMA API...")
-            logger.debug(f"API URL: {url}")
-
-            # Rate limit
-            self._rate_limit()
-
-            # Validate URL before opening (SSRF protection via domain allowlist)
+            # SSRF: validate the canonical endpoint once; per-page URLs only
+            # vary by query string under the same host.
             TrustedEndpoints.validate_url(self.API_URL)
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-            )
 
-            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
-                data = json.loads(response.read().decode("utf-8"))
+            all_records: list[dict[str, Any]] = []
+            skip = 0
+            while len(all_records) < target:
+                page_top = min(page_size, target - len(all_records))
+                params = {
+                    "$filter": filter_string,
+                    "$top": str(page_top),
+                    "$skip": str(skip),
+                    "$orderby": "declarationDate desc",
+                }
+                url = f"{self.API_URL}?{urllib.parse.urlencode(params)}"
 
-            # OpenFEMA returns {metadata: {...}, DisasterDeclarationsSummaries: [...]}
-            records = data.get("DisasterDeclarationsSummaries", [])
+                self._rate_limit()
+                logger.info(
+                    "OpenFEMA page: $skip=%d $top=%d (collected %d/%d)",
+                    skip,
+                    page_top,
+                    len(all_records),
+                    target,
+                )
+                content = http_get_with_retry(url, timeout=120)
+                page = json.loads(content.decode("utf-8")).get("DisasterDeclarationsSummaries", [])
 
-            if not records:
+                if not page:
+                    # Empty page = end of result set; stop paginating.
+                    break
+
+                all_records.extend(page)
+                if len(page) < page_top:
+                    # Server returned fewer than asked → no more pages.
+                    break
+                skip += len(page)
+
+            if not all_records:
                 logger.warning("No disaster records returned from FEMA API")
                 return False
 
-            logger.info(f"Downloaded {len(records)} disaster declaration records")
+            logger.info(f"Downloaded {len(all_records)} disaster declaration records")
+            features, labels = self._process_fema_data(all_records)
 
-            # Process the data
-            features, labels = self._process_fema_data(records)
-
-            # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._is_real_data = True
 
@@ -314,7 +330,7 @@ class FEMADisasterLoader(DatasetLoader):
 
     def _create_synthetic_disasters(self) -> bool:
         """Create synthetic disaster declaration data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
         features = []
@@ -339,44 +355,44 @@ class FEMADisasterLoader(DatasetLoader):
             disaster_number = 1000 + i
 
             # State selection (weighted towards disaster-prone states)
-            if np.random.random() < 0.7:
-                state_fips = np.random.choice(disaster_prone_states)
+            if rng.random() < 0.7:
+                state_fips = rng.choice(disaster_prone_states)
             else:
-                state_fips = np.random.randint(1, 57)
+                state_fips = rng.integers(1, 57)
 
             # Date within year range
-            year = np.random.randint(self.year_range[0], self.year_range[1] + 1)
+            year = rng.integers(self.year_range[0], self.year_range[1] + 1)
 
             # Seasonal patterns
             if state_fips in [12, 22, 48, 37, 45]:  # Hurricane states
-                month = np.random.choice([8, 9, 10], p=[0.3, 0.4, 0.3])
+                month = rng.choice([8, 9, 10], p=[0.3, 0.4, 0.3])
             elif state_fips in [40, 20, 1]:  # Tornado alley
-                month = np.random.choice([4, 5, 6], p=[0.3, 0.4, 0.3])
+                month = rng.choice([4, 5, 6], p=[0.3, 0.4, 0.3])
             elif state_fips == 6:  # California
-                month = np.random.choice([7, 8, 9, 10, 11], p=[0.1, 0.2, 0.2, 0.3, 0.2])
+                month = rng.choice([7, 8, 9, 10, 11], p=[0.1, 0.2, 0.2, 0.3, 0.2])
             else:
-                month = np.random.randint(1, 13)
+                month = rng.integers(1, 13)
 
-            day = np.random.randint(1, 29)
+            day = rng.integers(1, 29)
 
             # Incident type based on state
             if state_fips in [12, 22, 48, 37, 45]:
-                incident_code = np.random.choice([0, 1, 2])  # Hurricane, Flood, Severe Storm
+                incident_code = rng.choice([0, 1, 2])  # Hurricane, Flood, Severe Storm
             elif state_fips in [40, 20, 1]:
-                incident_code = np.random.choice([4, 2])  # Tornado, Severe Storm
+                incident_code = rng.choice([4, 2])  # Tornado, Severe Storm
             elif state_fips == 6:
-                incident_code = np.random.choice([3, 5])  # Fire, Earthquake
+                incident_code = rng.choice([3, 5])  # Fire, Earthquake
             else:
-                incident_code = np.random.randint(0, len(self.INCIDENT_TYPES))
+                incident_code = rng.integers(0, len(self.INCIDENT_TYPES))
 
             # Declaration type (DR is most common)
-            decl_code = np.random.choice([0, 1, 2], p=[0.7, 0.2, 0.1])
+            decl_code = rng.choice([0, 1, 2], p=[0.7, 0.2, 0.1])
 
             # Designated area (statewide vs county)
-            area_code = 1 if np.random.random() < 0.3 else 0
+            area_code = 1 if rng.random() < 0.3 else 0
 
             # Program flags (correlated with disaster severity)
-            severity = np.random.beta(2, 5)  # Skewed towards less severe
+            severity = rng.beta(2, 5)  # Skewed towards less severe
             ia_program = 1 if severity > 0.3 else 0
             pa_program = 1 if severity > 0.2 else 0
             hm_program = 1 if severity > 0.4 else 0
@@ -530,12 +546,15 @@ class FEMAHazardMitigationLoader(DatasetLoader):
             reason="OpenFEMA Hazard Mitigation API unavailable",
         )
 
+    _OPENFEMA_PAGE_SIZE = 1000
+
     def _download_from_fema(self) -> bool:
-        """Download hazard mitigation grants from OpenFEMA API."""
+        """Download hazard mitigation grants from OpenFEMA API with pagination."""
         import urllib.parse
-        import urllib.request
 
         from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+        from .base import http_get_with_retry
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -548,31 +567,43 @@ class FEMAHazardMitigationLoader(DatasetLoader):
 
         try:
             api_url = TrustedEndpoints.FEMA_HAZARD_MITIGATION
-            params = {
-                "$top": str(min(self.config.max_samples or 5000, 5000)),
-                "$orderby": "dateApproved desc",
-            }
-            query_string = urllib.parse.urlencode(params)
-            url = f"{api_url}?{query_string}"
-
-            logger.info("Downloading hazard mitigation data from OpenFEMA API...")
-
             TrustedEndpoints.validate_url(api_url)
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-            )
 
-            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
-                data = json.loads(response.read().decode("utf-8"))
+            target = self.config.max_samples or 5000
+            page_size = self._OPENFEMA_PAGE_SIZE
 
-            records = data.get("HazardMitigationGrants", [])
-            if not records:
+            all_records: list[dict[str, Any]] = []
+            skip = 0
+            while len(all_records) < target:
+                page_top = min(page_size, target - len(all_records))
+                params = {
+                    "$top": str(page_top),
+                    "$skip": str(skip),
+                    "$orderby": "dateApproved desc",
+                }
+                url = f"{api_url}?{urllib.parse.urlencode(params)}"
+                logger.info(
+                    "OpenFEMA HMG page: $skip=%d $top=%d (collected %d/%d)",
+                    skip,
+                    page_top,
+                    len(all_records),
+                    target,
+                )
+                content = http_get_with_retry(url, timeout=120)
+                page = json.loads(content.decode("utf-8")).get("HazardMitigationGrants", [])
+                if not page:
+                    break
+                all_records.extend(page)
+                if len(page) < page_top:
+                    break
+                skip += len(page)
+
+            if not all_records:
                 logger.warning("No hazard mitigation records returned from FEMA API")
                 return False
 
-            logger.info(f"Downloaded {len(records)} hazard mitigation records")
-
-            features, labels = self._process_mitigation_data(records)
+            logger.info(f"Downloaded {len(all_records)} hazard mitigation records")
+            features, labels = self._process_mitigation_data(all_records)
 
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._is_real_data = True
@@ -633,7 +664,7 @@ class FEMAHazardMitigationLoader(DatasetLoader):
 
     def _create_synthetic_mitigation(self) -> bool:
         """Create synthetic hazard mitigation project data."""
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 3000
 
         features = []
@@ -643,19 +674,17 @@ class FEMAHazardMitigationLoader(DatasetLoader):
 
         for _ in range(n_samples):
             # Project cost (log-normal distribution)
-            project_amount = np.random.lognormal(12, 1.5)  # Mean ~$100K
+            project_amount = rng.lognormal(12, 1.5)  # Mean ~$100K
 
             # Federal share (typically 75%)
-            federal_share = project_amount * np.random.uniform(0.7, 0.9)
+            federal_share = project_amount * rng.uniform(0.7, 0.9)
 
-            state_fips = np.random.randint(1, 57)
-            year = np.random.randint(self.year_range[0], self.year_range[1] + 1)
+            state_fips = rng.integers(1, 57)
+            year = rng.integers(self.year_range[0], self.year_range[1] + 1)
 
-            project_type_code = np.random.randint(0, len(project_types))
-            status_code = np.random.choice(
-                [0, 1, 2], p=[0.2, 0.3, 0.5]
-            )  # pending, active, complete
-            program_type_code = np.random.randint(0, 3)  # HMGP, PDM, FMA
+            project_type_code = rng.integers(0, len(project_types))
+            status_code = rng.choice([0, 1, 2], p=[0.2, 0.3, 0.5])  # pending, active, complete
+            program_type_code = rng.integers(0, 3)  # HMGP, PDM, FMA
 
             feature_vec = [
                 project_amount,

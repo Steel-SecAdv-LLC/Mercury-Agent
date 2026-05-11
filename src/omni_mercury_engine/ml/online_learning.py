@@ -675,7 +675,7 @@ class OnlineLearningPipeline:
         elif hasattr(self.model, "partial_fit"):
             # Multiple passes over data
             for _ in range(3):
-                indices = np.random.permutation(len(y))
+                indices = self.rng.permutation(len(y))
                 self.model.partial_fit(X[indices], y[indices])
 
         # Update reference data

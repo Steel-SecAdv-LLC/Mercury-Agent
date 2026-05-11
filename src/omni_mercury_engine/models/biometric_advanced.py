@@ -57,36 +57,61 @@ try:
 except ImportError:
     logger.warning("PyTorch not available, advanced biometric features limited")
 
+# Optional-dep imports below catch ``Exception`` (not just
+# ``ImportError``) because each of these packages can fail at import
+# time with non-``ImportError`` types — e.g. ``deepface`` transitively
+# imports ``retinaface`` which raises ``ValueError`` if ``tf-keras``
+# is missing on tensorflow >=2.16; ``facenet_pytorch`` and ``cv2``
+# raise ``OSError`` / ``RuntimeError`` on missing native libraries
+# or CUDA stack mismatches; ``face_recognition`` raises
+# ``RuntimeError`` if its dlib backend was built against a different
+# numpy ABI.  Letting any of those escape would break callers that
+# legitimately want to discover the optional dep is unusable on this
+# host and fall back to simulated embeddings.  ``BaseException`` is
+# deliberately not caught (``KeyboardInterrupt`` / ``SystemExit``
+# keep propagating).
 DEEPFACE_AVAILABLE = False
 try:
     from deepface import DeepFace
 
     DEEPFACE_AVAILABLE = True
-except ImportError:
-    logger.debug("DeepFace not available, using fallback embeddings")
+except Exception as _deepface_exc:
+    logger.debug(
+        "DeepFace not available (%s: %s), using fallback embeddings",
+        type(_deepface_exc).__name__,
+        _deepface_exc,
+    )
 
 FACE_RECOGNITION_AVAILABLE = False
 try:
     import face_recognition
 
     FACE_RECOGNITION_AVAILABLE = True
-except ImportError:
-    logger.debug("face_recognition not available")
+except Exception as _face_recognition_exc:
+    logger.debug(
+        "face_recognition not available (%s: %s)",
+        type(_face_recognition_exc).__name__,
+        _face_recognition_exc,
+    )
 
 CV2_AVAILABLE = False
 try:
     import cv2
 
     CV2_AVAILABLE = True
-except ImportError:
-    logger.debug("OpenCV not available, age progression limited")
+except Exception as _cv2_exc:
+    logger.debug(
+        "OpenCV not available (%s: %s), age progression limited",
+        type(_cv2_exc).__name__,
+        _cv2_exc,
+    )
 
 FACENET_AVAILABLE = False
 try:
     from facenet_pytorch import MTCNN, InceptionResnetV1
 
     FACENET_AVAILABLE = True
-except ImportError:
+except Exception:
     logger.debug("FaceNet-PyTorch not available")
 
 
@@ -196,7 +221,18 @@ class AdvancedBiometricEngine:
         print(f"Age: {result.attributes.get('age')}")
     """
 
-    def __init__(self, device: str = "cpu") -> None:
+    def __init__(self, device: str = "cpu", seed: int | None = None) -> None:
+        """
+        Initialize advanced biometric engine.
+
+        Args:
+            device: Torch device string ("cpu" / "cuda")
+            seed: Optional seed for the per-instance ``Generator`` driving
+                the simulated-embedding fallbacks used when DeepFace /
+                face_recognition are unavailable. ``None`` (default) uses
+                an OS-seeded ``Generator`` — same effective behavior as
+                before.
+        """
         self.device = device
         self.fusion_model = BiometricFusion(dim=512, device=device)
 
@@ -205,6 +241,7 @@ class AdvancedBiometricEngine:
         self.mzss_gamma = 0.2
 
         self.target_embedding_size = 128
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         logger.info(
             f"AdvancedBiometricEngine initialized (device={device}, "
@@ -240,7 +277,7 @@ class AdvancedBiometricEngine:
                     return np.array(encodings[0], dtype=np.float32)
 
             logger.warning("Using simulated embeddings (no biometric library available)")
-            return np.random.randn(self.target_embedding_size).astype(np.float32)
+            return self._rng.standard_normal(self.target_embedding_size).astype(np.float32)
 
         except Exception as e:
             logger.error(f"Feature extraction error: {e}")
@@ -269,7 +306,7 @@ class AdvancedBiometricEngine:
                     return np.array(embedding[0]["embedding"], dtype=np.float32)
 
             logger.warning("Using simulated embeddings for array input")
-            return np.random.randn(self.target_embedding_size).astype(np.float32)
+            return self._rng.standard_normal(self.target_embedding_size).astype(np.float32)
 
         except Exception as e:
             logger.error(f"Array feature extraction error: {e}")
@@ -410,7 +447,7 @@ class AdvancedBiometricEngine:
         """
         features = self.extract_features(image_path)
         if features is None:
-            features = np.random.randn(self.target_embedding_size).astype(np.float32)
+            features = self._rng.standard_normal(self.target_embedding_size).astype(np.float32)
 
         symbolic_score = symbolic_data.get("csdm", 0.8)
         fused = self.fusion_model.forward(features, symbolic_score)
@@ -454,10 +491,22 @@ class AgeProgressionEngine:
             print(f"Similarity: {result.similarity}")
     """
 
-    def __init__(self, device: str = "cpu") -> None:
+    def __init__(self, device: str = "cpu", seed: int | None = None) -> None:
+        """
+        Initialize age-progression engine.
+
+        Args:
+            device: Torch device string ("cpu" / "cuda")
+            seed: Optional seed for the per-instance ``Generator`` driving
+                the simulated FaceNet-embedding fallback and the
+                wrinkle / quantum-noise perturbations applied during age
+                progression. ``None`` (default) uses an OS-seeded
+                ``Generator`` — same effective behavior as before.
+        """
         self.device = device
         self.quantum_factor = 1.2
         self.golden_ratio = 0.618
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         if FACENET_AVAILABLE:
             self.face_detector = MTCNN(device=device)
@@ -532,7 +581,7 @@ class AgeProgressionEngine:
         """
         try:
             if self.facenet is None or not TORCH_AVAILABLE:
-                return np.random.randn(512).astype(np.float32)
+                return self._rng.standard_normal(512).astype(np.float32)
 
             face_tensor = torch.from_numpy(face).permute(2, 0, 1).float() / 255.0
             face_tensor = face_tensor.unsqueeze(0).to(self.device)
@@ -575,7 +624,7 @@ class AgeProgressionEngine:
                 aged = np.clip((aged - 127.5) * contrast_adj + 127.5, 0, 255)
 
                 wrinkle_intensity = min(age_delta * 0.5, 20)
-                noise = np.random.randn(*face.shape) * wrinkle_intensity
+                noise = self._rng.standard_normal(face.shape) * wrinkle_intensity
                 aged = aged + noise
 
             else:
@@ -589,7 +638,7 @@ class AgeProgressionEngine:
                 aged = cv2.GaussianBlur(aged.astype(np.uint8), (5, 5), 0)
                 aged = aged.astype(float)
 
-            quantum_noise = np.random.randn(*face.shape) * self.quantum_factor
+            quantum_noise = self._rng.standard_normal(face.shape) * self.quantum_factor
             aged = aged + quantum_noise
 
             return np.clip(aged, 0, 255).astype(np.uint8)

@@ -368,8 +368,15 @@ class CalibrationEnsemble:
     (Brier score).
     """
 
-    def __init__(self) -> None:
-        """Initialize calibration ensemble."""
+    def __init__(self, seed: int | None = None) -> None:
+        """
+        Initialize calibration ensemble.
+
+        Args:
+            seed: Optional seed for the per-instance ``Generator`` driving
+                train/validation split shuffling in ``fit``.  ``None``
+                (default) uses OS entropy.
+        """
         self.calibrators: dict[str, PlattScaling | IsotonicCalibration | TemperatureScaling] = {
             "platt": PlattScaling(),
             "isotonic": IsotonicCalibration(),
@@ -377,6 +384,7 @@ class CalibrationEnsemble:
         }
         self.best_method: str | None = None
         self._fitted = False
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def fit(
         self,
@@ -399,7 +407,7 @@ class CalibrationEnsemble:
         n_val = int(n * validation_split)
 
         # Split for validation
-        idx = np.random.permutation(n)
+        idx = self._rng.permutation(n)
         train_idx, val_idx = idx[n_val:], idx[:n_val]
 
         y_prob_train = y_prob[train_idx]

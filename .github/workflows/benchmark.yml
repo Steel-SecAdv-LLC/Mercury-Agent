@@ -15,10 +15,24 @@ permissions:
 
 on:
   push:
-    branches: [main, develop]
-    paths:
-      - 'benchmarks/**'
-      - 'src/omni_mercury_engine/**'
+    # Push trigger is ``main``-only by design.
+    #
+    # The ``main`` branch runs unfiltered so every merge into main
+    # refreshes the README "Latest Benchmark Results" block via the
+    # persistence steps below.  An earlier ``paths:`` filter on main
+    # (only ``benchmarks/**`` or ``src/omni_mercury_engine/**``) made
+    # docs-only merges never trigger a refresh, leaving the README
+    # stuck on ``_pending first auto-commit_``.  The cost on main is
+    # acceptable because the persistence steps actually publish new
+    # numbers.
+    #
+    # ``develop`` is intentionally absent: the persistence steps are
+    # all gated to ``refs/heads/main``, so a develop push would burn
+    # 30-120 minutes of CI without producing any published artefact.
+    # Develop branches are still validated through the
+    # ``pull_request`` trigger below when they open a PR into ``main``
+    # or ``develop``.
+    branches: [main]
   pull_request:
     # No path filter: every PR runs the regression gate so we never miss
     # a regression introduced by docs/config/CI changes that touch the
@@ -111,7 +125,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
+          python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[all,dev]"
           pip install pytest pytest-cov
 
@@ -165,13 +179,143 @@ jobs:
           path: benchmarks/mercury_benchmark_results.json
           retention-days: 90
 
+      # ---------------------------------------------------------------
+      # Persist the latest mercury run + regenerated README block to
+      # ``main`` via a PR with API-signed commits.
+      #
+      # Why a PR (not direct push):  ``main``'s branch protection
+      # ruleset rejects direct pushes from ``github-actions[bot]`` for
+      # four reasons (1) PR-required, (2) 22 status checks expected,
+      # (3) CodeQL must finish, (4) commits must be verified-signed.
+      # ``scripts/persist_benchmark_to_pr.py`` uses the GitHub Git
+      # Database API to commit on a feature branch.  Rule 4 is
+      # satisfied externally: GitHub auto-signs commits made via the
+      # Git Database API on behalf of ``github-actions[bot]`` with
+      # its web-flow signing key, **only when the call is
+      # authenticated with the workflow's own ``GITHUB_TOKEN``** (or
+      # a GitHub App installation token allowed to act as the bot).
+      # A PR is opened against ``main`` (rule 1 satisfied); status
+      # checks (rule 2 / 3) run on the PR.
+      #
+      # Caveat:  PRs whose head was pushed by the default
+      # ``GITHUB_TOKEN`` do NOT trigger downstream workflows by
+      # design (GitHub's loop-prevention).  The PR therefore lands
+      # with all required checks pending; a maintainer must re-run
+      # the CI workflow on the PR head (or push an empty commit on
+      # the persistence branch) to unblock them.
+      #
+      # Do NOT swap ``GITHUB_TOKEN`` for a Personal Access Token
+      # to break the loop-prevention.  The persister does not submit
+      # a detached commit signature, so PAT-authenticated Git
+      # Database commits land ``Unverified`` and fail rule 4 of the
+      # protection ruleset.  The persister steps below export
+      # ``GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`` unconditionally
+      # for that reason.  An earlier iteration of this file used a
+      # ``secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN``
+      # expression to leave room for a future GitHub App installation
+      # token, but the expression cannot distinguish a PAT from an
+      # App token by inspecting the secret name — so the fallback
+      # was removed.  Wiring an installation token in the future
+      # requires a separately named secret (e.g.
+      # ``BENCHMARK_BOT_APP_TOKEN``) and is a focused-PR job.
+      #
+      # Order matters: this step runs immediately after the gating
+      # mercury benchmark + artifact upload, BEFORE the supplementary
+      # empirical and seven-axis steps.  That way the README block
+      # reflects the gating mercury numbers in a focused single PR.
+      #
+      # Pull-request runs are intentionally skipped: PRs from forks
+      # cannot push, and even from the same repo we want the merged
+      # commit (not a transient PR head) to be the source of truth.
+      # ---------------------------------------------------------------
+      # Persistence steps below only run when the workflow is anchored
+      # to ``refs/heads/main`` — for ``push`` events that is enforced by
+      # ``github.ref``, for ``workflow_dispatch`` and ``schedule`` we
+      # additionally check it explicitly.  Without that guard, manually
+      # dispatching this workflow from ``develop`` or a feature branch
+      # would benchmark *that* ref and then open a
+      # ``ci/benchmark-results -> main`` PR containing non-main numbers,
+      # silently rewriting ``main``'s headline benchmark block from a
+      # different code state than ``main`` actually carries.
+      - name: Update README "Latest Benchmark Results" block
+        if: |
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        run: |
+          python scripts/update_readme_benchmarks.py \
+            --results benchmarks/mercury_benchmark_results.json \
+            --readme README.md \
+            --commit-sha "${{ github.sha }}"
+
+      - name: Open PR with mercury results + README block (API-signed)
+        if: |
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        env:
+          # Use the workflow's GITHUB_TOKEN unconditionally so commits made
+          # via the Git Database API are auto-signed by GitHub's web-flow
+          # signing key on behalf of github-actions[bot].  A previous
+          # iteration of this file used ``secrets.BENCHMARK_BOT_TOKEN ||
+          # secrets.GITHUB_TOKEN``, but that expression cannot distinguish
+          # a GitHub App installation token from a Personal Access Token
+          # — and a PAT in BENCHMARK_BOT_TOKEN would produce *unverified*
+          # commits that fail rule 4 of the protection ruleset.  Wiring
+          # an installation token requires a separate well-named secret
+          # (e.g. BENCHMARK_BOT_APP_TOKEN) and should be done in a
+          # focused PR, not as a silent fallback here.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mean_auc=$(python -c "import json; print(f\"{json.load(open('benchmarks/mercury_benchmark_results.json'))['summary']['mean_auc']:.4f}\")")
+          mean_f1=$(python -c "import json; print(f\"{json.load(open('benchmarks/mercury_benchmark_results.json'))['summary']['mean_oracle_f1']:.4f}\")")
+
+          python scripts/persist_benchmark_to_pr.py \
+            --base main \
+            --branch ci/benchmark-results \
+            --commit-message "ci(benchmark): persist latest run (AUC=${mean_auc}, F1=${mean_f1}) [skip benchmark]" \
+            --pr-title "ci(benchmark): auto-update Latest Benchmark Results (AUC=${mean_auc}, F1=${mean_f1})" \
+            --pr-body "Auto-generated by .github/workflows/benchmark.yml from ${GITHUB_SHA}.
+
+          Mercury benchmark mean ROC-AUC: **${mean_auc}**
+          Mercury benchmark mean Oracle F1: **${mean_f1}**
+
+          See \`benchmarks/mercury_benchmark_results.json\` for the full
+          per-dataset breakdown and \`README.md\` for the rendered
+          \"Latest Benchmark Results\" block.
+
+          Required status checks on this PR start as **pending** because
+          GitHub Actions does not trigger downstream workflows from
+          events caused by the default \`GITHUB_TOKEN\`.  To run them,
+          re-run the CI workflow manually against this PR head, or
+          re-trigger via a maintainer-pushed empty commit on this
+          branch.
+
+          Do **not** swap \`GITHUB_TOKEN\` for a Personal Access Token
+          (\`BENCHMARK_BOT_TOKEN\`) just to unblock the pending checks
+          — \`scripts/persist_benchmark_to_pr.py\` does not submit a
+          detached commit signature, and Git Database commits made
+          with a PAT are not auto-signed by GitHub.  They would land
+          \`Unverified\` and fail the protection ruleset.  The only
+          token that produces a verified commit on this path today is
+          the workflow's own \`GITHUB_TOKEN\` acting as
+          \`github-actions[bot]\`, or a GitHub App installation token
+          allowed to act as the bot.  See the persister module
+          docstring 'Signature handling' section for the full contract.
+
+          [skip ci]" \
+            --files benchmarks/mercury_benchmark_results.json README.md
+
       # Empirical comparison baselines run on schedule / workflow_dispatch.
       # The previous `continue-on-error: true` swallowed failures from
-      # broken external data loaders.  The runner is now invoked under a
+      # broken external data loaders.  The runner is invoked under a
       # strict policy: it MUST succeed on the reproducible-loader subset
       # (MERCURY_ALLOW_SYNTHETIC=false above already prevents synthetic
       # fallbacks).  Failures here are real regressions and gate the
-      # workflow exactly like the primary benchmark.
+      # workflow as a whole — but they no longer block the mercury
+      # auto-commit above, which has already run by this point.
       - name: Run empirical benchmarks (comparison)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
@@ -220,70 +364,61 @@ jobs:
           path: benchmarks/seven_axis_results.json
           retention-days: 90
 
-      # ---------------------------------------------------------------
-      # Persist the latest run.
-      #
-      # On push-to-main and on the weekly schedule, commit the freshly
-      # produced result JSONs back to the repo and regenerate the
-      # "Latest Benchmark Results" block in README.md (delimited by
-      # <!-- BENCHMARK:START --> … <!-- BENCHMARK:END -->) so the most
-      # recent live-data run is permanent and visible — not stuck in
-      # 90-day-expiring CI artifacts.
-      #
-      # Pull-request runs are intentionally skipped: PRs from forks
-      # cannot push, and even from the same repo we want the merged
-      # commit (not a transient PR head) to be the source of truth.
-      # ---------------------------------------------------------------
-      - name: Update README "Latest Benchmark Results" block
+      # Follow-up PR / branch update for seven-axis JSON.  Runs only
+      # on push-main / schedule / workflow_dispatch (same gate as the
+      # mercury PR step above) AND only if the seven-axis JSON was
+      # actually produced; if the seven-axis runner crashed the
+      # mercury PR will already exist via the earlier step.  Re-uses
+      # the same ``ci/benchmark-results`` branch — the API persister
+      # script force-updates the branch ref, so the existing PR
+      # picks up the seven-axis file as a follow-up commit on the
+      # same head SHA without opening a second PR.
+      - name: Add seven-axis results to benchmark PR (API-signed)
         if: |
-          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
-        run: |
-          python scripts/update_readme_benchmarks.py \
-            --results benchmarks/mercury_benchmark_results.json \
-            --readme README.md \
-            --commit-sha "${{ github.sha }}"
-
-      - name: Commit and push updated results
-        if: |
-          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
+          always() && (
+            (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+            (github.event_name == 'schedule' && github.ref == 'refs/heads/main') ||
+            (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+          )
         env:
+          # Use the workflow's GITHUB_TOKEN unconditionally so commits made
+          # via the Git Database API are auto-signed by GitHub's web-flow
+          # signing key on behalf of github-actions[bot].  A previous
+          # iteration of this file used ``secrets.BENCHMARK_BOT_TOKEN ||
+          # secrets.GITHUB_TOKEN``, but that expression cannot distinguish
+          # a GitHub App installation token from a Personal Access Token
+          # — and a PAT in BENCHMARK_BOT_TOKEN would produce *unverified*
+          # commits that fail rule 4 of the protection ruleset.  Wiring
+          # an installation token requires a separate well-named secret
+          # (e.g. BENCHMARK_BOT_APP_TOKEN) and should be done in a
+          # focused PR, not as a silent fallback here.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Stage every result JSON the run produced (mercury, seven-axis,
-          # empirical when present) plus the regenerated README block.
-          git add \
-            benchmarks/mercury_benchmark_results.json \
-            benchmarks/seven_axis_results.json \
-            README.md
-          if [ -f benchmarks/empirical_benchmark_results.json ]; then
-            git add benchmarks/empirical_benchmark_results.json
-          fi
-
-          if git diff --cached --quiet; then
-            echo "No benchmark changes to commit."
+          if [ ! -f benchmarks/seven_axis_results.json ]; then
+            echo "Seven-axis JSON not produced this run; nothing to add."
             exit 0
           fi
 
-          # Pull current AUC for the commit message.
-          mean_auc=$(python -c "import json; print(f\"{json.load(open('benchmarks/mercury_benchmark_results.json'))['summary']['mean_auc']:.4f}\")")
-          mean_f1=$(python -c "import json; print(f\"{json.load(open('benchmarks/mercury_benchmark_results.json'))['summary']['mean_oracle_f1']:.4f}\")")
-
-          # Subject prefix and ``[skip benchmark]`` marker are both
-          # checked by the workflow-level ``if:`` guard above, so this
-          # commit cannot re-trigger the benchmark job even on rare
-          # ``[skip ci]`` race conditions.
-          git commit -m "ci(benchmark): persist latest run (AUC=${mean_auc}, F1=${mean_f1}) [skip benchmark]" \
-                     -m "Auto-committed by .github/workflows/benchmark.yml from ${GITHUB_SHA}." \
-                     -m "[skip ci]"
-          git push origin HEAD:${GITHUB_REF#refs/heads/}
+          # ``--no-pr-metadata-update`` is critical here: the earlier
+          # "Open PR with mercury results" step already set a metric-rich
+          # title (with AUC/F1) and a body containing CI-unblock
+          # instructions.  Without this flag, the persister would PATCH
+          # the PR title/body to the generic seven-axis text below,
+          # erasing the metrics on every successful run.  We only want
+          # this step to *append a commit* to the existing PR.
+          python scripts/persist_benchmark_to_pr.py \
+            --base main \
+            --branch ci/benchmark-results \
+            --commit-message "ci(benchmark): add seven-axis results [skip benchmark]" \
+            --pr-title "ci(benchmark): auto-update Latest Benchmark Results" \
+            --pr-body "Seven-axis JSON appended by .github/workflows/benchmark.yml from ${GITHUB_SHA}." \
+            --no-pr-metadata-update \
+            --files \
+              benchmarks/mercury_benchmark_results.json \
+              benchmarks/seven_axis_results.json \
+              README.md
 
   # ===========================================================================
   # Performance Regression Check

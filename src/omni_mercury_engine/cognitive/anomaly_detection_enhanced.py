@@ -404,16 +404,21 @@ class HiddenMarkovPredictor:
     Lightweight implementation for detecting state transitions that may indicate anomalies.
     """
 
-    def __init__(self, n_states: int = 3) -> None:
+    def __init__(self, n_states: int = 3, seed: int | None = 42) -> None:
         """
         Initialize HMM predictor.
 
         Args:
             n_states: Number of hidden states
+            seed: Optional seed for the per-instance ``Generator`` driving
+                emission-probability initialization. Defaults to ``42`` to
+                preserve the deterministic behavior of the previous
+                ``np.random.seed(42)`` global-state call. Pass ``None`` to
+                use OS entropy instead.
         """
         self.n_states = n_states
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
-        np.random.seed(42)
         self.transition_matrix = np.ones((n_states, n_states)) / n_states
         self.emission_probs: dict[str, np.ndarray[Any, Any]] = {}
         self.initial_probs = np.ones(n_states) / n_states
@@ -432,7 +437,7 @@ class HiddenMarkovPredictor:
             Most likely current state
         """
         if observation not in self.emission_probs:
-            self.emission_probs[observation] = np.random.dirichlet(np.ones(self.n_states))
+            self.emission_probs[observation] = self._rng.dirichlet(np.ones(self.n_states))
 
         if not self.state_history:
             state_probs = self.initial_probs * self.emission_probs[observation]
@@ -512,8 +517,9 @@ class SimulatedGeologicalSource(ExternalDataSource):
     implement a real USGS API client that extends ExternalDataSource.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, seed: int | None = None) -> None:
         self.source_name = "simulated_usgs"
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def fetch(self) -> list[ExternalDataPoint]:
         """Fetch simulated geological data for testing."""
@@ -523,10 +529,10 @@ class SimulatedGeologicalSource(ExternalDataSource):
                 source_name=self.source_name,
                 data={
                     "event_type": "earthquake",
-                    "magnitude": np.random.uniform(2.0, 6.0),
-                    "depth_km": np.random.uniform(5, 50),
-                    "latitude": np.random.uniform(-90, 90),
-                    "longitude": np.random.uniform(-180, 180),
+                    "magnitude": self._rng.uniform(2.0, 6.0),
+                    "depth_km": self._rng.uniform(5, 50),
+                    "latitude": self._rng.uniform(-90, 90),
+                    "longitude": self._rng.uniform(-180, 180),
                 },
                 confidence=0.9,
             )
@@ -545,8 +551,9 @@ class SimulatedEnvironmentalSource(ExternalDataSource):
     implement a real NOAA API client that extends ExternalDataSource.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, seed: int | None = None) -> None:
         self.source_name = "simulated_noaa"
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def fetch(self) -> list[ExternalDataPoint]:
         """Fetch simulated environmental data for testing."""
@@ -556,10 +563,10 @@ class SimulatedEnvironmentalSource(ExternalDataSource):
                 source_name=self.source_name,
                 data={
                     "event_type": "weather_alert",
-                    "severity": np.random.choice(["low", "moderate", "high", "extreme"]),
-                    "temperature_c": np.random.uniform(-20, 45),
-                    "wind_speed_kmh": np.random.uniform(0, 150),
-                    "precipitation_mm": np.random.uniform(0, 100),
+                    "severity": self._rng.choice(["low", "moderate", "high", "extreme"]),
+                    "temperature_c": self._rng.uniform(-20, 45),
+                    "wind_speed_kmh": self._rng.uniform(0, 150),
+                    "precipitation_mm": self._rng.uniform(0, 100),
                 },
                 confidence=0.85,
             )

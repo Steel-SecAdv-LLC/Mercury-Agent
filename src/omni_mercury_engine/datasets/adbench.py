@@ -23,15 +23,13 @@ from __future__ import annotations
 import hashlib
 import io
 import logging
-import urllib.error
-import urllib.request
 from typing import Any
 
 import numpy as np
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-from .base import DatasetConfig, DatasetLoader, DatasetRegistry
+from .base import DatasetConfig, DatasetLoader, DatasetRegistry, http_get_with_retry
 from .exceptions import DataSourceUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -180,11 +178,10 @@ class ADBenchLoader(DatasetLoader):
         logger.info("Downloading ADBench %s from %s", self._dataset_name, url)
 
         try:
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-            )
-            with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
-                content = resp.read()
+            # ADBench resolves to raw.githubusercontent.com after one redirect.
+            # Benchmark runs walk all 47 catalog entries back-to-back, which
+            # routinely trips GitHub's anonymous rate limit; retry on 429/5xx.
+            content = http_get_with_retry(url, timeout=120)
 
             # Verify we got a valid NPZ
             buf = io.BytesIO(content)

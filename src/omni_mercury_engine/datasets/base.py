@@ -49,36 +49,153 @@ def safe_urlretrieve(url: str, filename: str | Path) -> None:
     potentially dangerous URL schemes. For HTTPS URLs, validates against
     the TrustedEndpoints domain allowlist for SSRF protection.
 
+    Internally delegates to :func:`http_get_with_retry` so all callers
+    inherit User-Agent, exponential backoff, and 4xx-vs-5xx-aware retry
+    semantics — important for the bulk loaders (BATADAL, NAB, SMD,
+    SMAP/MSL, UCR, ADRepository) that hit GitHub raw under rate-limit
+    pressure during a benchmark run.
+
     Args:
         url: The URL to download from (must be http:// or https://)
         filename: The local path to save the file to
 
     Raises:
-        ValueError: If the URL scheme is not http or https
+        ValueError: If the URL scheme is not http or https.
     """
-    import logging
+    body = http_get_with_retry(url, timeout=120)
+    target = Path(filename)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with open(target, "wb") as f:
+        f.write(body)
+
+
+# Default User-Agent. Many public dataset CDNs (raw.githubusercontent.com,
+# www.fema.gov, www.ncei.noaa.gov) silently rate-limit or return 403 to
+# requests without an identifying UA. Identifying as a real browser-class
+# UA suffix avoids those penalties without misrepresenting the source.
+_DEFAULT_DATASET_UA = "Mozilla/5.0 (compatible; Mercury-Agent/1.0; +https://github.com/Steel-SecAdv-LLC/Mercury-Agent)"
+
+
+def http_get_with_retry(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: int = 60,
+    retries: int = 3,
+    backoff: float = 2.0,
+    retry_on_status: tuple[int, ...] = (408, 425, 429, 500, 502, 503, 504),
+    allow_http: bool = False,
+    allow_untrusted: bool = False,
+) -> bytes:
+    """
+    HTTP GET with scheme/domain validation, default UA, and exponential backoff.
+
+    Centralizes the retry behavior previously duplicated across loaders.
+    Retries on transient HTTP status codes and on socket-level errors
+    (timeout, connection reset). Permanent errors (404, 401, 403) raise
+    immediately so callers can fail over to a different mirror.
+
+    Security defaults:
+
+    * **HTTPS-only**: ``http://`` URLs are rejected unless the caller
+      explicitly opts in with ``allow_http=True``. This is required for
+      a small handful of legacy research mirrors that publish over plain
+      HTTP (e.g. CICIDS-2017 CIC-Official) and is never appropriate for
+      arbitrary user input.
+    * **Trusted allowlist enforced**: HTTPS URLs whose host is not in
+      ``TrustedEndpoints.TRUSTED_DOMAINS`` raise ``ValueError`` unless
+      the caller explicitly opts in with ``allow_untrusted=True``. The
+      opt-in is reserved for known community mirrors of public research
+      datasets (e.g. NSL-KDD HoaNP fork, third-party FIRMS rotations).
+
+    Args:
+        url: HTTP/HTTPS URL to fetch.
+        headers: Extra request headers. User-Agent is injected if not provided.
+        timeout: Per-attempt socket timeout in seconds.
+        retries: Total attempts (initial + retries). Must be >= 1.
+        backoff: Exponential factor; sleep = backoff ** attempt seconds.
+        retry_on_status: HTTP status codes that trigger a retry rather than
+            raising. 4xx not in this set are treated as permanent.
+        allow_http: Permit ``http://`` URLs. Default False (HTTPS-only).
+        allow_untrusted: Permit HTTPS URLs whose host is outside the
+            ``TrustedEndpoints`` allowlist. Default False (allowlist enforced).
+
+    Returns:
+        Response body as bytes.
+
+    Raises:
+        ValueError: URL scheme/domain not permitted under the security defaults
+            (or current opt-in flags).
+        urllib.error.HTTPError: Final attempt returned a non-retried status.
+        urllib.error.URLError / TimeoutError: All attempts exhausted on
+            transient socket errors.
+    """
+    import time
+    import urllib.error
     import urllib.request
     from urllib.parse import urlparse
 
     from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
-    logger = logging.getLogger(__name__)
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
+    if parsed.scheme == "http" and not allow_http:
+        raise ValueError(
+            f"http_get_with_retry: refusing http:// URL '{url}'. "
+            "Pass allow_http=True only for documented legacy research mirrors."
+        )
 
-    # Validate URL against trusted domain allowlist (SSRF protection)
     if parsed.scheme == "https":
         try:
             TrustedEndpoints.validate_url(url)
         except ValueError:
-            # Domain not in allowlist - log warning but allow for research datasets
+            if not allow_untrusted:
+                raise
             logger.warning(
-                f"URL domain '{parsed.netloc}' not in trusted allowlist. "
-                "Proceeding with caution for dataset download."
+                "URL domain '%s' not in trusted allowlist; proceeding (allow_untrusted=True).",
+                parsed.netloc,
             )
 
-    urllib.request.urlretrieve(url, filename)  # nosec B310
+    request_headers = {"User-Agent": _DEFAULT_DATASET_UA}
+    if headers:
+        request_headers.update(headers)
+
+    last_exc: Exception | None = None
+    attempts = max(1, retries)
+    for attempt in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers=request_headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+                body: bytes = resp.read()
+                return body
+        except urllib.error.HTTPError as e:
+            last_exc = e
+            if e.code not in retry_on_status:
+                # Permanent error — let caller fail over to next mirror.
+                raise
+            logger.info(
+                "HTTP %d on %s (attempt %d/%d); will retry.",
+                e.code,
+                url,
+                attempt + 1,
+                attempts,
+            )
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            last_exc = e
+            logger.info(
+                "Transient %s on %s (attempt %d/%d); will retry.",
+                type(e).__name__,
+                url,
+                attempt + 1,
+                attempts,
+            )
+
+        if attempt < attempts - 1:
+            time.sleep(backoff ** (attempt + 1))
+
+    assert last_exc is not None  # nosec B101 - loop guarantees at least one exception
+    raise last_exc
 
 
 class DatasetSplit(Enum):
@@ -338,8 +455,8 @@ class DatasetLoader(ABC):
 
         # Split data
         n = len(features)
-        np.random.seed(self.config.random_seed)
-        indices = np.random.permutation(n)
+        rng = np.random.default_rng(self.config.random_seed)
+        indices = rng.permutation(n)
 
         train_end = int(n * self.config.split_ratios[0])
         val_end = train_end + int(n * self.config.split_ratios[1])

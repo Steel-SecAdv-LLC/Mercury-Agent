@@ -10,12 +10,11 @@ Real-data tests are in test_loaders_live.py (marked @pytest.mark.network).
 
 from __future__ import annotations
 
+# ``MERCURY_ALLOW_SYNTHETIC=1`` is set at the suite level in
+# ``tests/conftest.py`` (lifted from this module's import-time
+# assignment so the contract holds under ``pytest-xdist -n 4``
+# regardless of which worker collects which test file first).
 import os
-
-# Enable synthetic fallback for these unit tests — they deliberately test
-# loader mechanics with generated data, not live API correctness.
-os.environ["MERCURY_ALLOW_SYNTHETIC"] = "1"
-
 import tempfile
 
 import numpy as np

@@ -148,18 +148,23 @@ class AttentionMechanism:
     Learns to weight neural vs symbolic contributions based on context.
     """
 
-    def __init__(self, hidden_dim: int = 32) -> None:
+    def __init__(self, hidden_dim: int = 32, seed: int | None = 42) -> None:
         """
         Initialize attention mechanism.
 
         Args:
             hidden_dim: Hidden dimension for attention computation
+            seed: Optional seed for the per-instance ``Generator`` driving
+                attention-weight initialization. Defaults to ``42`` to
+                preserve the deterministic behavior of the previous
+                ``np.random.seed(42)`` global-state call. Pass ``None`` to
+                use OS entropy instead.
         """
         self.hidden_dim = hidden_dim
-        np.random.seed(42)
-        self.W_neural = np.random.randn(hidden_dim, hidden_dim) * 0.1
-        self.W_symbolic = np.random.randn(hidden_dim, hidden_dim) * 0.1
-        self.W_attention = np.random.randn(hidden_dim, 1) * 0.1
+        rng = np.random.default_rng(seed)
+        self.W_neural = rng.standard_normal((hidden_dim, hidden_dim)) * 0.1
+        self.W_symbolic = rng.standard_normal((hidden_dim, hidden_dim)) * 0.1
+        self.W_attention = rng.standard_normal((hidden_dim, 1)) * 0.1
 
     def compute_attention(
         self,

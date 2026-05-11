@@ -1,9 +1,9 @@
 # Mercury Agent -- Formal Mathematical Specification
 
 **Version:** 1.6.0
-**Date:** 2026-02-11
+**Date:** 2026-05-05
 **Status:** Living Document
-**Cross-references:** `docs/equations_inventory.md`, `docs/correctness_report.md`
+**Cross-references:** top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md) §"Dual-Gate Hard Ethical Enforcement", [`ROUTING_GUIDE.md`](ROUTING_GUIDE.md)
 
 ---
 
@@ -175,6 +175,81 @@ Therefore:
 $$
 0 \leq A = (\text{weighted sum}) \cdot \eta^p \leq 1 \cdot 1 = 1 \quad \square
 $$
+
+#### 2.1.5 σ_Immutable Hard Gate (Wave B, PR #179)
+
+The sigmoid benevolence gate of Section 2.1.3 attenuates the fusion
+score continuously, but is **not** the only ethical guardrail. Wave B
+promotes σ_Immutable to a **second mandatory hard ethical gate** at
+every public decision boundary; the call aborts with
+`EthicalConstraintViolationError` if either gate fails.
+
+**Boundary contract.** Let $\mathcal{C}$ denote a public boundary
+surface (e.g. `OmniMercuryEngine.detect_with_fusion`). Then for every
+input $x$ on $\mathcal{C}$:
+
+$$
+\mathcal{C}(x) =
+\begin{cases}
+\text{prediction}(x) & \text{if } b(x) \geq \tau_b \;\wedge\; \sigma_I(\mathbf{s}(x)) \geq \tau_\sigma, \\
+\text{raise } \texttt{check="benevolence"} & \text{if } b(x) < \tau_b, \\
+\text{raise } \texttt{check="sigma\_immutable"} & \text{if } b(x) \geq \tau_b \wedge \sigma_I(\mathbf{s}(x)) < \tau_\sigma, \\
+\text{raise } \texttt{check="gosnn\_unavailable"} & \text{if GOSNN cannot run.}
+\end{cases}
+$$
+
+**σ vector layout.** The σ_Immutable gate operates on a fixed-dim
+scalar state $\mathbf{s} \in \mathbb{R}^{256}$ with the following
+authoritative band layout (single source of truth in
+`omni_mercury_engine.security.sigma_immutable_gate`):
+
+| Band | Indices | Role |
+|------|---------|------|
+| Ethical band | $[0,\;27)$ | benevolence-projected scalars, populated by `project_benevolence_to_sigma_band` |
+| Active non-ethical band | $[27,\;180)$ | GOSNN omni-scalar features (cosmic, humanitarian, security, software-engineering, medical, advanced-reasoning, etc.) |
+| Reserved tail | $[180,\;256)$ | zero-padded; reserved for future bands |
+
+Constants exposed: `SIGMA_IMMUTABLE_DIM = 256`,
+`SIGMA_ETHICAL_BAND_END = 27`, `SIGMA_USED_BAND_END = 180`,
+`CORPUS_USED_DIM = 180` (public alias).
+
+**Threshold.** $\tau_\sigma$ is set by the trained σ_Immutable network
+against a signed corpus verdict; the corpus and the trainer share the
+same band layout via the constants above. Corpus tampering at startup
+fails closed across every boundary uniformly.
+
+**Test-only bypass.** The `enable_gosnn` parameter on the public
+`detect_with_fusion` / `detect_with_fusion_calibrated` surface was
+renamed to the private `_enable_gosnn`; production *callers* cannot
+disable σ_Immutable. Tests that need to bypass GOSNN must set the
+auditable module-level flag
+`omni_mercury_engine.engine._GOSNN_TESTING_BYPASS = True`.
+
+The flag itself **is** read from production control flow
+(`engine.py` consults it before σ_Immutable enforcement and again
+when `_enable_gosnn=False` is requested), so the contract is "the
+flag is intended for unit tests only", not "no production code
+path reads it". Production deployments must therefore audit at
+container-build time that
+`omni_mercury_engine.engine._GOSNN_TESTING_BYPASS is False`; a
+separate mypy / runtime guard
+(`tests/security/test_sigma_immutable_kat.py`) asserts the flag
+defaults to `False` at module import. Setting the flag in
+production is a deliberate, auditable opt-out — not an
+inadvertent bypass.
+
+**Composition with the sigmoid gate.** σ_Immutable runs *after* the
+benevolence sigmoid of Section 2.1.3 has been enforced (so $b \geq
+\tau_b$ at the σ_Immutable check). The two gates are independent:
+σ_Immutable can reject an action that the benevolence gate accepted
+when the broader scalar state is incompatible with the trained
+ethical manifold.
+
+**Implementation:** `omni_mercury_engine.security.sigma_immutable_gate.SigmaImmutableGate.enforce`,
+called from `OmniMercuryEngine._enforce_ethics_at_boundary`. The
+`NeuroSymbolicHub` and `CognitiveOrchestrator` σ-vector builders
+import the band constants from the same module to guarantee a single
+layout across all boundary surfaces.
 
 ---
 

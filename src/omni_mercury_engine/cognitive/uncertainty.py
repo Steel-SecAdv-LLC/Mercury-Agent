@@ -141,16 +141,35 @@ class MCDropoutWrapper:
     Ghahramani (2016).
     """
 
-    def __init__(self, model: Any, dropout_rate: float = 0.1) -> None:
+    def __init__(self, model: Any, dropout_rate: float = 0.1, seed: int | None = None) -> None:
         """
         Args:
 
             model: PyTorch model with dropout layers
             dropout_rate: Dropout probability (if not already in model)
+            seed: Optional seed for reproducible MC-Dropout sampling.  When
+                provided, ``predict_with_uncertainty`` re-seeds PyTorch's
+                global RNG (``torch.manual_seed`` + the CUDA generators if
+                available) before each call so the dropout draws are
+                reproducible across runs.  ``None`` (default) leaves the
+                global RNG untouched — same effective behavior as the
+                original implementation.  This is the correct seeding path
+                for MC-Dropout because the dropout stochasticity lives in
+                ``torch.nn.Dropout`` (PyTorch RNG), not NumPy.
+
+        Note:
+            The MC-input-perturbation site
+            (``UncertaintyQuantifier._monte_carlo_sampling``) is a separate
+            randomness source and owns its own ``np.random.Generator``;
+            pass ``seed=`` to ``UncertaintyQuantifier`` for that path.
         """
         self.model = model
         self.dropout_rate = dropout_rate
+        self._seed = seed
         self._original_training_state = None
+        # NumPy ``Generator`` retained for any future NumPy-side perturbation
+        # the wrapper might add; current implementation is torch-only.
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
     def enable_dropout(self) -> None:
         """Enable dropout layers for MC sampling."""
@@ -190,6 +209,17 @@ class MCDropoutWrapper:
         """
         if not TORCH_AVAILABLE:
             raise RuntimeError("PyTorch required for MC Dropout")
+
+        # Re-seed PyTorch's global RNG when the wrapper was constructed
+        # with an explicit seed.  This is the correct reproducibility path
+        # for MC-Dropout because ``torch.nn.Dropout`` consumes the torch
+        # RNG, not NumPy's.  Done once per call (not per sample) so each
+        # ``predict_with_uncertainty`` invocation is reproducible without
+        # collapsing the n_samples draws to identical outputs.
+        if self._seed is not None:
+            torch.manual_seed(self._seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(self._seed)
 
         self.enable_dropout()
 
@@ -504,6 +534,7 @@ class UncertaintyQuantifier:
         enable_aci: bool = True,
         aci_coverage: float = 0.9,
         bayesian_calibrator: Any | None = None,
+        seed: int | None = None,
     ):
         """
         Initialize Uncertainty Quantifier.
@@ -516,10 +547,15 @@ class UncertaintyQuantifier:
             aci_coverage: Target coverage for ACI
             bayesian_calibrator: Optional BayesianConfidenceCalibrator for
                 domain-specific confidence adjustment via Beta-Bernoulli model
+            seed: Optional seed for the per-instance ``Generator`` driving
+                Monte-Carlo perturbation of the input. ``None`` (default)
+                uses an OS-seeded ``Generator`` — same effective behavior
+                as before.
         """
         self.n_monte_carlo = n_monte_carlo
         self.calibration_bins = calibration_bins
         self.reliability_threshold = reliability_threshold
+        self._rng: np.random.Generator = np.random.default_rng(seed)
 
         # Components
         self.temperature_scaler = TemperatureScaler()
@@ -582,8 +618,21 @@ class UncertaintyQuantifier:
         mc_predictions = None
 
         if model is not None and TORCH_AVAILABLE:
-            # Use MC Dropout wrapper for PyTorch models
-            wrapper = MCDropoutWrapper(model)
+            # Use MC Dropout wrapper for PyTorch models, threading our
+            # constructor seed through so torch.manual_seed is set inside
+            # ``predict_with_uncertainty`` for reproducible dropout draws.
+            wrapper_seed: int | None = None
+            if self._rng is not None:
+                # Derive a deterministic torch seed from our NumPy RNG.
+                # ``self._rng`` was built from the user-supplied seed in
+                # ``__init__`` — calling ``.integers(...)`` here advances
+                # it once and yields a stable value for repeated calls
+                # against the same instance only AFTER reset; for
+                # cross-call reproducibility callers should pass an
+                # explicit ``seed`` and reuse the same ``UncertaintyQuantifier``
+                # before any other RNG-consuming work.
+                wrapper_seed = int(self._rng.integers(0, 2**31 - 1))
+            wrapper = MCDropoutWrapper(model, seed=wrapper_seed)
             try:
                 if isinstance(input_data, np.ndarray):
                     input_tensor = torch.FloatTensor(input_data)
@@ -1199,7 +1248,7 @@ class UncertaintyQuantifier:
             try:
                 # Add small noise to simulate stochastic prediction
                 # (In real MC Dropout, this comes from dropout layers)
-                noisy_input = input_data + np.random.randn(*input_data.shape) * 0.01
+                noisy_input = input_data + self._rng.standard_normal(input_data.shape) * 0.01
                 pred = prediction_function(noisy_input)
                 if isinstance(pred, np.ndarray):
                     samples.append(pred.flatten())

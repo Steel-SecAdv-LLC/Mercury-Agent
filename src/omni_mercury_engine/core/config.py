@@ -38,7 +38,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
+    import tomllib as _tomllib
     from collections.abc import Callable
+else:
+    try:
+        import tomllib as _tomllib
+    except ImportError:
+        try:
+            import tomli as _tomllib
+        except ImportError:
+            _tomllib = None
 
 from omni_mercury_engine.core.centralized_constants import ETHICAL
 
@@ -437,17 +446,12 @@ class ConfigurationManager:
 
     def _load_toml(self, path: Path) -> None:
         """Load TOML configuration file."""
-        try:
-            try:
-                import tomllib  # Python 3.11+
-            except ImportError:
-                import tomli as tomllib  # type: ignore[no-redef]
-
-            with open(path, "rb") as f:
-                data = tomllib.load(f)
-                self._merge_config(data)
-        except ImportError:
+        if _tomllib is None:
             logger.warning("tomli/tomllib not installed, skipping TOML config")
+            return
+        with open(path, "rb") as f:
+            data = _tomllib.load(f)
+            self._merge_config(data)
 
     def _load_json(self, path: Path) -> None:
         """Load JSON configuration file."""

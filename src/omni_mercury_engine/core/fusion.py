@@ -18,14 +18,24 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     import torch
     import torch.nn.functional as F
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        import torch.nn.functional as F
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        torch = None  # type: ignore[assignment, unused-ignore]
+        F = None  # type: ignore[assignment, unused-ignore]
+        nn = None  # type: ignore[assignment, unused-ignore]
+        TORCH_AVAILABLE = False
 
 from omni_mercury_engine.utils.rng import DeterministicRNG, get_global_rng
 
@@ -84,7 +94,7 @@ def _validate_tensor_devices(
     return first_tensor.device, first_tensor.dtype
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class AttentionFusion(nn.Module):
         """
@@ -817,33 +827,49 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def AttentionFusion(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class AttentionFusion:
         """Stub: AttentionFusion requires PyTorch."""
-        raise ImportError("AttentionFusion requires PyTorch. Install with: pip install torch")
 
-    def SparseTopKAttention(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("AttentionFusion requires PyTorch. Install with: pip install torch")
+
+    class SparseTopKAttention:
         """Stub: SparseTopKAttention requires PyTorch."""
-        raise ImportError("SparseTopKAttention requires PyTorch. Install with: pip install torch")
 
-    def UncertaintyWeightedFusion(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "SparseTopKAttention requires PyTorch. Install with: pip install torch"
+            )
+
+    class UncertaintyWeightedFusion:
         """Stub: UncertaintyWeightedFusion requires PyTorch."""
-        raise ImportError(
-            "UncertaintyWeightedFusion requires PyTorch. Install with: pip install torch"
-        )
 
-    def ResonanceWeightedFusion(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "UncertaintyWeightedFusion requires PyTorch. Install with: pip install torch"
+            )
+
+    class ResonanceWeightedFusion:
         """Stub: ResonanceWeightedFusion requires PyTorch."""
-        raise ImportError(
-            "ResonanceWeightedFusion requires PyTorch. Install with: pip install torch"
-        )
 
-    def HybridFusionLayer(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "ResonanceWeightedFusion requires PyTorch. Install with: pip install torch"
+            )
+
+    class HybridFusionLayer:
         """Stub: HybridFusionLayer requires PyTorch."""
-        raise ImportError("HybridFusionLayer requires PyTorch. Install with: pip install torch")
 
-    def EarlyFusionEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("HybridFusionLayer requires PyTorch. Install with: pip install torch")
+
+    class EarlyFusionEncoder:
         """Stub: EarlyFusionEncoder requires PyTorch."""
-        raise ImportError("EarlyFusionEncoder requires PyTorch. Install with: pip install torch")
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "EarlyFusionEncoder requires PyTorch. Install with: pip install torch"
+            )
 
 
 class DoubleHelixEvolutionEngine:

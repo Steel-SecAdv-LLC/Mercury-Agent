@@ -56,10 +56,23 @@ class NSLKDDLoader(DatasetLoader):
     KDD CUP 99 data set. IEEE Symposium on Computational Intelligence. 2009."""
     REQUIRES_CREDENTIALS = False
 
-    # GitHub raw URLs for NSL-KDD data (via TrustedEndpoints for SSRF prevention)
+    # GitHub raw URLs for NSL-KDD data (via TrustedEndpoints for SSRF prevention).
+    # Primary mirror is the canonical defcom17 fork. We also try the HearthCloud
+    # fork as a secondary mirror — it carries identical content and survives
+    # when raw.githubusercontent.com rate-limits the primary path.
     NSLKDD_URLS = {
         "train": TrustedEndpoints.GITHUB_NSL_KDD_TRAIN,
         "test": TrustedEndpoints.GITHUB_NSL_KDD_TEST,
+    }
+    NSLKDD_MIRRORS = {
+        "train": [
+            TrustedEndpoints.GITHUB_NSL_KDD_TRAIN,
+            "https://raw.githubusercontent.com/HoaNP/NSL-KDD-DataSet/master/KDDTrain+.txt",
+        ],
+        "test": [
+            TrustedEndpoints.GITHUB_NSL_KDD_TEST,
+            "https://raw.githubusercontent.com/HoaNP/NSL-KDD-DataSet/master/KDDTest+.txt",
+        ],
     }
 
     # Column names for NSL-KDD (41 features + 2 labels)
@@ -222,21 +235,41 @@ class NSLKDDLoader(DatasetLoader):
             return True
 
         try:
-            import urllib.request
+            from .base import http_get_with_retry
 
             dfs = []
-            for split, url in self.NSLKDD_URLS.items():
+            for split in self.NSLKDD_URLS:
                 if split == "test" and not self.include_test:
                     continue
 
-                logger.info(f"Downloading NSL-KDD {split} from GitHub...")
+                # Try each mirror in order; first to return a non-empty body wins.
+                content: str | None = None
+                last_err: Exception | None = None
+                for mirror in self.NSLKDD_MIRRORS[split]:
+                    try:
+                        # validate_url is permissive for off-allowlist hosts
+                        # (warn-only); raw.githubusercontent.com is allow-listed.
+                        try:
+                            TrustedEndpoints.validate_url(mirror)
+                        except ValueError:
+                            logger.warning("NSL-KDD mirror %s not on allowlist", mirror)
+                        logger.info("Downloading NSL-KDD %s from %s", split, mirror)
+                        body = http_get_with_retry(mirror, timeout=120)
+                        decoded = body.decode("utf-8")
+                        if decoded.strip():
+                            content = decoded
+                            break
+                        last_err = ValueError("empty response body")
+                    except Exception as mirror_err:
+                        last_err = mirror_err
+                        logger.info("NSL-KDD mirror %s failed: %s", mirror, mirror_err)
+                        continue
 
-                # Validate URL before opening (SSRF protection via domain allowlist)
-                TrustedEndpoints.validate_url(url)
-                with urllib.request.urlopen(url, timeout=120) as response:  # nosec B310
-                    content = response.read().decode("utf-8")
+                if content is None:
+                    raise RuntimeError(
+                        f"All NSL-KDD {split} mirrors failed; last error: {last_err}"
+                    )
 
-                # Parse CSV (no header in file)
                 df = pd.read_csv(
                     io.StringIO(content),
                     names=self.COLUMN_NAMES,
@@ -319,8 +352,8 @@ class NSLKDDLoader(DatasetLoader):
 
         # Apply max_samples limit if specified
         if self.config.max_samples and len(features) > self.config.max_samples:
-            np.random.seed(self.config.random_seed)
-            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            rng = np.random.default_rng(self.config.random_seed)
+            indices = rng.choice(len(features), self.config.max_samples, replace=False)
             features = features[indices]
             labels = labels[indices]
 
@@ -337,7 +370,7 @@ class NSLKDDLoader(DatasetLoader):
             "Results will NOT reflect real-world performance."
         )
 
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
         n_features = 41  # NSL-KDD has 41 features
 
@@ -348,26 +381,26 @@ class NSLKDDLoader(DatasetLoader):
         attack_probs = {"normal": 0.53, "dos": 0.36, "probe": 0.08, "r2l": 0.02, "u2r": 0.01}
 
         for _ in range(n_samples):
-            attack_type = np.random.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
+            attack_type = rng.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
 
             # Generate base features
             feature_vec = np.zeros(n_features)
-            feature_vec[0] = np.random.exponential(60)  # duration
-            feature_vec[1] = np.random.choice([0, 1, 2])  # protocol
-            feature_vec[2] = np.random.choice(range(70))  # service
-            feature_vec[3] = np.random.choice(range(11))  # flag
-            feature_vec[4] = np.random.exponential(1000)  # src_bytes
-            feature_vec[5] = np.random.exponential(500)  # dst_bytes
-            feature_vec[22:34] = np.random.random(12)  # rate features
+            feature_vec[0] = rng.exponential(60)  # duration
+            feature_vec[1] = rng.choice([0, 1, 2])  # protocol
+            feature_vec[2] = rng.choice(range(70))  # service
+            feature_vec[3] = rng.choice(range(11))  # flag
+            feature_vec[4] = rng.exponential(1000)  # src_bytes
+            feature_vec[5] = rng.exponential(500)  # dst_bytes
+            feature_vec[22:34] = rng.random(12)  # rate features
 
             # Attack-specific modifications
             if attack_type == "dos":
-                feature_vec[0] = np.random.exponential(1)
-                feature_vec[22] = np.random.poisson(300)
+                feature_vec[0] = rng.exponential(1)
+                feature_vec[22] = rng.poisson(300)
             elif attack_type == "probe":
-                feature_vec[29] = np.random.beta(10, 2)
+                feature_vec[29] = rng.beta(10, 2)
             elif attack_type == "r2l":
-                feature_vec[10] = np.random.poisson(3)
+                feature_vec[10] = rng.poisson(3)
             elif attack_type == "u2r":
                 feature_vec[13] = 1
 
@@ -521,7 +554,9 @@ class CICIDSLoader(DatasetLoader):
         "all": None,  # Downloads and combines all files
     }
 
-    # Data source URLs (in priority order)
+    # Data source URLs (in priority order). The huggingface entry advertises
+    # the primary dataset_id; HUGGINGFACE_MIRRORS is used internally to fail
+    # over between equivalent community mirrors when one is gated or removed.
     DATA_SOURCES: dict[str, dict[str, Any]] = {
         "huggingface": {
             "name": "Hugging Face",
@@ -539,6 +574,16 @@ class CICIDSLoader(DatasetLoader):
             "format": "zip",
         },
     }
+
+    # Equivalent CICIDS-2017 mirrors on the HuggingFace Hub. Tried in order;
+    # first one that loads wins. Allows the loader to survive when the primary
+    # is gated, removed, or temporarily 5xx-ing without falling through to the
+    # http-only CIC official mirror.
+    HUGGINGFACE_MIRRORS: tuple[str, ...] = (
+        "bvk/CICIDS-2017",
+        "Riccorl/CIC-IDS-2017",
+        "tcabanski/cicids2017",
+    )
 
     # Label encoding for CICIDS 2017 attack types
     # Reference: Original dataset documentation
@@ -760,23 +805,33 @@ class CICIDSLoader(DatasetLoader):
             self._is_real_data = True
             return True
 
+        df = None
+        last_err: Exception | None = None
+        for mirror_id in self.HUGGINGFACE_MIRRORS:
+            try:
+                logger.info("Downloading CICIDS 2017 from Hugging Face (%s)...", mirror_id)
+                # Pin to main for reproducibility (B615); mirrors that publish
+                # under a non-default branch will fall through to the next.
+                dataset = load_dataset(  # nosec B615
+                    mirror_id,
+                    split="train",
+                    revision="main",
+                )
+                df = dataset.to_pandas()
+                if df is not None and len(df) > 0:
+                    logger.info("Downloaded %d records from %s", len(df), mirror_id)
+                    break
+            except Exception as e:
+                last_err = e
+                logger.info("Hugging Face mirror %s failed: %s", mirror_id, e)
+                continue
+
+        if df is None or len(df) == 0:
+            logger.warning("All HuggingFace CICIDS mirrors failed: %s", last_err)
+            return False
+
         try:
-            logger.info("Downloading CICIDS 2017 from Hugging Face (bvk/CICIDS-2017)...")
-            # Pin to specific revision for security (B615)
-            dataset = load_dataset(  # nosec B615
-                "bvk/CICIDS-2017",
-                split="train",
-                revision="main",  # Pin to main branch for reproducibility
-            )
-
-            # Convert to pandas for processing
-            df = dataset.to_pandas()
-            logger.info(f"Downloaded {len(df)} records from Hugging Face")
-
-            # Clean and process the data
             features, labels = self._process_cicids_dataframe(df)
-
-            # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._features = features
             self._labels = labels
@@ -788,9 +843,8 @@ class CICIDSLoader(DatasetLoader):
                 f"{'attacks' if self.binary_labels else 'classes'}"
             )
             return True
-
         except Exception as e:
-            logger.warning(f"Hugging Face download failed: {e}")
+            logger.warning(f"CICIDS HuggingFace post-processing failed: {e}")
             return False
 
     def _download_from_url(self, source_info: dict[str, Any]) -> bool:
@@ -814,31 +868,18 @@ class CICIDSLoader(DatasetLoader):
             return True
 
         try:
+            from .base import http_get_with_retry
+
             logger.info(f"Downloading CICIDS 2017 from {source_name}: {url}")
 
-            # Download with timeout
-            import urllib.request
-            from urllib.parse import urlparse
-
-            parsed = urlparse(url)
-            if parsed.scheme not in ("http", "https"):
-                raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
-
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            # Note: Only HTTPS URLs from trusted domains are allowed
-            if parsed.scheme == "https":
-                try:
-                    TrustedEndpoints.validate_url(url)
-                except ValueError:
-                    # Domain not in allowlist - log warning but allow for research datasets
-                    logger.warning(
-                        f"URL domain '{parsed.netloc}' not in trusted allowlist. "
-                        "Proceeding with caution for research dataset download."
-                    )
-
-            # Use longer timeout for large files
-            with urllib.request.urlopen(url, timeout=300) as response:  # nosec B310
-                content = response.read()
+            # The CIC-Official mirror (http://205.174.165.80/...) is the one
+            # documented research source for the original CICIDS-2017 zip
+            # that publishes over plain HTTP. Distrinet is HTTPS on a domain
+            # that is already in the TrustedEndpoints allowlist. Opt-in to
+            # http://for the CIC-Official path; HTTPS Distrinet stays under
+            # the default strict policy.
+            allow_http = url.lower().startswith("http://")
+            content = http_get_with_retry(url, timeout=300, allow_http=allow_http)
 
             # Process based on format
             if file_format == "zip":
@@ -940,8 +981,8 @@ class CICIDSLoader(DatasetLoader):
 
         # Apply max_samples limit if specified
         if self.config.max_samples and len(features) > self.config.max_samples:
-            np.random.seed(self.config.random_seed)
-            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            rng = np.random.default_rng(self.config.random_seed)
+            indices = rng.choice(len(features), self.config.max_samples, replace=False)
             features = features[indices]
             labels = labels[indices]
 
@@ -1023,7 +1064,7 @@ class CICIDSLoader(DatasetLoader):
             "Results will NOT reflect real-world performance on actual network traffic."
         )
 
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 10000
 
         # Use 78 features (typical CICIDS feature count after cleaning)
@@ -1046,17 +1087,17 @@ class CICIDSLoader(DatasetLoader):
         }
 
         for _ in range(n_samples):
-            attack_type = np.random.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
+            attack_type = rng.choice(list(attack_probs.keys()), p=list(attack_probs.values()))
 
             # Generate features based on attack type
             if attack_type == "benign":
-                feature_vec = self._generate_benign_flow(n_features)
+                feature_vec = self._generate_benign_flow(n_features, rng)
             elif attack_type in ["ddos", "dos"]:
-                feature_vec = self._generate_dos_flow(n_features)
+                feature_vec = self._generate_dos_flow(n_features, rng)
             elif attack_type == "portscan":
-                feature_vec = self._generate_portscan_flow(n_features)
+                feature_vec = self._generate_portscan_flow(n_features, rng)
             else:
-                feature_vec = self._generate_attack_flow(n_features)
+                feature_vec = self._generate_attack_flow(n_features, rng)
 
             features.append(feature_vec)
             labels.append(0 if attack_type == "benign" else 1)
@@ -1074,45 +1115,56 @@ class CICIDSLoader(DatasetLoader):
         )
         return True
 
-    def _generate_benign_flow(self, n_features: int) -> np.ndarray:
+    def _generate_benign_flow(
+        self, n_features: int, rng: np.random.Generator | None = None
+    ) -> np.ndarray:
         """Generate synthetic benign network flow features."""
+        if rng is None:
+            rng = np.random.default_rng()
         flow = np.zeros(n_features)
-        # Typical benign traffic characteristics
-        flow[0] = np.random.exponential(10000)  # Flow duration
-        flow[1] = np.random.poisson(10)  # Fwd packets
-        flow[2] = np.random.poisson(8)  # Bwd packets
-        flow[3] = np.random.exponential(1000)  # Fwd bytes
-        flow[4] = np.random.exponential(800)  # Bwd bytes
-        # Random noise for remaining features
-        flow[5:] = np.random.exponential(100, n_features - 5)
+        flow[0] = rng.exponential(10000)  # Flow duration
+        flow[1] = rng.poisson(10)  # Fwd packets
+        flow[2] = rng.poisson(8)  # Bwd packets
+        flow[3] = rng.exponential(1000)  # Fwd bytes
+        flow[4] = rng.exponential(800)  # Bwd bytes
+        flow[5:] = rng.exponential(100, n_features - 5)
         return flow
 
-    def _generate_dos_flow(self, n_features: int) -> np.ndarray:
+    def _generate_dos_flow(
+        self, n_features: int, rng: np.random.Generator | None = None
+    ) -> np.ndarray:
         """Generate synthetic DoS attack flow features."""
-        flow = self._generate_benign_flow(n_features)
-        # DoS characteristics: high packet rate, short flows
-        flow[0] = np.random.exponential(100)  # Short duration
-        flow[1] = np.random.poisson(500)  # Many fwd packets
-        flow[11] = np.random.exponential(100000)  # High bytes/sec
-        flow[12] = np.random.exponential(10000)  # High packets/sec
+        if rng is None:
+            rng = np.random.default_rng()
+        flow = self._generate_benign_flow(n_features, rng)
+        flow[0] = rng.exponential(100)  # Short duration
+        flow[1] = rng.poisson(500)  # Many fwd packets
+        flow[11] = rng.exponential(100000)  # High bytes/sec
+        flow[12] = rng.exponential(10000)  # High packets/sec
         return flow
 
-    def _generate_portscan_flow(self, n_features: int) -> np.ndarray:
+    def _generate_portscan_flow(
+        self, n_features: int, rng: np.random.Generator | None = None
+    ) -> np.ndarray:
         """Generate synthetic port scan flow features."""
-        flow = self._generate_benign_flow(n_features)
-        # Port scan: very short flows, mostly SYN
-        flow[0] = np.random.exponential(10)  # Very short duration
+        if rng is None:
+            rng = np.random.default_rng()
+        flow = self._generate_benign_flow(n_features, rng)
+        flow[0] = rng.exponential(10)  # Very short duration
         flow[1] = 1  # Usually 1-2 packets
         flow[2] = 0  # No response
         flow[33] = 1  # SYN flag
         return flow
 
-    def _generate_attack_flow(self, n_features: int) -> np.ndarray:
+    def _generate_attack_flow(
+        self, n_features: int, rng: np.random.Generator | None = None
+    ) -> np.ndarray:
         """Generate generic attack flow features."""
-        flow = self._generate_benign_flow(n_features)
-        # Anomalous characteristics
-        flow *= np.random.uniform(0.5, 2.0, n_features)
-        flow[np.random.choice(n_features, 5)] *= 10  # Some features spiked
+        if rng is None:
+            rng = np.random.default_rng()
+        flow = self._generate_benign_flow(n_features, rng)
+        flow *= rng.uniform(0.5, 2.0, n_features)
+        flow[rng.choice(n_features, 5)] *= 10  # Some features spiked
         return flow
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -1257,8 +1309,21 @@ class ThreatIntelLoader(DatasetLoader):
     CITATION = "MITRE ATT&CK. MITRE Corporation. https://attack.mitre.org/"
     REQUIRES_CREDENTIALS = False
 
-    # MITRE ATT&CK STIX data URL (via TrustedEndpoints for SSRF prevention)
+    # MITRE ATT&CK STIX data URL (via TrustedEndpoints for SSRF prevention).
+    # The mitre-attack/attack-stix-data repository is the current canonical
+    # source. The legacy mitre/cti repository is kept as a backward-compatible
+    # mirror (still updated through 2024) and as the primary fallback when
+    # raw.githubusercontent.com rate-limits the canonical path.
     MITRE_STIX_URL = TrustedEndpoints.MITRE_STIX_DATA
+    MITRE_STIX_MIRRORS = (
+        TrustedEndpoints.MITRE_STIX_DATA,
+        # attack-stix-data has migrated some branches between master/main; try both.
+        (
+            "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/"
+            "main/enterprise-attack/enterprise-attack.json"
+        ),
+        TrustedEndpoints.MITRE_STIX,
+    )
 
     # MITRE ATT&CK tactics
     TACTICS = [
@@ -1328,7 +1393,8 @@ class ThreatIntelLoader(DatasetLoader):
     def _download_from_mitre(self) -> bool:
         """Download and process MITRE ATT&CK STIX data."""
         import json
-        import urllib.request
+
+        from .base import http_get_with_retry
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -1339,41 +1405,45 @@ class ThreatIntelLoader(DatasetLoader):
             self._is_real_data = True
             return True
 
+        objects: list[dict[str, Any]] = []
+        last_err: Exception | None = None
+        for url in self.MITRE_STIX_MIRRORS:
+            try:
+                try:
+                    TrustedEndpoints.validate_url(url)
+                except ValueError:
+                    logger.warning("MITRE mirror %s not on allowlist", url)
+                logger.info("Downloading MITRE ATT&CK Enterprise data from %s", url)
+                content = http_get_with_retry(url, timeout=120)
+                payload = json.loads(content.decode("utf-8"))
+                objects = payload.get("objects", [])
+                if objects:
+                    break
+                last_err = ValueError("STIX bundle contained zero objects")
+            except Exception as e:
+                last_err = e
+                logger.info("MITRE mirror %s failed: %s", url, e)
+                continue
+
+        if not objects:
+            logger.warning("All MITRE ATT&CK mirrors failed: %s", last_err)
+            return False
+
+        # Filter to attack-patterns (techniques)
+        techniques = [obj for obj in objects if obj.get("type") == "attack-pattern"]
+        logger.info(f"Downloaded {len(techniques)} ATT&CK techniques")
+
         try:
-            logger.info("Downloading MITRE ATT&CK Enterprise data...")
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            TrustedEndpoints.validate_url(self.MITRE_STIX_URL)
-            req = urllib.request.Request(
-                self.MITRE_STIX_URL,
-                headers={"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"},
-            )
-            with urllib.request.urlopen(req, timeout=120) as response:  # nosec B310
-                data = json.loads(response.read().decode("utf-8"))
-
-            objects = data.get("objects", [])
-            if not objects:
-                logger.warning("No objects found in MITRE ATT&CK data")
-                return False
-
-            # Filter to attack-patterns (techniques)
-            techniques = [obj for obj in objects if obj.get("type") == "attack-pattern"]
-            logger.info(f"Downloaded {len(techniques)} ATT&CK techniques")
-
-            # Process into features
             features, labels = self._process_mitre_data(techniques)
-
-            # Save to cache
             np.savez_compressed(cache_file, features=features, labels=labels)
             self._is_real_data = True
-
             logger.info(
                 f"MITRE ATT&CK data loaded: {len(features)} techniques, "
                 f"{labels.sum()} high-risk (is_real_data=True)"
             )
             return True
-
         except Exception as e:
-            logger.warning(f"MITRE ATT&CK download failed: {e}")
+            logger.warning(f"MITRE ATT&CK processing failed: {e}")
             return False
 
     def _process_mitre_data(
@@ -1430,8 +1500,8 @@ class ThreatIntelLoader(DatasetLoader):
 
         # Apply max_samples limit
         if self.config.max_samples and len(features) > self.config.max_samples:
-            np.random.seed(self.config.random_seed)
-            indices = np.random.choice(len(features), self.config.max_samples, replace=False)
+            rng = np.random.default_rng(self.config.random_seed)
+            indices = rng.choice(len(features), self.config.max_samples, replace=False)
             features = features[indices]
             labels = labels[indices]
 
@@ -1444,36 +1514,36 @@ class ThreatIntelLoader(DatasetLoader):
             "Results will NOT reflect real MITRE ATT&CK patterns."
         )
 
-        np.random.seed(self.config.random_seed)
+        rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
         features = []
         labels = []
 
         for _i in range(n_samples):
-            is_high_risk = np.random.random() < 0.3
+            is_high_risk = rng.random() < 0.3
 
             if is_high_risk:
                 # High-risk technique: multiple tactics, many platforms
-                num_phases = np.random.randint(2, 5)
-                num_platforms = np.random.randint(3, 8)
-                num_data_sources = np.random.randint(2, 10)
-                num_mitigations = np.random.randint(1, 5)
-                num_detections = np.random.randint(2, 8)
-                is_sub = np.random.random() < 0.3
+                num_phases = rng.integers(2, 5)
+                num_platforms = rng.integers(3, 8)
+                num_data_sources = rng.integers(2, 10)
+                num_mitigations = rng.integers(1, 5)
+                num_detections = rng.integers(2, 8)
+                is_sub = rng.random() < 0.3
                 # Random tactic selection (higher probability)
-                tactics = [1 if np.random.random() < 0.4 else 0 for _ in self.TACTICS]
+                tactics = [1 if rng.random() < 0.4 else 0 for _ in self.TACTICS]
                 labels.append(1)
             else:
                 # Lower-risk technique
-                num_phases = np.random.randint(1, 3)
-                num_platforms = np.random.randint(1, 4)
-                num_data_sources = np.random.randint(0, 5)
-                num_mitigations = np.random.randint(0, 3)
-                num_detections = np.random.randint(0, 4)
-                is_sub = np.random.random() < 0.6
+                num_phases = rng.integers(1, 3)
+                num_platforms = rng.integers(1, 4)
+                num_data_sources = rng.integers(0, 5)
+                num_mitigations = rng.integers(0, 3)
+                num_detections = rng.integers(0, 4)
+                is_sub = rng.random() < 0.6
                 # Random tactic selection (lower probability)
-                tactics = [1 if np.random.random() < 0.15 else 0 for _ in self.TACTICS]
+                tactics = [1 if rng.random() < 0.15 else 0 for _ in self.TACTICS]
                 labels.append(0)
 
             row = [
@@ -1487,13 +1557,13 @@ class ThreatIntelLoader(DatasetLoader):
 
             features.append(row)
 
-        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
-        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
+        features_arr = np.array(features, dtype=np.float32)
+        labels_arr = np.array(labels, dtype=np.int64)
 
         save_path = self.data_path / "synthetic_threat_intel.npz"
-        np.savez_compressed(save_path, features=features, labels=labels)
+        np.savez_compressed(save_path, features=features_arr, labels=labels_arr)
 
-        logger.info(f"Generated {n_samples} threat intel samples, {labels.sum()} threats")  # type: ignore[attr-defined, unused-ignore]
+        logger.info(f"Generated {n_samples} threat intel samples, {labels_arr.sum()} threats")
         return True
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:

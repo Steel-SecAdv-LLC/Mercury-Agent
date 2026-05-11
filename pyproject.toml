@@ -97,6 +97,14 @@ medical = [
 # Deep face recognition
 face = [
     "deepface>=0.0.79",
+    # tf-keras is required by retinaface (imported transitively by
+    # deepface) starting with tensorflow 2.16; without it,
+    # ``retinaface.commons.package_utils.validate_for_keras3()``
+    # raises ``ValueError`` at import time, breaking any module that
+    # does ``from deepface import DeepFace`` even inside a try/except
+    # block that only catches ``ImportError``.  Pin the floor so the
+    # contract is explicit in the extras graph.
+    "tf-keras>=2.16",
 ]
 
 # API server

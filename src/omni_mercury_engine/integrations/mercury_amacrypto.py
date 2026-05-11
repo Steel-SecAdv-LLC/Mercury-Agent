@@ -48,12 +48,21 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-_AMA_POSTURE_AVAILABLE = False
-try:
+# ---------------------------------------------------------------------------
+# AMA Cryptography Adaptive Posture import + stubs
+#
+# Mypy uses the real ``ama_cryptography.adaptive_posture`` types via the
+# ``TYPE_CHECKING`` branch — guaranteeing a single canonical type for every
+# symbol below. At runtime we attempt the real import and fall back to local
+# stub classes that match the real API surface. The stubs are therefore
+# defined exactly once on the runtime path, eliminating any need for
+# ``# type: ignore[no-redef]`` suppressions.
+# ---------------------------------------------------------------------------
+if TYPE_CHECKING:
     from ama_cryptography.adaptive_posture import (
         CryptoPostureController,
         PostureAction,
@@ -63,69 +72,82 @@ try:
     )
 
     _AMA_POSTURE_AVAILABLE = True
-except ImportError:
-    import warnings
+else:
+    try:
+        from ama_cryptography.adaptive_posture import (
+            CryptoPostureController,
+            PostureAction,
+            PostureEvaluation,
+            PostureEvaluator,
+            ThreatLevel,
+        )
 
-    warnings.warn(
-        "ama_cryptography.adaptive_posture not available. "
-        "Adaptive posture features will use stubs.",
-        stacklevel=2,
-    )
+        _AMA_POSTURE_AVAILABLE = True
+    except ImportError:
+        import warnings
 
-    # Stub implementations for when ama_cryptography is not installed
-    from enum import Enum as _Enum
+        warnings.warn(
+            "ama_cryptography.adaptive_posture not available. "
+            "Adaptive posture features will use stubs.",
+            stacklevel=2,
+        )
 
-    class ThreatLevel(_Enum):  # type: ignore[no-redef]
-        """Stub ThreatLevel enum (matches ama_cryptography.adaptive_posture)."""
+        # Stub implementations for when ama_cryptography is not installed.
+        from enum import Enum as _Enum
 
-        NOMINAL = "nominal"
-        ELEVATED = "elevated"
-        HIGH = "high"
-        CRITICAL = "critical"
+        class ThreatLevel(_Enum):
+            """Stub ThreatLevel enum (matches ama_cryptography.adaptive_posture)."""
 
-    class PostureAction(_Enum):  # type: ignore[no-redef]
-        """Stub PostureAction enum (matches ama_cryptography.adaptive_posture)."""
+            NOMINAL = "nominal"
+            ELEVATED = "elevated"
+            HIGH = "high"
+            CRITICAL = "critical"
 
-        NONE = "none"
-        INCREASE_MONITORING = "increase_monitoring"
-        ROTATE_KEYS = "rotate_keys"
-        SWITCH_ALGORITHM = "switch_algorithm"
-        ROTATE_AND_SWITCH = "rotate_and_switch"
+        class PostureAction(_Enum):
+            """Stub PostureAction enum (matches ama_cryptography.adaptive_posture)."""
 
-    @dataclass
-    class PostureEvaluation:  # type: ignore[no-redef]
-        """Stub PostureEvaluation."""
+            NONE = "none"
+            INCREASE_MONITORING = "increase_monitoring"
+            ROTATE_KEYS = "rotate_keys"
+            SWITCH_ALGORITHM = "switch_algorithm"
+            ROTATE_AND_SWITCH = "rotate_and_switch"
 
-        threat_level: ThreatLevel = ThreatLevel.NOMINAL
-        action: PostureAction = PostureAction.NONE
-        confidence: float = 0.0
-        signals: dict[str, Any] = field(default_factory=dict)
-        details: dict[str, Any] = field(default_factory=dict)
+        @dataclass
+        class PostureEvaluation:
+            """Stub PostureEvaluation."""
 
-    class PostureEvaluator:  # type: ignore[no-redef]
-        """Stub PostureEvaluator."""
+            threat_level: ThreatLevel = ThreatLevel.NOMINAL
+            action: PostureAction = PostureAction.NONE
+            confidence: float = 0.0
+            signals: dict[str, Any] = field(default_factory=dict)
+            details: dict[str, Any] = field(default_factory=dict)
 
-        def evaluate(self, report: dict[str, Any]) -> PostureEvaluation:
-            return PostureEvaluation(
-                threat_level=ThreatLevel.NOMINAL,
-                action=PostureAction.NONE,
-                confidence=0.0,
-                signals={},
-            )
+        class PostureEvaluator:
+            """Stub PostureEvaluator."""
 
-    class CryptoPostureController:  # type: ignore[no-redef]
-        """Stub CryptoPostureController."""
+            def evaluate(self, report: dict[str, Any]) -> PostureEvaluation:
+                return PostureEvaluation(
+                    threat_level=ThreatLevel.NOMINAL,
+                    action=PostureAction.NONE,
+                    confidence=0.0,
+                    signals={},
+                )
 
-        def __init__(self, **kwargs: Any) -> None:
-            pass
+        class CryptoPostureController:
+            """Stub CryptoPostureController."""
 
-        def get_posture_summary(self) -> dict[str, Any]:
-            """Return a stub posture summary."""
-            return {
-                "status": "stub",
-                "threat_level": "nominal",
-                "action": "none",
-            }
+            def __init__(self, **kwargs: Any) -> None:
+                pass
+
+            def get_posture_summary(self) -> dict[str, Any]:
+                """Return a stub posture summary."""
+                return {
+                    "status": "stub",
+                    "threat_level": "nominal",
+                    "action": "none",
+                }
+
+        _AMA_POSTURE_AVAILABLE = False
 
 
 logger = logging.getLogger(__name__)
@@ -166,10 +188,18 @@ AMA_CRYPTOGRAPHY_AVAILABLE = False
 DILITHIUM_AVAILABLE = False
 KYBER_AVAILABLE = False
 
-try:
+# ---------------------------------------------------------------------------
+# AMA Cryptography PQC backends import + stubs
+#
+# Mypy gets the real types from ``ama_cryptography.pqc_backends`` via the
+# ``TYPE_CHECKING`` branch (single canonical type per symbol). At runtime we
+# attempt the real import, then a legacy ``ava_guardian`` shim, and finally
+# fall back to local stub dataclasses defined exactly once. This eliminates
+# the ``# type: ignore[no-redef, unused-ignore]`` suppressions previously
+# required to silence the conditional double-definition signal.
+# ---------------------------------------------------------------------------
+if TYPE_CHECKING:
     from ama_cryptography.pqc_backends import (
-        DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
-        KYBER_AVAILABLE as _KYBER_AVAILABLE,
         DilithiumKeyPair,
         KyberEncapsulation,
         KyberKeyPair,
@@ -180,23 +210,9 @@ try:
         kyber_decapsulate,
         kyber_encapsulate,
     )
-
-    AMA_CRYPTOGRAPHY_AVAILABLE = True
-    DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
-    KYBER_AVAILABLE = _KYBER_AVAILABLE
-    _PQC_BACKEND_SOURCE = "ama_cryptography"
-    logger.info("AMA Cryptography PQC backends loaded successfully")
-except ImportError:
+else:
     try:
-        # ``ava-guardian`` is the legacy distribution name for the same PQC
-        # surface; it is kept as a compatibility shim for installs that
-        # haven't migrated to ``ama-cryptography`` yet.  mypy raises
-        # ``[no-redef]`` because the names are conditionally defined twice
-        # (once per import branch) — by design, since at runtime exactly
-        # one branch executes.  ``# type: ignore`` is scoped narrowly to
-        # the redefinition signal so the rest of the file stays strictly
-        # type-checked.
-        from ava_guardian.pqc_backends import (  # type: ignore[no-redef, unused-ignore]
+        from ama_cryptography.pqc_backends import (
             DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
             KYBER_AVAILABLE as _KYBER_AVAILABLE,
             DilithiumKeyPair,
@@ -213,35 +229,76 @@ except ImportError:
         AMA_CRYPTOGRAPHY_AVAILABLE = True
         DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
         KYBER_AVAILABLE = _KYBER_AVAILABLE
-        _PQC_BACKEND_SOURCE = "ava_guardian"
-        logger.info("AMA Cryptography PQC backends loaded via ava-guardian compatibility shim")
+        _PQC_BACKEND_SOURCE = "ama_cryptography"
+        logger.info("AMA Cryptography PQC backends loaded successfully")
     except ImportError:
-        # _PQC_BACKEND_SOURCE remains "stub" — tracked at module top.
-        logger.warning(
-            "AMA Cryptography not available. Post-quantum cryptography features disabled. "
-            "Install ama-cryptography for PQC support."
-        )
+        try:
+            # ``ava-guardian`` is the legacy distribution name for the same PQC
+            # surface; it is kept as a compatibility shim for installs that
+            # haven't migrated to ``ama-cryptography`` yet. Mypy uses the
+            # ``ama_cryptography.pqc_backends`` types via the TYPE_CHECKING
+            # branch above, so this runtime fallback does not require a
+            # ``# type: ignore[no-redef]`` annotation.
+            from ava_guardian.pqc_backends import (
+                DILITHIUM_AVAILABLE as _DILITHIUM_AVAILABLE,
+                KYBER_AVAILABLE as _KYBER_AVAILABLE,
+                DilithiumKeyPair,
+                KyberEncapsulation,
+                KyberKeyPair,
+                dilithium_sign,
+                dilithium_verify,
+                generate_dilithium_keypair,
+                generate_kyber_keypair,
+                kyber_decapsulate,
+                kyber_encapsulate,
+            )
 
-        @dataclass
-        class DilithiumKeyPair:  # type: ignore[no-redef]
-            """Stub for DilithiumKeyPair when AMA Cryptography not available."""
+            AMA_CRYPTOGRAPHY_AVAILABLE = True
+            DILITHIUM_AVAILABLE = _DILITHIUM_AVAILABLE
+            KYBER_AVAILABLE = _KYBER_AVAILABLE
+            _PQC_BACKEND_SOURCE = "ava_guardian"
+            logger.info("AMA Cryptography PQC backends loaded via ava-guardian compatibility shim")
+        except ImportError:
+            # _PQC_BACKEND_SOURCE remains "stub" — tracked at module top.
+            logger.warning(
+                "AMA Cryptography not available. Post-quantum cryptography features disabled. "
+                "Install ama-cryptography for PQC support."
+            )
 
-            public_key: bytes = b""
-            secret_key: bytes = field(default=b"", repr=False)
+            @dataclass
+            class DilithiumKeyPair:
+                """Stub for DilithiumKeyPair when AMA Cryptography not available."""
 
-        @dataclass
-        class KyberKeyPair:  # type: ignore[no-redef]
-            """Stub for KyberKeyPair when AMA Cryptography not available."""
+                public_key: bytes = b""
+                secret_key: bytes = field(default=b"", repr=False)
 
-            secret_key: bytes = field(default=b"", repr=False)
-            public_key: bytes = b""
+            @dataclass
+            class KyberKeyPair:
+                """Stub for KyberKeyPair when AMA Cryptography not available."""
 
-        @dataclass
-        class KyberEncapsulation:  # type: ignore[no-redef]
-            """Stub for KyberEncapsulation when AMA Cryptography not available."""
+                secret_key: bytes = field(default=b"", repr=False)
+                public_key: bytes = b""
 
-            ciphertext: bytes = b""
-            shared_secret: bytes = b""
+            @dataclass
+            class KyberEncapsulation:
+                """Stub for KyberEncapsulation when AMA Cryptography not available."""
+
+                ciphertext: bytes = b""
+                shared_secret: bytes = b""
+
+            def _stub_unavailable(*_args: Any, **_kwargs: Any) -> Any:
+                """Stub PQC operation when AMA Cryptography not available."""
+                raise ImportError(
+                    "AMA Cryptography (or ava-guardian) is required for PQC operations. "
+                    "Install with: pip install ama-cryptography"
+                )
+
+            generate_dilithium_keypair = _stub_unavailable
+            generate_kyber_keypair = _stub_unavailable
+            dilithium_sign = _stub_unavailable
+            dilithium_verify = _stub_unavailable
+            kyber_encapsulate = _stub_unavailable
+            kyber_decapsulate = _stub_unavailable
 
 
 # Backward compatibility alias

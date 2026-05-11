@@ -3,6 +3,27 @@
 **Date:** 2026-03-11
 **Auditor:** Automated deep-dive analysis
 **Scope:** GOSNN, 3R, Ethical Pillars, Hidden/Silenced Issues, Production Readiness
+**Status (as of 2026-05-05):** *Historical document — preserved as the
+audit that motivated the Phase 1 / Phase 2 / Wave A / Wave B
+remediation programme.*
+
+> **Resolution status banner.** Many of the CRITICAL and HIGH findings
+> in this document have been remediated in subsequent PRs. Do **not**
+> read this audit as a description of current state without
+> cross-checking against:
+>
+> | Finding theme                                  | Resolved by | Current state |
+> |------------------------------------------------|-------------|---------------|
+> | Ethics framework "advisory rather than mandatory" | PR #167 (Phase 2 Item 1), PR #179 (Wave B) | Hard-enforced dual gate at every public boundary; raises `EthicalConstraintViolationError` |
+> | σ_Immutable not raised from any code path      | PR #179 (Wave B) | Mandatory hard gate; private `_enable_gosnn` plus auditable `_GOSNN_TESTING_BYPASS` flag |
+> | Pickle-based training-data loader              | PR #166 (Phase 1 audit cure) | Pickle code path **deleted**; safe loaders only |
+> | Honest benchmarks                              | PR #166      | 64/75 reproducibility framing canonical; aspirational ROADMAP claims removed |
+> | CVE remediation, version bump, CHANGELOG       | PR #165 (v1.6.0) | v1.6.0 released |
+> | AMA Cryptography fragmentation                 | PR #144, PR #162; CI now pinned to AMA Cryptography **v3.1.0** in `.github/workflows/pqc-production-check.yml` (`AMA_REF: v3.1.0`) | AMA Cryptography is the **sole** PQC backend. Mercury imports successfully without it (the loader catches `ImportError` and falls back to stub functions). `omni_mercury_engine._pqc_gate._enforce_pqc_production_gate` (invoked from `__init__.py` at import time) is the **automatic** import-time gate that fails closed (`RuntimeError`) when `AMA_REQUIRE_REAL_PQC=true` and any of the three AMA algorithms (Dilithium / Kyber / SPHINCS) is missing or unavailable — no manual call to `check_pqc_production_readiness()` is required, the original guard remains available for callers that want the same check at a finer boundary |
+> | Federated learning silent failures             | PR #168 (Wave A) | Silent-failure fixes landed; benevolence cache, threshold convergence, fibring default, seven-axis matrix |
+>
+> Consult `CHANGELOG.md`, `docs/ROADMAP.md`, and the top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md)
+> §"Dual-Gate Hard Ethical Enforcement" for the current contract.
 
 ---
 
@@ -13,6 +34,12 @@ Mercury-Agent has strong architectural foundations but suffers from a consistent
 rather than mandatory, GOSNN has placeholder data where real model tensors should flow,
 the CI pipeline soft-fails on critical security/ethics gates, and production code contains
 mock fallbacks that silently degrade functionality without operator awareness.
+
+> **Status update (2026-05-05):** The "advisory rather than mandatory"
+> characterization is no longer accurate as of PR #179 (Wave B). The
+> Benevolence and σ_Immutable gates are mandatory hard gates at every
+> public boundary surface; refer to the top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md) for the current
+> contract.
 
 ### Severity Overview
 
@@ -483,9 +510,11 @@ all hard-fail PRs on findings outside the documented accept-lists.**
 | Date | Branch | Items Resolved |
 |------|--------|----------------|
 | 2026-03-11 | `claude/apply-branding-optimize-YYHEA` | Items 2, 4, 8-partial, 10-partial, 12, 14, 16, 20-partial, 21, 23-partial |
-| 2026-03-11 | PRs #142, #144, #146 (cherry-picked) | Black formatting, AMA Crypto v2.0 consolidation, MyPy/monitoring fixes |
+| 2026-03-11 | PRs #142, #144, #146 (cherry-picked) | Black formatting, AMA Crypto consolidation (v2.0 at the time; pin advanced to v3.1.0 in PR #162 / pqc-production-check workflow), MyPy/monitoring fixes |
 | 2026-03-11 | `claude/improve-previous-work-k2tWf` | Items 1, 3, 5-partial, 6, 7, 10-continued |
 
-*Last updated: 2026-05-02 (PR #148 — Safety + pip-audit BLOCKING; CVE audit doc; click/typer pin)*
+*Original audit footer: 2026-05-02 (PR #148 — Safety + pip-audit BLOCKING; CVE audit doc; click/typer pin). Status banner at the top of this document was added on 2026-05-05 to reflect post-Wave-B current state; the body text below remains the original audit verbatim.*
 
-*Remaining high-priority open items: P1-9 (pin AMA Crypto), P1-11 (coverage threshold), P1-13 (requirements.lock), P1-15 (OpenTelemetry), P2-17 (GOSNN config), P2-18 (domain policies), P2-19 (intersectional fairness), P2-22 (load tests in CI), P2-24 (3R-Resilience), P2-25 (bidirectional GOSNN-3R).*
+*Open-items list as of the original audit (2026-05-02): P1-9 (pin AMA Crypto), P1-11 (coverage threshold), P1-13 (requirements.lock), P1-15 (OpenTelemetry), P2-17 (GOSNN config), P2-18 (domain policies), P2-19 (intersectional fairness), P2-22 (load tests in CI), P2-24 (3R-Resilience), P2-25 (bidirectional GOSNN-3R).*
+
+*Updated status (2026-05-05): P1-9 resolved — `.github/workflows/pqc-production-check.yml` now pins AMA Cryptography to `v3.1.0`. P1-11 resolved — CI coverage thresholds raised from 10/10 to 15/35 in `.github/workflows/ci.yml` (sized just below the 36.03% interim measured baseline); `.coveragerc` intentionally does not set `fail_under` (per-job `--cov-fail-under` flags apply only to the opt-in jobs, so partial-suite jobs like `neuro-symbolic-tests` do not silently inherit a floor); `pyproject.toml [tool.coverage.report] fail_under=85` remains the aspirational target. The remaining items are still tracked in `docs/ROADMAP.md`.*

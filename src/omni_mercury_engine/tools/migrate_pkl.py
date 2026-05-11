@@ -65,7 +65,7 @@ import os
 import secrets
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -223,7 +223,7 @@ def _do_migration(args: argparse.Namespace) -> int:
         )
         return 3
 
-    archive: dict[str, np.ndarray] = {}
+    archive: dict[str, Any] = {}
     for name, value in features.items():
         if not isinstance(name, str):
             print(f"error: feature key {name!r} is not a string", file=sys.stderr)
@@ -244,11 +244,36 @@ def _do_migration(args: argparse.Namespace) -> int:
         return 3
     archive["labels"] = label_arr
 
-    # np.savez signature in numpy's type stubs declares the second
-    # positional as ``compress: bool``, but the runtime API explicitly
-    # accepts named ``ndarray`` kwargs. We rely on the documented runtime
-    # behaviour, not the stubs.
-    np.savez(str(dst), **archive)  # type: ignore[arg-type]
+    # Guard against archive keys that collide with ``numpy.savez``'s
+    # kw-only parameters.  On numpy 2.x ``savez`` declares
+    # ``allow_pickle: bool = True`` between ``*args`` and ``**kwds``,
+    # so a feature literally named ``"allow_pickle"`` would be
+    # silently routed to that parameter (and reject non-bool values
+    # at runtime, or coerce a truthy ndarray to ``True`` with no
+    # warning).  On numpy 1.x (project floor ``>=1.24``) the kwarg
+    # has no special meaning and would be silently stored as a 0-D
+    # array named ``allow_pickle`` in the .npz — phantom data the
+    # loader does not expect.  Either way is wrong: reject before
+    # the call.
+    _RESERVED_SAVEZ_KWARGS = frozenset({"allow_pickle"})
+    collisions = _RESERVED_SAVEZ_KWARGS & archive.keys()
+    if collisions:
+        print(
+            f"error: feature key(s) {sorted(collisions)} collide with "
+            f"numpy.savez reserved kwargs; rename before persisting",
+            file=sys.stderr,
+        )
+        return 3
+
+    # ``**archive`` is typed ``dict[str, Any]`` (not the stricter
+    # ``dict[str, np.ndarray]``) so the spread satisfies numpy 2.x's
+    # ``savez(file, *args, allow_pickle: bool, **kwds: ArrayLike)``
+    # stub — the kw-only ``allow_pickle: bool`` slot accepts ``Any``,
+    # which matches ``bool``.  The runtime contract that values are
+    # ``ndarray`` is enforced by the ``np.asarray`` + object-dtype
+    # filter above, and the reserved-kwarg guard above ensures
+    # ``allow_pickle`` is never the key being passed.
+    np.savez(str(dst), **archive)
     print(f"wrote: {dst}", file=sys.stderr)
 
     if args.sign_key_hex:

@@ -19,6 +19,12 @@ on:
 jobs:
   verify-real-pqc:
     runs-on: ubuntu-latest
+    env:
+      # All steps in this job collect from tests/security/, which loads
+      # conftest.py's CI safeguard.  Setting at job level ensures the
+      # PQC gate env var is visible to every step (pytest, coverage run,
+      # KAT), not just the main security-tests step.
+      MERCURY_PQC_REAL_AMA: "1"
     steps:
       - uses: actions/checkout@v6
 
@@ -35,11 +41,26 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.0"
-          # ``setuptools``/``wheel`` are required in the ambient environment for
-          # the subsequent ``pip install --no-build-isolation`` of
-          # ama-cryptography to resolve ``setuptools.build_meta``.
-          python -m pip install "setuptools>=61.0" wheel "cmake>=3.16"
+          python -m pip install --upgrade "pip>=26.1"
+          # AMA Cryptography v3.1.0's ``setup.py`` preflight enforces
+          # the supply-chain floors declared in
+          # ``pyproject.toml [build-system].requires``:
+          #   setuptools>=78.1.1  (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5)
+          #   wheel>=0.47.0       (GHSA-8rrh-rw8j-w5fx)
+          #   cmake>=4.3.2        (Dependabot supply-chain floor; the
+          #                        PyPI cmake shim's ``__version__`` is
+          #                        what setup.py's ``_check_cmake_version``
+          #                        Path A reads — must not be < 4.3.2 or
+          #                        the metadata-generation step fails).
+          # Floors are pinned explicitly (rather than relying on the
+          # resolver to upgrade an under-pinned ``cmake>=3.16`` to a
+          # 4.x) so the supply-chain contract is documented in CI.
+          # AMA_NO_CYTHON=1 below short-circuits the Cython / numpy
+          # preflight, so those are intentionally absent here.
+          python -m pip install --upgrade \
+            "setuptools>=78.1.1" \
+            "wheel>=0.47.0" \
+            "cmake>=4.3.2"
           # The verify-real-pqc job exercises the security suite end-to-end,
           # which includes ``tests/security/test_jwt_auth.py`` and
           # ``tests/security/test_audit_improvements.py``. Both reach the
@@ -148,6 +169,7 @@ jobs:
       - name: Run security tests with real PQC requirement
         env:
           AMA_REQUIRE_REAL_PQC: "true"
+          MERCURY_PQC_REAL_AMA: "1"
         # Blocking — the previous ``|| echo "Some tests may fail without
         # AMA native C library"`` was a silent escape hatch.  By the time
         # this step runs, the workflow has already:

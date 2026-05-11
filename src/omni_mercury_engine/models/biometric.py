@@ -38,7 +38,13 @@ try:
     from deepface import DeepFace
 
     DEEPFACE_AVAILABLE = True
-except (ImportError, ValueError):
+except Exception:
+    # ``except Exception`` (not just ``(ImportError, ValueError)``)
+    # because the deepface -> retinaface -> tensorflow import chain
+    # can raise ``OSError`` (missing CUDA runtime), ``RuntimeError``
+    # (tf version mismatch), or ``AttributeError`` (stale transitive
+    # deps) in addition to the known ``ValueError`` from the
+    # tf-keras check.  ``BaseException`` is deliberately not caught.
     DeepFace = None
     DEEPFACE_AVAILABLE = False
 

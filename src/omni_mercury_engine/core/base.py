@@ -42,13 +42,21 @@ from dataclasses import dataclass, field
 from functools import wraps
 from typing import TYPE_CHECKING, Any, TypedDict
 
-try:
+if TYPE_CHECKING:
     import torch
     from torch import nn
 
     TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+else:
+    try:
+        import torch
+        from torch import nn
+
+        TORCH_AVAILABLE = True
+    except ImportError:
+        torch = None  # type: ignore[assignment, unused-ignore]
+        nn = None  # type: ignore[assignment, unused-ignore]
+        TORCH_AVAILABLE = False
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -690,7 +698,7 @@ class BaseModel(ABC):
         return np.zeros(len(data) if hasattr(data, "__len__") else 1)
 
 
-if TORCH_AVAILABLE:
+if TYPE_CHECKING or TORCH_AVAILABLE:
 
     class BaseEncoder(nn.Module):
         """
@@ -731,9 +739,11 @@ if TORCH_AVAILABLE:
 
 else:
 
-    def BaseEncoder(*args: Any, **kwargs: Any) -> None:  # type: ignore[no-redef]
+    class BaseEncoder:
         """Stub: BaseEncoder requires PyTorch."""
-        raise ImportError("BaseEncoder requires PyTorch. Install with: pip install torch")
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError("BaseEncoder requires PyTorch. Install with: pip install torch")
 
 
 @dataclass

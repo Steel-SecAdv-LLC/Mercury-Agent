@@ -2,6 +2,29 @@
 
 Mercury Agent provides a flexible routing infrastructure for request handling, pattern matching, and graceful degradation through fallback chains. This guide covers the core routing components and demonstrates how to integrate them with the detection pipeline.
 
+> **Hard ethical gates run *inside* the prediction call, not at the
+> route layer.** Routes never see, attenuate, or bypass the dual
+> ethical contract. Every public boundary surface reached from a
+> route — `OmniMercuryEngine.detect_with_fusion`,
+> `detect_with_fusion_calibrated`, `CognitiveOrchestrator.analyze`,
+> `NeuroSymbolicHub.predict` — runs **Benevolence then σ_Immutable**
+> as mandatory hard gates (Wave B, PR #179) and raises
+> `EthicalConstraintViolationError(check=…)` on failure.
+>
+> **Fallback chains do not mask ethical refusals.**
+> `FallbackChain.execute()` (`integrations/routing/fallback.py`)
+> previously caught generic `Exception` and advanced to the next
+> handler unless `fail_fast=True`, which would have allowed an
+> `EthicalConstraintViolationError` from a wrapped detection
+> handler to be silently substituted with a "default response".
+> The chain now special-cases that exception and re-raises it
+> unconditionally regardless of `fail_fast`, so an ethical refusal
+> propagates out of the chain even when other failure modes are
+> still being absorbed. See the top-level
+> [`../ARCHITECTURE.md`](../ARCHITECTURE.md) §"Dual-Gate Hard
+> Ethical Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
+> for the full contract.
+
 ## Overview
 
 The routing infrastructure consists of two main systems:
@@ -10,6 +33,8 @@ The routing infrastructure consists of two main systems:
 2. **FallbackChain**: Priority-based handler chains for graceful degradation when primary services fail
 
 Both systems are designed to work together, enabling robust request handling with automatic fallback to cached or default responses when external services are unavailable.
+
+**Important fallback-chain semantics.** `FallbackChain.execute()` catches the **generic `Exception`** base class and advances to the next handler unless `fail_fast=True`. The only exception that is special-cased and always re-raised is `EthicalConstraintViolationError` (added in this PR). All other handler exceptions — including application bugs, `KeyError`, `ValueError`, network errors, etc. — are absorbed by the chain and treated as a fallback trigger by default. This is the intended graceful-degradation contract for *connectivity / latency / data-source* failures, but operators should be aware that it will also mask logic bugs in handlers; surface those by setting `fail_fast=True` on the chain or by adding explicit type-narrowing in your handler before raising.
 
 ## RequestRouter
 
