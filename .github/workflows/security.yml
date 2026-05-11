@@ -62,7 +62,7 @@ jobs:
       # blanket suppression via ``[tool.bandit].skips`` for the
       # specific finding type; see ``pyproject.toml`` for the
       # global skip list, which is intentionally small).
-      run: bandit -r src/omni_mercury_engine/ -f json -o bandit-report.json --severity-level medium
+      run: bandit -r src/omni_mercury_engine/ -c pyproject.toml -f json -o bandit-report.json --severity-level medium
 
     - name: Upload Security Reports
       uses: actions/upload-artifact@v7
