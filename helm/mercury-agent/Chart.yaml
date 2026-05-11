@@ -48,7 +48,7 @@ annotations:
 dependencies:
   # Optional: Prometheus for metrics
   - name: prometheus
-    version: "~29.5.0"
+    version: 29.6.0
     repository: "https://prometheus-community.github.io/helm-charts"
     condition: prometheus.enabled
     tags:
@@ -64,7 +64,7 @@ dependencies:
 
   # Optional: Redis for caching
   - name: redis
-    version: "~25.4.1"
+    version: 25.5.2
     repository: "https://charts.bitnami.com/bitnami"
     condition: redis.enabled
     tags:
