@@ -124,10 +124,19 @@ class Qwen2VLBackend(LVLMBackend):
         try:
             from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
-            logger.info(f"Loading Qwen2-VL: {self.model_name}")
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
 
-            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615
-            self.model = Qwen2VLForConditionalGeneration.from_pretrained(  # nosec B615
+            logger.info(f"Loading Qwen2-VL: {self.model_name}")
+            # Gate the load against the central HF policy: namespace
+            # allowlist + revision pinning + trust_remote_code policy.
+            HFModelPolicy.validate(
+                self.model_name,
+                revision=getattr(self, "revision", None),
+                trust_remote_code=False,
+            )
+
+            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615 - HFModelPolicy.validate enforces namespace allowlist + revision pinning
+            self.model = Qwen2VLForConditionalGeneration.from_pretrained(  # nosec B615 - HFModelPolicy.validate enforces namespace allowlist + revision pinning
                 self.model_name,
                 torch_dtype=torch.float16,
                 device_map="auto",
@@ -199,15 +208,23 @@ class MiniCPMVBackend(LVLMBackend):
         try:
             from transformers import AutoModel, AutoTokenizer
 
-            logger.info(f"Loading MiniCPM-V: {self.model_name}")
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
 
-            # nosec B615 - model_name is user-configured; see module docstring for security guidance
-            self.model = AutoModel.from_pretrained(  # nosec B615
+            logger.info(f"Loading MiniCPM-V: {self.model_name}")
+            # MiniCPM-V needs trust_remote_code=True; policy must approve
+            # the namespace before that flag is accepted.
+            HFModelPolicy.validate(
+                self.model_name,
+                revision=getattr(self, "revision", None),
+                trust_remote_code=True,
+            )
+
+            self.model = AutoModel.from_pretrained(  # nosec B615 - HFModelPolicy.validate gates namespace + trust_remote_code + revision
                 self.model_name,
                 trust_remote_code=True,
                 torch_dtype=torch.float16,
             ).to(self.device)
-            self.processor = AutoTokenizer.from_pretrained(  # nosec B615
+            self.processor = AutoTokenizer.from_pretrained(  # nosec B615 - HFModelPolicy.validate gates namespace + trust_remote_code + revision
                 self.model_name,
                 trust_remote_code=True,
             )
@@ -253,10 +270,17 @@ class LLaVABackend(LVLMBackend):
         try:
             from transformers import AutoProcessor, LlavaForConditionalGeneration
 
-            logger.info(f"Loading LLaVA: {self.model_name}")
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
 
-            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615
-            self.model = LlavaForConditionalGeneration.from_pretrained(  # nosec B615
+            logger.info(f"Loading LLaVA: {self.model_name}")
+            HFModelPolicy.validate(
+                self.model_name,
+                revision=getattr(self, "revision", None),
+                trust_remote_code=False,
+            )
+
+            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615 - HFModelPolicy.validate enforces namespace allowlist + revision pinning
+            self.model = LlavaForConditionalGeneration.from_pretrained(  # nosec B615 - HFModelPolicy.validate enforces namespace allowlist + revision pinning
                 self.model_name,
                 torch_dtype=torch.float16,
                 device_map="auto",

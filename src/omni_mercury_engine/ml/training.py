@@ -373,7 +373,7 @@ class Trainer:
                 )
                 checkpoint = torch.load(
                     path, map_location=self.device, weights_only=False
-                )  # nosec B614 - intentional for trusted checkpoints with allow_unsafe=True
+                )  # nosec B614 - allow_unsafe opt-in path; default branch above uses weights_only=True
             else:
                 raise RuntimeError(
                     f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "

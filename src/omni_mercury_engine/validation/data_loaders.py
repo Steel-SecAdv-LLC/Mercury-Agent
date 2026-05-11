@@ -544,7 +544,7 @@ class USGSEarthquakeLoader(DatasetLoader):
 
             TrustedEndpoints.validate_url(self.USGS_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=30) as response:  # nosec B310
+            with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain (called above)
                 data = json.loads(response.read().decode())
 
             features_list = []
@@ -1118,7 +1118,7 @@ class NOAASpaceWeatherLoader(DatasetLoader):
 
             TrustedEndpoints.validate_url(self.SWPC_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=30) as response:  # nosec B310
+            with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain (called above)
                 kp_data = json.loads(response.read().decode())
 
             if not kp_data:
@@ -1399,7 +1399,7 @@ class NOAAHurricaneLoader(DatasetLoader):
 
             TrustedEndpoints.validate_url(self.NHC_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=30) as response:  # nosec B310
+            with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain (called above)
                 raw_data = response.read().decode()
 
             if not raw_data:
@@ -1707,7 +1707,7 @@ class NOAAOceanLoader(DatasetLoader):
 
             TrustedEndpoints.validate_url(self.NOS_API_URL)
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=30) as response:  # nosec B310
+            with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain (called above)
                 raw_data = json.loads(response.read().decode())
 
             data_entries = raw_data.get("data", [])

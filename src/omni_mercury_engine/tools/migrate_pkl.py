@@ -152,7 +152,7 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     The load-bearing isolation here is the *process boundary* -- a malicious pickle that achieves
     code execution still cannot reach the parent (operator) process state.
     """
-    import subprocess  # nosec B404
+    import subprocess  # nosec B404 - subprocess is used to re-launch this tool in a hardened child (scrubbed env, sys.executable+module path argv); see _relaunch_hardened docstring
 
     env: dict[str, str] = {
         _HARDENED_SENTINEL: "1",
@@ -169,7 +169,7 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     # B603/S603: command list is fully constructed from sys.executable plus the
     # fixed module path of this tool plus argparse-validated args. There is no
     # shell interpolation and no shell=True.
-    completed = subprocess.run(cmd, env=env, check=False)  # noqa: S603  # nosec B603
+    completed = subprocess.run(cmd, env=env, check=False)  # noqa: S603  # nosec B603 - argv is [sys.executable, "-m", fixed-module-path, *argparse-validated-args]; no shell, no string interpolation
     return completed.returncode
 
 

@@ -335,17 +335,24 @@ class WebSearchRetriever(BaseExternalRetriever):
         results = []
 
         try:
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             # Use DuckDuckGo Instant Answer API (no tracking)
             safe_query = urllib.parse.quote_plus(query)
             # URL is hardcoded with https:// scheme - safe
             url = f"https://api.duckduckgo.com/?q={safe_query}&format=json&no_html=1"
 
-            req = urllib.request.Request(  # noqa: S310 - URL scheme is hardcoded https
+            # SSRF defense: domain + scheme are checked against TRUSTED_DOMAINS
+            # before opening, so the urlopen below cannot be redirected to an
+            # internal endpoint via a tainted url.
+            TrustedEndpoints.validate_url(url.split("?")[0])
+
+            req = urllib.request.Request(  # noqa: S310 - validated above
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme is hardcoded https
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 req, timeout=self.config.web_search_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -401,20 +408,26 @@ class WebSearchRetriever(BaseExternalRetriever):
             return results
 
         try:
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             safe_query = urllib.parse.quote_plus(query)
             url = f"{self.searxng_url}/search?q={safe_query}&format=json"
 
-            # Validate URL scheme before making request
-            if not _validate_url_scheme(url):
-                logger.warning(f"Invalid URL scheme for SearXNG: {url}")
+            # SSRF defense for an operator-configured endpoint: block private
+            # ranges, link-local, multicast, reserved; require https unless
+            # the operator points at a loopback address (dev/test).
+            try:
+                TrustedEndpoints.validate_user_configured_url(url)
+            except ValueError as ssrf_err:
+                logger.warning("SearXNG URL rejected by SSRF policy: %s", ssrf_err)
                 return results
 
-            req = urllib.request.Request(  # noqa: S310 - URL scheme validated above
+            req = urllib.request.Request(  # noqa: S310 - validated above
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - validate_user_configured_url enforces SSRF policy
                 req, timeout=self.config.web_search_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -449,12 +462,16 @@ class WebSearchRetriever(BaseExternalRetriever):
             return False
 
         try:
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             # Quick connectivity check - URL is hardcoded with https:// scheme
-            req = urllib.request.Request(
-                "https://api.duckduckgo.com/?q=test&format=json",
+            probe_url = "https://api.duckduckgo.com/?q=test&format=json"
+            TrustedEndpoints.validate_url(probe_url.split("?")[0])
+            req = urllib.request.Request(  # noqa: S310 - validated above
+                probe_url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme is hardcoded https
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 req, timeout=5
             ) as _:
                 self._is_available = True
@@ -672,14 +689,32 @@ class DatabaseRetriever(BaseExternalRetriever):
                 target_table = table
                 break
 
-        # Validate table name contains only valid identifier characters
-        # This prevents SQL injection even though table names come from sqlite_master
+        # B608 SAFETY CONTRACT — two-layer defense against SQL injection:
+        #   1. ``target_table`` is read from ``sqlite_master`` (trusted catalog
+        #      that SQLite controls), then double-checked against
+        #      ``[a-zA-Z_][a-zA-Z0-9_]*`` so the f-string cannot carry
+        #      quotes, whitespace, or punctuation. Anything failing this
+        #      regex is rejected outright.
+        #   2. ``target_table`` must also still appear in the live ``tables``
+        #      list pulled this transaction — defense-in-depth against a
+        #      future code change that lets caller input flow into this
+        #      variable.
+        #   3. ``max_results`` is coerced to a non-negative int and bounded,
+        #      so the LIMIT clause carries a pure integer, never a string.
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", target_table):
             logger.warning(f"Invalid table name format: {target_table}")
             return None
+        if target_table not in tables:
+            logger.warning(f"Refusing unknown table name: {target_table}")
+            return None
+        try:
+            safe_limit = max(0, min(int(max_results), 10_000))
+        except (TypeError, ValueError):
+            logger.warning(f"Invalid max_results value: {max_results!r}")
+            return None
 
-        # Build simple search query - table name validated above.
-        return f"SELECT * FROM {target_table} LIMIT {max_results}"  # noqa: S608  # nosec B608
+        # Build simple search query — both interpolated values are hardened above.
+        return f"SELECT * FROM {target_table} LIMIT {safe_limit}"  # noqa: S608  # nosec B608 - table name regex-validated + catalog-checked; limit is int-coerced and bounded
 
     def execute_query(
         self,

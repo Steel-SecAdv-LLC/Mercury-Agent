@@ -638,6 +638,28 @@ class TrustedEndpoints:
             "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
             "ghoapi.azureedge.net",  # WHO Global Health Observatory
             "maps.nccs.nasa.gov",  # NASA COOLR (landslide catalog)
+            # External Retrieval — Web Search
+            "api.duckduckgo.com",  # DuckDuckGo Instant Answer API
+            # Integrations — Weather Providers
+            "api.openweathermap.org",  # OpenWeatherMap
+            "api.weather.gov",  # NOAA National Weather Service
+            # Integrations — Financial Providers
+            "www.alphavantage.co",  # Alpha Vantage market data
+            "query1.finance.yahoo.com",  # Yahoo Finance chart API
+        }
+    )
+
+    # ==========================================================================
+    # Loopback Hosts Allowlist (for local-only services like Ollama)
+    # ==========================================================================
+    # Hosts that are guaranteed to be on the operator's machine. These are
+    # NEVER routed off-box, so SSRF to internal cloud metadata services
+    # (169.254.169.254, etc.) is structurally impossible.
+    LOOPBACK_HOSTS: frozenset[str] = frozenset(
+        {
+            "localhost",
+            "127.0.0.1",
+            "::1",
         }
     )
 
@@ -671,6 +693,126 @@ class TrustedEndpoints:
                 f"Trusted domains: {sorted(cls.TRUSTED_DOMAINS)}"
             )
 
+        return True
+
+    @classmethod
+    def validate_loopback_url(cls, url: str) -> bool:
+        """
+        Validate that a URL points at a loopback (on-box) service.
+
+        Used by adapters for local services like Ollama where the user
+        configures host/port but the request must NEVER egress the machine.
+
+        Accepts both http:// and https:// since loopback traffic is by
+        definition not exposed to the network.
+
+        Args:
+            url: The URL to validate
+
+        Returns:
+            True if URL targets a loopback host
+
+        Raises:
+            ValueError: If URL is malformed, uses a non-http(s) scheme,
+                or resolves to a non-loopback host.
+        """
+        import ipaddress
+        import urllib.parse
+
+        parsed = urllib.parse.urlparse(url)
+
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(
+                f"SSRF Protection (loopback): URL scheme must be http(s), got '{parsed.scheme}'"
+            )
+
+        host = (parsed.hostname or "").lower()
+        if not host:
+            raise ValueError("SSRF Protection (loopback): URL has no host component")
+
+        if host in cls.LOOPBACK_HOSTS:
+            return True
+
+        # Accept any IPv4/IPv6 loopback address (127.0.0.0/8, ::1)
+        try:
+            ip = ipaddress.ip_address(host)
+            if ip.is_loopback:
+                return True
+        except ValueError:
+            pass
+
+        raise ValueError(
+            f"SSRF Protection (loopback): host '{host}' is not a loopback "
+            f"address. Local adapters must bind to localhost / 127.0.0.1 / ::1."
+        )
+
+    @classmethod
+    def validate_user_configured_url(cls, url: str) -> bool:
+        """
+        Validate a URL configured by the operator (not a hardcoded constant).
+
+        Used for endpoints like a self-hosted SearXNG instance where the
+        admin sets the address but we must still defend against SSRF to
+        cloud metadata services, RFC1918 internal ranges, and link-local
+        addresses if the admin pastes an unsafe URL.
+
+        Policy:
+            - https:// is required.
+            - http:// is allowed only if the host is a loopback address.
+            - Hostnames are accepted (deferred to DNS resolution by the
+              kernel); IP literals must NOT be private, link-local, or
+              reserved unless they are loopback.
+
+        Args:
+            url: The URL to validate
+
+        Returns:
+            True if URL passes SSRF checks
+
+        Raises:
+            ValueError: If URL fails any SSRF check.
+        """
+        import ipaddress
+        import urllib.parse
+
+        parsed = urllib.parse.urlparse(url)
+
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(
+                f"SSRF Protection (user): URL scheme must be http(s), got '{parsed.scheme}'"
+            )
+
+        host = (parsed.hostname or "").lower()
+        if not host:
+            raise ValueError("SSRF Protection (user): URL has no host component")
+
+        # IP-literal hosts must not be in dangerous ranges.
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            # Hostname — allow http only on the loopback names; otherwise
+            # require https. Real DNS resolution happens at connect time.
+            if parsed.scheme == "http" and host not in cls.LOOPBACK_HOSTS:
+                raise ValueError(
+                    "SSRF Protection (user): http:// only permitted for loopback hosts"
+                ) from None
+            return True
+
+        if ip.is_loopback:
+            return True
+        if ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+            raise ValueError(
+                f"SSRF Protection (user): IP '{host}' is in a reserved/link-local range"
+            )
+        if ip.is_private:
+            raise ValueError(
+                f"SSRF Protection (user): IP '{host}' is in an RFC1918/private range; "
+                "use a loopback address for on-box services instead."
+            )
+        if parsed.scheme == "http":
+            raise ValueError(
+                "SSRF Protection (user): http:// only permitted for loopback hosts"
+            )
         return True
 
     @classmethod
@@ -724,7 +866,7 @@ class TrustedEndpoints:
             default_headers.update(headers)
 
         request = urllib.request.Request(url, headers=default_headers)
-        return urllib.request.urlopen(request, timeout=timeout)  # nosec B310
+        return urllib.request.urlopen(request, timeout=timeout)  # nosec B310 - validate_url enforces https + allowlisted domain at top of method
 
     # ==========================================================================
     # USGS - Earthquake Hazards Program

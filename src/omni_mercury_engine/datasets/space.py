@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 import numpy as np
@@ -299,9 +300,20 @@ class NASAExoplanetLoader(DatasetLoader):
             # bandit ``hardcoded_sql_expressions`` finding here is a
             # static-analysis false positive (mirrored by the ``S608``
             # ruff lift in ``[tool.ruff.lint.per-file-ignores]``).
+            # B608 SAFETY CONTRACT:
+            #   * ``columns`` joined from ``self.TAP_COLUMNS.values()`` (a class
+            #     constant dict defined in this module). Each value is also
+            #     validated below to be a bare identifier so it cannot escape
+            #     the f-string.
+            #   * ``limit`` is forced through ``int(...)`` and clamped to
+            #     ``[1, 5000]``; a non-integer max_samples would raise here
+            #     rather than reach the query string.
+            for _col in self.TAP_COLUMNS.values():
+                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", _col):
+                    raise RuntimeError(f"Unsafe TAP column literal: {_col!r}")
             columns = ",".join(self.TAP_COLUMNS.values())
-            limit = min(self.config.max_samples or 5000, 5000)
-            query = f"select top {limit} {columns} from ps where pl_rade is not null"  # noqa: S608  # nosec B608
+            limit = max(1, min(int(self.config.max_samples or 5000), 5000))
+            query = f"select top {limit} {columns} from ps where pl_rade is not null"  # noqa: S608  # nosec B608 - columns are class-constant identifiers (regex-checked); limit is int-coerced and clamped
 
             params = {
                 "query": query,

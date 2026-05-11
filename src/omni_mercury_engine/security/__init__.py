@@ -46,6 +46,12 @@ try:
 except ImportError:  # torch not installed
     IntelligenceFusionEngine = None  # type: ignore[assignment, misc]
 
+from omni_mercury_engine.security.model_policy import (
+    REMOTE_CODE_ALLOWED_NAMESPACES,
+    TRUSTED_NAMESPACES,
+    HFModelPolicy,
+    UnsafeModelError,
+)
 from omni_mercury_engine.security.pqc_backends import (
     AMA_CRYPTOGRAPHY_AVAILABLE,
     DILITHIUM_AVAILABLE,
@@ -114,6 +120,7 @@ __all__ = [
     "CryptoPackageResult",
     "DilithiumKeyPair",
     "EncapsulatedSecret",
+    "HFModelPolicy",
     "HybridSignature",
     "HybridSignatureProvider",
     "IntelligenceFusionEngine",
@@ -127,6 +134,7 @@ __all__ = [
     "PQCBackend",
     "PQCProductionWarning",
     "PQCSimulationWarning",
+    "REMOTE_CODE_ALLOWED_NAMESPACES",
     "RateLimiter",
     "SecureAuditLogger",
     "SecureDataHandler",
@@ -135,7 +143,9 @@ __all__ = [
     "Signature",
     "SphincsKeyPair",
     "SphincsProvider",
+    "TRUSTED_NAMESPACES",
     "ThreatDetector",
+    "UnsafeModelError",
     "UnsafePayloadError",
     "assert_no_simulation_in_production",
     "check_pqc_production_readiness",

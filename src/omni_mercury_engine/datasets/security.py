@@ -805,14 +805,24 @@ class CICIDSLoader(DatasetLoader):
             self._is_real_data = True
             return True
 
+        from omni_mercury_engine.security.model_policy import HFModelPolicy
+
         df = None
         last_err: Exception | None = None
         for mirror_id in self.HUGGINGFACE_MIRRORS:
             try:
+                # Confirm mirror_id is still one of the class-constant
+                # mirrors at runtime — defence-in-depth in case a future
+                # change ever lets caller input flow into this loop.
+                HFModelPolicy.validate_vetted_dataset(
+                    mirror_id,
+                    allowlist=self.HUGGINGFACE_MIRRORS,
+                    revision="main",
+                )
                 logger.info("Downloading CICIDS 2017 from Hugging Face (%s)...", mirror_id)
                 # Pin to main for reproducibility (B615); mirrors that publish
                 # under a non-default branch will fall through to the next.
-                dataset = load_dataset(  # nosec B615
+                dataset = load_dataset(  # nosec B615 - HFModelPolicy.validate_vetted_dataset gates against the class-constant mirror allowlist
                     mirror_id,
                     split="train",
                     revision="main",

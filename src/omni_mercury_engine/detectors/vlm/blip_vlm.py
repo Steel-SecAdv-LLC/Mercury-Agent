@@ -239,12 +239,19 @@ class BLIPVLMDetector(BaseVLMDetector):
             )
 
         try:
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
+
             logger.info(f"Loading BLIP model: {self.blip_config.model_name}")
+            HFModelPolicy.validate(
+                self.blip_config.model_name,
+                revision=getattr(self.blip_config, "revision", None),
+                trust_remote_code=False,
+            )
 
             self._processor = BlipProcessor.from_pretrained(
                 self.blip_config.model_name
-            )  # nosec B615 - model_name is user-configured, see module docstring for security guidance
-            self._model = BlipForConditionalGeneration.from_pretrained(  # nosec B615 - model_name is user-configured
+            )  # nosec B615 - HFModelPolicy.validate enforces namespace allowlist + revision pinning
+            self._model = BlipForConditionalGeneration.from_pretrained(  # nosec B615 - HFModelPolicy.validate enforces namespace allowlist + revision pinning
                 self.blip_config.model_name
             ).to(
                 self.device

@@ -8,9 +8,12 @@ Comprehensive test coverage for input validation and sanitization.
 
 from __future__ import annotations
 
+import pytest
+
 from omni_mercury_engine.security.input_validation import (
     InputValidator,
     SanitizationLevel,
+    TrustedEndpoints,
     ValidationError,
     ValidationResult,
     sanitize_input,
@@ -676,3 +679,90 @@ class TestValidatorInitialization:
         """Test custom default sanitization level."""
         validator = InputValidator(level=SanitizationLevel.STRICT)
         assert validator.default_level == SanitizationLevel.STRICT
+
+
+class TestTrustedEndpointsValidateUrl:
+    """Tests for TrustedEndpoints.validate_url (SSRF defense, allowlisted domains)."""
+
+    def test_allowlisted_https_passes(self):
+        assert TrustedEndpoints.validate_url("https://earthquake.usgs.gov/x") is True
+
+    def test_new_provider_domains_in_allowlist(self):
+        for url in (
+            "https://api.duckduckgo.com/",
+            "https://api.openweathermap.org/data/2.5/weather",
+            "https://api.weather.gov/points/0,0",
+            "https://www.alphavantage.co/query",
+            "https://query1.finance.yahoo.com/v8/finance/chart/AAPL",
+        ):
+            assert TrustedEndpoints.validate_url(url) is True
+
+    def test_http_scheme_rejected(self):
+        with pytest.raises(ValueError, match="HTTPS"):
+            TrustedEndpoints.validate_url("http://earthquake.usgs.gov/x")
+
+    def test_unknown_domain_rejected(self):
+        with pytest.raises(ValueError, match="trusted allowlist"):
+            TrustedEndpoints.validate_url("https://attacker.example/x")
+
+
+class TestTrustedEndpointsValidateLoopbackUrl:
+    """Tests for TrustedEndpoints.validate_loopback_url (Ollama/on-box services)."""
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://localhost:11434/api/tags",
+            "http://127.0.0.1:8080/x",
+            "http://[::1]:9000/x",
+            "https://localhost/x",
+            "http://127.0.0.5/x",
+        ],
+    )
+    def test_loopback_urls_pass(self, url):
+        assert TrustedEndpoints.validate_loopback_url(url) is True
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://10.0.0.5/x",
+            "http://192.168.1.1/x",
+            "http://169.254.169.254/latest/meta-data/",  # cloud IMDS
+            "http://example.com/x",
+            "file:///etc/passwd",
+        ],
+    )
+    def test_non_loopback_urls_rejected(self, url):
+        with pytest.raises(ValueError):
+            TrustedEndpoints.validate_loopback_url(url)
+
+
+class TestTrustedEndpointsValidateUserConfiguredUrl:
+    """Tests for TrustedEndpoints.validate_user_configured_url (SearXNG-style)."""
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://search.example.com/x",
+            "http://localhost/x",
+            "https://127.0.0.1/x",
+            "https://[::1]/x",
+        ],
+    )
+    def test_safe_urls_pass(self, url):
+        assert TrustedEndpoints.validate_user_configured_url(url) is True
+
+    @pytest.mark.parametrize(
+        "url,reason",
+        [
+            ("http://example.com/x", "loopback"),
+            ("http://10.0.0.5/x", "loopback"),
+            ("http://169.254.169.254/", "reserved/link-local"),
+            ("https://10.0.0.5/x", "RFC1918"),
+            ("https://192.168.0.1/x", "RFC1918"),
+            ("file:///etc/passwd", "http"),
+        ],
+    )
+    def test_unsafe_urls_rejected(self, url, reason):
+        with pytest.raises(ValueError, match=reason):
+            TrustedEndpoints.validate_user_configured_url(url)

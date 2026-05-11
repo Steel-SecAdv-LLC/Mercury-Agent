@@ -166,7 +166,7 @@ def http_get_with_retry(
     for attempt in range(attempts):
         try:
             req = urllib.request.Request(url, headers=request_headers)
-            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - scheme enforced http(s) and (when https) TrustedEndpoints.validate_url enforces allowlisted domain unless allow_untrusted is explicitly set
                 body: bytes = resp.read()
                 return body
         except urllib.error.HTTPError as e:
@@ -411,13 +411,36 @@ class DatasetLoader(ABC):
         # Check cache
         if cache_file.exists():
             logger.info(f"Loading {self.DATASET_NAME} from cache")
-            # Security: Cache files are self-generated, should be pure numpy arrays
-            # Use allow_pickle=False for safety; fall back only if legacy cache exists
+            # Security: Cache files are self-generated, should be pure numpy arrays.
+            # Architecture (B301 SAFETY CONTRACT):
+            #   1. Default path: allow_pickle=False — refuses any cache file
+            #      that contains pickled Python objects.
+            #   2. Legacy path: pickle deserialization is gated on the
+            #      MERCURY_ALLOW_LEGACY_PICKLE_CACHE=1 opt-in env var, AND a
+            #      single-shot conversion is attempted so the cache is
+            #      rewritten in the safe format. Operators that have a
+            #      stale legacy cache should rebuild it instead.
             try:
                 cached = np.load(cache_file, allow_pickle=False)
-            except ValueError:
-                logger.warning("Legacy cache format detected, loading with pickle")
-                cached = np.load(cache_file, allow_pickle=True)  # nosec B301
+            except ValueError as legacy_err:
+                if os.environ.get("MERCURY_ALLOW_LEGACY_PICKLE_CACHE", "").lower() not in {
+                    "1",
+                    "true",
+                    "yes",
+                    "on",
+                }:
+                    raise RuntimeError(
+                        f"Legacy pickle cache detected at {cache_file}; refusing "
+                        "to deserialize. Delete the cache file to rebuild it, or "
+                        "set MERCURY_ALLOW_LEGACY_PICKLE_CACHE=1 after auditing "
+                        f"the source. Original error: {legacy_err}"
+                    ) from legacy_err
+                logger.warning(
+                    "Legacy pickle cache loaded at %s (operator opt-in); "
+                    "cache will be re-saved in the safe format on next write.",
+                    cache_file,
+                )
+                cached = np.load(cache_file, allow_pickle=True)  # nosec B301 - operator opt-in via MERCURY_ALLOW_LEGACY_PICKLE_CACHE; default branch above uses allow_pickle=False
             self._data = {
                 DatasetSplit.TRAIN: cached["train_features"],
                 DatasetSplit.VALIDATION: cached["val_features"],

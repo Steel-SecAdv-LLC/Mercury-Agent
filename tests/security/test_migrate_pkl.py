@@ -46,7 +46,7 @@ def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
     """Invoke the migration tool exactly the way an operator would."""
     # S603: command list is built from sys.executable, the module path of
     # the tool under test, and test-controlled args. No shell=True.
-    return subprocess.run(  # nosec B603
+    return subprocess.run(  # nosec B603 - argv is [sys.executable, "-m", fixed-module-path, *test-controlled-args]; no shell, no string interpolation
         [sys.executable, "-m", "omni_mercury_engine.tools.migrate_pkl", *args],
         capture_output=True,
         text=True,

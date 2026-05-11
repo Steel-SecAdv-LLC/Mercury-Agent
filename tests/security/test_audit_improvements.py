@@ -64,7 +64,7 @@ class TestPIIMaskingFilter:
 
         filter_instance = PIIMaskingFilter()
         # Use obviously fake test value to avoid secret detection false positives
-        test_key = "test-key-for-unit-testing-only"  # nosec B105
+        test_key = "test-key-for-unit-testing-only"  # nosec B105 - hardcoded fixture value used only to drive PIIMaskingFilter under unittest; never a real credential
         record = logging.LogRecord(
             name="test",
             level=logging.INFO,

@@ -327,11 +327,46 @@ class AnomalyDetector(LoggerMixin):
         )
 
     @classmethod
-    def load(cls, path: str, device: str = "auto") -> AnomalyDetector:
-        """Load model from file."""
-        checkpoint = torch.load(
-            path, map_location="cpu"
-        )  # nosec B614 - loading trusted model checkpoints
+    def load(
+        cls,
+        path: str,
+        device: str = "auto",
+        *,
+        allow_unsafe: bool = False,
+    ) -> AnomalyDetector:
+        """Load model from file.
+
+        Security:
+            Defaults to ``torch.load(..., weights_only=True)`` so a
+            tampered checkpoint cannot execute arbitrary code via the
+            pickle path. Operators with legacy checkpoints can opt into
+            the unsafe path by passing ``allow_unsafe=True``; this falls
+            back only if the safe path fails to deserialize and the
+            opt-in was explicit. See PyTorch issue #88751.
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            checkpoint = torch.load(path, map_location="cpu", weights_only=True)
+        except Exception as e:
+            if not allow_unsafe:
+                raise RuntimeError(
+                    f"Checkpoint at '{path}' cannot be loaded safely "
+                    "(weights_only=True). Re-run with allow_unsafe=True only "
+                    f"if you trust the checkpoint source. Original error: {e}"
+                ) from e
+            logger.warning(
+                "Safe checkpoint loading failed; falling back to unsafe mode "
+                "as explicitly requested. Only do this for trusted checkpoints. "
+                "Original error: %s",
+                e,
+            )
+            checkpoint = torch.load(
+                path, map_location="cpu", weights_only=False
+            )  # nosec B614 - allow_unsafe opt-in path; default branch above uses weights_only=True
+
         detector = cls(
             input_dim=checkpoint["input_dim"],
             hidden_dim=checkpoint["hidden_dim"],

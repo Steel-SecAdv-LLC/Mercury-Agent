@@ -248,17 +248,23 @@ class OllamaLLMAdapter(BaseLLMAdapter):
         try:
             import urllib.request
 
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             url = f"{self.ollama_config.base_url}/api/tags"
-            if not _validate_url_scheme(url):
-                logger.warning(f"Invalid URL scheme for Ollama API: {url}")
+            # Ollama is an on-box service; enforce loopback to block SSRF if
+            # the operator misconfigures host to a remote/private address.
+            try:
+                TrustedEndpoints.validate_loopback_url(url)
+            except ValueError as ssrf_err:
+                logger.warning("Ollama URL rejected by loopback policy: %s", ssrf_err)
                 return False
 
-            req = urllib.request.Request(  # noqa: S310 - URL scheme validated above
+            req = urllib.request.Request(  # noqa: S310 - validated above
                 url, method="GET"
             )
             req.add_header("Accept", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - validate_loopback_url enforces on-box destination
                 req, timeout=self.ollama_config.connect_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -306,9 +312,13 @@ class OllamaLLMAdapter(BaseLLMAdapter):
         try:
             import urllib.request
 
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             url = f"{self.ollama_config.base_url}/api/generate"
-            if not _validate_url_scheme(url):
-                logger.error(f"Invalid URL scheme for Ollama API: {url}")
+            try:
+                TrustedEndpoints.validate_loopback_url(url)
+            except ValueError as ssrf_err:
+                logger.error("Ollama URL rejected by loopback policy: %s", ssrf_err)
                 return self._unavailable_response()
 
             payload = {
@@ -329,10 +339,10 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 payload["system"] = system_prompt
 
             data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
+            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310 - validated above
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - validate_loopback_url enforces on-box destination
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())
@@ -363,9 +373,13 @@ class OllamaLLMAdapter(BaseLLMAdapter):
         try:
             import urllib.request
 
+            from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
             url = f"{self.ollama_config.base_url}/api/chat"
-            if not _validate_url_scheme(url):
-                logger.error(f"Invalid URL scheme for Ollama API: {url}")
+            try:
+                TrustedEndpoints.validate_loopback_url(url)
+            except ValueError as ssrf_err:
+                logger.error("Ollama URL rejected by loopback policy: %s", ssrf_err)
                 return self._unavailable_response()
 
             chat_messages = []
@@ -385,10 +399,10 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             }
 
             data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
+            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310 - validated above
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - validate_loopback_url enforces on-box destination
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())

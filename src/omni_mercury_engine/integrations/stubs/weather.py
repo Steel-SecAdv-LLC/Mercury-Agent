@@ -465,14 +465,17 @@ class WeatherService:
             "units": "metric",
         }
 
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         url = f"{self.OPENWEATHERMAP_BASE}/weather?{urlencode(params)}"
+        TrustedEndpoints.validate_url(self.OPENWEATHERMAP_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -516,14 +519,17 @@ class WeatherService:
             "units": "metric",
         }
 
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         url = f"{self.OPENWEATHERMAP_BASE}/weather?{urlencode(params)}"
+        TrustedEndpoints.validate_url(self.OPENWEATHERMAP_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -557,7 +563,10 @@ class WeatherService:
 
     async def _fetch_noaa_point_info(self, lat: float, lon: float) -> dict[str, Any]:
         """Get NOAA grid point information for coordinates."""
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         url = f"{self.NOAA_POINTS_BASE}/{lat},{lon}"
+        TrustedEndpoints.validate_url(self.NOAA_POINTS_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
@@ -567,7 +576,7 @@ class WeatherService:
                     "Accept": "application/geo+json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -585,9 +594,16 @@ class WeatherService:
         point_data = await self._fetch_noaa_point_info(lat, lon)
         properties = point_data.get("properties", {})
 
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         forecast_url = properties.get("forecastHourly")
         if not forecast_url:
             raise ValueError("NOAA API: Could not get forecast URL")
+
+        # forecast_url comes back inside the NOAA response body — treat it as
+        # tainted and require it to resolve to an allowlisted domain (NOAA
+        # currently returns URLs under api.weather.gov).
+        TrustedEndpoints.validate_url(forecast_url.split("?")[0])
 
         # Fetch the hourly forecast
         def fetch_forecast() -> dict[str, Any]:
@@ -598,7 +614,7 @@ class WeatherService:
                     "Accept": "application/geo+json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -764,14 +780,17 @@ class WeatherService:
             "cnt": min(days * 8, 40),  # 3-hour intervals
         }
 
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         url = f"{self.OPENWEATHERMAP_BASE}/forecast?{urlencode(params)}"
+        TrustedEndpoints.validate_url(self.OPENWEATHERMAP_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 

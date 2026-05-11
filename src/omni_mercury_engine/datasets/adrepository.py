@@ -25,6 +25,7 @@ Datasets include:
 from __future__ import annotations
 
 import logging
+import os
 import zipfile
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -485,12 +486,29 @@ class ADRepositoryLoader(DatasetLoader):
                 self._load_mat_file(path)
 
             elif suffix == ".npz":
-                # Security: External dataset files - try safe load first
+                # B301 SAFETY CONTRACT (same policy as datasets/base.py):
+                #   * Default path: allow_pickle=False — refuses pickle.
+                #   * Legacy path: gated on
+                #     MERCURY_ALLOW_EXTERNAL_PICKLE_DATASETS=1 since the .npz
+                #     came from an external publisher and pickle here is
+                #     remote code execution. Operators must opt in.
                 try:
                     data = np.load(path, allow_pickle=False)
-                except ValueError:
-                    logger.warning(f"Dataset {path} requires pickle - verify source is trusted")
-                    data = np.load(path, allow_pickle=True)  # nosec B301
+                except ValueError as legacy_err:
+                    if os.environ.get(
+                        "MERCURY_ALLOW_EXTERNAL_PICKLE_DATASETS", ""
+                    ).lower() not in {"1", "true", "yes", "on"}:
+                        raise RuntimeError(
+                            f"External dataset {path} requires pickle; refusing. "
+                            "Convert to allow_pickle=False format, or set "
+                            "MERCURY_ALLOW_EXTERNAL_PICKLE_DATASETS=1 after "
+                            f"auditing the publisher. Original error: {legacy_err}"
+                        ) from legacy_err
+                    logger.warning(
+                        "External dataset %s loaded with pickle (operator opt-in).",
+                        path,
+                    )
+                    data = np.load(path, allow_pickle=True)  # nosec B301 - operator opt-in via MERCURY_ALLOW_EXTERNAL_PICKLE_DATASETS; default branch above uses allow_pickle=False
                 self._features = data["X"].astype(np.float32)
                 self._labels = data["y"].astype(np.int64)
                 self._is_real_data = True
@@ -513,12 +531,24 @@ class ADRepositoryLoader(DatasetLoader):
 
                 # Find npz or csv files
                 for f in extract_dir.rglob("*.npz"):
-                    # Security: External dataset files - try safe load first
+                    # Same B301 SAFETY CONTRACT as the top-level .npz branch.
                     try:
                         data = np.load(f, allow_pickle=False)
-                    except ValueError:
-                        logger.warning(f"Dataset {f} requires pickle - verify source")
-                        data = np.load(f, allow_pickle=True)  # nosec B301
+                    except ValueError as legacy_err:
+                        if os.environ.get(
+                            "MERCURY_ALLOW_EXTERNAL_PICKLE_DATASETS", ""
+                        ).lower() not in {"1", "true", "yes", "on"}:
+                            raise RuntimeError(
+                                f"External dataset {f} requires pickle; refusing. "
+                                "Convert to allow_pickle=False format, or set "
+                                "MERCURY_ALLOW_EXTERNAL_PICKLE_DATASETS=1 after "
+                                f"auditing the publisher. Original error: {legacy_err}"
+                            ) from legacy_err
+                        logger.warning(
+                            "External dataset %s loaded with pickle (operator opt-in).",
+                            f,
+                        )
+                        data = np.load(f, allow_pickle=True)  # nosec B301 - operator opt-in via MERCURY_ALLOW_EXTERNAL_PICKLE_DATASETS; default branch above uses allow_pickle=False
                     if "X" in data and "y" in data:
                         self._features = data["X"].astype(np.float32)
                         self._labels = data["y"].astype(np.int64)

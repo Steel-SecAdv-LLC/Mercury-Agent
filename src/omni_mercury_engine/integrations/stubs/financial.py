@@ -585,11 +585,14 @@ class FinancialService:
             "apikey": self.api_key,
         }
 
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         url = f"{self.ALPHA_VANTAGE_BASE}?{urlencode(params)}"
+        TrustedEndpoints.validate_url(self.ALPHA_VANTAGE_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -630,12 +633,15 @@ class FinancialService:
 
         Uses the public Yahoo Finance chart API endpoint.
         """
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         url = f"{self.YAHOO_FINANCE_BASE}/{symbol.upper()}"
         params = {
             "interval": "1d",
             "range": "1d",
         }
         full_url = f"{url}?{urlencode(params)}"
+        TrustedEndpoints.validate_url(self.YAHOO_FINANCE_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
@@ -645,7 +651,7 @@ class FinancialService:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -794,12 +800,15 @@ class FinancialService:
         else:
             range_param = "2y"
 
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         url = f"{self.YAHOO_FINANCE_BASE}/{symbol.upper()}"
         params = {
             "interval": interval,
             "range": range_param,
         }
         full_url = f"{url}?{urlencode(params)}"
+        TrustedEndpoints.validate_url(self.YAHOO_FINANCE_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
@@ -809,7 +818,7 @@ class FinancialService:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 fetched: dict[str, Any] = json.loads(response.read().decode())
                 return fetched
 
@@ -868,11 +877,14 @@ class FinancialService:
             "apikey": self.api_key,
         }
 
+        from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
         url = f"{self.ALPHA_VANTAGE_BASE}?{urlencode(params)}"
+        TrustedEndpoints.validate_url(self.ALPHA_VANTAGE_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url enforces https + allowlisted domain
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
