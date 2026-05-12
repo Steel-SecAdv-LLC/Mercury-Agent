@@ -246,9 +246,15 @@ class BaseDomainLoader(ABC):
             Response body as bytes.
 
         Raises:
-            ConnectionError: After all retries exhausted.
-            UnsafeURLError: URL failed the SafeHTTPClient gates
-                (HTTPS-only or TRUSTED_DOMAINS allowlist).
+            UnsafeURLError: URL failed the ``SafeHTTPClient`` gates
+                (HTTPS-only or TRUSTED_DOMAINS allowlist). Raised on
+                the first attempt with **no** retries -- a bad URL
+                will be just as bad next time, and retrying would
+                only mask the real cause from the operator.
+            ValueError: Other configuration-shaped failures (malformed
+                URL, bad params). Also re-raised immediately.
+            ConnectionError: All transient retries exhausted on
+                network / HTTP errors.
         """
         default_headers = {"User-Agent": "Mercury-Agent/1.0 (Steel Security Advisors)"}
         if headers:
@@ -269,6 +275,15 @@ class BaseDomainLoader(ABC):
                     timeout=self.timeout,
                     allow_untrusted=allow_untrusted,
                 )
+            except ValueError:
+                # UnsafeURLError is a ValueError subclass; both signal
+                # a configuration fault (bad scheme, off-allowlist host,
+                # malformed URL). Retrying cannot fix configuration --
+                # re-raise immediately so the real cause is visible.
+                # Note: requests.HTTPError is an IOError, not a
+                # ValueError, so HTTP 4xx/5xx still flow into the
+                # transient-retry path below.
+                raise
             except Exception as exc:
                 last_error_kind = type(exc).__name__
                 if attempt < self.max_retries:

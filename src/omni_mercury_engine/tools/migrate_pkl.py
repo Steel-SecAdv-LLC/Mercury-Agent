@@ -38,6 +38,17 @@ it does so in a clearly-bounded operator workflow that:
   The subprocess boundary, not flag combinations, is the load-bearing
   isolation -- a malicious pickle that achieves code execution in the
   child still cannot reach the parent (operator) process state;
+* uses :class:`_RestrictedUnpickler` rather than the bare
+  ``pickle.load``. ``find_class`` whitelists only the globals required
+  to reconstruct numpy arrays plus a small set of basic Python
+  builtins; anything else (``os.system``, ``subprocess.Popen``, any
+  ``builtins.eval`` / ``builtins.exec`` / ``builtins.__import__`` /
+  ``posix.*`` / ``nt.*`` reference, ``codecs.encode`` reduce-chain
+  tricks) raises ``pickle.UnpicklingError`` *before* the global is
+  resolved. This downgrades the threat from "arbitrary code
+  execution on attempt 1" to "smuggle a malicious construction
+  through ``numpy.core.multiarray._reconstruct``" -- defence in
+  depth with the subprocess boundary, not a replacement for it;
 * writes the converted archive via ``numpy.savez``. ``numpy.savez``
   itself does not expose an ``allow_pickle`` parameter on the write
   path, so we enforce the "no pickle in the output" contract by
@@ -177,14 +188,90 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     return completed.returncode
 
 
-def _do_migration(args: argparse.Namespace) -> int:
-    """Body that runs inside the hardened subprocess."""
-    # The one-shot operator migration tool whose entire purpose is to
-    # read a legacy .pkl payload. The engine itself never imports
-    # pickle; this is the sole sanctioned site, gated by the hardened
-    # subprocess relaunch above.
+#: Globals the restricted unpickler is willing to resolve. Every
+#: entry is ``(module, qualname)``. The list is intentionally minimal:
+#: just enough to round-trip a ``{'features': {str: ndarray}, 'labels':
+#: ndarray}`` payload. Numpy 1.x stored arrays via
+#: ``numpy.core.multiarray._reconstruct`` + ``numpy.ndarray`` +
+#: ``numpy.dtype``; numpy 2.x adds the ``numpy._core`` re-export path,
+#: which we accept too so legacy pickles produced under either numpy
+#: ABI migrate cleanly. Builtins are limited to inert containers and
+#: scalars -- ``eval`` / ``exec`` / ``__import__`` / ``getattr`` /
+#: ``compile`` / ``open`` are deliberately omitted so a reduce-chain
+#: cannot bootstrap into arbitrary code through ``builtins``.
+_ALLOWED_GLOBALS: frozenset[tuple[str, str]] = frozenset(
+    {
+        # Numpy 1.x array reconstruction surface.
+        ("numpy.core.multiarray", "_reconstruct"),
+        ("numpy.core.multiarray", "scalar"),
+        ("numpy", "ndarray"),
+        ("numpy", "dtype"),
+        # Numpy 2.x renamed the private module to ``numpy._core``.
+        # ``numpy.core.*`` still exists as a thin alias on 2.x but
+        # pickles produced under 2.x reference the new path.
+        ("numpy._core.multiarray", "_reconstruct"),
+        ("numpy._core.multiarray", "scalar"),
+        # Inert builtins -- no callable that touches the OS, the
+        # import system, or arbitrary attribute lookup.
+        ("builtins", "dict"),
+        ("builtins", "list"),
+        ("builtins", "tuple"),
+        ("builtins", "set"),
+        ("builtins", "frozenset"),
+        ("builtins", "str"),
+        ("builtins", "bytes"),
+        ("builtins", "bytearray"),
+        ("builtins", "int"),
+        ("builtins", "float"),
+        ("builtins", "bool"),
+        ("builtins", "complex"),
+        # Pickle emits this for ``None`` in some protocols.
+        ("builtins", "NoneType"),
+    }
+)
+
+
+def _make_restricted_unpickler() -> Any:
+    """Construct the ``_RestrictedUnpickler`` class, deferring the ``pickle`` import.
+
+    ``pickle`` is imported here (not at module top) so that the only
+    site in ``src/`` that touches the pickle module lives inside the
+    hardened-subprocess code path. The class is created lazily on
+    each call rather than at import time because the only caller is
+    ``_do_migration``, which itself only runs inside the relaunched
+    child process; building it at import time would force the parent
+    process to import pickle even when no migration is happening.
+    """
+    # B403: ``pickle`` is required to read legacy operator payloads;
+    # ``_RestrictedUnpickler`` below overrides ``find_class`` to only
+    # resolve globals in ``_ALLOWED_GLOBALS``. The import is reachable
+    # only from inside the hardened subprocess.
     import pickle  # nosec B403
 
+    class _RestrictedUnpickler(pickle.Unpickler):
+        """``pickle.Unpickler`` that refuses any global not in the allow-list.
+
+        Overrides :meth:`pickle.Unpickler.find_class` -- the single
+        choke point through which every ``GLOBAL`` / ``STACK_GLOBAL``
+        opcode resolves a callable. Returning a callable from
+        ``find_class`` is what lets a vanilla unpickler invoke
+        ``os.system`` via ``__reduce__``; refusing it here is what
+        stops the RCE before it starts.
+        """
+
+        def find_class(self, module: str, name: str) -> Any:
+            if (module, name) in _ALLOWED_GLOBALS:
+                return super().find_class(module, name)
+            raise pickle.UnpicklingError(
+                f"_RestrictedUnpickler: refusing global '{module}.{name}'; "
+                f"not in migrate_pkl allow-list."
+            )
+
+    return _RestrictedUnpickler
+
+
+def _do_migration(args: argparse.Namespace) -> int:
+    """Body that runs inside the hardened subprocess."""
     import numpy as np
 
     src = Path(args.input)
@@ -205,11 +292,14 @@ def _do_migration(args: argparse.Namespace) -> int:
         return 2
 
     print(f"loading legacy pickle: {src} ({size} bytes)", file=sys.stderr)
+    restricted_unpickler_cls = _make_restricted_unpickler()
     with src.open("rb") as f:
-        # B301: this is THE sanctioned pickle.load call in the codebase.
-        # It only runs in the hardened subprocess. The engine itself
-        # never reaches this code path; see module docstring.
-        loaded = pickle.load(f)  # nosec B301
+        # B301: this is THE sanctioned pickle.load call in the
+        # codebase. It only runs in the hardened subprocess **and**
+        # via ``_RestrictedUnpickler`` (find_class whitelisted). The
+        # engine itself never reaches this code path; see module
+        # docstring.
+        loaded = restricted_unpickler_cls(f).load()  # nosec B301
 
     if not isinstance(loaded, dict):
         print(
