@@ -129,6 +129,89 @@ class TestSSRFValidation:
             self._validate("https://", allow_untrusted=True)
 
 
+class TestFetchUrlExceptionRouting:
+    """Configuration faults raised by ``SafeHTTPClient`` must NOT retry.
+
+    ``_fetch_url`` historically caught every exception in a single
+    broad ``except Exception:`` block and retried up to ``max_retries``
+    times, then re-raised the original failure wrapped in
+    ``ConnectionError``. That masked the real cause when the failure
+    was a configuration fault (off-allowlist host, bad scheme,
+    malformed URL): a refused SSRF pivot surfaced to the operator
+    as a generic connection failure several seconds later.
+
+    The loader now splits the catch surface: ``UnsafeURLError`` /
+    ``ValueError`` re-raise immediately on the first attempt; only
+    transient network / HTTP errors flow into the retry loop.
+    """
+
+    def test_unsafe_url_raised_immediately_no_retry(self, tmp_path):
+        """Off-allowlist URL surfaces ``UnsafeURLError`` on attempt 1."""
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        # Track how many times the underlying gate is invoked. A retry
+        # would call ``get_bytes`` more than once; we want exactly one.
+        call_count = {"n": 0}
+        real = SafeHTTPClient.get_bytes
+
+        def tracked(*args, **kwargs):
+            call_count["n"] += 1
+            return real(*args, **kwargs)
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=tracked,
+            ),
+            pytest.raises(UnsafeURLError, match="not in trusted"),
+        ):
+            loader._fetch_url("https://attacker.example.com/exfil")
+        assert call_count["n"] == 1, "UnsafeURLError must NOT trigger retries"
+
+    def test_scheme_error_raised_immediately_no_retry(self, tmp_path):
+        """Bad scheme surfaces immediately, no retry storm."""
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        call_count = {"n": 0}
+        real = SafeHTTPClient.get_bytes
+
+        def tracked(*args, **kwargs):
+            call_count["n"] += 1
+            return real(*args, **kwargs)
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=tracked,
+            ),
+            pytest.raises(UnsafeURLError, match="scheme"),
+        ):
+            loader._fetch_url("ftp://earthquake.usgs.gov/data")
+        assert call_count["n"] == 1
+
+    def test_transient_network_error_still_retries(self, tmp_path):
+        """``OSError`` from the gate is treated as transient and retried."""
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 2  # 3 total attempts
+        loader.retry_backoff = 0.0  # no sleep
+        call_count = {"n": 0}
+
+        def transient(*args, **kwargs):
+            call_count["n"] += 1
+            raise OSError("simulated transient socket failure")
+
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=transient,
+            ),
+            pytest.raises(ConnectionError, match="Failed to fetch data"),
+        ):
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+        # 1 initial + 2 retries == 3 attempts. Confirms transient
+        # errors still flow into the retry loop and were not
+        # accidentally re-routed by the new ValueError branch.
+        assert call_count["n"] == 3
+
+
 # =============================================================================
 # Cache Tests
 # =============================================================================
