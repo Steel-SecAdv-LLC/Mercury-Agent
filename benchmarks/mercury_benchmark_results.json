@@ -1,0 +1,3257 @@
+{
+  "metadata": {
+    "git_commit": "7939b65cf85a2c50ffec9104fd62c1f085ce28ed",
+    "python_version": "3.12.13",
+    "timestamp": "2026-05-11T14:22:59.017823+00:00",
+    "max_samples_per_dataset": 10000,
+    "n_thresholds": 101,
+    "detector": "MercuryAnomalyDetector",
+    "ensemble_weights": {
+      "resonance": 0.4,
+      "kinematic": 0.3,
+      "info_geometry": 0.3
+    }
+  },
+  "summary": {
+    "total_datasets": 75,
+    "successful": 64,
+    "failed": 11,
+    "mean_auc": 0.8440157699278742,
+    "median_auc": 0.909663967842319,
+    "std_auc": 0.1725074673922782,
+    "mean_oracle_f1": 0.6383461543104223,
+    "median_oracle_f1": 0.7133433848473426
+  },
+  "component_summary": {
+    "resonance": {
+      "mean_auc": 0.7935979542179832,
+      "median_auc": 0.839366501382002,
+      "std_auc": 0.1852612136949445,
+      "n_datasets": 64
+    },
+    "kinematic": {
+      "mean_auc": 0.6453276432616089,
+      "median_auc": 0.657771241250331,
+      "std_auc": 0.23656120038485584,
+      "n_datasets": 64
+    },
+    "info_geometry": {
+      "mean_auc": 0.84790316953368,
+      "median_auc": 0.8934030208138138,
+      "std_auc": 0.15399442200370939,
+      "n_datasets": 64
+    }
+  },
+  "domain_summary": {
+    "adbench": {
+      "n_datasets": 47,
+      "n_measured": 47,
+      "n_below_random": 4,
+      "n_failed": 0,
+      "oracle_active_count": 29,
+      "stats": {
+        "mean_auc": 0.8180173106168402,
+        "median_auc": 0.8854391057083236,
+        "std_auc": 0.17891220317820414,
+        "mean_f1": 0.5858691687848255,
+        "mean_precision": 0.5212369113151274,
+        "mean_recall": 0.7862223783104141,
+        "component_mean_aucs": {
+          "resonance": 0.7649062882598179,
+          "kinematic": 0.596428885788855,
+          "info_geometry": 0.8272002972860732
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8272002972860732
+      }
+    },
+    "security": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.9079253497388755,
+        "median_auc": 0.9079253497388755,
+        "std_auc": 0.0691688536482345,
+        "mean_f1": 0.7415002385701241,
+        "mean_precision": 0.704306057718664,
+        "mean_recall": 0.7883101344306951,
+        "component_mean_aucs": {
+          "resonance": 0.9337210709307091,
+          "kinematic": 0.6232795690196906,
+          "info_geometry": 0.8914080985982048
+        },
+        "best_component": "resonance",
+        "best_component_auc": 0.9337210709307091
+      }
+    },
+    "timeseries": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 1,
+      "n_failed": 0,
+      "oracle_active_count": 2,
+      "stats": {
+        "mean_auc": 0.6911512983921277,
+        "median_auc": 0.6911512983921277,
+        "std_auc": 0.2178244715287913,
+        "mean_f1": 0.440067969652541,
+        "mean_precision": 0.3442798793016692,
+        "mean_recall": 0.8381046396841065,
+        "component_mean_aucs": {
+          "resonance": 0.6161305919690748,
+          "kinematic": 0.6598166382541021,
+          "info_geometry": 0.675925207221139
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.675925207221139
+      }
+    },
+    "industrial": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.9100068923925217,
+        "median_auc": 0.9100068923925217,
+        "std_auc": 0.0,
+        "mean_f1": 0.5657015590200446,
+        "mean_precision": 0.5521739130434783,
+        "mean_recall": 0.5799086757990868,
+        "component_mean_aucs": {
+          "resonance": 0.7256181614542948,
+          "kinematic": 0.6432695069067517,
+          "info_geometry": 0.9177095000143591
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9177095000143591
+      }
+    },
+    "environmental": {
+      "n_datasets": 3,
+      "n_measured": 3,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 3,
+      "stats": {
+        "mean_auc": 0.9137361528517479,
+        "median_auc": 0.9267092876552794,
+        "std_auc": 0.030665289411907062,
+        "mean_f1": 0.7144295373162555,
+        "mean_precision": 0.6931767481831169,
+        "mean_recall": 0.7377763554128726,
+        "component_mean_aucs": {
+          "resonance": 0.8821826398312295,
+          "kinematic": 0.7403175056897536,
+          "info_geometry": 0.9055253239442207
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9055253239442207
+      }
+    },
+    "ocean": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 1,
+      "stats": {
+        "mean_auc": 0.9644175185089514,
+        "median_auc": 0.9644175185089514,
+        "std_auc": 0.0,
+        "mean_f1": 0.8690234322091291,
+        "mean_precision": 0.865389803075263,
+        "mean_recall": 0.8726877040261154,
+        "component_mean_aucs": {
+          "resonance": 0.7990158087380527,
+          "kinematic": 0.9361181960533397,
+          "info_geometry": 0.8929373470637707
+        },
+        "best_component": "kinematic",
+        "best_component_auc": 0.9361181960533397
+      }
+    },
+    "climate": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 2,
+      "stats": {
+        "mean_auc": 0.9954263132013945,
+        "median_auc": 0.9954263132013945,
+        "std_auc": 0.0044546792117658995,
+        "mean_f1": 0.9429995138551288,
+        "mean_precision": 0.9604683195592287,
+        "mean_recall": 0.9267913436142114,
+        "component_mean_aucs": {
+          "resonance": 0.9326095881990634,
+          "kinematic": 0.9539225344963032,
+          "info_geometry": 0.9911492650960941
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9911492650960941
+      }
+    },
+    "air_quality": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 1,
+      "stats": {
+        "mean_auc": 0.9979023099952551,
+        "median_auc": 0.9979023099952551,
+        "std_auc": 0.0,
+        "mean_f1": 0.8644067796610171,
+        "mean_precision": 0.9503105590062112,
+        "mean_recall": 0.7927461139896373,
+        "component_mean_aucs": {
+          "resonance": 0.9800666611010073,
+          "kinematic": 0.8734131265726071,
+          "info_geometry": 0.9985723026718335
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9985723026718335
+      }
+    },
+    "disaster": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 0.9999995892740732,
+        "median_auc": 0.9999995892740732,
+        "std_auc": 0.0,
+        "mean_f1": 0.9997418022205009,
+        "mean_precision": 0.9994837377387713,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 0.9916177409942591,
+          "kinematic": 0.5454034100766513,
+          "info_geometry": 0.9997614503816794
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.9997614503816794
+      }
+    },
+    "space": {
+      "n_datasets": 2,
+      "n_measured": 2,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 2,
+      "stats": {
+        "mean_auc": 0.8838274925008069,
+        "median_auc": 0.8838274925008069,
+        "std_auc": 0.11616696728037029,
+        "mean_f1": 0.8135026568825912,
+        "mean_precision": 0.7743052475159689,
+        "mean_recall": 0.8655565209707823,
+        "component_mean_aucs": {
+          "resonance": 0.8683499428276169,
+          "kinematic": 0.8334590295145339,
+          "info_geometry": 0.8724335819574484
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 0.8724335819574484
+      }
+    },
+    "academic": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 1.0,
+        "median_auc": 1.0,
+        "std_auc": 0.0,
+        "mean_f1": 1.0,
+        "mean_precision": 1.0,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 0.9951848421052634,
+          "kinematic": 0.9997894736842106,
+          "info_geometry": 1.0
+        },
+        "best_component": "info_geometry",
+        "best_component_auc": 1.0
+      }
+    },
+    "general": {
+      "n_datasets": 1,
+      "n_measured": 1,
+      "n_below_random": 0,
+      "n_failed": 0,
+      "oracle_active_count": 0,
+      "stats": {
+        "mean_auc": 1.0,
+        "median_auc": 1.0,
+        "std_auc": 0.0,
+        "mean_f1": 1.0,
+        "mean_precision": 1.0,
+        "mean_recall": 1.0,
+        "component_mean_aucs": {
+          "resonance": 1.0,
+          "kinematic": 0.9089097637346997,
+          "info_geometry": 1.0
+        },
+        "best_component": "resonance",
+        "best_component_auc": 1.0
+      }
+    }
+  },
+  "per_dataset": [
+    {
+      "name": "ADBench-01",
+      "category": "adbench",
+      "n_total": 49534,
+      "n_train": 9695,
+      "n_test": 9999,
+      "n_features": 27,
+      "anomaly_ratio": 0.030443735615940565,
+      "test_anomaly_ratio": 0.05900590059005901,
+      "ensemble_auc": 0.5201357877690131,
+      "resonance_auc": 0.547843481988936,
+      "kinematic_auc": 0.5474795138444799,
+      "info_geometry_auc": 0.5540199520473545,
+      "oracle_f1": 0.1135413628851949,
+      "oracle_precision": 0.06022481179746313,
+      "oracle_recall": 0.9898305084745763,
+      "oracle_threshold": 0.18,
+      "threshold_strategy": "sweep_0.18",
+      "fit_ms": 1303.1673109999815,
+      "score_ms": 18923.99812399998,
+      "progressive_validation": {
+        "split_aucs": [
+          0.555538647710557
+        ],
+        "split_f1s": [
+          0.4535603715170279
+        ],
+        "mean_auc": 0.555538647710557,
+        "mean_f1": 0.4535603715170279,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4290771809868769,
+        "kinematic": 0.19578429381408866,
+        "info_geometry": 0.3751385251990345
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.2046139351522027,
+        "significant_bands": [
+          "baseline"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-02",
+      "category": "adbench",
+      "n_total": 7200,
+      "n_train": 3333,
+      "n_test": 3867,
+      "n_features": 6,
+      "anomaly_ratio": 0.07416666666666667,
+      "test_anomaly_ratio": 0.13809154383242825,
+      "ensemble_auc": 0.8854391057083236,
+      "resonance_auc": 0.8453800436223398,
+      "kinematic_auc": 0.8859237047300235,
+      "info_geometry_auc": 0.8156006611897145,
+      "oracle_f1": 0.5427910562837317,
+      "oracle_precision": 0.4613368283093054,
+      "oracle_recall": 0.6591760299625468,
+      "oracle_threshold": 0.37,
+      "threshold_strategy": "sweep_0.37",
+      "fit_ms": 509.80235299999777,
+      "score_ms": 3477.9572649999864,
+      "progressive_validation": {
+        "split_aucs": [
+          0.924773032165476
+        ],
+        "split_f1s": [
+          0.9149130832570906
+        ],
+        "mean_auc": 0.924773032165476,
+        "mean_f1": 0.9149130832570906,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.20855893079843113,
+        "kinematic": 0.41839826641862365,
+        "info_geometry": 0.3730428027829452
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8699571710008575,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-03",
+      "category": "adbench",
+      "n_total": 95329,
+      "n_train": 9755,
+      "n_test": 9999,
+      "n_features": 196,
+      "anomaly_ratio": 0.02443118043827167,
+      "test_anomaly_ratio": 0.04760476047604761,
+      "ensemble_auc": 0.9706700804862531,
+      "resonance_auc": 0.8293587307862345,
+      "kinematic_auc": 0.6026462249291189,
+      "info_geometry_auc": 0.941921460382956,
+      "oracle_f1": 0.8793103448275862,
+      "oracle_precision": 0.9026548672566371,
+      "oracle_recall": 0.8571428571428571,
+      "oracle_threshold": 0.65,
+      "threshold_strategy": "sweep_0.65",
+      "fit_ms": 2961.993925999991,
+      "score_ms": 598.7986989999854,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.43398632716919017,
+        "kinematic": 0.0598520012456809,
+        "info_geometry": 0.5061616715851289
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "IMAGE",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-04",
+      "category": "adbench",
+      "n_total": 683,
+      "n_train": 222,
+      "n_test": 461,
+      "n_features": 9,
+      "anomaly_ratio": 0.34992679355783307,
+      "test_anomaly_ratio": 0.5184381778741866,
+      "ensemble_auc": 0.9976817822006107,
+      "resonance_auc": 0.9924045384296432,
+      "kinematic_auc": 0.8490990990990991,
+      "info_geometry_auc": 0.9906328923065324,
+      "oracle_f1": 0.9769392033542977,
+      "oracle_precision": 0.9789915966386554,
+      "oracle_recall": 0.9748953974895398,
+      "oracle_threshold": 0.67,
+      "threshold_strategy": "sweep_0.67",
+      "fit_ms": 50.79701799996883,
+      "score_ms": 641.4805179999803,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9961013645224172
+        ],
+        "split_f1s": [
+          0.9814814814814815
+        ],
+        "mean_auc": 0.9961013645224172,
+        "mean_f1": 0.9814814814814815,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.38234841981128664,
+        "kinematic": 0.2908525052526412,
+        "info_geometry": 0.3267990749360721
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.0605631666892066,
+        "significant_bands": [
+          "baseline",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-05",
+      "category": "adbench",
+      "n_total": 41188,
+      "n_train": 8873,
+      "n_test": 9999,
+      "n_features": 62,
+      "anomaly_ratio": 0.11265417111780131,
+      "test_anomaly_ratio": 0.20242024202420242,
+      "ensemble_auc": 0.8104275341668009,
+      "resonance_auc": 0.772262071443617,
+      "kinematic_auc": 0.587827387958913,
+      "info_geometry_auc": 0.797020023046328,
+      "oracle_f1": 0.5561877667140825,
+      "oracle_precision": 0.5346399270738378,
+      "oracle_recall": 0.5795454545454546,
+      "oracle_threshold": 0.37,
+      "threshold_strategy": "sweep_0.37",
+      "fit_ms": 578.6456160000171,
+      "score_ms": 82.66189400001167,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.46680686479247513,
+        "kinematic": 0.0,
+        "info_geometry": 0.5331931352075249
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-06",
+      "category": "adbench",
+      "n_total": 1831,
+      "n_train": 827,
+      "n_test": 1004,
+      "n_features": 21,
+      "anomaly_ratio": 0.0961223375204806,
+      "test_anomaly_ratio": 0.1752988047808765,
+      "ensemble_auc": 0.9575304677206851,
+      "resonance_auc": 0.9570638449714537,
+      "kinematic_auc": 0.6663818895476504,
+      "info_geometry_auc": 0.946036451471234,
+      "oracle_f1": 0.798941798941799,
+      "oracle_precision": 0.7475247524752475,
+      "oracle_recall": 0.8579545454545454,
+      "oracle_threshold": 0.47000000000000003,
+      "threshold_strategy": "sweep_0.47",
+      "fit_ms": 40.85638600002994,
+      "score_ms": 4.201716000011402,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9588870431893688
+        ],
+        "split_f1s": [
+          0.9593023255813954
+        ],
+        "mean_auc": 0.9588870431893688,
+        "mean_f1": 0.9593023255813954,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4665156514748767,
+        "kinematic": 0.0,
+        "info_geometry": 0.5334843485251233
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-07",
+      "category": "adbench",
+      "n_total": 2114,
+      "n_train": 824,
+      "n_test": 1290,
+      "n_features": 21,
+      "anomaly_ratio": 0.22043519394512773,
+      "test_anomaly_ratio": 0.3612403100775194,
+      "ensemble_auc": 0.7851811533813909,
+      "resonance_auc": 0.8420663360973373,
+      "kinematic_auc": 0.6730345535230634,
+      "info_geometry_auc": 0.749921871744656,
+      "oracle_f1": 0.635599694423224,
+      "oracle_precision": 0.49347568208778175,
+      "oracle_recall": 0.8927038626609443,
+      "oracle_threshold": 0.29,
+      "threshold_strategy": "sweep_0.29",
+      "fit_ms": 37.21251999996866,
+      "score_ms": 4.791485999987799,
+      "progressive_validation": {
+        "split_aucs": [
+          0.5538461538461539
+        ],
+        "split_f1s": [
+          0.9
+        ],
+        "mean_auc": 0.5538461538461539,
+        "mean_f1": 0.9,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666448050951479,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333551949048522
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-08",
+      "category": "adbench",
+      "n_total": 202599,
+      "n_train": 9775,
+      "n_test": 9999,
+      "n_features": 39,
+      "anomaly_ratio": 0.022443348683853327,
+      "test_anomaly_ratio": 0.043804380438043806,
+      "ensemble_auc": 0.7661349212148478,
+      "resonance_auc": 0.7543843687659961,
+      "kinematic_auc": 0.6491605929530117,
+      "info_geometry_auc": 0.783778898197061,
+      "oracle_f1": 0.2292682926829268,
+      "oracle_precision": 0.14578163771712158,
+      "oracle_recall": 0.5365296803652968,
+      "oracle_threshold": 0.42,
+      "threshold_strategy": "sweep_0.42",
+      "fit_ms": 296.997073,
+      "score_ms": 47.739465000006476,
+      "progressive_validation": {
+        "split_aucs": [
+          0.800188454233595
+        ],
+        "split_f1s": [
+          0.6012024048096193
+        ],
+        "mean_auc": 0.800188454233595,
+        "mean_f1": 0.6012024048096193,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-09",
+      "category": "adbench",
+      "n_total": 299285,
+      "n_train": 9379,
+      "n_test": 9999,
+      "n_features": 500,
+      "anomaly_ratio": 0.062041198189017155,
+      "test_anomaly_ratio": 0.11671167116711671,
+      "ensemble_auc": 0.7029975131328937,
+      "resonance_auc": 0.6710861143710491,
+      "kinematic_auc": 0.5000566123188406,
+      "info_geometry_auc": 0.7078725760031296,
+      "oracle_f1": 0.2945205479452055,
+      "oracle_precision": 0.18648710340105,
+      "oracle_recall": 0.7000856898029134,
+      "oracle_threshold": 0.25,
+      "threshold_strategy": "sweep_0.25",
+      "fit_ms": 11831.600199999968,
+      "score_ms": 3697.768472000007,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.467251231195804,
+        "kinematic": 0.0,
+        "info_geometry": 0.532748768804196
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-10",
+      "category": "adbench",
+      "n_total": 286048,
+      "n_train": 9903,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.009603283365029646,
+      "test_anomaly_ratio": 0.019001900190019003,
+      "ensemble_auc": 0.9132574273894544,
+      "resonance_auc": 0.8933911391793787,
+      "kinematic_auc": 0.4683609574450961,
+      "info_geometry_auc": 0.9484490612809933,
+      "oracle_f1": 0.2220095693779904,
+      "oracle_precision": 0.13567251461988303,
+      "oracle_recall": 0.6105263157894737,
+      "oracle_threshold": 0.43576851466762334,
+      "threshold_strategy": "mad_2.5",
+      "fit_ms": 1376.4367690000086,
+      "score_ms": 10344.280683000023,
+      "progressive_validation": {
+        "split_aucs": [
+          0.8904328950411899
+        ],
+        "split_f1s": [
+          0.48684210526315785
+        ],
+        "mean_auc": 0.8904328950411899,
+        "mean_f1": 0.48684210526315785,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3465046854466961,
+        "kinematic": 0.34781505470966817,
+        "info_geometry": 0.3056802598436358
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9346542922099385,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-11",
+      "category": "adbench",
+      "n_total": 619326,
+      "n_train": 9407,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.05927411411760527,
+      "test_anomaly_ratio": 0.11181118111811181,
+      "ensemble_auc": 0.8984736364077681,
+      "resonance_auc": 0.8805305652415893,
+      "kinematic_auc": 0.5696078077880882,
+      "info_geometry_auc": 0.9240750137124157,
+      "oracle_f1": 0.514490161001789,
+      "oracle_precision": 0.4287418008348241,
+      "oracle_recall": 0.6431127012522362,
+      "oracle_threshold": 0.3843245381066247,
+      "threshold_strategy": "contam_1.5",
+      "fit_ms": 1304.9726240000155,
+      "score_ms": 10347.628518999954,
+      "progressive_validation": {
+        "split_aucs": [
+          0.8924484475955734
+        ],
+        "split_f1s": [
+          0.8663366336633664
+        ],
+        "mean_auc": 0.8924484475955734,
+        "mean_f1": 0.8663366336633664,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3530342506520093,
+        "kinematic": 0.34062918178618673,
+        "info_geometry": 0.306336567561804
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.92712838912281,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-12",
+      "category": "adbench",
+      "n_total": 1941,
+      "n_train": 634,
+      "n_test": 1307,
+      "n_features": 27,
+      "anomaly_ratio": 0.3467284904688305,
+      "test_anomaly_ratio": 0.5149196633511859,
+      "ensemble_auc": 0.7035309668558786,
+      "resonance_auc": 0.5012351118631674,
+      "kinematic_auc": 0.6216116452065004,
+      "info_geometry_auc": 0.6950082262668684,
+      "oracle_f1": 0.7030567685589519,
+      "oracle_precision": 0.5556514236410699,
+      "oracle_recall": 0.9569093610698366,
+      "oracle_threshold": 0.34,
+      "threshold_strategy": "sweep_0.34",
+      "fit_ms": 111.75018599999476,
+      "score_ms": 2434.0141420000236,
+      "progressive_validation": {
+        "split_aucs": [
+          0.5663350910834133
+        ],
+        "split_f1s": [
+          0.726829268292683
+        ],
+        "mean_auc": 0.5663350910834133,
+        "mean_f1": 0.726829268292683,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.36983411782456793,
+        "kinematic": 0.3063652312552496,
+        "info_geometry": 0.32380065092018256
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.3110329633981466,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-13",
+      "category": "adbench",
+      "n_total": 284807,
+      "n_train": 9982,
+      "n_test": 9999,
+      "n_features": 29,
+      "anomaly_ratio": 0.001727485630620034,
+      "test_anomaly_ratio": 0.0033003300330033004,
+      "ensemble_auc": 0.9694263526292425,
+      "resonance_auc": 0.9634606145744016,
+      "kinematic_auc": 0.83298213927353,
+      "info_geometry_auc": 0.9744297277409861,
+      "oracle_f1": 0.36666666666666664,
+      "oracle_precision": 0.4074074074074074,
+      "oracle_recall": 0.3333333333333333,
+      "oracle_threshold": 0.7604752303750526,
+      "threshold_strategy": "contam_0.8",
+      "fit_ms": 209.50096000001395,
+      "score_ms": 30.108394999956545,
+      "progressive_validation": {
+        "split_aucs": [
+          0.969945737791003
+        ],
+        "split_f1s": [
+          0.6530612244897959
+        ],
+        "mean_auc": 0.969945737791003,
+        "mean_f1": 0.6530612244897959,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.30421391884588667,
+        "kinematic": 0.0,
+        "info_geometry": 0.6957860811541132
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-14",
+      "category": "adbench",
+      "n_total": 214,
+      "n_train": 102,
+      "n_test": 112,
+      "n_features": 7,
+      "anomaly_ratio": 0.04205607476635514,
+      "test_anomaly_ratio": 0.08035714285714286,
+      "ensemble_auc": 0.7454153182308523,
+      "resonance_auc": 0.7518878101402373,
+      "kinematic_auc": 0.3624595469255663,
+      "info_geometry_auc": 0.7713052858683926,
+      "oracle_f1": 0.28571428571428575,
+      "oracle_precision": 0.18181818181818182,
+      "oracle_recall": 0.6666666666666666,
+      "oracle_threshold": 0.38,
+      "threshold_strategy": "sweep_0.38",
+      "fit_ms": 35.785175999990315,
+      "score_ms": 121.35569100007615,
+      "progressive_validation": {
+        "split_aucs": [
+          0.8380952380952381
+        ],
+        "split_f1s": [
+          0.7142857142857143
+        ],
+        "mean_auc": 0.8380952380952381,
+        "mean_f1": 0.7142857142857143,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.2279281382961727,
+        "kinematic": 0.3609229249060434,
+        "info_geometry": 0.4111489367977839
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.9321040854305161,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-15",
+      "category": "adbench",
+      "n_total": 80,
+      "n_train": 33,
+      "n_test": 47,
+      "n_features": 19,
+      "anomaly_ratio": 0.1625,
+      "test_anomaly_ratio": 0.2765957446808511,
+      "ensemble_auc": 0.7895927601809954,
+      "resonance_auc": 0.746606334841629,
+      "kinematic_auc": 0.2726244343891403,
+      "info_geometry_auc": 0.7895927601809954,
+      "oracle_f1": 0.6060606060606061,
+      "oracle_precision": 0.5,
+      "oracle_recall": 0.7692307692307693,
+      "oracle_threshold": 0.6276194529769048,
+      "threshold_strategy": "contam_1.5",
+      "fit_ms": 17.34312400003546,
+      "score_ms": 1.981569000008676,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.47807486631016044,
+        "kinematic": 0.0,
+        "info_geometry": 0.5219251336898395
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-16",
+      "category": "adbench",
+      "n_total": 567498,
+      "n_train": 9961,
+      "n_test": 9999,
+      "n_features": 3,
+      "anomaly_ratio": 0.003896048972859816,
+      "test_anomaly_ratio": 0.007600760076007601,
+      "ensemble_auc": 0.9846197298143069,
+      "resonance_auc": 0.9949612012496222,
+      "kinematic_auc": 0.2897985541299586,
+      "info_geometry_auc": 0.9986156563433173,
+      "oracle_f1": 0.3776595744680851,
+      "oracle_precision": 0.23666666666666666,
+      "oracle_recall": 0.9342105263157895,
+      "oracle_threshold": 0.3873067799190574,
+      "threshold_strategy": "percentile_97",
+      "fit_ms": 1094.5585609999853,
+      "score_ms": 5728.401120000058,
+      "progressive_validation": {
+        "split_aucs": [
+          0.886200484345269
+        ],
+        "split_f1s": [
+          0.3865546218487395
+        ],
+        "mean_auc": 0.886200484345269,
+        "mean_f1": 0.3865546218487395,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3910725646097905,
+        "kinematic": 0.4402616481212492,
+        "info_geometry": 0.16866578726896037
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.859282434931713,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-17",
+      "category": "adbench",
+      "n_total": 1966,
+      "n_train": 799,
+      "n_test": 1167,
+      "n_features": 1555,
+      "anomaly_ratio": 0.1871820956256358,
+      "test_anomaly_ratio": 0.31533847472150817,
+      "ensemble_auc": 0.903229920552865,
+      "resonance_auc": 0.6503254747782554,
+      "kinematic_auc": 0.5,
+      "info_geometry_auc": 0.893868694563857,
+      "oracle_f1": 0.7756097560975611,
+      "oracle_precision": 0.7035398230088495,
+      "oracle_recall": 0.8641304347826086,
+      "oracle_threshold": 0.49,
+      "threshold_strategy": "sweep_0.49",
+      "fit_ms": 10059.285349999982,
+      "score_ms": 4021.021211000061,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.5057491579628751,
+        "kinematic": 0.0,
+        "info_geometry": 0.49425084203712494
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-18",
+      "category": "adbench",
+      "n_total": 351,
+      "n_train": 112,
+      "n_test": 239,
+      "n_features": 32,
+      "anomaly_ratio": 0.358974358974359,
+      "test_anomaly_ratio": 0.5271966527196653,
+      "ensemble_auc": 0.9492906307065598,
+      "resonance_auc": 0.8350891979210564,
+      "kinematic_auc": 0.8371611181345695,
+      "info_geometry_auc": 0.9601067565669337,
+      "oracle_f1": 0.912,
+      "oracle_precision": 0.9193548387096774,
+      "oracle_recall": 0.9047619047619048,
+      "oracle_threshold": 0.85,
+      "threshold_strategy": "sweep_0.85",
+      "fit_ms": 47.67489000005298,
+      "score_ms": 459.9143369999865,
+      "progressive_validation": {
+        "split_aucs": [
+          1.0
+        ],
+        "split_f1s": [
+          1.0
+        ],
+        "mean_auc": 1.0,
+        "mean_f1": 1.0,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3693919699427092,
+        "kinematic": 0.3071654434500543,
+        "info_geometry": 0.32344258660723657
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.417175213001906,
+        "significant_bands": [
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-19",
+      "category": "adbench",
+      "n_total": 6435,
+      "n_train": 2551,
+      "n_test": 3884,
+      "n_features": 36,
+      "anomaly_ratio": 0.20714840714840715,
+      "test_anomaly_ratio": 0.34320288362512874,
+      "ensemble_auc": 0.41366447060608746,
+      "resonance_auc": 0.42757455337962286,
+      "kinematic_auc": 0.35618866496318313,
+      "info_geometry_auc": 0.49253179621836074,
+      "oracle_f1": 0.5110216599578301,
+      "oracle_precision": 0.34320288362512874,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.0,
+      "threshold_strategy": "sweep_0.00",
+      "fit_ms": 477.2837120000304,
+      "score_ms": 7293.8683679999485,
+      "progressive_validation": {
+        "split_aucs": [
+          0.3121660084820668
+        ],
+        "split_f1s": [
+          0.8322046651617757
+        ],
+        "mean_auc": 0.3121660084820668,
+        "mean_f1": 0.8322046651617757,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3324932937102327,
+        "kinematic": 0.3684144864485914,
+        "info_geometry": 0.29909221984117584
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.2691076394047645,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-20",
+      "category": "adbench",
+      "n_total": 1600,
+      "n_train": 750,
+      "n_test": 850,
+      "n_features": 32,
+      "anomaly_ratio": 0.0625,
+      "test_anomaly_ratio": 0.11764705882352941,
+      "ensemble_auc": 0.8293333333333333,
+      "resonance_auc": 0.49017333333333335,
+      "kinematic_auc": 0.7899066666666666,
+      "info_geometry_auc": 0.83624,
+      "oracle_f1": 0.47349823321554774,
+      "oracle_precision": 0.366120218579235,
+      "oracle_recall": 0.67,
+      "oracle_threshold": 0.42,
+      "threshold_strategy": "sweep_0.42",
+      "fit_ms": 86.64489199998116,
+      "score_ms": 5.614741999920625,
+      "progressive_validation": {
+        "split_aucs": [
+          0.6527142857142857
+        ],
+        "split_f1s": [
+          0.757201646090535
+        ],
+        "mean_auc": 0.6527142857142857,
+        "mean_f1": 0.757201646090535,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-21",
+      "category": "adbench",
+      "n_total": 148,
+      "n_train": 71,
+      "n_test": 77,
+      "n_features": 18,
+      "anomaly_ratio": 0.04054054054054054,
+      "test_anomaly_ratio": 0.07792207792207792,
+      "ensemble_auc": 0.9835680751173709,
+      "resonance_auc": 0.9835680751173709,
+      "kinematic_auc": 0.6971830985915493,
+      "info_geometry_auc": 0.9436619718309859,
+      "oracle_f1": 0.8,
+      "oracle_precision": 0.6666666666666666,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.690064437379319,
+      "threshold_strategy": "contam_1.5",
+      "fit_ms": 20.016918000010264,
+      "score_ms": 2.096111000014389,
+      "progressive_validation": {
+        "split_aucs": [
+          1.0
+        ],
+        "split_f1s": [
+          1.0
+        ],
+        "mean_auc": 1.0,
+        "mean_f1": 1.0,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4748698914952294,
+        "kinematic": 0.0,
+        "info_geometry": 0.5251301085047706
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-22",
+      "category": "adbench",
+      "n_total": 19020,
+      "n_train": 6166,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.3516298633017876,
+      "test_anomaly_ratio": 0.5203520352035204,
+      "ensemble_auc": 0.8566470280746801,
+      "resonance_auc": 0.6714103398677577,
+      "kinematic_auc": 0.855813640908073,
+      "info_geometry_auc": 0.8042449446548527,
+      "oracle_f1": 0.7958561852528945,
+      "oracle_precision": 0.7274029280712921,
+      "oracle_recall": 0.8785316163751682,
+      "oracle_threshold": 0.35000000000000003,
+      "threshold_strategy": "sweep_0.35",
+      "fit_ms": 871.4770799999769,
+      "score_ms": 10302.697780000017,
+      "progressive_validation": {
+        "split_aucs": [
+          0.8733438508844968
+        ],
+        "split_f1s": [
+          0.8472828242760809
+        ],
+        "mean_auc": 0.8733438508844968,
+        "mean_f1": 0.8472828242760809,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3411834700595102,
+        "kinematic": 0.3530638744189085,
+        "info_geometry": 0.3057526555215813
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.959987864563326,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-23",
+      "category": "adbench",
+      "n_total": 11183,
+      "n_train": 5461,
+      "n_test": 5722,
+      "n_features": 6,
+      "anomaly_ratio": 0.023249575248144506,
+      "test_anomaly_ratio": 0.045438657811953866,
+      "ensemble_auc": 0.9093210432921162,
+      "resonance_auc": 0.890176886460299,
+      "kinematic_auc": 0.847031588879813,
+      "info_geometry_auc": 0.8759956905050279,
+      "oracle_f1": 0.4153846153846154,
+      "oracle_precision": 0.4153846153846154,
+      "oracle_recall": 0.4153846153846154,
+      "oracle_threshold": 0.5080545634115151,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 777.6675579999619,
+      "score_ms": 4603.868292000016,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9300488214604441
+        ],
+        "split_f1s": [
+          0.7317829457364341
+        ],
+        "mean_auc": 0.9300488214604441,
+        "mean_f1": 0.7317829457364341,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3599338499731907,
+        "kinematic": 0.3261744253708071,
+        "info_geometry": 0.3138917246560022
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.8632678800146872,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-24",
+      "category": "adbench",
+      "n_total": 7603,
+      "n_train": 3451,
+      "n_test": 4152,
+      "n_features": 100,
+      "anomaly_ratio": 0.09206892016309351,
+      "test_anomaly_ratio": 0.16859344894026976,
+      "ensemble_auc": 0.9405909617612978,
+      "resonance_auc": 0.8987791756331733,
+      "kinematic_auc": 0.6871378910776362,
+      "info_geometry_auc": 0.9282846383049164,
+      "oracle_f1": 0.7412398921832885,
+      "oracle_precision": 0.701530612244898,
+      "oracle_recall": 0.7857142857142857,
+      "oracle_threshold": 0.38,
+      "threshold_strategy": "sweep_0.38",
+      "fit_ms": 613.4590450000132,
+      "score_ms": 76.00695499991161,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.4683687028745624,
+        "kinematic": 0.0,
+        "info_geometry": 0.5316312971254376
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-25",
+      "category": "adbench",
+      "n_total": 3062,
+      "n_train": 1482,
+      "n_test": 1580,
+      "n_features": 166,
+      "anomaly_ratio": 0.03167864141084259,
+      "test_anomaly_ratio": 0.06139240506329114,
+      "ensemble_auc": 0.9998053541511703,
+      "resonance_auc": 0.9991379969551828,
+      "kinematic_auc": 0.5845492905853973,
+      "info_geometry_auc": 0.9999999999999999,
+      "oracle_f1": 0.9844559585492227,
+      "oracle_precision": 0.9895833333333334,
+      "oracle_recall": 0.979381443298969,
+      "oracle_threshold": 0.8,
+      "threshold_strategy": "sweep_0.80",
+      "fit_ms": 873.3465239999987,
+      "score_ms": 3939.3627519999654,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.43590665426273845,
+        "kinematic": 0.18267502325736543,
+        "info_geometry": 0.3814183224798961
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.361331812839632,
+        "significant_bands": [
+          "baseline",
+          "session",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-26",
+      "category": "adbench",
+      "n_total": 5216,
+      "n_train": 2533,
+      "n_test": 2683,
+      "n_features": 64,
+      "anomaly_ratio": 0.028757668711656442,
+      "test_anomaly_ratio": 0.05590756615728662,
+      "ensemble_auc": 0.7128701144887485,
+      "resonance_auc": 0.5222976707461509,
+      "kinematic_auc": 0.03589551256744307,
+      "info_geometry_auc": 0.8158389261744967,
+      "oracle_f1": 0.1869158878504673,
+      "oracle_precision": 0.11331444759206799,
+      "oracle_recall": 0.5333333333333333,
+      "oracle_threshold": 0.35000000000000003,
+      "threshold_strategy": "sweep_0.35",
+      "fit_ms": 249.64604600006624,
+      "score_ms": 27.98190499993325,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.46784151032140087,
+        "kinematic": 0.0,
+        "info_geometry": 0.5321584896785991
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-27",
+      "category": "adbench",
+      "n_total": 5393,
+      "n_train": 2441,
+      "n_test": 2952,
+      "n_features": 10,
+      "anomaly_ratio": 0.09456703133691823,
+      "test_anomaly_ratio": 0.17276422764227642,
+      "ensemble_auc": 0.9645412792471616,
+      "resonance_auc": 0.9170127346597935,
+      "kinematic_auc": 0.897514894573718,
+      "info_geometry_auc": 0.9579964991729698,
+      "oracle_f1": 0.7676935886761033,
+      "oracle_precision": 0.6671490593342981,
+      "oracle_recall": 0.903921568627451,
+      "oracle_threshold": 0.39,
+      "threshold_strategy": "sweep_0.39",
+      "fit_ms": 356.9612019999795,
+      "score_ms": 3051.345050000009,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9665114269252929
+        ],
+        "split_f1s": [
+          0.9758454106280193
+        ],
+        "mean_auc": 0.9665114269252929,
+        "mean_f1": 0.9758454106280193,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3527921673088359,
+        "kinematic": 0.3281736195995696,
+        "info_geometry": 0.31903421309159463
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8769815760527456,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-28",
+      "category": "adbench",
+      "n_total": 6870,
+      "n_train": 3357,
+      "n_test": 3513,
+      "n_features": 16,
+      "anomaly_ratio": 0.022707423580786028,
+      "test_anomaly_ratio": 0.0444064901793339,
+      "ensemble_auc": 0.7611668690757163,
+      "resonance_auc": 0.9490062861376535,
+      "kinematic_auc": 0.3368745369415611,
+      "info_geometry_auc": 0.8458846039274994,
+      "oracle_f1": 0.2054054054054054,
+      "oracle_precision": 0.14285714285714285,
+      "oracle_recall": 0.36538461538461536,
+      "oracle_threshold": 0.4,
+      "threshold_strategy": "sweep_0.40",
+      "fit_ms": 562.8545569999233,
+      "score_ms": 4200.373956999897,
+      "progressive_validation": {
+        "split_aucs": [
+          0.8862816529161757
+        ],
+        "split_f1s": [
+          0.6597402597402598
+        ],
+        "mean_auc": 0.8862816529161757,
+        "mean_f1": 0.6597402597402598,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.34067844637957856,
+        "kinematic": 0.361021585038145,
+        "info_geometry": 0.2982999685822765
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.9032001541375275,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-29",
+      "category": "adbench",
+      "n_total": 768,
+      "n_train": 250,
+      "n_test": 518,
+      "n_features": 8,
+      "anomaly_ratio": 0.3489583333333333,
+      "test_anomaly_ratio": 0.5173745173745173,
+      "ensemble_auc": 0.7408358208955225,
+      "resonance_auc": 0.6815671641791046,
+      "kinematic_auc": 0.6752835820895523,
+      "info_geometry_auc": 0.7046716417910448,
+      "oracle_f1": 0.7430340557275541,
+      "oracle_precision": 0.6349206349206349,
+      "oracle_recall": 0.8955223880597015,
+      "oracle_threshold": 0.32,
+      "threshold_strategy": "sweep_0.32",
+      "fit_ms": 60.93885100005991,
+      "score_ms": 846.5857620000179,
+      "progressive_validation": {
+        "split_aucs": [
+          0.700693374422188
+        ],
+        "split_f1s": [
+          0.7913669064748202
+        ],
+        "mean_auc": 0.700693374422188,
+        "mean_f1": 0.7913669064748202,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.37471522736247376,
+        "kinematic": 0.2973026335773519,
+        "info_geometry": 0.32798213906017437
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.9779870662682429,
+        "significant_bands": [
+          "elf_upper"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-30",
+      "category": "adbench",
+      "n_total": 6435,
+      "n_train": 2199,
+      "n_test": 4236,
+      "n_features": 36,
+      "anomaly_ratio": 0.3163947163947164,
+      "test_anomaly_ratio": 0.4806421152030217,
+      "ensemble_auc": 0.7949274424004287,
+      "resonance_auc": 0.6345445615288445,
+      "kinematic_auc": 0.575436573495267,
+      "info_geometry_auc": 0.8030998839078407,
+      "oracle_f1": 0.7568894952251023,
+      "oracle_precision": 0.8514426028238183,
+      "oracle_recall": 0.681237721021611,
+      "oracle_threshold": 0.4763469076525868,
+      "threshold_strategy": "contam_0.8",
+      "fit_ms": 416.7023899999549,
+      "score_ms": 7914.3508449999445,
+      "progressive_validation": {
+        "split_aucs": [
+          0.846464131304116
+        ],
+        "split_f1s": [
+          0.8241042345276873
+        ],
+        "mean_auc": 0.846464131304116,
+        "mean_f1": 0.8241042345276873,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.33766076696046815,
+        "kinematic": 0.3666624930608562,
+        "info_geometry": 0.2956767399786756
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.2612560166002347,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-31",
+      "category": "adbench",
+      "n_total": 5803,
+      "n_train": 2866,
+      "n_test": 2937,
+      "n_features": 36,
+      "anomaly_ratio": 0.0122350508357746,
+      "test_anomaly_ratio": 0.02417432754511406,
+      "ensemble_auc": 0.9997837689079346,
+      "resonance_auc": 0.957854594419272,
+      "kinematic_auc": 0.9668724138269955,
+      "info_geometry_auc": 0.9942797047462724,
+      "oracle_f1": 0.9714285714285714,
+      "oracle_precision": 0.9855072463768116,
+      "oracle_recall": 0.9577464788732394,
+      "oracle_threshold": 0.76,
+      "threshold_strategy": "sweep_0.76",
+      "fit_ms": 519.5507949999865,
+      "score_ms": 5494.752885000025,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9996642605338257
+        ],
+        "split_f1s": [
+          0.9781021897810219
+        ],
+        "mean_auc": 0.9996642605338257,
+        "mean_f1": 0.9781021897810219,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3377215931082257,
+        "kinematic": 0.36566341687574105,
+        "info_geometry": 0.29661499001603325
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.2890464592946722,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-32",
+      "category": "adbench",
+      "n_total": 49097,
+      "n_train": 9284,
+      "n_test": 9999,
+      "n_features": 9,
+      "anomaly_ratio": 0.0715114976475141,
+      "test_anomaly_ratio": 0.1334133413341334,
+      "ensemble_auc": 0.9986913352325568,
+      "resonance_auc": 0.994201543198395,
+      "kinematic_auc": 0.8853858558314611,
+      "info_geometry_auc": 0.9929908531020122,
+      "oracle_f1": 0.9698099142750652,
+      "oracle_precision": 0.9644180874722016,
+      "oracle_recall": 0.9752623688155923,
+      "oracle_threshold": 0.48,
+      "threshold_strategy": "sweep_0.48",
+      "fit_ms": 1296.9315289999486,
+      "score_ms": 10267.197801000066,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9993065623700508
+        ],
+        "split_f1s": [
+          0.9909706546275395
+        ],
+        "mean_auc": 0.9993065623700508,
+        "mean_f1": 0.9909706546275395,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.34196089082680203,
+        "kinematic": 0.35835491810344505,
+        "info_geometry": 0.29968419106975297
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8668339177303998,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-33",
+      "category": "adbench",
+      "n_total": 245057,
+      "n_train": 7924,
+      "n_test": 9999,
+      "n_features": 3,
+      "anomaly_ratio": 0.20753947040892526,
+      "test_anomaly_ratio": 0.3436343634363436,
+      "ensemble_auc": 0.7959807752105189,
+      "resonance_auc": 0.5436967871354155,
+      "kinematic_auc": 0.17676120956780145,
+      "info_geometry_auc": 0.8866775181783367,
+      "oracle_f1": 0.7192270992366413,
+      "oracle_precision": 0.6093371059013742,
+      "oracle_recall": 0.8774738067520372,
+      "oracle_threshold": 0.28,
+      "threshold_strategy": "sweep_0.28",
+      "fit_ms": 881.7053569999871,
+      "score_ms": 5721.158947999925,
+      "progressive_validation": {
+        "split_aucs": [
+          0.7492177077913592
+        ],
+        "split_f1s": [
+          0.8856868395773295
+        ],
+        "mean_auc": 0.7492177077913592,
+        "mean_f1": 0.8856868395773295,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.29672578295760765,
+        "kinematic": 0.401259168194302,
+        "info_geometry": 0.30201504884809033
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8898743488690184,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-34",
+      "category": "adbench",
+      "n_total": 95156,
+      "n_train": 9996,
+      "n_test": 9999,
+      "n_features": 3,
+      "anomaly_ratio": 0.0003152717642607928,
+      "test_anomaly_ratio": 0.0005000500050005,
+      "ensemble_auc": 0.9463878326996197,
+      "resonance_auc": 0.8855913548128878,
+      "kinematic_auc": 0.9359615769461677,
+      "info_geometry_auc": 0.8815589353612168,
+      "oracle_f1": 0.09375000000000001,
+      "oracle_precision": 0.05084745762711865,
+      "oracle_recall": 0.6,
+      "oracle_threshold": 0.6,
+      "threshold_strategy": "sweep_0.60",
+      "fit_ms": 1344.7098550000192,
+      "score_ms": 7822.895474999996,
+      "progressive_validation": {
+        "split_aucs": [
+          0.960960960960961
+        ],
+        "split_f1s": [
+          0.024390243902439022
+        ],
+        "mean_auc": 0.960960960960961,
+        "mean_f1": 0.024390243902439022,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3372746047710281,
+        "kinematic": 0.36549734766589903,
+        "info_geometry": 0.2972280475630729
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 0.8613912419205477,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-35",
+      "category": "adbench",
+      "n_total": 4207,
+      "n_train": 1264,
+      "n_test": 2943,
+      "n_features": 57,
+      "anomaly_ratio": 0.39909674352270025,
+      "test_anomaly_ratio": 0.5705062861026163,
+      "ensemble_auc": 0.8191481140823728,
+      "resonance_auc": 0.8341887123890803,
+      "kinematic_auc": 0.5613191810978506,
+      "info_geometry_auc": 0.7968753533975166,
+      "oracle_f1": 0.7868852459016393,
+      "oracle_precision": 0.7169441723800196,
+      "oracle_recall": 0.8719475878499107,
+      "oracle_threshold": 0.26,
+      "threshold_strategy": "sweep_0.26",
+      "fit_ms": 234.60681500000646,
+      "score_ms": 52.78777599994555,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.47329338693524653,
+        "kinematic": 0.0,
+        "info_geometry": 0.5267066130647534
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-36",
+      "category": "adbench",
+      "n_total": 3686,
+      "n_train": 1812,
+      "n_test": 1874,
+      "n_features": 400,
+      "anomaly_ratio": 0.016549104720564298,
+      "test_anomaly_ratio": 0.03255069370330843,
+      "ensemble_auc": 0.501424140768403,
+      "resonance_auc": 0.4638629931369978,
+      "kinematic_auc": 0.33409890318555435,
+      "info_geometry_auc": 0.5147794164187607,
+      "oracle_f1": 0.09090909090909091,
+      "oracle_precision": 0.10204081632653061,
+      "oracle_recall": 0.08196721311475409,
+      "oracle_threshold": 0.4646983527401848,
+      "threshold_strategy": "contam_0.8",
+      "fit_ms": 1791.3661539998884,
+      "score_ms": 445.02799700001106,
+      "progressive_validation": null,
+      "adaptive_weights": {
+        "resonance": 0.6363636363636364,
+        "kinematic": 0.0,
+        "info_geometry": 0.36363636363636365
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-37",
+      "category": "adbench",
+      "n_total": 340,
+      "n_train": 154,
+      "n_test": 186,
+      "n_features": 9,
+      "anomaly_ratio": 0.09117647058823529,
+      "test_anomaly_ratio": 0.16666666666666666,
+      "ensemble_auc": 0.9238293444328824,
+      "resonance_auc": 0.9302809573361083,
+      "kinematic_auc": 0.6115504682622268,
+      "info_geometry_auc": 0.92528616024974,
+      "oracle_f1": 0.7297297297297297,
+      "oracle_precision": 0.627906976744186,
+      "oracle_recall": 0.8709677419354839,
+      "oracle_threshold": 0.46,
+      "threshold_strategy": "sweep_0.46",
+      "fit_ms": 40.28320999998414,
+      "score_ms": 255.7388479999645,
+      "progressive_validation": {
+        "split_aucs": [
+          0.6571428571428571
+        ],
+        "split_f1s": [
+          0.9375
+        ],
+        "mean_auc": 0.6571428571428571,
+        "mean_f1": 0.9375,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3591818548868693,
+        "kinematic": 0.32690799850437796,
+        "info_geometry": 0.31391014660875277
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.0391917249454752,
+        "significant_bands": [
+          "baseline",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-38",
+      "category": "adbench",
+      "n_total": 3772,
+      "n_train": 1839,
+      "n_test": 1933,
+      "n_features": 6,
+      "anomaly_ratio": 0.024655355249204668,
+      "test_anomaly_ratio": 0.04811174340403518,
+      "ensemble_auc": 0.9875233754090696,
+      "resonance_auc": 0.9863604488078541,
+      "kinematic_auc": 0.93424497428705,
+      "info_geometry_auc": 0.9766450444132773,
+      "oracle_f1": 0.7741935483870968,
+      "oracle_precision": 0.7741935483870968,
+      "oracle_recall": 0.7741935483870968,
+      "oracle_threshold": 0.567373323059026,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 228.11217800006034,
+      "score_ms": 1142.5864029999957,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9931681681681682
+        ],
+        "split_f1s": [
+          0.9265536723163842
+        ],
+        "mean_auc": 0.9931681681681682,
+        "mean_f1": 0.9265536723163842,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.21066259931645276,
+        "kinematic": 0.41228518766577926,
+        "info_geometry": 0.3770522130177679
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 0.8845870820648327,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-39",
+      "category": "adbench",
+      "n_total": 240,
+      "n_train": 105,
+      "n_test": 135,
+      "n_features": 6,
+      "anomaly_ratio": 0.125,
+      "test_anomaly_ratio": 0.2222222222222222,
+      "ensemble_auc": 0.4476190476190476,
+      "resonance_auc": 0.518095238095238,
+      "kinematic_auc": 0.37444444444444447,
+      "info_geometry_auc": 0.5257142857142857,
+      "oracle_f1": 0.37037037037037035,
+      "oracle_precision": 0.22727272727272727,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.14,
+      "threshold_strategy": "sweep_0.14",
+      "fit_ms": 33.97194000001491,
+      "score_ms": 108.96548499999881,
+      "progressive_validation": {
+        "split_aucs": [
+          0.0
+        ],
+        "split_f1s": [
+          0.19999999999999998
+        ],
+        "mean_auc": 0.0,
+        "mean_f1": 0.19999999999999998,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.353483734263991,
+        "kinematic": 0.32587560762806933,
+        "info_geometry": 0.3206406581079396
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8658522099244027,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-40",
+      "category": "adbench",
+      "n_total": 1456,
+      "n_train": 703,
+      "n_test": 753,
+      "n_features": 12,
+      "anomaly_ratio": 0.034340659340659344,
+      "test_anomaly_ratio": 0.06640106241699867,
+      "ensemble_auc": 0.9822475106685633,
+      "resonance_auc": 0.5733428165007113,
+      "kinematic_auc": 0.9519914651493598,
+      "info_geometry_auc": 0.9539971550497865,
+      "oracle_f1": 0.7843137254901961,
+      "oracle_precision": 0.7692307692307693,
+      "oracle_recall": 0.8,
+      "oracle_threshold": 0.41000000000000003,
+      "threshold_strategy": "sweep_0.41",
+      "fit_ms": 125.19954200001848,
+      "score_ms": 781.0816270000487,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9287337326998554
+        ],
+        "split_f1s": [
+          0.7884615384615385
+        ],
+        "mean_auc": 0.9287337326998554,
+        "mean_f1": 0.7884615384615385,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.35042301806576903,
+        "kinematic": 0.3420404704446659,
+        "info_geometry": 0.307536511489565
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9127510432610072,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-41",
+      "category": "adbench",
+      "n_total": 3443,
+      "n_train": 1671,
+      "n_test": 1772,
+      "n_features": 21,
+      "anomaly_ratio": 0.02904443799012489,
+      "test_anomaly_ratio": 0.056433408577878104,
+      "ensemble_auc": 0.5369796650717704,
+      "resonance_auc": 0.6376614832535885,
+      "kinematic_auc": 0.4268092105263157,
+      "info_geometry_auc": 0.5846889952153109,
+      "oracle_f1": 0.11479028697571743,
+      "oracle_precision": 0.061953931691818905,
+      "oracle_recall": 0.78,
+      "oracle_threshold": 0.47000000000000003,
+      "threshold_strategy": "sweep_0.47",
+      "fit_ms": 238.03091900003892,
+      "score_ms": 3280.462805999946,
+      "progressive_validation": {
+        "split_aucs": [
+          0.6102120535714286
+        ],
+        "split_f1s": [
+          0.45482866043613707
+        ],
+        "mean_auc": 0.6102120535714286,
+        "mean_f1": 0.45482866043613707,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3551001834761677,
+        "kinematic": 0.33409702683519743,
+        "info_geometry": 0.3108027896886349
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.3252207006762153,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-42",
+      "category": "adbench",
+      "n_total": 223,
+      "n_train": 106,
+      "n_test": 117,
+      "n_features": 9,
+      "anomaly_ratio": 0.04484304932735426,
+      "test_anomaly_ratio": 0.08547008547008547,
+      "ensemble_auc": 0.9925233644859813,
+      "resonance_auc": 0.994392523364486,
+      "kinematic_auc": 0.7943925233644861,
+      "info_geometry_auc": 0.9728971962616823,
+      "oracle_f1": 0.888888888888889,
+      "oracle_precision": 1.0,
+      "oracle_recall": 0.8,
+      "oracle_threshold": 0.6792970685933916,
+      "threshold_strategy": "contam_0.8",
+      "fit_ms": 35.48454400004175,
+      "score_ms": 192.8632840000546,
+      "progressive_validation": {
+        "split_aucs": [
+          1.0
+        ],
+        "split_f1s": [
+          1.0
+        ],
+        "mean_auc": 1.0,
+        "mean_f1": 1.0,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.39840244726148366,
+        "kinematic": 0.25209586726866123,
+        "info_geometry": 0.34950168546985516
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "environmental",
+        "mean_multiplier": 1.012613078524115,
+        "significant_bands": [
+          "elf_upper",
+          "vlf_environmental"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-43",
+      "category": "adbench",
+      "n_total": 367,
+      "n_train": 178,
+      "n_test": 189,
+      "n_features": 30,
+      "anomaly_ratio": 0.027247956403269755,
+      "test_anomaly_ratio": 0.05291005291005291,
+      "ensemble_auc": 0.9983240223463687,
+      "resonance_auc": 0.9949720670391062,
+      "kinematic_auc": 0.8491620111731844,
+      "info_geometry_auc": 0.9972067039106145,
+      "oracle_f1": 0.9090909090909091,
+      "oracle_precision": 0.8333333333333334,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.6849903721892237,
+      "threshold_strategy": "contam_1.2",
+      "fit_ms": 30.866358000025684,
+      "score_ms": 2.539370000022245,
+      "progressive_validation": {
+        "split_aucs": [
+          1.0
+        ],
+        "split_f1s": [
+          1.0
+        ],
+        "mean_auc": 1.0,
+        "mean_f1": 1.0,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.46410958308081324,
+        "kinematic": 0.0,
+        "info_geometry": 0.5358904169191868
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-44",
+      "category": "adbench",
+      "n_total": 4819,
+      "n_train": 2281,
+      "n_test": 2538,
+      "n_features": 5,
+      "anomaly_ratio": 0.05333056650757419,
+      "test_anomaly_ratio": 0.10126083530338849,
+      "ensemble_auc": 0.5527253559688647,
+      "resonance_auc": 0.35718513792674045,
+      "kinematic_auc": 0.21752354503537086,
+      "info_geometry_auc": 0.7314219819623109,
+      "oracle_f1": 0.21882352941176472,
+      "oracle_precision": 0.1288981288981289,
+      "oracle_recall": 0.7237354085603113,
+      "oracle_threshold": 0.22,
+      "threshold_strategy": "sweep_0.22",
+      "fit_ms": 329.2658919999667,
+      "score_ms": 2017.5548760000765,
+      "progressive_validation": {
+        "split_aucs": [
+          0.41200087143257286
+        ],
+        "split_f1s": [
+          0.6675427069645204
+        ],
+        "mean_auc": 0.41200087143257286,
+        "mean_f1": 0.6675427069645204,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.33949631332688224,
+        "kinematic": 0.35401053171622426,
+        "info_geometry": 0.30649315495689344
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.8713936541982639,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-45",
+      "category": "adbench",
+      "n_total": 129,
+      "n_train": 59,
+      "n_test": 70,
+      "n_features": 13,
+      "anomaly_ratio": 0.07751937984496124,
+      "test_anomaly_ratio": 0.14285714285714285,
+      "ensemble_auc": 0.94,
+      "resonance_auc": 0.8366666666666666,
+      "kinematic_auc": 0.18333333333333332,
+      "info_geometry_auc": 0.9533333333333334,
+      "oracle_f1": 0.7142857142857143,
+      "oracle_precision": 0.5555555555555556,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.44,
+      "threshold_strategy": "sweep_0.44",
+      "fit_ms": 18.170107000059943,
+      "score_ms": 2.0642240000370293,
+      "progressive_validation": {
+        "split_aucs": [
+          1.0
+        ],
+        "split_f1s": [
+          1.0
+        ],
+        "mean_auc": 1.0,
+        "mean_f1": 1.0,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666666666666666,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333333333333333
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-46",
+      "category": "adbench",
+      "n_total": 198,
+      "n_train": 75,
+      "n_test": 123,
+      "n_features": 33,
+      "anomaly_ratio": 0.23737373737373738,
+      "test_anomaly_ratio": 0.3821138211382114,
+      "ensemble_auc": 0.48292273236282196,
+      "resonance_auc": 0.49748040313549835,
+      "kinematic_auc": 0.44680851063829785,
+      "info_geometry_auc": 0.482922732362822,
+      "oracle_f1": 0.5529411764705883,
+      "oracle_precision": 0.3821138211382114,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.0,
+      "threshold_strategy": "sweep_0.00",
+      "fit_ms": 27.091204000043945,
+      "score_ms": 2.7617959999588493,
+      "progressive_validation": {
+        "split_aucs": [
+          0.7374999999999999
+        ],
+        "split_f1s": [
+          0.9500000000000001
+        ],
+        "mean_auc": 0.7374999999999999,
+        "mean_f1": 0.9500000000000001,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.46733849199208205,
+        "kinematic": 0.0,
+        "info_geometry": 0.532661508007918
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADBench-47",
+      "category": "adbench",
+      "n_total": 1484,
+      "n_train": 488,
+      "n_test": 996,
+      "n_features": 8,
+      "anomaly_ratio": 0.341644204851752,
+      "test_anomaly_ratio": 0.5090361445783133,
+      "ensemble_auc": 0.38039633273234025,
+      "resonance_auc": 0.4501760627291538,
+      "kinematic_auc": 0.3264662818697741,
+      "info_geometry_auc": 0.45643203736644034,
+      "oracle_f1": 0.6746506986027944,
+      "oracle_precision": 0.5090361445783133,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.0,
+      "threshold_strategy": "sweep_0.00",
+      "fit_ms": 80.3058430000192,
+      "score_ms": 1360.3591869999718,
+      "progressive_validation": {
+        "split_aucs": [
+          0.26882376882376885
+        ],
+        "split_f1s": [
+          0.7035830618892508
+        ],
+        "mean_auc": 0.26882376882376885,
+        "mean_f1": 0.7035830618892508,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3647454088138337,
+        "kinematic": 0.32690082440151574,
+        "info_geometry": 0.30835376678465054
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.0961036236507038,
+        "significant_bands": [
+          "baseline"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "NSL-KDD",
+      "category": "security",
+      "n_total": 148517,
+      "n_train": 5188,
+      "n_test": 9999,
+      "n_features": 41,
+      "anomaly_ratio": 0.4811772389692762,
+      "test_anomaly_ratio": 0.6497649764976497,
+      "ensemble_auc": 0.97709420338711,
+      "resonance_auc": 0.9622031325445025,
+      "kinematic_auc": 0.6908683285445545,
+      "info_geometry_auc": 0.9658303832538093,
+      "oracle_f1": 0.9420168705828711,
+      "oracle_precision": 0.9303512458721105,
+      "oracle_recall": 0.953978759427428,
+      "oracle_threshold": 0.38,
+      "threshold_strategy": "sweep_0.38",
+      "fit_ms": 491.154718999951,
+      "score_ms": 52.10002100000111,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9754496383576932
+        ],
+        "split_f1s": [
+          0.8495575221238939
+        ],
+        "mean_auc": 0.9754496383576932,
+        "mean_f1": 0.8495575221238939,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4672121083737955,
+        "kinematic": 0.0,
+        "info_geometry": 0.5327878916262045
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "SMD",
+      "category": "timeseries",
+      "n_total": 75876,
+      "n_train": 9465,
+      "n_test": 9999,
+      "n_features": 38,
+      "anomaly_ratio": 0.05341609995255417,
+      "test_anomaly_ratio": 0.10131013101310131,
+      "ensemble_auc": 0.9089757699209191,
+      "resonance_auc": 0.7517165563455185,
+      "kinematic_auc": 0.8512706724445112,
+      "info_geometry_auc": 0.858203690329742,
+      "oracle_f1": 0.5849701110162254,
+      "oracle_precision": 0.5154251316779533,
+      "oracle_recall": 0.6762092793682132,
+      "oracle_threshold": 0.6020329652964023,
+      "threshold_strategy": "mad_3.5",
+      "fit_ms": 1576.9344970000247,
+      "score_ms": 18454.615709999984,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9168553723558679
+        ],
+        "split_f1s": [
+          0.849740932642487
+        ],
+        "mean_auc": 0.9168553723558679,
+        "mean_f1": 0.849740932642487,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.36512565592824014,
+        "kinematic": 0.31572533554685156,
+        "info_geometry": 0.31914900852490824
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.3219019471032192,
+        "significant_bands": [
+          "baseline",
+          "burst"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "NAB",
+      "category": "timeseries",
+      "n_total": 69561,
+      "n_train": 9052,
+      "n_test": 9999,
+      "n_features": 4,
+      "anomaly_ratio": 0.09479449691637555,
+      "test_anomaly_ratio": 0.17311731173117312,
+      "ensemble_auc": 0.4733268268633365,
+      "resonance_auc": 0.4805446275926312,
+      "kinematic_auc": 0.468362604063693,
+      "info_geometry_auc": 0.4936467241125362,
+      "oracle_f1": 0.2951658282888567,
+      "oracle_precision": 0.1731346269253851,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.11,
+      "threshold_strategy": "sweep_0.11",
+      "fit_ms": 1320.6240409999737,
+      "score_ms": 9098.359282000047,
+      "progressive_validation": {
+        "split_aucs": [
+          0.43710829728532996
+        ],
+        "split_f1s": [
+          0.9269994632313473
+        ],
+        "mean_auc": 0.43710829728532996,
+        "mean_f1": 0.9269994632313473,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.19423164495723358,
+        "kinematic": 0.46032278290998013,
+        "info_geometry": 0.3454455721327863
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8706591530071609,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "SMAP",
+      "category": "timeseries",
+      "error": "SMAP/MSL (SMAP): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from OmniAnomaly mirror. Alternative: download from TimeEval HiDrive mirror (https://my.hidrive.com/share/ma4p8w4qqb) and extract train/ and test/ directories to: data/smap_msl"
+    },
+    {
+      "name": "MSL",
+      "category": "timeseries",
+      "error": "SMAP/MSL (MSL): data source unavailable. URL: https://raw.githubusercontent.com/NetManAIOps/OmniAnomaly/master/data/. Could not download telemetry data from OmniAnomaly mirror. Alternative: download from TimeEval HiDrive mirror (https://my.hidrive.com/share/ma4p8w4qqb) and extract train/ and test/ directories to: data/smap_msl"
+    },
+    {
+      "name": "BATADAL",
+      "category": "industrial",
+      "n_total": 12938,
+      "n_train": 6359,
+      "n_test": 6579,
+      "n_features": 43,
+      "anomaly_ratio": 0.016926882052867524,
+      "test_anomaly_ratio": 0.033287733698130414,
+      "ensemble_auc": 0.9100068923925217,
+      "resonance_auc": 0.7256181614542948,
+      "kinematic_auc": 0.6432695069067517,
+      "info_geometry_auc": 0.9177095000143591,
+      "oracle_f1": 0.5657015590200446,
+      "oracle_precision": 0.5521739130434783,
+      "oracle_recall": 0.5799086757990868,
+      "oracle_threshold": 0.47000000000000003,
+      "threshold_strategy": "sweep_0.47",
+      "fit_ms": 678.5249040000281,
+      "score_ms": 31.79688700004135,
+      "progressive_validation": {
+        "split_aucs": [
+          0.8240549682875266
+        ],
+        "split_f1s": [
+          0.6232741617357003
+        ],
+        "mean_auc": 0.8240549682875266,
+        "mean_f1": 0.6232741617357003,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4667058342163517,
+        "kinematic": 0.0,
+        "info_geometry": 0.5332941657836483
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "CICIDS-2017",
+      "category": "security",
+      "error": "CICIDS-2017: data source unavailable. All download sources failed. Place kaggle.json in ~/.kaggle/ or provide local_path."
+    },
+    {
+      "name": "MIT-BIH",
+      "category": "medical",
+      "error": "MIT-BIH: data source unavailable. wfdb library required: pip install wfdb Add 'wfdb' to pyproject.toml [project.optional-dependencies.medical]"
+    },
+    {
+      "name": "USGS_Earthquake",
+      "category": "environmental",
+      "n_total": 1975,
+      "n_train": 895,
+      "n_test": 1080,
+      "n_features": 11,
+      "anomaly_ratio": 0.09316455696202532,
+      "test_anomaly_ratio": 0.17037037037037037,
+      "ensemble_auc": 0.9267092876552794,
+      "resonance_auc": 0.9171134996118012,
+      "kinematic_auc": 0.8086119468167702,
+      "info_geometry_auc": 0.9117636354813665,
+      "oracle_f1": 0.7124010554089709,
+      "oracle_precision": 0.6923076923076923,
+      "oracle_recall": 0.7336956521739131,
+      "oracle_threshold": 0.44,
+      "threshold_strategy": "sweep_0.44",
+      "fit_ms": 166.26372600001105,
+      "score_ms": 1296.1869559999286,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9171195652173914
+        ],
+        "split_f1s": [
+          0.953125
+        ],
+        "mean_auc": 0.9171195652173914,
+        "mean_f1": 0.953125,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.35967833143200323,
+        "kinematic": 0.3282315946336186,
+        "info_geometry": 0.3120900739343782
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.9310302347209634,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "NOAA_Weather",
+      "category": "environmental",
+      "n_total": 17472,
+      "n_train": 8405,
+      "n_test": 9067,
+      "n_features": 8,
+      "anomaly_ratio": 0.037831959706959704,
+      "test_anomaly_ratio": 0.07290173155398699,
+      "ensemble_auc": 0.9430869024826658,
+      "resonance_auc": 0.9279462512008749,
+      "kinematic_auc": 0.6391568697958342,
+      "info_geometry_auc": 0.9766167311512597,
+      "oracle_f1": 0.5930408472012103,
+      "oracle_precision": 0.5930408472012103,
+      "oracle_recall": 0.5930408472012103,
+      "oracle_threshold": 0.42250426416948506,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 1159.9685700000464,
+      "score_ms": 9302.375957999971,
+      "progressive_validation": {
+        "split_aucs": [
+          0.7623085763577502
+        ],
+        "split_f1s": [
+          0.7121212121212122
+        ],
+        "mean_auc": 0.7623085763577502,
+        "mean_f1": 0.7121212121212122,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.345493725688502,
+        "kinematic": 0.3485995635934583,
+        "info_geometry": 0.3059067107180399
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9354470815572107,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "Wildfire",
+      "category": "environmental",
+      "n_total": 38547,
+      "n_train": 5956,
+      "n_test": 9999,
+      "n_features": 7,
+      "anomaly_ratio": 0.40433756193737513,
+      "test_anomaly_ratio": 0.5758575857585758,
+      "ensemble_auc": 0.8714122684172985,
+      "resonance_auc": 0.8014881686810121,
+      "kinematic_auc": 0.7731837004566563,
+      "info_geometry_auc": 0.8281956052000358,
+      "oracle_f1": 0.8378467093385853,
+      "oracle_precision": 0.794181705040448,
+      "oracle_recall": 0.8865925668634943,
+      "oracle_threshold": 0.34,
+      "threshold_strategy": "sweep_0.34",
+      "fit_ms": 835.376105000023,
+      "score_ms": 9396.835145999943,
+      "progressive_validation": {
+        "split_aucs": [
+          0.8922541878755496
+        ],
+        "split_f1s": [
+          0.9436542669584245
+        ],
+        "mean_auc": 0.8922541878755496,
+        "mean_f1": 0.9436542669584245,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3397047327581253,
+        "kinematic": 0.3536030384241965,
+        "info_geometry": 0.30669222881767816
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9182341401026504,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "USGS_Geochemistry",
+      "category": "environmental",
+      "error": "USGSGeochemistry: data source unavailable. URL: https://mrdata.usgs.gov/geochem/. USGS MRData API requires bulk download"
+    },
+    {
+      "name": "NOAA_Buoy",
+      "category": "ocean",
+      "n_total": 19608,
+      "n_train": 7596,
+      "n_test": 9999,
+      "n_features": 9,
+      "anomaly_ratio": 0.2252141982864137,
+      "test_anomaly_ratio": 0.36763676367636766,
+      "ensemble_auc": 0.9644175185089514,
+      "resonance_auc": 0.7990158087380527,
+      "kinematic_auc": 0.9361181960533397,
+      "info_geometry_auc": 0.8929373470637707,
+      "oracle_f1": 0.8690234322091291,
+      "oracle_precision": 0.865389803075263,
+      "oracle_recall": 0.8726877040261154,
+      "oracle_threshold": 0.64,
+      "threshold_strategy": "sweep_0.64",
+      "fit_ms": 870.1308710000148,
+      "score_ms": 13665.084776999947,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9662063300562158
+        ],
+        "split_f1s": [
+          0.9620253164556963
+        ],
+        "mean_auc": 0.9662063300562158,
+        "mean_f1": 0.9620253164556963,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3355301525064644,
+        "kinematic": 0.36799723009046076,
+        "info_geometry": 0.2964726174030748
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.410390646202776,
+        "significant_bands": [
+          "baseline",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "NOAA_StormEvents",
+      "category": "climate",
+      "n_total": 355625,
+      "n_train": 9877,
+      "n_test": 9999,
+      "n_features": 10,
+      "anomaly_ratio": 0.012279789103690686,
+      "test_anomaly_ratio": 0.0242024202420242,
+      "ensemble_auc": 0.9998809924131604,
+      "resonance_auc": 0.9838895067495512,
+      "kinematic_auc": 0.9740186532745722,
+      "info_geometry_auc": 0.9994875474018653,
+      "oracle_f1": 0.987603305785124,
+      "oracle_precision": 0.987603305785124,
+      "oracle_recall": 0.987603305785124,
+      "oracle_threshold": 0.5498691870325513,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 1578.3870000000206,
+      "score_ms": 11886.483033999979,
+      "progressive_validation": {
+        "split_aucs": [
+          1.0
+        ],
+        "split_f1s": [
+          1.0
+        ],
+        "mean_auc": 1.0,
+        "mean_f1": 1.0,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3406462898585691,
+        "kinematic": 0.3625627558642331,
+        "info_geometry": 0.29679095427719776
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.8920621129833163,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "NOAA_GSOD",
+      "category": "climate",
+      "n_total": 1095,
+      "n_train": 499,
+      "n_test": 596,
+      "n_features": 15,
+      "anomaly_ratio": 0.08858447488584476,
+      "test_anomaly_ratio": 0.16275167785234898,
+      "ensemble_auc": 0.9909716339896286,
+      "resonance_auc": 0.8813296696485755,
+      "kinematic_auc": 0.933826415718034,
+      "info_geometry_auc": 0.982810982790323,
+      "oracle_f1": 0.8983957219251337,
+      "oracle_precision": 0.9333333333333333,
+      "oracle_recall": 0.865979381443299,
+      "oracle_threshold": 0.6958053193182951,
+      "threshold_strategy": "percentile_85",
+      "fit_ms": 87.30728299997281,
+      "score_ms": 1096.2765820000868,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9868659420289856
+        ],
+        "split_f1s": [
+          0.9795918367346939
+        ],
+        "mean_auc": 0.9868659420289856,
+        "mean_f1": 0.9795918367346939,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.35635550798294957,
+        "kinematic": 0.33093698478303923,
+        "info_geometry": 0.31270750723401125
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "security",
+        "mean_multiplier": 1.3115935082691785,
+        "significant_bands": [
+          "baseline",
+          "burst",
+          "scan"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "NOAA_ERDDAP",
+      "category": "climate",
+      "error": "NOAA-ERDDAP-ssh: data source unavailable. URL: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisSSH1day.csv?sla[(2026-04-11T00:00:00Z)][(20.0):(50.0)][(-130.0):(-60.0)]. All ERDDAP date offsets failed: HTTP Error 404: "
+    },
+    {
+      "name": "EPA_AirQuality",
+      "category": "air_quality",
+      "n_total": 847370,
+      "n_train": 9902,
+      "n_test": 9999,
+      "n_features": 8,
+      "anomaly_ratio": 0.009797373048373201,
+      "test_anomaly_ratio": 0.0193019301930193,
+      "ensemble_auc": 0.9979023099952551,
+      "resonance_auc": 0.9800666611010073,
+      "kinematic_auc": 0.8734131265726071,
+      "info_geometry_auc": 0.9985723026718335,
+      "oracle_f1": 0.8644067796610171,
+      "oracle_precision": 0.9503105590062112,
+      "oracle_recall": 0.7927461139896373,
+      "oracle_threshold": 0.5700000000000001,
+      "threshold_strategy": "sweep_0.57",
+      "fit_ms": 1378.8071460000992,
+      "score_ms": 10290.87898099999,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9980268350434096
+        ],
+        "split_f1s": [
+          0.931129476584022
+        ],
+        "mean_auc": 0.9980268350434096,
+        "mean_f1": 0.931129476584022,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.35584375703171056,
+        "kinematic": 0.3408487823028897,
+        "info_geometry": 0.30330746066539976
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.9274262717067147,
+        "significant_bands": [
+          "harmonic_distortion"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "FEMA_Disaster",
+      "category": "disaster",
+      "n_total": 10000,
+      "n_train": 2096,
+      "n_test": 7904,
+      "n_features": 11,
+      "anomaly_ratio": 0.5808,
+      "test_anomaly_ratio": 0.7348178137651822,
+      "ensemble_auc": 0.9999995892740732,
+      "resonance_auc": 0.9916177409942591,
+      "kinematic_auc": 0.5454034100766513,
+      "info_geometry_auc": 0.9997614503816794,
+      "oracle_f1": 0.9997418022205009,
+      "oracle_precision": 0.9994837377387713,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.6900000000000001,
+      "threshold_strategy": "sweep_0.69",
+      "fit_ms": 40.22599099994295,
+      "score_ms": 10.033203000034518,
+      "progressive_validation": {
+        "split_aucs": [
+          0.986155432185114
+        ],
+        "split_f1s": [
+          0.9742173112338859
+        ],
+        "mean_auc": 0.986155432185114,
+        "mean_f1": 0.9742173112338859,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4653056382801161,
+        "kinematic": 0.0,
+        "info_geometry": 0.5346943617198839
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "FEMA_HazardMitigation",
+      "category": "disaster",
+      "error": "FEMAHazardMitigation: data source unavailable. URL: https://www.fema.gov/api/open/v2/HazardMitigationGrants. OpenFEMA Hazard Mitigation API unavailable"
+    },
+    {
+      "name": "NASA_Exoplanet",
+      "category": "space",
+      "n_total": 5000,
+      "n_train": 1969,
+      "n_test": 3031,
+      "n_features": 8,
+      "anomaly_ratio": 0.2122,
+      "test_anomaly_ratio": 0.3500494886176179,
+      "ensemble_auc": 0.7676605252204366,
+      "resonance_auc": 0.7366998856552338,
+      "kinematic_auc": 0.7016156580565218,
+      "info_geometry_auc": 0.7448671639148967,
+      "oracle_f1": 0.6348178137651822,
+      "oracle_precision": 0.5564229950319376,
+      "oracle_recall": 0.7389255419415646,
+      "oracle_threshold": 0.31,
+      "threshold_strategy": "sweep_0.31",
+      "fit_ms": 328.43962100002955,
+      "score_ms": 3612.4136029999363,
+      "progressive_validation": {
+        "split_aucs": [
+          0.7702875028982148
+        ],
+        "split_f1s": [
+          0.8727272727272727
+        ],
+        "mean_auc": 0.7702875028982148,
+        "mean_f1": 0.8727272727272727,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.3537414773898298,
+        "kinematic": 0.33639202401933,
+        "info_geometry": 0.3098664985908402
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "medical",
+        "mean_multiplier": 0.9089887764656572,
+        "significant_bands": [
+          "high_gamma_motor"
+        ],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "SolarDynamics",
+      "category": "space",
+      "n_total": 20156,
+      "n_train": 9935,
+      "n_test": 9999,
+      "n_features": 2,
+      "anomaly_ratio": 0.006499305417741615,
+      "test_anomaly_ratio": 0.012801280128012802,
+      "ensemble_auc": 0.9999944597811772,
+      "resonance_auc": 1.0,
+      "kinematic_auc": 0.9653024009725458,
+      "info_geometry_auc": 1.0,
+      "oracle_f1": 0.9921875,
+      "oracle_precision": 0.9921875,
+      "oracle_recall": 0.9921875,
+      "oracle_threshold": 0.6548339149483506,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 1280.1614009999867,
+      "score_ms": 7483.092981000027,
+      "progressive_validation": {
+        "split_aucs": [
+          1.0
+        ],
+        "split_f1s": [
+          1.0
+        ],
+        "mean_auc": 1.0,
+        "mean_f1": 1.0,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.30903794912529525,
+        "kinematic": 0.3760725773879894,
+        "info_geometry": 0.3148894734867153
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TEMPORAL",
+      "oracle_metadata": {
+        "active": true,
+        "domain": "infrastructure",
+        "mean_multiplier": 0.855226108467809,
+        "significant_bands": [],
+        "change_points": 0
+      },
+      "error": null
+    },
+    {
+      "name": "UCR",
+      "category": "academic",
+      "error": "UCR dataset ECG5000 not found. Please download from UCR archive."
+    },
+    {
+      "name": "CWRU_Bearing",
+      "category": "academic",
+      "error": "MBA data not found in data/cwru_bearing. Download from CWRU Bearing Data Center."
+    },
+    {
+      "name": "MSDS",
+      "category": "academic",
+      "n_total": 10000,
+      "n_train": 4750,
+      "n_test": 5250,
+      "n_features": 30,
+      "anomaly_ratio": 0.05,
+      "test_anomaly_ratio": 0.09523809523809523,
+      "ensemble_auc": 1.0,
+      "resonance_auc": 0.9951848421052634,
+      "kinematic_auc": 0.9997894736842106,
+      "info_geometry_auc": 1.0,
+      "oracle_f1": 1.0,
+      "oracle_precision": 1.0,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.5534312852733707,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 109.09918599986668,
+      "score_ms": 17.615013000067847,
+      "progressive_validation": {
+        "split_aucs": [
+          0.9978654545454546
+        ],
+        "split_f1s": [
+          0.988
+        ],
+        "mean_auc": 0.9978654545454546,
+        "mean_f1": 0.988,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4666636882566819,
+        "kinematic": 0.0,
+        "info_geometry": 0.5333363117433181
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ThreatIntel",
+      "category": "security",
+      "n_total": 858,
+      "n_train": 402,
+      "n_test": 456,
+      "n_features": 18,
+      "anomaly_ratio": 0.06177156177156177,
+      "test_anomaly_ratio": 0.1162280701754386,
+      "ensemble_auc": 0.838756496090641,
+      "resonance_auc": 0.9052390093169156,
+      "kinematic_auc": 0.5556908094948266,
+      "info_geometry_auc": 0.8169858139426003,
+      "oracle_f1": 0.5409836065573771,
+      "oracle_precision": 0.4782608695652174,
+      "oracle_recall": 0.6226415094339622,
+      "oracle_threshold": 0.44485280140891825,
+      "threshold_strategy": "percentile_85",
+      "fit_ms": 30.478814999923998,
+      "score_ms": 2.3077529999682156,
+      "progressive_validation": {
+        "split_aucs": [
+          0.8574950690335306
+        ],
+        "split_f1s": [
+          0.8387096774193548
+        ],
+        "mean_auc": 0.8574950690335306,
+        "mean_f1": 0.8387096774193548,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.4670387974014908,
+        "kinematic": 0.0,
+        "info_geometry": 0.5329612025985092
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "ADRepository",
+      "category": "general",
+      "n_total": 7200,
+      "n_train": 3512,
+      "n_test": 3688,
+      "n_features": 21,
+      "anomaly_ratio": 0.024305555555555556,
+      "test_anomaly_ratio": 0.047451193058568326,
+      "ensemble_auc": 1.0,
+      "resonance_auc": 1.0,
+      "kinematic_auc": 0.9089097637346997,
+      "info_geometry_auc": 1.0,
+      "oracle_f1": 1.0,
+      "oracle_precision": 1.0,
+      "oracle_recall": 1.0,
+      "oracle_threshold": 0.6181754691974,
+      "threshold_strategy": "contam_1.0",
+      "fit_ms": 88.05953299997782,
+      "score_ms": 8.913150999887876,
+      "progressive_validation": {
+        "split_aucs": [
+          1.0
+        ],
+        "split_f1s": [
+          1.0
+        ],
+        "mean_auc": 1.0,
+        "mean_f1": 1.0,
+        "temporal_leakage_detected": false
+      },
+      "adaptive_weights": {
+        "resonance": 0.30434748336294076,
+        "kinematic": 0.0,
+        "info_geometry": 0.6956525166370593
+      },
+      "weight_source": "unsupervised_adaptive",
+      "data_type": "TABULAR",
+      "oracle_metadata": {
+        "active": false
+      },
+      "error": null
+    },
+    {
+      "name": "SWaT",
+      "category": "industrial",
+      "error": "SWaT: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT/WADI requires iTrust registration: https://itrust.sutd.edu.sg/itrust-labs-datasets/ Download data and place in data/swat"
+    },
+    {
+      "name": "WADI",
+      "category": "industrial",
+      "error": "WADI: data source unavailable. URL: https://itrust.sutd.edu.sg/itrust-labs-datasets/. SWaT/WADI requires iTrust registration: https://itrust.sutd.edu.sg/itrust-labs-datasets/ Download data and place in data/wadi"
+    }
+  ]
+}
