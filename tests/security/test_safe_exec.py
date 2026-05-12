@@ -45,6 +45,14 @@ class TestArgvValidation:
         with pytest.raises(UnsafeSubprocessError, match="absolute path"):
             safe_exec(["echo", "hi"])
 
+    def test_nonexistent_executable_rejected(self) -> None:
+        # The path is absolute but does not exist on disk; the gate
+        # rejects this before subprocess gets a chance to raise
+        # FileNotFoundError, so the caller sees a single exception
+        # type.
+        with pytest.raises(UnsafeSubprocessError, match="does not exist"):
+            safe_exec(["/this/path/does/not/exist/binary"])
+
     def test_nul_byte_in_arg_rejected(self) -> None:
         with pytest.raises(UnsafeSubprocessError, match="NUL byte"):
             safe_exec([sys.executable, "--version\x00; rm -rf /"])
@@ -78,7 +86,6 @@ class TestPythonModule:
             "json.tool",
             args=["--help"],
             capture_output=True,
-            text=True,
             check=False,
         )
         assert result.returncode in (0, 2)

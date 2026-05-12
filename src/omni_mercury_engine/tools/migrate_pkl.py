@@ -181,10 +181,9 @@ def _do_migration(args: argparse.Namespace) -> int:
     """Body that runs inside the hardened subprocess."""
     # The one-shot operator migration tool whose entire purpose is to
     # read a legacy .pkl payload. The engine itself never imports
-    # pickle. B403 on this import is intentionally suppressed via the
-    # rule-less suppression on the import line so the only annotated
-    # pickle site is the load() below.
-    import pickle  # nosec
+    # pickle; this is the sole sanctioned site, gated by the hardened
+    # subprocess relaunch above.
+    import pickle  # nosec B403
 
     import numpy as np
 

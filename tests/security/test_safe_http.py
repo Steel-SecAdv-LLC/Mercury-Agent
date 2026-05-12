@@ -56,14 +56,52 @@ class TestSchemeGate:
     def test_http_permitted_with_opt_in(self) -> None:
         # Trusted host on plain http with the explicit opt-in should
         # pass the scheme gate (the host is in TRUSTED_DOMAINS).
-        SafeHTTPClient.validate_url(
-            "http://earthquake.usgs.gov/path",
-            allow_http=True,
-        )
+        # The post-Copilot tightening also runs the private-network
+        # gate for http:// URLs, so we patch the resolver to return a
+        # public IP.
+        import ipaddress
+
+        with patch(
+            "omni_mercury_engine.security.safe_http._resolve_ips",
+            return_value=[ipaddress.ip_address("23.215.0.137")],  # public USGS-like IP
+        ):
+            SafeHTTPClient.validate_url(
+                "http://earthquake.usgs.gov/path",
+                allow_http=True,
+            )
 
     def test_no_host_rejected(self) -> None:
         with pytest.raises(UnsafeURLError, match="no host"):
             SafeHTTPClient.validate_url("https://")
+
+    def test_http_unlisted_host_rejected_even_with_allow_http(self) -> None:
+        # The bug surfaced by Copilot review: previously allow_http=True
+        # bypassed the trusted-allowlist gate entirely, so a plain-HTTP
+        # mirror could reach an arbitrary host. The fix asserts the
+        # allowlist for http:// too.
+        with pytest.raises(UnsafeURLError, match="not in trusted allowlist"):
+            SafeHTTPClient.validate_url(
+                "http://evil.example.com/path",
+                allow_http=True,
+            )
+
+    def test_http_to_private_ip_rejected_even_with_trusted_host(self) -> None:
+        # Even when the host is allowlisted, an http:// URL goes through
+        # the private-network gate so a DNS-rebinding to RFC1918 cannot
+        # reach internal infrastructure.
+        import ipaddress
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("10.0.0.5")],
+            ),
+            pytest.raises(UnsafeURLError, match="private/link-local/IMDS"),
+        ):
+            SafeHTTPClient.validate_url(
+                "http://earthquake.usgs.gov/path",
+                allow_http=True,
+            )
 
 
 class TestTrustedDomainsGate:

@@ -49,6 +49,15 @@ class TestIdentifierShape:
     def test_absolute_local_path_accepted_without_revision(self) -> None:
         HFModelPolicy.validate("/opt/models/local-bert", revision=None)
 
+    def test_relative_path_rejected(self) -> None:
+        # ./foo and ../foo are NOT treated as local paths -- they
+        # would let resolution depend on the current working
+        # directory. Refuse so the operator commits to an absolute
+        # path or to a Hub id.
+        for bad in ["./local-model", "../models/foo"]:
+            with pytest.raises(UnsafeModelError):
+                HFModelPolicy.validate(bad, revision=None)
+
 
 class TestRevisionPinning:
     def test_remote_without_revision_rejected(self) -> None:

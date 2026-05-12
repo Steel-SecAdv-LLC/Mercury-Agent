@@ -87,17 +87,22 @@ def http_get_with_retry(
     allow_http: bool = False,
     allow_untrusted: bool = False,
 ) -> bytes:
-    """
-    HTTP GET with scheme/domain validation, default UA, and exponential backoff.
+    """HTTP GET with scheme/domain validation, default UA, and exponential backoff.
 
     Centralizes the retry behavior previously duplicated across loaders.
     Retries on transient HTTP status codes and on socket-level errors
     (timeout, connection reset). Permanent errors (404, 401, 403) raise
     immediately so callers can fail over to a different mirror.
 
-    The transport is :class:`SafeHTTPClient`, which gates every URL
-    against the trusted-domain allowlist and refuses non-HTTPS schemes
-    unless the caller explicitly opts in.
+    The transport is :class:`SafeHTTPClient`, which gates every URL:
+
+    * **Trusted-allowlist** -- the host must be in
+      ``TrustedEndpoints.TRUSTED_DOMAINS`` regardless of scheme.
+      ``allow_untrusted=True`` is the only way out.
+    * **HTTPS-only by default** -- ``http://`` is rejected unless
+      ``allow_http=True``.  When that opt-in is granted, the URL is
+      additionally checked against the private-network / IMDS gate so
+      a plain-HTTP mirror cannot pivot through internal infrastructure.
 
     Args:
         url: HTTP/HTTPS URL to fetch.
@@ -108,8 +113,11 @@ def http_get_with_retry(
         retry_on_status: HTTP status codes that trigger a retry rather than
             raising. 4xx not in this set are treated as permanent.
         allow_http: Permit ``http://`` URLs. Default False (HTTPS-only).
-        allow_untrusted: Permit HTTPS URLs whose host is outside the
-            ``TrustedEndpoints`` allowlist. Default False (allowlist enforced).
+            When True the host still has to clear both the trusted-domain
+            allowlist (unless ``allow_untrusted=True``) and the
+            private-network / IMDS gate.
+        allow_untrusted: Skip the ``TrustedEndpoints`` host allowlist.
+            Default False (allowlist enforced for both schemes).
 
     Returns:
         Response body as bytes.

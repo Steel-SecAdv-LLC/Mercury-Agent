@@ -240,25 +240,35 @@ class SafeHTTPClient:
         """
         scheme, host = _parse_and_check_scheme(url, allow_http=allow_http)
 
-        # Trusted-allowlist gate -- only for class-constant dataset
-        # URLs.  User-configured endpoints (Ollama, SearXNG, custom
-        # inference backends) opt out via user_configured=True.
-        if scheme == "https" and not user_configured and not allow_untrusted:
-            # TrustedEndpoints.validate_url raises ValueError on a miss
-            # so we convert to our own exception type for consistent
-            # error handling at callsites.
+        # Trusted-allowlist gate -- runs for *both* schemes when the
+        # URL is not user-configured.  Previously this only fired for
+        # https://, which let an ``allow_http=True`` dataset mirror
+        # reach an arbitrary host with no allowlist or private-network
+        # check.  Now: http:// is treated identically -- the host must
+        # be in TRUSTED_DOMAINS (or the caller must set
+        # ``allow_untrusted=True``), and every http:// URL also goes
+        # through the private-network / IMDS gate below regardless of
+        # ``user_configured`` because plain HTTP is exactly the
+        # transport an attacker would use to bounce through internal
+        # infrastructure.
+        if not user_configured and not allow_untrusted:
             try:
-                TrustedEndpoints.validate_url(url)
+                TrustedEndpoints.validate_url_host(host)
             except ValueError as exc:
                 raise UnsafeURLError(str(exc)) from exc
 
-        # Private-network / IMDS gate -- runs for user-configured
-        # URLs and for loopback-only on-box adapters.  Class-constant
-        # dataset URLs skip this because they're public hostnames
-        # that we explicitly allowlisted; resolving them on every
-        # call would just slow us down and create a DNS-rebinding
-        # window of its own.
-        if user_configured or loopback_only:
+        # Private-network / IMDS gate.  Runs whenever:
+        #   * the URL came from operator config (user_configured=True),
+        #   * the caller asked for loopback-only enforcement, OR
+        #   * the URL is plain HTTP (allow_http=True), because the
+        #     trusted-allowlist gate is the only thing standing
+        #     between an http:// URL and an SSRF pivot, and we want
+        #     defence-in-depth even when the host is allowlisted.
+        # Class-constant https:// dataset URLs still skip the resolve
+        # because they're public hostnames we explicitly allowlisted;
+        # resolving them on every call is pure overhead.
+        needs_ip_gate = user_configured or loopback_only or scheme == "http"
+        if needs_ip_gate:
             ips = _resolve_ips(host)
             if loopback_only:
                 non_lo = [str(ip) for ip in ips if not _is_loopback(ip)]
@@ -269,8 +279,6 @@ class SafeHTTPClient:
                         f"refuses any address outside 127/8 or ::1."
                     )
             else:
-                # User-configured but not loopback-only -- block
-                # RFC1918 / link-local / IMDS.
                 bad = [str(ip) for ip in ips if _is_private_or_imds(ip)]
                 if bad:
                     raise UnsafeURLError(

@@ -60,8 +60,15 @@ class UnsafeModelError(ValueError):
 
 
 def _is_local_path(model_id: str) -> bool:
-    """Return True if ``model_id`` is a local filesystem path."""
-    return model_id.startswith("/") or model_id.startswith("./") or model_id.startswith("../")
+    """Return True if ``model_id`` is an absolute local filesystem path.
+
+    Relative paths (``./foo``, ``../foo``) are *not* treated as local
+    -- they would make resolution depend on the current working
+    directory, which is exactly the kind of ambient state we refuse
+    to load weights from.  An operator who really wants to load from
+    disk must pass an absolute path.
+    """
+    return model_id.startswith("/")
 
 
 class HFModelPolicy:
@@ -83,9 +90,7 @@ class HFModelPolicy:
         allowlist: Iterable[str] | None = None,
         trust_remote_code: bool = False,
     ) -> None:
-        """
-        Enforce identifier shape, revision pinning, and the
-        ``trust_remote_code`` allowlist.
+        """Enforce identifier shape, revision pinning, and trust_remote_code policy.
 
         Args:
             model_id: HuggingFace Hub identifier or an absolute

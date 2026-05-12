@@ -314,12 +314,11 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
         if self._model is not None:
             return
 
-        # Check if model_name is a local path (doesn't need revision pinning)
-        is_local_path = (
-            self.config.model_name.startswith("/")
-            or self.config.model_name.startswith("./")
-            or self.config.model_name.startswith("../")
-        )
+        # Local paths bypass revision pinning. Only absolute paths
+        # qualify as local; relative paths would let resolution depend
+        # on the current working directory (the same rule the
+        # security/model_policy._is_local_path helper enforces).
+        is_local_path = self.config.model_name.startswith("/")
 
         # Require revision for remote models (supply chain security)
         if not is_local_path and not self.config.revision:

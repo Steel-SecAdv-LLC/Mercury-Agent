@@ -661,13 +661,35 @@ class TrustedEndpoints:
             raise ValueError(f"SSRF Protection: URL must use HTTPS scheme, got '{parsed.scheme}'")
 
         # Validate domain is in allowlist
-        domain = parsed.netloc.lower()
-        if domain not in cls.TRUSTED_DOMAINS:
-            raise ValueError(
-                f"SSRF Protection: Domain '{domain}' not in trusted allowlist. "
-                f"Trusted domains: {sorted(cls.TRUSTED_DOMAINS)}"
-            )
+        cls.validate_url_host(parsed.netloc.lower())
+        return True
 
+    @classmethod
+    def validate_url_host(cls, host: str) -> bool:
+        """Validate a hostname against the TRUSTED_DOMAINS allowlist.
+
+        Scheme-agnostic.  Used by SafeHTTPClient so the allowlist gate
+        fires for both http:// (when the operator explicitly opts in
+        with ``allow_http=True``) and https:// URLs.  Without this, a
+        plain-HTTP dataset mirror could reach an arbitrary host with
+        no allowlist check.
+
+        Args:
+            host: Hostname (no scheme, no path).  Lowercased for the
+                lookup.
+
+        Returns:
+            True if the host is in TRUSTED_DOMAINS.
+
+        Raises:
+            ValueError: host is not in the allowlist.
+        """
+        normalised = host.lower()
+        if normalised not in cls.TRUSTED_DOMAINS:
+            raise ValueError(
+                f"SSRF Protection: Host '{normalised}' not in trusted allowlist. "
+                f"Trusted hosts: {sorted(cls.TRUSTED_DOMAINS)}"
+            )
         return True
 
     # ==========================================================================
