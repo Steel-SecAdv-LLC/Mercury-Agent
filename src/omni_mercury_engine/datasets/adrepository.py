@@ -485,14 +485,30 @@ class ADRepositoryLoader(DatasetLoader):
                 self._load_mat_file(path)
 
             elif suffix == ".npz":
-                # Security: External dataset files - try safe load first
+                # Security: External dataset files MUST load with
+                # ``allow_pickle=False``.  An ADRepository .npz that needs
+                # pickle is either a pre-hardening artifact or a hostile
+                # publication; either way, refusing the load is correct.
+                # The operator can run ``tools/migrate_pkl`` in its hardened
+                # subprocess if a legacy archive must be ingested.
+                #
+                # NpzFile is lazy: np.load() does NOT raise on object-dtype
+                # arrays; the ValueError surfaces only on entry access.
+                # Resolve the X/y arrays inside the same try so a pickle-only
+                # entry can never escape the security guard.
                 try:
                     data = np.load(path, allow_pickle=False)
-                except ValueError:
-                    logger.warning(f"Dataset {path} requires pickle - verify source is trusted")
-                    data = np.load(path, allow_pickle=True)  # nosec B301
-                self._features = data["X"].astype(np.float32)
-                self._labels = data["y"].astype(np.int64)
+                    X = np.asarray(data["X"]).astype(np.float32)
+                    y = np.asarray(data["y"]).astype(np.int64)
+                except ValueError as exc:
+                    raise RuntimeError(
+                        f"Refusing to load pickle-backed .npz at {path}. "
+                        f"Re-export with allow_pickle=False, or run "
+                        f"`python -m omni_mercury_engine.tools.migrate_pkl` "
+                        f"in its hardened subprocess. Original error: {exc}"
+                    ) from exc
+                self._features = X
+                self._labels = y
                 self._is_real_data = True
 
             elif suffix == ".csv":
@@ -513,15 +529,28 @@ class ADRepositoryLoader(DatasetLoader):
 
                 # Find npz or csv files
                 for f in extract_dir.rglob("*.npz"):
-                    # Security: External dataset files - try safe load first
+                    # Security: same rule as the top-level .npz branch — no
+                    # pickle on ingest.  An archive whose contents require
+                    # pickle is rejected; the operator must explicitly run the
+                    # hardened migrate_pkl tool to convert it.  Resolve the
+                    # arrays inside the same try to defeat the NpzFile lazy-
+                    # access escape.
                     try:
                         data = np.load(f, allow_pickle=False)
-                    except ValueError:
-                        logger.warning(f"Dataset {f} requires pickle - verify source")
-                        data = np.load(f, allow_pickle=True)  # nosec B301
-                    if "X" in data and "y" in data:
-                        self._features = data["X"].astype(np.float32)
-                        self._labels = data["y"].astype(np.int64)
+                        has_xy = "X" in data and "y" in data
+                        X = np.asarray(data["X"]).astype(np.float32) if has_xy else None
+                        y = np.asarray(data["y"]).astype(np.int64) if has_xy else None
+                    except ValueError as exc:
+                        raise RuntimeError(
+                            f"Refusing to load pickle-backed .npz inside "
+                            f"archive at {f}. Re-export with "
+                            f"allow_pickle=False, or migrate via "
+                            f"`python -m omni_mercury_engine.tools.migrate_pkl`. "
+                            f"Original error: {exc}"
+                        ) from exc
+                    if X is not None and y is not None:
+                        self._features = X
+                        self._labels = y
                         self._is_real_data = True
                         break
 
@@ -537,6 +566,12 @@ class ADRepositoryLoader(DatasetLoader):
                     f"(real_data={self._is_real_data})"
                 )
 
+        except RuntimeError:
+            # Security defenses (pickle refusal, etc.) raise RuntimeError and
+            # MUST propagate.  Falling back to synthetic data on a security
+            # violation is silent failure; that is exactly what the policy
+            # forbids.
+            raise
         except Exception as e:
             logger.error(f"Failed to load {path}: {e}")
             self._create_synthetic_fallback()

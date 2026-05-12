@@ -327,11 +327,50 @@ class AnomalyDetector(LoggerMixin):
         )
 
     @classmethod
-    def load(cls, path: str, device: str = "auto") -> AnomalyDetector:
-        """Load model from file."""
-        checkpoint = torch.load(
-            path, map_location="cpu"
-        )  # nosec B614 - loading trusted model checkpoints
+    def load(
+        cls,
+        path: str,
+        device: str = "auto",
+        *,
+        allow_unsafe: bool = False,
+    ) -> AnomalyDetector:
+        """Load model from file.
+
+        Args:
+            path: Path to the saved checkpoint.
+            device: Computation device.
+            allow_unsafe: Opt-in to the legacy pickle-full
+                ``weights_only=False`` path.  Off by default; must be
+                explicitly passed by a caller that has verified the
+                checkpoint source.  Every invocation that flips this on
+                emits a ``logger.warning`` for forensic accountability.
+
+        Raises:
+            RuntimeError: If the checkpoint cannot be loaded safely and
+                ``allow_unsafe`` was not requested.
+        """
+        try:
+            # Default: safe loading with weights_only=True.
+            checkpoint = torch.load(path, map_location="cpu", weights_only=True)
+        except Exception as exc:
+            if not allow_unsafe:
+                raise RuntimeError(
+                    f"Checkpoint at '{path}' cannot be loaded safely "
+                    "(weights_only=True). This likely means it contains "
+                    "custom pickled objects. If you trust the source, "
+                    "re-load with allow_unsafe=True. Original error: "
+                    f"{exc}"
+                ) from exc
+            logger.warning(
+                "lstm_ae.AnomalyDetector.load: falling back to "
+                "weights_only=False for %r (allow_unsafe=True). Trusted "
+                "checkpoints only. Original error: %s",
+                path,
+                exc,
+            )
+            checkpoint = torch.load(  # nosec B614 - allow_unsafe explicit + logger.warning above
+                path, map_location="cpu", weights_only=False
+            )
         detector = cls(
             input_dim=checkpoint["input_dim"],
             hidden_dim=checkpoint["hidden_dim"],

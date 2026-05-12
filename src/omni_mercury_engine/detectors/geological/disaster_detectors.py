@@ -1724,7 +1724,7 @@ def load_dart_buoy_data(
 
         TrustedEndpoints.validate_url(DART_BUOY_API_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
+        with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url
             raw_data = response.read().decode()
 
         lines = raw_data.strip().split("\n")
@@ -1808,7 +1808,7 @@ def load_noaa_tsunami_records(
 
         TrustedEndpoints.validate_url(NOAA_TSUNAMI_API_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
+        with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url
             data = json.loads(response.read().decode())
 
         events: list[dict[str, Any]] = data.get("items", [])
@@ -1874,7 +1874,7 @@ def load_usgs_earthquake_catalog(
 
         TrustedEndpoints.validate_url(USGS_EARTHQUAKE_API_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
+        with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url
             data = json.loads(response.read().decode())
 
         features = data.get("features", [])
@@ -2048,7 +2048,7 @@ def load_nasa_fireball_data(
         # Validate URL before opening (SSRF protection via domain allowlist)
         TrustedEndpoints.validate_url(NASA_CNEOS_FIREBALL_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
+        with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url
             data = json.loads(response.read().decode())
 
         if "data" not in data or not data["data"]:
@@ -2156,7 +2156,7 @@ def load_nasa_close_approach_data(
 
         TrustedEndpoints.validate_url(NASA_CNEOS_CAD_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
+        with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url
             data = json.loads(response.read().decode())
 
         if "data" not in data or not data["data"]:
@@ -2235,7 +2235,7 @@ def load_nasa_sentry_data() -> list[SentryImpactRisk] | None:
 
         TrustedEndpoints.validate_url(NASA_SENTRY_URL)
         req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
+        with urlopen(req, timeout=30) as response:  # nosec B310 - TrustedEndpoints.validate_url
             data = json.loads(response.read().decode())
 
         if "data" not in data or not data["data"]:

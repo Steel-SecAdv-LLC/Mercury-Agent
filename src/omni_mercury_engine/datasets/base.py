@@ -166,7 +166,10 @@ def http_get_with_retry(
     for attempt in range(attempts):
         try:
             req = urllib.request.Request(url, headers=request_headers)
-            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+            # TrustedEndpoints.validate_url(url) was called above on the https branch,
+            # and the http branch is gated by the explicit allow_http=True caller opt-in
+            # for documented legacy mirrors only.  No untrusted host or scheme reaches here.
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - TrustedEndpoints.validate_url
                 body: bytes = resp.read()
                 return body
         except urllib.error.HTTPError as e:
@@ -194,7 +197,14 @@ def http_get_with_retry(
         if attempt < attempts - 1:
             time.sleep(backoff ** (attempt + 1))
 
-    assert last_exc is not None  # nosec B101 - loop guarantees at least one exception
+    if last_exc is None:
+        # Defensive: the retry loop always assigns ``last_exc`` before
+        # exit. If we ever reach this branch the loop bookkeeping has been
+        # broken in a refactor; surface that rather than raising ``None``.
+        raise RuntimeError(
+            "http_get_with_retry: retry loop exited without recording an "
+            "exception; this indicates a programmer error in the loop body."
+        )
     raise last_exc
 
 
@@ -411,22 +421,42 @@ class DatasetLoader(ABC):
         # Check cache
         if cache_file.exists():
             logger.info(f"Loading {self.DATASET_NAME} from cache")
-            # Security: Cache files are self-generated, should be pure numpy arrays
-            # Use allow_pickle=False for safety; fall back only if legacy cache exists
+            # Security: Cache files are self-generated and must be pure numpy
+            # arrays.  ``allow_pickle=False`` is mandatory; a cache that needs
+            # pickle is either a corrupted file or one written by a
+            # pre-hardening release, and the safe action is to refuse the load
+            # so the operator deletes the stale file instead of silently
+            # routing untrusted bytes through pickle.loads.
+            #
+            # NpzFile is lazy — np.load() does NOT raise on object-dtype
+            # entries, the ValueError surfaces only on key access.  Resolve
+            # every expected key inside the same try so the guard cannot be
+            # bypassed by a hostile archive that puts a pickle-only entry
+            # behind one of the split names.
             try:
                 cached = np.load(cache_file, allow_pickle=False)
-            except ValueError:
-                logger.warning("Legacy cache format detected, loading with pickle")
-                cached = np.load(cache_file, allow_pickle=True)  # nosec B301
+                train_features = np.asarray(cached["train_features"])
+                val_features = np.asarray(cached["val_features"])
+                test_features = np.asarray(cached["test_features"])
+                train_labels = np.asarray(cached["train_labels"])
+                val_labels = np.asarray(cached["val_labels"])
+                test_labels = np.asarray(cached["test_labels"])
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"Refusing to load legacy pickle-backed cache for "
+                    f"{self.DATASET_NAME} at {cache_file}. Delete the file and "
+                    f"let the loader regenerate it: rm '{cache_file}'. "
+                    f"Original numpy error: {exc}"
+                ) from exc
             self._data = {
-                DatasetSplit.TRAIN: cached["train_features"],
-                DatasetSplit.VALIDATION: cached["val_features"],
-                DatasetSplit.TEST: cached["test_features"],
+                DatasetSplit.TRAIN: train_features,
+                DatasetSplit.VALIDATION: val_features,
+                DatasetSplit.TEST: test_features,
             }
             self._labels = {
-                DatasetSplit.TRAIN: cached["train_labels"],
-                DatasetSplit.VALIDATION: cached["val_labels"],
-                DatasetSplit.TEST: cached["test_labels"],
+                DatasetSplit.TRAIN: train_labels,
+                DatasetSplit.VALIDATION: val_labels,
+                DatasetSplit.TEST: test_labels,
             }
             self._is_loaded = True
             return

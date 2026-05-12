@@ -22,6 +22,7 @@ https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html
 from __future__ import annotations
 
 import html
+import os
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -606,8 +607,10 @@ class TrustedEndpoints:
             # Academic/Research Datasets
             "archive.ics.uci.edu",
             "intrusion-detection.distrinet-research.be",  # CICIDS 2017 improved dataset
-            # Weather APIs
+            # Weather APIs (free + commercial; reached by integrations.stubs.weather)
             "archive-api.open-meteo.com",
+            "api.openweathermap.org",
+            "api.weather.gov",  # NOAA NWS Forecast API + forecastHourly tainted re-fetch
             # NASA JPL Solar System Dynamics (CNEOS Near-Earth Objects)
             "ssd-api.jpl.nasa.gov",
             # Code/Data Repositories
@@ -638,8 +641,36 @@ class TrustedEndpoints:
             "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
             "ghoapi.azureedge.net",  # WHO Global Health Observatory
             "maps.nccs.nasa.gov",  # NASA COOLR (landslide catalog)
+            # Financial market data APIs (reached by integrations.stubs.financial)
+            "www.alphavantage.co",
+            "query1.finance.yahoo.com",
+            # Web search / Q&A APIs (reached by narrative.external_retrieval)
+            "api.duckduckgo.com",
+            # Cloud LLM provider APIs (reached by models.foundation.ollama_adapter
+            # cloud-class adapters when an operator opts into a hosted backend).
+            "api.openai.com",
+            "api.anthropic.com",
+            "api-inference.huggingface.co",
         }
     )
+
+    # Public-search / Q&A endpoints that the narrative layer is allowed
+    # to reach without going through the on-box dataset allowlist.  These
+    # are explicitly *not* in TRUSTED_DOMAINS' on-box research set; they
+    # exist so ``validate_user_configured_url`` can tell "user-configured
+    # search backend" apart from "arbitrary external host".
+    _USER_SEARCH_DOMAINS: frozenset[str] = frozenset(
+        {
+            "api.duckduckgo.com",
+        }
+    )
+
+    # Environment-controlled extensions for operator-configured user
+    # search backends (e.g. a self-hosted SearXNG instance).  Comma- or
+    # whitespace-separated hostnames; HTTPS only.  When unset the only
+    # accepted user-configured search backend is the public DuckDuckGo
+    # instant-answer API.
+    _USER_SEARCH_ENV_VAR = "MERCURY_TRUSTED_SEARCH_HOSTS"
 
     @classmethod
     def validate_url(cls, url: str) -> bool:
@@ -650,10 +681,10 @@ class TrustedEndpoints:
             url: The URL to validate
 
         Returns:
-            True if URL is safe, False otherwise
+            True if URL is safe.
 
         Raises:
-            ValueError: If URL is malformed or uses untrusted scheme/domain
+            ValueError: If URL is malformed or uses untrusted scheme/domain.
         """
         import urllib.parse
 
@@ -663,14 +694,122 @@ class TrustedEndpoints:
         if parsed.scheme != "https":
             raise ValueError(f"SSRF Protection: URL must use HTTPS scheme, got '{parsed.scheme}'")
 
-        # Validate domain is in allowlist
-        domain = parsed.netloc.lower()
+        # Validate domain is in allowlist (strip optional :port)
+        domain = (parsed.hostname or "").lower()
+        if not domain:
+            raise ValueError("SSRF Protection: URL has no host component")
         if domain not in cls.TRUSTED_DOMAINS:
             raise ValueError(
                 f"SSRF Protection: Domain '{domain}' not in trusted allowlist. "
                 f"Trusted domains: {sorted(cls.TRUSTED_DOMAINS)}"
             )
 
+        return True
+
+    # ------------------------------------------------------------------
+    # Loopback validator: on-box services such as Ollama
+    # ------------------------------------------------------------------
+    _LOOPBACK_HOSTS: frozenset[str] = frozenset(
+        # B104 false positive: 0.0.0.0 here is part of a host *allow-list* used
+        # only by the loopback validator to recognise the bind-all alias as a
+        # loopback target.  Nothing in this file binds a socket.
+        {"localhost", "127.0.0.1", "::1", "0.0.0.0"}  # nosec B104 - allow-list literal, not a bind
+    )
+
+    @classmethod
+    def validate_loopback_url(cls, url: str) -> bool:
+        """
+        Validate that a URL targets an on-box loopback service.
+
+        Used by adapters that intentionally talk to a process running on
+        the same host (e.g. Ollama on ``http://localhost:11434``).
+        Permits ``http`` *only* on loopback, never on a routable host —
+        an attacker who can rewrite the configured base URL must not be
+        able to redirect cleartext traffic to an off-box collector.
+
+        Args:
+            url: The URL to validate.
+
+        Returns:
+            True if URL targets a loopback host with an allowed scheme.
+
+        Raises:
+            ValueError: If the scheme is not ``http``/``https`` or the
+                host is not a loopback alias.
+        """
+        import urllib.parse
+
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(
+                f"Loopback Protection: URL scheme must be http or https, got "
+                f"'{parsed.scheme}'."
+            )
+        host = (parsed.hostname or "").lower()
+        if host not in cls._LOOPBACK_HOSTS:
+            raise ValueError(
+                f"Loopback Protection: host {host!r} is not a loopback alias. "
+                f"On-box adapters must address one of {sorted(cls._LOOPBACK_HOSTS)}."
+            )
+        if parsed.scheme == "http" and host not in cls._LOOPBACK_HOSTS:
+            # Defence-in-depth — already covered above, but make the
+            # invariant explicit for the reviewer.
+            raise ValueError("Loopback Protection: cleartext http allowed only on loopback")
+        return True
+
+    # ------------------------------------------------------------------
+    # User-configured URL validator: search backends, etc.
+    # ------------------------------------------------------------------
+    @classmethod
+    def _user_configured_allowlist(cls) -> frozenset[str]:
+        """Return the live allow-list of operator-permitted user URLs."""
+        env = os.environ.get(cls._USER_SEARCH_ENV_VAR, "")
+        extra = {h.strip().lower() for h in re.split(r"[\s,;]+", env) if h.strip()}
+        return frozenset(cls._USER_SEARCH_DOMAINS | extra)
+
+    @classmethod
+    def validate_user_configured_url(cls, url: str) -> bool:
+        """
+        Validate a URL that originated from caller / operator config.
+
+        The narrative layer accepts a user-configured search backend
+        URL (e.g. SearXNG self-hosted instance).  That URL is, by
+        definition, not under our direct control, so we reject anything
+        outside the operator-controlled allow-list.  HTTPS is mandatory.
+
+        The allow-list seeds with the public DuckDuckGo instant-answer
+        API and can be widened by setting ``MERCURY_TRUSTED_SEARCH_HOSTS``
+        in the deployment environment to a comma- or whitespace-separated
+        list of additional hostnames.
+
+        Args:
+            url: The URL to validate.
+
+        Returns:
+            True if the URL is acceptable.
+
+        Raises:
+            ValueError: If the URL fails any check.  Callers must not
+                catch and continue — a rejection terminates the request.
+        """
+        import urllib.parse
+
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme != "https":
+            raise ValueError(
+                "User-Configured URL Protection: scheme must be https; "
+                f"got {parsed.scheme!r}."
+            )
+        host = (parsed.hostname or "").lower()
+        if not host:
+            raise ValueError("User-Configured URL Protection: URL has no host component")
+        allowed = cls._user_configured_allowlist()
+        if host not in allowed:
+            raise ValueError(
+                f"User-Configured URL Protection: host {host!r} is not in the "
+                f"allow-list. Allowed: {sorted(allowed)}. Add to "
+                f"{cls._USER_SEARCH_ENV_VAR} (whitespace/comma list) to extend."
+            )
         return True
 
     @classmethod
@@ -724,7 +863,13 @@ class TrustedEndpoints:
             default_headers.update(headers)
 
         request = urllib.request.Request(url, headers=default_headers)
-        return urllib.request.urlopen(request, timeout=timeout)  # nosec B310
+        # SSRF gate: TrustedEndpoints.validate_url was called above with the
+        # final URL; this urlopen is the canonical sanctioned call for
+        # downstream callers and never sees a value that bypassed validation.
+        cls.validate_url(url.split("?")[0])
+        return urllib.request.urlopen(  # noqa: S310  # nosec B310 - TrustedEndpoints.validate_url
+            request, timeout=timeout
+        )
 
     # ==========================================================================
     # USGS - Earthquake Hazards Program

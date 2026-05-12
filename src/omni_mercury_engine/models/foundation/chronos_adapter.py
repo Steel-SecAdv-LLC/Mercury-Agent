@@ -59,6 +59,10 @@ class ChronosConfig(FoundationModelConfig):
     num_samples: int = 20
     temperature: float = 1.0
     model_name: str = "amazon/chronos-t5-small"
+    # HuggingFace revision pin (commit SHA or tag). Mandatory in production
+    # via MERCURY_HF_REQUIRE_REVISION; HFModelPolicy.validate refuses to
+    # load a remote model when this is unset.
+    revision: str | None = None
 
 
 class ChronosAdapter(BaseFoundationModel):
@@ -132,10 +136,21 @@ class ChronosAdapter(BaseFoundationModel):
         try:
             from chronos import ChronosPipeline
 
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
+
             logger.info(f"Loading Chronos model: {self.chronos_config.model_name}")
 
-            self._pipeline = ChronosPipeline.from_pretrained(
+            # Mercury HF gate: Chronos is published under ``amazon`` (in
+            # TRUSTED_NAMESPACES); trust_remote_code stays False because the
+            # ChronosPipeline class lives inside the ``chronos`` package.
+            HFModelPolicy.validate(
                 self.chronos_config.model_name,
+                revision=self.chronos_config.revision,
+                trust_remote_code=False,
+            )
+            self._pipeline = ChronosPipeline.from_pretrained(  # nosec B615 - HFModelPolicy.validate
+                self.chronos_config.model_name,
+                revision=self.chronos_config.revision,
                 device_map=str(self.device),
                 torch_dtype=torch.float32,
             )

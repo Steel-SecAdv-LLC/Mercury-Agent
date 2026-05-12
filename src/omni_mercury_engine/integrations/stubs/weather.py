@@ -30,6 +30,8 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 logger = logging.getLogger(__name__)
 
 
@@ -466,13 +468,15 @@ class WeatherService:
         }
 
         url = f"{self.OPENWEATHERMAP_BASE}/weather?{urlencode(params)}"
+        # SSRF gate: pin host to api.openweathermap.org via the canonical allow-list.
+        TrustedEndpoints.validate_url(self.OPENWEATHERMAP_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -517,13 +521,15 @@ class WeatherService:
         }
 
         url = f"{self.OPENWEATHERMAP_BASE}/weather?{urlencode(params)}"
+        # SSRF gate: pin host to api.openweathermap.org via the canonical allow-list.
+        TrustedEndpoints.validate_url(self.OPENWEATHERMAP_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -558,6 +564,8 @@ class WeatherService:
     async def _fetch_noaa_point_info(self, lat: float, lon: float) -> dict[str, Any]:
         """Get NOAA grid point information for coordinates."""
         url = f"{self.NOAA_POINTS_BASE}/{lat},{lon}"
+        # SSRF gate: pin host to api.weather.gov via the canonical allow-list.
+        TrustedEndpoints.validate_url(self.NOAA_POINTS_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
@@ -567,7 +575,7 @@ class WeatherService:
                     "Accept": "application/geo+json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -589,6 +597,14 @@ class WeatherService:
         if not forecast_url:
             raise ValueError("NOAA API: Could not get forecast URL")
 
+        # forecastHourly is returned by the NOAA points endpoint and is
+        # therefore TAINTED input from an external API.  An attacker who
+        # could MITM the points response (or simply a misbehaving NOAA
+        # response) could otherwise redirect the next urlopen to a host of
+        # their choosing.  Validate the tainted URL through the trusted
+        # allow-list before re-opening it.
+        TrustedEndpoints.validate_url(forecast_url.split("?")[0])
+
         # Fetch the hourly forecast
         def fetch_forecast() -> dict[str, Any]:
             req = Request(
@@ -598,7 +614,7 @@ class WeatherService:
                     "Accept": "application/geo+json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -765,13 +781,15 @@ class WeatherService:
         }
 
         url = f"{self.OPENWEATHERMAP_BASE}/forecast?{urlencode(params)}"
+        # SSRF gate: pin host to api.openweathermap.org via the canonical allow-list.
+        TrustedEndpoints.validate_url(self.OPENWEATHERMAP_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 

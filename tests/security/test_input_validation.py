@@ -676,3 +676,154 @@ class TestValidatorInitialization:
         """Test custom default sanitization level."""
         validator = InputValidator(level=SanitizationLevel.STRICT)
         assert validator.default_level == SanitizationLevel.STRICT
+
+
+# =============================================================================
+# TrustedEndpoints — TRUSTED_DOMAINS, validate_url, validate_loopback_url,
+# validate_user_configured_url, and secure_urlopen contract
+# =============================================================================
+
+import os
+from unittest.mock import patch
+
+import pytest
+
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
+
+class TestTrustedDomainsCoverage:
+    """The static allow-list must include every host actually reached by ``urlopen``."""
+
+    REACHED_HOSTS = frozenset(
+        {
+            # Government / research APIs
+            "earthquake.usgs.gov",
+            "services.swpc.noaa.gov",
+            "www.nhc.noaa.gov",
+            "api.tidesandcurrents.noaa.gov",
+            "www.ndbc.noaa.gov",
+            "www.ngdc.noaa.gov",
+            "exoplanetarchive.ipac.caltech.edu",
+            "ssd-api.jpl.nasa.gov",
+            "firms.modaps.eosdis.nasa.gov",
+            "www.fema.gov",
+            "api.weather.gov",
+            # Finance / weather APIs (stubs)
+            "www.alphavantage.co",
+            "query1.finance.yahoo.com",
+            "api.openweathermap.org",
+            # Web search
+            "api.duckduckgo.com",
+        }
+    )
+
+    def test_every_reached_host_is_in_trusted(self):
+        missing = self.REACHED_HOSTS - TrustedEndpoints.TRUSTED_DOMAINS
+        assert not missing, f"Hosts reached by code but not in allow-list: {missing}"
+
+
+class TestValidateUrl:
+    """``TrustedEndpoints.validate_url`` is the canonical SSRF gate for hardcoded URLs."""
+
+    def test_https_trusted_domain_accepted(self):
+        assert TrustedEndpoints.validate_url(
+            "https://earthquake.usgs.gov/fdsnws/event/1/query"
+        )
+
+    def test_http_rejected(self):
+        with pytest.raises(ValueError, match="HTTPS"):
+            TrustedEndpoints.validate_url("http://earthquake.usgs.gov/foo")
+
+    def test_untrusted_domain_rejected(self):
+        with pytest.raises(ValueError, match="trusted allowlist"):
+            TrustedEndpoints.validate_url("https://attacker.example.com/")
+
+    def test_no_host_rejected(self):
+        with pytest.raises(ValueError, match="host"):
+            TrustedEndpoints.validate_url("https:///path")
+
+
+class TestValidateLoopbackUrl:
+    """``validate_loopback_url`` accepts only loopback aliases."""
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://localhost:11434/api/tags",
+            "http://127.0.0.1:11434/api/tags",
+            # IPv6 literal must use bracket form per RFC 3986.
+            "http://[::1]:11434/api/tags",
+            "http://0.0.0.0:11434/api/tags",
+        ],
+    )
+    def test_loopback_http_accepted(self, url):
+        assert TrustedEndpoints.validate_loopback_url(url)
+
+    def test_loopback_https_accepted(self):
+        # HTTPS on loopback is fine too.
+        assert TrustedEndpoints.validate_loopback_url("https://127.0.0.1:8443/x")
+
+    def test_non_loopback_http_rejected(self):
+        # Bare HTTP to a real host must never be allowed by this validator,
+        # even on a port that looks like Ollama's.
+        with pytest.raises(ValueError, match="loopback"):
+            TrustedEndpoints.validate_loopback_url("http://attacker.example.com:11434/api/tags")
+
+    def test_non_loopback_https_rejected(self):
+        with pytest.raises(ValueError, match="loopback"):
+            TrustedEndpoints.validate_loopback_url("https://attacker.example.com:11434/api/tags")
+
+    def test_ftp_rejected(self):
+        with pytest.raises(ValueError, match="http or https"):
+            TrustedEndpoints.validate_loopback_url("ftp://localhost/")
+
+
+class TestValidateUserConfiguredUrl:
+    """``validate_user_configured_url`` enforces the operator allow-list."""
+
+    def test_default_allows_duckduckgo(self):
+        assert TrustedEndpoints.validate_user_configured_url(
+            "https://api.duckduckgo.com/"
+        )
+
+    def test_unknown_host_rejected(self):
+        with pytest.raises(ValueError, match="allow-list"):
+            TrustedEndpoints.validate_user_configured_url(
+                "https://attacker.example.com/search"
+            )
+
+    def test_http_rejected(self):
+        with pytest.raises(ValueError, match="https"):
+            TrustedEndpoints.validate_user_configured_url(
+                "http://api.duckduckgo.com/"
+            )
+
+    def test_env_var_extends_allow_list(self):
+        with patch.dict(
+            os.environ,
+            {"MERCURY_TRUSTED_SEARCH_HOSTS": "self-hosted.example.com,other.example.com"},
+        ):
+            assert TrustedEndpoints.validate_user_configured_url(
+                "https://self-hosted.example.com/search"
+            )
+            assert TrustedEndpoints.validate_user_configured_url(
+                "https://other.example.com/api"
+            )
+            # Hosts not in env or default still rejected.
+            with pytest.raises(ValueError):
+                TrustedEndpoints.validate_user_configured_url(
+                    "https://attacker.example.com/"
+                )
+
+
+class TestSecureUrlopen:
+    """``secure_urlopen`` must refuse to make an unsafe request even with a buggy caller."""
+
+    def test_refuses_untrusted_base(self):
+        # No network call should happen — the validator rejects first.
+        with pytest.raises(ValueError):
+            TrustedEndpoints.secure_urlopen("https://attacker.example.com/data")
+
+    def test_refuses_http(self):
+        with pytest.raises(ValueError):
+            TrustedEndpoints.secure_urlopen("http://earthquake.usgs.gov/")

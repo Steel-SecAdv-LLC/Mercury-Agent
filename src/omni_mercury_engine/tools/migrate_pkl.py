@@ -152,7 +152,8 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     The load-bearing isolation here is the *process boundary* -- a malicious pickle that achieves
     code execution still cannot reach the parent (operator) process state.
     """
-    import subprocess  # nosec B404
+    # subprocess is the hardened-isolation primitive here; no shell, scrubbed env.
+    import subprocess  # nosec B404 - hardened-subprocess gate; see _FORWARDED_ENV scrub
 
     env: dict[str, str] = {
         _HARDENED_SENTINEL: "1",
@@ -166,19 +167,30 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     env.setdefault("LANG", "C")
 
     cmd = [sys.executable, "-m", "omni_mercury_engine.tools.migrate_pkl", *argv]
-    # B603/S603: command list is fully constructed from sys.executable plus the
-    # fixed module path of this tool plus argparse-validated args. There is no
-    # shell interpolation and no shell=True.
-    completed = subprocess.run(cmd, env=env, check=False)  # noqa: S603  # nosec B603
+    # argv is exactly [sys.executable, "-m", <fixed module>, *argparse-args];
+    # shell=False (no shell interpolation); env is scrubbed via _FORWARDED_ENV allow-list.
+    completed = subprocess.run(cmd, env=env, check=False)  # noqa: S603  # nosec B603 - argv literal list + scrubbed env
     return completed.returncode
 
 
 def _do_migration(args: argparse.Namespace) -> int:
     """Body that runs inside the hardened subprocess."""
-    # B403: pickle is intentionally used here -- this is the one-shot
-    # operator migration tool whose entire purpose is to read a legacy
-    # .pkl payload. The engine itself never imports pickle.
-    import pickle  # nosec B403
+    # Defense in depth: refuse to load pickle unless we are in fact running
+    # inside the hardened subprocess.  ``main`` already gates on this, but
+    # checking again here means a future caller that imports
+    # ``_do_migration`` directly cannot bypass the isolation by accident.
+    if os.environ.get(_HARDENED_SENTINEL) != "1":
+        raise RuntimeError(
+            "migrate_pkl._do_migration invoked outside the hardened "
+            "subprocess; refuse to load pickle. Use ``main([...])`` so the "
+            "hardening relaunch runs first."
+        )
+
+    # Operator-driven one-shot migration; this module is the sanctioned pickle
+    # entry point and only runs after _relaunch_hardened has rebuilt the env
+    # (PYTHONNOUSERSITE=1, no PYTHONSTARTUP/PYTHONPATH/LD_PRELOAD).  Engine code
+    # never imports pickle.
+    import pickle  # nosec B403 - hardened-subprocess gate (sentinel + scrubbed env)
 
     import numpy as np
 
@@ -201,10 +213,10 @@ def _do_migration(args: argparse.Namespace) -> int:
 
     print(f"loading legacy pickle: {src} ({size} bytes)", file=sys.stderr)
     with src.open("rb") as f:
-        # B301: this is THE sanctioned pickle.load call in the codebase.
-        # It only runs in the hardened subprocess. The engine itself
-        # never reaches this code path; see module docstring.
-        loaded = pickle.load(f)  # nosec B301
+        # Sanctioned pickle.load: gated by _HARDENED_SENTINEL check above +
+        # size cap + dict-shape verification below; the engine never reaches
+        # this code path.  This is the only pickle.load in src/.
+        loaded = pickle.load(f)  # nosec B301 - hardened-subprocess + shape checks below
 
     if not isinstance(loaded, dict):
         print(

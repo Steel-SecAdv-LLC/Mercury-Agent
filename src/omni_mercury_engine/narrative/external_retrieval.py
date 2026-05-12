@@ -48,19 +48,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 if TYPE_CHECKING:
     from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
-# Allowed URL schemes for web search requests
-_ALLOWED_SCHEMES = frozenset({"http", "https"})
-
-
-def _validate_url_scheme(url: str) -> bool:
-    """Validate URL has an allowed scheme (http/https only)."""
-    parsed = urllib.parse.urlparse(url)
-    return parsed.scheme in _ALLOWED_SCHEMES
 
 
 class ExternalSourceType(Enum):
@@ -339,13 +332,16 @@ class WebSearchRetriever(BaseExternalRetriever):
             safe_query = urllib.parse.quote_plus(query)
             # URL is hardcoded with https:// scheme - safe
             url = f"https://api.duckduckgo.com/?q={safe_query}&format=json&no_html=1"
+            # SSRF gate: hardcoded host, but still validate so a future edit
+            # cannot silently widen the destination.
+            TrustedEndpoints.validate_url(url.split("?")[0])
 
-            req = urllib.request.Request(  # noqa: S310 - URL scheme is hardcoded https
+            req = urllib.request.Request(  # noqa: S310 - TrustedEndpoints.validate_url
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme is hardcoded https
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - TrustedEndpoints.validate_url
                 req, timeout=self.config.web_search_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -404,17 +400,18 @@ class WebSearchRetriever(BaseExternalRetriever):
             safe_query = urllib.parse.quote_plus(query)
             url = f"{self.searxng_url}/search?q={safe_query}&format=json"
 
-            # Validate URL scheme before making request
-            if not _validate_url_scheme(url):
-                logger.warning(f"Invalid URL scheme for SearXNG: {url}")
-                return results
+            # User-configured SearXNG instance: validate against the
+            # operator allow-list (defaults to api.duckduckgo.com only; can
+            # be widened via MERCURY_TRUSTED_SEARCH_HOSTS).  A rejection
+            # here is hard — no silent fall-through.
+            TrustedEndpoints.validate_user_configured_url(url.split("?")[0])
 
-            req = urllib.request.Request(  # noqa: S310 - URL scheme validated above
+            req = urllib.request.Request(  # noqa: S310 - validate_user_configured_url
                 url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - TrustedEndpoints.validate_user_configured_url
                 req, timeout=self.config.web_search_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -449,12 +446,16 @@ class WebSearchRetriever(BaseExternalRetriever):
             return False
 
         try:
-            # Quick connectivity check - URL is hardcoded with https:// scheme
+            # SSRF gate: hardcoded api.duckduckgo.com, but still validate so
+            # an attacker (or a careless future edit) cannot silently widen
+            # the connectivity probe to a host of their choosing.
+            check_url = "https://api.duckduckgo.com/?q=test&format=json"
+            TrustedEndpoints.validate_url(check_url.split("?")[0])
             req = urllib.request.Request(
-                "https://api.duckduckgo.com/?q=test&format=json",
+                check_url,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
             )
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme is hardcoded https
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - TrustedEndpoints.validate_url
                 req, timeout=5
             ) as _:
                 self._is_available = True
@@ -678,8 +679,11 @@ class DatabaseRetriever(BaseExternalRetriever):
             logger.warning(f"Invalid table name format: {target_table}")
             return None
 
-        # Build simple search query - table name validated above.
-        return f"SELECT * FROM {target_table} LIMIT {max_results}"  # noqa: S608  # nosec B608
+        # SQL injection gate: target_table came from sqlite_master AND passed
+        # the ^[a-zA-Z_][a-zA-Z0-9_]*$ identifier check above; max_results is
+        # an int positional from the caller, not a string.  SQLite identifiers
+        # cannot be parameterised via "?" so f-string is the only path.
+        return f"SELECT * FROM {target_table} LIMIT {int(max_results)}"  # noqa: S608  # nosec B608 - identifier regex + int cast above
 
     def execute_query(
         self,

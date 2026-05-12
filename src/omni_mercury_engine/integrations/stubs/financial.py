@@ -31,6 +31,8 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
+
 logger = logging.getLogger(__name__)
 
 
@@ -586,10 +588,12 @@ class FinancialService:
         }
 
         url = f"{self.ALPHA_VANTAGE_BASE}?{urlencode(params)}"
+        # SSRF gate: pin host to www.alphavantage.co via the canonical allow-list.
+        TrustedEndpoints.validate_url(self.ALPHA_VANTAGE_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -636,6 +640,8 @@ class FinancialService:
             "range": "1d",
         }
         full_url = f"{url}?{urlencode(params)}"
+        # SSRF gate: pin host to query1.finance.yahoo.com via the canonical allow-list.
+        TrustedEndpoints.validate_url(self.YAHOO_FINANCE_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
@@ -645,7 +651,7 @@ class FinancialService:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 
@@ -800,6 +806,8 @@ class FinancialService:
             "range": range_param,
         }
         full_url = f"{url}?{urlencode(params)}"
+        # SSRF gate: pin host to query1.finance.yahoo.com via the canonical allow-list.
+        TrustedEndpoints.validate_url(self.YAHOO_FINANCE_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(
@@ -809,7 +817,7 @@ class FinancialService:
                     "Accept": "application/json",
                 },
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url
                 fetched: dict[str, Any] = json.loads(response.read().decode())
                 return fetched
 
@@ -869,10 +877,12 @@ class FinancialService:
         }
 
         url = f"{self.ALPHA_VANTAGE_BASE}?{urlencode(params)}"
+        # SSRF gate: pin host to www.alphavantage.co via the canonical allow-list.
+        TrustedEndpoints.validate_url(self.ALPHA_VANTAGE_BASE)
 
         def fetch() -> dict[str, Any]:
             req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
+            with urlopen(req, timeout=self.timeout) as response:  # nosec B310 - TrustedEndpoints.validate_url
                 result: dict[str, Any] = json.loads(response.read().decode())
                 return result
 

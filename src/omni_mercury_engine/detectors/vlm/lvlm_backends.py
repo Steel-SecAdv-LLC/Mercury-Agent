@@ -53,20 +53,27 @@ class LVLMBackend(ABC):
         device: str = "cuda",
         max_new_tokens: int = 256,
         temperature: float = 0.1,
+        revision: str | None = None,
     ):
         """
         Initialize LVLM backend.
 
         Args:
-            model_name: HuggingFace model identifier
-            device: Computation device
-            max_new_tokens: Maximum generation tokens
-            temperature: Sampling temperature
+            model_name: HuggingFace model identifier or local path.
+            device: Computation device.
+            max_new_tokens: Maximum generation tokens.
+            temperature: Sampling temperature.
+            revision: Pinned HuggingFace revision (commit SHA or tag).
+                Mandatory when ``MERCURY_HF_REQUIRE_REVISION`` is on
+                (production default) and ``model_name`` is not a local path.
+                The ``HFModelPolicy.validate`` call inside each backend's
+                ``initialize`` will refuse to load otherwise.
         """
         self.model_name = model_name
         self.device = torch.device(device)
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
+        self.revision = revision
 
         self.model: Any = None
         self.processor: Any = None
@@ -124,11 +131,28 @@ class Qwen2VLBackend(LVLMBackend):
         try:
             from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
+
             logger.info(f"Loading Qwen2-VL: {self.model_name}")
 
-            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615
-            self.model = Qwen2VLForConditionalGeneration.from_pretrained(  # nosec B615
+            # Mercury HF gate: enforce namespace allow-list (Qwen is in the
+            # remote-code-trusted set) + revision pinning before any
+            # from_pretrained call.  Qwen2-VL's published revisions ship a
+            # custom modeling.py, so trust_remote_code is permitted here.
+            HFModelPolicy.validate(
                 self.model_name,
+                revision=self.revision,
+                trust_remote_code=True,
+            )
+            self.processor = AutoProcessor.from_pretrained(  # nosec B615 - HFModelPolicy.validate
+                self.model_name,
+                revision=self.revision,
+                trust_remote_code=True,
+            )
+            self.model = Qwen2VLForConditionalGeneration.from_pretrained(  # nosec B615 - HFModelPolicy.validate
+                self.model_name,
+                revision=self.revision,
+                trust_remote_code=True,
                 torch_dtype=torch.float16,
                 device_map="auto",
             )
@@ -199,16 +223,27 @@ class MiniCPMVBackend(LVLMBackend):
         try:
             from transformers import AutoModel, AutoTokenizer
 
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
+
             logger.info(f"Loading MiniCPM-V: {self.model_name}")
 
-            # nosec B615 - model_name is user-configured; see module docstring for security guidance
-            self.model = AutoModel.from_pretrained(  # nosec B615
+            # Mercury HF gate: MiniCPM-V ships a custom modeling.py under the
+            # ``openbmb`` namespace, which is in REMOTE_CODE_ALLOWED_NAMESPACES.
+            # Revision pinning is mandatory in production.
+            HFModelPolicy.validate(
                 self.model_name,
+                revision=self.revision,
+                trust_remote_code=True,
+            )
+            self.model = AutoModel.from_pretrained(  # nosec B615 - HFModelPolicy.validate
+                self.model_name,
+                revision=self.revision,
                 trust_remote_code=True,
                 torch_dtype=torch.float16,
             ).to(self.device)
-            self.processor = AutoTokenizer.from_pretrained(  # nosec B615
+            self.processor = AutoTokenizer.from_pretrained(  # nosec B615 - HFModelPolicy.validate
                 self.model_name,
+                revision=self.revision,
                 trust_remote_code=True,
             )
             self.model.eval()
@@ -253,11 +288,26 @@ class LLaVABackend(LVLMBackend):
         try:
             from transformers import AutoProcessor, LlavaForConditionalGeneration
 
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
+
             logger.info(f"Loading LLaVA: {self.model_name}")
 
-            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615
-            self.model = LlavaForConditionalGeneration.from_pretrained(  # nosec B615
+            # Mercury HF gate: LLaVA is published under ``llava-hf`` which is
+            # in TRUSTED_NAMESPACES but NOT in REMOTE_CODE_ALLOWED_NAMESPACES,
+            # so trust_remote_code stays False.  Revision pinning is mandatory
+            # in production.
+            HFModelPolicy.validate(
                 self.model_name,
+                revision=self.revision,
+                trust_remote_code=False,
+            )
+            self.processor = AutoProcessor.from_pretrained(  # nosec B615 - HFModelPolicy.validate
+                self.model_name,
+                revision=self.revision,
+            )
+            self.model = LlavaForConditionalGeneration.from_pretrained(  # nosec B615 - HFModelPolicy.validate
+                self.model_name,
+                revision=self.revision,
                 torch_dtype=torch.float16,
                 device_map="auto",
             )

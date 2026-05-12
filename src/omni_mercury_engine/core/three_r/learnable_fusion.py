@@ -1045,9 +1045,9 @@ class Learnable3REngine:
                     "as explicitly requested. Only do this for trusted checkpoints. "
                     f"Original error: {e}"
                 )
-                checkpoint = torch.load(
+                checkpoint = torch.load(  # nosec B614 - allow_unsafe explicit + logger.warning above
                     path, map_location=self.device, weights_only=False
-                )  # nosec B614 - intentional for trusted checkpoints with allow_unsafe=True
+                )
             else:
                 raise RuntimeError(
                     f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "

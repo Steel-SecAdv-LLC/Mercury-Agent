@@ -98,6 +98,10 @@ class BLIPConfig(VLMConfig):
     feature_dim: int = FEATURE_DIM
     use_vqa: bool = False
     caption_max_length: int = 50
+    # HuggingFace revision pin (commit SHA or tag). Mandatory in production
+    # via ``MERCURY_HF_REQUIRE_REVISION``; ``HFModelPolicy.validate`` will
+    # refuse to load if this is unset for a remote model.
+    revision: str | None = None
 
     def __post_init__(self) -> None:
         """Initialize default keywords if not provided."""
@@ -239,13 +243,25 @@ class BLIPVLMDetector(BaseVLMDetector):
             )
 
         try:
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
+
             logger.info(f"Loading BLIP model: {self.blip_config.model_name}")
 
-            self._processor = BlipProcessor.from_pretrained(
-                self.blip_config.model_name
-            )  # nosec B615 - model_name is user-configured, see module docstring for security guidance
-            self._model = BlipForConditionalGeneration.from_pretrained(  # nosec B615 - model_name is user-configured
-                self.blip_config.model_name
+            # Mercury HF gate: BLIP (Salesforce namespace) is in
+            # TRUSTED_NAMESPACES; trust_remote_code stays False because the
+            # standard BLIP classes ship inside transformers itself.
+            HFModelPolicy.validate(
+                self.blip_config.model_name,
+                revision=self.blip_config.revision,
+                trust_remote_code=False,
+            )
+            self._processor = BlipProcessor.from_pretrained(  # nosec B615 - HFModelPolicy.validate
+                self.blip_config.model_name,
+                revision=self.blip_config.revision,
+            )
+            self._model = BlipForConditionalGeneration.from_pretrained(  # nosec B615 - HFModelPolicy.validate
+                self.blip_config.model_name,
+                revision=self.blip_config.revision,
             ).to(
                 self.device
             )

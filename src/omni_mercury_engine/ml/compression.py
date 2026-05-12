@@ -580,17 +580,19 @@ class ModelCompressor:
                 new_model.load_state_dict(copy.deepcopy(model.state_dict()))
                 return new_model
 
-            # For models with complex init, use torch.save/load with BytesIO
-            # This is safer than raw pickle and leverages PyTorch's serialization
-            # Security: Buffer is self-contained, never exposed to external input
+            # For models with complex init, use torch.save/load with BytesIO.
+            # The buffer is created on the line above by ``torch.save(model, ...)``
+            # and is consumed immediately by ``torch.load`` below.  It never
+            # crosses a trust boundary — no disk, no network, no IPC — so the
+            # ``weights_only=False`` load here is operating on bytes this
+            # function itself just produced.  A future refactor that lets the
+            # buffer escape this scope MUST switch back to state_dict + load.
             buffer = io.BytesIO()
             torch.save(model, buffer)
             buffer.seek(0)
-            # weights_only=False required for full model (not just state_dict)
-            # Safe here because buffer is self-serialized, not from external source
-            return torch.load(
+            return torch.load(  # nosec B614 - in-process BytesIO produced by torch.save line above
                 buffer, map_location="cpu", weights_only=False
-            )  # nosec B614 - self-serialized model, not untrusted input
+            )
 
         except (TypeError, RuntimeError, AttributeError):
             # Fallback to standard deepcopy for edge cases

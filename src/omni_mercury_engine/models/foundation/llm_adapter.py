@@ -332,17 +332,24 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
+            from omni_mercury_engine.security.model_policy import HFModelPolicy
+
             # Use revision for remote models, None for local paths
             revision = self.config.revision if not is_local_path else None
 
-            # Revision pinning is enforced at runtime above - remote models require
-            # config.revision to be set, otherwise adapter is marked unavailable.
-            # Local paths are allowed without revision. Bandit cannot verify this statically.
-            self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
+            # Mercury HF gate: enforce namespace allow-list + revision pinning
+            # before any from_pretrained call touches the network.  Local
+            # paths bypass the namespace check inside the policy.
+            HFModelPolicy.validate(
+                self.config.model_name,
+                revision=revision,
+                trust_remote_code=False,
+            )
+            self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615 - HFModelPolicy.validate
                 self.config.model_name,
                 revision=revision,
             )
-            self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615
+            self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615 - HFModelPolicy.validate
                 self.config.model_name,
                 revision=revision,
                 torch_dtype=torch.float16,

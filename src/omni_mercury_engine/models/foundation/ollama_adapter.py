@@ -35,7 +35,6 @@ import json
 import logging
 import os
 import socket
-import urllib.parse
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -48,17 +47,9 @@ from omni_mercury_engine.models.foundation.llm_adapter import (
     LLMConfig,
     LLMProvider,
 )
+from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
 logger = logging.getLogger(__name__)
-
-# Allowed URL schemes for Ollama API requests
-_ALLOWED_SCHEMES = frozenset({"http", "https"})
-
-
-def _validate_url_scheme(url: str) -> bool:
-    """Validate URL has an allowed scheme (http/https only)."""
-    parsed = urllib.parse.urlparse(url)
-    return parsed.scheme in _ALLOWED_SCHEMES
 
 
 class OllamaModel(StrEnum):
@@ -249,16 +240,15 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             import urllib.request
 
             url = f"{self.ollama_config.base_url}/api/tags"
-            if not _validate_url_scheme(url):
-                logger.warning(f"Invalid URL scheme for Ollama API: {url}")
-                return False
+            # Loopback gate: refuse to talk to anything but localhost/127.0.0.1/::1.
+            TrustedEndpoints.validate_loopback_url(url)
 
-            req = urllib.request.Request(  # noqa: S310 - URL scheme validated above
+            req = urllib.request.Request(  # noqa: S310 - validate_loopback_url above
                 url, method="GET"
             )
             req.add_header("Accept", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - TrustedEndpoints.validate_loopback_url
                 req, timeout=self.ollama_config.connect_timeout
             ) as response:
                 data = json.loads(response.read().decode())
@@ -307,9 +297,8 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             import urllib.request
 
             url = f"{self.ollama_config.base_url}/api/generate"
-            if not _validate_url_scheme(url):
-                logger.error(f"Invalid URL scheme for Ollama API: {url}")
-                return self._unavailable_response()
+            # Loopback gate: refuse to talk to anything but localhost/127.0.0.1/::1.
+            TrustedEndpoints.validate_loopback_url(url)
 
             payload = {
                 "model": self.ollama_config.model,
@@ -332,7 +321,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - TrustedEndpoints.validate_loopback_url
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())
@@ -364,9 +353,8 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             import urllib.request
 
             url = f"{self.ollama_config.base_url}/api/chat"
-            if not _validate_url_scheme(url):
-                logger.error(f"Invalid URL scheme for Ollama API: {url}")
-                return self._unavailable_response()
+            # Loopback gate: refuse to talk to anything but localhost/127.0.0.1/::1.
+            TrustedEndpoints.validate_loopback_url(url)
 
             chat_messages = []
             if system_prompt:
@@ -388,7 +376,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
             req.add_header("Content-Type", "application/json")
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
+            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - TrustedEndpoints.validate_loopback_url
                 req, timeout=self.ollama_config.timeout
             ) as response:
                 result = json.loads(response.read().decode())
@@ -612,10 +600,12 @@ class OpenAICloudAdapter(BaseLLMAdapter):
 
         import http.client
         import ssl
+        import urllib.parse
 
-        # Validate URL before connecting
-        if not _validate_url_scheme(self.base_url):
-            return "Invalid API URL scheme"
+        # SSRF gate: cloud LLM base_url must hit api.openai.com via the
+        # canonical TrustedEndpoints allow-list.  An operator that wants to
+        # point the adapter at a different host must add it explicitly.
+        TrustedEndpoints.validate_url(self.base_url.split("?")[0])
 
         parsed_url = urllib.parse.urlparse(self.base_url)
         host = parsed_url.netloc or "api.openai.com"
@@ -715,10 +705,11 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
 
         import http.client
         import ssl
+        import urllib.parse
 
-        # Validate URL before connecting
-        if not _validate_url_scheme(self.base_url):
-            return "Invalid API URL scheme"
+        # SSRF gate: cloud LLM base_url must hit api.anthropic.com via the
+        # canonical TrustedEndpoints allow-list.
+        TrustedEndpoints.validate_url(self.base_url.split("?")[0])
 
         parsed_url = urllib.parse.urlparse(self.base_url)
         host = parsed_url.netloc or "api.anthropic.com"
@@ -817,10 +808,11 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
 
         import http.client
         import ssl
+        import urllib.parse
 
-        # Validate URL before connecting
-        if not _validate_url_scheme(self.base_url):
-            return "Invalid API URL scheme"
+        # SSRF gate: cloud LLM base_url must hit api-inference.huggingface.co
+        # via the canonical TrustedEndpoints allow-list.
+        TrustedEndpoints.validate_url(self.base_url.split("?")[0])
 
         parsed_url = urllib.parse.urlparse(self.base_url)
         host = parsed_url.netloc or "api-inference.huggingface.co"
