@@ -2964,7 +2964,9 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Load best model
         if os.path.exists(best_checkpoint_path):
-            checkpoint = torch.load(best_checkpoint_path, map_location=self.device, weights_only=True)
+            checkpoint = torch.load(
+                best_checkpoint_path, map_location=self.device, weights_only=True
+            )
             self.fusion_model.load_state_dict(checkpoint["model_state_dict"])
 
         self.fusion_model.eval()

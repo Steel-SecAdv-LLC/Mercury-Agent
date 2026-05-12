@@ -37,10 +37,13 @@ hardened subprocess before unpickling.
 
 from __future__ import annotations
 
-import os
 import subprocess  # nosec
 import sys
-from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 
 
 class UnsafeSubprocessError(ValueError):
@@ -67,13 +70,9 @@ def _validate_argv(argv: Sequence[str]) -> list[str]:
         raise UnsafeSubprocessError("safe_exec: argv must be non-empty.")
     for i, arg in enumerate(argv_list):
         if not isinstance(arg, str):
-            raise UnsafeSubprocessError(
-                f"safe_exec: argv[{i}] is {type(arg).__name__}, not str."
-            )
+            raise UnsafeSubprocessError(f"safe_exec: argv[{i}] is {type(arg).__name__}, not str.")
         if "\x00" in arg:
-            raise UnsafeSubprocessError(
-                f"safe_exec: argv[{i}] contains a NUL byte; refusing."
-            )
+            raise UnsafeSubprocessError(f"safe_exec: argv[{i}] contains a NUL byte; refusing.")
     executable = argv_list[0]
     if not executable:
         raise UnsafeSubprocessError("safe_exec: argv[0] is empty.")
@@ -81,7 +80,7 @@ def _validate_argv(argv: Sequence[str]) -> list[str]:
     # is, and module re-execs use sys.executable). Refusing relative
     # names blocks $PATH-resolution attacks where a hostile cwd
     # could shadow a system binary.
-    if not os.path.isabs(executable):
+    if not Path(executable).is_absolute():
         raise UnsafeSubprocessError(
             f"safe_exec: argv[0]='{executable}' must be an absolute path. "
             "Use sys.executable or shutil.which() output."
@@ -131,7 +130,7 @@ def safe_exec(
     # validated to be a non-empty NUL-free string and argv[0] is an
     # absolute path.  This is the only subprocess call site in src/;
     # all other callers route through here.
-    return subprocess.run(  # nosec B603
+    return subprocess.run(  # noqa: S603  # nosec B603
         argv_list,
         shell=False,
         env=env_dict,

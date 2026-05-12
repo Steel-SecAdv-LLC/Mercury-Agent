@@ -81,9 +81,7 @@ class TestTrustedDomainsGate:
         # Public DNS that is not in the allowlist; user_configured
         # opts out of the allowlist but still runs the private-network
         # gate against the resolved IPs.
-        with patch(
-            "omni_mercury_engine.security.safe_http._resolve_ips"
-        ) as resolve:
+        with patch("omni_mercury_engine.security.safe_http._resolve_ips") as resolve:
             import ipaddress
 
             resolve.return_value = [ipaddress.ip_address("93.184.216.34")]  # public TEST-IP
@@ -105,21 +103,23 @@ class TestPrivateNetworkGate:
             "192.168.1.1",  # RFC1918
             "169.254.169.254",  # IMDS
             "127.0.0.1",  # loopback (still private)
-            "0.0.0.0",  # unspecified
+            "0.0.0.0",  # noqa: S104 - unspecified; the test asserts the gate refuses this
         ],
     )
     def test_private_ip_rejected(self, ip: str) -> None:
         import ipaddress
 
-        with patch(
-            "omni_mercury_engine.security.safe_http._resolve_ips",
-            return_value=[ipaddress.ip_address(ip)],
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address(ip)],
+            ),
+            pytest.raises(UnsafeURLError, match="private/link-local/IMDS"),
         ):
-            with pytest.raises(UnsafeURLError, match="private/link-local/IMDS"):
-                SafeHTTPClient.validate_url(
-                    "https://attacker.example/",
-                    user_configured=True,
-                )
+            SafeHTTPClient.validate_url(
+                "https://attacker.example/",
+                user_configured=True,
+            )
 
     def test_public_ip_allowed(self) -> None:
         import ipaddress
@@ -134,15 +134,17 @@ class TestPrivateNetworkGate:
             )
 
     def test_unresolvable_host_rejected(self) -> None:
-        with patch(
-            "omni_mercury_engine.security.safe_http.socket.getaddrinfo",
-            side_effect=OSError("no DNS"),
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http.socket.getaddrinfo",
+                side_effect=OSError("no DNS"),
+            ),
+            pytest.raises(UnsafeURLError, match="did not resolve"),
         ):
-            with pytest.raises(UnsafeURLError, match="did not resolve"):
-                SafeHTTPClient.validate_url(
-                    "https://unresolvable.invalid/",
-                    user_configured=True,
-                )
+            SafeHTTPClient.validate_url(
+                "https://unresolvable.invalid/",
+                user_configured=True,
+            )
 
 
 class TestLoopbackOnlyGate:
@@ -160,17 +162,19 @@ class TestLoopbackOnlyGate:
     def test_non_loopback_rejected(self, ip: str) -> None:
         import ipaddress
 
-        with patch(
-            "omni_mercury_engine.security.safe_http._resolve_ips",
-            return_value=[ipaddress.ip_address(ip)],
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address(ip)],
+            ),
+            pytest.raises(UnsafeURLError, match="non-loopback"),
         ):
-            with pytest.raises(UnsafeURLError, match="non-loopback"):
-                SafeHTTPClient.validate_url(
-                    "http://ollama.local:11434/api/tags",
-                    allow_http=True,
-                    user_configured=True,
-                    loopback_only=True,
-                )
+            SafeHTTPClient.validate_url(
+                "http://ollama.local:11434/api/tags",
+                allow_http=True,
+                user_configured=True,
+                loopback_only=True,
+            )
 
     def test_loopback_v4_allowed(self) -> None:
         import ipaddress
@@ -212,9 +216,7 @@ class TestNoNoSecForUrlopen:
             if path.name == "safe_http.py":
                 continue
             content = path.read_text(encoding="utf-8")
-            assert "urllib.request.urlopen" not in content, (
-                f"urlopen still present in {path}"
-            )
+            assert "urllib.request.urlopen" not in content, f"urlopen still present in {path}"
 
     def test_no_b310_nosec_anywhere(self) -> None:
         import pathlib

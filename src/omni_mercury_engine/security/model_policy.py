@@ -41,8 +41,10 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +61,7 @@ class UnsafeModelError(ValueError):
 
 def _is_local_path(model_id: str) -> bool:
     """Return True if ``model_id`` is a local filesystem path."""
-    return (
-        model_id.startswith("/")
-        or model_id.startswith("./")
-        or model_id.startswith("../")
-    )
+    return model_id.startswith("/") or model_id.startswith("./") or model_id.startswith("../")
 
 
 class HFModelPolicy:
@@ -108,9 +106,7 @@ class HFModelPolicy:
             UnsafeModelError: any gate failed.
         """
         if not isinstance(model_id, str) or not model_id:
-            raise UnsafeModelError(
-                "HFModelPolicy: model_id must be a non-empty string."
-            )
+            raise UnsafeModelError("HFModelPolicy: model_id must be a non-empty string.")
 
         is_local = _is_local_path(model_id)
         if not is_local and not _HF_ID_RE.match(model_id):
@@ -192,9 +188,7 @@ class SafeHFLoader:
             allowlist=allowlist,
             trust_remote_code=trust_remote_code,
         )
-        effective_revision = (
-            revision if not _is_local_path(model_id) else None
-        )
+        effective_revision = revision if not _is_local_path(model_id) else None
         # B615: the call is gated by HFModelPolicy.validate above.
         # This is the only annotated from_pretrained in src/.
         return cls_.from_pretrained(  # nosec B615

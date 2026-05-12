@@ -641,9 +641,7 @@ class DatabaseRetriever(BaseExternalRetriever):
 
         return results
 
-    def _nl_to_sql(
-        self, query: str, max_results: int
-    ) -> tuple[str, tuple[Any, ...]] | None:
+    def _nl_to_sql(self, query: str, max_results: int) -> tuple[str, tuple[Any, ...]] | None:
         """Convert natural language to a parameterized SQL query.
 
         Returns ``(sql, params)`` so that the LIMIT bound is parameterised

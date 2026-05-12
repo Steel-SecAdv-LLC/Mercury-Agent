@@ -126,6 +126,4 @@ class TestNoFromPretrainedOutsidePolicy:
             # We look for the literal call pattern '.from_pretrained('
             # which is what bandit's B615 matches. Comments and
             # docstrings using the bare word are fine.
-            assert ".from_pretrained(" not in content, (
-                f"Direct from_pretrained call in {path}"
-            )
+            assert ".from_pretrained(" not in content, f"Direct from_pretrained call in {path}"

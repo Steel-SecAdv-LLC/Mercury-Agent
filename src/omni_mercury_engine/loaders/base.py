@@ -24,7 +24,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import requests
 
 from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
@@ -400,9 +399,7 @@ class BaseDomainLoader(ABC):
                     capture_output=True,
                     text=True,
                 )
-                git_commit = (
-                    completed.stdout.strip() if completed.returncode == 0 else "unknown"
-                )
+                git_commit = completed.stdout.strip() if completed.returncode == 0 else "unknown"
             except (UnsafeSubprocessError, FileNotFoundError, OSError):
                 git_commit = "unknown"
 

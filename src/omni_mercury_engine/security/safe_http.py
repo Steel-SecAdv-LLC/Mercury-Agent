@@ -154,9 +154,7 @@ def _resolve_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Addres
     try:
         infos = socket.getaddrinfo(host, None)
     except OSError as exc:
-        raise UnsafeURLError(
-            f"SafeHTTPClient: host '{host}' did not resolve: {exc}."
-        ) from exc
+        raise UnsafeURLError(f"SafeHTTPClient: host '{host}' did not resolve: {exc}.") from exc
     ips: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
     for info in infos:
         sockaddr = info[4]
@@ -167,9 +165,7 @@ def _resolve_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Addres
             except ValueError:
                 continue
     if not ips:
-        raise UnsafeURLError(
-            f"SafeHTTPClient: host '{host}' resolved to no usable IPs."
-        )
+        raise UnsafeURLError(f"SafeHTTPClient: host '{host}' resolved to no usable IPs.")
     return ips
 
 
@@ -382,7 +378,8 @@ class SafeHTTPClient:
             loopback_only=loopback_only,
             allow_untrusted=allow_untrusted,
         ) as response:
-            return response.content
+            body: bytes = response.content
+            return body
 
     @classmethod
     def get_json(
@@ -434,7 +431,8 @@ class SafeHTTPClient:
             loopback_only=loopback_only,
             allow_untrusted=allow_untrusted,
         ) as response:
-            return response.text
+            text: str = response.text
+            return text
 
     @classmethod
     def post_json(

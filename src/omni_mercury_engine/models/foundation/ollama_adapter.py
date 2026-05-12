@@ -49,7 +49,7 @@ from omni_mercury_engine.models.foundation.llm_adapter import (
     LLMConfig,
     LLMProvider,
 )
-from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 logger = logging.getLogger(__name__)
 

@@ -73,9 +73,7 @@ def _build_tap_query(columns: dict[str, str], limit: int) -> str:
         if not _TAP_IDENTIFIER_RE.match(key):
             raise ValueError(f"_build_tap_query: TAP feature name {key!r} is not a SQL identifier.")
         if not _TAP_IDENTIFIER_RE.match(value):
-            raise ValueError(
-                f"_build_tap_query: TAP column {value!r} is not a SQL identifier."
-            )
+            raise ValueError(f"_build_tap_query: TAP column {value!r} is not a SQL identifier.")
     safe_limit = max(0, int(limit))
     column_list = ",".join(columns.values())
     parts: tuple[str, ...] = (
