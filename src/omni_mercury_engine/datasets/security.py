@@ -585,6 +585,32 @@ class CICIDSLoader(DatasetLoader):
         "tcabanski/cicids2017",
     )
 
+    # Per-mirror revision pin. The default is ``"main"`` -- a moving
+    # branch, not a commit SHA -- because none of the community mirrors
+    # above publish stable tagged releases. Operators with stricter
+    # supply-chain requirements override this class attribute in a
+    # subclass to pin each mirror to a vetted commit SHA::
+    #
+    #     class StrictCICIDSLoader(CICIDSLoader):
+    #         HUGGINGFACE_REVISIONS = {
+    #             "bvk/CICIDS-2017": "a1b2c3...",  # specific SHA
+    #             "Riccorl/CIC-IDS-2017": "d4e5f6...",
+    #             "tcabanski/cicids2017": "main",  # accept moving for this one
+    #         }
+    #
+    # We deliberately do NOT log a warning on every "main" load. That
+    # would fire once per cold cache per deployment -- noise, not
+    # signal. The override mechanism is documented here at the surface
+    # an operator would edit, where it belongs. The supply-chain risk
+    # of "main" is real but mitigated by the SafeHFLoader allowlist
+    # (refuses unknown mirror IDs) and the on-disk cache (a once-vetted
+    # snapshot survives upstream rotation until the cache is rebuilt).
+    HUGGINGFACE_REVISIONS: dict[str, str] = {
+        "bvk/CICIDS-2017": "main",
+        "Riccorl/CIC-IDS-2017": "main",
+        "tcabanski/cicids2017": "main",
+    }
+
     # Label encoding for CICIDS 2017 attack types
     # Reference: Original dataset documentation
     ATTACK_LABELS = {
@@ -815,14 +841,22 @@ class CICIDSLoader(DatasetLoader):
         last_err: Exception | None = None
         for mirror_id in self.HUGGINGFACE_MIRRORS:
             try:
-                logger.info("Downloading CICIDS 2017 from Hugging Face (%s)...", mirror_id)
+                revision = self.HUGGINGFACE_REVISIONS.get(mirror_id, "main")
+                logger.info(
+                    "Downloading CICIDS 2017 from Hugging Face (%s @ %s)...",
+                    mirror_id,
+                    revision,
+                )
                 # SafeHFLoader.load_dataset enforces the namespace/name
                 # shape and the revision pin against the explicit
-                # mirror allowlist on this class.
+                # mirror allowlist on this class. The revision is read
+                # from HUGGINGFACE_REVISIONS so an operator subclass
+                # can pin specific commit SHAs without touching this
+                # method body.
                 dataset = SafeHFLoader.load_dataset(
                     mirror_id,
                     allowlist=self.HUGGINGFACE_MIRRORS,
-                    revision="main",
+                    revision=revision,
                     split="train",
                 )
                 df = dataset.to_pandas()

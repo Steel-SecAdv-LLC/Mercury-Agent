@@ -83,6 +83,22 @@ if TYPE_CHECKING:
 
 _HARDENED_SENTINEL = "MERCURY_MIGRATE_PKL_HARDENED"
 
+# Stable exit codes. Exposed as module constants so the test suite
+# and operator runbooks can assert / branch on specific failure modes
+# without depending on the implementation-specific exit code Python
+# emits for an unhandled exception (currently 1, but not contractual).
+#
+# The handoff specifies code 5 for the restricted-unpickler refusal
+# branch in particular: that is the difference between "operator gave
+# a malformed pickle" (code 3) and "operator gave a pickle that tried
+# to execute code" (code 5). Conflating those at exit-code level would
+# bury the most important signal under generic-failure noise.
+_EXIT_OK = 0
+_EXIT_FILESYSTEM_OR_SIZE = 2
+_EXIT_SCHEMA_REJECT = 3
+_EXIT_SIGNING = 4
+_EXIT_RESTRICTED_UNPICKLER_REFUSAL = 5
+
 # Environment variables we explicitly forward to the hardened child.
 # Anything else (PYTHONSTARTUP, PYTHONPATH, LD_PRELOAD, etc.) is dropped
 # so a malicious pickle cannot weaponise import-path injection or a
@@ -231,9 +247,11 @@ _ALLOWED_GLOBALS: frozenset[tuple[str, str]] = frozenset(
 )
 
 
-def _make_restricted_unpickler() -> Any:
-    """Construct the ``_RestrictedUnpickler`` class, deferring the ``pickle`` import.
+def _make_restricted_unpickler() -> tuple[Any, type[Exception]]:
+    """Construct the ``_RestrictedUnpickler`` class plus its refusal exception type.
 
+    Returns ``(cls, UnpicklingError)`` so the caller can catch
+    ``UnpicklingError`` without needing its own ``import pickle``.
     ``pickle`` is imported here (not at module top) so that the only
     site in ``src/`` that touches the pickle module lives inside the
     hardened-subprocess code path. The class is created lazily on
@@ -267,7 +285,7 @@ def _make_restricted_unpickler() -> Any:
                 f"not in migrate_pkl allow-list."
             )
 
-    return _RestrictedUnpickler
+    return _RestrictedUnpickler, pickle.UnpicklingError
 
 
 def _do_migration(args: argparse.Namespace) -> int:
@@ -279,27 +297,39 @@ def _do_migration(args: argparse.Namespace) -> int:
 
     if not src.is_file():
         print(f"error: input file not found: {src}", file=sys.stderr)
-        return 2
+        return _EXIT_FILESYSTEM_OR_SIZE
     size = src.stat().st_size
     if size > args.max_bytes:
         print(
             f"error: input file {size} bytes exceeds --max-bytes {args.max_bytes}",
             file=sys.stderr,
         )
-        return 2
+        return _EXIT_FILESYSTEM_OR_SIZE
     if dst.exists():
         print(f"error: refusing to overwrite existing output: {dst}", file=sys.stderr)
-        return 2
+        return _EXIT_FILESYSTEM_OR_SIZE
 
     print(f"loading legacy pickle: {src} ({size} bytes)", file=sys.stderr)
-    restricted_unpickler_cls = _make_restricted_unpickler()
-    with src.open("rb") as f:
-        # B301: this is THE sanctioned pickle.load call in the
-        # codebase. It only runs in the hardened subprocess **and**
-        # via ``_RestrictedUnpickler`` (find_class whitelisted). The
-        # engine itself never reaches this code path; see module
-        # docstring.
-        loaded = restricted_unpickler_cls(f).load()  # nosec B301
+    restricted_unpickler_cls, unpickling_error = _make_restricted_unpickler()
+    try:
+        with src.open("rb") as f:
+            # B301: this is THE sanctioned pickle.load call in the
+            # codebase. It only runs in the hardened subprocess **and**
+            # via ``_RestrictedUnpickler`` (find_class whitelisted). The
+            # engine itself never reaches this code path; see module
+            # docstring.
+            loaded = restricted_unpickler_cls(f).load()  # nosec B301
+    except unpickling_error as exc:
+        # The restricted unpickler refused a global. Surface as a
+        # stable exit code with a concise stderr line rather than a
+        # raw traceback, so operator runbooks and the test suite can
+        # branch on this specific failure without depending on Python's
+        # implementation-specific exit code for an unhandled exception.
+        print(
+            f"error: restricted unpickler refused legacy payload: {exc}",
+            file=sys.stderr,
+        )
+        return _EXIT_RESTRICTED_UNPICKLER_REFUSAL
 
     if not isinstance(loaded, dict):
         print(
@@ -307,7 +337,7 @@ def _do_migration(args: argparse.Namespace) -> int:
             f"(got {type(loaded).__name__})",
             file=sys.stderr,
         )
-        return 3
+        return _EXIT_SCHEMA_REJECT
 
     features = loaded.get("features")
     labels = loaded.get("labels")
@@ -316,13 +346,13 @@ def _do_migration(args: argparse.Namespace) -> int:
             "error: pickle must contain {'features': {str: ndarray}, 'labels': ndarray}",
             file=sys.stderr,
         )
-        return 3
+        return _EXIT_SCHEMA_REJECT
 
     archive: dict[str, Any] = {}
     for name, value in features.items():
         if not isinstance(name, str):
             print(f"error: feature key {name!r} is not a string", file=sys.stderr)
-            return 3
+            return _EXIT_SCHEMA_REJECT
         arr = np.asarray(value)
         if arr.dtype == object:
             print(
@@ -330,13 +360,13 @@ def _do_migration(args: argparse.Namespace) -> int:
                 f"persist non-numeric data into .npz",
                 file=sys.stderr,
             )
-            return 3
+            return _EXIT_SCHEMA_REJECT
         archive[name] = arr
 
     label_arr = np.asarray(labels)
     if label_arr.dtype == object:
         print("error: labels contain object dtype; refusing to persist", file=sys.stderr)
-        return 3
+        return _EXIT_SCHEMA_REJECT
     archive["labels"] = label_arr
 
     # Guard against archive keys that collide with ``numpy.savez``'s
@@ -358,7 +388,7 @@ def _do_migration(args: argparse.Namespace) -> int:
             f"numpy.savez reserved kwargs; rename before persisting",
             file=sys.stderr,
         )
-        return 3
+        return _EXIT_SCHEMA_REJECT
 
     # ``**archive`` is typed ``dict[str, Any]`` (not the stricter
     # ``dict[str, np.ndarray]``) so the spread satisfies numpy 2.x's
@@ -376,10 +406,10 @@ def _do_migration(args: argparse.Namespace) -> int:
             key = bytes.fromhex(args.sign_key_hex)
         except ValueError as exc:
             print(f"error: --sign-key-hex is not valid hex: {exc}", file=sys.stderr)
-            return 4
+            return _EXIT_SIGNING
         if len(key) < 32:
             print("error: --sign-key-hex must decode to >= 32 bytes", file=sys.stderr)
-            return 4
+            return _EXIT_SIGNING
         # Lazy import: the migration tool only depends on the project's
         # own ``security.safe_load`` module when --sign-key-hex is
         # actually used. Keeping the import here means the tool's
@@ -392,7 +422,7 @@ def _do_migration(args: argparse.Namespace) -> int:
 
         sig_path = sign_npz(dst, key)
         print(f"wrote signature: {sig_path}", file=sys.stderr)
-    return 0
+    return _EXIT_OK
 
 
 def main(argv: Sequence[str] | None = None) -> int:

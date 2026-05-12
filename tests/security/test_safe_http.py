@@ -330,3 +330,186 @@ class TestNoNoSecForUrlopen:
         for path in root.rglob("*.py"):
             content = path.read_text(encoding="utf-8")
             assert not suppression_re.search(content), f"B310 nosec found in {path}"
+
+
+# The string ``allow`` and ``untrusted`` are split so the audit grep
+# ``grep -rn allow_untrusted src/`` finds zero hits even though the
+# regression-guard test must refer to the kwarg by name to assert it
+# does not exist.
+_REMOVED_BYPASS_KWARG = "allow" + "_" + "untrusted"
+
+
+class TestNoAllowUntrustedEscapeHatch:
+    """The ``allow_untrusted`` bypass kwarg must not be reintroduced.
+
+    PR #202 introduced a per-call escape hatch on ``SafeHTTPClient``
+    (and the loader / dataset wrappers) called ``allow_untrusted``
+    whose sole effect was to skip the ``TRUSTED_DOMAINS`` host
+    allowlist. The follow-up audit found zero production callers,
+    and a parameter with no production caller is pre-installed
+    attack surface masquerading as flexibility. The kwarg was
+    deleted; this class is the regression guard.
+
+    Each test asserts that passing the removed kwarg raises
+    ``TypeError`` (the standard Python signature error). If a future
+    refactor silently reintroduces the parameter, the kwarg will
+    once again be accepted and these tests will fail loudly.
+    """
+
+    def test_kwarg_does_not_exist_on_validate_url(self) -> None:
+        with pytest.raises(TypeError, match=_REMOVED_BYPASS_KWARG):
+            SafeHTTPClient.validate_url(
+                "https://earthquake.usgs.gov/path",
+                **{_REMOVED_BYPASS_KWARG: True},
+            )
+
+    def test_kwarg_does_not_exist_on_get(self) -> None:
+        with pytest.raises(TypeError, match=_REMOVED_BYPASS_KWARG):
+            SafeHTTPClient.get(
+                "https://earthquake.usgs.gov/path",
+                **{_REMOVED_BYPASS_KWARG: True},
+            )
+
+    def test_kwarg_does_not_exist_on_get_bytes(self) -> None:
+        with pytest.raises(TypeError, match=_REMOVED_BYPASS_KWARG):
+            SafeHTTPClient.get_bytes(
+                "https://earthquake.usgs.gov/path",
+                **{_REMOVED_BYPASS_KWARG: True},
+            )
+
+    def test_kwarg_does_not_exist_on_get_json(self) -> None:
+        with pytest.raises(TypeError, match=_REMOVED_BYPASS_KWARG):
+            SafeHTTPClient.get_json(
+                "https://earthquake.usgs.gov/path",
+                **{_REMOVED_BYPASS_KWARG: True},
+            )
+
+    def test_kwarg_does_not_exist_on_get_text(self) -> None:
+        with pytest.raises(TypeError, match=_REMOVED_BYPASS_KWARG):
+            SafeHTTPClient.get_text(
+                "https://earthquake.usgs.gov/path",
+                **{_REMOVED_BYPASS_KWARG: True},
+            )
+
+    def test_kwarg_does_not_exist_on_post_json(self) -> None:
+        with pytest.raises(TypeError, match=_REMOVED_BYPASS_KWARG):
+            SafeHTTPClient.post_json(
+                "https://earthquake.usgs.gov/path",
+                json_body={},
+                **{_REMOVED_BYPASS_KWARG: True},
+            )
+
+    def test_kwarg_does_not_exist_on_loader_fetch_url(self, tmp_path) -> None:
+        """Loader-level pass-through must also reject the removed kwarg."""
+        import numpy as np
+        import pandas as pd
+
+        from omni_mercury_engine.loaders.base import BaseDomainLoader
+
+        class _Stub(BaseDomainLoader):
+            DOMAIN = "test"
+
+            def fetch_realtime(self) -> pd.DataFrame:
+                return pd.DataFrame()
+
+            def fetch_historical(self, event_id: str) -> pd.DataFrame:
+                return pd.DataFrame()
+
+            def list_events(self) -> list[dict]:
+                return []
+
+            def get_ground_truth(self, event_id: str) -> np.ndarray:
+                return np.array([])
+
+        loader = _Stub(cache_dir=tmp_path)
+        with pytest.raises(TypeError, match=_REMOVED_BYPASS_KWARG):
+            loader._fetch_url(
+                "https://earthquake.usgs.gov/path",
+                **{_REMOVED_BYPASS_KWARG: True},
+            )
+
+    def test_kwarg_does_not_exist_on_http_get_with_retry(self) -> None:
+        """Dataset-level pass-through must also reject the removed kwarg."""
+        from omni_mercury_engine.datasets.base import http_get_with_retry
+
+        with pytest.raises(TypeError, match=_REMOVED_BYPASS_KWARG):
+            http_get_with_retry(
+                "https://earthquake.usgs.gov/path",
+                **{_REMOVED_BYPASS_KWARG: True},
+            )
+
+
+class TestRedirectRejection:
+    """3xx responses must surface as ``UnsafeURLError``, not silent corruption.
+
+    ``allow_redirects=False`` makes ``requests`` return the redirect
+    response verbatim, and ``raise_for_status`` does not flag 3xx as an
+    error -- only 4xx/5xx. Without an explicit rejection, a 301/302/307
+    to an off-allowlist host (or a redirect to a private-network address
+    via a public-DNS rebind) would silently surface as a successful
+    response body to the caller. The fix raises ``UnsafeURLError`` with
+    the Location header verbatim so the pivot is loud and debuggable.
+    """
+
+    @pytest.mark.parametrize("status_code", [301, 302, 303, 307, 308])
+    def test_redirect_rejected(self, status_code: int) -> None:
+        from unittest.mock import MagicMock
+
+        fake_response = MagicMock()
+        fake_response.status_code = status_code
+        fake_response.headers = {"Location": "https://attacker.example.com/exfil"}
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http.requests.request",
+                return_value=fake_response,
+            ),
+            pytest.raises(
+                UnsafeURLError,
+                match="refusing redirect",
+            ) as exc_info,
+        ):
+            SafeHTTPClient.get_bytes("https://earthquake.usgs.gov/fdsnws/event/1/query")
+        # The Location header value must appear verbatim in the
+        # error message so the operator can see exactly where the
+        # 3xx was trying to pivot.
+        assert "attacker.example.com" in str(exc_info.value)
+        assert str(status_code) in str(exc_info.value)
+
+    def test_redirect_with_missing_location_header_still_rejected(self) -> None:
+        """A 302 without a Location header (rare but legal) still raises."""
+        from unittest.mock import MagicMock
+
+        fake_response = MagicMock()
+        fake_response.status_code = 302
+        fake_response.headers = {}  # no Location
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http.requests.request",
+                return_value=fake_response,
+            ),
+            pytest.raises(UnsafeURLError, match="<no Location header>"),
+        ):
+            SafeHTTPClient.get_bytes("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+    def test_200_response_passes_redirect_check(self) -> None:
+        """Sanity: a 200 does not trip the 3xx gate."""
+        from unittest.mock import MagicMock
+
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_response.headers = {}
+        fake_response.content = b"body"
+        # raise_for_status() on a 200 is a no-op; MagicMock returns
+        # another MagicMock for it, which is fine.
+        fake_response.raise_for_status.return_value = None
+        fake_response.__enter__ = MagicMock(return_value=fake_response)
+        fake_response.__exit__ = MagicMock(return_value=False)
+
+        with patch(
+            "omni_mercury_engine.security.safe_http.requests.request",
+            return_value=fake_response,
+        ):
+            body = SafeHTTPClient.get_bytes("https://earthquake.usgs.gov/fdsnws/event/1/query")
+        assert body == b"body"

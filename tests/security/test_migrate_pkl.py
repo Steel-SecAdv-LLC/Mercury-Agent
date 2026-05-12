@@ -221,10 +221,20 @@ def test_restricted_unpickler_rejects_os_system_reduce(tmp_path: Path) -> None:
 
     The fixture exists as a sentinel file in /tmp; if the unpickler
     were vulnerable, the subprocess would create it. We assert
-    BOTH that the migration returned non-zero AND that the sentinel
-    was never written, so a future regression cannot be hidden by
-    the migration tool happening to exit zero anyway.
+    that:
+
+    * the migration returned exit code 5
+      (``_EXIT_RESTRICTED_UNPICKLER_REFUSAL``),
+    * stderr names the refused global, and
+    * the sentinel was never written
+
+    so a future regression cannot be hidden by the migration tool
+    happening to exit zero anyway, and a regression that loses the
+    catch-and-translate behaviour (collapsing to Python's generic
+    exit-1 for unhandled exceptions) trips this test too.
     """
+    from omni_mercury_engine.tools.migrate_pkl import _EXIT_RESTRICTED_UNPICKLER_REFUSAL
+
     sentinel = Path("/tmp/migrate_pkl_rce_proof")
     if sentinel.exists():
         sentinel.unlink()
@@ -234,11 +244,8 @@ def test_restricted_unpickler_rejects_os_system_reduce(tmp_path: Path) -> None:
         pickle.dump(_OsSystemReduce(), f)
     proc = _run_tool("--input", str(malicious), "--output", str(tmp_path / "out.npz"))
 
-    # Restricted unpickler raised pickle.UnpicklingError; the tool's
-    # outer harness exits with a non-zero code. We don't assert a
-    # specific code because the UnpicklingError surfaces as the
-    # subprocess's unhandled exception (currently exit code 1).
-    assert proc.returncode != 0, proc.stderr
+    assert proc.returncode == _EXIT_RESTRICTED_UNPICKLER_REFUSAL, proc.stderr
+    assert "restricted unpickler refused legacy payload" in proc.stderr, proc.stderr
     assert (
         "refusing global 'posix.system'" in proc.stderr
         or "refusing global 'os.system'" in proc.stderr
@@ -248,11 +255,14 @@ def test_restricted_unpickler_rejects_os_system_reduce(tmp_path: Path) -> None:
 
 def test_restricted_unpickler_rejects_subprocess_popen_reduce(tmp_path: Path) -> None:
     """``subprocess.Popen`` is not on the allow-list; reject it."""
+    from omni_mercury_engine.tools.migrate_pkl import _EXIT_RESTRICTED_UNPICKLER_REFUSAL
+
     malicious = tmp_path / "evil.pkl"
     with malicious.open("wb") as f:
         pickle.dump(_SubprocessPopenReduce(), f)
     proc = _run_tool("--input", str(malicious), "--output", str(tmp_path / "out.npz"))
-    assert proc.returncode != 0, proc.stderr
+    assert proc.returncode == _EXIT_RESTRICTED_UNPICKLER_REFUSAL, proc.stderr
+    assert "restricted unpickler refused legacy payload" in proc.stderr, proc.stderr
     assert "refusing global 'subprocess.Popen'" in proc.stderr, proc.stderr
 
 
@@ -262,9 +272,12 @@ def test_restricted_unpickler_rejects_builtins_eval_reduce(tmp_path: Path) -> No
     Allowing them would let an attacker bootstrap into arbitrary code
     even after we blocked ``os`` and ``subprocess`` directly.
     """
+    from omni_mercury_engine.tools.migrate_pkl import _EXIT_RESTRICTED_UNPICKLER_REFUSAL
+
     malicious = tmp_path / "evil.pkl"
     with malicious.open("wb") as f:
         pickle.dump(_BuiltinsEvalReduce(), f)
     proc = _run_tool("--input", str(malicious), "--output", str(tmp_path / "out.npz"))
-    assert proc.returncode != 0, proc.stderr
+    assert proc.returncode == _EXIT_RESTRICTED_UNPICKLER_REFUSAL, proc.stderr
+    assert "restricted unpickler refused legacy payload" in proc.stderr, proc.stderr
     assert "refusing global 'builtins.eval'" in proc.stderr, proc.stderr

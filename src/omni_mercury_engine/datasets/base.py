@@ -85,7 +85,6 @@ def http_get_with_retry(
     backoff: float = 2.0,
     retry_on_status: tuple[int, ...] = (408, 425, 429, 500, 502, 503, 504),
     allow_http: bool = False,
-    allow_untrusted: bool = False,
 ) -> bytes:
     """HTTP GET with scheme/domain validation, default UA, and exponential backoff.
 
@@ -97,8 +96,9 @@ def http_get_with_retry(
     The transport is :class:`SafeHTTPClient`, which gates every URL:
 
     * **Trusted-allowlist** -- the host must be in
-      ``TrustedEndpoints.TRUSTED_DOMAINS`` regardless of scheme.
-      ``allow_untrusted=True`` is the only way out.
+      ``TrustedEndpoints.TRUSTED_DOMAINS`` regardless of scheme. A
+      new dataset host is a code edit on that allowlist; there is no
+      per-call escape hatch.
     * **HTTPS-only by default** -- ``http://`` is rejected unless
       ``allow_http=True``.  When that opt-in is granted, the URL is
       additionally checked against the private-network / IMDS gate so
@@ -114,10 +114,7 @@ def http_get_with_retry(
             raising. 4xx not in this set are treated as permanent.
         allow_http: Permit ``http://`` URLs. Default False (HTTPS-only).
             When True the host still has to clear both the trusted-domain
-            allowlist (unless ``allow_untrusted=True``) and the
-            private-network / IMDS gate.
-        allow_untrusted: Skip the ``TrustedEndpoints`` host allowlist.
-            Default False (allowlist enforced for both schemes).
+            allowlist and the private-network / IMDS gate.
 
     Returns:
         Response body as bytes.
@@ -148,7 +145,6 @@ def http_get_with_retry(
                 headers=request_headers,
                 timeout=timeout,
                 allow_http=allow_http,
-                allow_untrusted=allow_untrusted,
             )
         except requests.HTTPError as e:
             last_exc = e

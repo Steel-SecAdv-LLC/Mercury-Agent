@@ -73,9 +73,9 @@ class TestSSRFValidation:
     """
 
     @staticmethod
-    def _validate(url: str, *, allow_untrusted: bool = False) -> None:
+    def _validate(url: str) -> None:
         """Mirror exactly the kwargs ``_fetch_url`` passes to ``get_bytes``."""
-        SafeHTTPClient.validate_url(url, allow_untrusted=allow_untrusted)
+        SafeHTTPClient.validate_url(url)
 
     def test_trusted_https_url_passes(self):
         """A class-constant dataset URL on the allowlist passes."""
@@ -88,13 +88,6 @@ class TestSSRFValidation:
         with pytest.raises(UnsafeURLError, match="not in trusted"):
             self._validate("https://attacker.example.com/exfil")
 
-    def test_untrusted_host_allowed_with_opt_in(self):
-        """``allow_untrusted=True`` is the explicit per-call escape hatch."""
-        self._validate(
-            "https://attacker.example.com/exfil",
-            allow_untrusted=True,
-        )
-
     def test_http_scheme_blocked_for_trusted_host(self):
         """Plain HTTP is rejected even for an allowlisted host."""
         with pytest.raises(UnsafeURLError, match="scheme 'http'"):
@@ -102,23 +95,26 @@ class TestSSRFValidation:
 
     def test_ftp_scheme_blocked(self):
         """``ftp://`` is never permitted."""
+        # Scheme check fires before host allowlist, so the rejection
+        # is on the scheme regardless of whether the host would have
+        # passed the allowlist.
         with pytest.raises(UnsafeURLError, match="scheme 'ftp'"):
-            self._validate("ftp://evil.com/file", allow_untrusted=True)
+            self._validate("ftp://evil.com/file")
 
     def test_file_scheme_blocked(self):
         """``file://`` is never permitted."""
         with pytest.raises(UnsafeURLError, match="scheme 'file'"):
-            self._validate("file:///etc/passwd", allow_untrusted=True)
+            self._validate("file:///etc/passwd")
 
     def test_data_scheme_blocked(self):
         """``data:`` is never permitted."""
         with pytest.raises(UnsafeURLError, match="scheme 'data'"):
-            self._validate("data:text/html,<h1>evil</h1>", allow_untrusted=True)
+            self._validate("data:text/html,<h1>evil</h1>")
 
     def test_javascript_scheme_blocked(self):
         """``javascript:`` is never permitted."""
         with pytest.raises(UnsafeURLError, match="scheme 'javascript'"):
-            self._validate("javascript:alert(1)", allow_untrusted=True)
+            self._validate("javascript:alert(1)")
 
     def test_missing_hostname(self):
         """A URL with no host raises before any allowlist or DNS work."""
@@ -126,7 +122,7 @@ class TestSSRFValidation:
         # falls through scheme check then trips the missing-host
         # branch.
         with pytest.raises(UnsafeURLError, match="no host component"):
-            self._validate("https://", allow_untrusted=True)
+            self._validate("https://")
 
 
 class TestFetchUrlExceptionRouting:
