@@ -634,6 +634,7 @@ class TrustedEndpoints:
             "api.eia.gov",  # EIA (Energy Information Administration)
             "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
             "ghoapi.azureedge.net",  # WHO Global Health Observatory
+            "www.who.int",  # WHO Emergencies hub (pandemic loader)
             "maps.nccs.nasa.gov",  # NASA COOLR (landslide catalog)
         }
     )
