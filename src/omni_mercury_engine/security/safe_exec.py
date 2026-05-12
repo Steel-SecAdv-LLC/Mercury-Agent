@@ -77,11 +77,16 @@ def _validate_argv(argv: Sequence[str]) -> list[str]:
     for i, arg in enumerate(argv_list):
         if not isinstance(arg, str):
             raise UnsafeSubprocessError(f"safe_exec: argv[{i}] is {type(arg).__name__}, not str.")
+        if not arg:
+            # The contract is "non-empty strings".  Empty strings in
+            # argv[1:] are almost always a bug (a caller built a list
+            # like ``[..., maybe_flag or "", ...]``) and they confuse
+            # downstream tools (git treats "" as the empty pathspec
+            # which silently matches everything).  Refuse here.
+            raise UnsafeSubprocessError(f"safe_exec: argv[{i}] is empty.")
         if "\x00" in arg:
             raise UnsafeSubprocessError(f"safe_exec: argv[{i}] contains a NUL byte; refusing.")
     executable = argv_list[0]
-    if not executable:
-        raise UnsafeSubprocessError("safe_exec: argv[0] is empty.")
     # The executable must be an absolute path. Refusing relative names
     # blocks $PATH-resolution attacks where a hostile cwd could shadow
     # a system binary.

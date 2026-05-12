@@ -316,9 +316,16 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
 
         # Local paths bypass revision pinning. Only absolute paths
         # qualify as local; relative paths would let resolution depend
-        # on the current working directory (the same rule the
-        # security/model_policy._is_local_path helper enforces).
-        is_local_path = self.config.model_name.startswith("/")
+        # on the current working directory.  The cross-platform check
+        # mirrors ``security/model_policy._is_local_path`` (POSIX +
+        # Windows + UNC) so a Hub id like ``Salesforce/blip`` is never
+        # mistaken for a local path on either OS.
+        from pathlib import PurePosixPath, PureWindowsPath
+
+        model_name = self.config.model_name
+        is_local_path = (
+            PurePosixPath(model_name).is_absolute() or PureWindowsPath(model_name).is_absolute()
+        )
 
         # Require revision for remote models (supply chain security)
         if not is_local_path and not self.config.revision:

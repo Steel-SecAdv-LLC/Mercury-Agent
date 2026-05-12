@@ -392,12 +392,17 @@ class WebSearchRetriever(BaseExternalRetriever):
 
         try:
             # SearXNG is a self-hosted instance whose URL comes from
-            # operator config. user_configured=True forces the
-            # private-network / IMDS gate; allow_http=True is permitted
-            # because operators routinely run SearXNG behind a reverse
-            # proxy on http:// inside their private VPC. The
-            # private-network gate still blocks RFC1918 / link-local /
-            # IMDS so the SSRF blast radius is bounded.
+            # operator config. The canonical deployment is "behind a
+            # reverse proxy on http:// inside the operator's private
+            # VPC", so we set:
+            #   * allow_http=True       -- plain HTTP on the VPC edge
+            #   * user_configured=True  -- the host is operator-chosen
+            #   * allow_private=True    -- RFC1918 is the *expected*
+            #                              location for SearXNG
+            # ``allow_private`` does NOT unlock the IMDS link-local
+            # range or loopback / multicast / reserved, so a SearXNG
+            # URL accidentally pointed at 169.254.169.254 still
+            # raises and the SSRF prize stays out of reach.
             data = SafeHTTPClient.get_json(
                 f"{self.searxng_url}/search",
                 params={"q": query, "format": "json"},
@@ -405,6 +410,7 @@ class WebSearchRetriever(BaseExternalRetriever):
                 timeout=self.config.web_search_timeout,
                 user_configured=True,
                 allow_http=True,
+                allow_private=True,
             )
 
             for item in data.get("results", [])[:max_results]:

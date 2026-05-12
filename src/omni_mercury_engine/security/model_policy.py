@@ -60,15 +60,26 @@ class UnsafeModelError(ValueError):
 
 
 def _is_local_path(model_id: str) -> bool:
-    """Return True if ``model_id`` is an absolute local filesystem path.
+    r"""Return True if ``model_id`` is an absolute local filesystem path.
 
-    Relative paths (``./foo``, ``../foo``) are *not* treated as local
+    Uses :meth:`pathlib.PurePosixPath.is_absolute` and
+    :meth:`pathlib.PureWindowsPath.is_absolute` so the check is
+    cross-platform: POSIX absolute paths (``/opt/models/foo``),
+    Windows absolute paths (``C:\models\foo``), and UNC paths
+    (``\\server\share\foo``) are all detected as local.  Relative
+    paths (``./foo``, ``../foo``, ``foo``) are *not* treated as local
     -- they would make resolution depend on the current working
     directory, which is exactly the kind of ambient state we refuse
     to load weights from.  An operator who really wants to load from
     disk must pass an absolute path.
+
+    A HuggingFace Hub id is the shape ``namespace/name`` and is never
+    absolute on either POSIX or Windows under this rule, so this
+    helper cleanly partitions the input space.
     """
-    return model_id.startswith("/")
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    return PurePosixPath(model_id).is_absolute() or PureWindowsPath(model_id).is_absolute()
 
 
 class HFModelPolicy:

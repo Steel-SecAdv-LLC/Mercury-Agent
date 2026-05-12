@@ -170,8 +170,7 @@ def _resolve_ips(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Addres
 
 
 def _is_private_or_imds(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """
-    True if ``ip`` is in a range we refuse for user-configured URLs.
+    """Return True if ``ip`` is in a range we refuse for user-configured URLs.
 
     Covers RFC1918 (10/8, 172.16/12, 192.168/16), link-local
     (169.254/16, which includes the AWS / GCP / Azure IMDS at
@@ -189,8 +188,44 @@ def _is_private_or_imds(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bo
     )
 
 
+# IPv4 and IPv6 ranges that we refuse even when the caller opted into
+# ``allow_private=True`` for an on-VPC deployment.  The link-local
+# block (169.254/16) is the AWS / GCP / Azure metadata service home --
+# RFC1918 lateral movement is one thing, but ``169.254.169.254`` is
+# the actual SSRF prize and we never permit it.  The loopback and
+# unspecified ranges are kept on the refuse-list because they cannot
+# correspond to a real on-VPC service either.
+_ALWAYS_BLOCKED_V4 = (
+    ipaddress.IPv4Network("169.254.0.0/16"),
+    ipaddress.IPv4Network("127.0.0.0/8"),
+    ipaddress.IPv4Network("0.0.0.0/8"),
+    ipaddress.IPv4Network("224.0.0.0/4"),  # multicast
+    ipaddress.IPv4Network("240.0.0.0/4"),  # reserved
+)
+_ALWAYS_BLOCKED_V6 = (
+    ipaddress.IPv6Network("::1/128"),  # loopback
+    ipaddress.IPv6Network("fe80::/10"),  # link-local
+    ipaddress.IPv6Network("ff00::/8"),  # multicast
+    ipaddress.IPv6Network("::/128"),  # unspecified
+)
+
+
+def _is_always_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Return True if ``ip`` is in a range refused even with ``allow_private=True``.
+
+    See :data:`_ALWAYS_BLOCKED_V4` / ``_V6`` for the policy.  The
+    point of the carve-out is to let operators reach a SearXNG /
+    Ollama / internal-API host on RFC1918 from inside a private VPC,
+    while still slamming the door on the cloud metadata service and
+    on the obviously-bogus reserved / loopback / multicast ranges.
+    """
+    if isinstance(ip, ipaddress.IPv4Address):
+        return any(ip in net for net in _ALWAYS_BLOCKED_V4)
+    return any(ip in net for net in _ALWAYS_BLOCKED_V6)
+
+
 def _is_loopback(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """True if ``ip`` is on 127/8 or ``::1``."""
+    """Return True if ``ip`` is on 127/8 or ``::1``."""
     return ip.is_loopback
 
 
@@ -211,9 +246,9 @@ class SafeHTTPClient:
         user_configured: bool = False,
         loopback_only: bool = False,
         allow_untrusted: bool = False,
+        allow_private: bool = False,
     ) -> None:
-        """
-        Run every gate without actually sending a request.
+        """Run every gate without actually sending a request.
 
         Useful at config-validation time (e.g. when an operator sets
         ``OLLAMA_HOST`` we can fail loudly at startup instead of on
@@ -229,11 +264,20 @@ class SafeHTTPClient:
                 ``user_configured=False``.
             loopback_only: The host must be on 127/8 or ``::1``.
                 Use for on-box adapters (Ollama default, Redis
-                sidecar).
+                sidecar).  Wins over ``allow_private``.
             allow_untrusted: Skip the TRUSTED_DOMAINS check.
                 ``user_configured=True`` implies this (because we
                 cannot know operator-chosen hosts in advance), so
                 callers rarely need to set it directly.
+            allow_private: Permit resolved IPs on RFC1918 /
+                IPv6-ULA / IPv4-private ranges.  Use for
+                self-hosted services that live inside the operator's
+                VPC (SearXNG, an internal Redis, an on-prem inference
+                backend).  Even with this flag set, the IMDS
+                (169.254/16), loopback, multicast, and reserved
+                ranges still raise -- those are never legitimate
+                production endpoints and the metadata service is the
+                primary SSRF target.
 
         Raises:
             UnsafeURLError: any gate failed.
@@ -278,6 +322,18 @@ class SafeHTTPClient:
                         f"non-loopback IPs {non_lo}; loopback_only=True "
                         f"refuses any address outside 127/8 or ::1."
                     )
+            elif allow_private:
+                # The caller has acknowledged that the target is on
+                # their private network. RFC1918 is now permitted, but
+                # IMDS / loopback / multicast / reserved still raise.
+                bad = [str(ip) for ip in ips if _is_always_blocked(ip)]
+                if bad:
+                    raise UnsafeURLError(
+                        f"SafeHTTPClient: host '{host}' resolves to "
+                        f"always-blocked address(es) {bad} (IMDS / loopback / "
+                        f"multicast / reserved). allow_private=True does NOT "
+                        f"unlock these."
+                    )
             else:
                 bad = [str(ip) for ip in ips if _is_private_or_imds(ip)]
                 if bad:
@@ -307,6 +363,7 @@ class SafeHTTPClient:
         user_configured: bool = False,
         loopback_only: bool = False,
         allow_untrusted: bool = False,
+        allow_private: bool = False,
         stream: bool = False,
     ) -> requests.Response:
         """Shared body of ``get``/``post``/``request``."""
@@ -316,6 +373,7 @@ class SafeHTTPClient:
             user_configured=user_configured,
             loopback_only=loopback_only,
             allow_untrusted=allow_untrusted,
+            allow_private=allow_private,
         )
         request_headers: dict[str, str] = {"User-Agent": _DEFAULT_USER_AGENT}
         if headers:
@@ -346,6 +404,7 @@ class SafeHTTPClient:
         user_configured: bool = False,
         loopback_only: bool = False,
         allow_untrusted: bool = False,
+        allow_private: bool = False,
         stream: bool = False,
     ) -> requests.Response:
         """Issue a validated GET; the returned response is closed by the caller."""
@@ -359,6 +418,7 @@ class SafeHTTPClient:
             user_configured=user_configured,
             loopback_only=loopback_only,
             allow_untrusted=allow_untrusted,
+            allow_private=allow_private,
             stream=stream,
         )
 
@@ -374,6 +434,7 @@ class SafeHTTPClient:
         user_configured: bool = False,
         loopback_only: bool = False,
         allow_untrusted: bool = False,
+        allow_private: bool = False,
     ) -> bytes:
         """GET and return the response body as bytes."""
         with cls.get(
@@ -385,6 +446,7 @@ class SafeHTTPClient:
             user_configured=user_configured,
             loopback_only=loopback_only,
             allow_untrusted=allow_untrusted,
+            allow_private=allow_private,
         ) as response:
             body: bytes = response.content
             return body
@@ -401,6 +463,7 @@ class SafeHTTPClient:
         user_configured: bool = False,
         loopback_only: bool = False,
         allow_untrusted: bool = False,
+        allow_private: bool = False,
     ) -> Any:
         """GET and decode the response body as JSON."""
         with cls.get(
@@ -412,6 +475,7 @@ class SafeHTTPClient:
             user_configured=user_configured,
             loopback_only=loopback_only,
             allow_untrusted=allow_untrusted,
+            allow_private=allow_private,
         ) as response:
             return response.json()
 
@@ -427,6 +491,7 @@ class SafeHTTPClient:
         user_configured: bool = False,
         loopback_only: bool = False,
         allow_untrusted: bool = False,
+        allow_private: bool = False,
     ) -> str:
         """GET and return the decoded response text."""
         with cls.get(
@@ -438,6 +503,7 @@ class SafeHTTPClient:
             user_configured=user_configured,
             loopback_only=loopback_only,
             allow_untrusted=allow_untrusted,
+            allow_private=allow_private,
         ) as response:
             text: str = response.text
             return text
@@ -454,6 +520,7 @@ class SafeHTTPClient:
         user_configured: bool = False,
         loopback_only: bool = False,
         allow_untrusted: bool = False,
+        allow_private: bool = False,
     ) -> Any:
         """POST a JSON body and decode the response as JSON."""
         with cls._request(
@@ -466,6 +533,7 @@ class SafeHTTPClient:
             user_configured=user_configured,
             loopback_only=loopback_only,
             allow_untrusted=allow_untrusted,
+            allow_private=allow_private,
         ) as response:
             return response.json()
 

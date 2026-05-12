@@ -115,6 +115,13 @@ class TestTrustedDomainsGate:
         # earthquake.usgs.gov is in TRUSTED_DOMAINS
         SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
 
+    def test_listed_host_with_explicit_port_passes(self) -> None:
+        # The Copilot review caught that the gate was matching against
+        # parsed.netloc (which includes the port), so a URL like
+        # https://earthquake.usgs.gov:443/... would be rejected even
+        # though the host is allowlisted.  This test pins the fix.
+        SafeHTTPClient.validate_url("https://earthquake.usgs.gov:443/path")
+
     def test_user_configured_bypasses_allowlist_but_resolves_host(self) -> None:
         # Public DNS that is not in the allowlist; user_configured
         # opts out of the allowlist but still runs the private-network
@@ -182,6 +189,62 @@ class TestPrivateNetworkGate:
             SafeHTTPClient.validate_url(
                 "https://unresolvable.invalid/",
                 user_configured=True,
+            )
+
+
+class TestAllowPrivateGate:
+    """allow_private=True permits RFC1918 but still blocks IMDS / loopback / multicast."""
+
+    @pytest.mark.parametrize(
+        "ip",
+        [
+            "10.0.0.5",  # RFC1918
+            "172.16.0.5",  # RFC1918
+            "192.168.1.1",  # RFC1918
+        ],
+    )
+    def test_rfc1918_allowed_with_opt_in(self, ip: str) -> None:
+        # The self-hosted SearXNG / on-VPC inference case: caller has
+        # acknowledged the target is on their private network.
+        import ipaddress
+
+        with patch(
+            "omni_mercury_engine.security.safe_http._resolve_ips",
+            return_value=[ipaddress.ip_address(ip)],
+        ):
+            SafeHTTPClient.validate_url(
+                "http://searxng.internal/search",
+                allow_http=True,
+                user_configured=True,
+                allow_private=True,
+            )
+
+    @pytest.mark.parametrize(
+        ("ip", "fragment"),
+        [
+            ("169.254.169.254", "always-blocked"),  # IMDS
+            ("127.0.0.1", "always-blocked"),  # loopback
+            ("224.0.0.1", "always-blocked"),  # multicast
+            ("240.0.0.1", "always-blocked"),  # reserved
+        ],
+    )
+    def test_imds_and_friends_blocked_even_with_allow_private(self, ip: str, fragment: str) -> None:
+        # The metadata service is the actual SSRF prize. allow_private
+        # MUST NOT unlock it.
+        import ipaddress
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address(ip)],
+            ),
+            pytest.raises(UnsafeURLError, match=fragment),
+        ):
+            SafeHTTPClient.validate_url(
+                "http://searxng.internal/search",
+                allow_http=True,
+                user_configured=True,
+                allow_private=True,
             )
 
 

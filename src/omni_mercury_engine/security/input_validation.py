@@ -660,8 +660,15 @@ class TrustedEndpoints:
         if parsed.scheme != "https":
             raise ValueError(f"SSRF Protection: URL must use HTTPS scheme, got '{parsed.scheme}'")
 
-        # Validate domain is in allowlist
-        cls.validate_url_host(parsed.netloc.lower())
+        # Validate domain is in allowlist.  ``parsed.hostname`` strips
+        # any explicit port and userinfo and unwraps IPv6 brackets, so
+        # the lookup matches the bare hostnames in TRUSTED_DOMAINS even
+        # when the caller passes ``https://host:443/`` or
+        # ``https://[2001:db8::1]/``.
+        host = parsed.hostname
+        if not host:
+            raise ValueError(f"SSRF Protection: URL '{url}' has no host component.")
+        cls.validate_url_host(host)
         return True
 
     @classmethod

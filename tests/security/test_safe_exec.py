@@ -41,6 +41,14 @@ class TestArgvValidation:
         with pytest.raises(UnsafeSubprocessError, match="non-empty"):
             safe_exec([])
 
+    def test_empty_string_in_argv_rejected(self) -> None:
+        # Empty strings in argv[1:] are almost always a bug (a caller
+        # built [..., maybe_flag or "", ...]) and they confuse tools
+        # like git which treats "" as the empty pathspec matching
+        # everything.  The gate refuses.
+        with pytest.raises(UnsafeSubprocessError, match=r"argv\[1\] is empty"):
+            safe_exec([sys.executable, ""])
+
     def test_relative_executable_rejected(self) -> None:
         with pytest.raises(UnsafeSubprocessError, match="absolute path"):
             safe_exec(["echo", "hi"])
