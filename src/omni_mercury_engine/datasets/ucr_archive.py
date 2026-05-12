@@ -90,7 +90,7 @@ class UCRLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download UCR archive (or specific dataset)."""
-        import urllib.error
+        import requests
 
         logger.info(f"Downloading UCR dataset: {self.dataset_name}")
 
@@ -115,7 +115,7 @@ class UCRLoader(DatasetLoader):
             logger.info(f"  Downloaded {self.dataset_name}")
             return True
 
-        except (urllib.error.URLError, ValueError):
+        except (requests.RequestException, ValueError):
             logger.warning("  Dataset-specific download failed")
 
         # Provide instructions for full archive
@@ -267,7 +267,7 @@ class MBALoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download CWRU bearing data."""
-        import urllib.error
+        import requests
 
         logger.info("Downloading CWRU Bearing Dataset (MBA)...")
 
@@ -290,7 +290,7 @@ class MBALoader(DatasetLoader):
                 try:
                     logger.info(f"  Downloading {name}...")
                     safe_urlretrieve(url, output_path)
-                except (urllib.error.URLError, ValueError) as e:
+                except (requests.RequestException, ValueError) as e:
                     logger.warning(f"  Failed: {e}")
 
         logger.info("CWRU download complete (partial)")

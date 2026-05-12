@@ -5,7 +5,9 @@ Copyright (C) 2025 Steel Security Advisors LLC
 Comprehensive tests for loaders/base.py module.
 
 Covers:
-- SSRF URL validation (_validate_url)
+- SSRF URL validation enforced by ``SafeHTTPClient`` (the gate that
+  backs :meth:`BaseDomainLoader._fetch_url`; the legacy per-class
+  ``_validate_url`` helper was removed when egress was centralised)
 - Cache read/write operations
 - Data provenance and hashing
 - Feature engineering defaults
@@ -21,6 +23,7 @@ import pandas as pd
 import pytest
 
 from omni_mercury_engine.loaders.base import BaseDomainLoader, _get_mercury_version
+from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
 # =============================================================================
 # Concrete test implementation of the abstract BaseDomainLoader
@@ -52,51 +55,75 @@ class StubLoader(BaseDomainLoader):
 
 
 class TestSSRFValidation:
-    """Tests for _validate_url SSRF protection."""
+    """Tests for the SSRF gate that backs ``BaseDomainLoader._fetch_url``.
+
+    ``BaseDomainLoader._fetch_url`` no longer carries its own validator;
+    every outbound request is funnelled through
+    :class:`SafeHTTPClient`, with ``user_configured=True`` so the
+    private-network / IMDS gate fires for any operator-provided URL.
+    These tests pin that contract directly so a regression in the
+    central gate (or a refactor that bypasses it) fails the loader
+    suite.
+    """
+
+    # Mirror exactly the kwargs ``BaseDomainLoader._fetch_url`` passes
+    # to SafeHTTPClient.get_bytes -- the only deviation is allow_http,
+    # which we toggle per-test to exercise both schemes.
+    @staticmethod
+    def _validate(url: str, *, allow_http: bool = True) -> None:
+        SafeHTTPClient.validate_url(
+            url,
+            allow_http=allow_http,
+            user_configured=True,
+            allow_untrusted=True,
+        )
 
     def test_valid_https_url(self):
-        """Test that valid HTTPS URLs pass validation."""
-        # Should not raise
-        BaseDomainLoader._validate_url("https://api.example.com/data")
+        """Valid HTTPS URLs to public hosts pass validation."""
+        # Use a public IP literal so the gate never depends on DNS in
+        # the test environment (CI sandboxes routinely block egress
+        # resolution). 1.1.1.1 is Cloudflare's well-known public DNS
+        # endpoint -- not private, not loopback, not link-local.
+        self._validate("https://1.1.1.1/data", allow_http=False)
 
     def test_valid_http_url(self):
-        """Test that valid HTTP URLs pass validation."""
-        BaseDomainLoader._validate_url("http://api.example.com/data")
+        """Valid HTTP URLs to public hosts pass when allow_http=True."""
+        self._validate("http://1.1.1.1/data", allow_http=True)
 
     def test_ftp_scheme_blocked(self):
         """Test that FTP scheme is blocked."""
-        with pytest.raises(ValueError, match="scheme not allowed"):
-            BaseDomainLoader._validate_url("ftp://evil.com/file")
+        with pytest.raises(UnsafeURLError, match="scheme 'ftp'"):
+            self._validate("ftp://evil.com/file")
 
     def test_file_scheme_blocked(self):
         """Test that file:// scheme is blocked."""
-        with pytest.raises(ValueError, match="scheme not allowed"):
-            BaseDomainLoader._validate_url("file:///etc/passwd")
+        with pytest.raises(UnsafeURLError, match="scheme 'file'"):
+            self._validate("file:///etc/passwd")
 
     def test_data_scheme_blocked(self):
         """Test that data: scheme is blocked."""
-        with pytest.raises(ValueError, match="scheme not allowed"):
-            BaseDomainLoader._validate_url("data:text/html,<h1>evil</h1>")
+        with pytest.raises(UnsafeURLError, match="scheme 'data'"):
+            self._validate("data:text/html,<h1>evil</h1>")
 
     def test_javascript_scheme_blocked(self):
         """Test that javascript: scheme is blocked."""
-        with pytest.raises(ValueError, match="scheme not allowed"):
-            BaseDomainLoader._validate_url("javascript:alert(1)")
+        with pytest.raises(UnsafeURLError, match="scheme 'javascript'"):
+            self._validate("javascript:alert(1)")
 
     def test_missing_hostname(self):
         """Test that URLs without hostname are blocked."""
-        with pytest.raises(ValueError, match="missing hostname"):
-            BaseDomainLoader._validate_url("http://")
+        with pytest.raises(UnsafeURLError, match="no host component"):
+            self._validate("http://")
 
     def test_localhost_blocked(self):
         """Test that localhost resolves to loopback and is blocked."""
-        with pytest.raises(ValueError, match="non-routable"):
-            BaseDomainLoader._validate_url("http://localhost/admin")
+        with pytest.raises(UnsafeURLError, match="private/link-local/IMDS"):
+            self._validate("http://localhost/admin")
 
     def test_loopback_ip_blocked(self):
         """Test that 127.0.0.1 is blocked."""
-        with pytest.raises(ValueError, match="non-routable"):
-            BaseDomainLoader._validate_url("http://127.0.0.1/admin")
+        with pytest.raises(UnsafeURLError, match="private/link-local/IMDS"):
+            self._validate("http://127.0.0.1/admin")
 
     def test_private_ip_blocked(self):
         """Test that private IP ranges are blocked."""
@@ -106,16 +133,28 @@ class TestSSRFValidation:
             "http://192.168.1.1/",
         ]
         for url in private_ips:
-            with pytest.raises(ValueError, match="non-routable"):
-                BaseDomainLoader._validate_url(url)
+            with pytest.raises(UnsafeURLError, match="private/link-local/IMDS"):
+                self._validate(url)
 
-    def test_dns_failure_non_fatal(self):
-        """Test that DNS resolution failures are non-fatal."""
-        # A hostname that doesn't resolve should NOT raise
-        # (defers to the actual HTTP request)
-        BaseDomainLoader._validate_url(
-            "https://this-domain-definitely-does-not-exist-xyz123.com/api"
-        )
+    def test_imds_blocked(self):
+        """The AWS/GCP/Azure metadata endpoint is rejected outright."""
+        with pytest.raises(UnsafeURLError, match="private/link-local/IMDS"):
+            self._validate("http://169.254.169.254/latest/meta-data/")
+
+    def test_dns_failure_is_fatal_for_user_configured(self):
+        """DNS failure raises -- user-configured URLs cannot defer SSRF.
+
+        The previous loader gate treated DNS failures as non-fatal and
+        deferred to the network call. ``SafeHTTPClient`` deliberately
+        fails closed for ``user_configured=True`` so a misconfigured
+        endpoint cannot reach an attacker-controlled DNS-rebound host
+        on the second request.
+        """
+        with pytest.raises(UnsafeURLError, match="did not resolve"):
+            self._validate(
+                "https://this-domain-definitely-does-not-exist-xyz123.invalid/api",
+                allow_http=False,
+            )
 
 
 # =============================================================================

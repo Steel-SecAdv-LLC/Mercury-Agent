@@ -209,6 +209,26 @@ class BaseDomainLoader(ABC):
         """
         Fetch URL content via :class:`SafeHTTPClient` with retry logic.
 
+        Egress contract enforced by ``SafeHTTPClient`` for this helper:
+
+        * **HTTPS-only by default** -- ``http://`` is rejected at the
+          gate (the loader does not opt into ``allow_http``).
+        * **Private-network / IMDS block** -- ``user_configured=True``
+          is set on every call, so the resolved host is checked
+          against RFC1918, link-local (incl. 169.254.169.254 IMDS),
+          loopback, and IPv6 ULA ranges. A loader URL that resolves
+          to internal infrastructure raises ``UnsafeURLError`` instead
+          of pivoting through the metadata service.
+        * **TRUSTED_DOMAINS allowlist** -- *not* enforced here. Domain
+          loaders point at operator-/dataset-specific endpoints
+          (USGS, NASA TAP, NOAA mirrors) that subclasses configure
+          via class constants rather than the central
+          ``TrustedEndpoints`` table; tagging the URL as
+          ``user_configured`` deliberately bypasses that allowlist
+          while still keeping every other gate. Subclasses that
+          only ever talk to a known-good public host should keep
+          ``SOURCE_URL`` immutable so the URL provenance is auditable.
+
         Args:
             url: URL to fetch.
             params: Query parameters.
@@ -219,9 +239,8 @@ class BaseDomainLoader(ABC):
 
         Raises:
             ConnectionError: After all retries exhausted.
-            ValueError / UnsafeURLError: If the URL fails the SafeHTTPClient
-                gates (scheme allowlist, TRUSTED_DOMAINS, private-network
-                block).
+            UnsafeURLError: If the URL fails the SafeHTTPClient gates
+                (HTTPS-only, private-network / IMDS block).
         """
         default_headers = {"User-Agent": "Mercury-Agent/1.0 (Steel Security Advisors)"}
         if headers:

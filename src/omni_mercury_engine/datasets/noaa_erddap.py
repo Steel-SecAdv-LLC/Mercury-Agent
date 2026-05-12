@@ -22,11 +22,11 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import urllib.error
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
+import requests
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
@@ -141,12 +141,13 @@ class NOAAERDDAPLoader(DatasetLoader):
                         offset_days,
                     )
                     return True
-                except urllib.error.HTTPError as e:
+                except requests.HTTPError as e:
                     last_err = e
+                    status = e.response.status_code if e.response is not None else "?"
                     logger.info(
-                        "ERDDAP ssh offset -%dd: HTTP %d; trying earlier date",
+                        "ERDDAP ssh offset -%dd: HTTP %s; trying earlier date",
                         offset_days,
-                        e.code,
+                        status,
                     )
                     continue
                 except Exception as e:
