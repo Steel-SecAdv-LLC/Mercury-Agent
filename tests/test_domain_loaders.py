@@ -1358,10 +1358,16 @@ class TestBaseDomainLoaderHelpers:
 
     # -- _fetch_url retry and error handling --
 
-    @patch("urllib.request.urlopen")
-    def test_fetch_url_raises_on_failure(self, mock_urlopen: MagicMock, tmp_path: Path) -> None:
-        """_fetch_url raises ConnectionError after exhausting retries."""
-        mock_urlopen.side_effect = Exception("Network error")
+    @patch("omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes")
+    def test_fetch_url_raises_on_failure(self, mock_get: MagicMock, tmp_path: Path) -> None:
+        """_fetch_url raises ConnectionError after exhausting retries.
+
+        BaseDomainLoader._fetch_url now goes through SafeHTTPClient,
+        so the mock patches the canonical helper instead of the
+        underlying ``urllib.request.urlopen`` that was used before
+        the SSRF-hardening rewrite.
+        """
+        mock_get.side_effect = Exception("Network error")
 
         from omni_mercury_engine.loaders.earthquake_loader import EarthquakeLoader
 
