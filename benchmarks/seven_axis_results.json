@@ -1,0 +1,92 @@
+{
+  "seed": 20260504,
+  "runtime_seconds": 1.3835308500001702,
+  "axes": [
+    {
+      "name": "Generalization",
+      "score": 0.9343945172166032,
+      "higher_is_better": true,
+      "notes": "OOD AUROC under bias / noise shift (ID=0.997 \u2192 OOD=0.934, \u0394=+0.063).",
+      "raw": {
+        "auc_in_distribution": 0.9973883374689826,
+        "auc_ood": 0.9343945172166032,
+        "delta": 0.06299382025237943
+      }
+    },
+    {
+      "name": "Scalability",
+      "score": 0.9463301556944681,
+      "higher_is_better": true,
+      "notes": "Empirical complexity slope d log(t) / d log(n) = 1.054 over N \u2208 [200, 800, 3200].",
+      "raw": {
+        "sizes": [
+          200,
+          800,
+          3200
+        ],
+        "times_seconds": [
+          0.013723312000138321,
+          0.06176443999993353,
+          0.2548025979999693
+        ],
+        "log_log_slope": 1.053669844305532
+      }
+    },
+    {
+      "name": "Data Efficiency",
+      "score": 1.0,
+      "higher_is_better": true,
+      "notes": "AUROC(N=50) / AUROC(N=1000) \u2014 measures how quickly the composer reaches asymptotic ranking quality (got 1.000 / 0.995).",
+      "raw": {
+        "auroc_by_n": {
+          "50": 1.0,
+          "200": 0.9988547432716167,
+          "1000": 0.9946379602474159
+        }
+      }
+    },
+    {
+      "name": "Reasoning",
+      "score": 0.9400749063670412,
+      "higher_is_better": true,
+      "notes": "Fraction of correctly-flagged anomalies for which the symbolic channel independently crossed the decision threshold.",
+      "raw": {
+        "n_correct_positives": 267,
+        "n_with_symbolic_agreement": 251
+      }
+    },
+    {
+      "name": "Robustness",
+      "score": 0.963583098890952,
+      "higher_is_better": true,
+      "notes": "AUROC retention under additive noise \u03c3 \u2208 [0.05, 0.15] (clean=0.996, worst-noise=0.959).",
+      "raw": {
+        "auroc_clean": 0.9955985449735449,
+        "auroc_under_noise": {
+          "0.05": 0.9918121693121693,
+          "0.15": 0.9593419312169312
+        }
+      }
+    },
+    {
+      "name": "Transferability",
+      "score": 0.9714671768969079,
+      "higher_is_better": true,
+      "notes": "Cross-domain AUROC retention (in=0.997, cross=0.968).",
+      "raw": {
+        "auroc_in_domain": 0.9968506493506494,
+        "auroc_cross_domain": 0.9684076861125248
+      }
+    },
+    {
+      "name": "Interpretability",
+      "score": 1.0,
+      "higher_is_better": true,
+      "notes": "Fraction of decisions accompanied by at least one non-trivial FibringComposer diagnostic (correlation, decorrelation, or domain-affinity bias).",
+      "raw": {
+        "n_decisions": 1500,
+        "n_with_diagnostic": 1500
+      }
+    }
+  ]
+}
