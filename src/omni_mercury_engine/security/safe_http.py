@@ -303,15 +303,25 @@ class SafeHTTPClient:
 
         # Private-network / IMDS gate.  Runs whenever:
         #   * the URL came from operator config (user_configured=True),
-        #   * the caller asked for loopback-only enforcement, OR
+        #   * the caller asked for loopback-only enforcement,
         #   * the URL is plain HTTP (allow_http=True), because the
         #     trusted-allowlist gate is the only thing standing
         #     between an http:// URL and an SSRF pivot, and we want
-        #     defence-in-depth even when the host is allowlisted.
+        #     defence-in-depth even when the host is allowlisted, OR
+        #   * the caller skipped the TRUSTED_DOMAINS allowlist via
+        #     ``allow_untrusted=True``.  Bypassing the allowlist must
+        #     NOT also bypass SSRF protection -- otherwise an https://
+        #     URL to a private IP literal or a hostname that resolves
+        #     into RFC1918 / IMDS slips past both gates.  This is the
+        #     fourth opt-in trigger, orthogonal to ``allow_private``:
+        #     ``allow_untrusted`` skips the host allowlist;
+        #     ``allow_private`` permits RFC1918; neither one skips
+        #     the IP resolve, and IMDS / loopback / multicast / reserved
+        #     remain in the always-blocked set regardless.
         # Class-constant https:// dataset URLs still skip the resolve
         # because they're public hostnames we explicitly allowlisted;
         # resolving them on every call is pure overhead.
-        needs_ip_gate = user_configured or loopback_only or scheme == "http"
+        needs_ip_gate = user_configured or loopback_only or scheme == "http" or allow_untrusted
         if needs_ip_gate:
             ips = _resolve_ips(host)
             if loopback_only:
@@ -389,6 +399,27 @@ class SafeHTTPClient:
             stream=stream,
             allow_redirects=False,
         )
+        # Reject 3xx explicitly.  ``allow_redirects=False`` blocks
+        # ``requests`` from following the redirect, but
+        # ``raise_for_status()`` only fires on 4xx/5xx, so without this
+        # branch a 301/302/303/307/308 returns as "success" and the
+        # callers below consume the redirect body (often an HTML stub)
+        # instead of the resource.  Real-world bite: GitHub
+        # ``.../raw/...`` URLs redirect to ``raw.githubusercontent.com``
+        # and silently corrupt downloads.  We refuse rather than chase
+        # because every URL the loaders hit is an explicit final
+        # destination in ``TRUSTED_DOMAINS``; a 3xx from one of them
+        # means the source URL has drifted and the right fix is to
+        # update the URL in the loader (and add the redirect target to
+        # the allowlist if necessary), not to re-validate and follow.
+        if 300 <= response.status_code < 400:
+            location = response.headers.get("Location", "<no Location header>")
+            raise UnsafeURLError(
+                f"SafeHTTPClient: refused {response.status_code} redirect "
+                f"from '{url}' to '{location}'. SafeHTTPClient does not "
+                f"follow redirects; update the source URL to the final "
+                f"destination (and confirm it is in TRUSTED_DOMAINS)."
+            )
         response.raise_for_status()
         return response
 

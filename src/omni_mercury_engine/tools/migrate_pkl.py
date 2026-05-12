@@ -116,6 +116,16 @@ _FORWARDED_ENV = (
     "AMA_REQUIRE_REAL_PQC",
 )
 
+# Stable exit code for ``_RestrictedUnpickler.find_class`` refusing a
+# global that is not in the allow-list.  Distinct from:
+#   0  success
+#   2  input file errors (missing / oversize / would-overwrite)
+#   3  payload shape / dtype errors
+#   4  output write failures
+# A dedicated code lets tests pin the refusal path without depending on
+# the implementation-dependent unhandled-exception exit code.
+_EXIT_RESTRICTED_UNPICKLER_REFUSAL = 5
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -293,13 +303,32 @@ def _do_migration(args: argparse.Namespace) -> int:
 
     print(f"loading legacy pickle: {src} ({size} bytes)", file=sys.stderr)
     restricted_unpickler_cls = _make_restricted_unpickler()
-    with src.open("rb") as f:
-        # B301: this is THE sanctioned pickle.load call in the
-        # codebase. It only runs in the hardened subprocess **and**
-        # via ``_RestrictedUnpickler`` (find_class whitelisted). The
-        # engine itself never reaches this code path; see module
-        # docstring.
-        loaded = restricted_unpickler_cls(f).load()  # nosec B301
+    # ``_make_restricted_unpickler`` imports ``pickle`` lazily and
+    # returns the restricted subclass; we re-import here only to bind
+    # ``pickle.UnpicklingError`` for the except clause below.  The
+    # subprocess-only import boundary documented in the module
+    # docstring is preserved (this code path runs exclusively inside
+    # the hardened relaunch).
+    import pickle  # nosec B403
+
+    try:
+        with src.open("rb") as f:
+            # B301: this is THE sanctioned pickle.load call in the
+            # codebase. It only runs in the hardened subprocess **and**
+            # via ``_RestrictedUnpickler`` (find_class whitelisted). The
+            # engine itself never reaches this code path; see module
+            # docstring.
+            loaded = restricted_unpickler_cls(f).load()  # nosec B301
+    except pickle.UnpicklingError as exc:
+        # ``_RestrictedUnpickler.find_class`` raises this when the
+        # payload references any global outside ``_ALLOWED_GLOBALS``
+        # (``os.system`` / ``subprocess.Popen`` / ``builtins.eval`` and
+        # friends).  Surface the refusal as one concise stderr line
+        # rather than a traceback, and exit with a documented stable
+        # code so callers/tests can distinguish "refused" from
+        # "subprocess crashed".
+        print(f"error: {exc}", file=sys.stderr)
+        return _EXIT_RESTRICTED_UNPICKLER_REFUSAL
 
     if not isinstance(loaded, dict):
         print(

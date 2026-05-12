@@ -16,6 +16,7 @@ Covers:
 
 from __future__ import annotations
 
+import ipaddress
 from unittest.mock import patch
 
 import numpy as np
@@ -89,11 +90,46 @@ class TestSSRFValidation:
             self._validate("https://attacker.example.com/exfil")
 
     def test_untrusted_host_allowed_with_opt_in(self):
-        """``allow_untrusted=True`` is the explicit per-call escape hatch."""
-        self._validate(
-            "https://attacker.example.com/exfil",
-            allow_untrusted=True,
-        )
+        """``allow_untrusted=True`` is the explicit per-call escape hatch.
+
+        ``allow_untrusted`` now also triggers the IP-resolution gate
+        (bypassing the host allowlist must NOT bypass SSRF protection),
+        so a real DNS lookup would run on ``attacker.example.com``.
+        We patch ``_resolve_ips`` to a known public IP to keep the test
+        offline and deterministic.  The companion test below pins the
+        flip side: ``allow_untrusted=True`` still rejects an off-allowlist
+        host whose resolved IP is private, unless ``allow_private=True``
+        is also explicitly set.
+        """
+        with patch(
+            "omni_mercury_engine.security.safe_http._resolve_ips",
+            return_value=[ipaddress.ip_address("8.8.8.8")],
+        ):
+            self._validate(
+                "https://attacker.example.com/exfil",
+                allow_untrusted=True,
+            )
+
+    def test_untrusted_host_with_private_ip_blocked_without_allow_private(self):
+        """Bypassing the allowlist does not bypass the SSRF / IMDS gate.
+
+        ``allow_untrusted=True`` skips ``TRUSTED_DOMAINS`` but
+        ``needs_ip_gate`` still fires.  An off-allowlist hostname that
+        resolves to RFC1918 raises ``UnsafeURLError``; the operator must
+        also pass ``allow_private=True`` to permit it (and IMDS remains
+        in the always-blocked set even then).
+        """
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("10.0.0.5")],
+            ),
+            pytest.raises(UnsafeURLError, match="private/link-local/IMDS"),
+        ):
+            SafeHTTPClient.validate_url(
+                "https://attacker.example.com/exfil",
+                allow_untrusted=True,
+            )
 
     def test_http_scheme_blocked_for_trusted_host(self):
         """Plain HTTP is rejected even for an allowlisted host."""

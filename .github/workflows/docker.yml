@@ -75,6 +75,13 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
+          # Distinct category so this advisory tarball scan does not
+          # collide with security.yml's `trivy-container-scan` SARIF
+          # upload (same filename, same image) or with ci.yml's
+          # blocking PR-gate Trivy scan.  Without an explicit
+          # category each workflow's findings would deduplicate
+          # against the others in non-deterministic order.
+          category: 'trivy-docker-advisory'
 
       - name: Cleanup tarball
         if: always()

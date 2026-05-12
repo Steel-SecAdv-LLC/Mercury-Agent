@@ -40,6 +40,9 @@ from omni_mercury_engine.security.safe_load import (
     safe_load_training_data,
     verify_npz_signature,
 )
+from omni_mercury_engine.tools.migrate_pkl import (
+    _EXIT_RESTRICTED_UNPICKLER_REFUSAL,
+)
 
 
 def _run_tool(*args: str) -> subprocess.CompletedProcess[str]:
@@ -234,11 +237,13 @@ def test_restricted_unpickler_rejects_os_system_reduce(tmp_path: Path) -> None:
         pickle.dump(_OsSystemReduce(), f)
     proc = _run_tool("--input", str(malicious), "--output", str(tmp_path / "out.npz"))
 
-    # Restricted unpickler raised pickle.UnpicklingError; the tool's
-    # outer harness exits with a non-zero code. We don't assert a
-    # specific code because the UnpicklingError surfaces as the
-    # subprocess's unhandled exception (currently exit code 1).
-    assert proc.returncode != 0, proc.stderr
+    # ``_RestrictedUnpickler.find_class`` raised ``pickle.UnpicklingError``;
+    # ``_do_migration`` catches it and exits with the stable
+    # ``_EXIT_RESTRICTED_UNPICKLER_REFUSAL = 5`` code so callers can
+    # distinguish "refused" from "subprocess crashed".  The stderr must
+    # be the concise refusal line, never a traceback.
+    assert proc.returncode == _EXIT_RESTRICTED_UNPICKLER_REFUSAL, proc.stderr
+    assert "Traceback" not in proc.stderr, proc.stderr
     assert (
         "refusing global 'posix.system'" in proc.stderr
         or "refusing global 'os.system'" in proc.stderr
@@ -252,7 +257,8 @@ def test_restricted_unpickler_rejects_subprocess_popen_reduce(tmp_path: Path) ->
     with malicious.open("wb") as f:
         pickle.dump(_SubprocessPopenReduce(), f)
     proc = _run_tool("--input", str(malicious), "--output", str(tmp_path / "out.npz"))
-    assert proc.returncode != 0, proc.stderr
+    assert proc.returncode == _EXIT_RESTRICTED_UNPICKLER_REFUSAL, proc.stderr
+    assert "Traceback" not in proc.stderr, proc.stderr
     assert "refusing global 'subprocess.Popen'" in proc.stderr, proc.stderr
 
 
@@ -266,5 +272,6 @@ def test_restricted_unpickler_rejects_builtins_eval_reduce(tmp_path: Path) -> No
     with malicious.open("wb") as f:
         pickle.dump(_BuiltinsEvalReduce(), f)
     proc = _run_tool("--input", str(malicious), "--output", str(tmp_path / "out.npz"))
-    assert proc.returncode != 0, proc.stderr
+    assert proc.returncode == _EXIT_RESTRICTED_UNPICKLER_REFUSAL, proc.stderr
+    assert "Traceback" not in proc.stderr, proc.stderr
     assert "refusing global 'builtins.eval'" in proc.stderr, proc.stderr
