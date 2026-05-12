@@ -40,6 +40,7 @@ from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
 )
+from omni_mercury_engine.security.model_policy import SafeHFLoader
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,8 @@ class ChronosConfig(FoundationModelConfig):
     num_samples: int = 20
     temperature: float = 1.0
     model_name: str = "amazon/chronos-t5-small"
+    # SafeHFLoader requires a revision pin for remote loads.
+    revision: str | None = None
 
 
 class ChronosAdapter(BaseFoundationModel):
@@ -86,6 +89,10 @@ class ChronosAdapter(BaseFoundationModel):
         "base": "amazon/chronos-t5-base",
         "large": "amazon/chronos-t5-large",
     }
+
+    # Allowlist forwarded to SafeHFLoader. Derived from MODEL_SIZES so
+    # the two stay in sync at class-definition time.
+    ALLOWED_MODELS: frozenset[str] = frozenset(MODEL_SIZES.values())
 
     def __init__(self, config: ChronosConfig | dict[str, Any] | None = None) -> None:
         """
@@ -134,8 +141,11 @@ class ChronosAdapter(BaseFoundationModel):
 
             logger.info(f"Loading Chronos model: {self.chronos_config.model_name}")
 
-            self._pipeline = ChronosPipeline.from_pretrained(
+            self._pipeline = SafeHFLoader.load_model(
+                ChronosPipeline,
                 self.chronos_config.model_name,
+                revision=self.chronos_config.revision,
+                allowlist=self.ALLOWED_MODELS,
                 device_map=str(self.device),
                 torch_dtype=torch.float32,
             )

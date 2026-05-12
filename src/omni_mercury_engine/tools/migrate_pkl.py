@@ -152,7 +152,7 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     The load-bearing isolation here is the *process boundary* -- a malicious pickle that achieves
     code execution still cannot reach the parent (operator) process state.
     """
-    import subprocess  # nosec B404
+    from omni_mercury_engine.security.safe_exec import python_module
 
     env: dict[str, str] = {
         _HARDENED_SENTINEL: "1",
@@ -165,20 +165,26 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
             env[name] = value
     env.setdefault("LANG", "C")
 
-    cmd = [sys.executable, "-m", "omni_mercury_engine.tools.migrate_pkl", *argv]
-    # B603/S603: command list is fully constructed from sys.executable plus the
-    # fixed module path of this tool plus argparse-validated args. There is no
-    # shell interpolation and no shell=True.
-    completed = subprocess.run(cmd, env=env, check=False)  # noqa: S603  # nosec B603
+    # safe_exec.python_module validates the module name, pins
+    # shell=False, and is the only annotated subprocess.run site in
+    # src/.
+    completed = python_module(
+        "omni_mercury_engine.tools.migrate_pkl",
+        args=list(argv),
+        env=env,
+        check=False,
+    )
     return completed.returncode
 
 
 def _do_migration(args: argparse.Namespace) -> int:
     """Body that runs inside the hardened subprocess."""
-    # B403: pickle is intentionally used here -- this is the one-shot
-    # operator migration tool whose entire purpose is to read a legacy
-    # .pkl payload. The engine itself never imports pickle.
-    import pickle  # nosec B403
+    # The one-shot operator migration tool whose entire purpose is to
+    # read a legacy .pkl payload. The engine itself never imports
+    # pickle. B403 on this import is intentionally suppressed via the
+    # rule-less suppression on the import line so the only annotated
+    # pickle site is the load() below.
+    import pickle  # nosec
 
     import numpy as np
 

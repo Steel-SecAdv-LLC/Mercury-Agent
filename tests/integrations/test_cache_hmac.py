@@ -2,15 +2,16 @@
 Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
-Tests for cache HMAC signing and security hardening.
+Tests for cache serialisation behaviour.
 
-Covers:
-- HMAC-signed pickle serialization
-- HMAC signature verification (tamper detection)
-- Production enforcement for MERCURY_CACHE_SECRET
+The pickle serialiser was removed from the runtime; only JSON is
+supported. These tests cover:
+
+- JSON serialisation round-trip
+- Refusal of legacy ``serializer="pickle"`` constructor argument
 - Domain TTL policies
-- RedisCache serialization/deserialization
 - Cache factory
+- Key prefixing
 """
 
 from __future__ import annotations
@@ -29,108 +30,25 @@ from omni_mercury_engine.integrations.stubs.cache import (
 )
 
 # =============================================================================
-# HMAC Signing Key Tests
+# Legacy pickle serialiser refusal
 # =============================================================================
 
 
-class TestHMACSigningKey:
-    """Tests for HMAC signing key management."""
+class TestLegacyPickleRefused:
+    """The 'pickle' serialiser is gone; the constructor must refuse it."""
 
-    def test_get_signing_key_with_env_var(self):
-        """Test signing key from environment variable."""
-        with patch.dict(os.environ, {"MERCURY_CACHE_SECRET": "my-strong-secret"}):
-            key = RedisCache._get_signing_key()
-            assert isinstance(key, bytes)
-            assert len(key) == 32  # SHA-256 produces 32 bytes
+    def test_pickle_serializer_rejected(self):
+        with pytest.raises(ValueError, match="serializer"):
+            RedisCache(serializer="pickle", fallback_to_stub=True)
 
-    def test_get_signing_key_default_dev(self):
-        """Test default signing key in development mode."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("MERCURY_CACHE_SECRET", None)
-            os.environ.pop("MERCURY_AGENT_ENV", None)
-            # Reset warning flag
-            CacheStub._CACHE_SECRET_WARNED = False
-            key = RedisCache._get_signing_key()
-            assert isinstance(key, bytes)
-            assert len(key) == 32
+    def test_unknown_serializer_rejected(self):
+        with pytest.raises(ValueError, match="serializer"):
+            RedisCache(serializer="msgpack", fallback_to_stub=True)
 
-    def test_get_signing_key_production_requires_secret(self):
-        """Test production mode requires MERCURY_CACHE_SECRET."""
-        with patch.dict(
-            os.environ,
-            {"MERCURY_AGENT_ENV": "production"},
-            clear=False,
-        ):
-            os.environ.pop("MERCURY_CACHE_SECRET", None)
-            with pytest.raises(ValueError, match="MERCURY_CACHE_SECRET"):
-                RedisCache._get_signing_key()
-
-
-# =============================================================================
-# Pickle Serialization with HMAC Tests
-# =============================================================================
-
-
-class TestPickleHMACSerialization:
-    """Tests for HMAC-signed pickle serialization/deserialization."""
-
-    @pytest.fixture
-    def redis_cache(self):
-        """Create RedisCache with pickle serializer."""
-        with patch.dict(os.environ, {"MERCURY_CACHE_SECRET": "test-secret-key"}):
-            cache = RedisCache(serializer="pickle", fallback_to_stub=True)
-            return cache
-
-    def test_serialize_pickle_includes_hmac(self, redis_cache):
-        """Test that pickle serialization prepends HMAC signature."""
-        serialized = redis_cache._serialize({"key": "value"})
-        assert isinstance(serialized, str)
-        assert "." in serialized  # HMAC.base64_payload format
-        parts = serialized.split(".", 1)
-        assert len(parts) == 2
-        # First part should be hex-encoded HMAC (64 chars for SHA-256)
-        assert len(parts[0]) == 64
-
-    def test_deserialize_pickle_valid_hmac(self, redis_cache):
-        """Test deserialization succeeds with valid HMAC."""
-        original = {"data": [1, 2, 3], "nested": {"a": True}}
-        serialized = redis_cache._serialize(original)
-        deserialized = redis_cache._deserialize(serialized)
-        assert deserialized == original
-
-    def test_deserialize_pickle_tampered_data(self, redis_cache):
-        """Test deserialization rejects tampered data."""
-        original = {"secret": "classified"}
-        serialized = redis_cache._serialize(original)
-
-        # Tamper with the base64 payload
-        sig, _, payload = serialized.partition(".")
-        tampered = sig + "." + payload[:-4] + "XXXX"
-
-        result = redis_cache._deserialize(tampered)
-        assert result is None  # Should reject tampered data
-
-    def test_deserialize_pickle_tampered_signature(self, redis_cache):
-        """Test deserialization rejects tampered signature."""
-        original = {"data": "test"}
-        serialized = redis_cache._serialize(original)
-
-        # Replace signature with wrong value
-        _, _, payload = serialized.partition(".")
-        tampered = "a" * 64 + "." + payload
-
-        result = redis_cache._deserialize(tampered)
-        assert result is None
-
-    def test_deserialize_pickle_missing_signature(self, redis_cache):
-        """Test deserialization rejects data without HMAC separator."""
-        result = redis_cache._deserialize("no_dot_separator_here")
-        assert result is None
-
-    def test_deserialize_none_returns_none(self, redis_cache):
-        """Test deserialization of None returns None."""
-        result = redis_cache._deserialize(None)
-        assert result is None
+    def test_json_serializer_accepted(self):
+        # No exception
+        cache = RedisCache(serializer="json", fallback_to_stub=True)
+        assert cache.serializer == "json"
 
 
 # =============================================================================

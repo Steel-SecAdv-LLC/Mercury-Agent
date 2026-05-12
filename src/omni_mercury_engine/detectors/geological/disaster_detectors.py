@@ -45,7 +45,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING, Any
-from urllib.request import Request, urlopen
 
 import numpy as np
 
@@ -68,6 +67,7 @@ from scipy.fft import fft, fftfreq
 
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
 from omni_mercury_engine.utils.rng import get_global_rng
 
 logger = logging.getLogger(__name__)
@@ -1715,17 +1715,11 @@ def load_dart_buoy_data(
     def _fetch_dart_data() -> (
         tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]
     ):
-        url = f"{DART_BUOY_API_URL}/{station_id}.dart"
-        if not url.startswith("https://"):
-            raise RuntimeError("DART API URL must use HTTPS")
-
-        # Validate URL before opening (SSRF protection via domain allowlist)
-        from omni_mercury_engine.security.input_validation import TrustedEndpoints
-
-        TrustedEndpoints.validate_url(DART_BUOY_API_URL)
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
-            raw_data = response.read().decode()
+        raw_data = SafeHTTPClient.get_text(
+            f"{DART_BUOY_API_URL}/{station_id}.dart",
+            headers={"User-Agent": "Mercury-Agent/1.0"},
+            timeout=30,
+        )
 
         lines = raw_data.strip().split("\n")
         water_levels = []
@@ -1799,17 +1793,12 @@ def load_noaa_tsunami_records(
     circuit_breaker = get_data_loader_breaker("noaa_tsunami")
 
     def _fetch_tsunami_records() -> list[dict[str, Any]]:
-        url = f"{NOAA_TSUNAMI_API_URL}?minYear={min_year}&maxSize={max_records}"
-        if not url.startswith("https://"):
-            raise RuntimeError("NOAA Tsunami API URL must use HTTPS")
-
-        # Validate URL before opening (SSRF protection via domain allowlist)
-        from omni_mercury_engine.security.input_validation import TrustedEndpoints
-
-        TrustedEndpoints.validate_url(NOAA_TSUNAMI_API_URL)
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
-            data = json.loads(response.read().decode())
+        data = SafeHTTPClient.get_json(
+            NOAA_TSUNAMI_API_URL,
+            params={"minYear": str(min_year), "maxSize": str(max_records)},
+            headers={"User-Agent": "Mercury-Agent/1.0"},
+            timeout=30,
+        )
 
         events: list[dict[str, Any]] = data.get("items", [])
         if not events:
@@ -1865,17 +1854,12 @@ def load_usgs_earthquake_catalog(
             "limit": "1000",
         }
 
-        url = f"{USGS_EARTHQUAKE_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
-        if not url.startswith("https://"):
-            raise RuntimeError("USGS API URL must use HTTPS")
-
-        # Validate URL before opening (SSRF protection via domain allowlist)
-        from omni_mercury_engine.security.input_validation import TrustedEndpoints
-
-        TrustedEndpoints.validate_url(USGS_EARTHQUAKE_API_URL)
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
-            data = json.loads(response.read().decode())
+        data = SafeHTTPClient.get_json(
+            USGS_EARTHQUAKE_API_URL,
+            params=params,
+            headers={"User-Agent": "Mercury-Agent/1.0"},
+            timeout=30,
+        )
 
         features = data.get("features", [])
         if not features:
@@ -2035,21 +2019,16 @@ def load_nasa_fireball_data(
         end_date = datetime.utcnow()
         start_date = end_date - timedelta(days=days_back)
 
-        url = (
-            f"{NASA_CNEOS_FIREBALL_URL}"
-            f"?date-min={start_date.strftime('%Y-%m-%d')}"
-            f"&date-max={end_date.strftime('%Y-%m-%d')}"
-            f"&req-loc=true"
+        data = SafeHTTPClient.get_json(
+            NASA_CNEOS_FIREBALL_URL,
+            params={
+                "date-min": start_date.strftime("%Y-%m-%d"),
+                "date-max": end_date.strftime("%Y-%m-%d"),
+                "req-loc": "true",
+            },
+            headers={"User-Agent": "Mercury-Agent/1.0"},
+            timeout=30,
         )
-
-        if not url.startswith("https://"):
-            raise RuntimeError("NASA Fireball API URL must use HTTPS")
-
-        # Validate URL before opening (SSRF protection via domain allowlist)
-        TrustedEndpoints.validate_url(NASA_CNEOS_FIREBALL_URL)
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
-            data = json.loads(response.read().decode())
 
         if "data" not in data or not data["data"]:
             logger.info("NASA Fireball API returned no events")
@@ -2143,21 +2122,17 @@ def load_nasa_close_approach_data(
         start_date = datetime.utcnow()
         end_date = start_date + timedelta(days=days_forward)
 
-        url = (
-            f"{NASA_CNEOS_CAD_URL}"
-            f"?date-min={start_date.strftime('%Y-%m-%d')}"
-            f"&date-max={end_date.strftime('%Y-%m-%d')}"
-            f"&dist-max={distance_max_au}"
-            f"&body=Earth"
+        data = SafeHTTPClient.get_json(
+            NASA_CNEOS_CAD_URL,
+            params={
+                "date-min": start_date.strftime("%Y-%m-%d"),
+                "date-max": end_date.strftime("%Y-%m-%d"),
+                "dist-max": str(distance_max_au),
+                "body": "Earth",
+            },
+            headers={"User-Agent": "Mercury-Agent/1.0"},
+            timeout=30,
         )
-
-        if not url.startswith("https://"):
-            raise RuntimeError("NASA CAD API URL must use HTTPS")
-
-        TrustedEndpoints.validate_url(NASA_CNEOS_CAD_URL)
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
-            data = json.loads(response.read().decode())
 
         if "data" not in data or not data["data"]:
             logger.info("NASA CAD API returned no close approaches")
@@ -2228,15 +2203,12 @@ def load_nasa_sentry_data() -> list[SentryImpactRisk] | None:
     circuit_breaker = get_data_loader_breaker("nasa_sentry")
 
     def _fetch_sentry_data() -> list[SentryImpactRisk]:
-        url = f"{NASA_SENTRY_URL}?all=1"
-
-        if not url.startswith("https://"):
-            raise RuntimeError("NASA Sentry API URL must use HTTPS")
-
-        TrustedEndpoints.validate_url(NASA_SENTRY_URL)
-        req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-        with urlopen(req, timeout=30) as response:  # nosec B310
-            data = json.loads(response.read().decode())
+        data = SafeHTTPClient.get_json(
+            NASA_SENTRY_URL,
+            params={"all": "1"},
+            headers={"User-Agent": "Mercury-Agent/1.0"},
+            timeout=30,
+        )
 
         if "data" not in data or not data["data"]:
             logger.info("NASA Sentry API returned no impact risks (good news!)")

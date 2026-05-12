@@ -115,8 +115,6 @@ class CacheStub:
         >>> await cache.delete("key")
     """
 
-    _CACHE_SECRET_WARNED: bool = False
-
     def __init__(
         self,
         seed: int | None = None,
@@ -637,8 +635,20 @@ class RedisCache:
             max_connections: Maximum pool connections.
             prefix: Key prefix for namespacing.
             fallback_to_stub: Fall back to in-memory stub on connection failure.
-            serializer: Serialization format ("json" or "pickle").
+            serializer: Serialization format. Only "json" is supported;
+                callers that need to cache a non-JSON-serializable value
+                must convert it before set(). The legacy "pickle"
+                serializer has been removed -- pickle has no role in
+                the Mercury Agent runtime outside the one-shot
+                ``tools/migrate_pkl.py`` migration tool.
         """
+        if serializer != "json":
+            raise ValueError(
+                f"RedisCache: serializer={serializer!r} is no longer supported. "
+                "Use serializer='json' and convert non-JSON values before caching. "
+                "Pickle deserialisation has been removed from the Mercury Agent "
+                "runtime (see tools/migrate_pkl.py for offline conversion)."
+            )
         self.host = host or os.getenv("REDIS_HOST", "localhost")
         self.port = port
         self.password = password or os.getenv("REDIS_PASSWORD")
@@ -721,129 +731,19 @@ class RedisCache:
         """Add prefix to key."""
         return f"{self.prefix}{key}"
 
-    _CACHE_SECRET_WARNED = False
-
-    @staticmethod
-    def _get_signing_key() -> bytes:
-        """
-        Get the HMAC signing key for pickle integrity verification.
-
-        In production, set MERCURY_CACHE_SECRET to a strong random value.
-        Generate with: ``openssl rand -hex 32``
-        """
-        import hashlib
-
-        key = os.environ.get("MERCURY_CACHE_SECRET", "")
-        if not key:
-            is_prod = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
-            if is_prod:
-                raise ValueError(
-                    "MERCURY_CACHE_SECRET environment variable is required in production. "
-                    "Generate with: openssl rand -hex 32"
-                )
-            if not CacheStub._CACHE_SECRET_WARNED:
-                logger.warning(
-                    "MERCURY_CACHE_SECRET not set — using default cache signing key. "
-                    "Set this variable for production deployments."
-                )
-                CacheStub._CACHE_SECRET_WARNED = True
-            key = "mercury-cache-default-key"
-        return hashlib.sha256(key.encode()).digest()
-
-    @staticmethod
-    def _restricted_loads(payload: bytes) -> Any:
-        """
-        Deserialize pickle data using a restricted unpickler.
-
-        Only allows safe built-in types to prevent arbitrary code execution even if HMAC
-        verification is somehow bypassed (defense in depth).
-        """
-        import io
-        import pickle  # nosec B403 - restricted unpickler limits allowed types
-
-        _SAFE_MODULES: dict[str, set[str]] = {
-            "builtins": {
-                "True",
-                "False",
-                "None",
-                "int",
-                "float",
-                "str",
-                "bytes",
-                "list",
-                "dict",
-                "tuple",
-                "set",
-                "frozenset",
-                "complex",
-                "bool",
-                "bytearray",
-                "type",
-                "range",
-                "slice",
-            },
-            "collections": {"OrderedDict", "defaultdict", "deque"},
-            "datetime": {"datetime", "date", "time", "timedelta", "timezone"},
-            "decimal": {"Decimal"},
-            "fractions": {"Fraction"},
-            "uuid": {"UUID"},
-        }
-
-        class _RestrictedUnpickler(pickle.Unpickler):
-            def find_class(self, module: str, name: str) -> Any:
-                allowed = _SAFE_MODULES.get(module)
-                if allowed is not None and name in allowed:
-                    return super().find_class(module, name)
-                raise pickle.UnpicklingError(f"Restricted unpickler blocked: {module}.{name}")
-
-        return _RestrictedUnpickler(io.BytesIO(payload)).load()
-
     def _serialize(self, value: Any) -> str:
-        """
-        Serialize value for storage.
+        """Serialize value for storage as JSON.
 
-        When using pickle serialization, an HMAC signature is prepended to prevent deserialization
-        of tampered data. For untrusted data sources, use serializer="json".
+        The pickle serializer was removed; callers that need to cache
+        non-JSON-serialisable values must convert them first.
         """
-        if self.serializer == "json":
-            return json.dumps(value)
-        else:
-            import base64
-            import hmac
-            import pickle  # nosec B403 - restricted unpickler used on deserialization
-
-            payload = pickle.dumps(value)
-            sig = hmac.new(self._get_signing_key(), payload, "sha256").hexdigest()
-            # Prefix with HMAC signature separated by '.'
-            return sig + "." + base64.b64encode(payload).decode()
+        return json.dumps(value)
 
     def _deserialize(self, data: str | None) -> Any:
-        """
-        Deserialize value from storage.
-
-        When using pickle, verifies HMAC signature before deserializing with a restricted unpickler
-        that only allows safe built-in types. This provides defense in depth against arbitrary code
-        execution.
-        """
+        """Deserialize JSON value from storage."""
         if data is None:
             return None
-        if self.serializer == "json":
-            return json.loads(data)
-        else:
-            import base64
-            import hmac
-
-            # Verify HMAC signature before deserializing
-            if "." not in data:
-                logger.warning("Cache data missing HMAC signature, rejecting")
-                return None
-            sig, _, encoded = data.partition(".")
-            payload = base64.b64decode(encoded.encode())
-            expected_sig = hmac.new(self._get_signing_key(), payload, "sha256").hexdigest()
-            if not hmac.compare_digest(sig, expected_sig):
-                logger.warning("Cache data HMAC verification failed, rejecting")
-                return None
-            return self._restricted_loads(payload)
+        return json.loads(data)
 
     async def get(self, key: str) -> Any | None:
         """

@@ -38,6 +38,8 @@ from typing import Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.security.model_policy import SafeHFLoader
+
 logger = logging.getLogger(__name__)
 
 
@@ -332,17 +334,19 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
-            # Use revision for remote models, None for local paths
+            # Use revision for remote models, None for local paths.
+            # SafeHFLoader.load_* enforces revision pinning and the
+            # HuggingFace identifier shape; no allowlist here because
+            # this adapter is the generic HF backend.
             revision = self.config.revision if not is_local_path else None
 
-            # Revision pinning is enforced at runtime above - remote models require
-            # config.revision to be set, otherwise adapter is marked unavailable.
-            # Local paths are allowed without revision. Bandit cannot verify this statically.
-            self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
+            self._tokenizer = SafeHFLoader.load_tokenizer(
+                AutoTokenizer,
                 self.config.model_name,
                 revision=revision,
             )
-            self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615
+            self._model = SafeHFLoader.load_model(
+                AutoModelForCausalLM,
                 self.config.model_name,
                 revision=revision,
                 torch_dtype=torch.float16,

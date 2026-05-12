@@ -40,6 +40,19 @@ from omni_mercury_engine.security.crypto_api import (
     SphincsProvider,
 )
 from omni_mercury_engine.security.encryption import SecureDataHandler
+from omni_mercury_engine.security.model_policy import (
+    HFModelPolicy,
+    SafeHFLoader,
+    UnsafeModelError,
+)
+from omni_mercury_engine.security.safe_exec import (
+    UnsafeSubprocessError,
+    safe_exec,
+)
+from omni_mercury_engine.security.safe_http import (
+    SafeHTTPClient,
+    UnsafeURLError,
+)
 
 try:
     from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
@@ -135,8 +148,15 @@ __all__ = [
     "Signature",
     "SphincsKeyPair",
     "SphincsProvider",
+    "HFModelPolicy",
+    "SafeHFLoader",
+    "SafeHTTPClient",
     "ThreatDetector",
+    "UnsafeModelError",
     "UnsafePayloadError",
+    "UnsafeSubprocessError",
+    "UnsafeURLError",
+    "safe_exec",
     "assert_no_simulation_in_production",
     "check_pqc_production_readiness",
     "configure_audit_logger",

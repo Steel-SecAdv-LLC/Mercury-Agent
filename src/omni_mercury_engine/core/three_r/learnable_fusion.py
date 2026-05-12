@@ -1018,43 +1018,30 @@ class Learnable3REngine:
 
         logger.info(f"Model saved to {path}")
 
-    def load_model(self, path: str, allow_unsafe: bool = False) -> None:
+    def load_model(self, path: str) -> None:
         """
         Load model checkpoint.
 
-        Security Note: By default, uses safe loading (weights_only=True).
-        Set allow_unsafe=True only for trusted checkpoints that require
-        optimizer state restoration with custom objects.
+        Loading is hard-pinned to ``weights_only=True``. The
+        ``allow_unsafe`` escape hatch was removed; legacy checkpoints
+        that cannot round-trip under safe mode must be re-saved by
+        the operator.
 
         Args:
             path: Path to checkpoint file
-            allow_unsafe: If True, allows loading checkpoints with pickle.
-                         Only use for trusted checkpoint sources.
         """
         if not TORCH_AVAILABLE or self.model is None:
             logger.warning("Cannot load model: PyTorch not available")
             return
 
         try:
-            # Default: safe loading with weights_only=True
             checkpoint = torch.load(path, map_location=self.device, weights_only=True)
         except Exception as e:
-            if allow_unsafe:
-                logger.warning(
-                    "Safe checkpoint loading failed. Falling back to unsafe mode "
-                    "as explicitly requested. Only do this for trusted checkpoints. "
-                    f"Original error: {e}"
-                )
-                checkpoint = torch.load(
-                    path, map_location=self.device, weights_only=False
-                )  # nosec B614 - intentional for trusted checkpoints with allow_unsafe=True
-            else:
-                raise RuntimeError(
-                    f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "
-                    "This may indicate the checkpoint contains custom pickled objects. "
-                    "If you trust this checkpoint source, re-run with allow_unsafe=True. "
-                    f"Original error: {e}"
-                ) from e
+            raise RuntimeError(
+                f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "
+                "Re-save the checkpoint with the current code path; the unsafe "
+                f"fallback was removed. Original error: {e}"
+            ) from e
 
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])

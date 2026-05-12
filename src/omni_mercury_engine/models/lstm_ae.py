@@ -328,10 +328,13 @@ class AnomalyDetector(LoggerMixin):
 
     @classmethod
     def load(cls, path: str, device: str = "auto") -> AnomalyDetector:
-        """Load model from file."""
-        checkpoint = torch.load(
-            path, map_location="cpu"
-        )  # nosec B614 - loading trusted model checkpoints
+        """Load model from file.
+
+        Hard-pinned to ``weights_only=True``; checkpoints saved by an
+        older code path that need to round-trip must be re-saved by
+        the operator.
+        """
+        checkpoint = torch.load(path, map_location="cpu", weights_only=True)
         detector = cls(
             input_dim=checkpoint["input_dim"],
             hidden_dim=checkpoint["hidden_dim"],

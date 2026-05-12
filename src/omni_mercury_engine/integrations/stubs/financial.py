@@ -28,8 +28,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 logger = logging.getLogger(__name__)
 
@@ -585,13 +585,14 @@ class FinancialService:
             "apikey": self.api_key,
         }
 
-        url = f"{self.ALPHA_VANTAGE_BASE}?{urlencode(params)}"
-
         def fetch() -> dict[str, Any]:
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
-                result: dict[str, Any] = json.loads(response.read().decode())
-                return result
+            return SafeHTTPClient.get_json(
+                self.ALPHA_VANTAGE_BASE,
+                params=params,
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=self.timeout,
+                user_configured=True,
+            )
 
         # Run in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
@@ -635,19 +636,18 @@ class FinancialService:
             "interval": "1d",
             "range": "1d",
         }
-        full_url = f"{url}?{urlencode(params)}"
 
         def fetch() -> dict[str, Any]:
-            req = Request(
-                full_url,
+            return SafeHTTPClient.get_json(
+                url,
+                params=params,
                 headers={
                     "User-Agent": "Mercury-Agent/1.0",
                     "Accept": "application/json",
                 },
+                timeout=self.timeout,
+                user_configured=True,
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
-                result: dict[str, Any] = json.loads(response.read().decode())
-                return result
 
         # Run in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
@@ -799,19 +799,18 @@ class FinancialService:
             "interval": interval,
             "range": range_param,
         }
-        full_url = f"{url}?{urlencode(params)}"
 
         def fetch() -> dict[str, Any]:
-            req = Request(
-                full_url,
+            return SafeHTTPClient.get_json(
+                url,
+                params=params,
                 headers={
                     "User-Agent": "Mercury-Agent/1.0",
                     "Accept": "application/json",
                 },
+                timeout=self.timeout,
+                user_configured=True,
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
-                fetched: dict[str, Any] = json.loads(response.read().decode())
-                return fetched
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)
@@ -868,13 +867,14 @@ class FinancialService:
             "apikey": self.api_key,
         }
 
-        url = f"{self.ALPHA_VANTAGE_BASE}?{urlencode(params)}"
-
         def fetch() -> dict[str, Any]:
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
-                result: dict[str, Any] = json.loads(response.read().decode())
-                return result
+            return SafeHTTPClient.get_json(
+                self.ALPHA_VANTAGE_BASE,
+                params=params,
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=self.timeout,
+                user_configured=True,
+            )
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)

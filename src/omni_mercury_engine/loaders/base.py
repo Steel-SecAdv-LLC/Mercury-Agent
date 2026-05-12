@@ -24,6 +24,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import requests
+
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 logger = logging.getLogger(__name__)
 
@@ -198,46 +201,6 @@ class BaseDomainLoader(ABC):
     # HTTP fetch with retry
     # =========================================================================
 
-    @staticmethod
-    def _validate_url(url: str) -> None:
-        """
-        Validate that a URL is safe to fetch (SSRF protection).
-
-        Blocks requests to private/loopback/link-local IPs and non-HTTP(S)
-        schemes.  Each domain loader subclass defines trusted base URLs so
-        this is a defense-in-depth guard.
-
-        DNS resolution failures are logged but not fatal — the subsequent
-        ``urlopen`` will surface the same networking error through its own
-        retry path.
-
-        Raises:
-            ValueError: If the URL scheme is disallowed or it resolves to
-                a private/loopback/link-local address.
-        """
-        import ipaddress
-        import socket
-        import urllib.parse
-
-        parsed = urllib.parse.urlparse(url)
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError(f"URL scheme not allowed: {parsed.scheme!r}")
-        hostname = parsed.hostname
-        if not hostname:
-            raise ValueError("URL missing hostname")
-        try:
-            resolved = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
-            for _family, _type, _proto, _canonname, sockaddr in resolved:
-                ip = ipaddress.ip_address(sockaddr[0])
-                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                    raise ValueError(
-                        f"URL resolves to non-routable address ({ip}), blocked for SSRF safety"
-                    )
-        except socket.gaierror:
-            # DNS resolution may fail in air-gapped / sandboxed environments;
-            # let the actual HTTP request handle networking errors.
-            logger.debug("SSRF check: DNS resolution failed - deferring to fetch")
-
     def _fetch_url(
         self,
         url: str,
@@ -245,7 +208,7 @@ class BaseDomainLoader(ABC):
         headers: dict[str, str] | None = None,
     ) -> bytes:
         """
-        Fetch URL content with retry logic and exponential backoff.
+        Fetch URL content via :class:`SafeHTTPClient` with retry logic.
 
         Args:
             url: URL to fetch.
@@ -257,20 +220,10 @@ class BaseDomainLoader(ABC):
 
         Raises:
             ConnectionError: After all retries exhausted.
-            ValueError: If the URL fails SSRF validation.
+            ValueError / UnsafeURLError: If the URL fails the SafeHTTPClient
+                gates (scheme allowlist, TRUSTED_DOMAINS, private-network
+                block).
         """
-        import urllib.parse
-        import urllib.request
-
-        if params:
-            query = urllib.parse.urlencode(params)
-            full_url = f"{url}?{query}"
-        else:
-            full_url = url
-
-        # SSRF protection: validate URL before any network I/O
-        self._validate_url(full_url)
-
         default_headers = {"User-Agent": "Mercury-Agent/1.0 (Steel Security Advisors)"}
         if headers:
             default_headers.update(headers)
@@ -278,9 +231,16 @@ class BaseDomainLoader(ABC):
         last_error_kind = "unknown"
         for attempt in range(self.max_retries + 1):
             try:
-                req = urllib.request.Request(full_url, headers=default_headers)  # noqa: S310
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
-                    return resp.read()  # type: ignore[no-any-return]
+                # user_configured=True forces the private-network /
+                # IMDS gate so a misconfigured loader URL cannot pivot
+                # into the host's internal network.
+                return SafeHTTPClient.get_bytes(
+                    url,
+                    params=params,
+                    headers=default_headers,
+                    timeout=self.timeout,
+                    user_configured=True,
+                )
             except Exception as exc:
                 last_error_kind = type(exc).__name__
                 if attempt < self.max_retries:
@@ -423,19 +383,28 @@ class BaseDomainLoader(ABC):
             Dict with provenance fields including timestamp,
             data hash, git commit, and Mercury version.
         """
-        import subprocess
+        import shutil
 
-        try:
-            git_commit = (
-                subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"],  # noqa: S607
-                    stderr=subprocess.DEVNULL,
-                )
-                .decode()
-                .strip()
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        from omni_mercury_engine.security.safe_exec import (
+            UnsafeSubprocessError,
+            safe_exec,
+        )
+
+        git_path = shutil.which("git")
+        if git_path is None:
             git_commit = "unknown"
+        else:
+            try:
+                completed = safe_exec(
+                    [git_path, "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                )
+                git_commit = (
+                    completed.stdout.strip() if completed.returncode == 0 else "unknown"
+                )
+            except (UnsafeSubprocessError, FileNotFoundError, OSError):
+                git_commit = "unknown"
 
         return {
             "domain": self.DOMAIN,

@@ -27,8 +27,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 logger = logging.getLogger(__name__)
 
@@ -459,22 +459,22 @@ class WeatherService:
         if not self.api_key:
             raise ValueError("OpenWeatherMap API key required")
 
-        params = {
+        params: dict[str, str] = {
             "q": location,
             "appid": self.api_key,
             "units": "metric",
         }
 
-        url = f"{self.OPENWEATHERMAP_BASE}/weather?{urlencode(params)}"
-
         def fetch() -> dict[str, Any]:
-            req = Request(
-                url,
+            # OpenWeatherMap is a user-configured external API; the
+            # private-network gate fires to block SSRF pivots.
+            return SafeHTTPClient.get_json(
+                f"{self.OPENWEATHERMAP_BASE}/weather",
+                params=params,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=self.timeout,
+                user_configured=True,
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
-                result: dict[str, Any] = json.loads(response.read().decode())
-                return result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)
@@ -509,23 +509,21 @@ class WeatherService:
         if not self.api_key:
             raise ValueError("OpenWeatherMap API key required")
 
-        params = {
-            "lat": lat,
-            "lon": lon,
+        params: dict[str, str] = {
+            "lat": str(lat),
+            "lon": str(lon),
             "appid": self.api_key,
             "units": "metric",
         }
 
-        url = f"{self.OPENWEATHERMAP_BASE}/weather?{urlencode(params)}"
-
         def fetch() -> dict[str, Any]:
-            req = Request(
-                url,
+            return SafeHTTPClient.get_json(
+                f"{self.OPENWEATHERMAP_BASE}/weather",
+                params=params,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=self.timeout,
+                user_configured=True,
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
-                result: dict[str, Any] = json.loads(response.read().decode())
-                return result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)
@@ -560,16 +558,15 @@ class WeatherService:
         url = f"{self.NOAA_POINTS_BASE}/{lat},{lon}"
 
         def fetch() -> dict[str, Any]:
-            req = Request(
+            return SafeHTTPClient.get_json(
                 url,
                 headers={
                     "User-Agent": "Mercury-Agent/1.0",
                     "Accept": "application/geo+json",
                 },
+                timeout=self.timeout,
+                user_configured=True,
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
-                result: dict[str, Any] = json.loads(response.read().decode())
-                return result
 
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, fetch)
@@ -591,16 +588,15 @@ class WeatherService:
 
         # Fetch the hourly forecast
         def fetch_forecast() -> dict[str, Any]:
-            req = Request(
+            return SafeHTTPClient.get_json(
                 forecast_url,
                 headers={
                     "User-Agent": "Mercury-Agent/1.0",
                     "Accept": "application/geo+json",
                 },
+                timeout=self.timeout,
+                user_configured=True,
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
-                result: dict[str, Any] = json.loads(response.read().decode())
-                return result
 
         loop = asyncio.get_event_loop()
         forecast_data = await loop.run_in_executor(None, fetch_forecast)
@@ -757,23 +753,21 @@ class WeatherService:
                 "Silent fallback to stub is not permitted (Phase 2 audit cure)."
             )
 
-        params = {
+        params: dict[str, str] = {
             "q": location,
             "appid": self.api_key,
             "units": "metric",
-            "cnt": min(days * 8, 40),  # 3-hour intervals
+            "cnt": str(min(days * 8, 40)),  # 3-hour intervals
         }
 
-        url = f"{self.OPENWEATHERMAP_BASE}/forecast?{urlencode(params)}"
-
         def fetch() -> dict[str, Any]:
-            req = Request(
-                url,
+            return SafeHTTPClient.get_json(
+                f"{self.OPENWEATHERMAP_BASE}/forecast",
+                params=params,
                 headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=self.timeout,
+                user_configured=True,
             )
-            with urlopen(req, timeout=self.timeout) as response:  # nosec B310
-                result: dict[str, Any] = json.loads(response.read().decode())
-                return result
 
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, fetch)
