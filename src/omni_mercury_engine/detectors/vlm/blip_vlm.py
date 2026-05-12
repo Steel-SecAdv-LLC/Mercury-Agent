@@ -90,6 +90,11 @@ class BLIPConfig(VLMConfig):
         feature_dim: Output feature dimension for fusion (default 128)
         use_vqa: Use Visual Question Answering mode
         caption_max_length: Maximum caption length
+        revision: HuggingFace revision (commit SHA preferred) for the
+            built-in ``Salesforce/blip-*`` Hub IDs. ``SafeHFLoader``
+            requires a pin for every remote load -- supply the SHA
+            you have validated. Local-disk paths in ``model_name``
+            bypass this requirement.
     """
 
     model_name: str = "Salesforce/blip-image-captioning-base"
@@ -190,8 +195,13 @@ class BLIPVLMDetector(BaseVLMDetector):
         - Graceful fallback when transformers unavailable
 
     Example:
+        >>> # SafeHFLoader requires a revision pin for Hub IDs; supply
+        >>> # the commit SHA you have validated for the chosen model.
         >>> detector = BLIPVLMDetector(
-        ...     config=BLIPConfig(anomaly_description="fire or smoke")
+        ...     config=BLIPConfig(
+        ...         anomaly_description="fire or smoke",
+        ...         revision="<validated-commit-sha>",
+        ...     )
         ... )
         >>> results = detector.detect(image_tensor)
         >>> print(f"Anomaly: {results['is_anomaly']}, Score: {results['scores'][0]:.3f}")

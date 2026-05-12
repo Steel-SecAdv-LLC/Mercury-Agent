@@ -17,10 +17,10 @@ from __future__ import annotations
 import csv
 import io
 import logging
-import urllib.error
 from typing import Any
 
 import numpy as np
+import requests
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
@@ -131,8 +131,9 @@ class NOAAGSODLoader(DatasetLoader):
                         station_id,
                         len(rows),
                     )
-                except urllib.error.HTTPError as e:
-                    logger.warning("  GSOD %d station %s: HTTP %d", candidate, station_id, e.code)
+                except requests.HTTPError as e:
+                    status = e.response.status_code if e.response is not None else "?"
+                    logger.warning("  GSOD %d station %s: HTTP %s", candidate, station_id, status)
                 except Exception as e:
                     logger.warning("  GSOD %d station %s failed: %s", candidate, station_id, e)
 

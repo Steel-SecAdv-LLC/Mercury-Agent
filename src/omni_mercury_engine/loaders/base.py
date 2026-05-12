@@ -205,23 +205,50 @@ class BaseDomainLoader(ABC):
         url: str,
         params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
+        *,
+        allow_untrusted: bool = False,
     ) -> bytes:
         """
         Fetch URL content via :class:`SafeHTTPClient` with retry logic.
+
+        Egress contract enforced by ``SafeHTTPClient`` for this helper:
+
+        * **HTTPS-only.** ``http://`` is refused -- the loader does
+          not opt into ``allow_http``. Every dataset URL we ship is
+          a public HTTPS endpoint.
+        * **TRUSTED_DOMAINS allowlist enforced.** The resolved host
+          must appear in
+          :attr:`omni_mercury_engine.security.input_validation.TrustedEndpoints.TRUSTED_DOMAINS`.
+          A subclass adding a new dataset host MUST add it to that
+          set (or the request will fail closed with
+          ``UnsafeURLError``); ``allow_untrusted=True`` is the explicit
+          per-call escape hatch and is reserved for cases where the
+          host is dynamically supplied and out-of-band reviewed.
+
+        Note that ``user_configured`` is *not* set by this helper:
+        loader URLs are class-constant, vetted, and DNS-resolvable to
+        public addresses, so the IP-resolution gate would impose a
+        per-request DNS lookup with no SSRF benefit beyond what the
+        allowlist already provides. Operator-supplied egress (Ollama,
+        SearXNG) does not flow through ``_fetch_url`` -- those
+        callers go to :class:`SafeHTTPClient` directly with
+        ``user_configured=True`` and (where appropriate)
+        ``allow_private=True``.
 
         Args:
             url: URL to fetch.
             params: Query parameters.
             headers: HTTP headers.
+            allow_untrusted: Bypass the TRUSTED_DOMAINS gate for
+                this single call. Subclasses must justify each use.
 
         Returns:
             Response body as bytes.
 
         Raises:
             ConnectionError: After all retries exhausted.
-            ValueError / UnsafeURLError: If the URL fails the SafeHTTPClient
-                gates (scheme allowlist, TRUSTED_DOMAINS, private-network
-                block).
+            UnsafeURLError: URL failed the SafeHTTPClient gates
+                (HTTPS-only or TRUSTED_DOMAINS allowlist).
         """
         default_headers = {"User-Agent": "Mercury-Agent/1.0 (Steel Security Advisors)"}
         if headers:
@@ -230,15 +257,17 @@ class BaseDomainLoader(ABC):
         last_error_kind = "unknown"
         for attempt in range(self.max_retries + 1):
             try:
-                # user_configured=True forces the private-network /
-                # IMDS gate so a misconfigured loader URL cannot pivot
-                # into the host's internal network.
+                # No user_configured=True here: we want the
+                # TRUSTED_DOMAINS gate (which user_configured would
+                # bypass) to enforce the allowlist for class-constant
+                # dataset URLs. Operator-configured egress does not
+                # use _fetch_url; it goes to SafeHTTPClient directly.
                 return SafeHTTPClient.get_bytes(
                     url,
                     params=params,
                     headers=default_headers,
                     timeout=self.timeout,
-                    user_configured=True,
+                    allow_untrusted=allow_untrusted,
                 )
             except Exception as exc:
                 last_error_kind = type(exc).__name__

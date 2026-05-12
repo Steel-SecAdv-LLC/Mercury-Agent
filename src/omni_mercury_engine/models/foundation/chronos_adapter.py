@@ -54,6 +54,11 @@ class ChronosConfig(FoundationModelConfig):
         model_size: Model size variant ('tiny', 'mini', 'small', 'base', 'large')
         num_samples: Number of samples for probabilistic forecast
         temperature: Sampling temperature
+        revision: HuggingFace revision (commit SHA preferred) for the
+            built-in ``amazon/chronos-t5-*`` Hub IDs. ``SafeHFLoader``
+            requires a pin for every remote load -- supply the SHA you
+            have validated. Local-disk paths in ``model_name`` bypass
+            this requirement.
     """
 
     model_size: str = "small"
@@ -77,7 +82,13 @@ class ChronosAdapter(BaseFoundationModel):
         - GPU acceleration support
 
     Example:
-        >>> adapter = ChronosAdapter(model_size="small")
+        >>> # SafeHFLoader requires a revision pin for Hub IDs; supply
+        >>> # the commit SHA you have validated for the chosen model.
+        >>> cfg = ChronosConfig(
+        ...     model_size="small",
+        ...     revision="<validated-commit-sha>",
+        ... )
+        >>> adapter = ChronosAdapter(cfg)
         >>> forecasts = adapter.forecast(time_series, horizon=24)
         >>> anomalies = adapter.detect_anomalies(time_series)
     """
