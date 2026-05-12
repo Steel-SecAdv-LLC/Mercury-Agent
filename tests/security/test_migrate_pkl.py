@@ -182,3 +182,89 @@ def test_max_bytes_enforced(tmp_path: Path, legacy_pkl: Path) -> None:
     )
     assert proc.returncode == 2
     assert "max-bytes" in proc.stderr
+
+
+# --------------------------------------------------------------------------- #
+# Restricted unpickler: malicious globals must be refused by find_class.
+# These are the real defense -- subprocess isolation contains blast radius,
+# but the unpickler whitelist prevents initial code execution.
+# --------------------------------------------------------------------------- #
+
+
+class _OsSystemReduce:
+    """A classic pickle RCE payload: reduce -> os.system('whatever')."""
+
+    def __reduce__(self):  # type: ignore[no-untyped-def]
+        import os
+
+        return (os.system, ("echo MIGRATE_PKL_RCE > /tmp/migrate_pkl_rce_proof",))
+
+
+class _SubprocessPopenReduce:
+    """A subprocess.Popen reduce-chain. Different module, same threat."""
+
+    def __reduce__(self):  # type: ignore[no-untyped-def]
+        import subprocess
+
+        return (subprocess.Popen, (["/bin/sh", "-c", "true"],))
+
+
+class _BuiltinsEvalReduce:
+    """``builtins.eval`` bootstrap. Bypassing the os/subprocess block is not enough."""
+
+    def __reduce__(self):  # type: ignore[no-untyped-def]
+        return (eval, ("__import__('os').system('true')",))
+
+
+def test_restricted_unpickler_rejects_os_system_reduce(tmp_path: Path) -> None:
+    """A malicious pickle whose __reduce__ calls os.system is refused.
+
+    The fixture exists as a sentinel file in /tmp; if the unpickler
+    were vulnerable, the subprocess would create it. We assert
+    BOTH that the migration returned non-zero AND that the sentinel
+    was never written, so a future regression cannot be hidden by
+    the migration tool happening to exit zero anyway.
+    """
+    sentinel = Path("/tmp/migrate_pkl_rce_proof")
+    if sentinel.exists():
+        sentinel.unlink()
+
+    malicious = tmp_path / "evil.pkl"
+    with malicious.open("wb") as f:
+        pickle.dump(_OsSystemReduce(), f)
+    proc = _run_tool("--input", str(malicious), "--output", str(tmp_path / "out.npz"))
+
+    # Restricted unpickler raised pickle.UnpicklingError; the tool's
+    # outer harness exits with a non-zero code. We don't assert a
+    # specific code because the UnpicklingError surfaces as the
+    # subprocess's unhandled exception (currently exit code 1).
+    assert proc.returncode != 0, proc.stderr
+    assert (
+        "refusing global 'posix.system'" in proc.stderr
+        or "refusing global 'os.system'" in proc.stderr
+    ), proc.stderr
+    assert not sentinel.exists(), "RCE payload executed; restricted unpickler failed open!"
+
+
+def test_restricted_unpickler_rejects_subprocess_popen_reduce(tmp_path: Path) -> None:
+    """``subprocess.Popen`` is not on the allow-list; reject it."""
+    malicious = tmp_path / "evil.pkl"
+    with malicious.open("wb") as f:
+        pickle.dump(_SubprocessPopenReduce(), f)
+    proc = _run_tool("--input", str(malicious), "--output", str(tmp_path / "out.npz"))
+    assert proc.returncode != 0, proc.stderr
+    assert "refusing global 'subprocess.Popen'" in proc.stderr, proc.stderr
+
+
+def test_restricted_unpickler_rejects_builtins_eval_reduce(tmp_path: Path) -> None:
+    """``builtins.eval`` (and ``exec``, ``__import__``) are deliberately not whitelisted.
+
+    Allowing them would let an attacker bootstrap into arbitrary code
+    even after we blocked ``os`` and ``subprocess`` directly.
+    """
+    malicious = tmp_path / "evil.pkl"
+    with malicious.open("wb") as f:
+        pickle.dump(_BuiltinsEvalReduce(), f)
+    proc = _run_tool("--input", str(malicious), "--output", str(tmp_path / "out.npz"))
+    assert proc.returncode != 0, proc.stderr
+    assert "refusing global 'builtins.eval'" in proc.stderr, proc.stderr
