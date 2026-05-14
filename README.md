@@ -89,12 +89,12 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8440 | — | — |
-| Median ROC-AUC | 0.9097 | — | — |
-| Mean Oracle F1 | 0.6383 | — | — |
-| Datasets (successful / total) | 64 / 64 | — / — | — |
-| Run timestamp (UTC) | 2026-05-11T14:22:59.017823+00:00 | — | — |
-| Commit | `7939b65` | `—` | — |
+| Mean ROC-AUC | 0.8464 | 0.8440 | +0.0024 |
+| Median ROC-AUC | 0.9100 | 0.9097 | +0.0003 |
+| Mean Oracle F1 | 0.6441 | 0.6383 | +0.0057 |
+| Datasets (successful / total) | 65 / 65 | 64 / 64 | +1.0000 |
+| Run timestamp (UTC) | 2026-05-14T22:14:04.716618+00:00 | 2026-05-11T14:22:59.017823+00:00 | — |
+| Commit | `ffafd17` | `7939b65` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.68 and Mean Oracle F1 ≥ 0.50 (set 15% below the 2026-02-15 measured baseline of AUC 0.803 / F1 0.589). CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
