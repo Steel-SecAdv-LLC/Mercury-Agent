@@ -205,8 +205,6 @@ class BaseDomainLoader(ABC):
         url: str,
         params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
-        *,
-        allow_untrusted: bool = False,
     ) -> bytes:
         """
         Fetch URL content via :class:`SafeHTTPClient` with retry logic.
@@ -221,9 +219,10 @@ class BaseDomainLoader(ABC):
           :attr:`omni_mercury_engine.security.input_validation.TrustedEndpoints.TRUSTED_DOMAINS`.
           A subclass adding a new dataset host MUST add it to that
           set (or the request will fail closed with
-          ``UnsafeURLError``); ``allow_untrusted=True`` is the explicit
-          per-call escape hatch and is reserved for cases where the
-          host is dynamically supplied and out-of-band reviewed.
+          ``UnsafeURLError``). Operator-supplied egress must not use
+          this helper; it must call :class:`SafeHTTPClient` directly
+          with ``user_configured=True`` and the narrowest possible
+          private-network policy.
 
         Note that ``user_configured`` is *not* set by this helper:
         loader URLs are class-constant, vetted, and DNS-resolvable to
@@ -239,9 +238,6 @@ class BaseDomainLoader(ABC):
             url: URL to fetch.
             params: Query parameters.
             headers: HTTP headers.
-            allow_untrusted: Bypass the TRUSTED_DOMAINS gate for
-                this single call. Subclasses must justify each use.
-
         Returns:
             Response body as bytes.
 
@@ -273,7 +269,6 @@ class BaseDomainLoader(ABC):
                     params=params,
                     headers=default_headers,
                     timeout=self.timeout,
-                    allow_untrusted=allow_untrusted,
                 )
             except ValueError:
                 # UnsafeURLError is a ValueError subclass; both signal
