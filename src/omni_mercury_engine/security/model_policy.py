@@ -54,6 +54,16 @@ logger = logging.getLogger(__name__)
 # https://huggingface.co/docs/hub/repositories-naming
 _HF_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9._-]+$")
 
+# An immutable revision is a 40-character lowercase git commit SHA.
+# Branch names ("main", "develop") and tag names are NOT immutable --
+# the upstream repo owner can rotate them with no detectable change to
+# the consumer. The whole point of the revision pin is to prevent that
+# rotation from silently swapping the model / dataset weights under us;
+# accepting a branch name is a security regression dressed up as a pin.
+# HuggingFace Hub exposes the SHA via ``HfApi.list_repo_commits()`` or
+# the UI; operators MUST resolve to a SHA before pinning here.
+_HF_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
 
 class UnsafeModelError(ValueError):
     """An attempted HuggingFace load violated the policy gate."""
@@ -133,17 +143,44 @@ class HFModelPolicy:
                 "community-namespace default."
             )
 
-        # Hub IDs must be revision-pinned. Local paths are fine
-        # without a revision -- they don't go through the Hub
-        # resolver at all.
-        if not is_local and (revision is None or not str(revision).strip()):
-            raise UnsafeModelError(
-                f"HFModelPolicy: model_id '{model_id}' requires a non-empty "
-                "revision (commit SHA preferred). Unpinned loads expose "
-                "Mercury Agent to supply-chain swaps on the default branch."
-            )
+        # Hub IDs must be pinned to an *immutable* revision. A 40-char
+        # lowercase commit SHA is the only string we accept here --
+        # branch names ("main", "develop") are mutable references the
+        # upstream owner can rotate at will, and tag names are also
+        # mutable on HuggingFace Hub (no signed-tag enforcement). The
+        # whole purpose of the pin is to defeat that rotation, so
+        # accepting "main" would defeat the gate it claims to enforce.
+        # Local paths are exempt: they never go through the Hub
+        # resolver and are operator-trusted by their absolute form.
+        if not is_local:
+            if revision is None or not str(revision).strip():
+                raise UnsafeModelError(
+                    f"HFModelPolicy: model_id '{model_id}' requires a 40-char "
+                    "git commit SHA. Pass the immutable SHA, not a branch or "
+                    "tag -- branches/tags are mutable references the upstream "
+                    "owner can rotate, exposing Mercury Agent to supply-chain "
+                    "swaps (CWE-494)."
+                )
+            rev = str(revision).strip()
+            if not _HF_SHA_RE.match(rev):
+                raise UnsafeModelError(
+                    f"HFModelPolicy: revision '{rev}' for '{model_id}' is not "
+                    "a 40-char lowercase commit SHA. Branch names and tag "
+                    "names are mutable on HuggingFace Hub; the upstream owner "
+                    "can rotate them and silently swap the resolved weights. "
+                    "Resolve the branch/tag to a SHA via "
+                    "``HfApi.list_repo_commits(repo_id, revision=branch)[0].commit_id`` "
+                    "or the HuggingFace web UI, and pin that SHA here."
+                )
 
-        if allowlist is not None:
+        # Local paths skip the Hub allowlist entirely. The allowlist
+        # exists to constrain which *upstream* repos a subsystem may
+        # touch; an absolute local path is by construction not an
+        # upstream repo. Without this carve-out the documented
+        # ``/opt/models/foo`` escape hatch would be unreachable for any
+        # caller that also passes a Hub-id allowlist (BLIP, Chronos,
+        # LVLM all do).
+        if not is_local and allowlist is not None:
             allow_set = {entry.strip() for entry in allowlist if entry}
             if model_id not in allow_set:
                 raise UnsafeModelError(

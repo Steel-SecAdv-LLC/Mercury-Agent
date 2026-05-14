@@ -709,13 +709,27 @@ ignore-imports = true
 # =============================================================================
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
-# B311: random warnings (non-crypto use)
+# B311: pseudo-random for ML (init, dropout, shuffle, anomaly noise).
+#   Every np.random / random use under src/ is ML / numerics, not
+#   crypto -- AMA owns crypto random. Documented and not enumerated
+#   per-call.
 #
-# Note: B310 (urllib_urlopen) and B101 (assert) are *no longer*
-# skipped. urlopen has been removed from src/ in favour of
-# SafeHTTPClient, and asserts have been replaced with explicit
-# raises. If a new B310/B101 finding fires, fix the underlying
-# call rather than re-adding the skip.
+# B310 (urllib_urlopen) is NOT skipped. ``urllib.request.urlopen``
+# has been removed from src/ in favour of SafeHTTPClient and a B310
+# finding now indicates a real regression. The two tests in
+# tests/security/test_safe_http.py::TestNoNoSecForUrlopen pin this
+# at the source level.
+#
+# B101 (assert) is NOT skipped at the bandit level. Type-narrowing
+# asserts remain in numerics-heavy modules (detectors, automl,
+# federated_learning) where they exist to satisfy mypy and document
+# invariants that the surrounding code relies on; bandit reports
+# these as low-severity findings and CI's ``bandit -ll`` floor
+# filters them out. Security-sensitive asserts that gated control
+# flow (the previous ``assert last_exc is not None`` in
+# ``datasets/base.py`` for example) have been replaced with explicit
+# ``raise RuntimeError`` -- those are the cases where ``-O`` would
+# turn a refusal into silent success.
 skips = ["B311"]
 targets = ["src/omni_mercury_engine"]
 

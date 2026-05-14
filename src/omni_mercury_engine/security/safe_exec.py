@@ -44,7 +44,7 @@ HEAD`` for provenance).
 
 from __future__ import annotations
 
-import subprocess  # nosec B404
+import subprocess  # nosec B404 - this module IS the subprocess gate; sole annotated subprocess.run lives below
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, overload
@@ -168,11 +168,11 @@ def safe_exec(
     """
     argv_list = _validate_argv(argv)
     env_dict: dict[str, str] | None = dict(env) if env is not None else None
-    # B603/S603: argv is a list, shell is False, every element has been
-    # validated to be a non-empty NUL-free string and argv[0] is an
-    # absolute path that exists on disk.  This is the only subprocess
-    # call site in src/; all other callers route through here.
-    return subprocess.run(  # noqa: S603  # nosec B603
+    # argv is a list, shell is False, every element has been validated
+    # to be a non-empty NUL-free string, and argv[0] is an absolute path
+    # that exists on disk. This is the only subprocess call site in
+    # src/; all other callers route through here.
+    return subprocess.run(  # noqa: S603  # nosec B603 - argv pre-validated (no shell, no relative paths, no empty args, no NUL); sole annotated subprocess.run in src/
         argv_list,
         shell=False,
         env=env_dict,

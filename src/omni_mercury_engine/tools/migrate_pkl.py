@@ -252,11 +252,11 @@ def _make_restricted_unpickler() -> Any:
     child process; building it at import time would force the parent
     process to import pickle even when no migration is happening.
     """
-    # B403: ``pickle`` is required to read legacy operator payloads;
+    # ``pickle`` is required to read legacy operator payloads;
     # ``_RestrictedUnpickler`` below overrides ``find_class`` to only
     # resolve globals in ``_ALLOWED_GLOBALS``. The import is reachable
     # only from inside the hardened subprocess.
-    import pickle  # nosec B403
+    import pickle  # nosec B403 - restricted-unpickler scope; hardened-subprocess only; see _ALLOWED_GLOBALS + module docstring
 
     class _RestrictedUnpickler(pickle.Unpickler):
         """``pickle.Unpickler`` that refuses any global not in the allow-list.
@@ -309,16 +309,18 @@ def _do_migration(args: argparse.Namespace) -> int:
     # subprocess-only import boundary documented in the module
     # docstring is preserved (this code path runs exclusively inside
     # the hardened relaunch).
-    import pickle  # nosec B403
+    import pickle  # nosec B403 - re-import to bind UnpicklingError; same hardened-subprocess scope as line 259
 
     try:
         with src.open("rb") as f:
-            # B301: this is THE sanctioned pickle.load call in the
-            # codebase. It only runs in the hardened subprocess **and**
-            # via ``_RestrictedUnpickler`` (find_class whitelisted). The
+            # This is THE sanctioned pickle.load call in the codebase.
+            # It only runs in the hardened subprocess **and** via
+            # ``_RestrictedUnpickler`` (find_class whitelisted). The
             # engine itself never reaches this code path; see module
             # docstring.
-            loaded = restricted_unpickler_cls(f).load()  # nosec B301
+            loaded = restricted_unpickler_cls(
+                f
+            ).load()  # nosec B301 - load() goes through _RestrictedUnpickler.find_class allow-list; subprocess + restricted unpickler is defence-in-depth
     except pickle.UnpicklingError as exc:
         # ``_RestrictedUnpickler.find_class`` raises this when the
         # payload references any global outside ``_ALLOWED_GLOBALS``

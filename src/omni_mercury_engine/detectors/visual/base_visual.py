@@ -23,7 +23,7 @@ Provides unified interface for all visual anomaly detection algorithms,
 ensuring consistent API across PatchCore, PaDiM, STFPM, and other methods.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -352,10 +352,19 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         return self.detect(x)
 
     def save(self, path: str) -> None:
-        """Save detector state to file."""
+        """Save detector state to file.
+
+        The config dataclass is flattened to a primitive dict before
+        ``torch.save`` so the checkpoint round-trips cleanly under
+        ``weights_only=True`` on load -- PyTorch's safe-load mode
+        refuses arbitrary classes, and a stored ``VisualDetectorConfig``
+        instance would not be on the safe-globals list. The on-disk
+        schema is now ``{"config": dict, "state_dict": ..., "is_fitted":
+        bool}`` regardless of any future config field additions.
+        """
         torch.save(
             {
-                "config": self.visual_config,
+                "config": asdict(self.visual_config),
                 "state_dict": self.state_dict(),
                 "is_fitted": self._is_fitted,
             },
@@ -378,9 +387,19 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             converted via ``tools/migrate_pkl.py`` if they originated
             as raw pickles).
 
+            Round-trip contract: ``save()`` writes the config as a
+            primitive dict and ``load()`` reconstructs the dataclass
+            via keyword expansion. Checkpoints saved by an older
+            code path that stored the full ``VisualDetectorConfig``
+            object will fail under ``weights_only=True`` and must be
+            re-saved.
+
         Raises:
             RuntimeError: If the checkpoint cannot load with
                 ``weights_only=True``.
+            TypeError: If the saved config dict references fields
+                that the current ``VisualDetectorConfig`` no longer
+                accepts (schema drift).
         """
         try:
             checkpoint = torch.load(path, map_location=self.device, weights_only=True)
@@ -392,7 +411,22 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 f"Agent runtime. Original error: {e}"
             ) from e
 
-        self.visual_config = checkpoint["config"]
+        config_payload = checkpoint["config"]
+        if isinstance(config_payload, VisualDetectorConfig):
+            # Checkpoint pre-dates the dict round-trip change. This
+            # path is only reachable if an operator's PyTorch is old
+            # enough to accept dataclass instances under
+            # ``weights_only=True`` (or if they removed the safe-load
+            # pin upstream); guard so the assignment below is type-safe.
+            self.visual_config = config_payload
+        elif isinstance(config_payload, dict):
+            self.visual_config = VisualDetectorConfig(**config_payload)
+        else:
+            raise RuntimeError(
+                f"Checkpoint at '{path}' has 'config' of type "
+                f"{type(config_payload).__name__}; expected dict (from "
+                "dataclasses.asdict) or VisualDetectorConfig."
+            )
         self.load_state_dict(checkpoint["state_dict"])
         self._is_fitted = checkpoint["is_fitted"]
         return self

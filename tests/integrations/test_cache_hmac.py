@@ -418,6 +418,40 @@ class TestRedisCacheConstructor:
 # =============================================================================
 
 
+class TestFallbackToStubPreservesJSONContract:
+    """JSON-only contract holds even when the call falls back to the in-memory stub.
+
+    The bug this regression test pins: the previous code routed to
+    ``_stub.set(value)`` BEFORE calling ``_serialize(value)``, so a
+    non-JSON-serialisable value (set, bytes, custom object) was
+    silently stored in the stub when Redis was unavailable. Developers
+    running offline would write code that worked locally and crashed
+    in production the first time the Redis path was exercised.
+    """
+
+    @pytest.mark.asyncio
+    async def test_set_rejects_non_json_in_fallback_mode(self):
+        """``fallback_to_stub=True`` must not bypass the JSON contract."""
+        cache = RedisCache(fallback_to_stub=True)
+        # Redis is unreachable in the test sandbox; _ensure_connected
+        # returns False and the fallback path runs. The TypeError must
+        # surface BEFORE the stub is touched.
+        with pytest.raises(TypeError):
+            await cache.set("k", {1, 2, 3})  # set() is not JSON-able
+
+    @pytest.mark.asyncio
+    async def test_set_rejects_bytes_in_fallback_mode(self):
+        cache = RedisCache(fallback_to_stub=True)
+        with pytest.raises(TypeError):
+            await cache.set("k", b"raw bytes")
+
+    @pytest.mark.asyncio
+    async def test_mset_rejects_non_json_in_fallback_mode(self):
+        cache = RedisCache(fallback_to_stub=True)
+        with pytest.raises(TypeError):
+            await cache.mset({"a": 1, "b": {7, 8}})  # 'b' is a set
+
+
 class TestCacheStub:
     """The in-memory CacheStub is the always-available fallback.
 

@@ -306,6 +306,143 @@ class TestLoopbackOnlyGate:
             )
 
 
+class TestRedirectRejection:
+    """3xx responses must surface as UnsafeURLError with the Location header.
+
+    The transport disables redirect following so an attacker (or upstream
+    drift) cannot bounce a trusted-allowlist URL to an arbitrary host;
+    the requests library reports the 3xx without raising, and our code
+    must catch it explicitly. Without this branch a redirect body
+    (often an HTML stub) would silently replace the resource the caller
+    expected.
+    """
+
+    @staticmethod
+    def _build_3xx_response(status_code: int, location: str | None) -> object:
+        """Return a stand-in for ``requests.Response`` carrying a 3xx + Location."""
+        from unittest.mock import MagicMock
+
+        response = MagicMock()
+        response.status_code = status_code
+        response.headers = {"Location": location} if location else {}
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
+        return response
+
+    @pytest.mark.parametrize("status_code", [301, 302, 303, 307, 308])
+    def test_3xx_rejected_with_location_in_message(self, status_code: int) -> None:
+        """Every 3xx code raises and the Location header appears in the message."""
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        fake_response = self._build_3xx_response(
+            status_code, "https://raw.githubusercontent.com/elsewhere"
+        )
+
+        # The code under test does ``requests.Session().request(...)``.
+        # Patch ``requests.Session`` at the place ``_request`` will look
+        # it up after its deferred import.
+        fake_session = MagicMock()
+        fake_session.request = MagicMock(return_value=fake_response)
+        fake_session.mount = MagicMock()
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("93.184.216.34")],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http.TrustedEndpoints.validate_url_host",
+                return_value=True,
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            patch("requests.Session", return_value=fake_session),
+            pytest.raises(UnsafeURLError) as exc_info,
+        ):
+            SafeHTTPClient.get("https://example.com/raw/path")
+
+        msg = str(exc_info.value)
+        assert str(status_code) in msg
+        assert "raw.githubusercontent.com" in msg
+        assert "TRUSTED_DOMAINS" in msg or "redirect" in msg.lower()
+
+    def test_3xx_without_location_header_still_rejected(self) -> None:
+        """A 3xx with no Location must still raise (clearer than silent body return)."""
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        response = self._build_3xx_response(302, None)
+        fake_session = MagicMock()
+        fake_session.request = MagicMock(return_value=response)
+        fake_session.mount = MagicMock()
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("93.184.216.34")],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http.TrustedEndpoints.validate_url_host",
+                return_value=True,
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            patch("requests.Session", return_value=fake_session),
+            pytest.raises(UnsafeURLError, match="302"),
+        ):
+            SafeHTTPClient.get("https://example.com/path")
+
+
+class TestCGNATBlocked:
+    """RFC 6598 shared CGNAT space (100.64.0.0/10) must not pass the SSRF gate.
+
+    ``ipaddress`` classifies CGNAT as neither private nor reserved, so
+    the convenience attributes used elsewhere on the standard library
+    type miss it. A user-configured URL resolving to a CGNAT address
+    would otherwise pass the gate; the explicit network membership
+    check in ``_is_private_or_imds`` closes that hole.
+    """
+
+    @pytest.mark.parametrize("ip", ["100.64.0.1", "100.127.255.254"])
+    def test_cgnat_rejected_for_user_configured(self, ip: str) -> None:
+        import ipaddress
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address(ip)],
+            ),
+            pytest.raises(UnsafeURLError, match="private/link-local/IMDS"),
+        ):
+            SafeHTTPClient.validate_url(
+                "https://internal.example/api",
+                user_configured=True,
+            )
+
+    @pytest.mark.parametrize("ip", ["100.64.0.1", "100.127.255.254"])
+    def test_cgnat_rejected_even_with_allow_private(self, ip: str) -> None:
+        """``allow_private=True`` opens RFC1918 but must NOT open CGNAT."""
+        import ipaddress
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address(ip)],
+            ),
+            pytest.raises(UnsafeURLError, match="always-blocked"),
+        ):
+            SafeHTTPClient.validate_url(
+                "https://internal.example/api",
+                user_configured=True,
+                allow_private=True,
+            )
+
+
 class TestNoNoSecForUrlopen:
     """The codebase must not contain any urlopen or B310 nosec under src/."""
 

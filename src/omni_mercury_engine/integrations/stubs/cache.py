@@ -794,8 +794,26 @@ class RedisCache:
 
         Returns:
             True if set successfully.
+
+        Raises:
+            TypeError: ``value`` is not JSON-serialisable. The cache
+                contract is JSON-only, and that contract MUST hold
+                regardless of whether the Redis client is reachable.
+                Validating up front (before any fallback) prevents the
+                in-memory stub from silently accepting a value that
+                Redis would have refused -- otherwise a developer
+                running offline could write code that worked in the
+                stub and crashed in production the first time the
+                Redis path was exercised.
         """
         self._call_count += 1
+
+        # Validate JSON-serialisability BEFORE the fallback decision.
+        # The same contract applies on every code path; ``_serialize``
+        # raises TypeError for sets / bytes / custom objects, and that
+        # error must surface to the caller rather than be papered over
+        # by storing the raw object in the stub.
+        serialized = self._serialize(value)
 
         if not await self._ensure_connected():
             if self.fallback_to_stub:
@@ -804,7 +822,6 @@ class RedisCache:
             return False
 
         try:
-            serialized = self._serialize(value)
             full_key = self._make_key(key)
 
             # Build set options
@@ -924,8 +941,21 @@ class RedisCache:
 
         Returns:
             True if successful.
+
+        Raises:
+            TypeError: any ``mapping`` value is not JSON-serialisable.
+                Validated up front so the contract holds whether the
+                call ends up in Redis or in the in-memory stub
+                fallback. See ``RedisCache.set`` for the rationale.
         """
         self._call_count += 1
+
+        # Serialise all values up front so the JSON contract is
+        # enforced regardless of whether the call ends up in Redis or
+        # in the in-memory stub fallback. A single TypeError surfaces
+        # the offending value to the caller; we never silently route
+        # a non-JSON value to the stub.
+        serialized_mapping = {self._make_key(k): self._serialize(v) for k, v in mapping.items()}
 
         if not await self._ensure_connected():
             if self.fallback_to_stub:
@@ -934,9 +964,6 @@ class RedisCache:
             return False
 
         try:
-            # Serialize all values
-            serialized_mapping = {self._make_key(k): self._serialize(v) for k, v in mapping.items()}
-
             # Use pipeline for efficiency
             async with self._client.pipeline(transaction=True) as pipe:
                 await pipe.mset(serialized_mapping)

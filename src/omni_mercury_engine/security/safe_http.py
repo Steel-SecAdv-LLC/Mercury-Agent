@@ -177,8 +177,17 @@ def _is_private_or_imds(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bo
     (169.254/16, which includes the AWS / GCP / Azure IMDS at
     169.254.169.254), loopback (127/8, ::1), the IPv4-mapped
     equivalents of those, IPv6 ULA (fc00::/7), IPv6 link-local
-    (fe80::/10), and the unspecified address (0.0.0.0, ::).
+    (fe80::/10), the unspecified address (0.0.0.0, ::), AND the
+    RFC 6598 shared address space (100.64.0.0/10, CGNAT).
+
+    ``ipaddress`` does not classify the RFC 6598 block as private or
+    reserved, so the convenience attributes used elsewhere on the
+    standard library type miss it. A user-configured URL resolving
+    to a CGNAT / internal shared address would otherwise pass the
+    SSRF gate; we add the network explicitly here.
     """
+    if isinstance(ip, ipaddress.IPv4Address) and ip in _SHARED_CGNAT_V4:
+        return True
     return (
         ip.is_private
         or ip.is_loopback
@@ -189,19 +198,30 @@ def _is_private_or_imds(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bo
     )
 
 
+# RFC 6598 shared CGNAT address space. Promoted to a module-level
+# constant so both the "private/IMDS" predicate (default policy) and
+# the "always-blocked" set (defence-in-depth for ``allow_private=True``)
+# can reference the same range. Network ISPs use this block for carrier
+# NAT, and corporate environments sometimes use it for internal services;
+# either way it is not public Internet and a user-configured URL pointed
+# at it is an SSRF pivot we refuse.
+_SHARED_CGNAT_V4 = ipaddress.IPv4Network("100.64.0.0/10")
+
+
 # IPv4 and IPv6 ranges that we refuse even when the caller opted into
 # ``allow_private=True`` for an on-VPC deployment.  The link-local
 # block (169.254/16) is the AWS / GCP / Azure metadata service home --
 # RFC1918 lateral movement is one thing, but ``169.254.169.254`` is
-# the actual SSRF prize and we never permit it.  The loopback and
-# unspecified ranges are kept on the refuse-list because they cannot
-# correspond to a real on-VPC service either.
+# the actual SSRF prize and we never permit it.  The loopback,
+# unspecified, and shared-CGNAT ranges are kept on the refuse-list
+# because they cannot correspond to a real on-VPC service either.
 _ALWAYS_BLOCKED_V4 = (
     ipaddress.IPv4Network("169.254.0.0/16"),
     ipaddress.IPv4Network("127.0.0.0/8"),
     ipaddress.IPv4Network("0.0.0.0/8"),
     ipaddress.IPv4Network("224.0.0.0/4"),  # multicast
     ipaddress.IPv4Network("240.0.0.0/4"),  # reserved
+    _SHARED_CGNAT_V4,  # RFC 6598 shared / CGNAT
 )
 _ALWAYS_BLOCKED_V6 = (
     ipaddress.IPv6Network("::1/128"),  # loopback
@@ -228,6 +248,92 @@ def _is_always_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> boo
 def _is_loopback(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Return True if ``ip`` is on 127/8 or ``::1``."""
     return ip.is_loopback
+
+
+class _PinnedDNSHTTPAdapter:
+    """Lazy proxy for the real requests-based HTTPAdapter.
+
+    The actual subclass is built the first time :meth:`build` is
+    called so the ``requests`` import stays deferred. Importing
+    safe_http should not require ``requests`` (see commentary near
+    ``_request`` below).
+    """
+
+    @staticmethod
+    def build(hostname: str, validated_ip: str) -> Any:
+        """Build a requests HTTPAdapter that pins the TCP target to ``validated_ip``.
+
+        The adapter overrides connection acquisition so urllib3
+        connects to ``validated_ip`` (the pre-vetted address) while
+        TLS SNI and certificate verification still use ``hostname``
+        (the operator-meaningful name on the cert). The result: DNS
+        cannot be rebinded between the SafeHTTPClient validation
+        step and the actual TCP connect, because the second DNS
+        lookup that ``requests`` would otherwise do never happens.
+
+        We work in three steps inside the adapter:
+
+        1. ``poolmanager.connection_from_host(host=ip, ...)`` returns
+           a connection pool keyed on the IP (not the hostname).
+        2. ``pool_kwargs`` carries ``server_hostname`` and
+           ``assert_hostname`` so the TLS handshake validates the
+           certificate against the original name, not the IP literal.
+        3. ``Host:`` header on the outgoing HTTP request is set to
+           the hostname (urllib3 derives it from the URL by default;
+           we never substitute the IP into the URL, so this is free).
+        """
+        import requests
+        from urllib3 import HTTPConnectionPool, HTTPSConnectionPool
+        from urllib3.poolmanager import PoolManager
+
+        class _Adapter(requests.adapters.HTTPAdapter):
+            def __init__(self, _hostname: str, _ip: str) -> None:
+                self._hostname = _hostname
+                self._ip = _ip
+                super().__init__()
+
+            def get_connection_with_tls_context(
+                self,
+                request: Any,
+                verify: Any,
+                proxies: Any | None = None,
+                cert: Any | None = None,
+            ) -> Any:
+                # requests >= 2.32 path. ``verify``/``cert`` are
+                # routed to the pool by the framework; we only need
+                # to swap the host -> IP and feed SNI through pool_kwargs.
+                return self._pinned_pool(request.url)
+
+            def get_connection(self, url: str, proxies: Any | None = None) -> Any:
+                # requests < 2.32 fallback.
+                return self._pinned_pool(url)
+
+            def _pinned_pool(self, url: str) -> Any:
+                from urllib.parse import urlparse as _parse
+
+                parsed = _parse(url)
+                scheme = parsed.scheme
+                port = parsed.port or (443 if scheme == "https" else 80)
+                pool_kwargs: dict[str, Any] = {}
+                if scheme == "https":
+                    pool_kwargs["server_hostname"] = self._hostname
+                    pool_kwargs["assert_hostname"] = self._hostname
+                # ``connection_from_host`` returns a cached pool keyed
+                # on (scheme, host, port); since we use the IP as the
+                # host, distinct hostnames that share an IP get
+                # distinct pools (correct for SNI).
+                return self.poolmanager.connection_from_host(
+                    host=self._ip,
+                    port=port,
+                    scheme=scheme,
+                    pool_kwargs=pool_kwargs,
+                )
+
+        # Reference the imports to silence unused-import linters in
+        # alternative urllib3 versions where the symbols might not be
+        # reachable.
+        _ = HTTPSConnectionPool, HTTPConnectionPool, PoolManager
+        return _Adapter(hostname, validated_ip)
 
 
 class SafeHTTPClient:
@@ -386,6 +492,52 @@ class SafeHTTPClient:
             allow_untrusted=allow_untrusted,
             allow_private=allow_private,
         )
+
+        # Close the DNS-rebinding / TOCTOU window between
+        # ``validate_url`` and the actual network call.  Even when the
+        # URL is in TRUSTED_DOMAINS, an attacker who can poison DNS
+        # for that hostname (compromised upstream resolver, cache
+        # poisoning, a hostile recursive on a misconfigured network)
+        # could otherwise rotate the answer between our validation
+        # resolve and ``requests``'s second resolve. We resolve once
+        # here, re-apply the IP policy to the result (defence in
+        # depth -- catches a hostile answer that slipped past
+        # ``validate_url``'s conditional resolve), and pin the TCP
+        # connection to the validated IP via a custom adapter. TLS
+        # SNI and certificate verification still use the operator-
+        # meaningful hostname so cert pinning continues to work.
+        parsed = urlparse(url)
+        host = parsed.hostname or ""
+        resolved_ips = _resolve_ips(host)
+
+        # Re-check policy. ``validate_url`` only resolves when its
+        # ``needs_ip_gate`` predicate fires; here we ALWAYS resolve
+        # so a trusted-allowlist host whose DNS now returns IMDS
+        # cannot slip through. The class-of-blocks applied here is
+        # narrower than ``validate_url``'s -- we only refuse the
+        # always-blocked set (IMDS, loopback for non-loopback-only
+        # callers, multicast, reserved, CGNAT) so trusted public
+        # hosts that happen to resolve to a routable public IP
+        # still go through.
+        if loopback_only:
+            non_lo = [str(ip) for ip in resolved_ips if not _is_loopback(ip)]
+            if non_lo:
+                raise UnsafeURLError(
+                    f"SafeHTTPClient: host '{host}' resolved to non-loopback "
+                    f"IPs {non_lo} at request time; loopback_only=True refuses."
+                )
+        else:
+            bad = [str(ip) for ip in resolved_ips if _is_always_blocked(ip)]
+            if bad:
+                raise UnsafeURLError(
+                    f"SafeHTTPClient: host '{host}' resolved to "
+                    f"always-blocked address(es) {bad} at request time. This "
+                    "is a DNS-rebinding signature (different answer between "
+                    "validation and request); refusing connection."
+                )
+
+        pinned_ip = str(resolved_ips[0])
+
         request_headers: dict[str, str] = {"User-Agent": _DEFAULT_USER_AGENT}
         if headers:
             request_headers.update(headers)
@@ -401,7 +553,14 @@ class SafeHTTPClient:
         # with HTTP. Importing here keeps ``safe_load`` resilient.
         import requests
 
-        response = requests.request(
+        session = requests.Session()
+        adapter = _PinnedDNSHTTPAdapter.build(host, pinned_ip)
+        # Mount for both schemes; the adapter inspects the URL to
+        # decide which urllib3 connection pool flavour to use.
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
+        response = session.request(
             method,
             url,
             params=params,
