@@ -222,9 +222,28 @@ class TestFallbackChainRoutesEveryProvider:
         base_url = "https://cursor.example.com/v1" if provider == LLMProvider.CURSOR else None
         cloud_config = LLMConfig(provider=provider, api_key="test-key", base_url=base_url)
 
-        # Initialise the chain with cloud enabled.  The constructor
-        # attempts an Ollama probe first; we don't care about that
-        # outcome, only that cloud routing picks the right class.
+        # Suppress the Ollama TCP probe before constructing the chain.
+        # ``FallbackLLMChain.__init__`` calls ``_initialize_chain``
+        # which instantiates ``OllamaLLMAdapter``; that adapter's own
+        # ``__init__`` opens a TCP socket to the configured Ollama host.
+        # On a workstation with a real Ollama daemon, the probe would
+        # actually connect (and could trigger a follow-up HTTP request
+        # via SafeHTTPClient), violating the "no real network" guarantee
+        # the rest of this file relies on. Replacing
+        # ``_check_availability`` with a no-op that marks the adapter
+        # unavailable forces the chain to skip Ollama and reach the
+        # cloud branch we actually want to exercise.
+        import omni_mercury_engine.models.foundation.ollama_adapter as _ollama_mod
+
+        def _noop_check_availability(self) -> None:  # type: ignore[no-untyped-def]
+            self._is_available = False
+
+        monkeypatch.setattr(
+            _ollama_mod.OllamaLLMAdapter,
+            "_check_availability",
+            _noop_check_availability,
+        )
+
         chain = FallbackLLMChain(enable_cloud=True, cloud_config=cloud_config)
         created = chain._create_cloud_adapter()
         assert isinstance(created, expected_cls)

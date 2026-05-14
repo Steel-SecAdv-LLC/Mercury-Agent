@@ -829,11 +829,18 @@ class RedisCache:
         # error must surface to the caller rather than be papered over
         # by storing the raw object in the stub.
         serialized = self._serialize(value)
+        # JSON round-trip so the stub stores the same shape Redis would
+        # return on read (tuples become lists, custom-encoded objects
+        # become their JSON projection, etc.). Without this an
+        # offline run sees the Python original while a Redis-backed
+        # run sees the JSON-normalised value, and the type drift only
+        # surfaces the first time production Redis is reachable.
+        value_json_normalised = self._deserialize(serialized)
 
         if not await self._ensure_connected():
             if self.fallback_to_stub:
                 self._fallback_count += 1
-                return await self._stub.set(key, value, ttl, nx, xx)
+                return await self._stub.set(key, value_json_normalised, ttl, nx, xx)
             return False
 
         try:
@@ -855,7 +862,7 @@ class RedisCache:
             logger.warning(f"Redis set error: {e}")
             if self.fallback_to_stub:
                 self._fallback_count += 1
-                return await self._stub.set(key, value, ttl, nx, xx)
+                return await self._stub.set(key, value_json_normalised, ttl, nx, xx)
             return False
 
     async def delete(self, key: str) -> bool:
@@ -982,11 +989,16 @@ class RedisCache:
         # the offending value to the caller; we never silently route
         # a non-JSON value to the stub.
         serialized_mapping = {self._make_key(k): self._serialize(v) for k, v in mapping.items()}
+        # JSON round-trip the mapping so the stub fallback stores the
+        # same shape Redis would return on read.  See ``set()`` for
+        # the rationale (offline runs must not diverge in type
+        # behaviour from the production Redis path).
+        normalised_mapping = {k: self._deserialize(self._serialize(v)) for k, v in mapping.items()}
 
         if not await self._ensure_connected():
             if self.fallback_to_stub:
                 self._fallback_count += 1
-                return await self._stub.mset(mapping, ttl)
+                return await self._stub.mset(normalised_mapping, ttl)
             return False
 
         try:
@@ -1003,7 +1015,7 @@ class RedisCache:
             logger.warning(f"Redis mset error: {e}")
             if self.fallback_to_stub:
                 self._fallback_count += 1
-                return await self._stub.mset(mapping, ttl)
+                return await self._stub.mset(normalised_mapping, ttl)
             return False
 
     async def incr(self, key: str, amount: int = 1) -> int:

@@ -96,11 +96,28 @@ def _validate_argv(argv: Sequence[str]) -> list[str]:
             f"safe_exec: argv[0]='{executable}' must be an absolute path. "
             "Use sys.executable or shutil.which() output."
         )
-    # And it must actually exist on disk. A missing executable would
-    # surface inside subprocess as FileNotFoundError; failing here
-    # gives the caller a single, consistent exception type.
+    # And it must actually exist on disk AND be an executable regular
+    # file. A missing or non-executable target would otherwise surface
+    # inside ``subprocess.run`` as a ``FileNotFoundError``,
+    # ``PermissionError``, or ``OSError`` -- and the gate documents
+    # ``UnsafeSubprocessError`` as the single failure type for argv
+    # validation. Checking ``is_file()`` rejects directories and
+    # special files (sockets, devices); checking ``os.access(X_OK)``
+    # rejects regular files without the executable bit set.
+    import os as _os
+
     if not exec_path.exists():
         raise UnsafeSubprocessError(f"safe_exec: argv[0]='{executable}' does not exist on disk.")
+    if not exec_path.is_file():
+        raise UnsafeSubprocessError(
+            f"safe_exec: argv[0]='{executable}' is not a regular file "
+            "(directory, socket, or device); refuse to invoke as an executable."
+        )
+    if not _os.access(exec_path, _os.X_OK):
+        raise UnsafeSubprocessError(
+            f"safe_exec: argv[0]='{executable}' is not executable "
+            "(missing X bit for the running user)."
+        )
     return argv_list
 
 

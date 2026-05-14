@@ -258,6 +258,18 @@ def _make_restricted_unpickler() -> Any:
     # only from inside the hardened subprocess.
     import pickle  # nosec B403 - restricted-unpickler scope; hardened-subprocess only; see _ALLOWED_GLOBALS + module docstring
 
+    class _RestrictedUnpicklerRefusal(pickle.UnpicklingError):
+        """A global outside ``_ALLOWED_GLOBALS`` was rejected.
+
+        Subclass of ``UnpicklingError`` so existing ``except`` blocks
+        in third-party code keep working, but distinguishable from the
+        same exception raised by truncated / malformed pickle data.
+        Only this subclass should map to exit code
+        ``_EXIT_RESTRICTED_UNPICKLER_REFUSAL`` -- a corrupt-input
+        ``UnpicklingError`` is an input/shape error and belongs on
+        the same exit-code path as the rest of the schema checks.
+        """
+
     class _RestrictedUnpickler(pickle.Unpickler):
         """``pickle.Unpickler`` that refuses any global not in the allow-list.
 
@@ -272,12 +284,12 @@ def _make_restricted_unpickler() -> Any:
         def find_class(self, module: str, name: str) -> Any:
             if (module, name) in _ALLOWED_GLOBALS:
                 return super().find_class(module, name)
-            raise pickle.UnpicklingError(
+            raise _RestrictedUnpicklerRefusal(
                 f"_RestrictedUnpickler: refusing global '{module}.{name}'; "
                 f"not in migrate_pkl allow-list."
             )
 
-    return _RestrictedUnpickler
+    return _RestrictedUnpickler, _RestrictedUnpicklerRefusal
 
 
 def _do_migration(args: argparse.Namespace) -> int:
@@ -302,11 +314,12 @@ def _do_migration(args: argparse.Namespace) -> int:
         return 2
 
     print(f"loading legacy pickle: {src} ({size} bytes)", file=sys.stderr)
-    restricted_unpickler_cls = _make_restricted_unpickler()
+    restricted_unpickler_cls, restricted_refusal_exc = _make_restricted_unpickler()
     # ``_make_restricted_unpickler`` imports ``pickle`` lazily and
-    # returns the restricted subclass; we re-import here only to bind
-    # ``pickle.UnpicklingError`` for the except clause below.  The
-    # subprocess-only import boundary documented in the module
+    # returns the restricted subclass plus the policy-refusal
+    # exception class.  We re-import ``pickle`` here only to bind
+    # ``pickle.UnpicklingError`` for the corrupt-input branch below.
+    # The subprocess-only import boundary documented in the module
     # docstring is preserved (this code path runs exclusively inside
     # the hardened relaunch).
     import pickle  # nosec B403 - re-import to bind UnpicklingError; same hardened-subprocess scope as line 259
@@ -321,16 +334,22 @@ def _do_migration(args: argparse.Namespace) -> int:
             loaded = restricted_unpickler_cls(
                 f
             ).load()  # nosec B301 - load() goes through _RestrictedUnpickler.find_class allow-list; subprocess + restricted unpickler is defence-in-depth
-    except pickle.UnpicklingError as exc:
-        # ``_RestrictedUnpickler.find_class`` raises this when the
-        # payload references any global outside ``_ALLOWED_GLOBALS``
-        # (``os.system`` / ``subprocess.Popen`` / ``builtins.eval`` and
-        # friends).  Surface the refusal as one concise stderr line
-        # rather than a traceback, and exit with a documented stable
-        # code so callers/tests can distinguish "refused" from
-        # "subprocess crashed".
+    except restricted_refusal_exc as exc:
+        # Policy refusal: ``_RestrictedUnpickler.find_class`` rejected
+        # a global outside ``_ALLOWED_GLOBALS`` (``os.system`` /
+        # ``subprocess.Popen`` / ``builtins.eval`` and friends).
+        # Surface as one concise stderr line and the documented
+        # stable exit code so callers/tests can distinguish "refused"
+        # from "corrupt input".
         print(f"error: {exc}", file=sys.stderr)
         return _EXIT_RESTRICTED_UNPICKLER_REFUSAL
+    except pickle.UnpicklingError as exc:
+        # Corrupt / truncated / malformed pickle data. This is NOT a
+        # policy refusal -- ``find_class`` was never reached. Map to
+        # the input/shape error exit code (3) so callers can tell
+        # corrupt-input apart from refused-global.
+        print(f"error: input pickle is malformed: {exc}", file=sys.stderr)
+        return 3
 
     if not isinstance(loaded, dict):
         print(

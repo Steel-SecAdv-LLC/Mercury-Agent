@@ -412,15 +412,19 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             ) from e
 
         config_payload = checkpoint["config"]
-        if isinstance(config_payload, VisualDetectorConfig):
-            # Checkpoint pre-dates the dict round-trip change. This
-            # path is only reachable if an operator's PyTorch is old
-            # enough to accept dataclass instances under
-            # ``weights_only=True`` (or if they removed the safe-load
-            # pin upstream); guard so the assignment below is type-safe.
-            self.visual_config = config_payload
-        elif isinstance(config_payload, dict):
-            self.visual_config = VisualDetectorConfig(**config_payload)
+        if isinstance(config_payload, (VisualDetectorConfig, dict)):
+            # Route through the ``config`` property setter rather than
+            # assigning ``self.visual_config`` directly. The setter
+            # also maintains ``self._visual_config_ref`` (which backs
+            # the ``config`` / ``visual_detector_config`` accessors).
+            # A direct attribute assignment would leave those two
+            # references out of sync after a load -- ``detector.config``
+            # would still return the pre-load config while
+            # ``detector.visual_config`` carried the freshly loaded
+            # checkpoint config. The setter accepts both the dataclass
+            # instance (legacy on-disk shape) and a dict (current
+            # ``asdict``-serialised shape).
+            self.config = config_payload
         else:
             raise RuntimeError(
                 f"Checkpoint at '{path}' has 'config' of type "

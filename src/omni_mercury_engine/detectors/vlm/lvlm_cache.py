@@ -195,8 +195,15 @@ class LVLMBackendCache:
         rather than the empty string so a local-path load (revision
         ``None``) and a Hub load that someone accidentally tried to
         pin to ``""`` do not collide.
+
+        The ``revision`` rendering uses an explicit ``is None`` check
+        rather than ``revision or 'none'`` so an empty-string revision
+        (which ``HFModelPolicy.validate`` will reject downstream, but
+        which can transit through kwargs unobserved) does NOT collide
+        with the legitimate no-revision / local-path key.
         """
-        return f"{model_type}:{model_name or model_type}@{revision or 'none'}"
+        rev_token = "none" if revision is None else revision
+        return f"{model_type}:{model_name or model_type}@{rev_token}"
 
     def get(
         self,
