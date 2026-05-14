@@ -113,7 +113,7 @@ class NABLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download REAL NAB data from GitHub."""
-        import urllib.error
+        import requests
 
         logger.info("Downloading REAL NAB (Numenta Anomaly Benchmark) data...")
 
@@ -122,7 +122,7 @@ class NABLoader(DatasetLoader):
         try:
             logger.info("  Downloading anomaly labels...")
             safe_urlretrieve(self.NAB_LABELS_URL, labels_path)
-        except (urllib.error.URLError, ValueError) as e:
+        except (requests.RequestException, ValueError) as e:
             logger.error(f"Failed to download NAB labels: {e}")
             return False
 
@@ -145,7 +145,7 @@ class NABLoader(DatasetLoader):
                 try:
                     safe_urlretrieve(url, file_path)
                     downloaded_count += 1
-                except (urllib.error.URLError, ValueError) as e:
+                except (requests.RequestException, ValueError) as e:
                     logger.warning(f"  Failed to download {filename}: {e}")
 
         logger.info(f"Downloaded {downloaded_count} NAB data files")
@@ -313,7 +313,7 @@ class SMDLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download REAL SMD data from GitHub."""
-        import urllib.error
+        import requests
 
         logger.info("Downloading REAL SMD (Server Machine Dataset)...")
 
@@ -339,7 +339,7 @@ class SMDLoader(DatasetLoader):
                     np.save(file_path, data)
                     downloaded_count += 1
                     logger.info(f"  Downloaded {machine}/{split}")
-                except (urllib.error.URLError, ValueError) as e:
+                except (requests.RequestException, ValueError) as e:
                     logger.warning(f"  Failed to download {machine}/{split}: {e}")
                 except Exception as e:
                     logger.warning(f"  Failed to parse {machine}/{split}: {e}")
@@ -469,7 +469,7 @@ class SMAPMSLLoader(DatasetLoader):
         Raises:
             DataSourceUnavailableError: If data cannot be obtained.
         """
-        import urllib.error
+        import requests
 
         logger.info(f"Preparing NASA {self.dataset} spacecraft telemetry...")
 
@@ -479,7 +479,7 @@ class SMAPMSLLoader(DatasetLoader):
             try:
                 safe_urlretrieve(self.LABELED_ANOMALIES_URL, labels_path)
                 logger.info("  Downloaded anomaly labels from GitHub")
-            except (urllib.error.URLError, ValueError) as e:
+            except (requests.RequestException, ValueError) as e:
                 logger.error(f"  Failed to download labels: {e}")
                 raise DataSourceUnavailableError(
                     loader_name=f"SMAP/MSL ({self.dataset})",

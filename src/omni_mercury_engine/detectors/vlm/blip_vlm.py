@@ -47,6 +47,7 @@ from omni_mercury_engine.detectors.vlm.base_vlm import (
     LVLMType,
     VLMConfig,
 )
+from omni_mercury_engine.security.model_policy import SafeHFLoader
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,11 @@ class BLIPConfig(VLMConfig):
         feature_dim: Output feature dimension for fusion (default 128)
         use_vqa: Use Visual Question Answering mode
         caption_max_length: Maximum caption length
+        revision: HuggingFace revision (commit SHA preferred) for the
+            built-in ``Salesforce/blip-*`` Hub IDs. ``SafeHFLoader``
+            requires a pin for every remote load -- supply the SHA
+            you have validated. Local-disk paths in ``model_name``
+            bypass this requirement.
     """
 
     model_name: str = "Salesforce/blip-image-captioning-base"
@@ -98,6 +104,9 @@ class BLIPConfig(VLMConfig):
     feature_dim: int = FEATURE_DIM
     use_vqa: bool = False
     caption_max_length: int = 50
+    # SafeHFLoader requires a revision pin for remote loads. Operators
+    # supply the commit SHA they want; local paths bypass the pin.
+    revision: str | None = None
 
     def __post_init__(self) -> None:
         """Initialize default keywords if not provided."""
@@ -186,14 +195,29 @@ class BLIPVLMDetector(BaseVLMDetector):
         - Graceful fallback when transformers unavailable
 
     Example:
+        >>> # SafeHFLoader requires a revision pin for Hub IDs; supply
+        >>> # the commit SHA you have validated for the chosen model.
         >>> detector = BLIPVLMDetector(
-        ...     config=BLIPConfig(anomaly_description="fire or smoke")
+        ...     config=BLIPConfig(
+        ...         anomaly_description="fire or smoke",
+        ...         revision="<validated-commit-sha>",
+        ...     )
         ... )
         >>> results = detector.detect(image_tensor)
         >>> print(f"Anomaly: {results['is_anomaly']}, Score: {results['scores'][0]:.3f}")
         >>> features = detector.extract_features(image_tensor)
         >>> print(f"Feature shape: {features.shape}")  # [1, 128]
     """
+
+    # Operator-known BLIP variants. SafeHFLoader rejects anything outside.
+    ALLOWED_MODELS: frozenset[str] = frozenset(
+        {
+            "Salesforce/blip-image-captioning-base",
+            "Salesforce/blip-image-captioning-large",
+            "Salesforce/blip-vqa-base",
+            "Salesforce/blip-vqa-capfilt-large",
+        }
+    )
 
     def __init__(self, config: BLIPConfig | dict[str, Any] | None = None) -> None:
         """
@@ -241,14 +265,18 @@ class BLIPVLMDetector(BaseVLMDetector):
         try:
             logger.info(f"Loading BLIP model: {self.blip_config.model_name}")
 
-            self._processor = BlipProcessor.from_pretrained(
-                self.blip_config.model_name
-            )  # nosec B615 - model_name is user-configured, see module docstring for security guidance
-            self._model = BlipForConditionalGeneration.from_pretrained(  # nosec B615 - model_name is user-configured
-                self.blip_config.model_name
-            ).to(
-                self.device
+            self._processor = SafeHFLoader.load_processor(
+                BlipProcessor,
+                self.blip_config.model_name,
+                revision=self.blip_config.revision,
+                allowlist=self.ALLOWED_MODELS,
             )
+            self._model = SafeHFLoader.load_model(
+                BlipForConditionalGeneration,
+                self.blip_config.model_name,
+                revision=self.blip_config.revision,
+                allowlist=self.ALLOWED_MODELS,
+            ).to(self.device)
             self._model.eval()
 
             # Initialize feature projection

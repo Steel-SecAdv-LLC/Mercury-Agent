@@ -883,6 +883,14 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
+          # Distinct category so the ci.yml blocking PR-gate Trivy run
+          # does not silently overwrite or merge with security.yml's
+          # `trivy-container-scan` upload or docker.yml's advisory
+          # tarball scan upload.  All three workflows currently scan
+          # the same image surface; the explicit categories let the
+          # GitHub Security tab show each workflow's findings under
+          # a deterministic key.
+          category: 'trivy-ci-blocking'
 
   # ===========================================================================
   # Stage 9: Documentation Build

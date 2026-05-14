@@ -485,12 +485,21 @@ class ADRepositoryLoader(DatasetLoader):
                 self._load_mat_file(path)
 
             elif suffix == ".npz":
-                # Security: External dataset files - try safe load first
+                # External dataset files MUST round-trip through
+                # allow_pickle=False. A ValueError means the file
+                # contains pickled objects; refuse rather than
+                # silently executing arbitrary code from an external
+                # mirror. The operator can use tools/migrate_pkl.py
+                # offline to convert a trusted legacy artefact.
                 try:
                     data = np.load(path, allow_pickle=False)
-                except ValueError:
-                    logger.warning(f"Dataset {path} requires pickle - verify source is trusted")
-                    data = np.load(path, allow_pickle=True)  # nosec B301
+                except ValueError as exc:
+                    raise RuntimeError(
+                        f"Refusing to load .npz '{path}' that requires "
+                        "allow_pickle=True. External dataset archives must "
+                        "be pure numpy; convert offline via tools/migrate_pkl.py "
+                        "if you trust the source."
+                    ) from exc
                 self._features = data["X"].astype(np.float32)
                 self._labels = data["y"].astype(np.int64)
                 self._is_real_data = True
@@ -513,12 +522,18 @@ class ADRepositoryLoader(DatasetLoader):
 
                 # Find npz or csv files
                 for f in extract_dir.rglob("*.npz"):
-                    # Security: External dataset files - try safe load first
+                    # External archives must round-trip via
+                    # allow_pickle=False; legacy artefacts that need
+                    # pickle must be converted offline.
                     try:
                         data = np.load(f, allow_pickle=False)
-                    except ValueError:
-                        logger.warning(f"Dataset {f} requires pickle - verify source")
-                        data = np.load(f, allow_pickle=True)  # nosec B301
+                    except ValueError as exc:
+                        raise RuntimeError(
+                            f"Refusing to load .npz '{f}' that requires "
+                            "allow_pickle=True. External dataset archives "
+                            "must be pure numpy; convert offline via "
+                            "tools/migrate_pkl.py if you trust the source."
+                        ) from exc
                     if "X" in data and "y" in data:
                         self._features = data["X"].astype(np.float32)
                         self._labels = data["y"].astype(np.int64)

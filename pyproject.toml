@@ -709,15 +709,14 @@ ignore-imports = true
 # =============================================================================
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
-# B101: assert warnings (tests only)
 # B311: random warnings (non-crypto use)
-# B310: urllib_urlopen - SAFE because:
-#   1. All API URLs are defined in TrustedEndpoints class (security/input_validation.py)
-#   2. TrustedEndpoints.validate_url() enforces HTTPS scheme
-#   3. TrustedEndpoints.validate_url() validates domain against allowlist
-#   4. This provides architectural SSRF protection that bandit's static analysis cannot recognize
-#   5. See TrustedEndpoints.TRUSTED_DOMAINS for the complete allowlist
-skips = ["B101", "B311", "B310"]
+#
+# Note: B310 (urllib_urlopen) and B101 (assert) are *no longer*
+# skipped. urlopen has been removed from src/ in favour of
+# SafeHTTPClient, and asserts have been replaced with explicit
+# raises. If a new B310/B101 finding fires, fix the underlying
+# call rather than re-adding the skip.
+skips = ["B311"]
 targets = ["src/omni_mercury_engine"]
 
 [tool.bandit.assert_used]

@@ -564,21 +564,18 @@ class TrustedEndpoints:
 
     Usage:
         from omni_mercury_engine.security.input_validation import TrustedEndpoints
+        from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
-        # Option 1: Use secure_urlopen for validated URL opening
-        response = TrustedEndpoints.secure_urlopen(
+        body = SafeHTTPClient.get_bytes(
             TrustedEndpoints.USGS_EARTHQUAKE,
-            params={"format": "geojson", "limit": "100"}
+            params={"format": "geojson", "limit": "100"},
         )
-
-        # Option 2: Build URL manually (for custom headers)
-        url = f"{TrustedEndpoints.USGS_EARTHQUAKE}?{urllib.parse.urlencode(params)}"
 
     Security Note:
         - All URLs use HTTPS only
         - Query parameters should be constructed from typed function arguments
         - Never concatenate user input directly into these URLs
-        - secure_urlopen validates scheme and domain before opening
+        - SafeHTTPClient validates scheme and domain before opening
     """
 
     # ==========================================================================
@@ -637,6 +634,7 @@ class TrustedEndpoints:
             "api.eia.gov",  # EIA (Energy Information Administration)
             "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
             "ghoapi.azureedge.net",  # WHO Global Health Observatory
+            "www.who.int",  # WHO Emergencies hub (pandemic loader)
             "maps.nccs.nasa.gov",  # NASA COOLR (landslide catalog)
         }
     )
@@ -663,68 +661,44 @@ class TrustedEndpoints:
         if parsed.scheme != "https":
             raise ValueError(f"SSRF Protection: URL must use HTTPS scheme, got '{parsed.scheme}'")
 
-        # Validate domain is in allowlist
-        domain = parsed.netloc.lower()
-        if domain not in cls.TRUSTED_DOMAINS:
-            raise ValueError(
-                f"SSRF Protection: Domain '{domain}' not in trusted allowlist. "
-                f"Trusted domains: {sorted(cls.TRUSTED_DOMAINS)}"
-            )
-
+        # Validate domain is in allowlist.  ``parsed.hostname`` strips
+        # any explicit port and userinfo and unwraps IPv6 brackets, so
+        # the lookup matches the bare hostnames in TRUSTED_DOMAINS even
+        # when the caller passes ``https://host:443/`` or
+        # ``https://[2001:db8::1]/``.
+        host = parsed.hostname
+        if not host:
+            raise ValueError(f"SSRF Protection: URL '{url}' has no host component.")
+        cls.validate_url_host(host)
         return True
 
     @classmethod
-    def secure_urlopen(
-        cls,
-        base_url: str,
-        params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
-        timeout: int = 60,
-    ) -> Any:
-        """
-        Securely open a URL after validating scheme and domain.
+    def validate_url_host(cls, host: str) -> bool:
+        """Validate a hostname against the TRUSTED_DOMAINS allowlist.
 
-        This method provides SSRF protection by:
-        1. Validating the URL scheme is HTTPS
-        2. Validating the domain is in the trusted allowlist
-        3. Constructing the final URL from validated components
+        Scheme-agnostic.  Used by SafeHTTPClient so the allowlist gate
+        fires for both http:// (when the operator explicitly opts in
+        with ``allow_http=True``) and https:// URLs.  Without this, a
+        plain-HTTP dataset mirror could reach an arbitrary host with
+        no allowlist check.
 
         Args:
-            base_url: Base URL (must be from TrustedEndpoints constants)
-            params: Optional query parameters to append
-            headers: Optional HTTP headers (User-Agent added by default)
-            timeout: Request timeout in seconds (default: 60)
+            host: Hostname (no scheme, no path).  Lowercased for the
+                lookup.
 
         Returns:
-            HTTP response object (context manager)
+            True if the host is in TRUSTED_DOMAINS.
 
         Raises:
-            ValueError: If URL validation fails
-            urllib.error.URLError: If request fails
+            ValueError: host is not in the allowlist.
         """
-        import urllib.parse
-        import urllib.request
-
-        # Validate base URL
-        cls.validate_url(base_url)
-
-        # Build final URL with query parameters
-        if params:
-            query_string = urllib.parse.urlencode(params)
-            url = f"{base_url}?{query_string}"
-        else:
-            url = base_url
-
-        # Validate final URL (in case params somehow modified it)
-        cls.validate_url(url.split("?")[0])
-
-        # Build request with headers
-        default_headers = {"User-Agent": "Mozilla/5.0 Mercury-Agent/1.0"}
-        if headers:
-            default_headers.update(headers)
-
-        request = urllib.request.Request(url, headers=default_headers)
-        return urllib.request.urlopen(request, timeout=timeout)  # nosec B310
+        normalised = host.lower()
+        if normalised not in cls.TRUSTED_DOMAINS:
+            raise ValueError(
+                f"SSRF Protection: Host '{normalised}' not in trusted allowlist. "
+                f"Trusted hosts: {sorted(cls.TRUSTED_DOMAINS)}"
+            )
+        return True
 
     # ==========================================================================
     # USGS - Earthquake Hazards Program

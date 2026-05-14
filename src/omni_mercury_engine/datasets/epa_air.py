@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import io
 import logging
-import urllib.error
 import zipfile
 from typing import Any
 
 import numpy as np
+import requests
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
@@ -121,14 +121,17 @@ class EPAAirQualityLoader(DatasetLoader):
                 )
                 return True
 
-            except urllib.error.HTTPError as e:
+            except requests.HTTPError as e:
                 last_err = e
-                if e.code == 404:
+                status = e.response.status_code if e.response is not None else None
+                if status == 404:
                     logger.info(
                         "EPA PM2.5 %d not published (HTTP 404); trying older year", candidate
                     )
                     continue
-                logger.warning("EPA download for %d failed: HTTP %d", candidate, e.code)
+                logger.warning(
+                    "EPA download for %d failed: HTTP %s", candidate, status if status else "?"
+                )
                 continue
             except Exception as e:
                 last_err = e

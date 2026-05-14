@@ -791,10 +791,16 @@ class CICIDSLoader(DatasetLoader):
     def _download_from_huggingface(self) -> bool:
         """Download CICIDS 2017 from Hugging Face datasets."""
         try:
-            from datasets import load_dataset
+            import importlib.util
+
+            if importlib.util.find_spec("datasets") is None:
+                logger.info("Hugging Face 'datasets' library not available")
+                return False
         except ImportError:
             logger.info("Hugging Face 'datasets' library not available")
             return False
+
+        from omni_mercury_engine.security.model_policy import SafeHFLoader
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -810,12 +816,14 @@ class CICIDSLoader(DatasetLoader):
         for mirror_id in self.HUGGINGFACE_MIRRORS:
             try:
                 logger.info("Downloading CICIDS 2017 from Hugging Face (%s)...", mirror_id)
-                # Pin to main for reproducibility (B615); mirrors that publish
-                # under a non-default branch will fall through to the next.
-                dataset = load_dataset(  # nosec B615
+                # SafeHFLoader.load_dataset enforces the namespace/name
+                # shape and the revision pin against the explicit
+                # mirror allowlist on this class.
+                dataset = SafeHFLoader.load_dataset(
                     mirror_id,
-                    split="train",
+                    allowlist=self.HUGGINGFACE_MIRRORS,
                     revision="main",
+                    split="train",
                 )
                 df = dataset.to_pandas()
                 if df is not None and len(df) > 0:

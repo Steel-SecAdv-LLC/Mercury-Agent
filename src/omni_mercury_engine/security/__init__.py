@@ -40,6 +40,19 @@ from omni_mercury_engine.security.crypto_api import (
     SphincsProvider,
 )
 from omni_mercury_engine.security.encryption import SecureDataHandler
+from omni_mercury_engine.security.model_policy import (
+    HFModelPolicy,
+    SafeHFLoader,
+    UnsafeModelError,
+)
+from omni_mercury_engine.security.safe_exec import (
+    UnsafeSubprocessError,
+    safe_exec,
+)
+from omni_mercury_engine.security.safe_http import (
+    SafeHTTPClient,
+    UnsafeURLError,
+)
 
 try:
     from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
@@ -105,7 +118,6 @@ __all__ = [
     "SIG_SUFFIX",
     "SPHINCS_AVAILABLE",
     "AlgorithmType",
-    # Secure Audit Logging
     "AuditEvent",
     "AuditEventCategory",
     "AuditEventSeverity",
@@ -114,6 +126,7 @@ __all__ = [
     "CryptoPackageResult",
     "DilithiumKeyPair",
     "EncapsulatedSecret",
+    "HFModelPolicy",
     "HybridSignature",
     "HybridSignatureProvider",
     "IntelligenceFusionEngine",
@@ -128,6 +141,8 @@ __all__ = [
     "PQCProductionWarning",
     "PQCSimulationWarning",
     "RateLimiter",
+    "SafeHFLoader",
+    "SafeHTTPClient",
     "SecureAuditLogger",
     "SecureDataHandler",
     "SecureHashChain",
@@ -136,11 +151,13 @@ __all__ = [
     "SphincsKeyPair",
     "SphincsProvider",
     "ThreatDetector",
+    "UnsafeModelError",
     "UnsafePayloadError",
+    "UnsafeSubprocessError",
+    "UnsafeURLError",
     "assert_no_simulation_in_production",
     "check_pqc_production_readiness",
     "configure_audit_logger",
-    # PQC functions
     "dilithium_sign",
     "dilithium_verify",
     "generate_dilithium_keypair",
@@ -151,7 +168,7 @@ __all__ = [
     "get_pqc_capabilities",
     "kyber_decapsulate",
     "kyber_encapsulate",
-    # Safe loading
+    "safe_exec",
     "safe_load_training_data",
     "sign_npz",
     "sphincs_sign",

@@ -470,7 +470,7 @@ class BATADALLoader(DatasetLoader):
 
     def download(self) -> bool:
         """Download BATADAL dataset from official source."""
-        import urllib.error
+        import requests
 
         logger.info("Downloading BATADAL dataset...")
 
@@ -486,7 +486,7 @@ class BATADALLoader(DatasetLoader):
             try:
                 logger.info(f"  Downloading {name}...")
                 safe_urlretrieve(url, output_path)
-            except (urllib.error.URLError, ValueError) as e:
+            except (requests.RequestException, ValueError) as e:
                 logger.error(f"  Failed to download {name}: {e}")
                 raise DataSourceUnavailableError(
                     loader_name="BATADAL",

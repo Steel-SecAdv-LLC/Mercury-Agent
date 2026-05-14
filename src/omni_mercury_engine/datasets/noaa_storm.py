@@ -17,10 +17,10 @@ import gzip
 import io
 import logging
 import re
-import urllib.error
 from typing import Any
 
 import numpy as np
+import requests
 
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
@@ -156,8 +156,9 @@ class NOAAStormEventsLoader(DatasetLoader):
                 all_rows.extend(rows)
                 logger.info("    %d events for %d", len(rows), year)
 
-            except urllib.error.HTTPError as e:
-                logger.warning("  Storm events %d: HTTP %d", year, e.code)
+            except requests.HTTPError as e:
+                status = e.response.status_code if e.response is not None else "?"
+                logger.warning("  Storm events %d: HTTP %s", year, status)
             except Exception as e:
                 logger.warning("  Storm events %d failed: %s", year, e)
 

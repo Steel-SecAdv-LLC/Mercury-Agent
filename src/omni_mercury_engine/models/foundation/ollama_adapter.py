@@ -35,7 +35,6 @@ import json
 import logging
 import os
 import socket
-import urllib.parse
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -43,22 +42,16 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+import requests
+
 from omni_mercury_engine.models.foundation.llm_adapter import (
     BaseLLMAdapter,
     LLMConfig,
     LLMProvider,
 )
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 logger = logging.getLogger(__name__)
-
-# Allowed URL schemes for Ollama API requests
-_ALLOWED_SCHEMES = frozenset({"http", "https"})
-
-
-def _validate_url_scheme(url: str) -> bool:
-    """Validate URL has an allowed scheme (http/https only)."""
-    parsed = urllib.parse.urlparse(url)
-    return parsed.scheme in _ALLOWED_SCHEMES
 
 
 class OllamaModel(StrEnum):
@@ -246,43 +239,39 @@ class OllamaLLMAdapter(BaseLLMAdapter):
     def _verify_model_available(self) -> bool:
         """Verify the configured model is available in Ollama."""
         try:
-            import urllib.request
-
-            url = f"{self.ollama_config.base_url}/api/tags"
-            if not _validate_url_scheme(url):
-                logger.warning(f"Invalid URL scheme for Ollama API: {url}")
-                return False
-
-            req = urllib.request.Request(  # noqa: S310 - URL scheme validated above
-                url, method="GET"
+            # Ollama runs on the local box; loopback_only enforces
+            # that fact (an operator who points Ollama at a remote
+            # host will hit the gate at config-time, not after a
+            # silent SSRF pivot).
+            data = SafeHTTPClient.get_json(
+                f"{self.ollama_config.base_url}/api/tags",
+                headers={"Accept": "application/json"},
+                timeout=self.ollama_config.connect_timeout,
+                allow_http=True,
+                user_configured=True,
+                loopback_only=True,
             )
-            req.add_header("Accept", "application/json")
+            available_models = [m["name"] for m in data.get("models", [])]
 
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
-                req, timeout=self.ollama_config.connect_timeout
-            ) as response:
-                data = json.loads(response.read().decode())
-                available_models = [m["name"] for m in data.get("models", [])]
+            model_base = self.ollama_config.model.split(":")[0]
 
-                model_base = self.ollama_config.model.split(":")[0]
+            # Check for exact match or base name match
+            model_available = any(
+                self.ollama_config.model in m or model_base in m for m in available_models
+            )
 
-                # Check for exact match or base name match
-                model_available = any(
-                    self.ollama_config.model in m or model_base in m for m in available_models
+            if not model_available:
+                logger.warning(
+                    f"Model '{self.ollama_config.model}' not found. "
+                    f"Available: {available_models}"
                 )
+                # Try to fall back to first available model
+                if available_models:
+                    self.ollama_config.model = available_models[0]
+                    logger.info(f"Falling back to model: {available_models[0]}")
+                    return True
 
-                if not model_available:
-                    logger.warning(
-                        f"Model '{self.ollama_config.model}' not found. "
-                        f"Available: {available_models}"
-                    )
-                    # Try to fall back to first available model
-                    if available_models:
-                        self.ollama_config.model = available_models[0]
-                        logger.info(f"Falling back to model: {available_models[0]}")
-                        return True
-
-                return model_available
+            return model_available
 
         except Exception as e:
             logger.debug(f"Model verification failed: {e}")
@@ -304,14 +293,7 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             return self._unavailable_response()
 
         try:
-            import urllib.request
-
-            url = f"{self.ollama_config.base_url}/api/generate"
-            if not _validate_url_scheme(url):
-                logger.error(f"Invalid URL scheme for Ollama API: {url}")
-                return self._unavailable_response()
-
-            payload = {
+            payload: dict[str, Any] = {
                 "model": self.ollama_config.model,
                 "prompt": prompt,
                 "stream": False,
@@ -328,15 +310,16 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             if system_prompt:
                 payload["system"] = system_prompt
 
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
-            req.add_header("Content-Type", "application/json")
-
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
-                req, timeout=self.ollama_config.timeout
-            ) as response:
-                result = json.loads(response.read().decode())
-                return str(result.get("response", ""))
+            result = SafeHTTPClient.post_json(
+                f"{self.ollama_config.base_url}/api/generate",
+                json_body=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=self.ollama_config.timeout,
+                allow_http=True,
+                user_configured=True,
+                loopback_only=True,
+            )
+            return str(result.get("response", ""))
 
         except Exception as e:
             logger.error(f"Ollama generation failed: {e}")
@@ -361,19 +344,12 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             return self._unavailable_response()
 
         try:
-            import urllib.request
-
-            url = f"{self.ollama_config.base_url}/api/chat"
-            if not _validate_url_scheme(url):
-                logger.error(f"Invalid URL scheme for Ollama API: {url}")
-                return self._unavailable_response()
-
-            chat_messages = []
+            chat_messages: list[dict[str, str]] = []
             if system_prompt:
                 chat_messages.append({"role": "system", "content": system_prompt})
             chat_messages.extend(messages)
 
-            payload = {
+            payload: dict[str, Any] = {
                 "model": self.ollama_config.model,
                 "messages": chat_messages,
                 "stream": False,
@@ -384,15 +360,16 @@ class OllamaLLMAdapter(BaseLLMAdapter):
                 },
             }
 
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310
-            req.add_header("Content-Type", "application/json")
-
-            with urllib.request.urlopen(  # noqa: S310  # nosec B310 - URL scheme validated above
-                req, timeout=self.ollama_config.timeout
-            ) as response:
-                result = json.loads(response.read().decode())
-                return str(result.get("message", {}).get("content", ""))
+            result = SafeHTTPClient.post_json(
+                f"{self.ollama_config.base_url}/api/chat",
+                json_body=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=self.ollama_config.timeout,
+                allow_http=True,
+                user_configured=True,
+                loopback_only=True,
+            )
+            return str(result.get("message", {}).get("content", ""))
 
         except Exception as e:
             logger.error(f"Ollama chat generation failed: {e}")
@@ -610,61 +587,41 @@ class OpenAICloudAdapter(BaseLLMAdapter):
         if not self._is_available:
             return "OpenAI adapter not available - API key required"
 
-        import http.client
-        import ssl
-
-        # Validate URL before connecting
-        if not _validate_url_scheme(self.base_url):
-            return "Invalid API URL scheme"
-
-        parsed_url = urllib.parse.urlparse(self.base_url)
-        host = parsed_url.netloc or "api.openai.com"
-
-        # Create secure connection
-        context = ssl.create_default_context()
-        conn: http.client.HTTPSConnection | None = None
-
         try:
-            conn = http.client.HTTPSConnection(host, timeout=self.config.timeout, context=context)
-
             # Build messages
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
 
-            # Request body
-            body = json.dumps(
-                {
+            data = SafeHTTPClient.post_json(
+                f"{self.base_url.rstrip('/')}/chat/completions",
+                json_body={
                     "model": self.model,
                     "messages": messages,
                     "temperature": self.config.temperature,
                     "max_tokens": self.config.max_tokens,
-                }
+                },
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                },
+                timeout=self.config.timeout,
+                user_configured=True,
             )
+            return str(data["choices"][0]["message"]["content"])
 
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            }
-
-            conn.request("POST", "/v1/chat/completions", body, headers)
-            response = conn.getresponse()
-            data = json.loads(response.read().decode("utf-8"))
-
-            if response.status == 200:
-                return str(data["choices"][0]["message"]["content"])
-            else:
-                error_msg = data.get("error", {}).get("message", "Unknown error")
-                logger.error(f"OpenAI API error: {error_msg}")
-                return f"API error: {error_msg}"
-
+        except requests.HTTPError as e:
+            try:
+                err_payload = e.response.json() if e.response is not None else {}
+            except ValueError:
+                err_payload = {}
+            error_msg = err_payload.get("error", {}).get("message", "Unknown error")
+            logger.error(f"OpenAI API error: {error_msg}")
+            return f"API error: {error_msg}"
         except Exception as e:
             logger.error(f"OpenAI request failed: {e}")
             return f"Request failed: {e}"
-        finally:
-            if conn is not None:
-                conn.close()
 
     def is_available(self) -> bool:
         """Check if OpenAI adapter is available."""
@@ -713,61 +670,42 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
         if not self._is_available:
             return "Anthropic adapter not available - API key required"
 
-        import http.client
-        import ssl
-
-        # Validate URL before connecting
-        if not _validate_url_scheme(self.base_url):
-            return "Invalid API URL scheme"
-
-        parsed_url = urllib.parse.urlparse(self.base_url)
-        host = parsed_url.netloc or "api.anthropic.com"
-
-        # Create secure connection
-        context = ssl.create_default_context()
-        conn: http.client.HTTPSConnection | None = None
-
         try:
-            conn = http.client.HTTPSConnection(host, timeout=self.config.timeout, context=context)
-
-            # Build request body
             body_dict: dict[str, Any] = {
                 "model": self.model,
                 "max_tokens": self.config.max_tokens,
                 "messages": [{"role": "user", "content": prompt}],
             }
-
             if system_prompt:
                 body_dict["system"] = system_prompt
 
-            body = json.dumps(body_dict)
+            data = SafeHTTPClient.post_json(
+                f"{self.base_url.rstrip('/')}/v1/messages",
+                json_body=body_dict,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": self.api_key or "",
+                    "anthropic-version": "2023-06-01",
+                },
+                timeout=self.config.timeout,
+                user_configured=True,
+            )
+            content = data.get("content", [])
+            if content and len(content) > 0:
+                return str(content[0].get("text", ""))
+            return ""
 
-            headers: dict[str, str] = {
-                "Content-Type": "application/json",
-                "x-api-key": self.api_key or "",
-                "anthropic-version": "2023-06-01",
-            }
-
-            conn.request("POST", "/v1/messages", body, headers)
-            response = conn.getresponse()
-            data = json.loads(response.read().decode("utf-8"))
-
-            if response.status == 200:
-                content = data.get("content", [])
-                if content and len(content) > 0:
-                    return str(content[0].get("text", ""))
-                return ""
-            else:
-                error_msg = data.get("error", {}).get("message", "Unknown error")
-                logger.error(f"Anthropic API error: {error_msg}")
-                return f"API error: {error_msg}"
-
+        except requests.HTTPError as e:
+            try:
+                err_payload = e.response.json() if e.response is not None else {}
+            except ValueError:
+                err_payload = {}
+            error_msg = err_payload.get("error", {}).get("message", "Unknown error")
+            logger.error(f"Anthropic API error: {error_msg}")
+            return f"API error: {error_msg}"
         except Exception as e:
             logger.error(f"Anthropic request failed: {e}")
             return f"Request failed: {e}"
-        finally:
-            if conn is not None:
-                conn.close()
 
     def is_available(self) -> bool:
         """Check if Anthropic adapter is available."""
@@ -815,66 +753,48 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
         if not self._is_available:
             return "HuggingFace adapter not available - API key required"
 
-        import http.client
-        import ssl
-
-        # Validate URL before connecting
-        if not _validate_url_scheme(self.base_url):
-            return "Invalid API URL scheme"
-
-        parsed_url = urllib.parse.urlparse(self.base_url)
-        host = parsed_url.netloc or "api-inference.huggingface.co"
-
-        # Create secure connection
-        context = ssl.create_default_context()
-        conn: http.client.HTTPSConnection | None = None
-
         try:
-            conn = http.client.HTTPSConnection(host, timeout=self.config.timeout, context=context)
-
             # Combine prompts for text generation
             full_prompt = prompt
             if system_prompt:
                 full_prompt = f"{system_prompt}\n\n{prompt}"
 
-            # Request body for text-generation pipeline
-            body = json.dumps(
-                {
+            data = SafeHTTPClient.post_json(
+                f"{self.base_url.rstrip('/')}/models/{self.model}",
+                json_body={
                     "inputs": full_prompt,
                     "parameters": {
                         "max_new_tokens": self.config.max_tokens,
-                        "temperature": max(0.01, self.config.temperature),  # HF requires > 0
+                        "temperature": max(0.01, self.config.temperature),
                         "return_full_text": False,
                     },
-                }
+                },
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                },
+                timeout=self.config.timeout,
+                user_configured=True,
             )
+            if isinstance(data, list) and len(data) > 0:
+                return str(data[0].get("generated_text", ""))
+            return str(data)
 
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            }
-
-            # Model-specific endpoint
-            endpoint = f"/models/{self.model}"
-            conn.request("POST", endpoint, body, headers)
-            response = conn.getresponse()
-            data = json.loads(response.read().decode("utf-8"))
-
-            if response.status == 200:
-                if isinstance(data, list) and len(data) > 0:
-                    return str(data[0].get("generated_text", ""))
-                return str(data)
-            else:
-                error_msg = data.get("error", "Unknown error")
-                logger.error(f"HuggingFace API error: {error_msg}")
-                return f"API error: {error_msg}"
-
+        except requests.HTTPError as e:
+            try:
+                err_payload = e.response.json() if e.response is not None else {}
+            except ValueError:
+                err_payload = {}
+            error_msg = (
+                err_payload.get("error", "Unknown error")
+                if isinstance(err_payload, dict)
+                else "Unknown error"
+            )
+            logger.error(f"HuggingFace API error: {error_msg}")
+            return f"API error: {error_msg}"
         except Exception as e:
             logger.error(f"HuggingFace request failed: {e}")
             return f"Request failed: {e}"
-        finally:
-            if conn is not None:
-                conn.close()
 
     def is_available(self) -> bool:
         """Check if HuggingFace adapter is available."""

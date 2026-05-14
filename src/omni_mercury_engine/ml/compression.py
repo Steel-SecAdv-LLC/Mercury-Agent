@@ -548,9 +548,12 @@ class ModelCompressor:
         P3: Optimized for performance using state_dict instead of deepcopy.
         This is significantly faster for large models (~10-100x speedup).
 
-        Security: Uses torch.save/load with BytesIO buffer instead of pickle
-        for safer serialization. The buffer is self-contained and never
-        exposed to external input.
+        Falls back to ``copy.deepcopy`` for models whose ``__init__``
+        signature is not introspectable. The previous fast-path used
+        torch.save then a buffer-based load with weights_only=False;
+        that required a B614 suppression because bandit cannot prove
+        the buffer is self-serialised. The fast path now uses
+        ``state_dict`` copying, which never touches the pickle module.
 
         Args:
             model: Model to copy
@@ -559,19 +562,9 @@ class ModelCompressor:
             Copy of model with same architecture and weights
         """
         import copy
-        import io
 
-        # P3: Use efficient state_dict copying for large models
-        # This avoids the overhead of pickle-based deepcopy
         try:
-            # Create a new instance of the same class
             model_class = model.__class__
-
-            # Try to get constructor signature and create new instance
-            # For simple models, this is much faster than deepcopy
-            import inspect
-
-            _ = inspect.signature(model_class.__init__)
 
             # If model has simple init, we can use state_dict approach
             if hasattr(model, "_init_args") and hasattr(model, "_init_kwargs"):
@@ -580,17 +573,8 @@ class ModelCompressor:
                 new_model.load_state_dict(copy.deepcopy(model.state_dict()))
                 return new_model
 
-            # For models with complex init, use torch.save/load with BytesIO
-            # This is safer than raw pickle and leverages PyTorch's serialization
-            # Security: Buffer is self-contained, never exposed to external input
-            buffer = io.BytesIO()
-            torch.save(model, buffer)
-            buffer.seek(0)
-            # weights_only=False required for full model (not just state_dict)
-            # Safe here because buffer is self-serialized, not from external source
-            return torch.load(
-                buffer, map_location="cpu", weights_only=False
-            )  # nosec B614 - self-serialized model, not untrusted input
+            # No introspectable construction args -- defer to deepcopy.
+            return copy.deepcopy(model)
 
         except (TypeError, RuntimeError, AttributeError):
             # Fallback to standard deepcopy for edge cases
