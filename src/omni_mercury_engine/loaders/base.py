@@ -238,6 +238,7 @@ class BaseDomainLoader(ABC):
             url: URL to fetch.
             params: Query parameters.
             headers: HTTP headers.
+
         Returns:
             Response body as bytes.
 
