@@ -845,7 +845,14 @@ class TrustedEndpoints:
     # ==========================================================================
     # ADBench — Tabular Anomaly Detection Benchmarks (GitHub)
     # ==========================================================================
-    ADBENCH_BASE = "https://github.com/Minqi824/ADBench/raw/main/adbench/datasets/Classical/"
+    # Pinned to the final ``raw.githubusercontent.com`` URL so the
+    # SafeHTTPClient 3xx-rejection gate does not trip on the one-hop
+    # ``github.com/.../raw/...`` -> ``raw.githubusercontent.com``
+    # redirect.  ``raw.githubusercontent.com`` is in TRUSTED_DOMAINS
+    # so the request goes through cleanly without a redirect.
+    ADBENCH_BASE = (
+        "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/"
+    )
 
     # ==========================================================================
     # NOAA ERDDAP — Oceanographic / Climate Gridded Data

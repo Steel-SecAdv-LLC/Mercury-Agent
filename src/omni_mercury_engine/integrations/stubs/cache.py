@@ -754,6 +754,16 @@ class RedisCache:
 
         Returns:
             Cached value or None if not found.
+
+        Raises:
+            json.JSONDecodeError: The stored payload is not valid JSON.
+                Corrupted Redis data is a contract violation, not a
+                transient connectivity error -- swallowing it into a
+                stub-fallback would silently hide cache poisoning or a
+                pickle-era payload that has not been migrated. The
+                error surfaces so the operator can rebuild the affected
+                key (or rotate ``MERCURY_CACHE_*`` if cross-process
+                contamination is suspected).
         """
         self._call_count += 1
 
@@ -765,14 +775,19 @@ class RedisCache:
 
         try:
             data = await self._client.get(self._make_key(key))
-            return self._deserialize(data)
         except Exception as e:
+            # Connectivity / Redis-side failure: stay quiet and fall
+            # back. The JSON-deserialise step is intentionally NOT
+            # inside this try block -- a malformed payload is a
+            # contract violation we want surfaced, not a transient
+            # error worth masking.
             self._errors += 1
             logger.warning(f"Redis get error: {e}")
             if self.fallback_to_stub:
                 self._fallback_count += 1
                 return await self._stub.get(key)
             return None
+        return self._deserialize(data)
 
     async def set(
         self,

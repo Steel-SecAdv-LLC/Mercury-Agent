@@ -306,6 +306,107 @@ class TestLoopbackOnlyGate:
             )
 
 
+class TestRequestTimeDNSRecheck:
+    """The request-time DNS resolve must catch a host that rebinds to a
+    private/IMDS/CGNAT address after ``validate_url`` already passed.
+
+    Without these tests the DNS-rebinding TOCTOU fix would silently
+    weaken: a regression that drops the private-IP check from
+    ``_request`` would re-open the gap. Each case mocks two distinct
+    behaviours -- ``TrustedEndpoints.validate_url_host`` passes (so the
+    pre-flight allowlist check accepts the URL), but ``_resolve_ips``
+    returns a private/IMDS/CGNAT address at request time.
+    """
+
+    @pytest.mark.parametrize(
+        "rebound_ip,fragment",
+        [
+            ("10.0.0.5", "private/link-local/IMDS/CGNAT"),
+            ("169.254.169.254", "private/link-local/IMDS/CGNAT"),
+            ("100.64.0.5", "private/link-local/IMDS/CGNAT"),
+            ("127.0.0.1", "private/link-local/IMDS/CGNAT"),
+            ("172.16.0.10", "private/link-local/IMDS/CGNAT"),
+        ],
+    )
+    def test_default_rebind_to_non_public_rejected(self, rebound_ip: str, fragment: str) -> None:
+        """Trusted-allowlist host that resolves to non-public address at request time."""
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        # The class-constant trusted-allowlist URL path: validate_url
+        # passes the allowlist check and skips its own resolve.
+        # _request's recheck then sees the rebound private address
+        # and raises with the DNS-rebinding signature message.
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address(rebound_ip)],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http.TrustedEndpoints.validate_url_host",
+                return_value=True,
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            pytest.raises(UnsafeURLError, match=fragment),
+        ):
+            SafeHTTPClient.get("https://example.com/api")
+
+    def test_allow_private_still_blocks_imds_on_rebind(self) -> None:
+        """``allow_private=True`` lets RFC1918 through, but IMDS still blocks."""
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("169.254.169.254")],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            pytest.raises(UnsafeURLError, match="always-blocked"),
+        ):
+            SafeHTTPClient.get(
+                "https://internal.example/api",
+                user_configured=True,
+                allow_private=True,
+            )
+
+    def test_allow_private_accepts_rfc1918_on_rebind(self) -> None:
+        """``allow_private=True`` should let RFC1918 through on rebind too."""
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        fake_session = MagicMock()
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_session.request = MagicMock(return_value=fake_response)
+        fake_session.mount = MagicMock()
+        fake_session.close = MagicMock()
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("10.0.0.5")],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            patch("requests.Session", return_value=fake_session),
+        ):
+            response = SafeHTTPClient.get(
+                "https://internal.example/api",
+                user_configured=True,
+                allow_private=True,
+            )
+        assert response is fake_response
+
+
 class TestRedirectRejection:
     """3xx responses must surface as UnsafeURLError with the Location header.
 

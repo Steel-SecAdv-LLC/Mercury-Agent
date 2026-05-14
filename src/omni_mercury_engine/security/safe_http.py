@@ -510,15 +510,26 @@ class SafeHTTPClient:
         host = parsed.hostname or ""
         resolved_ips = _resolve_ips(host)
 
-        # Re-check policy. ``validate_url`` only resolves when its
-        # ``needs_ip_gate`` predicate fires; here we ALWAYS resolve
-        # so a trusted-allowlist host whose DNS now returns IMDS
-        # cannot slip through. The class-of-blocks applied here is
-        # narrower than ``validate_url``'s -- we only refuse the
-        # always-blocked set (IMDS, loopback for non-loopback-only
-        # callers, multicast, reserved, CGNAT) so trusted public
-        # hosts that happen to resolve to a routable public IP
-        # still go through.
+        # Re-check policy at request time.  ``validate_url`` only
+        # resolves when its ``needs_ip_gate`` predicate fires; here we
+        # ALWAYS resolve so a hostname whose DNS now returns a private
+        # / IMDS address cannot slip through.  The class of blocks we
+        # apply mirrors ``validate_url`` exactly so the DNS-rebinding
+        # fix does not leave a weaker policy than the pre-flight check:
+        #
+        #   * ``loopback_only``         -> only 127/8 or ::1 acceptable
+        #   * ``allow_private=True``    -> RFC1918 OK, always-blocked
+        #                                  set (IMDS / loopback /
+        #                                  multicast / reserved / CGNAT)
+        #                                  still refused
+        #   * default                   -> private/IMDS/CGNAT/loopback
+        #                                  all refused
+        #
+        # Trusted-allowlist class-constant URLs use the default branch
+        # (loopback_only=False, allow_private=False); a public host that
+        # rebinds to RFC1918 between validation and request is caught
+        # by the ``_is_private_or_imds`` filter, not just by the
+        # always-blocked subset.
         if loopback_only:
             non_lo = [str(ip) for ip in resolved_ips if not _is_loopback(ip)]
             if non_lo:
@@ -526,21 +537,41 @@ class SafeHTTPClient:
                     f"SafeHTTPClient: host '{host}' resolved to non-loopback "
                     f"IPs {non_lo} at request time; loopback_only=True refuses."
                 )
-        else:
+        elif allow_private:
             bad = [str(ip) for ip in resolved_ips if _is_always_blocked(ip)]
             if bad:
                 raise UnsafeURLError(
                     f"SafeHTTPClient: host '{host}' resolved to "
                     f"always-blocked address(es) {bad} at request time. This "
                     "is a DNS-rebinding signature (different answer between "
-                    "validation and request); refusing connection."
+                    "validation and request); refusing connection. "
+                    "allow_private=True does NOT open the IMDS / loopback / "
+                    "multicast / reserved / CGNAT ranges."
                 )
-
-        pinned_ip = str(resolved_ips[0])
+        else:
+            bad = [str(ip) for ip in resolved_ips if _is_private_or_imds(ip)]
+            if bad:
+                raise UnsafeURLError(
+                    f"SafeHTTPClient: host '{host}' resolved to "
+                    f"private/link-local/IMDS/CGNAT address(es) {bad} at "
+                    "request time. This is a DNS-rebinding signature "
+                    "(different answer between validation and request); "
+                    "refusing SSRF pivot."
+                )
 
         request_headers: dict[str, str] = {"User-Agent": _DEFAULT_USER_AGENT}
         if headers:
             request_headers.update(headers)
+        # Force the HTTP ``Host`` header to the original hostname.
+        # urllib3 derives ``Host`` from the connection pool's host
+        # field; since the pinned adapter sets that to the IP, virtual-
+        # hosted upstreams would receive ``Host: <ip>`` and either
+        # serve the wrong vhost or return 400.  Setting the header
+        # explicitly (urllib3 honours caller-supplied ``Host`` and
+        # skips synthesising one) keeps HTTP-level routing correct
+        # even though TCP is pinned by IP.
+        request_headers.setdefault("Host", host)
+
         # Deferred import: ``requests`` is a core dependency for any
         # caller that actually issues a network request, but it is
         # *not* a dependency of the security package's import surface.
@@ -553,24 +584,58 @@ class SafeHTTPClient:
         # with HTTP. Importing here keeps ``safe_load`` resilient.
         import requests
 
-        session = requests.Session()
-        adapter = _PinnedDNSHTTPAdapter.build(host, pinned_ip)
-        # Mount for both schemes; the adapter inspects the URL to
-        # decide which urllib3 connection pool flavour to use.
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
+        # Try each validated IP in order.  Pinning to a single IP
+        # closes the DNS-rebinding window; iterating the list
+        # preserves the multi-IP resilience the stdlib socket layer
+        # would have given us if we had not pinned. ``last_exc`` is
+        # re-raised if every validated IP is unreachable so the
+        # operator sees a real connection error, not a confusing
+        # silent failure.
+        last_exc: Exception | None = None
+        response = None
+        for candidate_ip in resolved_ips:
+            session = requests.Session()
+            adapter = _PinnedDNSHTTPAdapter.build(host, str(candidate_ip))
+            # Mount for both schemes; the adapter inspects the URL to
+            # decide which urllib3 connection pool flavour to use.
+            session.mount("https://", adapter)
+            session.mount("http://", adapter)
 
-        response = session.request(
-            method,
-            url,
-            params=params,
-            json=json_body,
-            data=data,
-            headers=request_headers,
-            timeout=timeout,
-            stream=stream,
-            allow_redirects=False,
-        )
+            try:
+                response = session.request(
+                    method,
+                    url,
+                    params=params,
+                    json=json_body,
+                    data=data,
+                    headers=request_headers,
+                    timeout=timeout,
+                    stream=stream,
+                    allow_redirects=False,
+                )
+                break
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                last_exc = exc
+                logger.debug(
+                    "SafeHTTPClient: pinned-IP %s failed (%s); trying next.",
+                    candidate_ip,
+                    exc,
+                )
+                session.close()
+                continue
+        if response is None:
+            if last_exc is None:
+                # The loop runs at least once because _resolve_ips
+                # raises rather than returning an empty list, so every
+                # iteration either assigns response or last_exc. This
+                # branch is therefore unreachable; surface it as an
+                # explicit RuntimeError so a future regression fails
+                # loudly instead of falling through with response=None.
+                raise RuntimeError(
+                    f"SafeHTTPClient: exhausted all validated IPs for '{host}' "
+                    "without recording an exception (loop invariant violated)."
+                )
+            raise last_exc
         # Reject 3xx explicitly.  ``allow_redirects=False`` blocks
         # ``requests`` from following the redirect, but
         # ``raise_for_status()`` only fires on 4xx/5xx, so without this

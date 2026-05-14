@@ -178,9 +178,10 @@ class ADBenchLoader(DatasetLoader):
         logger.info("Downloading ADBench %s from %s", self._dataset_name, url)
 
         try:
-            # ADBench resolves to raw.githubusercontent.com after one redirect.
-            # Benchmark runs walk all 47 catalog entries back-to-back, which
-            # routinely trips GitHub's anonymous rate limit; retry on 429/5xx.
+            # ``ADBENCH_BASE`` is pinned to ``raw.githubusercontent.com``
+            # so no redirect is involved. Benchmark runs walk all 47
+            # catalog entries back-to-back, which routinely trips
+            # GitHub's anonymous rate limit; retry on 429/5xx.
             content = http_get_with_retry(url, timeout=120)
 
             # Verify we got a valid NPZ

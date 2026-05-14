@@ -116,13 +116,22 @@ class HFModelPolicy:
         Args:
             model_id: HuggingFace Hub identifier or an absolute
                 local path.
-            revision: Revision (commit SHA, tag, or branch).
-                Required for Hub IDs; ignored for local paths.
+            revision: 40-character lowercase git commit SHA. Required
+                for Hub IDs; ignored for local paths. Branch names
+                and tag names are NOT accepted -- HuggingFace Hub
+                does not enforce tag immutability and any moving
+                reference defeats the supply-chain guarantee this
+                gate provides (CWE-494). Resolve a branch or tag to
+                a SHA via ``HfApi.list_repo_commits(repo_id,
+                revision=ref)[0].commit_id`` before passing it here.
             allowlist: If supplied, the model id must appear here
                 for the load to proceed.  Use for downstream
                 callers that want to restrict which HF repos a
                 given subsystem may touch (e.g. VLM detectors
                 allowlist their model id at the top of the file).
+                Absolute local paths bypass this allowlist (they
+                are operator-trusted by their absolute form); the
+                allowlist is only consulted for Hub identifiers.
             trust_remote_code: If True, the model id must be in
                 ``allowlist`` (so the operator has explicitly
                 acknowledged that this repo is permitted to ship

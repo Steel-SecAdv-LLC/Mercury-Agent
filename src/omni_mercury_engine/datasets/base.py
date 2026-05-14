@@ -407,8 +407,23 @@ class DatasetLoader(ABC):
             # can rebuild the cache (delete the file and re-run) or
             # convert the legacy artefact via
             # ``python -m omni_mercury_engine.tools.migrate_pkl``.
+            #
+            # IMPORTANT: ``np.load`` on a ``.npz`` archive returns a
+            # lazy ``NpzFile`` and only raises ``ValueError`` when an
+            # object-dtype member is *accessed*. Wrapping only the
+            # ``np.load`` call therefore lets a pickled cache slip past
+            # this gate and surface as a raw NumPy traceback further
+            # down. We materialise every member we will read inside the
+            # same try block so the operator-actionable RuntimeError
+            # fires at the boundary, not deep in numpy.
             try:
                 cached = np.load(cache_file, allow_pickle=False)
+                train_features = cached["train_features"]
+                val_features = cached["val_features"]
+                test_features = cached["test_features"]
+                train_labels = cached["train_labels"]
+                val_labels = cached["val_labels"]
+                test_labels = cached["test_labels"]
             except ValueError as exc:
                 raise RuntimeError(
                     f"Refusing to load legacy cache '{cache_file}' that requires "
@@ -416,14 +431,14 @@ class DatasetLoader(ABC):
                     "tools/migrate_pkl.py to convert it offline."
                 ) from exc
             self._data = {
-                DatasetSplit.TRAIN: cached["train_features"],
-                DatasetSplit.VALIDATION: cached["val_features"],
-                DatasetSplit.TEST: cached["test_features"],
+                DatasetSplit.TRAIN: train_features,
+                DatasetSplit.VALIDATION: val_features,
+                DatasetSplit.TEST: test_features,
             }
             self._labels = {
-                DatasetSplit.TRAIN: cached["train_labels"],
-                DatasetSplit.VALIDATION: cached["val_labels"],
-                DatasetSplit.TEST: cached["test_labels"],
+                DatasetSplit.TRAIN: train_labels,
+                DatasetSplit.VALIDATION: val_labels,
+                DatasetSplit.TEST: test_labels,
             }
             self._is_loaded = True
             return

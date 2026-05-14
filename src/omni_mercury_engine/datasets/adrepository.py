@@ -552,6 +552,15 @@ class ADRepositoryLoader(DatasetLoader):
                     f"(real_data={self._is_real_data})"
                 )
 
+        except RuntimeError:
+            # Operator-actionable refusal (legacy pickle in external
+            # .npz). Re-raise so the synthetic-fallback path below
+            # cannot mask the security gate by silently downgrading the
+            # load to generated data. ``RuntimeError`` is the type
+            # ``_load_from_file`` raises for pickle refusal; if a
+            # future code path uses a different exception, add it
+            # here too.
+            raise
         except Exception as e:
             logger.error(f"Failed to load {path}: {e}")
             self._create_synthetic_fallback()
