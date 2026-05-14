@@ -867,7 +867,7 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
 
     # Subclasses override.
     _DEFAULT_BASE_URL: str | None = None
-    _API_KEY_ENV: str = ""
+    _PROVIDER_ENV_VAR: str = ""
     _DEFAULT_MODEL: str = ""
     _PROVIDER_LABEL: str = ""
     # Some providers require operator-supplied base_url (no public
@@ -879,7 +879,7 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
         """Initialize OpenAI-compatible cloud adapter."""
         super().__init__(config)
 
-        self.api_key = config.api_key or os.environ.get(self._API_KEY_ENV)
+        self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
         self.model = config.model_name or self._DEFAULT_MODEL
 
@@ -893,7 +893,7 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
             logger.warning(
                 "%s API key not found (set %s or LLMConfig.api_key).",
                 self._PROVIDER_LABEL,
-                self._API_KEY_ENV,
+                self._PROVIDER_ENV_VAR,
             )
             self._is_available = False
         elif not self.base_url:
@@ -962,7 +962,7 @@ class XAIGrokAdapter(_OpenAICompatibleCloudAdapter):
     """xAI Grok cloud adapter (api.x.ai, OpenAI-compatible)."""
 
     _DEFAULT_BASE_URL = "https://api.x.ai/v1"
-    _API_KEY_ENV = "XAI_API_KEY"
+    _PROVIDER_ENV_VAR = "XAI_API_KEY"
     _DEFAULT_MODEL = "grok-2-latest"
     _PROVIDER_LABEL = "xAI"
 
@@ -971,7 +971,7 @@ class DeepSeekAdapter(_OpenAICompatibleCloudAdapter):
     """DeepSeek cloud adapter (api.deepseek.com, OpenAI-compatible)."""
 
     _DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
-    _API_KEY_ENV = "DEEPSEEK_API_KEY"
+    _PROVIDER_ENV_VAR = "DEEPSEEK_API_KEY"
     _DEFAULT_MODEL = "deepseek-chat"
     _PROVIDER_LABEL = "DeepSeek"
 
@@ -987,7 +987,7 @@ class CursorAdapter(_OpenAICompatibleCloudAdapter):
     """
 
     _DEFAULT_BASE_URL = None
-    _API_KEY_ENV = "CURSOR_API_KEY"
+    _PROVIDER_ENV_VAR = "CURSOR_API_KEY"
     _DEFAULT_MODEL = "cursor-small"
     _PROVIDER_LABEL = "Cursor"
     _REQUIRE_EXPLICIT_BASE_URL = True
@@ -997,12 +997,12 @@ class CohereCloudAdapter(BaseLLMAdapter):
     """Cohere Chat v2 cloud adapter (api.cohere.com)."""
 
     _DEFAULT_BASE_URL = "https://api.cohere.com"
-    _API_KEY_ENV = "COHERE_API_KEY"
+    _PROVIDER_ENV_VAR = "COHERE_API_KEY"
     _DEFAULT_MODEL = "command-r-plus"
 
     def __init__(self, config: LLMConfig):
         super().__init__(config)
-        self.api_key = config.api_key or os.environ.get(self._API_KEY_ENV)
+        self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
         self.model = config.model_name or self._DEFAULT_MODEL
         self._is_available = bool(self.api_key)
@@ -1080,12 +1080,12 @@ class GeminiCloudAdapter(BaseLLMAdapter):
     """
 
     _DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-    _API_KEY_ENV = "GEMINI_API_KEY"
+    _PROVIDER_ENV_VAR = "GEMINI_API_KEY"
     _DEFAULT_MODEL = "gemini-2.5-flash"
 
     def __init__(self, config: LLMConfig):
         super().__init__(config)
-        self.api_key = config.api_key or os.environ.get(self._API_KEY_ENV)
+        self.api_key = config.api_key or os.environ.get(self._PROVIDER_ENV_VAR)
         self.base_url = config.base_url or self._DEFAULT_BASE_URL
         self.model = config.model_name or self._DEFAULT_MODEL
         self._is_available = bool(self.api_key)

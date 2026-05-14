@@ -181,10 +181,13 @@ class TestAdaptersPropagateUnsafeURLError:
     def test_unsafe_url_error_propagates(self, cls, provider) -> None:
         """Each adapter re-raises ``UnsafeURLError`` instead of returning a string."""
         adapter = cls(LLMConfig(provider=provider, api_key="k", model_name="m"))
-        with patch(
-            "omni_mercury_engine.models.foundation.ollama_adapter.SafeHTTPClient.post_json",
-            side_effect=UnsafeURLError("test-ssrf"),
-        ), pytest.raises(UnsafeURLError):
+        with (
+            patch(
+                "omni_mercury_engine.models.foundation.ollama_adapter.SafeHTTPClient.post_json",
+                side_effect=UnsafeURLError("test-ssrf"),
+            ),
+            pytest.raises(UnsafeURLError),
+        ):
             adapter.generate("hi")
 
 
