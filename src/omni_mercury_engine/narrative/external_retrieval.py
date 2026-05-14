@@ -373,6 +373,11 @@ class WebSearchRetriever(BaseExternalRetriever):
                         )
                     )
 
+        except UnsafeURLError:
+            # SSRF / config refusal from SafeHTTPClient. Surface so the
+            # operator sees the real misconfiguration instead of a
+            # silent empty result list.
+            raise
         except Exception as e:
             logger.debug(f"DuckDuckGo search failed: {e}")
 
@@ -428,6 +433,11 @@ class WebSearchRetriever(BaseExternalRetriever):
                     )
                 )
 
+        except UnsafeURLError:
+            # SSRF / config refusal -- an operator-misconfigured
+            # ``searxng_url`` (RFC1918+disallowed flags, IMDS, wrong
+            # scheme, ...) MUST surface, not collapse into "no results".
+            raise
         except Exception as e:
             logger.debug(f"SearXNG search failed: {e}")
 
@@ -454,9 +464,15 @@ class WebSearchRetriever(BaseExternalRetriever):
                 user_configured=True,
             ).close()
             self._is_available = True
-        except (OSError, requests.RequestException, UnsafeURLError, TimeoutError):
-            # Network or service unavailable; mark as unavailable
+        except (OSError, requests.RequestException, TimeoutError):
+            # Network or service unavailable -- a real transient
+            # condition; mark unavailable and let the offline path run.
             self._is_available = False
+        # ``UnsafeURLError`` is NOT in the suppressed set: a gated
+        # refusal on a hardcoded endpoint (``api.duckduckgo.com``) is
+        # a DNS-rebinding / config signature, not a transient probe
+        # failure. Surfacing it lets the operator see what went wrong
+        # rather than silently downgrading every search to "offline".
 
         return self._is_available
 

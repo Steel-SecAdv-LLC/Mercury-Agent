@@ -636,6 +636,17 @@ class TrustedEndpoints:
             "ghoapi.azureedge.net",  # WHO Global Health Observatory
             "www.who.int",  # WHO Emergencies hub (pandemic loader)
             "maps.nccs.nasa.gov",  # NASA COOLR (landslide catalog)
+            # UCR Time Series Archive (per-dataset mirror).  Hosted by
+            # the time-series classification consortium that publishes
+            # the UCR/UEA archive; used by ``datasets/ucr_archive.py``
+            # for per-dataset downloads alongside the full-archive UCR
+            # site.  Plain HTTP not required (HTTPS works).
+            "www.timeseriesclassification.com",
+            # CWRU Bearing Data Center (vibration / fault-diagnosis
+            # benchmark).  Hosted on the Case Western Reserve University
+            # engineering domain; used by ``datasets/ucr_archive.py``
+            # MBA/CWRU loader.
+            "engineering.case.edu",
         }
     )
 

@@ -267,7 +267,7 @@ class _PinnedDNSHTTPAdapter:
         connects to ``validated_ip`` (the pre-vetted address) while
         TLS SNI and certificate verification still use ``hostname``
         (the operator-meaningful name on the cert). The result: DNS
-        cannot be rebinded between the SafeHTTPClient validation
+        cannot be rebound between the SafeHTTPClient validation
         step and the actual TCP connect, because the second DNS
         lookup that ``requests`` would otherwise do never happens.
 
@@ -568,15 +568,28 @@ class SafeHTTPClient:
         request_headers: dict[str, str] = {"User-Agent": _DEFAULT_USER_AGENT}
         if headers:
             request_headers.update(headers)
-        # Force the HTTP ``Host`` header to the original hostname.
+        # Force the HTTP ``Host`` header to the original hostname+port.
         # urllib3 derives ``Host`` from the connection pool's host
         # field; since the pinned adapter sets that to the IP, virtual-
         # hosted upstreams would receive ``Host: <ip>`` and either
         # serve the wrong vhost or return 400.  Setting the header
         # explicitly (urllib3 honours caller-supplied ``Host`` and
         # skips synthesising one) keeps HTTP-level routing correct
-        # even though TCP is pinned by IP.
-        request_headers.setdefault("Host", host)
+        # even though TCP is pinned by IP.  The port must be preserved
+        # for non-default ports (e.g. ``http://localhost:11434`` for
+        # Ollama, or any reverse-proxied service on a non-80/443 port);
+        # dropping the port produces ``Host: localhost`` which routes
+        # to the wrong upstream on a multi-tenant proxy.  The port is
+        # omitted only when it matches the scheme default (80/http,
+        # 443/https) so virtual-hosted endpoints that key off the bare
+        # hostname continue to work.
+        explicit_port = parsed.port
+        scheme_default_port = 443 if parsed.scheme == "https" else 80
+        if explicit_port is None or explicit_port == scheme_default_port:
+            host_header_value = host
+        else:
+            host_header_value = f"{host}:{explicit_port}"
+        request_headers.setdefault("Host", host_header_value)
 
         # Deferred import: ``requests`` is a core dependency for any
         # caller that actually issues a network request, but it is

@@ -403,13 +403,27 @@ class TestLVLMBackendCache:
         assert isinstance(cache, LVLMBackendCache)
 
     def test_cache_key_generation(self) -> None:
-        """Test cache key generation."""
+        """Test cache key generation.
+
+        The cache key includes a revision suffix so two requests for
+        the same model id at different commit SHAs produce distinct
+        cache entries -- a missing revision is rendered as ``@none``
+        rather than the empty string so a local-path load and an
+        accidentally-empty Hub pin do not collide.
+        """
         cache = LVLMBackendCache()
         key = cache._cache_key("mock", "test-model")
-        assert key == "mock:test-model"
+        assert key == "mock:test-model@none"
 
         key_default = cache._cache_key("mock", None)
-        assert key_default == "mock:mock"
+        assert key_default == "mock:mock@none"
+
+        key_pinned = cache._cache_key("mock", "test-model", "a" * 40)
+        assert key_pinned == f"mock:test-model@{'a' * 40}"
+
+        # Distinct revisions MUST produce distinct keys.
+        key_other = cache._cache_key("mock", "test-model", "b" * 40)
+        assert key_pinned != key_other
 
     @patch("omni_mercury_engine.detectors.vlm.lvlm_cache.get_lvlm_backend")
     def test_get_creates_and_caches(self, mock_get_backend: MagicMock) -> None:

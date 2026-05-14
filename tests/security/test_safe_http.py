@@ -499,6 +499,97 @@ class TestRedirectRejection:
             SafeHTTPClient.get("https://example.com/path")
 
 
+class TestHostHeaderPreservesPort:
+    """``Host`` header MUST carry the explicit port for non-default-port URLs.
+
+    urllib3 derives ``Host`` from the connection-pool host, which the
+    pinned adapter sets to the IP literal; we set the header explicitly
+    so virtual-hosted upstreams see the real hostname.  For services on
+    non-default ports (e.g. ``http://localhost:11434`` Ollama,
+    ``http://searxng:8888``, etc.) dropping the port produced
+    ``Host: localhost`` and routed traffic to whatever vhost happened
+    to be default on the IP -- the wrong upstream.
+    """
+
+    @staticmethod
+    def _200_response() -> object:
+        from unittest.mock import MagicMock
+
+        response = MagicMock()
+        response.status_code = 200
+        response.headers = {}
+        response.raise_for_status = MagicMock()
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
+        return response
+
+    def _run(self, url: str, *, loopback_only: bool = False) -> dict[str, str]:
+        """Issue a gated request and return the Host header that went out.
+
+        Loopback URLs use ``127.0.0.1`` so the loopback gate passes;
+        non-loopback URLs use a public IP literal (``93.184.216.34``,
+        example.com) so the private/IMDS gate does not fire.
+        """
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        resolved_ip = "127.0.0.1" if loopback_only else "93.184.216.34"
+        fake_session = MagicMock()
+        fake_session.request = MagicMock(return_value=self._200_response())
+        fake_session.mount = MagicMock()
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address(resolved_ip)],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http.TrustedEndpoints.validate_url_host",
+                return_value=True,
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            patch("requests.Session", return_value=fake_session),
+        ):
+            SafeHTTPClient.get(
+                url,
+                allow_http=True,
+                user_configured=loopback_only,
+                allow_untrusted=False,
+                loopback_only=loopback_only,
+            )
+
+        called_headers = fake_session.request.call_args.kwargs["headers"]
+        return called_headers
+
+    def test_non_default_port_preserved_in_host_header(self) -> None:
+        """``http://localhost:11434`` -> ``Host: localhost:11434``."""
+        headers = self._run("http://localhost:11434/api/tags", loopback_only=True)
+        assert headers["Host"] == "localhost:11434"
+
+    def test_default_http_port_omitted_from_host_header(self) -> None:
+        """``http://example.com:80`` -> ``Host: example.com`` (default-port drop)."""
+        headers = self._run("http://example.com:80/path")
+        assert headers["Host"] == "example.com"
+
+    def test_default_https_port_omitted_from_host_header(self) -> None:
+        """``https://example.com:443`` -> ``Host: example.com`` (default-port drop)."""
+        headers = self._run("https://example.com:443/path")
+        assert headers["Host"] == "example.com"
+
+    def test_no_port_in_url_yields_bare_hostname(self) -> None:
+        """``https://example.com/path`` -> ``Host: example.com`` (no port present)."""
+        headers = self._run("https://example.com/path")
+        assert headers["Host"] == "example.com"
+
+    def test_non_default_https_port_preserved(self) -> None:
+        """``https://example.com:8443`` -> ``Host: example.com:8443``."""
+        headers = self._run("https://example.com:8443/path")
+        assert headers["Host"] == "example.com:8443"
+
+
 class TestCGNATBlocked:
     """RFC 6598 shared CGNAT space (100.64.0.0/10) must not pass the SSRF gate.
 

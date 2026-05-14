@@ -925,6 +925,12 @@ class RedisCache:
 
         Returns:
             Dictionary mapping keys to values.
+
+        Raises:
+            json.JSONDecodeError: Any stored payload is not valid JSON.
+                Matches the ``get`` contract so bulk reads cannot
+                silently swallow a corrupted entry that the single-key
+                path surfaces loudly.
         """
         self._call_count += 1
 
@@ -937,14 +943,19 @@ class RedisCache:
         try:
             full_keys = [self._make_key(k) for k in keys]
             values = await self._client.mget(full_keys)
-            return {keys[i]: self._deserialize(v) for i, v in enumerate(values)}
         except Exception as e:
+            # Connectivity / Redis-side failure: stay quiet and fall
+            # back, mirroring ``get``. JSON deserialisation runs after
+            # this block so a corrupted payload (``JSONDecodeError``)
+            # surfaces as the same contract violation it does for
+            # ``get`` instead of being silently masked by the stub.
             self._errors += 1
             logger.warning(f"Redis mget error: {e}")
             if self.fallback_to_stub:
                 self._fallback_count += 1
                 return await self._stub.mget(keys)
             return dict.fromkeys(keys)
+        return {keys[i]: self._deserialize(v) for i, v in enumerate(values)}
 
     async def mset(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
         """

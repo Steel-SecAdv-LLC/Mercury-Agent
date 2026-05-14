@@ -38,7 +38,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from omni_mercury_engine.security.model_policy import SafeHFLoader
+from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,12 @@ class LLMProvider(StrEnum):
     LOCAL = "local"
     MOCK = "mock"  # For testing
     TEMPLATE = "template"  # Fallback template-based responses
+    # Additional cloud providers (Omnidirectional LLM coverage):
+    XAI = "xai"  # xAI Grok (api.x.ai, OpenAI-compatible)
+    GEMINI = "gemini"  # Google Gemini (generativelanguage.googleapis.com)
+    COHERE = "cohere"  # Cohere Chat v2 (api.cohere.com)
+    DEEPSEEK = "deepseek"  # DeepSeek (api.deepseek.com, OpenAI-compatible)
+    CURSOR = "cursor"  # Cursor (operator-supplied base_url, OpenAI-compatible)
 
 
 @dataclass
@@ -327,15 +333,20 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
             PurePosixPath(model_name).is_absolute() or PureWindowsPath(model_name).is_absolute()
         )
 
-        # Require revision for remote models (supply chain security)
+        # Require revision for remote models (supply chain security).
+        # Raise rather than silently degrade: ``generate()`` would
+        # otherwise return a fake "unavailable" JSON stub on the very
+        # first call, hiding the misconfiguration. Operators need to
+        # see the actionable error so they can pin a SHA or switch to
+        # a local path.
         if not is_local_path and not self.config.revision:
-            logger.warning(
-                f"HuggingFace model '{self.config.model_name}' requested without revision pinning. "
-                "For supply chain security (CWE-494), set config.revision to a specific commit SHA. "
-                "Adapter will be marked as unavailable."
+            raise UnsafeModelError(
+                f"HuggingFace model '{self.config.model_name}' requires a "
+                "revision pin (40-char commit SHA) for supply-chain "
+                "security (CWE-494). Set config.revision to a verified SHA "
+                "or use an absolute local path; mutable branch/tag refs "
+                "are not accepted."
             )
-            self._is_available = False
-            return
 
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -361,6 +372,12 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
             logger.info(
                 f"Loaded HuggingFace model: {self.config.model_name} (revision: {revision})"
             )
+        except UnsafeModelError:
+            # SafeHFLoader refusal -- propagate as-is so the operator
+            # sees the actionable policy error rather than a generic
+            # "model unavailable" stub.
+            self._is_available = False
+            raise
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             self._is_available = False

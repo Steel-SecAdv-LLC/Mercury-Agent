@@ -49,7 +49,7 @@ from omni_mercury_engine.models.foundation.llm_adapter import (
     LLMConfig,
     LLMProvider,
 )
-from omni_mercury_engine.security.safe_http import SafeHTTPClient
+from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
 logger = logging.getLogger(__name__)
 
@@ -237,7 +237,17 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             self._is_available = False
 
     def _verify_model_available(self) -> bool:
-        """Verify the configured model is available in Ollama."""
+        """Verify the configured model is available in Ollama.
+
+        Returns ``False`` (and logs) when the configured model is not
+        installed in the local Ollama server. We do NOT silently swap
+        in the first available model -- that would route prompts
+        through a completely different model than the operator
+        configured, defeating the deliberate offline-deployment
+        guarantee. The fallback chain handles model-unavailability
+        explicitly (Ollama -> cloud -> template); this method's job
+        is only to report the truth so that chain runs.
+        """
         try:
             # Ollama runs on the local box; loopback_only enforces
             # that fact (an operator who points Ollama at a remote
@@ -262,21 +272,36 @@ class OllamaLLMAdapter(BaseLLMAdapter):
 
             if not model_available:
                 logger.warning(
-                    f"Model '{self.ollama_config.model}' not found. "
-                    f"Available: {available_models}"
+                    "Configured Ollama model %r is not installed on the "
+                    "server. Available: %s. Refusing to silently switch -- "
+                    "marking adapter unavailable so the fallback chain can "
+                    "route through cloud / template adapters explicitly. "
+                    "Install the model with `ollama pull %s` or update the "
+                    "configured model name.",
+                    self.ollama_config.model,
+                    available_models,
+                    self.ollama_config.model,
                 )
-                # Try to fall back to first available model
-                if available_models:
-                    self.ollama_config.model = available_models[0]
-                    logger.info(f"Falling back to model: {available_models[0]}")
-                    return True
+                return False
 
             return model_available
 
+        except UnsafeURLError:
+            # The configured Ollama URL was refused by the SafeHTTPClient
+            # gate (e.g. operator pointed OLLAMA_HOST at a non-loopback
+            # or RFC1918/IMDS address). This is an operator-actionable
+            # config error, not a transient probe failure; let it
+            # propagate so startup fails loudly instead of pretending
+            # Ollama is available.
+            raise
         except Exception as e:
             logger.debug(f"Model verification failed: {e}")
-            # Optimistically assume model is available if we can't verify
-            return True
+            # Network probe failed (Ollama server unreachable, JSON
+            # malformed, etc.). Mark unavailable so the fallback chain
+            # routes elsewhere -- silently claiming availability would
+            # surface as a failed generate() call later, after which
+            # the chain cannot recover the request.
+            return False
 
     def generate(self, prompt: str, system_prompt: str | None = None) -> str:
         """
@@ -321,6 +346,11 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             )
             return str(result.get("response", ""))
 
+        except UnsafeURLError:
+            # SSRF / config refusal. Surface so the operator sees the
+            # real misconfiguration instead of a fake "unavailable"
+            # JSON stub.
+            raise
         except Exception as e:
             logger.error(f"Ollama generation failed: {e}")
             return self._unavailable_response()
@@ -371,6 +401,11 @@ class OllamaLLMAdapter(BaseLLMAdapter):
             )
             return str(result.get("message", {}).get("content", ""))
 
+        except UnsafeURLError:
+            # SSRF / config refusal. Surface so the operator sees the
+            # real misconfiguration instead of a fake "unavailable"
+            # JSON stub.
+            raise
         except Exception as e:
             logger.error(f"Ollama chat generation failed: {e}")
             return self._unavailable_response()
@@ -611,6 +646,11 @@ class OpenAICloudAdapter(BaseLLMAdapter):
             )
             return str(data["choices"][0]["message"]["content"])
 
+        except UnsafeURLError:
+            # The configured ``base_url`` was refused (SSRF gate, scheme,
+            # IMDS, etc.). Operator-actionable config error -- surface
+            # it rather than returning a fake "API error" string.
+            raise
         except requests.HTTPError as e:
             try:
                 err_payload = e.response.json() if e.response is not None else {}
@@ -695,6 +735,11 @@ class AnthropicCloudAdapter(BaseLLMAdapter):
                 return str(content[0].get("text", ""))
             return ""
 
+        except UnsafeURLError:
+            # See OpenAICloudAdapter.generate -- the same config-error
+            # contract applies; refuse to mask an SSRF / config gate as
+            # a transient "API error" string.
+            raise
         except requests.HTTPError as e:
             try:
                 err_payload = e.response.json() if e.response is not None else {}
@@ -780,6 +825,11 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
                 return str(data[0].get("generated_text", ""))
             return str(data)
 
+        except UnsafeURLError:
+            # See OpenAICloudAdapter.generate -- the same config-error
+            # contract applies; refuse to mask an SSRF / config gate as
+            # a transient "API error" string.
+            raise
         except requests.HTTPError as e:
             try:
                 err_payload = e.response.json() if e.response is not None else {}
@@ -798,6 +848,309 @@ class HuggingFaceCloudAdapter(BaseLLMAdapter):
 
     def is_available(self) -> bool:
         """Check if HuggingFace adapter is available."""
+        return self._is_available
+
+
+class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
+    """Shared base for OpenAI-compatible Chat Completions adapters.
+
+    xAI (Grok), DeepSeek, and Cursor all expose the OpenAI Chat
+    Completions wire format (``/chat/completions`` accepting
+    ``{"model": ..., "messages": [...]}``); the only meaningful
+    differences are the default ``base_url``, the env-var name for
+    the API key, and the provider label that shows up in error
+    messages and logs.  Centralising the request / response handling
+    here keeps the SSRF gate behaviour (every call passes
+    ``user_configured=True``) consistent across providers and
+    prevents a future drift where one adapter forgets the gate.
+    """
+
+    # Subclasses override.
+    _DEFAULT_BASE_URL: str | None = None
+    _API_KEY_ENV: str = ""
+    _DEFAULT_MODEL: str = ""
+    _PROVIDER_LABEL: str = ""
+    # Some providers require operator-supplied base_url (no public
+    # default endpoint).  When True and ``config.base_url`` is unset,
+    # the adapter marks itself unavailable rather than guessing.
+    _REQUIRE_EXPLICIT_BASE_URL: bool = False
+
+    def __init__(self, config: LLMConfig):
+        """Initialize OpenAI-compatible cloud adapter."""
+        super().__init__(config)
+
+        self.api_key = config.api_key or os.environ.get(self._API_KEY_ENV)
+        self.base_url = config.base_url or self._DEFAULT_BASE_URL
+        self.model = config.model_name or self._DEFAULT_MODEL
+
+        if self._REQUIRE_EXPLICIT_BASE_URL and not config.base_url:
+            logger.warning(
+                "%s adapter requires an explicit base_url; none provided.",
+                self._PROVIDER_LABEL,
+            )
+            self._is_available = False
+        elif not self.api_key:
+            logger.warning(
+                "%s API key not found (set %s or LLMConfig.api_key).",
+                self._PROVIDER_LABEL,
+                self._API_KEY_ENV,
+            )
+            self._is_available = False
+        elif not self.base_url:
+            logger.warning("%s base URL not configured.", self._PROVIDER_LABEL)
+            self._is_available = False
+        else:
+            self._is_available = True
+
+    def generate(self, prompt: str, system_prompt: str | None = None) -> str:
+        """Generate text via the OpenAI-compatible Chat Completions API."""
+        if not self._is_available:
+            return f"{self._PROVIDER_LABEL} adapter not available - API key / base_url required"
+
+        try:
+            messages: list[dict[str, str]] = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
+            assert self.base_url is not None  # narrowed by _is_available
+            data = SafeHTTPClient.post_json(
+                f"{self.base_url.rstrip('/')}/chat/completions",
+                json_body={
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": self.config.temperature,
+                    "max_tokens": self.config.max_tokens,
+                },
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                },
+                timeout=self.config.timeout,
+                user_configured=True,
+            )
+            return str(data["choices"][0]["message"]["content"])
+
+        except UnsafeURLError:
+            # Operator-misconfigured base_url (SSRF gate, scheme, IMDS,
+            # ...). Surface so config errors are loud and actionable.
+            raise
+        except requests.HTTPError as e:
+            try:
+                err_payload = e.response.json() if e.response is not None else {}
+            except ValueError:
+                err_payload = {}
+            error_obj = err_payload.get("error") if isinstance(err_payload, dict) else None
+            if isinstance(error_obj, dict):
+                error_msg = error_obj.get("message", "Unknown error")
+            elif isinstance(error_obj, str):
+                error_msg = error_obj
+            else:
+                error_msg = "Unknown error"
+            logger.error(f"{self._PROVIDER_LABEL} API error: {error_msg}")
+            return f"API error: {error_msg}"
+        except Exception as e:
+            logger.error(f"{self._PROVIDER_LABEL} request failed: {e}")
+            return f"Request failed: {e}"
+
+    def is_available(self) -> bool:
+        """Check if adapter is available."""
+        return self._is_available
+
+
+class XAIGrokAdapter(_OpenAICompatibleCloudAdapter):
+    """xAI Grok cloud adapter (api.x.ai, OpenAI-compatible)."""
+
+    _DEFAULT_BASE_URL = "https://api.x.ai/v1"
+    _API_KEY_ENV = "XAI_API_KEY"
+    _DEFAULT_MODEL = "grok-2-latest"
+    _PROVIDER_LABEL = "xAI"
+
+
+class DeepSeekAdapter(_OpenAICompatibleCloudAdapter):
+    """DeepSeek cloud adapter (api.deepseek.com, OpenAI-compatible)."""
+
+    _DEFAULT_BASE_URL = "https://api.deepseek.com/v1"
+    _API_KEY_ENV = "DEEPSEEK_API_KEY"
+    _DEFAULT_MODEL = "deepseek-chat"
+    _PROVIDER_LABEL = "DeepSeek"
+
+
+class CursorAdapter(_OpenAICompatibleCloudAdapter):
+    """Cursor cloud adapter (OpenAI-compatible).
+
+    Cursor does not publish a single canonical public chat-completion
+    base URL; operators supply ``LLMConfig.base_url`` (and the matching
+    API key via ``CURSOR_API_KEY`` or ``LLMConfig.api_key``).  The
+    adapter marks itself unavailable if no base URL is supplied so a
+    silent default cannot land traffic at the wrong endpoint.
+    """
+
+    _DEFAULT_BASE_URL = None
+    _API_KEY_ENV = "CURSOR_API_KEY"
+    _DEFAULT_MODEL = "cursor-small"
+    _PROVIDER_LABEL = "Cursor"
+    _REQUIRE_EXPLICIT_BASE_URL = True
+
+
+class CohereCloudAdapter(BaseLLMAdapter):
+    """Cohere Chat v2 cloud adapter (api.cohere.com)."""
+
+    _DEFAULT_BASE_URL = "https://api.cohere.com"
+    _API_KEY_ENV = "COHERE_API_KEY"
+    _DEFAULT_MODEL = "command-r-plus"
+
+    def __init__(self, config: LLMConfig):
+        super().__init__(config)
+        self.api_key = config.api_key or os.environ.get(self._API_KEY_ENV)
+        self.base_url = config.base_url or self._DEFAULT_BASE_URL
+        self.model = config.model_name or self._DEFAULT_MODEL
+        self._is_available = bool(self.api_key)
+        if not self.api_key:
+            logger.warning("Cohere API key not found")
+
+    def generate(self, prompt: str, system_prompt: str | None = None) -> str:
+        """Generate text via Cohere Chat v2."""
+        if not self._is_available:
+            return "Cohere adapter not available - API key required"
+
+        try:
+            messages: list[dict[str, str]] = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
+            data = SafeHTTPClient.post_json(
+                f"{self.base_url.rstrip('/')}/v2/chat",
+                json_body={
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": self.config.temperature,
+                    "max_tokens": self.config.max_tokens,
+                },
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                },
+                timeout=self.config.timeout,
+                user_configured=True,
+            )
+            # Cohere v2 returns {"message": {"content": [{"type": "text", "text": "..."}]}}
+            message = data.get("message", {})
+            content_items = message.get("content", [])
+            if isinstance(content_items, list):
+                texts = [
+                    item.get("text", "")
+                    for item in content_items
+                    if isinstance(item, dict) and item.get("type") == "text"
+                ]
+                return "".join(texts)
+            return str(content_items)
+
+        except UnsafeURLError:
+            raise
+        except requests.HTTPError as e:
+            try:
+                err_payload = e.response.json() if e.response is not None else {}
+            except ValueError:
+                err_payload = {}
+            error_msg = (
+                err_payload.get("message", "Unknown error")
+                if isinstance(err_payload, dict)
+                else "Unknown error"
+            )
+            logger.error(f"Cohere API error: {error_msg}")
+            return f"API error: {error_msg}"
+        except Exception as e:
+            logger.error(f"Cohere request failed: {e}")
+            return f"Request failed: {e}"
+
+    def is_available(self) -> bool:
+        """Check if Cohere adapter is available."""
+        return self._is_available
+
+
+class GeminiCloudAdapter(BaseLLMAdapter):
+    """Google Gemini cloud adapter (generativelanguage.googleapis.com).
+
+    Gemini's REST surface is ``POST .../v1beta/models/{model}:generateContent``
+    with the API key passed as a query-string parameter.  The payload
+    uses ``contents=[{"parts": [{"text": ...}], "role": "user"}, ...]``
+    plus a top-level ``systemInstruction`` and a ``generationConfig``.
+    """
+
+    _DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+    _API_KEY_ENV = "GEMINI_API_KEY"
+    _DEFAULT_MODEL = "gemini-2.5-flash"
+
+    def __init__(self, config: LLMConfig):
+        super().__init__(config)
+        self.api_key = config.api_key or os.environ.get(self._API_KEY_ENV)
+        self.base_url = config.base_url or self._DEFAULT_BASE_URL
+        self.model = config.model_name or self._DEFAULT_MODEL
+        self._is_available = bool(self.api_key)
+        if not self.api_key:
+            logger.warning("Gemini API key not found")
+
+    def generate(self, prompt: str, system_prompt: str | None = None) -> str:
+        """Generate text via Gemini ``generateContent``."""
+        if not self._is_available:
+            return "Gemini adapter not available - API key required"
+
+        try:
+            body: dict[str, Any] = {
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": self.config.temperature,
+                    "maxOutputTokens": self.config.max_tokens,
+                },
+            }
+            if system_prompt:
+                body["systemInstruction"] = {"parts": [{"text": system_prompt}]}
+
+            # Auth via ``x-goog-api-key`` header.  The legacy ``?key=``
+            # query-string form is still accepted by the upstream but
+            # would leak the key into request logs / proxies; the
+            # header form is the documented production recipe.
+            data = SafeHTTPClient.post_json(
+                f"{self.base_url.rstrip('/')}/models/{self.model}:generateContent",
+                json_body=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": self.api_key or "",
+                },
+                timeout=self.config.timeout,
+                user_configured=True,
+            )
+            candidates = data.get("candidates", [])
+            if candidates:
+                first = candidates[0]
+                parts = first.get("content", {}).get("parts", [])
+                texts = [p.get("text", "") for p in parts if isinstance(p, dict)]
+                return "".join(texts)
+            return ""
+
+        except UnsafeURLError:
+            raise
+        except requests.HTTPError as e:
+            try:
+                err_payload = e.response.json() if e.response is not None else {}
+            except ValueError:
+                err_payload = {}
+            error_obj = err_payload.get("error") if isinstance(err_payload, dict) else None
+            error_msg = (
+                error_obj.get("message", "Unknown error")
+                if isinstance(error_obj, dict)
+                else "Unknown error"
+            )
+            logger.error(f"Gemini API error: {error_msg}")
+            return f"API error: {error_msg}"
+        except Exception as e:
+            logger.error(f"Gemini request failed: {e}")
+            return f"Request failed: {e}"
+
+    def is_available(self) -> bool:
+        """Check if Gemini adapter is available."""
         return self._is_available
 
 
@@ -882,9 +1235,27 @@ class FallbackLLMChain:
                 return AnthropicCloudAdapter(self.cloud_config)
             elif self.cloud_config.provider == LLMProvider.HUGGINGFACE:
                 return HuggingFaceCloudAdapter(self.cloud_config)
+            elif self.cloud_config.provider == LLMProvider.XAI:
+                return XAIGrokAdapter(self.cloud_config)
+            elif self.cloud_config.provider == LLMProvider.DEEPSEEK:
+                return DeepSeekAdapter(self.cloud_config)
+            elif self.cloud_config.provider == LLMProvider.CURSOR:
+                return CursorAdapter(self.cloud_config)
+            elif self.cloud_config.provider == LLMProvider.COHERE:
+                return CohereCloudAdapter(self.cloud_config)
+            elif self.cloud_config.provider == LLMProvider.GEMINI:
+                return GeminiCloudAdapter(self.cloud_config)
             else:
                 logger.warning(f"Cloud provider {self.cloud_config.provider} not supported")
                 return None
+        except UnsafeURLError:
+            # Cloud-adapter constructors do not currently call out to
+            # the network, but the SSRF gate is the kind of error that
+            # must propagate the moment it appears anywhere on this
+            # path. Re-raise for symmetry with the generate() handlers
+            # above so a future refactor that hits the gate at
+            # construction time keeps the loud-failure contract.
+            raise
         except Exception as e:
             logger.warning(f"Failed to create cloud adapter: {e}")
             return None

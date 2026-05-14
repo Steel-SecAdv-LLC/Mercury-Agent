@@ -85,6 +85,11 @@ class VLMConfig:
     segment_length: int = 16
     confidence_threshold: float = 0.5
     batch_size: int = 1
+    # HuggingFace revision pin (40-char commit SHA preferred) for the
+    # remote VLM identified by ``model_name``. Required for remote
+    # loads; ``SafeHFLoader`` refuses Hub IDs without a pin. ``None``
+    # is only acceptable for absolute local paths.
+    revision: str | None = None
 
 
 class BaseVLMDetector(BaseDetector):

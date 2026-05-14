@@ -47,7 +47,7 @@ from omni_mercury_engine.detectors.vlm.base_vlm import (
     LVLMType,
     VLMConfig,
 )
-from omni_mercury_engine.security.model_policy import SafeHFLoader
+from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
 
 logger = logging.getLogger(__name__)
 
@@ -287,6 +287,15 @@ class BLIPVLMDetector(BaseVLMDetector):
 
             logger.info(f"BLIP model loaded successfully on {self.device}")
 
+        except UnsafeModelError:
+            # SafeHFLoader policy refusal (missing revision, non-SHA
+            # revision, allowlist miss, ...). Surface so the operator
+            # sees the actionable supply-chain error instead of the
+            # generic "BLIP model not loaded" message that the caller
+            # would otherwise hit.
+            self._model = None
+            self._processor = None
+            raise
         except Exception as e:
             logger.error(f"Failed to load BLIP model: {e}")
             self._model = None

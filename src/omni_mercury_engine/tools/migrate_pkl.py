@@ -355,18 +355,30 @@ def _do_migration(args: argparse.Namespace) -> int:
             print(f"error: feature key {name!r} is not a string", file=sys.stderr)
             return 3
         arr = np.asarray(value)
-        if arr.dtype == object:
+        # ``dtype == object`` only matches the plain ``dtype('O')``; a
+        # structured dtype whose fields contain objects (e.g.
+        # ``[('a', 'O'), ('b', 'i4')]``) reports ``dtype != object`` yet
+        # ``numpy.savez`` still serialises the object members through
+        # pickle.  ``dtype.hasobject`` is True for both shapes, so it is
+        # the right "any pickle in the output" predicate and the only
+        # one that makes the docstring guarantee hold.
+        if arr.dtype.hasobject:
             print(
-                f"error: feature {name!r} contains object dtype; refusing to "
-                f"persist non-numeric data into .npz",
+                f"error: feature {name!r} contains object dtype (or structured "
+                "dtype with object members); refusing to persist non-numeric "
+                "data into .npz",
                 file=sys.stderr,
             )
             return 3
         archive[name] = arr
 
     label_arr = np.asarray(labels)
-    if label_arr.dtype == object:
-        print("error: labels contain object dtype; refusing to persist", file=sys.stderr)
+    if label_arr.dtype.hasobject:
+        print(
+            "error: labels contain object dtype (or structured dtype with "
+            "object members); refusing to persist",
+            file=sys.stderr,
+        )
         return 3
     archive["labels"] = label_arr
 

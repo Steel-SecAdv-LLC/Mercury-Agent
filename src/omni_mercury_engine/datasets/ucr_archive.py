@@ -266,7 +266,16 @@ class MBALoader(DatasetLoader):
         return result
 
     def download(self) -> bool:
-        """Download CWRU bearing data."""
+        """Download CWRU bearing data.
+
+        Returns:
+            True only if the ``normal.mat`` baseline (the file the
+            loader requires to proceed) is present on disk after the
+            download attempt. Reporting ``True`` when no files were
+            actually fetched would let callers proceed with a missing
+            dataset and surface the failure only at load time; the
+            return value is the operator's primary signal.
+        """
         import requests
 
         logger.info("Downloading CWRU Bearing Dataset (MBA)...")
@@ -293,10 +302,18 @@ class MBALoader(DatasetLoader):
                 except (requests.RequestException, ValueError) as e:
                     logger.warning(f"  Failed: {e}")
 
-        logger.info("CWRU download complete (partial)")
+        baseline_present = (self.data_path / "normal.mat").exists()
+        if baseline_present:
+            logger.info("CWRU download complete (partial)")
+        else:
+            logger.warning(
+                "CWRU download produced no usable files; baseline normal.mat is "
+                "missing. Check connectivity to engineering.case.edu and the "
+                "TrustedEndpoints allowlist."
+            )
         logger.info("For full dataset, visit: " + self.DATASET_URL)
 
-        return True
+        return baseline_present
 
     def load(
         self, split: DatasetSplit = DatasetSplit.ALL

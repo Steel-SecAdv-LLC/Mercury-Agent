@@ -159,6 +159,46 @@ def test_rejects_object_dtype_features(tmp_path: Path) -> None:
     assert "object dtype" in proc.stderr
 
 
+def test_rejects_structured_dtype_with_object_field(tmp_path: Path) -> None:
+    """Structured dtypes with object members route through pickle on write.
+
+    ``arr.dtype == object`` is False for ``dtype([('a', 'O'), ('b', 'i4')])``
+    but ``arr.dtype.hasobject`` is True; ``numpy.savez`` would otherwise
+    silently pickle the object members.  The migrator must refuse so
+    the "no pickle in the output" contract actually holds.
+    """
+    bad = tmp_path / "bad.pkl"
+    structured = np.zeros(2, dtype=np.dtype([("payload", "O"), ("idx", "i4")]))
+    structured[0] = ({"k": 1}, 0)
+    structured[1] = ({"k": 2}, 1)
+    payload = {
+        "features": {"weird": structured},
+        "labels": np.array([0, 1], dtype=np.int64),
+    }
+    with bad.open("wb") as f:
+        pickle.dump(payload, f)
+    proc = _run_tool("--input", str(bad), "--output", str(tmp_path / "out.npz"))
+    assert proc.returncode == 3
+    assert "object" in proc.stderr
+
+
+def test_rejects_structured_dtype_object_in_labels(tmp_path: Path) -> None:
+    """Same guarantee for labels: structured-with-object must be refused."""
+    bad = tmp_path / "bad.pkl"
+    structured_labels = np.zeros(2, dtype=np.dtype([("payload", "O")]))
+    structured_labels[0] = ({"k": 1},)
+    structured_labels[1] = ({"k": 2},)
+    payload = {
+        "features": {"x": np.array([0.0, 1.0], dtype=np.float32)},
+        "labels": structured_labels,
+    }
+    with bad.open("wb") as f:
+        pickle.dump(payload, f)
+    proc = _run_tool("--input", str(bad), "--output", str(tmp_path / "out.npz"))
+    assert proc.returncode == 3
+    assert "object" in proc.stderr
+
+
 # --------------------------------------------------------------------------- #
 # Filesystem safety: refuse to overwrite existing outputs.
 # --------------------------------------------------------------------------- #

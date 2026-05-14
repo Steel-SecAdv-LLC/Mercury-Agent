@@ -137,6 +137,13 @@ class Qwen2VLBackend(LVLMBackend):
             "Qwen/Qwen2-VL-2B-Instruct",
             "Qwen/Qwen2-VL-7B-Instruct",
             "Qwen/Qwen2-VL-72B-Instruct",
+            # Qwen2.5-VL family.  ``VLMConfig.model_name`` defaults to
+            # ``Qwen/Qwen2.5-VL-7B-Instruct``; without these entries the
+            # out-of-the-box detector would hit SafeHFLoader's allowlist
+            # gate and refuse even with a valid revision pin.
+            "Qwen/Qwen2.5-VL-3B-Instruct",
+            "Qwen/Qwen2.5-VL-7B-Instruct",
+            "Qwen/Qwen2.5-VL-72B-Instruct",
         }
     )
 

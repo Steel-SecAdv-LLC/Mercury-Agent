@@ -837,7 +837,7 @@ class CICIDSLoader(DatasetLoader):
             logger.info("Hugging Face 'datasets' library not available")
             return False
 
-        from omni_mercury_engine.security.model_policy import SafeHFLoader
+        from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -881,6 +881,14 @@ class CICIDSLoader(DatasetLoader):
                 if df is not None and len(df) > 0:
                     logger.info("Downloaded %d records from %s", len(df), mirror_id)
                     break
+            except UnsafeModelError:
+                # SafeHFLoader policy refusal -- the operator set a
+                # non-SHA revision, or the mirror is not in the
+                # allowlist, or the identifier shape is wrong.  These
+                # are actionable supply-chain errors, not transient
+                # mirror failures; surface them so the next mirror
+                # cannot silently mask the security gate.
+                raise
             except Exception as e:
                 last_err = e
                 logger.info("Hugging Face mirror %s failed: %s", mirror_id, e)
