@@ -557,7 +557,6 @@ class TestHostHeaderPreservesPort:
                 url,
                 allow_http=True,
                 user_configured=loopback_only,
-                allow_untrusted=False,
                 loopback_only=loopback_only,
             )
 
