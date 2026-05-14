@@ -25,6 +25,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
 logger = logging.getLogger(__name__)
 
 # Default cache directory for downloaded data
@@ -198,79 +200,62 @@ class BaseDomainLoader(ABC):
     # HTTP fetch with retry
     # =========================================================================
 
-    @staticmethod
-    def _validate_url(url: str) -> None:
-        """
-        Validate that a URL is safe to fetch (SSRF protection).
-
-        Blocks requests to private/loopback/link-local IPs and non-HTTP(S)
-        schemes.  Each domain loader subclass defines trusted base URLs so
-        this is a defense-in-depth guard.
-
-        DNS resolution failures are logged but not fatal — the subsequent
-        ``urlopen`` will surface the same networking error through its own
-        retry path.
-
-        Raises:
-            ValueError: If the URL scheme is disallowed or it resolves to
-                a private/loopback/link-local address.
-        """
-        import ipaddress
-        import socket
-        import urllib.parse
-
-        parsed = urllib.parse.urlparse(url)
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError(f"URL scheme not allowed: {parsed.scheme!r}")
-        hostname = parsed.hostname
-        if not hostname:
-            raise ValueError("URL missing hostname")
-        try:
-            resolved = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
-            for _family, _type, _proto, _canonname, sockaddr in resolved:
-                ip = ipaddress.ip_address(sockaddr[0])
-                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                    raise ValueError(
-                        f"URL resolves to non-routable address ({ip}), blocked for SSRF safety"
-                    )
-        except socket.gaierror:
-            # DNS resolution may fail in air-gapped / sandboxed environments;
-            # let the actual HTTP request handle networking errors.
-            logger.debug("SSRF check: DNS resolution failed - deferring to fetch")
-
     def _fetch_url(
         self,
         url: str,
         params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
+        *,
+        allow_untrusted: bool = False,
     ) -> bytes:
         """
-        Fetch URL content with retry logic and exponential backoff.
+        Fetch URL content via :class:`SafeHTTPClient` with retry logic.
+
+        Egress contract enforced by ``SafeHTTPClient`` for this helper:
+
+        * **HTTPS-only.** ``http://`` is refused -- the loader does
+          not opt into ``allow_http``. Every dataset URL we ship is
+          a public HTTPS endpoint.
+        * **TRUSTED_DOMAINS allowlist enforced.** The resolved host
+          must appear in
+          :attr:`omni_mercury_engine.security.input_validation.TrustedEndpoints.TRUSTED_DOMAINS`.
+          A subclass adding a new dataset host MUST add it to that
+          set (or the request will fail closed with
+          ``UnsafeURLError``); ``allow_untrusted=True`` is the explicit
+          per-call escape hatch and is reserved for cases where the
+          host is dynamically supplied and out-of-band reviewed.
+
+        Note that ``user_configured`` is *not* set by this helper:
+        loader URLs are class-constant, vetted, and DNS-resolvable to
+        public addresses, so the IP-resolution gate would impose a
+        per-request DNS lookup with no SSRF benefit beyond what the
+        allowlist already provides. Operator-supplied egress (Ollama,
+        SearXNG) does not flow through ``_fetch_url`` -- those
+        callers go to :class:`SafeHTTPClient` directly with
+        ``user_configured=True`` and (where appropriate)
+        ``allow_private=True``.
 
         Args:
             url: URL to fetch.
             params: Query parameters.
             headers: HTTP headers.
+            allow_untrusted: Bypass the TRUSTED_DOMAINS gate for
+                this single call. Subclasses must justify each use.
 
         Returns:
             Response body as bytes.
 
         Raises:
-            ConnectionError: After all retries exhausted.
-            ValueError: If the URL fails SSRF validation.
+            UnsafeURLError: URL failed the ``SafeHTTPClient`` gates
+                (HTTPS-only or TRUSTED_DOMAINS allowlist). Raised on
+                the first attempt with **no** retries -- a bad URL
+                will be just as bad next time, and retrying would
+                only mask the real cause from the operator.
+            ValueError: Other configuration-shaped failures (malformed
+                URL, bad params). Also re-raised immediately.
+            ConnectionError: All transient retries exhausted on
+                network / HTTP errors.
         """
-        import urllib.parse
-        import urllib.request
-
-        if params:
-            query = urllib.parse.urlencode(params)
-            full_url = f"{url}?{query}"
-        else:
-            full_url = url
-
-        # SSRF protection: validate URL before any network I/O
-        self._validate_url(full_url)
-
         default_headers = {"User-Agent": "Mercury-Agent/1.0 (Steel Security Advisors)"}
         if headers:
             default_headers.update(headers)
@@ -278,9 +263,27 @@ class BaseDomainLoader(ABC):
         last_error_kind = "unknown"
         for attempt in range(self.max_retries + 1):
             try:
-                req = urllib.request.Request(full_url, headers=default_headers)  # noqa: S310
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
-                    return resp.read()  # type: ignore[no-any-return]
+                # No user_configured=True here: we want the
+                # TRUSTED_DOMAINS gate (which user_configured would
+                # bypass) to enforce the allowlist for class-constant
+                # dataset URLs. Operator-configured egress does not
+                # use _fetch_url; it goes to SafeHTTPClient directly.
+                return SafeHTTPClient.get_bytes(
+                    url,
+                    params=params,
+                    headers=default_headers,
+                    timeout=self.timeout,
+                    allow_untrusted=allow_untrusted,
+                )
+            except ValueError:
+                # UnsafeURLError is a ValueError subclass; both signal
+                # a configuration fault (bad scheme, off-allowlist host,
+                # malformed URL). Retrying cannot fix configuration --
+                # re-raise immediately so the real cause is visible.
+                # Note: requests.HTTPError is an IOError, not a
+                # ValueError, so HTTP 4xx/5xx still flow into the
+                # transient-retry path below.
+                raise
             except Exception as exc:
                 last_error_kind = type(exc).__name__
                 if attempt < self.max_retries:
@@ -423,19 +426,26 @@ class BaseDomainLoader(ABC):
             Dict with provenance fields including timestamp,
             data hash, git commit, and Mercury version.
         """
-        import subprocess
+        import shutil
 
-        try:
-            git_commit = (
-                subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"],  # noqa: S607
-                    stderr=subprocess.DEVNULL,
-                )
-                .decode()
-                .strip()
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        from omni_mercury_engine.security.safe_exec import (
+            UnsafeSubprocessError,
+            safe_exec,
+        )
+
+        git_path = shutil.which("git")
+        if git_path is None:
             git_commit = "unknown"
+        else:
+            try:
+                completed = safe_exec(
+                    [git_path, "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                )
+                git_commit = completed.stdout.strip() if completed.returncode == 0 else "unknown"
+            except (UnsafeSubprocessError, FileNotFoundError, OSError):
+                git_commit = "unknown"
 
         return {
             "domain": self.DOMAIN,

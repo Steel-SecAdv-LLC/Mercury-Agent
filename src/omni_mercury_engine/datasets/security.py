@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import io
 import logging
+import os
+import re
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -585,6 +587,41 @@ class CICIDSLoader(DatasetLoader):
         "tcabanski/cicids2017",
     )
 
+    # Per-mirror revision pin override surface. ``HFModelPolicy`` enforces
+    # 40-char commit SHAs only -- branch and tag references are mutable on
+    # HuggingFace Hub and the upstream owner can rotate them at will. We
+    # refuse to ship default SHAs because we cannot verify the data they
+    # would resolve to from inside Mercury Agent; the operator MUST pin a
+    # SHA they have independently verified before the HuggingFace path
+    # becomes usable. Pins are read from
+    # ``MERCURY_CICIDS_HF_REV_<sanitised-mirror>`` at load time so they
+    # can be rotated via config without a code change.
+    #
+    # Example (bvk/CICIDS-2017): the operator confirms the desired commit
+    # SHA via ``HfApi().list_repo_commits('bvk/CICIDS-2017')[0].commit_id``
+    # and exports ``MERCURY_CICIDS_HF_REV_BVK_CICIDS_2017=<40-char-sha>``
+    # before invoking the loader. With no pin configured the loader logs
+    # the missing pin and falls over to the next mirror (or, if all HF
+    # mirrors are unpinned, to the DATA_SOURCES URL mirrors).
+    @staticmethod
+    def _hf_revision_env_var(mirror_id: str) -> str:
+        """Return the env-var name an operator sets to pin ``mirror_id``."""
+        safe = re.sub(r"[^A-Za-z0-9]", "_", mirror_id.upper())
+        return f"MERCURY_CICIDS_HF_REV_{safe}"
+
+    @classmethod
+    def _resolve_hf_revision(cls, mirror_id: str) -> str | None:
+        """Resolve the operator-supplied commit SHA for ``mirror_id``.
+
+        Returns ``None`` when no env var is set -- callers then skip
+        this mirror because the HuggingFace policy refuses a non-SHA
+        revision. We never invent a default SHA: that would silently
+        bind operators to a particular upstream commit they have not
+        verified, which is the exact supply-chain risk the SHA pin
+        was supposed to defeat.
+        """
+        return os.environ.get(cls._hf_revision_env_var(mirror_id))
+
     # Label encoding for CICIDS 2017 attack types
     # Reference: Original dataset documentation
     ATTACK_LABELS = {
@@ -791,10 +828,16 @@ class CICIDSLoader(DatasetLoader):
     def _download_from_huggingface(self) -> bool:
         """Download CICIDS 2017 from Hugging Face datasets."""
         try:
-            from datasets import load_dataset
+            import importlib.util
+
+            if importlib.util.find_spec("datasets") is None:
+                logger.info("Hugging Face 'datasets' library not available")
+                return False
         except ImportError:
             logger.info("Hugging Face 'datasets' library not available")
             return False
+
+        from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
 
         dataset_dir = self.data_path
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -808,19 +851,44 @@ class CICIDSLoader(DatasetLoader):
         df = None
         last_err: Exception | None = None
         for mirror_id in self.HUGGINGFACE_MIRRORS:
-            try:
-                logger.info("Downloading CICIDS 2017 from Hugging Face (%s)...", mirror_id)
-                # Pin to main for reproducibility (B615); mirrors that publish
-                # under a non-default branch will fall through to the next.
-                dataset = load_dataset(  # nosec B615
+            revision = self._resolve_hf_revision(mirror_id)
+            if not revision:
+                logger.warning(
+                    "CICIDS Hugging Face mirror %s skipped: operator has not "
+                    "pinned a commit SHA. Set %s=<40-char commit SHA> to "
+                    "enable. Branch/tag references are refused -- HFModelPolicy "
+                    "requires immutable pins to defeat supply-chain swaps.",
                     mirror_id,
+                    self._hf_revision_env_var(mirror_id),
+                )
+                continue
+            try:
+                logger.info(
+                    "Downloading CICIDS 2017 from Hugging Face (%s @ %s)...",
+                    mirror_id,
+                    revision,
+                )
+                # SafeHFLoader.load_dataset enforces the namespace/name
+                # shape and the revision-as-SHA pin against the explicit
+                # mirror allowlist on this class.
+                dataset = SafeHFLoader.load_dataset(
+                    mirror_id,
+                    allowlist=self.HUGGINGFACE_MIRRORS,
+                    revision=revision,
                     split="train",
-                    revision="main",
                 )
                 df = dataset.to_pandas()
                 if df is not None and len(df) > 0:
                     logger.info("Downloaded %d records from %s", len(df), mirror_id)
                     break
+            except UnsafeModelError:
+                # SafeHFLoader policy refusal -- the operator set a
+                # non-SHA revision, or the mirror is not in the
+                # allowlist, or the identifier shape is wrong.  These
+                # are actionable supply-chain errors, not transient
+                # mirror failures; surface them so the next mirror
+                # cannot silently mask the security gate.
+                raise
             except Exception as e:
                 last_err = e
                 logger.info("Hugging Face mirror %s failed: %s", mirror_id, e)

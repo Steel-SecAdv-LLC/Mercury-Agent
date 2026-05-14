@@ -194,6 +194,7 @@ class AnyAnomalyDetector(BaseVLMDetector):
             device=str(self.device),
             max_new_tokens=self.vlm_config.max_new_tokens,
             temperature=self.vlm_config.temperature,
+            revision=self.vlm_config.revision,
         )
         self._backend.initialize()
 

@@ -38,6 +38,17 @@ it does so in a clearly-bounded operator workflow that:
   The subprocess boundary, not flag combinations, is the load-bearing
   isolation -- a malicious pickle that achieves code execution in the
   child still cannot reach the parent (operator) process state;
+* uses :class:`_RestrictedUnpickler` rather than the bare
+  ``pickle.load``. ``find_class`` whitelists only the globals required
+  to reconstruct numpy arrays plus a small set of basic Python
+  builtins; anything else (``os.system``, ``subprocess.Popen``, any
+  ``builtins.eval`` / ``builtins.exec`` / ``builtins.__import__`` /
+  ``posix.*`` / ``nt.*`` reference, ``codecs.encode`` reduce-chain
+  tricks) raises ``pickle.UnpicklingError`` *before* the global is
+  resolved. This downgrades the threat from "arbitrary code
+  execution on attempt 1" to "smuggle a malicious construction
+  through ``numpy.core.multiarray._reconstruct``" -- defence in
+  depth with the subprocess boundary, not a replacement for it;
 * writes the converted archive via ``numpy.savez``. ``numpy.savez``
   itself does not expose an ``allow_pickle`` parameter on the write
   path, so we enforce the "no pickle in the output" contract by
@@ -105,6 +116,16 @@ _FORWARDED_ENV = (
     "AMA_REQUIRE_REAL_PQC",
 )
 
+# Stable exit code for ``_RestrictedUnpickler.find_class`` refusing a
+# global that is not in the allow-list.  Distinct from:
+#   0  success
+#   2  input file errors (missing / oversize / would-overwrite)
+#   3  payload shape / dtype errors
+#   4  output write failures
+# A dedicated code lets tests pin the refusal path without depending on
+# the implementation-dependent unhandled-exception exit code.
+_EXIT_RESTRICTED_UNPICKLER_REFUSAL = 5
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -152,7 +173,7 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
     The load-bearing isolation here is the *process boundary* -- a malicious pickle that achieves
     code execution still cannot reach the parent (operator) process state.
     """
-    import subprocess  # nosec B404
+    from omni_mercury_engine.security.safe_exec import python_module
 
     env: dict[str, str] = {
         _HARDENED_SENTINEL: "1",
@@ -165,21 +186,114 @@ def _relaunch_hardened(argv: Sequence[str]) -> int:
             env[name] = value
     env.setdefault("LANG", "C")
 
-    cmd = [sys.executable, "-m", "omni_mercury_engine.tools.migrate_pkl", *argv]
-    # B603/S603: command list is fully constructed from sys.executable plus the
-    # fixed module path of this tool plus argparse-validated args. There is no
-    # shell interpolation and no shell=True.
-    completed = subprocess.run(cmd, env=env, check=False)  # noqa: S603  # nosec B603
+    # safe_exec.python_module validates the module name, pins
+    # shell=False, and is the only annotated subprocess.run site in
+    # src/.
+    completed = python_module(
+        "omni_mercury_engine.tools.migrate_pkl",
+        args=list(argv),
+        env=env,
+        check=False,
+    )
     return completed.returncode
+
+
+#: Globals the restricted unpickler is willing to resolve. Every
+#: entry is ``(module, qualname)``. The list is intentionally minimal:
+#: just enough to round-trip a ``{'features': {str: ndarray}, 'labels':
+#: ndarray}`` payload. Numpy 1.x stored arrays via
+#: ``numpy.core.multiarray._reconstruct`` + ``numpy.ndarray`` +
+#: ``numpy.dtype``; numpy 2.x adds the ``numpy._core`` re-export path,
+#: which we accept too so legacy pickles produced under either numpy
+#: ABI migrate cleanly. Builtins are limited to inert containers and
+#: scalars -- ``eval`` / ``exec`` / ``__import__`` / ``getattr`` /
+#: ``compile`` / ``open`` are deliberately omitted so a reduce-chain
+#: cannot bootstrap into arbitrary code through ``builtins``.
+_ALLOWED_GLOBALS: frozenset[tuple[str, str]] = frozenset(
+    {
+        # Numpy 1.x array reconstruction surface.
+        ("numpy.core.multiarray", "_reconstruct"),
+        ("numpy.core.multiarray", "scalar"),
+        ("numpy", "ndarray"),
+        ("numpy", "dtype"),
+        # Numpy 2.x renamed the private module to ``numpy._core``.
+        # ``numpy.core.*`` still exists as a thin alias on 2.x but
+        # pickles produced under 2.x reference the new path.
+        ("numpy._core.multiarray", "_reconstruct"),
+        ("numpy._core.multiarray", "scalar"),
+        # Inert builtins -- no callable that touches the OS, the
+        # import system, or arbitrary attribute lookup.
+        ("builtins", "dict"),
+        ("builtins", "list"),
+        ("builtins", "tuple"),
+        ("builtins", "set"),
+        ("builtins", "frozenset"),
+        ("builtins", "str"),
+        ("builtins", "bytes"),
+        ("builtins", "bytearray"),
+        ("builtins", "int"),
+        ("builtins", "float"),
+        ("builtins", "bool"),
+        ("builtins", "complex"),
+        # Pickle emits this for ``None`` in some protocols.
+        ("builtins", "NoneType"),
+    }
+)
+
+
+def _make_restricted_unpickler() -> Any:
+    """Construct the ``_RestrictedUnpickler`` class, deferring the ``pickle`` import.
+
+    ``pickle`` is imported here (not at module top) so that the only
+    site in ``src/`` that touches the pickle module lives inside the
+    hardened-subprocess code path. The class is created lazily on
+    each call rather than at import time because the only caller is
+    ``_do_migration``, which itself only runs inside the relaunched
+    child process; building it at import time would force the parent
+    process to import pickle even when no migration is happening.
+    """
+    # ``pickle`` is required to read legacy operator payloads;
+    # ``_RestrictedUnpickler`` below overrides ``find_class`` to only
+    # resolve globals in ``_ALLOWED_GLOBALS``. The import is reachable
+    # only from inside the hardened subprocess.
+    import pickle  # nosec B403 - restricted-unpickler scope; hardened-subprocess only; see _ALLOWED_GLOBALS + module docstring
+
+    class _RestrictedUnpicklerRefusal(pickle.UnpicklingError):
+        """A global outside ``_ALLOWED_GLOBALS`` was rejected.
+
+        Subclass of ``UnpicklingError`` so existing ``except`` blocks
+        in third-party code keep working, but distinguishable from the
+        same exception raised by truncated / malformed pickle data.
+        Only this subclass should map to exit code
+        ``_EXIT_RESTRICTED_UNPICKLER_REFUSAL`` -- a corrupt-input
+        ``UnpicklingError`` is an input/shape error and belongs on
+        the same exit-code path as the rest of the schema checks.
+        """
+
+    class _RestrictedUnpickler(pickle.Unpickler):
+        """``pickle.Unpickler`` that refuses any global not in the allow-list.
+
+        Overrides :meth:`pickle.Unpickler.find_class` -- the single
+        choke point through which every ``GLOBAL`` / ``STACK_GLOBAL``
+        opcode resolves a callable. Returning a callable from
+        ``find_class`` is what lets a vanilla unpickler invoke
+        ``os.system`` via ``__reduce__``; refusing it here is what
+        stops the RCE before it starts.
+        """
+
+        def find_class(self, module: str, name: str) -> Any:
+            if (module, name) in _ALLOWED_GLOBALS:
+                return super().find_class(module, name)
+            raise _RestrictedUnpicklerRefusal(
+                f"_RestrictedUnpickler: refusing global '{module}.{name}'; "
+                f"not in migrate_pkl allow-list."
+            )
+
+    return _RestrictedUnpickler, _RestrictedUnpicklerRefusal
 
 
 def _do_migration(args: argparse.Namespace) -> int:
     """Body that runs inside the hardened subprocess."""
-    # B403: pickle is intentionally used here -- this is the one-shot
-    # operator migration tool whose entire purpose is to read a legacy
-    # .pkl payload. The engine itself never imports pickle.
-    import pickle  # nosec B403
-
     import numpy as np
 
     src = Path(args.input)
@@ -200,11 +314,42 @@ def _do_migration(args: argparse.Namespace) -> int:
         return 2
 
     print(f"loading legacy pickle: {src} ({size} bytes)", file=sys.stderr)
-    with src.open("rb") as f:
-        # B301: this is THE sanctioned pickle.load call in the codebase.
-        # It only runs in the hardened subprocess. The engine itself
-        # never reaches this code path; see module docstring.
-        loaded = pickle.load(f)  # nosec B301
+    restricted_unpickler_cls, restricted_refusal_exc = _make_restricted_unpickler()
+    # ``_make_restricted_unpickler`` imports ``pickle`` lazily and
+    # returns the restricted subclass plus the policy-refusal
+    # exception class.  We re-import ``pickle`` here only to bind
+    # ``pickle.UnpicklingError`` for the corrupt-input branch below.
+    # The subprocess-only import boundary documented in the module
+    # docstring is preserved (this code path runs exclusively inside
+    # the hardened relaunch).
+    import pickle  # nosec B403 - re-import to bind UnpicklingError; same hardened-subprocess scope as line 259
+
+    try:
+        with src.open("rb") as f:
+            # This is THE sanctioned pickle.load call in the codebase.
+            # It only runs in the hardened subprocess **and** via
+            # ``_RestrictedUnpickler`` (find_class whitelisted). The
+            # engine itself never reaches this code path; see module
+            # docstring.
+            loaded = restricted_unpickler_cls(
+                f
+            ).load()  # nosec B301 - load() goes through _RestrictedUnpickler.find_class allow-list; subprocess + restricted unpickler is defence-in-depth
+    except restricted_refusal_exc as exc:
+        # Policy refusal: ``_RestrictedUnpickler.find_class`` rejected
+        # a global outside ``_ALLOWED_GLOBALS`` (``os.system`` /
+        # ``subprocess.Popen`` / ``builtins.eval`` and friends).
+        # Surface as one concise stderr line and the documented
+        # stable exit code so callers/tests can distinguish "refused"
+        # from "corrupt input".
+        print(f"error: {exc}", file=sys.stderr)
+        return _EXIT_RESTRICTED_UNPICKLER_REFUSAL
+    except pickle.UnpicklingError as exc:
+        # Corrupt / truncated / malformed pickle data. This is NOT a
+        # policy refusal -- ``find_class`` was never reached. Map to
+        # the input/shape error exit code (3) so callers can tell
+        # corrupt-input apart from refused-global.
+        print(f"error: input pickle is malformed: {exc}", file=sys.stderr)
+        return 3
 
     if not isinstance(loaded, dict):
         print(
@@ -229,18 +374,30 @@ def _do_migration(args: argparse.Namespace) -> int:
             print(f"error: feature key {name!r} is not a string", file=sys.stderr)
             return 3
         arr = np.asarray(value)
-        if arr.dtype == object:
+        # ``dtype == object`` only matches the plain ``dtype('O')``; a
+        # structured dtype whose fields contain objects (e.g.
+        # ``[('a', 'O'), ('b', 'i4')]``) reports ``dtype != object`` yet
+        # ``numpy.savez`` still serialises the object members through
+        # pickle.  ``dtype.hasobject`` is True for both shapes, so it is
+        # the right "any pickle in the output" predicate and the only
+        # one that makes the docstring guarantee hold.
+        if arr.dtype.hasobject:
             print(
-                f"error: feature {name!r} contains object dtype; refusing to "
-                f"persist non-numeric data into .npz",
+                f"error: feature {name!r} contains object dtype (or structured "
+                "dtype with object members); refusing to persist non-numeric "
+                "data into .npz",
                 file=sys.stderr,
             )
             return 3
         archive[name] = arr
 
     label_arr = np.asarray(labels)
-    if label_arr.dtype == object:
-        print("error: labels contain object dtype; refusing to persist", file=sys.stderr)
+    if label_arr.dtype.hasobject:
+        print(
+            "error: labels contain object dtype (or structured dtype with "
+            "object members); refusing to persist",
+            file=sys.stderr,
+        )
         return 3
     archive["labels"] = label_arr
 

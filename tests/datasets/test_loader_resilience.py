@@ -1,5 +1,4 @@
-"""
-Mercury Agent — Loader resilience / failover tests.
+"""Mercury Agent — Loader resilience / failover tests.
 
 Covers the corrective sweep that hardens the external-API loaders
 (NSL-KDD, CICIDS, MITRE, FEMA, EPA, NOAA Storm Events / GSOD / ERDDAP).
@@ -13,13 +12,13 @@ from __future__ import annotations
 import gzip
 import io
 import json
-import urllib.error
 import zipfile
 from typing import Any
 from unittest.mock import patch
 
 import numpy as np
 import pytest
+import requests
 
 from omni_mercury_engine.datasets.base import DatasetConfig, http_get_with_retry
 from omni_mercury_engine.datasets.disaster import FEMADisasterLoader
@@ -33,65 +32,85 @@ from omni_mercury_engine.datasets.security import (
     ThreatIntelLoader,
 )
 
+
+def _build_response(status: int, body: bytes = b"") -> requests.Response:
+    """Construct a populated requests.Response for SafeHTTPClient mocks."""
+    response = requests.Response()
+    response.status_code = status
+    response._content = body
+    response.url = "https://www.fema.gov/x"
+    response.reason = "OK" if 200 <= status < 300 else "Error"
+    return response
+
+
+def _build_http_error(status: int) -> requests.HTTPError:
+    """Construct a requests.HTTPError analogous to urllib's HTTPError."""
+    return requests.HTTPError(response=_build_response(status))
+
+
 # ---------------------------------------------------------------------------
 # http_get_with_retry — shared helper
 # ---------------------------------------------------------------------------
 
 
 class TestHttpGetWithRetry:
+    """Resilience tests for ``http_get_with_retry``.
+
+    After the SafeHTTPClient migration the helper no longer touches
+    ``urllib.request`` directly -- every retry goes through
+    ``SafeHTTPClient.get_bytes`` which is built on ``requests``.  So
+    the mocks patch ``SafeHTTPClient.get_bytes`` instead of
+    ``urllib.request.urlopen``; the loader-orchestration semantics
+    being verified (retry count, 4xx vs 5xx classification, scheme
+    rejection) are unchanged.
+    """
+
     def test_returns_body_on_first_success(self) -> None:
         payload = b"hello"
 
-        class _Resp:
-            def __enter__(self) -> _Resp:
-                return self
-
-            def __exit__(self, *exc: Any) -> None:
-                return None
-
-            def read(self) -> bytes:
-                return payload
-
-        with patch("urllib.request.urlopen", return_value=_Resp()) as urlopen:
+        # http_get_with_retry imports SafeHTTPClient at call time
+        # (intentional, keeps the import surface minimal for the
+        # core CLI), so we patch the canonical class location.
+        with patch(
+            "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
+            return_value=payload,
+        ) as get_bytes:
             body = http_get_with_retry("https://www.fema.gov/api/open/v2/x", retries=3)
         assert body == payload
-        assert urlopen.call_count == 1
+        assert get_bytes.call_count == 1
 
     def test_retries_on_5xx_then_succeeds(self) -> None:
         payload = b"ok"
-
-        class _Resp:
-            def __enter__(self) -> _Resp:
-                return self
-
-            def __exit__(self, *exc: Any) -> None:
-                return None
-
-            def read(self) -> bytes:
-                return payload
-
-        err = urllib.error.HTTPError("https://www.fema.gov/x", 503, "busy", {}, None)  # type: ignore[arg-type]
-        side_effects = [err, err, _Resp()]
+        err = _build_http_error(503)
+        side_effects = [err, err, payload]
 
         with (
-            patch("urllib.request.urlopen", side_effect=side_effects) as urlopen,
+            patch(
+                "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
+                side_effect=side_effects,
+            ) as get_bytes,
             patch("time.sleep"),
         ):
             body = http_get_with_retry("https://www.fema.gov/x", retries=3, backoff=1.0)
         assert body == payload
-        assert urlopen.call_count == 3
+        assert get_bytes.call_count == 3
 
     def test_does_not_retry_on_404(self) -> None:
-        err = urllib.error.HTTPError("https://www.fema.gov/x", 404, "missing", {}, None)  # type: ignore[arg-type]
+        err = _build_http_error(404)
 
         with (
-            patch("urllib.request.urlopen", side_effect=err) as urlopen,
-            pytest.raises(urllib.error.HTTPError),
+            patch(
+                "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
+                side_effect=err,
+            ) as get_bytes,
+            pytest.raises(requests.HTTPError),
         ):
             http_get_with_retry("https://www.fema.gov/x", retries=3)
-        assert urlopen.call_count == 1
+        assert get_bytes.call_count == 1
 
     def test_rejects_non_http_scheme(self) -> None:
+        # SafeHTTPClient raises UnsafeURLError (a subclass of ValueError)
+        # for non-http/https schemes; the wrapper preserves the raise.
         with pytest.raises(ValueError, match="scheme"):
             http_get_with_retry("file:///etc/passwd")
 
@@ -190,7 +209,7 @@ class TestEPAYearFallback:
         def fake_get(url: str, **kwargs: Any) -> bytes:
             if "daily_88101_2024.zip" in url:
                 return zip_bytes
-            raise urllib.error.HTTPError(url, 404, "not yet", {}, None)  # type: ignore[arg-type]
+            raise _build_http_error(404)
 
         with patch(
             "omni_mercury_engine.datasets.epa_air.http_get_with_retry",
@@ -276,9 +295,7 @@ class TestNSLKDDMirrorFailover:
         )
         body = (nslkdd_row * 50).encode()
 
-        primary_err = urllib.error.HTTPError(
-            NSLKDDLoader.NSLKDD_MIRRORS["train"][0], 429, "rate-limited", {}, None  # type: ignore[arg-type]
-        )
+        primary_err = _build_http_error(429)
 
         calls: list[str] = []
 
@@ -335,7 +352,7 @@ class TestMITREMirrorFailover:
         def fake_get(url: str, **kwargs: Any) -> bytes:
             calls.append(url)
             if url == ThreatIntelLoader.MITRE_STIX_MIRRORS[0]:
-                raise urllib.error.HTTPError(url, 404, "moved", {}, None)  # type: ignore[arg-type]
+                raise _build_http_error(404)
             return body
 
         with patch(
@@ -513,7 +530,7 @@ class TestNASAFIRMSMirrorFailover:
         def fake_get(url: str, **kw: Any) -> bytes:
             called.append(url)
             if url == primary:
-                raise urllib.error.HTTPError(url, 503, "busy", {}, None)  # type: ignore[arg-type]
+                raise _build_http_error(503)
             return firms_csv
 
         with patch(

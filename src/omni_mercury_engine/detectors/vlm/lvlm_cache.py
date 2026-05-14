@@ -179,9 +179,31 @@ class LVLMBackendCache:
         """Get the singleton cache instance."""
         return cls()
 
-    def _cache_key(self, model_type: str, model_name: str | None = None) -> str:
-        """Generate cache key for a model."""
-        return f"{model_type}:{model_name or model_type}"
+    def _cache_key(
+        self,
+        model_type: str,
+        model_name: str | None = None,
+        revision: str | None = None,
+    ) -> str:
+        """Generate cache key for a model.
+
+        ``revision`` is part of the security-relevant identity of the
+        backend: two callers asking for the same ``model_name`` at
+        different commit SHAs MUST receive different backend instances,
+        otherwise an LRU hit on the older entry silently defeats the
+        caller's pin. We render ``None`` as the literal ``"none"``
+        rather than the empty string so a local-path load (revision
+        ``None``) and a Hub load that someone accidentally tried to
+        pin to ``""`` do not collide.
+
+        The ``revision`` rendering uses an explicit ``is None`` check
+        rather than ``revision or 'none'`` so an empty-string revision
+        (which ``HFModelPolicy.validate`` will reject downstream, but
+        which can transit through kwargs unobserved) does NOT collide
+        with the legitimate no-revision / local-path key.
+        """
+        rev_token = "none" if revision is None else revision
+        return f"{model_type}:{model_name or model_type}@{rev_token}"
 
     def get(
         self,
@@ -205,7 +227,11 @@ class LVLMBackendCache:
         Raises:
             RuntimeError: If model loading fails
         """
-        key = self._cache_key(model_type, model_name)
+        # ``revision`` is part of the cache identity (see ``_cache_key``).
+        # Inspect kwargs without consuming so it still threads through
+        # to ``get_lvlm_backend`` -> the concrete backend constructor.
+        revision = kwargs.get("revision")
+        key = self._cache_key(model_type, model_name, revision)
 
         with self._cache_lock:
             self._stats.total_requests += 1
@@ -232,7 +258,8 @@ class LVLMBackendCache:
 
             self._stats.cache_misses += 1
 
-        # Load model (outside lock to allow concurrent loads)
+        # Load model (outside lock to allow concurrent loads).  Pass
+        # ``revision`` through so the loader and cache key agree.
         return self._load_model(model_type, model_name, device, **kwargs)
 
     def _wait_for_load(self, cached: CachedModel, key: str) -> LVLMBackend:
@@ -264,7 +291,7 @@ class LVLMBackendCache:
         **kwargs: Any,
     ) -> LVLMBackend:
         """Load a model into the cache."""
-        key = self._cache_key(model_type, model_name)
+        key = self._cache_key(model_type, model_name, kwargs.get("revision"))
 
         # Create cache entry
         with self._cache_lock:
@@ -453,7 +480,7 @@ class LVLMBackendCache:
         Returns:
             Future that resolves to True when warmup is complete
         """
-        key = self._cache_key(model_type, model_name)
+        key = self._cache_key(model_type, model_name, kwargs.get("revision"))
 
         # Check if already warming or loaded
         with self._cache_lock:
@@ -492,7 +519,7 @@ class LVLMBackendCache:
         kwargs: dict[str, Any],
     ) -> bool:
         """Background task for pre-warming a model."""
-        key = self._cache_key(model_type, model_name)
+        key = self._cache_key(model_type, model_name, kwargs.get("revision"))
 
         try:
             # Load model
@@ -532,17 +559,27 @@ class LVLMBackendCache:
                 self._warmup_futures.pop(key, None)
             return False
 
-    def is_loaded(self, model_type: str, model_name: str | None = None) -> bool:
+    def is_loaded(
+        self,
+        model_type: str,
+        model_name: str | None = None,
+        revision: str | None = None,
+    ) -> bool:
         """Check if a model is currently loaded."""
-        key = self._cache_key(model_type, model_name)
+        key = self._cache_key(model_type, model_name, revision)
         with self._cache_lock:
             if key in self._cache:
                 return self._cache[key].state == ModelState.READY
             return False
 
-    def is_warming(self, model_type: str, model_name: str | None = None) -> bool:
+    def is_warming(
+        self,
+        model_type: str,
+        model_name: str | None = None,
+        revision: str | None = None,
+    ) -> bool:
         """Check if a model is currently pre-warming."""
-        key = self._cache_key(model_type, model_name)
+        key = self._cache_key(model_type, model_name, revision)
         with self._cache_lock:
             return key in self._warmup_futures
 
@@ -561,10 +598,13 @@ class LVLMBackendCache:
             )
 
     def get_model_info(
-        self, model_type: str, model_name: str | None = None
+        self,
+        model_type: str,
+        model_name: str | None = None,
+        revision: str | None = None,
     ) -> dict[str, Any] | None:
         """Get information about a cached model."""
-        key = self._cache_key(model_type, model_name)
+        key = self._cache_key(model_type, model_name, revision)
         with self._cache_lock:
             if key not in self._cache:
                 return None
@@ -595,9 +635,14 @@ class LVLMBackendCache:
                 for key, cached in self._cache.items()
             ]
 
-    def evict(self, model_type: str, model_name: str | None = None) -> bool:
+    def evict(
+        self,
+        model_type: str,
+        model_name: str | None = None,
+        revision: str | None = None,
+    ) -> bool:
         """Manually evict a model from the cache."""
-        key = self._cache_key(model_type, model_name)
+        key = self._cache_key(model_type, model_name, revision)
 
         with self._cache_lock:
             if key not in self._cache:

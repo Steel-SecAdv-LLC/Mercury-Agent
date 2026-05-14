@@ -38,6 +38,8 @@ from typing import Any
 import numpy as np
 import torch
 
+from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,6 +53,12 @@ class LLMProvider(StrEnum):
     LOCAL = "local"
     MOCK = "mock"  # For testing
     TEMPLATE = "template"  # Fallback template-based responses
+    # Additional cloud providers (Omnidirectional LLM coverage):
+    XAI = "xai"  # xAI Grok (api.x.ai, OpenAI-compatible)
+    GEMINI = "gemini"  # Google Gemini (generativelanguage.googleapis.com)
+    COHERE = "cohere"  # Cohere Chat v2 (api.cohere.com)
+    DEEPSEEK = "deepseek"  # DeepSeek (api.deepseek.com, OpenAI-compatible)
+    CURSOR = "cursor"  # Cursor (operator-supplied base_url, OpenAI-compatible)
 
 
 @dataclass
@@ -312,37 +320,50 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
         if self._model is not None:
             return
 
-        # Check if model_name is a local path (doesn't need revision pinning)
+        # Local paths bypass revision pinning. Only absolute paths
+        # qualify as local; relative paths would let resolution depend
+        # on the current working directory.  The cross-platform check
+        # mirrors ``security/model_policy._is_local_path`` (POSIX +
+        # Windows + UNC) so a Hub id like ``Salesforce/blip`` is never
+        # mistaken for a local path on either OS.
+        from pathlib import PurePosixPath, PureWindowsPath
+
+        model_name = self.config.model_name
         is_local_path = (
-            self.config.model_name.startswith("/")
-            or self.config.model_name.startswith("./")
-            or self.config.model_name.startswith("../")
+            PurePosixPath(model_name).is_absolute() or PureWindowsPath(model_name).is_absolute()
         )
 
-        # Require revision for remote models (supply chain security)
+        # Require revision for remote models (supply chain security).
+        # Raise rather than silently degrade: ``generate()`` would
+        # otherwise return a fake "unavailable" JSON stub on the very
+        # first call, hiding the misconfiguration. Operators need to
+        # see the actionable error so they can pin a SHA or switch to
+        # a local path.
         if not is_local_path and not self.config.revision:
-            logger.warning(
-                f"HuggingFace model '{self.config.model_name}' requested without revision pinning. "
-                "For supply chain security (CWE-494), set config.revision to a specific commit SHA. "
-                "Adapter will be marked as unavailable."
+            raise UnsafeModelError(
+                f"HuggingFace model '{self.config.model_name}' requires a "
+                "revision pin (40-char commit SHA) for supply-chain "
+                "security (CWE-494). Set config.revision to a verified SHA "
+                "or use an absolute local path; mutable branch/tag refs "
+                "are not accepted."
             )
-            self._is_available = False
-            return
 
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
-            # Use revision for remote models, None for local paths
+            # Use revision for remote models, None for local paths.
+            # SafeHFLoader.load_* enforces revision pinning and the
+            # HuggingFace identifier shape; no allowlist here because
+            # this adapter is the generic HF backend.
             revision = self.config.revision if not is_local_path else None
 
-            # Revision pinning is enforced at runtime above - remote models require
-            # config.revision to be set, otherwise adapter is marked unavailable.
-            # Local paths are allowed without revision. Bandit cannot verify this statically.
-            self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
+            self._tokenizer = SafeHFLoader.load_tokenizer(
+                AutoTokenizer,
                 self.config.model_name,
                 revision=revision,
             )
-            self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615
+            self._model = SafeHFLoader.load_model(
+                AutoModelForCausalLM,
                 self.config.model_name,
                 revision=revision,
                 torch_dtype=torch.float16,
@@ -351,6 +372,12 @@ class HuggingFaceLLMAdapter(BaseLLMAdapter):
             logger.info(
                 f"Loaded HuggingFace model: {self.config.model_name} (revision: {revision})"
             )
+        except UnsafeModelError:
+            # SafeHFLoader refusal -- propagate as-is so the operator
+            # sees the actionable policy error rather than a generic
+            # "model unavailable" stub.
+            self._is_available = False
+            raise
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             self._is_available = False

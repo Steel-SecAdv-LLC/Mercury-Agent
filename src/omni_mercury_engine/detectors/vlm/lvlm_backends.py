@@ -41,11 +41,19 @@ import numpy as np
 import torch
 from PIL import Image
 
+from omni_mercury_engine.security.model_policy import SafeHFLoader
+
 logger = logging.getLogger(__name__)
 
 
 class LVLMBackend(ABC):
     """Abstract base class for LVLM backends."""
+
+    # Subclasses override with the set of HuggingFace ids they accept.
+    # SafeHFLoader gates every from_pretrained call against this set so
+    # an operator who passes an unexpected model id at config-time gets
+    # an UnsafeModelError instead of a silent default-branch load.
+    ALLOWED_MODELS: frozenset[str] = frozenset()
 
     def __init__(
         self,
@@ -53,6 +61,7 @@ class LVLMBackend(ABC):
         device: str = "cuda",
         max_new_tokens: int = 256,
         temperature: float = 0.1,
+        revision: str | None = None,
     ):
         """
         Initialize LVLM backend.
@@ -62,11 +71,15 @@ class LVLMBackend(ABC):
             device: Computation device
             max_new_tokens: Maximum generation tokens
             temperature: Sampling temperature
+            revision: Pinned revision (commit SHA preferred). Required
+                for remote loads; ``None`` is only accepted for local
+                paths.
         """
         self.model_name = model_name
         self.device = torch.device(device)
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
+        self.revision = revision
 
         self.model: Any = None
         self.processor: Any = None
@@ -119,6 +132,21 @@ class LVLMBackend(ABC):
 class Qwen2VLBackend(LVLMBackend):
     """Qwen2-VL backend for vision-language tasks."""
 
+    ALLOWED_MODELS: frozenset[str] = frozenset(
+        {
+            "Qwen/Qwen2-VL-2B-Instruct",
+            "Qwen/Qwen2-VL-7B-Instruct",
+            "Qwen/Qwen2-VL-72B-Instruct",
+            # Qwen2.5-VL family.  ``VLMConfig.model_name`` defaults to
+            # ``Qwen/Qwen2.5-VL-7B-Instruct``; without these entries the
+            # out-of-the-box detector would hit SafeHFLoader's allowlist
+            # gate and refuse even with a valid revision pin.
+            "Qwen/Qwen2.5-VL-3B-Instruct",
+            "Qwen/Qwen2.5-VL-7B-Instruct",
+            "Qwen/Qwen2.5-VL-72B-Instruct",
+        }
+    )
+
     def initialize(self) -> None:
         """Load Qwen2-VL model."""
         try:
@@ -126,9 +154,17 @@ class Qwen2VLBackend(LVLMBackend):
 
             logger.info(f"Loading Qwen2-VL: {self.model_name}")
 
-            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615
-            self.model = Qwen2VLForConditionalGeneration.from_pretrained(  # nosec B615
+            self.processor = SafeHFLoader.load_processor(
+                AutoProcessor,
                 self.model_name,
+                revision=self.revision,
+                allowlist=self.ALLOWED_MODELS,
+            )
+            self.model = SafeHFLoader.load_model(
+                Qwen2VLForConditionalGeneration,
+                self.model_name,
+                revision=self.revision,
+                allowlist=self.ALLOWED_MODELS,
                 torch_dtype=torch.float16,
                 device_map="auto",
             )
@@ -194,6 +230,14 @@ class Qwen2VLBackend(LVLMBackend):
 class MiniCPMVBackend(LVLMBackend):
     """MiniCPM-V backend - efficient vision-language model."""
 
+    ALLOWED_MODELS: frozenset[str] = frozenset(
+        {
+            "openbmb/MiniCPM-V-2_6",
+            "openbmb/MiniCPM-Llama3-V-2_5",
+            "openbmb/MiniCPM-V-2",
+        }
+    )
+
     def initialize(self) -> None:
         """Load MiniCPM-V model."""
         try:
@@ -201,14 +245,19 @@ class MiniCPMVBackend(LVLMBackend):
 
             logger.info(f"Loading MiniCPM-V: {self.model_name}")
 
-            # nosec B615 - model_name is user-configured; see module docstring for security guidance
-            self.model = AutoModel.from_pretrained(  # nosec B615
+            self.model = SafeHFLoader.load_model(
+                AutoModel,
                 self.model_name,
+                revision=self.revision,
+                allowlist=self.ALLOWED_MODELS,
                 trust_remote_code=True,
                 torch_dtype=torch.float16,
             ).to(self.device)
-            self.processor = AutoTokenizer.from_pretrained(  # nosec B615
+            self.processor = SafeHFLoader.load_tokenizer(
+                AutoTokenizer,
                 self.model_name,
+                revision=self.revision,
+                allowlist=self.ALLOWED_MODELS,
                 trust_remote_code=True,
             )
             self.model.eval()
@@ -248,6 +297,16 @@ class MiniCPMVBackend(LVLMBackend):
 class LLaVABackend(LVLMBackend):
     """LLaVA backend for vision-language tasks."""
 
+    ALLOWED_MODELS: frozenset[str] = frozenset(
+        {
+            "llava-hf/llava-1.5-7b-hf",
+            "llava-hf/llava-1.5-13b-hf",
+            "llava-hf/llava-v1.6-mistral-7b-hf",
+            "llava-hf/llava-v1.6-vicuna-7b-hf",
+            "llava-hf/llava-v1.6-vicuna-13b-hf",
+        }
+    )
+
     def initialize(self) -> None:
         """Load LLaVA model."""
         try:
@@ -255,9 +314,17 @@ class LLaVABackend(LVLMBackend):
 
             logger.info(f"Loading LLaVA: {self.model_name}")
 
-            self.processor = AutoProcessor.from_pretrained(self.model_name)  # nosec B615
-            self.model = LlavaForConditionalGeneration.from_pretrained(  # nosec B615
+            self.processor = SafeHFLoader.load_processor(
+                AutoProcessor,
                 self.model_name,
+                revision=self.revision,
+                allowlist=self.ALLOWED_MODELS,
+            )
+            self.model = SafeHFLoader.load_model(
+                LlavaForConditionalGeneration,
+                self.model_name,
+                revision=self.revision,
+                allowlist=self.ALLOWED_MODELS,
                 torch_dtype=torch.float16,
                 device_map="auto",
             )

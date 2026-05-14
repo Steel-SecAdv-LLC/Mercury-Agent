@@ -2,19 +2,28 @@
 Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 
-Tests for cache HMAC signing and security hardening.
+Tests for cache serialisation behaviour.
 
-Covers:
-- HMAC-signed pickle serialization
-- HMAC signature verification (tamper detection)
-- Production enforcement for MERCURY_CACHE_SECRET
-- Domain TTL policies
-- RedisCache serialization/deserialization
-- Cache factory
+The pickle serialiser was removed from the runtime; only JSON is
+supported. These tests cover:
+
+- Refusal of legacy ``serializer="pickle"`` constructor argument
+- Refusal of any non-JSON serializer (case-sensitive, exact match)
+- Operator-actionable error messages that point at the migration tool
+- JSON serialisation round-trip across the full json type spectrum
+  (None, bool, int, float, str, list, dict, nested, unicode)
+- Non-JSON-serialisable values surface as loud TypeError -- never
+  silently dropped or coerced
+- Domain TTL policies (lookup, defaults, completeness)
+- Cache factory across all supported backends
+- Key prefixing, including empty / custom / colon-suffix variants
+- ``from_env`` constructor across all REDIS_* env vars, including
+  the SSL flag parsing variants
 """
 
 from __future__ import annotations
 
+import json
 import os
 from unittest.mock import patch
 
@@ -29,108 +38,49 @@ from omni_mercury_engine.integrations.stubs.cache import (
 )
 
 # =============================================================================
-# HMAC Signing Key Tests
+# Legacy pickle serialiser refusal
 # =============================================================================
 
 
-class TestHMACSigningKey:
-    """Tests for HMAC signing key management."""
+class TestLegacyPickleRefused:
+    """The 'pickle' serialiser is gone; the constructor must refuse it."""
 
-    def test_get_signing_key_with_env_var(self):
-        """Test signing key from environment variable."""
-        with patch.dict(os.environ, {"MERCURY_CACHE_SECRET": "my-strong-secret"}):
-            key = RedisCache._get_signing_key()
-            assert isinstance(key, bytes)
-            assert len(key) == 32  # SHA-256 produces 32 bytes
+    def test_pickle_serializer_rejected(self):
+        with pytest.raises(ValueError, match="serializer"):
+            RedisCache(serializer="pickle", fallback_to_stub=True)
 
-    def test_get_signing_key_default_dev(self):
-        """Test default signing key in development mode."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("MERCURY_CACHE_SECRET", None)
-            os.environ.pop("MERCURY_AGENT_ENV", None)
-            # Reset warning flag
-            CacheStub._CACHE_SECRET_WARNED = False
-            key = RedisCache._get_signing_key()
-            assert isinstance(key, bytes)
-            assert len(key) == 32
+    def test_unknown_serializer_rejected(self):
+        with pytest.raises(ValueError, match="serializer"):
+            RedisCache(serializer="msgpack", fallback_to_stub=True)
 
-    def test_get_signing_key_production_requires_secret(self):
-        """Test production mode requires MERCURY_CACHE_SECRET."""
-        with patch.dict(
-            os.environ,
-            {"MERCURY_AGENT_ENV": "production"},
-            clear=False,
-        ):
-            os.environ.pop("MERCURY_CACHE_SECRET", None)
-            with pytest.raises(ValueError, match="MERCURY_CACHE_SECRET"):
-                RedisCache._get_signing_key()
+    def test_json_serializer_accepted(self):
+        # No exception
+        cache = RedisCache(serializer="json", fallback_to_stub=True)
+        assert cache.serializer == "json"
 
+    def test_pickle_error_message_points_to_migrate_pkl(self):
+        """Operator-actionable message: the error must name the migration tool."""
+        with pytest.raises(ValueError) as exc_info:
+            RedisCache(serializer="pickle", fallback_to_stub=True)
+        msg = str(exc_info.value)
+        assert (
+            "migrate_pkl" in msg
+        ), "The pickle refusal should point operators at the offline migration tool"
 
-# =============================================================================
-# Pickle Serialization with HMAC Tests
-# =============================================================================
+    def test_empty_serializer_rejected(self):
+        """The constructor must not silently coerce '' to 'json'."""
+        with pytest.raises(ValueError, match="serializer"):
+            RedisCache(serializer="", fallback_to_stub=True)
 
+    def test_case_sensitive_serializer(self):
+        """'JSON' is not 'json' -- exact match only, no normalisation."""
+        with pytest.raises(ValueError, match="serializer"):
+            RedisCache(serializer="JSON", fallback_to_stub=True)
 
-class TestPickleHMACSerialization:
-    """Tests for HMAC-signed pickle serialization/deserialization."""
-
-    @pytest.fixture
-    def redis_cache(self):
-        """Create RedisCache with pickle serializer."""
-        with patch.dict(os.environ, {"MERCURY_CACHE_SECRET": "test-secret-key"}):
-            cache = RedisCache(serializer="pickle", fallback_to_stub=True)
-            return cache
-
-    def test_serialize_pickle_includes_hmac(self, redis_cache):
-        """Test that pickle serialization prepends HMAC signature."""
-        serialized = redis_cache._serialize({"key": "value"})
-        assert isinstance(serialized, str)
-        assert "." in serialized  # HMAC.base64_payload format
-        parts = serialized.split(".", 1)
-        assert len(parts) == 2
-        # First part should be hex-encoded HMAC (64 chars for SHA-256)
-        assert len(parts[0]) == 64
-
-    def test_deserialize_pickle_valid_hmac(self, redis_cache):
-        """Test deserialization succeeds with valid HMAC."""
-        original = {"data": [1, 2, 3], "nested": {"a": True}}
-        serialized = redis_cache._serialize(original)
-        deserialized = redis_cache._deserialize(serialized)
-        assert deserialized == original
-
-    def test_deserialize_pickle_tampered_data(self, redis_cache):
-        """Test deserialization rejects tampered data."""
-        original = {"secret": "classified"}
-        serialized = redis_cache._serialize(original)
-
-        # Tamper with the base64 payload
-        sig, _, payload = serialized.partition(".")
-        tampered = sig + "." + payload[:-4] + "XXXX"
-
-        result = redis_cache._deserialize(tampered)
-        assert result is None  # Should reject tampered data
-
-    def test_deserialize_pickle_tampered_signature(self, redis_cache):
-        """Test deserialization rejects tampered signature."""
-        original = {"data": "test"}
-        serialized = redis_cache._serialize(original)
-
-        # Replace signature with wrong value
-        _, _, payload = serialized.partition(".")
-        tampered = "a" * 64 + "." + payload
-
-        result = redis_cache._deserialize(tampered)
-        assert result is None
-
-    def test_deserialize_pickle_missing_signature(self, redis_cache):
-        """Test deserialization rejects data without HMAC separator."""
-        result = redis_cache._deserialize("no_dot_separator_here")
-        assert result is None
-
-    def test_deserialize_none_returns_none(self, redis_cache):
-        """Test deserialization of None returns None."""
-        result = redis_cache._deserialize(None)
-        assert result is None
+    def test_default_serializer_is_json(self):
+        """Default-constructed cache is JSON, never pickle."""
+        cache = RedisCache(fallback_to_stub=True)
+        assert cache.serializer == "json"
 
 
 # =============================================================================
@@ -150,15 +100,11 @@ class TestJSONSerialization:
         """Test JSON serialization."""
         serialized = json_cache._serialize({"key": "value", "num": 42})
         assert isinstance(serialized, str)
-        import json
-
         parsed = json.loads(serialized)
         assert parsed == {"key": "value", "num": 42}
 
     def test_deserialize_json(self, json_cache):
         """Test JSON deserialization."""
-        import json
-
         data = json.dumps({"key": "value"})
         result = json_cache._deserialize(data)
         assert result == {"key": "value"}
@@ -169,6 +115,89 @@ class TestJSONSerialization:
         serialized = json_cache._serialize(original)
         deserialized = json_cache._deserialize(serialized)
         assert deserialized == original
+
+    def test_deserialize_none_returns_none(self, json_cache):
+        """Missing keys come back from Redis as None; the cache must pass that through."""
+        assert json_cache._deserialize(None) is None
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            None,
+            True,
+            False,
+            0,
+            1,
+            -1,
+            42,
+            2**53 - 1,
+            -(2**53 - 1),
+            0.0,
+            3.14159,
+            -2.718,
+            "",
+            "ascii",
+            "unicode: ✓ ☠ é",
+            'embedded "quotes" and \\backslashes',
+            [],
+            [1, 2, 3],
+            {},
+            {"a": 1},
+        ],
+    )
+    def test_json_roundtrip_scalar_and_container_types(self, json_cache, value):
+        """Every JSON-spec type must round-trip without loss."""
+        serialized = json_cache._serialize(value)
+        deserialized = json_cache._deserialize(serialized)
+        assert deserialized == value
+
+    def test_json_roundtrip_deeply_nested(self, json_cache):
+        """Nested containers (dict-of-dict-of-list-of-dict) must round-trip."""
+        original = {
+            "level1": {
+                "level2": {
+                    "items": [
+                        {"id": 1, "tags": ["a", "b"]},
+                        {"id": 2, "tags": []},
+                    ],
+                    "meta": None,
+                }
+            }
+        }
+        serialized = json_cache._serialize(original)
+        assert isinstance(serialized, str)
+        assert json_cache._deserialize(serialized) == original
+
+    def test_non_json_value_raises_typeerror(self, json_cache):
+        """Sets, bytes, datetimes -- the cache MUST refuse loudly, not coerce.
+
+        Pickle would have happily serialised any of these; JSON has no
+        cross-language way to represent them, so the contract for JSON
+        cache is: caller converts first, or the call fails. No silent
+        dropping or stringification.
+        """
+
+        class _NotJSONable:
+            pass
+
+        for hostile in ({1, 2, 3}, b"bytes", _NotJSONable()):
+            with pytest.raises(TypeError):
+                json_cache._serialize(hostile)
+
+    def test_deserialize_malformed_json_raises(self, json_cache):
+        """Corrupted payloads must raise JSONDecodeError, not return garbage."""
+        with pytest.raises(json.JSONDecodeError):
+            json_cache._deserialize("{not valid json")
+
+    def test_string_with_dot_safely_roundtrips(self, json_cache):
+        """The old pickle path used '.' as the HMAC/payload separator.
+
+        Make sure strings that contain '.' are not split or otherwise
+        mangled by the JSON path -- a real regression risk if the old
+        pickle parsing code is ever re-introduced by accident.
+        """
+        original = "hello.world.contains.dots"
+        assert json_cache._deserialize(json_cache._serialize(original)) == original
 
 
 # =============================================================================
@@ -197,6 +226,15 @@ class TestDomainTTL:
         for domain, ttl in DOMAIN_TTL.items():
             assert isinstance(ttl, int), f"TTL for {domain} is not an integer"
             assert ttl > 0, f"TTL for {domain} is not positive"
+
+    def test_default_key_present(self):
+        """The 'default' bucket must exist; ``get_domain_ttl`` relies on it."""
+        assert "default" in DOMAIN_TTL
+
+    def test_domain_lookup_is_case_sensitive(self):
+        """No silent case-folding: 'Security' is not 'security'."""
+        assert get_domain_ttl("Security") == DOMAIN_TTL["default"]
+        assert get_domain_ttl("SECURITY") == DOMAIN_TTL["default"]
 
 
 # =============================================================================
@@ -227,6 +265,11 @@ class TestCacheFactory:
         cache = create_cache(backend="unknown_backend")
         assert isinstance(cache, CacheStub)
 
+    def test_create_redis_propagates_serializer_refusal(self):
+        """A factory caller must not be able to sneak ``serializer='pickle'`` past us."""
+        with pytest.raises(ValueError, match="serializer"):
+            create_cache(backend="redis", serializer="pickle")
+
     def test_redis_from_env(self):
         """Test Redis cache creation from environment."""
         with patch.dict(
@@ -239,6 +282,58 @@ class TestCacheFactory:
             cache = RedisCache.from_env()
             assert cache.host == "test-host"
             assert cache.port == 6380
+
+    def test_redis_from_env_full_surface(self):
+        """``from_env`` must honour every documented REDIS_* variable."""
+        with patch.dict(
+            os.environ,
+            {
+                "REDIS_HOST": "host.example",
+                "REDIS_PORT": "9999",
+                "REDIS_PASSWORD": "s3cret",
+                "REDIS_DB": "7",
+                "REDIS_SSL": "true",
+                "REDIS_PREFIX": "myapp:",
+            },
+            clear=False,
+        ):
+            cache = RedisCache.from_env()
+            assert cache.host == "host.example"
+            assert cache.port == 9999
+            assert cache.password == "s3cret"
+            assert cache.db == 7
+            assert cache.ssl is True
+            assert cache.prefix == "myapp:"
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("true", True),
+            ("True", True),
+            ("TRUE", True),
+            ("1", True),
+            ("yes", True),
+            ("Yes", True),
+            ("false", False),
+            ("0", False),
+            ("no", False),
+            ("", False),
+            ("nope", False),
+        ],
+    )
+    def test_redis_from_env_ssl_parsing(self, raw, expected):
+        """REDIS_SSL must parse as truthy only for documented affirmative values."""
+        with patch.dict(os.environ, {"REDIS_SSL": raw}, clear=False):
+            cache = RedisCache.from_env()
+            assert cache.ssl is expected
+
+    def test_redis_from_env_invalid_port_raises(self):
+        """REDIS_PORT='not-a-number' must raise ValueError, never silently default."""
+        with (
+            patch.dict(os.environ, {"REDIS_PORT": "not-a-number"}, clear=False),
+            pytest.raises(ValueError),
+        ):
+            RedisCache.from_env()
 
 
 # =============================================================================
@@ -258,3 +353,142 @@ class TestRedisCacheKeyPrefixing:
         """Test default key prefix is 'mercury:'."""
         cache = RedisCache()
         assert cache._make_key("key") == "mercury:key"
+
+    def test_empty_prefix(self):
+        """An explicit empty prefix must produce the unprefixed key."""
+        cache = RedisCache(prefix="")
+        assert cache._make_key("key") == "key"
+
+    def test_prefix_without_colon(self):
+        """No automatic colon insertion -- prefix is concatenated verbatim."""
+        cache = RedisCache(prefix="raw")
+        assert cache._make_key("key") == "rawkey"
+
+    def test_prefix_preserves_key_unicode(self):
+        """Keys with unicode characters must not be mangled by prefixing."""
+        cache = RedisCache(prefix="✓:")
+        assert cache._make_key("kéy") == "✓:kéy"
+
+
+# =============================================================================
+# RedisCache constructor surface
+# =============================================================================
+
+
+class TestRedisCacheConstructor:
+    """Tests for the RedisCache __init__ argument surface.
+
+    The bandit-sensitive defaults (no pickle, no implicit insecure fallbacks)
+    are policy and must be enforced at construction time, not lazily.
+    """
+
+    def test_default_metrics_zero(self):
+        """Fresh cache has zero call/error/fallback counters."""
+        cache = RedisCache()
+        assert cache._call_count == 0
+        assert cache._errors == 0
+        assert cache._fallback_count == 0
+
+    def test_default_not_connected(self):
+        """Fresh cache is disconnected until ``_ensure_connected`` succeeds."""
+        cache = RedisCache()
+        assert cache._connected is False
+        assert cache._client is None
+
+    def test_fallback_stub_is_isolated_instance(self):
+        """Each RedisCache owns its own CacheStub fallback; they do not share state."""
+        a = RedisCache(fallback_to_stub=True)
+        b = RedisCache(fallback_to_stub=True)
+        assert a._stub is not b._stub
+
+    def test_custom_host_port_overrides_env(self):
+        """Explicit constructor args win over REDIS_* env vars."""
+        with patch.dict(
+            os.environ,
+            {"REDIS_HOST": "env-host", "REDIS_PORT": "1111"},
+            clear=False,
+        ):
+            cache = RedisCache(host="explicit-host", port=2222)
+            assert cache.host == "explicit-host"
+            assert cache.port == 2222
+
+
+# =============================================================================
+# CacheStub fallback behaviour
+# =============================================================================
+
+
+class TestFallbackToStubPreservesJSONContract:
+    """JSON-only contract holds even when the call falls back to the in-memory stub.
+
+    The bug this regression test pins: the previous code routed to
+    ``_stub.set(value)`` BEFORE calling ``_serialize(value)``, so a
+    non-JSON-serialisable value (set, bytes, custom object) was
+    silently stored in the stub when Redis was unavailable. Developers
+    running offline would write code that worked locally and crashed
+    in production the first time the Redis path was exercised.
+    """
+
+    @pytest.mark.asyncio
+    async def test_set_rejects_non_json_in_fallback_mode(self):
+        """``fallback_to_stub=True`` must not bypass the JSON contract."""
+        cache = RedisCache(fallback_to_stub=True)
+        # Redis is unreachable in the test sandbox; _ensure_connected
+        # returns False and the fallback path runs. The TypeError must
+        # surface BEFORE the stub is touched.
+        with pytest.raises(TypeError):
+            await cache.set("k", {1, 2, 3})  # set() is not JSON-able
+
+    @pytest.mark.asyncio
+    async def test_set_rejects_bytes_in_fallback_mode(self):
+        cache = RedisCache(fallback_to_stub=True)
+        with pytest.raises(TypeError):
+            await cache.set("k", b"raw bytes")
+
+    @pytest.mark.asyncio
+    async def test_mset_rejects_non_json_in_fallback_mode(self):
+        cache = RedisCache(fallback_to_stub=True)
+        with pytest.raises(TypeError):
+            await cache.mset({"a": 1, "b": {7, 8}})  # 'b' is a set
+
+
+class TestCacheStub:
+    """The in-memory CacheStub is the always-available fallback.
+
+    It must behave like a real cache for the public surface that
+    callers depend on, so that fallback-to-stub is invisible to the
+    caller other than via the metrics counters.
+    """
+
+    @pytest.mark.asyncio
+    async def test_set_then_get(self):
+        cache = CacheStub()
+        await cache.set("key", {"v": 1})
+        assert await cache.get("key") == {"v": 1}
+
+    @pytest.mark.asyncio
+    async def test_get_missing_returns_none(self):
+        cache = CacheStub()
+        assert await cache.get("never-set") is None
+
+    @pytest.mark.asyncio
+    async def test_delete_removes_key(self):
+        cache = CacheStub()
+        await cache.set("k", 1)
+        assert await cache.delete("k") is True
+        assert await cache.get("k") is None
+
+    @pytest.mark.asyncio
+    async def test_exists_reports_membership(self):
+        cache = CacheStub()
+        assert await cache.exists("missing") is False
+        await cache.set("present", "v")
+        assert await cache.exists("present") is True
+
+    @pytest.mark.asyncio
+    async def test_set_nx_blocks_when_key_exists(self):
+        """nx=True (set-if-not-exists) must NOT overwrite an existing key."""
+        cache = CacheStub()
+        await cache.set("k", "first")
+        await cache.set("k", "second", nx=True)
+        assert await cache.get("k") == "first"

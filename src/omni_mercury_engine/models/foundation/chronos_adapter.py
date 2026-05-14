@@ -40,6 +40,7 @@ from omni_mercury_engine.models.foundation.base_foundation import (
     BaseFoundationModel,
     FoundationModelConfig,
 )
+from omni_mercury_engine.security.model_policy import SafeHFLoader
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +54,19 @@ class ChronosConfig(FoundationModelConfig):
         model_size: Model size variant ('tiny', 'mini', 'small', 'base', 'large')
         num_samples: Number of samples for probabilistic forecast
         temperature: Sampling temperature
+        revision: HuggingFace revision (commit SHA preferred) for the
+            built-in ``amazon/chronos-t5-*`` Hub IDs. ``SafeHFLoader``
+            requires a pin for every remote load -- supply the SHA you
+            have validated. Local-disk paths in ``model_name`` bypass
+            this requirement.
     """
 
     model_size: str = "small"
     num_samples: int = 20
     temperature: float = 1.0
     model_name: str = "amazon/chronos-t5-small"
+    # SafeHFLoader requires a revision pin for remote loads.
+    revision: str | None = None
 
 
 class ChronosAdapter(BaseFoundationModel):
@@ -74,7 +82,13 @@ class ChronosAdapter(BaseFoundationModel):
         - GPU acceleration support
 
     Example:
-        >>> adapter = ChronosAdapter(model_size="small")
+        >>> # SafeHFLoader requires a revision pin for Hub IDs; supply
+        >>> # the commit SHA you have validated for the chosen model.
+        >>> cfg = ChronosConfig(
+        ...     model_size="small",
+        ...     revision="<validated-commit-sha>",
+        ... )
+        >>> adapter = ChronosAdapter(cfg)
         >>> forecasts = adapter.forecast(time_series, horizon=24)
         >>> anomalies = adapter.detect_anomalies(time_series)
     """
@@ -86,6 +100,10 @@ class ChronosAdapter(BaseFoundationModel):
         "base": "amazon/chronos-t5-base",
         "large": "amazon/chronos-t5-large",
     }
+
+    # Allowlist forwarded to SafeHFLoader. Derived from MODEL_SIZES so
+    # the two stay in sync at class-definition time.
+    ALLOWED_MODELS: frozenset[str] = frozenset(MODEL_SIZES.values())
 
     def __init__(self, config: ChronosConfig | dict[str, Any] | None = None) -> None:
         """
@@ -134,8 +152,11 @@ class ChronosAdapter(BaseFoundationModel):
 
             logger.info(f"Loading Chronos model: {self.chronos_config.model_name}")
 
-            self._pipeline = ChronosPipeline.from_pretrained(
+            self._pipeline = SafeHFLoader.load_model(
+                ChronosPipeline,
                 self.chronos_config.model_name,
+                revision=self.chronos_config.revision,
+                allowlist=self.ALLOWED_MODELS,
                 device_map=str(self.device),
                 torch_dtype=torch.float32,
             )

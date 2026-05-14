@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 import numpy as np
@@ -1001,7 +1001,14 @@ class Learnable3REngine:
         return float(self.model.phi.item())
 
     def save_model(self, path: str) -> None:
-        """Save model checkpoint."""
+        """Save model checkpoint.
+
+        The config dataclass is flattened to a primitive dict so the
+        checkpoint round-trips cleanly under ``weights_only=True`` on
+        load -- PyTorch's safe-load mode refuses arbitrary classes,
+        and a stored ``Learnable3RConfig`` instance would not be on
+        the safe-globals list.
+        """
         if not TORCH_AVAILABLE or self.model is None:
             logger.warning("Cannot save model: PyTorch not available")
             return
@@ -1011,54 +1018,73 @@ class Learnable3REngine:
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "training_history": self.training_history,
-                "config": self.config,
+                "config": asdict(self.config),
             },
             path,
         )
 
         logger.info(f"Model saved to {path}")
 
-    def load_model(self, path: str, allow_unsafe: bool = False) -> None:
+    def load_model(self, path: str) -> None:
         """
         Load model checkpoint.
 
-        Security Note: By default, uses safe loading (weights_only=True).
-        Set allow_unsafe=True only for trusted checkpoints that require
-        optimizer state restoration with custom objects.
+        Loading is hard-pinned to ``weights_only=True``. The
+        ``allow_unsafe`` escape hatch was removed; legacy checkpoints
+        that cannot round-trip under safe mode must be re-saved by
+        the operator.
+
+        Round-trip contract: ``save_model()`` writes the config as a
+        primitive dict; ``load_model()`` reconstructs the dataclass
+        via keyword expansion. The reconstructed config is reinstalled
+        on ``self.config`` so downstream behaviour (training history,
+        optimizer state, etc.) sees the operator's original values.
 
         Args:
             path: Path to checkpoint file
-            allow_unsafe: If True, allows loading checkpoints with pickle.
-                         Only use for trusted checkpoint sources.
+
+        Raises:
+            RuntimeError: Checkpoint cannot load with weights_only=True,
+                or the saved 'config' has an unrecognised shape.
+            TypeError: Saved config dict references fields the current
+                ``Learnable3RConfig`` no longer accepts (schema drift).
         """
         if not TORCH_AVAILABLE or self.model is None:
             logger.warning("Cannot load model: PyTorch not available")
             return
 
         try:
-            # Default: safe loading with weights_only=True
             checkpoint = torch.load(path, map_location=self.device, weights_only=True)
         except Exception as e:
-            if allow_unsafe:
-                logger.warning(
-                    "Safe checkpoint loading failed. Falling back to unsafe mode "
-                    "as explicitly requested. Only do this for trusted checkpoints. "
-                    f"Original error: {e}"
-                )
-                checkpoint = torch.load(
-                    path, map_location=self.device, weights_only=False
-                )  # nosec B614 - intentional for trusted checkpoints with allow_unsafe=True
-            else:
-                raise RuntimeError(
-                    f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "
-                    "This may indicate the checkpoint contains custom pickled objects. "
-                    "If you trust this checkpoint source, re-run with allow_unsafe=True. "
-                    f"Original error: {e}"
-                ) from e
+            raise RuntimeError(
+                f"Checkpoint at '{path}' cannot be loaded safely (weights_only=True). "
+                "Re-save the checkpoint with the current code path; the unsafe "
+                f"fallback was removed. Original error: {e}"
+            ) from e
 
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.training_history = checkpoint.get("training_history", [])
+
+        config_payload = checkpoint.get("config")
+        if isinstance(config_payload, Learnable3RConfig):
+            # Pre-dict checkpoint format; only reachable if upstream
+            # PyTorch tolerates dataclass instances under weights_only.
+            self.config = config_payload
+        elif isinstance(config_payload, dict):
+            self.config = Learnable3RConfig(**config_payload)
+        elif config_payload is None:
+            # Older checkpoints predate the config field entirely.
+            logger.warning(
+                "Checkpoint at '%s' has no 'config' entry; keeping current config.",
+                path,
+            )
+        else:
+            raise RuntimeError(
+                f"Checkpoint at '{path}' has 'config' of type "
+                f"{type(config_payload).__name__}; expected dict (from "
+                "dataclasses.asdict) or Learnable3RConfig."
+            )
 
         logger.info(f"Model loaded from {path}")
 

@@ -709,15 +709,28 @@ ignore-imports = true
 # =============================================================================
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
-# B101: assert warnings (tests only)
-# B311: random warnings (non-crypto use)
-# B310: urllib_urlopen - SAFE because:
-#   1. All API URLs are defined in TrustedEndpoints class (security/input_validation.py)
-#   2. TrustedEndpoints.validate_url() enforces HTTPS scheme
-#   3. TrustedEndpoints.validate_url() validates domain against allowlist
-#   4. This provides architectural SSRF protection that bandit's static analysis cannot recognize
-#   5. See TrustedEndpoints.TRUSTED_DOMAINS for the complete allowlist
-skips = ["B101", "B311", "B310"]
+# B311: pseudo-random for ML (init, dropout, shuffle, anomaly noise).
+#   Every np.random / random use under src/ is ML / numerics, not
+#   crypto -- AMA owns crypto random. Documented and not enumerated
+#   per-call.
+#
+# B310 (urllib_urlopen) is NOT skipped. ``urllib.request.urlopen``
+# has been removed from src/ in favour of SafeHTTPClient and a B310
+# finding now indicates a real regression. The two tests in
+# tests/security/test_safe_http.py::TestNoNoSecForUrlopen pin this
+# at the source level.
+#
+# B101 (assert) is NOT skipped at the bandit level. Type-narrowing
+# asserts remain in numerics-heavy modules (detectors, automl,
+# federated_learning) where they exist to satisfy mypy and document
+# invariants that the surrounding code relies on; bandit reports
+# these as low-severity findings and CI's ``bandit -ll`` floor
+# filters them out. Security-sensitive asserts that gated control
+# flow (the previous ``assert last_exc is not None`` in
+# ``datasets/base.py`` for example) have been replaced with explicit
+# ``raise RuntimeError`` -- those are the cases where ``-O`` would
+# turn a refusal into silent success.
+skips = ["B311"]
 targets = ["src/omni_mercury_engine"]
 
 [tool.bandit.assert_used]

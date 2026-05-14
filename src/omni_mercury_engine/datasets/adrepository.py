@@ -485,14 +485,33 @@ class ADRepositoryLoader(DatasetLoader):
                 self._load_mat_file(path)
 
             elif suffix == ".npz":
-                # Security: External dataset files - try safe load first
+                # External dataset files MUST round-trip through
+                # allow_pickle=False. A ValueError means the file
+                # contains pickled objects; refuse rather than
+                # silently executing arbitrary code from an external
+                # mirror. The operator can use tools/migrate_pkl.py
+                # offline to convert a trusted legacy artefact.
+                #
+                # ``np.load`` is lazy for ``.npz``: it returns an
+                # ``NpzFile`` and raises only when a member is
+                # materialised. The member reads MUST sit inside the
+                # same try so a pickle-backed ``X`` / ``y`` array
+                # surfaces as the operator-actionable RuntimeError
+                # instead of leaking a raw ``ValueError`` past this
+                # block.
                 try:
                     data = np.load(path, allow_pickle=False)
-                except ValueError:
-                    logger.warning(f"Dataset {path} requires pickle - verify source is trusted")
-                    data = np.load(path, allow_pickle=True)  # nosec B301
-                self._features = data["X"].astype(np.float32)
-                self._labels = data["y"].astype(np.int64)
+                    x_arr = data["X"]
+                    y_arr = data["y"]
+                except ValueError as exc:
+                    raise RuntimeError(
+                        f"Refusing to load .npz '{path}' that requires "
+                        "allow_pickle=True. External dataset archives must "
+                        "be pure numpy; convert offline via tools/migrate_pkl.py "
+                        "if you trust the source."
+                    ) from exc
+                self._features = x_arr.astype(np.float32)
+                self._labels = y_arr.astype(np.int64)
                 self._is_real_data = True
 
             elif suffix == ".csv":
@@ -513,15 +532,33 @@ class ADRepositoryLoader(DatasetLoader):
 
                 # Find npz or csv files
                 for f in extract_dir.rglob("*.npz"):
-                    # Security: External dataset files - try safe load first
+                    # External archives must round-trip via
+                    # allow_pickle=False; legacy artefacts that need
+                    # pickle must be converted offline.  ``np.load``
+                    # is lazy for ``.npz`` so member reads MUST live
+                    # inside the same try block as ``np.load`` itself
+                    # -- a pickle-backed ``X`` / ``y`` array only
+                    # raises when materialised, and we want that to
+                    # surface as the same operator-actionable
+                    # RuntimeError as the eager-failure case above.
                     try:
                         data = np.load(f, allow_pickle=False)
-                    except ValueError:
-                        logger.warning(f"Dataset {f} requires pickle - verify source")
-                        data = np.load(f, allow_pickle=True)  # nosec B301
-                    if "X" in data and "y" in data:
-                        self._features = data["X"].astype(np.float32)
-                        self._labels = data["y"].astype(np.int64)
+                        if "X" in data and "y" in data:
+                            x_arr = data["X"]
+                            y_arr = data["y"]
+                        else:
+                            x_arr = None
+                            y_arr = None
+                    except ValueError as exc:
+                        raise RuntimeError(
+                            f"Refusing to load .npz '{f}' that requires "
+                            "allow_pickle=True. External dataset archives "
+                            "must be pure numpy; convert offline via "
+                            "tools/migrate_pkl.py if you trust the source."
+                        ) from exc
+                    if x_arr is not None and y_arr is not None:
+                        self._features = x_arr.astype(np.float32)
+                        self._labels = y_arr.astype(np.int64)
                         self._is_real_data = True
                         break
 
@@ -537,6 +574,15 @@ class ADRepositoryLoader(DatasetLoader):
                     f"(real_data={self._is_real_data})"
                 )
 
+        except RuntimeError:
+            # Operator-actionable refusal (legacy pickle in external
+            # .npz). Re-raise so the synthetic-fallback path below
+            # cannot mask the security gate by silently downgrading the
+            # load to generated data. ``RuntimeError`` is the type
+            # ``_load_from_file`` raises for pickle refusal; if a
+            # future code path uses a different exception, add it
+            # here too.
+            raise
         except Exception as e:
             logger.error(f"Failed to load {path}: {e}")
             self._create_synthetic_fallback()

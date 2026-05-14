@@ -50,7 +50,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.request import urlopen
 
 import numpy as np
 
@@ -61,6 +60,7 @@ from omni_mercury_engine.datasets.exceptions import (
 )
 from omni_mercury_engine.resilience.api_circuit_breakers import get_data_loader_breaker
 from omni_mercury_engine.security.input_validation import TrustedEndpoints
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 logger = logging.getLogger(__name__)
 
@@ -531,21 +531,13 @@ class USGSEarthquakeLoader(DatasetLoader):
                 "minmagnitude": str(min_magnitude),
             }
 
-            url = f"{self.USGS_API_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
-
-            if not url.startswith("https://"):
-                raise RuntimeError("USGS API URL must use HTTPS. Security validation failed.")
-
-            import json
-            from urllib.request import Request
-
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            from omni_mercury_engine.security.input_validation import TrustedEndpoints
-
-            TrustedEndpoints.validate_url(self.USGS_API_URL)
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=30) as response:  # nosec B310
-                data = json.loads(response.read().decode())
+            # SafeHTTPClient validates scheme and TRUSTED_DOMAINS for us.
+            data = SafeHTTPClient.get_json(
+                self.USGS_API_URL,
+                params=params,
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=30,
+            )
 
             features_list = []
             for feature in data.get("features", []):
@@ -1106,20 +1098,11 @@ class NOAASpaceWeatherLoader(DatasetLoader):
         circuit_breaker = get_data_loader_breaker("noaa_space_weather")
 
         def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-            import json
-            from urllib.request import Request
-
-            url = f"{self.SWPC_API_URL}/planetary_k_index_1m.json"
-            if not url.startswith("https://"):
-                raise RuntimeError("NOAA SWPC API URL must use HTTPS. Security validation failed.")
-
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            from omni_mercury_engine.security.input_validation import TrustedEndpoints
-
-            TrustedEndpoints.validate_url(self.SWPC_API_URL)
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=30) as response:  # nosec B310
-                kp_data = json.loads(response.read().decode())
+            kp_data = SafeHTTPClient.get_json(
+                f"{self.SWPC_API_URL}/planetary_k_index_1m.json",
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=30,
+            )
 
             if not kp_data:
                 raise RuntimeError(
@@ -1388,19 +1371,11 @@ class NOAAHurricaneLoader(DatasetLoader):
         circuit_breaker = get_data_loader_breaker("noaa_hurricane")
 
         def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-            from urllib.request import Request
-
-            url = f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt"
-            if not url.startswith("https://"):
-                raise RuntimeError("NOAA NHC API URL must use HTTPS. Security validation failed.")
-
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            from omni_mercury_engine.security.input_validation import TrustedEndpoints
-
-            TrustedEndpoints.validate_url(self.NHC_API_URL)
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=30) as response:  # nosec B310
-                raw_data = response.read().decode()
+            raw_data = SafeHTTPClient.get_text(
+                f"{self.NHC_API_URL}/hurdat2-1851-2023-052424.txt",
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=30,
+            )
 
             if not raw_data:
                 raise RuntimeError(
@@ -1695,20 +1670,22 @@ class NOAAOceanLoader(DatasetLoader):
         circuit_breaker = get_data_loader_breaker("noaa_ocean")
 
         def _fetch_data() -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-            import json
-            from urllib.request import Request
-
-            url = f"{self.NOS_API_URL}?begin_date=20240101&end_date=20241231&station=8454000&product=water_temperature&datum=MLLW&units=metric&time_zone=gmt&application=Mercury-Agent&format=json"
-            if not url.startswith("https://"):
-                raise RuntimeError("NOAA NOS API URL must use HTTPS. Security validation failed.")
-
-            # Validate URL before opening (SSRF protection via domain allowlist)
-            from omni_mercury_engine.security.input_validation import TrustedEndpoints
-
-            TrustedEndpoints.validate_url(self.NOS_API_URL)
-            req = Request(url, headers={"User-Agent": "Mercury-Agent/1.0"})
-            with urlopen(req, timeout=30) as response:  # nosec B310
-                raw_data = json.loads(response.read().decode())
+            raw_data = SafeHTTPClient.get_json(
+                self.NOS_API_URL,
+                params={
+                    "begin_date": "20240101",
+                    "end_date": "20241231",
+                    "station": "8454000",
+                    "product": "water_temperature",
+                    "datum": "MLLW",
+                    "units": "metric",
+                    "time_zone": "gmt",
+                    "application": "Mercury-Agent",
+                    "format": "json",
+                },
+                headers={"User-Agent": "Mercury-Agent/1.0"},
+                timeout=30,
+            )
 
             data_entries = raw_data.get("data", [])
             if not data_entries:

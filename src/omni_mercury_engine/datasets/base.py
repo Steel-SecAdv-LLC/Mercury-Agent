@@ -87,26 +87,22 @@ def http_get_with_retry(
     allow_http: bool = False,
     allow_untrusted: bool = False,
 ) -> bytes:
-    """
-    HTTP GET with scheme/domain validation, default UA, and exponential backoff.
+    """HTTP GET with scheme/domain validation, default UA, and exponential backoff.
 
     Centralizes the retry behavior previously duplicated across loaders.
     Retries on transient HTTP status codes and on socket-level errors
     (timeout, connection reset). Permanent errors (404, 401, 403) raise
     immediately so callers can fail over to a different mirror.
 
-    Security defaults:
+    The transport is :class:`SafeHTTPClient`, which gates every URL:
 
-    * **HTTPS-only**: ``http://`` URLs are rejected unless the caller
-      explicitly opts in with ``allow_http=True``. This is required for
-      a small handful of legacy research mirrors that publish over plain
-      HTTP (e.g. CICIDS-2017 CIC-Official) and is never appropriate for
-      arbitrary user input.
-    * **Trusted allowlist enforced**: HTTPS URLs whose host is not in
-      ``TrustedEndpoints.TRUSTED_DOMAINS`` raise ``ValueError`` unless
-      the caller explicitly opts in with ``allow_untrusted=True``. The
-      opt-in is reserved for known community mirrors of public research
-      datasets (e.g. NSL-KDD HoaNP fork, third-party FIRMS rotations).
+    * **Trusted-allowlist** -- the host must be in
+      ``TrustedEndpoints.TRUSTED_DOMAINS`` regardless of scheme.
+      ``allow_untrusted=True`` is the only way out.
+    * **HTTPS-only by default** -- ``http://`` is rejected unless
+      ``allow_http=True``.  When that opt-in is granted, the URL is
+      additionally checked against the private-network / IMDS gate so
+      a plain-HTTP mirror cannot pivot through internal infrastructure.
 
     Args:
         url: HTTP/HTTPS URL to fetch.
@@ -117,45 +113,27 @@ def http_get_with_retry(
         retry_on_status: HTTP status codes that trigger a retry rather than
             raising. 4xx not in this set are treated as permanent.
         allow_http: Permit ``http://`` URLs. Default False (HTTPS-only).
-        allow_untrusted: Permit HTTPS URLs whose host is outside the
-            ``TrustedEndpoints`` allowlist. Default False (allowlist enforced).
+            When True the host still has to clear both the trusted-domain
+            allowlist (unless ``allow_untrusted=True``) and the
+            private-network / IMDS gate.
+        allow_untrusted: Skip the ``TrustedEndpoints`` host allowlist.
+            Default False (allowlist enforced for both schemes).
 
     Returns:
         Response body as bytes.
 
     Raises:
-        ValueError: URL scheme/domain not permitted under the security defaults
-            (or current opt-in flags).
-        urllib.error.HTTPError: Final attempt returned a non-retried status.
-        urllib.error.URLError / TimeoutError: All attempts exhausted on
+        ValueError / UnsafeURLError: URL scheme/domain not permitted under the
+            security defaults (or current opt-in flags).
+        requests.HTTPError: Final attempt returned a non-retried status.
+        requests.RequestException / TimeoutError: All attempts exhausted on
             transient socket errors.
     """
     import time
-    import urllib.error
-    import urllib.request
-    from urllib.parse import urlparse
 
-    from omni_mercury_engine.security.input_validation import TrustedEndpoints
+    import requests
 
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError(f"URL scheme must be http or https, got: {parsed.scheme}")
-    if parsed.scheme == "http" and not allow_http:
-        raise ValueError(
-            f"http_get_with_retry: refusing http:// URL '{url}'. "
-            "Pass allow_http=True only for documented legacy research mirrors."
-        )
-
-    if parsed.scheme == "https":
-        try:
-            TrustedEndpoints.validate_url(url)
-        except ValueError:
-            if not allow_untrusted:
-                raise
-            logger.warning(
-                "URL domain '%s' not in trusted allowlist; proceeding (allow_untrusted=True).",
-                parsed.netloc,
-            )
+    from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
     request_headers = {"User-Agent": _DEFAULT_DATASET_UA}
     if headers:
@@ -165,23 +143,27 @@ def http_get_with_retry(
     attempts = max(1, retries)
     for attempt in range(attempts):
         try:
-            req = urllib.request.Request(url, headers=request_headers)
-            with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
-                body: bytes = resp.read()
-                return body
-        except urllib.error.HTTPError as e:
+            return SafeHTTPClient.get_bytes(
+                url,
+                headers=request_headers,
+                timeout=timeout,
+                allow_http=allow_http,
+                allow_untrusted=allow_untrusted,
+            )
+        except requests.HTTPError as e:
             last_exc = e
-            if e.code not in retry_on_status:
-                # Permanent error — let caller fail over to next mirror.
+            status = e.response.status_code if e.response is not None else None
+            if status is None or status not in retry_on_status:
+                # Permanent error -- let caller fail over to next mirror.
                 raise
             logger.info(
                 "HTTP %d on %s (attempt %d/%d); will retry.",
-                e.code,
+                status,
                 url,
                 attempt + 1,
                 attempts,
             )
-        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+        except (requests.RequestException, TimeoutError, ConnectionError) as e:
             last_exc = e
             logger.info(
                 "Transient %s on %s (attempt %d/%d); will retry.",
@@ -194,7 +176,14 @@ def http_get_with_retry(
         if attempt < attempts - 1:
             time.sleep(backoff ** (attempt + 1))
 
-    assert last_exc is not None  # nosec B101 - loop guarantees at least one exception
+    if last_exc is None:
+        # The loop runs at least once (attempts >= 1) and every code
+        # path either returns or assigns last_exc, so this branch is
+        # only reachable on a logic regression in the loop above.
+        raise RuntimeError(
+            f"http_get_with_retry: exhausted {attempts} attempts on {url} "
+            "without recording an exception (loop invariant violated)."
+        )
     raise last_exc
 
 
@@ -411,22 +400,45 @@ class DatasetLoader(ABC):
         # Check cache
         if cache_file.exists():
             logger.info(f"Loading {self.DATASET_NAME} from cache")
-            # Security: Cache files are self-generated, should be pure numpy arrays
-            # Use allow_pickle=False for safety; fall back only if legacy cache exists
+            # Cache files are self-generated; they must round-trip
+            # through allow_pickle=False. A ValueError here means the
+            # cache was written by an older code path that allowed
+            # pickled objects; refuse to deserialise it. The operator
+            # can rebuild the cache (delete the file and re-run) or
+            # convert the legacy artefact via
+            # ``python -m omni_mercury_engine.tools.migrate_pkl``.
+            #
+            # IMPORTANT: ``np.load`` on a ``.npz`` archive returns a
+            # lazy ``NpzFile`` and only raises ``ValueError`` when an
+            # object-dtype member is *accessed*. Wrapping only the
+            # ``np.load`` call therefore lets a pickled cache slip past
+            # this gate and surface as a raw NumPy traceback further
+            # down. We materialise every member we will read inside the
+            # same try block so the operator-actionable RuntimeError
+            # fires at the boundary, not deep in numpy.
             try:
                 cached = np.load(cache_file, allow_pickle=False)
-            except ValueError:
-                logger.warning("Legacy cache format detected, loading with pickle")
-                cached = np.load(cache_file, allow_pickle=True)  # nosec B301
+                train_features = cached["train_features"]
+                val_features = cached["val_features"]
+                test_features = cached["test_features"]
+                train_labels = cached["train_labels"]
+                val_labels = cached["val_labels"]
+                test_labels = cached["test_labels"]
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"Refusing to load legacy cache '{cache_file}' that requires "
+                    "allow_pickle=True. Delete the file and let it rebuild, or use "
+                    "tools/migrate_pkl.py to convert it offline."
+                ) from exc
             self._data = {
-                DatasetSplit.TRAIN: cached["train_features"],
-                DatasetSplit.VALIDATION: cached["val_features"],
-                DatasetSplit.TEST: cached["test_features"],
+                DatasetSplit.TRAIN: train_features,
+                DatasetSplit.VALIDATION: val_features,
+                DatasetSplit.TEST: test_features,
             }
             self._labels = {
-                DatasetSplit.TRAIN: cached["train_labels"],
-                DatasetSplit.VALIDATION: cached["val_labels"],
-                DatasetSplit.TEST: cached["test_labels"],
+                DatasetSplit.TRAIN: train_labels,
+                DatasetSplit.VALIDATION: val_labels,
+                DatasetSplit.TEST: test_labels,
             }
             self._is_loaded = True
             return

@@ -115,8 +115,6 @@ class CacheStub:
         >>> await cache.delete("key")
     """
 
-    _CACHE_SECRET_WARNED: bool = False
-
     def __init__(
         self,
         seed: int | None = None,
@@ -637,8 +635,20 @@ class RedisCache:
             max_connections: Maximum pool connections.
             prefix: Key prefix for namespacing.
             fallback_to_stub: Fall back to in-memory stub on connection failure.
-            serializer: Serialization format ("json" or "pickle").
+            serializer: Serialization format. Only "json" is supported;
+                callers that need to cache a non-JSON-serializable value
+                must convert it before set(). The legacy "pickle"
+                serializer has been removed -- pickle has no role in
+                the Mercury Agent runtime outside the one-shot
+                ``tools/migrate_pkl.py`` migration tool.
         """
+        if serializer != "json":
+            raise ValueError(
+                f"RedisCache: serializer={serializer!r} is no longer supported. "
+                "Use serializer='json' and convert non-JSON values before caching. "
+                "Pickle deserialisation has been removed from the Mercury Agent "
+                "runtime (see tools/migrate_pkl.py for offline conversion)."
+            )
         self.host = host or os.getenv("REDIS_HOST", "localhost")
         self.port = port
         self.password = password or os.getenv("REDIS_PASSWORD")
@@ -721,129 +731,19 @@ class RedisCache:
         """Add prefix to key."""
         return f"{self.prefix}{key}"
 
-    _CACHE_SECRET_WARNED = False
-
-    @staticmethod
-    def _get_signing_key() -> bytes:
-        """
-        Get the HMAC signing key for pickle integrity verification.
-
-        In production, set MERCURY_CACHE_SECRET to a strong random value.
-        Generate with: ``openssl rand -hex 32``
-        """
-        import hashlib
-
-        key = os.environ.get("MERCURY_CACHE_SECRET", "")
-        if not key:
-            is_prod = os.getenv("MERCURY_AGENT_ENV", "").lower() == "production"
-            if is_prod:
-                raise ValueError(
-                    "MERCURY_CACHE_SECRET environment variable is required in production. "
-                    "Generate with: openssl rand -hex 32"
-                )
-            if not CacheStub._CACHE_SECRET_WARNED:
-                logger.warning(
-                    "MERCURY_CACHE_SECRET not set — using default cache signing key. "
-                    "Set this variable for production deployments."
-                )
-                CacheStub._CACHE_SECRET_WARNED = True
-            key = "mercury-cache-default-key"
-        return hashlib.sha256(key.encode()).digest()
-
-    @staticmethod
-    def _restricted_loads(payload: bytes) -> Any:
-        """
-        Deserialize pickle data using a restricted unpickler.
-
-        Only allows safe built-in types to prevent arbitrary code execution even if HMAC
-        verification is somehow bypassed (defense in depth).
-        """
-        import io
-        import pickle  # nosec B403 - restricted unpickler limits allowed types
-
-        _SAFE_MODULES: dict[str, set[str]] = {
-            "builtins": {
-                "True",
-                "False",
-                "None",
-                "int",
-                "float",
-                "str",
-                "bytes",
-                "list",
-                "dict",
-                "tuple",
-                "set",
-                "frozenset",
-                "complex",
-                "bool",
-                "bytearray",
-                "type",
-                "range",
-                "slice",
-            },
-            "collections": {"OrderedDict", "defaultdict", "deque"},
-            "datetime": {"datetime", "date", "time", "timedelta", "timezone"},
-            "decimal": {"Decimal"},
-            "fractions": {"Fraction"},
-            "uuid": {"UUID"},
-        }
-
-        class _RestrictedUnpickler(pickle.Unpickler):
-            def find_class(self, module: str, name: str) -> Any:
-                allowed = _SAFE_MODULES.get(module)
-                if allowed is not None and name in allowed:
-                    return super().find_class(module, name)
-                raise pickle.UnpicklingError(f"Restricted unpickler blocked: {module}.{name}")
-
-        return _RestrictedUnpickler(io.BytesIO(payload)).load()
-
     def _serialize(self, value: Any) -> str:
-        """
-        Serialize value for storage.
+        """Serialize value for storage as JSON.
 
-        When using pickle serialization, an HMAC signature is prepended to prevent deserialization
-        of tampered data. For untrusted data sources, use serializer="json".
+        The pickle serializer was removed; callers that need to cache
+        non-JSON-serialisable values must convert them first.
         """
-        if self.serializer == "json":
-            return json.dumps(value)
-        else:
-            import base64
-            import hmac
-            import pickle  # nosec B403 - restricted unpickler used on deserialization
-
-            payload = pickle.dumps(value)
-            sig = hmac.new(self._get_signing_key(), payload, "sha256").hexdigest()
-            # Prefix with HMAC signature separated by '.'
-            return sig + "." + base64.b64encode(payload).decode()
+        return json.dumps(value)
 
     def _deserialize(self, data: str | None) -> Any:
-        """
-        Deserialize value from storage.
-
-        When using pickle, verifies HMAC signature before deserializing with a restricted unpickler
-        that only allows safe built-in types. This provides defense in depth against arbitrary code
-        execution.
-        """
+        """Deserialize JSON value from storage."""
         if data is None:
             return None
-        if self.serializer == "json":
-            return json.loads(data)
-        else:
-            import base64
-            import hmac
-
-            # Verify HMAC signature before deserializing
-            if "." not in data:
-                logger.warning("Cache data missing HMAC signature, rejecting")
-                return None
-            sig, _, encoded = data.partition(".")
-            payload = base64.b64decode(encoded.encode())
-            expected_sig = hmac.new(self._get_signing_key(), payload, "sha256").hexdigest()
-            if not hmac.compare_digest(sig, expected_sig):
-                logger.warning("Cache data HMAC verification failed, rejecting")
-                return None
-            return self._restricted_loads(payload)
+        return json.loads(data)
 
     async def get(self, key: str) -> Any | None:
         """
@@ -854,6 +754,16 @@ class RedisCache:
 
         Returns:
             Cached value or None if not found.
+
+        Raises:
+            json.JSONDecodeError: The stored payload is not valid JSON.
+                Corrupted Redis data is a contract violation, not a
+                transient connectivity error -- swallowing it into a
+                stub-fallback would silently hide cache poisoning or a
+                pickle-era payload that has not been migrated. The
+                error surfaces so the operator can rebuild the affected
+                key (or rotate ``MERCURY_CACHE_*`` if cross-process
+                contamination is suspected).
         """
         self._call_count += 1
 
@@ -865,14 +775,19 @@ class RedisCache:
 
         try:
             data = await self._client.get(self._make_key(key))
-            return self._deserialize(data)
         except Exception as e:
+            # Connectivity / Redis-side failure: stay quiet and fall
+            # back. The JSON-deserialise step is intentionally NOT
+            # inside this try block -- a malformed payload is a
+            # contract violation we want surfaced, not a transient
+            # error worth masking.
             self._errors += 1
             logger.warning(f"Redis get error: {e}")
             if self.fallback_to_stub:
                 self._fallback_count += 1
                 return await self._stub.get(key)
             return None
+        return self._deserialize(data)
 
     async def set(
         self,
@@ -894,17 +809,41 @@ class RedisCache:
 
         Returns:
             True if set successfully.
+
+        Raises:
+            TypeError: ``value`` is not JSON-serialisable. The cache
+                contract is JSON-only, and that contract MUST hold
+                regardless of whether the Redis client is reachable.
+                Validating up front (before any fallback) prevents the
+                in-memory stub from silently accepting a value that
+                Redis would have refused -- otherwise a developer
+                running offline could write code that worked in the
+                stub and crashed in production the first time the
+                Redis path was exercised.
         """
         self._call_count += 1
+
+        # Validate JSON-serialisability BEFORE the fallback decision.
+        # The same contract applies on every code path; ``_serialize``
+        # raises TypeError for sets / bytes / custom objects, and that
+        # error must surface to the caller rather than be papered over
+        # by storing the raw object in the stub.
+        serialized = self._serialize(value)
+        # JSON round-trip so the stub stores the same shape Redis would
+        # return on read (tuples become lists, custom-encoded objects
+        # become their JSON projection, etc.). Without this an
+        # offline run sees the Python original while a Redis-backed
+        # run sees the JSON-normalised value, and the type drift only
+        # surfaces the first time production Redis is reachable.
+        value_json_normalised = self._deserialize(serialized)
 
         if not await self._ensure_connected():
             if self.fallback_to_stub:
                 self._fallback_count += 1
-                return await self._stub.set(key, value, ttl, nx, xx)
+                return await self._stub.set(key, value_json_normalised, ttl, nx, xx)
             return False
 
         try:
-            serialized = self._serialize(value)
             full_key = self._make_key(key)
 
             # Build set options
@@ -923,7 +862,7 @@ class RedisCache:
             logger.warning(f"Redis set error: {e}")
             if self.fallback_to_stub:
                 self._fallback_count += 1
-                return await self._stub.set(key, value, ttl, nx, xx)
+                return await self._stub.set(key, value_json_normalised, ttl, nx, xx)
             return False
 
     async def delete(self, key: str) -> bool:
@@ -993,6 +932,12 @@ class RedisCache:
 
         Returns:
             Dictionary mapping keys to values.
+
+        Raises:
+            json.JSONDecodeError: Any stored payload is not valid JSON.
+                Matches the ``get`` contract so bulk reads cannot
+                silently swallow a corrupted entry that the single-key
+                path surfaces loudly.
         """
         self._call_count += 1
 
@@ -1005,14 +950,19 @@ class RedisCache:
         try:
             full_keys = [self._make_key(k) for k in keys]
             values = await self._client.mget(full_keys)
-            return {keys[i]: self._deserialize(v) for i, v in enumerate(values)}
         except Exception as e:
+            # Connectivity / Redis-side failure: stay quiet and fall
+            # back, mirroring ``get``. JSON deserialisation runs after
+            # this block so a corrupted payload (``JSONDecodeError``)
+            # surfaces as the same contract violation it does for
+            # ``get`` instead of being silently masked by the stub.
             self._errors += 1
             logger.warning(f"Redis mget error: {e}")
             if self.fallback_to_stub:
                 self._fallback_count += 1
                 return await self._stub.mget(keys)
             return dict.fromkeys(keys)
+        return {keys[i]: self._deserialize(v) for i, v in enumerate(values)}
 
     async def mset(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
         """
@@ -1024,19 +974,34 @@ class RedisCache:
 
         Returns:
             True if successful.
+
+        Raises:
+            TypeError: any ``mapping`` value is not JSON-serialisable.
+                Validated up front so the contract holds whether the
+                call ends up in Redis or in the in-memory stub
+                fallback. See ``RedisCache.set`` for the rationale.
         """
         self._call_count += 1
+
+        # Serialise all values up front so the JSON contract is
+        # enforced regardless of whether the call ends up in Redis or
+        # in the in-memory stub fallback. A single TypeError surfaces
+        # the offending value to the caller; we never silently route
+        # a non-JSON value to the stub.
+        serialized_mapping = {self._make_key(k): self._serialize(v) for k, v in mapping.items()}
+        # JSON round-trip the mapping so the stub fallback stores the
+        # same shape Redis would return on read.  See ``set()`` for
+        # the rationale (offline runs must not diverge in type
+        # behaviour from the production Redis path).
+        normalised_mapping = {k: self._deserialize(self._serialize(v)) for k, v in mapping.items()}
 
         if not await self._ensure_connected():
             if self.fallback_to_stub:
                 self._fallback_count += 1
-                return await self._stub.mset(mapping, ttl)
+                return await self._stub.mset(normalised_mapping, ttl)
             return False
 
         try:
-            # Serialize all values
-            serialized_mapping = {self._make_key(k): self._serialize(v) for k, v in mapping.items()}
-
             # Use pipeline for efficiency
             async with self._client.pipeline(transaction=True) as pipe:
                 await pipe.mset(serialized_mapping)
@@ -1050,7 +1015,7 @@ class RedisCache:
             logger.warning(f"Redis mset error: {e}")
             if self.fallback_to_stub:
                 self._fallback_count += 1
-                return await self._stub.mset(mapping, ttl)
+                return await self._stub.mset(normalised_mapping, ttl)
             return False
 
     async def incr(self, key: str, amount: int = 1) -> int:
