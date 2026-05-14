@@ -91,10 +91,13 @@ class TestSSRFValidation:
 
     def test_untrusted_host_has_no_loader_escape_hatch(self):
         """Loader egress has no per-call bypass for TRUSTED_DOMAINS."""
-        with patch(
-            "omni_mercury_engine.security.safe_http._resolve_ips",
-            return_value=[ipaddress.ip_address("8.8.8.8")],
-        ), pytest.raises(UnsafeURLError, match="not in trusted"):
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("8.8.8.8")],
+            ),
+            pytest.raises(UnsafeURLError, match="not in trusted"),
+        ):
             self._validate("https://attacker.example.com/exfil")
 
     def test_user_configured_host_with_private_ip_blocked_without_allow_private(self):
