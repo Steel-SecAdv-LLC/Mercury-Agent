@@ -304,8 +304,14 @@ class _PinnedDNSHTTPAdapter:
                 # to swap the host -> IP and feed SNI through pool_kwargs.
                 return self._pinned_pool(request.url)
 
-            def get_connection(self, url: str, proxies: Any | None = None) -> Any:
-                # requests < 2.32 fallback.
+            def get_connection(self, url: str | bytes, proxies: Any | None = None) -> Any:
+                # requests < 2.32 fallback. ``url``'s type matches
+                # ``requests.adapters.HTTPAdapter.get_connection``'s
+                # signature (which accepts ``str | bytes`` because
+                # urllib3's older API tolerated either); decode here
+                # so the URL parser downstream sees a real ``str``.
+                if isinstance(url, bytes):
+                    url = url.decode("ascii")
                 return self._pinned_pool(url)
 
             def _pinned_pool(self, url: str) -> Any:
