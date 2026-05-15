@@ -717,9 +717,9 @@ class TestAllowUntrustedKwargRemoval:
         ):
             method = getattr(SafeHTTPClient, method_name)
             sig = inspect.signature(method)
-            assert "allow_untrusted" not in sig.parameters, (
-                f"{method_name} still exposes 'allow_untrusted' in its signature."
-            )
+            assert (
+                "allow_untrusted" not in sig.parameters
+            ), f"{method_name} still exposes 'allow_untrusted' in its signature."
 
 
 class TestMigrationFromAllowUntrusted:
@@ -1099,9 +1099,7 @@ class TestValidateUrlShortCircuit:
                 "needs_ip_gate short-circuit is broken."
             ),
         ):
-            SafeHTTPClient.validate_url(
-                "https://earthquake.usgs.gov/fdsnws/event/1/query"
-            )
+            SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
 
     def test_http_url_does_call_getaddrinfo(self) -> None:
         """``http://`` URLs trigger the resolve even when the host is trusted."""
