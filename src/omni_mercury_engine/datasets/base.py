@@ -45,22 +45,24 @@ def safe_urlretrieve(url: str, filename: str | Path) -> None:
     """
     Safely download a file from a URL with scheme and domain validation.
 
-    Only allows https:// and http:// schemes to prevent file:// or other
-    potentially dangerous URL schemes. For HTTPS URLs, validates against
-    the TrustedEndpoints domain allowlist for SSRF protection.
+    Delegates to :func:`http_get_with_retry`, which is HTTPS-only by
+    default and validates the host against ``TrustedEndpoints``.
+    Plain ``http://`` is refused at the gate; ``file://`` and other
+    schemes never reach this helper.
 
-    Internally delegates to :func:`http_get_with_retry` so all callers
-    inherit User-Agent, exponential backoff, and 4xx-vs-5xx-aware retry
-    semantics — important for the bulk loaders (BATADAL, NAB, SMD,
-    SMAP/MSL, UCR, ADRepository) that hit GitHub raw under rate-limit
-    pressure during a benchmark run.
+    Internally inherits User-Agent, exponential backoff, and
+    4xx-vs-5xx-aware retry semantics — important for the bulk loaders
+    (BATADAL, NAB, SMD, SMAP/MSL, UCR, ADRepository) that hit GitHub
+    raw under rate-limit pressure during a benchmark run.
 
     Args:
-        url: The URL to download from (must be http:// or https://)
-        filename: The local path to save the file to
+        url: The URL to download from (must be ``https://`` and on
+            ``TrustedEndpoints.TRUSTED_DOMAINS``).
+        filename: The local path to save the file to.
 
     Raises:
-        ValueError: If the URL scheme is not http or https.
+        UnsafeURLError / ValueError: URL failed the SafeHTTPClient
+            scheme or trusted-domain gate.
     """
     body = http_get_with_retry(url, timeout=120)
     target = Path(filename)
@@ -96,9 +98,9 @@ def http_get_with_retry(
     The transport is :class:`SafeHTTPClient`, which gates every URL:
 
     * **Trusted-allowlist** -- the host must be in
-       ``TrustedEndpoints.TRUSTED_DOMAINS`` regardless of scheme.
-       Operator-configured hosts must use ``SafeHTTPClient`` directly
-       with ``user_configured=True`` so SSRF checks stay explicit.
+      ``TrustedEndpoints.TRUSTED_DOMAINS`` regardless of scheme.
+      Operator-configured hosts must use ``SafeHTTPClient`` directly
+      with ``user_configured=True`` so SSRF checks stay explicit.
     * **HTTPS-only by default** -- ``http://`` is rejected unless
       ``allow_http=True``.  When that opt-in is granted, the URL is
       additionally checked against the private-network / IMDS gate so
