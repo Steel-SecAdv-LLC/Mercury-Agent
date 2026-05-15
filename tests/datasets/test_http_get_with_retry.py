@@ -71,14 +71,12 @@ class TestSchemeGate:
     )
     def test_http_get_with_retry_rejects_bad_scheme(self, url: str) -> None:
         """Helper refuses the URL before any network attempt."""
-        with patch(
-            "omni_mercury_engine.security.safe_http.requests.Session"
-        ) as session_factory:
+        with patch("omni_mercury_engine.security.safe_http.requests.Session") as session_factory:
             with pytest.raises((UnsafeURLError, ValueError)):
                 http_get_with_retry(url, retries=1, backoff=0.0)
-            assert session_factory.call_count == 0, (
-                "Bad scheme reached requests.Session despite the gate."
-            )
+            assert (
+                session_factory.call_count == 0
+            ), "Bad scheme reached requests.Session despite the gate."
 
     def test_safe_urlretrieve_refuses_http(self, tmp_path) -> None:
         """``safe_urlretrieve`` does not opt into ``allow_http``."""
@@ -118,9 +116,9 @@ class TestRetrySemantics:
                     retries=3,
                     backoff=0.0,
                 )
-        assert get_bytes.call_count == 1, (
-            "Permanent 4xx should not retry; the helper kept hammering."
-        )
+        assert (
+            get_bytes.call_count == 1
+        ), "Permanent 4xx should not retry; the helper kept hammering."
 
     def test_transient_429_retries_until_success(self) -> None:
         """A 429 in ``retry_on_status`` retries up to the limit then succeeds."""
@@ -128,9 +126,7 @@ class TestRetrySemantics:
 
         rate_limited = MagicMock()
         rate_limited.status_code = 429
-        rate_limited_error = requests.HTTPError(
-            "429 too many requests", response=rate_limited
-        )
+        rate_limited_error = requests.HTTPError("429 too many requests", response=rate_limited)
 
         # First two attempts: 429. Third: bytes payload.
         side_effects = [rate_limited_error, rate_limited_error, b"payload"]
