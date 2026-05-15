@@ -251,12 +251,16 @@ class BaseDomainLoader(ABC):
             ValueError: Other configuration-shaped failures (malformed
                 URL, bad params). Also re-raised immediately.
             ConnectionError: All transient retries exhausted on
-                network / HTTP errors.
+                network / HTTP errors. Chains via ``__cause__`` to
+                the last underlying exception so the operator-facing
+                traceback names the real failure (timeout, refused
+                connection, 5xx response) rather than burying it.
         """
         default_headers = {"User-Agent": "Mercury-Agent/1.0 (Steel Security Advisors)"}
         if headers:
             default_headers.update(headers)
 
+        last_exc: Exception | None = None
         last_error_kind = "unknown"
         for attempt in range(self.max_retries + 1):
             try:
@@ -281,6 +285,7 @@ class BaseDomainLoader(ABC):
                 # transient-retry path below.
                 raise
             except Exception as exc:
+                last_exc = exc
                 last_error_kind = type(exc).__name__
                 if attempt < self.max_retries:
                     wait = self.retry_backoff * (2**attempt)
@@ -294,10 +299,15 @@ class BaseDomainLoader(ABC):
                     )
                     time.sleep(wait)
 
+        # Chain to the last underlying exception so the operator-facing
+        # traceback names the real failure (the original socket / HTTP
+        # error) rather than just the wrapper. ``raise X from None``
+        # would suppress the cause; the explicit ``from last_exc`` is
+        # the operator-actionable choice.
         raise ConnectionError(
             f"{self.DOMAIN}: Failed to fetch data after "
             f"{self.max_retries + 1} attempts ({last_error_kind})"
-        )
+        ) from last_exc
 
     def _fetch_json(
         self,
