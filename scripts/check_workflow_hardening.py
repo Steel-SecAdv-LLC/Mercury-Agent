@@ -7,7 +7,6 @@ import re
 import sys
 from pathlib import Path
 
-
 WORKFLOW_DIR = Path(".github/workflows")
 WRITE_OK = {
     "benchmark.yml",
@@ -16,10 +15,68 @@ WRITE_OK = {
 }
 SHA_REF_RE = re.compile(r"^[0-9a-f]{40}$")
 USES_RE = re.compile(r"^\s*uses:\s*([^@\s]+)@([^#\s]+)", re.MULTILINE)
+MAPPING_KEY_RE = re.compile(
+    r"^(?P<indent>\s*)(?P<key>[A-Za-z_][A-Za-z0-9_-]*|\"[^\"]+\"|'[^']+'):\s*(?P<value>.*)$"
+)
+
+
+def top_level_indent(text: str) -> int:
+    indents = []
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        match = MAPPING_KEY_RE.match(line)
+        if match:
+            indents.append(len(match.group("indent")))
+    return min(indents, default=0)
+
+
+def normalize_key(key: str) -> str:
+    return key.strip("'\"")
+
+
+def iter_top_level_keys(text: str) -> list[tuple[str, int, str, int]]:
+    document_indent = top_level_indent(text)
+    keys = []
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        match = MAPPING_KEY_RE.match(line)
+        if match and len(match.group("indent")) == document_indent:
+            keys.append(
+                (
+                    normalize_key(match.group("key")),
+                    len(match.group("indent")),
+                    match.group("value").strip(),
+                    lineno,
+                )
+            )
+    return keys
 
 
 def has_top_level_key(text: str, key: str) -> bool:
-    return re.search(rf"^{re.escape(key)}\s*:", text, re.MULTILINE) is not None
+    return any(name == key for name, _, _, _ in iter_top_level_keys(text))
+
+
+def has_disallowed_contents_write(text: str) -> bool:
+    lines = text.splitlines()
+    for name, indent, value, lineno in iter_top_level_keys(text):
+        if name != "permissions":
+            continue
+        if value == "write-all":
+            return True
+        for line in lines[lineno:]:
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            line_indent = len(line) - len(line.lstrip())
+            if line_indent <= indent:
+                break
+            match = MAPPING_KEY_RE.match(line)
+            if (
+                match
+                and normalize_key(match.group("key")) == "contents"
+                and match.group("value").strip().split("#", 1)[0].strip() == "write"
+            ):
+                return True
+    return False
 
 
 def check_workflow(path: Path) -> list[str]:
@@ -32,7 +89,7 @@ def check_workflow(path: Path) -> list[str]:
 
     if not has_top_level_key(text, "permissions"):
         errors.append(f"{path}: add top-level least-privilege permissions")
-    elif path.name not in WRITE_OK and re.search(r"^  contents:\s*write\b", text, re.MULTILINE):
+    elif path.name not in WRITE_OK and has_disallowed_contents_write(text):
         errors.append(f"{path}: contents: write requires explicit allow-listing")
 
     if not has_top_level_key(text, "concurrency"):
@@ -52,7 +109,7 @@ def check_workflow(path: Path) -> list[str]:
 
 def main() -> int:
     errors: list[str] = []
-    for path in sorted(WORKFLOW_DIR.glob("*.yml")):
+    for path in sorted([*WORKFLOW_DIR.glob("*.yml"), *WORKFLOW_DIR.glob("*.yaml")]):
         errors.extend(check_workflow(path))
 
     if errors:

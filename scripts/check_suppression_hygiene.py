@@ -10,7 +10,6 @@ import sys
 import tokenize
 from pathlib import Path
 
-
 DEFAULT_PATHS = (
     Path("src"),
     Path("tests"),
@@ -24,9 +23,11 @@ DEFAULT_PATHS = (
 )
 
 TYPE_IGNORE_RE = re.compile(r"#\s*type:\s*ignore(?!\[)")
-NOSEC_RE = re.compile(r"#\s*nosec(?:\s|$)(?!B\d{3})")
+NOSEC_RE = re.compile(r"(?:^|\s)#\s*nosec")
+EXPLICIT_NOSEC_RE = re.compile(r"(?:^|\s)#\s*nosec(?:\s*:\s*|\s+)B\d{3}\b")
 SEMGREP_RE = re.compile(r"#\s*semgrep:\s*ignore(?!\s+[A-Za-z0-9_.:/-]+)")
 CVE_RE = re.compile(r"^(CVE-\d{4}-\d+|GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4})$", re.I)
+TEXT_SUFFIXES = {".py", ".yml", ".yaml", ".toml", ".md"}
 
 
 def iter_files(paths: tuple[Path, ...]) -> list[Path]:
@@ -41,7 +42,7 @@ def iter_files(paths: tuple[Path, ...]) -> list[Path]:
             child
             for child in path.rglob("*")
             if child.is_file()
-            and child.suffix in {".py", ".yml", ".yaml", ".toml", ".md", ""}
+            and child.suffix in TEXT_SUFFIXES
             and not any(part.startswith(".mypy_cache") for part in child.parts)
         )
     return sorted(set(files))
@@ -67,10 +68,9 @@ def check_text_file(path: Path) -> list[str]:
     for lineno, line in iter_comment_lines(path, text):
         if TYPE_IGNORE_RE.search(line):
             errors.append(
-                f"{path}:{lineno}: use a specific mypy code, e.g. "
-                "# type: ignore[attr-defined]"
+                f"{path}:{lineno}: use a specific mypy code, e.g. " "# type: ignore[attr-defined]"
             )
-        if NOSEC_RE.search(line):
+        if NOSEC_RE.search(line) and not EXPLICIT_NOSEC_RE.search(line):
             errors.append(f"{path}:{lineno}: use an explicit Bandit code, e.g. # nosec B603")
         if SEMGREP_RE.search(line):
             errors.append(f"{path}:{lineno}: semgrep ignores must name the ignored rule")

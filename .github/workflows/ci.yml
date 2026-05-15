@@ -1078,7 +1078,7 @@ jobs:
             echo "  neuro-symbolic-tests: ${{ needs.neuro-symbolic-tests.result }}"
             echo "  security-scan: ${{ needs.security-scan.result }}"
             echo "  integration-tests: ${{ needs.integration-tests.result }}"
-            echo "  performance-benchmark: ${{ needs.performance-benchmark.result }}"
+            echo "  performance-benchmark: ${{ needs.performance-benchmark.result }} (enforced on pull_request and schedule)"
             exit 1
           fi
           echo "✅ CI Pipeline Passed"
@@ -1089,4 +1089,4 @@ jobs:
           echo "  neuro-symbolic-tests: ${{ needs.neuro-symbolic-tests.result }}"
           echo "  security-scan: ${{ needs.security-scan.result }}"
           echo "  integration-tests: ${{ needs.integration-tests.result }}"
-          echo "  performance-benchmark: ${{ needs.performance-benchmark.result }}"
+          echo "  performance-benchmark: ${{ needs.performance-benchmark.result }} (enforced on pull_request and schedule)"

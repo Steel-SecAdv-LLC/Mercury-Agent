@@ -207,7 +207,14 @@ jobs:
               ],
           }
           provenance = {
-              "subject": artifacts,
+              "_type": "https://in-toto.io/Statement/v1",
+              "subject": [
+                  {
+                      "name": artifact["name"],
+                      "digest": {"sha256": artifact["sha256"]},
+                  }
+                  for artifact in artifacts
+              ],
               "predicateType": "https://slsa.dev/provenance/v1",
               "predicate": {
                   "buildType": "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/.github/workflows/release.yml",
