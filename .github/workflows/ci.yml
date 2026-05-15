@@ -842,6 +842,19 @@ jobs:
           docker system prune -af --volumes || true
           df -h
 
+      - name: Prepare Trivy temp directory on /mnt
+        # GitHub-hosted ubuntu runners only ship ~14 GB free on `/`, which
+        # is exhausted when Trivy exports the loaded Docker image (the ML
+        # image is multi-GB once decompressed) to its default tempdir
+        # under /tmp.  /mnt is backed by a much larger ephemeral volume
+        # (~70 GB free), so we point Trivy's tempdir + cache there to
+        # avoid `no space left on device` during image export without
+        # weakening the scan (no skipped paths, no severity reduction).
+        run: |
+          sudo mkdir -p /mnt/trivy-tmp /mnt/trivy-cache
+          sudo chown -R "$USER:$USER" /mnt/trivy-tmp /mnt/trivy-cache
+          df -h /mnt /
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -856,7 +869,22 @@ jobs:
           cache-to: type=gha,mode=max
           load: true
 
+      - name: Reclaim disk before Trivy scan
+        # The buildx GHA cache export above leaves a sizable copy of the
+        # image layers in the buildx builder cache on `/`, on top of the
+        # daemon-side image we still need for the scan.  Drop the builder
+        # cache (the daemon image survives because it is the scan target)
+        # so Trivy has headroom for its image-export step.
+        run: |
+          docker buildx prune -af || true
+          docker builder prune -af || true
+          df -h /mnt /
+
       - name: Scan Docker image with Trivy
+        env:
+          TMPDIR: /mnt/trivy-tmp
+          TRIVY_TEMP_DIR: /mnt/trivy-tmp
+          TRIVY_CACHE_DIR: /mnt/trivy-cache
         # Blocking gate.  Mirrors the standalone security.yml container
         # scan policy so risk acceptances are honored consistently across
         # workflows: ignore-unfixed drops Debian-bookworm CVEs that have no
