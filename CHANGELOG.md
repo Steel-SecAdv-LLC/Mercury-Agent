@@ -17,6 +17,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security — HTTP escape hatch removed (PR #210)
+
+- **`allow_untrusted=True` is removed from every `SafeHTTPClient` method**
+  (`validate_url`, `_request`, `get`, `get_bytes`, `get_json`, `get_text`,
+  `post_json`) and from the dataset/loader helpers that wrap it
+  (`datasets.base.http_get_with_retry`, `loaders.base.BaseDomainLoader._fetch_url`).
+  The kwarg had no production caller; it was a per-call bypass of the
+  `TrustedEndpoints.TRUSTED_DOMAINS` allowlist that could be misused
+  to pivot through an off-allowlist host while staying inside the
+  hardened transport. PR #210 deletes it from the public API and
+  asserts the removal via signature tests.
+- **Migration path for operators who were using it:** call
+  `SafeHTTPClient` directly with `user_configured=True` so the
+  private-network / IMDS gate fires explicitly. For RFC1918
+  destinations on a private VPC, additionally pass `allow_private=True`;
+  the IMDS / loopback / multicast / reserved / CGNAT ranges remain
+  in the always-blocked set even then. See
+  `tests/security/test_safe_http.py::TestMigrationFromAllowUntrusted`
+  for the documented replacement.
+- **Loader retry-exhaustion now chains the underlying exception.**
+  `BaseDomainLoader._fetch_url` wraps a final failure as
+  `ConnectionError(...) from last_exc` so the operator-facing
+  traceback names the real cause (timeout, refused connection, 5xx)
+  rather than burying it.
+- **Test coverage added** for the migration path, the obsolete-kwarg
+  removal at every public wrapper, the IPv6 always-blocked set
+  (`::1`, `fe80::/10`, `ff00::/8`, `::`), the multi-IP failover path
+  in `_request`, the `allow_redirects=False` transport contract, the
+  `validate_url` DNS short-circuit for trusted https URLs, and the
+  IP-literal short-circuit in `_resolve_ips`.
+
+### Benchmark refresh (PR #210, via PR #203 source SHA `0f584529`)
+
+- Mean ROC-AUC `0.8440` → `0.8464`; median ROC-AUC `0.9097` → `0.9100`;
+  mean Oracle F1 `0.6383` → `0.6441`; datasets successful / total
+  `64/64` → `65/65`. Computed on commit `ffafd17` (run timestamp
+  `2026-05-14T22:14:04Z`). Regression gates unchanged: AUC ≥ 0.68 and
+  F1 ≥ 0.50.
+
+
 ### Branch Reconciliation (v1.6.0 stack — PRs #188–#191)
 
 - **PR #189** (Devin session `a7bea1074fbd420f9c9af8e6b3eea01f`): v1.6.0

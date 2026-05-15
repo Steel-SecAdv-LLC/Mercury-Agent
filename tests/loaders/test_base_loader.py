@@ -74,9 +74,9 @@ class TestSSRFValidation:
     """
 
     @staticmethod
-    def _validate(url: str, *, allow_untrusted: bool = False) -> None:
+    def _validate(url: str) -> None:
         """Mirror exactly the kwargs ``_fetch_url`` passes to ``get_bytes``."""
-        SafeHTTPClient.validate_url(url, allow_untrusted=allow_untrusted)
+        SafeHTTPClient.validate_url(url)
 
     def test_trusted_https_url_passes(self):
         """A class-constant dataset URL on the allowlist passes."""
@@ -89,35 +89,24 @@ class TestSSRFValidation:
         with pytest.raises(UnsafeURLError, match="not in trusted"):
             self._validate("https://attacker.example.com/exfil")
 
-    def test_untrusted_host_allowed_with_opt_in(self):
-        """``allow_untrusted=True`` is the explicit per-call escape hatch.
-
-        ``allow_untrusted`` now also triggers the IP-resolution gate
-        (bypassing the host allowlist must NOT bypass SSRF protection),
-        so a real DNS lookup would run on ``attacker.example.com``.
-        We patch ``_resolve_ips`` to a known public IP to keep the test
-        offline and deterministic.  The companion test below pins the
-        flip side: ``allow_untrusted=True`` still rejects an off-allowlist
-        host whose resolved IP is private, unless ``allow_private=True``
-        is also explicitly set.
-        """
-        with patch(
-            "omni_mercury_engine.security.safe_http._resolve_ips",
-            return_value=[ipaddress.ip_address("8.8.8.8")],
+    def test_untrusted_host_has_no_loader_escape_hatch(self):
+        """Loader egress has no per-call bypass for TRUSTED_DOMAINS."""
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("8.8.8.8")],
+            ),
+            pytest.raises(UnsafeURLError, match="not in trusted"),
         ):
-            self._validate(
-                "https://attacker.example.com/exfil",
-                allow_untrusted=True,
-            )
+            self._validate("https://attacker.example.com/exfil")
 
-    def test_untrusted_host_with_private_ip_blocked_without_allow_private(self):
-        """Bypassing the allowlist does not bypass the SSRF / IMDS gate.
+    def test_user_configured_host_with_private_ip_blocked_without_allow_private(self):
+        """Operator-configured hosts still hit the SSRF / IMDS gate.
 
-        ``allow_untrusted=True`` skips ``TRUSTED_DOMAINS`` but
-        ``needs_ip_gate`` still fires.  An off-allowlist hostname that
-        resolves to RFC1918 raises ``UnsafeURLError``; the operator must
-        also pass ``allow_private=True`` to permit it (and IMDS remains
-        in the always-blocked set even then).
+        Dynamic endpoints belong on the explicit ``user_configured``
+        path, not on a loader-specific allowlist bypass.  That path
+        accepts operator-chosen public hosts while refusing private
+        pivots unless ``allow_private=True`` is also set.
         """
         with (
             patch(
@@ -128,7 +117,7 @@ class TestSSRFValidation:
         ):
             SafeHTTPClient.validate_url(
                 "https://attacker.example.com/exfil",
-                allow_untrusted=True,
+                user_configured=True,
             )
 
     def test_http_scheme_blocked_for_trusted_host(self):
@@ -139,22 +128,22 @@ class TestSSRFValidation:
     def test_ftp_scheme_blocked(self):
         """``ftp://`` is never permitted."""
         with pytest.raises(UnsafeURLError, match="scheme 'ftp'"):
-            self._validate("ftp://evil.com/file", allow_untrusted=True)
+            self._validate("ftp://evil.com/file")
 
     def test_file_scheme_blocked(self):
         """``file://`` is never permitted."""
         with pytest.raises(UnsafeURLError, match="scheme 'file'"):
-            self._validate("file:///etc/passwd", allow_untrusted=True)
+            self._validate("file:///etc/passwd")
 
     def test_data_scheme_blocked(self):
         """``data:`` is never permitted."""
         with pytest.raises(UnsafeURLError, match="scheme 'data'"):
-            self._validate("data:text/html,<h1>evil</h1>", allow_untrusted=True)
+            self._validate("data:text/html,<h1>evil</h1>")
 
     def test_javascript_scheme_blocked(self):
         """``javascript:`` is never permitted."""
         with pytest.raises(UnsafeURLError, match="scheme 'javascript'"):
-            self._validate("javascript:alert(1)", allow_untrusted=True)
+            self._validate("javascript:alert(1)")
 
     def test_missing_hostname(self):
         """A URL with no host raises before any allowlist or DNS work."""
@@ -162,7 +151,7 @@ class TestSSRFValidation:
         # falls through scheme check then trips the missing-host
         # branch.
         with pytest.raises(UnsafeURLError, match="no host component"):
-            self._validate("https://", allow_untrusted=True)
+            self._validate("https://")
 
 
 class TestFetchUrlExceptionRouting:
@@ -246,6 +235,63 @@ class TestFetchUrlExceptionRouting:
         # errors still flow into the retry loop and were not
         # accidentally re-routed by the new ValueError branch.
         assert call_count["n"] == 3
+
+    def test_retry_exhaustion_chains_underlying_exception(self, tmp_path):
+        """``ConnectionError`` after retry-exhaustion chains via ``__cause__``.
+
+        Wrapping the failure in ``ConnectionError`` is the operator-
+        facing API contract, but losing the underlying exception in
+        the traceback makes diagnosis harder than it has to be.
+        PR #210 wires ``raise ConnectionError(...) from last_exc`` so
+        the original socket / HTTP failure is one frame away.
+        """
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 1
+        loader.retry_backoff = 0.0
+
+        original = OSError("simulated transient socket failure")
+
+        with patch(
+            "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+            side_effect=original,
+        ):
+            with pytest.raises(ConnectionError) as exc_info:
+                loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+        assert exc_info.value.__cause__ is original, (
+            "ConnectionError did not chain to the underlying exception; "
+            "operators lose the real cause in the traceback."
+        )
+
+
+class TestAllowUntrustedRemovedFromLoader:
+    """The loader API surface MUST not accept the removed
+    ``allow_untrusted`` keyword.
+
+    PR #210 deletes the per-call escape hatch from ``_fetch_url``.
+    Operators that previously used it should switch to calling
+    :class:`SafeHTTPClient` directly with ``user_configured=True``;
+    documenting that migration is the job of
+    ``TestMigrationFromAllowUntrusted`` in
+    ``tests/security/test_safe_http.py``. This test pins the
+    loader-side removal so a stale call-site does not creep back
+    in.
+    """
+
+    def test_fetch_url_rejects_allow_untrusted_kwarg(self, tmp_path):
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        with pytest.raises(TypeError, match="allow_untrusted"):
+            loader._fetch_url(  # type: ignore[call-arg]
+                "https://earthquake.usgs.gov/fdsnws/event/1/query",
+                allow_untrusted=True,
+            )
+
+    def test_fetch_url_signature_has_no_allow_untrusted(self):
+        """Belt-and-braces: the parameter is not present in the signature."""
+        import inspect
+
+        sig = inspect.signature(BaseDomainLoader._fetch_url)
+        assert "allow_untrusted" not in sig.parameters
 
 
 # =============================================================================

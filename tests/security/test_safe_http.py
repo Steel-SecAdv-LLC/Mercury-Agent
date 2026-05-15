@@ -557,7 +557,6 @@ class TestHostHeaderPreservesPort:
                 url,
                 allow_http=True,
                 user_configured=loopback_only,
-                allow_untrusted=False,
                 loopback_only=loopback_only,
             )
 
@@ -659,3 +658,520 @@ class TestNoNoSecForUrlopen:
         for path in root.rglob("*.py"):
             content = path.read_text(encoding="utf-8")
             assert not suppression_re.search(content), f"B310 nosec found in {path}"
+
+
+# =============================================================================
+# Coverage added with PR #210: removal of the ``allow_untrusted`` HTTP escape
+# hatch. The tests below pin the new API surface (the obsolete kwarg is gone),
+# document the supported replacement path, and exercise the wrappers,
+# multi-IP failover, IPv6 always-blocked set, and the ``allow_redirects=False``
+# transport contract that previous suites did not cover.
+# =============================================================================
+
+
+class TestAllowUntrustedKwargRemoval:
+    """``allow_untrusted`` is removed from every SafeHTTPClient method.
+
+    Before PR #210 there was a per-call ``allow_untrusted=True`` escape
+    hatch that skipped the ``TRUSTED_DOMAINS`` allowlist. The parameter
+    had no production caller and was an attack surface waiting to be
+    misused; PR #210 deletes it.  These tests are the
+    architectural-contract pins: the kwarg name must surface as
+    ``TypeError`` so a future ressurection has to land a fresh public
+    API change and cannot creep in via a stale kwarg path.
+    """
+
+    @pytest.mark.parametrize(
+        "method_name",
+        ["validate_url", "get", "get_bytes", "get_json", "get_text", "post_json"],
+    )
+    def test_kwarg_removed_from_public_api(self, method_name: str) -> None:
+        method = getattr(SafeHTTPClient, method_name)
+        kwargs: dict[str, object] = {"allow_untrusted": True}
+        if method_name == "post_json":
+            kwargs["json_body"] = {"k": "v"}
+        with pytest.raises(TypeError, match="allow_untrusted"):
+            method("https://earthquake.usgs.gov/path", **kwargs)
+
+    def test_kwarg_removed_from_private_request(self) -> None:
+        """Internal ``_request`` rejects the obsolete kwarg too."""
+        with pytest.raises(TypeError, match="allow_untrusted"):
+            SafeHTTPClient._request(  # pyright: ignore[reportPrivateUsage]
+                "GET",
+                "https://earthquake.usgs.gov/path",
+                allow_untrusted=True,
+            )
+
+    def test_signature_does_not_contain_allow_untrusted(self) -> None:
+        """Belt-and-braces inspection: no method exposes the kwarg by name."""
+        import inspect
+
+        for method_name in (
+            "validate_url",
+            "_request",
+            "get",
+            "get_bytes",
+            "get_json",
+            "get_text",
+            "post_json",
+        ):
+            method = getattr(SafeHTTPClient, method_name)
+            sig = inspect.signature(method)
+            assert (
+                "allow_untrusted" not in sig.parameters
+            ), f"{method_name} still exposes 'allow_untrusted' in its signature."
+
+
+class TestMigrationFromAllowUntrusted:
+    """Document the supported replacement for the removed ``allow_untrusted``.
+
+    Operators that previously passed ``allow_untrusted=True`` to reach
+    a dynamic public host now pass ``user_configured=True`` instead.
+    For internal RFC1918 destinations they additionally pass
+    ``allow_private=True``. These tests assert both happy paths and the
+    invariants that they preserve (IMDS still blocked, scheme still
+    HTTPS-only, allowlist still bypassed).
+    """
+
+    def test_replacement_path_public_https_host(self) -> None:
+        """``user_configured=True`` accepts an off-allowlist public host."""
+        import ipaddress
+
+        with patch(
+            "omni_mercury_engine.security.safe_http._resolve_ips",
+            return_value=[ipaddress.ip_address("93.184.216.34")],  # public TEST-IP
+        ):
+            SafeHTTPClient.validate_url(
+                "https://api.operator-chosen.example/v1/signal",
+                user_configured=True,
+            )
+
+    def test_replacement_path_still_blocks_imds(self) -> None:
+        """``user_configured=True`` does NOT unlock the metadata service."""
+        import ipaddress
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("169.254.169.254")],
+            ),
+            pytest.raises(UnsafeURLError, match="private/link-local/IMDS"),
+        ):
+            SafeHTTPClient.validate_url(
+                "https://still-an-attacker.example/exfil",
+                user_configured=True,
+            )
+
+    def test_replacement_path_still_https_only(self) -> None:
+        """``user_configured=True`` does not relax the scheme gate."""
+        with pytest.raises(UnsafeURLError, match="scheme 'http'"):
+            SafeHTTPClient.validate_url(
+                "http://api.operator-chosen.example/v1/signal",
+                user_configured=True,
+            )
+
+    def test_internal_rfc1918_path_requires_allow_private(self) -> None:
+        """RFC1918 destinations need an explicit ``allow_private=True`` opt-in."""
+        import ipaddress
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("10.0.0.10")],
+            ),
+            pytest.raises(UnsafeURLError, match="private/link-local/IMDS"),
+        ):
+            SafeHTTPClient.validate_url(
+                "https://internal-api.vpc.local/v1/signal",
+                user_configured=True,
+            )
+
+    def test_internal_rfc1918_path_with_allow_private_succeeds(self) -> None:
+        """``user_configured=True`` + ``allow_private=True`` is the on-VPC path."""
+        import ipaddress
+
+        with patch(
+            "omni_mercury_engine.security.safe_http._resolve_ips",
+            return_value=[ipaddress.ip_address("10.0.0.10")],
+        ):
+            SafeHTTPClient.validate_url(
+                "https://internal-api.vpc.local/v1/signal",
+                user_configured=True,
+                allow_private=True,
+            )
+
+
+class TestIPv6AlwaysBlocked:
+    """The IPv6 always-blocked set must fire for every refused range.
+
+    The IPv4 always-blocked tests in :class:`TestAllowPrivateGate` only
+    cover IPv4 ranges. The IPv6 mirror -- loopback ``::1``, link-local
+    ``fe80::/10``, multicast ``ff00::/8``, and the unspecified address
+    ``::`` -- shipped in :data:`_ALWAYS_BLOCKED_V6` but had no test
+    coverage. A future refactor that drops one of those networks would
+    have shipped unnoticed.
+    """
+
+    @pytest.mark.parametrize(
+        ("ip", "fragment"),
+        [
+            ("::1", "always-blocked"),  # loopback
+            ("fe80::1", "always-blocked"),  # link-local
+            ("ff02::1", "always-blocked"),  # multicast (all-nodes)
+            ("ff05::2", "always-blocked"),  # multicast (all-routers)
+            ("::", "always-blocked"),  # unspecified
+        ],
+    )
+    def test_ipv6_blocked_even_with_allow_private(self, ip: str, fragment: str) -> None:
+        import ipaddress
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address(ip)],
+            ),
+            pytest.raises(UnsafeURLError, match=fragment),
+        ):
+            SafeHTTPClient.validate_url(
+                "https://internal.example/api",
+                user_configured=True,
+                allow_private=True,
+            )
+
+    def test_ipv6_loopback_url_rejected_by_default(self) -> None:
+        """A URL like ``https://[::1]/...`` is rejected without explicit opt-in."""
+        with pytest.raises(UnsafeURLError, match="private/link-local/IMDS"):
+            SafeHTTPClient.validate_url(
+                "https://[::1]/api",
+                user_configured=True,
+            )
+
+    def test_ipv6_link_local_url_rejected(self) -> None:
+        """``https://[fe80::1]/`` is rejected -- link-local is non-routable."""
+        with pytest.raises(UnsafeURLError, match="private/link-local/IMDS"):
+            SafeHTTPClient.validate_url(
+                "https://[fe80::1]/api",
+                user_configured=True,
+            )
+
+
+class TestWrappersEnforceGate:
+    """Every public wrapper (``get``, ``get_bytes``, ``get_json``,
+    ``get_text``, ``post_json``) routes through :meth:`validate_url`
+    before any network work.
+
+    The wrappers are thin pass-throughs to ``_request``, but if a
+    refactor ever moved the validation into a subclass override or
+    duplicated the parameter list, a wrapper could silently lose
+    the gate. These tests catch that by exercising each wrapper with
+    a URL that fails the scheme gate -- the assertion is that no
+    ``requests.Session`` is even constructed.
+    """
+
+    @pytest.mark.parametrize(
+        ("wrapper", "extra_kwargs"),
+        [
+            ("get", {}),
+            ("get_bytes", {}),
+            ("get_json", {}),
+            ("get_text", {}),
+            ("post_json", {"json_body": {"k": "v"}}),
+        ],
+    )
+    def test_bad_scheme_rejected_without_touching_network(
+        self, wrapper: str, extra_kwargs: dict
+    ) -> None:
+        method = getattr(SafeHTTPClient, wrapper)
+        with patch("requests.Session") as session_factory:
+            with pytest.raises(UnsafeURLError, match="scheme 'ftp'"):
+                method("ftp://example.com/path", **extra_kwargs)
+            assert session_factory.call_count == 0, (
+                f"{wrapper} reached requests.Session despite a scheme failure; "
+                "the gate is not on the wrapper path."
+            )
+
+    @pytest.mark.parametrize(
+        ("wrapper", "extra_kwargs"),
+        [
+            ("get", {}),
+            ("get_bytes", {}),
+            ("get_json", {}),
+            ("get_text", {}),
+            ("post_json", {"json_body": {"k": "v"}}),
+        ],
+    )
+    def test_unlisted_host_rejected_without_touching_network(
+        self, wrapper: str, extra_kwargs: dict
+    ) -> None:
+        method = getattr(SafeHTTPClient, wrapper)
+        with patch("requests.Session") as session_factory:
+            with pytest.raises(UnsafeURLError, match="not in trusted allowlist"):
+                method("https://attacker.example.com/exfil", **extra_kwargs)
+            assert session_factory.call_count == 0
+
+
+class TestMultiIPFailover:
+    """When ``_resolve_ips`` returns multiple addresses, ``_request``
+    must try the next candidate after a transient connection failure
+    on the first; if every IP fails, it surfaces the last exception
+    rather than a confusing ``None``/``response=None`` path.
+
+    Closes the gap left by the DNS-pinning fix: pinning to a single
+    IP would otherwise eliminate the multi-IP resilience the stdlib
+    socket layer used to provide. The contract is "pin per attempt,
+    iterate IPs across attempts."
+
+    Note on test IPs: we use real global-public IPs (``8.8.8.8``,
+    ``1.1.1.1``) because the request-time DNS recheck inside
+    ``_request`` runs the private/IMDS filter on every resolved
+    address, and Python's ``ipaddress.is_private`` returns ``True``
+    for the IETF TEST-NET ranges (192.0.2/24, 198.51.100/24,
+    203.0.113/24). The mocks never actually open a socket, so using
+    real allocated IPs here is harmless.
+    """
+
+    @staticmethod
+    def _200_response() -> object:
+        from unittest.mock import MagicMock
+
+        response = MagicMock()
+        response.status_code = 200
+        response.headers = {}
+        response.raise_for_status = MagicMock()
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
+        return response
+
+    def test_second_ip_used_when_first_fails(self) -> None:
+        """First IP raises ``ConnectionError``; second IP serves the response."""
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        import requests
+
+        good_response = self._200_response()
+
+        first_session = MagicMock()
+        first_session.request = MagicMock(
+            side_effect=requests.ConnectionError("pinned-IP unreachable")
+        )
+        first_session.mount = MagicMock()
+        first_session.close = MagicMock()
+
+        second_session = MagicMock()
+        second_session.request = MagicMock(return_value=good_response)
+        second_session.mount = MagicMock()
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[
+                    ipaddress.ip_address("8.8.8.8"),  # public DNS (Google)
+                    ipaddress.ip_address("1.1.1.1"),  # public DNS (Cloudflare)
+                ],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http.TrustedEndpoints.validate_url_host",
+                return_value=True,
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            patch("requests.Session", side_effect=[first_session, second_session]),
+        ):
+            response = SafeHTTPClient.get("https://example.com/api")
+
+        assert response is good_response
+        first_session.close.assert_called_once()
+        second_session.request.assert_called_once()
+
+    def test_all_ips_fail_surfaces_last_exception(self) -> None:
+        """Both candidate IPs unreachable -> the last ConnectionError propagates."""
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        import requests
+
+        def make_failing_session(label: str) -> MagicMock:
+            s = MagicMock()
+            s.request = MagicMock(side_effect=requests.ConnectionError(f"{label} unreachable"))
+            s.mount = MagicMock()
+            s.close = MagicMock()
+            return s
+
+        sessions = [make_failing_session("first"), make_failing_session("second")]
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[
+                    ipaddress.ip_address("8.8.8.8"),
+                    ipaddress.ip_address("1.1.1.1"),
+                ],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http.TrustedEndpoints.validate_url_host",
+                return_value=True,
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            patch("requests.Session", side_effect=sessions),
+            pytest.raises(requests.ConnectionError, match="second unreachable"),
+        ):
+            SafeHTTPClient.get("https://example.com/api")
+
+        for s in sessions:
+            s.close.assert_called_once()
+
+
+class TestRedirectsDisabled:
+    """The transport MUST pass ``allow_redirects=False`` to
+    ``requests.Session.request``.
+
+    The 3xx-rejection branch in :class:`TestRedirectRejection` covers
+    the explicit raise on a 3xx response, but only because we already
+    have a 3xx in hand. The deeper invariant is that ``requests`` is
+    never permitted to follow a redirect transparently. A regression
+    that flips ``allow_redirects`` to ``True`` (or removes the kwarg
+    so it defaults to True) would let a redirected response substitute
+    for the resource without triggering the explicit 3xx branch.
+    """
+
+    @staticmethod
+    def _200_response() -> object:
+        from unittest.mock import MagicMock
+
+        response = MagicMock()
+        response.status_code = 200
+        response.headers = {}
+        response.raise_for_status = MagicMock()
+        response.__enter__ = MagicMock(return_value=response)
+        response.__exit__ = MagicMock(return_value=False)
+        return response
+
+    def test_allow_redirects_false_is_passed_to_requests(self) -> None:
+        """``session.request`` always receives ``allow_redirects=False``."""
+        import ipaddress
+        from unittest.mock import MagicMock
+
+        fake_session = MagicMock()
+        fake_session.request = MagicMock(return_value=self._200_response())
+        fake_session.mount = MagicMock()
+
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http._resolve_ips",
+                return_value=[ipaddress.ip_address("93.184.216.34")],
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http.TrustedEndpoints.validate_url_host",
+                return_value=True,
+            ),
+            patch(
+                "omni_mercury_engine.security.safe_http._PinnedDNSHTTPAdapter.build",
+                return_value=MagicMock(),
+            ),
+            patch("requests.Session", return_value=fake_session),
+        ):
+            SafeHTTPClient.get("https://example.com/path")
+
+        called = fake_session.request.call_args
+        assert called.kwargs.get("allow_redirects") is False, (
+            "session.request was called without allow_redirects=False; "
+            "the redirect-following prevention is not on the request path."
+        )
+
+
+class TestValidateUrlShortCircuit:
+    """A class-constant ``https://`` URL with the host on
+    ``TRUSTED_DOMAINS`` MUST NOT trigger a DNS lookup at validation
+    time.
+
+    The IP-resolution gate is conditional (``needs_ip_gate``) precisely
+    so the loader bulk path doesn't pay per-request DNS overhead for
+    URLs that are already on the allowlist. A regression that resolves
+    unconditionally would (1) waste a DNS round-trip on every request
+    and (2) make the loader suite fail in offline / no-DNS environments
+    (the offline-compose deployment target).
+    """
+
+    def test_trusted_https_does_not_call_getaddrinfo(self) -> None:
+        """No ``socket.getaddrinfo`` call for a trusted ``https://`` URL."""
+        with patch(
+            "omni_mercury_engine.security.safe_http.socket.getaddrinfo",
+            side_effect=AssertionError(
+                "getaddrinfo invoked for a trusted https:// URL; the "
+                "needs_ip_gate short-circuit is broken."
+            ),
+        ):
+            SafeHTTPClient.validate_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+    def test_http_url_does_call_getaddrinfo(self) -> None:
+        """``http://`` URLs trigger the resolve even when the host is trusted."""
+        import ipaddress
+
+        with patch(
+            "omni_mercury_engine.security.safe_http._resolve_ips",
+            return_value=[ipaddress.ip_address("23.215.0.137")],
+        ) as resolver:
+            SafeHTTPClient.validate_url(
+                "http://earthquake.usgs.gov/path",
+                allow_http=True,
+            )
+            assert resolver.called, (
+                "_resolve_ips was not called for an http:// URL; the gate "
+                "lost its defence-in-depth IP check for plain HTTP."
+            )
+
+    def test_user_configured_does_call_getaddrinfo(self) -> None:
+        """A user-configured URL always resolves so the private-IP gate fires."""
+        import ipaddress
+
+        with patch(
+            "omni_mercury_engine.security.safe_http._resolve_ips",
+            return_value=[ipaddress.ip_address("93.184.216.34")],
+        ) as resolver:
+            SafeHTTPClient.validate_url(
+                "https://api.operator-chosen.example/",
+                user_configured=True,
+            )
+            assert resolver.called
+
+
+class TestResolveIPsLiteralShortCircuit:
+    """``_resolve_ips`` MUST treat an IP literal as itself and not call DNS.
+
+    Without this short-circuit the SSRF gate could be bypassed by a
+    raw IP in the URL: a hostname resolver that returns no records
+    for ``127.0.0.1`` would otherwise mask the loopback address from
+    the private-IP filter. The literal-IP path keeps the gate honest.
+    """
+
+    @pytest.mark.parametrize(
+        "ip_literal",
+        [
+            "127.0.0.1",
+            "169.254.169.254",
+            "10.0.0.5",
+            "::1",
+            "fe80::1",
+            "100.64.0.1",  # CGNAT literal
+        ],
+    )
+    def test_literal_ip_classified_directly(self, ip_literal: str) -> None:
+        """An IP literal as host is parsed as itself; no DNS happens."""
+        from omni_mercury_engine.security.safe_http import _resolve_ips
+
+        with patch(
+            "omni_mercury_engine.security.safe_http.socket.getaddrinfo",
+            side_effect=AssertionError(
+                f"getaddrinfo invoked for IP literal '{ip_literal}'; the "
+                "_resolve_ips short-circuit is broken."
+            ),
+        ):
+            ips = _resolve_ips(ip_literal)
+        assert len(ips) == 1
+        assert str(ips[0]) == ip_literal

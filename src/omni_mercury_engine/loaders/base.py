@@ -205,8 +205,6 @@ class BaseDomainLoader(ABC):
         url: str,
         params: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
-        *,
-        allow_untrusted: bool = False,
     ) -> bytes:
         """
         Fetch URL content via :class:`SafeHTTPClient` with retry logic.
@@ -221,9 +219,10 @@ class BaseDomainLoader(ABC):
           :attr:`omni_mercury_engine.security.input_validation.TrustedEndpoints.TRUSTED_DOMAINS`.
           A subclass adding a new dataset host MUST add it to that
           set (or the request will fail closed with
-          ``UnsafeURLError``); ``allow_untrusted=True`` is the explicit
-          per-call escape hatch and is reserved for cases where the
-          host is dynamically supplied and out-of-band reviewed.
+          ``UnsafeURLError``). Operator-supplied egress must not use
+          this helper; it must call :class:`SafeHTTPClient` directly
+          with ``user_configured=True`` and the narrowest possible
+          private-network policy.
 
         Note that ``user_configured`` is *not* set by this helper:
         loader URLs are class-constant, vetted, and DNS-resolvable to
@@ -239,8 +238,6 @@ class BaseDomainLoader(ABC):
             url: URL to fetch.
             params: Query parameters.
             headers: HTTP headers.
-            allow_untrusted: Bypass the TRUSTED_DOMAINS gate for
-                this single call. Subclasses must justify each use.
 
         Returns:
             Response body as bytes.
@@ -254,12 +251,16 @@ class BaseDomainLoader(ABC):
             ValueError: Other configuration-shaped failures (malformed
                 URL, bad params). Also re-raised immediately.
             ConnectionError: All transient retries exhausted on
-                network / HTTP errors.
+                network / HTTP errors. Chains via ``__cause__`` to
+                the last underlying exception so the operator-facing
+                traceback names the real failure (timeout, refused
+                connection, 5xx response) rather than burying it.
         """
         default_headers = {"User-Agent": "Mercury-Agent/1.0 (Steel Security Advisors)"}
         if headers:
             default_headers.update(headers)
 
+        last_exc: Exception | None = None
         last_error_kind = "unknown"
         for attempt in range(self.max_retries + 1):
             try:
@@ -273,7 +274,6 @@ class BaseDomainLoader(ABC):
                     params=params,
                     headers=default_headers,
                     timeout=self.timeout,
-                    allow_untrusted=allow_untrusted,
                 )
             except ValueError:
                 # UnsafeURLError is a ValueError subclass; both signal
@@ -285,6 +285,7 @@ class BaseDomainLoader(ABC):
                 # transient-retry path below.
                 raise
             except Exception as exc:
+                last_exc = exc
                 last_error_kind = type(exc).__name__
                 if attempt < self.max_retries:
                     wait = self.retry_backoff * (2**attempt)
@@ -298,10 +299,15 @@ class BaseDomainLoader(ABC):
                     )
                     time.sleep(wait)
 
+        # Chain to the last underlying exception so the operator-facing
+        # traceback names the real failure (the original socket / HTTP
+        # error) rather than just the wrapper. ``raise X from None``
+        # would suppress the cause; the explicit ``from last_exc`` is
+        # the operator-actionable choice.
         raise ConnectionError(
             f"{self.DOMAIN}: Failed to fetch data after "
             f"{self.max_retries + 1} attempts ({last_error_kind})"
-        )
+        ) from last_exc
 
     def _fetch_json(
         self,

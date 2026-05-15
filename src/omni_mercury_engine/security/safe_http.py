@@ -358,7 +358,6 @@ class SafeHTTPClient:
         allow_http: bool = False,
         user_configured: bool = False,
         loopback_only: bool = False,
-        allow_untrusted: bool = False,
         allow_private: bool = False,
     ) -> None:
         """Run every gate without actually sending a request.
@@ -378,10 +377,6 @@ class SafeHTTPClient:
             loopback_only: The host must be on 127/8 or ``::1``.
                 Use for on-box adapters (Ollama default, Redis
                 sidecar).  Wins over ``allow_private``.
-            allow_untrusted: Skip the TRUSTED_DOMAINS check.
-                ``user_configured=True`` implies this (because we
-                cannot know operator-chosen hosts in advance), so
-                callers rarely need to set it directly.
             allow_private: Permit resolved IPs on RFC1918 /
                 IPv6-ULA / IPv4-private ranges.  Use for
                 self-hosted services that live inside the operator's
@@ -402,13 +397,13 @@ class SafeHTTPClient:
         # https://, which let an ``allow_http=True`` dataset mirror
         # reach an arbitrary host with no allowlist or private-network
         # check.  Now: http:// is treated identically -- the host must
-        # be in TRUSTED_DOMAINS (or the caller must set
-        # ``allow_untrusted=True``), and every http:// URL also goes
-        # through the private-network / IMDS gate below regardless of
+        # be in TRUSTED_DOMAINS unless it is an explicit operator-
+        # configured endpoint, and every http:// URL also goes through
+        # the private-network / IMDS gate below regardless of
         # ``user_configured`` because plain HTTP is exactly the
         # transport an attacker would use to bounce through internal
         # infrastructure.
-        if not user_configured and not allow_untrusted:
+        if not user_configured:
             try:
                 TrustedEndpoints.validate_url_host(host)
             except ValueError as exc:
@@ -420,21 +415,14 @@ class SafeHTTPClient:
         #   * the URL is plain HTTP (allow_http=True), because the
         #     trusted-allowlist gate is the only thing standing
         #     between an http:// URL and an SSRF pivot, and we want
-        #     defence-in-depth even when the host is allowlisted, OR
-        #   * the caller skipped the TRUSTED_DOMAINS allowlist via
-        #     ``allow_untrusted=True``.  Bypassing the allowlist must
-        #     NOT also bypass SSRF protection -- otherwise an https://
-        #     URL to a private IP literal or a hostname that resolves
-        #     into RFC1918 / IMDS slips past both gates.  This is the
-        #     fourth opt-in trigger, orthogonal to ``allow_private``:
-        #     ``allow_untrusted`` skips the host allowlist;
-        #     ``allow_private`` permits RFC1918; neither one skips
-        #     the IP resolve, and IMDS / loopback / multicast / reserved
-        #     remain in the always-blocked set regardless.
+        #     defence-in-depth even when the host is allowlisted.
+        # ``allow_private`` permits RFC1918 for explicitly configured
+        # internal services; it never unlocks IMDS / loopback /
+        # multicast / reserved ranges.
         # Class-constant https:// dataset URLs still skip the resolve
         # because they're public hostnames we explicitly allowlisted;
         # resolving them on every call is pure overhead.
-        needs_ip_gate = user_configured or loopback_only or scheme == "http" or allow_untrusted
+        needs_ip_gate = user_configured or loopback_only or scheme == "http"
         if needs_ip_gate:
             ips = _resolve_ips(host)
             if loopback_only:
@@ -485,7 +473,6 @@ class SafeHTTPClient:
         allow_http: bool = False,
         user_configured: bool = False,
         loopback_only: bool = False,
-        allow_untrusted: bool = False,
         allow_private: bool = False,
         stream: bool = False,
     ) -> requests.Response:
@@ -495,7 +482,6 @@ class SafeHTTPClient:
             allow_http=allow_http,
             user_configured=user_configured,
             loopback_only=loopback_only,
-            allow_untrusted=allow_untrusted,
             allow_private=allow_private,
         )
 
@@ -690,7 +676,6 @@ class SafeHTTPClient:
         allow_http: bool = False,
         user_configured: bool = False,
         loopback_only: bool = False,
-        allow_untrusted: bool = False,
         allow_private: bool = False,
         stream: bool = False,
     ) -> requests.Response:
@@ -704,7 +689,6 @@ class SafeHTTPClient:
             allow_http=allow_http,
             user_configured=user_configured,
             loopback_only=loopback_only,
-            allow_untrusted=allow_untrusted,
             allow_private=allow_private,
             stream=stream,
         )
@@ -720,7 +704,6 @@ class SafeHTTPClient:
         allow_http: bool = False,
         user_configured: bool = False,
         loopback_only: bool = False,
-        allow_untrusted: bool = False,
         allow_private: bool = False,
     ) -> bytes:
         """GET and return the response body as bytes."""
@@ -732,7 +715,6 @@ class SafeHTTPClient:
             allow_http=allow_http,
             user_configured=user_configured,
             loopback_only=loopback_only,
-            allow_untrusted=allow_untrusted,
             allow_private=allow_private,
         ) as response:
             body: bytes = response.content
@@ -749,7 +731,6 @@ class SafeHTTPClient:
         allow_http: bool = False,
         user_configured: bool = False,
         loopback_only: bool = False,
-        allow_untrusted: bool = False,
         allow_private: bool = False,
     ) -> Any:
         """GET and decode the response body as JSON."""
@@ -761,7 +742,6 @@ class SafeHTTPClient:
             allow_http=allow_http,
             user_configured=user_configured,
             loopback_only=loopback_only,
-            allow_untrusted=allow_untrusted,
             allow_private=allow_private,
         ) as response:
             return response.json()
@@ -777,7 +757,6 @@ class SafeHTTPClient:
         allow_http: bool = False,
         user_configured: bool = False,
         loopback_only: bool = False,
-        allow_untrusted: bool = False,
         allow_private: bool = False,
     ) -> str:
         """GET and return the decoded response text."""
@@ -789,7 +768,6 @@ class SafeHTTPClient:
             allow_http=allow_http,
             user_configured=user_configured,
             loopback_only=loopback_only,
-            allow_untrusted=allow_untrusted,
             allow_private=allow_private,
         ) as response:
             text: str = response.text
@@ -806,7 +784,6 @@ class SafeHTTPClient:
         allow_http: bool = False,
         user_configured: bool = False,
         loopback_only: bool = False,
-        allow_untrusted: bool = False,
         allow_private: bool = False,
     ) -> Any:
         """POST a JSON body and decode the response as JSON."""
@@ -819,7 +796,6 @@ class SafeHTTPClient:
             allow_http=allow_http,
             user_configured=user_configured,
             loopback_only=loopback_only,
-            allow_untrusted=allow_untrusted,
             allow_private=allow_private,
         ) as response:
             return response.json()
