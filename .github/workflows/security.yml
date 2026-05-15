@@ -117,7 +117,7 @@ jobs:
       run: docker build -t mercury-agent:scan .
 
     - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@v0.36.0
       with:
         image-ref: 'mercury-agent:scan'
         format: 'sarif'
@@ -130,14 +130,14 @@ jobs:
         # Skip duplicate detection across layers and huge ML header files
         # that cause context-deadline-exceeded timeouts in secret scanning
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
-        skip-files: 'opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
+        skip-files: 'opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
         # Honor documented risk acceptances in .trivyignore
         trivyignores: .trivyignore
         timeout: '15m'
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v4
-      if: always()
+      if: always() && hashFiles('trivy-results.sarif') != ''
       with:
         sarif_file: 'trivy-results.sarif'
         category: 'trivy-container-scan'
@@ -149,14 +149,17 @@ jobs:
       # SARIF run (which already populates the GitHub Security tab);
       # the table form is the gate that makes such findings visible
       # in the PR review UI rather than only after merge.
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@v0.36.0
       with:
         image-ref: 'mercury-agent:scan'
         format: 'table'
         severity: 'CRITICAL,HIGH'
         vuln-type: 'os,library'
         ignore-unfixed: true
+        skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
+        skip-files: 'opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
         trivyignores: .trivyignore
+        timeout: '15m'
         exit-code: '1'
 
   filesystem-scan:
@@ -166,7 +169,7 @@ jobs:
     - uses: actions/checkout@v6
 
     - name: Run Trivy filesystem scanner
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@v0.36.0
       with:
         scan-type: 'fs'
         scan-ref: '.'
@@ -182,7 +185,7 @@ jobs:
 
     - name: Upload Trivy filesystem results
       uses: github/codeql-action/upload-sarif@v4
-      if: always()
+      if: always() && hashFiles('trivy-fs-results.sarif') != ''
       with:
         sarif_file: 'trivy-fs-results.sarif'
         category: 'trivy-filesystem-scan'

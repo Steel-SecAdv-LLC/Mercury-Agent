@@ -184,17 +184,33 @@ Mercury Agent includes security intelligence capabilities. Users must:
 
 ## Current Vulnerability Status
 
-*Last Scan: February 2026*
+*Last Review: 2026-05-15*
 
 ### Accepted Vulnerabilities (with Mitigations)
 
-The following vulnerabilities have been assessed and accepted with documented mitigations:
+Accepted-risk records are maintained in [`.trivyignore`](.trivyignore), which is the source of truth for CVE rationale, mitigation notes, and review/expiry metadata.
+
+Current accepted-risk posture documented there:
+
+- **Total accepted:** 10 CVEs
+- **Critical:** 2
+- **High:** 3
+- **Medium:** 4
+- **Low:** 1
+- Includes fixed pip CVEs retained for audit continuity
 
 | CVE | Severity | Component | Status | Mitigation |
 |-----|----------|-----------|--------|------------|
-| CVE-2025-14104 | Medium | util-linux | Accepted | Non-root execution, SUID bits removed, no passwd operations |
-| CVE-2025-8869 | Medium | pip | Accepted | pip >=25.0, HTTPS-only, no runtime pip install |
+| CVE-2025-7458 | Critical | SQLite | Accepted | No SQLite DB usage, non-root execution, input validation |
+| CVE-2023-45853 | Critical | zlib/minizip | Accepted | No minizip usage, Debian will_not_fix context |
+| CVE-2025-68973 | High | gpgv | Accepted | Not used by app paths, no runtime package installs |
+| CVE-2025-13601 | High | libglib2.0-0 | Accepted | No direct glib URI handling, non-root execution |
+| CVE-2025-6020 | High | linux-pam | Accepted | JWT auth path, non-root execution, SUID/SGID stripped |
+| CVE-2025-14104 | Medium | util-linux | Accepted | Non-root execution, SUID/SGID bits stripped |
+| CVE-2025-8869 | Medium | pip | Accepted (fixed; retained for audit continuity) | pip >=26.1, HTTPS-only, no runtime pip install |
 | CVE-2025-7709 | Medium | SQLite | Accepted | No FTS5 usage, non-root execution |
+| CVE-2026-6357 | Medium | pip | Accepted (fixed; retained for audit continuity) | pip >=26.1, no runtime pip install |
+| CVE-2026-1703 | Low | pip | Accepted (fixed; retained for audit continuity) | pip >=26.1, trusted package sources only |
 
 ### Vulnerability Assessment Process
 
@@ -214,12 +230,11 @@ Mercury Agent's Docker container implements defense-in-depth:
 - **Non-root User**: Application runs as `mercuryagent` (UID 1000)
 - **SUID/SGID Removal**: All setuid/setgid bits removed from binaries
 - **Minimal Packages**: Only essential runtime dependencies installed
-- **Package Purge**: `login` and `passwd` packages removed from runtime
 - **Clean Filesystem**: No package caches or temporary files retained
 
 ### Unresolved Vulnerabilities
 
-As of the last scan, there are **0 high/critical** and **3 medium** severity vulnerabilities, all with documented mitigations and acceptance justifications. See `.trivyignore` for complete details.
+Accepted risks are reviewed quarterly. As of the 2026-05-15 review, documented acceptances are 10 CVEs (2 Critical, 3 High, 4 Medium, 1 Low), including fixed pip CVEs retained for audit continuity. See [`.trivyignore`](.trivyignore) for complete details.
 
 ## Security Audits
 
@@ -250,5 +265,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-05-05*
+*Last Updated: 2026-05-15*
 *Version: 1.6.0*

@@ -62,7 +62,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > - Independent security review by qualified professionals
 > - Validation on domain-specific real-world datasets (MIMIC-III, NSL-KDD)
 > - Clinical validation for any medical applications
-> - Post-quantum cryptography is experimental and requires HSM for production secrets
+> - Post-quantum cryptography is derived from <a href="https://github.com/Steel-SecAdv-LLC/AMA-Cryptography">AMA Cryptography</a>
 >   
 > **This project is licensed under the GNU General Public License v3.0 (GPL v3)**
 >
