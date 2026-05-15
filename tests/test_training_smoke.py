@@ -33,7 +33,7 @@ try:
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
-    torch = None  # type: ignore
+    torch = None  # type: ignore[assignment]
 
 HAS_LIGHTNING = importlib.util.find_spec("pytorch_lightning") is not None
 

@@ -1,5 +1,12 @@
 name: PQC Production Readiness
 
+permissions:
+  contents: read
+
+concurrency:
+  group: pqc-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 on:
   push:
     paths:
