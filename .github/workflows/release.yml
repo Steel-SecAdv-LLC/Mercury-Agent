@@ -217,16 +217,35 @@ jobs:
               ],
               "predicateType": "https://slsa.dev/provenance/v1",
               "predicate": {
-                  "buildType": "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/.github/workflows/release.yml",
-                  "builder": {"id": f"https://github.com/{repo}/actions/runs/{run_id}/attempts/{run_attempt}"},
-                  "invocation": {
-                      "configSource": {
-                          "uri": f"git+https://github.com/{repo}",
-                          "digest": {"sha1": sha},
-                          "entryPoint": ".github/workflows/release.yml",
-                      }
+                  "buildDefinition": {
+                      "buildType": "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/.github/workflows/release.yml",
+                      "externalParameters": {
+                          "repository": f"https://github.com/{repo}",
+                          "ref": os.environ.get("GITHUB_REF", ""),
+                          "releaseVersion": version,
+                      },
+                      "internalParameters": {
+                          "githubRunId": run_id,
+                          "githubRunAttempt": run_attempt,
+                          "workflow": ".github/workflows/release.yml",
+                      },
+                      "resolvedDependencies": [
+                          {
+                              "uri": f"git+https://github.com/{repo}",
+                              "digest": {"sha1": sha},
+                          }
+                      ],
                   },
-                  "metadata": {"buildStartedOn": now, "buildFinishedOn": now},
+                  "runDetails": {
+                      "builder": {
+                          "id": f"https://github.com/{repo}/actions/runs/{run_id}/attempts/{run_attempt}"
+                      },
+                      "metadata": {
+                          "invocationId": f"https://github.com/{repo}/actions/runs/{run_id}/attempts/{run_attempt}",
+                          "startedOn": now,
+                          "finishedOn": now,
+                      },
+                  },
               },
           }
 
