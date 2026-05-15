@@ -920,6 +920,14 @@ class TestMultiIPFailover:
     IP would otherwise eliminate the multi-IP resilience the stdlib
     socket layer used to provide. The contract is "pin per attempt,
     iterate IPs across attempts."
+
+    Note on test IPs: we use real global-public IPs (``8.8.8.8``,
+    ``1.1.1.1``) because the request-time DNS recheck inside
+    ``_request`` runs the private/IMDS filter on every resolved
+    address, and Python's ``ipaddress.is_private`` returns ``True``
+    for the IETF TEST-NET ranges (192.0.2/24, 198.51.100/24,
+    203.0.113/24). The mocks never actually open a socket, so using
+    real allocated IPs here is harmless.
     """
 
     @staticmethod
@@ -958,8 +966,8 @@ class TestMultiIPFailover:
             patch(
                 "omni_mercury_engine.security.safe_http._resolve_ips",
                 return_value=[
-                    ipaddress.ip_address("203.0.113.10"),  # TEST-NET-3
-                    ipaddress.ip_address("198.51.100.10"),  # TEST-NET-2
+                    ipaddress.ip_address("8.8.8.8"),  # public DNS (Google)
+                    ipaddress.ip_address("1.1.1.1"),  # public DNS (Cloudflare)
                 ],
             ),
             patch(
@@ -998,8 +1006,8 @@ class TestMultiIPFailover:
             patch(
                 "omni_mercury_engine.security.safe_http._resolve_ips",
                 return_value=[
-                    ipaddress.ip_address("203.0.113.10"),
-                    ipaddress.ip_address("198.51.100.10"),
+                    ipaddress.ip_address("8.8.8.8"),
+                    ipaddress.ip_address("1.1.1.1"),
                 ],
             ),
             patch(
