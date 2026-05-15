@@ -117,8 +117,18 @@ class TestFusionTraining:
                 late_loss <= early_loss * 1.5
             ), f"Loss should not increase significantly: {early_loss:.4f} -> {late_loss:.4f}"
 
+    @pytest.mark.timeout(600)
     def test_early_stopping_works(self, engine, training_data):
-        """Verify early stopping triggers when loss plateaus."""
+        """Verify early stopping triggers when loss plateaus.
+
+        Uses a high ``epochs`` ceiling on purpose so we can observe
+        ``early_stopped=True`` before the ceiling is reached.  Doing 100
+        full fusion-training epochs on a CPU-only GitHub-hosted runner
+        can outrun the global 300 s pytest-timeout under load even
+        though the data set is small, so we extend the per-test budget
+        to 10 minutes rather than reduce ``epochs`` (which would weaken
+        what the test actually exercises).
+        """
         X, y = training_data
 
         metrics = engine.fit_fusion(

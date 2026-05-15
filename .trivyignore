@@ -2,9 +2,9 @@
 # This file specifies vulnerabilities to ignore during Trivy scans
 # Use with caution - only ignore after careful assessment
 #
-# Last Updated: 2026-01-06
+# Last Updated: 2026-05-15
 # Reviewed By: Security Team
-# Next Review: 2026-04-06 (quarterly)
+# Next Review: 2026-08-15 (quarterly)
 
 # =============================================================================
 # CVE-2025-14104: util-linux heap buffer overread in setpwnam()
@@ -29,12 +29,16 @@
 #
 # Mitigations Applied:
 # - Non-root container execution (USER mercuryagent)
-# - SUID/SGID bits removed from all binaries
-# - login/passwd packages purged from runtime image
+# - SUID/SGID bits stripped from all binaries via
+#   `find / -perm /6000 -type f -exec chmod a-s {} \;`
+#   (replaces the earlier `apt-get purge login passwd` approach, which
+#   broke on python:3.13-slim-bookworm because the apt -> adduser ->
+#   passwd dependency chain cascades into removing adduser and breaks
+#   the apt package manager; see Dockerfile runtime stage)
 # - Multi-stage build minimizes attack surface
 #
-# Review Date: 2026-01-06
-# Expiry: 2026-04-06 (re-evaluate if upstream patch available)
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15 (re-evaluate if upstream patch available)
 CVE-2025-14104
 
 # =============================================================================
@@ -51,8 +55,10 @@ CVE-2025-14104
 # - User Interaction: Required (user must install malicious package)
 #
 # Justification for Acceptance:
-# 1. pip is upgraded to >=26.0 in both builder and runtime stages
-# 2. Python 3.12 base image implements PEP 706, so the vulnerable
+# 1. pip is upgraded to >=26.1 in both builder and runtime stages,
+#    which fully resolves CVE-2025-8869 (this entry is retained for
+#    audit continuity alongside CVE-2026-1703 / CVE-2026-6357)
+# 2. Python 3.13 base image implements PEP 706, so the vulnerable
 #    tar fallback code path is never executed
 # 3. All packages installed from PyPI with HTTPS verification
 # 4. No untrusted package sources configured
@@ -61,14 +67,14 @@ CVE-2025-14104
 #
 # Mitigations Applied:
 # - pip upgraded to >=26.1 (fixes CVE-2025-8869, CVE-2026-1703, CVE-2026-6357)
-# - Python 3.12 PEP 706 makes vulnerable fallback unreachable
+# - Python 3.13 PEP 706 makes vulnerable fallback unreachable
 # - setuptools upgraded to >=78.1.1 (CVE-2025-47273)
 # - HTTPS-only package downloads enforced
 # - No --trusted-host flags used
 # - Non-root execution limits filesystem access
 #
-# Review Date: 2026-03-10
-# Expiry: 2026-06-10 (re-evaluate quarterly)
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15 (re-evaluate quarterly)
 CVE-2025-8869
 
 # =============================================================================
@@ -104,8 +110,8 @@ CVE-2025-8869
 # - Non-root execution (USER mercuryagent)
 # - All CI workflows pin pip to >=26.1
 #
-# Review Date: 2026-05-06
-# Expiry: 2026-08-06
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15
 CVE-2026-1703
 
 # =============================================================================
@@ -133,8 +139,8 @@ CVE-2026-1703
 # - Non-root container execution
 # - No direct SQLite FTS5 usage in application code
 #
-# Review Date: 2026-01-06
-# Expiry: 2026-04-06
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15
 CVE-2025-7709
 
 # =============================================================================
@@ -165,8 +171,8 @@ CVE-2025-7709
 # - Application uses modern cryptography library (not GPG)
 # - Multi-stage build minimizes attack surface
 #
-# Review Date: 2026-01-06
-# Expiry: 2026-04-06 (re-evaluate when Debian patch available)
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15 (re-evaluate when Debian patch available)
 CVE-2025-68973
 
 # =============================================================================
@@ -196,8 +202,8 @@ CVE-2025-68973
 # - Input validation on all user-provided URLs
 # - System packages updated to latest available versions
 #
-# Review Date: 2026-01-06
-# Expiry: 2026-04-06
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15
 CVE-2025-13601
 
 # =============================================================================
@@ -227,8 +233,8 @@ CVE-2025-13601
 # - SUID/SGID bits removed from all binaries
 # - Application uses JWT authentication (not PAM)
 #
-# Review Date: 2026-01-06
-# Expiry: 2026-04-06
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15
 CVE-2025-6020
 
 # =============================================================================
@@ -258,8 +264,8 @@ CVE-2025-6020
 # - System packages updated to latest available versions
 # - Input validation prevents SQL injection vectors
 #
-# Review Date: 2026-01-06
-# Expiry: 2026-04-06 (HIGH PRIORITY - monitor for Debian patch)
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15 (HIGH PRIORITY - monitor for Debian patch)
 CVE-2025-7458
 
 # =============================================================================
@@ -290,8 +296,8 @@ CVE-2025-7458
 # - Python zipfile module used for any archive operations
 # - System packages updated to latest available versions
 #
-# Review Date: 2026-01-06
-# Expiry: 2026-04-06 (Debian will_not_fix - monitor for policy change)
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15 (Debian will_not_fix - monitor for policy change)
 CVE-2023-45853
 
 # =============================================================================
@@ -329,8 +335,8 @@ CVE-2023-45853
 # - Non-root execution (USER mercuryagent)
 # - All CI workflows pin pip to >=26.1
 #
-# Review Date: 2026-05-06
-# Expiry: 2026-08-06
+# Review Date: 2026-05-15
+# Expiry: 2026-08-15
 CVE-2026-6357
 
 # =============================================================================
@@ -366,5 +372,5 @@ CVE-2026-6357
 # pip CVEs (CVE-2025-8869, CVE-2026-1703, CVE-2026-6357) are FIXED by pip>=26.1
 # upgrade in both Dockerfile builder and runtime stages, and in all CI workflows.
 #
-# Last Updated: 2026-05-06
+# Last Updated: 2026-05-15
 # Security Contact: steel.sa.llc@gmail.com
