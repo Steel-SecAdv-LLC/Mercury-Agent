@@ -70,8 +70,15 @@ class TestSchemeGate:
         ],
     )
     def test_http_get_with_retry_rejects_bad_scheme(self, url: str) -> None:
-        """Helper refuses the URL before any network attempt."""
-        with patch("omni_mercury_engine.security.safe_http.requests.Session") as session_factory:
+        """Helper refuses the URL before any network attempt.
+
+        ``requests.Session`` is patched at the library level rather
+        than via ``omni_mercury_engine.security.safe_http.requests`` --
+        that attribute path doesn't exist because ``safe_http``
+        defers the ``import requests`` to inside ``_request``. Patching
+        the global ``requests.Session`` affects the deferred lookup.
+        """
+        with patch("requests.Session") as session_factory:
             with pytest.raises((UnsafeURLError, ValueError)):
                 http_get_with_retry(url, retries=1, backoff=0.0)
             assert (
