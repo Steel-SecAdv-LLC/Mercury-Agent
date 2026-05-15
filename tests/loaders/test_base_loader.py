@@ -236,6 +236,63 @@ class TestFetchUrlExceptionRouting:
         # accidentally re-routed by the new ValueError branch.
         assert call_count["n"] == 3
 
+    def test_retry_exhaustion_chains_underlying_exception(self, tmp_path):
+        """``ConnectionError`` after retry-exhaustion chains via ``__cause__``.
+
+        Wrapping the failure in ``ConnectionError`` is the operator-
+        facing API contract, but losing the underlying exception in
+        the traceback makes diagnosis harder than it has to be.
+        PR #210 wires ``raise ConnectionError(...) from last_exc`` so
+        the original socket / HTTP failure is one frame away.
+        """
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        loader.max_retries = 1
+        loader.retry_backoff = 0.0
+
+        original = OSError("simulated transient socket failure")
+
+        with patch(
+            "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+            side_effect=original,
+        ):
+            with pytest.raises(ConnectionError) as exc_info:
+                loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+
+        assert exc_info.value.__cause__ is original, (
+            "ConnectionError did not chain to the underlying exception; "
+            "operators lose the real cause in the traceback."
+        )
+
+
+class TestAllowUntrustedRemovedFromLoader:
+    """The loader API surface MUST not accept the removed
+    ``allow_untrusted`` keyword.
+
+    PR #210 deletes the per-call escape hatch from ``_fetch_url``.
+    Operators that previously used it should switch to calling
+    :class:`SafeHTTPClient` directly with ``user_configured=True``;
+    documenting that migration is the job of
+    ``TestMigrationFromAllowUntrusted`` in
+    ``tests/security/test_safe_http.py``. This test pins the
+    loader-side removal so a stale call-site does not creep back
+    in.
+    """
+
+    def test_fetch_url_rejects_allow_untrusted_kwarg(self, tmp_path):
+        loader = StubLoader(cache_dir=tmp_path / "cache")
+        with pytest.raises(TypeError, match="allow_untrusted"):
+            loader._fetch_url(  # type: ignore[call-arg]
+                "https://earthquake.usgs.gov/fdsnws/event/1/query",
+                allow_untrusted=True,
+            )
+
+    def test_fetch_url_signature_has_no_allow_untrusted(self):
+        """Belt-and-braces: the parameter is not present in the signature."""
+        import inspect
+
+        sig = inspect.signature(BaseDomainLoader._fetch_url)
+        assert "allow_untrusted" not in sig.parameters
+
 
 # =============================================================================
 # Cache Tests
