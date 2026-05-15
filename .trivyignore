@@ -29,8 +29,12 @@
 #
 # Mitigations Applied:
 # - Non-root container execution (USER mercuryagent)
-# - SUID/SGID bits removed from all binaries
-# - login/passwd packages purged from runtime image
+# - SUID/SGID bits stripped from all binaries via
+#   `find / -perm /6000 -type f -exec chmod a-s {} \;`
+#   (replaces the earlier `apt-get purge login passwd` approach, which
+#   broke on python:3.13-slim-bookworm because the apt -> adduser ->
+#   passwd dependency chain cascades into removing adduser and breaks
+#   the apt package manager; see Dockerfile runtime stage)
 # - Multi-stage build minimizes attack surface
 #
 # Review Date: 2026-05-15
@@ -51,8 +55,10 @@ CVE-2025-14104
 # - User Interaction: Required (user must install malicious package)
 #
 # Justification for Acceptance:
-# 1. pip is upgraded to >=26.0 in both builder and runtime stages
-# 2. Python 3.12 base image implements PEP 706, so the vulnerable
+# 1. pip is upgraded to >=26.1 in both builder and runtime stages,
+#    which fully resolves CVE-2025-8869 (this entry is retained for
+#    audit continuity alongside CVE-2026-1703 / CVE-2026-6357)
+# 2. Python 3.13 base image implements PEP 706, so the vulnerable
 #    tar fallback code path is never executed
 # 3. All packages installed from PyPI with HTTPS verification
 # 4. No untrusted package sources configured
@@ -61,7 +67,7 @@ CVE-2025-14104
 #
 # Mitigations Applied:
 # - pip upgraded to >=26.1 (fixes CVE-2025-8869, CVE-2026-1703, CVE-2026-6357)
-# - Python 3.12 PEP 706 makes vulnerable fallback unreachable
+# - Python 3.13 PEP 706 makes vulnerable fallback unreachable
 # - setuptools upgraded to >=78.1.1 (CVE-2025-47273)
 # - HTTPS-only package downloads enforced
 # - No --trusted-host flags used

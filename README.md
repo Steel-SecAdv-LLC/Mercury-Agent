@@ -62,7 +62,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > - Independent security review by qualified professionals
 > - Validation on domain-specific real-world datasets (MIMIC-III, NSL-KDD)
 > - Clinical validation for any medical applications
-> - <a href="https://github.com/Steel-SecAdv-LLC/AMA-Cryptography">AMA Cryptography</a> is the derived PQC for Mercury Agent and FINDΩYOU™
+> - Post-quantum cryptography for Mercury Agent and FINDΩYOU™ is derived from [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
 > - FINDΩYOU™ is a near-future addition with a people-first mission: locating the lost, missing, and abducted to reunite families and help bring perpetrators to justice.
 >   
 > **This project is licensed under the GNU General Public License v3.0 (GPL v3)**
