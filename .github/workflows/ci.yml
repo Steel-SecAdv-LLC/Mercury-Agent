@@ -893,7 +893,10 @@ jobs:
         # trivyignores: .trivyignore lets Trivy pick up the explicit
         # acceptance entries.  vuln-type scopes the scan to OS and library
         # findings (the surface this image actually exposes).
-        uses: aquasecurity/trivy-action@master
+        # Action pinned to the same tagged version as
+        # security.yml's Trivy steps so both workflows run identical
+        # action code (deterministic, supply-chain hardened).
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: mercury-agent:${{ github.sha }}
           format: 'sarif'

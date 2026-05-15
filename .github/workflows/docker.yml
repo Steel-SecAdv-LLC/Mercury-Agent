@@ -55,7 +55,11 @@ jobs:
 
       - name: Run Trivy vulnerability scanner on tarball
         continue-on-error: true
-        uses: aquasecurity/trivy-action@master
+        # Action pinned to the same tagged version as security.yml's
+        # and ci.yml's Trivy steps so every workflow that scans the
+        # Mercury Agent container runs identical action code
+        # (deterministic, supply-chain hardened).
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           input: /tmp/mercury-image.tar
           format: sarif
