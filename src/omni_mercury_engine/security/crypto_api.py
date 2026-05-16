@@ -55,7 +55,7 @@ AMA_CRYPTO_API_AVAILABLE = False
 # aliases so the fallback branch below can rebind them to ``None`` without
 # mypy raising "Cannot assign to a type" / "Incompatible types in
 # assignment".  This mirrors the same pattern in ``pqc_backends.py``: a
-# narrowly-scoped ``# type: ignore`` on the fallback assignments declares
+# narrowly-scoped mypy assignment suppressions on the fallback assignments declare
 # the rebinding intentional, and the public-facing names below are typed
 # ``Any`` so callers gated on ``AMA_CRYPTO_API_AVAILABLE`` can use them
 # as classes / callables.  Runtime behaviour is unchanged — calling

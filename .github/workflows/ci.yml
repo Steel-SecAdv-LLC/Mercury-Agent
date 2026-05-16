@@ -4,6 +4,14 @@
 
 name: CI/CD Pipeline
 
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 on:
   push:
     branches: [main, develop, feature/*]
@@ -122,6 +130,54 @@ jobs:
             --add-ignore=D100,D104,D105,D107,D212,D415
 
   # ===========================================================================
+  # Stage 1.5: Workflow and Suppression Hygiene
+  # ===========================================================================
+  workflow-hardening:
+    name: Workflow Hardening
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Go for actionlint
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+
+      - name: Install workflow security linters
+        run: |
+          python -m pip install --upgrade "pip>=26.1"
+          pip install "zizmor==1.24.1"
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+      - name: Run actionlint
+        run: |
+          "$(go env GOPATH)/bin/actionlint" \
+            -ignore 'SC2086' \
+            -ignore 'SC2129' \
+            -color
+
+      - name: Run zizmor high-signal audits
+        # Advisory for now: this surfaces unpinned-action and permission
+        # findings without blocking every PR before the repository-wide SHA
+        # pinning migration lands. Blocking workflow invariants are enforced
+        # by scripts/check_workflow_hardening.py in the next step.
+        run: zizmor --no-progress --format=plain --min-severity high --no-exit-codes .github/workflows
+
+      - name: Run repository workflow hardening checks
+        run: python scripts/check_workflow_hardening.py
+
+      - name: Run suppression hygiene checks
+        run: python scripts/check_suppression_hygiene.py
+
+  # ===========================================================================
   # Stage 2: Type Checking
   # ===========================================================================
   type-checking:
@@ -166,6 +222,28 @@ jobs:
             --ignore-missing-imports \
             --show-error-codes \
             --pretty
+
+      - name: Run MyPy on critical tests
+        # Incremental test typing: start with security, ethics, and
+        # safeguards tests so high-risk behavioural gates get type coverage
+        # without requiring the entire historical test suite to be strict in
+        # one PR.  The temporary disabled codes are the current test-only
+        # debt categories observed in those suites; remove them one-by-one
+        # as the critical tests are annotated.
+        run: |
+          mypy tests/security/ tests/ethical/ tests/safeguards/ \
+            --ignore-missing-imports \
+            --allow-untyped-defs \
+            --allow-untyped-calls \
+            --disable-error-code untyped-decorator \
+            --disable-error-code misc \
+            --disable-error-code unused-ignore \
+            --disable-error-code no-any-return \
+            --disable-error-code type-arg \
+            --disable-error-code var-annotated \
+            --show-error-codes \
+            --pretty \
+            --no-warn-unused-configs
 
   # ===========================================================================
   # Stage 3: Security Scanning
@@ -388,7 +466,7 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: core-tests
           name: codecov-core
           fail_ci_if_error: false
@@ -486,7 +564,7 @@ jobs:
       - name: Upload neuro-symbolic coverage
         uses: codecov/codecov-action@v6
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: neuro-symbolic
           name: codecov-neurosymbolic
           fail_ci_if_error: false
@@ -630,7 +708,7 @@ jobs:
       - name: Upload coverage
         uses: codecov/codecov-action@v6
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: ml-tests
           name: codecov-ml
           fail_ci_if_error: false
@@ -969,11 +1047,13 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - code-quality
+      - workflow-hardening
       - type-checking
       - core-tests
       - neuro-symbolic-tests
       - security-scan
       - integration-tests
+      - performance-benchmark
     if: always()
 
     steps:
@@ -982,25 +1062,47 @@ jobs:
           # Check all blocking jobs.  neuro-symbolic-tests is part of the
           # rollup so the 7-phase cognitive architecture + safeguards
           # cannot regress without failing the CI Success gate.
-          if [[ "${{ needs.code-quality.result }}" == "failure" ]] || \
-             [[ "${{ needs.type-checking.result }}" == "failure" ]] || \
-             [[ "${{ needs.core-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.neuro-symbolic-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.security-scan.result }}" == "failure" ]] || \
-             [[ "${{ needs.integration-tests.result }}" == "failure" ]]; then
+          #
+          # ``cancelled`` is treated as a blocking outcome alongside
+          # ``failure`` so a cancelled (e.g. concurrency-cancelled or
+          # manually-cancelled) upstream job cannot quietly turn into a
+          # green CI Success.  ``skipped`` remains non-blocking because
+          # performance-benchmark intentionally skips on push events and
+          # would otherwise deadlock main/develop/feature pushes.
+          fail=0
+          for upstream in \
+            "code-quality:${{ needs.code-quality.result }}" \
+            "workflow-hardening:${{ needs.workflow-hardening.result }}" \
+            "type-checking:${{ needs.type-checking.result }}" \
+            "core-tests:${{ needs.core-tests.result }}" \
+            "neuro-symbolic-tests:${{ needs.neuro-symbolic-tests.result }}" \
+            "security-scan:${{ needs.security-scan.result }}" \
+            "integration-tests:${{ needs.integration-tests.result }}" \
+            "performance-benchmark:${{ needs.performance-benchmark.result }}"; do
+            result="${upstream#*:}"
+            case "$result" in
+              success|skipped) : ;;
+              *) fail=1 ;;
+            esac
+          done
+          if [[ "$fail" -eq 1 ]]; then
             echo "❌ CI Pipeline Failed"
             echo "  code-quality: ${{ needs.code-quality.result }}"
+            echo "  workflow-hardening: ${{ needs.workflow-hardening.result }}"
             echo "  type-checking: ${{ needs.type-checking.result }}"
             echo "  core-tests: ${{ needs.core-tests.result }}"
             echo "  neuro-symbolic-tests: ${{ needs.neuro-symbolic-tests.result }}"
             echo "  security-scan: ${{ needs.security-scan.result }}"
             echo "  integration-tests: ${{ needs.integration-tests.result }}"
+            echo "  performance-benchmark: ${{ needs.performance-benchmark.result }} (enforced on pull_request and schedule)"
             exit 1
           fi
           echo "✅ CI Pipeline Passed"
           echo "  code-quality: ${{ needs.code-quality.result }}"
+          echo "  workflow-hardening: ${{ needs.workflow-hardening.result }}"
           echo "  type-checking: ${{ needs.type-checking.result }}"
           echo "  core-tests: ${{ needs.core-tests.result }}"
           echo "  neuro-symbolic-tests: ${{ needs.neuro-symbolic-tests.result }}"
           echo "  security-scan: ${{ needs.security-scan.result }}"
           echo "  integration-tests: ${{ needs.integration-tests.result }}"
+          echo "  performance-benchmark: ${{ needs.performance-benchmark.result }} (enforced on pull_request and schedule)"

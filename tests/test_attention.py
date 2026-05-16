@@ -32,8 +32,8 @@ try:
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
-    torch = None  # type: ignore
-    nn = None  # type: ignore
+    torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
 
 # Skip all tests in this module if torch is not available
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")

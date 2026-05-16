@@ -26,6 +26,10 @@ permissions:
   packages: write
   id-token: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   PYTHON_VERSION: '3.12'
   REGISTRY: ghcr.io
@@ -133,6 +137,17 @@ jobs:
           sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
           echo "Updated version to $VERSION"
 
+      - name: Capture build start timestamp for SLSA provenance
+        # ``startedOn`` in the SLSA Provenance v1 runDetails.metadata block
+        # must reflect the actual start of the build, not the moment the
+        # provenance script itself runs (which is after ``python -m build``
+        # and ``twine check``).  Capturing the timestamp here, immediately
+        # before ``python -m build``, makes the attestation's
+        # startedOn/finishedOn window cover the real build work rather
+        # than claiming a zero-duration build.
+        run: |
+          echo "BUILD_STARTED_ON=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
       - name: Build package
         run: |
           python -m build
@@ -141,6 +156,119 @@ jobs:
       - name: Verify package
         run: |
           twine check dist/*
+
+      - name: Generate package SBOM and provenance
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          python - <<'PY'
+          import datetime as dt
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          dist = Path("dist")
+          generated = {"SBOM.spdx.json", "provenance.json"}
+          artifacts = []
+          for path in sorted(dist.iterdir()):
+              if path.name in generated or not path.is_file():
+                  continue
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              artifacts.append(
+                  {
+                      "name": path.name,
+                      "sha256": digest,
+                      "size": path.stat().st_size,
+                  }
+              )
+
+          # Use the same RFC 3339 ``...Z`` format as the BUILD_STARTED_ON
+          # shell capture so startedOn/finishedOn/sbom.creationInfo.created
+          # are all formatted consistently across the provenance + SBOM
+          # documents.  Mixing ``...Z`` and ``...+00:00`` within one
+          # attestation looks like a bug to downstream verifiers.
+          now = dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+          started_on = os.environ.get("BUILD_STARTED_ON") or now
+          version = os.environ["RELEASE_VERSION"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          sha = os.environ["GITHUB_SHA"]
+          run_id = os.environ["GITHUB_RUN_ID"]
+          run_attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+
+          sbom = {
+              "spdxVersion": "SPDX-2.3",
+              "dataLicense": "CC0-1.0",
+              "SPDXID": "SPDXRef-DOCUMENT",
+              "name": f"Mercury-Agent-{version}",
+              "documentNamespace": f"https://github.com/{repo}/releases/tag/v{version}/sbom/{sha}",
+              "creationInfo": {
+                  "created": now,
+                  "creators": ["Tool: Mercury-Agent release workflow"],
+              },
+              "packages": [
+                  {
+                      "name": artifact["name"],
+                      "SPDXID": f"SPDXRef-Package-{idx}",
+                      "downloadLocation": "NOASSERTION",
+                      "filesAnalyzed": False,
+                      "checksums": [
+                          {
+                              "algorithm": "SHA256",
+                              "checksumValue": artifact["sha256"],
+                          }
+                      ],
+                      "versionInfo": version,
+                  }
+                  for idx, artifact in enumerate(artifacts, start=1)
+              ],
+          }
+          provenance = {
+              "_type": "https://in-toto.io/Statement/v1",
+              "subject": [
+                  {
+                      "name": artifact["name"],
+                      "digest": {"sha256": artifact["sha256"]},
+                  }
+                  for artifact in artifacts
+              ],
+              "predicateType": "https://slsa.dev/provenance/v1",
+              "predicate": {
+                  "buildDefinition": {
+                      "buildType": "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/.github/workflows/release.yml",
+                      "externalParameters": {
+                          "repository": f"https://github.com/{repo}",
+                          "ref": os.environ.get("GITHUB_REF", ""),
+                          "releaseVersion": version,
+                      },
+                      "internalParameters": {
+                          "githubRunId": run_id,
+                          "githubRunAttempt": run_attempt,
+                          "workflow": ".github/workflows/release.yml",
+                      },
+                      "resolvedDependencies": [
+                          {
+                              "uri": f"git+https://github.com/{repo}",
+                              "digest": {"sha1": sha},
+                          }
+                      ],
+                  },
+                  "runDetails": {
+                      "builder": {
+                          "id": f"https://github.com/{repo}/actions/runs/{run_id}/attempts/{run_attempt}"
+                      },
+                      "metadata": {
+                          "invocationId": f"https://github.com/{repo}/actions/runs/{run_id}/attempts/{run_attempt}",
+                          "startedOn": started_on,
+                          "finishedOn": now,
+                      },
+                  },
+              },
+          }
+
+          (dist / "SBOM.spdx.json").write_text(json.dumps(sbom, indent=2) + "\n")
+          (dist / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
+          PY
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
@@ -189,6 +317,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |

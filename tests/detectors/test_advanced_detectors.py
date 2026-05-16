@@ -585,7 +585,7 @@ class TestFactoryFunctions:
         from omni_mercury_engine.detectors.advanced import create_detector
 
         with pytest.raises(ValueError, match="Unknown detector type"):
-            create_detector("invalid_type")  # type: ignore
+            create_detector("invalid_type")  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":

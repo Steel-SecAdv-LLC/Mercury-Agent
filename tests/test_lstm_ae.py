@@ -207,8 +207,20 @@ class TestAnomalyDetector:
         loaded_scores = loaded.predict(test_data)
         np.testing.assert_allclose(original_scores, loaded_scores, rtol=1e-5)
 
+    @pytest.mark.timeout(600)
     def test_early_stopping(self):
-        """Test early stopping during training."""
+        """Test early stopping during training.
+
+        Uses a high ``epochs`` ceiling on purpose so we can observe early
+        stopping firing before the ceiling is reached.  Doing 100 LSTM-AE
+        training epochs on a CPU-only GitHub-hosted runner under
+        ``pytest -n 4`` parallelism can outrun the global 300 s
+        pytest-timeout (see ``tests/test_fusion_training.py``'s sibling
+        ``test_early_stopping_works`` for the same pattern).  Extending
+        the per-test budget to 10 minutes preserves what the test
+        actually exercises rather than weakening it by reducing
+        ``epochs``.
+        """
         detector = AnomalyDetector(input_dim=5, seq_len=10, hidden_dim=16, latent_dim=8)
         train_data = np.random.randn(200, 5).astype(np.float32)
         history = detector.fit(

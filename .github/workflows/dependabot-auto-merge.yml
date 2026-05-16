@@ -26,6 +26,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   auto-merge:
     # Only run on Dependabot's own PRs.
