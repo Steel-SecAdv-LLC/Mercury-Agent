@@ -27,7 +27,7 @@ sys.path.insert(0, str(_project_root))
 
 sklearn = pytest.importorskip("sklearn")
 
-from calibration_validation import (  # type: ignore[import-untyped]
+from calibration_validation import (  # type: ignore[import-not-found]
     run_calibration_validation,
     run_conformal_coverage,
     run_fusion_weight_analysis,

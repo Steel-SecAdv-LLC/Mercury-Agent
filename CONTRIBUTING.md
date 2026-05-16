@@ -263,6 +263,8 @@ bandit -r src/omni_mercury_engine/
 
 ## Testing
 
+Typing conventions for tests under the critical-tests gate are in [docs/typing.md](docs/typing.md).
+
 ### Running Tests
 
 ```bash

@@ -225,27 +225,31 @@ jobs:
             --pretty
 
       - name: Run MyPy on critical tests
-        # Incremental test typing: start with security, ethics, and
-        # safeguards tests so high-risk behavioural gates get type coverage
-        # without requiring the entire historical test suite to be strict in
-        # one PR.  The temporary disabled codes are the current test-only
-        # debt categories observed in those suites; remove them one-by-one
-        # as the critical tests are annotated.  --ignore-missing-imports
-        # was removed here too -- third-party boundaries are declared in
-        # pyproject.toml [[tool.mypy.overrides]], so any new un-declared
-        # import in test code now fails the gate instead of being silenced.
+        # Incremental test typing: security, ethics, safeguards, and
+        # benchmarks tests are gated so high-risk behavioural gates get
+        # type coverage without requiring the entire historical test
+        # suite to be strict in one PR.  The temporary disabled codes
+        # are the current test-only debt categories observed in those
+        # suites; remove them one-by-one as more directories are added
+        # to the gate.  --ignore-missing-imports was removed here too
+        # -- third-party boundaries are declared in pyproject.toml
+        # [[tool.mypy.overrides]], so any new un-declared import in
+        # test code now fails the gate instead of being silenced.
+        # --no-incremental defeats cache poisoning that could mask
+        # newly-introduced errors between runs.
+        # See docs/typing.md for the small set of patterns gated tests
+        # are required to follow.
         run: |
-          mypy tests/security/ tests/ethical/ tests/safeguards/ \
+          mypy tests/security/ tests/ethical/ tests/safeguards/ tests/benchmarks/ \
             --allow-untyped-defs \
             --allow-untyped-calls \
-            --disable-error-code untyped-decorator \
-            --disable-error-code misc \
             --disable-error-code unused-ignore \
             --disable-error-code no-any-return \
             --disable-error-code type-arg \
             --disable-error-code var-annotated \
             --show-error-codes \
             --pretty \
+            --no-incremental \
             --no-warn-unused-configs
 
   # ===========================================================================

@@ -840,6 +840,11 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "ARG", "PLR2004", "S105", "S108", "S603", "S607", "S608"]
+# ANN201: ruff misclassifies @pytest.fixture-wrapped functions as needing
+# a return annotation in places where the fixture wrapper already provides
+# the type — the libcst-based annotation pass we use for ratcheting tests
+# does this correctly; ruff's heuristic does not.
+"tests/**/conftest.py" = ["ANN201"]
 "__init__.py" = ["F401"]
 "benchmarks/**/*.py" = ["S102", "S108", "S310", "S607", "PTH100", "C408", "PLR1722", "F841", "B015", "SIM118", "B006"]
 "docs/**/*.py" = ["RUF015"]
