@@ -70,9 +70,7 @@ def iter_permissions_blocks(text: str) -> list[tuple[int, str, int]]:
             continue
         match = MAPPING_KEY_RE.match(line)
         if match and normalize_key(match.group("key")) == "permissions":
-            blocks.append(
-                (len(match.group("indent")), match.group("value").strip(), lineno)
-            )
+            blocks.append((len(match.group("indent")), match.group("value").strip(), lineno))
     return blocks
 
 
