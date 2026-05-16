@@ -214,12 +214,13 @@ jobs:
 
       - name: Run MyPy
         # MyPy reads strict config from pyproject.toml automatically.
-        # --ignore-missing-imports is required because CI only installs [ml]
-        # extras; modules behind other extras (api, visual, all) lack stubs
-        # in this job and would otherwise produce import-not-found errors.
+        # Boundaries for un-stubbed third-party libraries are declared
+        # per-module in pyproject.toml under [[tool.mypy.overrides]];
+        # the global --ignore-missing-imports flag was removed so any new
+        # un-declared import surfaces as a hard error instead of being
+        # silently silenced.
         run: |
           mypy src/omni_mercury_engine/ \
-            --ignore-missing-imports \
             --show-error-codes \
             --pretty
 
@@ -229,10 +230,12 @@ jobs:
         # without requiring the entire historical test suite to be strict in
         # one PR.  The temporary disabled codes are the current test-only
         # debt categories observed in those suites; remove them one-by-one
-        # as the critical tests are annotated.
+        # as the critical tests are annotated.  --ignore-missing-imports
+        # was removed here too -- third-party boundaries are declared in
+        # pyproject.toml [[tool.mypy.overrides]], so any new un-declared
+        # import in test code now fails the gate instead of being silenced.
         run: |
           mypy tests/security/ tests/ethical/ tests/safeguards/ \
-            --ignore-missing-imports \
             --allow-untyped-defs \
             --allow-untyped-calls \
             --disable-error-code untyped-decorator \
