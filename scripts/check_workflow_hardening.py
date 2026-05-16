@@ -7,13 +7,14 @@ import re
 import sys
 from pathlib import Path
 
-WORKFLOW_DIR = Path(".github/workflows")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 WRITE_OK = {
     "benchmark.yml",
     "dependabot-auto-merge.yml",
     "release.yml",
 }
-SHA_REF_RE = re.compile(r"^[0-9a-f]{40}$")
+SHA_REF_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 USES_RE = re.compile(r"^\s*uses:\s*([^@\s]+)@([^#\s]+)", re.MULTILINE)
 MAPPING_KEY_RE = re.compile(
     r"^(?P<indent>\s*)(?P<key>[A-Za-z_][A-Za-z0-9_-]*|\"[^\"]+\"|'[^']+'):\s*(?P<value>.*)$"
@@ -86,12 +87,14 @@ def has_disallowed_contents_write(text: str) -> bool:
             if line_indent <= indent:
                 break
             match = MAPPING_KEY_RE.match(line)
-            if (
-                match
-                and normalize_key(match.group("key")) == "contents"
-                and match.group("value").strip().split("#", 1)[0].strip() == "write"
-            ):
-                return True
+            if match and normalize_key(match.group("key")) == "contents":
+                # Strip an inline comment, then quotes, so that
+                # ``contents: "write"`` / ``contents: 'write'`` / bare
+                # ``contents: write`` are all detected (YAML treats them
+                # as equivalent — quoting must not be a bypass).
+                contents_value = match.group("value").strip().split("#", 1)[0].strip().strip("'\"")
+                if contents_value == "write":
+                    return True
     return False
 
 
@@ -157,7 +160,19 @@ def check_workflow(path: Path) -> list[str]:
 
 def main() -> int:
     errors: list[str] = []
-    for path in sorted([*WORKFLOW_DIR.glob("*.yml"), *WORKFLOW_DIR.glob("*.yaml")]):
+    workflows = sorted([*WORKFLOW_DIR.glob("*.yml"), *WORKFLOW_DIR.glob("*.yaml")])
+    if not workflows:
+        # Fail loud: silently passing when ``WORKFLOW_DIR`` resolves to an
+        # empty directory (e.g. script invoked from outside the repo root
+        # with a broken path) would mean the gate is no-op.  WORKFLOW_DIR
+        # is now resolved relative to the script location so this should
+        # only trigger if the workflows directory was actually deleted.
+        print(
+            f"Workflow hardening check failed: no workflow files found in {WORKFLOW_DIR}",
+            file=sys.stderr,
+        )
+        return 1
+    for path in workflows:
         errors.extend(check_workflow(path))
 
     if errors:
