@@ -10,6 +10,7 @@ Comprehensive tests for industrial and UCR archive dataset loaders.
 from __future__ import annotations
 
 import tempfile
+from typing import cast
 
 import numpy as np
 import pytest
@@ -414,7 +415,7 @@ class TestBaselineResults:
 
         # MBA
         mba_tranad = BASELINE_RESULTS["MBA"]["TranAD"]
-        assert mba_tranad["f1"] > 0.98  # Very high for bearing data
+        assert cast(float, mba_tranad["f1"]) > 0.98  # Very high for bearing data
 
         # MSDS
         msds_tranad = BASELINE_RESULTS["MSDS"]["TranAD"]

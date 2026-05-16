@@ -412,9 +412,10 @@ class TestValidationPipeline:
         y = np.random.randint(0, 2, 60)
 
         result1 = pipeline.validate(model, X, y, model_name="model1")
-        result2 = pipeline.validate(model, X, y, model_name="model2")
+        # The second positional arg is a baseline_name string, not another result.
+        pipeline.validate(model, X, y, model_name="model2")
 
-        comparison = pipeline.compare_to_baseline(result1, result2)
+        comparison = pipeline.compare_to_baseline(result1, "model2")
 
         # compare_to_baseline may return None if cross_val_scores are empty
         assert comparison is None or isinstance(comparison, ABTestResult)

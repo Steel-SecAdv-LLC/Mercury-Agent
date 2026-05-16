@@ -137,6 +137,7 @@ def test_gosnn_bidirectional_round_trip_two_clients() -> None:
     np.testing.assert_allclose(client_b.local_weights, expected_global, atol=1e-12)
     assert client_a.last_received_state is not None
     assert client_a.last_received_state.digest == new_state.digest
+    assert client_b.last_received_state is not None
     assert client_b.last_received_state.digest == new_state.digest
 
 

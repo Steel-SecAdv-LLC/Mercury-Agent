@@ -27,11 +27,13 @@ import pytest
 # Conditional torch import
 try:
     import torch
+    from torch import nn
 
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
     torch = None  # type: ignore[assignment]
+    nn = None  # type: ignore[assignment]
 
 # Skip all tests in this module if torch is not available
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
@@ -140,7 +142,7 @@ def test_harmonic_encoder_forward():
 
 def test_encoders_batch_processing():
     """Test all encoders with batch processing"""
-    encoders = [
+    encoders: list[tuple[nn.Module, torch.Tensor]] = [
         (StatisticalEncoder(input_dim=32, output_dim=128), torch.randn(10, 32)),
         (TemporalEncoder(input_dim=32, output_dim=128), torch.randn(10, 32)),
         (BiometricEncoder(embedding_dim=128, output_dim=128), torch.randn(10, 128)),

@@ -401,6 +401,8 @@ class TestAdaptiveDomainThresholdManager:
         manager.fit(scores, labels)
         threshold = manager.get_threshold()
 
+        # No-args branch returns float; with score/confidence it returns dict.
+        assert isinstance(threshold, float)
         assert 0 < threshold < 1
         assert manager.config.min_threshold <= threshold <= manager.config.max_threshold
 

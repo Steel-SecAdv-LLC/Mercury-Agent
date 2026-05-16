@@ -90,7 +90,11 @@ class TestCommunicationsITDetector:
         """Test detector learning phase."""
         detector = CommunicationsITDetector()
 
-        traffic_data = {"packets_per_sec": 1000, "bytes_per_sec": 100000, "connections_per_sec": 50}
+        traffic_data: dict[str, float] = {
+            "packets_per_sec": 1000.0,
+            "bytes_per_sec": 100000.0,
+            "connections_per_sec": 50.0,
+        }
 
         result = detector.detect_network_anomaly(traffic_data)
 
@@ -102,10 +106,18 @@ class TestCommunicationsITDetector:
 
         for _ in range(200):
             detector.traffic_history.append(
-                {"packets_per_sec": 1000, "bytes_per_sec": 100000, "connections_per_sec": 50}
+                {
+                    "packets_per_sec": 1000.0,
+                    "bytes_per_sec": 100000.0,
+                    "connections_per_sec": 50.0,
+                }
             )
 
-        traffic_data = {"packets_per_sec": 1000, "bytes_per_sec": 100000, "connections_per_sec": 50}
+        traffic_data: dict[str, float] = {
+            "packets_per_sec": 1000.0,
+            "bytes_per_sec": 100000.0,
+            "connections_per_sec": 50.0,
+        }
 
         result = detector.detect_network_anomaly(traffic_data)
 
@@ -148,7 +160,11 @@ class TestEnergyDamsDetector:
         """Test dam anomaly detection with normal parameters."""
         detector = EnergyDamsDetector()
 
-        dam_data = {"seepage_gpm": 20, "displacement_mm": 5, "water_level_ft": 300}
+        dam_data: dict[str, float] = {
+            "seepage_gpm": 20.0,
+            "displacement_mm": 5.0,
+            "water_level_ft": 300.0,
+        }
 
         result = detector.detect_dam_anomaly(dam_data, DamType.HYDROELECTRIC)
 
@@ -159,7 +175,11 @@ class TestEnergyDamsDetector:
         """Test dam anomaly detection with excessive seepage."""
         detector = EnergyDamsDetector()
 
-        dam_data = {"seepage_gpm": 150, "displacement_mm": 5, "water_level_ft": 300}
+        dam_data: dict[str, float] = {
+            "seepage_gpm": 150.0,
+            "displacement_mm": 5.0,
+            "water_level_ft": 300.0,
+        }
 
         result = detector.detect_dam_anomaly(dam_data)
 

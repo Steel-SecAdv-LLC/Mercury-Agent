@@ -13,6 +13,7 @@ Tests for:
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 import numpy as np
 import pytest
@@ -825,7 +826,7 @@ class TestIntegration:
         assert hub is not None
 
         # Create mock detection result
-        result = {
+        result: dict[str, Any] = {
             "scores": np.array([0.9, 0.3, 0.8, 0.2]),
             "is_anomaly": np.array([True, False, True, False]),
             "detector_type": "ensemble",

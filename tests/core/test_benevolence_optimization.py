@@ -140,6 +140,7 @@ class TestEthicalGatingForms:
         assert abs(result.penalty - expected_penalty) < 1e-10
         # Gradient should be -2 * (0.96 - 0.90) = -0.12
         expected_gradient = -2 * (SIGMA_IMMUTABLE_DEFAULT - sigma)
+        assert result.gradient is not None
         assert abs(result.gradient - expected_gradient) < 1e-10
 
     def test_quadratic_above_threshold(self, gating_forms):

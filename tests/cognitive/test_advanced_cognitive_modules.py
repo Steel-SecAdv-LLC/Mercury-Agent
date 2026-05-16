@@ -199,6 +199,9 @@ class TestReflexionEngine:
 
         evaluation = evaluator.evaluate(decision, outcome)
 
+        # evaluator.evaluate returns dict for simplified dict-based API; see
+        # cognitive/reflexion.py:585-625 (early-return branch).
+        assert isinstance(evaluation, dict)
         assert "score" in evaluation
         assert "feedback" in evaluation
 
@@ -369,6 +372,7 @@ class TestHierarchicalPlanner:
         assert len(subgoals) > 0
         # Should have hierarchical structure
         for subgoal in subgoals:
+            assert isinstance(subgoal, dict)
             assert "level" in subgoal or "parent" in subgoal or "type" in subgoal
 
     def test_option_library(self):
@@ -437,6 +441,7 @@ class TestHierarchicalPlanner:
         response_plan = planner.plan_response(anomaly)
 
         assert response_plan is not None
+        assert isinstance(response_plan, dict)
         assert "strategic_goals" in response_plan or "tactical_actions" in response_plan
 
 
@@ -487,6 +492,7 @@ class TestMultiAgentCoordination:
 
         consensus = protocol.reach_consensus(votes)
 
+        assert isinstance(consensus, dict)
         assert consensus["decision"]
         assert "agreement_ratio" in consensus
 

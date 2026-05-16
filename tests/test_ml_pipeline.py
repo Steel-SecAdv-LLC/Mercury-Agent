@@ -422,7 +422,7 @@ class TestBatchInference:
         """Test streaming inference."""
         data_stream = [torch.randn(4, 32) for _ in range(10)]
 
-        outputs = list(self.batch_inference.predict_stream(data_stream))
+        outputs = list(self.batch_inference.predict_stream(iter(data_stream)))
 
         assert len(outputs) == 10
         for out in outputs:

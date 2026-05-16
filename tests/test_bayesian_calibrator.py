@@ -275,6 +275,7 @@ class TestBayesianConfidenceCalibrator:
         # After update, stats should reflect it
         calibrator.update(domain, goal, success=True)
         stats = calibrator.get_stats(domain, goal)
+        assert stats is not None
         assert stats.successes == 1
         assert stats.total_observations == 1
 

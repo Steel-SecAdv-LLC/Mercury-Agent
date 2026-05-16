@@ -79,6 +79,7 @@ class TestPersonalityEngine:
         )
 
         # High confidence should have strong framing
+        assert modifiers.confidence_framing is not None
         assert (
             "high" in modifiers.confidence_framing.lower()
             or "reasonable" in modifiers.confidence_framing.lower()
@@ -92,6 +93,7 @@ class TestPersonalityEngine:
             anomaly_detected=True,
         )
 
+        assert modifiers.confidence_framing is not None
         assert "limited" in modifiers.confidence_framing.lower()
         assert modifiers.uncertainty_framing is not None
 

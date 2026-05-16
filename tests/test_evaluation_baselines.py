@@ -7,6 +7,8 @@ Tests for evaluation baselines module.
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from omni_mercury_engine.evaluation.baselines import (
@@ -42,14 +44,16 @@ class TestBaselineResults:
 
     def test_baseline_metrics_format(self):
         """Each baseline should have precision, recall, f1."""
+        # BASELINE_RESULTS values are heterogeneous (float scores + "paper" string),
+        # so per-key lookups return object; cast to float for ordered comparison.
         for dataset, baselines in BASELINE_RESULTS.items():
             for method, metrics in baselines.items():
                 if "f1" in metrics:  # Some like NAB use nab_score
-                    assert 0 <= metrics["f1"] <= 1
+                    assert 0 <= cast(float, metrics["f1"]) <= 1
                 if "precision" in metrics:
-                    assert 0 <= metrics["precision"] <= 1
+                    assert 0 <= cast(float, metrics["precision"]) <= 1
                 if "recall" in metrics:
-                    assert 0 <= metrics["recall"] <= 1
+                    assert 0 <= cast(float, metrics["recall"]) <= 1
 
 
 class TestCompareToBaselines:
@@ -204,10 +208,10 @@ class TestGetSotaForDataset:
         method, metrics = get_sota_for_dataset("SMD")
         smd_baselines = BASELINE_RESULTS["SMD"]
 
-        sota_f1 = metrics["f1"]
+        sota_f1 = cast(float, metrics["f1"])
         for name, m in smd_baselines.items():
             if "f1" in m:
-                assert m["f1"] <= sota_f1
+                assert cast(float, m["f1"]) <= sota_f1
 
     def test_unknown_dataset_raises(self):
         """Should raise for unknown dataset."""

@@ -35,7 +35,7 @@ from omni_mercury_engine.security.safe_exec import (
 class TestArgvValidation:
     def test_string_argv_rejected(self) -> None:
         with pytest.raises(UnsafeSubprocessError, match="sequence of strings"):
-            safe_exec("/bin/sh -c whoami")  # type: ignore[arg-type]
+            safe_exec("/bin/sh -c whoami")
 
     def test_empty_argv_rejected(self) -> None:
         with pytest.raises(UnsafeSubprocessError, match="non-empty"):

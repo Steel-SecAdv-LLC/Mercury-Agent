@@ -25,6 +25,7 @@ Tests PatchCore, PaDiM, STFPM, Reverse Distillation, and CFlow detectors.
 """
 
 import importlib.util
+from typing import cast
 
 import pytest
 
@@ -65,8 +66,11 @@ class TestPatchCoreDetector:
             k_nearest=3,
         )
         detector = PatchCoreDetector(config=config)
-        assert detector.config.coreset_ratio == 0.1
-        assert detector.config.k_nearest == 3
+        # detector.config is typed as base VisualDetectorConfig but is actually
+        # the PatchCoreConfig subclass at runtime.
+        cfg = cast(PatchCoreConfig, detector.config)
+        assert cfg.coreset_ratio == 0.1
+        assert cfg.k_nearest == 3
 
     def test_patchcore_fit(self, sample_image_batch):
         """Test PatchCore fitting on normal images."""
@@ -98,10 +102,11 @@ class TestPaDiMDetector:
     def test_padim_initialization(self):
         """Test PaDiM can be initialized with default config."""
         from omni_mercury_engine.detectors.visual import PaDiMDetector
+        from omni_mercury_engine.detectors.visual.padim import PaDiMConfig
 
         detector = PaDiMDetector()
         assert detector is not None
-        assert detector.config.d_reduced == 100
+        assert cast(PaDiMConfig, detector.config).d_reduced == 100
 
     def test_padim_fit(self, sample_image_batch):
         """Test PaDiM fitting on normal images."""
@@ -159,10 +164,13 @@ class TestReverseDistillationDetector:
     def test_reverse_distillation_initialization(self):
         """Test Reverse Distillation can be initialized."""
         from omni_mercury_engine.detectors.visual import ReverseDistillationDetector
+        from omni_mercury_engine.detectors.visual.reverse_distillation import (
+            ReverseDistillationConfig,
+        )
 
         detector = ReverseDistillationDetector()
         assert detector is not None
-        assert detector.config.bottleneck_dim == 256
+        assert cast(ReverseDistillationConfig, detector.config).bottleneck_dim == 256
 
     def test_reverse_distillation_config(self):
         """Test Reverse Distillation with custom config."""
@@ -177,8 +185,9 @@ class TestReverseDistillationDetector:
             oce_gamma=0.5,
         )
         detector = ReverseDistillationDetector(config=config)
-        assert detector.config.bottleneck_dim == 128
-        assert detector.config.oce_gamma == 0.5
+        cfg = cast(ReverseDistillationConfig, detector.config)
+        assert cfg.bottleneck_dim == 128
+        assert cfg.oce_gamma == 0.5
 
 
 @pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
@@ -188,10 +197,11 @@ class TestCFlowDetector:
     def test_cflow_initialization(self):
         """Test CFlow can be initialized."""
         from omni_mercury_engine.detectors.visual import CFlowDetector
+        from omni_mercury_engine.detectors.visual.cflow import CFlowConfig
 
         detector = CFlowDetector()
         assert detector is not None
-        assert detector.config.n_flows == 8
+        assert cast(CFlowConfig, detector.config).n_flows == 8
 
     def test_cflow_config(self):
         """Test CFlow with custom config."""
@@ -204,8 +214,9 @@ class TestCFlowDetector:
             hidden_ratio=0.5,
         )
         detector = CFlowDetector(config=config)
-        assert detector.config.n_flows == 4
-        assert detector.config.hidden_ratio == 0.5
+        cfg = cast(CFlowConfig, detector.config)
+        assert cfg.n_flows == 4
+        assert cfg.hidden_ratio == 0.5
 
 
 @pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")

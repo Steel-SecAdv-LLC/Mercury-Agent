@@ -661,6 +661,7 @@ class TestConformalFusedScores:
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier(enable_aci=True, aci_coverage=0.9)
+        assert uq.aci is not None
 
         # Feed calibration data through ACI
         for i in range(50):

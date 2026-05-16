@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import cast
+
 """
 Tests for Benchmark Dataset Loaders.
 
@@ -107,10 +109,11 @@ class TestMVTecADDataset:
     def test_mvtec_config_from_dict(self, tmp_path):
         """Test MVTec AD config from dictionary."""
         from omni_mercury_engine.data.benchmarks import MVTecADDataset
+        from omni_mercury_engine.datasets.benchmarks.mvtec import MVTecADConfig
 
         config = {"root": str(tmp_path), "category": "cable"}
         dataset = MVTecADDataset(config=config)
-        assert dataset.config.category == "cable"
+        assert cast(MVTecADConfig, dataset.config).category == "cable"
 
 
 class TestUCFCrimeConfig:

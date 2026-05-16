@@ -87,6 +87,8 @@ class TestDeterministicRNG:
         assert np.all((rand_result >= 0) & (rand_result < 1))
 
         randint_result = rng.randint(0, 10, size=20)
+        # randint returns int | ndarray; with size given it is always ndarray.
+        assert isinstance(randint_result, np.ndarray)
         assert len(randint_result) == 20
         assert np.all((randint_result >= 0) & (randint_result < 10))
 

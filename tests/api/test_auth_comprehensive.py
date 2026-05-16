@@ -260,7 +260,9 @@ class TestAPIKeyStore:
         store = APIKeyStore()
         _, api_key = store.create_key(name="test", user_id="u1")
         assert store.revoke(api_key.key_id) is True
-        assert store.get_by_id(api_key.key_id).is_active is False
+        revoked = store.get_by_id(api_key.key_id)
+        assert revoked is not None
+        assert revoked.is_active is False
 
     def test_revoke_nonexistent_key(self):
         """Test revoking non-existent key returns False."""

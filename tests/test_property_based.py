@@ -295,7 +295,7 @@ class TestThreatDetectorProperties:
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(
-        st.text(alphabet=st.characters(whitelist_categories=("L", "N")), min_size=1, max_size=100)
+        st.text(alphabet=st.characters(categories=["L", "N"]), min_size=1, max_size=100)
     )
     @settings(max_examples=100)
     def test_clean_input_not_flagged(self, text: str):
@@ -358,7 +358,7 @@ class TestEthicalEngineProperties:
     @given(
         st.dictionaries(
             keys=st.text(
-                min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L",))
+                min_size=1, max_size=20, alphabet=st.characters(categories=["L"])
             ),
             values=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
             min_size=1,
@@ -512,7 +512,7 @@ class TestDetectorRegistryProperties:
     @given(
         st.lists(
             st.text(
-                min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+                min_size=1, max_size=20, alphabet=st.characters(categories=["L", "N"])
             ),
             min_size=1,
             max_size=5,
@@ -595,9 +595,13 @@ class TestValidationPipelineProperties:
     @settings(max_examples=20)
     def test_invalid_dataset_name_handled(self, dataset_name: str):
         """Invalid dataset names should be handled gracefully."""
+        # get_loader was removed from validation.data_loaders; tolerate either
+        # state (still available in some forks) without breaking the type gate.
         get_loader = None  # Initialize before conditional import
         try:
-            from omni_mercury_engine.validation.data_loaders import get_loader
+            from omni_mercury_engine.validation.data_loaders import (  # type: ignore[attr-defined]
+                get_loader,
+            )
         except (ImportError, AttributeError):
             pytest.skip("get_loader not available")
             return  # Explicit return after skip for static analysis
@@ -618,7 +622,7 @@ class TestKnowledgeGraphProperties:
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(
-        st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=("L", "N")))
+        st.text(min_size=1, max_size=30, alphabet=st.characters(categories=["L", "N"]))
     )
     @settings(max_examples=20)
     def test_query_nonexistent_node_handled(self, node_name: str):

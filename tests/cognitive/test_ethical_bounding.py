@@ -592,7 +592,9 @@ class TestIntegration:
         )
 
         assert audit.ethical_score.benevolence_score > 0.3
+        assert audit.empathy_assessment is not None
         assert audit.empathy_assessment.overall_empathy_score > 0.5
+        assert audit.value_preservation is not None
         assert audit.value_preservation.preservation_score > 0.5
 
     def test_harmful_action_blocked(self):

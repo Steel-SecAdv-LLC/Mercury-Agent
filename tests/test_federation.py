@@ -440,6 +440,20 @@ def test_from_statistics_classmethod(data_a: np.ndarray) -> None:
     det = MercuryAnomalyDetector()
     det.fit(data_a)
 
+    # After fit() these statistic attributes are populated; narrow for mypy.
+    assert det.mean is not None
+    assert det.std is not None
+    assert det.q1 is not None
+    assert det.q3 is not None
+    assert det._res_h_train is not None
+    assert det._res_noise_ratio is not None
+    assert det._kin_jerk_mean is not None
+    assert det._kin_jerk_std is not None
+    assert det._kin_accel_mean is not None
+    assert det._kin_accel_std is not None
+    assert det._ig_mean is not None
+    assert det._ig_cov_inv is not None
+
     reconstructed = MercuryAnomalyDetector.from_statistics(
         mean=det.mean,
         std=det.std,

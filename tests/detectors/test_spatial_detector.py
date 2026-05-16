@@ -84,6 +84,7 @@ class TestSpatialAnomalyDetector:
         detector.fit(spatial_data)
 
         expected_center = np.mean(spatial_data, axis=0)
+        assert detector.center is not None
         np.testing.assert_array_almost_equal(detector.center, expected_center)
 
     def test_fit_computes_radius_threshold(self, spatial_data):

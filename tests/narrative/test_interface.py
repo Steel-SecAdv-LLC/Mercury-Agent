@@ -202,6 +202,7 @@ class TestMercuryConversationInterfaceProactive:
     def test_start_stop_proactive(self, interface: MercuryConversationInterface) -> None:
         """Test starting and stopping proactive monitoring."""
         interface.start_proactive_monitoring()
+        assert interface.proactive_monitor is not None
         assert interface.proactive_monitor._running is True
 
         interface.stop_proactive_monitoring()
@@ -211,6 +212,7 @@ class TestMercuryConversationInterfaceProactive:
         """Test setting vigilance level."""
         interface.set_vigilance(VigilanceLevel.HEIGHTENED, domain="security")
 
+        assert interface.proactive_monitor is not None
         assert (
             interface.proactive_monitor._vigilance_levels["security"] == VigilanceLevel.HEIGHTENED
         )

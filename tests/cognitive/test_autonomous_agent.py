@@ -7,6 +7,8 @@ Tests for Autonomous Agent - OODA Loop, User Sync, Self-Maintenance
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from omni_mercury_engine.cognitive.autonomous_agent import (
@@ -224,7 +226,7 @@ class TestSelfMaintenance:
     def test_repair_rule_inconsistencies(self):
         """Test rule repair."""
         maintenance = SelfMaintenance()
-        rules = [
+        rules: list[dict[str, Any]] = [
             {"id": "r1"},
             {"id": "r2", "confidence": 0.05},
             {"id": "r3", "confidence": 0.8, "enabled": True},

@@ -585,13 +585,15 @@ def analyze_anomalies():
                 anomalies = resonance.detect_resonance_anomalies(level_features)
                 all_anomalies.append(anomalies)
 
+        # suggest_refactorings now takes a Callable, not source text. Use
+        # analyze_complexity for source-string analysis.
         code = """
 def process_anomalies(anomalies):
     total = sum(a["num_anomalies"] for a in anomalies)
     return total
 """
-        suggestions = refactoring.suggest_refactorings(code)
-        assert isinstance(suggestions, list)
+        analysis = refactoring.analyze_complexity(code)
+        assert isinstance(analysis, dict)
 
 
 class TestGeologicalDetectorFeatureExtraction:

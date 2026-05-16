@@ -13,6 +13,7 @@ pytest.importorskip("torch")
 
 import pytest
 import torch
+from torch import nn
 
 from omni_mercury_engine.models.sota.association_discrepancy import (
     AnomalyTransformerEncoder,
@@ -591,7 +592,7 @@ class TestModelIntegration:
     )
     def test_all_models_trainable(self):
         """All models should be trainable."""
-        models = [
+        models: list[nn.Module] = [
             AnomalyTransformerEncoder(input_dim=25, d_model=64, n_heads=4, n_layers=2),
             TranADModel(TranADConfig(input_dim=25, d_model=64, n_heads=4)),
             MAATModel(MAATConfig(input_dim=25, d_model=64, n_heads=4, n_layers=2)),
@@ -614,7 +615,7 @@ class TestModelIntegration:
 
     def test_models_detect_similar_anomalies(self):
         """Models should detect obvious anomalies."""
-        models = [
+        models: list[nn.Module] = [
             AnomalyTransformerEncoder(input_dim=25, d_model=64, n_heads=4, n_layers=2),
             TranADModel(TranADConfig(input_dim=25, d_model=64, n_heads=4)),
             MAATModel(MAATConfig(input_dim=25, d_model=64, n_heads=4, n_layers=2)),
