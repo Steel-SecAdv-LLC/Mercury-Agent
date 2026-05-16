@@ -351,6 +351,7 @@ class TestAPIKeyAuth:
 
         # Key should be inactive
         retrieved = store.get_by_id(api_key.key_id)
+        assert retrieved is not None
         assert retrieved.is_active is False
 
     def test_api_key_expiration(self):

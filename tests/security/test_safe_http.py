@@ -695,12 +695,14 @@ class TestAllowUntrustedKwargRemoval:
 
     def test_kwarg_removed_from_private_request(self) -> None:
         """Internal ``_request`` rejects the obsolete kwarg too."""
+        # ``getattr`` keeps the lookup dynamic so the runtime kwarg
+        # rejection -- the sole defence layer -- is what we actually
+        # exercise; this mirrors the public-API test above and avoids
+        # asking mypy to validate a deliberately-invalid signature.
+        request_method = getattr(SafeHTTPClient, "_request")
+        kwargs: dict[str, object] = {"allow_untrusted": True}
         with pytest.raises(TypeError, match="allow_untrusted"):
-            SafeHTTPClient._request(  # pyright: ignore[reportPrivateUsage]
-                "GET",
-                "https://earthquake.usgs.gov/path",
-                allow_untrusted=True,
-            )
+            request_method("GET", "https://earthquake.usgs.gov/path", **kwargs)
 
     def test_signature_does_not_contain_allow_untrusted(self) -> None:
         """Belt-and-braces inspection: no method exposes the kwarg by name."""

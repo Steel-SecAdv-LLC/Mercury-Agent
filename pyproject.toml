@@ -250,8 +250,13 @@ extend-exclude = '''
 # =============================================================================
 #
 # TYPE COVERAGE STATUS: 100% STRICT MODE ENABLED
-#   All 415 source files pass mypy --strict
+#   All source files under src/omni_mercury_engine/ pass mypy --strict
 #   Full type annotations across entire codebase
+#
+# Third-party boundaries are declared per-module under the
+# [[tool.mypy.overrides]] block below.  The src/ CI gate runs without
+# --ignore-missing-imports so any new un-declared external import fails
+# the build instead of being silenced.
 #
 # The strict settings below apply to the entire codebase.
 # =============================================================================
