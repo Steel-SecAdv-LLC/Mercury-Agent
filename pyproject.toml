@@ -223,6 +223,19 @@ Issues = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/issues"
 Changelog = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/CHANGELOG.md"
 
 # =============================================================================
+# Setuptools Configuration
+# =============================================================================
+# Ship the PEP 561 ``py.typed`` marker inside the installed package so
+# downstream mypy / pyright runs (and our own CI critical-tests gate)
+# treat ``omni_mercury_engine`` as a typed library rather than an
+# un-typed third-party import.  Without this marker, mypy emits
+# ``[import-untyped]`` for every ``from omni_mercury_engine.X import ...``
+# in test code -- which is exactly the failure that surfaced once
+# ``--ignore-missing-imports`` was removed from the CI gates.
+[tool.setuptools.package-data]
+omni_mercury_engine = ["py.typed"]
+
+# =============================================================================
 # Black Configuration
 # =============================================================================
 [tool.black]
@@ -249,14 +262,20 @@ extend-exclude = '''
 # MyPy Configuration - Strict Type Checking
 # =============================================================================
 #
-# TYPE COVERAGE STATUS: 100% STRICT MODE ENABLED
-#   All source files under src/omni_mercury_engine/ pass mypy --strict
-#   Full type annotations across entire codebase
+# TYPE COVERAGE STATUS
+#   * src/omni_mercury_engine/ -- 100 percent strict, full annotations,
+#     gated in CI with no --ignore-missing-imports.  Ships a PEP 561
+#     ``py.typed`` marker so downstream callers (and our own tests)
+#     pick up the inline types instead of being treated as un-typed.
+#   * tests/ -- incrementally annotated.  CI strictly gates the
+#     security, ethical, and safeguards test directories; remaining
+#     test directories are tracked debt and not yet gated.
 #
 # Third-party boundaries are declared per-module under the
-# [[tool.mypy.overrides]] block below.  The src/ CI gate runs without
-# --ignore-missing-imports so any new un-declared external import fails
-# the build instead of being silenced.
+# [[tool.mypy.overrides]] block below.  The src/ and critical-tests
+# CI gates both run without --ignore-missing-imports so any new
+# un-declared external import fails the build instead of being
+# silenced.
 #
 # The strict settings below apply to the entire codebase.
 # =============================================================================
