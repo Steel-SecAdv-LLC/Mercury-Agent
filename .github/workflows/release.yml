@@ -137,6 +137,17 @@ jobs:
           sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
           echo "Updated version to $VERSION"
 
+      - name: Capture build start timestamp for SLSA provenance
+        # ``startedOn`` in the SLSA Provenance v1 runDetails.metadata block
+        # must reflect the actual start of the build, not the moment the
+        # provenance script itself runs (which is after ``python -m build``
+        # and ``twine check``).  Capturing the timestamp here, immediately
+        # before ``python -m build``, makes the attestation's
+        # startedOn/finishedOn window cover the real build work rather
+        # than claiming a zero-duration build.
+        run: |
+          echo "BUILD_STARTED_ON=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
       - name: Build package
         run: |
           python -m build
@@ -173,6 +184,7 @@ jobs:
               )
 
           now = dt.datetime.now(dt.UTC).isoformat()
+          started_on = os.environ.get("BUILD_STARTED_ON") or now
           version = os.environ["RELEASE_VERSION"]
           repo = os.environ["GITHUB_REPOSITORY"]
           sha = os.environ["GITHUB_SHA"]
@@ -242,7 +254,7 @@ jobs:
                       },
                       "metadata": {
                           "invocationId": f"https://github.com/{repo}/actions/runs/{run_id}/attempts/{run_attempt}",
-                          "startedOn": now,
+                          "startedOn": started_on,
                           "finishedOn": now,
                       },
                   },

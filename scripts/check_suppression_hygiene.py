@@ -22,7 +22,7 @@ DEFAULT_PATHS = (
     Path(".safety-policy-v2.yml"),
 )
 
-TYPE_IGNORE_RE = re.compile(r"#\s*type:\s*ignore(?!\[)")
+TYPE_IGNORE_RE = re.compile(r"^\s*#\s*type:\s*ignore\b(?!\[)")
 NOSEC_RE = re.compile(r"(?:^|\s)#\s*nosec")
 EXPLICIT_NOSEC_RE = re.compile(r"(?:^|\s)#\s*nosec(?:\s*:\s*|\s+)B\d{3}\b")
 SEMGREP_RE = re.compile(r"#\s*semgrep:\s*ignore(?!\s+[A-Za-z0-9_.:/-]+)")

@@ -56,11 +56,29 @@ def has_top_level_key(text: str, key: str) -> bool:
     return any(name == key for name, _, _, _ in iter_top_level_keys(text))
 
 
+def iter_permissions_blocks(text: str) -> list[tuple[int, str, int]]:
+    """Return every ``permissions:`` mapping in the document, top-level or per-job.
+
+    Yields ``(indent, value, lineno)`` for each occurrence.  Job-level
+    permissions blocks are inspected the same way as the top-level one
+    so that a job cannot quietly grant ``contents: write`` while the
+    workflow file is not in ``WRITE_OK``.
+    """
+    blocks: list[tuple[int, str, int]] = []
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        match = MAPPING_KEY_RE.match(line)
+        if match and normalize_key(match.group("key")) == "permissions":
+            blocks.append(
+                (len(match.group("indent")), match.group("value").strip(), lineno)
+            )
+    return blocks
+
+
 def has_disallowed_contents_write(text: str) -> bool:
     lines = text.splitlines()
-    for name, indent, value, lineno in iter_top_level_keys(text):
-        if name != "permissions":
-            continue
+    for indent, value, lineno in iter_permissions_blocks(text):
         if value == "write-all":
             return True
         for line in lines[lineno:]:
@@ -79,12 +97,44 @@ def has_disallowed_contents_write(text: str) -> bool:
     return False
 
 
+def has_pull_request_target(text: str) -> bool:
+    """True iff ``pull_request_target`` appears as an ``on:`` event key.
+
+    Inspecting the ``on:`` mapping (rather than a raw substring search
+    over the whole file) avoids false positives from YAML comments and
+    ``run:`` block scalars that merely mention the trigger by name.
+    """
+    lines = text.splitlines()
+    for name, indent, value, lineno in iter_top_level_keys(text):
+        if name != "on":
+            continue
+        # Inline list form: ``on: [push, pull_request_target]``
+        stripped_value = value.split("#", 1)[0].strip()
+        if stripped_value.startswith("["):
+            inline = stripped_value.strip("[]")
+            tokens = [t.strip().strip("'\"") for t in inline.split(",")]
+            if "pull_request_target" in tokens:
+                return True
+            continue
+        # Mapping form: nested keys under ``on:``
+        for line in lines[lineno:]:
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            line_indent = len(line) - len(line.lstrip())
+            if line_indent <= indent:
+                break
+            child = MAPPING_KEY_RE.match(line)
+            if child and normalize_key(child.group("key")) == "pull_request_target":
+                return True
+    return False
+
+
 def check_workflow(path: Path) -> list[str]:
     errors: list[str] = []
     warnings: list[str] = []
     text = path.read_text(encoding="utf-8", errors="replace")
 
-    if "pull_request_target:" in text:
+    if has_pull_request_target(text):
         errors.append(f"{path}: pull_request_target is not allowed without a security review")
 
     if not has_top_level_key(text, "permissions"):

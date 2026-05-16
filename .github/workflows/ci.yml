@@ -1062,14 +1062,30 @@ jobs:
           # Check all blocking jobs.  neuro-symbolic-tests is part of the
           # rollup so the 7-phase cognitive architecture + safeguards
           # cannot regress without failing the CI Success gate.
-          if [[ "${{ needs.code-quality.result }}" == "failure" ]] || \
-             [[ "${{ needs.workflow-hardening.result }}" == "failure" ]] || \
-             [[ "${{ needs.type-checking.result }}" == "failure" ]] || \
-             [[ "${{ needs.core-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.neuro-symbolic-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.security-scan.result }}" == "failure" ]] || \
-             [[ "${{ needs.integration-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.performance-benchmark.result }}" == "failure" ]]; then
+          #
+          # ``cancelled`` is treated as a blocking outcome alongside
+          # ``failure`` so a cancelled (e.g. concurrency-cancelled or
+          # manually-cancelled) upstream job cannot quietly turn into a
+          # green CI Success.  ``skipped`` remains non-blocking because
+          # performance-benchmark intentionally skips on push events and
+          # would otherwise deadlock main/develop/feature pushes.
+          fail=0
+          for upstream in \
+            "code-quality:${{ needs.code-quality.result }}" \
+            "workflow-hardening:${{ needs.workflow-hardening.result }}" \
+            "type-checking:${{ needs.type-checking.result }}" \
+            "core-tests:${{ needs.core-tests.result }}" \
+            "neuro-symbolic-tests:${{ needs.neuro-symbolic-tests.result }}" \
+            "security-scan:${{ needs.security-scan.result }}" \
+            "integration-tests:${{ needs.integration-tests.result }}" \
+            "performance-benchmark:${{ needs.performance-benchmark.result }}"; do
+            result="${upstream#*:}"
+            case "$result" in
+              success|skipped) : ;;
+              *) fail=1 ;;
+            esac
+          done
+          if [[ "$fail" -eq 1 ]]; then
             echo "❌ CI Pipeline Failed"
             echo "  code-quality: ${{ needs.code-quality.result }}"
             echo "  workflow-hardening: ${{ needs.workflow-hardening.result }}"
