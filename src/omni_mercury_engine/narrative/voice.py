@@ -157,16 +157,51 @@ class MercuryVoice:
         self,
         enable_llm: bool = False,
         default_domain: str | None = None,
+        llm_provider: str | None = None,
+        llm_model_name: str | None = None,
+        llm_api_key: str | None = None,
+        llm_base_url: str | None = None,
     ) -> None:
         """
         Initialize Mercury Voice.
 
         Args:
-            enable_llm: Whether to use LLM for response generation
-            default_domain: Default domain context
+            enable_llm: Whether to use LLM for response generation.
+            default_domain: Default domain context.
+            llm_provider: Concrete LLM provider name (case-insensitive,
+                must match a member of
+                :class:`~omni_mercury_engine.models.foundation.llm_adapter.LLMProvider`
+                — e.g. ``"huggingface"``, ``"ollama"``).  Required when
+                ``enable_llm`` is true and ``MERCURY_ENV=production``;
+                in development a missing provider downgrades to
+                template-only narration with a warning rather than
+                instantiating a mock adapter.
+            llm_model_name: Provider-specific model identifier
+                (e.g. ``"facebook/bart-large-mnli"`` for HuggingFace,
+                ``"llama3.2:3b"`` for Ollama).
+            llm_api_key: Optional API key for providers that require one.
+            llm_base_url: Optional override for providers with a
+                configurable endpoint (Ollama, OpenAI-compatible
+                providers).
+
+        Raises:
+            MercuryProductionConfigError: When ``enable_llm`` is true,
+                ``MERCURY_ENV=production`` is set, and ``llm_provider``
+                is missing or is the ``"mock"`` sentinel.  Mercury
+                refuses to silently fall through to a stub LLM in
+                production — see ``docs/MIGRATION-1.6-to-1.7.md``.
+            ValueError: When ``llm_provider`` is set but does not match
+                any supported :class:`LLMProvider` member.
         """
         self.enable_llm = enable_llm
         self.default_domain = default_domain
+        self._llm_provider = llm_provider
+        self._llm_model_name = llm_model_name
+        self._llm_api_key = llm_api_key
+        self._llm_base_url = llm_base_url
+
+        # Logger is set up before _init_llm so failure paths can log.
+        self.logger = logging.getLogger(__name__)
 
         # Core components
         self.narrative_engine = NarrativeEngine()
@@ -191,21 +226,121 @@ class MercuryVoice:
         self._detections_narrated = 0
         self._alerts_communicated = 0
 
-        self.logger = logging.getLogger(__name__)
-
     def _init_llm(self) -> None:
-        """Initialize LLM adapter for enhanced responses."""
-        try:
-            from omni_mercury_engine.models.foundation.llm_adapter import (
-                LLMConfig,
-                MockLLMAdapter,
+        """Initialize the configured LLM adapter for enhanced responses.
+
+        Behaviour matrix:
+
+        - ``llm_provider`` unset and ``MERCURY_ENV=production``:
+          raise :class:`MercuryProductionConfigError`.  Production must
+          opt into a concrete provider; silently running on template-
+          only narration is acceptable in dev but not in prod, where
+          downstream consumers may rely on LLM-enhanced output.
+        - ``llm_provider`` unset and ``MERCURY_ENV=development``:
+          log a warning, leave ``self._llm_adapter = None``.  The
+          rest of the voice path falls back to deterministic template
+          generation.
+        - ``llm_provider="mock"``: always raise — the historical
+          MockLLMAdapter is a hard-fail stub
+          (Phase 2 audit cure; see
+          ``models/foundation/llm_adapter.py:MockLLMAdapter``).  We
+          surface that misconfiguration here rather than at first
+          call so the failure is at construction time.
+        - ``llm_provider`` is a supported provider: delegate to
+          ``models.foundation.llm_adapter.create_llm_detector`` and
+          store the underlying adapter.  A failure to import the
+          provider's optional dependency (e.g. ``transformers`` for
+          HuggingFace) is fatal in production and a warning-degrade
+          in development, mirroring the unset-provider matrix.
+
+        Replaces the pre-1.7.0 implementation, which unconditionally
+        instantiated ``MockLLMAdapter``.  That code path crashed with
+        an unhandled ``NotImplementedError`` once the Phase 2 audit
+        cure made the mock hard-fail at construction, because the
+        surrounding ``except ImportError`` did not catch it.
+        """
+        from omni_mercury_engine._env import (
+            MercuryProductionConfigError,
+            is_production,
+            require_real_component,
+        )
+
+        if not self._llm_provider:
+            require_real_component(
+                "narrative LLM provider",
+                remediation=(
+                    "Pass llm_provider=<provider> (e.g. "
+                    '"huggingface", "ollama") plus llm_model_name to '
+                    "MercuryVoice() / create_mercury_voice(), or unset "
+                    "enable_llm to use template-only narration."
+                ),
+            )
+            self.logger.warning(
+                "MercuryVoice(enable_llm=True) called without "
+                "llm_provider; falling back to template-only narration. "
+                "Set llm_provider= and llm_model_name= to enable "
+                "LLM-enhanced responses."
+            )
+            return
+
+        if self._llm_provider.lower() == "mock":
+            raise MercuryProductionConfigError(
+                "MercuryVoice does not support llm_provider='mock'. "
+                "MockLLMAdapter hard-fails at construction by design "
+                "(Phase 2 audit cure).  Configure a real provider "
+                "such as 'huggingface' or 'ollama', or omit "
+                "llm_provider to use template-only narration."
             )
 
-            # Use mock adapter by default (can be configured for real LLM)
-            config = LLMConfig()
-            self._llm_adapter = MockLLMAdapter(config)
-        except ImportError:
-            self.logger.warning("LLM adapter not available")
+        # Validate provider name up-front so an unknown value produces a
+        # clean ValueError naming all supported providers, rather than
+        # routing through create_llm_detector's silent mock-fallback and
+        # then exploding on MockLLMAdapter's NotImplementedError two
+        # frames away from the call site.
+        from omni_mercury_engine.models.foundation.llm_adapter import (
+            LLMProvider,
+        )
+
+        try:
+            LLMProvider(self._llm_provider.lower())
+        except ValueError as exc:
+            supported = sorted(p.value for p in LLMProvider if p.value != "mock")
+            raise ValueError(
+                f"Unknown llm_provider {self._llm_provider!r}.  Supported providers: {supported}."
+            ) from exc
+
+        try:
+            from omni_mercury_engine.models.foundation.llm_adapter import (
+                create_llm_detector,
+            )
+
+            detector = create_llm_detector(
+                provider=self._llm_provider,
+                model_name=self._llm_model_name,
+                api_key=self._llm_api_key,
+                base_url=self._llm_base_url,
+            )
+            self._llm_adapter = detector.adapter
+        except (
+            ImportError,
+            NotImplementedError,
+            ValueError,
+        ) as exc:
+            if is_production():
+                raise MercuryProductionConfigError(
+                    "MercuryVoice failed to initialise LLM provider "
+                    f"{self._llm_provider!r} in production: {exc}.  "
+                    "Install the provider's optional dependency or "
+                    "select a different llm_provider."
+                ) from exc
+            self.logger.warning(
+                "MercuryVoice LLM provider %r unavailable in "
+                "development (%s); falling back to template-only "
+                "narration.",
+                self._llm_provider,
+                exc,
+            )
+            self._llm_adapter = None
 
     def set_knowledge_graph(self, kg: Any) -> None:
         """Set knowledge graph for retrieval."""
@@ -724,13 +859,24 @@ class MercuryVoice:
 def create_mercury_voice(
     enable_llm: bool = False,
     default_domain: str | None = None,
+    llm_provider: str | None = None,
+    llm_model_name: str | None = None,
+    llm_api_key: str | None = None,
+    llm_base_url: str | None = None,
 ) -> MercuryVoice:
     """
     Create a Mercury Voice instance.
 
     Args:
-        enable_llm: Whether to enable LLM for response generation
-        default_domain: Default domain context
+        enable_llm: Whether to enable LLM for response generation.
+        default_domain: Default domain context.
+        llm_provider: Concrete LLM provider name forwarded to
+            :class:`MercuryVoice`.  Required in
+            ``MERCURY_ENV=production`` when ``enable_llm`` is true.
+        llm_model_name: Provider-specific model identifier.
+        llm_api_key: Optional API key for providers that require one.
+        llm_base_url: Optional endpoint override for providers that
+            support it.
 
     Returns:
         Configured MercuryVoice
@@ -738,4 +884,8 @@ def create_mercury_voice(
     return MercuryVoice(
         enable_llm=enable_llm,
         default_domain=default_domain,
+        llm_provider=llm_provider,
+        llm_model_name=llm_model_name,
+        llm_api_key=llm_api_key,
+        llm_base_url=llm_base_url,
     )

@@ -17,6 +17,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Production-mode primitive — `MERCURY_ENV` (new in v1.7.0)
+
+- **New module `omni_mercury_engine._env`.**  Introduces a single
+  canonical environment-mode flag, `MERCURY_ENV` (`development`
+  default, `production`), and a shared fail-closed helper API
+  (`get_mercury_env`, `is_production`, `require_real_component`,
+  `MercuryProductionConfigError`).  Modules that historically had
+  development-friendly stub fallbacks now have a single, uniform
+  place to refuse to silently degrade when an operator opts into
+  production mode.  The PQC import gate
+  (`_pqc_gate._enforce_pqc_production_gate`) stays orthogonal — it
+  has its own hard-required-build contract independent of the
+  development/production distinction — so production deployments
+  typically set **both** `MERCURY_ENV=production` and
+  `AMA_REQUIRE_REAL_PQC=true`.  An unknown value such as
+  `MERCURY_ENV=prod` raises `MercuryProductionConfigError` rather
+  than silently falling through to development mode, so deployment
+  typos are loud.  Locked by `tests/test_env.py`.
+
+### Narrative voice — `MercuryVoice` LLM initialisation fixed (PR for #210 follow-up)
+
+- **`narrative/voice.py:_init_llm` no longer crashes on
+  `MercuryVoice(enable_llm=True)`.**  The pre-1.7.0 implementation
+  unconditionally instantiated `MockLLMAdapter`, which started
+  hard-failing at construction once the Phase 2 audit cure landed.
+  The surrounding `except ImportError` did not catch the resulting
+  `NotImplementedError`, so any caller that asked for LLM-enhanced
+  narration got an unhandled exception.  v1.7.0 wires the real
+  provider selection that was always intended via a new
+  `llm_provider=` / `llm_model_name=` / `llm_api_key=` /
+  `llm_base_url=` parameter set on `MercuryVoice` and
+  `create_mercury_voice`.  Behaviour matrix:
+  - `enable_llm=False`: unchanged pure-template fast path.
+  - `enable_llm=True, llm_provider="<supported>"`: delegates to
+    `models.foundation.llm_adapter.create_llm_detector` and stores
+    the underlying adapter on `self._llm_adapter`.
+  - `enable_llm=True` with no provider, `MERCURY_ENV=production`:
+    raises `MercuryProductionConfigError` with a remediation hint.
+  - `enable_llm=True` with no provider, `MERCURY_ENV=development`:
+    logs a WARNING and downgrades to template-only narration
+    (`self._llm_adapter = None`).
+  - `llm_provider="mock"`: always raises
+    `MercuryProductionConfigError` — `MockLLMAdapter` hard-fails at
+    construction by design and the rejection is now at the
+    `MercuryVoice` call site rather than two frames away.
+  - Unknown `llm_provider` value: raises a clean `ValueError`
+    naming every supported provider, instead of routing through
+    `create_llm_detector`'s legacy "unknown → mock" fallback and
+    blowing up on `NotImplementedError` later.
+  Locked by `tests/narrative/test_voice_llm.py`; full
+  `tests/narrative/` suite (92 tests) is green.
+
+### Migration guide — `docs/MIGRATION-1.6-to-1.7.md`
+
+- Consolidated migration notes for v1.6.x → v1.7.0: PR #210's
+  `allow_untrusted=True` removal, σ_Immutable hard-gate semantics
+  (already shipped at every boundary surface; documentation
+  reconciled with code reality), the new `MERCURY_ENV` primitive,
+  and the explicit `llm_provider=` requirement on `MercuryVoice`.
+  Each section names the regression test that locks the new
+  behaviour.
+
+### Documentation reconciliation
+
+- **`docs/ROADMAP.md`.**  Capability-table row #2 (Biometric
+  Modalities) and the §2 "Status" block updated to reflect the
+  narrative-voice fix.  The "Ethics enforcement" cross-cutting row
+  updated to reflect that σ_Immutable hard-gate promotion is
+  complete at every boundary surface (the previous "deferred to a
+  follow-up PR" wording was stale — `OmniMercuryEngine`,
+  `CognitiveOrchestrator`, and `NeuroSymbolicHub` all raise
+  `check="sigma_immutable"` / `check="gosnn_unavailable"` today,
+  with regression coverage in `tests/ethical/test_hard_enforcement.py`).
+
 ### Security — HTTP escape hatch removed (PR #210)
 
 - **`allow_untrusted=True` is removed from every `SafeHTTPClient` method**
