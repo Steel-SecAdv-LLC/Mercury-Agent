@@ -243,12 +243,14 @@ class TestLVLMBackends:
         )
 
         backend = get_lvlm_backend("mock")
-        assert backend is not None
-        # vqa is defined on MockLVLMBackend, not on the abstract base.
-        mock_backend = cast("MockLVLMBackend", backend)
+        # ``isinstance`` both narrows the type for mypy and pins the runtime
+        # contract -- if the factory wiring ever regresses to a different
+        # backend, this assertion fails with a clear message instead of
+        # producing an AttributeError on the missing ``vqa`` method.
+        assert isinstance(backend, MockLVLMBackend)
 
         with pytest.raises(NotImplementedError, match="cannot be used in production"):
-            mock_backend.vqa(
+            backend.vqa(
                 image=torch.randn(3, 224, 224),
                 question="What is in this image?",
             )
