@@ -171,7 +171,7 @@ class TestFetchUrlExceptionRouting:
     transient network / HTTP errors flow into the retry loop.
     """
 
-    def test_unsafe_url_raised_immediately_no_retry(self, tmp_path) -> None:
+    def test_unsafe_url_raised_immediately_no_retry(self, tmp_path: Any) -> None:
         """Off-allowlist URL surfaces ``UnsafeURLError`` on attempt 1."""
         loader = StubLoader(cache_dir=tmp_path / "cache")
         # Track how many times the underlying gate is invoked. A retry
@@ -179,7 +179,7 @@ class TestFetchUrlExceptionRouting:
         call_count = {"n": 0}
         real = SafeHTTPClient.get_bytes
 
-        def tracked(*args, **kwargs):
+        def tracked(*args: Any, **kwargs: Any) -> Any:
             call_count["n"] += 1
             return real(*args, **kwargs)
 
@@ -193,13 +193,13 @@ class TestFetchUrlExceptionRouting:
             loader._fetch_url("https://attacker.example.com/exfil")
         assert call_count["n"] == 1, "UnsafeURLError must NOT trigger retries"
 
-    def test_scheme_error_raised_immediately_no_retry(self, tmp_path) -> None:
+    def test_scheme_error_raised_immediately_no_retry(self, tmp_path: Any) -> None:
         """Bad scheme surfaces immediately, no retry storm."""
         loader = StubLoader(cache_dir=tmp_path / "cache")
         call_count = {"n": 0}
         real = SafeHTTPClient.get_bytes
 
-        def tracked(*args, **kwargs):
+        def tracked(*args: Any, **kwargs: Any) -> Any:
             call_count["n"] += 1
             return real(*args, **kwargs)
 
@@ -213,14 +213,14 @@ class TestFetchUrlExceptionRouting:
             loader._fetch_url("ftp://earthquake.usgs.gov/data")
         assert call_count["n"] == 1
 
-    def test_transient_network_error_still_retries(self, tmp_path) -> None:
+    def test_transient_network_error_still_retries(self, tmp_path: Any) -> None:
         """``OSError`` from the gate is treated as transient and retried."""
         loader = StubLoader(cache_dir=tmp_path / "cache")
         loader.max_retries = 2  # 3 total attempts
         loader.retry_backoff = 0.0  # no sleep
         call_count = {"n": 0}
 
-        def transient(*args, **kwargs) -> None:
+        def transient(*args: Any, **kwargs: Any) -> None:
             call_count["n"] += 1
             raise OSError("simulated transient socket failure")
 
@@ -237,7 +237,7 @@ class TestFetchUrlExceptionRouting:
         # accidentally re-routed by the new ValueError branch.
         assert call_count["n"] == 3
 
-    def test_retry_exhaustion_chains_underlying_exception(self, tmp_path) -> None:
+    def test_retry_exhaustion_chains_underlying_exception(self, tmp_path: Any) -> None:
         """``ConnectionError`` after retry-exhaustion chains via ``__cause__``.
 
         Wrapping the failure in ``ConnectionError`` is the operator-
@@ -281,7 +281,7 @@ class TestAllowUntrustedRemovedFromLoader:
     in.
     """
 
-    def test_fetch_url_rejects_allow_untrusted_kwarg(self, tmp_path) -> None:
+    def test_fetch_url_rejects_allow_untrusted_kwarg(self, tmp_path: Any) -> None:
         loader = StubLoader(cache_dir=tmp_path / "cache")
         with pytest.raises(TypeError, match="allow_untrusted"):
             loader._fetch_url(  # type: ignore[call-arg]
@@ -306,21 +306,21 @@ class TestCaching:
     """Tests for file-based caching operations."""
 
     @pytest.fixture
-    def loader(self, tmp_path):
+    def loader(self, tmp_path: Any) -> Any:
         """Create StubLoader with temp cache directory."""
         return StubLoader(cache_dir=tmp_path / "test_cache")
 
-    def test_write_and_read_cache(self, loader) -> None:
+    def test_write_and_read_cache(self, loader: Any) -> None:
         """Test cache write followed by read."""
         loader._write_cache("test_key", {"data": [1, 2, 3]})
         cached = loader._read_cache("test_key")
         assert cached == {"data": [1, 2, 3]}
 
-    def test_read_cache_miss(self, loader) -> None:
+    def test_read_cache_miss(self, loader: Any) -> None:
         """Test reading a non-existent cache key returns None."""
         assert loader._read_cache("nonexistent_key") is None
 
-    def test_cache_expiration(self, loader) -> None:
+    def test_cache_expiration(self, loader: Any) -> None:
         """Test that expired cache entries return None."""
         loader._write_cache("expiring_key", {"data": "old"})
 
@@ -337,13 +337,13 @@ class TestCaching:
 
         loader.CACHE_TTL = original_ttl
 
-    def test_cache_path_hashing(self, loader) -> None:
+    def test_cache_path_hashing(self, loader: Any) -> None:
         """Test that cache paths are derived from hashed keys."""
         path = loader._get_cache_path("my_key")
         assert path.suffix == ".json"
         assert path.parent == loader.cache_dir
 
-    def test_write_cache_handles_unserializable(self, loader) -> None:
+    def test_write_cache_handles_unserializable(self, loader: Any) -> None:
         """Test cache write handles non-serializable data gracefully."""
         # numpy array is not JSON-serializable
         loader._write_cache("bad_key", np.array([1, 2, 3]))
@@ -359,7 +359,7 @@ class TestDataProvenance:
     """Tests for data provenance tracking."""
 
     @pytest.fixture
-    def loader(self, tmp_path):
+    def loader(self, tmp_path: Any) -> Any:
         return StubLoader(cache_dir=tmp_path / "prov_cache")
 
     def test_compute_data_hash(self) -> None:
@@ -376,7 +376,7 @@ class TestDataProvenance:
         h2 = BaseDomainLoader.compute_data_hash(np.array([2.0]))
         assert h1 != h2
 
-    def test_get_provenance(self, loader) -> None:
+    def test_get_provenance(self, loader: Any) -> None:
         """Test provenance metadata generation."""
         data = np.array([[1.0, 2.0], [3.0, 4.0]])
         prov = loader.get_provenance("event_1", data)
@@ -399,10 +399,10 @@ class TestFeatureEngineering:
     """Tests for default feature engineering."""
 
     @pytest.fixture
-    def loader(self, tmp_path):
+    def loader(self, tmp_path: Any) -> Any:
         return StubLoader(cache_dir=tmp_path / "feat_cache")
 
-    def test_engineer_features_numeric_only(self, loader) -> None:
+    def test_engineer_features_numeric_only(self, loader: Any) -> None:
         """Test that only numeric columns are extracted."""
         df = pd.DataFrame(
             {
@@ -414,7 +414,7 @@ class TestFeatureEngineering:
         features = loader.engineer_features(df)
         assert features.shape == (3, 2)
 
-    def test_engineer_features_handles_inf(self, loader) -> None:
+    def test_engineer_features_handles_inf(self, loader: Any) -> None:
         """Test that inf values are replaced."""
         df = pd.DataFrame(
             {
@@ -424,7 +424,7 @@ class TestFeatureEngineering:
         features = loader.engineer_features(df)
         assert np.all(np.isfinite(features))
 
-    def test_engineer_features_handles_nan(self, loader) -> None:
+    def test_engineer_features_handles_nan(self, loader: Any) -> None:
         """Test that NaN values are filled with median."""
         df = pd.DataFrame(
             {
@@ -476,19 +476,19 @@ class TestLoaderInitialization:
         loader = StubLoader()
         assert loader.cache_dir.exists()
 
-    def test_custom_cache_dir(self, tmp_path) -> None:
+    def test_custom_cache_dir(self, tmp_path: Any) -> None:
         """Test custom cache directory."""
         custom = tmp_path / "custom_cache"
         loader = StubLoader(cache_dir=custom)
         assert loader.cache_dir == custom
         assert custom.exists()
 
-    def test_api_key_from_param(self, tmp_path) -> None:
+    def test_api_key_from_param(self, tmp_path: Any) -> None:
         """Test API key from parameter."""
         loader = StubLoader(cache_dir=tmp_path / "c", api_key="my-key")
         assert loader._api_key == "my-key"
 
-    def test_retry_config(self, tmp_path) -> None:
+    def test_retry_config(self, tmp_path: Any) -> None:
         """Test retry configuration."""
         loader = StubLoader(
             cache_dir=tmp_path / "c",

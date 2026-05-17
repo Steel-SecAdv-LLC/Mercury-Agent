@@ -15,7 +15,7 @@ These tests validate Mercury's architectural advantages over pure supervised met
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -132,7 +132,7 @@ def transfer_data() -> (
 class TestConceptDriftEvaluation:
     """Tests for concept drift evaluation framework."""
 
-    def test_temporal_splitter_expanding_window(self, drift_data) -> None:
+    def test_temporal_splitter_expanding_window(self, drift_data: Any) -> None:
         """Test expanding window temporal splits."""
         from omni_mercury_engine.ml.concept_drift_evaluation import (
             TemporalSplitStrategy,
@@ -156,7 +156,7 @@ class TestConceptDriftEvaluation:
             assert split.train_start < split.train_end
             assert split.test_start < split.test_end
 
-    def test_temporal_splitter_sliding_window(self, drift_data) -> None:
+    def test_temporal_splitter_sliding_window(self, drift_data: Any) -> None:
         """Test sliding window temporal splits."""
         from omni_mercury_engine.ml.concept_drift_evaluation import (
             TemporalSplitStrategy,
@@ -202,7 +202,7 @@ class TestConceptDriftEvaluation:
         assert result.trend == DegradationTrend.STABLE
         assert result.stability_score > 0.5
 
-    def test_concept_drift_evaluator(self, drift_data) -> None:
+    def test_concept_drift_evaluator(self, drift_data: Any) -> None:
         """Test full concept drift evaluation."""
         from omni_mercury_engine.ml.concept_drift_evaluation import (
             ConceptDriftEvaluator,
@@ -236,7 +236,7 @@ class TestConceptDriftEvaluation:
 class TestFewShotLearning:
     """Tests for few-shot learning framework."""
 
-    def test_episode_generator(self, few_shot_data) -> None:
+    def test_episode_generator(self, few_shot_data: Any) -> None:
         """Test episode generation."""
         from omni_mercury_engine.ml.few_shot_learning import EpisodeGenerator
 
@@ -257,7 +257,7 @@ class TestFewShotLearning:
             assert len(episode.support_y) == 3 * 5  # n_way * k_shot
             assert len(episode.query_y) == 3 * 10  # n_way * n_query
 
-    def test_prototypical_network(self, few_shot_data) -> None:
+    def test_prototypical_network(self, few_shot_data: Any) -> None:
         """Test Prototypical Network implementation."""
         from omni_mercury_engine.ml.few_shot_learning import (
             EpisodeGenerator,
@@ -281,7 +281,7 @@ class TestFewShotLearning:
         assert probas.shape == (len(episode.query_y), 3)
         assert np.allclose(probas.sum(axis=1), 1.0)
 
-    def test_matching_network(self, few_shot_data) -> None:
+    def test_matching_network(self, few_shot_data: Any) -> None:
         """Test Matching Network implementation."""
         from omni_mercury_engine.ml.few_shot_learning import (
             EpisodeGenerator,
@@ -299,7 +299,7 @@ class TestFewShotLearning:
         predictions = model.predict(episode.query_X)
         assert len(predictions) == len(episode.query_y)
 
-    def test_few_shot_learner_evaluation(self, few_shot_data) -> None:
+    def test_few_shot_learner_evaluation(self, few_shot_data: Any) -> None:
         """Test few-shot learner evaluation."""
         from omni_mercury_engine.ml.few_shot_learning import FewShotLearner
 
@@ -321,7 +321,7 @@ class TestFewShotLearning:
         assert result.n_episodes == 10
         assert len(result.episode_accuracies) == 10
 
-    def test_k_shot_experiment(self, few_shot_data) -> None:
+    def test_k_shot_experiment(self, few_shot_data: Any) -> None:
         """Test 10/50/100 label experiments."""
         from omni_mercury_engine.ml.few_shot_learning import FewShotLearner
 
@@ -355,7 +355,7 @@ class TestFewShotLearning:
 class TestCrossDomainTransfer:
     """Tests for cross-domain transfer learning."""
 
-    def test_mmd_computation(self, transfer_data) -> None:
+    def test_mmd_computation(self, transfer_data: Any) -> None:
         """Test Maximum Mean Discrepancy computation."""
         from omni_mercury_engine.ml.cross_domain_transfer import MMDAdapter
 
@@ -369,7 +369,7 @@ class TestCrossDomainTransfer:
         same_mmd = adapter.compute_mmd(source_X[:100], source_X[100:200])
         assert same_mmd < mmd
 
-    def test_coral_adapter(self, transfer_data) -> None:
+    def test_coral_adapter(self, transfer_data: Any) -> None:
         """Test CORAL domain adaptation."""
         from omni_mercury_engine.ml.cross_domain_transfer import CORALAdapter
 
@@ -383,7 +383,7 @@ class TestCrossDomainTransfer:
         assert len(predictions) == len(target_y)
         assert set(predictions).issubset({0, 1})
 
-    def test_subspace_alignment(self, transfer_data) -> None:
+    def test_subspace_alignment(self, transfer_data: Any) -> None:
         """Test subspace alignment adapter."""
         from omni_mercury_engine.ml.cross_domain_transfer import SubspaceAlignmentAdapter
 
@@ -396,7 +396,7 @@ class TestCrossDomainTransfer:
 
         assert len(predictions) == len(target_y)
 
-    def test_cross_domain_transfer_learner(self, transfer_data) -> None:
+    def test_cross_domain_transfer_learner(self, transfer_data: Any) -> None:
         """Test full cross-domain transfer learning."""
         from omni_mercury_engine.ml.cross_domain_transfer import (
             CrossDomainTransferLearner,
@@ -434,7 +434,7 @@ class TestCrossDomainTransfer:
 class TestExplainability:
     """Tests for SHAP explainability integration."""
 
-    def test_shap_explainer_local(self, synthetic_data) -> None:
+    def test_shap_explainer_local(self, synthetic_data: Any) -> None:
         """Test local SHAP explanations."""
         from omni_mercury_engine.ml.explainability import SHAPExplainer
         from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
@@ -453,7 +453,7 @@ class TestExplainability:
             assert exp.prediction is not None
             assert len(exp.anomaly_reasons) > 0
 
-    def test_shap_explainer_global(self, synthetic_data) -> None:
+    def test_shap_explainer_global(self, synthetic_data: Any) -> None:
         """Test global SHAP explanations."""
         from omni_mercury_engine.ml.explainability import SHAPExplainer
         from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
@@ -472,7 +472,7 @@ class TestExplainability:
         for i, feat in enumerate(global_exp.feature_importances):
             assert feat.rank == i + 1
 
-    def test_counterfactual_explainer(self, synthetic_data) -> None:
+    def test_counterfactual_explainer(self, synthetic_data: Any) -> None:
         """Test counterfactual explanations."""
         from omni_mercury_engine.ml.explainability import CounterfactualExplainer
         from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
@@ -502,7 +502,7 @@ class TestExplainability:
 class TestActiveLearning:
     """Tests for active learning framework."""
 
-    def test_uncertainty_sampler(self, synthetic_data) -> None:
+    def test_uncertainty_sampler(self, synthetic_data: Any) -> None:
         """Test uncertainty-based sampling."""
         from omni_mercury_engine.ml.active_learning import (
             SamplingStrategy,
@@ -521,7 +521,7 @@ class TestActiveLearning:
         assert len(batch) == 10
         assert all(u >= 0 for u in batch.uncertainties)
 
-    def test_diversity_sampler(self, synthetic_data) -> None:
+    def test_diversity_sampler(self, synthetic_data: Any) -> None:
         """Test diversity-based sampling."""
         from omni_mercury_engine.ml.active_learning import DiversitySampler
 
@@ -533,7 +533,7 @@ class TestActiveLearning:
         assert len(batch) == 10
         assert len(batch.diversity_scores) == 10
 
-    def test_hybrid_sampler(self, synthetic_data) -> None:
+    def test_hybrid_sampler(self, synthetic_data: Any) -> None:
         """Test hybrid uncertainty + diversity sampling."""
         from omni_mercury_engine.ml.active_learning import HybridSampler
         from omni_mercury_engine.ml.mercury_ml import RandomForestClassifier
@@ -549,7 +549,7 @@ class TestActiveLearning:
         assert len(batch) == 10
         assert all(s >= 0 for s in batch.priority_scores)
 
-    def test_active_learner(self, synthetic_data) -> None:
+    def test_active_learner(self, synthetic_data: Any) -> None:
         """Test full active learning loop."""
         from omni_mercury_engine.ml.active_learning import (
             ActiveLearner,
@@ -629,7 +629,7 @@ class TestOnlineLearning:
         assert len(X) == 50
         assert len(y) == 50
 
-    def test_sgd_online_learner(self, synthetic_data) -> None:
+    def test_sgd_online_learner(self, synthetic_data: Any) -> None:
         """Test SGD-based online learner."""
         from omni_mercury_engine.ml.online_learning import SGDOnlineLearner
 
@@ -647,7 +647,7 @@ class TestOnlineLearning:
         assert len(predictions) == 10
         assert probas.shape == (10, 2)
 
-    def test_online_learning_pipeline(self, synthetic_data) -> None:
+    def test_online_learning_pipeline(self, synthetic_data: Any) -> None:
         """Test full online learning pipeline."""
         from omni_mercury_engine.ml.online_learning import (
             OnlineLearningPipeline,
@@ -733,7 +733,7 @@ class TestSecureAuditLogging:
         for i in range(1, len(events)):
             assert events[i]["previous_hash"] == events[i - 1]["event_hash"]
 
-    def test_audit_logger_event_logging(self, tmp_path) -> None:
+    def test_audit_logger_event_logging(self, tmp_path: Any) -> None:
         """Test audit event logging."""
         from omni_mercury_engine.security.secure_audit_logging import (
             AuditEventCategory,
@@ -779,7 +779,7 @@ class TestSecureAuditLogging:
 class TestIntegration:
     """Integration tests combining multiple components."""
 
-    def test_drift_evaluation_with_few_shot(self, drift_data) -> None:
+    def test_drift_evaluation_with_few_shot(self, drift_data: Any) -> None:
         """Test concept drift evaluation with few-shot learning."""
         from omni_mercury_engine.ml.few_shot_learning import (
             FewShotLearner,
@@ -803,7 +803,7 @@ class TestIntegration:
 
         assert result.accuracy > 0.4  # Better than random
 
-    def test_transfer_with_explainability(self, transfer_data) -> None:
+    def test_transfer_with_explainability(self, transfer_data: Any) -> None:
         """Test cross-domain transfer with explanations."""
         from omni_mercury_engine.ml.cross_domain_transfer import (
             CrossDomainTransferLearner,

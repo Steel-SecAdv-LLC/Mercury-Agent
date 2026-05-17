@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Mercury Agent - Property-Based Tests for Caduceus ⚚ Enhancements
 Copyright (C) 2025 Steel Security Advisors LLC
@@ -76,8 +78,12 @@ from omni_mercury_engine.core.stacking_fusion import (
 
 @st.composite
 def binary_classification_data(
-    draw, min_samples=20, max_samples=200, min_features=2, max_features=20
-):
+    draw: Any,
+    min_samples: Any = 20,
+    max_samples: Any = 200,
+    min_features: Any = 2,
+    max_features: Any = 20,
+) -> Any:
     """Generate valid binary classification data."""
     n_samples = draw(st.integers(min_value=min_samples, max_value=max_samples))
     n_features = draw(st.integers(min_value=min_features, max_value=max_features))
@@ -100,7 +106,7 @@ def binary_classification_data(
 
 
 @st.composite
-def probability_array(draw, size=100):
+def probability_array(draw: Any, size: Any = 100) -> Any:
     """Generate valid probability arrays."""
     n = draw(st.integers(min_value=10, max_value=size))
     return draw(
@@ -113,7 +119,7 @@ def probability_array(draw, size=100):
 
 
 @st.composite
-def binary_labels(draw, size=100):
+def binary_labels(draw: Any, size: Any = 100) -> Any:
     """Generate binary labels with both classes present."""
     n = draw(st.integers(min_value=10, max_value=size))
     n_pos = max(2, n // 3)
@@ -143,7 +149,7 @@ class TestRigorousBenchmark:
 
     @given(binary_labels())
     @settings(max_examples=20)
-    def test_metric_result_stats(self, values) -> None:
+    def test_metric_result_stats(self, values: Any) -> None:
         """MetricResult should compute valid statistics."""
         result = MetricResult(name="test", values=list(values.astype(float)))
         result.compute_stats()
@@ -154,7 +160,7 @@ class TestRigorousBenchmark:
 
     @given(binary_labels(), binary_labels())
     @settings(max_examples=30)
-    def test_event_metrics_bounds(self, y_true, y_pred) -> None:
+    def test_event_metrics_bounds(self, y_true: Any, y_pred: Any) -> None:
         """Event metrics should be in [0, 1] range."""
         # Make arrays same length
         min_len = min(len(y_true), len(y_pred))
@@ -169,7 +175,7 @@ class TestRigorousBenchmark:
 
     @given(binary_labels())
     @settings(max_examples=20)
-    def test_point_adjusted_f1_bounds(self, y_true) -> None:
+    def test_point_adjusted_f1_bounds(self, y_true: Any) -> None:
         """Point-adjusted F1 should be in [0, 1]."""
         # Create predictions
         y_pred = np.random.randint(0, 2, len(y_true))
@@ -205,7 +211,7 @@ class TestCalibration:
 
     @given(probability_array(), binary_labels())
     @settings(max_examples=30)
-    def test_platt_scaling_output_bounds(self, y_prob, y_true) -> None:
+    def test_platt_scaling_output_bounds(self, y_prob: Any, y_true: Any) -> None:
         """Platt scaling should output valid probabilities."""
         min_len = min(len(y_prob), len(y_true))
         y_prob = y_prob[:min_len]
@@ -220,7 +226,7 @@ class TestCalibration:
 
     @given(probability_array(), binary_labels())
     @settings(max_examples=30)
-    def test_isotonic_monotonicity(self, y_prob, y_true) -> None:
+    def test_isotonic_monotonicity(self, y_prob: Any, y_true: Any) -> None:
         """Isotonic calibration should be monotonic."""
         min_len = min(len(y_prob), len(y_true))
         y_prob = y_prob[:min_len]
@@ -240,7 +246,7 @@ class TestCalibration:
 
     @given(st.floats(min_value=0.01, max_value=0.99))
     @settings(max_examples=20)
-    def test_ece_perfect_calibration(self, threshold) -> None:
+    def test_ece_perfect_calibration(self, threshold: Any) -> None:
         """ECE should be 0 for perfectly calibrated predictions."""
         n = 1000
         y_prob = np.random.random(n)
@@ -253,7 +259,7 @@ class TestCalibration:
 
     @given(probability_array(), binary_labels())
     @settings(max_examples=20)
-    def test_mce_bounds(self, y_prob, y_true) -> None:
+    def test_mce_bounds(self, y_prob: Any, y_true: Any) -> None:
         """MCE should be in [0, 1]."""
         min_len = min(len(y_prob), len(y_true))
         mce = compute_mce(y_true[:min_len], y_prob[:min_len])
@@ -271,7 +277,7 @@ class TestConformalPrediction:
 
     @given(st.floats(min_value=0.8, max_value=0.99))
     @settings(max_examples=20)
-    def test_split_conformal_coverage_level(self, coverage) -> None:
+    def test_split_conformal_coverage_level(self, coverage: Any) -> None:
         """Split conformal should respect coverage level asymptotically."""
         np.random.seed(42)
         n = 500
@@ -294,7 +300,7 @@ class TestConformalPrediction:
 
     @given(st.floats(min_value=0.8, max_value=0.99))
     @settings(max_examples=20)
-    def test_adaptive_conformal_convergence(self, target_coverage) -> None:
+    def test_adaptive_conformal_convergence(self, target_coverage: Any) -> None:
         """Adaptive conformal should converge to target coverage."""
         aci = AdaptiveConformalInference(
             target_coverage=target_coverage,
@@ -388,7 +394,7 @@ class TestFusion:
 
     @given(st.floats(min_value=1.0, max_value=3.0))
     @settings(max_examples=10)
-    def test_golden_ratio_constant(self, x) -> None:
+    def test_golden_ratio_constant(self, x: Any) -> None:
         """Verify golden ratio constant is correct."""
         # phi = (1 + sqrt(5)) / 2
         expected_phi = (1 + np.sqrt(5)) / 2
@@ -405,7 +411,7 @@ class TestBenevolenceOptimization:
 
     @given(binary_labels(), binary_labels())
     @settings(max_examples=30)
-    def test_benevolence_score_bounds(self, y_true, y_pred) -> None:
+    def test_benevolence_score_bounds(self, y_true: Any, y_pred: Any) -> None:
         """Benevolence score should be in [0, 1]."""
         min_len = min(len(y_true), len(y_pred))
         y_true = y_true[:min_len]
@@ -418,7 +424,7 @@ class TestBenevolenceOptimization:
 
     @given(binary_labels())
     @settings(max_examples=20)
-    def test_perfect_predictions_high_benevolence(self, y_true) -> None:
+    def test_perfect_predictions_high_benevolence(self, y_true: Any) -> None:
         """Perfect predictions should yield high benevolence."""
         bl = BenevolenceLoss()
         score = bl.compute(y_true.astype(float), y_true)
@@ -473,13 +479,13 @@ class TestIntegration:
             def __init__(self) -> None:
                 self.model = LogisticRegression()
 
-            def fit(self, X, y) -> None:
+            def fit(self, X: Any, y: Any) -> None:
                 self.model.fit(X, y)
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return self.model.predict(X)
 
-            def predict_proba(self, X):
+            def predict_proba(self, X: Any) -> Any:
                 return self.model.predict_proba(X)
 
         detector = SimpleDetector()

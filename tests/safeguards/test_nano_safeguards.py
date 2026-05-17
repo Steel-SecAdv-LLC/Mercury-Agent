@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """Tests for Nano-Safeguards micro-anomaly detection."""
 
 import numpy as np
@@ -79,12 +81,12 @@ class TestHierarchicalMicroScanner:
         """Create HierarchicalMicroScanner instance."""
         return HierarchicalMicroScanner(input_dim=64, num_scales=4)
 
-    def test_initialization(self, scanner) -> None:
+    def test_initialization(self, scanner: Any) -> None:
         """Test scanner initialization."""
         assert scanner is not None
         assert scanner.num_scales == 4
 
-    def test_forward_1d_input(self, scanner) -> None:
+    def test_forward_1d_input(self, scanner: Any) -> None:
         """Test forward pass with 1D input."""
         import torch
 
@@ -93,7 +95,7 @@ class TestHierarchicalMicroScanner:
         assert score is not None
         assert len(features) == 4
 
-    def test_forward_2d_input(self, scanner) -> None:
+    def test_forward_2d_input(self, scanner: Any) -> None:
         """Test forward pass with 2D input."""
         import torch
 
@@ -111,12 +113,12 @@ class TestResonanceAnalyzer:
         """Create ResonanceAnalyzer instance."""
         return ResonanceAnalyzer()
 
-    def test_initialization(self, analyzer) -> None:
+    def test_initialization(self, analyzer: Any) -> None:
         """Test analyzer initialization."""
         assert analyzer is not None
         assert analyzer.fundamental_freq == 7.83
 
-    def test_analyze_normal_signal(self, analyzer) -> None:
+    def test_analyze_normal_signal(self, analyzer: Any) -> None:
         """Test analysis of normal signal."""
         signal = np.random.randn(100)
         result = analyzer.analyze(signal)
@@ -126,7 +128,7 @@ class TestResonanceAnalyzer:
         assert result["resonance_score"] >= 0.0
         assert result["resonance_score"] <= 1.0
 
-    def test_analyze_short_signal(self, analyzer) -> None:
+    def test_analyze_short_signal(self, analyzer: Any) -> None:
         """Test analysis of short signal."""
         signal = np.array([1.0, 2.0, 3.0])
         result = analyzer.analyze(signal)
@@ -134,7 +136,7 @@ class TestResonanceAnalyzer:
         assert result["resonance_score"] == 0.0
         assert result["harmonic_ratio"] == 0.0
 
-    def test_analyze_empty_signal(self, analyzer) -> None:
+    def test_analyze_empty_signal(self, analyzer: Any) -> None:
         """Test analysis of empty signal."""
         signal = np.array([])
         result = analyzer.analyze(signal)
@@ -173,32 +175,32 @@ class TestNanoSafeguardDetector:
         data[50:60, :] = 100.0
         return data
 
-    def test_initialization(self, detector) -> None:
+    def test_initialization(self, detector: Any) -> None:
         """Test detector initialization."""
         assert detector is not None
         assert hasattr(detector, "detect_micro_anomalies")
         assert hasattr(detector, "fit")
         assert hasattr(detector, "detect")
 
-    def test_initialization_custom_config(self, detector_custom_config) -> None:
+    def test_initialization_custom_config(self, detector_custom_config: Any) -> None:
         """Test detector initialization with custom config."""
         assert detector_custom_config.convergence_threshold == 0.005
         assert detector_custom_config.micro_threshold == 0.1
         assert detector_custom_config.num_scales == 3
 
-    def test_fit(self, detector, normal_data) -> None:
+    def test_fit(self, detector: Any, normal_data: Any) -> None:
         """Test fitting detector to normal data."""
         detector.fit(normal_data)
         assert detector._is_fitted is True
         assert "mean" in detector.baseline_stats
         assert "std" in detector.baseline_stats
 
-    def test_detect_micro_anomalies_unfitted(self, detector, normal_data) -> None:
+    def test_detect_micro_anomalies_unfitted(self, detector: Any, normal_data: Any) -> None:
         """Test detection raises error when not fitted."""
         with pytest.raises(DetectorException):
             detector.detect(normal_data)
 
-    def test_detect_micro_anomalies_normal(self, detector, normal_data) -> None:
+    def test_detect_micro_anomalies_normal(self, detector: Any, normal_data: Any) -> None:
         """Test detection on normal data."""
         detector.fit(normal_data)
         result = detector.detect_micro_anomalies(normal_data)
@@ -207,7 +209,9 @@ class TestNanoSafeguardDetector:
         assert result.confidence >= 0.0
         assert result.confidence <= 1.0
 
-    def test_detect_micro_anomalies_anomalous(self, detector, normal_data, anomalous_data) -> None:
+    def test_detect_micro_anomalies_anomalous(
+        self, detector: Any, normal_data: Any, anomalous_data: Any
+    ) -> None:
         """Test detection on anomalous data."""
         detector.fit(normal_data)
         result = detector.detect_micro_anomalies(anomalous_data)
@@ -216,7 +220,7 @@ class TestNanoSafeguardDetector:
         assert result.confidence >= 0.0
         assert result.confidence <= 1.0
 
-    def test_detect_interface(self, detector, normal_data) -> None:
+    def test_detect_interface(self, detector: Any, normal_data: Any) -> None:
         """Test detect interface returns dict."""
         detector.fit(normal_data)
         result = detector.detect(normal_data)
@@ -227,27 +231,27 @@ class TestNanoSafeguardDetector:
         assert "detector_type" in result
         assert result["detector_type"] == "nano_safeguard"
 
-    def test_extract_features(self, detector, normal_data) -> None:
+    def test_extract_features(self, detector: Any, normal_data: Any) -> None:
         """Test feature extraction."""
         features = detector.extract_features(normal_data)
         assert features is not None
         assert len(features) == 20
 
-    def test_alert_levels(self, detector, normal_data) -> None:
+    def test_alert_levels(self, detector: Any, normal_data: Any) -> None:
         """Test alert level determination."""
         detector.fit(normal_data)
         result = detector.detect_micro_anomalies(normal_data)
 
         assert result.alert_level in ["normal", "moderate", "warning", "critical", "emergency"]
 
-    def test_threshold_violations(self, detector, normal_data) -> None:
+    def test_threshold_violations(self, detector: Any, normal_data: Any) -> None:
         """Test threshold violation tracking."""
         detector.fit(normal_data)
         result = detector.detect_micro_anomalies(normal_data)
 
         assert isinstance(result.threshold_violations, list)
 
-    def test_recommended_actions(self, detector, normal_data) -> None:
+    def test_recommended_actions(self, detector: Any, normal_data: Any) -> None:
         """Test recommended actions generation."""
         detector.fit(normal_data)
         result = detector.detect_micro_anomalies(normal_data)
@@ -309,13 +313,13 @@ class TestNanoSafeguardEdgeCases:
         detector.fit(np.random.randn(100, 10))
         return detector
 
-    def test_single_sample(self, detector) -> None:
+    def test_single_sample(self, detector: Any) -> None:
         """Test detection with single sample."""
         data = np.random.randn(1, 10)
         result = detector.detect_micro_anomalies(data)
         assert isinstance(result, NanoSafeguardResult)
 
-    def test_high_dimensional_data(self, detector) -> None:
+    def test_high_dimensional_data(self, detector: Any) -> None:
         """Test detection with high-dimensional data."""
         detector_hd = NanoSafeguardDetector()
         train_data = np.random.randn(100, 100)
@@ -324,7 +328,7 @@ class TestNanoSafeguardEdgeCases:
         result = detector_hd.detect_micro_anomalies(test_data)
         assert isinstance(result, NanoSafeguardResult)
 
-    def test_1d_data(self, detector) -> None:
+    def test_1d_data(self, detector: Any) -> None:
         """Test detection with 1D data."""
         detector_1d = NanoSafeguardDetector()
         train_data = np.random.randn(100)
@@ -333,7 +337,7 @@ class TestNanoSafeguardEdgeCases:
         result = detector_1d.detect_micro_anomalies(test_data)
         assert isinstance(result, NanoSafeguardResult)
 
-    def test_constant_data(self, detector) -> None:
+    def test_constant_data(self, detector: Any) -> None:
         """Test detection with constant data."""
         detector_const = NanoSafeguardDetector()
         train_data = np.ones((100, 10))

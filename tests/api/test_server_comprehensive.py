@@ -19,6 +19,7 @@ Covers:
 from __future__ import annotations
 
 import os
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -41,7 +42,7 @@ def client():
 class TestHealthEndpoint:
     """Tests for the /health endpoint."""
 
-    def test_health_check_returns_200(self, client) -> None:
+    def test_health_check_returns_200(self, client: Any) -> None:
         """Test health endpoint returns 200 with status healthy."""
         response = client.get("/health")
         assert response.status_code == 200
@@ -49,7 +50,7 @@ class TestHealthEndpoint:
         assert data["status"] == "healthy"
         assert "version" in data
 
-    def test_health_check_version_matches(self, client) -> None:
+    def test_health_check_version_matches(self, client: Any) -> None:
         """Test health endpoint returns correct API version."""
         from omni_mercury_engine.api.server import API_VERSION
 
@@ -66,7 +67,7 @@ class TestHealthEndpoint:
 class TestUnivariateDetection:
     """Tests for the /api/v1/detect/univariate endpoint."""
 
-    def test_basic_detection(self, client) -> None:
+    def test_basic_detection(self, client: Any) -> None:
         """Test basic univariate anomaly detection."""
         data = [1.0, 2.0, 1.5, 100.0, 1.8, 2.1, 1.9, 2.0, 1.7]
         response = client.post(
@@ -82,7 +83,7 @@ class TestUnivariateDetection:
         assert "threshold" in result
         assert "summary" in result
 
-    def test_detection_with_clear_anomaly(self, client) -> None:
+    def test_detection_with_clear_anomaly(self, client: Any) -> None:
         """Test that a clear outlier is detected."""
         data = [1.0, 1.1, 1.0, 1.1, 1.0, 50.0, 1.0, 1.1, 1.0]
         response = client.post(
@@ -95,7 +96,7 @@ class TestUnivariateDetection:
         assert result["anomalies"][5] is True
         assert result["summary"]["anomaly_count"] >= 1
 
-    def test_detection_minimum_data_points(self, client) -> None:
+    def test_detection_minimum_data_points(self, client: Any) -> None:
         """Test that minimum 3 data points are required."""
         response = client.post(
             "/api/v1/detect/univariate",
@@ -103,7 +104,7 @@ class TestUnivariateDetection:
         )
         assert response.status_code == 422  # Validation error
 
-    def test_detection_sensitivity_range(self, client) -> None:
+    def test_detection_sensitivity_range(self, client: Any) -> None:
         """Test sensitivity must be 0.0-1.0."""
         data = [1.0, 2.0, 3.0, 4.0, 5.0]
         # Valid sensitivity
@@ -113,7 +114,7 @@ class TestUnivariateDetection:
         )
         assert response.status_code == 200
 
-    def test_anomaly_points_detail(self, client) -> None:
+    def test_anomaly_points_detail(self, client: Any) -> None:
         """Test anomaly_points contain index, value, score, severity."""
         data = [1.0, 1.1, 1.0, 100.0, 1.1, 1.0, 1.1, 1.0, 1.1]
         response = client.post(
@@ -138,7 +139,7 @@ class TestUnivariateDetection:
 class TestMultivariateDetection:
     """Tests for the /api/v1/detect/multivariate endpoint."""
 
-    def test_basic_multivariate_detection(self, client) -> None:
+    def test_basic_multivariate_detection(self, client: Any) -> None:
         """Test basic multivariate anomaly detection."""
         data = [
             [1.0, 2.0],
@@ -160,7 +161,7 @@ class TestMultivariateDetection:
         assert len(result["anomalies"]) == 6
         assert len(result["features"]) == 2
 
-    def test_multivariate_with_feature_names(self, client) -> None:
+    def test_multivariate_with_feature_names(self, client: Any) -> None:
         """Test multivariate detection with named features."""
         data = [
             [1.0, 2.0, 3.0],
@@ -181,7 +182,7 @@ class TestMultivariateDetection:
         assert result["features"] == ["temp", "pressure", "humidity"]
         assert "feature_contributions" in result
 
-    def test_multivariate_minimum_data_points(self, client) -> None:
+    def test_multivariate_minimum_data_points(self, client: Any) -> None:
         """Test minimum 3 data points required."""
         response = client.post(
             "/api/v1/detect/multivariate",
@@ -189,7 +190,7 @@ class TestMultivariateDetection:
         )
         assert response.status_code == 422
 
-    def test_multivariate_inconsistent_dimensions(self, client) -> None:
+    def test_multivariate_inconsistent_dimensions(self, client: Any) -> None:
         """Test error on inconsistent feature dimensions."""
         response = client.post(
             "/api/v1/detect/multivariate",
@@ -333,7 +334,7 @@ class TestCORSConfiguration:
 
             assert app is not None  # App should initialize without error
 
-    def test_cors_preflight(self, client) -> None:
+    def test_cors_preflight(self, client: Any) -> None:
         """Test CORS preflight request handling."""
         response = client.options(
             "/health",
@@ -354,12 +355,12 @@ class TestCORSConfiguration:
 class TestCorrelationIDMiddleware:
     """Tests for correlation ID tracking."""
 
-    def test_response_includes_correlation_id(self, client) -> None:
+    def test_response_includes_correlation_id(self, client: Any) -> None:
         """Test that responses include X-Correlation-ID header."""
         response = client.get("/health")
         assert "X-Correlation-ID" in response.headers
 
-    def test_custom_correlation_id_propagated(self, client) -> None:
+    def test_custom_correlation_id_propagated(self, client: Any) -> None:
         """Test that provided correlation ID is propagated."""
         custom_id = "test-correlation-123"
         response = client.get(
@@ -368,7 +369,7 @@ class TestCorrelationIDMiddleware:
         )
         assert response.headers.get("X-Correlation-ID") == custom_id
 
-    def test_request_id_alias(self, client) -> None:
+    def test_request_id_alias(self, client: Any) -> None:
         """Test that X-Request-ID works as alias."""
         custom_id = "test-request-456"
         response = client.get(
@@ -377,7 +378,7 @@ class TestCorrelationIDMiddleware:
         )
         assert response.headers.get("X-Correlation-ID") == custom_id
 
-    def test_request_duration_header(self, client) -> None:
+    def test_request_duration_header(self, client: Any) -> None:
         """Test that X-Request-Duration-Ms header is included."""
         response = client.get("/health")
         assert "X-Request-Duration-Ms" in response.headers
@@ -393,7 +394,7 @@ class TestCorrelationIDMiddleware:
 class TestOpenAPISchema:
     """Tests for custom OpenAPI schema."""
 
-    def test_openapi_schema_accessible(self, client) -> None:
+    def test_openapi_schema_accessible(self, client: Any) -> None:
         """Test OpenAPI schema is accessible."""
         response = client.get("/openapi.json")
         assert response.status_code == 200
@@ -401,7 +402,7 @@ class TestOpenAPISchema:
         assert "info" in schema
         assert schema["info"]["title"] == "Mercury Agent API"
 
-    def test_docs_accessible(self, client) -> None:
+    def test_docs_accessible(self, client: Any) -> None:
         """Test Swagger docs are accessible."""
         response = client.get("/docs")
         assert response.status_code == 200

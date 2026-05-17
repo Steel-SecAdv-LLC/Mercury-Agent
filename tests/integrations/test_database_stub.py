@@ -8,6 +8,8 @@ Comprehensive test coverage for database stub functionality.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from omni_mercury_engine.integrations.stubs.database import (
@@ -135,20 +137,20 @@ class TestDatabaseStubQuery:
         return DatabaseStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_create_table(self, db) -> None:
+    async def test_create_table(self, db: Any) -> None:
         """Test creating a table."""
         result = await db.execute("CREATE TABLE users (id INTEGER, name TEXT, email TEXT)")
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_insert(self, db) -> None:
+    async def test_insert(self, db: Any) -> None:
         """Test inserting a row."""
         await db.execute("CREATE TABLE users (id INTEGER, name TEXT)")
         result = await db.execute("INSERT INTO users (id, name) VALUES (1, 'Alice')")
         assert result.affected_rows >= 0
 
     @pytest.mark.asyncio
-    async def test_select_all(self, db) -> None:
+    async def test_select_all(self, db: Any) -> None:
         """Test selecting all rows."""
         await db.execute("CREATE TABLE users (id INTEGER, name TEXT)")
         await db.execute("INSERT INTO users (id, name) VALUES (1, 'Alice')")
@@ -158,7 +160,7 @@ class TestDatabaseStubQuery:
         assert result.row_count >= 0
 
     @pytest.mark.asyncio
-    async def test_select_with_where(self, db) -> None:
+    async def test_select_with_where(self, db: Any) -> None:
         """Test selecting with WHERE clause."""
         await db.execute("CREATE TABLE users (id INTEGER, name TEXT)")
         await db.execute("INSERT INTO users (id, name) VALUES (1, 'Alice')")
@@ -168,7 +170,7 @@ class TestDatabaseStubQuery:
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_update(self, db) -> None:
+    async def test_update(self, db: Any) -> None:
         """Test updating rows."""
         await db.execute("CREATE TABLE users (id INTEGER, name TEXT)")
         await db.execute("INSERT INTO users (id, name) VALUES (1, 'Alice')")
@@ -177,7 +179,7 @@ class TestDatabaseStubQuery:
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_delete(self, db) -> None:
+    async def test_delete(self, db: Any) -> None:
         """Test deleting rows."""
         await db.execute("CREATE TABLE users (id INTEGER, name TEXT)")
         await db.execute("INSERT INTO users (id, name) VALUES (1, 'Alice')")
@@ -195,13 +197,13 @@ class TestDatabaseStubTransactions:
         return DatabaseStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_begin_transaction(self, db) -> None:
+    async def test_begin_transaction(self, db: Any) -> None:
         """Test beginning a transaction."""
         await db.begin()
         assert db._in_transaction is True
 
     @pytest.mark.asyncio
-    async def test_commit_transaction(self, db) -> None:
+    async def test_commit_transaction(self, db: Any) -> None:
         """Test committing a transaction."""
         await db.begin()
         await db.execute("CREATE TABLE test (id INTEGER)")
@@ -209,7 +211,7 @@ class TestDatabaseStubTransactions:
         assert db._in_transaction is False
 
     @pytest.mark.asyncio
-    async def test_rollback_transaction(self, db) -> None:
+    async def test_rollback_transaction(self, db: Any) -> None:
         """Test rolling back a transaction."""
         await db.begin()
         await db.rollback()
@@ -225,7 +227,7 @@ class TestDatabaseStubSchemaOperations:
         return DatabaseStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_list_tables(self, db) -> None:
+    async def test_list_tables(self, db: Any) -> None:
         """Test listing tables."""
         await db.execute("CREATE TABLE users (id INTEGER)")
         await db.execute("CREATE TABLE products (id INTEGER)")
@@ -235,7 +237,7 @@ class TestDatabaseStubSchemaOperations:
         assert "products" in tables
 
     @pytest.mark.asyncio
-    async def test_describe_table(self, db) -> None:
+    async def test_describe_table(self, db: Any) -> None:
         """Test describing table schema."""
         await db.execute("CREATE TABLE users (id INTEGER, name TEXT, email TEXT)")
 
@@ -243,7 +245,7 @@ class TestDatabaseStubSchemaOperations:
         assert "id" in schema or len(schema) > 0
 
     @pytest.mark.asyncio
-    async def test_drop_table(self, db) -> None:
+    async def test_drop_table(self, db: Any) -> None:
         """Test dropping a table."""
         await db.execute("CREATE TABLE temp (id INTEGER)")
         result = await db.execute("DROP TABLE temp")
@@ -262,7 +264,7 @@ class TestDatabaseStubDataTypes:
         return DatabaseStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_integer_values(self, db) -> None:
+    async def test_integer_values(self, db: Any) -> None:
         """Test integer values."""
         await db.execute("CREATE TABLE nums (value INTEGER)")
         await db.execute("INSERT INTO nums (value) VALUES (42)")
@@ -271,7 +273,7 @@ class TestDatabaseStubDataTypes:
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_float_values(self, db) -> None:
+    async def test_float_values(self, db: Any) -> None:
         """Test float values."""
         await db.execute("CREATE TABLE floats (value REAL)")
         await db.execute("INSERT INTO floats (value) VALUES (3.14159)")
@@ -280,7 +282,7 @@ class TestDatabaseStubDataTypes:
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_text_values(self, db) -> None:
+    async def test_text_values(self, db: Any) -> None:
         """Test text values."""
         await db.execute("CREATE TABLE texts (value TEXT)")
         await db.execute("INSERT INTO texts (value) VALUES ('Hello, World!')")
@@ -289,7 +291,7 @@ class TestDatabaseStubDataTypes:
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_null_values(self, db) -> None:
+    async def test_null_values(self, db: Any) -> None:
         """Test NULL values."""
         await db.execute("CREATE TABLE nulls (value TEXT)")
         await db.execute("INSERT INTO nulls (value) VALUES (NULL)")
@@ -307,7 +309,7 @@ class TestDatabaseStubAggregations:
         return DatabaseStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_count(self, db) -> None:
+    async def test_count(self, db: Any) -> None:
         """Test COUNT aggregation."""
         await db.execute("CREATE TABLE items (id INTEGER)")
         await db.execute("INSERT INTO items (id) VALUES (1)")
@@ -327,7 +329,7 @@ class TestDatabaseStubStatistics:
         return DatabaseStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_get_stats(self, db) -> None:
+    async def test_get_stats(self, db: Any) -> None:
         """Test getting database statistics."""
         await db.execute("CREATE TABLE test (id INTEGER)")
         await db.query("SELECT * FROM test")
@@ -337,7 +339,7 @@ class TestDatabaseStubStatistics:
         assert "tables_count" in stats
 
     @pytest.mark.asyncio
-    async def test_query_count_tracking(self, db) -> None:
+    async def test_query_count_tracking(self, db: Any) -> None:
         """Test query count tracking."""
         await db.execute("CREATE TABLE test (id INTEGER)")
         await db.query("SELECT * FROM test")
@@ -356,13 +358,13 @@ class TestDatabaseStubErrorHandling:
         return DatabaseStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_query_nonexistent_table(self, db) -> None:
+    async def test_query_nonexistent_table(self, db: Any) -> None:
         """Test querying nonexistent table."""
         with pytest.raises(DatabaseError):
             await db.query("SELECT * FROM nonexistent")
 
     @pytest.mark.asyncio
-    async def test_syntax_error(self, db) -> None:
+    async def test_syntax_error(self, db: Any) -> None:
         """Test SQL syntax error handling."""
         # Invalid SQL should raise error
         with pytest.raises(DatabaseError):
@@ -378,20 +380,20 @@ class TestDatabaseStubConnectionManagement:
         return DatabaseStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_connect(self, db) -> None:
+    async def test_connect(self, db: Any) -> None:
         """Test connecting to database."""
         await db.connect()
         assert db._connected is True
 
     @pytest.mark.asyncio
-    async def test_disconnect(self, db) -> None:
+    async def test_disconnect(self, db: Any) -> None:
         """Test disconnecting from database."""
         await db.connect()
         await db.disconnect()
         assert db._connected is False
 
     @pytest.mark.asyncio
-    async def test_is_connected(self, db) -> None:
+    async def test_is_connected(self, db: Any) -> None:
         """Test connection status check."""
         assert await db.is_connected() is False
         await db.connect()

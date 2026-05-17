@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """Tests for Signal Processing module."""
 
 import numpy as np
@@ -83,7 +85,7 @@ class TestAdaptiveNoiseFilter:
     """Tests for AdaptiveNoiseFilter."""
 
     @pytest.fixture
-    def noisy_signal(self, deterministic_rng):
+    def noisy_signal(self, deterministic_rng: Any) -> Any:
         """Create noisy signal for testing."""
         t = np.linspace(0, 1, 200)
         clean = np.sin(2 * np.pi * 5 * t)
@@ -109,7 +111,7 @@ class TestAdaptiveNoiseFilter:
 
         np.testing.assert_array_equal(result, short_data)
 
-    def test_fft_lowpass_filter(self, noisy_signal) -> None:
+    def test_fft_lowpass_filter(self, noisy_signal: Any) -> None:
         """Test FFT lowpass filter."""
         config = FilterConfig(filter_type=FilterType.FFT_LOWPASS, cutoff_freq=0.3)
         filter_obj = AdaptiveNoiseFilter(config=config)
@@ -119,7 +121,7 @@ class TestAdaptiveNoiseFilter:
         # Filtered signal should be smoother (lower std of differences)
         assert np.std(np.diff(filtered)) < np.std(np.diff(noisy_signal))
 
-    def test_wavelet_filter(self, noisy_signal) -> None:
+    def test_wavelet_filter(self, noisy_signal: Any) -> None:
         """Test wavelet denoising filter."""
         config = FilterConfig(filter_type=FilterType.WAVELET, wavelet_level=3)
         filter_obj = AdaptiveNoiseFilter(config=config)
@@ -136,7 +138,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(short_signal)
 
-    def test_kalman_filter(self, noisy_signal) -> None:
+    def test_kalman_filter(self, noisy_signal: Any) -> None:
         """Test Kalman filter."""
         config = FilterConfig(
             filter_type=FilterType.KALMAN,
@@ -149,7 +151,7 @@ class TestAdaptiveNoiseFilter:
         assert len(filtered) == len(noisy_signal)
         assert filter_obj._kalman_state is not None
 
-    def test_savitzky_golay_filter(self, noisy_signal) -> None:
+    def test_savitzky_golay_filter(self, noisy_signal: Any) -> None:
         """Test Savitzky-Golay filter."""
         config = FilterConfig(
             filter_type=FilterType.SAVITZKY_GOLAY,
@@ -161,7 +163,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_savitzky_golay_even_window(self, noisy_signal) -> None:
+    def test_savitzky_golay_even_window(self, noisy_signal: Any) -> None:
         """Test Savitzky-Golay with even window size (auto-corrected)."""
         config = FilterConfig(
             filter_type=FilterType.SAVITZKY_GOLAY,
@@ -172,7 +174,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_adaptive_bandpass_filter(self, noisy_signal) -> None:
+    def test_adaptive_bandpass_filter(self, noisy_signal: Any) -> None:
         """Test adaptive bandpass filter."""
         config = FilterConfig(
             filter_type=FilterType.ADAPTIVE_BANDPASS,
@@ -183,7 +185,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_median_filter(self, noisy_signal) -> None:
+    def test_median_filter(self, noisy_signal: Any) -> None:
         """Test median filter."""
         config = FilterConfig(
             filter_type=FilterType.MEDIAN,
@@ -194,7 +196,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_ema_filter(self, noisy_signal) -> None:
+    def test_ema_filter(self, noisy_signal: Any) -> None:
         """Test exponential moving average filter."""
         config = FilterConfig(
             filter_type=FilterType.EXPONENTIAL_MOVING_AVERAGE,
@@ -205,7 +207,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_reset_state(self, noisy_signal) -> None:
+    def test_reset_state(self, noisy_signal: Any) -> None:
         """Test reset state for Kalman filter."""
         config = FilterConfig(filter_type=FilterType.KALMAN)
         filter_obj = AdaptiveNoiseFilter(config=config)
@@ -222,18 +224,18 @@ class TestMultiStageFilter:
     """Tests for MultiStageFilter."""
 
     @pytest.fixture
-    def noisy_signal(self, deterministic_rng):
+    def noisy_signal(self, deterministic_rng: Any) -> Any:
         """Create noisy signal for testing."""
         return deterministic_rng.randn(100) + 5.0
 
-    def test_empty_pipeline(self, noisy_signal) -> None:
+    def test_empty_pipeline(self, noisy_signal: Any) -> None:
         """Test empty filter pipeline."""
         pipeline = MultiStageFilter()
         result = pipeline.apply(noisy_signal)
 
         np.testing.assert_array_equal(result, noisy_signal)
 
-    def test_single_stage(self, noisy_signal) -> None:
+    def test_single_stage(self, noisy_signal: Any) -> None:
         """Test single stage filter."""
         stages = [FilterConfig(filter_type=FilterType.MEDIAN)]
         pipeline = MultiStageFilter(stages=stages)
@@ -241,7 +243,7 @@ class TestMultiStageFilter:
 
         assert len(result) == len(noisy_signal)
 
-    def test_multi_stage(self, noisy_signal) -> None:
+    def test_multi_stage(self, noisy_signal: Any) -> None:
         """Test multi-stage filter pipeline."""
         stages = [
             FilterConfig(filter_type=FilterType.MEDIAN, window_size=3),
@@ -252,7 +254,7 @@ class TestMultiStageFilter:
 
         assert len(result) == len(noisy_signal)
 
-    def test_add_stage(self, noisy_signal) -> None:
+    def test_add_stage(self, noisy_signal: Any) -> None:
         """Test adding a stage to pipeline."""
         pipeline = MultiStageFilter()
         assert len(pipeline.stages) == 0

@@ -6,6 +6,8 @@ Tests for pure NumPy implementations of neural network operations.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -130,17 +132,17 @@ class TestLightweightMLP:
         )
 
     @pytest.fixture
-    def mlp(self, config) -> LightweightMLP:
+    def mlp(self, config: Any) -> LightweightMLP:
         """Create MLP instance."""
         return LightweightMLP(config)
 
-    def test_init(self, mlp, config) -> None:
+    def test_init(self, mlp: Any, config: Any) -> None:
         """Test MLP initialization."""
         assert mlp.config.input_dim == 64
         assert mlp.config.output_dim == 1
         assert len(mlp.layers) == 3  # 2 hidden + 1 output
 
-    def test_layer_dimensions(self, mlp) -> None:
+    def test_layer_dimensions(self, mlp: Any) -> None:
         """Test layer weight dimensions."""
         # First layer: input_dim -> hidden_dim[0]
         assert mlp.layers[0].weights.shape == (64, 128)
@@ -154,7 +156,7 @@ class TestLightweightMLP:
         assert mlp.layers[2].weights.shape == (64, 1)
         assert mlp.layers[2].bias.shape == (1,)
 
-    def test_forward_single_sample(self, mlp) -> None:
+    def test_forward_single_sample(self, mlp: Any) -> None:
         """Test forward pass with single sample."""
         x = np.random.randn(64).astype(np.float32)
         output = mlp.forward(x)
@@ -163,7 +165,7 @@ class TestLightweightMLP:
         # Sigmoid output should be in (0, 1)
         assert 0 < output[0, 0] < 1
 
-    def test_forward_batch(self, mlp) -> None:
+    def test_forward_batch(self, mlp: Any) -> None:
         """Test forward pass with batch."""
         x = np.random.randn(32, 64).astype(np.float32)
         output = mlp.forward(x)
@@ -171,21 +173,21 @@ class TestLightweightMLP:
         assert output.shape == (32, 1)
         assert np.all((output > 0) & (output < 1))
 
-    def test_forward_padding(self, mlp) -> None:
+    def test_forward_padding(self, mlp: Any) -> None:
         """Test forward handles input padding."""
         x = np.random.randn(10, 32).astype(np.float32)  # Only 32 features
         output = mlp.forward(x)
 
         assert output.shape == (10, 1)
 
-    def test_forward_truncation(self, mlp) -> None:
+    def test_forward_truncation(self, mlp: Any) -> None:
         """Test forward handles input truncation."""
         x = np.random.randn(10, 128).astype(np.float32)  # 128 features
         output = mlp.forward(x)
 
         assert output.shape == (10, 1)
 
-    def test_predict_alias(self, mlp) -> None:
+    def test_predict_alias(self, mlp: Any) -> None:
         """Test predict is alias for forward."""
         x = np.random.randn(64).astype(np.float32)
         forward_result = mlp.forward(x)
@@ -193,7 +195,7 @@ class TestLightweightMLP:
 
         np.testing.assert_array_equal(forward_result, predict_result)
 
-    def test_export_load_weights(self, mlp) -> None:
+    def test_export_load_weights(self, mlp: Any) -> None:
         """Test weight export and loading."""
         x = np.random.randn(10, 64).astype(np.float32)
 
@@ -211,7 +213,7 @@ class TestLightweightMLP:
         loaded_output = new_mlp.forward(x)
         np.testing.assert_array_almost_equal(original_output, loaded_output)
 
-    def test_param_count(self, mlp) -> None:
+    def test_param_count(self, mlp: Any) -> None:
         """Test parameter counting."""
         # Expected: 64*128 + 128 + 128*64 + 64 + 64*1 + 1 = 8192 + 128 + 8192 + 64 + 64 + 1 = 16641
         expected = 64 * 128 + 128 + 128 * 64 + 64 + 64 * 1 + 1
@@ -274,33 +276,33 @@ class TestLightweightAutoencoder:
             seed=42,
         )
 
-    def test_init(self, autoencoder) -> None:
+    def test_init(self, autoencoder: Any) -> None:
         """Test autoencoder initialization."""
         assert autoencoder.input_dim == 64
         assert autoencoder.latent_dim == 16
 
-    def test_encode(self, autoencoder) -> None:
+    def test_encode(self, autoencoder: Any) -> None:
         """Test encoding to latent space."""
         x = np.random.randn(10, 64).astype(np.float32)
         z = autoencoder.encode(x)
 
         assert z.shape == (10, 16)
 
-    def test_decode(self, autoencoder) -> None:
+    def test_decode(self, autoencoder: Any) -> None:
         """Test decoding from latent space."""
         z = np.random.randn(10, 16).astype(np.float32)
         reconstruction = autoencoder.decode(z)
 
         assert reconstruction.shape == (10, 64)
 
-    def test_reconstruct(self, autoencoder) -> None:
+    def test_reconstruct(self, autoencoder: Any) -> None:
         """Test full reconstruction."""
         x = np.random.randn(10, 64).astype(np.float32)
         reconstruction = autoencoder.reconstruct(x)
 
         assert reconstruction.shape == x.shape
 
-    def test_anomaly_score(self, autoencoder) -> None:
+    def test_anomaly_score(self, autoencoder: Any) -> None:
         """Test anomaly scoring."""
         x = np.random.randn(10, 64).astype(np.float32)
         scores = autoencoder.anomaly_score(x)
@@ -310,7 +312,7 @@ class TestLightweightAutoencoder:
         assert np.all(scores >= 0)
         assert np.all(scores < 1)
 
-    def test_anomaly_score_single(self, autoencoder) -> None:
+    def test_anomaly_score_single(self, autoencoder: Any) -> None:
         """Test anomaly scoring with single sample."""
         x = np.random.randn(64).astype(np.float32)
         scores = autoencoder.anomaly_score(x)
@@ -332,7 +334,7 @@ class TestIsolationScorer:
         rng = np.random.default_rng(42)
         return rng.normal(0, 1, (100, 10)).astype(np.float32)
 
-    def test_fit(self, scorer, normal_data) -> None:
+    def test_fit(self, scorer: Any, normal_data: Any) -> None:
         """Test fitting scorer."""
         result = scorer.fit(normal_data)
 
@@ -341,12 +343,12 @@ class TestIsolationScorer:
         assert scorer._projections is not None
         assert scorer._thresholds is not None
 
-    def test_score_not_fitted(self, scorer, normal_data) -> None:
+    def test_score_not_fitted(self, scorer: Any, normal_data: Any) -> None:
         """Test score raises error when not fitted."""
         with pytest.raises(ValueError, match="not fitted"):
             scorer.score(normal_data)
 
-    def test_score(self, scorer, normal_data) -> None:
+    def test_score(self, scorer: Any, normal_data: Any) -> None:
         """Test scoring."""
         scorer.fit(normal_data)
         scores = scorer.score(normal_data)
@@ -355,7 +357,7 @@ class TestIsolationScorer:
         assert np.all(scores >= 0)
         assert np.all(scores <= 1)
 
-    def test_anomaly_detection(self, scorer, normal_data) -> None:
+    def test_anomaly_detection(self, scorer: Any, normal_data: Any) -> None:
         """Test that anomalies get higher scores."""
         scorer.fit(normal_data)
 
@@ -379,7 +381,7 @@ class TestQuickAnomalyScore:
         rng = np.random.default_rng(42)
         return rng.normal(0, 1, (50, 16)).astype(np.float32)
 
-    def test_isolation_method(self, data) -> None:
+    def test_isolation_method(self, data: Any) -> None:
         """Test isolation method."""
         scores = quick_anomaly_score(data, method="isolation", seed=42)
 
@@ -387,20 +389,20 @@ class TestQuickAnomalyScore:
         assert np.all(scores >= 0)
         assert np.all(scores <= 1)
 
-    def test_reconstruction_method(self, data) -> None:
+    def test_reconstruction_method(self, data: Any) -> None:
         """Test reconstruction method."""
         scores = quick_anomaly_score(data, method="reconstruction", seed=42)
 
         assert scores.shape == (50,)
         assert np.all(scores >= 0)
 
-    def test_statistical_method(self, data) -> None:
+    def test_statistical_method(self, data: Any) -> None:
         """Test statistical method."""
         scores = quick_anomaly_score(data, method="statistical")
 
         assert scores.shape == (50,)
 
-    def test_unknown_method(self, data) -> None:
+    def test_unknown_method(self, data: Any) -> None:
         """Test unknown method raises error."""
         with pytest.raises(ValueError, match="Unknown method"):
             quick_anomaly_score(data, method="unknown")

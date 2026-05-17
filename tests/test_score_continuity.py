@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Unit tests for Issue #7: Score Continuity Fix.
 
@@ -19,7 +21,7 @@ class TestTemporalSoftNormalization:
     """Test that temporal detector preserves score continuity."""
 
     @pytest.fixture
-    def detector(self, deterministic_rng):
+    def detector(self, deterministic_rng: Any) -> Any:
         """Create fitted temporal detector with deterministic data."""
         detector = TemporalAnomalyDetector()
         # Fit on normal baseline data (uses seeded RNG for reproducibility)
@@ -27,7 +29,7 @@ class TestTemporalSoftNormalization:
         detector.fit(normal_data)
         return detector
 
-    def test_extreme_anomalies_differentiated(self, detector) -> None:
+    def test_extreme_anomalies_differentiated(self, detector: Any) -> None:
         """Verify extreme anomalies get different scores (not capped at 1.0).
 
         Issue #7: Previously np.minimum(z_score/3.0, 1.0) capped scores,
@@ -66,7 +68,7 @@ class TestTemporalSoftNormalization:
             severe_score < extreme_score
         ), f"Extreme ({extreme_score:.4f}) should be > severe ({severe_score:.4f})"
 
-    def test_scores_approach_one_asymptotically(self, detector) -> None:
+    def test_scores_approach_one_asymptotically(self, detector: Any) -> None:
         """Verify scores approach 1.0 but never reach it (asymptotic behavior).
 
         Soft normalization x/(k+x) has limit 1.0 as x->infinity.
@@ -83,7 +85,7 @@ class TestTemporalSoftNormalization:
         assert extreme_score > 0.5, f"Extreme anomaly score {extreme_score:.4f} should be > 0.5"
         assert extreme_score < 1.0, f"Score {extreme_score:.6f} should be < 1.0 (asymptotic)"
 
-    def test_soft_normalization_formula(self, detector) -> None:
+    def test_soft_normalization_formula(self, detector: Any) -> None:
         """Verify the specific soft normalization formula z/(k+z) is used."""
         # This tests the implementation detail for regression prevention
         baseline = np.zeros(20, dtype=np.float32)
@@ -98,7 +100,7 @@ class TestTemporalSoftNormalization:
         # Score should be in reasonable range indicating soft normalization
         assert 0.0 < score < 1.0, f"Score {score:.4f} should be in (0, 1)"
 
-    def test_trend_scores_preserve_ordering(self, detector) -> None:
+    def test_trend_scores_preserve_ordering(self, detector: Any) -> None:
         """Test that trend detection also uses soft normalization."""
         # Create data with clear trend anomaly
         normal_trend = np.linspace(0, 1, 50).astype(np.float32)
@@ -116,7 +118,7 @@ class TestDirectiveSoftNormalization:
     """Test that directive detector preserves score continuity."""
 
     @pytest.fixture
-    def detector(self, deterministic_rng):
+    def detector(self, deterministic_rng: Any) -> Any:
         """Create fitted directive detector with deterministic data."""
         detector = SigmaDirectiveDetector()
         # Fit on normal baseline data (uses seeded RNG for reproducibility)
@@ -124,7 +126,7 @@ class TestDirectiveSoftNormalization:
         detector.fit(normal_data)
         return detector
 
-    def test_pcp_extreme_anomalies_differentiated(self, detector) -> None:
+    def test_pcp_extreme_anomalies_differentiated(self, detector: Any) -> None:
         """Verify PCP (Pattern Convergence Protocol) uses soft normalization.
 
         Issue #7: Previously np.minimum(normalized_diffs/threshold, 1.0)
@@ -152,7 +154,7 @@ class TestDirectiveSoftNormalization:
             f"{mild_pcp:.4f} < {moderate_pcp:.4f} < {severe_pcp:.4f} < {extreme_pcp:.4f}"
         )
 
-    def test_rmd_soft_normalization(self, detector, deterministic_rng) -> None:
+    def test_rmd_soft_normalization(self, detector: Any, deterministic_rng: Any) -> None:
         """Verify RMD (Recursive Memory Dynamics) uses soft normalization.
 
         RMD should use deviation/(1+deviation) formula.
@@ -180,7 +182,7 @@ class TestDirectiveSoftNormalization:
             mild_rmd < extreme_rmd
         ), f"RMD should differentiate: mild {mild_rmd:.4f} < extreme {extreme_rmd:.4f}"
 
-    def test_combined_scores_preserve_ranking(self, detector, deterministic_rng) -> None:
+    def test_combined_scores_preserve_ranking(self, detector: Any, deterministic_rng: Any) -> None:
         """Verify combined scores preserve anomaly ranking."""
         normal = deterministic_rng.randn(5, 10).astype(np.float32) * 0.1
         mild_anomaly = np.full((1, 10), 3.0, dtype=np.float32)
@@ -200,7 +202,7 @@ class TestDirectiveSoftNormalization:
             f"mild {mild_score:.4f} < severe {severe_score:.4f}"
         )
 
-    def test_scores_bounded_zero_one(self, detector) -> None:
+    def test_scores_bounded_zero_one(self, detector: Any) -> None:
         """Verify all scores remain in [0, 1] range despite soft normalization."""
         # Test with extreme values
         extreme_data = np.full((10, 10), 1000.0, dtype=np.float32)
@@ -229,7 +231,7 @@ class TestScoreContinuityRegression:
     at 1.0 would violate.
     """
 
-    def test_temporal_extreme_differentiation(self, deterministic_rng) -> None:
+    def test_temporal_extreme_differentiation(self, deterministic_rng: Any) -> None:
         """Verify temporal detector differentiates moderate vs extreme anomalies.
 
         If hard clipping (np.minimum(..., 1.0)) was reintroduced, scores
@@ -258,7 +260,7 @@ class TestScoreContinuityRegression:
         # None should be exactly 1.0 (asymptotic behavior)
         assert score_10x < 1.0, f"Even 10x anomaly should be < 1.0, got {score_10x:.6f}"
 
-    def test_directive_extreme_differentiation(self, deterministic_rng) -> None:
+    def test_directive_extreme_differentiation(self, deterministic_rng: Any) -> None:
         """Verify directive detector differentiates 10x vs 100x vs 1000x anomalies.
 
         If hard clipping was reintroduced in PCP protocol, extreme anomalies
@@ -290,7 +292,7 @@ class TestScoreContinuityRegression:
 class TestScoreContinuityWithAutoCalibration:
     """Test that soft normalization works correctly with auto-calibration."""
 
-    def test_temporal_auto_calibration_with_soft_scores(self, deterministic_rng) -> None:
+    def test_temporal_auto_calibration_with_soft_scores(self, deterministic_rng: Any) -> None:
         """Verify auto-calibration works with continuous soft-normalized scores."""
         detector = TemporalAnomalyDetector()
         data = deterministic_rng.randn(100).astype(np.float32)
@@ -311,7 +313,7 @@ class TestScoreContinuityWithAutoCalibration:
             len(unique_scores) >= 5
         ), f"Expected continuous scores, got only {len(unique_scores)} unique values"
 
-    def test_directive_auto_calibration_with_soft_scores(self, deterministic_rng) -> None:
+    def test_directive_auto_calibration_with_soft_scores(self, deterministic_rng: Any) -> None:
         """Verify auto-calibration works with continuous soft-normalized scores."""
         detector = SigmaDirectiveDetector()
         data = deterministic_rng.randn(100, 10).astype(np.float32)

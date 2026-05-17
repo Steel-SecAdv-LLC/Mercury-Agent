@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -96,27 +97,27 @@ class TestJSONSerialization:
         """Create RedisCache with JSON serializer."""
         return RedisCache(serializer="json", fallback_to_stub=True)
 
-    def test_serialize_json(self, json_cache) -> None:
+    def test_serialize_json(self, json_cache: Any) -> None:
         """Test JSON serialization."""
         serialized = json_cache._serialize({"key": "value", "num": 42})
         assert isinstance(serialized, str)
         parsed = json.loads(serialized)
         assert parsed == {"key": "value", "num": 42}
 
-    def test_deserialize_json(self, json_cache) -> None:
+    def test_deserialize_json(self, json_cache: Any) -> None:
         """Test JSON deserialization."""
         data = json.dumps({"key": "value"})
         result = json_cache._deserialize(data)
         assert result == {"key": "value"}
 
-    def test_json_roundtrip(self, json_cache) -> None:
+    def test_json_roundtrip(self, json_cache: Any) -> None:
         """Test JSON serialize/deserialize round-trip."""
         original = {"list": [1, 2, 3], "str": "hello", "null": None}
         serialized = json_cache._serialize(original)
         deserialized = json_cache._deserialize(serialized)
         assert deserialized == original
 
-    def test_deserialize_none_returns_none(self, json_cache) -> None:
+    def test_deserialize_none_returns_none(self, json_cache: Any) -> None:
         """Missing keys come back from Redis as None; the cache must pass that through."""
         assert json_cache._deserialize(None) is None
 
@@ -145,13 +146,13 @@ class TestJSONSerialization:
             {"a": 1},
         ],
     )
-    def test_json_roundtrip_scalar_and_container_types(self, json_cache, value) -> None:
+    def test_json_roundtrip_scalar_and_container_types(self, json_cache: Any, value: Any) -> None:
         """Every JSON-spec type must round-trip without loss."""
         serialized = json_cache._serialize(value)
         deserialized = json_cache._deserialize(serialized)
         assert deserialized == value
 
-    def test_json_roundtrip_deeply_nested(self, json_cache) -> None:
+    def test_json_roundtrip_deeply_nested(self, json_cache: Any) -> None:
         """Nested containers (dict-of-dict-of-list-of-dict) must round-trip."""
         original = {
             "level1": {
@@ -168,7 +169,7 @@ class TestJSONSerialization:
         assert isinstance(serialized, str)
         assert json_cache._deserialize(serialized) == original
 
-    def test_non_json_value_raises_typeerror(self, json_cache) -> None:
+    def test_non_json_value_raises_typeerror(self, json_cache: Any) -> None:
         """Sets, bytes, datetimes -- the cache MUST refuse loudly, not coerce.
 
         Pickle would have happily serialised any of these; JSON has no
@@ -184,12 +185,12 @@ class TestJSONSerialization:
             with pytest.raises(TypeError):
                 json_cache._serialize(hostile)
 
-    def test_deserialize_malformed_json_raises(self, json_cache) -> None:
+    def test_deserialize_malformed_json_raises(self, json_cache: Any) -> None:
         """Corrupted payloads must raise JSONDecodeError, not return garbage."""
         with pytest.raises(json.JSONDecodeError):
             json_cache._deserialize("{not valid json")
 
-    def test_string_with_dot_safely_roundtrips(self, json_cache) -> None:
+    def test_string_with_dot_safely_roundtrips(self, json_cache: Any) -> None:
         """The old pickle path used '.' as the HMAC/payload separator.
 
         Make sure strings that contain '.' are not split or otherwise
@@ -321,7 +322,7 @@ class TestCacheFactory:
             ("nope", False),
         ],
     )
-    def test_redis_from_env_ssl_parsing(self, raw, expected) -> None:
+    def test_redis_from_env_ssl_parsing(self, raw: Any, expected: Any) -> None:
         """REDIS_SSL must parse as truthy only for documented affirmative values."""
         with patch.dict(os.environ, {"REDIS_SSL": raw}, clear=False):
             cache = RedisCache.from_env()

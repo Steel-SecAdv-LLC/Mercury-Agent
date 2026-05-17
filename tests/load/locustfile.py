@@ -1,23 +1,8 @@
-# mypy: disable-error-code="untyped-decorator,misc"
 """
 Mercury Agent Load Testing Infrastructure
 
 Comprehensive load testing suite using Locust for the Mercury Agent API.
 Tests API performance under various load conditions and validates SLOs.
-
-The ``# mypy: disable-error-code`` pragma at the top of this file silences
-two whole-file boundary effects of running a Locust harness through mypy:
-
-* ``untyped-decorator``: ``@task``, ``@tag``, and ``@events.test_start.add_listener``
-  are framework decorators without public type stubs.  The ``locust.*``
-  third-party boundary is already declared in ``pyproject.toml``; this
-  pragma extends that to the decorators themselves so we do not need to
-  paint every callsite with per-line ``# type: ignore[untyped-decorator]``
-  noise.
-* ``misc``: subclassing ``locust.HttpUser`` (which mypy sees as ``Any``)
-  triggers ``Class cannot subclass "HttpUser" (has type "Any")`` once
-  strict mode is in effect — same root cause, same justification, no
-  weakening of the gate elsewhere because the override is file-local.
 
 Usage:
     # Start Locust web UI (interactive mode)
@@ -119,7 +104,7 @@ def generate_multivariate_data(
 # Custom Event Handlers
 # =============================================================================
 @events.test_start.add_listener
-def on_test_start(environment, **kwargs) -> None:
+def on_test_start(environment: Any, **kwargs: Any) -> None:
     """Log test start and validate configuration."""
     print("\n" + "=" * 60)
     print("Mercury Agent Load Test Starting")
@@ -131,7 +116,7 @@ def on_test_start(environment, **kwargs) -> None:
 
 
 @events.test_stop.add_listener
-def on_test_stop(environment, **kwargs) -> None:
+def on_test_stop(environment: Any, **kwargs: Any) -> None:
     """Validate SLOs after test completion."""
     stats = environment.stats
 

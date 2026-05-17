@@ -10,6 +10,7 @@ Licensed under GPL-3.0-or-later
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import pytest
 
@@ -69,7 +70,7 @@ class TestCorrelationIDIntegration:
         except ImportError:
             pytest.skip("FastAPI test client not available")
 
-    def test_health_endpoint_returns_correlation_id(self, client) -> None:
+    def test_health_endpoint_returns_correlation_id(self, client: Any) -> None:
         """Test that health endpoint returns correlation ID header."""
         response = client.get("/health")
 
@@ -79,7 +80,7 @@ class TestCorrelationIDIntegration:
         correlation_id = response.headers["X-Correlation-ID"]
         uuid.UUID(correlation_id)  # Raises if invalid
 
-    def test_request_duration_header(self, client) -> None:
+    def test_request_duration_header(self, client: Any) -> None:
         """Test that request duration header is present."""
         response = client.get("/health")
 
@@ -87,21 +88,21 @@ class TestCorrelationIDIntegration:
         duration = float(response.headers["X-Request-Duration-Ms"])
         assert duration >= 0
 
-    def test_custom_correlation_id_preserved(self, client) -> None:
+    def test_custom_correlation_id_preserved(self, client: Any) -> None:
         """Test that custom correlation ID is preserved."""
         custom_id = str(uuid.uuid4())
         response = client.get("/health", headers={"X-Correlation-ID": custom_id})
 
         assert response.headers["X-Correlation-ID"] == custom_id
 
-    def test_request_id_alias(self, client) -> None:
+    def test_request_id_alias(self, client: Any) -> None:
         """Test that X-Request-ID alias works."""
         custom_id = str(uuid.uuid4())
         response = client.get("/health", headers={"X-Request-ID": custom_id})
 
         assert response.headers["X-Correlation-ID"] == custom_id
 
-    def test_correlation_id_priority(self, client) -> None:
+    def test_correlation_id_priority(self, client: Any) -> None:
         """Test that X-Correlation-ID takes priority over X-Request-ID."""
         correlation_id = str(uuid.uuid4())
         request_id = str(uuid.uuid4())

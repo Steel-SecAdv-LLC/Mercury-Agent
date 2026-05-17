@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Tests for LSTM Autoencoder anomaly detection module.
 
@@ -179,7 +181,7 @@ class TestAnomalyDetector:
         labels = detector.detect(test_data, threshold=0.0)
         assert np.all(labels == 1)  # All should be anomalies with threshold=0
 
-    def test_save_load(self, tmp_path, monkeypatch) -> None:
+    def test_save_load(self, tmp_path: Any, monkeypatch: Any) -> None:
         """Test model save and load."""
         detector = AnomalyDetector(input_dim=5, seq_len=10, hidden_dim=16, latent_dim=8)
         train_data = np.random.randn(200, 5).astype(np.float32)

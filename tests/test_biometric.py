@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Test biometric model functionality
 """
@@ -38,7 +40,7 @@ def test_biometric_initialization() -> None:
 
 
 @patch("omni_mercury_engine.models.biometric.DeepFace")
-def test_biometric_predict_valid_image(mock_deepface) -> None:
+def test_biometric_predict_valid_image(mock_deepface: Any) -> None:
     """Test biometric prediction with valid image"""
     mock_deepface.analyze.return_value = [
         {
@@ -62,7 +64,7 @@ def test_biometric_predict_valid_image(mock_deepface) -> None:
 
 
 @patch("omni_mercury_engine.models.biometric.DeepFace")
-def test_biometric_extract_features(mock_deepface) -> None:
+def test_biometric_extract_features(mock_deepface: Any) -> None:
     """Test biometric feature extraction"""
     mock_deepface.represent.return_value = [{"embedding": np.random.randn(128).tolist()}]
 
@@ -75,7 +77,7 @@ def test_biometric_extract_features(mock_deepface) -> None:
 
 
 @patch("omni_mercury_engine.models.biometric.DeepFace")
-def test_biometric_predict_error_handling(mock_deepface) -> None:
+def test_biometric_predict_error_handling(mock_deepface: Any) -> None:
     """Test biometric error handling"""
     mock_deepface.analyze.side_effect = Exception("Face not detected")
 

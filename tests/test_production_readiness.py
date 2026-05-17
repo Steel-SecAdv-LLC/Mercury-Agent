@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import logging
 import textwrap
+from typing import Any
 
 import numpy as np
 import pytest
@@ -618,7 +619,7 @@ class TestLearnable3RFit:
         config = Learnable3RConfig(hidden_dim=16)
         return Learnable3REngine(config=config, device="cpu")
 
-    def test_fit_returns_history(self, engine) -> None:
+    def test_fit_returns_history(self, engine: Any) -> None:
         X = np.random.randn(50, 4).astype(np.float32)
         y = np.random.randn(50).astype(np.float32)
 
@@ -651,7 +652,7 @@ class TestLearnable3RFit:
         # And ``stopped_early`` must reflect that.
         assert history["stopped_early"] is False
 
-    def test_fit_loss_decreases(self, engine) -> None:
+    def test_fit_loss_decreases(self, engine: Any) -> None:
         # Generate a simple learnable pattern
         rng = np.random.default_rng(123)
         X = rng.standard_normal((100, 4)).astype(np.float32)
@@ -662,7 +663,7 @@ class TestLearnable3RFit:
         # First loss should be higher than last
         assert history["train_losses"][0] > history["train_losses"][-1]
 
-    def test_early_stopping(self, engine) -> None:
+    def test_early_stopping(self, engine: Any) -> None:
         # Random data has no learnable signal, so val_loss plateaus quickly.
         # min_delta=0.01 ensures the patience counter actually advances once
         # improvements become small — at min_delta=1e-10 the test was
@@ -687,7 +688,7 @@ class TestLearnable3RFit:
         assert history["stopped_early"] is True
         assert len(history["train_losses"]) == len(history["val_losses"])
 
-    def test_best_epoch_checkpoint_restored(self, engine) -> None:
+    def test_best_epoch_checkpoint_restored(self, engine: Any) -> None:
         X = np.random.randn(80, 4).astype(np.float32)
         y = np.random.randn(80).astype(np.float32)
 
@@ -698,7 +699,7 @@ class TestLearnable3RFit:
         best_epoch = history["best_epoch"]
         assert history["val_losses"][best_epoch] == history["best_val_loss"]
 
-    def test_fit_requires_minimum_samples(self, engine) -> None:
+    def test_fit_requires_minimum_samples(self, engine: Any) -> None:
         X = np.array([[1.0, 2.0, 3.0, 4.0]])
         y = np.array([1.0])
 
@@ -717,7 +718,7 @@ class TestLearnable3RFit:
         # ``None`` here exercises that branch.  The ``type: ignore`` mirrors
         # the matching pragma in the source (``learnable_fusion.py:570``).
         engine = Learnable3REngine.__new__(Learnable3REngine)
-        engine.model = None  # type: ignore[assignment]
+        engine.model = None
 
         history = engine.fit(np.zeros((10, 4)), np.zeros(10))
         assert history["train_losses"] == []
@@ -755,7 +756,7 @@ class TestAttentionProvider:
         optimizer = GOSNNOptimizer(attention_provider=provider)
         assert optimizer._attention_provider is provider
 
-    def test_placeholder_warning_when_no_provider(self, caplog) -> None:
+    def test_placeholder_warning_when_no_provider(self, caplog: Any) -> None:
         from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
             reset_global_network,
@@ -784,7 +785,7 @@ class TestAttentionProvider:
 class TestBenchmarkDiagnosticsLogging:
     """Tests that quick_diagnose uses logger, not print."""
 
-    def test_quick_diagnose_uses_logger(self, caplog) -> None:
+    def test_quick_diagnose_uses_logger(self, caplog: Any) -> None:
         from omni_mercury_engine.evaluation.benchmark_diagnostics import (
             BenchmarkDiagnostics,
         )
@@ -806,7 +807,7 @@ class TestBenchmarkDiagnosticsLogging:
         assert "TestDetector" in caplog.text
         assert "Precision" in caplog.text
 
-    def test_quick_diagnose_f1_zero_warning(self, caplog) -> None:
+    def test_quick_diagnose_f1_zero_warning(self, caplog: Any) -> None:
         from omni_mercury_engine.evaluation.benchmark_diagnostics import (
             BenchmarkDiagnostics,
         )

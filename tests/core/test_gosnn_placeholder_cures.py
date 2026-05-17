@@ -20,6 +20,8 @@ Pins three contracts called out by docs/COMPREHENSIVE_REPO_AUDIT.md:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -111,7 +113,7 @@ class TestConformalPropagation:
         # ``confidence_intervals=None``; the contract now is to
         # propagate so callers cannot silently miss the failure.
         class _BoomConformal:
-            def predict(self, X) -> None:
+            def predict(self, X: Any) -> None:
                 raise ValueError("calibration history exhausted")
 
         integration._conformal = _BoomConformal()  # type: ignore[assignment]

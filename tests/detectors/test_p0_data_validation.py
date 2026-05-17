@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 P0 Data Validation Tests
 
@@ -144,12 +146,12 @@ class TestNaNInfHandling:
     """Test NaN/Inf sanitization across all detector types."""
 
     @pytest.fixture
-    def normal_data(self, deterministic_rng):
+    def normal_data(self, deterministic_rng: Any) -> Any:
         """Generate normal training data."""
         return deterministic_rng.randn(100, 10)
 
     @pytest.fixture
-    def data_with_nan(self, deterministic_rng):
+    def data_with_nan(self, deterministic_rng: Any) -> Any:
         """Generate test data containing NaN values."""
         data = deterministic_rng.randn(50, 10)
         data[5, 3] = np.nan
@@ -158,7 +160,7 @@ class TestNaNInfHandling:
         return data
 
     @pytest.fixture
-    def data_with_inf(self, deterministic_rng):
+    def data_with_inf(self, deterministic_rng: Any) -> Any:
         """Generate test data containing Inf values."""
         data = deterministic_rng.randn(50, 10)
         data[10, 2] = np.inf
@@ -166,7 +168,7 @@ class TestNaNInfHandling:
         return data
 
     @pytest.fixture
-    def data_with_nan_and_inf(self, deterministic_rng):
+    def data_with_nan_and_inf(self, deterministic_rng: Any) -> Any:
         """Generate test data containing both NaN and Inf values."""
         data = deterministic_rng.randn(50, 10)
         data[5, 3] = np.nan
@@ -175,7 +177,9 @@ class TestNaNInfHandling:
         return data
 
     # --- Temporal Detector Tests ---
-    def test_temporal_nan_input_produces_finite_scores(self, normal_data, data_with_nan) -> None:
+    def test_temporal_nan_input_produces_finite_scores(
+        self, normal_data: Any, data_with_nan: Any
+    ) -> None:
         """TemporalAnomalyDetector should produce finite scores with NaN input."""
         detector = TemporalAnomalyDetector()
         # Flatten for 1D temporal analysis
@@ -185,7 +189,9 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
         assert result["scores"].shape[0] == data_with_nan.shape[0]
 
-    def test_temporal_inf_input_produces_finite_scores(self, normal_data, data_with_inf) -> None:
+    def test_temporal_inf_input_produces_finite_scores(
+        self, normal_data: Any, data_with_inf: Any
+    ) -> None:
         """TemporalAnomalyDetector should produce finite scores with Inf input."""
         detector = TemporalAnomalyDetector()
         detector.fit(normal_data[:, 0])
@@ -194,7 +200,9 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
 
     # --- Spatial Detector Tests ---
-    def test_spatial_nan_input_produces_finite_scores(self, normal_data, data_with_nan) -> None:
+    def test_spatial_nan_input_produces_finite_scores(
+        self, normal_data: Any, data_with_nan: Any
+    ) -> None:
         """SpatialAnomalyDetector should produce finite scores with NaN input."""
         detector = SpatialAnomalyDetector()
         # Use 2D spatial data
@@ -238,7 +246,7 @@ class TestNaNInfHandling:
         assert np.allclose(normalized, 0.5), "Zero array should normalize to 0.5"
 
     # --- Dimensional Detector Tests ---
-    def test_dimensional_nan_produces_finite_scores(self, normal_data) -> None:
+    def test_dimensional_nan_produces_finite_scores(self, normal_data: Any) -> None:
         """DimensionalAnalyzer should produce finite scores even with edge cases."""
         detector = DimensionalAnalyzer()
         detector.fit(normal_data)
@@ -247,7 +255,7 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
         assert np.all(result["scores"] >= 0.0) and np.all(result["scores"] <= 1.0)
 
-    def test_dimensional_constant_input_produces_valid_scores(self, deterministic_rng) -> None:
+    def test_dimensional_constant_input_produces_valid_scores(self, deterministic_rng: Any) -> None:
         """DimensionalAnalyzer should handle constant input gracefully."""
         detector = DimensionalAnalyzer()
 
@@ -262,7 +270,7 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(result["scores"])), "Constant input produced NaN/Inf"
 
     # --- Statistical Detector Tests ---
-    def test_statistical_produces_finite_scores(self, normal_data) -> None:
+    def test_statistical_produces_finite_scores(self, normal_data: Any) -> None:
         """MercuryAnomalyDetector should produce finite scores."""
         detector = MercuryAnomalyDetector()
         detector.fit(normal_data)
@@ -307,7 +315,7 @@ class TestEmptyDataValidation:
         with pytest.raises(DetectorException, match="all data values are NaN or Inf"):
             detector.fit(all_inf)
 
-    def test_partial_nan_rows_filtered(self, deterministic_rng) -> None:
+    def test_partial_nan_rows_filtered(self, deterministic_rng: Any) -> None:
         """Rows with NaN should be filtered, valid rows used for fitting."""
         detector = MercuryAnomalyDetector()
 
@@ -478,11 +486,11 @@ class TestScoreRangeValidation:
     """Test that detector scores are in valid [0, 1] range after normalization."""
 
     @pytest.fixture
-    def normal_data(self, deterministic_rng):
+    def normal_data(self, deterministic_rng: Any) -> Any:
         """Generate normal training data."""
         return deterministic_rng.randn(100, 10)
 
-    def test_spatial_scores_in_range(self, normal_data) -> None:
+    def test_spatial_scores_in_range(self, normal_data: Any) -> None:
         """SpatialAnomalyDetector scores should be in [0, 1]."""
         detector = SpatialAnomalyDetector()
         detector.fit(normal_data[:, :2])
@@ -491,7 +499,7 @@ class TestScoreRangeValidation:
         assert np.all(result["scores"] >= 0.0), "Scores below 0"
         assert np.all(result["scores"] <= 1.0), "Scores above 1"
 
-    def test_dimensional_scores_in_range(self, normal_data) -> None:
+    def test_dimensional_scores_in_range(self, normal_data: Any) -> None:
         """DimensionalAnalyzer scores should be in [0, 1]."""
         detector = DimensionalAnalyzer()
         detector.fit(normal_data)
@@ -500,7 +508,7 @@ class TestScoreRangeValidation:
         assert np.all(result["scores"] >= 0.0), "Scores below 0"
         assert np.all(result["scores"] <= 1.0), "Scores above 1"
 
-    def test_temporal_scores_in_range(self, normal_data) -> None:
+    def test_temporal_scores_in_range(self, normal_data: Any) -> None:
         """TemporalAnomalyDetector scores should be in [0, 1]."""
         detector = TemporalAnomalyDetector()
         detector.fit(normal_data[:, 0])
@@ -509,7 +517,7 @@ class TestScoreRangeValidation:
         assert np.all(result["scores"] >= 0.0), "Scores below 0"
         assert np.all(result["scores"] <= 1.0), "Scores above 1"
 
-    def test_statistical_scores_in_range(self, normal_data) -> None:
+    def test_statistical_scores_in_range(self, normal_data: Any) -> None:
         """MercuryAnomalyDetector scores should be in [0, 1]."""
         detector = MercuryAnomalyDetector()
         detector.fit(normal_data)
@@ -525,7 +533,7 @@ class TestScoreRangeValidation:
 class TestEdgeCases:
     """Test edge cases that could cause numerical issues."""
 
-    def test_single_sample_detection(self, deterministic_rng) -> None:
+    def test_single_sample_detection(self, deterministic_rng: Any) -> None:
         """Detectors should handle single-sample detection."""
         detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 5)
@@ -537,7 +545,7 @@ class TestEdgeCases:
         assert result["scores"].shape[0] == 1
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_high_dimensional_data(self, deterministic_rng) -> None:
+    def test_high_dimensional_data(self, deterministic_rng: Any) -> None:
         """Detectors should handle high-dimensional data."""
         detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 500)  # 500 features
@@ -548,7 +556,7 @@ class TestEdgeCases:
 
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_very_small_values(self, deterministic_rng) -> None:
+    def test_very_small_values(self, deterministic_rng: Any) -> None:
         """Detectors should handle very small values without underflow."""
         detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 10) * 1e-10
@@ -559,7 +567,7 @@ class TestEdgeCases:
 
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_very_large_values(self, deterministic_rng) -> None:
+    def test_very_large_values(self, deterministic_rng: Any) -> None:
         """Detectors should handle very large values without overflow."""
         detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 10) * 1e6
@@ -570,7 +578,7 @@ class TestEdgeCases:
 
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_mixed_scale_features(self, deterministic_rng) -> None:
+    def test_mixed_scale_features(self, deterministic_rng: Any) -> None:
         """Detectors should handle features with vastly different scales."""
         detector = MercuryAnomalyDetector()
         train_data = np.column_stack(

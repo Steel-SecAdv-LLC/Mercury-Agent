@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """Tests for Validation Pipeline and Data Loaders."""
 
 from unittest.mock import Mock
@@ -67,12 +69,12 @@ class TestNSLKDDLoader:
         """Create NSLKDDLoader instance."""
         return NSLKDDLoader()
 
-    def test_initialization(self, loader) -> None:
+    def test_initialization(self, loader: Any) -> None:
         """Test loader initialization."""
         assert loader is not None
         assert hasattr(loader, "load")
 
-    def test_load_synthetic_data(self, loader) -> None:
+    def test_load_synthetic_data(self, loader: Any) -> None:
         """Test loading synthetic data."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=1000)
 
@@ -82,7 +84,7 @@ class TestNSLKDDLoader:
         assert data.shape[0] == 1000
         assert len(labels) == 1000
 
-    def test_synthetic_data_shape(self, loader) -> None:
+    def test_synthetic_data_shape(self, loader: Any) -> None:
         """Test shape of synthetic data."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=500)
 
@@ -90,19 +92,19 @@ class TestNSLKDDLoader:
         assert len(labels) == 500
         assert data.shape[1] == len(loader.FEATURE_NAMES)
 
-    def test_feature_names(self, loader) -> None:
+    def test_feature_names(self, loader: Any) -> None:
         """Test that feature names are provided."""
         assert len(loader.FEATURE_NAMES) > 0
         assert "duration" in loader.FEATURE_NAMES
 
-    def test_label_distribution(self, loader) -> None:
+    def test_label_distribution(self, loader: Any) -> None:
         """Test label distribution in synthetic data."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=1000)
 
         unique_labels = np.unique(labels)
         assert len(unique_labels) == 2
 
-    def test_metadata_populated(self, loader) -> None:
+    def test_metadata_populated(self, loader: Any) -> None:
         """Test that metadata is properly populated."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=1000)
 
@@ -110,7 +112,7 @@ class TestNSLKDDLoader:
         assert metadata.num_samples == 1000
         assert metadata.anomaly_ratio > 0
 
-    def test_train_test_split(self, loader) -> None:
+    def test_train_test_split(self, loader: Any) -> None:
         """Test train/test split functionality."""
         loader.load(use_synthetic=True, n_samples=1000)
         X_train, X_test, y_train, y_test = loader.get_train_test_split(test_size=0.2)
@@ -129,12 +131,12 @@ class TestUSGSEarthquakeLoader:
         """Create USGSEarthquakeLoader instance."""
         return USGSEarthquakeLoader()
 
-    def test_initialization(self, loader) -> None:
+    def test_initialization(self, loader: Any) -> None:
         """Test loader initialization."""
         assert loader is not None
         assert hasattr(loader, "load")
 
-    def test_load_synthetic_data(self, loader) -> None:
+    def test_load_synthetic_data(self, loader: Any) -> None:
         """Test loading synthetic earthquake data."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=500)
 
@@ -142,14 +144,14 @@ class TestUSGSEarthquakeLoader:
         assert labels is not None
         assert metadata is not None
 
-    def test_synthetic_earthquake_features(self, loader) -> None:
+    def test_synthetic_earthquake_features(self, loader: Any) -> None:
         """Test synthetic earthquake feature generation."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=500)
 
         assert data.shape[0] == 500
         assert data.shape[1] == len(loader.FEATURE_NAMES)
 
-    def test_magnitude_in_features(self, loader) -> None:
+    def test_magnitude_in_features(self, loader: Any) -> None:
         """Test that magnitude is first feature."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=100)
 
@@ -157,7 +159,7 @@ class TestUSGSEarthquakeLoader:
         assert np.all(magnitudes >= 0)
         assert np.all(magnitudes <= 10)
 
-    def test_metadata_populated(self, loader) -> None:
+    def test_metadata_populated(self, loader: Any) -> None:
         """Test that metadata is properly populated."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=500)
 
@@ -173,12 +175,12 @@ class TestMIMICLoader:
         """Create MIMICLoader instance."""
         return MIMICLoader()
 
-    def test_initialization(self, loader) -> None:
+    def test_initialization(self, loader: Any) -> None:
         """Test loader initialization."""
         assert loader is not None
         assert hasattr(loader, "load")
 
-    def test_load_synthetic_data(self, loader) -> None:
+    def test_load_synthetic_data(self, loader: Any) -> None:
         """Test loading synthetic medical data."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=200)
 
@@ -186,13 +188,13 @@ class TestMIMICLoader:
         assert labels is not None
         assert metadata is not None
 
-    def test_synthetic_medical_features(self, loader) -> None:
+    def test_synthetic_medical_features(self, loader: Any) -> None:
         """Test synthetic medical feature generation."""
         data, labels, metadata = loader.load(use_synthetic=True, n_samples=200)
 
         assert data.shape[0] == 200
 
-    def test_irb_status_check(self, loader) -> None:
+    def test_irb_status_check(self, loader: Any) -> None:
         """Test IRB status check method."""
         status = loader.check_irb_status()
         assert status is not None
@@ -242,60 +244,60 @@ class TestDataQualityChecker:
         data[50:55, 1] = 1000.0
         return data
 
-    def test_initialization(self, checker) -> None:
+    def test_initialization(self, checker: Any) -> None:
         """Test checker initialization."""
         assert checker is not None
         assert hasattr(checker, "run_all_checks")
 
-    def test_run_all_checks(self, checker, clean_data, clean_labels) -> None:
+    def test_run_all_checks(self, checker: Any, clean_data: Any, clean_labels: Any) -> None:
         """Test running all quality checks."""
         results = checker.run_all_checks(clean_data, clean_labels)
 
         assert len(results) == 6
         assert all(isinstance(r, QualityCheckResult) for r in results)
 
-    def test_check_missing_values_clean(self, checker, clean_data) -> None:
+    def test_check_missing_values_clean(self, checker: Any, clean_data: Any) -> None:
         """Test missing value check on clean data."""
         result = checker.check_missing_values(clean_data)
 
         assert result.passed == True  # noqa: E712 - numpy.bool_ identity check fails
         assert result.score == 1.0
 
-    def test_check_missing_values_dirty(self, checker, dirty_data) -> None:
+    def test_check_missing_values_dirty(self, checker: Any, dirty_data: Any) -> None:
         """Test missing value check on dirty data."""
         result = checker.check_missing_values(dirty_data)
 
         assert result.details["missing_count"] > 0
 
-    def test_check_outliers(self, checker, clean_data) -> None:
+    def test_check_outliers(self, checker: Any, clean_data: Any) -> None:
         """Test outlier detection."""
         result = checker.check_outliers(clean_data)
 
         assert isinstance(result, QualityCheckResult)
         assert result.check_name == "outliers"
 
-    def test_check_feature_variance(self, checker, clean_data) -> None:
+    def test_check_feature_variance(self, checker: Any, clean_data: Any) -> None:
         """Test feature variance check."""
         result = checker.check_feature_variance(clean_data)
 
         assert isinstance(result, QualityCheckResult)
         assert result.check_name == "feature_variance"
 
-    def test_check_class_balance(self, checker, clean_labels) -> None:
+    def test_check_class_balance(self, checker: Any, clean_labels: Any) -> None:
         """Test class balance check."""
         result = checker.check_class_balance(clean_labels)
 
         assert isinstance(result, QualityCheckResult)
         assert result.check_name == "class_balance"
 
-    def test_check_feature_correlation(self, checker, clean_data) -> None:
+    def test_check_feature_correlation(self, checker: Any, clean_data: Any) -> None:
         """Test feature correlation check."""
         result = checker.check_feature_correlation(clean_data)
 
         assert isinstance(result, QualityCheckResult)
         assert result.check_name == "feature_correlation"
 
-    def test_check_data_range(self, checker, clean_data) -> None:
+    def test_check_data_range(self, checker: Any, clean_data: Any) -> None:
         """Test data range check."""
         result = checker.check_data_range(clean_data)
 
@@ -332,12 +334,12 @@ class TestABTester:
         """Create ABTester instance."""
         return ABTester()
 
-    def test_initialization(self, tester) -> None:
+    def test_initialization(self, tester: Any) -> None:
         """Test tester initialization."""
         assert tester is not None
         assert hasattr(tester, "compare_models")
 
-    def test_compare_models(self, tester) -> None:
+    def test_compare_models(self, tester: Any) -> None:
         """Test model comparison."""
         model_a_scores = np.array([0.80, 0.82, 0.81, 0.83, 0.79])
         model_b_scores = np.array([0.85, 0.87, 0.86, 0.88, 0.84])
@@ -347,7 +349,7 @@ class TestABTester:
         assert isinstance(result, ABTestResult)
         assert result.model_b_score > result.model_a_score
 
-    def test_compare_equal_models(self, tester) -> None:
+    def test_compare_equal_models(self, tester: Any) -> None:
         """Test comparison of equal models."""
         scores = np.array([0.85, 0.85, 0.85, 0.85, 0.85])
 
@@ -356,7 +358,7 @@ class TestABTester:
         assert isinstance(result, ABTestResult)
         assert result.improvement == 0.0
 
-    def test_statistical_significance(self, tester) -> None:
+    def test_statistical_significance(self, tester: Any) -> None:
         """Test statistical significance calculation."""
         model_a_scores = np.array([0.80, 0.82, 0.81, 0.83, 0.79])
         model_b_scores = np.array([0.85, 0.87, 0.86, 0.88, 0.84])
@@ -415,12 +417,12 @@ class TestValidationPipeline:
         model.predict_proba = Mock(side_effect=lambda X: np.random.rand(len(X), 2))
         return model
 
-    def test_initialization(self, pipeline) -> None:
+    def test_initialization(self, pipeline: Any) -> None:
         """Test pipeline initialization."""
         assert pipeline is not None
         assert hasattr(pipeline, "validate")
 
-    def test_validate(self, pipeline, sample_data, sample_model) -> None:
+    def test_validate(self, pipeline: Any, sample_data: Any, sample_model: Any) -> None:
         """Test validation."""
         X, y = sample_data
         result = pipeline.validate(sample_model, X, y)
@@ -429,21 +431,27 @@ class TestValidationPipeline:
         assert result.num_samples == 100
         assert result.num_features == 10
 
-    def test_validate_with_quality_checks(self, pipeline, sample_data, sample_model) -> None:
+    def test_validate_with_quality_checks(
+        self, pipeline: Any, sample_data: Any, sample_model: Any
+    ) -> None:
         """Test validation with quality checks."""
         X, y = sample_data
         result = pipeline.validate(sample_model, X, y, run_quality_checks=True)
 
         assert len(result.quality_checks) > 0
 
-    def test_validate_without_quality_checks(self, pipeline, sample_data, sample_model) -> None:
+    def test_validate_without_quality_checks(
+        self, pipeline: Any, sample_data: Any, sample_model: Any
+    ) -> None:
         """Test validation without quality checks."""
         X, y = sample_data
         result = pipeline.validate(sample_model, X, y, run_quality_checks=False)
 
         assert len(result.quality_checks) == 0
 
-    def test_cross_validation_scores(self, pipeline, sample_data, sample_model) -> None:
+    def test_cross_validation_scores(
+        self, pipeline: Any, sample_data: Any, sample_model: Any
+    ) -> None:
         """Test cross-validation scores are computed."""
         X, y = sample_data
         result = pipeline.validate(sample_model, X, y)
@@ -524,7 +532,7 @@ class TestValidationEdgeCases:
         """Create ValidationPipeline instance."""
         return ValidationPipeline()
 
-    def test_single_sample(self, pipeline) -> None:
+    def test_single_sample(self, pipeline: Any) -> None:
         """Test validation with minimal samples."""
         X = np.random.randn(10, 5)
         y = np.random.randint(0, 2, 10)
@@ -537,7 +545,7 @@ class TestValidationEdgeCases:
         result = pipeline.validate(model, X, y)
         assert isinstance(result, ValidationResult)
 
-    def test_high_dimensional_data(self, pipeline) -> None:
+    def test_high_dimensional_data(self, pipeline: Any) -> None:
         """Test validation with high-dimensional data."""
         X = np.random.randn(100, 100)
         y = np.random.randint(0, 2, 100)
@@ -551,7 +559,7 @@ class TestValidationEdgeCases:
         assert isinstance(result, ValidationResult)
         assert result.num_features == 100
 
-    def test_imbalanced_labels(self, pipeline) -> None:
+    def test_imbalanced_labels(self, pipeline: Any) -> None:
         """Test validation with imbalanced labels."""
         X = np.random.randn(100, 10)
         y = np.array([0] * 95 + [1] * 5)

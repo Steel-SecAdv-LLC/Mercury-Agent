@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Unit tests for signal integrity fixes.
 
@@ -37,7 +39,7 @@ class TestContinuousScores:
         """Create a MercuryAnomalyDetector instance."""
         return MercuryAnomalyDetector()
 
-    def test_scores_are_continuous(self, detector, toy_data) -> None:
+    def test_scores_are_continuous(self, detector: Any, toy_data: Any) -> None:
         """Verify scores have more than 5 unique values.
 
         Issue #3 caused only 5 discrete values: {0.0, 0.3, 0.4, 0.7, 1.0}.
@@ -56,7 +58,7 @@ class TestContinuousScores:
             f"got {len(unique_scores)}: {sorted(unique_scores)[:10]}"
         )
 
-    def test_scores_in_valid_range(self, detector, toy_data) -> None:
+    def test_scores_in_valid_range(self, detector: Any, toy_data: Any) -> None:
         """Verify all scores are in [0, 1] range."""
         X, _ = toy_data
         detector.fit(X)
@@ -66,7 +68,7 @@ class TestContinuousScores:
         assert scores.min() >= 0.0, f"Min score {scores.min()} < 0"
         assert scores.max() <= 1.0, f"Max score {scores.max()} > 1"
 
-    def test_continuous_z_scores_exist(self, detector, toy_data) -> None:
+    def test_continuous_z_scores_exist(self, detector: Any, toy_data: Any) -> None:
         """Verify z_score_continuous key exists and is continuous."""
         X, _ = toy_data
         detector.fit(X)
@@ -79,7 +81,7 @@ class TestContinuousScores:
         # Should have many unique values
         assert len(unique_z) > 5, f"z_score_continuous has only {len(unique_z)} unique values"
 
-    def test_iqr_scores_exist_and_continuous(self, detector, toy_data) -> None:
+    def test_iqr_scores_exist_and_continuous(self, detector: Any, toy_data: Any) -> None:
         """Verify iqr_scores key exists and is continuous."""
         X, _ = toy_data
         detector.fit(X)
@@ -92,7 +94,7 @@ class TestContinuousScores:
         # Should have more than boolean (0, 1) values
         assert len(unique_iqr) >= 2, "IQR scores should have variance"
 
-    def test_isolation_forest_scores_continuous(self, detector, toy_data) -> None:
+    def test_isolation_forest_scores_continuous(self, detector: Any, toy_data: Any) -> None:
         """Verify isolation_forest_scores key exists and is continuous.
 
         Note: isolation_forest_scores is now an alias for the resonance score
@@ -111,7 +113,7 @@ class TestContinuousScores:
             len(unique_if) > 5
         ), f"IF scores should be continuous, got {len(unique_if)} unique values"
 
-    def test_backward_compatibility(self, detector, toy_data) -> None:
+    def test_backward_compatibility(self, detector: Any, toy_data: Any) -> None:
         """Verify legacy keys still exist for backward compatibility."""
         X, _ = toy_data
         detector.fit(X)
@@ -145,7 +147,7 @@ class TestROCAUCImprovement:
         idx = np.random.RandomState(42).permutation(len(X))
         return X[idx], y[idx]
 
-    def test_roc_auc_above_baseline(self, separable_data) -> None:
+    def test_roc_auc_above_baseline(self, separable_data: Any) -> None:
         """Verify ROC-AUC is significantly above random (0.5)."""
         X, y = separable_data
         detector = MercuryAnomalyDetector()
@@ -158,7 +160,7 @@ class TestROCAUCImprovement:
         # Should be well above random chance
         assert auc > 0.6, f"Expected ROC-AUC >0.6, got {auc:.3f}"
 
-    def test_continuous_scores_better_than_discrete(self, separable_data) -> None:
+    def test_continuous_scores_better_than_discrete(self, separable_data: Any) -> None:
         """Verify continuous scores outperform simulated discrete scores."""
         X, y = separable_data
         detector = MercuryAnomalyDetector()

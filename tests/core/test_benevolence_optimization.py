@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
@@ -126,7 +128,7 @@ class TestEthicalGatingForms:
         config = GatingFormConfig(form_type=GatingFormType.QUADRATIC)
         return EthicalGatingForms(config)
 
-    def test_quadratic_below_threshold(self, gating_forms) -> None:
+    def test_quadratic_below_threshold(self, gating_forms: Any) -> None:
         """Test quadratic form below threshold."""
         sigma = 0.90
         result = gating_forms.quadratic(sigma)
@@ -143,7 +145,7 @@ class TestEthicalGatingForms:
         assert result.gradient is not None
         assert abs(result.gradient - expected_gradient) < 1e-10
 
-    def test_quadratic_above_threshold(self, gating_forms) -> None:
+    def test_quadratic_above_threshold(self, gating_forms: Any) -> None:
         """Test quadratic form above threshold."""
         sigma = 0.98
         result = gating_forms.quadratic(sigma)
@@ -152,7 +154,7 @@ class TestEthicalGatingForms:
         assert result.penalty == 0.0
         assert result.gradient == 0.0
 
-    def test_quadratic_at_threshold(self, gating_forms) -> None:
+    def test_quadratic_at_threshold(self, gating_forms: Any) -> None:
         """Test quadratic form exactly at threshold."""
         sigma = SIGMA_IMMUTABLE_DEFAULT
         result = gating_forms.quadratic(sigma)
@@ -161,7 +163,7 @@ class TestEthicalGatingForms:
         assert result.penalty == 0.0
         assert result.gradient == 0.0
 
-    def test_linear_below_threshold(self, gating_forms) -> None:
+    def test_linear_below_threshold(self, gating_forms: Any) -> None:
         """Test linear form below threshold."""
         sigma = 0.90
         result = gating_forms.linear(sigma)
@@ -172,7 +174,7 @@ class TestEthicalGatingForms:
         assert abs(result.penalty - expected_penalty) < 1e-10
         assert result.gradient == -1.0
 
-    def test_linear_above_threshold(self, gating_forms) -> None:
+    def test_linear_above_threshold(self, gating_forms: Any) -> None:
         """Test linear form above threshold."""
         sigma = 0.98
         result = gating_forms.linear(sigma)
@@ -181,7 +183,7 @@ class TestEthicalGatingForms:
         assert result.penalty == 0.0
         assert result.gradient == 0.0
 
-    def test_sigmoid_below_threshold(self, gating_forms) -> None:
+    def test_sigmoid_below_threshold(self, gating_forms: Any) -> None:
         """Test sigmoid form below threshold."""
         sigma = 0.90
         result = gating_forms.sigmoid(sigma)
@@ -191,7 +193,7 @@ class TestEthicalGatingForms:
         assert result.penalty > 0.5
         assert result.gradient is not None
 
-    def test_sigmoid_above_threshold(self, gating_forms) -> None:
+    def test_sigmoid_above_threshold(self, gating_forms: Any) -> None:
         """Test sigmoid form above threshold."""
         sigma = 0.98
         result = gating_forms.sigmoid(sigma)
@@ -200,7 +202,7 @@ class TestEthicalGatingForms:
         assert result.penalty < 0.5
         assert result.passes_gate
 
-    def test_sigmoid_at_threshold(self, gating_forms) -> None:
+    def test_sigmoid_at_threshold(self, gating_forms: Any) -> None:
         """Test sigmoid form exactly at threshold."""
         sigma = SIGMA_IMMUTABLE_DEFAULT
         result = gating_forms.sigmoid(sigma)
@@ -208,7 +210,7 @@ class TestEthicalGatingForms:
         # At threshold, sigmoid should be exactly 0.5
         assert abs(result.penalty - 0.5) < 1e-10
 
-    def test_exponential_below_threshold(self, gating_forms) -> None:
+    def test_exponential_below_threshold(self, gating_forms: Any) -> None:
         """Test exponential form below threshold."""
         sigma = 0.90
         result = gating_forms.exponential(sigma)
@@ -218,7 +220,7 @@ class TestEthicalGatingForms:
         assert result.penalty > 1.0  # Exponential increases below threshold
         assert result.gradient > 0  # Positive gradient (penalty increases as sigma decreases)
 
-    def test_exponential_above_threshold(self, gating_forms) -> None:
+    def test_exponential_above_threshold(self, gating_forms: Any) -> None:
         """Test exponential form above threshold."""
         sigma = 0.98
         result = gating_forms.exponential(sigma)
@@ -227,7 +229,7 @@ class TestEthicalGatingForms:
         assert result.penalty == 1.0  # Minimal penalty at/above threshold
         assert result.gradient == 0.0
 
-    def test_piecewise_small_deviation(self, gating_forms) -> None:
+    def test_piecewise_small_deviation(self, gating_forms: Any) -> None:
         """Test piecewise form with small deviation (linear regime)."""
         # Small deviation: threshold - sigma < delta (0.05)
         sigma = 0.93  # deviation = 0.03 < 0.05
@@ -240,7 +242,7 @@ class TestEthicalGatingForms:
         assert abs(result.penalty - expected_penalty) < 1e-10
         assert result.gradient == -1.0
 
-    def test_piecewise_large_deviation(self, gating_forms) -> None:
+    def test_piecewise_large_deviation(self, gating_forms: Any) -> None:
         """Test piecewise form with large deviation (quadratic regime)."""
         # Large deviation: threshold - sigma >= delta (0.05)
         sigma = 0.85  # deviation = 0.11 >= 0.05
@@ -249,7 +251,7 @@ class TestEthicalGatingForms:
         assert result.passes_gate is False
         assert result.metadata["regime"] == "quadratic"
 
-    def test_piecewise_above_threshold(self, gating_forms) -> None:
+    def test_piecewise_above_threshold(self, gating_forms: Any) -> None:
         """Test piecewise form above threshold."""
         sigma = 0.98
         result = gating_forms.piecewise(sigma)
@@ -258,7 +260,7 @@ class TestEthicalGatingForms:
         assert result.penalty == 0.0
         assert result.gradient == 0.0
 
-    def test_gaussian_rbf_below_threshold(self, gating_forms) -> None:
+    def test_gaussian_rbf_below_threshold(self, gating_forms: Any) -> None:
         """Test Gaussian RBF form below threshold."""
         sigma = 0.90
         result = gating_forms.gaussian_rbf(sigma)
@@ -269,7 +271,7 @@ class TestEthicalGatingForms:
         # with variance=0.05 and threshold=0.96 (distance=0.06)
         assert result.penalty >= 0  # Penalty should be non-negative
 
-    def test_gaussian_rbf_at_threshold(self, gating_forms) -> None:
+    def test_gaussian_rbf_at_threshold(self, gating_forms: Any) -> None:
         """Test Gaussian RBF form at threshold."""
         sigma = SIGMA_IMMUTABLE_DEFAULT
         result = gating_forms.gaussian_rbf(sigma)
@@ -277,7 +279,7 @@ class TestEthicalGatingForms:
         # At threshold, inverted gaussian = 1 - 1 = 0
         assert abs(result.penalty) < 1e-10
 
-    def test_apply_method(self, gating_forms) -> None:
+    def test_apply_method(self, gating_forms: Any) -> None:
         """Test the apply method dispatches correctly."""
         sigma = 0.90
 
@@ -286,7 +288,7 @@ class TestEthicalGatingForms:
             assert result.form_type == form_type
             assert isinstance(result.penalty, float)
 
-    def test_lyapunov_stability_convergent(self, gating_forms) -> None:
+    def test_lyapunov_stability_convergent(self, gating_forms: Any) -> None:
         """Test Lyapunov stability for convergent trajectory."""
         # Create convergent trajectory approaching threshold
         trajectory = np.array([0.85, 0.88, 0.91, 0.93, 0.94, 0.95, 0.955, 0.958, 0.96, 0.96])
@@ -296,7 +298,7 @@ class TestEthicalGatingForms:
         # Convergent trajectory should have positive Lyapunov exponent
         assert lyapunov > 0
 
-    def test_lyapunov_stability_short_trajectory(self, gating_forms) -> None:
+    def test_lyapunov_stability_short_trajectory(self, gating_forms: Any) -> None:
         """Test Lyapunov stability with short trajectory."""
         trajectory = np.array([0.9, 0.92, 0.94])  # Less than 10 samples
 
@@ -314,7 +316,7 @@ class TestBenevolenceOptimizer:
         """Create a benevolence optimizer instance."""
         return BenevolenceOptimizer()
 
-    def test_benchmark_form_quadratic(self, optimizer) -> None:
+    def test_benchmark_form_quadratic(self, optimizer: Any) -> None:
         """Test benchmarking the quadratic form."""
         result = optimizer.benchmark_form(GatingFormType.QUADRATIC, n_simulations=100)
 
@@ -323,7 +325,7 @@ class TestBenevolenceOptimizer:
         assert 0 <= result.f1_score <= 1
         assert result.overhead_percent >= 0
 
-    def test_benchmark_all_forms(self, optimizer) -> None:
+    def test_benchmark_all_forms(self, optimizer: Any) -> None:
         """Test benchmarking all forms."""
         results = optimizer.benchmark_all_forms(n_simulations=50)
 
@@ -331,7 +333,7 @@ class TestBenevolenceOptimizer:
         for form_type in GatingFormType:
             assert form_type in results
 
-    def test_get_optimal_form_general(self, optimizer) -> None:
+    def test_get_optimal_form_general(self, optimizer: Any) -> None:
         """Test getting optimal form for general domain."""
         optimizer.benchmark_all_forms(n_simulations=50)
         best_form, best_result = optimizer.get_optimal_form(domain="general")
@@ -339,7 +341,7 @@ class TestBenevolenceOptimizer:
         assert best_form in GatingFormType
         assert best_result is not None
 
-    def test_get_optimal_form_medical(self, optimizer) -> None:
+    def test_get_optimal_form_medical(self, optimizer: Any) -> None:
         """Test getting optimal form for medical domain."""
         optimizer.benchmark_all_forms(n_simulations=50)
         best_form, best_result = optimizer.get_optimal_form(domain="medical")
@@ -347,7 +349,7 @@ class TestBenevolenceOptimizer:
         # Medical should prefer stable forms (quadratic, piecewise)
         assert best_form in GatingFormType
 
-    def test_get_optimal_form_security(self, optimizer) -> None:
+    def test_get_optimal_form_security(self, optimizer: Any) -> None:
         """Test getting optimal form for security domain."""
         optimizer.benchmark_all_forms(n_simulations=50)
         best_form, best_result = optimizer.get_optimal_form(domain="security")
@@ -400,7 +402,7 @@ class TestPropertyBased:
         config = GatingFormConfig(form_type=GatingFormType.QUADRATIC)
         return EthicalGatingForms(config)
 
-    def test_all_forms_bounded_penalty(self, gating_forms) -> None:
+    def test_all_forms_bounded_penalty(self, gating_forms: Any) -> None:
         """Test that all forms produce bounded penalties."""
         sigma_values = np.linspace(0.5, 1.0, 100)
 
@@ -413,7 +415,7 @@ class TestPropertyBased:
                 if form_type != GatingFormType.EXPONENTIAL:
                     assert result.penalty <= 2.0
 
-    def test_gate_passes_above_threshold(self, gating_forms) -> None:
+    def test_gate_passes_above_threshold(self, gating_forms: Any) -> None:
         """Test that gate passes for all values above threshold."""
         sigma_values = np.linspace(SIGMA_IMMUTABLE_DEFAULT, 1.0, 50)
 
@@ -428,7 +430,7 @@ class TestPropertyBased:
                 result = gating_forms.apply(sigma, form_type)
                 assert result.passes_gate
 
-    def test_penalty_increases_as_sigma_decreases(self, gating_forms) -> None:
+    def test_penalty_increases_as_sigma_decreases(self, gating_forms: Any) -> None:
         """Test that penalty generally increases as sigma decreases below threshold."""
         sigma_values = np.linspace(0.8, SIGMA_IMMUTABLE_DEFAULT - 0.01, 20)
 
@@ -467,7 +469,7 @@ class TestGatingFormGradients:
         config = GatingFormConfig(form_type=GatingFormType.QUADRATIC)
         return EthicalGatingForms(config)
 
-    def test_quadratic_gradient_direction(self, gating_forms) -> None:
+    def test_quadratic_gradient_direction(self, gating_forms: Any) -> None:
         """Test quadratic gradient points towards threshold."""
         sigma = 0.90
         result = gating_forms.quadratic(sigma)
@@ -475,14 +477,14 @@ class TestGatingFormGradients:
         # Gradient should be negative (pushing sigma up towards threshold)
         assert result.gradient < 0
 
-    def test_linear_gradient_constant(self, gating_forms) -> None:
+    def test_linear_gradient_constant(self, gating_forms: Any) -> None:
         """Test linear gradient is constant below threshold."""
         for sigma in [0.85, 0.88, 0.91, 0.94]:
             result = gating_forms.linear(sigma)
             if sigma < SIGMA_IMMUTABLE_DEFAULT:
                 assert result.gradient == -1.0
 
-    def test_sigmoid_gradient_symmetric(self, gating_forms) -> None:
+    def test_sigmoid_gradient_symmetric(self, gating_forms: Any) -> None:
         """Test sigmoid gradient has expected shape."""
         # Gradient should be largest in magnitude near threshold
         results = []
@@ -505,7 +507,7 @@ class TestEdgeCases:
         config = GatingFormConfig(form_type=GatingFormType.QUADRATIC)
         return EthicalGatingForms(config)
 
-    def test_sigma_at_zero(self, gating_forms) -> None:
+    def test_sigma_at_zero(self, gating_forms: Any) -> None:
         """Test forms handle sigma = 0."""
         sigma = 0.0
 
@@ -515,7 +517,7 @@ class TestEdgeCases:
             assert not np.isnan(result.penalty)
             assert not np.isinf(result.penalty)
 
-    def test_sigma_at_one(self, gating_forms) -> None:
+    def test_sigma_at_one(self, gating_forms: Any) -> None:
         """Test forms handle sigma = 1."""
         sigma = 1.0
 
@@ -524,7 +526,7 @@ class TestEdgeCases:
             assert result.passes_gate
             assert not np.isnan(result.penalty)
 
-    def test_sigma_negative(self, gating_forms) -> None:
+    def test_sigma_negative(self, gating_forms: Any) -> None:
         """Test forms handle negative sigma gracefully."""
         sigma = -0.1
 

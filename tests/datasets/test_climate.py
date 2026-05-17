@@ -6,6 +6,8 @@ Tests for Simons CMAP, World Ocean Database, and Copernicus Sea Level loaders.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -22,7 +24,7 @@ class TestSimonsCMAPLoader:
     """Tests for Simons CMAP ocean data loader."""
 
     @pytest.fixture
-    def config(self, tmp_path) -> DatasetConfig:
+    def config(self, tmp_path: Any) -> DatasetConfig:
         """Create test configuration."""
         return DatasetConfig(
             name="simons_cmap",
@@ -42,18 +44,18 @@ class TestSimonsCMAPLoader:
         )
 
     @pytest.fixture
-    def loader(self, config) -> SimonsCMAPLoader:
+    def loader(self, config: Any) -> SimonsCMAPLoader:
         """Create loader instance."""
         return SimonsCMAPLoader(config)
 
-    def test_init(self, loader) -> None:
+    def test_init(self, loader: Any) -> None:
         """Test loader initialization."""
         assert loader.DATASET_NAME == "simons_cmap"
         assert loader.REQUIRES_CREDENTIALS is True
         assert loader.variable_set == "physical"
         assert len(loader.FEATURE_NAMES) == 8
 
-    def test_feature_names(self, loader) -> None:
+    def test_feature_names(self, loader: Any) -> None:
         """Test feature names are correctly defined."""
         expected = [
             "latitude",
@@ -67,7 +69,7 @@ class TestSimonsCMAPLoader:
         ]
         assert expected == loader.FEATURE_NAMES
 
-    def test_synthetic_fallback(self, loader) -> None:
+    def test_synthetic_fallback(self, loader: Any) -> None:
         """Test synthetic data generation."""
         result = loader.download()
         assert result is True
@@ -75,7 +77,7 @@ class TestSimonsCMAPLoader:
         # Synthetic data should be marked as non-real
         assert loader.is_real_data is False
 
-    def test_load_data(self, loader) -> None:
+    def test_load_data(self, loader: Any) -> None:
         """Test loading data after download."""
         loader.download()
         features, labels = loader._load_raw()
@@ -86,7 +88,7 @@ class TestSimonsCMAPLoader:
         assert features.shape[1] == 8  # Number of features
         assert labels.dtype == np.int64
 
-    def test_preprocess(self, loader) -> None:
+    def test_preprocess(self, loader: Any) -> None:
         """Test preprocessing normalizes data."""
         loader.download()
         features, _ = loader._load_raw()
@@ -98,7 +100,7 @@ class TestSimonsCMAPLoader:
         assert np.abs(processed.mean()) < 0.5
         assert 0.5 < processed.std() < 1.5
 
-    def test_variable_sets(self, loader) -> None:
+    def test_variable_sets(self, loader: Any) -> None:
         """Test variable set options are defined."""
         assert "satellite" in loader.VARIABLE_SETS
         assert "biogeochemistry" in loader.VARIABLE_SETS
@@ -109,7 +111,7 @@ class TestWorldOceanDatabaseLoader:
     """Tests for World Ocean Database loader."""
 
     @pytest.fixture
-    def config(self, tmp_path) -> DatasetConfig:
+    def config(self, tmp_path: Any) -> DatasetConfig:
         """Create test configuration."""
         return DatasetConfig(
             name="world_ocean_database",
@@ -124,29 +126,29 @@ class TestWorldOceanDatabaseLoader:
         )
 
     @pytest.fixture
-    def loader(self, config) -> WorldOceanDatabaseLoader:
+    def loader(self, config: Any) -> WorldOceanDatabaseLoader:
         """Create loader instance."""
         return WorldOceanDatabaseLoader(config)
 
-    def test_init(self, loader) -> None:
+    def test_init(self, loader: Any) -> None:
         """Test loader initialization."""
         assert loader.DATASET_NAME == "world_ocean_database"
         assert loader.REQUIRES_CREDENTIALS is False
         assert loader.instrument_type == "PFL"
 
-    def test_instrument_types(self, loader) -> None:
+    def test_instrument_types(self, loader: Any) -> None:
         """Test instrument types are defined."""
         assert "OSD" in loader.INSTRUMENT_TYPES
         assert "CTD" in loader.INSTRUMENT_TYPES
         assert "PFL" in loader.INSTRUMENT_TYPES
 
-    def test_synthetic_fallback(self, loader) -> None:
+    def test_synthetic_fallback(self, loader: Any) -> None:
         """Test synthetic data generation."""
         result = loader.download()
         assert result is True
         assert loader.is_real_data is False
 
-    def test_load_data(self, loader) -> None:
+    def test_load_data(self, loader: Any) -> None:
         """Test loading WOD data."""
         loader.download()
         features, labels = loader._load_raw()
@@ -155,7 +157,7 @@ class TestWorldOceanDatabaseLoader:
         assert features.shape[1] == 8  # lat, lon, depth, temp, sal, year, month, day
         assert labels.sum() >= 0  # Some anomalies
 
-    def test_temperature_salinity_profiles(self, loader) -> None:
+    def test_temperature_salinity_profiles(self, loader: Any) -> None:
         """Test that generated profiles have realistic ranges."""
         loader.download()
         features, _ = loader._load_raw()
@@ -175,7 +177,7 @@ class TestCopernicusSeaLevelLoader:
     """Tests for Copernicus sea level data loader."""
 
     @pytest.fixture
-    def config(self, tmp_path) -> DatasetConfig:
+    def config(self, tmp_path: Any) -> DatasetConfig:
         """Create test configuration."""
         return DatasetConfig(
             name="copernicus_sea_level",
@@ -195,29 +197,29 @@ class TestCopernicusSeaLevelLoader:
         )
 
     @pytest.fixture
-    def loader(self, config) -> CopernicusSeaLevelLoader:
+    def loader(self, config: Any) -> CopernicusSeaLevelLoader:
         """Create loader instance."""
         return CopernicusSeaLevelLoader(config)
 
-    def test_init(self, loader) -> None:
+    def test_init(self, loader: Any) -> None:
         """Test loader initialization."""
         assert loader.DATASET_NAME == "copernicus_sea_level"
         assert loader.REQUIRES_CREDENTIALS is True
         assert loader.LICENSE == "CC BY 4.0"
 
-    def test_feature_names(self, loader) -> None:
+    def test_feature_names(self, loader: Any) -> None:
         """Test sea level feature names."""
         expected_features = ["latitude", "longitude", "sla", "adt", "ugos", "vgos"]
         for feat in expected_features:
             assert feat in loader.FEATURE_NAMES
 
-    def test_synthetic_fallback(self, loader) -> None:
+    def test_synthetic_fallback(self, loader: Any) -> None:
         """Test synthetic data generation."""
         result = loader.download()
         assert result is True
         assert loader.is_real_data is False
 
-    def test_load_data(self, loader) -> None:
+    def test_load_data(self, loader: Any) -> None:
         """Test loading sea level data."""
         loader.download()
         features, labels = loader._load_raw()
@@ -225,7 +227,7 @@ class TestCopernicusSeaLevelLoader:
         assert isinstance(features, np.ndarray)
         assert features.shape[1] == 8  # lat, lon, sla, adt, ugos, vgos, year, month
 
-    def test_sea_level_anomaly_range(self, loader) -> None:
+    def test_sea_level_anomaly_range(self, loader: Any) -> None:
         """Test SLA values are in realistic range."""
         loader.download()
         features, _ = loader._load_raw()
@@ -235,7 +237,7 @@ class TestCopernicusSeaLevelLoader:
         assert sla.min() >= -1.0
         assert sla.max() <= 1.0
 
-    def test_anomaly_labels(self, loader) -> None:
+    def test_anomaly_labels(self, loader: Any) -> None:
         """Test anomaly labeling based on SLA threshold."""
         loader.download()
         features, labels = loader._load_raw()
@@ -288,7 +290,7 @@ class TestOceanographicDataQuality:
     """Integration tests for oceanographic data quality."""
 
     @pytest.fixture
-    def cmap_loader(self, tmp_path) -> SimonsCMAPLoader:
+    def cmap_loader(self, tmp_path: Any) -> SimonsCMAPLoader:
         """Create CMAP loader."""
         config = DatasetConfig(
             name="simons_cmap",
@@ -301,7 +303,7 @@ class TestOceanographicDataQuality:
         loader.download()
         return loader
 
-    def test_depth_distribution(self, cmap_loader) -> None:
+    def test_depth_distribution(self, cmap_loader: Any) -> None:
         """Test depth values follow expected distribution."""
         features, _ = cmap_loader._load_raw()
         depths = features[:, 2]
@@ -311,7 +313,7 @@ class TestOceanographicDataQuality:
         deep = (depths > 500).sum()
         assert shallow > deep
 
-    def test_temperature_depth_correlation(self, cmap_loader) -> None:
+    def test_temperature_depth_correlation(self, cmap_loader: Any) -> None:
         """Test temperature decreases with depth."""
         features, _ = cmap_loader._load_raw()
         depths = features[:, 2]
@@ -324,7 +326,7 @@ class TestOceanographicDataQuality:
         # Surface should be warmer than deep
         assert shallow_temps > deep_temps
 
-    def test_oxygen_minimum_zone(self, cmap_loader) -> None:
+    def test_oxygen_minimum_zone(self, cmap_loader: Any) -> None:
         """Test oxygen minimum zone pattern."""
         features, labels = cmap_loader._load_raw()
         oxygen = features[:, 7]
@@ -341,7 +343,7 @@ class TestCopernicusERA5Loader:
     """Tests for Copernicus ERA5 climate reanalysis loader."""
 
     @pytest.fixture
-    def config(self, tmp_path) -> DatasetConfig:
+    def config(self, tmp_path: Any) -> DatasetConfig:
         """Create test configuration."""
         return DatasetConfig(
             name="copernicus_era5",
@@ -363,18 +365,18 @@ class TestCopernicusERA5Loader:
         )
 
     @pytest.fixture
-    def loader(self, config) -> CopernicusERA5Loader:
+    def loader(self, config: Any) -> CopernicusERA5Loader:
         """Create loader instance."""
         return CopernicusERA5Loader(config)
 
-    def test_init(self, loader) -> None:
+    def test_init(self, loader: Any) -> None:
         """Test loader initialization."""
         assert loader.DATASET_NAME == "copernicus_era5"
         assert loader.REQUIRES_CREDENTIALS is True
         assert loader.LICENSE == "CC BY 4.0"
         assert loader.variable_set == "surface"
 
-    def test_feature_names(self, loader) -> None:
+    def test_feature_names(self, loader: Any) -> None:
         """Test ERA5 feature names."""
         expected_features = [
             "latitude",
@@ -389,19 +391,19 @@ class TestCopernicusERA5Loader:
         for feat in expected_features:
             assert feat in loader.FEATURE_NAMES
 
-    def test_variable_sets(self, loader) -> None:
+    def test_variable_sets(self, loader: Any) -> None:
         """Test variable set options."""
         assert "surface" in loader.VARIABLE_SETS
         assert "radiation" in loader.VARIABLE_SETS
         assert "soil" in loader.VARIABLE_SETS
 
-    def test_synthetic_fallback(self, loader) -> None:
+    def test_synthetic_fallback(self, loader: Any) -> None:
         """Test synthetic data generation."""
         result = loader.download()
         assert result is True
         assert loader.is_real_data is False
 
-    def test_load_data(self, loader) -> None:
+    def test_load_data(self, loader: Any) -> None:
         """Test loading ERA5 data."""
         loader.download()
         features, labels = loader._load_raw()
@@ -413,7 +415,7 @@ class TestCopernicusERA5Loader:
             features.shape[1] == 12
         )  # lat, lon, temp, dew, u, v, pres, precip, year, month, day, hour
 
-    def test_temperature_range(self, loader) -> None:
+    def test_temperature_range(self, loader: Any) -> None:
         """Test temperature values are in realistic range."""
         loader.download()
         features, _ = loader._load_raw()
@@ -423,7 +425,7 @@ class TestCopernicusERA5Loader:
         assert temp.min() >= -50
         assert temp.max() <= 60
 
-    def test_pressure_range(self, loader) -> None:
+    def test_pressure_range(self, loader: Any) -> None:
         """Test pressure values are in realistic range."""
         loader.download()
         features, _ = loader._load_raw()
@@ -433,7 +435,7 @@ class TestCopernicusERA5Loader:
         assert pressure.min() >= 850
         assert pressure.max() <= 1100
 
-    def test_wind_components(self, loader) -> None:
+    def test_wind_components(self, loader: Any) -> None:
         """Test wind components are reasonable."""
         loader.download()
         features, _ = loader._load_raw()
@@ -445,7 +447,7 @@ class TestCopernicusERA5Loader:
         wind_speed = np.sqrt(u_wind**2 + v_wind**2)
         assert wind_speed.max() < 100
 
-    def test_anomaly_detection(self, loader) -> None:
+    def test_anomaly_detection(self, loader: Any) -> None:
         """Test anomaly labeling for climate extremes."""
         loader.download()
         features, labels = loader._load_raw()
@@ -455,7 +457,7 @@ class TestCopernicusERA5Loader:
         # But not all should be anomalies
         assert labels.mean() < 0.5
 
-    def test_preprocess(self, loader) -> None:
+    def test_preprocess(self, loader: Any) -> None:
         """Test preprocessing normalizes data."""
         loader.download()
         features, _ = loader._load_raw()

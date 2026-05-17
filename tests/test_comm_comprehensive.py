@@ -8,6 +8,8 @@ Targets coverage improvement for async communication utilities.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from omni_mercury_engine.utils.comm import (
@@ -157,7 +159,7 @@ class TestAsyncMessageQueue:
         """Test handler registration."""
         queue = AsyncMessageQueue()
 
-        def handler(msg) -> None:
+        def handler(msg: Any) -> None:
             pass
 
         queue.register_handler("str", handler)
@@ -169,10 +171,10 @@ class TestAsyncMessageQueue:
         """Test registering multiple handlers for same type."""
         queue = AsyncMessageQueue()
 
-        def handler1(msg) -> None:
+        def handler1(msg: Any) -> None:
             pass
 
-        def handler2(msg) -> None:
+        def handler2(msg: Any) -> None:
             pass
 
         queue.register_handler("str", handler1)
@@ -209,7 +211,7 @@ class TestSimplePubSub:
 
         called = []
 
-        def callback(msg) -> None:
+        def callback(msg: Any) -> None:
             called.append(msg)
 
         pubsub.subscribe("test_topic", callback)
@@ -221,10 +223,10 @@ class TestSimplePubSub:
         """Test multiple subscribers to same topic."""
         pubsub = SimplePubSub()
 
-        def callback1(msg) -> None:
+        def callback1(msg: Any) -> None:
             pass
 
-        def callback2(msg) -> None:
+        def callback2(msg: Any) -> None:
             pass
 
         pubsub.subscribe("topic", callback1)
@@ -236,7 +238,7 @@ class TestSimplePubSub:
         """Test unsubscribing from topic."""
         pubsub = SimplePubSub()
 
-        def callback(msg) -> None:
+        def callback(msg: Any) -> None:
             pass
 
         pubsub.subscribe("topic", callback)
@@ -251,7 +253,7 @@ class TestSimplePubSub:
 
         received = []
 
-        def callback(msg) -> None:
+        def callback(msg: Any) -> None:
             received.append(msg)
 
         pubsub.subscribe("events", callback)
@@ -267,10 +269,10 @@ class TestSimplePubSub:
         results1 = []
         results2 = []
 
-        def callback1(msg) -> None:
+        def callback1(msg: Any) -> None:
             results1.append(msg)
 
-        def callback2(msg) -> None:
+        def callback2(msg: Any) -> None:
             results2.append(msg)
 
         pubsub.subscribe("broadcast", callback1)
@@ -294,10 +296,10 @@ class TestSimplePubSub:
 
         results = []
 
-        def failing_callback(msg) -> None:
+        def failing_callback(msg: Any) -> None:
             raise ValueError("Intentional error")
 
-        def working_callback(msg) -> None:
+        def working_callback(msg: Any) -> None:
             results.append(msg)
 
         pubsub.subscribe("topic", failing_callback)
@@ -316,10 +318,10 @@ class TestSimplePubSub:
 
         received = []
 
-        def sync_callback(msg) -> None:
+        def sync_callback(msg: Any) -> None:
             received.append(f"sync:{msg}")
 
-        async def async_callback(msg) -> None:
+        async def async_callback(msg: Any) -> None:
             received.append(f"async:{msg}")
 
         pubsub.subscribe("async_topic", sync_callback)
@@ -346,10 +348,10 @@ class TestSimplePubSub:
 
         results = []
 
-        async def failing_async(msg) -> None:
+        async def failing_async(msg: Any) -> None:
             raise RuntimeError("Async error")
 
-        def working_sync(msg) -> None:
+        def working_sync(msg: Any) -> None:
             results.append(msg)
 
         pubsub.subscribe("topic", failing_async)

@@ -8,6 +8,8 @@ Note: These tests require PyTorch to be installed.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -19,8 +21,8 @@ try:
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
-    torch = None  # type: ignore[assignment]
-    nn = None  # type: ignore[assignment]
+    torch = None
+    nn = None
 
 # Skip all tests in this module if torch is not available
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
@@ -337,14 +339,14 @@ class TestTrainer:
         assert isinstance(loss, float)
         assert loss >= 0
 
-    def test_save_checkpoint(self, tmp_path) -> None:
+    def test_save_checkpoint(self, tmp_path: Any) -> None:
         """Test checkpoint saving."""
         checkpoint_path = tmp_path / "checkpoint.pt"
         self.trainer.save_checkpoint(str(checkpoint_path))
 
         assert checkpoint_path.exists()
 
-    def test_load_checkpoint(self, tmp_path) -> None:
+    def test_load_checkpoint(self, tmp_path: Any) -> None:
         """Test checkpoint loading."""
         checkpoint_path = tmp_path / "checkpoint.pt"
         self.trainer.save_checkpoint(str(checkpoint_path))

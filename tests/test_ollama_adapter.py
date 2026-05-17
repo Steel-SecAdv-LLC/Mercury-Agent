@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Tests for Ollama LLM Adapter and Fallback Chain.
 
@@ -138,7 +140,7 @@ def llm_module():
 class TestOllamaConfig:
     """Tests for Ollama configuration."""
 
-    def test_ollama_config_defaults(self, ollama_module) -> None:
+    def test_ollama_config_defaults(self, ollama_module: Any) -> None:
         """Test OllamaConfig has sensible defaults."""
         config = ollama_module.OllamaConfig()
 
@@ -148,7 +150,7 @@ class TestOllamaConfig:
         assert config.temperature == 0.1
         assert config.timeout == 60.0
 
-    def test_ollama_config_custom(self, ollama_module) -> None:
+    def test_ollama_config_custom(self, ollama_module: Any) -> None:
         """Test OllamaConfig with custom values."""
         config = ollama_module.OllamaConfig(
             host="192.168.1.100",
@@ -162,7 +164,7 @@ class TestOllamaConfig:
         assert config.model == "mistral:7b"
         assert config.base_url == "http://192.168.1.100:8080"
 
-    def test_ollama_config_base_url(self, ollama_module) -> None:
+    def test_ollama_config_base_url(self, ollama_module: Any) -> None:
         """Test base_url property generation."""
         config = ollama_module.OllamaConfig(host="myserver", port=12345)
         assert config.base_url == "http://myserver:12345"
@@ -171,7 +173,7 @@ class TestOllamaConfig:
 class TestOllamaModel:
     """Tests for OllamaModel enum."""
 
-    def test_model_enum_values(self, ollama_module) -> None:
+    def test_model_enum_values(self, ollama_module: Any) -> None:
         """Test OllamaModel enum has expected models."""
         OllamaModel = ollama_module.OllamaModel
 
@@ -180,7 +182,7 @@ class TestOllamaModel:
         assert OllamaModel.MISTRAL_7B == "mistral:7b"
         assert OllamaModel.PHI_3_MINI == "phi3:mini"
 
-    def test_all_models_are_strings(self, ollama_module) -> None:
+    def test_all_models_are_strings(self, ollama_module: Any) -> None:
         """Test all model values are valid strings."""
         OllamaModel = ollama_module.OllamaModel
 
@@ -192,14 +194,14 @@ class TestOllamaModel:
 class TestModelProfile:
     """Tests for model profiles and capabilities."""
 
-    def test_model_profiles_exist(self, ollama_module) -> None:
+    def test_model_profiles_exist(self, ollama_module: Any) -> None:
         """Test MODEL_PROFILES dictionary exists."""
         MODEL_PROFILES = ollama_module.MODEL_PROFILES
 
         assert "llama3.2:3b" in MODEL_PROFILES
         assert "mistral:7b" in MODEL_PROFILES
 
-    def test_model_profile_structure(self, ollama_module) -> None:
+    def test_model_profile_structure(self, ollama_module: Any) -> None:
         """Test model profile has correct structure."""
         MODEL_PROFILES = ollama_module.MODEL_PROFILES
         profile = MODEL_PROFILES["llama3.2:3b"]
@@ -212,7 +214,7 @@ class TestModelProfile:
         assert hasattr(profile, "offline_capable")
         assert hasattr(profile, "context_length")
 
-    def test_all_profiles_offline_capable(self, ollama_module) -> None:
+    def test_all_profiles_offline_capable(self, ollama_module: Any) -> None:
         """Test all Ollama models are marked offline capable."""
         MODEL_PROFILES = ollama_module.MODEL_PROFILES
 
@@ -223,7 +225,7 @@ class TestModelProfile:
 class TestOllamaLLMAdapter:
     """Tests for OllamaLLMAdapter."""
 
-    def test_adapter_initialization(self, ollama_module) -> None:
+    def test_adapter_initialization(self, ollama_module: Any) -> None:
         """Test adapter can be initialized."""
         config = ollama_module.OllamaConfig()
         adapter = ollama_module.OllamaLLMAdapter(ollama_config=config)
@@ -231,7 +233,7 @@ class TestOllamaLLMAdapter:
         assert adapter is not None
         assert adapter.ollama_config == config
 
-    def test_adapter_unavailable_response(self, ollama_module) -> None:
+    def test_adapter_unavailable_response(self, ollama_module: Any) -> None:
         """Test adapter returns valid JSON when unavailable."""
         # Use non-existent host to ensure unavailable
         config = ollama_module.OllamaConfig(host="nonexistent.invalid", port=99999)
@@ -246,7 +248,7 @@ class TestOllamaLLMAdapter:
         assert "explanation" in parsed
         assert "fallback" in parsed["explanation"].lower()
 
-    def test_adapter_get_model_info_known(self, ollama_module) -> None:
+    def test_adapter_get_model_info_known(self, ollama_module: Any) -> None:
         """Test get_model_info for known model."""
         config = ollama_module.OllamaConfig(model="llama3.2:3b")
         adapter = ollama_module.OllamaLLMAdapter(ollama_config=config)
@@ -256,7 +258,7 @@ class TestOllamaLLMAdapter:
         assert info["name"] == "Llama 3.2 3B"
         assert info["offline_capable"] is True
 
-    def test_adapter_get_model_info_unknown(self, ollama_module) -> None:
+    def test_adapter_get_model_info_unknown(self, ollama_module: Any) -> None:
         """Test get_model_info for unknown model."""
         config = ollama_module.OllamaConfig(model="custom:model")
         adapter = ollama_module.OllamaLLMAdapter(ollama_config=config)
@@ -267,7 +269,7 @@ class TestOllamaLLMAdapter:
         assert info["offline_capable"] is True
 
     @patch("socket.socket")
-    def test_adapter_availability_check(self, mock_socket, ollama_module) -> None:
+    def test_adapter_availability_check(self, mock_socket: Any, ollama_module: Any) -> None:
         """Test availability check uses socket connection."""
         mock_sock = MagicMock()
         mock_sock.connect_ex.return_value = 1  # Connection failed
@@ -282,19 +284,19 @@ class TestOllamaLLMAdapter:
 class TestTemplateLLMAdapter:
     """Tests for template-based fallback adapter."""
 
-    def test_template_adapter_initialization(self, ollama_module) -> None:
+    def test_template_adapter_initialization(self, ollama_module: Any) -> None:
         """Test template adapter can be initialized."""
         adapter = ollama_module.TemplateLLMAdapter()
 
         assert adapter is not None
         assert adapter.is_available() is True
 
-    def test_template_adapter_always_available(self, ollama_module) -> None:
+    def test_template_adapter_always_available(self, ollama_module: Any) -> None:
         """Test template adapter is always available."""
         adapter = ollama_module.TemplateLLMAdapter()
         assert adapter.is_available() is True
 
-    def test_template_anomaly_detection(self, ollama_module) -> None:
+    def test_template_anomaly_detection(self, ollama_module: Any) -> None:
         """Test template adapter detects anomaly keywords."""
         adapter = ollama_module.TemplateLLMAdapter()
 
@@ -312,7 +314,7 @@ class TestTemplateLLMAdapter:
         assert parsed["is_anomaly"] is False
         assert parsed["anomaly_score"] < 0.5
 
-    def test_template_status_query(self, ollama_module) -> None:
+    def test_template_status_query(self, ollama_module: Any) -> None:
         """Test template adapter handles status queries."""
         adapter = ollama_module.TemplateLLMAdapter()
         response = adapter.generate("What is the system status?")
@@ -321,7 +323,7 @@ class TestTemplateLLMAdapter:
         assert "status" in parsed
         assert parsed["mode"] == "offline_fallback"
 
-    def test_template_greeting(self, ollama_module) -> None:
+    def test_template_greeting(self, ollama_module: Any) -> None:
         """Test template adapter handles greetings."""
         adapter = ollama_module.TemplateLLMAdapter()
         response = adapter.generate("Hello Mercury")
@@ -329,7 +331,7 @@ class TestTemplateLLMAdapter:
         assert "Mercury Agent" in response
         assert "offline" in response.lower()
 
-    def test_template_help(self, ollama_module) -> None:
+    def test_template_help(self, ollama_module: Any) -> None:
         """Test template adapter handles help requests."""
         adapter = ollama_module.TemplateLLMAdapter()
         response = adapter.generate("Help me understand this system")
@@ -337,7 +339,7 @@ class TestTemplateLLMAdapter:
         assert "Mercury Agent" in response
         assert "Commands" in response or "anomaly" in response.lower()
 
-    def test_template_unknown_query(self, ollama_module) -> None:
+    def test_template_unknown_query(self, ollama_module: Any) -> None:
         """Test template adapter handles unknown queries."""
         adapter = ollama_module.TemplateLLMAdapter()
         response = adapter.generate("Random query about nothing specific")
@@ -348,14 +350,14 @@ class TestTemplateLLMAdapter:
 class TestFallbackLLMChain:
     """Tests for graceful fallback chain."""
 
-    def test_chain_initialization(self, ollama_module) -> None:
+    def test_chain_initialization(self, ollama_module: Any) -> None:
         """Test fallback chain can be initialized."""
         chain = ollama_module.FallbackLLMChain()
 
         assert chain is not None
         assert chain.is_available() is True
 
-    def test_chain_always_available(self, ollama_module) -> None:
+    def test_chain_always_available(self, ollama_module: Any) -> None:
         """Test chain is always available due to template fallback."""
         # Even with invalid Ollama config, chain should be available
         config = ollama_module.OllamaConfig(host="invalid.invalid", port=99999)
@@ -363,7 +365,7 @@ class TestFallbackLLMChain:
 
         assert chain.is_available() is True
 
-    def test_chain_status(self, ollama_module) -> None:
+    def test_chain_status(self, ollama_module: Any) -> None:
         """Test chain provides status information."""
         chain = ollama_module.FallbackLLMChain()
         status = chain.get_chain_status()
@@ -374,7 +376,7 @@ class TestFallbackLLMChain:
         assert "template" in status
         assert status["template"]["available"] is True
 
-    def test_chain_falls_back_to_template(self, ollama_module) -> None:
+    def test_chain_falls_back_to_template(self, ollama_module: Any) -> None:
         """Test chain falls back to template when Ollama unavailable."""
         config = ollama_module.OllamaConfig(host="invalid.invalid", port=99999)
         chain = ollama_module.FallbackLLMChain(ollama_config=config)
@@ -383,7 +385,7 @@ class TestFallbackLLMChain:
         active = chain.get_active_adapter()
         assert active == "template"
 
-    def test_chain_generate(self, ollama_module) -> None:
+    def test_chain_generate(self, ollama_module: Any) -> None:
         """Test chain can generate responses."""
         chain = ollama_module.FallbackLLMChain()
         response = chain.generate("What is my system status?")
@@ -391,7 +393,7 @@ class TestFallbackLLMChain:
         assert response is not None
         assert len(response) > 0
 
-    def test_chain_refresh(self, ollama_module) -> None:
+    def test_chain_refresh(self, ollama_module: Any) -> None:
         """Test chain can be refreshed."""
         chain = ollama_module.FallbackLLMChain()
         new_active = chain.refresh()
@@ -402,14 +404,14 @@ class TestFallbackLLMChain:
 class TestModelConfiguration:
     """Tests for model configuration and selection."""
 
-    def test_model_config_defaults(self, ollama_module) -> None:
+    def test_model_config_defaults(self, ollama_module: Any) -> None:
         """Test ModelConfiguration has defaults."""
         config = ollama_module.ModelConfiguration()
 
         assert len(config.preferred_models) > 0
         assert config.require_offline is True
 
-    def test_model_for_domain(self, ollama_module) -> None:
+    def test_model_for_domain(self, ollama_module: Any) -> None:
         """Test getting model for specific domain."""
         config = ollama_module.ModelConfiguration()
 
@@ -424,7 +426,7 @@ class TestModelConfiguration:
         unknown = config.get_model_for_domain("unknown_domain")
         assert unknown == config.preferred_models[0]
 
-    def test_model_for_task_complexity(self, ollama_module) -> None:
+    def test_model_for_task_complexity(self, ollama_module: Any) -> None:
         """Test model selection based on task complexity."""
         config = ollama_module.ModelConfiguration()
 
@@ -439,14 +441,14 @@ class TestModelConfiguration:
 class TestFactoryFunctions:
     """Tests for factory functions."""
 
-    def test_create_ollama_adapter(self, ollama_module) -> None:
+    def test_create_ollama_adapter(self, ollama_module: Any) -> None:
         """Test create_ollama_adapter factory."""
         adapter = ollama_module.create_ollama_adapter(model="llama3.2:1b")
 
         assert adapter is not None
         assert adapter.ollama_config.model == "llama3.2:1b"
 
-    def test_create_fallback_chain(self, ollama_module) -> None:
+    def test_create_fallback_chain(self, ollama_module: Any) -> None:
         """Test create_fallback_chain factory."""
         chain = ollama_module.create_fallback_chain(ollama_model="mistral:7b")
 
@@ -457,7 +459,7 @@ class TestFactoryFunctions:
 class TestOfflineOperation:
     """Tests specifically for offline/air-gapped operation."""
 
-    def test_offline_anomaly_detection(self, ollama_module) -> None:
+    def test_offline_anomaly_detection(self, ollama_module: Any) -> None:
         """Test anomaly detection works completely offline."""
         # Force template fallback (simulating offline)
         config = ollama_module.OllamaConfig(host="offline.invalid", port=99999)
@@ -474,7 +476,7 @@ class TestOfflineOperation:
             or "template" in chain.get_active_adapter()
         )
 
-    def test_offline_status_query(self, ollama_module) -> None:
+    def test_offline_status_query(self, ollama_module: Any) -> None:
         """Test status queries work offline."""
         config = ollama_module.OllamaConfig(host="offline.invalid", port=99999)
         chain = ollama_module.FallbackLLMChain(ollama_config=config, enable_cloud=False)
@@ -485,7 +487,7 @@ class TestOfflineOperation:
         assert parsed["status"] == "operational"
         assert parsed["mode"] == "offline_fallback"
 
-    def test_no_network_required(self, ollama_module) -> None:
+    def test_no_network_required(self, ollama_module: Any) -> None:
         """Test that template mode requires no network."""
         adapter = ollama_module.TemplateLLMAdapter()
 
@@ -501,7 +503,7 @@ class TestOfflineOperation:
             assert response is not None
             assert len(response) > 0
 
-    def test_chain_graceful_degradation(self, ollama_module) -> None:
+    def test_chain_graceful_degradation(self, ollama_module: Any) -> None:
         """Test chain degrades gracefully through levels."""
         # Level 1: No Ollama
         config = ollama_module.OllamaConfig(host="no-ollama.invalid", port=99999)
@@ -521,20 +523,20 @@ class TestOfflineOperation:
 class TestLLMAdapterIntegration:
     """Integration tests with main LLM adapter system."""
 
-    def test_llm_provider_enum_includes_ollama(self, llm_module) -> None:
+    def test_llm_provider_enum_includes_ollama(self, llm_module: Any) -> None:
         """Test LLMProvider enum includes OLLAMA."""
         LLMProvider = llm_module.LLMProvider
 
         assert LLMProvider.OLLAMA == "ollama"
         assert LLMProvider.TEMPLATE == "template"
 
-    def test_create_llm_detector_ollama(self, llm_module) -> None:
+    def test_create_llm_detector_ollama(self, llm_module: Any) -> None:
         """Test create_llm_detector with ollama provider."""
         detector = llm_module.create_llm_detector(provider="ollama", model_name="llama3.2:1b")
 
         assert detector is not None
 
-    def test_zero_shot_with_ollama(self, llm_module, ollama_module) -> None:
+    def test_zero_shot_with_ollama(self, llm_module: Any, ollama_module: Any) -> None:
         """Test ZeroShotAnomalyDetector can use Ollama adapter."""
         ollama_config = ollama_module.OllamaConfig(host="test.invalid", port=99999)
         adapter = ollama_module.OllamaLLMAdapter(ollama_config=ollama_config)

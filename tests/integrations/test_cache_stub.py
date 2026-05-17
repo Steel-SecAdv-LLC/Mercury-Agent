@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from typing import Any
 
 import pytest
 
@@ -150,27 +151,27 @@ class TestCacheStubBasicOperations:
         return CacheStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_set_and_get(self, cache) -> None:
+    async def test_set_and_get(self, cache: Any) -> None:
         """Test basic set and get operations."""
         await cache.set("key1", "value1")
         result = await cache.get("key1")
         assert result == "value1"
 
     @pytest.mark.asyncio
-    async def test_get_nonexistent_key(self, cache) -> None:
+    async def test_get_nonexistent_key(self, cache: Any) -> None:
         """Test getting nonexistent key returns None."""
         result = await cache.get("nonexistent")
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_set_with_ttl(self, cache) -> None:
+    async def test_set_with_ttl(self, cache: Any) -> None:
         """Test set with TTL."""
         await cache.set("key", "value", ttl=300)
         result = await cache.get("key")
         assert result == "value"
 
     @pytest.mark.asyncio
-    async def test_delete_key(self, cache) -> None:
+    async def test_delete_key(self, cache: Any) -> None:
         """Test key deletion."""
         await cache.set("key", "value")
         deleted = await cache.delete("key")
@@ -179,26 +180,26 @@ class TestCacheStubBasicOperations:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_delete_nonexistent_key(self, cache) -> None:
+    async def test_delete_nonexistent_key(self, cache: Any) -> None:
         """Test deleting nonexistent key."""
         deleted = await cache.delete("nonexistent")
         assert deleted is False
 
     @pytest.mark.asyncio
-    async def test_exists_true(self, cache) -> None:
+    async def test_exists_true(self, cache: Any) -> None:
         """Test exists returns True for existing key."""
         await cache.set("key", "value")
         exists = await cache.exists("key")
         assert exists is True
 
     @pytest.mark.asyncio
-    async def test_exists_false(self, cache) -> None:
+    async def test_exists_false(self, cache: Any) -> None:
         """Test exists returns False for nonexistent key."""
         exists = await cache.exists("nonexistent")
         assert exists is False
 
     @pytest.mark.asyncio
-    async def test_clear_cache(self, cache) -> None:
+    async def test_clear_cache(self, cache: Any) -> None:
         """Test clearing all cache entries."""
         await cache.set("key1", "value1")
         await cache.set("key2", "value2")
@@ -216,39 +217,39 @@ class TestCacheStubDataTypes:
         return CacheStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_cache_string(self, cache) -> None:
+    async def test_cache_string(self, cache: Any) -> None:
         """Test caching string value."""
         await cache.set("string", "hello world")
         assert await cache.get("string") == "hello world"
 
     @pytest.mark.asyncio
-    async def test_cache_integer(self, cache) -> None:
+    async def test_cache_integer(self, cache: Any) -> None:
         """Test caching integer value."""
         await cache.set("int", 42)
         assert await cache.get("int") == 42
 
     @pytest.mark.asyncio
-    async def test_cache_float(self, cache) -> None:
+    async def test_cache_float(self, cache: Any) -> None:
         """Test caching float value."""
         await cache.set("float", 3.14159)
         assert await cache.get("float") == 3.14159
 
     @pytest.mark.asyncio
-    async def test_cache_dict(self, cache) -> None:
+    async def test_cache_dict(self, cache: Any) -> None:
         """Test caching dictionary value."""
         data = {"name": "Alice", "age": 30}
         await cache.set("dict", data)
         assert await cache.get("dict") == data
 
     @pytest.mark.asyncio
-    async def test_cache_list(self, cache) -> None:
+    async def test_cache_list(self, cache: Any) -> None:
         """Test caching list value."""
         data = [1, 2, 3, 4, 5]
         await cache.set("list", data)
         assert await cache.get("list") == data
 
     @pytest.mark.asyncio
-    async def test_cache_none(self, cache) -> None:
+    async def test_cache_none(self, cache: Any) -> None:
         """Test caching None value."""
         await cache.set("none", None)
         # Note: This might return None which could be ambiguous
@@ -265,7 +266,7 @@ class TestCacheStubTTL:
         return CacheStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_expired_entry_not_returned(self, cache) -> None:
+    async def test_expired_entry_not_returned(self, cache: Any) -> None:
         """Test expired entry returns None."""
         # Set with very short TTL
         await cache.set("key", "value", ttl=0)
@@ -275,14 +276,14 @@ class TestCacheStubTTL:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_non_expired_entry_returned(self, cache) -> None:
+    async def test_non_expired_entry_returned(self, cache: Any) -> None:
         """Test non-expired entry is returned."""
         await cache.set("key", "value", ttl=3600)
         result = await cache.get("key")
         assert result == "value"
 
     @pytest.mark.asyncio
-    async def test_get_ttl(self, cache) -> None:
+    async def test_get_ttl(self, cache: Any) -> None:
         """Test getting remaining TTL."""
         await cache.set("key", "value", ttl=300)
         ttl = await cache.ttl("key")
@@ -291,7 +292,7 @@ class TestCacheStubTTL:
         assert ttl <= 300
 
     @pytest.mark.asyncio
-    async def test_get_ttl_nonexistent(self, cache) -> None:
+    async def test_get_ttl_nonexistent(self, cache: Any) -> None:
         """Test getting TTL for nonexistent key."""
         ttl = await cache.ttl("nonexistent")
         assert ttl is None
@@ -306,7 +307,7 @@ class TestCacheStubBulkOperations:
         return CacheStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_mset(self, cache) -> None:
+    async def test_mset(self, cache: Any) -> None:
         """Test setting multiple keys."""
         data = {"key1": "value1", "key2": "value2", "key3": "value3"}
         await cache.mset(data)
@@ -315,7 +316,7 @@ class TestCacheStubBulkOperations:
         assert await cache.get("key3") == "value3"
 
     @pytest.mark.asyncio
-    async def test_mget(self, cache) -> None:
+    async def test_mget(self, cache: Any) -> None:
         """Test getting multiple keys."""
         await cache.set("key1", "value1")
         await cache.set("key2", "value2")
@@ -325,7 +326,7 @@ class TestCacheStubBulkOperations:
         assert results["nonexistent"] is None
 
     @pytest.mark.asyncio
-    async def test_mdelete(self, cache) -> None:
+    async def test_mdelete(self, cache: Any) -> None:
         """Test deleting multiple keys."""
         await cache.set("key1", "value1")
         await cache.set("key2", "value2")
@@ -344,7 +345,7 @@ class TestCacheStubStatistics:
         return CacheStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_get_stats(self, cache) -> None:
+    async def test_get_stats(self, cache: Any) -> None:
         """Test getting cache statistics."""
         await cache.set("key1", "value1")
         await cache.set("key2", "value2")
@@ -359,7 +360,7 @@ class TestCacheStubStatistics:
         assert stats["total_entries"] == 2
 
     @pytest.mark.asyncio
-    async def test_hit_count(self, cache) -> None:
+    async def test_hit_count(self, cache: Any) -> None:
         """Test hit count tracking."""
         await cache.set("key", "value")
         await cache.get("key")
@@ -370,7 +371,7 @@ class TestCacheStubStatistics:
         assert stats["hits"] >= 3
 
     @pytest.mark.asyncio
-    async def test_miss_count(self, cache) -> None:
+    async def test_miss_count(self, cache: Any) -> None:
         """Test miss count tracking."""
         await cache.get("nonexistent1")
         await cache.get("nonexistent2")
@@ -379,7 +380,7 @@ class TestCacheStubStatistics:
         assert stats["misses"] >= 2
 
     @pytest.mark.asyncio
-    async def test_size(self, cache) -> None:
+    async def test_size(self, cache: Any) -> None:
         """Test cache size reporting."""
         await cache.set("key1", "value1")
         await cache.set("key2", "value2")
@@ -397,35 +398,35 @@ class TestCacheStubIncrementDecrement:
         return CacheStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_incr(self, cache) -> None:
+    async def test_incr(self, cache: Any) -> None:
         """Test increment operation."""
         await cache.set("counter", 10)
         result = await cache.incr("counter")
         assert result == 11
 
     @pytest.mark.asyncio
-    async def test_incr_by_amount(self, cache) -> None:
+    async def test_incr_by_amount(self, cache: Any) -> None:
         """Test increment by specific amount."""
         await cache.set("counter", 10)
         result = await cache.incr("counter", amount=5)
         assert result == 15
 
     @pytest.mark.asyncio
-    async def test_decr(self, cache) -> None:
+    async def test_decr(self, cache: Any) -> None:
         """Test decrement operation."""
         await cache.set("counter", 10)
         result = await cache.decr("counter")
         assert result == 9
 
     @pytest.mark.asyncio
-    async def test_decr_by_amount(self, cache) -> None:
+    async def test_decr_by_amount(self, cache: Any) -> None:
         """Test decrement by specific amount."""
         await cache.set("counter", 10)
         result = await cache.decr("counter", amount=3)
         assert result == 7
 
     @pytest.mark.asyncio
-    async def test_incr_nonexistent_key(self, cache) -> None:
+    async def test_incr_nonexistent_key(self, cache: Any) -> None:
         """Test increment on nonexistent key."""
         result = await cache.incr("new_counter")
         assert result == 1
@@ -440,7 +441,7 @@ class TestCacheStubKeyOperations:
         return CacheStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_keys(self, cache) -> None:
+    async def test_keys(self, cache: Any) -> None:
         """Test listing all keys."""
         await cache.set("key1", "value1")
         await cache.set("key2", "value2")
@@ -449,7 +450,7 @@ class TestCacheStubKeyOperations:
         assert "key2" in keys
 
     @pytest.mark.asyncio
-    async def test_keys_pattern(self, cache) -> None:
+    async def test_keys_pattern(self, cache: Any) -> None:
         """Test listing keys with pattern."""
         await cache.set("user:1", "Alice")
         await cache.set("user:2", "Bob")
@@ -469,7 +470,7 @@ class TestCacheStubExpireAndPersist:
         return CacheStub(seed=42, latency_ms=(0, 1))
 
     @pytest.mark.asyncio
-    async def test_expire(self, cache) -> None:
+    async def test_expire(self, cache: Any) -> None:
         """Test setting expiry on existing key."""
         await cache.set("key", "value")
         result = await cache.expire("key", 300)
@@ -480,13 +481,13 @@ class TestCacheStubExpireAndPersist:
         assert ttl <= 300
 
     @pytest.mark.asyncio
-    async def test_expire_nonexistent(self, cache) -> None:
+    async def test_expire_nonexistent(self, cache: Any) -> None:
         """Test setting expiry on nonexistent key."""
         result = await cache.expire("nonexistent", 300)
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_persist(self, cache) -> None:
+    async def test_persist(self, cache: Any) -> None:
         """Test removing expiry from key."""
         await cache.set("key", "value", ttl=300)
         result = await cache.persist("key")

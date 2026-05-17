@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Tests for Foundation Model Adapters.
 
@@ -57,7 +59,9 @@ class TestTimeGPTAdapter:
         adapter = TimeGPTAdapter(config=config)
         assert adapter.config.fh == 14
 
-    def test_timegpt_detect_without_api_key_hard_fails(self, univariate_data, monkeypatch) -> None:
+    def test_timegpt_detect_without_api_key_hard_fails(
+        self, univariate_data: Any, monkeypatch: Any
+    ) -> None:
         """TimeGPT must raise ``NotImplementedError`` when no API key
         is configured.
 
@@ -79,7 +83,7 @@ class TestTimeGPTAdapter:
             adapter.detect(univariate_data)
 
     def test_timegpt_forecast_without_api_key_hard_fails(
-        self, univariate_data, monkeypatch
+        self, univariate_data: Any, monkeypatch: Any
     ) -> None:
         """TimeGPT.forecast must raise ``NotImplementedError`` without
         an API key — same contract as ``detect``.  See
@@ -120,7 +124,7 @@ class TestChronosAdapter:
         adapter = ChronosAdapter(config=config)
         assert adapter.config.prediction_length == 24
 
-    def test_chronos_detect_without_package_hard_fails(self, univariate_data) -> None:
+    def test_chronos_detect_without_package_hard_fails(self, univariate_data: Any) -> None:
         """Chronos must raise ``NotImplementedError`` when
         ``chronos-forecasting`` is not installed.
 
@@ -143,7 +147,7 @@ class TestChronosAdapter:
         with pytest.raises(NotImplementedError, match="chronos-forecasting package not installed"):
             adapter.detect(univariate_data)
 
-    def test_chronos_forecast_without_package_hard_fails(self, univariate_data) -> None:
+    def test_chronos_forecast_without_package_hard_fails(self, univariate_data: Any) -> None:
         """Chronos.forecast must raise ``NotImplementedError`` without
         the ``chronos-forecasting`` package — same contract as
         ``detect``.  See ``test_chronos_detect_without_package_hard_fails``.
@@ -187,7 +191,7 @@ class TestMatrixProfileAdapter:
         assert adapter.config.window_size == 50
 
     def test_matrix_profile_detect_without_package_hard_fails(
-        self, time_series_with_anomaly
+        self, time_series_with_anomaly: Any
     ) -> None:
         """``MatrixProfileAdapter.detect`` must raise ``NotImplementedError``
         when ``stumpy`` is not installed.
@@ -220,7 +224,9 @@ class TestMatrixProfileAdapter:
         assert "is_anomaly" in result
         assert "discords" in result
 
-    def test_matrix_profile_find_motifs_without_package_hard_fails(self, univariate_data) -> None:
+    def test_matrix_profile_find_motifs_without_package_hard_fails(
+        self, univariate_data: Any
+    ) -> None:
         """``MatrixProfileAdapter.find_motifs`` must raise
         ``NotImplementedError`` without ``stumpy`` — same contract as
         ``detect``.  See ``test_matrix_profile_detect_without_package_hard_fails``.
@@ -240,7 +246,7 @@ class TestMatrixProfileAdapter:
         assert isinstance(motifs, list)
 
     def test_matrix_profile_find_discords_without_package_hard_fails(
-        self, time_series_with_anomaly
+        self, time_series_with_anomaly: Any
     ) -> None:
         """``MatrixProfileAdapter.find_discords`` must raise
         ``NotImplementedError`` without ``stumpy`` — same contract as
@@ -284,7 +290,7 @@ class TestFoundationEnsemble:
         ensemble = FoundationEnsemble(config=config)
         assert ensemble.config.aggregation == "mean"
 
-    def test_ensemble_detect(self, time_series_with_anomaly) -> None:
+    def test_ensemble_detect(self, time_series_with_anomaly: Any) -> None:
         """Test Foundation Ensemble anomaly detection."""
         from omni_mercury_engine.models.foundation import FoundationEnsemble
 
@@ -295,7 +301,7 @@ class TestFoundationEnsemble:
         assert "is_anomaly" in result
         assert "adapter_scores" in result
 
-    def test_ensemble_aggregation_methods(self, univariate_data) -> None:
+    def test_ensemble_aggregation_methods(self, univariate_data: Any) -> None:
         """Test different aggregation methods."""
         from omni_mercury_engine.models.foundation import FoundationEnsemble
         from omni_mercury_engine.models.foundation.ensemble import EnsembleConfig

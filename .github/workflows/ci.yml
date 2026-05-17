@@ -225,37 +225,37 @@ jobs:
             --pretty
 
       - name: Run MyPy on critical tests
-        # Incremental test typing: started with security, ethics, and
-        # safeguards (the high-risk behavioural gates) and has now been
-        # ratcheted to the **entire** ``tests/`` tree.  The expansion
-        # only became safe once the real-bug-shaped errors (arg-type,
-        # index, union-attr, override, operator, dict-item, assignment,
-        # method-assign, comparison-overlap, call-arg, attr-defined,
-        # redundant-cast) had been triaged and fixed at the source.
-        # The temporary disabled codes are the remaining test-only debt
-        # categories; remove them one-by-one as the bulk annotation pass
-        # closes out each class.  ``--ignore-missing-imports`` is
-        # **not** present -- third-party boundaries are declared in
-        # pyproject.toml [[tool.mypy.overrides]], so any new un-declared
-        # import in test code fails the gate instead of being silenced.
+        # Incremental test typing: gated on the **entire** ``tests/``
+        # tree.  ``--ignore-missing-imports`` is **not** present --
+        # third-party boundaries are declared in pyproject.toml
+        # [[tool.mypy.overrides]], so any new un-declared import in
+        # test code fails the gate instead of being silenced.
         #
-        # ``--allow-incomplete-defs`` rides alongside ``--allow-untyped-defs``
-        # because the mass ``-> None`` annotation pass left many test
-        # functions partially annotated (return type but no parameter
-        # types).  Strict mode would otherwise flag every such function as
-        # ``no-untyped-def`` even though the intent matches the relaxed
-        # tier.  When the bulk param-annotation pass lands this flag drops.
+        # The two remaining relaxations are:
+        #
+        # * ``--allow-untyped-defs`` / ``--allow-untyped-calls`` -- a
+        #   test function with no parameter annotations at all is
+        #   accepted, matching the historical pytest idiom.  Parameter
+        #   annotations are tracked at the source (``: Any`` is the
+        #   stopgap), so partial annotation is still a hard error --
+        #   ``--allow-incomplete-defs`` is **not** present.
+        # * ``--disable-error-code untyped-decorator`` -- pytest's
+        #   ``@pytest.fixture`` / ``@parametrize`` decorators return
+        #   ``Any`` from the public stubs, which would otherwise flag
+        #   every decorated test as ``[untyped-decorator]``.
+        #
+        # ``--allow-subclassing-any`` matches the global pyproject
+        # setting and lets test mocks subclass ``torch.nn.Module``,
+        # ``pydantic.BaseModel``, etc.  ``[misc]`` errors from
+        # deliberately writing to read-only properties are pinned with
+        # per-line ``# type: ignore[misc]`` so the suppression is
+        # visible at the source rather than at the gate.
         run: |
           mypy tests/ \
             --allow-untyped-defs \
-            --allow-incomplete-defs \
             --allow-untyped-calls \
+            --allow-subclassing-any \
             --disable-error-code untyped-decorator \
-            --disable-error-code misc \
-            --disable-error-code unused-ignore \
-            --disable-error-code no-any-return \
-            --disable-error-code type-arg \
-            --disable-error-code var-annotated \
             --show-error-codes \
             --pretty \
             --no-warn-unused-configs

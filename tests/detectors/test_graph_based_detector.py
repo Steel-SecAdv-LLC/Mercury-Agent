@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -42,7 +44,7 @@ class TestGraphAnomalyDetector:
         return G
 
     @pytest.fixture
-    def adjacency_matrix(self, sample_graph):
+    def adjacency_matrix(self, sample_graph: Any) -> Any:
         """Get adjacency matrix from sample graph."""
         return nx.to_numpy_array(sample_graph)
 
@@ -64,7 +66,7 @@ class TestGraphAnomalyDetector:
         detector = GraphAnomalyDetector(config=config)
         assert detector.threshold == 2.0
 
-    def test_fit_with_graph(self, sample_graph) -> None:
+    def test_fit_with_graph(self, sample_graph: Any) -> None:
         """Test fitting with NetworkX graph."""
         detector = GraphAnomalyDetector()
         result = detector.fit(sample_graph)
@@ -76,7 +78,7 @@ class TestGraphAnomalyDetector:
         assert "density" in detector.baseline_metrics
         assert "avg_clustering" in detector.baseline_metrics
 
-    def test_fit_with_adjacency_matrix(self, adjacency_matrix) -> None:
+    def test_fit_with_adjacency_matrix(self, adjacency_matrix: Any) -> None:
         """Test fitting with adjacency matrix."""
         detector = GraphAnomalyDetector()
         result = detector.fit(adjacency_matrix)
@@ -84,7 +86,7 @@ class TestGraphAnomalyDetector:
         assert result is detector
         assert detector.fitted
 
-    def test_is_fitted(self, sample_graph) -> None:
+    def test_is_fitted(self, sample_graph: Any) -> None:
         """Test is_fitted method."""
         detector = GraphAnomalyDetector()
         assert not detector.is_fitted()
@@ -92,7 +94,7 @@ class TestGraphAnomalyDetector:
         detector.fit(sample_graph)
         assert detector.is_fitted()
 
-    def test_detect_with_graph(self, sample_graph) -> None:
+    def test_detect_with_graph(self, sample_graph: Any) -> None:
         """Test detection with NetworkX graph."""
         detector = GraphAnomalyDetector()
         detector.fit(sample_graph)
@@ -105,7 +107,7 @@ class TestGraphAnomalyDetector:
         assert isinstance(result["is_anomaly"], bool)
         assert isinstance(result["anomaly_score"], float)
 
-    def test_detect_with_adjacency_matrix(self, adjacency_matrix) -> None:
+    def test_detect_with_adjacency_matrix(self, adjacency_matrix: Any) -> None:
         """Test detection with adjacency matrix."""
         detector = GraphAnomalyDetector()
         detector.fit(adjacency_matrix)
@@ -114,7 +116,7 @@ class TestGraphAnomalyDetector:
         assert "is_anomaly" in result
         assert "anomaly_score" in result
 
-    def test_detect_identifies_structural_changes(self, sample_graph) -> None:
+    def test_detect_identifies_structural_changes(self, sample_graph: Any) -> None:
         """Test that structural changes are detected."""
         detector = GraphAnomalyDetector(config={"threshold": 0.5})
         detector.fit(sample_graph)
@@ -126,7 +128,7 @@ class TestGraphAnomalyDetector:
         # Should have a higher anomaly score
         assert result["anomaly_score"] > 0
 
-    def test_detect_no_anomaly_same_graph(self, sample_graph) -> None:
+    def test_detect_no_anomaly_same_graph(self, sample_graph: Any) -> None:
         """Test that same graph gives low anomaly score."""
         detector = GraphAnomalyDetector()
         detector.fit(sample_graph)
@@ -135,7 +137,7 @@ class TestGraphAnomalyDetector:
         # Same graph should have very low anomaly score
         assert result["anomaly_score"] < 0.1
 
-    def test_extract_features(self, sample_graph) -> None:
+    def test_extract_features(self, sample_graph: Any) -> None:
         """Test feature extraction."""
         detector = GraphAnomalyDetector()
         features = detector.extract_features(sample_graph)
@@ -144,7 +146,7 @@ class TestGraphAnomalyDetector:
         # Should have 6 features
         assert features.shape == (1, 6)
 
-    def test_extract_features_adjacency_matrix(self, adjacency_matrix) -> None:
+    def test_extract_features_adjacency_matrix(self, adjacency_matrix: Any) -> None:
         """Test feature extraction from adjacency matrix."""
         detector = GraphAnomalyDetector()
         features = detector.extract_features(adjacency_matrix)
@@ -152,7 +154,7 @@ class TestGraphAnomalyDetector:
         assert isinstance(features, torch.Tensor)
         assert features.shape[1] == 6
 
-    def test_array_to_graph(self, adjacency_matrix) -> None:
+    def test_array_to_graph(self, adjacency_matrix: Any) -> None:
         """Test adjacency matrix to graph conversion."""
         detector = GraphAnomalyDetector()
         graph = detector._array_to_graph(adjacency_matrix)
@@ -170,7 +172,7 @@ class TestGraphAnomalyDetector:
         assert isinstance(graph, nx.Graph)
         assert len(graph.nodes()) == 4
 
-    def test_compute_graph_metrics(self, sample_graph) -> None:
+    def test_compute_graph_metrics(self, sample_graph: Any) -> None:
         """Test graph metrics computation."""
         detector = GraphAnomalyDetector()
         metrics = detector._compute_graph_metrics(sample_graph)
@@ -187,7 +189,7 @@ class TestGraphAnomalyDetector:
         assert 0 <= metrics["avg_clustering"] <= 1
         assert metrics["num_components"] >= 1
 
-    def test_compute_graph_metrics_empty_graph(self, empty_graph) -> None:
+    def test_compute_graph_metrics_empty_graph(self, empty_graph: Any) -> None:
         """Test metrics computation for empty graph."""
         detector = GraphAnomalyDetector()
         metrics = detector._compute_graph_metrics(empty_graph)
@@ -218,14 +220,14 @@ class TestGraphAnomalyDetector:
 
         assert score == 0.0
 
-    def test_detect_cascade_failure_risk(self, sample_graph) -> None:
+    def test_detect_cascade_failure_risk(self, sample_graph: Any) -> None:
         """Test cascade failure risk assessment."""
         detector = GraphAnomalyDetector()
         risk = detector._detect_cascade_failure_risk(sample_graph)
 
         assert 0 <= risk <= 1
 
-    def test_detect_cascade_failure_risk_empty_graph(self, empty_graph) -> None:
+    def test_detect_cascade_failure_risk_empty_graph(self, empty_graph: Any) -> None:
         """Test cascade risk for empty graph."""
         detector = GraphAnomalyDetector()
         risk = detector._detect_cascade_failure_risk(empty_graph)

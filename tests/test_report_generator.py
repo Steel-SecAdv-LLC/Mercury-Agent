@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import Any
 
 import pytest
 
@@ -298,7 +299,7 @@ class TestReportExport:
         """Set up test fixtures."""
         self.generator = ReportGenerator()
 
-    def test_export_to_file(self, tmp_path) -> None:
+    def test_export_to_file(self, tmp_path: Any) -> None:
         """Test exporting report to file."""
         data = {"title": "Test Report", "content": "Test content"}
         filepath = tmp_path / "report.json"
@@ -310,7 +311,7 @@ class TestReportExport:
             content = f.read()
             assert len(content) > 0
 
-    def test_export_html_to_file(self, tmp_path) -> None:
+    def test_export_html_to_file(self, tmp_path: Any) -> None:
         """Test exporting HTML report to file."""
         data = {"title": "Test Report"}
         filepath = tmp_path / "report.html"
@@ -319,7 +320,7 @@ class TestReportExport:
 
         assert filepath.exists()
 
-    def test_export_creates_directory(self, tmp_path) -> None:
+    def test_export_creates_directory(self, tmp_path: Any) -> None:
         """Test that export creates directory if needed."""
         data = {"title": "Test"}
         nested_path = tmp_path / "subdir" / "report.json"

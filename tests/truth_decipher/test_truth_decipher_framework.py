@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Integration tests for Truth Deciphering Framework.
 
@@ -42,7 +44,7 @@ from omni_mercury_engine.truth_decipher import TruthDecipherFramework, TruthDeci
 
 
 @pytest.fixture(autouse=True)
-def _bypass_sigma_immutable_for_framework(monkeypatch):
+def _bypass_sigma_immutable_for_framework(monkeypatch: Any) -> Any:
     """Mock the σ_Immutable singleton's ``enforce`` for the whole file.
 
     Wave B (PR #179) promoted σ_Immutable to a mandatory hard ethical

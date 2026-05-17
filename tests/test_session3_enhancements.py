@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Mercury Agent - Neuro-Symbolic Hub and GOSNN Enhancement Tests
 Copyright (C) 2025 Steel Security Advisors LLC
@@ -391,14 +393,14 @@ class TestRealWorldBenchmark:
             def __init__(self) -> None:
                 self.model = MADDetector()
 
-            def fit(self, X, y=None) -> None:
+            def fit(self, X: Any, y: Any = None) -> None:
                 self.model.fit(X)
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 result = self.model.detect(X)
                 return result.is_anomaly.astype(int)
 
-            def predict_proba(self, X):
+            def predict_proba(self, X: Any) -> Any:
                 result = self.model.detect(X)
                 scores = result.scores
                 return np.column_stack([1 - scores, scores])
@@ -423,13 +425,13 @@ class TestRealWorldBenchmark:
                 # wrapper tests scoring, not ethical enforcement.
                 self.hub._benevolence_threshold = 0.0
 
-            def fit(self, X, y=None) -> None:
+            def fit(self, X: Any, y: Any = None) -> None:
                 self.hub.fit(X, y)
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return self.hub.predict(X, return_explanations=False)
 
-            def predict_proba(self, X):
+            def predict_proba(self, X: Any) -> Any:
                 return self.hub.predict_proba(X)
 
         # Test fail-closed behavior: without real data, should raise RuntimeError

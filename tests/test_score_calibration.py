@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Tests for Score Calibration System
 Copyright (C) 2025 Steel Security Advisors LLC
@@ -356,7 +358,7 @@ class TestConvenienceFunctions:
         assert len(predictions) == 100
         assert isinstance(diagnostics, CalibrationDiagnostics)
 
-    def test_diagnose_scores_function(self, capsys) -> None:
+    def test_diagnose_scores_function(self, capsys: Any) -> None:
         """Test diagnose_scores convenience function."""
         scores = np.array([0.1, 0.2, 0.3, 0.4])  # All below threshold
         labels = np.array([0, 0, 1, 1])

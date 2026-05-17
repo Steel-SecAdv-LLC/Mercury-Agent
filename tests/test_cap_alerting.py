@@ -26,6 +26,8 @@ Tests for the CAP (Common Alerting Protocol) 1.2 alert generator:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 from defusedxml.ElementTree import fromstring
@@ -97,7 +99,7 @@ class TestGenerateAlert:
     def generator(self) -> CAPAlertGenerator:
         return CAPAlertGenerator(sender="test@example.com")
 
-    def test_returns_string(self, generator) -> None:
+    def test_returns_string(self, generator: Any) -> None:
         """generate_alert must return a string."""
         xml = generator.generate_alert(
             domain="earthquake",
@@ -108,7 +110,7 @@ class TestGenerateAlert:
         )
         assert isinstance(xml, str)
 
-    def test_xml_declaration(self, generator) -> None:
+    def test_xml_declaration(self, generator: Any) -> None:
         """Output must start with an XML declaration."""
         xml = generator.generate_alert(
             domain="earthquake",
@@ -119,7 +121,7 @@ class TestGenerateAlert:
         )
         assert xml.startswith("<?xml")
 
-    def test_parses_as_valid_xml(self, generator) -> None:
+    def test_parses_as_valid_xml(self, generator: Any) -> None:
         """Output must be parseable by ElementTree."""
         xml = generator.generate_alert(
             domain="tsunami",
@@ -131,7 +133,7 @@ class TestGenerateAlert:
         root = fromstring(xml)
         assert root.tag.endswith("alert")
 
-    def test_required_cap_elements_present(self, generator) -> None:
+    def test_required_cap_elements_present(self, generator: Any) -> None:
         """CAP 1.2 required top-level elements must be present."""
         xml = generator.generate_alert(
             domain="hurricane",
@@ -144,7 +146,7 @@ class TestGenerateAlert:
         for tag in ("identifier", "sender", "sent", "status", "msgType", "scope"):
             assert _find(root, tag) is not None, f"Missing required element: {tag}"
 
-    def test_info_block_elements_present(self, generator) -> None:
+    def test_info_block_elements_present(self, generator: Any) -> None:
         """CAP info block must contain category, event, severity, etc."""
         xml = generator.generate_alert(
             domain="wildfire",
@@ -159,7 +161,7 @@ class TestGenerateAlert:
         for tag in ("category", "event", "urgency", "severity", "certainty"):
             assert _find(info, tag) is not None, f"Missing info element: {tag}"
 
-    def test_sender_in_xml(self, generator) -> None:
+    def test_sender_in_xml(self, generator: Any) -> None:
         """Sender element must contain the configured sender."""
         xml = generator.generate_alert(
             domain="flood",
@@ -171,7 +173,7 @@ class TestGenerateAlert:
         root = fromstring(xml)
         assert _find(root, "sender").text == "test@example.com"
 
-    def test_area_description_in_xml(self, generator) -> None:
+    def test_area_description_in_xml(self, generator: Any) -> None:
         """Area description must appear in the area block."""
         xml = generator.generate_alert(
             domain="landslide",
@@ -185,7 +187,7 @@ class TestGenerateAlert:
         assert area is not None
         assert area.find(f"{_NS}areaDesc").text == "Mountain Pass Region"
 
-    def test_coordinates_produce_circle_element(self, generator) -> None:
+    def test_coordinates_produce_circle_element(self, generator: Any) -> None:
         """When coordinates are given, a circle element should appear."""
         xml = generator.generate_alert(
             domain="earthquake",
@@ -201,7 +203,7 @@ class TestGenerateAlert:
         assert "37.7749" in circle.text
         assert "-122.4194" in circle.text
 
-    def test_geocode_in_xml(self, generator) -> None:
+    def test_geocode_in_xml(self, generator: Any) -> None:
         """When geocode is given, geocode elements should appear."""
         xml = generator.generate_alert(
             domain="tornado",
@@ -217,7 +219,7 @@ class TestGenerateAlert:
         assert geocode.find(f"{_NS}valueName").text == "FIPS6"
         assert geocode.find(f"{_NS}value").text == "400000"
 
-    def test_mercury_parameters_present(self, generator) -> None:
+    def test_mercury_parameters_present(self, generator: Any) -> None:
         """Mercury-specific parameters (score, domain) must appear."""
         xml = generator.generate_alert(
             domain="sepsis",
@@ -232,7 +234,7 @@ class TestGenerateAlert:
         assert "MercuryAnomalyScore" in value_names
         assert "MercuryDomain" in value_names
 
-    def test_custom_parameters_included(self, generator) -> None:
+    def test_custom_parameters_included(self, generator: Any) -> None:
         """Extra user-supplied parameters should appear in the XML."""
         xml = generator.generate_alert(
             domain="financial",
@@ -247,7 +249,7 @@ class TestGenerateAlert:
         value_names = {p.find(f"{_NS}valueName").text: p.find(f"{_NS}value").text for p in params}
         assert value_names.get("CustomKey") == "CustomValue"
 
-    def test_severity_extreme_for_high_score(self, generator) -> None:
+    def test_severity_extreme_for_high_score(self, generator: Any) -> None:
         """Score >= 0.9 should map to Extreme severity."""
         xml = generator.generate_alert(
             domain="earthquake",
@@ -260,7 +262,7 @@ class TestGenerateAlert:
         severity = _find(root, "info/severity").text
         assert severity == "Extreme"
 
-    def test_severity_minor_for_low_score(self, generator) -> None:
+    def test_severity_minor_for_low_score(self, generator: Any) -> None:
         """Score in [0.3, 0.5) should map to Minor severity."""
         xml = generator.generate_alert(
             domain="earthquake",
@@ -286,26 +288,26 @@ class TestFromDetection:
     def generator(self) -> CAPAlertGenerator:
         return CAPAlertGenerator()
 
-    def test_returns_string(self, generator) -> None:
+    def test_returns_string(self, generator: Any) -> None:
         """from_detection must return a string."""
         scores = np.array([0.1, 0.3, 0.5, 0.9])
         xml = generator.from_detection(domain="earthquake", scores=scores)
         assert isinstance(xml, str)
 
-    def test_valid_xml(self, generator) -> None:
+    def test_valid_xml(self, generator: Any) -> None:
         """Output must be parseable XML."""
         scores = np.array([0.2, 0.4, 0.6, 0.8, 0.95])
         xml = generator.from_detection(domain="tsunami", scores=scores)
         root = fromstring(xml)
         assert root.tag.endswith("alert")
 
-    def test_passes_validation(self, generator) -> None:
+    def test_passes_validation(self, generator: Any) -> None:
         """from_detection output should pass validate_cap_xml."""
         scores = np.array([0.7, 0.85, 0.3])
         xml = generator.from_detection(domain="hurricane", scores=scores)
         assert CAPAlertGenerator.validate_cap_xml(xml)
 
-    def test_max_score_in_headline(self, generator) -> None:
+    def test_max_score_in_headline(self, generator: Any) -> None:
         """Headline should contain the maximum anomaly score."""
         scores = np.array([0.1, 0.2, 0.99])
         xml = generator.from_detection(domain="wildfire", scores=scores)
@@ -313,7 +315,7 @@ class TestFromDetection:
         headline = _find(root, "info/headline").text
         assert "0.99" in headline
 
-    def test_anomaly_count_in_headline(self, generator) -> None:
+    def test_anomaly_count_in_headline(self, generator: Any) -> None:
         """Headline should mention the number of anomalies (score > 0.5)."""
         scores = np.array([0.1, 0.2, 0.6, 0.8, 0.9])
         xml = generator.from_detection(domain="flood", scores=scores)
@@ -322,7 +324,7 @@ class TestFromDetection:
         # 3 scores > 0.5
         assert "3 anomalies" in headline
 
-    def test_metadata_in_description(self, generator) -> None:
+    def test_metadata_in_description(self, generator: Any) -> None:
         """Supplied metadata keys should appear in the description."""
         scores = np.array([0.5, 0.7])
         xml = generator.from_detection(
@@ -335,7 +337,7 @@ class TestFromDetection:
         assert "magnitude" in desc
         assert "7.8" in desc
 
-    def test_area_description_default(self, generator) -> None:
+    def test_area_description_default(self, generator: Any) -> None:
         """Default area description should be used when none is given."""
         scores = np.array([0.5])
         xml = generator.from_detection(domain="pandemic", scores=scores)
@@ -343,7 +345,7 @@ class TestFromDetection:
         area_desc = _find(root, "info/area/areaDesc").text
         assert area_desc == "Unspecified Area"
 
-    def test_area_description_custom(self, generator) -> None:
+    def test_area_description_custom(self, generator: Any) -> None:
         """Custom area description should appear in the output."""
         scores = np.array([0.5])
         xml = generator.from_detection(
@@ -355,7 +357,7 @@ class TestFromDetection:
         area_desc = _find(root, "info/area/areaDesc").text
         assert area_desc == "Southeast Asia"
 
-    def test_extra_parameters_present(self, generator) -> None:
+    def test_extra_parameters_present(self, generator: Any) -> None:
         """from_detection should inject MercuryMeanScore, AnomalyCount, TotalPoints."""
         scores = np.array([0.1, 0.6, 0.8])
         xml = generator.from_detection(domain="energy", scores=scores)
@@ -366,7 +368,7 @@ class TestFromDetection:
         assert "MercuryAnomalyCount" in value_names
         assert "MercuryTotalPoints" in value_names
 
-    def test_single_score(self, generator) -> None:
+    def test_single_score(self, generator: Any) -> None:
         """Should handle a single-element score array."""
         scores = np.array([0.85])
         xml = generator.from_detection(domain="sepsis", scores=scores)

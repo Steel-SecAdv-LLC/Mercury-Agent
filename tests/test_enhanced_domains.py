@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Mercury Agent - Tests for Enhanced Domain Components
 Copyright (C) 2025 Steel Security Advisors LLC
@@ -41,7 +43,7 @@ class TestAdaptiveThresholdOptimizer:
         anomaly = np.random.normal(0.8, 0.1, 100)
         return np.concatenate([normal, anomaly])
 
-    def test_otsu_threshold_separates_bimodal(self, optimizer, sample_scores) -> None:
+    def test_otsu_threshold_separates_bimodal(self, optimizer: Any, sample_scores: Any) -> None:
         """Otsu's method should separate bimodal distribution."""
         result = optimizer.compute_threshold(sample_scores)
 
@@ -50,7 +52,7 @@ class TestAdaptiveThresholdOptimizer:
         assert result.confidence > 0.0
         assert result.otsu_score is not None
 
-    def test_percentile_threshold(self, sample_scores) -> None:
+    def test_percentile_threshold(self, sample_scores: Any) -> None:
         from omni_mercury_engine.core.enhanced_base_domains import (
             AdaptiveThresholdOptimizer,
         )
@@ -61,7 +63,7 @@ class TestAdaptiveThresholdOptimizer:
         assert result.method == "percentile"
         assert result.threshold >= np.percentile(sample_scores, 95) - 0.01
 
-    def test_bayesian_threshold(self, sample_scores) -> None:
+    def test_bayesian_threshold(self, sample_scores: Any) -> None:
         from omni_mercury_engine.core.enhanced_base_domains import (
             AdaptiveThresholdOptimizer,
         )
@@ -73,7 +75,7 @@ class TestAdaptiveThresholdOptimizer:
         assert result.bayesian_bounds is not None
         assert len(result.bayesian_bounds) == 2
 
-    def test_f1_max_threshold_with_labels(self, sample_scores) -> None:
+    def test_f1_max_threshold_with_labels(self, sample_scores: Any) -> None:
         from omni_mercury_engine.core.enhanced_base_domains import (
             AdaptiveThresholdOptimizer,
         )
@@ -89,7 +91,7 @@ class TestAdaptiveThresholdOptimizer:
         st.lists(st.floats(min_value=0, max_value=1, allow_nan=False), min_size=20, max_size=100)
     )
     @settings(max_examples=10)
-    def test_threshold_within_range(self, scores) -> None:
+    def test_threshold_within_range(self, scores: Any) -> None:
         """Threshold should always be within score range."""
         from omni_mercury_engine.core.enhanced_base_domains import (
             AdaptiveThresholdOptimizer,
@@ -114,7 +116,7 @@ class TestEventBasedMetrics:
 
         return EventBasedMetrics(tolerance=2, min_event_length=1)
 
-    def test_extract_single_event(self, metrics) -> None:
+    def test_extract_single_event(self, metrics: Any) -> None:
         """Should correctly extract a single event."""
         labels = np.array([0, 0, 1, 1, 1, 0, 0])
         events = metrics.extract_events(labels)
@@ -122,7 +124,7 @@ class TestEventBasedMetrics:
         assert len(events) == 1
         assert events[0] == (2, 4)
 
-    def test_extract_multiple_events(self, metrics) -> None:
+    def test_extract_multiple_events(self, metrics: Any) -> None:
         """Should extract multiple disjoint events."""
         labels = np.array([1, 1, 0, 0, 1, 1, 1, 0, 1])
         events = metrics.extract_events(labels)
@@ -132,7 +134,7 @@ class TestEventBasedMetrics:
         assert events[1] == (4, 6)
         assert events[2] == (8, 8)
 
-    def test_time_to_detection_perfect(self, metrics) -> None:
+    def test_time_to_detection_perfect(self, metrics: Any) -> None:
         """Perfect detection should have TTD = 0."""
         y_true = np.array([0, 0, 1, 1, 1, 0, 0])
         y_pred = np.array([0, 0, 1, 1, 1, 0, 0])
@@ -140,7 +142,7 @@ class TestEventBasedMetrics:
         ttd = metrics.compute_time_to_detection(y_true, y_pred)
         assert ttd == 0.0
 
-    def test_time_to_detection_delayed(self, metrics) -> None:
+    def test_time_to_detection_delayed(self, metrics: Any) -> None:
         """Delayed detection should have TTD > 0."""
         y_true = np.array([0, 0, 1, 1, 1, 0, 0])
         y_pred = np.array([0, 0, 0, 0, 1, 0, 0])  # Detected at index 4
@@ -148,7 +150,7 @@ class TestEventBasedMetrics:
         ttd = metrics.compute_time_to_detection(y_true, y_pred)
         assert ttd == 2.0  # 2 samples delay
 
-    def test_event_metrics_comprehensive(self, metrics) -> None:
+    def test_event_metrics_comprehensive(self, metrics: Any) -> None:
         """Test comprehensive event metrics computation."""
         y_true = np.array([0, 1, 1, 0, 0, 1, 1, 1, 0])
         y_pred = np.array([0, 1, 1, 0, 0, 0, 1, 1, 0])
@@ -193,7 +195,7 @@ class TestSpatialAutocorrelation:
 
         return values, weights
 
-    def test_morans_i_clustered(self, spatial, clustered_data) -> None:
+    def test_morans_i_clustered(self, spatial: Any, clustered_data: Any) -> None:
         """Clustered data should have positive Moran's I."""
         values, weights = clustered_data
         morans_i, expected_i, z = spatial.compute_morans_i(values, weights)
@@ -201,7 +203,7 @@ class TestSpatialAutocorrelation:
         assert morans_i > expected_i  # Positive autocorrelation
         assert morans_i > 0  # Clustering
 
-    def test_morans_i_random(self, spatial) -> None:
+    def test_morans_i_random(self, spatial: Any) -> None:
         """Random data should have Moran's I near expected value."""
         np.random.seed(SEED)
         n = 25
@@ -214,7 +216,7 @@ class TestSpatialAutocorrelation:
         # Should be near expected value (-1/(n-1))
         assert abs(morans_i - expected_i) < 1.0
 
-    def test_gearys_c(self, spatial, clustered_data) -> None:
+    def test_gearys_c(self, spatial: Any, clustered_data: Any) -> None:
         """Clustered data should have Geary's C < 1."""
         values, weights = clustered_data
         C = spatial.compute_gearys_c(values, weights)
@@ -237,7 +239,7 @@ class TestEnhancedQuantumModel:
         np.random.seed(SEED)
         return np.random.randn(10, 16)
 
-    def test_von_neumann_entropy_pure_state(self, quantum) -> None:
+    def test_von_neumann_entropy_pure_state(self, quantum: Any) -> None:
         """Pure state should have zero entropy."""
         # Create a pure state (single basis state)
         data = np.zeros(16)
@@ -249,7 +251,7 @@ class TestEnhancedQuantumModel:
         # Should be close to 0 for pure state
         assert entropy < 0.5
 
-    def test_von_neumann_entropy_mixed_state(self, quantum) -> None:
+    def test_von_neumann_entropy_mixed_state(self, quantum: Any) -> None:
         """Mixed state should have positive entropy."""
         # Uniform superposition (maximally mixed-like)
         data = np.ones(16)
@@ -259,7 +261,7 @@ class TestEnhancedQuantumModel:
 
         assert entropy >= 0
 
-    def test_purity_bounds(self, quantum, sample_data) -> None:
+    def test_purity_bounds(self, quantum: Any, sample_data: Any) -> None:
         """Purity should be between 1/d and 1."""
         for sample in sample_data:
             rho = quantum._create_density_matrix(sample)
@@ -268,7 +270,7 @@ class TestEnhancedQuantumModel:
             dim = rho.shape[0]
             assert 1 / dim - 0.01 <= purity <= 1.01
 
-    def test_coherence_non_negative(self, quantum, sample_data) -> None:
+    def test_coherence_non_negative(self, quantum: Any, sample_data: Any) -> None:
         """Coherence should be non-negative."""
         for sample in sample_data:
             rho = quantum._create_density_matrix(sample)
@@ -276,7 +278,7 @@ class TestEnhancedQuantumModel:
 
             assert coherence >= 0
 
-    def test_quantum_kernel_symmetry(self, quantum) -> None:
+    def test_quantum_kernel_symmetry(self, quantum: Any) -> None:
         """Quantum kernel should be symmetric."""
         x1 = np.random.randn(16)
         x2 = np.random.randn(16)
@@ -286,14 +288,14 @@ class TestEnhancedQuantumModel:
 
         assert abs(k12 - k21) < 0.01
 
-    def test_extract_features_shape(self, quantum, sample_data) -> None:
+    def test_extract_features_shape(self, quantum: Any, sample_data: Any) -> None:
         """Feature extraction should return correct shape."""
         features = quantum.extract_features(sample_data)
 
         assert features.shape[0] == sample_data.shape[0]
         assert features.shape[1] >= 4  # At least entropy, purity, coherence, entanglement
 
-    def test_compute_metrics(self, quantum) -> None:
+    def test_compute_metrics(self, quantum: Any) -> None:
         """Should return QuantumMetrics dataclass."""
         data = np.random.randn(16)
         metrics = quantum.compute_metrics(data)
@@ -313,7 +315,7 @@ class TestEnhancedBiometricModel:
 
         return EnhancedBiometricModel(enforce_fairness=True, fairness_threshold=0.8)
 
-    def test_fairness_metrics_balanced(self, biometric) -> None:
+    def test_fairness_metrics_balanced(self, biometric: Any) -> None:
         """Balanced groups should have high fairness metrics."""
         np.random.seed(SEED)
         n = 200
@@ -326,7 +328,7 @@ class TestEnhancedBiometricModel:
         assert metrics.demographic_parity_ratio > 0.5
         assert metrics.disparate_impact_ratio > 0.5
 
-    def test_fairness_metrics_biased(self, biometric) -> None:
+    def test_fairness_metrics_biased(self, biometric: Any) -> None:
         """Biased predictions should have lower fairness metrics."""
         n = 200
         protected = np.array([0] * 100 + [1] * 100)
@@ -337,7 +339,7 @@ class TestEnhancedBiometricModel:
 
         assert metrics.demographic_parity_ratio < 0.5
 
-    def test_fairness_constraint_application(self, biometric) -> None:
+    def test_fairness_constraint_application(self, biometric: Any) -> None:
         """Fairness constraint should adjust scores."""
         np.random.seed(SEED)
         n = 100
@@ -355,7 +357,7 @@ class TestEnhancedBiometricModel:
 
         assert adjusted_diff < original_diff
 
-    def test_passes_threshold(self, biometric) -> None:
+    def test_passes_threshold(self, biometric: Any) -> None:
         """Test threshold checking."""
         from omni_mercury_engine.core.enhanced_model_domains import FairnessMetrics
 
@@ -387,7 +389,7 @@ class TestLyapunovStabilityAnalyzer:
 
         return LyapunovStabilityAnalyzer(embedding_dim=5, tau=1)
 
-    def test_embedding_shape(self, analyzer) -> None:
+    def test_embedding_shape(self, analyzer: Any) -> None:
         """Embedding should have correct dimensions."""
         x = np.sin(np.linspace(0, 10 * np.pi, 200))
         embedded = analyzer.embed_time_series(x)
@@ -395,7 +397,7 @@ class TestLyapunovStabilityAnalyzer:
         assert embedded.shape[1] == analyzer.embedding_dim
         assert embedded.shape[0] == len(x) - (analyzer.embedding_dim - 1) * analyzer.tau
 
-    def test_stable_system_negative_lyapunov(self, analyzer) -> None:
+    def test_stable_system_negative_lyapunov(self, analyzer: Any) -> None:
         """Stable system should have negative Lyapunov exponent."""
         # Damped oscillation (stable)
         t = np.linspace(0, 20, 500)
@@ -407,7 +409,7 @@ class TestLyapunovStabilityAnalyzer:
         # Allow some tolerance due to numerical estimation
         assert lle < 0.5
 
-    def test_stability_metrics_structure(self, analyzer) -> None:
+    def test_stability_metrics_structure(self, analyzer: Any) -> None:
         """Should return complete StabilityMetrics."""
         x = np.random.randn(200)
         metrics = analyzer.analyze_stability(x)
@@ -429,21 +431,21 @@ class TestEnhancedAffectiveModel:
 
         return EnhancedAffectiveModel(n_emotions=6, seed=SEED)
 
-    def test_emotional_entropy_uniform(self, affective) -> None:
+    def test_emotional_entropy_uniform(self, affective: Any) -> None:
         """Uniform distribution should have maximum entropy."""
         uniform = np.ones(6) / 6
         entropy = affective.compute_emotional_entropy(uniform)
 
         assert 0.95 <= entropy <= 1.0
 
-    def test_emotional_entropy_certain(self, affective) -> None:
+    def test_emotional_entropy_certain(self, affective: Any) -> None:
         """Certain state should have zero entropy."""
         certain = np.array([1, 0, 0, 0, 0, 0])
         entropy = affective.compute_emotional_entropy(certain)
 
         assert entropy < 0.1
 
-    def test_valence_arousal_analysis(self, affective) -> None:
+    def test_valence_arousal_analysis(self, affective: Any) -> None:
         """Should return valid valence-arousal values."""
         features = np.random.randn(30)
         result = affective.analyze_valence_arousal(features)
@@ -454,7 +456,7 @@ class TestEnhancedAffectiveModel:
         assert 0 <= result["valence"] <= 1
         assert 0 <= result["arousal"] <= 1
 
-    def test_distress_detection(self, affective) -> None:
+    def test_distress_detection(self, affective: Any) -> None:
         """Should detect distress patterns."""
         # Sustained negative emotions (indices 2, 3, 4 are negative)
         temporal_emotions = np.zeros((20, 6))
@@ -466,7 +468,7 @@ class TestEnhancedAffectiveModel:
         assert result["is_distressed"]
         assert result["negative_emotion_ratio"] > 0.3
 
-    def test_extract_features_shape(self, affective) -> None:
+    def test_extract_features_shape(self, affective: Any) -> None:
         """Feature extraction should return correct shape."""
         data = np.random.randn(10, 30)
         features = affective.extract_features(data)
@@ -494,7 +496,7 @@ class TestDomainMetrics:
         y_pred = (y_prob > 0.5).astype(int)
         return y_true, y_pred, y_prob
 
-    def test_classification_metrics(self, calculator, binary_data) -> None:
+    def test_classification_metrics(self, calculator: Any, binary_data: Any) -> None:
         """Should compute standard classification metrics."""
         y_true, y_pred, y_prob = binary_data
         metrics = calculator.compute_all_metrics(y_true, y_pred, y_prob)
@@ -505,7 +507,7 @@ class TestDomainMetrics:
         assert 0 <= metrics.f1_score <= 1
         assert 0 <= metrics.roc_auc <= 1
 
-    def test_calibration_metrics(self, calculator, binary_data) -> None:
+    def test_calibration_metrics(self, calculator: Any, binary_data: Any) -> None:
         """Should compute calibration metrics."""
         y_true, y_pred, y_prob = binary_data
         metrics = calculator.compute_all_metrics(y_true, y_pred, y_prob)
@@ -514,7 +516,7 @@ class TestDomainMetrics:
         assert 0 <= metrics.ece <= 1
         assert 0 <= metrics.mce <= 1
 
-    def test_fairness_metrics(self, calculator, binary_data) -> None:
+    def test_fairness_metrics(self, calculator: Any, binary_data: Any) -> None:
         """Should compute fairness metrics with protected attributes."""
         y_true, y_pred, y_prob = binary_data
         protected = np.random.binomial(1, 0.5, len(y_true))
@@ -530,7 +532,7 @@ class TestDomainMetrics:
         assert 0 <= metrics.equalized_odds <= 1
         assert 0 <= metrics.disparate_impact <= 1
 
-    def test_benevolence_metrics(self, calculator, binary_data) -> None:
+    def test_benevolence_metrics(self, calculator: Any, binary_data: Any) -> None:
         """Should compute benevolence metrics."""
         y_true, y_pred, y_prob = binary_data
         metrics = calculator.compute_all_metrics(y_true, y_pred, y_prob)
@@ -540,14 +542,14 @@ class TestDomainMetrics:
         assert 0 <= metrics.benevolence_index <= 1
         assert isinstance(metrics.ethical_compliance, bool)
 
-    def test_overall_score(self, calculator, binary_data) -> None:
+    def test_overall_score(self, calculator: Any, binary_data: Any) -> None:
         """Overall score should be in valid range."""
         y_true, y_pred, y_prob = binary_data
         metrics = calculator.compute_all_metrics(y_true, y_pred, y_prob)
 
         assert 0 <= metrics.overall_score <= 1
 
-    def test_to_dict(self, calculator, binary_data) -> None:
+    def test_to_dict(self, calculator: Any, binary_data: Any) -> None:
         """Should convert to serializable dictionary."""
         y_true, y_pred, y_prob = binary_data
         metrics = calculator.compute_all_metrics(y_true, y_pred, y_prob)
@@ -583,14 +585,14 @@ class TestGOSNNIntegration:
         y = (X[:, 0] > 0).astype(int)
         return X, y
 
-    def test_add_domain(self, integration) -> None:
+    def test_add_domain(self, integration: Any) -> None:
         """Should add domain correctly."""
 
         class MockDetector:
-            def fit(self, X, y=None) -> None:
+            def fit(self, X: Any, y: Any = None) -> None:
                 pass
 
-            def detect(self, X):
+            def detect(self, X: Any) -> Any:
                 return {"scores": np.zeros(len(X))}
 
         integration.add_domain(
@@ -604,16 +606,16 @@ class TestGOSNNIntegration:
         assert integration.domains["test"].weight == 1.0
         assert integration.domains["test"].ethical_score == 0.95
 
-    def test_integration_workflow(self, integration, sample_data) -> None:
+    def test_integration_workflow(self, integration: Any, sample_data: Any) -> None:
         """Test full integration workflow."""
         X, y = sample_data
 
         # Add mock detector
         class MockDetector:
-            def fit(self, X, y=None) -> None:
+            def fit(self, X: Any, y: Any = None) -> None:
                 pass
 
-            def detect(self, X):
+            def detect(self, X: Any) -> Any:
                 np.random.seed(SEED)
                 return {"scores": np.random.uniform(0, 1, len(X))}
 
@@ -631,14 +633,14 @@ class TestGOSNNIntegration:
         assert 0 <= result.benevolence_score <= 1
         assert isinstance(result.ethical_compliance, bool)
 
-    def test_ethical_report(self, integration) -> None:
+    def test_ethical_report(self, integration: Any) -> None:
         """Should generate ethical compliance report."""
 
         class MockDetector:
-            def fit(self, X, y=None) -> None:
+            def fit(self, X: Any, y: Any = None) -> None:
                 pass
 
-            def detect(self, X):
+            def detect(self, X: Any) -> Any:
                 return {"scores": np.zeros(len(X))}
 
         integration.add_domain("test", detector=MockDetector(), ethical_score=0.97)
@@ -649,14 +651,14 @@ class TestGOSNNIntegration:
         assert "domain_ethical_scores" in report
         assert "passes_threshold" in report
 
-    def test_domain_weights_normalization(self, integration) -> None:
+    def test_domain_weights_normalization(self, integration: Any) -> None:
         """Domain weights should be normalized."""
 
         class MockDetector:
-            def fit(self, X, y=None) -> None:
+            def fit(self, X: Any, y: Any = None) -> None:
                 pass
 
-            def detect(self, X):
+            def detect(self, X: Any) -> Any:
                 return {"scores": np.zeros(len(X))}
 
         integration.add_domain("a", detector=MockDetector(), weight=2.0)
@@ -704,7 +706,7 @@ class TestPropertyBased:
         )
     )
     @settings(max_examples=10)
-    def test_emotional_entropy_range(self, probs) -> None:
+    def test_emotional_entropy_range(self, probs: Any) -> None:
         """Emotional entropy should be in [0, 1]."""
         try:
             from omni_mercury_engine.core.enhanced_model_domains import (
@@ -727,7 +729,7 @@ class TestPropertyBased:
         st.floats(min_value=0.1, max_value=0.9),
     )
     @settings(max_examples=10)
-    def test_benevolence_computation(self, n_samples, anomaly_rate) -> None:
+    def test_benevolence_computation(self, n_samples: Any, anomaly_rate: Any) -> None:
         """Benevolence metrics should be in valid range."""
         try:
             from omni_mercury_engine.core.domain_metrics import MetricsCalculator

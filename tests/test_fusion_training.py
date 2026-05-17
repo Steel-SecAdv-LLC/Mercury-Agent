@@ -44,7 +44,7 @@ class TestFusionTraining:
         )
         return X.astype(np.float32), y
 
-    def test_fit_fusion_supervised(self, engine, training_data) -> None:
+    def test_fit_fusion_supervised(self, engine: Any, training_data: Any) -> None:
         """Test supervised fusion training with labels."""
         X, y = training_data
 
@@ -62,7 +62,7 @@ class TestFusionTraining:
         assert metrics["epochs_trained"] > 0
         assert metrics["best_loss"] >= 0
 
-    def test_fit_fusion_semi_supervised(self, engine, training_data) -> None:
+    def test_fit_fusion_semi_supervised(self, engine: Any, training_data: Any) -> None:
         """Test semi-supervised fusion training without labels."""
         X, _ = training_data
 
@@ -76,7 +76,7 @@ class TestFusionTraining:
         assert engine._fusion_trained
         assert metrics["epochs_trained"] > 0
 
-    def test_fit_fusion_requires_fusion_mode(self, training_data) -> None:
+    def test_fit_fusion_requires_fusion_mode(self, training_data: Any) -> None:
         """Verify fit_fusion raises error if not in fusion mode."""
         from omni_mercury_engine.engine import OmniMercuryEngine
 
@@ -86,7 +86,7 @@ class TestFusionTraining:
         with pytest.raises(ValueError, match="requires mode='fusion'"):
             engine.fit_fusion(X, y)
 
-    def test_trained_model_has_training_flag(self, engine, training_data) -> None:
+    def test_trained_model_has_training_flag(self, engine: Any, training_data: Any) -> None:
         """Verify _fusion_trained flag is set after training."""
         X, y = training_data
 
@@ -96,7 +96,7 @@ class TestFusionTraining:
 
         assert engine._fusion_trained, "Should be trained after fit_fusion"
 
-    def test_loss_decreases_during_training(self, engine, training_data) -> None:
+    def test_loss_decreases_during_training(self, engine: Any, training_data: Any) -> None:
         """Verify training loss generally decreases."""
         X, y = training_data
 
@@ -120,7 +120,7 @@ class TestFusionTraining:
             ), f"Loss should not increase significantly: {early_loss:.4f} -> {late_loss:.4f}"
 
     @pytest.mark.timeout(600)
-    def test_early_stopping_works(self, engine, training_data) -> None:
+    def test_early_stopping_works(self, engine: Any, training_data: Any) -> None:
         """Verify early stopping triggers when loss plateaus.
 
         Uses a high ``epochs`` ceiling on purpose so we can observe
@@ -169,7 +169,7 @@ class TestFusionInference:
 
         return engine
 
-    def test_detect_with_fusion_returns_valid_scores(self, trained_engine) -> None:
+    def test_detect_with_fusion_returns_valid_scores(self, trained_engine: Any) -> None:
         """Verify detect_with_fusion returns valid anomaly probabilities."""
         X_test = np.random.randn(10, 15).astype(np.float32)
 
@@ -181,7 +181,7 @@ class TestFusionInference:
             assert "is_anomaly" in result
             assert isinstance(result["is_anomaly"], bool)
 
-    def test_scores_differentiate_anomalies(self, trained_engine) -> None:
+    def test_scores_differentiate_anomalies(self, trained_engine: Any) -> None:
         """Verify trained model assigns different scores to different samples."""
         # Generate clearly different samples
         normal = np.zeros((5, 15), dtype=np.float32)
@@ -315,7 +315,7 @@ class TestPseudoLabeling:
 
         return OmniMercuryEngine(mode="fusion", device="cpu")
 
-    def test_pseudo_labels_generated(self, engine) -> None:
+    def test_pseudo_labels_generated(self, engine: Any) -> None:
         """Verify pseudo-labels are generated when y is None."""
         X, _ = make_classification(
             n_samples=100,
@@ -338,7 +338,7 @@ class TestPseudoLabeling:
         assert pseudo_labels.sum() > 0, "Should have some positive labels"
         assert pseudo_labels.sum() < len(X), "Should not label everything as anomaly"
 
-    def test_pseudo_labels_respect_contamination(self, engine) -> None:
+    def test_pseudo_labels_respect_contamination(self, engine: Any) -> None:
         """Verify pseudo-labels respect specified contamination rate."""
         X = np.random.randn(100, 10).astype(np.float32)
 

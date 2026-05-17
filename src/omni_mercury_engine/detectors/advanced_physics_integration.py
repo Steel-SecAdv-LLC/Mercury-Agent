@@ -439,7 +439,7 @@ class AdvancedPhysicsIntegratedDetector(BaseDetector):
 
     def fit(
         self,
-        data: np.ndarray | torch.Tensor | dict[str, Any] | list[Any],
+        data: np.ndarray | torch.Tensor | dict[str, Any] | list[UserInteraction],
         data_type: str = "time_series",
     ) -> AdvancedPhysicsIntegratedDetector:
         """

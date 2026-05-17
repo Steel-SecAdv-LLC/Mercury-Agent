@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -143,7 +144,7 @@ class TestJWTAuthExpiredToken:
         return jwt.encode(payload, "test_secret_key_for_testing", algorithm="HS256")
 
     @pytest.mark.asyncio
-    async def test_expired_token_returns_none(self, jwt_auth, expired_token) -> None:
+    async def test_expired_token_returns_none(self, jwt_auth: Any, expired_token: Any) -> None:
         """Test that expired tokens return None."""
         result = await jwt_auth._validate_jwt(expired_token)
         assert result is None
@@ -161,7 +162,7 @@ class TestJWTAuthMalformedToken:
             return JWTAuth()
 
     @pytest.mark.asyncio
-    async def test_malformed_token_returns_none(self, jwt_auth) -> None:
+    async def test_malformed_token_returns_none(self, jwt_auth: Any) -> None:
         """Test that malformed tokens return None."""
         malformed_tokens = [
             "not.a.valid.jwt",
@@ -177,7 +178,7 @@ class TestJWTAuthMalformedToken:
             assert result is None, f"Expected None for malformed token: {token}"
 
     @pytest.mark.asyncio
-    async def test_invalid_signature_returns_none(self, jwt_auth) -> None:
+    async def test_invalid_signature_returns_none(self, jwt_auth: Any) -> None:
         """Test that tokens with invalid signatures return None."""
         jwt = pytest.importorskip("jwt")
 
@@ -208,7 +209,7 @@ class TestJWTAuthMissingClaims:
             return JWTAuth()
 
     @pytest.mark.asyncio
-    async def test_missing_sub_claim_returns_none(self, jwt_auth) -> None:
+    async def test_missing_sub_claim_returns_none(self, jwt_auth: Any) -> None:
         """Test that tokens missing 'sub' claim return None."""
         jwt = pytest.importorskip("jwt")
 
@@ -226,7 +227,7 @@ class TestJWTAuthMissingClaims:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_missing_exp_claim_returns_none(self, jwt_auth) -> None:
+    async def test_missing_exp_claim_returns_none(self, jwt_auth: Any) -> None:
         """Test that tokens missing 'exp' claim return None."""
         jwt = pytest.importorskip("jwt")
 
@@ -256,7 +257,7 @@ class TestJWTAuthValidToken:
             return JWTAuth()
 
     @pytest.mark.asyncio
-    async def test_valid_token_returns_user(self, jwt_auth) -> None:
+    async def test_valid_token_returns_user(self, jwt_auth: Any) -> None:
         """Test that valid tokens return User object."""
         jwt = pytest.importorskip("jwt")
 
@@ -281,7 +282,7 @@ class TestJWTAuthValidToken:
         assert "analyst" in result.roles
 
     @pytest.mark.asyncio
-    async def test_create_and_validate_token_roundtrip(self, jwt_auth) -> None:
+    async def test_create_and_validate_token_roundtrip(self, jwt_auth: Any) -> None:
         """Test creating and validating a token works correctly."""
         import importlib.util
 

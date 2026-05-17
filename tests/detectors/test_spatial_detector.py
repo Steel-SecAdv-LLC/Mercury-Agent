@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -36,12 +38,12 @@ class TestSpatialAnomalyDetector:
     """Tests for SpatialAnomalyDetector."""
 
     @pytest.fixture
-    def spatial_data(self, deterministic_rng):
+    def spatial_data(self, deterministic_rng: Any) -> Any:
         """Generate sample spatial data (2D coordinates)."""
         return deterministic_rng.randn(100, 2) * 10
 
     @pytest.fixture
-    def spatial_data_3d(self, deterministic_rng):
+    def spatial_data_3d(self, deterministic_rng: Any) -> Any:
         """Generate sample 3D spatial data."""
         return deterministic_rng.randn(100, 3) * 10
 
@@ -59,7 +61,7 @@ class TestSpatialAnomalyDetector:
         assert detector.n_neighbors == 10
         assert detector.contamination == 0.05
 
-    def test_fit_numpy_array(self, spatial_data) -> None:
+    def test_fit_numpy_array(self, spatial_data: Any) -> None:
         """Test fitting with numpy array."""
         detector = SpatialAnomalyDetector()
         result = detector.fit(spatial_data)
@@ -69,7 +71,7 @@ class TestSpatialAnomalyDetector:
         assert detector.center is not None
         assert detector.radius_threshold is not None
 
-    def test_fit_torch_tensor(self, spatial_data) -> None:
+    def test_fit_torch_tensor(self, spatial_data: Any) -> None:
         """Test fitting with torch tensor."""
         tensor_data = torch.tensor(spatial_data, dtype=torch.float32)
         detector = SpatialAnomalyDetector()
@@ -78,7 +80,7 @@ class TestSpatialAnomalyDetector:
         assert result is detector
         assert detector._is_fitted
 
-    def test_fit_computes_center(self, spatial_data) -> None:
+    def test_fit_computes_center(self, spatial_data: Any) -> None:
         """Test that fitting computes correct center."""
         detector = SpatialAnomalyDetector()
         detector.fit(spatial_data)
@@ -87,7 +89,7 @@ class TestSpatialAnomalyDetector:
         assert detector.center is not None
         np.testing.assert_array_almost_equal(detector.center, expected_center)
 
-    def test_fit_computes_radius_threshold(self, spatial_data) -> None:
+    def test_fit_computes_radius_threshold(self, spatial_data: Any) -> None:
         """Test that fitting computes 95th percentile radius."""
         detector = SpatialAnomalyDetector()
         detector.fit(spatial_data)
@@ -106,14 +108,14 @@ class TestSpatialAnomalyDetector:
         with pytest.raises(DetectorException, match="at least 2 dimensions"):
             detector.fit(data)
 
-    def test_detect_unfitted_raises(self, spatial_data) -> None:
+    def test_detect_unfitted_raises(self, spatial_data: Any) -> None:
         """Test detection on unfitted detector raises exception."""
         detector = SpatialAnomalyDetector()
 
         with pytest.raises(DetectorException, match="must be fitted"):
             detector.detect(spatial_data)
 
-    def test_detect_numpy_array(self, spatial_data) -> None:
+    def test_detect_numpy_array(self, spatial_data: Any) -> None:
         """Test detection with numpy input."""
         detector = SpatialAnomalyDetector()
         detector.fit(spatial_data)
@@ -127,7 +129,7 @@ class TestSpatialAnomalyDetector:
         assert result["detector_type"] == "spatial"
         assert len(result["scores"]) == len(spatial_data)
 
-    def test_detect_torch_tensor(self, spatial_data) -> None:
+    def test_detect_torch_tensor(self, spatial_data: Any) -> None:
         """Test detection with torch tensor input."""
         tensor_data = torch.tensor(spatial_data, dtype=torch.float32)
         detector = SpatialAnomalyDetector()
@@ -137,7 +139,7 @@ class TestSpatialAnomalyDetector:
         assert "is_anomaly" in result
         assert len(result["scores"]) == len(spatial_data)
 
-    def test_detect_identifies_far_outliers(self, spatial_data) -> None:
+    def test_detect_identifies_far_outliers(self, spatial_data: Any) -> None:
         """Test that far outliers are detected."""
         detector = SpatialAnomalyDetector(config={"threshold": 0.3})
         detector.fit(spatial_data)
@@ -153,7 +155,7 @@ class TestSpatialAnomalyDetector:
         normal_scores = result["scores"][:-2]
         assert np.mean(outlier_scores) > np.mean(normal_scores)
 
-    def test_detect_3d_data(self, spatial_data_3d) -> None:
+    def test_detect_3d_data(self, spatial_data_3d: Any) -> None:
         """Test detection with 3D spatial data."""
         detector = SpatialAnomalyDetector()
         detector.fit(spatial_data_3d)
@@ -161,7 +163,7 @@ class TestSpatialAnomalyDetector:
 
         assert len(result["scores"]) == len(spatial_data_3d)
 
-    def test_extract_features_unfitted(self, spatial_data) -> None:
+    def test_extract_features_unfitted(self, spatial_data: Any) -> None:
         """Test feature extraction auto-fits if not fitted."""
         detector = SpatialAnomalyDetector()
         features = detector.extract_features(spatial_data)
@@ -169,7 +171,7 @@ class TestSpatialAnomalyDetector:
         assert detector._is_fitted
         assert isinstance(features, torch.Tensor)
 
-    def test_extract_features_numpy(self, spatial_data) -> None:
+    def test_extract_features_numpy(self, spatial_data: Any) -> None:
         """Test feature extraction with numpy input."""
         detector = SpatialAnomalyDetector()
         detector.fit(spatial_data)
@@ -180,7 +182,7 @@ class TestSpatialAnomalyDetector:
         # Should be padded to at least 32 features
         assert features.shape[1] >= 32
 
-    def test_extract_features_torch(self, spatial_data) -> None:
+    def test_extract_features_torch(self, spatial_data: Any) -> None:
         """Test feature extraction with torch tensor input."""
         tensor_data = torch.tensor(spatial_data, dtype=torch.float32)
         detector = SpatialAnomalyDetector()
@@ -190,7 +192,7 @@ class TestSpatialAnomalyDetector:
         assert isinstance(features, torch.Tensor)
         assert features.shape[0] == len(spatial_data)
 
-    def test_extract_features_content(self, spatial_data) -> None:
+    def test_extract_features_content(self, spatial_data: Any) -> None:
         """Test that extracted features contain expected components."""
         detector = SpatialAnomalyDetector()
         detector.fit(spatial_data)
@@ -200,7 +202,7 @@ class TestSpatialAnomalyDetector:
         # Total = 4, padded to 32
         assert features.shape[1] == 32
 
-    def test_compute_distance_scores(self, spatial_data) -> None:
+    def test_compute_distance_scores(self, spatial_data: Any) -> None:
         """Test distance score computation."""
         detector = SpatialAnomalyDetector()
         detector.fit(spatial_data)
@@ -210,7 +212,7 @@ class TestSpatialAnomalyDetector:
         assert len(scores) == len(spatial_data)
         assert np.all(scores >= 0)
 
-    def test_scores_normalized(self, spatial_data) -> None:
+    def test_scores_normalized(self, spatial_data: Any) -> None:
         """Test that combined scores are properly normalized."""
         detector = SpatialAnomalyDetector()
         detector.fit(spatial_data)

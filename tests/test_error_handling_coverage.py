@@ -15,6 +15,7 @@ silently suppressing errors.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
 import pytest
@@ -26,13 +27,13 @@ try:
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
-    torch = None  # type: ignore[assignment]
+    torch = None
 
 
 class TestOptimizationErrorHandling:
     """Tests for ml/optimization.py error handling."""
 
-    def test_ddp_cleanup_logs_on_failure(self, caplog) -> None:
+    def test_ddp_cleanup_logs_on_failure(self, caplog: Any) -> None:
         """Test that DDP cleanup logs debug message when process group doesn't exist."""
         from omni_mercury_engine.ml.optimization import DDPManager
 
@@ -71,7 +72,7 @@ class TestOptimizationErrorHandling:
 class TestCrossDomainTransferErrorHandling:
     """Tests for ml/cross_domain_transfer.py error handling."""
 
-    def test_coral_adapter_matrix_sqrt_fallback(self, caplog) -> None:
+    def test_coral_adapter_matrix_sqrt_fallback(self, caplog: Any) -> None:
         """Test that CORAL adapter logs and uses fallback for matrix sqrt failures."""
         from omni_mercury_engine.ml.cross_domain_transfer import CORALAdapter
 
@@ -110,7 +111,7 @@ class TestCrossDomainTransferErrorHandling:
 class TestKnowledgeGraphErrorHandling:
     """Tests for cognitive/knowledge_graph.py error handling."""
 
-    def test_spectral_clustering_logs_on_failure(self, caplog) -> None:
+    def test_spectral_clustering_logs_on_failure(self, caplog: Any) -> None:
         """Test that spectral clustering logs debug message on failure."""
         from omni_mercury_engine.cognitive.knowledge_graph import (
             EdgeType,
@@ -159,7 +160,7 @@ class TestDirectiveDetectorErrorHandling:
     """Tests for detectors/directive.py error handling."""
 
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
-    def test_nano_scale_detection_logs_on_error(self, caplog) -> None:
+    def test_nano_scale_detection_logs_on_error(self, caplog: Any) -> None:
         """Test that nano-scale pattern detection logs on error."""
         from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 
@@ -188,7 +189,7 @@ class _MockClassifier:
     def score(self, X: np.ndarray, y: np.ndarray) -> float:
         return 0.5
 
-    def get_params(self, deep: bool = True) -> dict:  # type: ignore[type-arg]
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
         return {}
 
     def set_params(self, **params: object) -> _MockClassifier:
@@ -198,7 +199,7 @@ class _MockClassifier:
 class TestGWOOptimizerErrorHandling:
     """Tests for ml/gwo_optimizer.py error handling."""
 
-    def test_cross_val_failure_logs_and_returns_default(self, caplog) -> None:
+    def test_cross_val_failure_logs_and_returns_default(self, caplog: Any) -> None:
         """Test that GWO select_features returns valid mask even when cross-val fails.
 
         When sklearn is unavailable, the ImportError is caught inside the
@@ -229,7 +230,7 @@ class TestBiometricModelErrorHandling:
     """Tests for models/biometric.py error handling."""
 
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
-    def test_deepface_feature_extraction_fallback(self, caplog) -> None:
+    def test_deepface_feature_extraction_fallback(self, caplog: Any) -> None:
         """Test that DeepFace failure falls back to harmonic features."""
         from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
@@ -245,7 +246,7 @@ class TestBiometricModelErrorHandling:
         assert features is not None
 
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
-    def test_biometric_predict_error_includes_message(self, caplog) -> None:
+    def test_biometric_predict_error_includes_message(self, caplog: Any) -> None:
         """Test that biometric predict includes error message on failure."""
         from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
@@ -293,7 +294,7 @@ class TestBiometricModelErrorHandling:
 class TestRealWorldBenchmarkErrorHandling:
     """Tests for core/realworld_benchmark.py error handling."""
 
-    def test_benevolence_scoring_logs_on_unavailable(self, caplog) -> None:
+    def test_benevolence_scoring_logs_on_unavailable(self, caplog: Any) -> None:
         """Test that benevolence scoring unavailability is logged."""
         # This test verifies the pattern is in place
         # The actual benchmark runner would be tested in integration tests
@@ -326,7 +327,7 @@ class TestObservabilityErrorHandling:
 class TestCrossValidationErrorHandling:
     """Additional cross-validation error handling tests."""
 
-    def test_gwo_with_insufficient_samples(self, caplog) -> None:
+    def test_gwo_with_insufficient_samples(self, caplog: Any) -> None:
         """Test GWO handles insufficient samples for cross-validation.
 
         With only 6 samples, 3-fold CV has 2 samples per fold which may

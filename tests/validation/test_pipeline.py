@@ -18,6 +18,8 @@ Covers:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -278,10 +280,10 @@ class TestValidationPipeline:
         """Test basic validation pipeline."""
 
         class SimpleModel:
-            def fit(self, X, y) -> None:
+            def fit(self, X: Any, y: Any) -> None:
                 self.classes_ = np.unique(y)
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return np.zeros(len(X))
 
         pipeline = ValidationPipeline(n_folds=3)
@@ -302,10 +304,10 @@ class TestValidationPipeline:
         """Test validation without quality checks."""
 
         class SimpleModel:
-            def fit(self, X, y) -> None:
+            def fit(self, X: Any, y: Any) -> None:
                 pass
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return np.zeros(len(X))
 
         pipeline = ValidationPipeline(n_folds=3)
@@ -322,7 +324,7 @@ class TestValidationPipeline:
         """Test validation with model that has no fit method."""
 
         class NoFitModel:
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return np.zeros(len(X))
 
         pipeline = ValidationPipeline(n_folds=2)
@@ -339,7 +341,7 @@ class TestValidationPipeline:
         """Test validation with model that has no predict method."""
 
         class NoPredictModel:
-            def fit(self, X, y) -> None:
+            def fit(self, X: Any, y: Any) -> None:
                 pass
 
         pipeline = ValidationPipeline(n_folds=2)
@@ -356,13 +358,13 @@ class TestValidationPipeline:
         """Test validation with model that has predict_proba."""
 
         class ProbaModel:
-            def fit(self, X, y) -> None:
+            def fit(self, X: Any, y: Any) -> None:
                 pass
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return np.zeros(len(X))
 
-            def predict_proba(self, X):
+            def predict_proba(self, X: Any) -> Any:
                 return np.column_stack([np.ones(len(X)) * 0.5, np.ones(len(X)) * 0.5])
 
         pipeline = ValidationPipeline(n_folds=2)
@@ -379,10 +381,10 @@ class TestValidationPipeline:
         """Test validation with 1D feature array."""
 
         class SimpleModel:
-            def fit(self, X, y) -> None:
+            def fit(self, X: Any, y: Any) -> None:
                 pass
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return np.zeros(len(X))
 
         pipeline = ValidationPipeline(n_folds=2)
@@ -399,10 +401,10 @@ class TestValidationPipeline:
         """Test comparing to baseline."""
 
         class SimpleModel:
-            def fit(self, X, y) -> None:
+            def fit(self, X: Any, y: Any) -> None:
                 pass
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return np.zeros(len(X))
 
         pipeline = ValidationPipeline(n_folds=3)
@@ -424,10 +426,10 @@ class TestValidationPipeline:
         """Test getting stored benchmarks."""
 
         class SimpleModel:
-            def fit(self, X, y) -> None:
+            def fit(self, X: Any, y: Any) -> None:
                 pass
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return np.zeros(len(X))
 
         pipeline = ValidationPipeline(n_folds=2)
@@ -448,10 +450,10 @@ class TestValidationPipeline:
         """Test generating validation report."""
 
         class SimpleModel:
-            def fit(self, X, y) -> None:
+            def fit(self, X: Any, y: Any) -> None:
                 pass
 
-            def predict(self, X):
+            def predict(self, X: Any) -> Any:
                 return np.zeros(len(X))
 
         pipeline = ValidationPipeline(n_folds=2)

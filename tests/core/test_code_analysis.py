@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """Tests for Code Analysis Engine."""
 
 import ast
@@ -123,7 +125,7 @@ def example_function(x):
 """
         return ast.parse(code)
 
-    def test_initialization_default(self, engine) -> None:
+    def test_initialization_default(self, engine: Any) -> None:
         """Test default initialization."""
         assert engine.config is not None
         assert engine.training_metrics is not None
@@ -138,7 +140,7 @@ def example_function(x):
 
         assert engine.config.enable_neural is True
 
-    def test_symbolic_analysis(self, engine, sample_code_ast) -> None:
+    def test_symbolic_analysis(self, engine: Any, sample_code_ast: Any) -> None:
         """Test symbolic code analysis."""
         result = engine.symbolic_analysis(sample_code_ast)
 
@@ -152,7 +154,7 @@ def example_function(x):
         assert patterns["function_calls"] >= 0
         assert patterns["nesting_depth"] >= 0
 
-    def test_symbolic_analysis_empty_ast(self, engine) -> None:
+    def test_symbolic_analysis_empty_ast(self, engine: Any) -> None:
         """Test symbolic analysis with empty AST."""
         empty_ast = ast.parse("")
         result = engine.symbolic_analysis(empty_ast)
@@ -160,7 +162,7 @@ def example_function(x):
         assert result["patterns"]["loops"] == 0
         assert result["patterns"]["conditionals"] == 0
 
-    def test_symbolic_analysis_nested_loops(self, engine) -> None:
+    def test_symbolic_analysis_nested_loops(self, engine: Any) -> None:
         """Test symbolic analysis with nested loops."""
         code = """
 for i in range(10):
@@ -174,7 +176,7 @@ for i in range(10):
         assert result["patterns"]["loops"] >= 2
         assert result["patterns"]["nesting_depth"] >= 2
 
-    def test_neural_analysis_disabled(self, engine) -> None:
+    def test_neural_analysis_disabled(self, engine: Any) -> None:
         """Test neural analysis when disabled returns statistical fallback."""
         features = np.array([1.0, 2.0, 3.0, 4.0])
         result = engine.neural_analysis(features)
@@ -196,7 +198,7 @@ for i in range(10):
         assert result["neural_model_trained"] is False
         assert result["method"] == "statistical_fallback"
 
-    def test_hybrid_analysis(self, engine, sample_code_ast) -> None:
+    def test_hybrid_analysis(self, engine: Any, sample_code_ast: Any) -> None:
         """Test hybrid analysis combining symbolic and neural."""
         result = engine.hybrid_analysis(sample_code_ast)
 
@@ -207,20 +209,20 @@ for i in range(10):
         assert result["symbolic"]["method"] == "symbolic"
         assert result["neural"]["method"] == "statistical_fallback"
 
-    def test_train_model_no_data(self, engine) -> None:
+    def test_train_model_no_data(self, engine: Any) -> None:
         """Test training without data."""
         metrics = engine.train_model(training_data=None)
 
         assert metrics == engine.training_metrics
 
-    def test_train_model_neural_disabled(self, engine, sample_code_ast) -> None:
+    def test_train_model_neural_disabled(self, engine: Any, sample_code_ast: Any) -> None:
         """Test training with neural disabled."""
         training_data = [(sample_code_ast, {"refactoring": "extract_method"})]
         metrics = engine.train_model(training_data)
 
         assert metrics == engine.training_metrics
 
-    def test_train_model_with_data(self, sample_code_ast) -> None:
+    def test_train_model_with_data(self, sample_code_ast: Any) -> None:
         """Test training with data and neural enabled."""
         config = NeurosymbolicConfig(enable_neural=True, transparency_logging=False)
         engine = NeurosymbolicEngine(config=config)
@@ -245,14 +247,14 @@ for i in range(10):
 
         assert result["bias_check"] == "disabled"
 
-    def test_check_bias_no_predictions(self, engine) -> None:
+    def test_check_bias_no_predictions(self, engine: Any) -> None:
         """Test bias check with no predictions."""
         result = engine.check_bias([])
 
         assert result["bias_detected"] is False
         assert "No predictions" in result["message"]
 
-    def test_check_bias_diverse_predictions(self, engine) -> None:
+    def test_check_bias_diverse_predictions(self, engine: Any) -> None:
         """Test bias check with diverse predictions."""
         predictions = [
             {"type": "extract_method"},
@@ -265,7 +267,7 @@ for i in range(10):
         assert result["bias_detected"] is False
         assert result["diversity_ratio"] == 1.0
 
-    def test_check_bias_low_diversity(self, engine) -> None:
+    def test_check_bias_low_diversity(self, engine: Any) -> None:
         """Test bias check with low diversity."""
         predictions = [
             {"type": "extract_method"},
@@ -278,7 +280,7 @@ for i in range(10):
 
         assert result["diversity_ratio"] < 0.5
 
-    def test_get_readiness_level_neural_disabled(self, engine) -> None:
+    def test_get_readiness_level_neural_disabled(self, engine: Any) -> None:
         """Test readiness level with neural disabled."""
         level = engine.get_readiness_level()
 
@@ -350,7 +352,7 @@ class TestBackpropTuning:
 
         assert result["enabled"] is False
 
-    def test_backprop_enabled(self, engine) -> None:
+    def test_backprop_enabled(self, engine: Any) -> None:
         """Test backprop tuning when enabled."""
         features = np.array([1.0, 2.0, 3.0, 4.0])
         ground_truth = np.array([0.5])
@@ -362,7 +364,7 @@ class TestBackpropTuning:
         assert "initial_loss" in result
         assert result["tensor_shape"] == (1, 1, 2, 2)
 
-    def test_backprop_convergence(self, engine) -> None:
+    def test_backprop_convergence(self, engine: Any) -> None:
         """Test that backprop shows convergence."""
         features = np.array([1.0, 2.0, 3.0, 4.0])
         ground_truth = np.array([5.0])
@@ -372,7 +374,7 @@ class TestBackpropTuning:
         assert result["final_loss"] <= result["initial_loss"]
         assert result["convergence"] >= 0
 
-    def test_backprop_short_features(self, engine) -> None:
+    def test_backprop_short_features(self, engine: Any) -> None:
         """Test backprop with features shorter than 4."""
         features = np.array([1.0, 2.0])
         ground_truth = np.array([0.5])
@@ -381,7 +383,7 @@ class TestBackpropTuning:
         assert result["enabled"] is True
         assert result["tensor_shape"] == (1, 1, 2, 2)
 
-    def test_backprop_long_features(self, engine) -> None:
+    def test_backprop_long_features(self, engine: Any) -> None:
         """Test backprop with features longer than 4."""
         features = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
         ground_truth = np.array([0.5])

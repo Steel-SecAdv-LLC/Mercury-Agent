@@ -16,6 +16,8 @@ Verifies that all new cognitive components work correctly:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 # =============================================================================
@@ -471,7 +473,7 @@ class TestMultiAgentCoordination:
         coordinator = AgentCoordinator()
 
         class TestAgent(DetectionAgent):
-            def detect(self, data, context=None):
+            def detect(self, data: Any, context: Any = None) -> Any:
                 return {"score": 0.5}
 
         agent = TestAgent(agent_id="agent_1", capabilities=["statistical"])
@@ -540,7 +542,7 @@ class TestMultiAgentCoordination:
         )
 
         class SpecializedAgent(DetectionAgent):
-            def detect(self, data, context=None):
+            def detect(self, data: Any, context: Any = None) -> Any:
                 return {"score": np.random.random()}
 
         agents = [
@@ -563,11 +565,11 @@ class TestMultiAgentCoordination:
         )
 
         class SimpleAgent(DetectionAgent):
-            def __init__(self, agent_id, threshold) -> None:
+            def __init__(self, agent_id: Any, threshold: Any) -> None:
                 super().__init__(agent_id, capabilities=["threshold"])
                 self.threshold = threshold
 
-            def detect(self, data, context=None):
+            def detect(self, data: Any, context: Any = None) -> Any:
                 score = np.mean(np.abs(data))
                 return {"is_anomaly": score > self.threshold, "score": score}
 
@@ -906,11 +908,11 @@ class TestCognitiveModulesIntegration:
         )
 
         class PlanningAgent(DetectionAgent):
-            def __init__(self, agent_id, planner) -> None:
+            def __init__(self, agent_id: Any, planner: Any) -> None:
                 super().__init__(agent_id, capabilities=["planning"])
                 self.planner = planner
 
-            def detect(self, data, context=None):
+            def detect(self, data: Any, context: Any = None) -> Any:
                 plan = self.planner.create_plan(
                     {"objective": "analyze_data"},
                     {"data": data.tolist() if hasattr(data, "tolist") else data},

@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Real Substantive Tests for Resilience Infrastructure
 
@@ -352,7 +354,7 @@ class TestThreadSafety:
         failure_count = {"value": 0}
         lock = threading.Lock()
 
-        def concurrent_call(should_fail) -> None:
+        def concurrent_call(should_fail: Any) -> None:
             try:
                 if should_fail:
 
@@ -390,7 +392,7 @@ class TestThreadSafety:
         """Health monitor should handle concurrent metric recording."""
         monitor = HealthMonitor()
 
-        def record_metrics(component_id) -> None:
+        def record_metrics(component_id: Any) -> None:
             for i in range(50):
                 metrics = HealthMetrics(
                     cpu_usage=0.5 + i * 0.01,

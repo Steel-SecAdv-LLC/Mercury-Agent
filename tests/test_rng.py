@@ -7,6 +7,7 @@ Tests the DeterministicRNG, RNGRegistry, RNGContext, and ThreadSafeRNGManager.
 from __future__ import annotations
 
 import threading
+from typing import Any
 
 import numpy as np
 import pytest
@@ -332,7 +333,7 @@ class TestThreadSafeRNGManager:
         manager = ThreadSafeRNGManager(default_seed=42)
         results = {}
 
-        def worker(name) -> None:
+        def worker(name: Any) -> None:
             rng = manager.get_rng(thread_local=True)
             results[name] = rng.randn(5)
 

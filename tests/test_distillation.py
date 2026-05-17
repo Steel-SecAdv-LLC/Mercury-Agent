@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Tests for Knowledge Distillation modules.
 
@@ -159,7 +161,7 @@ class TestDualStudentDistillation:
         distiller = DualStudentDistillation(config=config)
         assert distiller.config.hidden_dim == 512
 
-    def test_not_fitted_error(self, sample_image) -> None:
+    def test_not_fitted_error(self, sample_image: Any) -> None:
         """Test error when calling detect before fit."""
         from omni_mercury_engine.ml.distillation import DualStudentDistillation
 
@@ -169,7 +171,7 @@ class TestDualStudentDistillation:
             distiller.detect(sample_image)
 
     @pytest.mark.slow
-    def test_fit_and_detect(self, sample_image_batch, sample_image) -> None:
+    def test_fit_and_detect(self, sample_image_batch: Any, sample_image: Any) -> None:
         """Test fitting and detection workflow."""
         from omni_mercury_engine.ml.distillation import DualStudentConfig, DualStudentDistillation
 

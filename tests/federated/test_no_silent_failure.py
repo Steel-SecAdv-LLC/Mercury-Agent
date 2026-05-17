@@ -19,6 +19,8 @@ Covers two gaps the 2026-03 in-tree audit
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -40,7 +42,7 @@ from omni_mercury_engine.federated_learning.gosnn_coupling import (
 class _BrokenConformal:
     """Test double whose predict() always raises."""
 
-    def __init__(self, exc_factory) -> None:
+    def __init__(self, exc_factory: Any) -> None:
         self._exc_factory = exc_factory
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -55,7 +57,7 @@ class _BrokenConformal:
         lambda: AttributeError("missing quantile_threshold"),
     ],
 )
-def test_conformal_failure_raises_instead_of_returning_none(exc_factory) -> None:
+def test_conformal_failure_raises_instead_of_returning_none(exc_factory: Any) -> None:
     """A broken conformal predictor must raise, not silently return None."""
 
     integration = GOSNNIntegration(use_conformal=True)

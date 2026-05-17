@@ -39,42 +39,39 @@ except ImportError:
     hypothesis_available = False
 
     # Create dummy decorators for when hypothesis isn't available.
-    # The ``# type: ignore[no-redef]`` annotations acknowledge that mypy sees
-    # both branches of this try/except as defining the same symbols at the
-    # module level — which is exactly the optional-import pattern we want
-    # here.  Each fallback is a runtime shim that defers to ``pytest.skip``
+    # Each fallback is a runtime shim that defers to ``pytest.skip``
     # so the tests never actually execute against it.
-    def given(*args, **kwargs):  # type: ignore[no-redef]
-        def decorator(func):
+    def given(*args: Any, **kwargs: Any) -> Any:
+        def decorator(func: Any) -> Any:
             return pytest.mark.skip(reason="Hypothesis not installed")(func)
 
         return decorator
 
-    def settings(*args, **kwargs):  # type: ignore[no-redef]
-        def decorator(func):
+    def settings(*args: Any, **kwargs: Any) -> Any:
+        def decorator(func: Any) -> Any:
             return func
 
         return decorator
 
     class st:  # type: ignore[no-redef]
         @staticmethod
-        def floats(*args, **kwargs) -> None:
+        def floats(*args: Any, **kwargs: Any) -> None:
             return None
 
         @staticmethod
-        def integers(*args, **kwargs) -> None:
+        def integers(*args: Any, **kwargs: Any) -> None:
             return None
 
         @staticmethod
-        def text(*args, **kwargs) -> None:
+        def text(*args: Any, **kwargs: Any) -> None:
             return None
 
         @staticmethod
-        def lists(*args, **kwargs) -> None:
+        def lists(*args: Any, **kwargs: Any) -> None:
             return None
 
         @staticmethod
-        def dictionaries(*args, **kwargs) -> None:
+        def dictionaries(*args: Any, **kwargs: Any) -> None:
             return None
 
         @staticmethod
@@ -82,22 +79,22 @@ except ImportError:
             return None
 
         @staticmethod
-        def characters(*args, **kwargs) -> None:
+        def characters(*args: Any, **kwargs: Any) -> None:
             return None
 
         @staticmethod
-        def tuples(*args, **kwargs) -> None:
+        def tuples(*args: Any, **kwargs: Any) -> None:
             return None
 
     class npst:  # type: ignore[no-redef]
         @staticmethod
-        def arrays(*args, **kwargs) -> None:
+        def arrays(*args: Any, **kwargs: Any) -> None:
             return None
 
     class HealthCheck:  # type: ignore[no-redef]
         too_slow = None
 
-    def assume(condition) -> None:  # type: ignore[no-redef]
+    def assume(condition: Any) -> None:
         pass
 
 
@@ -448,10 +445,10 @@ class TestDetectorRegistryProperties:
         )
 
         class MockDetector:
-            def extract_features(self, data):
+            def extract_features(self, data: Any) -> Any:
                 return np.zeros(20)
 
-            def predict(self, data):
+            def predict(self, data: Any) -> Any:
                 return {"scores": np.array([0.5])}
 
         registry = DetectorRegistry()
@@ -527,7 +524,7 @@ class TestDetectorRegistryProperties:
         )
 
         class MockDetector:
-            def extract_features(self, data):
+            def extract_features(self, data: Any) -> Any:
                 return np.zeros(20)
 
         registry = DetectorRegistry()

@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Test communication utilities
 """
@@ -113,7 +115,7 @@ def test_pubsub_subscribe() -> None:
     pubsub = SimplePubSub()
     received = []
 
-    def callback(msg) -> None:
+    def callback(msg: Any) -> None:
         received.append(msg)
 
     pubsub.subscribe("test_topic", callback)
@@ -129,10 +131,10 @@ def test_pubsub_multiple_subscribers() -> None:
     received1 = []
     received2 = []
 
-    def callback1(msg) -> None:
+    def callback1(msg: Any) -> None:
         received1.append(msg)
 
-    def callback2(msg) -> None:
+    def callback2(msg: Any) -> None:
         received2.append(msg)
 
     pubsub.subscribe("test_topic", callback1)
@@ -148,7 +150,7 @@ def test_pubsub_unsubscribe() -> None:
     pubsub = SimplePubSub()
     received = []
 
-    def callback(msg) -> None:
+    def callback(msg: Any) -> None:
         received.append(msg)
 
     pubsub.subscribe("test_topic", callback)

@@ -26,6 +26,8 @@ Tests for the StreamingDetector rolling-window anomaly detector:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -171,30 +173,30 @@ class TestDetectionResults:
             sd.ingest(rng.randn(3).tolist())
         return sd
 
-    def test_result_is_dict(self, detector) -> None:
+    def test_result_is_dict(self, detector: Any) -> None:
         """After min_samples, ingest should return a dict."""
         result = detector.ingest(np.random.randn(3).tolist())
         assert result is None or isinstance(result, dict)
 
-    def test_result_has_scores(self, detector) -> None:
+    def test_result_has_scores(self, detector: Any) -> None:
         """Result dict should contain 'scores' key."""
         result = detector.ingest(np.random.randn(3).tolist())
         if result is not None:
             assert "scores" in result
 
-    def test_result_has_is_anomaly(self, detector) -> None:
+    def test_result_has_is_anomaly(self, detector: Any) -> None:
         """Result dict should contain 'is_anomaly' key."""
         result = detector.ingest(np.random.randn(3).tolist())
         if result is not None:
             assert "is_anomaly" in result
 
-    def test_result_has_streaming_metadata(self, detector) -> None:
+    def test_result_has_streaming_metadata(self, detector: Any) -> None:
         """Result dict should contain 'streaming_metadata' key."""
         result = detector.ingest(np.random.randn(3).tolist())
         if result is not None:
             assert "streaming_metadata" in result
 
-    def test_streaming_metadata_fields(self, detector) -> None:
+    def test_streaming_metadata_fields(self, detector: Any) -> None:
         """streaming_metadata should have total_points, window_size, latency."""
         result = detector.ingest(np.random.randn(3).tolist())
         if result is not None:
@@ -203,7 +205,7 @@ class TestDetectionResults:
             assert "window_size" in meta
             assert "latency_ms" in meta
 
-    def test_is_ready_after_min_samples(self, detector) -> None:
+    def test_is_ready_after_min_samples(self, detector: Any) -> None:
         """After enough points, is_ready should be True."""
         assert detector.is_ready is True
 
@@ -211,7 +213,7 @@ class TestDetectionResults:
         """on_anomaly callback should fire when anomalies are detected."""
         fired = []
 
-        def callback(result) -> None:
+        def callback(result: Any) -> None:
             fired.append(result)
 
         sd = StreamingDetector(

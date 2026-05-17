@@ -7,6 +7,8 @@ Tests for CICIDS 2017 dataset loader - REAL network intrusion data.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from omni_mercury_engine.datasets import CICIDSLoader, DatasetConfig
@@ -375,7 +377,7 @@ class TestCICIDSDataSourcePriority:
         # Official CIC last (often unreliable)
         assert sources[2] == "cic_official"
 
-    def test_synthetic_fallback_warning(self, caplog) -> None:
+    def test_synthetic_fallback_warning(self, caplog: Any) -> None:
         """Test synthetic fallback logs warning."""
         import logging
 

@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Tests for Anomaly Detection Metrics module.
 
@@ -61,7 +63,7 @@ class TestAUROC:
         auroc = compute_auroc(y_true, y_score)
         assert auroc == 0.5  # Should return 0.5 for undefined case
 
-    def test_auroc_with_fixture(self, binary_labels, anomaly_scores) -> None:
+    def test_auroc_with_fixture(self, binary_labels: Any, anomaly_scores: Any) -> None:
         """Test AUROC with test fixtures."""
         from omni_mercury_engine.metrics import compute_auroc
 
@@ -82,7 +84,7 @@ class TestAUPRC:
         auprc = compute_auprc(y_true, y_score)
         assert auprc == 1.0
 
-    def test_auprc_range(self, binary_labels, anomaly_scores) -> None:
+    def test_auprc_range(self, binary_labels: Any, anomaly_scores: Any) -> None:
         """Test AUPRC is in valid range."""
         from omni_mercury_engine.metrics import compute_auprc
 
@@ -103,7 +105,7 @@ class TestF1Max:
         f1_max, threshold = compute_f1_max(y_true, y_score)
         assert f1_max == 1.0
 
-    def test_f1_max_returns_threshold(self, binary_labels, anomaly_scores) -> None:
+    def test_f1_max_returns_threshold(self, binary_labels: Any, anomaly_scores: Any) -> None:
         """Test F1-max returns optimal threshold."""
         from omni_mercury_engine.metrics import compute_f1_max
 
@@ -116,21 +118,21 @@ class TestF1Max:
 class TestOptimalThreshold:
     """Tests for optimal threshold computation."""
 
-    def test_optimal_threshold_f1(self, binary_labels, anomaly_scores) -> None:
+    def test_optimal_threshold_f1(self, binary_labels: Any, anomaly_scores: Any) -> None:
         """Test optimal threshold for F1 metric."""
         from omni_mercury_engine.metrics import compute_optimal_threshold
 
         threshold = compute_optimal_threshold(binary_labels, anomaly_scores, metric="f1")
         assert threshold is not None
 
-    def test_optimal_threshold_accuracy(self, binary_labels, anomaly_scores) -> None:
+    def test_optimal_threshold_accuracy(self, binary_labels: Any, anomaly_scores: Any) -> None:
         """Test optimal threshold for accuracy metric."""
         from omni_mercury_engine.metrics import compute_optimal_threshold
 
         threshold = compute_optimal_threshold(binary_labels, anomaly_scores, metric="accuracy")
         assert threshold is not None
 
-    def test_optimal_threshold_youden(self, binary_labels, anomaly_scores) -> None:
+    def test_optimal_threshold_youden(self, binary_labels: Any, anomaly_scores: Any) -> None:
         """Test optimal threshold using Youden's J."""
         from omni_mercury_engine.metrics import compute_optimal_threshold
 
@@ -141,7 +143,7 @@ class TestOptimalThreshold:
 class TestPixelLevelMetrics:
     """Tests for pixel-level anomaly localization metrics."""
 
-    def test_pixel_auroc(self, pixel_masks, pixel_scores) -> None:
+    def test_pixel_auroc(self, pixel_masks: Any, pixel_scores: Any) -> None:
         """Test pixel-level AUROC computation."""
         from omni_mercury_engine.metrics import compute_pixel_auroc
 
@@ -165,7 +167,7 @@ class TestPixelLevelMetrics:
 class TestPRO:
     """Tests for Per-Region Overlap (PRO) metric."""
 
-    def test_pro_basic(self, pixel_masks, pixel_scores) -> None:
+    def test_pro_basic(self, pixel_masks: Any, pixel_scores: Any) -> None:
         """Test PRO score computation."""
         from omni_mercury_engine.metrics import compute_pro
 
@@ -189,7 +191,7 @@ class TestPRO:
 class TestAnomalyMetrics:
     """Tests for unified AnomalyMetrics class."""
 
-    def test_compute_all_metrics(self, binary_labels, anomaly_scores) -> None:
+    def test_compute_all_metrics(self, binary_labels: Any, anomaly_scores: Any) -> None:
         """Test computing all metrics at once."""
         from omni_mercury_engine.metrics import AnomalyMetrics
 
@@ -200,7 +202,7 @@ class TestAnomalyMetrics:
         assert "f1_max" in results
         assert "optimal_threshold" in results
 
-    def test_compute_all_with_predictions(self, binary_labels, anomaly_scores) -> None:
+    def test_compute_all_with_predictions(self, binary_labels: Any, anomaly_scores: Any) -> None:
         """Test computing metrics with binary predictions."""
         from omni_mercury_engine.metrics import AnomalyMetrics
 
@@ -213,7 +215,7 @@ class TestAnomalyMetrics:
         assert "recall" in results
 
     def test_compute_all_with_masks(
-        self, binary_labels, anomaly_scores, pixel_masks, pixel_scores
+        self, binary_labels: Any, anomaly_scores: Any, pixel_masks: Any, pixel_scores: Any
     ) -> None:
         """Test computing metrics with pixel masks."""
         from omni_mercury_engine.metrics import AnomalyMetrics
@@ -229,7 +231,7 @@ class TestAnomalyMetrics:
         assert "pixel_auroc" in results
         assert "pro" in results
 
-    def test_compute_per_category(self, binary_labels, anomaly_scores) -> None:
+    def test_compute_per_category(self, binary_labels: Any, anomaly_scores: Any) -> None:
         """Test per-category metric computation."""
         from omni_mercury_engine.metrics import AnomalyMetrics
 
@@ -244,7 +246,7 @@ class TestAnomalyMetrics:
 class TestBenchmarkEvaluator:
     """Tests for BenchmarkEvaluator class."""
 
-    def test_evaluator_initialization(self, tmp_path) -> None:
+    def test_evaluator_initialization(self, tmp_path: Any) -> None:
         """Test BenchmarkEvaluator initialization."""
         from omni_mercury_engine.metrics import BenchmarkEvaluator
 
@@ -265,7 +267,7 @@ class TestBenchmarkEvaluator:
         assert d["detector_name"] == "test_detector"
         assert d["metrics"]["auroc"] == 0.95
 
-    def test_evaluation_result_save_load(self, tmp_path) -> None:
+    def test_evaluation_result_save_load(self, tmp_path: Any) -> None:
         """Test saving and loading evaluation results."""
         from omni_mercury_engine.metrics import EvaluationResult
 
@@ -282,7 +284,7 @@ class TestBenchmarkEvaluator:
         assert loaded.detector_name == "test_detector"
         assert loaded.metrics["auroc"] == 0.95
 
-    def test_compare_results(self, tmp_path) -> None:
+    def test_compare_results(self, tmp_path: Any) -> None:
         """Test comparing multiple evaluation results."""
         from omni_mercury_engine.metrics import BenchmarkEvaluator, EvaluationResult
 
@@ -305,7 +307,7 @@ class TestBenchmarkEvaluator:
         assert "Comparison" in comparison
         assert "detector_a" in comparison
 
-    def test_generate_report(self, tmp_path) -> None:
+    def test_generate_report(self, tmp_path: Any) -> None:
         """Test generating evaluation report."""
         from omni_mercury_engine.metrics import BenchmarkEvaluator, EvaluationResult
 

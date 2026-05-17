@@ -19,6 +19,7 @@ paths to ensure the ethical gate is never bypassed.
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import pytest
 
@@ -28,7 +29,7 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
 from omni_mercury_engine.integrations.routing.fallback import FallbackChain
 
 
-def _run(coro):
+def _run(coro: Any) -> Any:
     """Run an async coroutine synchronously."""
     return asyncio.run(coro)
 
@@ -40,7 +41,7 @@ class TestFallbackChainEthicalReraise:
     def _make_chain(fail_fast: bool) -> FallbackChain:
         chain = FallbackChain(name="ethical-test", fail_fast=fail_fast)
 
-        async def ethical_refuser(*_args, **_kwargs) -> None:
+        async def ethical_refuser(*_args: Any, **_kwargs: Any) -> None:
             raise EthicalConstraintViolationError(
                 action="test_action",
                 score=0.10,
@@ -48,7 +49,7 @@ class TestFallbackChainEthicalReraise:
                 check="benevolence",
             )
 
-        async def fallback_handler(*_args, **_kwargs):
+        async def fallback_handler(*_args: Any, **_kwargs: Any) -> Any:
             return {"status": "degraded"}
 
         chain.add_handler(ethical_refuser, name="ethical_refuser", priority=0)
@@ -73,7 +74,7 @@ class TestFallbackChainEthicalReraise:
 
         chain = FallbackChain(name="reach-test", fail_fast=False)
 
-        async def ethical_refuser(*_args, **_kwargs) -> None:
+        async def ethical_refuser(*_args: Any, **_kwargs: Any) -> None:
             raise EthicalConstraintViolationError(
                 action="test_action",
                 score=0.05,
@@ -81,7 +82,7 @@ class TestFallbackChainEthicalReraise:
                 check="sigma_immutable",
             )
 
-        async def spy_fallback(*_args, **_kwargs):
+        async def spy_fallback(*_args: Any, **_kwargs: Any) -> Any:
             reached["fallback"] = True
             return {"status": "should-not-reach"}
 
@@ -100,10 +101,10 @@ class TestFallbackChainEthicalReraise:
         """Non-ethical exceptions should still trigger normal fallback logic."""
         chain = FallbackChain(name="normal-fallback-test", fail_fast=False)
 
-        async def failing_handler(*_args, **_kwargs) -> None:
+        async def failing_handler(*_args: Any, **_kwargs: Any) -> None:
             raise ValueError("transient failure")
 
-        async def recovery_handler(*_args, **_kwargs):
+        async def recovery_handler(*_args: Any, **_kwargs: Any) -> Any:
             return {"recovered": True}
 
         chain.add_handler(failing_handler, name="failing", priority=0)

@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 """
 Tests for Vision-Language Model (VLM) anomaly detectors.
@@ -74,7 +74,7 @@ class TestAnyAnomalyDetector:
         detector.set_anomaly_definition("A person falling down or collapsing on the ground")
         assert detector.anomaly_definition is not None
 
-    def test_anyanomaly_set_reference_normal(self, sample_image_batch) -> None:
+    def test_anyanomaly_set_reference_normal(self, sample_image_batch: Any) -> None:
         """Test setting reference normal frames."""
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
@@ -155,7 +155,7 @@ class TestLAVADDetector:
         )
         assert detector.scene_context is not None
 
-    def test_lavad_detect_video_mock_hard_fails(self, sample_video_frames) -> None:
+    def test_lavad_detect_video_mock_hard_fails(self, sample_video_frames: Any) -> None:
         """``LAVADDetector(config=LAVADConfig(llm_model="mock"))`` must
         raise when ``detect_video`` is called.
 
@@ -205,7 +205,7 @@ class TestBaseVLMDetector:
 class TestContextProviders:
     """Tests for context extraction utilities."""
 
-    def test_positional_context_extractor(self, sample_image) -> None:
+    def test_positional_context_extractor(self, sample_image: Any) -> None:
         """Test positional context extraction."""
         from omni_mercury_engine.detectors.vlm.context_providers import PositionalContextExtractor
 
@@ -213,7 +213,7 @@ class TestContextProviders:
         context = extractor.extract(sample_image)
         assert isinstance(context, dict)
 
-    def test_temporal_context_extractor(self, sample_video_frames) -> None:
+    def test_temporal_context_extractor(self, sample_video_frames: Any) -> None:
         """Test temporal context extraction."""
         from omni_mercury_engine.detectors.vlm.context_providers import TemporalContextExtractor
 

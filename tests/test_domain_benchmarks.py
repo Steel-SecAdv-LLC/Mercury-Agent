@@ -283,7 +283,7 @@ class TestRunDomainBenchmark:
     """Tests for the full run_domain_benchmark pipeline with mocked components."""
 
     @patch("omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector")
-    def test_returns_results_dict(self, mock_detector_cls, tmp_path) -> None:
+    def test_returns_results_dict(self, mock_detector_cls: Any, tmp_path: Any) -> None:
         """Benchmark should return a dict with domain, events, summary."""
         from benchmarks.domain_benchmark_base import run_domain_benchmark
 
@@ -308,7 +308,7 @@ class TestRunDomainBenchmark:
         assert output_path.exists()
 
     @patch("omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector")
-    def test_multiple_events(self, mock_detector_cls, tmp_path) -> None:
+    def test_multiple_events(self, mock_detector_cls: Any, tmp_path: Any) -> None:
         """Benchmark should process all events from the loader."""
         from benchmarks.domain_benchmark_base import run_domain_benchmark
 
@@ -336,7 +336,7 @@ class TestRunDomainBenchmark:
         assert "event_c" in result["events"]
 
     @patch("omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector")
-    def test_event_result_has_metrics(self, mock_detector_cls, tmp_path) -> None:
+    def test_event_result_has_metrics(self, mock_detector_cls: Any, tmp_path: Any) -> None:
         """Each successful event result should contain AUC, F1, precision, recall."""
         from benchmarks.domain_benchmark_base import run_domain_benchmark
 
@@ -357,7 +357,7 @@ class TestRunDomainBenchmark:
         for key in ("auc", "f1", "precision", "recall", "n_samples"):
             assert key in event_result, f"Missing key: {key}"
 
-    def test_no_events_exits(self, tmp_path) -> None:
+    def test_no_events_exits(self, tmp_path: Any) -> None:
         """If loader returns no events, run_domain_benchmark should sys.exit(1)."""
         from benchmarks.domain_benchmark_base import run_domain_benchmark
 
@@ -368,7 +368,7 @@ class TestRunDomainBenchmark:
         assert exc_info.value.code == 1
 
     @patch("omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector")
-    def test_summary_has_mean_auc(self, mock_detector_cls, tmp_path) -> None:
+    def test_summary_has_mean_auc(self, mock_detector_cls: Any, tmp_path: Any) -> None:
         """Summary should include aggregated metrics."""
         from benchmarks.domain_benchmark_base import run_domain_benchmark
 

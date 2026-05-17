@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -83,7 +85,7 @@ class TestDimensionalAnalyzer:
         assert analyzer.reconstruction_threshold == 1.5
         assert analyzer.use_db_term is False
 
-    def test_fit_numpy_array(self, sample_data) -> None:
+    def test_fit_numpy_array(self, sample_data: Any) -> None:
         """Test fitting with numpy array."""
         analyzer = DimensionalAnalyzer()
         result = analyzer.fit(sample_data)
@@ -104,7 +106,7 @@ class TestDimensionalAnalyzer:
         assert analyzer._is_fitted
         assert analyzer.input_dim == 15
 
-    def test_fit_with_db_term(self, sample_data) -> None:
+    def test_fit_with_db_term(self, sample_data: Any) -> None:
         """Test fitting computes baseline spectral signature when DB term enabled."""
         analyzer = DimensionalAnalyzer(config={"use_db_term": True})
         analyzer.fit(sample_data)
@@ -112,20 +114,20 @@ class TestDimensionalAnalyzer:
         assert analyzer.baseline_spectral_signature is not None
         assert len(analyzer.baseline_spectral_signature) > 0
 
-    def test_fit_without_db_term(self, sample_data) -> None:
+    def test_fit_without_db_term(self, sample_data: Any) -> None:
         """Test fitting skips spectral signature when DB term disabled."""
         analyzer = DimensionalAnalyzer(config={"use_db_term": False})
         analyzer.fit(sample_data)
 
         assert analyzer.baseline_spectral_signature is None
 
-    def test_detect_unfitted_raises(self, sample_data) -> None:
+    def test_detect_unfitted_raises(self, sample_data: Any) -> None:
         """Test detection on unfitted detector raises exception."""
         analyzer = DimensionalAnalyzer()
         with pytest.raises(DetectorException, match="must be fitted"):
             analyzer.detect(sample_data)
 
-    def test_detect_numpy_array(self, sample_data) -> None:
+    def test_detect_numpy_array(self, sample_data: Any) -> None:
         """Test detection with numpy array input."""
         analyzer = DimensionalAnalyzer()
         analyzer.fit(sample_data)
@@ -150,7 +152,7 @@ class TestDimensionalAnalyzer:
         assert "scores" in result
         assert len(result["scores"]) == 50
 
-    def test_detect_with_db_term(self, sample_data) -> None:
+    def test_detect_with_db_term(self, sample_data: Any) -> None:
         """Test detection includes DB scores when enabled."""
         analyzer = DimensionalAnalyzer(config={"use_db_term": True})
         analyzer.fit(sample_data)
@@ -159,7 +161,7 @@ class TestDimensionalAnalyzer:
         assert result["db_scores"] is not None
         assert len(result["db_scores"]) == len(sample_data)
 
-    def test_detect_without_db_term(self, sample_data) -> None:
+    def test_detect_without_db_term(self, sample_data: Any) -> None:
         """Test detection returns None for DB scores when disabled."""
         analyzer = DimensionalAnalyzer(config={"use_db_term": False})
         analyzer.fit(sample_data)
@@ -167,7 +169,7 @@ class TestDimensionalAnalyzer:
 
         assert result["db_scores"] is None
 
-    def test_detect_anomalies_in_outliers(self, sample_data) -> None:
+    def test_detect_anomalies_in_outliers(self, sample_data: Any) -> None:
         """Test that clear outliers are detected as anomalies."""
         normal_data = sample_data
         # Create outliers with much larger values
@@ -180,7 +182,7 @@ class TestDimensionalAnalyzer:
         # At least some outliers should be detected
         assert np.sum(result["is_anomaly"]) > 0
 
-    def test_extract_features_unfitted(self, sample_data) -> None:
+    def test_extract_features_unfitted(self, sample_data: Any) -> None:
         """Test feature extraction auto-fits if not fitted."""
         analyzer = DimensionalAnalyzer()
         features = analyzer.extract_features(sample_data)
@@ -188,7 +190,7 @@ class TestDimensionalAnalyzer:
         assert analyzer._is_fitted
         assert isinstance(features, torch.Tensor)
 
-    def test_extract_features_numpy(self, sample_data) -> None:
+    def test_extract_features_numpy(self, sample_data: Any) -> None:
         """Test feature extraction with numpy input."""
         analyzer = DimensionalAnalyzer()
         analyzer.fit(sample_data)
@@ -242,7 +244,7 @@ class TestDBTerm:
         assert signature is not None
         assert len(signature) > 0
 
-    def test_dimensional_code_breaking(self, sample_data) -> None:
+    def test_dimensional_code_breaking(self, sample_data: Any) -> None:
         """Test DB score computation."""
         analyzer = DimensionalAnalyzer()
         analyzer.fit(sample_data)

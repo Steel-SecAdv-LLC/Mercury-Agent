@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Tests for Adaptive Anomaly Detector module.
 
@@ -299,7 +301,7 @@ class TestDatasetSpecificEnsemble:
             ("breast_cancer", DatasetProfile.MEDICAL),
         ],
     )
-    def test_dataset_profile_mapping(self, dataset_name, expected_profile) -> None:
+    def test_dataset_profile_mapping(self, dataset_name: Any, expected_profile: Any) -> None:
         """Test correct profile is assigned for each dataset."""
         ensemble = DatasetSpecificEnsemble(contamination=0.1)
 

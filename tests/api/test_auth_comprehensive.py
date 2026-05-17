@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -291,7 +292,7 @@ class TestAPIKeyStore:
 class TestAPIKeyAuth:
     """Tests for API key authentication FastAPI dependency."""
 
-    def _make_request(self, api_key_header: str | None = None):
+    def _make_request(self, api_key_header: str | None = None) -> Any:
         """Create a mock FastAPI Request."""
         request = MagicMock()
         request.headers = {}
@@ -394,7 +395,7 @@ class TestJWTMaxTokenAge:
             return JWTAuth()
 
     @pytest.mark.asyncio
-    async def test_old_token_rejected(self, jwt_auth) -> None:
+    async def test_old_token_rejected(self, jwt_auth: Any) -> None:
         """Test that tokens exceeding max age are rejected."""
         jwt = pytest.importorskip("jwt")
 
@@ -413,7 +414,7 @@ class TestJWTMaxTokenAge:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_recent_token_accepted(self, jwt_auth) -> None:
+    async def test_recent_token_accepted(self, jwt_auth: Any) -> None:
         """Test that recently issued tokens are accepted."""
         jwt = pytest.importorskip("jwt")
 
@@ -433,7 +434,7 @@ class TestJWTMaxTokenAge:
         assert result.id == "recent_user"
 
     @pytest.mark.asyncio
-    async def test_token_without_iat_accepted(self, jwt_auth) -> None:
+    async def test_token_without_iat_accepted(self, jwt_auth: Any) -> None:
         """Test that tokens without iat claim skip age check."""
         jwt = pytest.importorskip("jwt")
 
@@ -525,7 +526,7 @@ class TestRequirePermission:
         """Test that user with correct permission passes."""
 
         @require_permission(Permission.READ)
-        async def protected_endpoint(request=None):
+        async def protected_endpoint(request: Any = None) -> Any:
             return {"ok": True}
 
         request = MagicMock()
@@ -545,7 +546,7 @@ class TestRequirePermission:
         from fastapi import HTTPException
 
         @require_permission(Permission.ADMIN)
-        async def admin_endpoint(request=None):
+        async def admin_endpoint(request: Any = None) -> Any:
             return {"ok": True}
 
         request = MagicMock()
@@ -569,7 +570,7 @@ class TestRequireRole:
         """Test that user with correct role passes."""
 
         @require_role("analyst")
-        async def analyst_endpoint(request=None):
+        async def analyst_endpoint(request: Any = None) -> Any:
             return {"ok": True}
 
         request = MagicMock()
@@ -585,7 +586,7 @@ class TestRequireRole:
         from fastapi import HTTPException
 
         @require_role("admin")
-        async def admin_endpoint(request=None):
+        async def admin_endpoint(request: Any = None) -> Any:
             return {"ok": True}
 
         request = MagicMock()

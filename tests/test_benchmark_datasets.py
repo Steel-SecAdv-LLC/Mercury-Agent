@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 """
 Tests for Benchmark Dataset Loaders.
@@ -92,7 +92,7 @@ class TestMVTecADConfig:
 class TestMVTecADDataset:
     """Tests for MVTec AD dataset loader."""
 
-    def test_mvtec_initialization(self, tmp_path) -> None:
+    def test_mvtec_initialization(self, tmp_path: Any) -> None:
         """Test MVTec AD dataset initialization."""
         from omni_mercury_engine.data.benchmarks import MVTecADDataset
         from omni_mercury_engine.data.benchmarks.mvtec import MVTecADConfig
@@ -111,7 +111,7 @@ class TestMVTecADDataset:
         assert "carpet" in categories
         assert len(categories) == 15
 
-    def test_mvtec_config_from_dict(self, tmp_path) -> None:
+    def test_mvtec_config_from_dict(self, tmp_path: Any) -> None:
         """Test MVTec AD config from dictionary."""
         from omni_mercury_engine.data.benchmarks import MVTecADDataset
 
@@ -148,7 +148,7 @@ class TestUCFCrimeConfig:
 class TestUCFCrimeDataset:
     """Tests for UCF-Crime dataset loader."""
 
-    def test_ucf_initialization(self, tmp_path) -> None:
+    def test_ucf_initialization(self, tmp_path: Any) -> None:
         """Test UCF-Crime dataset initialization."""
         from omni_mercury_engine.data.benchmarks import UCFCrimeDataset
         from omni_mercury_engine.data.benchmarks.ucf_crime import UCFCrimeConfig
@@ -194,7 +194,7 @@ class TestShanghaiTechConfig:
 class TestShanghaiTechDataset:
     """Tests for Shanghai Tech Campus dataset loader."""
 
-    def test_shanghai_initialization(self, tmp_path) -> None:
+    def test_shanghai_initialization(self, tmp_path: Any) -> None:
         """Test Shanghai Tech dataset initialization."""
         from omni_mercury_engine.data.benchmarks import ShanghaiTechDataset
         from omni_mercury_engine.data.benchmarks.shanghai_tech import ShanghaiTechConfig

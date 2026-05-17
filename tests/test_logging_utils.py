@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from typing import Any
 
 import pytest
 
@@ -454,7 +455,7 @@ class TestLogFunctionCall:
         logger.setLevel(logging.NOTSET)
         logger.propagate = True
 
-    def test_decorator_logs_entry_exit(self, caplog) -> None:
+    def test_decorator_logs_entry_exit(self, caplog: Any) -> None:
         """Test that decorator logs entry and exit."""
 
         @log_function_call()
@@ -469,7 +470,7 @@ class TestLogFunctionCall:
         log_text = caplog.text.lower()
         assert "sample_function" in log_text or "entering" in log_text
 
-    def test_decorator_logs_exception(self, caplog) -> None:
+    def test_decorator_logs_exception(self, caplog: Any) -> None:
         """Test that decorator logs exceptions."""
 
         @log_function_call()
@@ -479,7 +480,7 @@ class TestLogFunctionCall:
         with caplog.at_level(logging.DEBUG), pytest.raises(ValueError):
             failing_function()
 
-    def test_decorator_with_custom_logger(self, caplog) -> None:
+    def test_decorator_with_custom_logger(self, caplog: Any) -> None:
         """Test decorator with custom logger."""
         custom_logger = logging.getLogger("custom")
 
@@ -520,7 +521,7 @@ class TestPIIPatterns:
             ("name", False),
         ],
     )
-    def test_pii_pattern_matching(self, key, expected_redacted) -> None:
+    def test_pii_pattern_matching(self, key: Any, expected_redacted: Any) -> None:
         """Test that PII patterns are correctly identified."""
         formatter = StructuredFormatter(redact_pii=True)
         result = formatter._redact_value(key, "test_value")

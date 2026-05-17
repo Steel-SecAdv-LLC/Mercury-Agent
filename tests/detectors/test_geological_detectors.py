@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -161,19 +163,19 @@ class TestTornadoDetector:
             "location": {"state": "OK"},
         }
 
-    def test_initialization(self, detector) -> None:
+    def test_initialization(self, detector: Any) -> None:
         """Test detector initialization."""
         assert detector is not None
         assert hasattr(detector, "predict_tornado")
 
-    def test_predict_normal_conditions(self, detector, normal_weather_data) -> None:
+    def test_predict_normal_conditions(self, detector: Any, normal_weather_data: Any) -> None:
         """Test prediction with normal weather conditions."""
         result = detector.predict_tornado(normal_weather_data)
 
         assert isinstance(result, TornadoPredictionResult)
         assert result.tornado_likely is False
 
-    def test_predict_tornado_conditions(self, detector, tornado_conditions_data) -> None:
+    def test_predict_tornado_conditions(self, detector: Any, tornado_conditions_data: Any) -> None:
         """Test prediction with tornado-favorable conditions."""
         result = detector.predict_tornado(tornado_conditions_data)
 
@@ -181,7 +183,7 @@ class TestTornadoDetector:
         assert result.confidence >= 0.0
         assert result.confidence <= 1.0
 
-    def test_empty_data_handling(self, detector) -> None:
+    def test_empty_data_handling(self, detector: Any) -> None:
         """Test handling of empty data."""
         result = detector.predict_tornado({})
 
@@ -301,19 +303,21 @@ class TestHurricaneDetector:
             "basin": "atlantic",
         }
 
-    def test_initialization(self, detector) -> None:
+    def test_initialization(self, detector: Any) -> None:
         """Test detector initialization."""
         assert detector is not None
         assert hasattr(detector, "predict_hurricane")
 
-    def test_predict_normal_conditions(self, detector, normal_ocean_data) -> None:
+    def test_predict_normal_conditions(self, detector: Any, normal_ocean_data: Any) -> None:
         """Test prediction with normal ocean conditions."""
         result = detector.predict_hurricane(normal_ocean_data)
 
         assert isinstance(result, HurricanePredictionResult)
         assert result.cyclone_detected is False
 
-    def test_predict_hurricane_conditions(self, detector, hurricane_conditions_data) -> None:
+    def test_predict_hurricane_conditions(
+        self, detector: Any, hurricane_conditions_data: Any
+    ) -> None:
         """Test prediction with hurricane conditions."""
         result = detector.predict_hurricane(hurricane_conditions_data)
 
@@ -321,14 +325,14 @@ class TestHurricaneDetector:
         assert result.confidence >= 0.0
         assert result.confidence <= 1.0
 
-    def test_empty_data_handling(self, detector) -> None:
+    def test_empty_data_handling(self, detector: Any) -> None:
         """Test handling of empty data."""
         result = detector.predict_hurricane({})
 
         assert isinstance(result, HurricanePredictionResult)
         assert result.cyclone_detected is False
 
-    def test_saffir_simpson_classification(self, detector) -> None:
+    def test_saffir_simpson_classification(self, detector: Any) -> None:
         """Test Saffir-Simpson scale classification."""
         test_cases = [
             (20, "no_cyclone"),
@@ -344,7 +348,7 @@ class TestHurricaneDetector:
             category = detector._classify_category(wind_speed)
             assert category == expected_category
 
-    def test_cyclone_type_detection(self, detector) -> None:
+    def test_cyclone_type_detection(self, detector: Any) -> None:
         """Test cyclone type detection based on basin."""
         assert detector._determine_cyclone_type("atlantic") == "hurricane"
         assert detector._determine_cyclone_type("eastern_pacific") == "hurricane"
@@ -478,19 +482,19 @@ class TestFloodDetector:
             },
         }
 
-    def test_initialization(self, detector) -> None:
+    def test_initialization(self, detector: Any) -> None:
         """Test detector initialization."""
         assert detector is not None
         assert hasattr(detector, "predict_flood")
 
-    def test_predict_normal_conditions(self, detector, normal_conditions_data) -> None:
+    def test_predict_normal_conditions(self, detector: Any, normal_conditions_data: Any) -> None:
         """Test prediction with normal conditions."""
         result = detector.predict_flood(normal_conditions_data)
 
         assert isinstance(result, FloodPredictionResult)
         assert result.flood_likely is False
 
-    def test_predict_flood_conditions(self, detector, flood_conditions_data) -> None:
+    def test_predict_flood_conditions(self, detector: Any, flood_conditions_data: Any) -> None:
         """Test prediction with flood conditions."""
         result = detector.predict_flood(flood_conditions_data)
 
@@ -498,7 +502,7 @@ class TestFloodDetector:
         assert result.confidence >= 0.0
         assert result.confidence <= 1.0
 
-    def test_empty_data_handling(self, detector) -> None:
+    def test_empty_data_handling(self, detector: Any) -> None:
         """Test handling of empty data."""
         result = detector.predict_flood({})
 
@@ -524,7 +528,9 @@ class TestCrossDomainFusion:
         """Create FloodDetector instance."""
         return FloodDetector()
 
-    def test_hurricane_flood_correlation(self, hurricane_detector, flood_detector) -> None:
+    def test_hurricane_flood_correlation(
+        self, hurricane_detector: Any, flood_detector: Any
+    ) -> None:
         """Test correlation between hurricane and flood predictions."""
         hurricane_data = {
             "sst_data": {"sst_celsius": 29.0, "climatology_celsius": 27.0},
@@ -542,7 +548,7 @@ class TestCrossDomainFusion:
         assert isinstance(hurricane_result, HurricanePredictionResult)
         assert isinstance(flood_result, FloodPredictionResult)
 
-    def test_tornado_outbreak_detection(self, tornado_detector) -> None:
+    def test_tornado_outbreak_detection(self, tornado_detector: Any) -> None:
         """Test detection of tornado outbreak conditions."""
         outbreak_data = {
             "atmospheric_data": {

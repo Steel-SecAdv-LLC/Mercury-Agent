@@ -25,7 +25,7 @@ Tests PatchCore, PaDiM, STFPM, Reverse Distillation, and CFlow detectors.
 """
 
 import importlib.util
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
@@ -84,7 +84,7 @@ class TestPatchCoreDetector:
         assert cfg.coreset_ratio == 0.1
         assert cfg.k_nearest == 3
 
-    def test_patchcore_fit(self, sample_image_batch) -> None:
+    def test_patchcore_fit(self, sample_image_batch: Any) -> None:
         """Test PatchCore fitting on normal images."""
         from omni_mercury_engine.detectors.visual import PatchCoreDetector
 
@@ -94,7 +94,7 @@ class TestPatchCoreDetector:
         assert detector.memory_bank is not None
 
     @pytest.mark.slow
-    def test_patchcore_detect(self, sample_image_batch, sample_image) -> None:
+    def test_patchcore_detect(self, sample_image_batch: Any, sample_image: Any) -> None:
         """Test PatchCore anomaly detection."""
         from omni_mercury_engine.detectors.visual import PatchCoreDetector
 
@@ -119,7 +119,7 @@ class TestPaDiMDetector:
         assert detector is not None
         assert cast("PaDiMConfig", detector.config).d_reduced == 100
 
-    def test_padim_fit(self, sample_image_batch) -> None:
+    def test_padim_fit(self, sample_image_batch: Any) -> None:
         """Test PaDiM fitting on normal images."""
         from omni_mercury_engine.detectors.visual import PaDiMDetector
 
@@ -130,7 +130,7 @@ class TestPaDiMDetector:
         assert detector.inv_covariance is not None
 
     @pytest.mark.slow
-    def test_padim_detect(self, sample_image_batch, sample_image) -> None:
+    def test_padim_detect(self, sample_image_batch: Any, sample_image: Any) -> None:
         """Test PaDiM anomaly detection."""
         from omni_mercury_engine.detectors.visual import PaDiMDetector
 
@@ -237,7 +237,7 @@ class TestFeatureExtractor:
         extractor = FeatureExtractor(backbone_name="resnet18")
         assert extractor is not None
 
-    def test_feature_extractor_forward(self, sample_image) -> None:
+    def test_feature_extractor_forward(self, sample_image: Any) -> None:
         """Test feature extraction forward pass."""
         from omni_mercury_engine.detectors.visual.backbone import FeatureExtractor
 
@@ -255,7 +255,7 @@ class TestFeatureExtractor:
 class TestBaseVisualDetector:
     """Tests for base visual detector class."""
 
-    def test_preprocessing(self, sample_image) -> None:
+    def test_preprocessing(self, sample_image: Any) -> None:
         """Test image preprocessing."""
         from omni_mercury_engine.detectors.visual import BaseVisualDetector
 
@@ -263,7 +263,7 @@ class TestBaseVisualDetector:
         processed = detector.preprocess(sample_image)
         assert processed.shape[-2:] == (224, 224)
 
-    def test_postprocessing(self, sample_image) -> None:
+    def test_postprocessing(self, sample_image: Any) -> None:
         """Test anomaly map postprocessing."""
         from omni_mercury_engine.detectors.visual import BaseVisualDetector
 
