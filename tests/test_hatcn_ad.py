@@ -21,19 +21,19 @@ from omni_mercury_engine.ml.hatcn_ad import (
 class TestTemporalBlock:
     """Tests for TemporalBlock class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         block = TemporalBlock(in_channels=32, out_channels=64, kernel_size=3, dilation=1)
         assert block.conv1.in_channels == 32
         assert block.conv1.out_channels == 64
         assert block.downsample is not None
 
-    def test_init_same_channels(self):
+    def test_init_same_channels(self) -> None:
         """Test initialization with same input/output channels."""
         block = TemporalBlock(in_channels=32, out_channels=32, kernel_size=3, dilation=1)
         assert block.downsample is None
 
-    def test_forward(self):
+    def test_forward(self) -> None:
         """Test forward pass."""
         block = TemporalBlock(in_channels=32, out_channels=64, kernel_size=3, dilation=1)
         block.eval()
@@ -43,7 +43,7 @@ class TestTemporalBlock:
         assert out.shape[0] == 4
         assert out.shape[1] == 64
 
-    def test_forward_same_channels(self):
+    def test_forward_same_channels(self) -> None:
         """Test forward pass with same input/output channels."""
         block = TemporalBlock(in_channels=32, out_channels=32, kernel_size=3, dilation=1)
         block.eval()
@@ -53,7 +53,7 @@ class TestTemporalBlock:
         assert out.shape[0] == 4
         assert out.shape[1] == 32
 
-    def test_different_dilations(self):
+    def test_different_dilations(self) -> None:
         """Test with different dilation values."""
         for dilation in [1, 2, 4, 8]:
             block = TemporalBlock(in_channels=32, out_channels=32, kernel_size=3, dilation=dilation)
@@ -64,7 +64,7 @@ class TestTemporalBlock:
             assert out.shape[0] == 4
             assert out.shape[1] == 32
 
-    def test_gradient_flow(self):
+    def test_gradient_flow(self) -> None:
         """Test that gradients flow through the block."""
         block = TemporalBlock(in_channels=32, out_channels=64, kernel_size=3, dilation=1)
         block.train()
@@ -78,21 +78,21 @@ class TestTemporalBlock:
 class TestHierarchicalAttention:
     """Tests for HierarchicalAttention class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         attn = HierarchicalAttention(hidden_dim=64, num_scales=3)
         assert attn.num_scales == 3
         assert len(attn.scale_attentions) == 3
         assert attn.scale_weights.shape == (3,)
 
-    def test_init_different_scales(self):
+    def test_init_different_scales(self) -> None:
         """Test initialization with different number of scales."""
         for num_scales in [2, 3, 4, 5]:
             attn = HierarchicalAttention(hidden_dim=64, num_scales=num_scales)
             assert attn.num_scales == num_scales
             assert len(attn.scale_attentions) == num_scales
 
-    def test_forward(self):
+    def test_forward(self) -> None:
         """Test forward pass."""
         attn = HierarchicalAttention(hidden_dim=64, num_scales=3)
         attn.eval()
@@ -106,7 +106,7 @@ class TestHierarchicalAttention:
         assert fused.shape == (4, 64)
         assert len(attn_weights) == 3
 
-    def test_attention_weights_sum_to_one(self):
+    def test_attention_weights_sum_to_one(self) -> None:
         """Test that attention weights sum to 1."""
         attn = HierarchicalAttention(hidden_dim=64, num_scales=3)
         attn.eval()
@@ -121,7 +121,7 @@ class TestHierarchicalAttention:
             sums = weights.sum(dim=1)
             assert torch.allclose(sums, torch.ones_like(sums), atol=1e-5)
 
-    def test_gradient_flow(self):
+    def test_gradient_flow(self) -> None:
         """Test that gradients flow through attention."""
         attn = HierarchicalAttention(hidden_dim=64, num_scales=3)
         attn.train()
@@ -140,21 +140,21 @@ class TestHierarchicalAttention:
 class TestHATCN_AD:
     """Tests for HATCN_AD class."""
 
-    def test_init_default_params(self):
+    def test_init_default_params(self) -> None:
         """Test initialization with default parameters."""
         model = HATCN_AD(input_dim=10)
         assert model.input_proj.in_features == 10
         assert model.input_proj.out_features == 64
         assert len(model.temporal_blocks) == 3
 
-    def test_init_custom_params(self):
+    def test_init_custom_params(self) -> None:
         """Test initialization with custom parameters."""
         model = HATCN_AD(input_dim=20, hidden_dim=128, num_scales=4, kernel_size=5)
         assert model.input_proj.in_features == 20
         assert model.input_proj.out_features == 128
         assert len(model.temporal_blocks) == 4
 
-    def test_forward(self):
+    def test_forward(self) -> None:
         """Test forward pass."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=3)
         model.eval()
@@ -166,7 +166,7 @@ class TestHATCN_AD:
         assert "scale_features" in result
         assert result["anomaly_scores"].shape == (4, 1)
 
-    def test_anomaly_scores_range(self):
+    def test_anomaly_scores_range(self) -> None:
         """Test that anomaly scores are in [0, 1] range."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=3)
         model.eval()
@@ -177,7 +177,7 @@ class TestHATCN_AD:
         assert torch.all(scores >= 0)
         assert torch.all(scores <= 1)
 
-    def test_different_batch_sizes(self):
+    def test_different_batch_sizes(self) -> None:
         """Test with different batch sizes."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=3)
         model.eval()
@@ -187,7 +187,7 @@ class TestHATCN_AD:
                 result = model.forward(x)
             assert result["anomaly_scores"].shape == (batch_size, 1)
 
-    def test_different_sequence_lengths(self):
+    def test_different_sequence_lengths(self) -> None:
         """Test with different sequence lengths."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=3)
         model.eval()
@@ -197,7 +197,7 @@ class TestHATCN_AD:
                 result = model.forward(x)
             assert result["anomaly_scores"].shape == (4, 1)
 
-    def test_gradient_flow(self):
+    def test_gradient_flow(self) -> None:
         """Test that gradients flow through the model."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=3)
         model.train()
@@ -207,7 +207,7 @@ class TestHATCN_AD:
         loss.backward()
         assert x.grad is not None
 
-    def test_scale_features_output(self):
+    def test_scale_features_output(self) -> None:
         """Test that scale features are returned correctly."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=3)
         model.eval()
@@ -223,7 +223,7 @@ class TestHATCN_AD:
 class TestHATCN_ADEdgeCases:
     """Edge case tests for HATCN_AD."""
 
-    def test_single_scale(self):
+    def test_single_scale(self) -> None:
         """Test with single scale."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=1)
         model.eval()
@@ -232,7 +232,7 @@ class TestHATCN_ADEdgeCases:
             result = model.forward(x)
         assert result["anomaly_scores"].shape == (4, 1)
 
-    def test_many_scales(self):
+    def test_many_scales(self) -> None:
         """Test with many scales."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=5)
         model.eval()
@@ -242,7 +242,7 @@ class TestHATCN_ADEdgeCases:
         assert result["anomaly_scores"].shape == (4, 1)
         assert len(result["scale_features"]) == 5
 
-    def test_small_hidden_dim(self):
+    def test_small_hidden_dim(self) -> None:
         """Test with small hidden dimension."""
         model = HATCN_AD(input_dim=10, hidden_dim=8, num_scales=2)
         model.eval()
@@ -251,7 +251,7 @@ class TestHATCN_ADEdgeCases:
             result = model.forward(x)
         assert result["anomaly_scores"].shape == (4, 1)
 
-    def test_large_kernel_size(self):
+    def test_large_kernel_size(self) -> None:
         """Test with large kernel size."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=3, kernel_size=7)
         model.eval()
@@ -260,7 +260,7 @@ class TestHATCN_ADEdgeCases:
             result = model.forward(x)
         assert result["anomaly_scores"].shape == (4, 1)
 
-    def test_short_sequence(self):
+    def test_short_sequence(self) -> None:
         """Test with short sequence."""
         model = HATCN_AD(input_dim=10, hidden_dim=32, num_scales=2, kernel_size=3)
         model.eval()

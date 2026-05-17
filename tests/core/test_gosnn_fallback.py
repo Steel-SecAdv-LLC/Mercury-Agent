@@ -53,27 +53,27 @@ class TestGOSNNFallback:
 
         return GlobalOmniScalarNetwork()
 
-    def test_gosnn_initialization(self, gosnn):
+    def test_gosnn_initialization(self, gosnn) -> None:
         """Test GOSNN initializes correctly."""
         assert gosnn is not None
 
-    def test_last_harmonic_synergy_initialized(self, gosnn):
+    def test_last_harmonic_synergy_initialized(self, gosnn) -> None:
         """Test last_harmonic_synergy is initialized."""
         assert hasattr(gosnn, "last_harmonic_synergy")
 
-    def test_last_harmonic_synergy_type(self, gosnn):
+    def test_last_harmonic_synergy_type(self, gosnn) -> None:
         """Test last_harmonic_synergy has correct type."""
         synergy = gosnn.last_harmonic_synergy
         assert synergy is None or isinstance(synergy, (float, torch.Tensor))
 
-    def test_compute_harmonic_synergy(self, gosnn, deterministic_rng):
+    def test_compute_harmonic_synergy(self, gosnn, deterministic_rng) -> None:
         """Test harmonic synergy computation."""
         features = deterministic_rng.randn(1, 64)
         if hasattr(gosnn, "compute_harmonic_synergy"):
             synergy = gosnn.compute_harmonic_synergy(features)
             assert synergy is not None
 
-    def test_harmonic_synergy_updates_last(self, gosnn, deterministic_rng):
+    def test_harmonic_synergy_updates_last(self, gosnn, deterministic_rng) -> None:
         """Test harmonic synergy updates last_harmonic_synergy."""
         features = deterministic_rng.randn(1, 64)
         if hasattr(gosnn, "compute_harmonic_synergy"):
@@ -100,7 +100,7 @@ class TestGOSNNErrorHandling:
 
         return GlobalOmniScalarNetwork()
 
-    def test_gosnn_handles_invalid_input(self, gosnn, caplog):
+    def test_gosnn_handles_invalid_input(self, gosnn, caplog) -> None:
         """Test GOSNN handles invalid input gracefully."""
         with caplog.at_level(logging.WARNING):
             try:
@@ -108,14 +108,14 @@ class TestGOSNNErrorHandling:
             except Exception:
                 pass  # Expected: GOSNN should handle None input gracefully
 
-    def test_gosnn_handles_empty_input(self, gosnn):
+    def test_gosnn_handles_empty_input(self, gosnn) -> None:
         """Test GOSNN handles empty input."""
         try:
             gosnn.forward(torch.tensor([]))
         except Exception:
             pass  # Expected: GOSNN may raise on empty tensor
 
-    def test_gosnn_handles_wrong_dimensions(self, gosnn):
+    def test_gosnn_handles_wrong_dimensions(self, gosnn) -> None:
         """Test GOSNN handles wrong dimensions."""
         try:
             gosnn.forward(torch.randn(1, 1, 1, 1))
@@ -142,7 +142,7 @@ class TestScalarRegistration:
 
         return GlobalOmniScalarNetwork()
 
-    def test_register_scalars(self, gosnn):
+    def test_register_scalars(self, gosnn) -> None:
         """Test scalar registration."""
         from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
@@ -152,7 +152,7 @@ class TestScalarRegistration:
             group=ScalarGroup.ETHICAL,
         )
 
-    def test_register_scalars_with_metadata(self, gosnn):
+    def test_register_scalars_with_metadata(self, gosnn) -> None:
         """Test scalar registration with metadata."""
         from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
@@ -163,7 +163,7 @@ class TestScalarRegistration:
             metadata={"source": "test"},
         )
 
-    def test_scalar_groups(self):
+    def test_scalar_groups(self) -> None:
         """Test all scalar groups exist."""
         from omni_mercury_engine.core.global_omni_scalar_network import ScalarGroup
 
@@ -191,7 +191,7 @@ class TestEthicalGating:
 
         return GlobalOmniScalarNetwork()
 
-    def test_sigma_immutable_default(self):
+    def test_sigma_immutable_default(self) -> None:
         """Test sigma_immutable default value."""
         from omni_mercury_engine.core.global_omni_scalar_network import (
             SIGMA_IMMUTABLE_DEFAULT,
@@ -199,7 +199,7 @@ class TestEthicalGating:
 
         assert SIGMA_IMMUTABLE_DEFAULT == 0.96
 
-    def test_sigma_immutable_medical_fallback(self):
+    def test_sigma_immutable_medical_fallback(self) -> None:
         """Test sigma_immutable medical fallback value."""
         from omni_mercury_engine.core.global_omni_scalar_network import (
             SIGMA_IMMUTABLE_MEDICAL,
@@ -207,7 +207,7 @@ class TestEthicalGating:
 
         assert SIGMA_IMMUTABLE_MEDICAL == 0.93
 
-    def test_ethical_gate_passes_high_benevolence(self, gosnn):
+    def test_ethical_gate_passes_high_benevolence(self, gosnn) -> None:
         """Test ethical gate passes with high benevolence."""
         if hasattr(gosnn, "apply_ethical_gate"):
             features = torch.randn(1, 64)
@@ -215,7 +215,7 @@ class TestEthicalGating:
             result = gosnn.apply_ethical_gate(features, benevolence)
             assert result is not None
 
-    def test_ethical_gate_blocks_low_benevolence(self, gosnn):
+    def test_ethical_gate_blocks_low_benevolence(self, gosnn) -> None:
         """Test ethical gate blocks with low benevolence."""
         if hasattr(gosnn, "apply_ethical_gate"):
             features = torch.randn(1, 64)
@@ -243,15 +243,15 @@ class TestDetectorRegistry128D:
 
         return DetectorRegistry()
 
-    def test_registry_initialization(self, registry):
+    def test_registry_initialization(self, registry) -> None:
         """Test registry initializes correctly."""
         assert registry is not None
 
-    def test_aggregate_enhanced_geological_features_exists(self, registry):
+    def test_aggregate_enhanced_geological_features_exists(self, registry) -> None:
         """Test aggregate_enhanced_geological_features method exists."""
         assert hasattr(registry, "aggregate_enhanced_geological_features")
 
-    def test_aggregate_features_128d(self, registry, deterministic_rng):
+    def test_aggregate_features_128d(self, registry, deterministic_rng) -> None:
         """Test feature aggregation produces 128D output."""
         from omni_mercury_engine.core.detector_registry import FeatureExtractionResult
 
@@ -284,7 +284,7 @@ class TestDetectorRegistry128D:
         if result["combined_features"] is not None:
             assert result["combined_features"].shape[-1] == 128
 
-    def test_l2_normalization_applied(self, registry, deterministic_rng):
+    def test_l2_normalization_applied(self, registry, deterministic_rng) -> None:
         """Test L2 normalization is applied."""
         from omni_mercury_engine.core.detector_registry import FeatureExtractionResult
 
@@ -317,7 +317,7 @@ class TestDetectorRegistry128D:
             norm = torch.norm(result["combined_features"]).item()
             assert norm > 0
 
-    def test_golden_ratio_scaling(self, registry, deterministic_rng):
+    def test_golden_ratio_scaling(self, registry, deterministic_rng) -> None:
         """Test golden ratio scaling is applied."""
         from omni_mercury_engine.core.detector_registry import FeatureExtractionResult
 
@@ -348,7 +348,7 @@ class TestDetectorRegistry128D:
         assert result is not None
         assert "aggregated_features" in result
 
-    def test_omni_scalars_registered(self, registry, deterministic_rng):
+    def test_omni_scalars_registered(self, registry, deterministic_rng) -> None:
         """Test omni-scalars are registered."""
         from omni_mercury_engine.core.detector_registry import FeatureExtractionResult
 
@@ -390,13 +390,13 @@ class TestDetectorRegistry128D:
 class TestPHIConstant:
     """Tests for PHI (golden ratio) constant."""
 
-    def test_phi_value(self):
+    def test_phi_value(self) -> None:
         """Test PHI constant value."""
         from omni_mercury_engine.core.global_omni_scalar_network import PHI
 
         assert abs(PHI - 1.618033988749895) < 1e-10
 
-    def test_phi_golden_ratio_property(self):
+    def test_phi_golden_ratio_property(self) -> None:
         """Test PHI satisfies golden ratio property."""
         from omni_mercury_engine.core.global_omni_scalar_network import PHI
 
@@ -411,13 +411,13 @@ class TestPHIConstant:
 class TestLyapunovStability:
     """Tests for Lyapunov stability constants."""
 
-    def test_lambda_lyapunov_value(self):
+    def test_lambda_lyapunov_value(self) -> None:
         """Test LAMBDA_LYAPUNOV constant value."""
         from omni_mercury_engine.core.global_omni_scalar_network import LAMBDA_LYAPUNOV
 
         assert LAMBDA_LYAPUNOV == 0.25
 
-    def test_lyapunov_stability_bound(self):
+    def test_lyapunov_stability_bound(self) -> None:
         """Test Lyapunov stability bound V <= epsilon * e^(-0.25t)."""
         from omni_mercury_engine.core.global_omni_scalar_network import LAMBDA_LYAPUNOV
 
@@ -444,16 +444,16 @@ class TestEngineGOSNNIntegration:
 
         return OmniMercuryEngine()
 
-    def test_engine_has_gosnn(self, engine):
+    def test_engine_has_gosnn(self, engine) -> None:
         """Test engine has GOSNN integration via fusion model."""
         # Engine integrates GOSNN through fusion_model, not direct gosnn attribute
         assert hasattr(engine, "fusion_model") or hasattr(engine, "detect_with_fusion")
 
-    def test_detect_with_fusion_exists(self, engine):
+    def test_detect_with_fusion_exists(self, engine) -> None:
         """Test detect_with_fusion method exists."""
         assert hasattr(engine, "detect_with_fusion")
 
-    def test_engine_logging_on_error(self, engine, caplog):
+    def test_engine_logging_on_error(self, engine, caplog) -> None:
         """Test engine logs on GOSNN error."""
         with caplog.at_level(logging.WARNING):
             try:
@@ -481,12 +481,12 @@ class TestTriadicPhiWeighting:
 
         return TriadicPhiWeighting(num_heads=32)
 
-    def test_phi_weighting_initialization(self, phi_weighting):
+    def test_phi_weighting_initialization(self, phi_weighting) -> None:
         """Test phi weighting initializes correctly."""
         assert phi_weighting is not None
         assert phi_weighting.num_heads == 32
 
-    def test_phi_weighting_forward(self, phi_weighting, deterministic_rng):
+    def test_phi_weighting_forward(self, phi_weighting, deterministic_rng) -> None:
         """Test phi weighting forward pass."""
         features = torch.randn(1, 64)
         # TriadicPhiWeighting uses apply() method, not forward()
@@ -498,7 +498,7 @@ class TestTriadicPhiWeighting:
             result = phi_weighting(features)
         assert result is not None
 
-    def test_phi_weighting_32_heads(self, phi_weighting):
+    def test_phi_weighting_32_heads(self, phi_weighting) -> None:
         """Test phi weighting uses 32 heads."""
         assert phi_weighting.num_heads == 32
 
@@ -520,11 +520,11 @@ class TestFusionEquation:
 
         return ThreeRMechanism()
 
-    def test_fusion_exists(self, three_r):
+    def test_fusion_exists(self, three_r) -> None:
         """Test weighted fusion method exists."""
         assert hasattr(three_r, "compute_fusion") or hasattr(three_r, "fusion")
 
-    def test_fusion_components(self, three_r):
+    def test_fusion_components(self, three_r) -> None:
         """Test weighted fusion has R, H, O components."""
         # ThreeRMechanism uses *_engine naming convention
         assert (
@@ -569,13 +569,13 @@ class TestGOSNNFullIntegration:
             "engine": OmniMercuryEngine(),
         }
 
-    def test_all_components_initialize(self, full_setup):
+    def test_all_components_initialize(self, full_setup) -> None:
         """Test all components initialize correctly."""
         assert full_setup["gosnn"] is not None
         assert full_setup["registry"] is not None
         assert full_setup["engine"] is not None
 
-    def test_components_interconnected(self, full_setup):
+    def test_components_interconnected(self, full_setup) -> None:
         """Test components are interconnected."""
         gosnn = full_setup["gosnn"]
         registry = full_setup["registry"]
@@ -586,7 +586,7 @@ class TestGOSNNFullIntegration:
         # Registry should have discovered detectors from the manifest
         assert registry.list_all() is not None
 
-    def test_bidirectional_flow(self, full_setup, deterministic_rng):
+    def test_bidirectional_flow(self, full_setup, deterministic_rng) -> None:
         """Test bidirectional flow between components."""
         gosnn = full_setup["gosnn"]
 
@@ -625,72 +625,72 @@ class TestOmniScalarLegacyAliases:
         reset_global_network()
         return GlobalOmniScalarNetwork()
 
-    def test_legacy_aliases_initialized(self, gosnn):
+    def test_legacy_aliases_initialized(self, gosnn) -> None:
         """Test legacy aliases are initialized."""
         assert hasattr(gosnn, "_legacy_aliases")
         assert isinstance(gosnn._legacy_aliases, dict)
         assert len(gosnn._legacy_aliases) > 0
 
-    def test_resolve_scalar_name_exists(self, gosnn):
+    def test_resolve_scalar_name_exists(self, gosnn) -> None:
         """Test resolve_scalar_name method exists."""
         assert hasattr(gosnn, "resolve_scalar_name")
 
-    def test_get_scalar_exists(self, gosnn):
+    def test_get_scalar_exists(self, gosnn) -> None:
         """Test get_scalar method exists."""
         assert hasattr(gosnn, "get_scalar")
 
-    def test_resolve_legacy_morality_scalar(self, gosnn):
+    def test_resolve_legacy_morality_scalar(self, gosnn) -> None:
         """Test resolving legacy morality_scalar to omnimorality."""
         resolved = gosnn.resolve_scalar_name("morality_scalar")
         assert resolved == "omnimorality"
 
-    def test_resolve_legacy_empathy_scalar(self, gosnn):
+    def test_resolve_legacy_empathy_scalar(self, gosnn) -> None:
         """Test resolving legacy empathy_scalar to omniempathy."""
         resolved = gosnn.resolve_scalar_name("empathy_scalar")
         assert resolved == "omniempathy"
 
-    def test_resolve_legacy_compassion_scalar(self, gosnn):
+    def test_resolve_legacy_compassion_scalar(self, gosnn) -> None:
         """Test resolving legacy compassion_scalar to omnicompassion."""
         resolved = gosnn.resolve_scalar_name("compassion_scalar")
         assert resolved == "omnicompassion"
 
-    def test_resolve_legacy_benevolence(self, gosnn):
+    def test_resolve_legacy_benevolence(self, gosnn) -> None:
         """Test resolving legacy benevolence to omnibenevolence."""
         resolved = gosnn.resolve_scalar_name("benevolence")
         assert resolved == "omnibenevolence"
 
-    def test_resolve_omni_prefixed_unchanged(self, gosnn):
+    def test_resolve_omni_prefixed_unchanged(self, gosnn) -> None:
         """Test omni-prefixed names are returned unchanged."""
         resolved = gosnn.resolve_scalar_name("omnimorality")
         assert resolved == "omnimorality"
 
-    def test_resolve_unknown_name_unchanged(self, gosnn):
+    def test_resolve_unknown_name_unchanged(self, gosnn) -> None:
         """Test unknown names are returned unchanged."""
         resolved = gosnn.resolve_scalar_name("unknown_scalar")
         assert resolved == "unknown_scalar"
 
-    def test_get_scalar_with_legacy_name(self, gosnn):
+    def test_get_scalar_with_legacy_name(self, gosnn) -> None:
         """Test get_scalar works with legacy names."""
         value = gosnn.get_scalar("morality_scalar")
         assert value > 0
 
-    def test_get_scalar_with_omni_name(self, gosnn):
+    def test_get_scalar_with_omni_name(self, gosnn) -> None:
         """Test get_scalar works with omni-prefixed names."""
         value = gosnn.get_scalar("omnimorality")
         assert value > 0
 
-    def test_get_scalar_legacy_equals_omni(self, gosnn):
+    def test_get_scalar_legacy_equals_omni(self, gosnn) -> None:
         """Test legacy and omni names return same value."""
         legacy_value = gosnn.get_scalar("morality_scalar")
         omni_value = gosnn.get_scalar("omnimorality")
         assert legacy_value == omni_value
 
-    def test_get_scalar_default_for_unknown(self, gosnn):
+    def test_get_scalar_default_for_unknown(self, gosnn) -> None:
         """Test get_scalar returns default for unknown names."""
         value = gosnn.get_scalar("unknown_scalar", default=0.5)
         assert value == 0.5
 
-    def test_all_legacy_aliases_resolve(self, gosnn):
+    def test_all_legacy_aliases_resolve(self, gosnn) -> None:
         """Test all legacy aliases resolve to omni-prefixed names."""
         for legacy_name, omni_name in gosnn._legacy_aliases.items():
             resolved = gosnn.resolve_scalar_name(legacy_name)
@@ -714,42 +714,42 @@ class TestOmniScalarValues:
         reset_global_network()
         return GlobalOmniScalarNetwork()
 
-    def test_omnibenevolence_threshold(self, gosnn):
+    def test_omnibenevolence_threshold(self, gosnn) -> None:
         """Test omnibenevolence >= 0.99 threshold."""
         value = gosnn.get_scalar("omnibenevolence")
         assert value >= 0.99
 
-    def test_omnicompassion_value(self, gosnn):
+    def test_omnicompassion_value(self, gosnn) -> None:
         """Test omnicompassion has positive value."""
         value = gosnn.get_scalar("omnicompassion")
         assert value > 0
 
-    def test_omniempathy_value(self, gosnn):
+    def test_omniempathy_value(self, gosnn) -> None:
         """Test omniempathy has positive value."""
         value = gosnn.get_scalar("omniempathy")
         assert value > 0
 
-    def test_omnimorality_value(self, gosnn):
+    def test_omnimorality_value(self, gosnn) -> None:
         """Test omnimorality has positive value."""
         value = gosnn.get_scalar("omnimorality")
         assert value > 0
 
-    def test_omnijustice_value(self, gosnn):
+    def test_omnijustice_value(self, gosnn) -> None:
         """Test omnijustice has positive value."""
         value = gosnn.get_scalar("omnijustice")
         assert value > 0
 
-    def test_omniequity_value(self, gosnn):
+    def test_omniequity_value(self, gosnn) -> None:
         """Test omniequity has positive value."""
         value = gosnn.get_scalar("omniequity")
         assert value > 0
 
-    def test_omnilove_value(self, gosnn):
+    def test_omnilove_value(self, gosnn) -> None:
         """Test omnilove has positive value."""
         value = gosnn.get_scalar("omnilove")
         assert value > 0
 
-    def test_omniforgiveness_value(self, gosnn):
+    def test_omniforgiveness_value(self, gosnn) -> None:
         """Test omniforgiveness has positive value."""
         value = gosnn.get_scalar("omniforgiveness")
         assert value > 0
@@ -771,25 +771,25 @@ class TestBiasAuditOmniScalars:
         reset_global_network()
         return GlobalOmniScalarNetwork()
 
-    def test_bias_audit_returns_omni_scalars(self, gosnn):
+    def test_bias_audit_returns_omni_scalars(self, gosnn) -> None:
         """Test bias audit returns omni-prefixed scalar names."""
         result = gosnn.perform_bias_audit()
         assert "omniempathy" in result
         assert "omnimorality" in result
         assert "omnibenevolence" in result
 
-    def test_bias_audit_omnibenevolence_check(self, gosnn):
+    def test_bias_audit_omnibenevolence_check(self, gosnn) -> None:
         """Test bias audit checks omnibenevolence >= 0.99."""
         result = gosnn.perform_bias_audit()
         assert result["omnibenevolence"] >= 0.99
 
-    def test_bias_audit_status(self, gosnn):
+    def test_bias_audit_status(self, gosnn) -> None:
         """Test bias audit returns status."""
         result = gosnn.perform_bias_audit()
         assert "status" in result
         assert result["status"] in ["passed", "warnings"]
 
-    def test_bias_audit_recommendations(self, gosnn):
+    def test_bias_audit_recommendations(self, gosnn) -> None:
         """Test bias audit returns recommendations list."""
         result = gosnn.perform_bias_audit()
         assert "recommendations" in result

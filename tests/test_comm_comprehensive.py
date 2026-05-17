@@ -21,7 +21,7 @@ from omni_mercury_engine.utils.comm import (
 class TestMessage:
     """Tests for Message dataclass."""
 
-    def test_message_creation(self):
+    def test_message_creation(self) -> None:
         """Test basic message creation."""
         msg = Message(
             sender="agent_a",
@@ -35,7 +35,7 @@ class TestMessage:
         assert msg.content == {"action": "detect"}
         assert msg.priority == MessagePriority.HIGH
 
-    def test_message_defaults(self):
+    def test_message_defaults(self) -> None:
         """Test default message values."""
         msg = Message(sender="a", recipient="b", content="test")
 
@@ -43,7 +43,7 @@ class TestMessage:
         assert msg.timestamp > 0
         assert msg.message_id.startswith("msg_")
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test message serialization to dict."""
         msg = Message(
             sender="a",
@@ -61,7 +61,7 @@ class TestMessage:
         assert "timestamp" in d
         assert "message_id" in d
 
-    def test_from_dict(self):
+    def test_from_dict(self) -> None:
         """Test message deserialization from dict."""
         d = {
             "sender": "x",
@@ -81,7 +81,7 @@ class TestMessage:
         assert msg.timestamp == 1234567890.0
         assert msg.message_id == "msg_test"
 
-    def test_from_dict_defaults(self):
+    def test_from_dict_defaults(self) -> None:
         """Test from_dict with minimal data."""
         d = {
             "sender": "a",
@@ -98,7 +98,7 @@ class TestMessage:
 class TestAsyncMessageQueue:
     """Tests for AsyncMessageQueue."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test queue initialization."""
         queue = AsyncMessageQueue(max_size=100)
 
@@ -107,7 +107,7 @@ class TestAsyncMessageQueue:
         assert queue.stats["errors"] == 0
 
     @pytest.mark.asyncio
-    async def test_send_receive(self):
+    async def test_send_receive(self) -> None:
         """Test basic send and receive."""
         queue = AsyncMessageQueue()
 
@@ -125,7 +125,7 @@ class TestAsyncMessageQueue:
         assert queue.stats["messages_received"] == 1
 
     @pytest.mark.asyncio
-    async def test_receive_timeout(self):
+    async def test_receive_timeout(self) -> None:
         """Test receive with timeout on empty queue."""
         queue = AsyncMessageQueue()
 
@@ -134,7 +134,7 @@ class TestAsyncMessageQueue:
         assert received is None
 
     @pytest.mark.asyncio
-    async def test_multiple_messages(self):
+    async def test_multiple_messages(self) -> None:
         """Test sending and receiving multiple messages."""
         queue = AsyncMessageQueue()
 
@@ -153,11 +153,11 @@ class TestAsyncMessageQueue:
 
         assert queue.stats["messages_received"] == 5
 
-    def test_register_handler(self):
+    def test_register_handler(self) -> None:
         """Test handler registration."""
         queue = AsyncMessageQueue()
 
-        def handler(msg):
+        def handler(msg) -> None:
             pass
 
         queue.register_handler("str", handler)
@@ -165,14 +165,14 @@ class TestAsyncMessageQueue:
         assert "str" in queue.handlers
         assert handler in queue.handlers["str"]
 
-    def test_register_multiple_handlers(self):
+    def test_register_multiple_handlers(self) -> None:
         """Test registering multiple handlers for same type."""
         queue = AsyncMessageQueue()
 
-        def handler1(msg):
+        def handler1(msg) -> None:
             pass
 
-        def handler2(msg):
+        def handler2(msg) -> None:
             pass
 
         queue.register_handler("str", handler1)
@@ -180,7 +180,7 @@ class TestAsyncMessageQueue:
 
         assert len(queue.handlers["str"]) == 2
 
-    def test_get_stats(self):
+    def test_get_stats(self) -> None:
         """Test getting queue statistics."""
         queue = AsyncMessageQueue()
 
@@ -198,18 +198,18 @@ class TestAsyncMessageQueue:
 class TestSimplePubSub:
     """Tests for SimplePubSub."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test pubsub initialization."""
         pubsub = SimplePubSub()
         assert len(pubsub.subscribers) == 0
 
-    def test_subscribe(self):
+    def test_subscribe(self) -> None:
         """Test subscribing to topic."""
         pubsub = SimplePubSub()
 
         called = []
 
-        def callback(msg):
+        def callback(msg) -> None:
             called.append(msg)
 
         pubsub.subscribe("test_topic", callback)
@@ -217,14 +217,14 @@ class TestSimplePubSub:
         assert "test_topic" in pubsub.subscribers
         assert callback in pubsub.subscribers["test_topic"]
 
-    def test_subscribe_multiple(self):
+    def test_subscribe_multiple(self) -> None:
         """Test multiple subscribers to same topic."""
         pubsub = SimplePubSub()
 
-        def callback1(msg):
+        def callback1(msg) -> None:
             pass
 
-        def callback2(msg):
+        def callback2(msg) -> None:
             pass
 
         pubsub.subscribe("topic", callback1)
@@ -232,11 +232,11 @@ class TestSimplePubSub:
 
         assert len(pubsub.subscribers["topic"]) == 2
 
-    def test_unsubscribe(self):
+    def test_unsubscribe(self) -> None:
         """Test unsubscribing from topic."""
         pubsub = SimplePubSub()
 
-        def callback(msg):
+        def callback(msg) -> None:
             pass
 
         pubsub.subscribe("topic", callback)
@@ -245,13 +245,13 @@ class TestSimplePubSub:
         pubsub.unsubscribe("topic", callback)
         assert callback not in pubsub.subscribers["topic"]
 
-    def test_publish(self):
+    def test_publish(self) -> None:
         """Test publishing to topic."""
         pubsub = SimplePubSub()
 
         received = []
 
-        def callback(msg):
+        def callback(msg) -> None:
             received.append(msg)
 
         pubsub.subscribe("events", callback)
@@ -260,17 +260,17 @@ class TestSimplePubSub:
         assert len(received) == 1
         assert received[0]["event"] == "detected"
 
-    def test_publish_multiple_subscribers(self):
+    def test_publish_multiple_subscribers(self) -> None:
         """Test publishing to multiple subscribers."""
         pubsub = SimplePubSub()
 
         results1 = []
         results2 = []
 
-        def callback1(msg):
+        def callback1(msg) -> None:
             results1.append(msg)
 
-        def callback2(msg):
+        def callback2(msg) -> None:
             results2.append(msg)
 
         pubsub.subscribe("broadcast", callback1)
@@ -281,23 +281,23 @@ class TestSimplePubSub:
         assert results1 == ["hello"]
         assert results2 == ["hello"]
 
-    def test_publish_no_subscribers(self):
+    def test_publish_no_subscribers(self) -> None:
         """Test publishing to topic with no subscribers."""
         pubsub = SimplePubSub()
 
         # Should not raise
         pubsub.publish("empty_topic", "message")
 
-    def test_publish_callback_exception(self):
+    def test_publish_callback_exception(self) -> None:
         """Test publishing when callback raises exception."""
         pubsub = SimplePubSub()
 
         results = []
 
-        def failing_callback(msg):
+        def failing_callback(msg) -> None:
             raise ValueError("Intentional error")
 
-        def working_callback(msg):
+        def working_callback(msg) -> None:
             results.append(msg)
 
         pubsub.subscribe("topic", failing_callback)
@@ -310,16 +310,16 @@ class TestSimplePubSub:
         assert results == ["test"]
 
     @pytest.mark.asyncio
-    async def test_publish_async(self):
+    async def test_publish_async(self) -> None:
         """Test async publishing."""
         pubsub = SimplePubSub()
 
         received = []
 
-        def sync_callback(msg):
+        def sync_callback(msg) -> None:
             received.append(f"sync:{msg}")
 
-        async def async_callback(msg):
+        async def async_callback(msg) -> None:
             received.append(f"async:{msg}")
 
         pubsub.subscribe("async_topic", sync_callback)
@@ -332,7 +332,7 @@ class TestSimplePubSub:
         assert "async:hello" in received
 
     @pytest.mark.asyncio
-    async def test_publish_async_no_subscribers(self):
+    async def test_publish_async_no_subscribers(self) -> None:
         """Test async publishing with no subscribers."""
         pubsub = SimplePubSub()
 
@@ -340,16 +340,16 @@ class TestSimplePubSub:
         await pubsub.publish_async("empty", "message")
 
     @pytest.mark.asyncio
-    async def test_publish_async_with_exception(self):
+    async def test_publish_async_with_exception(self) -> None:
         """Test async publishing when callback raises."""
         pubsub = SimplePubSub()
 
         results = []
 
-        async def failing_async(msg):
+        async def failing_async(msg) -> None:
             raise RuntimeError("Async error")
 
-        def working_sync(msg):
+        def working_sync(msg) -> None:
             results.append(msg)
 
         pubsub.subscribe("topic", failing_async)

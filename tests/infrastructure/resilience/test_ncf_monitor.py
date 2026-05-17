@@ -30,12 +30,12 @@ from omni_mercury_engine.infrastructure.resilience.ncf_monitor import NCFMonitor
 class TestNCFMonitor:
     """Test suite for NCFMonitor."""
 
-    def test_ncf_monitor_instantiation(self):
+    def test_ncf_monitor_instantiation(self) -> None:
         """Test NCF monitor can be instantiated."""
         monitor = NCFMonitor()
         assert monitor is not None
 
-    def test_ncf_categories(self):
+    def test_ncf_categories(self) -> None:
         """Test NCF categories are defined."""
         monitor = NCFMonitor()
 
@@ -49,7 +49,7 @@ class TestNCFMonitor:
         assert len(monitor.ncf_categories["manage"]) == 24
         assert len(monitor.ncf_categories["supply"]) == 13
 
-    def test_detect_connect_ncf(self):
+    def test_detect_connect_ncf(self) -> None:
         """Test anomaly detection for Connect NCFs."""
         monitor = NCFMonitor()
         data = np.random.randn(100, 10)
@@ -62,7 +62,7 @@ class TestNCFMonitor:
         assert "category" in result
         assert result["category"] == "connect"
 
-    def test_detect_distribute_ncf(self):
+    def test_detect_distribute_ncf(self) -> None:
         """Test anomaly detection for Distribute NCFs."""
         monitor = NCFMonitor()
         data = np.random.randn(100, 10)
@@ -72,7 +72,7 @@ class TestNCFMonitor:
         assert result["category"] == "distribute"
         assert "anomaly_score" in result
 
-    def test_cascading_failure_analysis(self):
+    def test_cascading_failure_analysis(self) -> None:
         """Test cascading failure analysis across NCFs."""
         monitor = NCFMonitor()
 
@@ -83,7 +83,7 @@ class TestNCFMonitor:
         assert "cascading_impacts" in cascading
         assert len(cascading["initial_failures"]) == 2
 
-    def test_invalid_ncf_id(self):
+    def test_invalid_ncf_id(self) -> None:
         """Test handling of invalid NCF ID."""
         monitor = NCFMonitor()
         data = np.random.randn(100, 10)

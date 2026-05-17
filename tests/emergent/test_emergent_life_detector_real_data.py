@@ -46,7 +46,7 @@ pytestmark = pytest.mark.skipif(
 
 
 class TestRealDataValidation:
-    def test_seti_technosignature_detection(self):
+    def test_seti_technosignature_detection(self) -> None:
         """Test technosignature detection on simulated cosmic signals."""
         noise_data = generate_seti_signal(num_samples=10000, inject_technosignature=False)
         signal_data = generate_seti_signal(
@@ -61,7 +61,7 @@ class TestRealDataValidation:
         assert noise_result["seti_anomaly_detected"] in [True, False]
         assert signal_result["seti_anomaly_detected"] in [True, False]
 
-    def test_threshold_sensitivity(self):
+    def test_threshold_sensitivity(self) -> None:
         """Test different thresholds on simulated SETI data."""
         data = generate_seti_signal(
             num_samples=10000, inject_technosignature=True, signal_type="narrow_band"
@@ -78,7 +78,7 @@ class TestRealDataValidation:
 
         assert all(0.0 <= s <= 1.0 for s in detection_scores)
 
-    def test_seti_benchmark_accuracy(self):
+    def test_seti_benchmark_accuracy(self) -> None:
         """Benchmark accuracy on simulated cosmic signals."""
         detector = EmergentLifeDetector(enable_biosignatures=False, enable_contact_protocols=False)
 
@@ -100,7 +100,7 @@ class TestRealDataValidation:
         accuracy = (true_positives + true_negatives) / 40
         assert accuracy > 0.4, f"Accuracy {accuracy:.2f} should be > 40% on simulated data"
 
-    def test_comprehensive_life_detection(self):
+    def test_comprehensive_life_detection(self) -> None:
         """Test comprehensive life detection workflow."""
         detector = EmergentLifeDetector()
 

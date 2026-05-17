@@ -56,48 +56,48 @@ from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 class TestThresholdValidation:
     """Test threshold [0, 1] range validation in BaseDetector."""
 
-    def test_valid_threshold_zero(self):
+    def test_valid_threshold_zero(self) -> None:
         """Threshold of 0.0 should be accepted."""
         detector = SpatialAnomalyDetector({"threshold": 0.0})
         assert detector.threshold == 0.0
 
-    def test_valid_threshold_one(self):
+    def test_valid_threshold_one(self) -> None:
         """Threshold of 1.0 should be accepted."""
         detector = SpatialAnomalyDetector({"threshold": 1.0})
         assert detector.threshold == 1.0
 
-    def test_valid_threshold_midpoint(self):
+    def test_valid_threshold_midpoint(self) -> None:
         """Threshold of 0.5 (default) should be accepted."""
         detector = SpatialAnomalyDetector({"threshold": 0.5})
         assert detector.threshold == 0.5
 
-    def test_valid_threshold_custom(self):
+    def test_valid_threshold_custom(self) -> None:
         """Custom valid thresholds should be accepted."""
         for threshold in [0.1, 0.25, 0.75, 0.9, 0.99]:
             detector = SpatialAnomalyDetector({"threshold": threshold})
             assert detector.threshold == threshold
 
-    def test_invalid_threshold_above_one(self):
+    def test_invalid_threshold_above_one(self) -> None:
         """Threshold > 1.0 should raise ValueError."""
         with pytest.raises(ValueError, match=r"Threshold must be in \[0, 1\] range"):
             SpatialAnomalyDetector({"threshold": 1.5})
 
-    def test_invalid_threshold_negative(self):
+    def test_invalid_threshold_negative(self) -> None:
         """Threshold < 0.0 should raise ValueError."""
         with pytest.raises(ValueError, match=r"Threshold must be in \[0, 1\] range"):
             SpatialAnomalyDetector({"threshold": -0.1})
 
-    def test_invalid_threshold_large(self):
+    def test_invalid_threshold_large(self) -> None:
         """Very large threshold should raise ValueError."""
         with pytest.raises(ValueError, match=r"Threshold must be in \[0, 1\] range"):
             SpatialAnomalyDetector({"threshold": 100.0})
 
-    def test_invalid_threshold_non_numeric(self):
+    def test_invalid_threshold_non_numeric(self) -> None:
         """Non-numeric threshold should raise ValueError."""
         with pytest.raises(ValueError, match=r"Threshold must be numeric"):
             SpatialAnomalyDetector({"threshold": "high"})
 
-    def test_threshold_integer_accepted(self):
+    def test_threshold_integer_accepted(self) -> None:
         """Integer thresholds (0 and 1) should be accepted and converted to float."""
         detector = SpatialAnomalyDetector({"threshold": 1})
         assert detector.threshold == 1.0
@@ -110,27 +110,27 @@ class TestThresholdValidation:
 class TestGraphAnomalyDetectorZScoreThreshold:
     """Test GraphAnomalyDetector correctly bypasses [0, 1] threshold validation."""
 
-    def test_default_zscore_threshold(self):
+    def test_default_zscore_threshold(self) -> None:
         """Default z-score threshold of 3.0 should be accepted."""
         detector = GraphAnomalyDetector()
         assert detector.threshold == 3.0
 
-    def test_custom_zscore_threshold(self):
+    def test_custom_zscore_threshold(self) -> None:
         """Custom z-score thresholds > 1 should be accepted."""
         detector = GraphAnomalyDetector({"threshold": 2.5})
         assert detector.threshold == 2.5
 
-    def test_high_zscore_threshold(self):
+    def test_high_zscore_threshold(self) -> None:
         """High z-score thresholds should be accepted."""
         detector = GraphAnomalyDetector({"threshold": 5.0})
         assert detector.threshold == 5.0
 
-    def test_zscore_threshold_low_valid(self):
+    def test_zscore_threshold_low_valid(self) -> None:
         """Low z-score thresholds (< 1) should also work."""
         detector = GraphAnomalyDetector({"threshold": 0.5})
         assert detector.threshold == 0.5
 
-    def test_other_config_preserved(self):
+    def test_other_config_preserved(self) -> None:
         """Other config options should be preserved after threshold extraction."""
         detector = GraphAnomalyDetector({"threshold": 4.0, "name": "test_graph"})
         assert detector.threshold == 4.0
@@ -175,7 +175,7 @@ class TestNaNInfHandling:
         return data
 
     # --- Temporal Detector Tests ---
-    def test_temporal_nan_input_produces_finite_scores(self, normal_data, data_with_nan):
+    def test_temporal_nan_input_produces_finite_scores(self, normal_data, data_with_nan) -> None:
         """TemporalAnomalyDetector should produce finite scores with NaN input."""
         detector = TemporalAnomalyDetector()
         # Flatten for 1D temporal analysis
@@ -185,7 +185,7 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
         assert result["scores"].shape[0] == data_with_nan.shape[0]
 
-    def test_temporal_inf_input_produces_finite_scores(self, normal_data, data_with_inf):
+    def test_temporal_inf_input_produces_finite_scores(self, normal_data, data_with_inf) -> None:
         """TemporalAnomalyDetector should produce finite scores with Inf input."""
         detector = TemporalAnomalyDetector()
         detector.fit(normal_data[:, 0])
@@ -194,7 +194,7 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
 
     # --- Spatial Detector Tests ---
-    def test_spatial_nan_input_produces_finite_scores(self, normal_data, data_with_nan):
+    def test_spatial_nan_input_produces_finite_scores(self, normal_data, data_with_nan) -> None:
         """SpatialAnomalyDetector should produce finite scores with NaN input."""
         detector = SpatialAnomalyDetector()
         # Use 2D spatial data
@@ -206,7 +206,7 @@ class TestNaNInfHandling:
 
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
 
-    def test_spatial_safe_normalize_constant_array(self):
+    def test_spatial_safe_normalize_constant_array(self) -> None:
         """_safe_normalize should handle constant arrays without division by zero."""
         detector = SpatialAnomalyDetector()
 
@@ -217,7 +217,7 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(normalized)), "Constant array produced non-finite values"
         assert np.allclose(normalized, 0.5), "Constant array should normalize to 0.5"
 
-    def test_spatial_safe_normalize_with_nan(self):
+    def test_spatial_safe_normalize_with_nan(self) -> None:
         """_safe_normalize should handle NaN values."""
         detector = SpatialAnomalyDetector()
 
@@ -227,7 +227,7 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(normalized)), "NaN not handled correctly"
         assert np.all(normalized >= 0.0) and np.all(normalized <= 1.0)
 
-    def test_spatial_safe_normalize_all_zero(self):
+    def test_spatial_safe_normalize_all_zero(self) -> None:
         """_safe_normalize should handle all-zero arrays."""
         detector = SpatialAnomalyDetector()
 
@@ -238,7 +238,7 @@ class TestNaNInfHandling:
         assert np.allclose(normalized, 0.5), "Zero array should normalize to 0.5"
 
     # --- Dimensional Detector Tests ---
-    def test_dimensional_nan_produces_finite_scores(self, normal_data):
+    def test_dimensional_nan_produces_finite_scores(self, normal_data) -> None:
         """DimensionalAnalyzer should produce finite scores even with edge cases."""
         detector = DimensionalAnalyzer()
         detector.fit(normal_data)
@@ -247,7 +247,7 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(result["scores"])), "Scores contain NaN/Inf"
         assert np.all(result["scores"] >= 0.0) and np.all(result["scores"] <= 1.0)
 
-    def test_dimensional_constant_input_produces_valid_scores(self, deterministic_rng):
+    def test_dimensional_constant_input_produces_valid_scores(self, deterministic_rng) -> None:
         """DimensionalAnalyzer should handle constant input gracefully."""
         detector = DimensionalAnalyzer()
 
@@ -262,7 +262,7 @@ class TestNaNInfHandling:
         assert np.all(np.isfinite(result["scores"])), "Constant input produced NaN/Inf"
 
     # --- Statistical Detector Tests ---
-    def test_statistical_produces_finite_scores(self, normal_data):
+    def test_statistical_produces_finite_scores(self, normal_data) -> None:
         """MercuryAnomalyDetector should produce finite scores."""
         detector = MercuryAnomalyDetector()
         detector.fit(normal_data)
@@ -277,21 +277,21 @@ class TestNaNInfHandling:
 class TestEmptyDataValidation:
     """Test empty data rejection in MercuryAnomalyDetector."""
 
-    def test_empty_array_raises_exception(self):
+    def test_empty_array_raises_exception(self) -> None:
         """Empty array should raise DetectorException."""
         detector = MercuryAnomalyDetector()
 
         with pytest.raises(DetectorException, match="empty data"):
             detector.fit(np.array([]))
 
-    def test_empty_2d_array_raises_exception(self):
+    def test_empty_2d_array_raises_exception(self) -> None:
         """Empty 2D array should raise DetectorException."""
         detector = MercuryAnomalyDetector()
 
         with pytest.raises(DetectorException, match="empty data"):
             detector.fit(np.array([]).reshape(0, 10))
 
-    def test_all_nan_array_raises_exception(self):
+    def test_all_nan_array_raises_exception(self) -> None:
         """Array with all NaN values should raise DetectorException."""
         detector = MercuryAnomalyDetector()
 
@@ -299,7 +299,7 @@ class TestEmptyDataValidation:
         with pytest.raises(DetectorException, match="all data values are NaN or Inf"):
             detector.fit(all_nan)
 
-    def test_all_inf_array_raises_exception(self):
+    def test_all_inf_array_raises_exception(self) -> None:
         """Array with all Inf values should raise DetectorException."""
         detector = MercuryAnomalyDetector()
 
@@ -307,7 +307,7 @@ class TestEmptyDataValidation:
         with pytest.raises(DetectorException, match="all data values are NaN or Inf"):
             detector.fit(all_inf)
 
-    def test_partial_nan_rows_filtered(self, deterministic_rng):
+    def test_partial_nan_rows_filtered(self, deterministic_rng) -> None:
         """Rows with NaN should be filtered, valid rows used for fitting."""
         detector = MercuryAnomalyDetector()
 
@@ -327,7 +327,7 @@ class TestEmptyDataValidation:
 class TestDevicePropagation:
     """Test device handling in HybridFusionLayer and ResonanceWeightedFusion."""
 
-    def test_hybrid_fusion_cpu_device(self):
+    def test_hybrid_fusion_cpu_device(self) -> None:
         """HybridFusionLayer should handle CPU tensors correctly."""
         fusion = HybridFusionLayer(feature_dims={"detector1": 32, "detector2": 32}, hidden_dim=64)
 
@@ -345,7 +345,7 @@ class TestDevicePropagation:
         assert fused.device.type == "cpu"
         assert fused.shape[0] == 8
 
-    def test_hybrid_fusion_missing_detector_uses_correct_device(self):
+    def test_hybrid_fusion_missing_detector_uses_correct_device(self) -> None:
         """Missing detectors should use zeros on the same device as other tensors."""
         fusion = HybridFusionLayer(
             feature_dims={"detector1": 32, "detector2": 32, "detector3": 32},
@@ -370,7 +370,7 @@ class TestDevicePropagation:
         assert fused.device.type == "cpu"
         assert fused.shape[0] == 8
 
-    def test_resonance_fusion_nan_divergences_handled(self):
+    def test_resonance_fusion_nan_divergences_handled(self) -> None:
         """ResonanceWeightedFusion should handle NaN divergences gracefully."""
         fusion = ResonanceWeightedFusion(num_detectors=3)
 
@@ -383,7 +383,7 @@ class TestDevicePropagation:
 
         assert torch.all(torch.isfinite(fused)), "Fused scores contain NaN/Inf"
 
-    def test_resonance_fusion_nan_scores_handled(self):
+    def test_resonance_fusion_nan_scores_handled(self) -> None:
         """ResonanceWeightedFusion should handle NaN scores gracefully."""
         fusion = ResonanceWeightedFusion(num_detectors=3)
 
@@ -396,7 +396,7 @@ class TestDevicePropagation:
         assert torch.all(torch.isfinite(fused)), "Fused scores contain NaN/Inf"
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-    def test_hybrid_fusion_cuda_device(self):
+    def test_hybrid_fusion_cuda_device(self) -> None:
         """HybridFusionLayer should handle CUDA tensors correctly."""
         fusion = HybridFusionLayer(
             feature_dims={"detector1": 32, "detector2": 32}, hidden_dim=64
@@ -416,7 +416,7 @@ class TestDevicePropagation:
         assert fused.device.type == "cuda"
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-    def test_hybrid_fusion_missing_detector_cuda(self):
+    def test_hybrid_fusion_missing_detector_cuda(self) -> None:
         """Missing detectors with CUDA tensors should use CUDA zeros."""
         fusion = HybridFusionLayer(
             feature_dims={"detector1": 32, "detector2": 32, "detector3": 32},
@@ -436,7 +436,7 @@ class TestDevicePropagation:
 
         assert fused.device.type == "cuda"
 
-    def test_hybrid_fusion_mixed_device_raises_error(self):
+    def test_hybrid_fusion_mixed_device_raises_error(self) -> None:
         """Mixed device tensors should raise ValueError with clear message."""
         # Skip if CUDA not available - can't test mixed devices without it
         if not torch.cuda.is_available():
@@ -460,7 +460,7 @@ class TestDevicePropagation:
         with pytest.raises(ValueError, match="Mixed devices"):
             fusion(detector_features, detector_scores)
 
-    def test_hybrid_fusion_empty_features_raises_error(self):
+    def test_hybrid_fusion_empty_features_raises_error(self) -> None:
         """Empty detector_features dict should raise ValueError."""
         fusion = HybridFusionLayer(
             feature_dims={"detector1": 32, "detector2": 32},
@@ -482,7 +482,7 @@ class TestScoreRangeValidation:
         """Generate normal training data."""
         return deterministic_rng.randn(100, 10)
 
-    def test_spatial_scores_in_range(self, normal_data):
+    def test_spatial_scores_in_range(self, normal_data) -> None:
         """SpatialAnomalyDetector scores should be in [0, 1]."""
         detector = SpatialAnomalyDetector()
         detector.fit(normal_data[:, :2])
@@ -491,7 +491,7 @@ class TestScoreRangeValidation:
         assert np.all(result["scores"] >= 0.0), "Scores below 0"
         assert np.all(result["scores"] <= 1.0), "Scores above 1"
 
-    def test_dimensional_scores_in_range(self, normal_data):
+    def test_dimensional_scores_in_range(self, normal_data) -> None:
         """DimensionalAnalyzer scores should be in [0, 1]."""
         detector = DimensionalAnalyzer()
         detector.fit(normal_data)
@@ -500,7 +500,7 @@ class TestScoreRangeValidation:
         assert np.all(result["scores"] >= 0.0), "Scores below 0"
         assert np.all(result["scores"] <= 1.0), "Scores above 1"
 
-    def test_temporal_scores_in_range(self, normal_data):
+    def test_temporal_scores_in_range(self, normal_data) -> None:
         """TemporalAnomalyDetector scores should be in [0, 1]."""
         detector = TemporalAnomalyDetector()
         detector.fit(normal_data[:, 0])
@@ -509,7 +509,7 @@ class TestScoreRangeValidation:
         assert np.all(result["scores"] >= 0.0), "Scores below 0"
         assert np.all(result["scores"] <= 1.0), "Scores above 1"
 
-    def test_statistical_scores_in_range(self, normal_data):
+    def test_statistical_scores_in_range(self, normal_data) -> None:
         """MercuryAnomalyDetector scores should be in [0, 1]."""
         detector = MercuryAnomalyDetector()
         detector.fit(normal_data)
@@ -525,7 +525,7 @@ class TestScoreRangeValidation:
 class TestEdgeCases:
     """Test edge cases that could cause numerical issues."""
 
-    def test_single_sample_detection(self, deterministic_rng):
+    def test_single_sample_detection(self, deterministic_rng) -> None:
         """Detectors should handle single-sample detection."""
         detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 5)
@@ -537,7 +537,7 @@ class TestEdgeCases:
         assert result["scores"].shape[0] == 1
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_high_dimensional_data(self, deterministic_rng):
+    def test_high_dimensional_data(self, deterministic_rng) -> None:
         """Detectors should handle high-dimensional data."""
         detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 500)  # 500 features
@@ -548,7 +548,7 @@ class TestEdgeCases:
 
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_very_small_values(self, deterministic_rng):
+    def test_very_small_values(self, deterministic_rng) -> None:
         """Detectors should handle very small values without underflow."""
         detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 10) * 1e-10
@@ -559,7 +559,7 @@ class TestEdgeCases:
 
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_very_large_values(self, deterministic_rng):
+    def test_very_large_values(self, deterministic_rng) -> None:
         """Detectors should handle very large values without overflow."""
         detector = MercuryAnomalyDetector()
         train_data = deterministic_rng.randn(100, 10) * 1e6
@@ -570,7 +570,7 @@ class TestEdgeCases:
 
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_mixed_scale_features(self, deterministic_rng):
+    def test_mixed_scale_features(self, deterministic_rng) -> None:
         """Detectors should handle features with vastly different scales."""
         detector = MercuryAnomalyDetector()
         train_data = np.column_stack(

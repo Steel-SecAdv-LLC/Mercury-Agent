@@ -48,16 +48,16 @@ from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 class TestCircuitBreakerStateMachine:
     """Test circuit breaker state machine transitions."""
 
-    def test_initial_state_is_closed(self):
+    def test_initial_state_is_closed(self) -> None:
         """Circuit breaker should start in CLOSED state."""
         breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=1)
         assert breaker.state == CircuitState.CLOSED
 
-    def test_transitions_to_open_after_threshold_failures(self):
+    def test_transitions_to_open_after_threshold_failures(self) -> None:
         """Should transition to OPEN after failure_threshold failures."""
         breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=10)
 
-        def failing_func():
+        def failing_func() -> None:
             raise ValueError("Test failure")
 
         # Trigger exactly threshold failures
@@ -71,11 +71,11 @@ class TestCircuitBreakerStateMachine:
         assert breaker.state == CircuitState.OPEN
         assert breaker.failure_count >= 3
 
-    def test_open_state_rejects_calls(self):
+    def test_open_state_rejects_calls(self) -> None:
         """OPEN state should reject calls immediately."""
         breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=100)
 
-        def failing_func():
+        def failing_func() -> None:
             raise ValueError("Fail")
 
         # Trip the breaker
@@ -100,11 +100,11 @@ class TestCircuitBreakerStateMachine:
         # Function should not have been called
         assert call_made["value"] is False
 
-    def test_transitions_to_half_open_after_timeout(self):
+    def test_transitions_to_half_open_after_timeout(self) -> None:
         """Should transition to HALF_OPEN after recovery_timeout."""
         breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=0.1)
 
-        def failing_func():
+        def failing_func() -> None:
             raise ValueError("Fail")
 
         # Trip the breaker
@@ -114,26 +114,32 @@ class TestCircuitBreakerStateMachine:
             except (ValueError, Exception):
                 pass
 
-        assert breaker.state == CircuitState.OPEN
+        # ``state`` is a property with side effects (OPEN→HALF_OPEN once
+        # the recovery timeout elapses), so each access can return a
+        # different value.  Bind to a local before asserting so mypy does
+        # not narrow the second read down to ``Literal[OPEN]``.
+        opened_state = breaker.state
+        assert opened_state == CircuitState.OPEN
 
         # Wait for recovery timeout
         time.sleep(0.15)
 
         # Next call should transition to HALF_OPEN
-        def success_func():
+        def success_func() -> str:
             return "success"
 
         result = breaker.call(success_func)
         assert result == "success"
 
         # Should be back to CLOSED after success
-        assert breaker.state == CircuitState.CLOSED
+        closed_state = breaker.state
+        assert closed_state == CircuitState.CLOSED
 
-    def test_half_open_failure_returns_to_open(self):
+    def test_half_open_failure_returns_to_open(self) -> None:
         """Failure in HALF_OPEN should return to OPEN."""
         breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=0.1, success_threshold=1)
 
-        def failing_func():
+        def failing_func() -> None:
             raise ValueError("Fail")
 
         # Trip the breaker
@@ -157,11 +163,11 @@ class TestCircuitBreakerStateMachine:
         # Should be back to OPEN
         assert breaker.state == CircuitState.OPEN
 
-    def test_success_threshold_in_half_open(self):
+    def test_success_threshold_in_half_open(self) -> None:
         """Multiple successes needed to close circuit when success_threshold > 1."""
         breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=0.1, success_threshold=3)
 
-        def failing_func():
+        def failing_func() -> None:
             raise ValueError("Fail")
 
         # Trip the breaker
@@ -190,7 +196,7 @@ class TestCircuitBreakerStateMachine:
 class TestExponentialBackoff:
     """Test exponential backoff timing behavior."""
 
-    def test_backoff_increases_exponentially(self):
+    def test_backoff_increases_exponentially(self) -> None:
         """Timeout should increase exponentially after repeated failures."""
         breaker = CircuitBreaker(
             failure_threshold=2,
@@ -199,7 +205,7 @@ class TestExponentialBackoff:
             backoff_base=2.0,
         )
 
-        def failing_func():
+        def failing_func() -> None:
             raise ValueError("Fail")
 
         # First trip
@@ -230,7 +236,7 @@ class TestExponentialBackoff:
         assert timeout_2 > timeout_1
         assert timeout_3 > timeout_2
 
-    def test_backoff_respects_max_timeout(self):
+    def test_backoff_respects_max_timeout(self) -> None:
         """Backoff should not exceed max_backoff_timeout."""
         breaker = CircuitBreaker(
             failure_threshold=2,
@@ -246,7 +252,7 @@ class TestExponentialBackoff:
         timeout = breaker._get_current_timeout()
         assert timeout <= 10.0
 
-    def test_jitter_adds_randomness(self):
+    def test_jitter_adds_randomness(self) -> None:
         """Jitter should add randomness to timeout."""
         breaker = CircuitBreaker(
             failure_threshold=2,
@@ -265,7 +271,7 @@ class TestExponentialBackoff:
 class TestRetryPolicy:
     """Test retry policy with actual execution."""
 
-    def test_retry_succeeds_after_transient_failure(self):
+    def test_retry_succeeds_after_transient_failure(self) -> None:
         """Should succeed if function eventually works."""
         retry = RetryPolicy(max_retries=3, base_delay=0.01)
         call_count = {"value": 0}
@@ -282,13 +288,13 @@ class TestRetryPolicy:
         assert result == "success"
         assert call_count["value"] == 3
 
-    def test_retry_exhausts_attempts(self):
+    def test_retry_exhausts_attempts(self) -> None:
         """Should raise after exhausting all retries."""
         retry = RetryPolicy(max_retries=2, base_delay=0.01)
         call_count = {"value": 0}
 
         @retry
-        def always_fails():
+        def always_fails() -> None:
             call_count["value"] += 1
             raise RuntimeError("Permanent failure")
 
@@ -298,7 +304,7 @@ class TestRetryPolicy:
         # Should have tried 3 times (1 initial + 2 retries)
         assert call_count["value"] == 3
 
-    def test_retry_backoff_timing(self):
+    def test_retry_backoff_timing(self) -> None:
         """Retry delays should follow exponential pattern."""
         retry = RetryPolicy(max_retries=3, base_delay=0.05, exponential_base=2.0)
         call_times = []
@@ -322,7 +328,7 @@ class TestRetryPolicy:
         assert delays[1] > delays[0] * 0.5  # Second delay > first
         assert delays[2] > delays[1] * 0.5  # Third delay > second
 
-    def test_retry_preserves_return_value(self):
+    def test_retry_preserves_return_value(self) -> None:
         """Successful retry should return the function's return value."""
         retry = RetryPolicy(max_retries=2, base_delay=0.01)
 
@@ -338,7 +344,7 @@ class TestRetryPolicy:
 class TestThreadSafety:
     """Test thread safety under concurrent access."""
 
-    def test_circuit_breaker_thread_safety(self):
+    def test_circuit_breaker_thread_safety(self) -> None:
         """Circuit breaker should handle concurrent access safely."""
         breaker = CircuitBreaker(failure_threshold=10, recovery_timeout=1)
 
@@ -346,11 +352,11 @@ class TestThreadSafety:
         failure_count = {"value": 0}
         lock = threading.Lock()
 
-        def concurrent_call(should_fail):
+        def concurrent_call(should_fail) -> None:
             try:
                 if should_fail:
 
-                    def fail_func():
+                    def fail_func() -> None:
                         raise ValueError("Fail")
 
                     breaker.call(fail_func)
@@ -380,11 +386,11 @@ class TestThreadSafety:
         total = success_count["value"] + failure_count["value"]
         assert total == 100
 
-    def test_health_monitor_thread_safety(self):
+    def test_health_monitor_thread_safety(self) -> None:
         """Health monitor should handle concurrent metric recording."""
         monitor = HealthMonitor()
 
-        def record_metrics(component_id):
+        def record_metrics(component_id) -> None:
             for i in range(50):
                 metrics = HealthMetrics(
                     cpu_usage=0.5 + i * 0.01,
@@ -413,7 +419,7 @@ class TestThreadSafety:
 class TestSelfHealingEngine:
     """Test self-healing recovery behavior."""
 
-    def test_health_check_succeeds(self):
+    def test_health_check_succeeds(self) -> None:
         """Should correctly identify healthy components."""
         healer = SelfHealingEngine()
 
@@ -425,7 +431,7 @@ class TestSelfHealingEngine:
         is_healthy = healer.check_health("healthy_comp")
         assert is_healthy is True
 
-    def test_health_check_fails(self):
+    def test_health_check_fails(self) -> None:
         """Should correctly identify unhealthy components."""
         healer = SelfHealingEngine()
 
@@ -437,7 +443,7 @@ class TestSelfHealingEngine:
         is_healthy = healer.check_health("sick_comp")
         assert is_healthy is False
 
-    def test_recovery_action_called_on_failure(self):
+    def test_recovery_action_called_on_failure(self) -> None:
         """Recovery action should be called when health check fails."""
         healer = SelfHealingEngine()
 
@@ -447,7 +453,7 @@ class TestSelfHealingEngine:
         def health_check():
             return health_state["healthy"]
 
-        def recovery_action():
+        def recovery_action() -> None:
             recovery_called["value"] = True
             health_state["healthy"] = True
 
@@ -465,7 +471,7 @@ class TestSelfHealingEngine:
         assert recovery_called["value"] is True
         assert result is True  # Recovery successful
 
-    def test_circuit_breaker_integration(self):
+    def test_circuit_breaker_integration(self) -> None:
         """Self-healing should use circuit breakers for components."""
         healer = SelfHealingEngine()
 
@@ -478,7 +484,7 @@ class TestSelfHealingEngine:
         assert "cb_comp" in healer.circuit_breakers
         assert healer.circuit_breakers["cb_comp"].state == CircuitState.CLOSED
 
-    def test_unregistered_component_handling(self):
+    def test_unregistered_component_handling(self) -> None:
         """Should handle unregistered component gracefully."""
         healer = SelfHealingEngine()
 
@@ -492,7 +498,7 @@ class TestSelfHealingEngine:
 class TestHealthMonitor:
     """Test health monitoring functionality."""
 
-    def test_metric_recording(self):
+    def test_metric_recording(self) -> None:
         """Should correctly record health metrics."""
         monitor = HealthMonitor()
 
@@ -506,7 +512,7 @@ class TestHealthMonitor:
         assert len(monitor.metrics["test_service"]) == 1
         assert monitor.metrics["test_service"][0].cpu_usage == 0.75
 
-    def test_metric_history(self):
+    def test_metric_history(self) -> None:
         """Should maintain history of metrics."""
         monitor = HealthMonitor()
 
@@ -525,7 +531,7 @@ class TestHealthMonitor:
         cpu_values = [m.cpu_usage for m in monitor.metrics["trending_service"]]
         assert cpu_values == [0.5, 0.6, 0.7, 0.8, 0.9]
 
-    def test_health_status_calculation(self):
+    def test_health_status_calculation(self) -> None:
         """Should calculate health status correctly."""
         monitor = HealthMonitor()
 
@@ -538,7 +544,7 @@ class TestHealthMonitor:
         health = monitor.get_current_health("healthy_service")
         assert health["status"] in ["healthy", "unhealthy", "unknown"]
 
-    def test_unhealthy_detection(self):
+    def test_unhealthy_detection(self) -> None:
         """Should detect unhealthy conditions."""
         monitor = HealthMonitor()
 
@@ -561,11 +567,11 @@ class TestHealthMonitor:
 class TestCircuitBreakerStatistics:
     """Test circuit breaker statistics tracking."""
 
-    def test_stats_track_failures(self):
+    def test_stats_track_failures(self) -> None:
         """Should track total failures."""
         breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=10)
 
-        def failing_func():
+        def failing_func() -> None:
             raise ValueError("Fail")
 
         for _ in range(3):
@@ -579,7 +585,7 @@ class TestCircuitBreakerStatistics:
         assert stats["total_failures"] == 3
         assert stats["failure_count"] == 3
 
-    def test_stats_track_successes(self):
+    def test_stats_track_successes(self) -> None:
         """Should track total successes."""
         breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=10)
 
@@ -593,7 +599,7 @@ class TestCircuitBreakerStatistics:
 
         assert stats["total_successes"] == 5
 
-    def test_stats_track_state(self):
+    def test_stats_track_state(self) -> None:
         """Should track current state."""
         breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=10)
 
@@ -602,7 +608,7 @@ class TestCircuitBreakerStatistics:
         assert stats["state"] == "closed"
 
         # Trip the breaker
-        def fail():
+        def fail() -> None:
             raise ValueError("Fail")
 
         for _ in range(3):
@@ -614,11 +620,11 @@ class TestCircuitBreakerStatistics:
         stats = breaker.get_stats()
         assert stats["state"] == "open"
 
-    def test_reset_clears_stats(self):
+    def test_reset_clears_stats(self) -> None:
         """Reset should clear failure counts."""
         breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=10)
 
-        def fail():
+        def fail() -> None:
             raise ValueError("Fail")
 
         for _ in range(3):

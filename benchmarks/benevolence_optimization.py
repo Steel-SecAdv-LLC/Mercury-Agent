@@ -637,7 +637,9 @@ class BenevolenceOptimizer:
         auc_score = np.random.uniform(0.92, 0.98)
 
         # Stability score based on Lyapunov
-        stability_score = min(avg_lyapunov / LAMBDA_LYAPUNOV, 1.0) if avg_lyapunov > 0 else 0.0
+        stability_score: float = (
+            min(float(avg_lyapunov) / LAMBDA_LYAPUNOV, 1.0) if avg_lyapunov > 0 else 0.0
+        )
 
         result = BenchmarkResult(
             form_type=form_type,

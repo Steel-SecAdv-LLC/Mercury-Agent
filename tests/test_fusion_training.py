@@ -8,6 +8,8 @@ Mercury Agent - Copyright (C) 2025 Steel Security Advisors LLC
 Licensed under GNU GPL v3
 """
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -42,7 +44,7 @@ class TestFusionTraining:
         )
         return X.astype(np.float32), y
 
-    def test_fit_fusion_supervised(self, engine, training_data):
+    def test_fit_fusion_supervised(self, engine, training_data) -> None:
         """Test supervised fusion training with labels."""
         X, y = training_data
 
@@ -60,7 +62,7 @@ class TestFusionTraining:
         assert metrics["epochs_trained"] > 0
         assert metrics["best_loss"] >= 0
 
-    def test_fit_fusion_semi_supervised(self, engine, training_data):
+    def test_fit_fusion_semi_supervised(self, engine, training_data) -> None:
         """Test semi-supervised fusion training without labels."""
         X, _ = training_data
 
@@ -74,7 +76,7 @@ class TestFusionTraining:
         assert engine._fusion_trained
         assert metrics["epochs_trained"] > 0
 
-    def test_fit_fusion_requires_fusion_mode(self, training_data):
+    def test_fit_fusion_requires_fusion_mode(self, training_data) -> None:
         """Verify fit_fusion raises error if not in fusion mode."""
         from omni_mercury_engine.engine import OmniMercuryEngine
 
@@ -84,7 +86,7 @@ class TestFusionTraining:
         with pytest.raises(ValueError, match="requires mode='fusion'"):
             engine.fit_fusion(X, y)
 
-    def test_trained_model_has_training_flag(self, engine, training_data):
+    def test_trained_model_has_training_flag(self, engine, training_data) -> None:
         """Verify _fusion_trained flag is set after training."""
         X, y = training_data
 
@@ -94,7 +96,7 @@ class TestFusionTraining:
 
         assert engine._fusion_trained, "Should be trained after fit_fusion"
 
-    def test_loss_decreases_during_training(self, engine, training_data):
+    def test_loss_decreases_during_training(self, engine, training_data) -> None:
         """Verify training loss generally decreases."""
         X, y = training_data
 
@@ -118,7 +120,7 @@ class TestFusionTraining:
             ), f"Loss should not increase significantly: {early_loss:.4f} -> {late_loss:.4f}"
 
     @pytest.mark.timeout(600)
-    def test_early_stopping_works(self, engine, training_data):
+    def test_early_stopping_works(self, engine, training_data) -> None:
         """Verify early stopping triggers when loss plateaus.
 
         Uses a high ``epochs`` ceiling on purpose so we can observe
@@ -167,7 +169,7 @@ class TestFusionInference:
 
         return engine
 
-    def test_detect_with_fusion_returns_valid_scores(self, trained_engine):
+    def test_detect_with_fusion_returns_valid_scores(self, trained_engine) -> None:
         """Verify detect_with_fusion returns valid anomaly probabilities."""
         X_test = np.random.randn(10, 15).astype(np.float32)
 
@@ -179,7 +181,7 @@ class TestFusionInference:
             assert "is_anomaly" in result
             assert isinstance(result["is_anomaly"], bool)
 
-    def test_scores_differentiate_anomalies(self, trained_engine):
+    def test_scores_differentiate_anomalies(self, trained_engine) -> None:
         """Verify trained model assigns different scores to different samples."""
         # Generate clearly different samples
         normal = np.zeros((5, 15), dtype=np.float32)
@@ -187,21 +189,21 @@ class TestFusionInference:
 
         X_test = np.vstack([normal, anomaly])
 
-        scores = []
+        scores: list[Any] = []
         for sample in X_test:
             result = trained_engine.detect_with_fusion(sample.reshape(1, -1))
             scores.append(result["anomaly_prob"])
 
-        scores = np.array(scores)
+        scores_arr = np.array(scores)
 
         # Should have some variance in scores
-        assert np.std(scores) > 0.01, "Scores should vary between samples"
+        assert np.std(scores_arr) > 0.01, "Scores should vary between samples"
 
 
 class TestDynamicDimensions:
     """Test dynamic feature dimension handling (Issue #6 fix)."""
 
-    def test_dimension_mismatch_handled(self):
+    def test_dimension_mismatch_handled(self) -> None:
         """Verify dimension mismatches don't crash the model."""
         from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
@@ -219,7 +221,7 @@ class TestDynamicDimensions:
         assert "anomaly_probs" in output
         assert output["anomaly_probs"].shape == (4, 1)
 
-    def test_dynamic_projections_are_cached(self):
+    def test_dynamic_projections_are_cached(self) -> None:
         """Verify dynamic projections are cached, not recreated."""
         from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
@@ -245,7 +247,7 @@ class TestDynamicDimensions:
         assert n_params_1 == n_params_2, "Parameters should not increase"
         assert n_dynamic_1 == n_dynamic_2, "Dynamic projections should be cached"
 
-    def test_different_dimensions_create_separate_projections(self):
+    def test_different_dimensions_create_separate_projections(self) -> None:
         """Verify different dimensions create separate cached projections."""
         from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
@@ -264,7 +266,7 @@ class TestDynamicDimensions:
         # Should have created a new projection for different dimension
         assert n_projections_2 == n_projections_1 + 1
 
-    def test_dynamic_projections_in_parameters(self):
+    def test_dynamic_projections_in_parameters(self) -> None:
         """Verify dynamic projections are in model.parameters() for training."""
         from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
@@ -283,7 +285,7 @@ class TestDynamicDimensions:
         # Should have more parameters after dynamic projection created
         assert len(params_after) > len(params_before), "Dynamic projections should add parameters"
 
-    def test_gradients_flow_through_dynamic_projections(self):
+    def test_gradients_flow_through_dynamic_projections(self) -> None:
         """Verify gradients can flow through dynamic projections."""
         from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
@@ -313,7 +315,7 @@ class TestPseudoLabeling:
 
         return OmniMercuryEngine(mode="fusion", device="cpu")
 
-    def test_pseudo_labels_generated(self, engine):
+    def test_pseudo_labels_generated(self, engine) -> None:
         """Verify pseudo-labels are generated when y is None."""
         X, _ = make_classification(
             n_samples=100,
@@ -336,7 +338,7 @@ class TestPseudoLabeling:
         assert pseudo_labels.sum() > 0, "Should have some positive labels"
         assert pseudo_labels.sum() < len(X), "Should not label everything as anomaly"
 
-    def test_pseudo_labels_respect_contamination(self, engine):
+    def test_pseudo_labels_respect_contamination(self, engine) -> None:
         """Verify pseudo-labels respect specified contamination rate."""
         X = np.random.randn(100, 10).astype(np.float32)
 
@@ -360,7 +362,7 @@ class TestPseudoLabeling:
 class TestEdgeCases:
     """Test edge cases for fusion training."""
 
-    def test_small_dataset(self):
+    def test_small_dataset(self) -> None:
         """Test training on very small dataset."""
         from omni_mercury_engine.engine import OmniMercuryEngine
 
@@ -372,7 +374,7 @@ class TestEdgeCases:
         metrics = engine.fit_fusion(X, y, epochs=5, validation_split=0.1)
         assert metrics["epochs_trained"] > 0
 
-    def test_all_normal_data(self):
+    def test_all_normal_data(self) -> None:
         """Test training when all samples are labeled normal."""
         from omni_mercury_engine.engine import OmniMercuryEngine
 
@@ -384,7 +386,7 @@ class TestEdgeCases:
         metrics = engine.fit_fusion(X, y, epochs=5)
         assert metrics["epochs_trained"] > 0
 
-    def test_highly_imbalanced_data(self):
+    def test_highly_imbalanced_data(self) -> None:
         """Test training with highly imbalanced data (1% anomalies)."""
         from omni_mercury_engine.engine import OmniMercuryEngine
 

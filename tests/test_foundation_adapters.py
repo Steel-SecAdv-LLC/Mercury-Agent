@@ -37,14 +37,14 @@ pytestmark = pytest.mark.foundation
 class TestTimeGPTAdapter:
     """Tests for TimeGPT API adapter."""
 
-    def test_timegpt_initialization(self):
+    def test_timegpt_initialization(self) -> None:
         """Test TimeGPT adapter can be initialized."""
         from omni_mercury_engine.models.foundation import TimeGPTAdapter
 
         adapter = TimeGPTAdapter()
         assert adapter is not None
 
-    def test_timegpt_config(self):
+    def test_timegpt_config(self) -> None:
         """Test TimeGPT with custom config."""
         from omni_mercury_engine.models.foundation import TimeGPTAdapter
         from omni_mercury_engine.models.foundation.timegpt_adapter import TimeGPTConfig
@@ -57,7 +57,7 @@ class TestTimeGPTAdapter:
         adapter = TimeGPTAdapter(config=config)
         assert adapter.config.fh == 14
 
-    def test_timegpt_detect_without_api_key_hard_fails(self, univariate_data, monkeypatch):
+    def test_timegpt_detect_without_api_key_hard_fails(self, univariate_data, monkeypatch) -> None:
         """TimeGPT must raise ``NotImplementedError`` when no API key
         is configured.
 
@@ -78,7 +78,7 @@ class TestTimeGPTAdapter:
         ):
             adapter.detect(univariate_data)
 
-    def test_timegpt_forecast_without_api_key_hard_fails(self, univariate_data, monkeypatch):
+    def test_timegpt_forecast_without_api_key_hard_fails(self, univariate_data, monkeypatch) -> None:
         """TimeGPT.forecast must raise ``NotImplementedError`` without
         an API key — same contract as ``detect``.  See
         ``test_timegpt_detect_without_api_key_hard_fails``.
@@ -98,14 +98,14 @@ class TestTimeGPTAdapter:
 class TestChronosAdapter:
     """Tests for Amazon Chronos adapter."""
 
-    def test_chronos_initialization(self):
+    def test_chronos_initialization(self) -> None:
         """Test Chronos adapter can be initialized."""
         from omni_mercury_engine.models.foundation import ChronosAdapter
 
         adapter = ChronosAdapter()
         assert adapter is not None
 
-    def test_chronos_config(self):
+    def test_chronos_config(self) -> None:
         """Test Chronos with custom config."""
         from omni_mercury_engine.models.foundation import ChronosAdapter
         from omni_mercury_engine.models.foundation.chronos_adapter import ChronosConfig
@@ -118,7 +118,7 @@ class TestChronosAdapter:
         adapter = ChronosAdapter(config=config)
         assert adapter.config.prediction_length == 24
 
-    def test_chronos_detect_without_package_hard_fails(self, univariate_data):
+    def test_chronos_detect_without_package_hard_fails(self, univariate_data) -> None:
         """Chronos must raise ``NotImplementedError`` when
         ``chronos-forecasting`` is not installed.
 
@@ -141,7 +141,7 @@ class TestChronosAdapter:
         with pytest.raises(NotImplementedError, match="chronos-forecasting package not installed"):
             adapter.detect(univariate_data)
 
-    def test_chronos_forecast_without_package_hard_fails(self, univariate_data):
+    def test_chronos_forecast_without_package_hard_fails(self, univariate_data) -> None:
         """Chronos.forecast must raise ``NotImplementedError`` without
         the ``chronos-forecasting`` package — same contract as
         ``detect``.  See ``test_chronos_detect_without_package_hard_fails``.
@@ -164,14 +164,14 @@ class TestChronosAdapter:
 class TestMatrixProfileAdapter:
     """Tests for Matrix Profile (STUMPY) adapter."""
 
-    def test_matrix_profile_initialization(self):
+    def test_matrix_profile_initialization(self) -> None:
         """Test Matrix Profile adapter can be initialized."""
         from omni_mercury_engine.models.foundation import MatrixProfileAdapter
 
         adapter = MatrixProfileAdapter()
         assert adapter is not None
 
-    def test_matrix_profile_config(self):
+    def test_matrix_profile_config(self) -> None:
         """Test Matrix Profile with custom config."""
         from omni_mercury_engine.models.foundation import MatrixProfileAdapter
         from omni_mercury_engine.models.foundation.matrix_profile import MatrixProfileConfig
@@ -184,7 +184,7 @@ class TestMatrixProfileAdapter:
         adapter = MatrixProfileAdapter(config=config)
         assert adapter.config.window_size == 50
 
-    def test_matrix_profile_detect_without_package_hard_fails(self, time_series_with_anomaly):
+    def test_matrix_profile_detect_without_package_hard_fails(self, time_series_with_anomaly) -> None:
         """``MatrixProfileAdapter.detect`` must raise ``NotImplementedError``
         when ``stumpy`` is not installed.
 
@@ -216,7 +216,7 @@ class TestMatrixProfileAdapter:
         assert "is_anomaly" in result
         assert "discords" in result
 
-    def test_matrix_profile_find_motifs_without_package_hard_fails(self, univariate_data):
+    def test_matrix_profile_find_motifs_without_package_hard_fails(self, univariate_data) -> None:
         """``MatrixProfileAdapter.find_motifs`` must raise
         ``NotImplementedError`` without ``stumpy`` — same contract as
         ``detect``.  See ``test_matrix_profile_detect_without_package_hard_fails``.
@@ -237,7 +237,7 @@ class TestMatrixProfileAdapter:
 
     def test_matrix_profile_find_discords_without_package_hard_fails(
         self, time_series_with_anomaly
-    ):
+    ) -> None:
         """``MatrixProfileAdapter.find_discords`` must raise
         ``NotImplementedError`` without ``stumpy`` — same contract as
         ``detect``.  See ``test_matrix_profile_detect_without_package_hard_fails``.
@@ -260,14 +260,14 @@ class TestMatrixProfileAdapter:
 class TestFoundationEnsemble:
     """Tests for Foundation Model Ensemble."""
 
-    def test_ensemble_initialization(self):
+    def test_ensemble_initialization(self) -> None:
         """Test Foundation Ensemble can be initialized."""
         from omni_mercury_engine.models.foundation import FoundationEnsemble
 
         ensemble = FoundationEnsemble()
         assert ensemble is not None
 
-    def test_ensemble_config(self):
+    def test_ensemble_config(self) -> None:
         """Test Foundation Ensemble with custom config."""
         from omni_mercury_engine.models.foundation import FoundationEnsemble
         from omni_mercury_engine.models.foundation.ensemble import EnsembleConfig
@@ -280,7 +280,7 @@ class TestFoundationEnsemble:
         ensemble = FoundationEnsemble(config=config)
         assert ensemble.config.aggregation == "mean"
 
-    def test_ensemble_detect(self, time_series_with_anomaly):
+    def test_ensemble_detect(self, time_series_with_anomaly) -> None:
         """Test Foundation Ensemble anomaly detection."""
         from omni_mercury_engine.models.foundation import FoundationEnsemble
 
@@ -291,7 +291,7 @@ class TestFoundationEnsemble:
         assert "is_anomaly" in result
         assert "adapter_scores" in result
 
-    def test_ensemble_aggregation_methods(self, univariate_data):
+    def test_ensemble_aggregation_methods(self, univariate_data) -> None:
         """Test different aggregation methods."""
         from omni_mercury_engine.models.foundation import FoundationEnsemble
         from omni_mercury_engine.models.foundation.ensemble import EnsembleConfig
@@ -309,14 +309,14 @@ class TestFoundationEnsemble:
 class TestBaseFoundationAdapter:
     """Tests for base foundation model adapter class."""
 
-    def test_base_adapter_initialization(self):
+    def test_base_adapter_initialization(self) -> None:
         """Test BaseFoundationAdapter can be initialized."""
         from omni_mercury_engine.models.foundation.base_foundation import BaseFoundationAdapter
 
         adapter = BaseFoundationAdapter()
         assert adapter is not None
 
-    def test_base_adapter_interface(self):
+    def test_base_adapter_interface(self) -> None:
         """Test base adapter has required interface."""
         from omni_mercury_engine.models.foundation.base_foundation import BaseFoundationAdapter
 

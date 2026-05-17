@@ -28,13 +28,13 @@ from omni_mercury_engine.cognitive.symbolic_logic_layer import DecisionType, Rul
 class TestAttentionMechanism:
     """Tests for AttentionMechanism."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test attention mechanism initialization."""
         attention = AttentionMechanism(hidden_dim=32)
         assert attention.hidden_dim == 32
         assert attention.W_neural.shape == (32, 32)
 
-    def test_compute_attention_returns_weights(self):
+    def test_compute_attention_returns_weights(self) -> None:
         """Test attention computation returns valid weights."""
         attention = AttentionMechanism(hidden_dim=16)
         neural_features = np.random.randn(10)
@@ -46,7 +46,7 @@ class TestAttentionMechanism:
         assert 0 <= s_weight <= 1
         assert abs(n_weight + s_weight - 1.0) < 1e-6
 
-    def test_compute_attention_handles_different_sizes(self):
+    def test_compute_attention_handles_different_sizes(self) -> None:
         """Test attention handles different feature sizes."""
         attention = AttentionMechanism(hidden_dim=32)
 
@@ -62,12 +62,12 @@ class TestAttentionMechanism:
 class TestGatedFusion:
     """Tests for GatedFusion."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test gated fusion initialization."""
         fusion = GatedFusion()
         assert fusion.gate_bias == 0.5
 
-    def test_fuse_equal_confidence(self):
+    def test_fuse_equal_confidence(self) -> None:
         """Test fusion with equal confidence."""
         fusion = GatedFusion()
         fused_score, fused_conf = fusion.fuse(0.8, 0.6, 0.5, 0.5)
@@ -76,14 +76,14 @@ class TestGatedFusion:
         assert 0 <= fused_conf <= 1
         assert fused_score == pytest.approx(0.7, abs=0.01)
 
-    def test_fuse_high_neural_confidence(self):
+    def test_fuse_high_neural_confidence(self) -> None:
         """Test fusion with high neural confidence."""
         fusion = GatedFusion()
         fused_score, fused_conf = fusion.fuse(0.9, 0.3, 0.9, 0.1)
 
         assert fused_score > 0.7
 
-    def test_fuse_high_symbolic_confidence(self):
+    def test_fuse_high_symbolic_confidence(self) -> None:
         """Test fusion with high symbolic confidence."""
         fusion = GatedFusion()
         fused_score, fused_conf = fusion.fuse(0.3, 0.9, 0.1, 0.9)
@@ -94,7 +94,7 @@ class TestGatedFusion:
 class TestHybridAnomalyScore:
     """Tests for HybridAnomalyScore dataclass."""
 
-    def test_create_score(self):
+    def test_create_score(self) -> None:
         """Test creating a hybrid anomaly score."""
         score = HybridAnomalyScore(
             score_id="test_001",
@@ -119,7 +119,7 @@ class TestHybridAnomalyScore:
 class TestFusionResult:
     """Tests for FusionResult dataclass."""
 
-    def test_create_result(self):
+    def test_create_result(self) -> None:
         """Test creating a fusion result."""
         from omni_mercury_engine.cognitive.symbolic_logic_layer import (
             DecisionType,
@@ -157,14 +157,14 @@ class TestFusionResult:
 class TestNeurosymbolicFusionEngine:
     """Tests for NeurosymbolicFusionEngine main interface."""
 
-    def test_init_default(self):
+    def test_init_default(self) -> None:
         """Test default initialization."""
         engine = NeurosymbolicFusionEngine()
         assert engine.embedding_dim == 64
         assert engine.n_clusters == 8
         assert engine.fusion_strategy == FusionStrategy.CONFIDENCE_WEIGHTED
 
-    def test_init_custom(self):
+    def test_init_custom(self) -> None:
         """Test custom initialization."""
         engine = NeurosymbolicFusionEngine(
             embedding_dim=32,
@@ -178,7 +178,7 @@ class TestNeurosymbolicFusionEngine:
         assert engine.fusion_strategy == FusionStrategy.ATTENTION
         assert engine.neural_weight == 0.7
 
-    def test_ingest_data(self):
+    def test_ingest_data(self) -> None:
         """Test data ingestion."""
         engine = NeurosymbolicFusionEngine(n_clusters=3)
         data = [
@@ -190,7 +190,7 @@ class TestNeurosymbolicFusionEngine:
         count = engine.ingest_data(data, MemoryType.EPISODIC)
         assert count == 3
 
-    def test_analyze_empty(self):
+    def test_analyze_empty(self) -> None:
         """Test analysis with no data."""
         engine = NeurosymbolicFusionEngine(n_clusters=3)
         result = engine.analyze()
@@ -199,7 +199,7 @@ class TestNeurosymbolicFusionEngine:
         assert result.overall_score == 0.0
         assert len(result.audit_trail) > 0
 
-    def test_analyze_with_data(self):
+    def test_analyze_with_data(self) -> None:
         """Test analysis with data."""
         engine = NeurosymbolicFusionEngine(embedding_dim=16, n_clusters=3)
 
@@ -215,7 +215,7 @@ class TestNeurosymbolicFusionEngine:
         assert "audit_trail" in result.__dict__
         assert result.decision is not None
 
-    def test_score_single(self):
+    def test_score_single(self) -> None:
         """Test scoring a single data point."""
         engine = NeurosymbolicFusionEngine(embedding_dim=16, n_clusters=3)
 
@@ -232,7 +232,7 @@ class TestNeurosymbolicFusionEngine:
         assert 0 <= score.confidence <= 1
         assert score.explanation is not None
 
-    def test_fusion_strategies(self):
+    def test_fusion_strategies(self) -> None:
         """Test different fusion strategies."""
         strategies = [
             FusionStrategy.WEIGHTED_AVERAGE,
@@ -254,7 +254,7 @@ class TestNeurosymbolicFusionEngine:
             result = engine.analyze()
             assert result is not None
 
-    def test_add_rule(self):
+    def test_add_rule(self) -> None:
         """Test adding custom rules."""
         engine = NeurosymbolicFusionEngine()
         initial_rules = len(engine.symbolic_layer.reasoner.logic_graph.rules)
@@ -269,7 +269,7 @@ class TestNeurosymbolicFusionEngine:
         assert rule_id is not None
         assert len(engine.symbolic_layer.reasoner.logic_graph.rules) == initial_rules + 1
 
-    def test_evaluate_action_allowed(self):
+    def test_evaluate_action_allowed(self) -> None:
         """Test evaluating allowed action."""
         engine = NeurosymbolicFusionEngine(benevolence_threshold=0.9)
 
@@ -281,7 +281,7 @@ class TestNeurosymbolicFusionEngine:
 
         assert allowed is True
 
-    def test_evaluate_action_blocked(self):
+    def test_evaluate_action_blocked(self) -> None:
         """Test evaluating blocked action."""
         engine = NeurosymbolicFusionEngine(benevolence_threshold=0.99)
 
@@ -294,7 +294,7 @@ class TestNeurosymbolicFusionEngine:
         assert allowed is False
         assert decision.decision_type == DecisionType.BLOCK
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         engine = NeurosymbolicFusionEngine()
         engine.ingest_data([{"id": "test", "event": "data"}])
@@ -307,7 +307,7 @@ class TestNeurosymbolicFusionEngine:
         assert "symbolic_stats" in stats
         assert stats["results_generated"] == 1
 
-    def test_get_audit_log(self):
+    def test_get_audit_log(self) -> None:
         """Test audit log retrieval."""
         engine = NeurosymbolicFusionEngine()
         engine.ingest_data([{"id": "test", "event": "data"}])
@@ -321,7 +321,7 @@ class TestNeurosymbolicFusionEngine:
 class TestAnomalyCategories:
     """Tests for anomaly category enums."""
 
-    def test_anomaly_categories(self):
+    def test_anomaly_categories(self) -> None:
         """Test all anomaly categories exist."""
         assert AnomalyCategory.BEHAVIORAL.value == "behavioral"
         assert AnomalyCategory.STRUCTURAL.value == "structural"
@@ -334,7 +334,7 @@ class TestAnomalyCategories:
 class TestFusionStrategies:
     """Tests for fusion strategy enums."""
 
-    def test_fusion_strategies(self):
+    def test_fusion_strategies(self) -> None:
         """Test all fusion strategies exist."""
         assert FusionStrategy.WEIGHTED_AVERAGE.value == "weighted_average"
         assert FusionStrategy.ATTENTION.value == "attention"
@@ -346,7 +346,7 @@ class TestFusionStrategies:
 class TestIntegration:
     """Integration tests for the full neuro-symbolic pipeline."""
 
-    def test_full_pipeline(self):
+    def test_full_pipeline(self) -> None:
         """Test complete neuro-symbolic analysis pipeline."""
         engine = NeurosymbolicFusionEngine(
             embedding_dim=32,
@@ -388,7 +388,7 @@ class TestIntegration:
 
         assert allowed is True
 
-    def test_ethical_blocking(self):
+    def test_ethical_blocking(self) -> None:
         """Test that ethical violations are properly blocked."""
         engine = NeurosymbolicFusionEngine(benevolence_threshold=0.99)
 
@@ -401,7 +401,7 @@ class TestIntegration:
         assert allowed is False
         assert decision.decision_type == DecisionType.BLOCK
 
-    def test_pattern_to_decision_flow(self):
+    def test_pattern_to_decision_flow(self) -> None:
         """Test that neural patterns influence symbolic decisions."""
         engine = NeurosymbolicFusionEngine(embedding_dim=16, n_clusters=3)
 

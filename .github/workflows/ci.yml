@@ -225,18 +225,30 @@ jobs:
             --pretty
 
       - name: Run MyPy on critical tests
-        # Incremental test typing: start with security, ethics, and
-        # safeguards tests so high-risk behavioural gates get type coverage
-        # without requiring the entire historical test suite to be strict in
-        # one PR.  The temporary disabled codes are the current test-only
-        # debt categories observed in those suites; remove them one-by-one
-        # as the critical tests are annotated.  --ignore-missing-imports
-        # was removed here too -- third-party boundaries are declared in
+        # Incremental test typing: started with security, ethics, and
+        # safeguards (the high-risk behavioural gates) and has now been
+        # ratcheted to the **entire** ``tests/`` tree.  The expansion
+        # only became safe once the real-bug-shaped errors (arg-type,
+        # index, union-attr, override, operator, dict-item, assignment,
+        # method-assign, comparison-overlap, call-arg, attr-defined,
+        # redundant-cast) had been triaged and fixed at the source.
+        # The temporary disabled codes are the remaining test-only debt
+        # categories; remove them one-by-one as the bulk annotation pass
+        # closes out each class.  ``--ignore-missing-imports`` is
+        # **not** present -- third-party boundaries are declared in
         # pyproject.toml [[tool.mypy.overrides]], so any new un-declared
-        # import in test code now fails the gate instead of being silenced.
+        # import in test code fails the gate instead of being silenced.
+        #
+        # ``--allow-incomplete-defs`` rides alongside ``--allow-untyped-defs``
+        # because the mass ``-> None`` annotation pass left many test
+        # functions partially annotated (return type but no parameter
+        # types).  Strict mode would otherwise flag every such function as
+        # ``no-untyped-def`` even though the intent matches the relaxed
+        # tier.  When the bulk param-annotation pass lands this flag drops.
         run: |
-          mypy tests/security/ tests/ethical/ tests/safeguards/ \
+          mypy tests/ \
             --allow-untyped-defs \
+            --allow-incomplete-defs \
             --allow-untyped-calls \
             --disable-error-code untyped-decorator \
             --disable-error-code misc \

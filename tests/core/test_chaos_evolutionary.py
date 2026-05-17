@@ -28,7 +28,7 @@ from omni_mercury_engine.core.chaos_evolutionary import ChaosEvolutionOptimizer,
 class TestChaoticMap:
     """Test ChaoticMap class."""
 
-    def test_logistic_map_basic(self):
+    def test_logistic_map_basic(self) -> None:
         """Test logistic map basic functionality."""
         x = 0.5
         result = ChaoticMap.logistic_map(x, r=4.0)
@@ -36,7 +36,7 @@ class TestChaoticMap:
         assert result == 4.0 * 0.5 * (1 - 0.5)
         assert result == 1.0
 
-    def test_logistic_map_chaos(self):
+    def test_logistic_map_chaos(self) -> None:
         """Test logistic map produces varied sequence."""
         x = 0.3
         values = [x]
@@ -47,26 +47,26 @@ class TestChaoticMap:
         assert len(values) == 101
         assert len({round(v, 5) for v in values}) >= 2
 
-    def test_logistic_map_bounds(self):
+    def test_logistic_map_bounds(self) -> None:
         """Test logistic map stays in bounds."""
         x = 0.3
         for _ in range(1000):
             x = ChaoticMap.logistic_map(x)
             assert 0.0 <= x <= 1.0
 
-    def test_tent_map_basic(self):
+    def test_tent_map_basic(self) -> None:
         """Test tent map basic functionality."""
         x = 0.3
         result = ChaoticMap.tent_map(x, mu=2.0)
         assert result == 2.0 * 0.3
 
-    def test_tent_map_upper_branch(self):
+    def test_tent_map_upper_branch(self) -> None:
         """Test tent map upper branch."""
         x = 0.7
         result = ChaoticMap.tent_map(x, mu=2.0)
         assert result == 2.0 * (1 - 0.7)
 
-    def test_tent_map_chaos(self):
+    def test_tent_map_chaos(self) -> None:
         """Test tent map produces varied sequence."""
         x = 0.3
         values = []
@@ -77,13 +77,13 @@ class TestChaoticMap:
         assert len(values) == 50
         assert len({round(v, 5) for v in values}) >= 2
 
-    def test_sine_map_basic(self):
+    def test_sine_map_basic(self) -> None:
         """Test sine map basic functionality."""
         x = 0.5
         result = ChaoticMap.sine_map(x, a=2.3)
         assert isinstance(result, float)
 
-    def test_sine_map_chaos(self):
+    def test_sine_map_chaos(self) -> None:
         """Test sine map produces chaotic sequence."""
         x = 0.5
         values = []
@@ -97,7 +97,7 @@ class TestChaoticMap:
 class TestChaosEvolutionOptimizer:
     """Test ChaosEvolutionOptimizer class."""
 
-    def test_optimizer_initialization(self):
+    def test_optimizer_initialization(self) -> None:
         """Test optimizer initialization."""
         optimizer = ChaosEvolutionOptimizer()
         assert optimizer.population_size == 30
@@ -106,7 +106,7 @@ class TestChaosEvolutionOptimizer:
         assert optimizer.alpha == 0.8
         assert optimizer.beta == 0.2
 
-    def test_optimizer_custom_config(self):
+    def test_optimizer_custom_config(self) -> None:
         """Test optimizer with custom configuration."""
         config = {
             "population_size": 50,
@@ -122,34 +122,34 @@ class TestChaosEvolutionOptimizer:
         assert optimizer.alpha == 0.9
         assert optimizer.beta == 0.1
 
-    def test_get_chaotic_map_logistic(self):
+    def test_get_chaotic_map_logistic(self) -> None:
         """Test getting logistic chaotic map."""
         optimizer = ChaosEvolutionOptimizer({"chaotic_map": "logistic"})
         assert optimizer.chaotic_map == ChaoticMap.logistic_map
 
-    def test_get_chaotic_map_tent(self):
+    def test_get_chaotic_map_tent(self) -> None:
         """Test getting tent chaotic map."""
         optimizer = ChaosEvolutionOptimizer({"chaotic_map": "tent"})
         assert optimizer.chaotic_map == ChaoticMap.tent_map
 
-    def test_get_chaotic_map_sine(self):
+    def test_get_chaotic_map_sine(self) -> None:
         """Test getting sine chaotic map."""
         optimizer = ChaosEvolutionOptimizer({"chaotic_map": "sine"})
         assert optimizer.chaotic_map == ChaoticMap.sine_map
 
-    def test_get_chaotic_map_invalid(self):
+    def test_get_chaotic_map_invalid(self) -> None:
         """Test getting chaotic map with invalid type."""
         optimizer = ChaosEvolutionOptimizer({"chaotic_map": "invalid"})
         assert optimizer.chaotic_map == ChaoticMap.logistic_map
 
-    def test_initialize_population_shape(self):
+    def test_initialize_population_shape(self) -> None:
         """Test population initialization shape."""
         optimizer = ChaosEvolutionOptimizer({"population_size": 20})
         bounds: list[tuple[float, float]] = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
         population = optimizer._initialize_population(3, bounds)
         assert population.shape == (20, 3)
 
-    def test_initialize_population_bounds(self):
+    def test_initialize_population_bounds(self) -> None:
         """Test population initialization respects bounds."""
         optimizer = ChaosEvolutionOptimizer()
         bounds: list[tuple[float, float]] = [(0.0, 1.0), (-5.0, 5.0), (10.0, 20.0)]
@@ -159,7 +159,7 @@ class TestChaosEvolutionOptimizer:
         assert np.all((population[:, 1] >= -5) & (population[:, 1] <= 5))
         assert np.all((population[:, 2] >= 10) & (population[:, 2] <= 20))
 
-    def test_chaos_game_step_basic(self):
+    def test_chaos_game_step_basic(self) -> None:
         """Test chaos game step basic functionality."""
         optimizer = ChaosEvolutionOptimizer()
         position = np.array([0.5, 0.5])
@@ -171,7 +171,7 @@ class TestChaosEvolutionOptimizer:
         assert len(new_position) == 2
         assert np.all((new_position >= 0) & (new_position <= 1))
 
-    def test_chaos_game_step_bounds_clipping(self):
+    def test_chaos_game_step_bounds_clipping(self) -> None:
         """Test chaos game step clips to bounds."""
         optimizer = ChaosEvolutionOptimizer()
         position = np.array([0.1, 0.9])
@@ -182,7 +182,7 @@ class TestChaosEvolutionOptimizer:
         new_position = optimizer._chaos_game_step(position, best_position, chaos_value, bounds)
         assert np.all((new_position >= 0) & (new_position <= 1))
 
-    def test_optimize_sphere_function(self):
+    def test_optimize_sphere_function(self) -> None:
         """Test optimization on simple sphere function."""
 
         def sphere(x):
@@ -198,7 +198,7 @@ class TestChaosEvolutionOptimizer:
         assert len(results["best_solution"]) == 2
         assert results["best_fitness"] < 5.0
 
-    def test_optimize_convergence_history(self):
+    def test_optimize_convergence_history(self) -> None:
         """Test optimization tracks convergence history."""
 
         def simple_func(x):
@@ -211,7 +211,7 @@ class TestChaosEvolutionOptimizer:
         assert len(results["convergence_history"]) == 30
         assert results["convergence_history"][-1] == results["best_fitness"]
 
-    def test_optimize_improves_over_iterations(self):
+    def test_optimize_improves_over_iterations(self) -> None:
         """Test that optimization improves fitness."""
 
         def rosenbrock(x):
@@ -225,7 +225,7 @@ class TestChaosEvolutionOptimizer:
         final_fitness = results["convergence_history"][-1]
         assert final_fitness <= initial_fitness
 
-    def test_optimize_returns_correct_structure(self):
+    def test_optimize_returns_correct_structure(self) -> None:
         """Test optimize returns correct result structure."""
 
         def simple_func(x):
@@ -243,7 +243,7 @@ class TestChaosEvolutionOptimizer:
         assert "method" in results
         assert results["method"] == "Chaos_Evolution_Optimization"
 
-    def test_tune_hyperparameters_basic(self):
+    def test_tune_hyperparameters_basic(self) -> None:
         """Test hyperparameter tuning basic functionality."""
         parameter_space = {"learning_rate": (0.001, 0.1), "regularization": (0.0, 1.0)}
 
@@ -258,7 +258,7 @@ class TestChaosEvolutionOptimizer:
         assert "learning_rate" in results["optimal_parameters"]
         assert "regularization" in results["optimal_parameters"]
 
-    def test_tune_hyperparameters_convergence(self):
+    def test_tune_hyperparameters_convergence(self) -> None:
         """Test hyperparameter tuning converges to optimum."""
         parameter_space: dict[str, tuple[float, float]] = {
             "param1": (-5.0, 5.0),
@@ -276,7 +276,7 @@ class TestChaosEvolutionOptimizer:
         assert abs(results["optimal_parameters"]["param1"]) < 1.0
         assert abs(results["optimal_parameters"]["param2"]) < 1.0
 
-    def test_tune_hyperparameters_result_structure(self):
+    def test_tune_hyperparameters_result_structure(self) -> None:
         """Test hyperparameter tuning returns correct structure."""
         parameter_space: dict[str, tuple[float, float]] = {"x": (0.0, 1.0)}
 
@@ -292,7 +292,7 @@ class TestChaosEvolutionOptimizer:
         assert "method" in results
         assert results["method"] == "CGO_Hyperparameter_Tuning"
 
-    def test_butterfly_effect_small_perturbation(self):
+    def test_butterfly_effect_small_perturbation(self) -> None:
         """Test butterfly effect: small input change leads to large detection shift."""
 
         def simple_func(x):
@@ -309,7 +309,7 @@ class TestChaosEvolutionOptimizer:
         solution_diff = np.linalg.norm(results1["best_solution"] - results2["best_solution"])
         assert solution_diff > 0.01
 
-    def test_chaotic_sensitivity_to_alpha(self):
+    def test_chaotic_sensitivity_to_alpha(self) -> None:
         """Test sensitivity to alpha parameter in fractal component."""
 
         def test_func(x):
@@ -324,7 +324,7 @@ class TestChaosEvolutionOptimizer:
 
         assert results_low["best_fitness"] != results_high["best_fitness"]
 
-    def test_chaotic_sensitivity_to_beta(self):
+    def test_chaotic_sensitivity_to_beta(self) -> None:
         """Test sensitivity to beta parameter in chaos component."""
 
         def test_func(x):
@@ -339,7 +339,7 @@ class TestChaosEvolutionOptimizer:
 
         assert results_low["best_fitness"] != results_high["best_fitness"]
 
-    def test_chaotic_map_sequence_divergence(self):
+    def test_chaotic_map_sequence_divergence(self) -> None:
         """Test that chaotic maps produce sequences within valid bounds."""
         x_logistic = 0.5
         x_tent = 0.5
@@ -354,7 +354,7 @@ class TestChaosEvolutionOptimizer:
         assert 0 <= x_tent <= 1
         assert 0 <= x_sine <= 1
 
-    def test_convergence_with_multiple_local_minima(self):
+    def test_convergence_with_multiple_local_minima(self) -> None:
         """Test optimization on function with multiple local minima."""
 
         def multi_modal(x):
@@ -365,7 +365,7 @@ class TestChaosEvolutionOptimizer:
 
         assert results["best_fitness"] < 15.0
 
-    def test_rastrigin_function_optimization(self):
+    def test_rastrigin_function_optimization(self) -> None:
         """Test optimization on challenging Rastrigin function."""
 
         def rastrigin(x):
@@ -377,7 +377,7 @@ class TestChaosEvolutionOptimizer:
 
         assert results["best_fitness"] < 50.0
 
-    def test_ackley_function_optimization(self):
+    def test_ackley_function_optimization(self) -> None:
         """Test optimization on Ackley function with many local minima."""
 
         def ackley(x):
@@ -394,7 +394,7 @@ class TestChaosEvolutionOptimizer:
 
         assert results["best_fitness"] < 5.0
 
-    def test_chaotic_perturbation_magnitude(self):
+    def test_chaotic_perturbation_magnitude(self) -> None:
         """Test that chaos perturbations have expected magnitude."""
         optimizer = ChaosEvolutionOptimizer({"beta": 0.3})
         position = np.array([0.0, 0.0])
@@ -408,7 +408,7 @@ class TestChaosEvolutionOptimizer:
         assert movement > 0.0
         assert movement < 20.0
 
-    def test_population_diversity_maintained(self):
+    def test_population_diversity_maintained(self) -> None:
         """Test that population maintains diversity during optimization."""
 
         def simple_func(x):
@@ -429,7 +429,7 @@ class TestChaosEvolutionOptimizer:
         final_std = np.std(population, axis=0)
         assert np.mean(final_std) > 0.1
 
-    def test_convergence_monotonic_decrease(self):
+    def test_convergence_monotonic_decrease(self) -> None:
         """Test that convergence history shows general decreasing trend."""
 
         def simple_func(x):
@@ -444,7 +444,7 @@ class TestChaosEvolutionOptimizer:
 
         assert second_half_avg <= first_half_avg
 
-    def test_different_dimensions_optimization(self):
+    def test_different_dimensions_optimization(self) -> None:
         """Test optimization works across different dimensionalities."""
 
         def sphere(x):
@@ -457,7 +457,7 @@ class TestChaosEvolutionOptimizer:
             assert len(results["best_solution"]) == dim
             assert results["best_fitness"] < 10.0
 
-    def test_tent_map_boundary_behavior(self):
+    def test_tent_map_boundary_behavior(self) -> None:
         """Test tent map behavior at boundaries."""
         x = 0.0
         result = ChaoticMap.tent_map(x, mu=2.0)
@@ -467,7 +467,7 @@ class TestChaosEvolutionOptimizer:
         result = ChaoticMap.tent_map(x, mu=2.0)
         assert result == 0.0
 
-    def test_logistic_map_with_different_r_values(self):
+    def test_logistic_map_with_different_r_values(self) -> None:
         """Test logistic map with different chaos parameters."""
         x = 0.5
 
@@ -478,7 +478,7 @@ class TestChaosEvolutionOptimizer:
         assert 0.0 <= result_low <= 1.0
         assert 0.0 <= result_high <= 1.0
 
-    def test_sine_map_periodicity(self):
+    def test_sine_map_periodicity(self) -> None:
         """Test sine map produces varied sequence."""
         x = 0.5
         values = []
@@ -488,7 +488,7 @@ class TestChaosEvolutionOptimizer:
 
         assert len({round(v, 4) for v in values}) > 5
 
-    def test_chaos_game_step_moves_toward_best(self):
+    def test_chaos_game_step_moves_toward_best(self) -> None:
         """Test chaos game step generally moves toward best solution."""
         optimizer = ChaosEvolutionOptimizer({"alpha": 0.9, "beta": 0.1})
         position = np.array([0.0, 0.0])
@@ -503,7 +503,7 @@ class TestChaosEvolutionOptimizer:
 
         assert distance_after < distance_before
 
-    def test_optimization_with_tight_bounds(self):
+    def test_optimization_with_tight_bounds(self) -> None:
         """Test optimization works with tight parameter bounds."""
 
         def simple_func(x):
@@ -516,7 +516,7 @@ class TestChaosEvolutionOptimizer:
         assert np.all(results["best_solution"] <= 0.5)
         assert results["best_fitness"] < 0.5
 
-    def test_optimization_with_asymmetric_bounds(self):
+    def test_optimization_with_asymmetric_bounds(self) -> None:
         """Test optimization with asymmetric bounds."""
 
         def simple_func(x):
@@ -528,7 +528,7 @@ class TestChaosEvolutionOptimizer:
         assert 0 <= results["best_solution"][0] <= 10
         assert -5 <= results["best_solution"][1] <= 5
 
-    def test_hyperparameter_tuning_with_constraints(self):
+    def test_hyperparameter_tuning_with_constraints(self) -> None:
         """Test hyperparameter tuning respects parameter constraints."""
         parameter_space = {"lr": (0.001, 0.1), "momentum": (0.5, 0.99), "weight_decay": (0.0, 0.01)}
 
@@ -543,7 +543,7 @@ class TestChaosEvolutionOptimizer:
         assert 0.5 <= params["momentum"] <= 0.99
         assert 0.0 <= params["weight_decay"] <= 0.01
 
-    def test_chaotic_sequence_non_repeating(self):
+    def test_chaotic_sequence_non_repeating(self) -> None:
         """Test chaotic sequences don't repeat early."""
         x = 0.3
         sequence = [x]
@@ -557,7 +557,7 @@ class TestChaosEvolutionOptimizer:
 
         assert unique_count > 40
 
-    def test_optimization_finds_global_minimum(self):
+    def test_optimization_finds_global_minimum(self) -> None:
         """Test optimizer finds near-global minimum for convex function."""
 
         def sphere(x):
@@ -569,7 +569,7 @@ class TestChaosEvolutionOptimizer:
         assert results["best_fitness"] < 1.0
         assert np.linalg.norm(results["best_solution"]) < 1.5
 
-    def test_chaos_injection_improves_exploration(self):
+    def test_chaos_injection_improves_exploration(self) -> None:
         """Test chaos injection helps escape local minima."""
 
         def deceptive_func(x):
@@ -580,7 +580,7 @@ class TestChaosEvolutionOptimizer:
 
         assert results["best_fitness"] < 10.0
 
-    def test_population_size_affects_convergence(self):
+    def test_population_size_affects_convergence(self) -> None:
         """Test different population sizes affect optimization."""
 
         def simple_func(x):
@@ -596,7 +596,7 @@ class TestChaosEvolutionOptimizer:
         assert "best_fitness" in results_small
         assert "best_fitness" in results_large
 
-    def test_max_iterations_affects_quality(self):
+    def test_max_iterations_affects_quality(self) -> None:
         """Test more iterations generally improve solution quality."""
 
         def rosenbrock(x):
@@ -611,7 +611,7 @@ class TestChaosEvolutionOptimizer:
         assert len(results_short["convergence_history"]) == 10
         assert len(results_long["convergence_history"]) == 100
 
-    def test_chaotic_map_reset_maintains_randomness(self):
+    def test_chaotic_map_reset_maintains_randomness(self) -> None:
         """Test chaotic map reset every 10 iterations maintains exploration."""
         optimizer = ChaosEvolutionOptimizer({"max_iterations": 30})
 
@@ -623,7 +623,7 @@ class TestChaosEvolutionOptimizer:
         assert len(results["convergence_history"]) == 30
         assert results["convergence_history"][-1] <= results["convergence_history"][0]
 
-    def test_chaos_evolutionary_with_constraints_handling(self):
+    def test_chaos_evolutionary_with_constraints_handling(self) -> None:
         """Test optimizer handles constrained optimization."""
 
         def constrained_func(x):
@@ -637,7 +637,7 @@ class TestChaosEvolutionOptimizer:
 
         assert results["best_fitness"] < 100
 
-    def test_fractal_self_similarity_in_convergence(self):
+    def test_fractal_self_similarity_in_convergence(self) -> None:
         """Test convergence pattern shows fractal-like self-similarity."""
 
         def simple_func(x):

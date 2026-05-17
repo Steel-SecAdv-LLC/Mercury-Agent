@@ -25,14 +25,14 @@ import numpy as np
 from omni_mercury_engine.models.neurosymbolic import NeurosymbolicEngine
 
 
-def test_neurosymbolic_initialization():
+def test_neurosymbolic_initialization() -> None:
     """Test neurosymbolic engine initialization"""
     engine = NeurosymbolicEngine(input_dim=64)
     assert engine.input_dim == 64
     assert len(engine.knowledge_base) > 0
 
 
-def test_symbolic_inference():
+def test_symbolic_inference() -> None:
     """Test symbolic reasoning"""
     engine = NeurosymbolicEngine()
     engine.add_fact("missing_person")
@@ -42,7 +42,7 @@ def test_symbolic_inference():
     assert result["result"] is True
 
 
-def test_neural_inference():
+def test_neural_inference() -> None:
     """Test neural inference when PyTorch available"""
     engine = NeurosymbolicEngine(input_dim=32)
     features = np.random.randn(32)
@@ -51,7 +51,7 @@ def test_neural_inference():
     assert 0.0 <= confidence <= 1.0
 
 
-def test_extract_features():
+def test_extract_features() -> None:
     """Test feature extraction"""
     engine = NeurosymbolicEngine(input_dim=48)
     data = np.random.randn(5, 20)
@@ -60,7 +60,7 @@ def test_extract_features():
     assert features.shape[0] == 5
 
 
-def test_predict():
+def test_predict() -> None:
     """Test anomaly prediction"""
     engine = NeurosymbolicEngine()
     data = np.random.randn(3, 15)

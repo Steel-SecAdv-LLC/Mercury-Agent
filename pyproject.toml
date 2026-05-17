@@ -442,6 +442,24 @@ module = [
     # Safe XML parsing — no public type stubs published
     "defusedxml",
     "defusedxml.*",
+    # Load-testing framework (optional, ``[loadtest]`` extra)
+    "locust",
+    "locust.*",
+    # Optional test-data generators -- supplied by an external assets bundle
+    # that is not vendored with the repository.  Tests that import these
+    # modules skip themselves when the bundle is absent (see
+    # tests/emergent/test_emergent_life_detector_real_data.py for the
+    # canonical try/except pattern); the imports remain declared so the
+    # mypy boundary is explicit.
+    "assets",
+    "assets.*",
+    # Sibling-script modules under benchmarks/ are imported by the
+    # benchmark test harness via sys.path manipulation rather than
+    # package install.  They are first-party but live outside the
+    # mypy package root (src/) so mypy cannot follow the import; the
+    # override declares them as a typed-boundary equivalent.
+    "calibration_validation",
+    "mercury_benchmark",
 ]
 ignore_missing_imports = true
 
@@ -592,6 +610,7 @@ module = [
     "omni_mercury_engine.core.engine_config",
 ]
 disallow_untyped_decorators = false
+
 
 # =============================================================================
 # Pytest Configuration

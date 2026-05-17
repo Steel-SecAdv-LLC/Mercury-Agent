@@ -45,19 +45,19 @@ if HAS_TORCH:
 class TestFusionNetwork:
     """Tests for FusionNetwork class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.input_dims = [32, 64, 48]  # Multiple modalities
         self.output_dim = 128
         self.model = FusionNetwork(input_dims=self.input_dims, output_dim=self.output_dim)
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test network initialization."""
         assert self.model is not None
         assert hasattr(self.model, "encoders")
         assert hasattr(self.model, "fusion_layer")
 
-    def test_forward_pass(self):
+    def test_forward_pass(self) -> None:
         """Test forward pass with multiple inputs."""
         batch_size = 8
         inputs = [torch.randn(batch_size, dim) for dim in self.input_dims]
@@ -65,7 +65,7 @@ class TestFusionNetwork:
 
         assert output.shape == (batch_size, self.output_dim)
 
-    def test_single_modality(self):
+    def test_single_modality(self) -> None:
         """Test with single modality input."""
         model = FusionNetwork(input_dims=[64], output_dim=32)
         x = [torch.randn(4, 64)]
@@ -73,7 +73,7 @@ class TestFusionNetwork:
 
         assert output.shape == (4, 32)
 
-    def test_gradient_flow(self):
+    def test_gradient_flow(self) -> None:
         """Test gradient flow through network."""
         inputs = [torch.randn(4, dim, requires_grad=True) for dim in self.input_dims]
         output = self.model(inputs)
@@ -83,7 +83,7 @@ class TestFusionNetwork:
         for inp in inputs:
             assert inp.grad is not None
 
-    def test_different_batch_sizes(self):
+    def test_different_batch_sizes(self) -> None:
         """Test with various batch sizes."""
         for batch_size in [1, 8, 32]:
             inputs = [torch.randn(batch_size, dim) for dim in self.input_dims]
@@ -94,17 +94,17 @@ class TestFusionNetwork:
 class TestMultimodalFusion:
     """Tests for MultimodalFusion class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.fusion = MultimodalFusion(
             modality_dims={"visual": 256, "audio": 128, "text": 512}, output_dim=256
         )
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test fusion module initialization."""
         assert self.fusion is not None
 
-    def test_forward_with_dict_input(self):
+    def test_forward_with_dict_input(self) -> None:
         """Test forward pass with dictionary input."""
         inputs = {
             "visual": torch.randn(4, 256),
@@ -115,7 +115,7 @@ class TestMultimodalFusion:
 
         assert output.shape == (4, 256)
 
-    def test_missing_modality_handling(self):
+    def test_missing_modality_handling(self) -> None:
         """Test handling of missing modality."""
         inputs = {
             "visual": torch.randn(4, 256),
@@ -129,7 +129,7 @@ class TestMultimodalFusion:
         except KeyError:
             pass  # Also acceptable behavior
 
-    def test_modality_weights(self):
+    def test_modality_weights(self) -> None:
         """Test that modality weights are learned."""
         if hasattr(self.fusion, "modality_weights"):
             weights = self.fusion.modality_weights
@@ -139,16 +139,16 @@ class TestMultimodalFusion:
 class TestAttentionFusion:
     """Tests for AttentionFusion class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.fusion = AttentionFusion(embed_dim=128, num_heads=8)
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test attention fusion initialization."""
         assert self.fusion is not None
         assert hasattr(self.fusion, "attention")
 
-    def test_forward_pass(self):
+    def test_forward_pass(self) -> None:
         """Test forward pass."""
         # Sequence of embeddings
         x = torch.randn(4, 10, 128)  # Batch, Seq, Embed
@@ -156,7 +156,7 @@ class TestAttentionFusion:
 
         assert output.shape == (4, 128)  # Pooled output
 
-    def test_attention_weights(self):
+    def test_attention_weights(self) -> None:
         """Test that attention weights are computed."""
         x = torch.randn(4, 10, 128)
         output, weights = self.fusion(x, return_attention=True)
@@ -168,15 +168,15 @@ class TestAttentionFusion:
 class TestGatedFusion:
     """Tests for GatedFusion class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.fusion = GatedFusion(input_dim=64, hidden_dim=32)
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test gated fusion initialization."""
         assert self.fusion is not None
 
-    def test_forward_pass(self):
+    def test_forward_pass(self) -> None:
         """Test forward pass with two inputs."""
         x1 = torch.randn(4, 64)
         x2 = torch.randn(4, 64)
@@ -184,7 +184,7 @@ class TestGatedFusion:
 
         assert output.shape == (4, 64)
 
-    def test_gate_values(self):
+    def test_gate_values(self) -> None:
         """Test that gate values are in [0, 1]."""
         x1 = torch.randn(4, 64)
         x2 = torch.randn(4, 64)
@@ -197,7 +197,7 @@ class TestGatedFusion:
 class TestTrainingConfig:
     """Tests for TrainingConfig class."""
 
-    def test_default_config(self):
+    def test_default_config(self) -> None:
         """Test default configuration values."""
         config = TrainingConfig()
 
@@ -205,7 +205,7 @@ class TestTrainingConfig:
         assert config.batch_size > 0
         assert config.epochs > 0
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test custom configuration."""
         config = TrainingConfig(learning_rate=0.001, batch_size=64, epochs=100, weight_decay=1e-5)
 
@@ -213,7 +213,7 @@ class TestTrainingConfig:
         assert config.batch_size == 64
         assert config.epochs == 100
 
-    def test_config_validation(self):
+    def test_config_validation(self) -> None:
         """Test that invalid config raises errors."""
         with pytest.raises((ValueError, AssertionError)):
             TrainingConfig(learning_rate=-0.1)
@@ -225,13 +225,13 @@ class TestTrainingConfig:
 class TestEarlyStopping:
     """Tests for EarlyStopping class."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test early stopping initialization."""
         es = EarlyStopping(patience=5, min_delta=0.001)
         assert es.patience == 5
         assert es.counter == 0
 
-    def test_improvement_resets_counter(self):
+    def test_improvement_resets_counter(self) -> None:
         """Test that improvement resets patience counter."""
         es = EarlyStopping(patience=5)
 
@@ -239,7 +239,7 @@ class TestEarlyStopping:
         es(0.4)  # Improvement
         assert es.counter == 0
 
-    def test_no_improvement_increments_counter(self):
+    def test_no_improvement_increments_counter(self) -> None:
         """Test that no improvement increments counter."""
         es = EarlyStopping(patience=5, min_delta=0.01)
 
@@ -247,7 +247,7 @@ class TestEarlyStopping:
         es(0.5)  # No improvement
         assert es.counter == 1
 
-    def test_stops_after_patience(self):
+    def test_stops_after_patience(self) -> None:
         """Test that training stops after patience exceeded."""
         es = EarlyStopping(patience=3)
 
@@ -259,7 +259,7 @@ class TestEarlyStopping:
 
         assert es.early_stop
 
-    def test_best_score_tracking(self):
+    def test_best_score_tracking(self) -> None:
         """Test that best score is tracked."""
         es = EarlyStopping(patience=5)
 
@@ -273,7 +273,7 @@ class TestEarlyStopping:
 class TestLearningRateScheduler:
     """Tests for LearningRateScheduler class."""
 
-    def test_step_scheduler(self):
+    def test_step_scheduler(self) -> None:
         """Test step learning rate scheduler."""
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
@@ -287,7 +287,7 @@ class TestLearningRateScheduler:
         new_lr = optimizer.param_groups[0]["lr"]
         assert new_lr < initial_lr
 
-    def test_cosine_scheduler(self):
+    def test_cosine_scheduler(self) -> None:
         """Test cosine annealing scheduler."""
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
@@ -305,19 +305,19 @@ class TestLearningRateScheduler:
 class TestTrainer:
     """Tests for Trainer class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.model = nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
         self.config = TrainingConfig(learning_rate=0.01, batch_size=8, epochs=5, device="cpu")
         self.trainer = Trainer(self.model, self.config)
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test trainer initialization."""
         assert self.trainer is not None
         assert self.trainer.model is not None
         assert self.trainer.optimizer is not None
 
-    def test_train_step(self):
+    def test_train_step(self) -> None:
         """Test single training step."""
         x = torch.randn(8, 32)
         y = torch.randn(8, 1)
@@ -327,7 +327,7 @@ class TestTrainer:
         assert isinstance(loss, float)
         assert loss >= 0
 
-    def test_validation_step(self):
+    def test_validation_step(self) -> None:
         """Test validation step."""
         x = torch.randn(8, 32)
         y = torch.randn(8, 1)
@@ -337,14 +337,14 @@ class TestTrainer:
         assert isinstance(loss, float)
         assert loss >= 0
 
-    def test_save_checkpoint(self, tmp_path):
+    def test_save_checkpoint(self, tmp_path) -> None:
         """Test checkpoint saving."""
         checkpoint_path = tmp_path / "checkpoint.pt"
         self.trainer.save_checkpoint(str(checkpoint_path))
 
         assert checkpoint_path.exists()
 
-    def test_load_checkpoint(self, tmp_path):
+    def test_load_checkpoint(self, tmp_path) -> None:
         """Test checkpoint loading."""
         checkpoint_path = tmp_path / "checkpoint.pt"
         self.trainer.save_checkpoint(str(checkpoint_path))
@@ -362,38 +362,38 @@ class TestTrainer:
 class TestInferenceEngine:
     """Tests for InferenceEngine class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.model = nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
         self.engine = InferenceEngine(self.model, device="cpu")
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test inference engine initialization."""
         assert self.engine is not None
         assert self.engine.model is not None
 
-    def test_predict_single(self):
+    def test_predict_single(self) -> None:
         """Test single prediction."""
         x = torch.randn(1, 32)
         output = self.engine.predict(x)
 
         assert output.shape == (1, 1)
 
-    def test_predict_batch(self):
+    def test_predict_batch(self) -> None:
         """Test batch prediction."""
         x = torch.randn(16, 32)
         output = self.engine.predict(x)
 
         assert output.shape == (16, 1)
 
-    def test_predict_numpy(self):
+    def test_predict_numpy(self) -> None:
         """Test prediction with numpy input."""
         x = np.random.randn(8, 32).astype(np.float32)
         output = self.engine.predict(x)
 
         assert output.shape == (8, 1)
 
-    def test_no_grad_mode(self):
+    def test_no_grad_mode(self) -> None:
         """Test that inference runs in no_grad mode."""
         x = torch.randn(4, 32, requires_grad=True)
 
@@ -406,19 +406,19 @@ class TestInferenceEngine:
 class TestBatchInference:
     """Tests for BatchInference class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.model = nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
         self.batch_inference = BatchInference(self.model, batch_size=4, device="cpu")
 
-    def test_large_batch_processing(self):
+    def test_large_batch_processing(self) -> None:
         """Test processing large batches in chunks."""
         x = torch.randn(100, 32)
         output = self.batch_inference.predict(x)
 
         assert output.shape == (100, 1)
 
-    def test_streaming_inference(self):
+    def test_streaming_inference(self) -> None:
         """Test streaming inference."""
         data_stream = [torch.randn(4, 32) for _ in range(10)]
 
@@ -432,26 +432,26 @@ class TestBatchInference:
 class TestModelEnsemble:
     """Tests for ModelEnsemble class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.models = [
             nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1)) for _ in range(3)
         ]
         self.ensemble = ModelEnsemble(self.models, aggregation="mean")
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test ensemble initialization."""
         assert self.ensemble is not None
         assert len(self.ensemble.models) == 3
 
-    def test_mean_aggregation(self):
+    def test_mean_aggregation(self) -> None:
         """Test mean aggregation."""
         x = torch.randn(8, 32)
         output = self.ensemble.predict(x)
 
         assert output.shape == (8, 1)
 
-    def test_voting_aggregation(self):
+    def test_voting_aggregation(self) -> None:
         """Test voting aggregation for classification."""
         ensemble = ModelEnsemble(self.models, aggregation="voting")
         x = torch.randn(8, 32)
@@ -459,7 +459,7 @@ class TestModelEnsemble:
 
         assert output is not None
 
-    def test_uncertainty_estimation(self):
+    def test_uncertainty_estimation(self) -> None:
         """Test uncertainty estimation from ensemble."""
         x = torch.randn(8, 32)
         output, uncertainty = self.ensemble.predict_with_uncertainty(x)
@@ -472,7 +472,7 @@ class TestModelEnsemble:
 class TestMLPipelineIntegration:
     """Integration tests for ML pipeline."""
 
-    def test_full_training_pipeline(self):
+    def test_full_training_pipeline(self) -> None:
         """Test complete training pipeline."""
         # Create model
         model = nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
@@ -498,7 +498,7 @@ class TestMLPipelineIntegration:
         # Loss should decrease
         assert final_loss < initial_loss or abs(final_loss - initial_loss) < 0.5
 
-    def test_train_then_inference(self):
+    def test_train_then_inference(self) -> None:
         """Test training followed by inference."""
         model = nn.Sequential(nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 1))
 

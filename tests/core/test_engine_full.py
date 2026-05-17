@@ -34,7 +34,7 @@ import numpy as np
 from omni_mercury_engine.engine import OmniMercuryEngine
 
 
-def test_engine_detect_with_all_detectors():
+def test_engine_detect_with_all_detectors() -> None:
     """Test detection with all detector types enabled"""
     engine = OmniMercuryEngine()
 
@@ -50,7 +50,7 @@ def test_engine_detect_with_all_detectors():
     assert "is_anomaly" in results
 
 
-def test_engine_detect_with_subset():
+def test_engine_detect_with_subset() -> None:
     """Test detection with subset of detectors"""
     engine = OmniMercuryEngine()
 
@@ -62,7 +62,7 @@ def test_engine_detect_with_subset():
     assert "detectors" in results
 
 
-def test_engine_fusion_mode():
+def test_engine_fusion_mode() -> None:
     """Test fusion mode initialization"""
     engine = OmniMercuryEngine(mode="fusion")
 
@@ -70,7 +70,7 @@ def test_engine_fusion_mode():
     assert engine.fusion_inference is not None
 
 
-def test_engine_biometric_detection():
+def test_engine_biometric_detection() -> None:
     """Test biometric anomaly detection"""
     engine = OmniMercuryEngine()
 
@@ -82,7 +82,7 @@ def test_engine_biometric_detection():
     assert "model_type" in results or "error" in results
 
 
-def test_engine_security_scan():
+def test_engine_security_scan() -> None:
     """Test security vulnerability scanning"""
     engine = OmniMercuryEngine()
 
@@ -98,7 +98,7 @@ def test_engine_security_scan():
     assert all("is_anomaly" in r for r in results)
 
 
-def test_engine_save_load_cycle():
+def test_engine_save_load_cycle() -> None:
     """Test complete save/load cycle"""
     engine = OmniMercuryEngine(mode="fusion")
 
@@ -114,7 +114,7 @@ def test_engine_save_load_cycle():
         assert loaded_engine is not None
 
 
-def test_engine_configure():
+def test_engine_configure() -> None:
     """Test engine configuration"""
     from omni_mercury_engine.core.config import EngineConfig
 
@@ -124,7 +124,7 @@ def test_engine_configure():
     assert engine.config is not None
 
 
-def test_engine_batch_detection():
+def test_engine_batch_detection() -> None:
     """Test batch anomaly detection"""
     engine = OmniMercuryEngine()
 
@@ -140,7 +140,7 @@ def test_engine_batch_detection():
     assert all("is_anomaly" in r for r in results)
 
 
-def test_engine_with_fusion_inference():
+def test_engine_with_fusion_inference() -> None:
     """Test detection using fusion network"""
     engine = OmniMercuryEngine(mode="fusion")
 

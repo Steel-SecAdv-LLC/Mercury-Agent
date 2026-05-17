@@ -29,14 +29,14 @@ pytest.importorskip("torch")
 from omni_mercury_engine.engine import OmniMercuryEngine
 
 
-def test_engine_initialization():
+def test_engine_initialization() -> None:
     """Test engine can be initialized"""
     engine = OmniMercuryEngine()
     assert engine is not None
     assert hasattr(engine, "fusion_model")
 
 
-def test_detect_basic(sample_data):
+def test_detect_basic(sample_data) -> None:
     """Test basic anomaly detection"""
     engine = OmniMercuryEngine()
     result = engine.detect(sample_data)
@@ -46,7 +46,7 @@ def test_detect_basic(sample_data):
     assert isinstance(result["is_anomaly"], bool)
 
 
-def test_detect_with_models(sample_data):
+def test_detect_with_models(sample_data) -> None:
     """Test detection with specific detectors"""
     engine = OmniMercuryEngine()
     result = engine.detect(sample_data, detector_types=["statistical", "temporal"])
@@ -57,7 +57,7 @@ def test_detect_with_models(sample_data):
     assert "temporal" in result["detectors"]
 
 
-def test_engine_save_load(tmp_path, sample_data):
+def test_engine_save_load(tmp_path, sample_data) -> None:
     """Test saving and loading engine state"""
     engine = OmniMercuryEngine()
     engine.detect(sample_data)

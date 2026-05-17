@@ -32,7 +32,7 @@ from click.testing import CliRunner
 from omni_mercury_engine.cli import main
 
 
-def test_security_command_help():
+def test_security_command_help() -> None:
     """Test security command help."""
     runner = CliRunner()
     result = runner.invoke(main, ["security", "--help"])
@@ -40,14 +40,14 @@ def test_security_command_help():
     assert "--payload" in result.output
 
 
-def test_security_command_with_sql_payload():
+def test_security_command_with_sql_payload() -> None:
     """Test security command with SQL injection payload."""
     runner = CliRunner()
     result = runner.invoke(main, ["security", "--payload", "SELECT * FROM users WHERE id = 1"])
     assert result.exit_code == 0 or "error" in result.output.lower()
 
 
-def test_detect_with_json_input():
+def test_detect_with_json_input() -> None:
     """Test detect command with JSON input."""
     runner = CliRunner()
 
@@ -62,7 +62,7 @@ def test_detect_with_json_input():
         Path(data_file).unlink()
 
 
-def test_detect_with_output_file():
+def test_detect_with_output_file() -> None:
     """Test detect command with output file."""
     runner = CliRunner()
 
@@ -93,7 +93,7 @@ def test_detect_with_output_file():
             Path(output_file).unlink()
 
 
-def test_train_command_with_options():
+def test_train_command_with_options() -> None:
     """Test train command with correct flags."""
     runner = CliRunner()
 
@@ -117,7 +117,7 @@ def test_train_command_with_options():
         assert result.exit_code == 0 or "error" in result.output.lower()
 
 
-def test_biometric_with_both_images():
+def test_biometric_with_both_images() -> None:
     """Test biometric command with reference and test images."""
     runner = CliRunner()
     result = runner.invoke(
@@ -127,7 +127,7 @@ def test_biometric_with_both_images():
     assert result.exit_code != 0 or "error" in result.output.lower()
 
 
-def test_detect_with_fusion_detector():
+def test_detect_with_fusion_detector() -> None:
     """Test detect command explicitly using fusion detector."""
     runner = CliRunner()
 
@@ -142,14 +142,14 @@ def test_detect_with_fusion_detector():
         Path(temp_file).unlink()
 
 
-def test_detect_nonexistent_file():
+def test_detect_nonexistent_file() -> None:
     """Test detect command with nonexistent input file."""
     runner = CliRunner()
     result = runner.invoke(main, ["detect", "--input", "/nonexistent/data.csv"])
     assert result.exit_code != 0 or "Error" in result.output
 
 
-def test_explain_command_default_model():
+def test_explain_command_default_model() -> None:
     """Test explain command with default fusion model."""
     runner = CliRunner()
 
@@ -164,7 +164,7 @@ def test_explain_command_default_model():
         Path(temp_file).unlink()
 
 
-def test_physics_integrated_no_inputs():
+def test_physics_integrated_no_inputs() -> None:
     """Test physics integrated requires at least one input."""
     runner = CliRunner()
     result = runner.invoke(main, ["physics", "integrated"])

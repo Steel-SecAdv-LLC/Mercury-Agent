@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "benchmarks"))
 class TestDomainWeightPresets:
     """Tests for domain_weight_presets.py."""
 
-    def test_get_domain_preset_all_domains(self):
+    def test_get_domain_preset_all_domains(self) -> None:
         from omni_mercury_engine.core.domain_weight_presets import (
             DOMAIN_WEIGHT_PRESETS,
             get_domain_preset,
@@ -44,7 +44,7 @@ class TestDomainWeightPresets:
             assert abs(r + k + ig - 1.0) < 1e-6, f"{domain} weights don't sum to 1"
             assert r >= 0 and k >= 0 and ig >= 0, f"{domain} has negative weight"
 
-    def test_get_domain_preset_unknown_returns_default(self):
+    def test_get_domain_preset_unknown_returns_default(self) -> None:
         from omni_mercury_engine.core.domain_weight_presets import get_domain_preset
 
         r, k, ig = get_domain_preset("unknown_domain_xyz")
@@ -53,21 +53,21 @@ class TestDomainWeightPresets:
         assert k == 0.20
         assert ig == 0.40
 
-    def test_get_domain_preset_case_insensitive(self):
+    def test_get_domain_preset_case_insensitive(self) -> None:
         from omni_mercury_engine.core.domain_weight_presets import get_domain_preset
 
         r1, k1, ig1 = get_domain_preset("OCEAN")
         r2, k2, ig2 = get_domain_preset("ocean")
         assert r1 == r2 and k1 == k2 and ig1 == ig2
 
-    def test_tabular_domains_zero_kinematic(self):
+    def test_tabular_domains_zero_kinematic(self) -> None:
         from omni_mercury_engine.core.domain_weight_presets import get_domain_preset
 
         for domain in ["disaster", "general", "security", "industrial"]:
             _, k, _ = get_domain_preset(domain)
             assert k == 0.0, f"{domain} should have zero kinematic weight"
 
-    def test_physics_domains_nonzero_kinematic(self):
+    def test_physics_domains_nonzero_kinematic(self) -> None:
         from omni_mercury_engine.core.domain_weight_presets import get_domain_preset
 
         for domain in ["ocean", "climate", "space", "environmental"]:
@@ -90,7 +90,7 @@ class TestNoiseColorEstimation:
 
         return SpectralDomainOracle({"domain": "environmental"})
 
-    def test_white_noise(self):
+    def test_white_noise(self) -> None:
         """White noise should have beta close to 0."""
         oracle = self._make_oracle()
         rng = np.random.RandomState(42)
@@ -102,7 +102,7 @@ class TestNoiseColorEstimation:
         assert abs(beta) < 0.5, f"White noise beta={beta}, expected ~0"
         assert color == "white"
 
-    def test_brown_noise(self):
+    def test_brown_noise(self) -> None:
         """Integrated white noise (Brownian) should have beta ~2."""
         oracle = self._make_oracle()
         rng = np.random.RandomState(42)
@@ -115,7 +115,7 @@ class TestNoiseColorEstimation:
         assert beta > 1.5, f"Brown noise beta={beta}, expected >1.5"
         assert color == "brown"
 
-    def test_pink_noise_synthetic(self):
+    def test_pink_noise_synthetic(self) -> None:
         """Synthetic 1/f noise should have beta ~1."""
         oracle = self._make_oracle()
         n = 1024
@@ -127,7 +127,7 @@ class TestNoiseColorEstimation:
         assert 0.5 < beta < 1.5, f"Pink noise beta={beta}, expected ~1"
         assert color == "pink"
 
-    def test_insufficient_data(self):
+    def test_insufficient_data(self) -> None:
         """Should return white noise for very short signals."""
         oracle = self._make_oracle()
         psd = np.array([1.0, 2.0])
@@ -152,26 +152,26 @@ class TestAdaptiveAlpha:
 
         return SpectralDomainOracle({"domain": "environmental", "significance_level": 0.05})
 
-    def test_short_window_relaxes_alpha(self):
+    def test_short_window_relaxes_alpha(self) -> None:
         oracle = self._make_oracle()
         alpha_short = oracle._compute_adaptive_alpha(30, 5, 0.8)
         alpha_long = oracle._compute_adaptive_alpha(5000, 5, 0.8)
         assert alpha_short > alpha_long, "Short windows should have higher alpha"
 
-    def test_alpha_bounds(self):
+    def test_alpha_bounds(self) -> None:
         oracle = self._make_oracle()
         for n_samples in [10, 50, 200, 1000, 5000]:
             for n_bands in [1, 5, 10]:
                 alpha = oracle._compute_adaptive_alpha(n_samples, n_bands, 0.5)
                 assert 0.01 <= alpha <= 0.20, f"Alpha {alpha} out of bounds"
 
-    def test_more_bands_tightens_alpha(self):
+    def test_more_bands_tightens_alpha(self) -> None:
         oracle = self._make_oracle()
         alpha_few = oracle._compute_adaptive_alpha(500, 2, 0.8)
         alpha_many = oracle._compute_adaptive_alpha(500, 10, 0.8)
         assert alpha_few > alpha_many, "More bands should tighten alpha"
 
-    def test_low_confidence_relaxes_alpha(self):
+    def test_low_confidence_relaxes_alpha(self) -> None:
         oracle = self._make_oracle()
         alpha_high_conf = oracle._compute_adaptive_alpha(500, 5, 0.95)
         alpha_low_conf = oracle._compute_adaptive_alpha(500, 5, 0.1)
@@ -186,7 +186,7 @@ class TestAdaptiveAlpha:
 class TestResidualFrequencyFilter:
     """Tests for MercuryAnomalyDetector._residual_frequency_filter."""
 
-    def test_preserves_anomaly_spikes(self):
+    def test_preserves_anomaly_spikes(self) -> None:
         """Filter should preserve anomaly spikes, not smooth them out."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -203,7 +203,7 @@ class TestResidualFrequencyFilter:
         assert filtered[100] > 0.3, "Spike at 100 should be preserved"
         assert filtered[150] > 0.3, "Spike at 150 should be preserved"
 
-    def test_output_clipped_to_01(self):
+    def test_output_clipped_to_01(self) -> None:
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         scores = np.random.RandomState(42).rand(100)
@@ -211,14 +211,14 @@ class TestResidualFrequencyFilter:
         assert np.all(filtered >= 0.0)
         assert np.all(filtered <= 1.0)
 
-    def test_short_signal_passthrough(self):
+    def test_short_signal_passthrough(self) -> None:
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         scores = np.array([0.1, 0.5, 0.9])
         filtered = MercuryAnomalyDetector._residual_frequency_filter(scores)
         np.testing.assert_array_equal(filtered, scores)
 
-    def test_constant_signal_unchanged(self):
+    def test_constant_signal_unchanged(self) -> None:
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         scores = np.full(100, 0.3)
@@ -234,7 +234,7 @@ class TestResidualFrequencyFilter:
 class TestInversionGuard:
     """Tests for the post-hoc inversion guard in detect()."""
 
-    def test_inverted_component_gets_zeroed(self):
+    def test_inverted_component_gets_zeroed(self) -> None:
         """When a component is anti-correlated with ensemble, it should be zeroed."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -252,7 +252,7 @@ class TestInversionGuard:
         assert np.all(result["scores"] >= 0)
         assert np.all(result["scores"] <= 1)
 
-    def test_detect_with_small_data_skips_guard(self):
+    def test_detect_with_small_data_skips_guard(self) -> None:
         """Inversion guard requires >= 30 samples."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -274,7 +274,7 @@ class TestInversionGuard:
 class TestEnsembleFlip:
     """Tests for the unsupervised ensemble flip."""
 
-    def test_high_median_triggers_flip(self):
+    def test_high_median_triggers_flip(self) -> None:
         """If median score > 0.80, scores should be flipped."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -302,7 +302,7 @@ class TestEnsembleFlip:
 class TestOracleIntegration:
     """Tests for Oracle fit and detect integration."""
 
-    def test_oracle_fitted_during_fit(self):
+    def test_oracle_fitted_during_fit(self) -> None:
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         rng = np.random.RandomState(42)
@@ -313,7 +313,7 @@ class TestOracleIntegration:
         # Just verify the attribute exists
         assert hasattr(detector, "_oracle_detector")
 
-    def test_oracle_metadata_in_detect_result(self):
+    def test_oracle_metadata_in_detect_result(self) -> None:
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
         rng = np.random.RandomState(42)
@@ -324,7 +324,7 @@ class TestOracleIntegration:
         result = detector.detect(X_test)
         assert "oracle_metadata" in result
 
-    def test_oracle_noise_color_estimated(self):
+    def test_oracle_noise_color_estimated(self) -> None:
         """When Oracle is active, noise color should be estimated."""
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
@@ -337,7 +337,7 @@ class TestOracleIntegration:
         assert oracle._noise_color in ("white", "pink", "brown", "blue", "violet")
         assert isinstance(oracle._noise_beta, float)
 
-    def test_oracle_multiplier_in_bounds(self):
+    def test_oracle_multiplier_in_bounds(self) -> None:
         """Influence multiplier should stay within configured bounds."""
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
@@ -359,7 +359,7 @@ class TestOracleIntegration:
         iv = result["influence_vector"]
         assert 0.5 <= iv.influence_multiplier <= 2.0
 
-    def test_oracle_detect_returns_dict(self):
+    def test_oracle_detect_returns_dict(self) -> None:
         """T0biU Oracle returns dict with influence_vector key."""
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
@@ -375,7 +375,7 @@ class TestOracleIntegration:
         assert "band_results" in result
         assert "noise_color" in result
 
-    def test_oracle_noise_color_in_detect_result(self):
+    def test_oracle_noise_color_in_detect_result(self) -> None:
         """Detection result should include noise_color metadata."""
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
@@ -399,7 +399,7 @@ class TestOracleIntegration:
 class TestOracleInfluenceMultiplier:
     """Tests for _compute_influence_multiplier."""
 
-    def test_significant_bands_increase_multiplier(self):
+    def test_significant_bands_increase_multiplier(self) -> None:
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             FrequencyBandResult,
             SpectralDomainOracle,
@@ -445,7 +445,7 @@ class TestOracleInfluenceMultiplier:
         )
         assert mult > 1.0, f"Significant bands should amplify, got {mult}"
 
-    def test_no_significant_bands_attenuate(self):
+    def test_no_significant_bands_attenuate(self) -> None:
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             FrequencyBandResult,
             SpectralDomainOracle,
@@ -486,7 +486,7 @@ class TestOracleInfluenceMultiplier:
 class TestMultiStrategyThreshold:
     """Tests for the multi-strategy threshold selection in benchmark."""
 
-    def test_returns_five_values(self):
+    def test_returns_five_values(self) -> None:
         """Should return (f1, prec, rec, thr, strategy_name)."""
         from mercury_benchmark import _oracle_threshold_f1
 
@@ -501,7 +501,7 @@ class TestMultiStrategyThreshold:
         assert 0 <= rec <= 1
         assert isinstance(name, str)
 
-    def test_perfect_separation_gives_f1_1(self):
+    def test_perfect_separation_gives_f1_1(self) -> None:
         from mercury_benchmark import _oracle_threshold_f1
 
         scores = np.array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0])
@@ -509,7 +509,7 @@ class TestMultiStrategyThreshold:
         f1, _, _, _, _ = _oracle_threshold_f1(labels, scores)
         assert f1 == 1.0
 
-    def test_strategy_name_not_default(self):
+    def test_strategy_name_not_default(self) -> None:
         """With real data, strategy should be something other than 'default'."""
         from mercury_benchmark import _oracle_threshold_f1
 
@@ -529,7 +529,7 @@ class TestMultiStrategyThreshold:
 class TestSpectralHints:
     """Tests for DOMAIN_ANOMALY_SPECTRAL_HINTS constant."""
 
-    def test_five_domains_defined(self):
+    def test_five_domains_defined(self) -> None:
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             DOMAIN_ANOMALY_SPECTRAL_HINTS,
         )
@@ -538,7 +538,7 @@ class TestSpectralHints:
         for domain in ["environmental", "ocean", "security", "space", "climate"]:
             assert domain in DOMAIN_ANOMALY_SPECTRAL_HINTS
 
-    def test_each_hint_has_anomaly_beta_shift(self):
+    def test_each_hint_has_anomaly_beta_shift(self) -> None:
         from omni_mercury_engine.detectors.spectral_domain_frequency import (
             DOMAIN_ANOMALY_SPECTRAL_HINTS,
         )
@@ -556,7 +556,7 @@ class TestSpectralHints:
 class TestFullPipelineIntegration:
     """End-to-end tests for the merged pipeline."""
 
-    def test_detect_with_temporal_data(self):
+    def test_detect_with_temporal_data(self) -> None:
         """Full detect() pipeline should work with temporal-like data."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -576,7 +576,7 @@ class TestFullPipelineIntegration:
         assert result["scores"].shape == (100,)
         assert np.all(result["scores"] >= 0) and np.all(result["scores"] <= 1)
 
-    def test_detect_with_benchmark_domain(self):
+    def test_detect_with_benchmark_domain(self) -> None:
         """Setting _benchmark_domain should trigger domain preset blending."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 

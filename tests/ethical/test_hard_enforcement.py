@@ -385,7 +385,7 @@ class TestEngineFusionBoundary:
 
         engine = _make_engine_in_fusion_mode()
 
-        def _boom(**kwargs):
+        def _boom(**kwargs) -> None:
             raise RuntimeError("simulated GOSNN outage")
 
         monkeypatch.setattr(engine_module, "get_global_scalar_network", _boom)
@@ -425,7 +425,7 @@ class TestReservedChecksWaveB:
         # Force the σ_Immutable gate to score below threshold for every
         # input — equivalent to a poisoned scalar vector — so the
         # boundary deterministically fires the second hard gate.
-        def _force_failure(action, scalar_vector, details=None):
+        def _force_failure(action, scalar_vector, details=None) -> None:
             from omni_mercury_engine.cognitive.ethical_bounding import (
                 EthicalConstraintViolationError,
             )
@@ -455,7 +455,7 @@ class TestReservedChecksWaveB:
 
         engine = _make_engine_in_fusion_mode()
 
-        def _boom(**kwargs):
+        def _boom(**kwargs) -> None:
             raise RuntimeError("simulated GOSNN outage for hard-gate regression")
 
         monkeypatch.setattr(engine_module, "get_global_scalar_network", _boom)

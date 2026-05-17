@@ -34,7 +34,7 @@ import torch
 from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
 
-def test_biometric_with_invalid_model():
+def test_biometric_with_invalid_model() -> None:
     """Test with invalid model name"""
     try:
         model = BiometricAnomalyModel({"model_name": "InvalidModel"})
@@ -43,7 +43,7 @@ def test_biometric_with_invalid_model():
         pass  # Expected: invalid model name may raise
 
 
-def test_biometric_predict_with_none_input():
+def test_biometric_predict_with_none_input() -> None:
     """Test predict with None input"""
     model = BiometricAnomalyModel()
 
@@ -53,7 +53,7 @@ def test_biometric_predict_with_none_input():
     assert "error" in result
 
 
-def test_biometric_extract_features_with_small_image():
+def test_biometric_extract_features_with_small_image() -> None:
     """Test feature extraction with small image"""
     model = BiometricAnomalyModel()
 
@@ -63,7 +63,7 @@ def test_biometric_extract_features_with_small_image():
     assert isinstance(features, torch.Tensor)
 
 
-def test_biometric_harmonic_features_error_handling():
+def test_biometric_harmonic_features_error_handling() -> None:
     """Test harmonic feature extraction error handling"""
     model = BiometricAnomalyModel()
 
@@ -73,7 +73,7 @@ def test_biometric_harmonic_features_error_handling():
     assert isinstance(features, np.ndarray)
 
 
-def test_biometric_config_variants():
+def test_biometric_config_variants() -> None:
     """Test BiometricAnomalyModel with different config options"""
     configs: list[dict[str, Any]] = [
         {"use_harmonic_features": True},
@@ -87,7 +87,7 @@ def test_biometric_config_variants():
         assert model is not None
 
 
-def test_biometric_embedding_normalization_edge_cases():
+def test_biometric_embedding_normalization_edge_cases() -> None:
     """Test embedding normalization with edge case sizes"""
     model = BiometricAnomalyModel()
 

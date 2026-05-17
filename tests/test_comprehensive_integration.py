@@ -35,7 +35,7 @@ from omni_mercury_engine.space.space_exploration_analyzer import SpaceExploratio
 class TestComprehensiveIntegration:
     """Comprehensive integration test suite."""
 
-    def test_coordinator_lists_12_modules(self):
+    def test_coordinator_lists_12_modules(self) -> None:
         """Verify coordinator now lists 12 modules (was 11, +1 for SpaceExplorationAnalyzer)."""
         coord = InfrastructureCoordinator()
         modules = coord.list_all_modules()
@@ -47,7 +47,7 @@ class TestComprehensiveIntegration:
         assert module_info["category"] == "scientific"
         assert module_info["priority"] == "high"
 
-    def test_run_single_module(self):
+    def test_run_single_module(self) -> None:
         """Test running 1 module."""
         coord = InfrastructureCoordinator()
         modules = coord.instantiate_filtered_modules(module_names=["ncf_monitor"])
@@ -55,7 +55,7 @@ class TestComprehensiveIntegration:
         assert len(modules) == 1
         assert "ncf_monitor" in modules
 
-    def test_run_five_high_priority_modules(self):
+    def test_run_five_high_priority_modules(self) -> None:
         """Test running 5+ high-priority modules."""
         coord = InfrastructureCoordinator()
         modules = coord.instantiate_filtered_modules(priorities=["high"])
@@ -63,14 +63,14 @@ class TestComprehensiveIntegration:
         assert len(modules) >= 5
         assert "space_exploration_analyzer" in modules
 
-    def test_run_all_modules(self):
+    def test_run_all_modules(self) -> None:
         """Test running all 12 modules."""
         coord = InfrastructureCoordinator()
         modules = coord.instantiate_filtered_modules()
 
         assert len(modules) == 12
 
-    def test_run_scientific_category_modules(self):
+    def test_run_scientific_category_modules(self) -> None:
         """Test running all scientific category modules."""
         coord = InfrastructureCoordinator()
         modules = coord.instantiate_filtered_modules(categories=["scientific"])
@@ -79,7 +79,7 @@ class TestComprehensiveIntegration:
         assert "space_exploration_analyzer" in modules
         assert "emerging_tech_monitor" in modules
 
-    def test_space_exploration_cosmic_ray_prediction(self):
+    def test_space_exploration_cosmic_ray_prediction(self) -> None:
         """Run anomaly detection on synthetic cosmic ray data."""
         analyzer = SpaceExplorationAnalyzer()
 
@@ -102,7 +102,7 @@ class TestComprehensiveIntegration:
             "Insights: Detected high-energy particle events indicative of cosmic ray interference"
         )
 
-    def test_space_exploration_satellite_position_prediction(self):
+    def test_space_exploration_satellite_position_prediction(self) -> None:
         """Run anomaly detection on synthetic satellite position data with deviations."""
         analyzer = SpaceExplorationAnalyzer()
 
@@ -133,7 +133,7 @@ class TestComprehensiveIntegration:
         rec = result["recommendations"][0] if result["recommendations"] else "Nominal orbit"
         print(f"Recommendation: {rec}")
 
-    def test_simulation_module_collatz_prediction(self):
+    def test_simulation_module_collatz_prediction(self) -> None:
         """Run Collatz conjecture exploration and report insights."""
         sim = SimulationModule()
 
@@ -150,7 +150,7 @@ class TestComprehensiveIntegration:
         print(f"Max Height: {result['max_height']}")
         print(f"Insights: {result['insights'][0]}")
 
-    def test_simulation_module_p_vs_np_analysis(self):
+    def test_simulation_module_p_vs_np_analysis(self) -> None:
         """Analyze P vs NP Millennium Prize Problem."""
         sim = SimulationModule()
 
@@ -168,7 +168,7 @@ class TestComprehensiveIntegration:
         print(f"Analysis: {result['analysis']}")
         print(f"Ethical Implications: {', '.join(result['ethical_flags'])}")
 
-    def test_multiverse_prediction_with_simulation(self):
+    def test_multiverse_prediction_with_simulation(self) -> None:
         """Test multiverse branching prediction."""
         sim = SimulationModule(config={"num_branches": 15})
 
@@ -186,7 +186,7 @@ class TestComprehensiveIntegration:
         print(f"Branch Variance: {np.mean(result['branch_variance']):.3f}")
         print(f"Ethical Risks Detected: {result['ethical_risk_detected']}")
 
-    def test_orbital_debris_collision_risk_prediction(self):
+    def test_orbital_debris_collision_risk_prediction(self) -> None:
         """Predict orbital debris collision risks with close approaches."""
         analyzer = SpaceExplorationAnalyzer(config={"debris_proximity_km": 15.0})
 

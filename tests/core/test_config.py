@@ -35,7 +35,7 @@ from omni_mercury_engine.core.config import (
 class TestDeviceType:
     """Test DeviceType enum."""
 
-    def test_device_types(self):
+    def test_device_types(self) -> None:
         """Test all device types."""
         assert DeviceType.CPU.value == "cpu"
         assert DeviceType.CUDA.value == "cuda"
@@ -45,7 +45,7 @@ class TestDeviceType:
 class TestFusionMode:
     """Test FusionMode enum."""
 
-    def test_fusion_modes(self):
+    def test_fusion_modes(self) -> None:
         """Test all fusion modes."""
         assert FusionMode.EARLY.value == "early"
         assert FusionMode.LATE.value == "late"
@@ -55,7 +55,7 @@ class TestFusionMode:
 class TestDetectorConfig:
     """Test DetectorConfig dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default values."""
         config = DetectorConfig()
 
@@ -66,7 +66,7 @@ class TestDetectorConfig:
         assert config.use_harmonic_detection is True
         assert config.params == {}
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test custom values."""
         config = DetectorConfig(
             enabled=False,
@@ -84,7 +84,7 @@ class TestDetectorConfig:
 class TestModelConfig:
     """Test ModelConfig dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default values."""
         config = ModelConfig()
 
@@ -93,7 +93,7 @@ class TestModelConfig:
         assert config.use_black_hole_features is True
         assert config.params == {}
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test custom values."""
         config = ModelConfig(enabled=False, use_harmonic_features=False, params={"model": "custom"})
 
@@ -105,7 +105,7 @@ class TestModelConfig:
 class TestFusionConfig:
     """Test FusionConfig dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default values."""
         config = FusionConfig()
 
@@ -117,7 +117,7 @@ class TestFusionConfig:
         assert config.weight_decay == 0.0001
         assert config.optimizer == "adamw"
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test custom values."""
         config = FusionConfig(mode=FusionMode.EARLY, attention_heads=8, hidden_dim=256, dropout=0.2)
 
@@ -130,7 +130,7 @@ class TestFusionConfig:
 class TestEngineConfig:
     """Test EngineConfig dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default values."""
         config = EngineConfig()
 
@@ -142,7 +142,7 @@ class TestEngineConfig:
         assert config.cache_dir == "./cache"
         assert config.log_level == "INFO"
 
-    def test_post_init_detectors(self):
+    def test_post_init_detectors(self) -> None:
         """Test __post_init__ creates default detectors."""
         config = EngineConfig()
 
@@ -153,7 +153,7 @@ class TestEngineConfig:
         assert "dimensional" in config.detectors
         assert "directive" in config.detectors
 
-    def test_post_init_models(self):
+    def test_post_init_models(self) -> None:
         """Test __post_init__ creates default models."""
         config = EngineConfig()
 
@@ -165,7 +165,7 @@ class TestEngineConfig:
         assert "neural" in config.models
         assert "consciousness" in config.models
 
-    def test_custom_detectors(self):
+    def test_custom_detectors(self) -> None:
         """Test custom detectors don't get overwritten."""
         custom_detectors = {
             "custom": DetectorConfig(threshold=0.9),
@@ -176,7 +176,7 @@ class TestEngineConfig:
         assert "custom" in config.detectors
         assert config.detectors["custom"].threshold == 0.9
 
-    def test_custom_models(self):
+    def test_custom_models(self) -> None:
         """Test custom models don't get overwritten."""
         custom_models = {
             "custom_model": ModelConfig(enabled=False),
@@ -187,7 +187,7 @@ class TestEngineConfig:
         assert "custom_model" in config.models
         assert config.models["custom_model"].enabled is False
 
-    def test_full_custom_config(self):
+    def test_full_custom_config(self) -> None:
         """Test fully customized config."""
         config = EngineConfig(
             device=DeviceType.CUDA,

@@ -27,7 +27,7 @@ from omni_mercury_engine.core.adaptive_detector import (
 class TestAdaptiveThresholdCalibrator:
     """Tests for threshold calibration - addresses covtype F1=0 issue."""
 
-    def test_percentile_calibration(self):
+    def test_percentile_calibration(self) -> None:
         """Test percentile-based calibration produces non-zero predictions."""
         calibrator = AdaptiveThresholdCalibrator(contamination=0.1)
 
@@ -42,7 +42,7 @@ class TestAdaptiveThresholdCalibrator:
         assert predictions.sum() > 0, "Should have non-zero predictions (fixes F1=0)"
         assert predictions.sum() < len(predictions), "Shouldn't flag everything"
 
-    def test_otsu_calibration(self):
+    def test_otsu_calibration(self) -> None:
         """Test Otsu method finds optimal bimodal threshold."""
         calibrator = AdaptiveThresholdCalibrator(contamination=0.05)
 
@@ -57,7 +57,7 @@ class TestAdaptiveThresholdCalibrator:
         assert 3.0 < threshold < 7.0
         assert predictions.sum() > 0
 
-    def test_mad_calibration(self):
+    def test_mad_calibration(self) -> None:
         """Test MAD-based robust calibration."""
         calibrator = AdaptiveThresholdCalibrator(contamination=0.05)
 
@@ -70,7 +70,7 @@ class TestAdaptiveThresholdCalibrator:
         assert threshold > 5.0  # Should be above median
         assert predictions.sum() > 0
 
-    def test_empty_predictions_fallback(self):
+    def test_empty_predictions_fallback(self) -> None:
         """Test fallback when MAD produces no predictions."""
         calibrator = AdaptiveThresholdCalibrator(contamination=0.05, min_contamination=0.01)
 
@@ -86,7 +86,7 @@ class TestAdaptiveThresholdCalibrator:
 class TestCovarianceAwareDetector:
     """Tests for covariance detection - addresses batadal AUC=0.5458 issue."""
 
-    def test_fit_and_score(self):
+    def test_fit_and_score(self) -> None:
         """Test basic fit and scoring."""
         detector = CovarianceAwareDetector(contamination=0.1)
 
@@ -104,7 +104,7 @@ class TestCovarianceAwareDetector:
         assert len(scores) == n_samples
         assert scores.min() >= 0  # Mahalanobis distance is non-negative
 
-    def test_detect_outliers(self):
+    def test_detect_outliers(self) -> None:
         """Test that outliers have higher scores."""
         detector = CovarianceAwareDetector(contamination=0.1)
 
@@ -121,7 +121,7 @@ class TestCovarianceAwareDetector:
 
         assert outlier_score > normal_score
 
-    def test_regularization(self):
+    def test_regularization(self) -> None:
         """Test detector handles near-singular covariance."""
         detector = CovarianceAwareDetector(contamination=0.1)
 
@@ -140,7 +140,7 @@ class TestCovarianceAwareDetector:
 class TestTemporalPatternDetector:
     """Tests for temporal detection - addresses smd F1=0.06 issue."""
 
-    def test_transform_adds_features(self):
+    def test_transform_adds_features(self) -> None:
         """Test that temporal transformation adds features."""
         detector = TemporalPatternDetector(window_sizes=[5, 10], lag_features=2, include_diff=True)
 
@@ -151,7 +151,7 @@ class TestTemporalPatternDetector:
         assert X_transformed.shape[0] == X.shape[0]
         assert X_transformed.shape[1] > X.shape[1]
 
-    def test_lag_features(self):
+    def test_lag_features(self) -> None:
         """Test lag features are computed correctly."""
         detector = TemporalPatternDetector(window_sizes=[], lag_features=1, include_diff=False)
 
@@ -163,7 +163,7 @@ class TestTemporalPatternDetector:
         expected_lag1 = np.array([[0], [1], [2], [3], [4]], dtype=float)
         np.testing.assert_array_equal(X_transformed[:, 1:2], expected_lag1)
 
-    def test_rolling_stats(self):
+    def test_rolling_stats(self) -> None:
         """Test rolling statistics are computed."""
         detector = TemporalPatternDetector(
             window_sizes=[3],
@@ -179,7 +179,7 @@ class TestTemporalPatternDetector:
         # Features: original(2) + rmean3(2) + rstd3(2) + rdev3(2) = 8
         assert X_transformed.shape[1] >= 8
 
-    def test_feature_names(self):
+    def test_feature_names(self) -> None:
         """Test feature names are generated."""
         detector = TemporalPatternDetector(lag_features=1, include_diff=True)
 
@@ -195,7 +195,7 @@ class TestTemporalPatternDetector:
 class TestAdaptiveAnomalyDetector:
     """Tests for unified adaptive detector."""
 
-    def test_auto_profile_temporal(self):
+    def test_auto_profile_temporal(self) -> None:
         """Test auto-profiling detects temporal data."""
         detector = AdaptiveAnomalyDetector(auto_profile=True)
 
@@ -210,7 +210,7 @@ class TestAdaptiveAnomalyDetector:
 
         assert profile == DatasetProfile.TEMPORAL
 
-    def test_auto_profile_covariance(self):
+    def test_auto_profile_covariance(self) -> None:
         """Test auto-profiling detects covariance structure."""
         detector = AdaptiveAnomalyDetector(auto_profile=True)
 
@@ -230,7 +230,7 @@ class TestAdaptiveAnomalyDetector:
 
         assert profile == DatasetProfile.COVARIANCE_STRUCTURED
 
-    def test_auto_profile_high_dim(self):
+    def test_auto_profile_high_dim(self) -> None:
         """Test auto-profiling detects high-dimensional data."""
         detector = AdaptiveAnomalyDetector(auto_profile=True)
 
@@ -241,7 +241,7 @@ class TestAdaptiveAnomalyDetector:
 
         assert profile == DatasetProfile.HIGH_DIMENSIONAL
 
-    def test_detect_returns_result(self):
+    def test_detect_returns_result(self) -> None:
         """Test detection returns proper result object."""
         detector = AdaptiveAnomalyDetector(contamination=0.1)
 
@@ -260,7 +260,7 @@ class TestAdaptiveAnomalyDetector:
             "bimodal",
         ]
 
-    def test_detect_temporal_profile(self):
+    def test_detect_temporal_profile(self) -> None:
         """Test detection with temporal profile."""
         detector = AdaptiveAnomalyDetector(auto_profile=False)
         detector._profile = DatasetProfile.TEMPORAL
@@ -272,7 +272,7 @@ class TestAdaptiveAnomalyDetector:
         assert result.profile_used == DatasetProfile.TEMPORAL
         assert "n_temporal_features" in result.metadata
 
-    def test_ethics_evaluation(self):
+    def test_ethics_evaluation(self) -> None:
         """Test ethics evaluation checks pass."""
         detector = AdaptiveAnomalyDetector()
 
@@ -299,7 +299,7 @@ class TestDatasetSpecificEnsemble:
             ("breast_cancer", DatasetProfile.MEDICAL),
         ],
     )
-    def test_dataset_profile_mapping(self, dataset_name, expected_profile):
+    def test_dataset_profile_mapping(self, dataset_name, expected_profile) -> None:
         """Test correct profile is assigned for each dataset."""
         ensemble = DatasetSpecificEnsemble(contamination=0.1)
 
@@ -307,7 +307,7 @@ class TestDatasetSpecificEnsemble:
 
         assert detector._profile == expected_profile
 
-    def test_detect_with_dataset_hint(self):
+    def test_detect_with_dataset_hint(self) -> None:
         """Test detection with dataset hint."""
         ensemble = DatasetSpecificEnsemble(contamination=0.1)
 
@@ -316,7 +316,7 @@ class TestDatasetSpecificEnsemble:
 
         assert result.profile_used == DatasetProfile.HIGH_DIMENSIONAL
 
-    def test_unknown_dataset_uses_generic(self):
+    def test_unknown_dataset_uses_generic(self) -> None:
         """Test unknown datasets use generic profile."""
         ensemble = DatasetSpecificEnsemble()
 
@@ -328,7 +328,7 @@ class TestDatasetSpecificEnsemble:
 class TestIntegration:
     """Integration tests for realistic scenarios."""
 
-    def test_covtype_scenario(self):
+    def test_covtype_scenario(self) -> None:
         """Test covtype-like data (high-dim) with Otsu calibration."""
         detector = AdaptiveAnomalyDetector(contamination=0.05, auto_profile=False)
         detector._profile = DatasetProfile.HIGH_DIMENSIONAL
@@ -351,7 +351,7 @@ class TestIntegration:
         anomaly_pred_in_anomaly = result.predictions[n_normal:].sum()
         assert anomaly_pred_in_anomaly > n_anomaly * 0.3, "Should detect significant anomalies"
 
-    def test_batadal_scenario(self):
+    def test_batadal_scenario(self) -> None:
         """Test batadal-like data (covariance structured)."""
         detector = AdaptiveAnomalyDetector(contamination=0.1, auto_profile=False)
         detector._profile = DatasetProfile.COVARIANCE_STRUCTURED
@@ -380,7 +380,7 @@ class TestIntegration:
 
         assert anomaly_scores > normal_scores, "Anomalies should have higher scores"
 
-    def test_smd_scenario(self):
+    def test_smd_scenario(self) -> None:
         """Test smd-like data (temporal patterns)."""
         detector = AdaptiveAnomalyDetector(contamination=0.1, auto_profile=False)
         detector._profile = DatasetProfile.TEMPORAL

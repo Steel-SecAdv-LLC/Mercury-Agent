@@ -30,21 +30,21 @@ from omni_mercury_engine.models.simulation import SimulationModule
 class TestSimulationModule:
     """Test suite for SimulationModule."""
 
-    def test_simulation_instantiation(self):
+    def test_simulation_instantiation(self) -> None:
         """Test simulation module can be instantiated."""
         sim = SimulationModule()
         assert sim is not None
         assert sim.num_branches == 10
         assert sim.embedding_dim == 128
 
-    def test_simulation_with_config(self):
+    def test_simulation_with_config(self) -> None:
         """Test simulation module with custom config."""
         config = {"num_branches": 20, "embedding_dim": 256}
         sim = SimulationModule(config=config)
         assert sim.num_branches == 20
         assert sim.embedding_dim == 256
 
-    def test_simulate_zeno_paradox(self):
+    def test_simulate_zeno_paradox(self) -> None:
         """Test Zeno's paradox simulation."""
         sim = SimulationModule()
         result = sim.simulate_paradox("zeno", iterations=100)
@@ -58,7 +58,7 @@ class TestSimulationModule:
         assert "insights" in result
         assert len(result["insights"]) > 0
 
-    def test_simulate_liar_paradox(self):
+    def test_simulate_liar_paradox(self) -> None:
         """Test Epimenides (Liar) paradox simulation."""
         sim = SimulationModule()
         result = sim.simulate_paradox("epimenides", iterations=50)
@@ -67,7 +67,7 @@ class TestSimulationModule:
         assert "oscillation_pattern" in result
         assert "ethical_flags" in result
 
-    def test_simulate_russell_paradox(self):
+    def test_simulate_russell_paradox(self) -> None:
         """Test Russell's paradox simulation."""
         sim = SimulationModule()
         result = sim.simulate_paradox("russell", iterations=100)
@@ -76,7 +76,7 @@ class TestSimulationModule:
         assert "contradictions_detected" in result
         assert "ethical_flags" in result
 
-    def test_explore_collatz_conjecture(self):
+    def test_explore_collatz_conjecture(self) -> None:
         """Test Collatz conjecture exploration."""
         sim = SimulationModule()
         result = sim.explore_conjecture("collatz", search_space=1000)
@@ -88,7 +88,7 @@ class TestSimulationModule:
         assert "viability_score" in result
         assert "insights" in result
 
-    def test_explore_twin_prime_conjecture(self):
+    def test_explore_twin_prime_conjecture(self) -> None:
         """Test Twin Prime conjecture exploration."""
         sim = SimulationModule()
         result = sim.explore_conjecture("twin_prime", search_space=1000)
@@ -98,7 +98,7 @@ class TestSimulationModule:
         assert result["twin_primes_found"] > 0
         assert "viability_score" in result
 
-    def test_explore_goldbach_conjecture(self):
+    def test_explore_goldbach_conjecture(self) -> None:
         """Test Goldbach's conjecture exploration."""
         sim = SimulationModule()
         result = sim.explore_conjecture("goldbach", search_space=1000)
@@ -107,7 +107,7 @@ class TestSimulationModule:
         assert "supporting_cases" in result
         assert "counterexamples" in result
 
-    def test_analyze_p_vs_np(self):
+    def test_analyze_p_vs_np(self) -> None:
         """Test P vs NP analysis."""
         sim = SimulationModule()
         result = sim.analyze_millennium_problem("p_vs_np")
@@ -117,7 +117,7 @@ class TestSimulationModule:
         assert "complexity_gap" in result
         assert "ethical_flags" in result
 
-    def test_analyze_poincare_conjecture(self):
+    def test_analyze_poincare_conjecture(self) -> None:
         """Test Poincaré conjecture analysis (SOLVED)."""
         sim = SimulationModule()
         result = sim.analyze_millennium_problem("poincare")
@@ -127,7 +127,7 @@ class TestSimulationModule:
         assert "solved_by" in result
         assert result["solved_by"] == "Grigori Perelman"
 
-    def test_extract_features(self):
+    def test_extract_features(self) -> None:
         """Test feature extraction."""
         sim = SimulationModule()
         data = np.random.randn(10, 20)
@@ -138,7 +138,7 @@ class TestSimulationModule:
         assert features.shape[1] == sim.embedding_dim
         assert features.dtype == np.float32
 
-    def test_predict(self):
+    def test_predict(self) -> None:
         """Test multiverse branching prediction."""
         sim = SimulationModule()
         data = np.random.randn(5, 10)

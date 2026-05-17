@@ -20,6 +20,7 @@ from __future__ import annotations
 Production inference utilities for fusion model
 """
 
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -159,7 +160,7 @@ class ModelEnsemble:
 
     def __init__(
         self,
-        models: list[nn.Module],
+        models: Sequence[nn.Module],
         aggregation: str = "mean",
         device: str = "cpu",
     ):
@@ -275,7 +276,7 @@ class FusionInference:
 
     def predict(
         self,
-        detector_features: dict[str, np.ndarray[Any, Any] | torch.Tensor],
+        detector_features: Mapping[str, np.ndarray[Any, Any] | torch.Tensor],
         return_attention: bool = False,
         batch_size: int = 32,
     ) -> dict[str, Any]:
@@ -323,7 +324,7 @@ class FusionInference:
 
     def predict_batch(
         self,
-        detector_features_list: list[dict[str, np.ndarray[Any, Any] | torch.Tensor]],
+        detector_features_list: Sequence[Mapping[str, np.ndarray[Any, Any] | torch.Tensor]],
         batch_size: int = 32,
     ) -> list[dict[str, Any]]:
         """
@@ -379,7 +380,7 @@ class FusionInference:
 
     def explain(
         self,
-        detector_features: dict[str, np.ndarray[Any, Any] | torch.Tensor],
+        detector_features: Mapping[str, np.ndarray[Any, Any] | torch.Tensor],
     ) -> dict[str, Any]:
         """
         Get explanation for a prediction via attention weights.

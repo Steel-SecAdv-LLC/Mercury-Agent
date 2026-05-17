@@ -30,7 +30,7 @@ from omni_mercury_engine.emergent.emergent_life_detector import (
 
 
 class TestSETIAnalyzer:
-    def test_natural_signal(self):
+    def test_natural_signal(self) -> None:
         analyzer = SETICosmicSignalAnalyzer()
         signal = np.random.randn(1000) * 0.5
         result = analyzer.detect_seti_anomaly(signal)
@@ -39,7 +39,7 @@ class TestSETIAnalyzer:
 
 
 class TestEmergentLifeDetector:
-    def test_comprehensive_detection(self):
+    def test_comprehensive_detection(self) -> None:
         detector = EmergentLifeDetector()
         signal = np.random.randn(1000)
         result = detector.detect_emergent_life(signal, "comprehensive")

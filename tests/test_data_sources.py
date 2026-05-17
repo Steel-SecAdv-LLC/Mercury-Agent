@@ -14,6 +14,8 @@ This test suite covers:
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("httpx")
@@ -356,7 +358,7 @@ class TestNASANeoWsSource:
         source = NASANeoWsSource()
 
         # Non-hazardous
-        neo = {"is_potentially_hazardous_asteroid": False}
+        neo: dict[str, Any] = {"is_potentially_hazardous_asteroid": False}
         assert source._calculate_hazard_level(neo) == AlertLevel.NONE
 
         # Hazardous with close approach
@@ -1025,10 +1027,10 @@ class TestHealthCheck:
         source = USGSEarthquakeSource()
 
         # Mock the fetch method to return success
-        async def mock_fetch(*args, **kwargs):
+        async def mock_fetch(*args: Any, **kwargs: Any) -> FetchResult:
             return FetchResult(success=True, data_points=[])
 
-        source.fetch = mock_fetch
+        source.fetch = mock_fetch  # type: ignore[method-assign]
         result = await source.health_check()
 
         assert result is True
@@ -1040,10 +1042,10 @@ class TestHealthCheck:
         source = USGSEarthquakeSource()
 
         # Mock the fetch method to raise an exception
-        async def mock_fetch(*args, **kwargs):
+        async def mock_fetch(*args: Any, **kwargs: Any) -> FetchResult:
             raise Exception("Connection failed")
 
-        source.fetch = mock_fetch
+        source.fetch = mock_fetch  # type: ignore[method-assign]
         result = await source.health_check()
 
         assert result is False

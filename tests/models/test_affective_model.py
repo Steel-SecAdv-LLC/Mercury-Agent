@@ -30,14 +30,14 @@ from omni_mercury_engine.utils.rng import DeterministicRNG
 class TestAffectiveAnomalyModelInitialization:
     """Tests for AffectiveAnomalyModel initialization."""
 
-    def test_default_initialization(self):
+    def test_default_initialization(self) -> None:
         """Test initialization with default parameters."""
         model = AffectiveAnomalyModel()
 
         assert model.config == {}
         assert model._rng is not None
 
-    def test_initialization_with_config(self):
+    def test_initialization_with_config(self) -> None:
         """Test initialization with custom config."""
         config = {"threshold": 0.5, "mode": "aggressive"}
         model = AffectiveAnomalyModel(config=config)
@@ -45,7 +45,7 @@ class TestAffectiveAnomalyModelInitialization:
         assert model.config == config
         assert model.config["threshold"] == 0.5
 
-    def test_initialization_with_rng(self):
+    def test_initialization_with_rng(self) -> None:
         """Test initialization with custom RNG."""
         rng = DeterministicRNG(seed=123)
         model = AffectiveAnomalyModel(rng=rng)
@@ -61,7 +61,7 @@ class TestFeatureExtraction:
         """Create model with deterministic RNG."""
         return AffectiveAnomalyModel(rng=DeterministicRNG(seed=42))
 
-    def test_extract_features_numpy_2d(self, model):
+    def test_extract_features_numpy_2d(self, model) -> None:
         """Test feature extraction with 2D numpy array."""
         data = np.random.randn(10, 20)
         features = model.extract_features(data)
@@ -70,7 +70,7 @@ class TestFeatureExtraction:
         assert features.dtype == np.float32
         assert features.shape == (10, 64)
 
-    def test_extract_features_numpy_1d(self, model):
+    def test_extract_features_numpy_1d(self, model) -> None:
         """Test feature extraction with 1D numpy array (reshaped)."""
         data = np.random.randn(100)
         features = model.extract_features(data)
@@ -78,7 +78,7 @@ class TestFeatureExtraction:
         assert isinstance(features, np.ndarray)
         assert features.shape == (1, 64)
 
-    def test_extract_features_dict(self, model):
+    def test_extract_features_dict(self, model) -> None:
         """Test feature extraction with dict input."""
         data = {"signal": np.random.randn(50)}
         features = model.extract_features(data)
@@ -86,7 +86,7 @@ class TestFeatureExtraction:
         assert isinstance(features, np.ndarray)
         assert features.shape[1] == 64
 
-    def test_extract_features_list(self, model):
+    def test_extract_features_list(self, model) -> None:
         """Test feature extraction with list input."""
         data = [1.0, 2.0, 3.0, 4.0, 5.0]
         features = model.extract_features(data)
@@ -94,7 +94,7 @@ class TestFeatureExtraction:
         assert isinstance(features, np.ndarray)
         assert features.shape == (1, 64)
 
-    def test_extract_features_deterministic(self):
+    def test_extract_features_deterministic(self) -> None:
         """Test that feature extraction is deterministic with same seed."""
         rng1 = DeterministicRNG(seed=42)
         rng2 = DeterministicRNG(seed=42)
@@ -116,7 +116,7 @@ class TestPrediction:
         """Create model with deterministic RNG."""
         return AffectiveAnomalyModel(rng=DeterministicRNG(seed=42))
 
-    def test_predict_numpy_2d(self, model):
+    def test_predict_numpy_2d(self, model) -> None:
         """Test prediction with 2D numpy array."""
         data = np.random.randn(10, 20)
         result = model.predict(data)
@@ -130,7 +130,7 @@ class TestPrediction:
         assert result["emotion_scores"].shape == (10, 6)
         assert result["distress_levels"].shape == (10,)
 
-    def test_predict_numpy_1d(self, model):
+    def test_predict_numpy_1d(self, model) -> None:
         """Test prediction with 1D numpy array."""
         data = np.random.randn(100)
         result = model.predict(data)
@@ -139,7 +139,7 @@ class TestPrediction:
         assert result["emotion_scores"].shape == (1, 6)
         assert result["distress_levels"].shape == (1,)
 
-    def test_predict_dict(self, model):
+    def test_predict_dict(self, model) -> None:
         """Test prediction with dict input."""
         data = {"signal": np.random.randn(50)}
         result = model.predict(data)
@@ -148,7 +148,7 @@ class TestPrediction:
         assert "emotion_scores" in result
         assert "distress_levels" in result
 
-    def test_predict_scores_in_valid_range(self, model):
+    def test_predict_scores_in_valid_range(self, model) -> None:
         """Test that scores are in valid range [0, 1]."""
         data = np.random.randn(20, 10)
         result = model.predict(data)
@@ -159,7 +159,7 @@ class TestPrediction:
         assert np.all(result["distress_levels"] >= 0)
         assert np.all(result["distress_levels"] <= 1)
 
-    def test_predict_float32_output(self, model):
+    def test_predict_float32_output(self, model) -> None:
         """Test that outputs are float32."""
         data = np.random.randn(5, 10)
         result = model.predict(data)
@@ -168,7 +168,7 @@ class TestPrediction:
         assert result["emotion_scores"].dtype == np.float32
         assert result["distress_levels"].dtype == np.float32
 
-    def test_predict_deterministic(self):
+    def test_predict_deterministic(self) -> None:
         """Test that prediction is deterministic with same seed."""
         rng1 = DeterministicRNG(seed=42)
         rng2 = DeterministicRNG(seed=42)
@@ -192,7 +192,7 @@ class TestEmotionScores:
         """Create model with deterministic RNG."""
         return AffectiveAnomalyModel(rng=DeterministicRNG(seed=42))
 
-    def test_emotion_scores_shape(self, model):
+    def test_emotion_scores_shape(self, model) -> None:
         """Test that emotion scores have correct shape (6 emotions)."""
         data = np.random.randn(10, 20)
         result = model.predict(data)
@@ -200,7 +200,7 @@ class TestEmotionScores:
         # Should have 6 emotion dimensions
         assert result["emotion_scores"].shape[1] == 6
 
-    def test_emotion_scores_batch_dimension(self, model):
+    def test_emotion_scores_batch_dimension(self, model) -> None:
         """Test that emotion scores match batch dimension."""
         for batch_size in [1, 5, 20, 100]:
             data = np.random.randn(batch_size, 10)
@@ -217,35 +217,35 @@ class TestEdgeCases:
         """Create model with deterministic RNG."""
         return AffectiveAnomalyModel(rng=DeterministicRNG(seed=42))
 
-    def test_single_sample(self, model):
+    def test_single_sample(self, model) -> None:
         """Test with single sample."""
         data = np.random.randn(1, 10)
         result = model.predict(data)
 
         assert result["anomaly_scores"].shape == (1,)
 
-    def test_large_batch(self, model):
+    def test_large_batch(self, model) -> None:
         """Test with large batch."""
         data = np.random.randn(1000, 50)
         result = model.predict(data)
 
         assert result["anomaly_scores"].shape == (1000,)
 
-    def test_small_feature_dim(self, model):
+    def test_small_feature_dim(self, model) -> None:
         """Test with small feature dimension."""
         data = np.random.randn(10, 2)
         result = model.predict(data)
 
         assert result["anomaly_scores"].shape == (10,)
 
-    def test_large_feature_dim(self, model):
+    def test_large_feature_dim(self, model) -> None:
         """Test with large feature dimension."""
         data = np.random.randn(10, 500)
         result = model.predict(data)
 
         assert result["anomaly_scores"].shape == (10,)
 
-    def test_dict_with_multiple_keys(self, model):
+    def test_dict_with_multiple_keys(self, model) -> None:
         """Test with dict containing multiple keys."""
         data = {
             "signal": np.random.randn(50),

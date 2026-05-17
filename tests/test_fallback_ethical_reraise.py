@@ -40,7 +40,7 @@ class TestFallbackChainEthicalReraise:
     def _make_chain(fail_fast: bool) -> FallbackChain:
         chain = FallbackChain(name="ethical-test", fail_fast=fail_fast)
 
-        async def ethical_refuser(*_args, **_kwargs):
+        async def ethical_refuser(*_args, **_kwargs) -> None:
             raise EthicalConstraintViolationError(
                 action="test_action",
                 score=0.10,
@@ -73,7 +73,7 @@ class TestFallbackChainEthicalReraise:
 
         chain = FallbackChain(name="reach-test", fail_fast=False)
 
-        async def ethical_refuser(*_args, **_kwargs):
+        async def ethical_refuser(*_args, **_kwargs) -> None:
             raise EthicalConstraintViolationError(
                 action="test_action",
                 score=0.05,
@@ -100,7 +100,7 @@ class TestFallbackChainEthicalReraise:
         """Non-ethical exceptions should still trigger normal fallback logic."""
         chain = FallbackChain(name="normal-fallback-test", fail_fast=False)
 
-        async def failing_handler(*_args, **_kwargs):
+        async def failing_handler(*_args, **_kwargs) -> None:
             raise ValueError("transient failure")
 
         async def recovery_handler(*_args, **_kwargs):

@@ -30,20 +30,20 @@ from omni_mercury_engine.space.space_exploration_analyzer import SpaceExploratio
 class TestSpaceExplorationAnalyzer:
     """Test suite for SpaceExplorationAnalyzer."""
 
-    def test_analyzer_instantiation(self):
+    def test_analyzer_instantiation(self) -> None:
         """Test space exploration analyzer can be instantiated."""
         analyzer = SpaceExplorationAnalyzer()
         assert analyzer is not None
         assert analyzer.cosmic_ray_threshold == 3.0
 
-    def test_analyzer_with_config(self):
+    def test_analyzer_with_config(self) -> None:
         """Test analyzer with custom config."""
         config = {"cosmic_ray_threshold": 5.0, "debris_proximity_km": 5.0}
         analyzer = SpaceExplorationAnalyzer(config=config)
         assert analyzer.cosmic_ray_threshold == 5.0
         assert analyzer.debris_proximity_km == 5.0
 
-    def test_analyze_cosmic_rays(self):
+    def test_analyze_cosmic_rays(self) -> None:
         """Test cosmic ray anomaly detection."""
         analyzer = SpaceExplorationAnalyzer()
 
@@ -61,7 +61,7 @@ class TestSpaceExplorationAnalyzer:
         assert "severity" in result
         assert "recommendations" in result
 
-    def test_detect_spectral_anomalies(self):
+    def test_detect_spectral_anomalies(self) -> None:
         """Test spectral pattern matching."""
         analyzer = SpaceExplorationAnalyzer()
 
@@ -79,7 +79,7 @@ class TestSpaceExplorationAnalyzer:
         assert "identified_lines" in result
         assert "unidentified_peaks" in result
 
-    def test_predict_orbital_debris(self):
+    def test_predict_orbital_debris(self) -> None:
         """Test orbital debris risk prediction."""
         analyzer = SpaceExplorationAnalyzer()
 
@@ -96,7 +96,7 @@ class TestSpaceExplorationAnalyzer:
         assert "proximity_warnings" in result
         assert "mean_orbital_altitude_km" in result
 
-    def test_analyze_satellite_position(self):
+    def test_analyze_satellite_position(self) -> None:
         """Test satellite position deviation analysis."""
         analyzer = SpaceExplorationAnalyzer()
 
@@ -115,7 +115,7 @@ class TestSpaceExplorationAnalyzer:
         assert "altitude_above_earth_km" in result
         assert "insights" in result
 
-    def test_detect_with_cosmic_ray_type(self):
+    def test_detect_with_cosmic_ray_type(self) -> None:
         """Test detect method with cosmic_ray analysis type."""
         analyzer = SpaceExplorationAnalyzer()
         data = np.random.randn(100, 5)
@@ -125,7 +125,7 @@ class TestSpaceExplorationAnalyzer:
         assert result["analysis_type"] == "cosmic_ray"
         assert "anomaly_score" in result
 
-    def test_detect_with_spectral_type(self):
+    def test_detect_with_spectral_type(self) -> None:
         """Test detect method with spectral analysis type."""
         analyzer = SpaceExplorationAnalyzer()
         data = np.random.randn(100, 2)
@@ -134,7 +134,7 @@ class TestSpaceExplorationAnalyzer:
 
         assert result["analysis_type"] == "spectral"
 
-    def test_detect_with_satellite_position_type(self):
+    def test_detect_with_satellite_position_type(self) -> None:
         """Test detect method with satellite_position analysis type."""
         analyzer = SpaceExplorationAnalyzer()
         data = np.random.randn(100, 3) * 100 + np.array([7000, 0, 0])

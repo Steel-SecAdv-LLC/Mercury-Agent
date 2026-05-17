@@ -36,20 +36,20 @@ pytestmark = pytest.mark.skipif(not HAS_CIRCUIT_BREAKER, reason="circuit_breaker
 class TestDataLoaderCircuitBreaker:
     """Tests for DataLoaderCircuitBreaker."""
 
-    def test_create_breaker(self):
+    def test_create_breaker(self) -> None:
         """Test breaker instantiation."""
         breaker = DataLoaderCircuitBreaker()
         assert breaker is not None
         assert breaker.failure_threshold == 3
 
-    def test_initial_state_closed(self):
+    def test_initial_state_closed(self) -> None:
         """Test breaker starts in CLOSED state."""
         breaker = DataLoaderCircuitBreaker()
         from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
         assert breaker.state == CircuitState.CLOSED
 
-    def test_successful_call_stays_closed(self):
+    def test_successful_call_stays_closed(self) -> None:
         """Test successful calls keep breaker closed."""
         breaker = DataLoaderCircuitBreaker()
         from omni_mercury_engine.resilience.circuit_breaker import CircuitState
@@ -61,13 +61,13 @@ class TestDataLoaderCircuitBreaker:
         assert result == "data"
         assert breaker.state == CircuitState.CLOSED
 
-    def test_failures_open_circuit(self):
+    def test_failures_open_circuit(self) -> None:
         """Test that 3 failures open the circuit."""
         breaker = DataLoaderCircuitBreaker()
         breaker.reset()  # Ensure clean state
         from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
-        def failing_fn():
+        def failing_fn() -> None:
             raise Exception("API error")
 
         # DataLoaderCircuitBreaker has failure_threshold of 3
@@ -79,12 +79,12 @@ class TestDataLoaderCircuitBreaker:
 
         assert breaker.state == CircuitState.OPEN
 
-    def test_open_circuit_blocks_calls(self):
+    def test_open_circuit_blocks_calls(self) -> None:
         """Test that open circuit blocks further calls."""
         breaker = DataLoaderCircuitBreaker()
         breaker.reset()
 
-        def failing_fn():
+        def failing_fn() -> None:
             raise Exception("API error")
 
         # Open the circuit
@@ -102,19 +102,19 @@ class TestDataLoaderCircuitBreaker:
 class TestDetectorCircuitBreaker:
     """Tests for DetectorCircuitBreaker."""
 
-    def test_create_breaker(self):
+    def test_create_breaker(self) -> None:
         """Test breaker instantiation."""
         breaker = DetectorCircuitBreaker()
         assert breaker is not None
         assert breaker.failure_threshold == 5
 
-    def test_higher_failure_threshold(self):
+    def test_higher_failure_threshold(self) -> None:
         """Test DetectorCircuitBreaker has 5 failure threshold."""
         breaker = DetectorCircuitBreaker()
         breaker.reset()
         from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
-        def failing_fn():
+        def failing_fn() -> None:
             raise Exception("Detector error")
 
         # Should still be closed after 4 failures
@@ -139,19 +139,19 @@ class TestDetectorCircuitBreaker:
 class TestExternalIntegrationCircuitBreaker:
     """Tests for ExternalIntegrationCircuitBreaker."""
 
-    def test_create_breaker(self):
+    def test_create_breaker(self) -> None:
         """Test breaker instantiation."""
         breaker = ExternalIntegrationCircuitBreaker()
         assert breaker is not None
         assert breaker.failure_threshold == 3
 
-    def test_three_failure_threshold(self):
+    def test_three_failure_threshold(self) -> None:
         """Test ExternalIntegrationCircuitBreaker has 3 failure threshold."""
         breaker = ExternalIntegrationCircuitBreaker()
         breaker.reset()
         from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
-        def failing_fn():
+        def failing_fn() -> None:
             raise Exception("External API error")
 
         # 3 failures should open circuit
@@ -167,7 +167,7 @@ class TestExternalIntegrationCircuitBreaker:
 class TestCircuitBreakerRecovery:
     """Tests for circuit breaker recovery behavior."""
 
-    def test_half_open_after_timeout(self):
+    def test_half_open_after_timeout(self) -> None:
         """Test circuit transitions to HALF_OPEN after timeout."""
         breaker = DataLoaderCircuitBreaker()
         breaker.reset()
@@ -175,7 +175,7 @@ class TestCircuitBreakerRecovery:
         breaker.recovery_timeout = 0.1
         from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
-        def failing_fn():
+        def failing_fn() -> None:
             raise Exception("Error")
 
         # Open the circuit
@@ -200,14 +200,14 @@ class TestCircuitBreakerRecovery:
         # State should be HALF_OPEN or CLOSED (if call succeeded)
         assert breaker.state in [CircuitState.HALF_OPEN, CircuitState.CLOSED]
 
-    def test_success_in_half_open_closes_circuit(self):
+    def test_success_in_half_open_closes_circuit(self) -> None:
         """Test successful call in HALF_OPEN closes circuit."""
         breaker = DataLoaderCircuitBreaker()
         breaker.reset()
         breaker.recovery_timeout = 0.1
         from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
-        def failing_fn():
+        def failing_fn() -> None:
             raise Exception("Error")
 
         # Open the circuit
@@ -238,25 +238,25 @@ class TestCircuitBreakerRecovery:
 class TestBreakerFactoryFunctions:
     """Tests for factory functions."""
 
-    def test_get_data_loader_breaker(self):
+    def test_get_data_loader_breaker(self) -> None:
         """Test get_data_loader_breaker returns correct type."""
         breaker = get_data_loader_breaker("noaa_api")
         assert breaker is not None
         assert isinstance(breaker, DataLoaderCircuitBreaker)
 
-    def test_get_detector_breaker(self):
+    def test_get_detector_breaker(self) -> None:
         """Test get_detector_breaker returns correct type."""
         breaker = get_detector_breaker("anomaly_detector")
         assert breaker is not None
         assert isinstance(breaker, DetectorCircuitBreaker)
 
-    def test_get_integration_breaker(self):
+    def test_get_integration_breaker(self) -> None:
         """Test get_integration_breaker returns correct type."""
         breaker = get_integration_breaker("external_api")
         assert breaker is not None
         assert isinstance(breaker, ExternalIntegrationCircuitBreaker)
 
-    def test_breaker_caching(self):
+    def test_breaker_caching(self) -> None:
         """Test that same name returns same breaker instance."""
         breaker1 = get_data_loader_breaker("cached_breaker")
         breaker2 = get_data_loader_breaker("cached_breaker")
@@ -266,7 +266,7 @@ class TestBreakerFactoryFunctions:
 class TestBreakerDecorator:
     """Tests for the circuit breaker decorator."""
 
-    def test_decorator_wraps_function(self):
+    def test_decorator_wraps_function(self) -> None:
         """Test decorator properly wraps function."""
 
         @with_circuit_breaker("data_loader", "test_api")
@@ -276,7 +276,7 @@ class TestBreakerDecorator:
         result = api_call()
         assert result == "data"
 
-    def test_decorator_attaches_breaker(self):
+    def test_decorator_attaches_breaker(self) -> None:
         """Test decorator attaches breaker to function."""
 
         @with_circuit_breaker("data_loader", "test_attached")
@@ -290,7 +290,7 @@ class TestBreakerDecorator:
 class TestBreakerStatistics:
     """Tests for statistics and monitoring functions."""
 
-    def test_get_all_breaker_stats(self):
+    def test_get_all_breaker_stats(self) -> None:
         """Test retrieving all breaker statistics."""
         # Create some breakers
         get_data_loader_breaker("stats_test_1")
@@ -301,7 +301,7 @@ class TestBreakerStatistics:
         assert isinstance(stats, dict)
         assert len(stats) > 0
 
-    def test_get_open_breakers(self):
+    def test_get_open_breakers(self) -> None:
         """Test retrieving list of open breakers."""
         reset_all_breakers()
 
@@ -310,14 +310,14 @@ class TestBreakerStatistics:
         # Initially should be empty
         assert isinstance(open_breakers, list)
 
-    def test_reset_all_breakers(self):
+    def test_reset_all_breakers(self) -> None:
         """Test resetting all breakers."""
         from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
         # Create and open a breaker
         breaker = get_data_loader_breaker("reset_test")
 
-        def failing_fn():
+        def failing_fn() -> None:
             raise Exception("Error")
 
         for _ in range(3):

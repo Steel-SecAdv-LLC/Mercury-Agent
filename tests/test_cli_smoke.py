@@ -30,7 +30,7 @@ from click.testing import CliRunner
 from omni_mercury_engine.cli import main
 
 
-def test_cli_main_help():
+def test_cli_main_help() -> None:
     """Test CLI main help command"""
     runner = CliRunner()
     result = runner.invoke(main, ["--help"])
@@ -38,7 +38,7 @@ def test_cli_main_help():
     assert "Mercury Agent" in result.output
 
 
-def test_detect_help():
+def test_detect_help() -> None:
     """Test detect command help"""
     runner = CliRunner()
     result = runner.invoke(main, ["detect", "--help"])
@@ -46,7 +46,7 @@ def test_detect_help():
     assert "detector" in result.output.lower()
 
 
-def test_train_help():
+def test_train_help() -> None:
     """Test train command help"""
     runner = CliRunner()
     result = runner.invoke(main, ["train", "--help"])
@@ -54,7 +54,7 @@ def test_train_help():
     assert "train" in result.output.lower()
 
 
-def test_biometric_help():
+def test_biometric_help() -> None:
     """Test biometric command help"""
     runner = CliRunner()
     result = runner.invoke(main, ["biometric", "--help"])
@@ -62,7 +62,7 @@ def test_biometric_help():
     assert "biometric" in result.output.lower()
 
 
-def test_version_command():
+def test_version_command() -> None:
     """Test version command"""
     runner = CliRunner()
     result = runner.invoke(main, ["--version"])
@@ -70,7 +70,7 @@ def test_version_command():
     assert "1.6.0" in result.output
 
 
-def test_detect_with_sample_data():
+def test_detect_with_sample_data() -> None:
     """Test detect command with sample data"""
     runner = CliRunner()
 
@@ -85,7 +85,7 @@ def test_detect_with_sample_data():
         Path(data_file).unlink()
 
 
-def test_biometric_with_invalid_path():
+def test_biometric_with_invalid_path() -> None:
     """Test biometric command with invalid image path"""
     runner = CliRunner()
     result = runner.invoke(main, ["biometric", "--reference", "/nonexistent/image.jpg"])

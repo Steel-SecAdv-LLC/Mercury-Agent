@@ -79,7 +79,7 @@ class _CountingScorer(BenevolenceScorer):
         super().__init__(benevolence_threshold=0.99)
         self.enforce_calls = 0
 
-    def enforce(self, action: str, context: dict[str, Any]) -> EthicalScore:  # type: ignore[override]
+    def enforce(self, action: str, context: dict[str, Any]) -> EthicalScore:
         self.enforce_calls += 1
         return _permissible_score(action, suffix=str(self.enforce_calls))
 

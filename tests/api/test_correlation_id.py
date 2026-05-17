@@ -17,7 +17,7 @@ import pytest
 class TestCorrelationIDMiddleware:
     """Tests for CorrelationIDMiddleware."""
 
-    def test_correlation_id_context_var_exists(self):
+    def test_correlation_id_context_var_exists(self) -> None:
         """Test that correlation_id context variable is defined."""
         from omni_mercury_engine.api.server import correlation_id_ctx
 
@@ -25,7 +25,7 @@ class TestCorrelationIDMiddleware:
         # Default should be empty string
         assert correlation_id_ctx.get() == ""
 
-    def test_correlation_id_context_var_set_get(self):
+    def test_correlation_id_context_var_set_get(self) -> None:
         """Test setting and getting correlation ID."""
         from omni_mercury_engine.api.server import correlation_id_ctx
 
@@ -37,7 +37,7 @@ class TestCorrelationIDMiddleware:
         finally:
             correlation_id_ctx.reset(token)
 
-    def test_middleware_class_exists(self):
+    def test_middleware_class_exists(self) -> None:
         """Test that CorrelationIDMiddleware class exists."""
         from omni_mercury_engine.api.server import CorrelationIDMiddleware
 
@@ -46,7 +46,7 @@ class TestCorrelationIDMiddleware:
         assert hasattr(CorrelationIDMiddleware, "HEADER_NAME")
         assert hasattr(CorrelationIDMiddleware, "HEADER_ALIAS")
 
-    def test_middleware_header_constants(self):
+    def test_middleware_header_constants(self) -> None:
         """Test header name constants."""
         from omni_mercury_engine.api.server import CorrelationIDMiddleware
 
@@ -69,7 +69,7 @@ class TestCorrelationIDIntegration:
         except ImportError:
             pytest.skip("FastAPI test client not available")
 
-    def test_health_endpoint_returns_correlation_id(self, client):
+    def test_health_endpoint_returns_correlation_id(self, client) -> None:
         """Test that health endpoint returns correlation ID header."""
         response = client.get("/health")
 
@@ -79,7 +79,7 @@ class TestCorrelationIDIntegration:
         correlation_id = response.headers["X-Correlation-ID"]
         uuid.UUID(correlation_id)  # Raises if invalid
 
-    def test_request_duration_header(self, client):
+    def test_request_duration_header(self, client) -> None:
         """Test that request duration header is present."""
         response = client.get("/health")
 
@@ -87,21 +87,21 @@ class TestCorrelationIDIntegration:
         duration = float(response.headers["X-Request-Duration-Ms"])
         assert duration >= 0
 
-    def test_custom_correlation_id_preserved(self, client):
+    def test_custom_correlation_id_preserved(self, client) -> None:
         """Test that custom correlation ID is preserved."""
         custom_id = str(uuid.uuid4())
         response = client.get("/health", headers={"X-Correlation-ID": custom_id})
 
         assert response.headers["X-Correlation-ID"] == custom_id
 
-    def test_request_id_alias(self, client):
+    def test_request_id_alias(self, client) -> None:
         """Test that X-Request-ID alias works."""
         custom_id = str(uuid.uuid4())
         response = client.get("/health", headers={"X-Request-ID": custom_id})
 
         assert response.headers["X-Correlation-ID"] == custom_id
 
-    def test_correlation_id_priority(self, client):
+    def test_correlation_id_priority(self, client) -> None:
         """Test that X-Correlation-ID takes priority over X-Request-ID."""
         correlation_id = str(uuid.uuid4())
         request_id = str(uuid.uuid4())
@@ -121,7 +121,7 @@ class TestCorrelationIDIntegration:
 class TestCorrelationIDFormat:
     """Tests for correlation ID format validation."""
 
-    def test_generated_id_is_valid_uuid(self):
+    def test_generated_id_is_valid_uuid(self) -> None:
         """Test that generated IDs are valid UUIDs."""
         try:
             from fastapi.testclient import TestClient
@@ -140,7 +140,7 @@ class TestCorrelationIDFormat:
         except ImportError:
             pytest.skip("FastAPI test client not available")
 
-    def test_custom_id_formats_accepted(self):
+    def test_custom_id_formats_accepted(self) -> None:
         """Test that various ID formats are accepted."""
         try:
             from fastapi.testclient import TestClient

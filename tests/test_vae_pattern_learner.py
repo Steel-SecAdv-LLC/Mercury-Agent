@@ -18,19 +18,19 @@ from omni_mercury_engine.ml.vae_pattern_learner import VAE, VAEPatternLearner
 class TestVAE:
     """Tests for VAE class."""
 
-    def test_init_default_params(self):
+    def test_init_default_params(self) -> None:
         """Test initialization with default parameters."""
         vae = VAE(input_dim=10)
         assert vae.fc_mu.out_features == 32  # default latent_dim
         assert vae.fc_logvar.out_features == 32
 
-    def test_init_custom_params(self):
+    def test_init_custom_params(self) -> None:
         """Test initialization with custom parameters."""
         vae = VAE(input_dim=20, latent_dim=64, hidden_dims=[256, 128])
         assert vae.fc_mu.out_features == 64
         assert vae.fc_logvar.out_features == 64
 
-    def test_encode(self):
+    def test_encode(self) -> None:
         """Test encoding input to latent distribution parameters."""
         vae = VAE(input_dim=10, latent_dim=16, hidden_dims=[32, 16])
         vae.eval()
@@ -40,7 +40,7 @@ class TestVAE:
         assert mu.shape == (8, 16)
         assert logvar.shape == (8, 16)
 
-    def test_reparameterize(self):
+    def test_reparameterize(self) -> None:
         """Test reparameterization trick."""
         vae = VAE(input_dim=10, latent_dim=16)
         mu = torch.zeros(8, 16)
@@ -48,7 +48,7 @@ class TestVAE:
         z = vae.reparameterize(mu, logvar)
         assert z.shape == (8, 16)
 
-    def test_reparameterize_deterministic_with_zero_variance(self):
+    def test_reparameterize_deterministic_with_zero_variance(self) -> None:
         """Test reparameterization with zero variance."""
         vae = VAE(input_dim=10, latent_dim=16)
         mu = torch.ones(8, 16) * 5.0
@@ -58,7 +58,7 @@ class TestVAE:
         # With very small variance, z should be close to mu
         assert torch.allclose(z, mu, atol=0.1)
 
-    def test_decode(self):
+    def test_decode(self) -> None:
         """Test decoding latent vector to reconstruction."""
         vae = VAE(input_dim=10, latent_dim=16, hidden_dims=[32, 16])
         vae.eval()
@@ -67,7 +67,7 @@ class TestVAE:
             recon = vae.decode(z)
         assert recon.shape == (8, 10)
 
-    def test_forward(self):
+    def test_forward(self) -> None:
         """Test forward pass through VAE."""
         vae = VAE(input_dim=10, latent_dim=16, hidden_dims=[32, 16])
         vae.eval()
@@ -78,7 +78,7 @@ class TestVAE:
         assert mu.shape == (8, 16)
         assert logvar.shape == (8, 16)
 
-    def test_compute_loss(self):
+    def test_compute_loss(self) -> None:
         """Test VAE loss computation."""
         vae = VAE(input_dim=10, latent_dim=16, hidden_dims=[32, 16])
         vae.eval()
@@ -94,7 +94,7 @@ class TestVAE:
         assert losses["recon_loss"] >= 0
         assert losses["kl_loss"] >= 0
 
-    def test_compute_loss_with_beta(self):
+    def test_compute_loss_with_beta(self) -> None:
         """Test VAE loss with different beta values."""
         vae = VAE(input_dim=10, latent_dim=16, hidden_dims=[32, 16])
         vae.eval()
@@ -108,7 +108,7 @@ class TestVAE:
         if losses_beta1["kl_loss"] > 0:
             assert losses_beta10["total_loss"] >= losses_beta1["total_loss"]
 
-    def test_anomaly_score(self):
+    def test_anomaly_score(self) -> None:
         """Test anomaly score computation."""
         vae = VAE(input_dim=10, latent_dim=16, hidden_dims=[32, 16])
         vae.eval()
@@ -117,7 +117,7 @@ class TestVAE:
         assert scores.shape == (8,)
         assert torch.all(scores >= 0)
 
-    def test_gradient_flow(self):
+    def test_gradient_flow(self) -> None:
         """Test that gradients flow through the model."""
         vae = VAE(input_dim=10, latent_dim=16, hidden_dims=[32, 16])
         vae.train()
@@ -127,7 +127,7 @@ class TestVAE:
         losses["total_loss"].backward()
         assert x.grad is not None
 
-    def test_different_batch_sizes(self):
+    def test_different_batch_sizes(self) -> None:
         """Test model with different batch sizes."""
         vae = VAE(input_dim=10, latent_dim=16, hidden_dims=[32, 16])
         vae.eval()
@@ -143,14 +143,14 @@ class TestVAE:
 class TestVAEPatternLearner:
     """Tests for VAEPatternLearner class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         learner = VAEPatternLearner(input_dim=10, latent_dim=16)
         assert learner.vae is not None
         assert learner.optimizer is not None
         assert learner.threshold is None
 
-    def test_fit(self):
+    def test_fit(self) -> None:
         """Test fitting on training data."""
         learner = VAEPatternLearner(input_dim=10, latent_dim=16)
         X_train = torch.randn(100, 10)
@@ -158,14 +158,14 @@ class TestVAEPatternLearner:
         assert result is learner  # Returns self
         assert learner.threshold is not None
 
-    def test_fit_with_beta(self):
+    def test_fit_with_beta(self) -> None:
         """Test fitting with different beta values."""
         learner = VAEPatternLearner(input_dim=10, latent_dim=16)
         X_train = torch.randn(100, 10)
         learner.fit(X_train, epochs=2, batch_size=16, beta=0.5)
         assert learner.threshold is not None
 
-    def test_predict(self):
+    def test_predict(self) -> None:
         """Test prediction on test data."""
         learner = VAEPatternLearner(input_dim=10, latent_dim=16)
         X_train = torch.randn(100, 10)
@@ -180,7 +180,7 @@ class TestVAEPatternLearner:
         assert result["anomaly_scores"].shape == (20,)
         assert result["is_anomaly"].shape == (20,)
 
-    def test_predict_before_fit(self):
+    def test_predict_before_fit(self) -> None:
         """Test prediction before fitting (threshold is None)."""
         learner = VAEPatternLearner(input_dim=10, latent_dim=16)
         X_test = torch.randn(20, 10)
@@ -190,7 +190,7 @@ class TestVAEPatternLearner:
         # Should use default threshold of 0.5
         assert "is_anomaly" in result
 
-    def test_anomaly_detection(self):
+    def test_anomaly_detection(self) -> None:
         """Test that anomalies are detected."""
         learner = VAEPatternLearner(input_dim=10, latent_dim=16)
 
@@ -209,7 +209,7 @@ class TestVAEPatternLearner:
         # Anomalous data should have higher scores on average
         assert np.mean(result_anomaly["anomaly_scores"]) > np.mean(result_normal["anomaly_scores"])
 
-    def test_fit_returns_self(self):
+    def test_fit_returns_self(self) -> None:
         """Test that fit returns self for method chaining."""
         learner = VAEPatternLearner(input_dim=10, latent_dim=16)
         X_train = torch.randn(100, 10)
@@ -220,7 +220,7 @@ class TestVAEPatternLearner:
 class TestVAEEdgeCases:
     """Edge case tests for VAE."""
 
-    def test_single_hidden_layer(self):
+    def test_single_hidden_layer(self) -> None:
         """Test with single hidden layer."""
         vae = VAE(input_dim=10, latent_dim=8, hidden_dims=[32])
         vae.eval()
@@ -229,7 +229,7 @@ class TestVAEEdgeCases:
             recon, mu, logvar = vae.forward(x)
         assert recon.shape == (8, 10)
 
-    def test_many_hidden_layers(self):
+    def test_many_hidden_layers(self) -> None:
         """Test with many hidden layers."""
         vae = VAE(input_dim=10, latent_dim=8, hidden_dims=[128, 64, 32, 16])
         vae.eval()
@@ -238,7 +238,7 @@ class TestVAEEdgeCases:
             recon, mu, logvar = vae.forward(x)
         assert recon.shape == (8, 10)
 
-    def test_large_latent_dim(self):
+    def test_large_latent_dim(self) -> None:
         """Test with large latent dimension."""
         vae = VAE(input_dim=10, latent_dim=128, hidden_dims=[64, 32])
         vae.eval()
@@ -247,7 +247,7 @@ class TestVAEEdgeCases:
             recon, mu, logvar = vae.forward(x)
         assert mu.shape == (8, 128)
 
-    def test_small_input_dim(self):
+    def test_small_input_dim(self) -> None:
         """Test with small input dimension."""
         vae = VAE(input_dim=2, latent_dim=4, hidden_dims=[8, 4])
         vae.eval()
@@ -256,7 +256,7 @@ class TestVAEEdgeCases:
             recon, mu, logvar = vae.forward(x)
         assert recon.shape == (8, 2)
 
-    def test_large_input_dim(self):
+    def test_large_input_dim(self) -> None:
         """Test with large input dimension."""
         vae = VAE(input_dim=1000, latent_dim=32, hidden_dims=[256, 128])
         vae.eval()

@@ -25,7 +25,7 @@ import numpy as np
 from omni_mercury_engine.models.quantum import QuantumAnomalyModel
 
 
-def test_quantum_extract_features():
+def test_quantum_extract_features() -> None:
     """Test quantum feature extraction"""
     model = QuantumAnomalyModel()
     data = np.random.randn(10, 20)
@@ -36,7 +36,7 @@ def test_quantum_extract_features():
     assert not np.any(np.isnan(features))
 
 
-def test_quantum_predict():
+def test_quantum_predict() -> None:
     """Test quantum anomaly prediction"""
     model = QuantumAnomalyModel()
     data = np.random.randn(5, 15)
@@ -49,7 +49,7 @@ def test_quantum_predict():
     assert len(result["anomaly_scores"]) == 5
 
 
-def test_quantum_entanglement_measurement():
+def test_quantum_entanglement_measurement() -> None:
     """Test quantum entanglement measurement"""
     model = QuantumAnomalyModel(config={"entanglement_strength": 0.5})
     data = np.random.randn(3, 10)
@@ -60,7 +60,7 @@ def test_quantum_entanglement_measurement():
     assert np.all(entanglement_values >= 0)
 
 
-def test_quantum_single_sample():
+def test_quantum_single_sample() -> None:
     """Test quantum model with single sample"""
     model = QuantumAnomalyModel()
     data = np.random.randn(10)

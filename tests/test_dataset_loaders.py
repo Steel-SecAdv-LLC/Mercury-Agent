@@ -21,7 +21,7 @@ from omni_mercury_engine.datasets.base import DatasetConfig, DatasetSplit
 class TestDatasetImports:
     """Test that all dataset loaders can be imported."""
 
-    def test_import_industrial_loaders(self):
+    def test_import_industrial_loaders(self) -> None:
         """Test importing industrial loaders."""
         from omni_mercury_engine.datasets.industrial import (
             BATADALLoader,
@@ -33,7 +33,7 @@ class TestDatasetImports:
         assert WADILoader is not None
         assert BATADALLoader is not None
 
-    def test_import_ucr_loaders(self):
+    def test_import_ucr_loaders(self) -> None:
         """Test importing UCR archive loaders."""
         from omni_mercury_engine.datasets.ucr_archive import (
             CWRUBearingLoader,
@@ -47,7 +47,7 @@ class TestDatasetImports:
         assert CWRUBearingLoader is not None
         assert MSDSLoader is not None
 
-    def test_import_from_package(self):
+    def test_import_from_package(self) -> None:
         """Test importing from main datasets package."""
         from omni_mercury_engine.datasets import (
             BATADALLoader,
@@ -75,7 +75,7 @@ class TestDatasetImports:
 class TestSWaTLoader:
     """Tests for SWaT (Secure Water Treatment) loader."""
 
-    def test_swat_loader_init(self):
+    def test_swat_loader_init(self) -> None:
         """Test SWaT loader initialization."""
         from omni_mercury_engine.datasets.industrial import SWaTLoader
 
@@ -91,7 +91,7 @@ class TestSWaTLoader:
             assert loader.ATTACK_COUNT == 36
             assert loader.REQUIRES_CREDENTIALS is True
 
-    def test_swat_metadata(self):
+    def test_swat_metadata(self) -> None:
         """Test SWaT metadata generation."""
         from omni_mercury_engine.datasets.industrial import SWaTLoader
 
@@ -105,7 +105,7 @@ class TestSWaTLoader:
             assert "Normal" in metadata.target_names
             assert "Attack" in metadata.target_names
 
-    def test_swat_attack_count(self):
+    def test_swat_attack_count(self) -> None:
         """Test SWaT attack count."""
         from omni_mercury_engine.datasets.industrial import SWaTLoader
 
@@ -120,7 +120,7 @@ class TestSWaTLoader:
 class TestWADILoader:
     """Tests for WADI (Water Distribution) loader."""
 
-    def test_wadi_loader_init(self):
+    def test_wadi_loader_init(self) -> None:
         """Test WADI loader initialization."""
         from omni_mercury_engine.datasets.industrial import WADILoader
 
@@ -135,7 +135,7 @@ class TestWADILoader:
             assert loader.NUM_FEATURES == 123
             assert loader.ATTACK_COUNT == 15
 
-    def test_wadi_metadata(self):
+    def test_wadi_metadata(self) -> None:
         """Test WADI metadata generation."""
         from omni_mercury_engine.datasets.industrial import WADILoader
 
@@ -151,7 +151,7 @@ class TestWADILoader:
 class TestBATADALLoader:
     """Tests for BATADAL loader."""
 
-    def test_batadal_loader_init(self):
+    def test_batadal_loader_init(self) -> None:
         """Test BATADAL loader initialization."""
         from omni_mercury_engine.datasets.industrial import BATADALLoader
 
@@ -166,7 +166,7 @@ class TestBATADALLoader:
             assert loader.NUM_FEATURES == 43
             assert loader.REQUIRES_CREDENTIALS is False
 
-    def test_batadal_download_url(self):
+    def test_batadal_download_url(self) -> None:
         """Test BATADAL has valid download URL."""
         from urllib.parse import urlparse
 
@@ -183,7 +183,7 @@ class TestBATADALLoader:
 class TestUCRLoader:
     """Tests for UCR Time Series Archive loader."""
 
-    def test_ucr_loader_init(self):
+    def test_ucr_loader_init(self) -> None:
         """Test UCR loader initialization."""
         from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
@@ -196,7 +196,7 @@ class TestUCRLoader:
             assert loader.DATASET_NAME == "ucr"
             assert loader.dataset_name == "ECG5000"
 
-    def test_ucr_default_dataset(self):
+    def test_ucr_default_dataset(self) -> None:
         """Test UCR default dataset is ECG5000."""
         from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
@@ -206,7 +206,7 @@ class TestUCRLoader:
 
             assert loader.dataset_name == "ECG5000"
 
-    def test_ucr_popular_datasets(self):
+    def test_ucr_popular_datasets(self) -> None:
         """Test UCR popular datasets list."""
         from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
@@ -220,7 +220,7 @@ class TestUCRLoader:
             assert "FordA" in datasets
             assert len(datasets) == 10  # POPULAR_DATASETS has 10 items
 
-    def test_ucr_anomaly_label_conversion(self):
+    def test_ucr_anomaly_label_conversion(self) -> None:
         """Test converting classification labels to anomaly labels."""
         from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
@@ -237,7 +237,7 @@ class TestUCRLoader:
             assert anomaly_labels.sum() == 2
             assert (anomaly_labels == 1).sum() == 2
 
-    def test_ucr_anomaly_specific_class(self):
+    def test_ucr_anomaly_specific_class(self) -> None:
         """Test specifying which class is anomaly."""
         from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 
@@ -256,7 +256,7 @@ class TestUCRLoader:
 class TestMBALoader:
     """Tests for MBA (Machine Bearing Anomaly) / CWRU loader."""
 
-    def test_mba_loader_init(self):
+    def test_mba_loader_init(self) -> None:
         """Test MBA loader initialization."""
         from omni_mercury_engine.datasets.ucr_archive import MBALoader
 
@@ -270,7 +270,7 @@ class TestMBALoader:
             assert loader.DATASET_NAME == "mba"
             assert loader.SAMPLE_RATE == 12000  # 12kHz
 
-    def test_mba_fault_types(self):
+    def test_mba_fault_types(self) -> None:
         """Test MBA fault types."""
         from omni_mercury_engine.datasets.ucr_archive import MBALoader
 
@@ -283,7 +283,7 @@ class TestMBALoader:
             assert "Outer_Race" in loader.FAULT_TYPES
             assert "Ball" in loader.FAULT_TYPES
 
-    def test_mba_metadata(self):
+    def test_mba_metadata(self) -> None:
         """Test MBA metadata generation."""
         from omni_mercury_engine.datasets.ucr_archive import MBALoader
 
@@ -300,7 +300,7 @@ class TestMBALoader:
 class TestCWRUBearingLoader:
     """Tests for CWRU Bearing loader (alias for MBA)."""
 
-    def test_cwru_is_mba_alias(self):
+    def test_cwru_is_mba_alias(self) -> None:
         """Test that CWRUBearingLoader is an alias for MBALoader."""
         from omni_mercury_engine.datasets.ucr_archive import (
             CWRUBearingLoader,
@@ -314,7 +314,7 @@ class TestCWRUBearingLoader:
 class TestMSDSLoader:
     """Tests for MSDS (Multi-Source Data Stream) loader."""
 
-    def test_msds_loader_init(self):
+    def test_msds_loader_init(self) -> None:
         """Test MSDS loader initialization."""
         from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
@@ -331,7 +331,7 @@ class TestMSDSLoader:
             assert loader.n_samples == 5000
             assert loader.anomaly_ratio == 0.03
 
-    def test_msds_default_params(self):
+    def test_msds_default_params(self) -> None:
         """Test MSDS default parameters."""
         from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
@@ -343,7 +343,7 @@ class TestMSDSLoader:
             assert loader.n_samples == 10000
             assert loader.anomaly_ratio == 0.05
 
-    def test_msds_synthetic_generation(self):
+    def test_msds_synthetic_generation(self) -> None:
         """Test MSDS synthetic data generation."""
         from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
@@ -367,7 +367,7 @@ class TestMSDSLoader:
             actual_ratio = labels.mean()
             assert 0.08 <= actual_ratio <= 0.12
 
-    def test_msds_metadata(self):
+    def test_msds_metadata(self) -> None:
         """Test MSDS metadata generation."""
         from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
@@ -386,7 +386,7 @@ class TestMSDSLoader:
 class TestBaselineResults:
     """Tests for baseline results in baselines.py."""
 
-    def test_new_datasets_in_baselines(self):
+    def test_new_datasets_in_baselines(self) -> None:
         """Test that new datasets are in baseline results."""
         from omni_mercury_engine.evaluation.baselines import BASELINE_RESULTS
 
@@ -397,7 +397,7 @@ class TestBaselineResults:
         assert "MBA" in BASELINE_RESULTS
         assert "MSDS" in BASELINE_RESULTS
 
-    def test_tranad_results(self):
+    def test_tranad_results(self) -> None:
         """Test TranAD results for new datasets."""
         from omni_mercury_engine.evaluation.baselines import BASELINE_RESULTS
 
@@ -421,7 +421,7 @@ class TestBaselineResults:
         msds_tranad = BASELINE_RESULTS["MSDS"]["TranAD"]
         assert msds_tranad["f1"] == pytest.approx(0.9262, rel=0.01)
 
-    def test_baseline_citations(self):
+    def test_baseline_citations(self) -> None:
         """Test baseline citations include new methods."""
         from omni_mercury_engine.evaluation.baselines import get_baseline_citations
 
@@ -430,7 +430,7 @@ class TestBaselineResults:
         assert "USAD" in citations
         assert "MAAT" in citations
 
-    def test_compare_to_baselines_new_datasets(self):
+    def test_compare_to_baselines_new_datasets(self) -> None:
         """Test compare_to_baselines works with new datasets."""
         from omni_mercury_engine.evaluation.baselines import compare_to_baselines
 
@@ -448,7 +448,7 @@ class TestBaselineResults:
         )
         assert result.rank == 1  # Should beat TranAD (0.9262)
 
-    def test_sota_for_new_datasets(self):
+    def test_sota_for_new_datasets(self) -> None:
         """Test getting SOTA for new datasets."""
         from omni_mercury_engine.evaluation.baselines import get_sota_for_dataset
 
@@ -462,7 +462,7 @@ class TestBaselineResults:
 class TestDatasetSplits:
     """Tests for dataset split functionality."""
 
-    def test_msds_split_all(self):
+    def test_msds_split_all(self) -> None:
         """Test MSDS ALL split."""
         from omni_mercury_engine.datasets.ucr_archive import MSDSLoader
 
@@ -479,7 +479,7 @@ class TestDatasetSplits:
 class TestDatasetRegistry:
     """Tests for dataset registry with new loaders."""
 
-    def test_registry_contains_new_loaders(self):
+    def test_registry_contains_new_loaders(self) -> None:
         """Test that registry exports all new loaders."""
         from omni_mercury_engine import datasets
 
@@ -496,7 +496,7 @@ class TestDatasetRegistry:
 class TestIndustrialDatasetDomains:
     """Tests for industrial dataset domain-specific features."""
 
-    def test_swat_feature_groups(self):
+    def test_swat_feature_groups(self) -> None:
         """Test SWaT loader exposes feature groups."""
         from omni_mercury_engine.datasets.industrial import SWaTLoader
 
@@ -509,7 +509,7 @@ class TestIndustrialDatasetDomains:
             assert "P2" in feature_groups  # Process 2
             # Each process should have sensor/actuator lists
 
-    def test_wadi_stages(self):
+    def test_wadi_stages(self) -> None:
         """Test WADI loader exposes stage information."""
         from omni_mercury_engine.datasets.industrial import WADILoader
 
@@ -524,7 +524,7 @@ class TestIndustrialDatasetDomains:
 class TestUCRDatasetVariants:
     """Tests for UCR dataset variants."""
 
-    def test_ucr_different_datasets(self):
+    def test_ucr_different_datasets(self) -> None:
         """Test loading different UCR datasets."""
         from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 

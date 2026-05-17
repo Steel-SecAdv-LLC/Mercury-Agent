@@ -39,14 +39,14 @@ from omni_mercury_engine.utils.rng import DeterministicRNG
 class TestEnums:
     """Tests for enumerations."""
 
-    def test_readiness_level_values(self):
+    def test_readiness_level_values(self) -> None:
         """Test ReadinessLevel enum values."""
         assert ReadinessLevel.NOT_READY.value == "not_ready"
         assert ReadinessLevel.NEEDS_IMPROVEMENT.value == "needs_improvement"
         assert ReadinessLevel.READY.value == "ready"
         assert ReadinessLevel.PRODUCTION_READY.value == "production_ready"
 
-    def test_training_phase_values(self):
+    def test_training_phase_values(self) -> None:
         """Test TrainingPhase enum values."""
         assert TrainingPhase.FOUNDATION.value == "foundation"
         assert TrainingPhase.SPECIALIZATION.value == "specialization"
@@ -58,7 +58,7 @@ class TestEnums:
 class TestNeurosymbolicConfig:
     """Tests for NeurosymbolicConfig dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default configuration values."""
         config = NeurosymbolicConfig()
 
@@ -72,7 +72,7 @@ class TestNeurosymbolicConfig:
         assert config.backprop_learning_rate == 0.001
         assert config.backprop_quantum_noise == 0.01
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test custom configuration values."""
         config = NeurosymbolicConfig(
             enable_neural=True,
@@ -88,7 +88,7 @@ class TestNeurosymbolicConfig:
 class TestTrainingMetrics:
     """Tests for TrainingMetrics dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default metric values."""
         metrics = TrainingMetrics()
 
@@ -123,7 +123,7 @@ def example_function(x):
 """
         return ast.parse(code)
 
-    def test_initialization_default(self, engine):
+    def test_initialization_default(self, engine) -> None:
         """Test default initialization."""
         assert engine.config is not None
         assert engine.training_metrics is not None
@@ -131,14 +131,14 @@ def example_function(x):
         assert engine.neural_model is None
         assert engine.pattern_library == {}
 
-    def test_initialization_with_config(self):
+    def test_initialization_with_config(self) -> None:
         """Test initialization with custom config."""
         config = NeurosymbolicConfig(enable_neural=True)
         engine = NeurosymbolicEngine(config=config)
 
         assert engine.config.enable_neural is True
 
-    def test_symbolic_analysis(self, engine, sample_code_ast):
+    def test_symbolic_analysis(self, engine, sample_code_ast) -> None:
         """Test symbolic code analysis."""
         result = engine.symbolic_analysis(sample_code_ast)
 
@@ -152,7 +152,7 @@ def example_function(x):
         assert patterns["function_calls"] >= 0
         assert patterns["nesting_depth"] >= 0
 
-    def test_symbolic_analysis_empty_ast(self, engine):
+    def test_symbolic_analysis_empty_ast(self, engine) -> None:
         """Test symbolic analysis with empty AST."""
         empty_ast = ast.parse("")
         result = engine.symbolic_analysis(empty_ast)
@@ -160,7 +160,7 @@ def example_function(x):
         assert result["patterns"]["loops"] == 0
         assert result["patterns"]["conditionals"] == 0
 
-    def test_symbolic_analysis_nested_loops(self, engine):
+    def test_symbolic_analysis_nested_loops(self, engine) -> None:
         """Test symbolic analysis with nested loops."""
         code = """
 for i in range(10):
@@ -174,7 +174,7 @@ for i in range(10):
         assert result["patterns"]["loops"] >= 2
         assert result["patterns"]["nesting_depth"] >= 2
 
-    def test_neural_analysis_disabled(self, engine):
+    def test_neural_analysis_disabled(self, engine) -> None:
         """Test neural analysis when disabled returns statistical fallback."""
         features = np.array([1.0, 2.0, 3.0, 4.0])
         result = engine.neural_analysis(features)
@@ -184,7 +184,7 @@ for i in range(10):
         assert result["neural_model_trained"] is False
         assert "statistics" in result
 
-    def test_neural_analysis_enabled_no_model(self):
+    def test_neural_analysis_enabled_no_model(self) -> None:
         """Test neural analysis when enabled but no model returns statistical fallback."""
         config = NeurosymbolicConfig(enable_neural=True)
         engine = NeurosymbolicEngine(config=config)
@@ -196,7 +196,7 @@ for i in range(10):
         assert result["neural_model_trained"] is False
         assert result["method"] == "statistical_fallback"
 
-    def test_hybrid_analysis(self, engine, sample_code_ast):
+    def test_hybrid_analysis(self, engine, sample_code_ast) -> None:
         """Test hybrid analysis combining symbolic and neural."""
         result = engine.hybrid_analysis(sample_code_ast)
 
@@ -207,20 +207,20 @@ for i in range(10):
         assert result["symbolic"]["method"] == "symbolic"
         assert result["neural"]["method"] == "statistical_fallback"
 
-    def test_train_model_no_data(self, engine):
+    def test_train_model_no_data(self, engine) -> None:
         """Test training without data."""
         metrics = engine.train_model(training_data=None)
 
         assert metrics == engine.training_metrics
 
-    def test_train_model_neural_disabled(self, engine, sample_code_ast):
+    def test_train_model_neural_disabled(self, engine, sample_code_ast) -> None:
         """Test training with neural disabled."""
         training_data = [(sample_code_ast, {"refactoring": "extract_method"})]
         metrics = engine.train_model(training_data)
 
         assert metrics == engine.training_metrics
 
-    def test_train_model_with_data(self, sample_code_ast):
+    def test_train_model_with_data(self, sample_code_ast) -> None:
         """Test training with data and neural enabled."""
         config = NeurosymbolicConfig(enable_neural=True, transparency_logging=False)
         engine = NeurosymbolicEngine(config=config)
@@ -235,7 +235,7 @@ for i in range(10):
         # After training completes, phase should be VALIDATION
         assert engine.current_phase == TrainingPhase.VALIDATION
 
-    def test_check_bias_disabled(self):
+    def test_check_bias_disabled(self) -> None:
         """Test bias check when disabled."""
         config = NeurosymbolicConfig(bias_check_enabled=False)
         engine = NeurosymbolicEngine(config=config)
@@ -245,14 +245,14 @@ for i in range(10):
 
         assert result["bias_check"] == "disabled"
 
-    def test_check_bias_no_predictions(self, engine):
+    def test_check_bias_no_predictions(self, engine) -> None:
         """Test bias check with no predictions."""
         result = engine.check_bias([])
 
         assert result["bias_detected"] is False
         assert "No predictions" in result["message"]
 
-    def test_check_bias_diverse_predictions(self, engine):
+    def test_check_bias_diverse_predictions(self, engine) -> None:
         """Test bias check with diverse predictions."""
         predictions = [
             {"type": "extract_method"},
@@ -265,7 +265,7 @@ for i in range(10):
         assert result["bias_detected"] is False
         assert result["diversity_ratio"] == 1.0
 
-    def test_check_bias_low_diversity(self, engine):
+    def test_check_bias_low_diversity(self, engine) -> None:
         """Test bias check with low diversity."""
         predictions = [
             {"type": "extract_method"},
@@ -278,13 +278,13 @@ for i in range(10):
 
         assert result["diversity_ratio"] < 0.5
 
-    def test_get_readiness_level_neural_disabled(self, engine):
+    def test_get_readiness_level_neural_disabled(self, engine) -> None:
         """Test readiness level with neural disabled."""
         level = engine.get_readiness_level()
 
         assert level == ReadinessLevel.PRODUCTION_READY
 
-    def test_get_readiness_level_high_accuracy(self):
+    def test_get_readiness_level_high_accuracy(self) -> None:
         """Test readiness level with high accuracy."""
         config = NeurosymbolicConfig(enable_neural=True)
         engine = NeurosymbolicEngine(config=config)
@@ -294,7 +294,7 @@ for i in range(10):
 
         assert level == ReadinessLevel.PRODUCTION_READY
 
-    def test_get_readiness_level_medium_accuracy(self):
+    def test_get_readiness_level_medium_accuracy(self) -> None:
         """Test readiness level with medium accuracy."""
         config = NeurosymbolicConfig(enable_neural=True)
         engine = NeurosymbolicEngine(config=config)
@@ -304,7 +304,7 @@ for i in range(10):
 
         assert level == ReadinessLevel.READY
 
-    def test_get_readiness_level_low_accuracy(self):
+    def test_get_readiness_level_low_accuracy(self) -> None:
         """Test readiness level with low accuracy."""
         config = NeurosymbolicConfig(enable_neural=True)
         engine = NeurosymbolicEngine(config=config)
@@ -314,7 +314,7 @@ for i in range(10):
 
         assert level == ReadinessLevel.NEEDS_IMPROVEMENT
 
-    def test_get_readiness_level_very_low_accuracy(self):
+    def test_get_readiness_level_very_low_accuracy(self) -> None:
         """Test readiness level with very low accuracy."""
         config = NeurosymbolicConfig(enable_neural=True)
         engine = NeurosymbolicEngine(config=config)
@@ -339,7 +339,7 @@ class TestBackpropTuning:
         )
         return NeurosymbolicEngine(config=config, rng=DeterministicRNG(seed=42))
 
-    def test_backprop_disabled(self):
+    def test_backprop_disabled(self) -> None:
         """Test backprop tuning when disabled."""
         config = NeurosymbolicConfig(enable_backprop_tuning=False)
         engine = NeurosymbolicEngine(config=config)
@@ -350,7 +350,7 @@ class TestBackpropTuning:
 
         assert result["enabled"] is False
 
-    def test_backprop_enabled(self, engine):
+    def test_backprop_enabled(self, engine) -> None:
         """Test backprop tuning when enabled."""
         features = np.array([1.0, 2.0, 3.0, 4.0])
         ground_truth = np.array([0.5])
@@ -362,7 +362,7 @@ class TestBackpropTuning:
         assert "initial_loss" in result
         assert result["tensor_shape"] == (1, 1, 2, 2)
 
-    def test_backprop_convergence(self, engine):
+    def test_backprop_convergence(self, engine) -> None:
         """Test that backprop shows convergence."""
         features = np.array([1.0, 2.0, 3.0, 4.0])
         ground_truth = np.array([5.0])
@@ -372,7 +372,7 @@ class TestBackpropTuning:
         assert result["final_loss"] <= result["initial_loss"]
         assert result["convergence"] >= 0
 
-    def test_backprop_short_features(self, engine):
+    def test_backprop_short_features(self, engine) -> None:
         """Test backprop with features shorter than 4."""
         features = np.array([1.0, 2.0])
         ground_truth = np.array([0.5])
@@ -381,7 +381,7 @@ class TestBackpropTuning:
         assert result["enabled"] is True
         assert result["tensor_shape"] == (1, 1, 2, 2)
 
-    def test_backprop_long_features(self, engine):
+    def test_backprop_long_features(self, engine) -> None:
         """Test backprop with features longer than 4."""
         features = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
         ground_truth = np.array([0.5])
@@ -393,6 +393,6 @@ class TestBackpropTuning:
 class TestAliases:
     """Tests for module aliases."""
 
-    def test_code_analysis_engine_alias(self):
+    def test_code_analysis_engine_alias(self) -> None:
         """Test CodeAnalysisEngine is alias for NeurosymbolicEngine."""
         assert CodeAnalysisEngine is NeurosymbolicEngine

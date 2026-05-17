@@ -47,7 +47,7 @@ from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 class TestTrendDetection:
     """Test trend-based anomaly detection."""
 
-    def test_detects_deviation_from_stable_trend(self):
+    def test_detects_deviation_from_stable_trend(self) -> None:
         """Points deviating from stable trend should have higher scores."""
         detector = TemporalAnomalyDetector({"window_size": 5})
 
@@ -67,7 +67,7 @@ class TestTrendDetection:
 
         assert spike_score > np.max(normal_scores)
 
-    def test_trend_scores_increase_with_deviation(self):
+    def test_trend_scores_increase_with_deviation(self) -> None:
         """Larger deviations should produce larger scores on average."""
         detector = TemporalAnomalyDetector({"window_size": 10})
 
@@ -90,7 +90,7 @@ class TestTrendDetection:
         assert scores[70] >= scores[50] - 0.1  # Large >= Medium (with tolerance)
         assert scores[50] >= scores[30] - 0.1  # Medium >= Small (with tolerance)
 
-    def test_trend_uses_rolling_window(self):
+    def test_trend_uses_rolling_window(self) -> None:
         """Trend detection should use rolling window for baseline."""
         detector = TemporalAnomalyDetector({"window_size": 10})
 
@@ -113,7 +113,7 @@ class TestTrendDetection:
 
         assert shift_score > adapted_score
 
-    def test_trend_continuous_not_binary(self):
+    def test_trend_continuous_not_binary(self) -> None:
         """Trend scores should be continuous, not binary flags."""
         detector = TemporalAnomalyDetector({"window_size": 5})
         data = np.random.randn(100)
@@ -132,7 +132,7 @@ class TestTrendDetection:
 class TestSuddenChangeDetection:
     """Test sudden change detection accuracy."""
 
-    def test_detects_step_change(self):
+    def test_detects_step_change(self) -> None:
         """Should detect sudden step changes in values."""
         detector = TemporalAnomalyDetector({"change_threshold": 2.0})
 
@@ -160,7 +160,7 @@ class TestSuddenChangeDetection:
         assert change_point_score > before_change
         assert change_point_score > after_change
 
-    def test_change_magnitude_affects_score(self):
+    def test_change_magnitude_affects_score(self) -> None:
         """Larger sudden changes should produce higher scores."""
         detector = TemporalAnomalyDetector({"change_threshold": 2.0})
 
@@ -181,7 +181,7 @@ class TestSuddenChangeDetection:
         # Large jump should have higher score at jump point
         assert result_large["scores"][50] > result_small["scores"][50]
 
-    def test_change_flags_boolean(self):
+    def test_change_flags_boolean(self) -> None:
         """Change flags should be boolean indicators."""
         detector = TemporalAnomalyDetector()
         data = np.random.randn(50)
@@ -196,7 +196,7 @@ class TestSuddenChangeDetection:
 class TestWindowSizeEffects:
     """Test window size parameter effects on detection."""
 
-    def test_larger_window_smooths_detection(self):
+    def test_larger_window_smooths_detection(self) -> None:
         """Larger windows should smooth out short-term variations."""
         data = np.random.randn(100)
         data[50] = 10  # Single spike
@@ -217,7 +217,7 @@ class TestWindowSizeEffects:
 
         assert var_large < var_small
 
-    def test_window_size_minimum_data(self):
+    def test_window_size_minimum_data(self) -> None:
         """Data shorter than window should still work."""
         detector = TemporalAnomalyDetector({"window_size": 20})
         short_data = np.array([1, 2, 3, 4, 5])  # Only 5 points
@@ -228,7 +228,7 @@ class TestWindowSizeEffects:
         # Should return scores for all points
         assert len(result["scores"]) == len(short_data)
 
-    def test_window_size_one(self):
+    def test_window_size_one(self) -> None:
         """Edge case: window size of 1."""
         detector = TemporalAnomalyDetector({"window_size": 1})
         data = np.random.randn(50)
@@ -243,7 +243,7 @@ class TestWindowSizeEffects:
 class TestMultivariateHandling:
     """Test handling of multivariate time series."""
 
-    def test_multivariate_detection(self):
+    def test_multivariate_detection(self) -> None:
         """Should detect anomalies in multivariate data."""
         detector = TemporalAnomalyDetector({"window_size": 5})
 
@@ -263,7 +263,7 @@ class TestMultivariateHandling:
 
         assert anomaly_score > normal_mean
 
-    def test_multivariate_aggregation(self):
+    def test_multivariate_aggregation(self) -> None:
         """Multivariate anomalies should aggregate across dimensions."""
         detector = TemporalAnomalyDetector({"window_size": 5})
 
@@ -289,7 +289,7 @@ class TestMultivariateHandling:
 class TestLSTMFeatures:
     """Test LSTM-based feature extraction."""
 
-    def test_lstm_feature_shape(self):
+    def test_lstm_feature_shape(self) -> None:
         """LSTM features should have correct shape."""
         detector = TemporalAnomalyDetector()
         data = np.random.randn(100)
@@ -302,7 +302,7 @@ class TestLSTMFeatures:
         assert features.dim() == 2
         assert features.shape[1] == 32
 
-    def test_lstm_features_differentiable(self):
+    def test_lstm_features_differentiable(self) -> None:
         """LSTM features should preserve gradient flow."""
         detector = TemporalAnomalyDetector()
         data = np.random.randn(50)
@@ -314,7 +314,7 @@ class TestLSTMFeatures:
         # Features should be finite
         assert torch.all(torch.isfinite(features))
 
-    def test_lstm_batched_input(self):
+    def test_lstm_batched_input(self) -> None:
         """LSTM should handle batched input correctly."""
         detector = TemporalAnomalyDetector()
         detector.fit(np.random.randn(100))
@@ -331,7 +331,7 @@ class TestLSTMFeatures:
 class TestContinuousScores:
     """Test continuous score preservation (Fix for Issue #7)."""
 
-    def test_scores_not_hard_clipped(self):
+    def test_scores_not_hard_clipped(self) -> None:
         """Scores should not be hard-clipped at 1.0."""
         detector = TemporalAnomalyDetector({"window_size": 10})
 
@@ -354,7 +354,7 @@ class TestContinuousScores:
         assert result["scores"][60] >= result["scores"][40] - 0.1
         assert result["scores"][40] >= result["scores"][20] - 0.1
 
-    def test_combined_scores_range(self):
+    def test_combined_scores_range(self) -> None:
         """Combined scores should be in [0, 1] range."""
         detector = TemporalAnomalyDetector()
         data = np.random.randn(200)
@@ -375,7 +375,7 @@ class TestContinuousScores:
 class TestNaNInfHandling:
     """Test handling of NaN and Inf values (P0 validation)."""
 
-    def test_nan_in_data_sanitized(self):
+    def test_nan_in_data_sanitized(self) -> None:
         """NaN values should be sanitized without crashing."""
         detector = TemporalAnomalyDetector()
         data = np.random.randn(50)
@@ -390,7 +390,7 @@ class TestNaNInfHandling:
         # Scores should be finite
         assert np.all(np.isfinite(result["scores"]))
 
-    def test_inf_in_data_sanitized(self):
+    def test_inf_in_data_sanitized(self) -> None:
         """Inf values should be sanitized without crashing."""
         detector = TemporalAnomalyDetector()
         data = np.random.randn(50)
@@ -410,7 +410,7 @@ class TestNaNInfHandling:
 class TestAutoCalibration:
     """Test auto-calibration functionality."""
 
-    def test_auto_calibration_enabled(self):
+    def test_auto_calibration_enabled(self) -> None:
         """Auto-calibration should adjust threshold."""
         detector = TemporalAnomalyDetector()
         detector.enable_auto_calibration()
@@ -424,7 +424,7 @@ class TestAutoCalibration:
         assert result["calibration_diagnostics"] is not None
         assert "threshold" in result
 
-    def test_calibration_improves_f1(self):
+    def test_calibration_improves_f1(self) -> None:
         """Calibration should help avoid F1=0 problem."""
         detector = TemporalAnomalyDetector()
         detector.enable_auto_calibration()
@@ -452,7 +452,7 @@ class TestAutoCalibration:
 class TestEdgeCases:
     """Test edge cases."""
 
-    def test_single_point_detection(self):
+    def test_single_point_detection(self) -> None:
         """Should handle single point detection."""
         detector = TemporalAnomalyDetector()
         data = np.random.randn(50)
@@ -463,7 +463,7 @@ class TestEdgeCases:
 
         assert len(result["scores"]) == 1
 
-    def test_unfitted_detector_raises(self):
+    def test_unfitted_detector_raises(self) -> None:
         """Detection without fitting should raise exception."""
         from omni_mercury_engine.core.exceptions import DetectorException
 
@@ -473,7 +473,7 @@ class TestEdgeCases:
         with pytest.raises(DetectorException, match="fitted"):
             detector.detect(data)
 
-    def test_tensor_input(self):
+    def test_tensor_input(self) -> None:
         """Should accept PyTorch tensor input."""
         detector = TemporalAnomalyDetector()
         data_np = np.random.randn(50)

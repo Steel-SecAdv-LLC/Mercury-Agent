@@ -46,7 +46,7 @@ def _bypass_sigma_immutable(monkeypatch: pytest.MonkeyPatch, hub: object) -> Non
 class TestNeuroSymbolicHub:
     """Tests for the enhanced neuro-symbolic hub."""
 
-    def test_hub_initialization(self):
+    def test_hub_initialization(self) -> None:
         """Test hub initializes correctly."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
             FusionMode,
@@ -63,7 +63,7 @@ class TestNeuroSymbolicHub:
         assert hub.fusion_mode == FusionMode.PHI_WEIGHTED
         assert hub.benevolence_threshold == 0.99
 
-    def test_phi_weighted_fusion(self):
+    def test_phi_weighted_fusion(self) -> None:
         """Test golden ratio weighting."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
             PHI,
@@ -81,7 +81,7 @@ class TestNeuroSymbolicHub:
         assert abs(hub._symbolic_weight - expected_symbolic) < 0.01
         assert abs(hub._neural_weight + hub._symbolic_weight - 1.0) < 0.001
 
-    def test_predict_returns_explanations(self, monkeypatch: pytest.MonkeyPatch):
+    def test_predict_returns_explanations(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test prediction returns explanations."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
@@ -111,7 +111,7 @@ class TestNeuroSymbolicHub:
             assert 0 <= result.anomaly_score <= 1
             assert 0 <= result.confidence <= 1
 
-    def test_benevolence_enforcement(self):
+    def test_benevolence_enforcement(self) -> None:
         """Hard ethical decision boundary: predict() raises on violation.
 
         With ``benevolence_threshold=0.99`` and untrained-encoder inputs
@@ -141,7 +141,7 @@ class TestNeuroSymbolicHub:
         assert exc_info.value.threshold == 0.99
         assert exc_info.value.score < 0.99
 
-    def test_knowledge_graph_rules(self, monkeypatch: pytest.MonkeyPatch):
+    def test_knowledge_graph_rules(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test symbolic rules fire correctly."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
             NeuroSymbolicHub,
@@ -177,7 +177,7 @@ class TestNeuroSymbolicHub:
         # Check rule was considered
         assert len(results) == 1
 
-    def test_gosnn_integration(self, monkeypatch: pytest.MonkeyPatch):
+    def test_gosnn_integration(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test GOSNN scalar registration."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
@@ -204,7 +204,7 @@ class TestNeuroSymbolicHub:
         assert "neurosymbolic_inference_count" in scalars
         assert scalars["neurosymbolic_inference_count"] == 3
 
-    def test_fit_learns_weights(self):
+    def test_fit_learns_weights(self) -> None:
         """Test fitting learns optimal fusion weights."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
             FusionMode,
@@ -231,7 +231,7 @@ class TestNeuroSymbolicHub:
 class TestGOSNNOptimizer:
     """Tests for GOSNN optimizer."""
 
-    def test_optimizer_initialization(self):
+    def test_optimizer_initialization(self) -> None:
         """Test optimizer initializes correctly."""
         from omni_mercury_engine.core.gosnn_optimizer import GOSNNOptimizer
 
@@ -243,7 +243,7 @@ class TestGOSNNOptimizer:
         assert optimizer.sigma_immutable == 0.96
         assert optimizer.target_overhead == 2.0
 
-    def test_scalar_importance_analysis(self):
+    def test_scalar_importance_analysis(self) -> None:
         """Test SHAP-like importance analysis."""
         from omni_mercury_engine.core.gosnn_optimizer import ScalarImportanceAnalyzer
 
@@ -271,7 +271,7 @@ class TestGOSNNOptimizer:
         # Stable scalar should have high stability
         assert importances["stable_scalar"].stability_score > 0.5
 
-    def test_ethical_gate_hard_constraint(self):
+    def test_ethical_gate_hard_constraint(self) -> None:
         """Test σ_Immutable hard constraint at 0.93."""
         from omni_mercury_engine.core.gosnn_optimizer import EthicalGateOptimizer
 
@@ -309,7 +309,7 @@ class TestGOSNNOptimizer:
         assert passes_low is False
         assert len(violations_low) > 0
 
-    def test_attention_optimizer_overhead(self):
+    def test_attention_optimizer_overhead(self) -> None:
         """Test attention optimization produces valid output."""
         from omni_mercury_engine.core.gosnn_optimizer import AttentionOptimizer
 
@@ -328,7 +328,7 @@ class TestGOSNNOptimizer:
         # Overhead should be a positive number (actual value depends on hardware)
         assert overhead >= 0
 
-    def test_full_optimization(self):
+    def test_full_optimization(self) -> None:
         """Test full GOSNN optimization produces valid results."""
         from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
@@ -357,7 +357,7 @@ class TestGOSNNOptimizer:
 class TestRealWorldBenchmark:
     """Tests for real-world benchmark runner."""
 
-    def test_synthetic_data_generation(self):
+    def test_synthetic_data_generation(self) -> None:
         """Test synthetic data generation."""
         from omni_mercury_engine.core.realworld_benchmark import SyntheticDataGenerator
 
@@ -379,7 +379,7 @@ class TestRealWorldBenchmark:
         assert X.shape == (1000, 43)
         assert 0.05 < np.mean(y) < 0.15  # ~10% attacks
 
-    def test_benchmark_runner_sklearn_detector(self):
+    def test_benchmark_runner_sklearn_detector(self) -> None:
         """Test benchmark with sklearn detector - verifies fail-closed behavior without real data."""
         from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
         from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
@@ -388,10 +388,10 @@ class TestRealWorldBenchmark:
 
         # Wrapper using MADDetector's actual API (fit + detect -> AnomalyResult)
         class IFWrapper:
-            def __init__(self):
+            def __init__(self) -> None:
                 self.model = MADDetector()
 
-            def fit(self, X, y=None):
+            def fit(self, X, y=None) -> None:
                 self.model.fit(X)
 
             def predict(self, X):
@@ -408,7 +408,7 @@ class TestRealWorldBenchmark:
         with pytest.raises(RuntimeError, match="REAL DATA REQUIRED"):
             runner.run_benchmark(IFWrapper(), "SMD", "IsolationForest")
 
-    def test_benchmark_with_neurosymbolic_hub(self):
+    def test_benchmark_with_neurosymbolic_hub(self) -> None:
         """Test benchmark with neuro-symbolic hub - verifies fail-closed behavior without real data."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
         from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
@@ -417,13 +417,13 @@ class TestRealWorldBenchmark:
 
         # Create wrapper for NeuroSymbolicHub
         class NSHWrapper:
-            def __init__(self):
+            def __init__(self) -> None:
                 self.hub = NeuroSymbolicHub(input_dim=38, seed=SEED)
                 # Test-only: bypass the floor-clamp.  This benchmark
                 # wrapper tests scoring, not ethical enforcement.
                 self.hub._benevolence_threshold = 0.0
 
-            def fit(self, X, y=None):
+            def fit(self, X, y=None) -> None:
                 self.hub.fit(X, y)
 
             def predict(self, X):
@@ -437,7 +437,7 @@ class TestRealWorldBenchmark:
         with pytest.raises(RuntimeError, match="REAL DATA REQUIRED"):
             runner.run_benchmark(NSHWrapper(), "SMD", "NeuroSymbolicHub")
 
-    def test_event_metrics_computation(self):
+    def test_event_metrics_computation(self) -> None:
         """Test event-based metrics."""
         from omni_mercury_engine.core.realworld_benchmark import RealWorldBenchmarkRunner
 
@@ -461,7 +461,7 @@ class TestRealWorldBenchmark:
 class TestIntegration:
     """Integration tests with previous sessions."""
 
-    def test_neurosymbolic_with_stacking_fusion(self, monkeypatch: pytest.MonkeyPatch):
+    def test_neurosymbolic_with_stacking_fusion(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test neuro-symbolic hub with stacking fusion."""
         from omni_mercury_engine.core.neurosymbolic_hub import (
             FusionMode,
@@ -494,7 +494,7 @@ class TestIntegration:
 
         assert len(results) == 3
 
-    def test_gosnn_integration_layer(self):
+    def test_gosnn_integration_layer(self) -> None:
         """Test integration with GOSNN integration layer."""
         try:
             from omni_mercury_engine.core.gosnn_integration import (
@@ -512,7 +512,7 @@ class TestIntegration:
         except ImportError:
             pytest.skip("GOSNN integration module not available")
 
-    def test_calibration_integration(self):
+    def test_calibration_integration(self) -> None:
         """Test integration with calibration module."""
         try:
             from omni_mercury_engine.core.calibration import CalibrationEnsemble
@@ -536,7 +536,7 @@ class TestIntegration:
         except ImportError:
             pytest.skip("Calibration module not available")
 
-    def test_end_to_end_pipeline(self, monkeypatch: pytest.MonkeyPatch):
+    def test_end_to_end_pipeline(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test complete pipeline from data to ethical detection."""
         from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
@@ -593,7 +593,7 @@ class TestIntegration:
 class TestEthicalConstraints:
     """Tests for ethical constraint enforcement."""
 
-    def test_benevolence_threshold_immutable(self):
+    def test_benevolence_threshold_immutable(self) -> None:
         """Test benevolence threshold is enforced."""
         from omni_mercury_engine.core.neurosymbolic_hub import NeuroSymbolicHub
 
@@ -602,7 +602,7 @@ class TestEthicalConstraints:
         # Cannot set below threshold
         assert hub.benevolence_threshold == 0.99
 
-    def test_sigma_immutable_hard_limit(self):
+    def test_sigma_immutable_hard_limit(self) -> None:
         """Test σ_Immutable hard limit at 0.93."""
         from omni_mercury_engine.core.gosnn_optimizer import EthicalGateOptimizer
 
@@ -612,7 +612,7 @@ class TestEthicalConstraints:
         passes, _, _ = gate.evaluate({"omnibenevolence": 0.5})
         assert passes is False
 
-    def test_ethical_rules_not_prunable(self):
+    def test_ethical_rules_not_prunable(self) -> None:
         """Test ethical scalars cannot be pruned."""
         from omni_mercury_engine.core.gosnn_optimizer import ScalarImportanceAnalyzer
 

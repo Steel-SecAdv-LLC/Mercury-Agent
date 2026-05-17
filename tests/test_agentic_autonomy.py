@@ -26,7 +26,7 @@ import pytest
 from omni_mercury_engine.agentic.agentic_autonomy import AgentAction, AgenticAutonomy, AgentState
 
 
-def test_agentic_initialization():
+def test_agentic_initialization() -> None:
     """Test agentic autonomy system initialization"""
     system = AgenticAutonomy(autonomy_level=0.9)
     assert system.autonomy_level == 0.9
@@ -35,7 +35,7 @@ def test_agentic_initialization():
     assert system.decision_threshold == pytest.approx(0.1)
 
 
-def test_autonomous_detect_with_anomaly():
+def test_autonomous_detect_with_anomaly() -> None:
     """Test autonomous detection when anomaly is present"""
     system = AgenticAutonomy(autonomy_level=0.7)
 
@@ -51,7 +51,7 @@ def test_autonomous_detect_with_anomaly():
     assert result["autonomous"] is True
 
 
-def test_autonomous_detect_without_anomaly():
+def test_autonomous_detect_without_anomaly() -> None:
     """Test autonomous detection when no anomaly is present"""
     system = AgenticAutonomy(autonomy_level=0.8)
 
@@ -64,7 +64,7 @@ def test_autonomous_detect_without_anomaly():
     assert result["anomaly_score"] >= 0.0
 
 
-def test_agent_state_transitions():
+def test_agent_state_transitions() -> None:
     """Test that agent transitions through states correctly"""
     system = AgenticAutonomy(autonomy_level=0.5)
 
@@ -76,7 +76,7 @@ def test_agent_state_transitions():
     assert system.state == AgentState.IDLE
 
 
-def test_action_history_tracking():
+def test_action_history_tracking() -> None:
     """Test that actions are tracked in history"""
     system = AgenticAutonomy(autonomy_level=0.6)
 
@@ -90,7 +90,7 @@ def test_action_history_tracking():
         assert isinstance(system.action_history[-1], AgentAction)
 
 
-def test_autonomy_level_affects_threshold():
+def test_autonomy_level_affects_threshold() -> None:
     """Test that autonomy level affects decision threshold"""
     high_autonomy = AgenticAutonomy(autonomy_level=0.9)
     low_autonomy = AgenticAutonomy(autonomy_level=0.3)
@@ -100,7 +100,7 @@ def test_autonomy_level_affects_threshold():
     assert low_autonomy.decision_threshold == pytest.approx(0.7)
 
 
-def test_human_oversight_flag():
+def test_human_oversight_flag() -> None:
     """Test that human oversight flag is set correctly"""
     system = AgenticAutonomy(autonomy_level=0.8)
 

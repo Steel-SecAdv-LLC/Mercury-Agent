@@ -62,13 +62,13 @@ class TestRecursionEngineIntegration:
         """Create RecursionEngine instance."""
         return RecursionEngine(max_depth=5)
 
-    def test_recursion_engine_initialization(self, recursion_engine):
+    def test_recursion_engine_initialization(self, recursion_engine) -> None:
         """Test RecursionEngine initializes correctly."""
         assert recursion_engine is not None
         assert recursion_engine.max_depth == 5
         assert hasattr(recursion_engine, "recursion_cache")
 
-    def test_hierarchical_feature_extraction(self, recursion_engine):
+    def test_hierarchical_feature_extraction(self, recursion_engine) -> None:
         """Test hierarchical feature extraction."""
         data = np.random.randn(100)
         features = recursion_engine.hierarchical_feature_extraction(data, num_levels=3)
@@ -76,7 +76,7 @@ class TestRecursionEngineIntegration:
         for level_features in features:
             assert isinstance(level_features, np.ndarray)
 
-    def test_recursive_transform(self, recursion_engine):
+    def test_recursive_transform(self, recursion_engine) -> None:
         """Test recursive transform with convergence."""
         data = np.random.randn(50)
 
@@ -87,7 +87,7 @@ class TestRecursionEngineIntegration:
         assert isinstance(result, np.ndarray)
         assert len(result) == len(data)
 
-    def test_recursive_transform_max_depth(self, recursion_engine):
+    def test_recursive_transform_max_depth(self, recursion_engine) -> None:
         """Test recursive transform respects max depth."""
         data = np.random.randn(50)
 
@@ -97,14 +97,14 @@ class TestRecursionEngineIntegration:
         result = recursion_engine.recursive_transform(data, transform_fn, threshold=0.001)
         assert isinstance(result, np.ndarray)
 
-    def test_sliding_window_stats(self, recursion_engine):
+    def test_sliding_window_stats(self, recursion_engine) -> None:
         """Test sliding window statistics extraction."""
         data = np.random.randn(100)
         stats = recursion_engine._sliding_window_stats(data, window_size=10)
         assert isinstance(stats, np.ndarray)
         assert len(stats) > 0
 
-    def test_downsample(self, recursion_engine):
+    def test_downsample(self, recursion_engine) -> None:
         """Test downsampling function."""
         data = np.array([1, 2, 3, 4, 5, 6, 7, 8])
         downsampled = recursion_engine._downsample(data)
@@ -120,12 +120,12 @@ class TestResonanceEngineIntegration:
         """Create ResonanceEngine instance."""
         return ResonanceEngine(sampling_rate=1.0)
 
-    def test_resonance_engine_initialization(self, resonance_engine):
+    def test_resonance_engine_initialization(self, resonance_engine) -> None:
         """Test ResonanceEngine initializes correctly."""
         assert resonance_engine is not None
         assert resonance_engine.sampling_rate == 1.0
 
-    def test_compute_resonance_spectrum(self, resonance_engine):
+    def test_compute_resonance_spectrum(self, resonance_engine) -> None:
         """Test resonance spectrum computation."""
         signal_data = np.sin(2 * np.pi * 0.1 * np.arange(100))
         frequencies, magnitudes = resonance_engine.compute_resonance_spectrum(signal_data)
@@ -133,7 +133,7 @@ class TestResonanceEngineIntegration:
         assert len(magnitudes) > 0
         assert len(frequencies) == len(magnitudes)
 
-    def test_amplify_resonant_frequencies(self, resonance_engine):
+    def test_amplify_resonant_frequencies(self, resonance_engine) -> None:
         """Test resonant frequency amplification."""
         signal_data = np.sin(2 * np.pi * 0.1 * np.arange(100))
         amplified = resonance_engine.amplify_resonant_frequencies(
@@ -142,7 +142,7 @@ class TestResonanceEngineIntegration:
         assert isinstance(amplified, np.ndarray)
         assert len(amplified) == len(signal_data)
 
-    def test_detect_resonance_anomalies(self, resonance_engine):
+    def test_detect_resonance_anomalies(self, resonance_engine) -> None:
         """Test resonance anomaly detection."""
         signal_data = np.random.randn(100)
         signal_data[50] = 100  # Add anomaly
@@ -152,7 +152,7 @@ class TestResonanceEngineIntegration:
         assert "anomalous_frequencies" in result
         assert "threshold" in result
 
-    def test_detect_dominant_frequencies(self, resonance_engine):
+    def test_detect_dominant_frequencies(self, resonance_engine) -> None:
         """Test dominant frequency detection."""
         signal_data = np.sin(2 * np.pi * 0.1 * np.arange(100)) + np.sin(
             2 * np.pi * 0.2 * np.arange(100)
@@ -163,7 +163,7 @@ class TestResonanceEngineIntegration:
         )
         assert isinstance(dominant, list)
 
-    def test_multidimensional_signal_handling(self, resonance_engine):
+    def test_multidimensional_signal_handling(self, resonance_engine) -> None:
         """Test handling of multidimensional signals."""
         signal_data = np.random.randn(10, 10)
         frequencies, magnitudes = resonance_engine.compute_resonance_spectrum(signal_data)
@@ -178,11 +178,11 @@ class TestRefactoringEngineIntegration:
         """Create RefactoringEngine instance."""
         return RefactoringEngine()
 
-    def test_refactoring_engine_initialization(self, refactoring_engine):
+    def test_refactoring_engine_initialization(self, refactoring_engine) -> None:
         """Test RefactoringEngine initializes correctly."""
         assert refactoring_engine is not None
 
-    def test_analyze_complexity(self, refactoring_engine):
+    def test_analyze_complexity(self, refactoring_engine) -> None:
         """Test code complexity analysis."""
         code = """
 def example_function(x):
@@ -195,7 +195,7 @@ def example_function(x):
         assert "cyclomatic_complexity" in result
         assert "num_nodes" in result
 
-    def test_detect_code_anomalies(self, refactoring_engine):
+    def test_detect_code_anomalies(self, refactoring_engine) -> None:
         """Test code anomaly detection returns a result."""
         code = """
 def complex_function(a, b, c, d, e, f, g, h):
@@ -209,7 +209,7 @@ def complex_function(a, b, c, d, e, f, g, h):
         result = refactoring_engine.detect_code_anomalies(code)
         assert isinstance(result, dict)
 
-    def test_suggest_refactorings(self, refactoring_engine):
+    def test_suggest_refactorings(self, refactoring_engine) -> None:
         """Test refactoring suggestions."""
         code = """
 def long_function():
@@ -224,7 +224,7 @@ def long_function():
         suggestions = refactoring_engine.suggest_refactorings(code)
         assert isinstance(suggestions, list)
 
-    def test_analyze_function_complexity(self, refactoring_engine):
+    def test_analyze_function_complexity(self, refactoring_engine) -> None:
         """Test function-level complexity analysis."""
         code = """
 def func1():
@@ -272,7 +272,7 @@ class TestTornadoDetector3RIntegration:
             "location": {"state": "OK"},
         }
 
-    def test_tornado_detector_has_3r_engines(self, tornado_detector):
+    def test_tornado_detector_has_3r_engines(self, tornado_detector) -> None:
         """Test TornadoDetector has all 3R engines initialized."""
         assert hasattr(tornado_detector, "recursion_engine")
         assert hasattr(tornado_detector, "resonance_engine")
@@ -281,32 +281,32 @@ class TestTornadoDetector3RIntegration:
         assert tornado_detector.resonance_engine is not None
         assert tornado_detector.refactoring_engine is not None
 
-    def test_tornado_detector_3r_engine_types(self, tornado_detector):
+    def test_tornado_detector_3r_engine_types(self, tornado_detector) -> None:
         """Test 3R engines are correct types."""
         assert isinstance(tornado_detector.recursion_engine, RecursionEngine)
         assert isinstance(tornado_detector.resonance_engine, ResonanceEngine)
         assert isinstance(tornado_detector.refactoring_engine, RefactoringEngine)
 
-    def test_tornado_prediction_with_3r(self, tornado_detector, tornado_data):
+    def test_tornado_prediction_with_3r(self, tornado_detector, tornado_data) -> None:
         """Test tornado prediction uses 3R engines."""
         result = tornado_detector.predict_tornado(tornado_data)
         assert isinstance(result, TornadoPredictionResult)
         assert hasattr(result, "confidence")
         assert 0.0 <= result.confidence <= 1.0
 
-    def test_tornado_detector_resonance_analysis(self, tornado_detector):
+    def test_tornado_detector_resonance_analysis(self, tornado_detector) -> None:
         """Test resonance analysis in tornado detection."""
         signal_data = np.random.randn(100)
         result = tornado_detector.resonance_engine.detect_resonance_anomalies(signal_data)
         assert "is_anomalous" in result
 
-    def test_tornado_detector_recursion_features(self, tornado_detector):
+    def test_tornado_detector_recursion_features(self, tornado_detector) -> None:
         """Test recursion feature extraction in tornado detection."""
         data = np.random.randn(100)
         features = tornado_detector.recursion_engine.hierarchical_feature_extraction(data)
         assert len(features) == 3
 
-    def test_tornado_detector_empty_data(self, tornado_detector):
+    def test_tornado_detector_empty_data(self, tornado_detector) -> None:
         """Test tornado detector handles empty data gracefully."""
         result = tornado_detector.predict_tornado({})
         assert isinstance(result, TornadoPredictionResult)
@@ -346,7 +346,7 @@ class TestHurricaneDetector3RIntegration:
             "basin": "atlantic",
         }
 
-    def test_hurricane_detector_has_3r_engines(self, hurricane_detector):
+    def test_hurricane_detector_has_3r_engines(self, hurricane_detector) -> None:
         """Test HurricaneDetector has all 3R engines initialized."""
         assert hasattr(hurricane_detector, "recursion_engine")
         assert hasattr(hurricane_detector, "resonance_engine")
@@ -355,32 +355,32 @@ class TestHurricaneDetector3RIntegration:
         assert hurricane_detector.resonance_engine is not None
         assert hurricane_detector.refactoring_engine is not None
 
-    def test_hurricane_detector_3r_engine_types(self, hurricane_detector):
+    def test_hurricane_detector_3r_engine_types(self, hurricane_detector) -> None:
         """Test 3R engines are correct types."""
         assert isinstance(hurricane_detector.recursion_engine, RecursionEngine)
         assert isinstance(hurricane_detector.resonance_engine, ResonanceEngine)
         assert isinstance(hurricane_detector.refactoring_engine, RefactoringEngine)
 
-    def test_hurricane_prediction_with_3r(self, hurricane_detector, hurricane_data):
+    def test_hurricane_prediction_with_3r(self, hurricane_detector, hurricane_data) -> None:
         """Test hurricane prediction uses 3R engines."""
         result = hurricane_detector.predict_hurricane(hurricane_data)
         assert isinstance(result, HurricanePredictionResult)
         assert hasattr(result, "confidence")
         assert 0.0 <= result.confidence <= 1.0
 
-    def test_hurricane_detector_resonance_analysis(self, hurricane_detector):
+    def test_hurricane_detector_resonance_analysis(self, hurricane_detector) -> None:
         """Test resonance analysis in hurricane detection."""
         signal_data = np.random.randn(100)
         result = hurricane_detector.resonance_engine.detect_resonance_anomalies(signal_data)
         assert "is_anomalous" in result
 
-    def test_hurricane_detector_recursion_features(self, hurricane_detector):
+    def test_hurricane_detector_recursion_features(self, hurricane_detector) -> None:
         """Test recursion feature extraction in hurricane detection."""
         data = np.random.randn(100)
         features = hurricane_detector.recursion_engine.hierarchical_feature_extraction(data)
         assert len(features) == 3
 
-    def test_hurricane_detector_empty_data(self, hurricane_detector):
+    def test_hurricane_detector_empty_data(self, hurricane_detector) -> None:
         """Test hurricane detector handles empty data gracefully."""
         result = hurricane_detector.predict_hurricane({})
         assert isinstance(result, HurricanePredictionResult)
@@ -427,7 +427,7 @@ class TestFloodDetector3RIntegration:
             },
         }
 
-    def test_flood_detector_has_3r_engines(self, flood_detector):
+    def test_flood_detector_has_3r_engines(self, flood_detector) -> None:
         """Test FloodDetector has all 3R engines initialized."""
         assert hasattr(flood_detector, "recursion_engine")
         assert hasattr(flood_detector, "resonance_engine")
@@ -436,33 +436,33 @@ class TestFloodDetector3RIntegration:
         assert flood_detector.resonance_engine is not None
         assert flood_detector.prediction_optimizer is not None
 
-    def test_flood_detector_3r_engine_types(self, flood_detector):
+    def test_flood_detector_3r_engine_types(self, flood_detector) -> None:
         """Test 3R engines are correct types."""
         assert isinstance(flood_detector.recursion_engine, RecursionEngine)
         assert isinstance(flood_detector.resonance_engine, ResonanceEngine)
         assert isinstance(flood_detector.core_refactoring_engine, RefactoringEngine)
         assert isinstance(flood_detector.prediction_optimizer, FloodPredictionOptimizer)
 
-    def test_flood_prediction_with_3r(self, flood_detector, flood_data):
+    def test_flood_prediction_with_3r(self, flood_detector, flood_data) -> None:
         """Test flood prediction uses 3R engines."""
         result = flood_detector.predict_flood(flood_data)
         assert isinstance(result, FloodPredictionResult)
         assert hasattr(result, "confidence")
         assert 0.0 <= result.confidence <= 1.0
 
-    def test_flood_detector_resonance_analysis(self, flood_detector):
+    def test_flood_detector_resonance_analysis(self, flood_detector) -> None:
         """Test resonance analysis in flood detection."""
         signal_data = np.random.randn(100)
         result = flood_detector.resonance_engine.detect_resonance_anomalies(signal_data)
         assert "is_anomalous" in result
 
-    def test_flood_detector_recursion_features(self, flood_detector):
+    def test_flood_detector_recursion_features(self, flood_detector) -> None:
         """Test recursion feature extraction in flood detection."""
         data = np.random.randn(100)
         features = flood_detector.recursion_engine.hierarchical_feature_extraction(data)
         assert len(features) == 3
 
-    def test_flood_detector_empty_data(self, flood_detector):
+    def test_flood_detector_empty_data(self, flood_detector) -> None:
         """Test flood detector handles empty data gracefully."""
         result = flood_detector.predict_flood({})
         assert isinstance(result, FloodPredictionResult)
@@ -481,19 +481,19 @@ class TestCrossDetector3RConsistency:
             "flood": FloodDetector(),
         }
 
-    def test_all_detectors_have_recursion_engine(self, all_detectors):
+    def test_all_detectors_have_recursion_engine(self, all_detectors) -> None:
         """Test all detectors have RecursionEngine."""
         for name, detector in all_detectors.items():
             assert hasattr(detector, "recursion_engine"), f"{name} missing recursion_engine"
             assert isinstance(detector.recursion_engine, RecursionEngine)
 
-    def test_all_detectors_have_resonance_engine(self, all_detectors):
+    def test_all_detectors_have_resonance_engine(self, all_detectors) -> None:
         """Test all detectors have ResonanceEngine."""
         for name, detector in all_detectors.items():
             assert hasattr(detector, "resonance_engine"), f"{name} missing resonance_engine"
             assert isinstance(detector.resonance_engine, ResonanceEngine)
 
-    def test_all_detectors_have_refactoring_engine(self, all_detectors):
+    def test_all_detectors_have_refactoring_engine(self, all_detectors) -> None:
         """Test all detectors have RefactoringEngine."""
         for name, detector in all_detectors.items():
             if name == "flood":
@@ -511,17 +511,17 @@ class TestCrossDetector3RConsistency:
                 assert hasattr(detector, "refactoring_engine"), f"{name} missing refactoring_engine"
                 assert isinstance(detector.refactoring_engine, RefactoringEngine)
 
-    def test_recursion_engine_consistency(self, all_detectors):
+    def test_recursion_engine_consistency(self, all_detectors) -> None:
         """Test RecursionEngine has consistent max_depth across detectors."""
         max_depths = [d.recursion_engine.max_depth for d in all_detectors.values()]
         assert all(depth == max_depths[0] for depth in max_depths)
 
-    def test_resonance_engine_consistency(self, all_detectors):
+    def test_resonance_engine_consistency(self, all_detectors) -> None:
         """Test ResonanceEngine has consistent sampling_rate across detectors."""
         sampling_rates = [d.resonance_engine.sampling_rate for d in all_detectors.values()]
         assert all(rate == sampling_rates[0] for rate in sampling_rates)
 
-    def test_3r_engines_independent_instances(self, all_detectors):
+    def test_3r_engines_independent_instances(self, all_detectors) -> None:
         """Test each detector has independent 3R engine instances."""
         recursion_ids = [id(d.recursion_engine) for d in all_detectors.values()]
         resonance_ids = [id(d.resonance_engine) for d in all_detectors.values()]
@@ -541,7 +541,7 @@ class TestCrossDetector3RConsistency:
 class Test3RMechanismIntegration:
     """Tests for the unified 3R mechanism integration."""
 
-    def test_recursion_resonance_pipeline(self):
+    def test_recursion_resonance_pipeline(self) -> None:
         """Test combined recursion and resonance pipeline."""
         recursion = RecursionEngine(max_depth=3)
         resonance = ResonanceEngine(sampling_rate=1.0)
@@ -554,7 +554,7 @@ class Test3RMechanismIntegration:
                 anomalies = resonance.detect_resonance_anomalies(level_features)
                 assert "is_anomalous" in anomalies
 
-    def test_resonance_refactoring_pipeline(self):
+    def test_resonance_refactoring_pipeline(self) -> None:
         """Test combined resonance and refactoring pipeline."""
         resonance = ResonanceEngine(sampling_rate=1.0)
         refactoring = RefactoringEngine()
@@ -570,7 +570,7 @@ def analyze_anomalies():
         complexity = refactoring.analyze_complexity(code)
         assert "cyclomatic_complexity" in complexity
 
-    def test_full_3r_pipeline(self):
+    def test_full_3r_pipeline(self) -> None:
         """Test full 3R pipeline integration."""
         recursion = RecursionEngine(max_depth=3)
         resonance = ResonanceEngine(sampling_rate=1.0)
@@ -611,7 +611,7 @@ class TestGeologicalDetectorFeatureExtraction:
     def flood_detector(self):
         return FloodDetector()
 
-    def test_tornado_extract_features(self, tornado_detector, deterministic_rng):
+    def test_tornado_extract_features(self, tornado_detector, deterministic_rng) -> None:
         """Test tornado detector feature extraction with numpy array."""
         data = deterministic_rng.randn(100).astype(np.float32)
         if hasattr(tornado_detector, "extract_features"):
@@ -619,7 +619,7 @@ class TestGeologicalDetectorFeatureExtraction:
             assert features is not None
             assert len(features) == 20
 
-    def test_hurricane_extract_features(self, hurricane_detector, deterministic_rng):
+    def test_hurricane_extract_features(self, hurricane_detector, deterministic_rng) -> None:
         """Test hurricane detector feature extraction with numpy array."""
         data = deterministic_rng.randn(100).astype(np.float32)
         if hasattr(hurricane_detector, "extract_features"):
@@ -627,7 +627,7 @@ class TestGeologicalDetectorFeatureExtraction:
             assert features is not None
             assert len(features) == 20
 
-    def test_flood_extract_features(self, flood_detector, deterministic_rng):
+    def test_flood_extract_features(self, flood_detector, deterministic_rng) -> None:
         """Test flood detector feature extraction with numpy array."""
         data = deterministic_rng.randn(100).astype(np.float32)
         if hasattr(flood_detector, "extract_features"):

@@ -14,7 +14,6 @@ Licensed under GPL-3.0-or-later
 from __future__ import annotations
 
 from datetime import datetime
-from typing import cast
 from unittest.mock import patch
 
 import pytest
@@ -36,7 +35,7 @@ from omni_mercury_engine.infrastructure.streaming import (
 class TestStreamMessage:
     """Tests for StreamMessage dataclass."""
 
-    def test_message_creation(self):
+    def test_message_creation(self) -> None:
         """Test basic message creation."""
         msg = StreamMessage(
             topic="test-topic",
@@ -48,7 +47,7 @@ class TestStreamMessage:
         assert msg.value == {"data": [1, 2, 3]}
         assert isinstance(msg.timestamp, datetime)
 
-    def test_message_to_json(self):
+    def test_message_to_json(self) -> None:
         """Test JSON serialization."""
         msg = StreamMessage(
             topic="test",
@@ -62,7 +61,7 @@ class TestStreamMessage:
         assert "0.95" in json_str
         assert "source" in json_str
 
-    def test_message_from_json(self):
+    def test_message_from_json(self) -> None:
         """Test JSON deserialization."""
         msg = StreamMessage(
             topic="test",
@@ -78,14 +77,14 @@ class TestStreamMessage:
 class TestCircuitBreaker:
     """Tests for CircuitBreaker pattern."""
 
-    def test_initial_state_closed(self):
+    def test_initial_state_closed(self) -> None:
         """Circuit should start in closed state."""
         cb = CircuitBreaker(name="test", failure_threshold=3)
         assert cb.state == CircuitState.CLOSED
         assert cb.is_allowed()
 
     @pytest.mark.asyncio
-    async def test_opens_after_threshold(self):
+    async def test_opens_after_threshold(self) -> None:
         """Circuit should open after failure threshold."""
         cb = CircuitBreaker(name="test", failure_threshold=3, timeout_seconds=10)
 
@@ -97,7 +96,7 @@ class TestCircuitBreaker:
         assert not cb.is_allowed()
 
     @pytest.mark.asyncio
-    async def test_success_resets_count(self):
+    async def test_success_resets_count(self) -> None:
         """Success should reset failure count."""
         cb = CircuitBreaker(name="test", failure_threshold=3)
 
@@ -111,7 +110,7 @@ class TestCircuitBreaker:
         assert cb.state == CircuitState.CLOSED
 
     @pytest.mark.asyncio
-    async def test_half_open_after_timeout(self):
+    async def test_half_open_after_timeout(self) -> None:
         """Circuit should be half-open after timeout."""
         cb = CircuitBreaker(name="test", failure_threshold=2, timeout_seconds=0)
 
@@ -126,7 +125,7 @@ class TestInMemoryStreamProducer:
     """Tests for InMemoryStreamProducer."""
 
     @pytest.mark.asyncio
-    async def test_connect_disconnect(self):
+    async def test_connect_disconnect(self) -> None:
         """Test connection lifecycle."""
         producer = InMemoryStreamProducer()
         await producer.connect()
@@ -135,7 +134,7 @@ class TestInMemoryStreamProducer:
         assert not producer._connected
 
     @pytest.mark.asyncio
-    async def test_send_message(self):
+    async def test_send_message(self) -> None:
         """Test sending a message."""
         InMemoryStreamProducer.clear()
         producer = InMemoryStreamProducer()
@@ -155,7 +154,7 @@ class TestInMemoryStreamProducer:
         await producer.disconnect()
 
     @pytest.mark.asyncio
-    async def test_send_batch(self):
+    async def test_send_batch(self) -> None:
         """Test batch sending."""
         InMemoryStreamProducer.clear()
         producer = InMemoryStreamProducer()
@@ -175,7 +174,7 @@ class TestInMemoryStreamConsumer:
     """Tests for InMemoryStreamConsumer."""
 
     @pytest.mark.asyncio
-    async def test_subscribe(self):
+    async def test_subscribe(self) -> None:
         """Test topic subscription."""
         consumer = InMemoryStreamConsumer()
         await consumer.connect()
@@ -185,7 +184,7 @@ class TestInMemoryStreamConsumer:
         await consumer.disconnect()
 
     @pytest.mark.asyncio
-    async def test_consume_messages(self):
+    async def test_consume_messages(self) -> None:
         """Test consuming messages."""
         InMemoryStreamProducer.clear()
 
@@ -215,26 +214,26 @@ class TestInMemoryStreamConsumer:
 class TestStreamFactories:
     """Tests for stream factory classes."""
 
-    def test_producer_factory_memory(self):
+    def test_producer_factory_memory(self) -> None:
         """Test creating in-memory producer."""
         producer = StreamProducerFactory.create("memory")
         assert isinstance(producer, InMemoryStreamProducer)
 
-    def test_producer_factory_with_config(self):
+    def test_producer_factory_with_config(self) -> None:
         """Test creating producer with config."""
         config = StreamConfig(batch_size=200)
         producer = StreamProducerFactory.create("memory", config=config)
         # Factory returns abstract StreamProducer; narrow to concrete subclass.
         assert isinstance(producer, InMemoryStreamProducer)
-        assert cast("InMemoryStreamProducer", producer).config.batch_size == 200
+        assert producer.config.batch_size == 200
 
-    def test_consumer_factory_memory(self):
+    def test_consumer_factory_memory(self) -> None:
         """Test creating in-memory consumer."""
         consumer = StreamConsumerFactory.create("memory", group_id="test-group")
         assert isinstance(consumer, InMemoryStreamConsumer)
         assert consumer.group_id == "test-group"
 
-    def test_factory_backend_enum(self):
+    def test_factory_backend_enum(self) -> None:
         """Test using StreamingBackend enum."""
         producer = StreamProducerFactory.create(StreamingBackend.MEMORY)
         assert isinstance(producer, InMemoryStreamProducer)
@@ -243,14 +242,14 @@ class TestStreamFactories:
 class TestStreamConfig:
     """Tests for StreamConfig."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default configuration values."""
         config = StreamConfig()
         assert config.backend == StreamingBackend.MEMORY
         assert config.batch_size == 100
         assert config.max_retries == 3
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test custom configuration."""
         config = StreamConfig(
             backend=StreamingBackend.KAFKA,
@@ -266,7 +265,7 @@ class TestStreamingAnomalyPipeline:
     """Tests for StreamingAnomalyPipeline."""
 
     @pytest.mark.asyncio
-    async def test_pipeline_creation(self):
+    async def test_pipeline_creation(self) -> None:
         """Test pipeline initialization."""
         pipeline = StreamingAnomalyPipeline(
             input_topic="input",
@@ -277,7 +276,7 @@ class TestStreamingAnomalyPipeline:
         assert pipeline.output_topic == "output"
 
     @pytest.mark.asyncio
-    async def test_pipeline_with_custom_detector(self):
+    async def test_pipeline_with_custom_detector(self) -> None:
         """Test pipeline with custom detector function."""
 
         def custom_detector(data):
@@ -300,7 +299,7 @@ class TestStreamingAnomalyPipeline:
         assert result["score"] == 1.0
 
     @pytest.mark.asyncio
-    async def test_pipeline_stats(self):
+    async def test_pipeline_stats(self) -> None:
         """Test pipeline statistics."""
         pipeline = StreamingAnomalyPipeline(
             input_topic="input",
@@ -318,7 +317,7 @@ class TestKafkaProducerMocked:
     """Tests for Kafka producer with mocked aiokafka."""
 
     @pytest.mark.asyncio
-    async def test_kafka_producer_import_error(self):
+    async def test_kafka_producer_import_error(self) -> None:
         """Test graceful handling when aiokafka not installed."""
         import builtins
 
@@ -341,7 +340,7 @@ class TestKafkaProducerMocked:
             await producer.connect()
 
     @pytest.mark.asyncio
-    async def test_kafka_producer_circuit_breaker(self):
+    async def test_kafka_producer_circuit_breaker(self) -> None:
         """Test circuit breaker blocks when open."""
         from omni_mercury_engine.infrastructure.streaming import KafkaStreamProducer
 
@@ -360,7 +359,7 @@ class TestRedisProducerMocked:
     """Tests for Redis producer with mocked redis."""
 
     @pytest.mark.asyncio
-    async def test_redis_producer_import_error(self):
+    async def test_redis_producer_import_error(self) -> None:
         """Test graceful handling when redis not installed."""
         import builtins
 
@@ -388,7 +387,7 @@ class TestIntegrationInMemory:
     """Integration tests using in-memory backend."""
 
     @pytest.mark.asyncio
-    async def test_full_producer_consumer_flow(self):
+    async def test_full_producer_consumer_flow(self) -> None:
         """Test complete produce-consume cycle."""
         InMemoryStreamProducer.clear()
 
@@ -415,7 +414,7 @@ class TestIntegrationInMemory:
         await consumer.disconnect()
 
     @pytest.mark.asyncio
-    async def test_multiple_topics(self):
+    async def test_multiple_topics(self) -> None:
         """Test consuming from multiple topics."""
         InMemoryStreamProducer.clear()
 

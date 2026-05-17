@@ -17,7 +17,7 @@ import warnings
 import numpy as np
 
 
-def test_sigmoid_overflow_guard():
+def test_sigmoid_overflow_guard() -> None:
     """Extreme decision values must produce finite sigmoid scores without RuntimeWarning."""
     from omni_mercury_engine.core.conformal_prediction import ConformalAnomalyDetector
 

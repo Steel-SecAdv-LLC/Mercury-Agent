@@ -111,10 +111,10 @@ class TestConformalPropagation:
         # ``confidence_intervals=None``; the contract now is to
         # propagate so callers cannot silently miss the failure.
         class _BoomConformal:
-            def predict(self, X):
+            def predict(self, X) -> None:
                 raise ValueError("calibration history exhausted")
 
-        integration._conformal = _BoomConformal()
+        integration._conformal = _BoomConformal()  # type: ignore[assignment]
         # Mark as fitted so predict() will exercise the path.
         integration._fitted = True
 

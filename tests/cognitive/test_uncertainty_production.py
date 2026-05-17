@@ -17,7 +17,7 @@ import numpy as np
 class TestMCDropout:
     """Tests for Monte Carlo Dropout uncertainty estimation."""
 
-    def test_mc_dropout_wrapper_initialization(self):
+    def test_mc_dropout_wrapper_initialization(self) -> None:
         """Test MCDropoutWrapper creates properly."""
         from omni_mercury_engine.cognitive.uncertainty import MCDropoutWrapper
 
@@ -36,7 +36,7 @@ class TestMCDropout:
 class TestTemperatureScaling:
     """Tests for Temperature Scaling calibration."""
 
-    def test_temperature_scaling_initialization(self):
+    def test_temperature_scaling_initialization(self) -> None:
         """Test TemperatureScaler initializes correctly."""
         from omni_mercury_engine.cognitive.uncertainty import TemperatureScaler
 
@@ -44,7 +44,7 @@ class TestTemperatureScaling:
         assert scaler.temperature == 1.0
         assert not scaler._fitted
 
-    def test_temperature_scaling_fit(self):
+    def test_temperature_scaling_fit(self) -> None:
         """Test temperature scaling learns optimal temperature."""
         from omni_mercury_engine.cognitive.uncertainty import TemperatureScaler
 
@@ -61,7 +61,7 @@ class TestTemperatureScaling:
         assert scaler._fitted
         assert scaler.temperature > 0
 
-    def test_temperature_scaling_calibration(self):
+    def test_temperature_scaling_calibration(self) -> None:
         """Test calibrated probabilities are well-behaved."""
         from omni_mercury_engine.cognitive.uncertainty import TemperatureScaler
 
@@ -85,7 +85,7 @@ class TestTemperatureScaling:
 class TestAdaptiveConformal:
     """Tests for Adaptive Conformal Inference."""
 
-    def test_adaptive_conformal_initialization(self):
+    def test_adaptive_conformal_initialization(self) -> None:
         """Test AdaptiveConformalInference initializes correctly."""
         from omni_mercury_engine.cognitive.uncertainty import AdaptiveConformalInference
 
@@ -94,7 +94,7 @@ class TestAdaptiveConformal:
         assert aci.gamma == 0.01
         assert abs(aci.alpha - 0.1) < 1e-9  # 1 - target_coverage
 
-    def test_adaptive_conformal_update(self):
+    def test_adaptive_conformal_update(self) -> None:
         """Test alpha updates based on coverage."""
         from omni_mercury_engine.cognitive.uncertainty import AdaptiveConformalInference
 
@@ -111,7 +111,7 @@ class TestAdaptiveConformal:
         # After multiple uncovered, alpha should increase
         assert aci.alpha > initial_alpha
 
-    def test_adaptive_conformal_prediction_interval(self):
+    def test_adaptive_conformal_prediction_interval(self) -> None:
         """Test prediction interval computation."""
         from omni_mercury_engine.cognitive.uncertainty import AdaptiveConformalInference
 
@@ -132,7 +132,7 @@ class TestAdaptiveConformal:
 class TestHeteroscedasticEstimator:
     """Tests for Heteroscedastic Aleatoric Estimation."""
 
-    def test_heteroscedastic_initialization(self):
+    def test_heteroscedastic_initialization(self) -> None:
         """Test HeteroscedasticEstimator initializes correctly."""
         from omni_mercury_engine.cognitive.uncertainty import HeteroscedasticEstimator
 
@@ -140,7 +140,7 @@ class TestHeteroscedasticEstimator:
         assert estimator.window_size == 50
         assert estimator.min_samples == 10
 
-    def test_heteroscedastic_update_and_estimate(self):
+    def test_heteroscedastic_update_and_estimate(self) -> None:
         """Test heteroscedastic variance estimation."""
         from omni_mercury_engine.cognitive.uncertainty import HeteroscedasticEstimator
 
@@ -161,7 +161,7 @@ class TestHeteroscedasticEstimator:
 class TestUncertaintyQuantifierIntegration:
     """Integration tests for the full UncertaintyQuantifier."""
 
-    def test_uncertainty_quantifier_initialization(self):
+    def test_uncertainty_quantifier_initialization(self) -> None:
         """Test UncertaintyQuantifier initializes all components."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -176,7 +176,7 @@ class TestUncertaintyQuantifierIntegration:
         assert uq.temperature_scaler is not None
         assert uq.aci is not None
 
-    def test_estimate_uncertainty_basic(self):
+    def test_estimate_uncertainty_basic(self) -> None:
         """Test basic uncertainty estimation."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -191,7 +191,7 @@ class TestUncertaintyQuantifierIntegration:
         assert result.aleatoric >= 0
         assert result.total >= 0
 
-    def test_uncertainty_decomposition(self):
+    def test_uncertainty_decomposition(self) -> None:
         """Test epistemic vs aleatoric decomposition."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -207,7 +207,7 @@ class TestUncertaintyQuantifierIntegration:
 
         assert result_high.total > result_low.total
 
-    def test_decompose_uncertainty_method(self):
+    def test_decompose_uncertainty_method(self) -> None:
         """Test decompose_uncertainty method."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -224,7 +224,7 @@ class TestUncertaintyQuantifierIntegration:
         assert decomp["epistemic"] >= 0
         assert decomp["aleatoric"] >= 0
 
-    def test_calibration(self):
+    def test_calibration(self) -> None:
         """Test calibration assessment."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -242,7 +242,7 @@ class TestUncertaintyQuantifierIntegration:
         assert result.mce >= 0
         assert "expected" in result.reliability_diagram
 
-    def test_conformal_prediction(self):
+    def test_conformal_prediction(self) -> None:
         """Test conformal prediction method."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -262,7 +262,7 @@ class TestUncertaintyQuantifierIntegration:
 class TestUncertaintyAwareDecision:
     """Tests for uncertainty-aware decision making."""
 
-    def test_decision_confident(self):
+    def test_decision_confident(self) -> None:
         """Test decision with confident prediction."""
         from omni_mercury_engine.cognitive.uncertainty import (
             UncertaintyEstimate,
@@ -288,7 +288,7 @@ class TestUncertaintyAwareDecision:
         assert decision["should_act"] is True
         assert decision["action"] == "take_action"
 
-    def test_decision_high_epistemic(self):
+    def test_decision_high_epistemic(self) -> None:
         """Test decision with high epistemic uncertainty."""
         from omni_mercury_engine.cognitive.uncertainty import (
             UncertaintyEstimate,
@@ -318,7 +318,7 @@ class TestUncertaintyAwareDecision:
 class TestUncertaintyEdgeCases:
     """Edge case tests for uncertainty quantification."""
 
-    def test_single_prediction(self):
+    def test_single_prediction(self) -> None:
         """Test with single prediction value."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -328,7 +328,7 @@ class TestUncertaintyEdgeCases:
         assert result is not None
         assert result.total >= 0
 
-    def test_extreme_predictions(self):
+    def test_extreme_predictions(self) -> None:
         """Test with extreme prediction values."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -342,7 +342,7 @@ class TestUncertaintyEdgeCases:
         result_high = uq.estimate_uncertainty(np.array([0.99, 0.98, 0.99]))
         assert result_high is not None
 
-    def test_large_batch(self):
+    def test_large_batch(self) -> None:
         """Test with large batch of predictions."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -354,7 +354,7 @@ class TestUncertaintyEdgeCases:
         assert result is not None
         assert result.confidence >= 0
 
-    def test_statistics(self):
+    def test_statistics(self) -> None:
         """Test statistics collection."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -373,7 +373,7 @@ class TestUncertaintyEdgeCases:
 class TestCalibrationResult:
     """Tests for CalibrationResult dataclass."""
 
-    def test_calibration_result_to_dict(self):
+    def test_calibration_result_to_dict(self) -> None:
         """Test CalibrationResult serialization."""
         from omni_mercury_engine.cognitive.uncertainty import CalibrationResult
 
@@ -398,7 +398,7 @@ class TestCalibrationResult:
 class TestUncertaintyEstimate:
     """Tests for UncertaintyEstimate dataclass."""
 
-    def test_uncertainty_estimate_to_dict(self):
+    def test_uncertainty_estimate_to_dict(self) -> None:
         """Test UncertaintyEstimate serialization."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
 
@@ -431,7 +431,7 @@ class TestUncertaintyEstimate:
 class TestOverconfidenceDetection:
     """Tests for overconfidence detection (Kaddour et al. 2026)."""
 
-    def test_overconfident_flag_in_dataclass(self):
+    def test_overconfident_flag_in_dataclass(self) -> None:
         """Test is_overconfident field exists and defaults to False."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
 
@@ -448,7 +448,7 @@ class TestOverconfidenceDetection:
         )
         assert estimate.is_overconfident is False
 
-    def test_overconfident_flag_set_when_appropriate(self):
+    def test_overconfident_flag_set_when_appropriate(self) -> None:
         """Test is_overconfident is True when confidence > 0.8 and ECE > threshold."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
 
@@ -467,7 +467,7 @@ class TestOverconfidenceDetection:
         assert estimate.is_overconfident is True
         assert estimate.to_dict()["overconfident"] is True
 
-    def test_decision_defers_on_overconfidence(self):
+    def test_decision_defers_on_overconfidence(self) -> None:
         """Test uncertainty_aware_decision defers when overconfident."""
         from omni_mercury_engine.cognitive.uncertainty import (
             UncertaintyEstimate,
@@ -496,7 +496,7 @@ class TestOverconfidenceDetection:
         assert decision["action"] == "defer_to_human"
         assert "Overconfidence" in decision["reason"]
 
-    def test_not_overconfident_when_well_calibrated(self):
+    def test_not_overconfident_when_well_calibrated(self) -> None:
         """Test no overconfidence flag when calibration is good."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
 
@@ -518,7 +518,7 @@ class TestOverconfidenceDetection:
 class TestEnsembleDisagreement:
     """Tests for ensemble disagreement metric."""
 
-    def test_decompose_includes_disagreement(self):
+    def test_decompose_includes_disagreement(self) -> None:
         """Test decompose_uncertainty returns ensemble_disagreement."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -530,7 +530,7 @@ class TestEnsembleDisagreement:
         assert "ensemble_disagreement" in decomp
         assert decomp["ensemble_disagreement"] >= 0
 
-    def test_high_agreement_low_disagreement(self):
+    def test_high_agreement_low_disagreement(self) -> None:
         """Test low disagreement when models agree."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -543,7 +543,7 @@ class TestEnsembleDisagreement:
 
         assert decomp["ensemble_disagreement"] < 0.01
 
-    def test_high_disagreement_when_models_diverge(self):
+    def test_high_disagreement_when_models_diverge(self) -> None:
         """Test high disagreement when models diverge."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -555,7 +555,7 @@ class TestEnsembleDisagreement:
 
         assert decomp["ensemble_disagreement"] > 0.1
 
-    def test_single_model_zero_disagreement(self):
+    def test_single_model_zero_disagreement(self) -> None:
         """Test zero disagreement for single model (ndim < 2)."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -570,14 +570,14 @@ class TestEnsembleDisagreement:
 class TestBayesianCalibrationIntegration:
     """Tests for BayesianConfidenceCalibrator integration into UncertaintyQuantifier."""
 
-    def test_init_without_bayesian(self):
+    def test_init_without_bayesian(self) -> None:
         """Test UQ works without Bayesian calibrator (default)."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
         assert uq.bayesian_calibrator is None
 
-    def test_init_with_bayesian(self):
+    def test_init_with_bayesian(self) -> None:
         """Test UQ accepts Bayesian calibrator."""
         from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
@@ -586,7 +586,7 @@ class TestBayesianCalibrationIntegration:
         uq = UncertaintyQuantifier(bayesian_calibrator=cal)
         assert uq.bayesian_calibrator is cal
 
-    def test_calibrate_with_bayesian_passthrough(self):
+    def test_calibrate_with_bayesian_passthrough(self) -> None:
         """Test calibrate_with_bayesian returns raw when no calibrator."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -594,7 +594,7 @@ class TestBayesianCalibrationIntegration:
         result = uq.calibrate_with_bayesian(0.85, domain="security", goal="detect anomaly")
         assert result == 0.85
 
-    def test_calibrate_with_bayesian_blends(self):
+    def test_calibrate_with_bayesian_blends(self) -> None:
         """Test calibrate_with_bayesian blends raw and Bayesian confidence."""
         from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
@@ -612,7 +612,7 @@ class TestBayesianCalibrationIntegration:
         assert blended >= raw
         assert 0.01 <= blended <= 0.99
 
-    def test_update_bayesian_noop_without_calibrator(self):
+    def test_update_bayesian_noop_without_calibrator(self) -> None:
         """Test update_bayesian is safe without calibrator."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -620,7 +620,7 @@ class TestBayesianCalibrationIntegration:
         # Should not raise
         uq.update_bayesian("security", "detect", success=True)
 
-    def test_update_bayesian_updates_posterior(self):
+    def test_update_bayesian_updates_posterior(self) -> None:
         """Test update_bayesian actually updates the calibrator."""
         from omni_mercury_engine.agentic.bayesian_calibrator import BayesianConfidenceCalibrator
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
@@ -637,7 +637,7 @@ class TestBayesianCalibrationIntegration:
 class TestConformalFusedScores:
     """Tests for conformal prediction interval propagation through fusion."""
 
-    def test_no_intervals_without_aci(self):
+    def test_no_intervals_without_aci(self) -> None:
         """Test returns no intervals when ACI is disabled."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -647,7 +647,7 @@ class TestConformalFusedScores:
         assert result["has_intervals"] is False
         np.testing.assert_array_equal(result["predictions"], [0.5, 0.7, 0.9])
 
-    def test_no_intervals_without_calibration_data(self):
+    def test_no_intervals_without_calibration_data(self) -> None:
         """Test returns no intervals when ACI has no calibration scores."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
@@ -656,7 +656,7 @@ class TestConformalFusedScores:
 
         assert result["has_intervals"] is False
 
-    def test_intervals_with_calibrated_aci(self):
+    def test_intervals_with_calibrated_aci(self) -> None:
         """Test returns valid intervals after ACI calibration."""
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 

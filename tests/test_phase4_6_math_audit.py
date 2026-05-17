@@ -442,7 +442,7 @@ class TestRiemannianGradientDescent:
             return float(np.sum((x - target) ** 2))
 
         def gradient(x: np.ndarray) -> np.ndarray:
-            return 2.0 * (x - target)
+            return np.asarray(2.0 * (x - target))
 
         x0 = np.array([1.0 / 3, 1.0 / 3, 1.0 / 3])
         result = optimizer.optimize(x0, objective, gradient, max_iter=100)
@@ -740,7 +740,7 @@ class TestCrossConformalPredictor:
 
         # Parameter names must match ScoringFunction protocol (X, y).
         def scoring_fn(X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
-            return np.linalg.norm(X, axis=1)
+            return np.asarray(np.linalg.norm(X, axis=1))
 
         predictor = CrossConformalPredictor(coverage=0.95, n_folds=5, seed=42)
         predictor.fit(X, scoring_fn)
@@ -760,7 +760,7 @@ class TestCrossConformalPredictor:
 
         # Parameter names must match ScoringFunction protocol (X, y).
         def scoring_fn(X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
-            return np.linalg.norm(X, axis=1)
+            return np.asarray(np.linalg.norm(X, axis=1))
 
         predictor = CrossConformalPredictor(coverage=0.90, n_folds=5, seed=42)
         predictor.fit(X, scoring_fn)

@@ -5,6 +5,8 @@ Copyright (C) 2025 Steel Security Advisors LLC
 Tests for NarrativeEngine - Truth-Dense Communication Synthesis.
 """
 
+from typing import Any
+
 import pytest
 
 from omni_mercury_engine.narrative.engine import (
@@ -25,7 +27,7 @@ class TestNarrativeEngine:
         return NarrativeEngine()
 
     @pytest.fixture
-    def sample_detection_result(self) -> dict:
+    def sample_detection_result(self) -> dict[str, Any]:
         """Sample detection result for testing."""
         return {
             "anomaly_detected": True,
@@ -58,7 +60,7 @@ class TestNarrativeEngine:
         assert not engine.use_llm_enhancement
 
     def test_synthesize_with_anomaly(
-        self, engine: NarrativeEngine, sample_detection_result: dict
+        self, engine: NarrativeEngine, sample_detection_result: dict[str, Any]
     ) -> None:
         """Test narrative synthesis with anomaly detection."""
         result = engine.synthesize(sample_detection_result, domain="medical")
@@ -85,7 +87,7 @@ class TestNarrativeEngine:
         assert result.confidence_level == ConfidenceLevel.VERY_HIGH
 
     def test_reasoning_chain_verbalization(
-        self, engine: NarrativeEngine, sample_detection_result: dict
+        self, engine: NarrativeEngine, sample_detection_result: dict[str, Any]
     ) -> None:
         """Test that reasoning chain is properly verbalized."""
         result = engine.synthesize(sample_detection_result)
@@ -235,7 +237,7 @@ class TestNarrativeEngine:
         )
 
     def test_narrative_result_to_dict(
-        self, engine: NarrativeEngine, sample_detection_result: dict
+        self, engine: NarrativeEngine, sample_detection_result: dict[str, Any]
     ) -> None:
         """Test NarrativeResult serialization."""
         result = engine.synthesize(sample_detection_result)
@@ -249,7 +251,7 @@ class TestNarrativeEngine:
         assert "metadata" in result_dict
 
     def test_generation_time_tracking(
-        self, engine: NarrativeEngine, sample_detection_result: dict
+        self, engine: NarrativeEngine, sample_detection_result: dict[str, Any]
     ) -> None:
         """Test that generation time is tracked."""
         result = engine.synthesize(sample_detection_result)
@@ -257,7 +259,7 @@ class TestNarrativeEngine:
         assert result.generation_time_ms < 10000  # Should be fast
 
     def test_scalars_applied_tracking(
-        self, engine: NarrativeEngine, sample_detection_result: dict
+        self, engine: NarrativeEngine, sample_detection_result: dict[str, Any]
     ) -> None:
         """Test that applied scalars are tracked."""
         result = engine.synthesize(sample_detection_result)

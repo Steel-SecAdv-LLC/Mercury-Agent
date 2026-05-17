@@ -32,14 +32,14 @@ from omni_mercury_engine.core.multivariate_timeseries import (
 class TestMultivariateTSDetector:
     """Test multivariate time-series detector."""
 
-    def test_detector_initialization(self):
+    def test_detector_initialization(self) -> None:
         """Test detector initialization."""
         detector = MultivariateTSDetector()
         assert detector.window_size == 100
         assert detector.num_features == 10
         assert detector.trained is False
 
-    def test_detector_custom_config(self):
+    def test_detector_custom_config(self) -> None:
         """Test detector with custom configuration."""
         config = {
             "window_size": 50,
@@ -55,7 +55,7 @@ class TestMultivariateTSDetector:
         assert detector.temporal_conv_filters == 16
         assert detector.graph_conv_layers == 3
 
-    def test_fit_on_normal_data(self):
+    def test_fit_on_normal_data(self) -> None:
         """Test fitting on normal time-series data."""
         detector = MultivariateTSDetector()
 
@@ -67,7 +67,7 @@ class TestMultivariateTSDetector:
         assert detector.mean_features is not None
         assert detector.std_features is not None
 
-    def test_predict_detects_anomalies(self):
+    def test_predict_detects_anomalies(self) -> None:
         """Test anomaly detection on test data."""
         detector = MultivariateTSDetector()
 
@@ -83,7 +83,7 @@ class TestMultivariateTSDetector:
         assert results["method"] == "LTG_Multivariate_TS"
         assert np.any(results["predictions"])
 
-    def test_predict_without_fit_raises_error(self):
+    def test_predict_without_fit_raises_error(self) -> None:
         """Test prediction without fitting raises error."""
         detector = MultivariateTSDetector()
         data = np.random.randn(10, 100, 10)
@@ -91,7 +91,7 @@ class TestMultivariateTSDetector:
         with pytest.raises(ValueError, match="Model must be fit before prediction"):
             detector.predict(data)
 
-    def test_lstm_feature_extraction(self):
+    def test_lstm_feature_extraction(self) -> None:
         """Test LSTM feature extraction."""
         detector = MultivariateTSDetector()
         data = np.random.randn(20, 100, 10)
@@ -101,7 +101,7 @@ class TestMultivariateTSDetector:
         assert features.shape == (20, 10)
         assert not np.isnan(features).any()
 
-    def test_temporal_conv_feature_extraction(self):
+    def test_temporal_conv_feature_extraction(self) -> None:
         """Test temporal convolution feature extraction."""
         detector = MultivariateTSDetector()
         data = np.random.randn(20, 100, 10)
@@ -111,7 +111,7 @@ class TestMultivariateTSDetector:
         assert features.shape == (20, 10)
         assert not np.isnan(features).any()
 
-    def test_graph_feature_extraction(self):
+    def test_graph_feature_extraction(self) -> None:
         """Test graph convolution feature extraction."""
         detector = MultivariateTSDetector()
         data = np.random.randn(20, 100, 10)
@@ -121,7 +121,7 @@ class TestMultivariateTSDetector:
         assert features.shape == (20, 10)
         assert not np.isnan(features).any()
 
-    def test_reconstruction_error_computation(self):
+    def test_reconstruction_error_computation(self) -> None:
         """Test reconstruction error computation."""
         detector = MultivariateTSDetector()
         original = np.random.randn(20, 100, 10)
@@ -132,7 +132,7 @@ class TestMultivariateTSDetector:
         assert errors.shape == (20,)
         assert np.all(errors >= 0)
 
-    def test_roc_auc_estimation(self):
+    def test_roc_auc_estimation(self) -> None:
         """Test ROC-AUC estimation."""
         detector = MultivariateTSDetector()
 
@@ -144,7 +144,7 @@ class TestMultivariateTSDetector:
         assert 0.0 <= roc_auc <= 1.0
         assert roc_auc > 0.5
 
-    def test_roc_auc_with_all_normal(self):
+    def test_roc_auc_with_all_normal(self) -> None:
         """Test ROC-AUC when all predictions are normal."""
         detector = MultivariateTSDetector()
 
@@ -155,7 +155,7 @@ class TestMultivariateTSDetector:
 
         assert roc_auc == 0.5
 
-    def test_roc_auc_with_all_anomalies(self):
+    def test_roc_auc_with_all_anomalies(self) -> None:
         """Test ROC-AUC when all predictions are anomalies."""
         detector = MultivariateTSDetector()
 
@@ -166,7 +166,7 @@ class TestMultivariateTSDetector:
 
         assert roc_auc == 0.5
 
-    def test_detector_handles_small_dataset(self):
+    def test_detector_handles_small_dataset(self) -> None:
         """Test detector works with small dataset."""
         detector = MultivariateTSDetector({"window_size": 20, "num_features": 5})
 
@@ -180,7 +180,7 @@ class TestMultivariateTSDetector:
 
         assert len(results["anomaly_scores"]) == 3
 
-    def test_threshold_based_on_training_distribution(self):
+    def test_threshold_based_on_training_distribution(self) -> None:
         """Test threshold is set based on training data."""
         detector = MultivariateTSDetector()
 
@@ -202,13 +202,13 @@ class TestMultivariateTSDetector:
 class TestChaosMultivariateFusion:
     """Test chaos-multivariate fusion detector."""
 
-    def test_fusion_initialization(self):
+    def test_fusion_initialization(self) -> None:
         """Test fusion detector initialization."""
         fusion = ChaosMultivariateFusion()
         assert fusion.mvts_detector is not None
         assert fusion.trained is False
 
-    def test_fusion_fit(self):
+    def test_fusion_fit(self) -> None:
         """Test fitting fusion detector."""
         fusion = ChaosMultivariateFusion()
 
@@ -217,7 +217,7 @@ class TestChaosMultivariateFusion:
 
         assert fusion.trained is True
 
-    def test_fusion_predict_with_chaos_refinement(self):
+    def test_fusion_predict_with_chaos_refinement(self) -> None:
         """Test prediction with chaos-based refinement."""
         fusion = ChaosMultivariateFusion()
 
@@ -234,7 +234,7 @@ class TestChaosMultivariateFusion:
         assert "roc_auc_estimate" in results
         assert results["method"] == "Chaos_LTG_Fusion"
 
-    def test_fusion_predict_without_fit_raises_error(self):
+    def test_fusion_predict_without_fit_raises_error(self) -> None:
         """Test prediction without fitting raises error."""
         fusion = ChaosMultivariateFusion()
         data = np.random.randn(10, 100, 10)
@@ -242,7 +242,7 @@ class TestChaosMultivariateFusion:
         with pytest.raises(ValueError, match="Model must be fit before prediction"):
             fusion.predict_with_chaos_refinement(data)
 
-    def test_chaos_refinement_adjusts_threshold(self):
+    def test_chaos_refinement_adjusts_threshold(self) -> None:
         """Test chaos refinement adjusts threshold."""
         fusion = ChaosMultivariateFusion()
 
@@ -255,7 +255,7 @@ class TestChaosMultivariateFusion:
         assert results["threshold"] != results["original_threshold"]
         assert results["threshold"] > 0
 
-    def test_fusion_achieves_high_roc_auc(self):
+    def test_fusion_achieves_high_roc_auc(self) -> None:
         """Test fusion achieves ROC-AUC on simulated anomalies."""
         fusion = ChaosMultivariateFusion()
 
@@ -270,7 +270,7 @@ class TestChaosMultivariateFusion:
 
         assert results["roc_auc_estimate"] >= 0.5
 
-    def test_fusion_custom_configs(self):
+    def test_fusion_custom_configs(self) -> None:
         """Test fusion with custom configurations."""
         mvts_config = {"window_size": 50, "num_features": 5}
         chaos_config = {"population_size": 20, "max_iterations": 30}
@@ -280,7 +280,7 @@ class TestChaosMultivariateFusion:
         assert fusion.mvts_detector.window_size == 50
         assert fusion.mvts_detector.num_features == 5
 
-    def test_fusion_multiple_predictions(self):
+    def test_fusion_multiple_predictions(self) -> None:
         """Test fusion can make multiple predictions."""
         fusion = ChaosMultivariateFusion()
 

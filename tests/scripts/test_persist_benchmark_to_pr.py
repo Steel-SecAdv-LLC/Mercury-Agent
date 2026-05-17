@@ -43,7 +43,7 @@ def persister() -> object:
 class _RecordingApi:
     """Fake ``_api`` that records every call and returns canned responses."""
 
-    def __init__(self, responses: dict[tuple[str, str], Any]) -> None:
+    def __init__(self, responses: dict[tuple[str, str] | str, Any]) -> None:
         self._responses = responses
         self.calls: list[dict[str, Any]] = []
 

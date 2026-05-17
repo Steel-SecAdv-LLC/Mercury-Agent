@@ -32,13 +32,13 @@ from omni_mercury_engine.core.fusion import HybridFusionLayer
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
 
 
-def test_hybrid_fusion_initialization():
+def test_hybrid_fusion_initialization() -> None:
     """Test hybrid fusion can be initialized"""
     fusion = HybridFusionLayer(feature_dims={"detector1": 64, "detector2": 64}, hidden_dim=128)
     assert fusion is not None
 
 
-def test_feature_level_fusion():
+def test_feature_level_fusion() -> None:
     """Test feature-level fusion"""
     fusion = HybridFusionLayer(feature_dims={"statistical": 128, "temporal": 128}, hidden_dim=128)
 
@@ -57,7 +57,7 @@ def test_feature_level_fusion():
     assert fused.shape[1] == 128
 
 
-def test_fusion_network():
+def test_fusion_network() -> None:
     """Test neural fusion network"""
     network = OmniFusionModel(feature_dims={"detector1": 64, "detector2": 64}, hidden_dim=128)
 
@@ -75,7 +75,7 @@ def test_fusion_network():
 class TestFusionNetworkForwardPass:
     """Comprehensive tests for ML fusion network forward pass."""
 
-    def test_forward_pass_all_outputs(self):
+    def test_forward_pass_all_outputs(self) -> None:
         """Test forward pass returns all expected outputs."""
         network = OmniFusionModel(
             feature_dims={"statistical": 10, "temporal": 32, "quantum": 16},
@@ -99,7 +99,7 @@ class TestFusionNetworkForwardPass:
         assert output["class_logits"].shape == (16, 10)
         assert output["regression_output"].shape == (16, 1)
 
-    def test_forward_pass_with_attention(self):
+    def test_forward_pass_with_attention(self) -> None:
         """Test forward pass with attention weights returned."""
         network = OmniFusionModel(
             feature_dims={"detector1": 64, "detector2": 64},
@@ -116,7 +116,7 @@ class TestFusionNetworkForwardPass:
         assert "attention_weights" in output
         assert output["attention_weights"] is not None
 
-    def test_forward_pass_with_detector_scores(self):
+    def test_forward_pass_with_detector_scores(self) -> None:
         """Test forward pass with explicit detector scores."""
         network = OmniFusionModel(
             feature_dims={"detector1": 64, "detector2": 64},
@@ -138,7 +138,7 @@ class TestFusionNetworkForwardPass:
         assert "anomaly_probs" in output
         assert output["anomaly_probs"].shape == (8, 1)
 
-    def test_forward_pass_single_sample(self):
+    def test_forward_pass_single_sample(self) -> None:
         """Test forward pass with single sample batch."""
         network = OmniFusionModel(
             feature_dims={"detector1": 64},
@@ -153,7 +153,7 @@ class TestFusionNetworkForwardPass:
 
         assert output["anomaly_probs"].shape == (1, 1)
 
-    def test_forward_pass_large_batch(self):
+    def test_forward_pass_large_batch(self) -> None:
         """Test forward pass with large batch size."""
         network = OmniFusionModel(
             feature_dims={"detector1": 64, "detector2": 64},
@@ -169,7 +169,7 @@ class TestFusionNetworkForwardPass:
 
         assert output["anomaly_probs"].shape == (256, 1)
 
-    def test_forward_pass_gradient_flow(self):
+    def test_forward_pass_gradient_flow(self) -> None:
         """Test that gradients flow through the network."""
         network = OmniFusionModel(
             feature_dims={"detector1": 64},
@@ -186,7 +186,7 @@ class TestFusionNetworkForwardPass:
 
         assert detector_features["detector1"].grad is not None
 
-    def test_forward_pass_eval_mode(self):
+    def test_forward_pass_eval_mode(self) -> None:
         """Test forward pass in evaluation mode."""
         network = OmniFusionModel(
             feature_dims={"detector1": 64},
@@ -205,7 +205,7 @@ class TestFusionNetworkForwardPass:
         assert 0 <= output["anomaly_probs"].min() <= 1
         assert 0 <= output["anomaly_probs"].max() <= 1
 
-    def test_get_detector_importance(self):
+    def test_get_detector_importance(self) -> None:
         """Test detector importance computation."""
         network = OmniFusionModel(
             feature_dims={"detector1": 64, "detector2": 64},
@@ -226,7 +226,7 @@ class TestFusionNetworkForwardPass:
 class TestGatedFusion:
     """Tests for GatedFusion mechanism."""
 
-    def test_gated_fusion_forward(self):
+    def test_gated_fusion_forward(self) -> None:
         """Test gated fusion forward pass."""
         from omni_mercury_engine.ml.fusion_network import GatedFusion
 
@@ -239,7 +239,7 @@ class TestGatedFusion:
 
         assert output.shape == (16, 64)
 
-    def test_gated_fusion_with_gate_return(self):
+    def test_gated_fusion_with_gate_return(self) -> None:
         """Test gated fusion returns gate values."""
         from omni_mercury_engine.ml.fusion_network import GatedFusion
 
@@ -259,7 +259,7 @@ class TestGatedFusion:
 class TestMultimodalFusion:
     """Tests for MultimodalFusion mechanism."""
 
-    def test_multimodal_fusion_forward(self):
+    def test_multimodal_fusion_forward(self) -> None:
         """Test multimodal fusion forward pass."""
         from omni_mercury_engine.ml.fusion_network import MultimodalFusion
 
@@ -278,7 +278,7 @@ class TestMultimodalFusion:
 
         assert output.shape == (8, 128)
 
-    def test_multimodal_fusion_partial_modalities(self):
+    def test_multimodal_fusion_partial_modalities(self) -> None:
         """Test multimodal fusion with partial modalities."""
         from omni_mercury_engine.ml.fusion_network import MultimodalFusion
 
@@ -296,7 +296,7 @@ class TestMultimodalFusion:
 
         assert output.shape == (8, 128)
 
-    def test_multimodal_fusion_no_modalities_raises(self):
+    def test_multimodal_fusion_no_modalities_raises(self) -> None:
         """Test multimodal fusion raises error with no valid modalities."""
         import pytest
 
@@ -318,7 +318,7 @@ class TestMultimodalFusion:
 class TestFusionNetworkBasic:
     """Tests for basic FusionNetwork class."""
 
-    def test_fusion_network_basic_forward(self):
+    def test_fusion_network_basic_forward(self) -> None:
         """Test basic fusion network forward pass."""
         from omni_mercury_engine.ml.fusion_network import FusionNetwork
 
@@ -338,7 +338,7 @@ class TestFusionNetworkBasic:
 
         assert output.shape == (16, 64)
 
-    def test_fusion_network_single_modality(self):
+    def test_fusion_network_single_modality(self) -> None:
         """Test fusion network with single modality."""
         from omni_mercury_engine.ml.fusion_network import FusionNetwork
 
@@ -357,7 +357,7 @@ class TestFusionNetworkBasic:
 class TestCrossDomainFusion:
     """Tests for cross-domain fusion paths combining multiple domain detectors."""
 
-    def test_geological_security_fusion(self):
+    def test_geological_security_fusion(self) -> None:
         """Test fusion of geological and security domain features."""
         network = OmniFusionModel(
             feature_dims={
@@ -385,7 +385,7 @@ class TestCrossDomainFusion:
         assert output["anomaly_probs"].shape == (16, 1)
         assert output["class_logits"].shape == (16, 5)
 
-    def test_medical_humanitarian_fusion(self):
+    def test_medical_humanitarian_fusion(self) -> None:
         """Test fusion of medical and humanitarian domain features."""
         network = OmniFusionModel(
             feature_dims={
@@ -410,7 +410,7 @@ class TestCrossDomainFusion:
         assert "anomaly_probs" in output
         assert output["anomaly_probs"].shape == (8, 1)
 
-    def test_space_environmental_fusion(self):
+    def test_space_environmental_fusion(self) -> None:
         """Test fusion of space and environmental domain features."""
         network = OmniFusionModel(
             feature_dims={
@@ -434,7 +434,7 @@ class TestCrossDomainFusion:
         assert "anomaly_probs" in output
         assert output["anomaly_probs"].shape == (12, 1)
 
-    def test_all_domains_fusion(self):
+    def test_all_domains_fusion(self) -> None:
         """Test fusion across all major domain categories."""
         network = OmniFusionModel(
             feature_dims={
@@ -466,7 +466,7 @@ class TestCrossDomainFusion:
         assert output["anomaly_probs"].shape == (4, 1)
         assert output["class_logits"].shape == (4, 10)
 
-    def test_cross_domain_attention_weights(self):
+    def test_cross_domain_attention_weights(self) -> None:
         """Test attention weights across domains."""
         network = OmniFusionModel(
             feature_dims={
@@ -493,7 +493,7 @@ class TestCrossDomainFusion:
             else:
                 assert output["attention_weights"].shape[0] == 8
 
-    def test_cross_domain_with_missing_detector(self):
+    def test_cross_domain_with_missing_detector(self) -> None:
         """Test fusion handles missing detector gracefully."""
         network = OmniFusionModel(
             feature_dims={
@@ -513,7 +513,7 @@ class TestCrossDomainFusion:
         except KeyError:
             pass  # Expected: output key may vary by implementation
 
-    def test_hybrid_fusion_cross_domain(self):
+    def test_hybrid_fusion_cross_domain(self) -> None:
         """Test HybridFusionLayer with cross-domain features."""
         fusion = HybridFusionLayer(
             feature_dims={
@@ -541,7 +541,7 @@ class TestCrossDomainFusion:
         assert fused.shape[0] == 16
         assert fused.shape[1] == 256
 
-    def test_cross_domain_ethical_alignment(self):
+    def test_cross_domain_ethical_alignment(self) -> None:
         """Test fusion maintains ethical alignment across domains."""
         network = OmniFusionModel(
             feature_dims={

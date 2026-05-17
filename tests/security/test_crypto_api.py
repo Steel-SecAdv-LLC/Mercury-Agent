@@ -47,7 +47,7 @@ pytestmark = pytest.mark.skipif(not HAS_CRYPTO, reason="crypto_api not available
 class TestEd25519Provider:
     """Tests for Ed25519 signature provider."""
 
-    def test_generate_keypair(self):
+    def test_generate_keypair(self) -> None:
         """Test Ed25519 keypair generation."""
         provider = Ed25519Provider()
         keypair = provider.generate_keypair()
@@ -58,7 +58,7 @@ class TestEd25519Provider:
         assert len(keypair.public_key) == 32  # Ed25519 public key is 32 bytes
         assert len(keypair.secret_key) == 32  # Ed25519 seed is 32 bytes
 
-    def test_sign_and_verify_roundtrip(self):
+    def test_sign_and_verify_roundtrip(self) -> None:
         """Test signature creation and verification."""
         provider = Ed25519Provider()
         keypair = provider.generate_keypair()
@@ -72,7 +72,7 @@ class TestEd25519Provider:
         is_valid = provider.verify(message, signature, keypair.public_key)
         assert is_valid is True
 
-    def test_verify_fails_with_wrong_message(self):
+    def test_verify_fails_with_wrong_message(self) -> None:
         """Test that verification fails with tampered message."""
         provider = Ed25519Provider()
         keypair = provider.generate_keypair()
@@ -83,7 +83,7 @@ class TestEd25519Provider:
         is_valid = provider.verify(tampered, signature, keypair.public_key)
         assert is_valid is False
 
-    def test_verify_fails_with_wrong_key(self):
+    def test_verify_fails_with_wrong_key(self) -> None:
         """Test that verification fails with wrong public key."""
         provider = Ed25519Provider()
         keypair1 = provider.generate_keypair()
@@ -94,7 +94,7 @@ class TestEd25519Provider:
         is_valid = provider.verify(message, signature, keypair2.public_key)
         assert is_valid is False
 
-    def test_verify_fails_with_corrupted_signature(self):
+    def test_verify_fails_with_corrupted_signature(self) -> None:
         """Test that verification fails with corrupted signature."""
         provider = Ed25519Provider()
         keypair = provider.generate_keypair()
@@ -110,7 +110,7 @@ class TestEd25519Provider:
 class TestMercuryCrypto:
     """Tests for the main MercuryCrypto interface."""
 
-    def test_generate_signing_keypair_classical(self):
+    def test_generate_signing_keypair_classical(self) -> None:
         """Test keypair generation with classical security level."""
         crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
         keypair = crypto.generate_signing_keypair()
@@ -119,7 +119,7 @@ class TestMercuryCrypto:
         assert keypair.public_key is not None
         assert keypair.secret_key is not None
 
-    def test_sign_and_verify_roundtrip(self):
+    def test_sign_and_verify_roundtrip(self) -> None:
         """Test complete sign/verify cycle through main interface."""
         crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
         keypair = crypto.generate_signing_keypair()
@@ -131,7 +131,7 @@ class TestMercuryCrypto:
         is_valid = crypto.verify(message, signature, keypair.public_key)
         assert is_valid is True
 
-    def test_get_capabilities(self):
+    def test_get_capabilities(self) -> None:
         """Test capability reporting."""
         crypto = MercuryCrypto()
         capabilities = crypto.get_capabilities()
@@ -139,7 +139,7 @@ class TestMercuryCrypto:
         assert isinstance(capabilities, dict)
         assert "security_level" in capabilities or "supported_algorithms" in capabilities
 
-    def test_create_crypto_package(self):
+    def test_create_crypto_package(self) -> None:
         """Test crypto package creation with hashing."""
         crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
         data = {"message": "Data to be packaged and signed", "value": 42}
@@ -168,7 +168,7 @@ class TestMercuryCrypto:
 class TestKeyPairDataClass:
     """Tests for KeyPair data structure."""
 
-    def test_keypair_creation(self):
+    def test_keypair_creation(self) -> None:
         """Test KeyPair can be created with valid data."""
         keypair = KeyPair(
             public_key=b"x" * 32,
@@ -184,7 +184,7 @@ class TestKeyPairDataClass:
 class TestSignatureDataClass:
     """Tests for Signature data structure."""
 
-    def test_signature_creation(self):
+    def test_signature_creation(self) -> None:
         """Test Signature can be created."""
         sig = Signature(
             signature=b"s" * 64,
@@ -200,7 +200,7 @@ class TestSignatureDataClass:
 class TestSecurityLevelEnum:
     """Tests for SecurityLevel enum values."""
 
-    def test_security_levels_exist(self):
+    def test_security_levels_exist(self) -> None:
         """Test all expected security levels are defined."""
         assert hasattr(SecurityLevel, "CLASSICAL")
         assert hasattr(SecurityLevel, "POST_QUANTUM")
@@ -210,7 +210,7 @@ class TestSecurityLevelEnum:
 class TestAlgorithmTypeEnum:
     """Tests for AlgorithmType enum values."""
 
-    def test_algorithm_types_exist(self):
+    def test_algorithm_types_exist(self) -> None:
         """Test all expected algorithm types are defined."""
         assert hasattr(AlgorithmType, "ED25519")
         # Post-quantum algorithms
@@ -228,7 +228,7 @@ class TestPostQuantumProviders:
     Requires AMA Cryptography's native C library to be built.
     """
 
-    def test_mldsa_keypair_generation(self):
+    def test_mldsa_keypair_generation(self) -> None:
         """Test ML-DSA-65 keypair generation."""
         from omni_mercury_engine.security.crypto_api import MLDSAProvider
 
@@ -240,7 +240,7 @@ class TestPostQuantumProviders:
         assert keypair.secret_key is not None
         assert keypair.algorithm == AlgorithmType.ML_DSA_65
 
-    def test_mldsa_sign_verify(self):
+    def test_mldsa_sign_verify(self) -> None:
         """Test ML-DSA-65 sign and verify roundtrip."""
         from omni_mercury_engine.security.crypto_api import MLDSAProvider
 
@@ -256,7 +256,7 @@ class TestPostQuantumProviders:
         is_valid_wrong = provider.verify(b"wrong", signature, keypair.public_key)
         assert is_valid_wrong is False
 
-    def test_kyber_encapsulation(self):
+    def test_kyber_encapsulation(self) -> None:
         """Test Kyber key encapsulation roundtrip."""
         if not KYBER_AVAILABLE:
             pytest.skip("Kyber-1024 not available")
@@ -276,7 +276,7 @@ class TestPostQuantumProviders:
             recovered == encapsulated.shared_secret
         ), "Kyber shared secrets should match after encap/decap"
 
-    def test_sphincs_plus_signatures(self):
+    def test_sphincs_plus_signatures(self) -> None:
         """Test SPHINCS+ signature roundtrip."""
         if not SPHINCS_AVAILABLE:
             pytest.skip("SPHINCS+ not available")
@@ -303,7 +303,7 @@ class TestHybridCryptography:
     Requires AMA Cryptography's native C library.
     """
 
-    def test_hybrid_keypair_generation(self):
+    def test_hybrid_keypair_generation(self) -> None:
         """Test hybrid keypair generation includes both algorithms."""
         from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
 
@@ -315,7 +315,7 @@ class TestHybridCryptography:
         if classical_kp is not None:
             assert classical_kp.algorithm == AlgorithmType.ED25519
 
-    def test_hybrid_signature_verification(self):
+    def test_hybrid_signature_verification(self) -> None:
         """Test hybrid signature roundtrip."""
         from omni_mercury_engine.security.crypto_api import HybridSignatureProvider
 
@@ -335,7 +335,7 @@ class TestHybridCryptography:
             assert classical_valid is True, "Classical Ed25519 should verify correctly"
         assert pqc_valid is True, "ML-DSA-65 should verify signatures correctly"
 
-    def test_hybrid_security_level(self):
+    def test_hybrid_security_level(self) -> None:
         """Test MercuryCrypto with hybrid security level."""
         crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
         caps = crypto.get_capabilities()
@@ -345,7 +345,7 @@ class TestHybridCryptography:
 class TestCryptoPackageOperations:
     """Tests for Crypto Package Operations with Anomaly Data."""
 
-    def test_package_with_anomaly_detection_data(self):
+    def test_package_with_anomaly_detection_data(self) -> None:
         """Test packaging typical anomaly detection output."""
         crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
         anomaly_data = {
@@ -366,7 +366,7 @@ class TestCryptoPackageOperations:
         assert package is not None
         assert package.data_hash is not None
 
-    def test_package_deterministic_hash(self):
+    def test_package_deterministic_hash(self) -> None:
         """Test that hashing is deterministic."""
         crypto = MercuryCrypto()
         data = {"key": "value", "number": 42}
@@ -376,7 +376,7 @@ class TestCryptoPackageOperations:
         package2 = crypto.create_crypto_package(data, config)
         assert package1.data_hash == package2.data_hash
 
-    def test_package_different_data_different_hash(self):
+    def test_package_different_data_different_hash(self) -> None:
         """Test that different data produces different hash."""
         crypto = MercuryCrypto()
         config = CryptoPackageConfig(include_timestamp=False, sign_data=False)
@@ -389,7 +389,7 @@ class TestCryptoPackageOperations:
 class TestCryptoEdgeCases:
     """Edge case tests for cryptographic operations."""
 
-    def test_empty_message_signing(self):
+    def test_empty_message_signing(self) -> None:
         """Test signing empty message."""
         crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
         keypair = crypto.generate_signing_keypair()
@@ -398,7 +398,7 @@ class TestCryptoEdgeCases:
         is_valid = crypto.verify(b"", signature, keypair.public_key)
         assert is_valid is True
 
-    def test_large_message_signing(self):
+    def test_large_message_signing(self) -> None:
         """Test signing large message."""
         crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
         keypair = crypto.generate_signing_keypair()
@@ -408,7 +408,7 @@ class TestCryptoEdgeCases:
         is_valid = crypto.verify(large_message, signature, keypair.public_key)
         assert is_valid is True
 
-    def test_binary_data_signing(self):
+    def test_binary_data_signing(self) -> None:
         """Test signing binary data with all byte values."""
         crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
         keypair = crypto.generate_signing_keypair()
@@ -418,7 +418,7 @@ class TestCryptoEdgeCases:
         is_valid = crypto.verify(binary_message, signature, keypair.public_key)
         assert is_valid is True
 
-    def test_keypair_uniqueness(self):
+    def test_keypair_uniqueness(self) -> None:
         """Test that each keypair is unique."""
         crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
         keypairs = [crypto.generate_signing_keypair() for _ in range(5)]
@@ -431,7 +431,7 @@ class TestCryptoEdgeCases:
 class TestCryptoIntegration:
     """Integration tests for complete cryptographic workflows."""
 
-    def test_key_rotation_scenario(self):
+    def test_key_rotation_scenario(self) -> None:
         """Test key rotation preserves security guarantees."""
         crypto = MercuryCrypto(security_level=SecurityLevel.CLASSICAL)
 
@@ -454,7 +454,7 @@ class TestCryptoIntegration:
         assert crypto.verify(data, old_sig, new_keypair.public_key) is False
         assert crypto.verify(data, new_sig, old_keypair.public_key) is False
 
-    def test_multiple_algorithm_support(self):
+    def test_multiple_algorithm_support(self) -> None:
         """Test that multiple algorithms can be used together."""
         crypto = MercuryCrypto()
         caps = crypto.get_capabilities()
@@ -474,7 +474,7 @@ class TestPQCRealImplementation:
     These tests require the native C library to be built.
     """
 
-    def test_real_dilithium_sign_verify_succeeds(self):
+    def test_real_dilithium_sign_verify_succeeds(self) -> None:
         """ML-DSA-65 sign/verify roundtrip."""
         from omni_mercury_engine.security.pqc_backends import (
             dilithium_sign,
@@ -491,7 +491,7 @@ class TestPQCRealImplementation:
         assert is_valid is True, "ML-DSA-65 should verify signatures correctly"
 
     @pytest.mark.skipif(not KYBER_AVAILABLE, reason="Kyber-1024 not available")
-    def test_real_kyber_encap_decap_matches(self):
+    def test_real_kyber_encap_decap_matches(self) -> None:
         """Kyber encap/decap shared secret roundtrip."""
         from omni_mercury_engine.security.pqc_backends import (
             generate_kyber_keypair,
@@ -508,7 +508,7 @@ class TestPQCRealImplementation:
         ), "Kyber should produce matching shared secrets"
 
     @pytest.mark.skipif(not SPHINCS_AVAILABLE, reason="SPHINCS+ not available")
-    def test_real_sphincs_sign_verify_succeeds(self):
+    def test_real_sphincs_sign_verify_succeeds(self) -> None:
         """SPHINCS+ sign/verify roundtrip."""
         from omni_mercury_engine.security.pqc_backends import (
             generate_sphincs_keypair,

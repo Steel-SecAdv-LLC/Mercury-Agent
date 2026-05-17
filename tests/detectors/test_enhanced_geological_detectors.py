@@ -55,18 +55,18 @@ class TestLandslideDetector:
             "vegetation_index": deterministic_rng.rand(1)[0],
         }
 
-    def test_detector_initialization(self, landslide_detector):
+    def test_detector_initialization(self, landslide_detector) -> None:
         """Test LandslideDetector initializes correctly."""
         assert landslide_detector is not None
         assert landslide_detector.enable_recursion is True
 
-    def test_detector_has_recursion_analyzer(self, landslide_detector):
+    def test_detector_has_recursion_analyzer(self, landslide_detector) -> None:
         """Test detector has RecursionMultiScaleAnalyzer."""
         assert hasattr(landslide_detector, "recursion_analyzer")
         if landslide_detector.enable_recursion:
             assert landslide_detector.recursion_analyzer is not None
 
-    def test_predict_landslide_basic(self, landslide_detector, landslide_data):
+    def test_predict_landslide_basic(self, landslide_detector, landslide_data) -> None:
         """Test basic landslide prediction."""
         result = landslide_detector.predict_landslide(landslide_data)
         assert result is not None
@@ -74,7 +74,7 @@ class TestLandslideDetector:
         assert hasattr(result, "confidence")
         assert 0.0 <= result.confidence <= 1.0
 
-    def test_predict_landslide_high_risk(self, landslide_detector, deterministic_rng):
+    def test_predict_landslide_high_risk(self, landslide_detector, deterministic_rng) -> None:
         """Test landslide prediction with high-risk conditions."""
         high_risk_data = {
             "acceleration_data": deterministic_rng.randn(100, 3) * 5,
@@ -87,7 +87,7 @@ class TestLandslideDetector:
         assert result is not None
         assert result.confidence >= 0.0  # Confidence can be 0.0 depending on model state
 
-    def test_predict_landslide_low_risk(self, landslide_detector, deterministic_rng):
+    def test_predict_landslide_low_risk(self, landslide_detector, deterministic_rng) -> None:
         """Test landslide prediction with low-risk conditions."""
         low_risk_data = {
             "acceleration_data": deterministic_rng.randn(100, 3) * 0.1,
@@ -99,7 +99,7 @@ class TestLandslideDetector:
         result = landslide_detector.predict_landslide(low_risk_data)
         assert result is not None
 
-    def test_extract_features(self, landslide_detector, landslide_data):
+    def test_extract_features(self, landslide_detector, landslide_data) -> None:
         """Test feature extraction returns correct dimensions."""
         if hasattr(landslide_detector, "extract_features"):
             features = landslide_detector.extract_features(landslide_data)
@@ -109,7 +109,7 @@ class TestLandslideDetector:
             result = landslide_detector.predict_landslide(landslide_data)
             assert result is not None
 
-    def test_recursion_synapse_integration(self, landslide_detector, landslide_data):
+    def test_recursion_synapse_integration(self, landslide_detector, landslide_data) -> None:
         """Test 3R Recursion synapse is properly integrated."""
         assert landslide_detector.enable_recursion, (
             "fixture must construct LandslideDetector with enable_recursion=True; "
@@ -118,7 +118,7 @@ class TestLandslideDetector:
         result = landslide_detector.predict_landslide(landslide_data)
         assert result is not None
 
-    def test_svm_classifier_exists(self, landslide_detector):
+    def test_svm_classifier_exists(self, landslide_detector) -> None:
         """Test SVM classifier is initialized (via ml_ensemble or directly)."""
         has_svm = hasattr(landslide_detector, "svm_classifier") or (
             hasattr(landslide_detector, "ml_ensemble")
@@ -127,7 +127,7 @@ class TestLandslideDetector:
         )
         assert has_svm or landslide_detector.enable_ml_ensemble is False
 
-    def test_rf_classifier_exists(self, landslide_detector):
+    def test_rf_classifier_exists(self, landslide_detector) -> None:
         """Test Random Forest classifier is initialized (via ml_ensemble or directly)."""
         has_rf = hasattr(landslide_detector, "rf_classifier") or (
             hasattr(landslide_detector, "ml_ensemble")
@@ -136,7 +136,7 @@ class TestLandslideDetector:
         )
         assert has_rf or landslide_detector.enable_ml_ensemble is False
 
-    def test_temporal_lag_features(self, landslide_detector, deterministic_rng):
+    def test_temporal_lag_features(self, landslide_detector, deterministic_rng) -> None:
         """Test temporal lag feature extraction."""
         data_with_history = {
             "acceleration_data": deterministic_rng.randn(200, 3),
@@ -149,7 +149,7 @@ class TestLandslideDetector:
         result = landslide_detector.predict_landslide(data_with_history)
         assert result is not None
 
-    def test_alert_level_determination(self, landslide_detector, landslide_data):
+    def test_alert_level_determination(self, landslide_detector, landslide_data) -> None:
         """Test alert level is properly determined (via risk_level or alert_level)."""
         result = landslide_detector.predict_landslide(landslide_data)
         has_alert = hasattr(result, "alert_level") or hasattr(result, "risk_level")
@@ -159,7 +159,7 @@ class TestLandslideDetector:
         elif hasattr(result, "risk_level"):
             assert result.risk_level in ["low", "moderate", "high", "critical", "extreme"]
 
-    def test_hazard_zones_identification(self, landslide_detector, landslide_data):
+    def test_hazard_zones_identification(self, landslide_detector, landslide_data) -> None:
         """Test hazard zones are identified (via evacuation_zones or hazard_zones)."""
         result = landslide_detector.predict_landslide(landslide_data)
         has_zones = hasattr(result, "hazard_zones") or hasattr(result, "evacuation_zones")
@@ -184,12 +184,12 @@ class TestLandslideDetectorWithoutRecursion:
 
         return LandslideDetector(enable_recursion=False)
 
-    def test_detector_without_recursion(self, detector_no_recursion):
+    def test_detector_without_recursion(self, detector_no_recursion) -> None:
         """Test detector works without recursion enabled."""
         assert detector_no_recursion is not None
         assert detector_no_recursion.enable_recursion is False
 
-    def test_predict_without_recursion(self, detector_no_recursion, deterministic_rng):
+    def test_predict_without_recursion(self, detector_no_recursion, deterministic_rng) -> None:
         """Test prediction works without recursion."""
         data = {
             "acceleration_data": deterministic_rng.randn(100, 3),
@@ -230,18 +230,18 @@ class TestWildfireDetector:
             "temperature_c": deterministic_rng.rand(1)[0] * 40 + 10,
         }
 
-    def test_detector_initialization(self, wildfire_detector):
+    def test_detector_initialization(self, wildfire_detector) -> None:
         """Test WildfireDetector initializes correctly."""
         assert wildfire_detector is not None
         assert wildfire_detector.enable_resonance is True
 
-    def test_detector_has_resonance_analyzer(self, wildfire_detector):
+    def test_detector_has_resonance_analyzer(self, wildfire_detector) -> None:
         """Test detector has ResonanceFrequencyAnalyzer."""
         assert hasattr(wildfire_detector, "resonance_analyzer")
         if wildfire_detector.enable_resonance:
             assert wildfire_detector.resonance_analyzer is not None
 
-    def test_predict_wildfire_basic(self, wildfire_detector, wildfire_data):
+    def test_predict_wildfire_basic(self, wildfire_detector, wildfire_data) -> None:
         """Test basic wildfire prediction."""
         result = wildfire_detector.predict_wildfire(wildfire_data)
         assert result is not None
@@ -249,7 +249,7 @@ class TestWildfireDetector:
         assert hasattr(result, "confidence")
         assert 0.0 <= result.confidence <= 1.0
 
-    def test_predict_wildfire_high_risk(self, wildfire_detector, deterministic_rng):
+    def test_predict_wildfire_high_risk(self, wildfire_detector, deterministic_rng) -> None:
         """Test wildfire prediction with high-risk conditions."""
         high_risk_data = {
             "thermal_data": deterministic_rng.randn(64, 64) * 20 + 400,
@@ -261,7 +261,7 @@ class TestWildfireDetector:
         result = wildfire_detector.predict_wildfire(high_risk_data)
         assert result is not None
 
-    def test_predict_wildfire_low_risk(self, wildfire_detector, deterministic_rng):
+    def test_predict_wildfire_low_risk(self, wildfire_detector, deterministic_rng) -> None:
         """Test wildfire prediction with low-risk conditions."""
         low_risk_data = {
             "thermal_data": deterministic_rng.randn(64, 64) * 5 + 280,
@@ -273,7 +273,7 @@ class TestWildfireDetector:
         result = wildfire_detector.predict_wildfire(low_risk_data)
         assert result is not None
 
-    def test_extract_features(self, wildfire_detector, wildfire_data):
+    def test_extract_features(self, wildfire_detector, wildfire_data) -> None:
         """Test feature extraction returns correct dimensions."""
         if hasattr(wildfire_detector, "extract_features"):
             features = wildfire_detector.extract_features(wildfire_data)
@@ -283,7 +283,7 @@ class TestWildfireDetector:
             result = wildfire_detector.predict_wildfire(wildfire_data)
             assert result is not None
 
-    def test_resonance_synapse_integration(self, wildfire_detector, wildfire_data):
+    def test_resonance_synapse_integration(self, wildfire_detector, wildfire_data) -> None:
         """Test 3R Resonance synapse is properly integrated."""
         assert wildfire_detector.enable_resonance, (
             "fixture must construct WildfireDetector with enable_resonance=True; "
@@ -292,18 +292,18 @@ class TestWildfireDetector:
         result = wildfire_detector.predict_wildfire(wildfire_data)
         assert result is not None
 
-    def test_cnn_thermal_analyzer_exists(self, wildfire_detector):
+    def test_cnn_thermal_analyzer_exists(self, wildfire_detector) -> None:
         """Test CNN thermal analyzer is initialized (via enhanced_cnn or thermal_cnn)."""
         has_cnn = hasattr(wildfire_detector, "thermal_cnn") or hasattr(
             wildfire_detector, "enhanced_cnn"
         )
         assert has_cnn or wildfire_detector.enable_enhanced_cnn is False
 
-    def test_ndvi_processor_exists(self, wildfire_detector):
+    def test_ndvi_processor_exists(self, wildfire_detector) -> None:
         """Test NDVI processor is initialized."""
         assert hasattr(wildfire_detector, "ndvi_processor")
 
-    def test_smoke_pattern_detection(self, wildfire_detector, deterministic_rng):
+    def test_smoke_pattern_detection(self, wildfire_detector, deterministic_rng) -> None:
         """Test smoke pattern detection via resonance."""
         data_with_smoke = {
             "thermal_data": deterministic_rng.randn(64, 64) * 30 + 350,
@@ -316,14 +316,14 @@ class TestWildfireDetector:
         result = wildfire_detector.predict_wildfire(data_with_smoke)
         assert result is not None
 
-    def test_fire_spread_prediction(self, wildfire_detector, wildfire_data):
+    def test_fire_spread_prediction(self, wildfire_detector, wildfire_data) -> None:
         """Test fire spread prediction (via spread_direction_deg or spread_direction)."""
         result = wildfire_detector.predict_wildfire(wildfire_data)
         has_spread = hasattr(result, "spread_direction") or hasattr(result, "spread_direction_deg")
         has_rate = hasattr(result, "spread_rate_kmh") or hasattr(result, "spread_rate_km_hr")
         assert has_spread or has_rate or result is not None
 
-    def test_alert_level_determination(self, wildfire_detector, wildfire_data):
+    def test_alert_level_determination(self, wildfire_detector, wildfire_data) -> None:
         """Test alert level is properly determined (via risk_level or alert_level)."""
         result = wildfire_detector.predict_wildfire(wildfire_data)
         has_alert = hasattr(result, "alert_level") or hasattr(result, "risk_level")
@@ -346,12 +346,12 @@ class TestWildfireDetectorWithoutResonance:
 
         return WildfireDetector(enable_resonance=False)
 
-    def test_detector_without_resonance(self, detector_no_resonance):
+    def test_detector_without_resonance(self, detector_no_resonance) -> None:
         """Test detector works without resonance enabled."""
         assert detector_no_resonance is not None
         assert detector_no_resonance.enable_resonance is False
 
-    def test_predict_without_resonance(self, detector_no_resonance, deterministic_rng):
+    def test_predict_without_resonance(self, detector_no_resonance, deterministic_rng) -> None:
         """Test prediction works without resonance."""
         data = {
             "thermal_data": deterministic_rng.randn(64, 64) * 30 + 310,
@@ -400,18 +400,18 @@ class TestVolcanicEruptionDetector:
             "schumann_elf": deterministic_rng.randn(1000),
         }
 
-    def test_detector_initialization(self, volcanic_detector):
+    def test_detector_initialization(self, volcanic_detector) -> None:
         """Test VolcanicEruptionDetector initializes correctly."""
         assert volcanic_detector is not None
         assert volcanic_detector.enable_refactoring is True
 
-    def test_detector_has_refactoring_optimizer(self, volcanic_detector):
+    def test_detector_has_refactoring_optimizer(self, volcanic_detector) -> None:
         """Test detector has RefactoringAdaptiveOptimizer."""
         assert hasattr(volcanic_detector, "refactoring_optimizer")
         if volcanic_detector.enable_refactoring:
             assert volcanic_detector.refactoring_optimizer is not None
 
-    def test_predict_eruption_basic(self, volcanic_detector, volcanic_data):
+    def test_predict_eruption_basic(self, volcanic_detector, volcanic_data) -> None:
         """Test basic eruption prediction."""
         result = volcanic_detector.predict_eruption(volcanic_data)
         assert result is not None
@@ -419,7 +419,7 @@ class TestVolcanicEruptionDetector:
         assert hasattr(result, "confidence")
         assert 0.0 <= result.confidence <= 1.0
 
-    def test_predict_eruption_high_risk(self, volcanic_detector, deterministic_rng):
+    def test_predict_eruption_high_risk(self, volcanic_detector, deterministic_rng) -> None:
         """Test eruption prediction with high-risk conditions."""
         high_risk_data = {
             "seismic_sequence": deterministic_rng.randn(100, 32) * 5,
@@ -437,7 +437,7 @@ class TestVolcanicEruptionDetector:
         result = volcanic_detector.predict_eruption(high_risk_data)
         assert result is not None
 
-    def test_predict_eruption_low_risk(self, volcanic_detector, deterministic_rng):
+    def test_predict_eruption_low_risk(self, volcanic_detector, deterministic_rng) -> None:
         """Test eruption prediction with low-risk conditions."""
         low_risk_data = {
             "seismic_sequence": deterministic_rng.randn(100, 32) * 0.1,
@@ -455,7 +455,7 @@ class TestVolcanicEruptionDetector:
         result = volcanic_detector.predict_eruption(low_risk_data)
         assert result is not None
 
-    def test_extract_features(self, volcanic_detector, volcanic_data):
+    def test_extract_features(self, volcanic_detector, volcanic_data) -> None:
         """Test feature extraction returns correct dimensions."""
         if hasattr(volcanic_detector, "extract_features"):
             features = volcanic_detector.extract_features(volcanic_data)
@@ -465,7 +465,7 @@ class TestVolcanicEruptionDetector:
             result = volcanic_detector.predict_eruption(volcanic_data)
             assert result is not None
 
-    def test_refactoring_synapse_integration(self, volcanic_detector, volcanic_data):
+    def test_refactoring_synapse_integration(self, volcanic_detector, volcanic_data) -> None:
         """Test 3R Refactoring synapse is properly integrated."""
         assert volcanic_detector.enable_refactoring, (
             "fixture must construct VolcanicEruptionDetector with enable_refactoring=True; "
@@ -474,7 +474,7 @@ class TestVolcanicEruptionDetector:
         result = volcanic_detector.predict_eruption(volcanic_data)
         assert result is not None
 
-    def test_hmm_state_tracker_exists(self, volcanic_detector):
+    def test_hmm_state_tracker_exists(self, volcanic_detector) -> None:
         """Test HMM state tracker is initialized (via hmm_tracker, hmm_state_tracker, or hmm)."""
         has_hmm = (
             hasattr(volcanic_detector, "hmm_state_tracker")
@@ -485,41 +485,41 @@ class TestVolcanicEruptionDetector:
         # HMM may be lazily initialized or optional
         assert has_hmm or volcanic_detector.enable_hmm is True  # Accept if enable_hmm is set
 
-    def test_seismic_swarm_detector_exists(self, volcanic_detector):
+    def test_seismic_swarm_detector_exists(self, volcanic_detector) -> None:
         """Test seismic swarm detector is initialized."""
         assert hasattr(volcanic_detector, "seismic_detector")
 
-    def test_vei_estimation(self, volcanic_detector, volcanic_data):
+    def test_vei_estimation(self, volcanic_detector, volcanic_data) -> None:
         """Test VEI (Volcanic Explosivity Index) estimation."""
         result = volcanic_detector.predict_eruption(volcanic_data)
         assert hasattr(result, "vei_estimate")
         if result.vei_estimate is not None:
             assert 0 <= result.vei_estimate <= 8
 
-    def test_eruption_type_classification(self, volcanic_detector, volcanic_data):
+    def test_eruption_type_classification(self, volcanic_detector, volcanic_data) -> None:
         """Test eruption type classification."""
         result = volcanic_detector.predict_eruption(volcanic_data)
         assert hasattr(result, "eruption_type")
 
-    def test_alert_level_determination(self, volcanic_detector, volcanic_data):
+    def test_alert_level_determination(self, volcanic_detector, volcanic_data) -> None:
         """Test alert level is properly determined."""
         result = volcanic_detector.predict_eruption(volcanic_data)
         assert hasattr(result, "alert_level")
         assert result.alert_level in ["normal", "advisory", "watch", "warning"]
 
-    def test_hazard_zones_identification(self, volcanic_detector, volcanic_data):
+    def test_hazard_zones_identification(self, volcanic_detector, volcanic_data) -> None:
         """Test hazard zones are identified."""
         result = volcanic_detector.predict_eruption(volcanic_data)
         assert hasattr(result, "hazard_zones")
         assert isinstance(result.hazard_zones, list)
 
-    def test_early_warning_actions(self, volcanic_detector, volcanic_data):
+    def test_early_warning_actions(self, volcanic_detector, volcanic_data) -> None:
         """Test early warning actions are generated."""
         result = volcanic_detector.predict_eruption(volcanic_data)
         assert hasattr(result, "early_warning_actions")
         assert isinstance(result.early_warning_actions, list)
 
-    def test_evacuation_recommendations(self, volcanic_detector, volcanic_data):
+    def test_evacuation_recommendations(self, volcanic_detector, volcanic_data) -> None:
         """Test evacuation recommendations are generated."""
         result = volcanic_detector.predict_eruption(volcanic_data)
         assert hasattr(result, "evacuation_recommendations")
@@ -540,12 +540,12 @@ class TestVolcanicDetectorWithoutRefactoring:
 
         return VolcanicEruptionDetector(enable_refactoring=False)
 
-    def test_detector_without_refactoring(self, detector_no_refactoring):
+    def test_detector_without_refactoring(self, detector_no_refactoring) -> None:
         """Test detector works without refactoring enabled."""
         assert detector_no_refactoring is not None
         assert detector_no_refactoring.enable_refactoring is False
 
-    def test_predict_without_refactoring(self, detector_no_refactoring, deterministic_rng):
+    def test_predict_without_refactoring(self, detector_no_refactoring, deterministic_rng) -> None:
         """Test prediction works without refactoring."""
         data = {
             "seismic_sequence": deterministic_rng.randn(100, 32),
@@ -581,13 +581,13 @@ class TestVolcanicStateHMM:
 
         return VolcanicStateHMM()
 
-    def test_hmm_initialization(self, hmm_tracker):
+    def test_hmm_initialization(self, hmm_tracker) -> None:
         """Test HMM initializes correctly."""
         assert hmm_tracker is not None
         assert hasattr(hmm_tracker, "transition_matrix")
         assert hasattr(hmm_tracker, "emission_matrix")
 
-    def test_hmm_states(self, hmm_tracker):
+    def test_hmm_states(self, hmm_tracker) -> None:
         """Test HMM has correct states (via states or state_names)."""
         has_states = hasattr(hmm_tracker, "states") or hasattr(hmm_tracker, "state_names")
         assert has_states
@@ -596,7 +596,7 @@ class TestVolcanicStateHMM:
         elif hasattr(hmm_tracker, "state_names"):
             assert len(hmm_tracker.state_names) > 0
 
-    def test_update_belief(self, hmm_tracker, deterministic_rng):
+    def test_update_belief(self, hmm_tracker, deterministic_rng) -> None:
         """Test belief update with observation (via state_belief or belief)."""
         hmm_tracker.n_states if hasattr(hmm_tracker, "n_states") else 5
         observation = {
@@ -609,7 +609,7 @@ class TestVolcanicStateHMM:
         has_belief = hasattr(hmm_tracker, "belief") or hasattr(hmm_tracker, "state_belief")
         assert has_belief
 
-    def test_get_most_likely_state(self, hmm_tracker, deterministic_rng):
+    def test_get_most_likely_state(self, hmm_tracker, deterministic_rng) -> None:
         """Test getting most likely state."""
         observation = {
             "seismic_activity": True,
@@ -621,7 +621,7 @@ class TestVolcanicStateHMM:
         result = hmm_tracker.get_most_likely_state()
         assert result is not None
 
-    def test_predict_next_state(self, hmm_tracker, deterministic_rng):
+    def test_predict_next_state(self, hmm_tracker, deterministic_rng) -> None:
         """Test next state prediction."""
         observation = {
             "seismic_activity": True,
@@ -633,7 +633,7 @@ class TestVolcanicStateHMM:
         next_state = hmm_tracker.predict_next_state()
         assert next_state is not None
 
-    def test_eruption_probability(self, hmm_tracker, deterministic_rng):
+    def test_eruption_probability(self, hmm_tracker, deterministic_rng) -> None:
         """Test eruption probability calculation."""
         observation = {
             "seismic_activity": True,
@@ -645,7 +645,7 @@ class TestVolcanicStateHMM:
         prob = hmm_tracker.get_eruption_probability()
         assert 0.0 <= prob <= 1.0
 
-    def test_hmm_reset(self, hmm_tracker, deterministic_rng):
+    def test_hmm_reset(self, hmm_tracker, deterministic_rng) -> None:
         """Test HMM state reset."""
         observation = {
             "seismic_activity": True,
@@ -678,11 +678,11 @@ class TestRefactoringAdaptiveOptimizer:
 
         return RefactoringAdaptiveOptimizer()
 
-    def test_optimizer_initialization(self, optimizer):
+    def test_optimizer_initialization(self, optimizer) -> None:
         """Test optimizer initializes correctly."""
         assert optimizer is not None
 
-    def test_record_prediction(self, optimizer):
+    def test_record_prediction(self, optimizer) -> None:
         """Test recording prediction."""
         prediction = {
             "eruption_imminent": False,
@@ -692,7 +692,7 @@ class TestRefactoringAdaptiveOptimizer:
         optimizer.record_prediction(prediction)
         assert len(optimizer.prediction_history) > 0
 
-    def test_adapt_parameters(self, optimizer):
+    def test_adapt_parameters(self, optimizer) -> None:
         """Test parameter adaptation."""
         for i in range(10):
             prediction = {
@@ -704,7 +704,7 @@ class TestRefactoringAdaptiveOptimizer:
         params = optimizer.adapt_parameters()
         assert params is not None
 
-    def test_get_adapted_confidence(self, optimizer):
+    def test_get_adapted_confidence(self, optimizer) -> None:
         """Test adapted confidence calculation."""
         for i in range(5):
             prediction = {
@@ -716,7 +716,7 @@ class TestRefactoringAdaptiveOptimizer:
         adapted = optimizer.get_adapted_confidence(0.7)
         assert 0.0 <= adapted <= 1.0
 
-    def test_get_adapted_threshold(self, optimizer):
+    def test_get_adapted_threshold(self, optimizer) -> None:
         """Test adapted threshold calculation."""
         threshold = optimizer.get_adapted_threshold(0.5)
         assert 0.0 <= threshold <= 1.0
@@ -749,13 +749,13 @@ class TestEnhancedDetectorIntegration:
             "volcanic": VolcanicEruptionDetector(enable_refactoring=True),
         }
 
-    def test_all_detectors_initialize(self, all_detectors):
+    def test_all_detectors_initialize(self, all_detectors) -> None:
         """Test all detectors initialize correctly."""
         assert all_detectors["landslide"] is not None
         assert all_detectors["wildfire"] is not None
         assert all_detectors["volcanic"] is not None
 
-    def test_all_detectors_have_extract_features(self, all_detectors):
+    def test_all_detectors_have_extract_features(self, all_detectors) -> None:
         """Test all detectors have extract_features or predict method."""
         for name, detector in all_detectors.items():
             has_extract = hasattr(detector, "extract_features")
@@ -766,7 +766,7 @@ class TestEnhancedDetectorIntegration:
             )
             assert has_extract or has_predict, f"{name} missing extract_features or predict"
 
-    def test_feature_dimensions_consistent(self, all_detectors, deterministic_rng):
+    def test_feature_dimensions_consistent(self, all_detectors, deterministic_rng) -> None:
         """Test all detectors can produce predictions."""
         landslide_data = {
             "acceleration_data": deterministic_rng.randn(100, 3),
@@ -801,7 +801,7 @@ class TestEnhancedDetectorIntegration:
         assert wildfire_result is not None
         assert volcanic_result is not None
 
-    def test_3r_synapses_enabled(self, all_detectors):
+    def test_3r_synapses_enabled(self, all_detectors) -> None:
         """Test all 3R synapses are enabled."""
         assert all_detectors["landslide"].enable_recursion is True
         assert all_detectors["wildfire"].enable_resonance is True

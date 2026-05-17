@@ -46,7 +46,7 @@ if HAS_TORCH:
     from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
 
-def test_biometric_initialization_with_config():
+def test_biometric_initialization_with_config() -> None:
     """Test biometric model initialization with custom config"""
     config = {
         "model_name": "VGG-Face",
@@ -57,7 +57,7 @@ def test_biometric_initialization_with_config():
     assert model.use_harmonic_features is True
 
 
-def test_biometric_predict_with_tensor():
+def test_biometric_predict_with_tensor() -> None:
     """Test biometric prediction with tensor input"""
     model = BiometricAnomalyModel()
 
@@ -79,7 +79,7 @@ def test_biometric_predict_with_tensor():
         assert result["model_type"] == "biometric"
 
 
-def test_biometric_extract_features_comprehensive():
+def test_biometric_extract_features_comprehensive() -> None:
     """Test comprehensive feature extraction"""
     model = BiometricAnomalyModel()
 
@@ -101,7 +101,7 @@ def test_biometric_extract_features_comprehensive():
         assert features.dim() == 2
 
 
-def test_biometric_harmonic_features():
+def test_biometric_harmonic_features() -> None:
     """Test harmonic feature extraction"""
     config = {"use_harmonic_features": False}
     model = BiometricAnomalyModel(config)
@@ -112,7 +112,7 @@ def test_biometric_harmonic_features():
     assert isinstance(features, np.ndarray)
 
 
-def test_biometric_deepface_failure_handling():
+def test_biometric_deepface_failure_handling() -> None:
     """Test handling when DeepFace fails"""
     model = BiometricAnomalyModel()
 
@@ -127,7 +127,7 @@ def test_biometric_deepface_failure_handling():
         assert result["model_type"] == "biometric"
 
 
-def test_biometric_feature_extraction_without_deepface():
+def test_biometric_feature_extraction_without_deepface() -> None:
     """Test feature extraction when DeepFace is not available"""
     model = BiometricAnomalyModel()
 
@@ -139,7 +139,7 @@ def test_biometric_feature_extraction_without_deepface():
     assert features.shape[1] == 128
 
 
-def test_biometric_normalize_embedding():
+def test_biometric_normalize_embedding() -> None:
     """Test embedding normalization"""
     model = BiometricAnomalyModel()
 
@@ -149,7 +149,7 @@ def test_biometric_normalize_embedding():
     assert normalized.shape[1] == 128
 
 
-def test_biometric_invalid_image_shape():
+def test_biometric_invalid_image_shape() -> None:
     """Test handling of invalid image shapes"""
     model = BiometricAnomalyModel()
 

@@ -34,7 +34,7 @@ from benchmarks.statistical_validation import statistical_analysis
 class TestBenchmarkFramework:
     """Tests for benchmark execution."""
 
-    def test_benchmark_initialization(self):
+    def test_benchmark_initialization(self) -> None:
         """Test benchmark can be initialized."""
         repo_paths = [Path.home() / "benchmark_repos" / "requests"]
         benchmark = RefactoringBenchmark(repo_paths)
@@ -42,7 +42,7 @@ class TestBenchmarkFramework:
         assert benchmark.repo_paths == repo_paths
         assert benchmark.engine is not None
 
-    def test_statistical_validation(self):
+    def test_statistical_validation(self) -> None:
         """Test statistical validation functions."""
         baseline = np.array([10.0, 11.0, 9.0, 10.5, 9.5] * 20)
         improved = np.array([8.0, 8.5, 7.5, 8.2, 7.8] * 20)
@@ -57,7 +57,7 @@ class TestBenchmarkFramework:
         assert results["significant"] is True
         assert results["improvement_percent"] > 15
 
-    def test_improvement_calculation(self):
+    def test_improvement_calculation(self) -> None:
         """Test improvement percentage calculation."""
         baseline = np.array([100.0] * 50)
         improved = np.array([82.0] * 50)

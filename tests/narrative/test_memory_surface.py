@@ -6,6 +6,7 @@ Tests for MemorySurface - Conversational Memory Integration.
 """
 
 import time
+from typing import Any
 
 import pytest
 
@@ -27,7 +28,7 @@ class TestMemorySurface:
         return MemorySurface()
 
     @pytest.fixture
-    def sample_detection(self) -> dict:
+    def sample_detection(self) -> dict[str, Any]:
         """Sample detection result."""
         return {
             "anomaly_detected": True,
@@ -43,7 +44,7 @@ class TestMemorySurface:
         assert surface.lookback_days == 90
         assert surface._retrieval_count == 0
 
-    def test_get_relevant_context(self, surface: MemorySurface, sample_detection: dict) -> None:
+    def test_get_relevant_context(self, surface: MemorySurface, sample_detection: dict[str, Any]) -> None:
         """Test getting relevant context."""
         context = surface.get_relevant_context(sample_detection, domain="test")
 
@@ -52,7 +53,7 @@ class TestMemorySurface:
         assert isinstance(context.similar_events, list)
         assert context.overall_relevance in list(MemoryRelevance)
 
-    def test_context_to_dict(self, surface: MemorySurface, sample_detection: dict) -> None:
+    def test_context_to_dict(self, surface: MemorySurface, sample_detection: dict[str, Any]) -> None:
         """Test context serialization."""
         context = surface.get_relevant_context(sample_detection)
         context_dict = context.to_dict()
@@ -62,14 +63,14 @@ class TestMemorySurface:
         assert "pattern_frequency" in context_dict
         assert "relevance" in context_dict
 
-    def test_record_event(self, surface: MemorySurface, sample_detection: dict) -> None:
+    def test_record_event(self, surface: MemorySurface, sample_detection: dict[str, Any]) -> None:
         """Test recording events for future retrieval."""
         surface.record_event(sample_detection, domain="test", outcome="resolved")
 
         # Pattern registry should be updated
         assert len(surface._pattern_registry) > 0
 
-    def test_pattern_accumulation(self, surface: MemorySurface, sample_detection: dict) -> None:
+    def test_pattern_accumulation(self, surface: MemorySurface, sample_detection: dict[str, Any]) -> None:
         """Test pattern frequency tracking."""
         domain = "test"
 
@@ -82,7 +83,7 @@ class TestMemorySurface:
         assert context.pattern_frequency >= 5
 
     def test_prediction_outcome_recording(
-        self, surface: MemorySurface, sample_detection: dict
+        self, surface: MemorySurface, sample_detection: dict[str, Any]
     ) -> None:
         """Test prediction outcome recording."""
         domain = "test"
@@ -103,7 +104,7 @@ class TestMemorySurface:
         assert context.prediction_accuracy.total_predictions == 5
         assert context.prediction_accuracy.accuracy == 0.8  # 4/5 correct
 
-    def test_learned_insights(self, surface: MemorySurface, sample_detection: dict) -> None:
+    def test_learned_insights(self, surface: MemorySurface, sample_detection: dict[str, Any]) -> None:
         """Test learned insight synthesis."""
         domain = "test"
 
@@ -116,21 +117,21 @@ class TestMemorySurface:
         # Should have some insights about frequency
         assert len(context.learned_insights) > 0 or context.pattern_frequency > 10
 
-    def test_relevance_assessment(self, surface: MemorySurface, sample_detection: dict) -> None:
+    def test_relevance_assessment(self, surface: MemorySurface, sample_detection: dict[str, Any]) -> None:
         """Test relevance is correctly assessed."""
         # With no prior events, relevance should be tangential
         context = surface.get_relevant_context(sample_detection)
         assert context.overall_relevance == MemoryRelevance.TANGENTIAL
         assert context.relevance_score < 0.5
 
-    def test_similar_event_ids(self, surface: MemorySurface, sample_detection: dict) -> None:
+    def test_similar_event_ids(self, surface: MemorySurface, sample_detection: dict[str, Any]) -> None:
         """Test similar event IDs are returned."""
         context = surface.get_relevant_context(sample_detection)
 
         # similar_event_ids should match similar_events
         assert len(context.similar_event_ids) == len(context.similar_events)
 
-    def test_timespan_tracking(self, surface: MemorySurface, sample_detection: dict) -> None:
+    def test_timespan_tracking(self, surface: MemorySurface, sample_detection: dict[str, Any]) -> None:
         """Test pattern timespan tracking."""
         domain = "test"
 

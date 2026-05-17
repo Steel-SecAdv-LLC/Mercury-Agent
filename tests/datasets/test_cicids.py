@@ -15,7 +15,7 @@ from omni_mercury_engine.datasets import CICIDSLoader, DatasetConfig
 class TestCICIDSMetadata:
     """Test CICIDS dataset metadata and configuration."""
 
-    def test_attack_labels_defined(self):
+    def test_attack_labels_defined(self) -> None:
         """Verify all expected attack labels are defined."""
         expected_attacks = {
             "BENIGN",
@@ -35,7 +35,7 @@ class TestCICIDSMetadata:
         # Check that expected attacks are subset (there may be variations for web attacks)
         assert expected_attacks.issubset(defined_attacks)
 
-    def test_data_sources_defined(self):
+    def test_data_sources_defined(self) -> None:
         """Verify all data sources are properly defined."""
         assert "huggingface" in CICIDSLoader.DATA_SOURCES
         assert "distrinet" in CICIDSLoader.DATA_SOURCES
@@ -49,7 +49,7 @@ class TestCICIDSMetadata:
         assert "url" in CICIDSLoader.DATA_SOURCES["distrinet"]
         assert "url" in CICIDSLoader.DATA_SOURCES["cic_official"]
 
-    def test_cicids_files_defined(self):
+    def test_cicids_files_defined(self) -> None:
         """Verify CICIDS CSV file names are defined."""
         assert "ddos" in CICIDSLoader.CICIDS_FILES
         assert "portscan" in CICIDSLoader.CICIDS_FILES
@@ -61,7 +61,7 @@ class TestCICIDSMetadata:
 class TestCICIDSLoader:
     """Test CICIDS loader functionality."""
 
-    def test_init_default_config(self):
+    def test_init_default_config(self) -> None:
         """Test loader initialization with default config."""
         config = DatasetConfig(name="cicids", data_dir="./data/test_cicids")
         loader = CICIDSLoader(config)
@@ -72,7 +72,7 @@ class TestCICIDSLoader:
         assert loader._features is None
         assert loader._labels is None
 
-    def test_init_binary_false(self):
+    def test_init_binary_false(self) -> None:
         """Test loader with multi-class classification."""
         config = DatasetConfig(
             name="cicids",
@@ -82,7 +82,7 @@ class TestCICIDSLoader:
         loader = CICIDSLoader(config)
         assert loader.binary_labels is False
 
-    def test_init_specific_subset(self):
+    def test_init_specific_subset(self) -> None:
         """Test loader with specific subset."""
         config = DatasetConfig(
             name="cicids",
@@ -92,7 +92,7 @@ class TestCICIDSLoader:
         loader = CICIDSLoader(config)
         assert loader.subset == "ddos"
 
-    def test_is_real_data_property(self):
+    def test_is_real_data_property(self) -> None:
         """Test is_real_data property."""
         config = DatasetConfig(name="cicids", data_dir="./data/test_cicids")
         loader = CICIDSLoader(config)
@@ -100,7 +100,7 @@ class TestCICIDSLoader:
         # Before loading, should be False
         assert loader.is_real_data is False
 
-    def test_synthetic_fallback(self):
+    def test_synthetic_fallback(self) -> None:
         """Test synthetic fallback when download fails."""
         config = DatasetConfig(
             name="cicids",
@@ -120,7 +120,7 @@ class TestCICIDSLoader:
         assert len(loader._labels) == 1000
         assert loader.is_real_data is False
 
-    def test_synthetic_attack_distribution(self):
+    def test_synthetic_attack_distribution(self) -> None:
         """Test synthetic data has reasonable attack distribution."""
         config = DatasetConfig(
             name="cicids",
@@ -137,7 +137,7 @@ class TestCICIDSLoader:
         attack_ratio = y.mean()
         assert 0.1 <= attack_ratio <= 0.3  # ~20% attacks in synthetic
 
-    def test_get_metadata(self):
+    def test_get_metadata(self) -> None:
         """Test metadata retrieval."""
         config = DatasetConfig(
             name="cicids",
@@ -157,7 +157,7 @@ class TestCICIDSLoader:
         assert metadata["is_real_data"] is False
         assert "citation" in metadata
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics calculation."""
         config = DatasetConfig(
             name="cicids",
@@ -180,7 +180,7 @@ class TestCICIDSLoader:
         assert stats["n_features"] == 78
         assert stats["is_real_data"] is False
 
-    def test_preprocess(self):
+    def test_preprocess(self) -> None:
         """Test preprocessing transforms data correctly."""
         config = DatasetConfig(
             name="cicids",
@@ -211,7 +211,7 @@ class TestCICIDSLoader:
 class TestCICIDSLabelEncoding:
     """Test CICIDS label encoding."""
 
-    def test_binary_encoding(self):
+    def test_binary_encoding(self) -> None:
         """Test binary label encoding."""
         config = DatasetConfig(
             name="cicids",
@@ -223,7 +223,7 @@ class TestCICIDSLabelEncoding:
         # Test encoding
         assert loader.binary_labels is True
 
-    def test_multiclass_encoding(self):
+    def test_multiclass_encoding(self) -> None:
         """Test multi-class label encoding."""
         config = DatasetConfig(
             name="cicids",
@@ -239,7 +239,7 @@ class TestCICIDSLabelEncoding:
         assert loader._encode_label("Bot") == 3
         assert loader._encode_label("Infiltration") == 4
 
-    def test_unknown_label_handling(self):
+    def test_unknown_label_handling(self) -> None:
         """Test handling of unknown attack types."""
         config = DatasetConfig(
             name="cicids",
@@ -256,7 +256,7 @@ class TestCICIDSLabelEncoding:
 class TestCICIDSDataCleaning:
     """Test CICIDS data cleaning functionality."""
 
-    def test_clean_infinity_values(self):
+    def test_clean_infinity_values(self) -> None:
         """Test infinity values are handled."""
         import pandas as pd
 
@@ -281,7 +281,7 @@ class TestCICIDSDataCleaning:
         assert len(cleaned) == 1
         assert not np.any(np.isinf(cleaned.values))
 
-    def test_clean_negative_duration(self):
+    def test_clean_negative_duration(self) -> None:
         """Test negative duration values are clipped."""
         import pandas as pd
 
@@ -308,7 +308,7 @@ class TestCICIDSDataCleaning:
 class TestCICIDSIntegration:
     """Integration tests with Mercury Agent engine."""
 
-    def test_cicids_with_detector(self):
+    def test_cicids_with_detector(self) -> None:
         """Test using CICIDS data with anomaly detector."""
         from omni_mercury_engine import OmniMercuryEngine
 
@@ -329,7 +329,7 @@ class TestCICIDSIntegration:
         assert "detectors" in result
         assert "is_anomaly" in result
 
-    def test_cicids_benchmark(self):
+    def test_cicids_benchmark(self) -> None:
         """Test benchmarking CICIDS with Isolation Forest."""
         from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
         from omni_mercury_engine.ml.mercury_ml import roc_auc_score
@@ -362,7 +362,7 @@ class TestCICIDSIntegration:
 class TestCICIDSDataSourcePriority:
     """Test data source priority and fallback behavior."""
 
-    def test_data_sources_order(self):
+    def test_data_sources_order(self) -> None:
         """Test data sources are in correct priority order."""
         sources = list(CICIDSLoader.DATA_SOURCES.keys())
 
@@ -375,7 +375,7 @@ class TestCICIDSDataSourcePriority:
         # Official CIC last (often unreliable)
         assert sources[2] == "cic_official"
 
-    def test_synthetic_fallback_warning(self, caplog):
+    def test_synthetic_fallback_warning(self, caplog) -> None:
         """Test synthetic fallback logs warning."""
         import logging
 

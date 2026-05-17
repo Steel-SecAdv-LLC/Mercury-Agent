@@ -31,13 +31,13 @@ from omni_mercury_engine.ml.harmonic_encoder import (
 )
 
 
-def test_spherical_harmonic_decomposer_init():
+def test_spherical_harmonic_decomposer_init() -> None:
     """Test spherical harmonic decomposer initialization"""
     decomposer = SphericalHarmonicDecomposer(l_max=5)
     assert decomposer.l_max == 5
 
 
-def test_spherical_harmonic_decompose():
+def test_spherical_harmonic_decompose() -> None:
     """Test spherical harmonic decomposition"""
     decomposer = SphericalHarmonicDecomposer(l_max=3)
 
@@ -49,7 +49,7 @@ def test_spherical_harmonic_decompose():
     assert len(coefficients) > 0
 
 
-def test_spherical_harmonic_features():
+def test_spherical_harmonic_features() -> None:
     """Test rotation invariant feature extraction"""
     decomposer = SphericalHarmonicDecomposer(l_max=3)
 
@@ -63,13 +63,13 @@ def test_spherical_harmonic_features():
     assert len(features) == 4
 
 
-def test_fourier_harmonic_analyzer_init():
+def test_fourier_harmonic_analyzer_init() -> None:
     """Test Fourier harmonic analyzer initialization"""
     analyzer = FourierHarmonicAnalyzer(num_harmonics=10)
     assert analyzer.num_harmonics == 10
 
 
-def test_fourier_analyze_signal():
+def test_fourier_analyze_signal() -> None:
     """Test Fourier analysis of signal"""
     analyzer = FourierHarmonicAnalyzer(num_harmonics=5)
 
@@ -80,7 +80,7 @@ def test_fourier_analyze_signal():
     assert len(harmonics) > 0
 
 
-def test_fourier_extract_features():
+def test_fourier_extract_features() -> None:
     """Test Fourier feature extraction"""
     analyzer = FourierHarmonicAnalyzer(num_harmonics=5)
 
@@ -92,14 +92,14 @@ def test_fourier_extract_features():
     assert "amplitudes" in harmonics
 
 
-def test_quantum_harmonic_oscillator_init():
+def test_quantum_harmonic_oscillator_init() -> None:
     """Test quantum harmonic oscillator initialization"""
     oscillator = QuantumHarmonicOscillator(mass=1.0, omega=1.0, hbar=1.0)
     assert oscillator.mass == 1.0
     assert oscillator.omega == 1.0
 
 
-def test_quantum_harmonic_state():
+def test_quantum_harmonic_state() -> None:
     """Test quantum harmonic state evolution"""
     oscillator = QuantumHarmonicOscillator(mass=1.0, omega=1.0)
 
@@ -111,7 +111,7 @@ def test_quantum_harmonic_state():
     assert len(evolved) == 100
 
 
-def test_quantum_harmonic_energy():
+def test_quantum_harmonic_energy() -> None:
     """Test quantum harmonic energy computation"""
     oscillator = QuantumHarmonicOscillator(mass=1.0, omega=1.0, hbar=1.0)
 

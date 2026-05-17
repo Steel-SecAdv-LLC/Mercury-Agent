@@ -42,7 +42,7 @@ from omni_mercury_engine.agentic.bayesian_calibrator import (
 class TestContextStats:
     """Tests for ContextStats dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default initialization."""
         stats = ContextStats()
         assert stats.alpha == 0.76
@@ -51,24 +51,24 @@ class TestContextStats:
         assert stats.failures == 0
         assert stats.total_observations == 0
 
-    def test_posterior_mean_no_observations(self):
+    def test_posterior_mean_no_observations(self) -> None:
         """Test posterior mean with no observations equals prior mean."""
         stats = ContextStats(alpha=0.76, beta=0.24)
         assert abs(stats.posterior_mean - 0.76) < 0.01
 
-    def test_posterior_mean_with_successes(self):
+    def test_posterior_mean_with_successes(self) -> None:
         """Test posterior mean increases with successes."""
         stats = ContextStats(alpha=0.76, beta=0.24, successes=5, failures=0)
         # posterior_mean = (0.76 + 5) / (0.76 + 0.24 + 5) = 5.76 / 6 ≈ 0.96
         assert stats.posterior_mean > 0.95
 
-    def test_posterior_mean_with_failures(self):
+    def test_posterior_mean_with_failures(self) -> None:
         """Test posterior mean decreases with failures."""
         stats = ContextStats(alpha=0.76, beta=0.24, successes=0, failures=5)
         # posterior_mean = 0.76 / (0.76 + 0.24 + 5) = 0.76 / 6 ≈ 0.127
         assert stats.posterior_mean < 0.2
 
-    def test_serialization_roundtrip(self):
+    def test_serialization_roundtrip(self) -> None:
         """Test to_dict and from_dict preserve data."""
         stats = ContextStats(
             alpha=0.8,
@@ -90,7 +90,7 @@ class TestContextStats:
 class TestCalibrationConfig:
     """Tests for CalibrationConfig dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default configuration values."""
         config = CalibrationConfig()
         assert config.prior_mean == 0.76
@@ -103,7 +103,7 @@ class TestCalibrationConfig:
 class TestBayesianConfidenceCalibrator:
     """Tests for BayesianConfidenceCalibrator."""
 
-    def test_novel_context_returns_prior(self):
+    def test_novel_context_returns_prior(self) -> None:
         """Test that novel contexts return approximately the prior mean."""
         calibrator = BayesianConfidenceCalibrator()
         confidence = calibrator.get_confidence("medical", "Analyze patient data")
@@ -111,7 +111,7 @@ class TestBayesianConfidenceCalibrator:
         # Should be close to 0.76 for novel context
         assert abs(confidence - 0.76) < 0.01
 
-    def test_confidence_increases_with_successes(self):
+    def test_confidence_increases_with_successes(self) -> None:
         """Test that confidence increases after successful executions."""
         calibrator = BayesianConfidenceCalibrator()
         domain = "medical"
@@ -129,7 +129,7 @@ class TestBayesianConfidenceCalibrator:
         assert final_confidence > initial_confidence
         assert final_confidence > 0.95
 
-    def test_confidence_decreases_with_failures(self):
+    def test_confidence_decreases_with_failures(self) -> None:
         """Test that confidence decreases after failures."""
         calibrator = BayesianConfidenceCalibrator()
         domain = "security"
@@ -150,7 +150,7 @@ class TestBayesianConfidenceCalibrator:
         # Should have decreased
         assert confidence_after_failures < confidence_after_successes
 
-    def test_rapid_climb_to_high_confidence(self):
+    def test_rapid_climb_to_high_confidence(self) -> None:
         """Test that confidence rapidly climbs to 0.95+ after 5 successes."""
         calibrator = BayesianConfidenceCalibrator()
         domain = "humanitarian"
@@ -175,7 +175,7 @@ class TestBayesianConfidenceCalibrator:
         for i in range(len(confidences) - 1):
             assert confidences[i + 1] >= confidences[i]
 
-    def test_different_contexts_are_independent(self):
+    def test_different_contexts_are_independent(self) -> None:
         """Test that different contexts maintain independent statistics."""
         calibrator = BayesianConfidenceCalibrator()
 
@@ -195,7 +195,7 @@ class TestBayesianConfidenceCalibrator:
         # Note: min_confidence is 0.5, so security can't go below that
         assert security_confidence <= 0.5
 
-    def test_goal_type_classification(self):
+    def test_goal_type_classification(self) -> None:
         """Test that goal types are correctly classified."""
         calibrator = BayesianConfidenceCalibrator()
 
@@ -207,7 +207,7 @@ class TestBayesianConfidenceCalibrator:
         assert calibrator.classify_goal_type("Take action on alert") == "response"
         assert calibrator.classify_goal_type("Process data batch") == "generic"
 
-    def test_same_goal_type_shares_context(self):
+    def test_same_goal_type_shares_context(self) -> None:
         """Test that goals with same type share context statistics."""
         calibrator = BayesianConfidenceCalibrator()
         domain = "medical"
@@ -222,7 +222,7 @@ class TestBayesianConfidenceCalibrator:
         # Should be high because both are "analysis" type in "medical" domain
         assert confidence > 0.95
 
-    def test_confidence_bounds(self):
+    def test_confidence_bounds(self) -> None:
         """Test that confidence stays within configured bounds."""
         config = CalibrationConfig(min_confidence=0.5, max_confidence=0.999)
         calibrator = BayesianConfidenceCalibrator(config)
@@ -241,7 +241,7 @@ class TestBayesianConfidenceCalibrator:
         confidence = calibrator.get_confidence("test", "Monitor system")
         assert confidence >= 0.5
 
-    def test_memory_evidence_boosts_familiarity(self):
+    def test_memory_evidence_boosts_familiarity(self) -> None:
         """Test that memory evidence count increases familiarity."""
         calibrator = BayesianConfidenceCalibrator()
         domain = "scientific"
@@ -257,7 +257,7 @@ class TestBayesianConfidenceCalibrator:
         # Since posterior starts at prior (0.76), the effect is subtle but present
         assert conf_with_evidence >= conf_no_evidence
 
-    def test_get_stats(self):
+    def test_get_stats(self) -> None:
         """Test getting statistics for a context."""
         calibrator = BayesianConfidenceCalibrator()
         domain = "energy"
@@ -279,7 +279,7 @@ class TestBayesianConfidenceCalibrator:
         assert stats.successes == 1
         assert stats.total_observations == 1
 
-    def test_get_summary(self):
+    def test_get_summary(self) -> None:
         """Test getting calibrator summary."""
         calibrator = BayesianConfidenceCalibrator()
 
@@ -300,7 +300,7 @@ class TestBayesianConfidenceCalibrator:
         assert "medical:analysis" in summary["contexts"]
         assert "security:analysis" in summary["contexts"]
 
-    def test_save_and_load(self):
+    def test_save_and_load(self) -> None:
         """Test saving and loading calibrator state."""
         calibrator = BayesianConfidenceCalibrator()
 
@@ -329,7 +329,7 @@ class TestBayesianConfidenceCalibrator:
             assert abs(loaded_medical_conf - original_medical_conf) < 0.001
             assert abs(loaded_security_conf - original_security_conf) < 0.001
 
-    def test_reset(self):
+    def test_reset(self) -> None:
         """Test resetting calibrator state."""
         calibrator = BayesianConfidenceCalibrator()
 
@@ -346,7 +346,7 @@ class TestBayesianConfidenceCalibrator:
         # Novel context should return prior
         assert abs(calibrator.get_confidence("medical", "Analyze data") - 0.76) < 0.01
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test calibrator with custom configuration."""
         config = CalibrationConfig(
             prior_mean=0.5,
@@ -373,7 +373,7 @@ class TestBayesianConfidenceCalibrator:
 class TestIntegrationScenarios:
     """Integration tests simulating real Mercury Agent scenarios."""
 
-    def test_training_scenario_confidence_growth(self):
+    def test_training_scenario_confidence_growth(self) -> None:
         """Test confidence growth across training epochs like Mercury Agent."""
         calibrator = BayesianConfidenceCalibrator()
 
@@ -415,7 +415,7 @@ class TestIntegrationScenarios:
         for i in range(len(epoch_confidences) - 1):
             assert epoch_confidences[i + 1] >= epoch_confidences[i] - 0.001  # Small tolerance
 
-    def test_mixed_success_failure_scenario(self):
+    def test_mixed_success_failure_scenario(self) -> None:
         """Test confidence behavior with mixed success/failure."""
         calibrator = BayesianConfidenceCalibrator()
         domain = "security"

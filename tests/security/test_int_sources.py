@@ -30,22 +30,22 @@ from omni_mercury_engine.security.int_sources import (
 class TestOSINTProcessor:
     """Tests for OSINTProcessor class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.processor = OSINTProcessor()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test processor initialization."""
         assert self.processor is not None
         assert len(self.processor.source_reliability) > 0
 
-    def test_source_reliability_values(self):
+    def test_source_reliability_values(self) -> None:
         """Test that source reliability values are valid."""
         for source, reliability in self.processor.source_reliability.items():
             assert 0.0 <= reliability <= 1.0
             assert isinstance(source, str)
 
-    def test_analyze_basic(self):
+    def test_analyze_basic(self) -> None:
         """Test basic analysis with minimal data."""
         data = {
             "source_type": "mainstream_media",
@@ -58,14 +58,14 @@ class TestOSINTProcessor:
         assert 0.0 <= result.information_quality <= 1.0
         assert 0.0 <= result.corroboration_level <= 1.0
 
-    def test_analyze_unknown_source(self):
+    def test_analyze_unknown_source(self) -> None:
         """Test analysis with unknown source type."""
         data = {"source_type": "unknown_source", "content": "Test content."}
         result = self.processor.analyze(data)
 
         assert result.source_credibility == 0.50  # Default
 
-    def test_analyze_with_threat_keywords(self):
+    def test_analyze_with_threat_keywords(self) -> None:
         """Test that threat keywords trigger anomaly detection."""
         data = {
             "source_type": "social_media",
@@ -76,7 +76,7 @@ class TestOSINTProcessor:
         assert len(result.anomaly_indicators) > 0
         assert any("threat_keyword" in ind for ind in result.anomaly_indicators)
 
-    def test_analyze_with_citations(self):
+    def test_analyze_with_citations(self) -> None:
         """Test that citations improve quality score."""
         data = {
             "source_type": "academic",
@@ -88,7 +88,7 @@ class TestOSINTProcessor:
 
         assert result.information_quality > 0.7
 
-    def test_analyze_with_corroboration(self):
+    def test_analyze_with_corroboration(self) -> None:
         """Test corroboration level calculation."""
         data = {
             "source_type": "government_public",
@@ -99,7 +99,7 @@ class TestOSINTProcessor:
 
         assert result.corroboration_level == 1.0
 
-    def test_analyze_temporal_anomaly(self):
+    def test_analyze_temporal_anomaly(self) -> None:
         """Test temporal anomaly detection."""
         data = {
             "source_type": "social_media",
@@ -110,7 +110,7 @@ class TestOSINTProcessor:
 
         assert "temporal_anomaly" in result.anomaly_indicators
 
-    def test_analyze_coordinated_campaign(self):
+    def test_analyze_coordinated_campaign(self) -> None:
         """Test coordinated campaign detection."""
         data = {
             "source_type": "social_media",
@@ -121,7 +121,7 @@ class TestOSINTProcessor:
 
         assert "coordinated_information_operation" in result.anomaly_indicators
 
-    def test_sentiment_analysis(self):
+    def test_sentiment_analysis(self) -> None:
         """Test sentiment analysis is included."""
         data = {"source_type": "blogs", "content": "Very positive happy content!"}
         result = self.processor.analyze(data)
@@ -129,7 +129,7 @@ class TestOSINTProcessor:
         assert result.sentiment_analysis is not None
         assert isinstance(result.sentiment_analysis, dict)
 
-    def test_entity_extraction(self):
+    def test_entity_extraction(self) -> None:
         """Test entity extraction is included."""
         data = {"source_type": "mainstream_media", "content": "Test content with entities."}
         result = self.processor.analyze(data)
@@ -140,15 +140,15 @@ class TestOSINTProcessor:
 class TestCOMINTProcessor:
     """Tests for COMINTProcessor class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.processor = COMINTProcessor()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test processor initialization."""
         assert self.processor is not None
 
-    def test_analyze_basic(self):
+    def test_analyze_basic(self) -> None:
         """Test basic COMINT analysis."""
         data = {
             "communication_type": "radio",
@@ -162,7 +162,7 @@ class TestCOMINTProcessor:
         assert hasattr(result, "intercept_quality")
         assert hasattr(result, "anomaly_score")
 
-    def test_analyze_encrypted(self):
+    def test_analyze_encrypted(self) -> None:
         """Test analysis of encrypted communication."""
         data = {
             "communication_type": "digital",
@@ -177,15 +177,15 @@ class TestCOMINTProcessor:
 class TestHUMINTProcessor:
     """Tests for HUMINTProcessor class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.processor = HUMINTProcessor()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test processor initialization."""
         assert self.processor is not None
 
-    def test_analyze_basic(self):
+    def test_analyze_basic(self) -> None:
         """Test basic HUMINT analysis."""
         data = {
             "source_reliability": "B",
@@ -198,7 +198,7 @@ class TestHUMINTProcessor:
         assert hasattr(result, "source_reliability_score")
         assert hasattr(result, "information_credibility_score")
 
-    def test_reliability_coding(self):
+    def test_reliability_coding(self) -> None:
         """Test NATO reliability coding."""
         for code in ["A", "B", "C", "D", "E", "F"]:
             data = {
@@ -213,15 +213,15 @@ class TestHUMINTProcessor:
 class TestGEOINTProcessor:
     """Tests for GEOINTProcessor class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.processor = GEOINTProcessor()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test processor initialization."""
         assert self.processor is not None
 
-    def test_analyze_basic(self):
+    def test_analyze_basic(self) -> None:
         """Test basic GEOINT analysis."""
         data = {
             "imagery_type": "satellite",
@@ -234,7 +234,7 @@ class TestGEOINTProcessor:
         assert isinstance(result, GEOINTAnalysisResult)
         assert hasattr(result, "spatial_anomalies")
 
-    def test_analyze_change_detection(self):
+    def test_analyze_change_detection(self) -> None:
         """Test change detection analysis."""
         data = {
             "imagery_type": "satellite",
@@ -250,15 +250,15 @@ class TestGEOINTProcessor:
 class TestSIGINTProcessor:
     """Tests for SIGINTProcessor class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.processor = SIGINTProcessor()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test processor initialization."""
         assert self.processor is not None
 
-    def test_analyze_basic(self):
+    def test_analyze_basic(self) -> None:
         """Test basic SIGINT analysis."""
         data = {
             "signal_type": "radio",
@@ -275,15 +275,15 @@ class TestSIGINTProcessor:
 class TestELINTProcessor:
     """Tests for ELINTProcessor class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.processor = ELINTProcessor()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test processor initialization."""
         assert self.processor is not None
 
-    def test_analyze_basic(self):
+    def test_analyze_basic(self) -> None:
         """Test basic ELINT analysis."""
         data = {
             "emitter_type": "radar",
@@ -300,15 +300,15 @@ class TestELINTProcessor:
 class TestMASINTProcessor:
     """Tests for MASINTProcessor class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.processor = MASINTProcessor()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test processor initialization."""
         assert self.processor is not None
 
-    def test_analyze_basic(self):
+    def test_analyze_basic(self) -> None:
         """Test basic MASINT analysis."""
         data = {
             "measurement_type": "seismic",
@@ -324,15 +324,15 @@ class TestMASINTProcessor:
 class TestCYBINTProcessor:
     """Tests for CYBINTProcessor class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.processor = CYBINTProcessor()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test processor initialization."""
         assert self.processor is not None
 
-    def test_analyze_basic(self):
+    def test_analyze_basic(self) -> None:
         """Test basic CYBINT analysis."""
         data = {
             "threat_type": "malware",
@@ -347,15 +347,15 @@ class TestCYBINTProcessor:
 class TestFININTProcessor:
     """Tests for FININTProcessor class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.processor = FININTProcessor()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test processor initialization."""
         assert self.processor is not None
 
-    def test_analyze_basic(self):
+    def test_analyze_basic(self) -> None:
         """Test basic FININT analysis."""
         data = {
             "transaction_type": "wire_transfer",
@@ -369,7 +369,7 @@ class TestFININTProcessor:
         assert isinstance(result, FININTAnalysisResult)
         assert hasattr(result, "risk_score")
 
-    def test_suspicious_pattern_detection(self):
+    def test_suspicious_pattern_detection(self) -> None:
         """Test suspicious pattern detection."""
         data = {
             "transaction_type": "wire_transfer",
@@ -385,7 +385,7 @@ class TestFININTProcessor:
 class TestAnalysisResultDataclasses:
     """Tests for analysis result dataclasses."""
 
-    def test_osint_result_defaults(self):
+    def test_osint_result_defaults(self) -> None:
         """Test OSINTAnalysisResult default values."""
         result = OSINTAnalysisResult(
             source_credibility=0.8, information_quality=0.7, corroboration_level=0.5
@@ -394,7 +394,7 @@ class TestAnalysisResultDataclasses:
         assert result.entity_mentions == []
         assert result.sentiment_analysis is None
 
-    def test_comint_result_creation(self):
+    def test_comint_result_creation(self) -> None:
         """Test COMINTAnalysisResult creation."""
         result = COMINTAnalysisResult(
             intercept_quality=0.9, anomaly_score=0.3, communication_type="radio"
@@ -402,7 +402,7 @@ class TestAnalysisResultDataclasses:
         assert result.intercept_quality == 0.9
         assert result.anomaly_score == 0.3
 
-    def test_humint_result_creation(self):
+    def test_humint_result_creation(self) -> None:
         """Test HUMINTAnalysisResult creation."""
         result = HUMINTAnalysisResult(
             source_reliability_score=0.8,

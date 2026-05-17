@@ -35,14 +35,14 @@ from omni_mercury_engine.federated_learning import (
 class TestFederatedAnomalyDetector:
     """Tests for Federated Anomaly Detector."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test detector initialization with default and custom parameters."""
         detector = FederatedAnomalyDetector(model_dim=10)
         assert detector._model_dim == 10
         assert detector._use_privacy is True
         assert detector._aggregation == "fedavg"
 
-    def test_fit_and_predict(self):
+    def test_fit_and_predict(self) -> None:
         """Test full training and prediction cycle."""
         detector = FederatedAnomalyDetector(
             model_dim=5,
@@ -66,7 +66,7 @@ class TestFederatedAnomalyDetector:
         assert predictions.shape == (50,)
         assert set(np.unique(predictions)).issubset({0, 1})
 
-    def test_decision_function(self):
+    def test_decision_function(self) -> None:
         """Test anomaly scoring."""
         detector = FederatedAnomalyDetector(model_dim=5, n_rounds=2, use_privacy=False)
 
@@ -78,7 +78,7 @@ class TestFederatedAnomalyDetector:
         assert scores.shape == (50,)
         assert np.all(scores >= 0)
 
-    def test_privacy_report(self):
+    def test_privacy_report(self) -> None:
         """Test that privacy reporting works when privacy is enabled."""
         detector = FederatedAnomalyDetector(
             model_dim=5,
@@ -96,7 +96,7 @@ class TestFederatedAnomalyDetector:
         assert report is not None
         assert report.epsilon > 0
 
-    def test_no_clients_raises(self):
+    def test_no_clients_raises(self) -> None:
         """Test that fit raises when no clients are registered."""
         detector = FederatedAnomalyDetector(model_dim=5)
         try:
@@ -105,7 +105,7 @@ class TestFederatedAnomalyDetector:
         except ValueError:
             pass
 
-    def test_seed_makes_full_loop_reproducible(self):
+    def test_seed_makes_full_loop_reproducible(self) -> None:
         """Two runs with the same seed and add_client order must
         produce identical final weights end-to-end across all
         stochastic surfaces (initial-weights draw, per-client
@@ -147,7 +147,7 @@ class TestFederatedAnomalyDetector:
 class TestCISAFederatedCoordinator:
     """Tests for CISA Federated Coordinator."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test coordinator initialization."""
         sectors = ["healthcare", "energy", "financial_services"]
         coordinator = CISAFederatedCoordinator(sectors, model_dim=5)
@@ -155,7 +155,7 @@ class TestCISAFederatedCoordinator:
         assert len(coordinator.sectors) == 3
         assert coordinator.get_sector_client_count("healthcare") == 0
 
-    def test_add_sector_client(self):
+    def test_add_sector_client(self) -> None:
         """Test adding clients to sectors."""
         coordinator = CISAFederatedCoordinator(["healthcare", "energy"], model_dim=5)
 
@@ -166,7 +166,7 @@ class TestCISAFederatedCoordinator:
         assert coordinator.get_sector_client_count("healthcare") == 2
         assert coordinator.get_sector_client_count("energy") == 1
 
-    def test_cross_sector_training(self):
+    def test_cross_sector_training(self) -> None:
         """Test cross-sector federated training."""
         sectors = ["healthcare", "energy"]
         coordinator = CISAFederatedCoordinator(sectors, model_dim=5)
@@ -184,7 +184,7 @@ class TestCISAFederatedCoordinator:
         assert len(result.participating_sectors) == 2
         assert result.global_model_weights is not None
 
-    def test_sector_configuration(self):
+    def test_sector_configuration(self) -> None:
         """Test configuring sector-specific privacy."""
         coordinator = CISAFederatedCoordinator(["healthcare"], model_dim=5)
 
@@ -199,7 +199,7 @@ class TestCISAFederatedCoordinator:
         assert stats["sectors"]["healthcare"]["privacy_level"] == "MAXIMUM"
         assert stats["sectors"]["healthcare"]["epsilon"] == 0.5
 
-    def test_unknown_sector_raises(self):
+    def test_unknown_sector_raises(self) -> None:
         """Test that adding to an unknown sector raises."""
         coordinator = CISAFederatedCoordinator(["healthcare"], model_dim=5)
         try:

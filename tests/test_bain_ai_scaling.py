@@ -23,7 +23,7 @@ from __future__ import annotations
 from omni_mercury_engine.scaling.bain_ai_scaling import BainAIScaling, ComputeResource
 
 
-def test_bain_scaling_initialization():
+def test_bain_scaling_initialization() -> None:
     """Test Bain AI scaling system initialization"""
     system = BainAIScaling(max_power_watts=1500.0)
     assert system.max_power_watts == 1500.0
@@ -31,7 +31,7 @@ def test_bain_scaling_initialization():
     assert len(system.current_allocation) == 0
 
 
-def test_optimize_compute_allocation():
+def test_optimize_compute_allocation() -> None:
     """Test compute resource optimization"""
     system = BainAIScaling()
 
@@ -52,7 +52,7 @@ def test_optimize_compute_allocation():
     assert isinstance(allocation["detection_1"], ComputeResource)
 
 
-def test_estimate_power_consumption():
+def test_estimate_power_consumption() -> None:
     """Test power consumption estimation"""
     system = BainAIScaling(max_power_watts=2000.0)
 
@@ -67,7 +67,7 @@ def test_estimate_power_consumption():
     assert power > 100.0
 
 
-def test_power_budget_limit():
+def test_power_budget_limit() -> None:
     """Test that power estimates respect max budget"""
     system = BainAIScaling(max_power_watts=500.0)
 
@@ -80,7 +80,7 @@ def test_power_budget_limit():
     assert power <= system.max_power_watts
 
 
-def test_compute_allocation_priorities():
+def test_compute_allocation_priorities() -> None:
     """Test that higher priority workloads get more resources"""
     system = BainAIScaling()
 

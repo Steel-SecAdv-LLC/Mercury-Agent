@@ -51,7 +51,7 @@ if HAS_TORCH:
     from omni_mercury_engine.ml.harmonic_encoder import HarmonicEncoder
 
 
-def test_statistical_encoder_with_precomputed():
+def test_statistical_encoder_with_precomputed() -> None:
     """Test StatisticalEncoder with precomputed embeddings"""
     encoder = StatisticalEncoder(input_dim=10, output_dim=128)
 
@@ -62,7 +62,7 @@ def test_statistical_encoder_with_precomputed():
     assert output.shape[1] == 128
 
 
-def test_temporal_encoder_with_precomputed():
+def test_temporal_encoder_with_precomputed() -> None:
     """Test TemporalEncoder with precomputed embeddings"""
     encoder = TemporalEncoder(input_dim=32, output_dim=128)
 
@@ -72,7 +72,7 @@ def test_temporal_encoder_with_precomputed():
     assert output.shape == (5, 128)
 
 
-def test_biometric_encoder_with_2d():
+def test_biometric_encoder_with_2d() -> None:
     """Test BiometricEncoder with 2D embeddings"""
     encoder = BiometricEncoder(embedding_dim=128, output_dim=128)
 
@@ -83,7 +83,7 @@ def test_biometric_encoder_with_2d():
     assert output.shape[1] == 128
 
 
-def test_biometric_encoder_with_4d():
+def test_biometric_encoder_with_4d() -> None:
     """Test BiometricEncoder with 4D images"""
     encoder = BiometricEncoder(input_channels=3, output_dim=128)
 
@@ -94,7 +94,7 @@ def test_biometric_encoder_with_4d():
     assert output.shape[1] == 128
 
 
-def test_quantum_encoder_with_precomputed():
+def test_quantum_encoder_with_precomputed() -> None:
     """Test QuantumEncoder with complex quantum states"""
     encoder = QuantumEncoder(state_dim=16, output_dim=128)
 
@@ -104,7 +104,7 @@ def test_quantum_encoder_with_precomputed():
     assert output.shape == (5, 128)
 
 
-def test_astrophysical_encoder_with_precomputed():
+def test_astrophysical_encoder_with_precomputed() -> None:
     """Test AstrophysicalEncoder with precomputed embeddings"""
     encoder = AstrophysicalEncoder(input_dim=32, output_dim=128)
 
@@ -114,7 +114,7 @@ def test_astrophysical_encoder_with_precomputed():
     assert output.shape == (5, 128)
 
 
-def test_affective_encoder_with_precomputed():
+def test_affective_encoder_with_precomputed() -> None:
     """Test AffectiveEncoder with precomputed embeddings"""
     encoder = AffectiveEncoder(input_dim=32, output_dim=128)
 
@@ -124,13 +124,13 @@ def test_affective_encoder_with_precomputed():
     assert output.shape == (5, 128)
 
 
-def test_harmonic_encoder_initialization():
+def test_harmonic_encoder_initialization() -> None:
     """Test HarmonicEncoder initialization"""
     encoder = HarmonicEncoder(l_max=5)
     assert encoder.spherical_decomposer.l_max == 5
 
 
-def test_harmonic_encoder_forward():
+def test_harmonic_encoder_forward() -> None:
     """Test HarmonicEncoder forward pass with signal"""
     encoder = HarmonicEncoder(l_max=3, output_dim=32)
 
@@ -140,7 +140,7 @@ def test_harmonic_encoder_forward():
     assert output.shape[0] == 32
 
 
-def test_encoders_batch_processing():
+def test_encoders_batch_processing() -> None:
     """Test all encoders with batch processing"""
     encoders: list[tuple[nn.Module, torch.Tensor]] = [
         (StatisticalEncoder(input_dim=32, output_dim=128), torch.randn(10, 32)),

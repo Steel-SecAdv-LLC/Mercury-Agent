@@ -65,28 +65,28 @@ class TestMercuryGuardianAdapter:
             gosnn_synapse_enabled=False,
         )
 
-    def test_adapter_initialization(self, adapter):
+    def test_adapter_initialization(self, adapter) -> None:
         """Test adapter initializes correctly."""
         assert adapter is not None
         assert adapter.timing_monitor is not None
         assert adapter.gosnn_synapse_enabled is True
 
-    def test_adapter_without_timing_monitor(self, adapter_no_timing):
+    def test_adapter_without_timing_monitor(self, adapter_no_timing) -> None:
         """Test adapter works without timing monitor."""
         assert adapter_no_timing is not None
         assert adapter_no_timing.timing_monitor is None
 
-    def test_adapter_without_gosnn_synapse(self, adapter_no_gosnn):
+    def test_adapter_without_gosnn_synapse(self, adapter_no_gosnn) -> None:
         """Test adapter works without GOSNN synapse."""
         assert adapter_no_gosnn is not None
         assert adapter_no_gosnn.gosnn_synapse_enabled is False
 
-    def test_is_available(self, adapter):
+    def test_is_available(self, adapter) -> None:
         """Test availability check."""
         result = adapter.is_available()
         assert isinstance(result, bool)
 
-    def test_get_pqc_status(self, adapter):
+    def test_get_pqc_status(self, adapter) -> None:
         """Test PQC status retrieval."""
         status = adapter.get_pqc_status()
         assert "ama_cryptography_available" in status
@@ -99,7 +99,7 @@ class TestMercuryGuardianAdapter:
         # Verify ama_cryptography_available and mercury_guardian_available are consistent
         assert status["ama_cryptography_available"] == status["mercury_guardian_available"]
 
-    def test_get_anomaly_summary_empty(self, adapter):
+    def test_get_anomaly_summary_empty(self, adapter) -> None:
         """Test anomaly summary with no anomalies."""
         summary = adapter.get_anomaly_summary()
         assert summary["total_anomalies"] == 0
@@ -107,7 +107,7 @@ class TestMercuryGuardianAdapter:
         assert summary["avg_severity"] == 0.0
         assert summary["recent_anomalies"] == []
 
-    def test_get_gosnn_scalars(self, adapter):
+    def test_get_gosnn_scalars(self, adapter) -> None:
         """Test GOSNN scalars retrieval."""
         scalars = adapter.get_gosnn_scalars()
         assert "omni_ama_cryptography_available" in scalars
@@ -115,7 +115,7 @@ class TestMercuryGuardianAdapter:
         assert "omni_kyber_available" in scalars
         assert "omni_crypto_anomaly_count" in scalars
 
-    def test_anomaly_history_limit(self, adapter):
+    def test_anomaly_history_limit(self, adapter) -> None:
         """Test anomaly history respects max limit."""
         assert adapter.max_anomaly_history == 1000
 
@@ -135,27 +135,27 @@ class TestEWMATimingMonitor:
 
         return EWMATimingMonitor(alpha=0.1, mad_threshold=3.0)
 
-    def test_monitor_initialization(self, monitor):
+    def test_monitor_initialization(self, monitor) -> None:
         """Test monitor initializes correctly."""
         assert monitor is not None
         assert monitor.alpha == 0.1
         assert monitor.mad_threshold == 3.0
         assert monitor.max_history == 100
 
-    def test_record_timing_first(self, monitor):
+    def test_record_timing_first(self, monitor) -> None:
         """Test recording first timing."""
         anomaly = monitor.record_timing("test_op", 10.0)
         assert anomaly is None
         assert "test_op" in monitor.stats
         assert monitor.stats["test_op"].sample_count == 1
 
-    def test_record_timing_multiple(self, monitor):
+    def test_record_timing_multiple(self, monitor) -> None:
         """Test recording multiple timings."""
         for i in range(20):
             monitor.record_timing("test_op", 10.0 + np.random.randn() * 0.5)
         assert monitor.stats["test_op"].sample_count == 20
 
-    def test_record_timing_anomaly_detection(self, monitor):
+    def test_record_timing_anomaly_detection(self, monitor) -> None:
         """Test anomaly detection with outlier timing."""
         for i in range(20):
             monitor.record_timing("test_op", 10.0)
@@ -167,7 +167,7 @@ class TestEWMATimingMonitor:
         if anomaly is not None:
             assert anomaly.anomaly_type.value == "timing_anomaly"
 
-    def test_ewma_mean_update(self, monitor):
+    def test_ewma_mean_update(self, monitor) -> None:
         """Test EWMA mean is updated correctly."""
         monitor.record_timing("test_op", 10.0)
         initial_mean = monitor.stats["test_op"].ewma_mean
@@ -177,14 +177,14 @@ class TestEWMATimingMonitor:
 
         assert updated_mean > initial_mean
 
-    def test_mad_calculation(self, monitor):
+    def test_mad_calculation(self, monitor) -> None:
         """Test MAD is calculated correctly."""
         for i in range(15):
             monitor.record_timing("test_op", 10.0 + i * 0.1)
 
         assert monitor.stats["test_op"].mad >= 0
 
-    def test_multiple_operations(self, monitor):
+    def test_multiple_operations(self, monitor) -> None:
         """Test monitoring multiple operations."""
         monitor.record_timing("op_a", 10.0)
         monitor.record_timing("op_b", 20.0)
@@ -194,12 +194,12 @@ class TestEWMATimingMonitor:
         assert "op_b" in monitor.stats
         assert "op_c" in monitor.stats
 
-    def test_overhead_estimate(self, monitor):
+    def test_overhead_estimate(self, monitor) -> None:
         """Test overhead estimate is reasonable."""
         overhead = monitor.get_overhead_estimate()
         assert overhead < 2.0
 
-    def test_timing_history_limit(self, monitor):
+    def test_timing_history_limit(self, monitor) -> None:
         """Test timing history respects max limit."""
         for i in range(150):
             monitor.record_timing("test_op", 10.0)
@@ -215,7 +215,7 @@ class TestEWMATimingMonitor:
 class TestCryptoAnomaly:
     """Tests for CryptoAnomaly dataclass."""
 
-    def test_crypto_anomaly_creation(self):
+    def test_crypto_anomaly_creation(self) -> None:
         """Test CryptoAnomaly creation."""
         from omni_mercury_engine.integrations.mercury_amacrypto import (
             CryptoAnomaly,
@@ -234,7 +234,7 @@ class TestCryptoAnomaly:
         assert anomaly.severity == 0.8
         assert anomaly.operation == "test_op"
 
-    def test_crypto_anomaly_types(self):
+    def test_crypto_anomaly_types(self) -> None:
         """Test all CryptoAnomalyType values."""
         from omni_mercury_engine.integrations.mercury_amacrypto import CryptoAnomalyType
 
@@ -255,7 +255,7 @@ class TestCryptoAnomaly:
 class TestTimingStats:
     """Tests for TimingStats dataclass."""
 
-    def test_timing_stats_defaults(self):
+    def test_timing_stats_defaults(self) -> None:
         """Test TimingStats default values."""
         from omni_mercury_engine.integrations.mercury_amacrypto import TimingStats
 
@@ -266,7 +266,7 @@ class TestTimingStats:
         assert stats.sample_count == 0
         assert stats.alpha == 0.1
 
-    def test_timing_stats_custom(self):
+    def test_timing_stats_custom(self) -> None:
         """Test TimingStats with custom values."""
         from omni_mercury_engine.integrations.mercury_amacrypto import TimingStats
 
@@ -299,7 +299,7 @@ class TestAttackSimulation:
             gosnn_synapse_enabled=True,
         )
 
-    def test_simulate_timing_attack(self, adapter):
+    def test_simulate_timing_attack(self, adapter) -> None:
         """Test timing attack simulation."""
         result = adapter.simulate_attack(attack_type="timing")
         assert "attack_type" in result
@@ -308,21 +308,21 @@ class TestAttackSimulation:
         assert "anomalies" in result
         assert "gosnn_triggered" in result
 
-    def test_simulate_replay_attack(self, adapter):
+    def test_simulate_replay_attack(self, adapter) -> None:
         """Test replay attack simulation."""
         result = adapter.simulate_attack(attack_type="replay")
         assert result["attack_type"] == "replay"
         assert result["detected"] is True
         assert len(result["anomalies"]) > 0
 
-    def test_simulate_side_channel_attack(self, adapter):
+    def test_simulate_side_channel_attack(self, adapter) -> None:
         """Test side-channel attack simulation."""
         result = adapter.simulate_attack(attack_type="side_channel")
         assert result["attack_type"] == "side_channel"
         assert result["detected"] is True
         assert len(result["anomalies"]) > 0
 
-    def test_attack_detection_rate(self, adapter):
+    def test_attack_detection_rate(self, adapter) -> None:
         """Test attack detection rate meets threshold."""
         attacks = ["timing", "replay", "side_channel"]
         detected_count = 0
@@ -337,7 +337,7 @@ class TestAttackSimulation:
         # Replay and side_channel attacks should always be detected
         assert detection_rate >= 0.66  # At least 2/3 attacks detected
 
-    def test_gosnn_triggered_on_attack(self, adapter):
+    def test_gosnn_triggered_on_attack(self, adapter) -> None:
         """Test GOSNN synapse is triggered on attack."""
         result = adapter.simulate_attack(attack_type="replay")
         assert result["gosnn_triggered"] is True
@@ -361,13 +361,13 @@ class TestAnomalyRecording:
             gosnn_synapse_enabled=False,
         )
 
-    def test_anomaly_recorded_after_attack(self, adapter):
+    def test_anomaly_recorded_after_attack(self, adapter) -> None:
         """Test anomaly is recorded after attack simulation."""
         initial_count = len(adapter.anomaly_history)
         adapter.simulate_attack(attack_type="replay")
         assert len(adapter.anomaly_history) > initial_count
 
-    def test_anomaly_summary_after_attacks(self, adapter):
+    def test_anomaly_summary_after_attacks(self, adapter) -> None:
         """Test anomaly summary after multiple attacks."""
         adapter.simulate_attack(attack_type="timing")
         adapter.simulate_attack(attack_type="replay")
@@ -378,7 +378,7 @@ class TestAnomalyRecording:
         assert len(summary["by_type"]) > 0
         assert summary["avg_severity"] > 0
 
-    def test_recent_anomalies_limit(self, adapter):
+    def test_recent_anomalies_limit(self, adapter) -> None:
         """Test recent anomalies are limited to 10."""
         for _ in range(20):
             adapter.simulate_attack(attack_type="replay")
@@ -395,7 +395,7 @@ class TestAnomalyRecording:
 class TestFactoryFunction:
     """Tests for create_ama_cryptography_adapter factory function."""
 
-    def test_create_adapter_default(self):
+    def test_create_adapter_default(self) -> None:
         """Test factory function with defaults."""
         from omni_mercury_engine.integrations.mercury_amacrypto import (
             create_ama_cryptography_adapter,
@@ -406,7 +406,7 @@ class TestFactoryFunction:
         assert adapter.timing_monitor is not None
         assert adapter.gosnn_synapse_enabled is True
 
-    def test_create_adapter_no_timing(self):
+    def test_create_adapter_no_timing(self) -> None:
         """Test factory function without timing monitor."""
         from omni_mercury_engine.integrations.mercury_amacrypto import (
             create_ama_cryptography_adapter,
@@ -415,7 +415,7 @@ class TestFactoryFunction:
         adapter = create_ama_cryptography_adapter(enable_timing_monitor=False)
         assert adapter.timing_monitor is None
 
-    def test_create_adapter_no_gosnn(self):
+    def test_create_adapter_no_gosnn(self) -> None:
         """Test factory function without GOSNN synapse."""
         from omni_mercury_engine.integrations.mercury_amacrypto import (
             create_ama_cryptography_adapter,
@@ -424,7 +424,7 @@ class TestFactoryFunction:
         adapter = create_ama_cryptography_adapter(gosnn_synapse_enabled=False)
         assert adapter.gosnn_synapse_enabled is False
 
-    def test_create_adapter_compat_alias(self):
+    def test_create_adapter_compat_alias(self) -> None:
         """Test backward compat factory function alias."""
         from omni_mercury_engine.integrations.mercury_amacrypto import (
             create_mercury_guardian_adapter,
@@ -443,7 +443,7 @@ class TestFactoryFunction:
 class TestModuleImports:
     """Tests for module imports and exports."""
 
-    def test_import_from_integrations(self):
+    def test_import_from_integrations(self) -> None:
         """Test importing from integrations package."""
         from omni_mercury_engine.integrations import (
             AMA_CRYPTOGRAPHY_AVAILABLE,
@@ -467,7 +467,7 @@ class TestModuleImports:
         assert isinstance(DILITHIUM_AVAILABLE, bool)
         assert isinstance(KYBER_AVAILABLE, bool)
 
-    def test_import_from_mercury_amacrypto_module(self):
+    def test_import_from_mercury_amacrypto_module(self) -> None:
         """Test importing directly from mercury_amacrypto module."""
         from omni_mercury_engine.integrations.mercury_amacrypto import (
             CryptoAnomaly,
@@ -508,7 +508,7 @@ class TestGracefulFallback:
 
         return MercuryGuardianAdapter()
 
-    def test_dilithium_keygen_fallback(self, adapter):
+    def test_dilithium_keygen_fallback(self, adapter) -> None:
         """Test Dilithium keygen returns None when unavailable."""
         from omni_mercury_engine.integrations.mercury_amacrypto import DILITHIUM_AVAILABLE
 
@@ -518,7 +518,7 @@ class TestGracefulFallback:
         else:
             assert result is not None
 
-    def test_kyber_keygen_fallback(self, adapter):
+    def test_kyber_keygen_fallback(self, adapter) -> None:
         """Test Kyber keygen returns None when unavailable."""
         from omni_mercury_engine.integrations.mercury_amacrypto import KYBER_AVAILABLE
 
@@ -528,25 +528,25 @@ class TestGracefulFallback:
         else:
             assert result is not None
 
-    def test_sign_without_keypair(self, adapter):
+    def test_sign_without_keypair(self, adapter) -> None:
         """Test signing without keypair returns None."""
         result = adapter.sign_dilithium(b"test message")
         if adapter._dilithium_keypair is None:
             assert result is None
 
-    def test_verify_without_keypair(self, adapter):
+    def test_verify_without_keypair(self, adapter) -> None:
         """Test verification without keypair returns False."""
         result = adapter.verify_dilithium(b"test message", b"fake signature")
         if adapter._dilithium_keypair is None:
             assert result is False
 
-    def test_encapsulate_without_keypair(self, adapter):
+    def test_encapsulate_without_keypair(self, adapter) -> None:
         """Test encapsulation without keypair returns None."""
         result = adapter.encapsulate_kyber()
         if adapter._kyber_keypair is None:
             assert result is None
 
-    def test_decapsulate_without_keypair(self, adapter):
+    def test_decapsulate_without_keypair(self, adapter) -> None:
         """Test decapsulation without keypair returns None."""
         result = adapter.decapsulate_kyber(b"fake ciphertext")
         if adapter._kyber_keypair is None:
@@ -568,25 +568,25 @@ class TestGOSNNScalars:
 
         return MercuryGuardianAdapter()
 
-    def test_scalars_have_omni_prefix(self, adapter):
+    def test_scalars_have_omni_prefix(self, adapter) -> None:
         """Test all scalars have omni_ prefix."""
         scalars = adapter.get_gosnn_scalars()
         for key in scalars:
             assert key.startswith("omni_"), f"Scalar {key} missing omni_ prefix"
 
-    def test_scalars_are_floats(self, adapter):
+    def test_scalars_are_floats(self, adapter) -> None:
         """Test all scalars are floats."""
         scalars = adapter.get_gosnn_scalars()
         for key, value in scalars.items():
             assert isinstance(value, float), f"Scalar {key} is not float"
 
-    def test_scalars_after_anomalies(self, adapter):
+    def test_scalars_after_anomalies(self, adapter) -> None:
         """Test scalars include anomaly info after attacks."""
         adapter.simulate_attack(attack_type="replay")
         scalars = adapter.get_gosnn_scalars()
         assert scalars["omni_crypto_anomaly_count"] > 0
 
-    def test_avg_severity_scalar(self, adapter):
+    def test_avg_severity_scalar(self, adapter) -> None:
         """Test average severity scalar is computed."""
         adapter.simulate_attack(attack_type="replay")
         adapter.simulate_attack(attack_type="side_channel")

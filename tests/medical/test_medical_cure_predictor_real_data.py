@@ -52,7 +52,7 @@ pytestmark = pytest.mark.skipif(
 
 
 class TestRealDataValidation:
-    def test_temporal_vitals_sepsis_detection(self):
+    def test_temporal_vitals_sepsis_detection(self) -> None:
         """Test sepsis detection on simulated MIMIC-III vitals."""
         normal_data = generate_mimic_vitals(num_timesteps=288, inject_disease=False)
         sepsis_data = generate_mimic_vitals(
@@ -67,7 +67,7 @@ class TestRealDataValidation:
         assert normal_result["temporal_anomaly_detected"] in [True, False]
         assert sepsis_result["temporal_anomaly_detected"] in [True, False]
 
-    def test_medical_imaging_anomaly_detection(self):
+    def test_medical_imaging_anomaly_detection(self) -> None:
         """Test imaging anomaly on simulated X-rays."""
         predictor = MedicalCurePredictor()
 
@@ -85,7 +85,7 @@ class TestRealDataValidation:
 
         assert all(0.0 <= r.confidence <= 1.0 for r in results)
 
-    def test_vitals_benchmark_accuracy(self):
+    def test_vitals_benchmark_accuracy(self) -> None:
         """Benchmark accuracy on simulated vital signs."""
         predictor = MedicalCurePredictor(enable_imaging=False, enable_treatment_opt=False)
 
@@ -113,7 +113,7 @@ class TestRealDataValidation:
         accuracy = (true_positives + true_negatives) / 30
         assert accuracy > 0.4, f"Accuracy {accuracy:.2f} should be > 40% on simulated data"
 
-    def test_comprehensive_prediction_workflow(self):
+    def test_comprehensive_prediction_workflow(self) -> None:
         """Test complete prediction workflow with vitals and imaging."""
         predictor = MedicalCurePredictor()
 

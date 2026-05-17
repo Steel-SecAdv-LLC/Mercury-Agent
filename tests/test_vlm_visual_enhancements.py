@@ -15,6 +15,7 @@ import pytest
 pytest.importorskip("torch")
 
 import threading
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -142,6 +143,7 @@ class TestSemanticContextProvider:
         context = provider.extract_context(sample_video)
 
         assert context.context_type == "semantic"
+        assert context.metadata is not None
         assert context.metadata["scene_type"] in ["sparse", "moderate", "dense", "cluttered"]
 
     def test_extract_context_torch_tensor(self, sample_frame: np.ndarray) -> None:
@@ -169,6 +171,7 @@ class TestSemanticContextProvider:
         sparse_frame = np.ones((3, 64, 64), dtype=np.float32) * 0.5
         context = provider.extract_context(sparse_frame)
         # Should be sparse or moderate
+        assert context.metadata is not None
         assert context.metadata["scene_type"] in ["sparse", "moderate"]
 
     def test_reproducibility_with_seed(self, sample_frame: np.ndarray) -> None:
@@ -233,6 +236,7 @@ class TestFrequencyContextProvider:
 
         context = provider.extract_context(frame)
         # Should detect periodicity
+        assert context.metadata is not None
         assert context.metadata["periodic_score"] > 0.1
 
     def test_flicker_detection(self) -> None:
@@ -245,6 +249,7 @@ class TestFrequencyContextProvider:
             video[t] = 1.0 if t % 2 == 0 else 0.0
 
         context = provider.extract_context(video)
+        assert context.metadata is not None
         assert context.metadata["flicker_detected"] is True
 
 
@@ -285,6 +290,7 @@ class TestAppearanceContextProvider:
         frame[0] = 1.0  # Red channel
 
         context = provider.extract_context(frame)
+        assert context.metadata is not None
         dominant = context.metadata["dominant_colors"]
         assert len(dominant) > 0
 
@@ -295,11 +301,13 @@ class TestAppearanceContextProvider:
         # Dark image
         dark_frame = np.ones((3, 64, 64), dtype=np.float32) * 0.1
         dark_context = provider.extract_context(dark_frame)
+        assert dark_context.metadata is not None
         assert dark_context.metadata["brightness_mean"] < 0.3
 
         # Bright image
         bright_frame = np.ones((3, 64, 64), dtype=np.float32) * 0.9
         bright_context = provider.extract_context(bright_frame)
+        assert bright_context.metadata is not None
         assert bright_context.metadata["brightness_mean"] > 0.7
 
     def test_texture_entropy(self) -> None:
@@ -314,6 +322,8 @@ class TestAppearanceContextProvider:
         random_tex = np.random.rand(3, 64, 64).astype(np.float32)
         random_context = provider.extract_context(random_tex)
 
+        assert random_context.metadata is not None
+        assert uniform_context.metadata is not None
         assert (
             random_context.metadata["texture_entropy"]
             >= uniform_context.metadata["texture_entropy"]
@@ -500,9 +510,9 @@ class TestLVLMBackendCache:
         """Test callback registration."""
         cache = LVLMBackendCache()
 
-        load_called = []
-        evict_called = []
-        error_called = []
+        load_called: list[Any] = []
+        evict_called: list[Any] = []
+        error_called: list[Any] = []
 
         cache.on_load(lambda key, _time: load_called.append(key))
         cache.on_evict(evict_called.append)

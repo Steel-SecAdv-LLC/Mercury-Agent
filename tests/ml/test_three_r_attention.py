@@ -33,12 +33,20 @@ class TestThreeRAttentionBlock:
         phi = 1.618033988749895
         phi_sum = phi + 1.0 + (1.0 / phi)
 
-        assert abs(block.w_R.item() - phi / phi_sum) < 1e-6
-        assert abs(block.w_H.item() - 1.0 / phi_sum) < 1e-6
-        assert abs(block.w_O.item() - (1.0 / phi) / phi_sum) < 1e-6
+        # ``w_R``/``w_H``/``w_O`` are ``register_buffer``-installed tensors
+        # — mypy sees them as ``Tensor | Module`` (the same operator stripe
+        # that source uses with ``# type: ignore[operator, unused-ignore]``
+        # at three_r_attention.py:343–345).  Mirror that suppression here.
+        assert abs(block.w_R.item() - phi / phi_sum) < 1e-6  # type: ignore[operator]
+        assert abs(block.w_H.item() - 1.0 / phi_sum) < 1e-6  # type: ignore[operator]
+        assert abs(block.w_O.item() - (1.0 / phi) / phi_sum) < 1e-6  # type: ignore[operator]
 
         # Weights should sum to 1
-        total_weight = block.w_R.item() + block.w_H.item() + block.w_O.item()
+        total_weight = (
+            block.w_R.item()  # type: ignore[operator]
+            + block.w_H.item()  # type: ignore[operator]
+            + block.w_O.item()  # type: ignore[operator]
+        )
         assert abs(total_weight - 1.0) < 1e-6
 
     def test_forward_shape(self) -> None:

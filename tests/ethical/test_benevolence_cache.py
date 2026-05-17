@@ -12,6 +12,7 @@ Acceptance criteria from the punch list (item 6):
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Any
 
 import pytest
 
@@ -74,7 +75,7 @@ class _AlwaysViolatingScorer(BenevolenceScorer):
         super().__init__(benevolence_threshold=0.99)
         self.enforce_calls = 0
 
-    def enforce(self, action, context):
+    def enforce(self, action: str, context: dict[str, Any]) -> EthicalScore:
         self.enforce_calls += 1
         raise EthicalConstraintViolationError(
             action=action,

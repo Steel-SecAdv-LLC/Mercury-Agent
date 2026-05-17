@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -39,9 +40,10 @@ _KAT_DIR = Path(__file__).resolve().parent / "data" / "nist_kat"
 _CURATED_FILE = _KAT_DIR / "nist_acvp_curated.json"
 
 
-def _load_curated() -> dict:
+def _load_curated() -> dict[str, Any]:
     with open(_CURATED_FILE) as f:
-        return json.load(f)
+        data: dict[str, Any] = json.load(f)
+        return data
 
 
 def _ama_pqc_available() -> bool:
@@ -64,9 +66,10 @@ pqc_required = pytest.mark.skipif(
 # ---------------------------------------------------------------------------
 
 
-def _mldsa65_siggen_vectors() -> list:
+def _mldsa65_siggen_vectors() -> list[dict[str, Any]]:
     data = _load_curated()
-    return data.get("ML-DSA-65", {}).get("sigGen", [])
+    vectors: list[dict[str, Any]] = data.get("ML-DSA-65", {}).get("sigGen", [])
+    return vectors
 
 
 @pqc_required
@@ -75,7 +78,7 @@ def _mldsa65_siggen_vectors() -> list:
     _mldsa65_siggen_vectors(),
     ids=[f"mldsa65-sigGen-tc{v['tcId']}" for v in _mldsa65_siggen_vectors()],
 )
-def test_mldsa65_nist_siggen_verify(vector: dict) -> None:
+def test_mldsa65_nist_siggen_verify(vector: dict[str, Any]) -> None:
     """NIST ML-DSA-65 sigGen vectors are byte-exact under FIPS 204 §5.2 ctx sign.
 
     The curated NIST ACVP vectors (tcIds 31–33) all carry a non-empty
@@ -103,9 +106,10 @@ def test_mldsa65_nist_siggen_verify(vector: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _mlkem1024_decaps_vectors() -> list:
+def _mlkem1024_decaps_vectors() -> list[dict[str, Any]]:
     data = _load_curated()
-    return data.get("ML-KEM-1024", {}).get("decapsulation", [])
+    vectors: list[dict[str, Any]] = data.get("ML-KEM-1024", {}).get("decapsulation", [])
+    return vectors
 
 
 @pqc_required
@@ -114,7 +118,7 @@ def _mlkem1024_decaps_vectors() -> list:
     _mlkem1024_decaps_vectors(),
     ids=[f"mlkem1024-decaps-tc{v['tcId']}" for v in _mlkem1024_decaps_vectors()],
 )
-def test_mlkem1024_nist_decapsulation(vector: dict) -> None:
+def test_mlkem1024_nist_decapsulation(vector: dict[str, Any]) -> None:
     """Verify NIST ML-KEM-1024 decapsulation produces expected shared secret."""
     from omni_mercury_engine.security.pqc_backends import kyber_decapsulate
 
@@ -133,9 +137,10 @@ def test_mlkem1024_nist_decapsulation(vector: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _slhdsa_siggen_vectors() -> list:
+def _slhdsa_siggen_vectors() -> list[dict[str, Any]]:
     data = _load_curated()
-    return data.get("SLH-DSA-SHAKE-128s", {}).get("sigGen", [])
+    vectors: list[dict[str, Any]] = data.get("SLH-DSA-SHAKE-128s", {}).get("sigGen", [])
+    return vectors
 
 
 @pqc_required
@@ -144,7 +149,7 @@ def _slhdsa_siggen_vectors() -> list:
     _slhdsa_siggen_vectors(),
     ids=[f"slhdsa-sigGen-tc{v['tcId']}" for v in _slhdsa_siggen_vectors()],
 )
-def test_slhdsa_nist_siggen_verify(vector: dict) -> None:
+def test_slhdsa_nist_siggen_verify(vector: dict[str, Any]) -> None:
     """NIST SLH-DSA-SHAKE-128s sigGen vectors are byte-exact under FIPS 205 §10.2.
 
     The curated NIST ACVP-Server vectors (tcIds 214–216) are the

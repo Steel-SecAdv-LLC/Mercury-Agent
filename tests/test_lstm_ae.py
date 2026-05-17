@@ -22,7 +22,7 @@ from omni_mercury_engine.models.lstm_ae import (
 class TestLSTMAutoencoder:
     """Tests for LSTMAutoencoder class."""
 
-    def test_init_default_params(self):
+    def test_init_default_params(self) -> None:
         """Test initialization with default parameters."""
         model = LSTMAutoencoder(input_dim=10)
         assert model.input_dim == 10
@@ -31,7 +31,7 @@ class TestLSTMAutoencoder:
         assert model.num_layers == 2
         assert model.seq_len == 100
 
-    def test_init_custom_params(self):
+    def test_init_custom_params(self) -> None:
         """Test initialization with custom parameters."""
         model = LSTMAutoencoder(
             input_dim=20,
@@ -47,7 +47,7 @@ class TestLSTMAutoencoder:
         assert model.num_layers == 3
         assert model.seq_len == 50
 
-    def test_encode(self):
+    def test_encode(self) -> None:
         """Test encoding input to latent representation."""
         model = LSTMAutoencoder(input_dim=10, hidden_dim=32, latent_dim=16, seq_len=20)
         model.eval()
@@ -56,7 +56,7 @@ class TestLSTMAutoencoder:
             latent = model.encode(x)
         assert latent.shape == (4, 16)  # batch, latent_dim
 
-    def test_decode(self):
+    def test_decode(self) -> None:
         """Test decoding latent representation to sequence."""
         model = LSTMAutoencoder(input_dim=10, hidden_dim=32, latent_dim=16, seq_len=20)
         model.eval()
@@ -65,7 +65,7 @@ class TestLSTMAutoencoder:
             output = model.decode(z, seq_len=20)
         assert output.shape == (4, 20, 10)  # batch, seq_len, input_dim
 
-    def test_forward(self):
+    def test_forward(self) -> None:
         """Test forward pass returning reconstruction and latent."""
         model = LSTMAutoencoder(input_dim=10, hidden_dim=32, latent_dim=16, seq_len=20)
         model.eval()
@@ -75,7 +75,7 @@ class TestLSTMAutoencoder:
         assert recon.shape == x.shape
         assert latent.shape == (4, 16)
 
-    def test_reconstruction_error(self):
+    def test_reconstruction_error(self) -> None:
         """Test reconstruction error computation."""
         model = LSTMAutoencoder(input_dim=10, hidden_dim=32, latent_dim=16, seq_len=20)
         model.eval()
@@ -85,7 +85,7 @@ class TestLSTMAutoencoder:
         assert error.shape == (4,)  # one error per sample
         assert torch.all(error >= 0)  # MSE is non-negative
 
-    def test_gradient_flow(self):
+    def test_gradient_flow(self) -> None:
         """Test that gradients flow through the model."""
         model = LSTMAutoencoder(input_dim=10, hidden_dim=32, latent_dim=16, seq_len=20)
         model.train()
@@ -95,7 +95,7 @@ class TestLSTMAutoencoder:
         loss.backward()
         assert x.grad is not None
 
-    def test_different_batch_sizes(self):
+    def test_different_batch_sizes(self) -> None:
         """Test model with different batch sizes."""
         model = LSTMAutoencoder(input_dim=10, hidden_dim=32, latent_dim=16, seq_len=20)
         model.eval()
@@ -110,7 +110,7 @@ class TestLSTMAutoencoder:
 class TestAnomalyDetector:
     """Tests for AnomalyDetector class."""
 
-    def test_init_default_device(self):
+    def test_init_default_device(self) -> None:
         """Test initialization with auto device selection."""
         detector = AnomalyDetector(input_dim=10)
         assert detector.input_dim == 10
@@ -118,26 +118,26 @@ class TestAnomalyDetector:
         assert detector.threshold is None
         assert detector.train_errors is None
 
-    def test_init_cpu_device(self):
+    def test_init_cpu_device(self) -> None:
         """Test initialization with CPU device."""
         detector = AnomalyDetector(input_dim=10, device="cpu")
         assert detector.device == torch.device("cpu")
 
-    def test_create_sequences(self):
+    def test_create_sequences(self) -> None:
         """Test sequence creation from data."""
         detector = AnomalyDetector(input_dim=5, seq_len=10)
         data = np.random.randn(100, 5)
         sequences = detector._create_sequences(data)
         assert sequences.shape == (91, 10, 5)  # 100 - 10 + 1 = 91 sequences
 
-    def test_create_sequences_short_data(self):
+    def test_create_sequences_short_data(self) -> None:
         """Test sequence creation with short data."""
         detector = AnomalyDetector(input_dim=5, seq_len=10)
         data = np.random.randn(10, 5)
         sequences = detector._create_sequences(data)
         assert sequences.shape == (1, 10, 5)
 
-    def test_fit_basic(self):
+    def test_fit_basic(self) -> None:
         """Test basic training."""
         detector = AnomalyDetector(input_dim=5, seq_len=10, hidden_dim=16, latent_dim=8)
         train_data = np.random.randn(200, 5).astype(np.float32)
@@ -147,7 +147,7 @@ class TestAnomalyDetector:
         assert detector.threshold is not None
         assert detector.train_errors is not None
 
-    def test_predict(self):
+    def test_predict(self) -> None:
         """Test anomaly score prediction."""
         detector = AnomalyDetector(input_dim=5, seq_len=10, hidden_dim=16, latent_dim=8)
         train_data = np.random.randn(200, 5).astype(np.float32)
@@ -158,7 +158,7 @@ class TestAnomalyDetector:
         assert scores.shape == (50,)
         assert np.all(scores >= 0)
 
-    def test_detect(self):
+    def test_detect(self) -> None:
         """Test anomaly detection."""
         detector = AnomalyDetector(input_dim=5, seq_len=10, hidden_dim=16, latent_dim=8)
         train_data = np.random.randn(200, 5).astype(np.float32)
@@ -169,7 +169,7 @@ class TestAnomalyDetector:
         assert labels.shape == (50,)
         assert set(np.unique(labels)).issubset({0, 1})
 
-    def test_detect_custom_threshold(self):
+    def test_detect_custom_threshold(self) -> None:
         """Test detection with custom threshold."""
         detector = AnomalyDetector(input_dim=5, seq_len=10, hidden_dim=16, latent_dim=8)
         train_data = np.random.randn(200, 5).astype(np.float32)
@@ -179,7 +179,7 @@ class TestAnomalyDetector:
         labels = detector.detect(test_data, threshold=0.0)
         assert np.all(labels == 1)  # All should be anomalies with threshold=0
 
-    def test_save_load(self, tmp_path, monkeypatch):
+    def test_save_load(self, tmp_path, monkeypatch) -> None:
         """Test model save and load."""
         detector = AnomalyDetector(input_dim=5, seq_len=10, hidden_dim=16, latent_dim=8)
         train_data = np.random.randn(200, 5).astype(np.float32)
@@ -208,7 +208,7 @@ class TestAnomalyDetector:
         np.testing.assert_allclose(original_scores, loaded_scores, rtol=1e-5)
 
     @pytest.mark.timeout(600)
-    def test_early_stopping(self):
+    def test_early_stopping(self) -> None:
         """Test early stopping during training.
 
         Uses a high ``epochs`` ceiling on purpose so we can observe early
@@ -232,7 +232,7 @@ class TestAnomalyDetector:
 class TestEvaluateDetector:
     """Tests for evaluate_detector function."""
 
-    def test_basic_evaluation(self):
+    def test_basic_evaluation(self) -> None:
         """Test basic evaluation metrics."""
         y_true = np.array([0, 0, 0, 1, 1, 1, 0, 0, 1, 0])
         y_scores = np.array([0.1, 0.2, 0.3, 0.8, 0.9, 0.7, 0.2, 0.3, 0.6, 0.1])
@@ -246,7 +246,7 @@ class TestEvaluateDetector:
         assert "best_threshold" in result
         assert "best_f1" in result
 
-    def test_perfect_predictions(self):
+    def test_perfect_predictions(self) -> None:
         """Test with perfect predictions."""
         y_true = np.array([0, 0, 0, 1, 1, 1])
         y_scores = np.array([0.1, 0.2, 0.3, 0.8, 0.9, 1.0])
@@ -257,7 +257,7 @@ class TestEvaluateDetector:
         assert result["precision"] == 1.0
         assert result["recall"] == 1.0
 
-    def test_single_class(self):
+    def test_single_class(self) -> None:
         """Test with only one class in y_true."""
         y_true = np.array([0, 0, 0, 0, 0])
         y_scores = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
@@ -266,7 +266,7 @@ class TestEvaluateDetector:
         assert "error" in result
         assert result["error"] == "Only one class in y_true"
 
-    def test_with_predictions(self):
+    def test_with_predictions(self) -> None:
         """Test with provided predictions."""
         y_true = np.array([0, 0, 0, 1, 1, 1])
         y_scores = np.array([0.1, 0.2, 0.3, 0.8, 0.9, 0.7])
@@ -277,7 +277,7 @@ class TestEvaluateDetector:
         assert result["recall"] == 1.0
         assert result["f1"] == 1.0
 
-    def test_random_predictions(self):
+    def test_random_predictions(self) -> None:
         """Test with random predictions."""
         np.random.seed(42)
         y_true = np.random.randint(0, 2, 100)
@@ -293,7 +293,7 @@ class TestEvaluateDetector:
 class TestLSTMAutoencoderEdgeCases:
     """Edge case tests for LSTM Autoencoder."""
 
-    def test_single_layer(self):
+    def test_single_layer(self) -> None:
         """Test with single LSTM layer (no dropout)."""
         model = LSTMAutoencoder(input_dim=10, num_layers=1, dropout=0.5)
         model.eval()
@@ -302,7 +302,7 @@ class TestLSTMAutoencoderEdgeCases:
             recon, latent = model.forward(x)
         assert recon.shape == x.shape
 
-    def test_large_latent_dim(self):
+    def test_large_latent_dim(self) -> None:
         """Test with latent dim larger than hidden dim."""
         model = LSTMAutoencoder(input_dim=10, hidden_dim=32, latent_dim=64)
         model.eval()
@@ -311,7 +311,7 @@ class TestLSTMAutoencoderEdgeCases:
             recon, latent = model.forward(x)
         assert latent.shape == (4, 64)
 
-    def test_variable_sequence_length(self):
+    def test_variable_sequence_length(self) -> None:
         """Test decoding with different sequence lengths."""
         model = LSTMAutoencoder(input_dim=10, hidden_dim=32, latent_dim=16)
         model.eval()

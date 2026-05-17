@@ -32,14 +32,14 @@ from omni_mercury_engine.core.extended_anomaly_engine import (
 
 
 class TestEvolutionEngine:
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         engine = EvolutionEngine(state_dim=10, population_size=20)
 
         assert engine.state_dim == 10
         assert engine.population_size == 20
         assert engine.population.shape == (20, 10)
 
-    def test_evolve_generation(self):
+    def test_evolve_generation(self) -> None:
         engine = EvolutionEngine(state_dim=5, population_size=10)
 
         def fitness_fn(x):
@@ -53,11 +53,11 @@ class TestEvolutionEngine:
 
 
 class TestSecurityEngine:
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         engine = SecurityEngine()
         assert len(engine.threat_patterns) > 0
 
-    def test_detect_sql_injection(self):
+    def test_detect_sql_injection(self) -> None:
         engine = SecurityEngine()
 
         malicious_input = "admin' OR '1'='1"
@@ -66,7 +66,7 @@ class TestSecurityEngine:
         assert "is_threat" in result
         assert "threats" in result
 
-    def test_rate_limiting(self):
+    def test_rate_limiting(self) -> None:
         engine = SecurityEngine()
         engine.rate_limit_max = 5
 
@@ -79,11 +79,11 @@ class TestSecurityEngine:
 
 
 class TestIntegrationEngine:
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         engine = IntegrationEngine()
         assert isinstance(engine.integrations, dict)
 
-    def test_register_integration(self):
+    def test_register_integration(self) -> None:
         engine = IntegrationEngine()
 
         engine.register_integration(
@@ -97,7 +97,7 @@ class TestIntegrationEngine:
 
 
 class TestOmniMercury:
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         config = EngineConfig(enable_3r_mechanism=True, enable_security=True)
         engine = OmniMercury(config)
 
@@ -105,7 +105,7 @@ class TestOmniMercury:
         assert engine.three_r is not None
         assert engine.security_engine is not None
 
-    def test_initialization_with_disabled_features(self):
+    def test_initialization_with_disabled_features(self) -> None:
         config = EngineConfig(
             enable_3r_mechanism=False, enable_evolution=False, enable_security=False
         )
@@ -115,7 +115,7 @@ class TestOmniMercury:
         assert engine.evolution_engine is None
         assert engine.security_engine is None
 
-    def test_detect_anomaly(self):
+    def test_detect_anomaly(self) -> None:
         config = EngineConfig(enable_3r_mechanism=False)
         engine = OmniMercury(config)
         data = np.random.randn(50)
@@ -125,7 +125,7 @@ class TestOmniMercury:
         assert "is_anomaly" in result
         assert "anomaly_score" in result
 
-    def test_detect_anomaly_with_3r(self):
+    def test_detect_anomaly_with_3r(self) -> None:
         config = EngineConfig(enable_3r_mechanism=True)
         engine = OmniMercury(config)
         data = np.random.randn(50)
@@ -136,7 +136,7 @@ class TestOmniMercury:
         assert "3r_applied" in result
         assert result["3r_applied"] is True
 
-    def test_detect_anomaly_with_resonance_analysis(self):
+    def test_detect_anomaly_with_resonance_analysis(self) -> None:
         config = EngineConfig(enable_3r_mechanism=True)
         engine = OmniMercury(config)
         data = np.random.randn(100)
@@ -145,7 +145,7 @@ class TestOmniMercury:
 
         assert "resonance_analysis" in result
 
-    def test_detect_obvious_anomaly(self):
+    def test_detect_obvious_anomaly(self) -> None:
         config = EngineConfig(enable_3r_mechanism=False)
         engine = OmniMercury(config)
 
@@ -156,7 +156,7 @@ class TestOmniMercury:
 
         assert result["anomaly_score"] > 0.5
 
-    def test_detect_anomaly_empty_data(self):
+    def test_detect_anomaly_empty_data(self) -> None:
         config = EngineConfig(enable_3r_mechanism=False)
         engine = OmniMercury(config)
         data = np.array([])
@@ -165,7 +165,7 @@ class TestOmniMercury:
 
         assert result["anomaly_score"] == 0.0
 
-    def test_detect_anomaly_constant_data(self):
+    def test_detect_anomaly_constant_data(self) -> None:
         config = EngineConfig(enable_3r_mechanism=False)
         engine = OmniMercury(config)
         data = np.ones(50)
@@ -174,14 +174,14 @@ class TestOmniMercury:
 
         assert result["anomaly_score"] == 0.0
 
-    def test_validate_input_security(self):
+    def test_validate_input_security(self) -> None:
         engine = OmniMercury()
 
         result = engine.validate_input_security("normal input")
 
         assert "is_threat" in result or "secure" in result
 
-    def test_validate_input_security_disabled(self):
+    def test_validate_input_security_disabled(self) -> None:
         config = EngineConfig(enable_security=False)
         engine = OmniMercury(config)
 
@@ -189,7 +189,7 @@ class TestOmniMercury:
 
         assert "secure" in result
 
-    def test_evolve_detector(self):
+    def test_evolve_detector(self) -> None:
         config = EngineConfig(enable_evolution=True)
         engine = OmniMercury(config)
 
@@ -202,7 +202,7 @@ class TestOmniMercury:
         assert "final_best_fitness" in result
         assert "best_solution" in result
 
-    def test_evolve_detector_disabled(self):
+    def test_evolve_detector_disabled(self) -> None:
         config = EngineConfig(enable_evolution=False)
         engine = OmniMercury(config)
 

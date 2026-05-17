@@ -50,7 +50,7 @@ from omni_mercury_engine.core.ethical_risk_matrix import (
 class TestSigmaDirective:
     """Test Sigma Directive system."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test Sigma Directive initialization."""
         directive = SigmaDirective(DEFAULT_CONFIG.ethical_scalars)
 
@@ -59,7 +59,7 @@ class TestSigmaDirective:
         assert SigmaDirective.COMPASSION in directive.directive_weights
         assert SigmaDirective.TRUTH in directive.directive_weights
 
-    def test_justice_directive(self):
+    def test_justice_directive(self) -> None:
         """Test justice evaluation."""
         directive = SigmaDirective(DEFAULT_CONFIG.ethical_scalars)
 
@@ -72,7 +72,7 @@ class TestSigmaDirective:
         assert fair_score > unfair_score
         assert unfair_score == 0.0
 
-    def test_directive_application(self):
+    def test_directive_application(self) -> None:
         """Test full directive application."""
         directive = SigmaDirective(DEFAULT_CONFIG.ethical_scalars)
 
@@ -109,7 +109,7 @@ class TestSigmaDirective:
 class TestEthicalAutonomyGovernor:
     """Test Ethical Autonomy Governor."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test governor initialization."""
         governor = EthicalAutonomyGovernor()
 
@@ -117,7 +117,7 @@ class TestEthicalAutonomyGovernor:
         assert governor.sigma_directive is not None
         assert len(governor.ethical_scalars.to_dict()) >= 150
 
-    def test_decision_evaluation(self):
+    def test_decision_evaluation(self) -> None:
         """Test ethical decision evaluation on a benign-context decision.
 
         Uses balanced data (zeros) so the bias audit cannot fail
@@ -145,7 +145,7 @@ class TestEthicalAutonomyGovernor:
         assert decision.p_value >= 0.0
         assert decision.rollback_triggered is False
 
-    def test_bias_auditing(self):
+    def test_bias_auditing(self) -> None:
         """Test bias auditing functionality."""
         governor = EthicalAutonomyGovernor()
 
@@ -162,7 +162,7 @@ class TestEthicalAutonomyGovernor:
         assert isinstance(biased_metrics, BiasMetrics)
         assert biased_metrics.demographic_parity_diff >= fair_metrics.demographic_parity_diff * 0.5
 
-    def test_statistical_validation(self):
+    def test_statistical_validation(self) -> None:
         """Test p<0.05 statistical validation."""
         governor = EthicalAutonomyGovernor(p_value_threshold=0.05)
 
@@ -173,7 +173,7 @@ class TestEthicalAutonomyGovernor:
 
         assert 0.0 <= p_value <= 1.0
 
-    def test_rollback_mechanism(self):
+    def test_rollback_mechanism(self) -> None:
         """A bad context must raise at the governance boundary.
 
         Phase 2 of the May-2026 audit cure made
@@ -201,7 +201,7 @@ class TestEthicalAutonomyGovernor:
         assert len(governor.rollback_history) == 1
         assert governor.rollback_history[0].rollback_triggered is True
 
-    def test_governance_report(self):
+    def test_governance_report(self) -> None:
         """Test governance reporting over a sequence of benign decisions.
 
         Each context supplies the full Sigma Directive signal set
@@ -238,14 +238,14 @@ class TestEthicalAutonomyGovernor:
 class TestUSLawPolling:
     """Test US-only law compliance polling."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test US law polling initialization."""
         us_law = USLawPolling()
 
         assert len(us_law.compliance_rules) > 0
         assert all(rule.regime == ComplianceRegime.US_FEDERAL for rule in us_law.compliance_rules)
 
-    def test_cfaa_compliance(self):
+    def test_cfaa_compliance(self) -> None:
         """Test CFAA compliance checking."""
         us_law = USLawPolling()
 
@@ -263,7 +263,7 @@ class TestUSLawPolling:
 class TestGDPRCompliance:
     """Test GDPR compliance."""
 
-    def test_gdpr_checks(self):
+    def test_gdpr_checks(self) -> None:
         """Test GDPR compliance checks.
 
         The enhanced GDPRCompliance implementation validates against GDPR Articles 5-35,
@@ -339,7 +339,7 @@ class TestGDPRCompliance:
 class TestHIPAACompliance:
     """Test HIPAA compliance."""
 
-    def test_hipaa_checks(self):
+    def test_hipaa_checks(self) -> None:
         """Test HIPAA compliance checks."""
         hipaa = HIPAACompliance()
 
@@ -370,14 +370,14 @@ class TestHIPAACompliance:
 class TestAnomalyOracle:
     """Test anomaly forecasting oracle."""
 
-    def test_oracle_initialization(self):
+    def test_oracle_initialization(self) -> None:
         """Test oracle initialization."""
         oracle = AnomalyOracle(lookback_window=50)
 
         assert oracle.lookback_window == 50
         assert len(oracle.historical_anomalies) == 0
 
-    def test_anomaly_recording(self):
+    def test_anomaly_recording(self) -> None:
         """Test anomaly recording."""
         oracle = AnomalyOracle()
 
@@ -386,7 +386,7 @@ class TestAnomalyOracle:
 
         assert len(oracle.historical_anomalies) == 2
 
-    def test_risk_forecasting(self):
+    def test_risk_forecasting(self) -> None:
         """Test risk forecasting."""
         oracle = AnomalyOracle()
 
@@ -402,7 +402,7 @@ class TestAnomalyOracle:
 class TestEthicalRiskMatrix:
     """Test Ethical Risk Matrix."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test risk matrix initialization."""
         matrix = EthicalRiskMatrix(
             enable_us_compliance=True, enable_gdpr=True, enable_hipaa=True, enable_forecasting=True
@@ -413,7 +413,7 @@ class TestEthicalRiskMatrix:
         assert matrix.hipaa is not None
         assert matrix.oracle is not None
 
-    def test_risk_assessment(self):
+    def test_risk_assessment(self) -> None:
         """Test comprehensive risk assessment."""
         matrix = EthicalRiskMatrix()
 
@@ -430,7 +430,7 @@ class TestEthicalRiskMatrix:
         assert risk.impact >= 0.0
         assert isinstance(risk.risk_level, RiskLevel)
 
-    def test_risk_level_determination(self):
+    def test_risk_level_determination(self) -> None:
         """Test risk level classification."""
         matrix = EthicalRiskMatrix()
 
@@ -446,7 +446,7 @@ class TestEthicalRiskMatrix:
         assert low in [RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.NEGLIGIBLE]
         assert negligible in [RiskLevel.NEGLIGIBLE, RiskLevel.LOW]
 
-    def test_compliance_checking(self):
+    def test_compliance_checking(self) -> None:
         """Test all compliance regime checking."""
         matrix = EthicalRiskMatrix()
 
@@ -463,7 +463,7 @@ class TestEthicalRiskMatrix:
 
         assert isinstance(violations, list)
 
-    def test_risk_matrix_table(self):
+    def test_risk_matrix_table(self) -> None:
         """Test risk matrix table generation."""
         matrix = EthicalRiskMatrix()
 
@@ -477,7 +477,7 @@ class TestEthicalRiskMatrix:
         assert "total_risks_assessed" in table
         assert table["total_risks_assessed"] == 20
 
-    def test_compliance_report(self):
+    def test_compliance_report(self) -> None:
         """Test compliance report generation."""
         matrix = EthicalRiskMatrix()
 
@@ -499,7 +499,7 @@ class TestEthicalRiskMatrix:
 class TestIntegratedEthicalFramework:
     """Integration tests for complete ethical framework."""
 
-    def test_end_to_end_ethical_pipeline(self):
+    def test_end_to_end_ethical_pipeline(self) -> None:
         """Test complete ethical decision-making pipeline.
 
         Uses balanced data so the bias audit cannot non-deterministically
@@ -535,7 +535,7 @@ class TestIntegratedEthicalFramework:
         assert decision.bias_audit_passed is True
         assert risk.risk_level in [RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.NEGLIGIBLE]
 
-    def test_high_risk_scenario(self):
+    def test_high_risk_scenario(self) -> None:
         """Test high-risk scenario handling.
 
         A high-risk context must raise at the governance boundary —

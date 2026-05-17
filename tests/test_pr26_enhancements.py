@@ -39,12 +39,12 @@ from omni_mercury_engine.utils.rng import (
 class TestDeterministicRNG:
     """Test the internal RNG utility"""
 
-    def test_rng_initialization(self):
+    def test_rng_initialization(self) -> None:
         """Test RNG can be initialized"""
         rng = DeterministicRNG(seed=42)
         assert rng.get_seed() == 42
 
-    def test_rng_reproducibility(self):
+    def test_rng_reproducibility(self) -> None:
         """Test that same seed produces same results"""
         rng1 = DeterministicRNG(seed=123)
         data1 = rng1.randn(10, 5)
@@ -54,7 +54,7 @@ class TestDeterministicRNG:
 
         np.testing.assert_array_almost_equal(data1, data2)
 
-    def test_rng_temporary_seed(self):
+    def test_rng_temporary_seed(self) -> None:
         """Test temporary seed context manager"""
         rng = DeterministicRNG(seed=42)
         original_data = rng.randn(5)
@@ -67,7 +67,7 @@ class TestDeterministicRNG:
         assert not np.allclose(original_data, temp_data)
         assert not np.allclose(temp_data, after_data)
 
-    def test_global_rng(self):
+    def test_global_rng(self) -> None:
         """Test global RNG management"""
         reset_global_rng()
         set_global_seed(555)
@@ -75,7 +75,7 @@ class TestDeterministicRNG:
         rng = get_global_rng()
         assert rng.get_seed() == 555
 
-    def test_rng_methods(self):
+    def test_rng_methods(self) -> None:
         """Test various RNG methods"""
         rng = DeterministicRNG(seed=42)
 
@@ -96,12 +96,12 @@ class TestDeterministicRNG:
 class TestDimensionalDBTerm:
     """Test DB term implementation in DimensionalAnalyzer"""
 
-    def test_db_term_initialization(self):
+    def test_db_term_initialization(self) -> None:
         """Test DB term can be enabled"""
         detector = DimensionalAnalyzer(config={"use_db_term": True})
         assert detector.use_db_term is True
 
-    def test_db_term_spectral_signature(self):
+    def test_db_term_spectral_signature(self) -> None:
         """Test spectral signature computation"""
         detector = DimensionalAnalyzer(config={"use_db_term": True})
 
@@ -111,7 +111,7 @@ class TestDimensionalDBTerm:
         assert detector.baseline_spectral_signature is not None
         assert len(detector.baseline_spectral_signature) > 0
 
-    def test_db_term_detection(self):
+    def test_db_term_detection(self) -> None:
         """Test DB term detection"""
         detector = DimensionalAnalyzer(config={"use_db_term": True})
 
@@ -125,7 +125,7 @@ class TestDimensionalDBTerm:
         if result["db_scores"] is not None:
             assert len(result["db_scores"]) == 10
 
-    def test_db_term_disabled(self):
+    def test_db_term_disabled(self) -> None:
         """Test DB term can be disabled"""
         detector = DimensionalAnalyzer(config={"use_db_term": False})
 
@@ -139,12 +139,12 @@ class TestDimensionalDBTerm:
 class TestNanoScaleEnhancements:
     """Test enhanced N term in SigmaDirectiveDetector"""
 
-    def test_nano_detection_initialization(self):
+    def test_nano_detection_initialization(self) -> None:
         """Test nano detection can be enabled"""
         detector = SigmaDirectiveDetector(config={"use_nano_detection": True})
         assert detector.use_nano_detection is True
 
-    def test_enhanced_nano_scores(self):
+    def test_enhanced_nano_scores(self) -> None:
         """Test enhanced nano-scale detection returns new metrics"""
         detector = SigmaDirectiveDetector(config={"use_nano_detection": True})
 
@@ -159,7 +159,7 @@ class TestNanoScaleEnhancements:
             assert "micro_anomaly_score" in result["nano_scores"]
             assert "dimensional_micro_score" in result["nano_scores"]
 
-    def test_micro_anomaly_detection(self):
+    def test_micro_anomaly_detection(self) -> None:
         """Test micro-anomaly detection method"""
         detector = SigmaDirectiveDetector()
 
@@ -169,7 +169,7 @@ class TestNanoScaleEnhancements:
         assert isinstance(score, (float, np.floating))
         assert 0 <= score <= 1
 
-    def test_dimensional_downsampling(self):
+    def test_dimensional_downsampling(self) -> None:
         """Test dimensional downsampling detection"""
         detector = SigmaDirectiveDetector()
 
@@ -183,12 +183,12 @@ class TestNanoScaleEnhancements:
 class TestLWEEncryption:
     """Test native LWE-KEM encryption (AMA Cryptography is sole PQC backend)"""
 
-    def test_qr_encryption_initialization(self):
+    def test_qr_encryption_initialization(self) -> None:
         """Test quantum-resistant encryption initializes"""
         qre = QuantumResistantEncryption()
         assert qre.security_level == 256
 
-    def test_encrypt_decrypt_roundtrip(self):
+    def test_encrypt_decrypt_roundtrip(self) -> None:
         """Test encryption/decryption round-trip with LWE-KEM"""
         qre = QuantumResistantEncryption()
 
@@ -200,7 +200,7 @@ class TestLWEEncryption:
 
         assert decrypted == data
 
-    def test_sign_verify(self):
+    def test_sign_verify(self) -> None:
         """Test SHA3-256 signature"""
         qre = QuantumResistantEncryption()
 
@@ -210,7 +210,7 @@ class TestLWEEncryption:
         assert qre.verify_signature(data, signature) is True
         assert qre.verify_signature(b"Wrong data", signature) is False
 
-    def test_secure_handler_with_qr(self):
+    def test_secure_handler_with_qr(self) -> None:
         """Test SecureDataHandler with quantum-resistant encryption"""
         handler = SecureDataHandler(enable_quantum_resistant=True)
 
@@ -224,7 +224,7 @@ class TestLWEEncryption:
 class TestIntegration:
     """Integration tests for PR #26 enhancements"""
 
-    def test_dimensional_with_db_term_full_pipeline(self):
+    def test_dimensional_with_db_term_full_pipeline(self) -> None:
         """Test full pipeline with DB term"""
         rng = DeterministicRNG(seed=42)
 
@@ -240,7 +240,7 @@ class TestIntegration:
         assert "scores" in result
         assert "db_scores" in result
 
-    def test_directive_with_enhanced_nano(self):
+    def test_directive_with_enhanced_nano(self) -> None:
         """Test directive detector with enhanced nano detection"""
         rng = DeterministicRNG(seed=123)
 
@@ -262,7 +262,7 @@ class TestIntegration:
         assert "quantum_scores" in result
         assert "harmonic_score" in result
 
-    def test_reproducibility_with_rng(self):
+    def test_reproducibility_with_rng(self) -> None:
         """Test that RNG provides reproducible results across components"""
         seed = 999
 

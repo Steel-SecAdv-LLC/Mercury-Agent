@@ -59,7 +59,7 @@ def test_conformal_failure_raises_instead_of_returning_none(exc_factory) -> None
     """A broken conformal predictor must raise, not silently return None."""
 
     integration = GOSNNIntegration(use_conformal=True)
-    integration._conformal = _BrokenConformal(exc_factory)
+    integration._conformal = _BrokenConformal(exc_factory)  # type: ignore[assignment]
     integration._fitted = True
     # Minimal viable state for detect() — we only need to reach the conformal
     # branch; everything before it must succeed without external dependencies.

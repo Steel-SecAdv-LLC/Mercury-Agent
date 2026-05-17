@@ -25,6 +25,7 @@ SafeHTTPClient gates) trips a unit test before it ships.
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -560,7 +561,7 @@ class TestHostHeaderPreservesPort:
                 loopback_only=loopback_only,
             )
 
-        called_headers = fake_session.request.call_args.kwargs["headers"]
+        called_headers: dict[str, str] = fake_session.request.call_args.kwargs["headers"]
         return called_headers
 
     def test_non_default_port_preserved_in_host_header(self) -> None:
@@ -882,7 +883,7 @@ class TestWrappersEnforceGate:
         ],
     )
     def test_bad_scheme_rejected_without_touching_network(
-        self, wrapper: str, extra_kwargs: dict
+        self, wrapper: str, extra_kwargs: dict[str, Any]
     ) -> None:
         method = getattr(SafeHTTPClient, wrapper)
         with patch("requests.Session") as session_factory:
@@ -904,7 +905,7 @@ class TestWrappersEnforceGate:
         ],
     )
     def test_unlisted_host_rejected_without_touching_network(
-        self, wrapper: str, extra_kwargs: dict
+        self, wrapper: str, extra_kwargs: dict[str, Any]
     ) -> None:
         method = getattr(SafeHTTPClient, wrapper)
         with patch("requests.Session") as session_factory:

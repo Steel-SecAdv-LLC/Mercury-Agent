@@ -25,7 +25,7 @@ import numpy as np
 from omni_mercury_engine.core.self_healing import AnomalySignature, CRISPRInspiredSelfHealing
 
 
-def test_self_healing_initialization():
+def test_self_healing_initialization() -> None:
     """Test self-healing system initialization"""
     system = CRISPRInspiredSelfHealing(max_signatures=100, similarity_threshold=0.85)
     assert system.max_signatures == 100
@@ -33,7 +33,7 @@ def test_self_healing_initialization():
     assert len(system.signature_library) == 0
 
 
-def test_stage_1_acquisition():
+def test_stage_1_acquisition() -> None:
     """Test Stage 1: Acquisition of anomaly signature"""
     system = CRISPRInspiredSelfHealing()
     anomaly_data = np.random.randn(10, 5)
@@ -46,7 +46,7 @@ def test_stage_1_acquisition():
     assert signature.detection_count == 1
 
 
-def test_stage_2_expression():
+def test_stage_2_expression() -> None:
     """Test Stage 2: Expression of signature into detection pattern"""
     system = CRISPRInspiredSelfHealing()
     anomaly_data = np.random.randn(10, 5)
@@ -59,7 +59,7 @@ def test_stage_2_expression():
     assert np.abs(np.linalg.norm(detection_pattern) - 1.0) < 0.01
 
 
-def test_stage_3_interference():
+def test_stage_3_interference() -> None:
     """Test Stage 3: Interference - detecting known anomalies"""
     system = CRISPRInspiredSelfHealing(similarity_threshold=0.7)
 
@@ -74,7 +74,7 @@ def test_stage_3_interference():
     assert sig_id is None or isinstance(sig_id, str)
 
 
-def test_heritable_immunity():
+def test_heritable_immunity() -> None:
     """Test heritable immunity via save/load"""
     import tempfile
     from pathlib import Path
@@ -102,7 +102,7 @@ def test_heritable_immunity():
         Path(temp_path).unlink()
 
 
-def test_max_signatures_pruning():
+def test_max_signatures_pruning() -> None:
     """Test that old signatures are pruned when max is reached"""
     system = CRISPRInspiredSelfHealing(max_signatures=5)
 

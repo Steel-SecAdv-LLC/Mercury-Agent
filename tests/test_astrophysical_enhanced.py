@@ -25,7 +25,7 @@ import numpy as np
 from omni_mercury_engine.models.astrophysical import AstrophysicalAnomalyModel
 
 
-def test_astrophysical_black_hole_features():
+def test_astrophysical_black_hole_features() -> None:
     """Test black hole feature extraction"""
     model = AstrophysicalAnomalyModel()
     data = np.random.randn(8, 12)
@@ -35,7 +35,7 @@ def test_astrophysical_black_hole_features():
     assert features.shape[1] == 24
 
 
-def test_event_horizon_detection():
+def test_event_horizon_detection() -> None:
     """Test event horizon state detection"""
     model = AstrophysicalAnomalyModel(mass_equivalent=1.0)
 
@@ -45,7 +45,7 @@ def test_event_horizon_detection():
     assert result["anomaly_scores"][0] > 0.3
 
 
-def test_gravitational_field_computation():
+def test_gravitational_field_computation() -> None:
     """Test gravitational field strength computation"""
     model = AstrophysicalAnomalyModel()
 
@@ -56,7 +56,7 @@ def test_gravitational_field_computation():
     assert np.all(grav_fields >= 0)
 
 
-def test_omni_code_integration():
+def test_omni_code_integration() -> None:
     """Test Omni-Code integration in astrophysical model"""
     model = AstrophysicalAnomalyModel()
     data = np.random.randn(2, 6)

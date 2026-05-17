@@ -27,7 +27,7 @@ from omni_mercury_engine.security.quantum_risk_cyber import (
 )
 
 
-def test_quantum_risk_initialization():
+def test_quantum_risk_initialization() -> None:
     """Test quantum risk cyber system initialization"""
     system = QuantumRiskCyber(threat_timeline_years=8, preparedness_threshold=0.75)
     assert system.threat_timeline_years == 8
@@ -35,7 +35,7 @@ def test_quantum_risk_initialization():
     assert isinstance(system.vulnerability_scan_history, list)
 
 
-def test_assess_quantum_threat_level():
+def test_assess_quantum_threat_level() -> None:
     """Test quantum threat level assessment"""
     system = QuantumRiskCyber()
 
@@ -49,7 +49,7 @@ def test_assess_quantum_threat_level():
     assert isinstance(assessment["threat_level"], ThreatLevel)
 
 
-def test_post_quantum_readiness():
+def test_post_quantum_readiness() -> None:
     """Test post-quantum cryptography readiness evaluation"""
     system = QuantumRiskCyber()
 
@@ -63,7 +63,7 @@ def test_post_quantum_readiness():
     assert 0.0 <= readiness["readiness_score"] <= 1.0
 
 
-def test_quantum_vulnerability_scan():
+def test_quantum_vulnerability_scan() -> None:
     """Test quantum vulnerability scanning"""
     system = QuantumRiskCyber()
 
@@ -81,7 +81,7 @@ def test_quantum_vulnerability_scan():
     assert len(system.vulnerability_scan_history) > 0
 
 
-def test_risk_timeline_modeling():
+def test_risk_timeline_modeling() -> None:
     """Test risk timeline modeling based on Bain report (95% see threats within 10 years)"""
     system = QuantumRiskCyber(threat_timeline_years=10)
 
@@ -93,7 +93,7 @@ def test_risk_timeline_modeling():
     assert timeline["critical_year"] <= 2035
 
 
-def test_threat_level_escalation():
+def test_threat_level_escalation() -> None:
     """Test that threat level escalates over time"""
     system = QuantumRiskCyber()
 
@@ -113,7 +113,7 @@ def test_threat_level_escalation():
     assert late_level >= early_level
 
 
-def test_preparedness_gap_detection():
+def test_preparedness_gap_detection() -> None:
     """Test detection of preparedness gap (95% aware, only 10% have plans)"""
     system = QuantumRiskCyber(preparedness_threshold=0.15)
 
@@ -128,7 +128,7 @@ def test_preparedness_gap_detection():
     assert gap["gap_size"] > 0.5
 
 
-def test_crypto_system_prioritization():
+def test_crypto_system_prioritization() -> None:
     """Test prioritization of crypto systems for upgrade"""
     system = QuantumRiskCyber()
 

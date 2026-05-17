@@ -52,20 +52,20 @@ from omni_mercury_engine.models.sota.tranad import (
 class TestPriorAssociation:
     """Tests for Prior-Association (Gaussian kernel)."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Should return correct shape [seq_len, seq_len]."""
         prior = PriorAssociation(sigma=1.0, window_size=100)
         result = prior(seq_len=50)
         assert result.shape == (50, 50)
 
-    def test_row_normalization(self):
+    def test_row_normalization(self) -> None:
         """Rows should sum to 1 (probability distribution)."""
         prior = PriorAssociation(sigma=1.0, window_size=100)
         result = prior(seq_len=50)
         row_sums = result.sum(dim=-1)
         assert torch.allclose(row_sums, torch.ones(50), atol=1e-5)
 
-    def test_symmetry(self):
+    def test_symmetry(self) -> None:
         """Prior kernel is symmetric before row normalization.
 
         Note: After row normalization (to make valid probability distribution),
@@ -79,7 +79,7 @@ class TestPriorAssociation:
         diag = torch.diag(result)
         assert (diag >= result.max(dim=-1).values - 1e-5).all()
 
-    def test_diagonal_maximum(self):
+    def test_diagonal_maximum(self) -> None:
         """Diagonal should have highest values (closest to self)."""
         prior = PriorAssociation(sigma=1.0, window_size=100)
         result = prior(seq_len=50)
@@ -91,7 +91,7 @@ class TestPriorAssociation:
 class TestSeriesAssociation:
     """Tests for Series-Association (learned attention)."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Should return correct shapes."""
         series = SeriesAssociation(d_model=64, n_heads=4)
         x = torch.randn(2, 20, 64)  # [batch, seq, d_model]
@@ -100,7 +100,7 @@ class TestSeriesAssociation:
         assert output.shape == (2, 20, 64)
         assert attention.shape == (2, 4, 20, 20)  # [batch, heads, seq, seq]
 
-    def test_attention_normalization(self):
+    def test_attention_normalization(self) -> None:
         """Attention weights should sum to 1 per row."""
         series = SeriesAssociation(d_model=64, n_heads=4)
         x = torch.randn(2, 20, 64)
@@ -113,7 +113,7 @@ class TestSeriesAssociation:
 class TestAssociationDiscrepancyModule:
     """Tests for Association Discrepancy computation."""
 
-    def test_forward_output_keys(self):
+    def test_forward_output_keys(self) -> None:
         """Should return expected keys in output dict."""
         config = AssociationConfig(d_model=64, n_heads=4)
         module = AssociationDiscrepancyModule(config)
@@ -125,7 +125,7 @@ class TestAssociationDiscrepancyModule:
         assert "discrepancy" in result
         assert "series_attention" in result
 
-    def test_discrepancy_shape(self):
+    def test_discrepancy_shape(self) -> None:
         """Discrepancy should be [batch, seq_len]."""
         config = AssociationConfig(d_model=64, n_heads=4)
         module = AssociationDiscrepancyModule(config)
@@ -135,7 +135,7 @@ class TestAssociationDiscrepancyModule:
 
         assert result["discrepancy"].shape == (2, 20)
 
-    def test_discrepancy_non_negative(self):
+    def test_discrepancy_non_negative(self) -> None:
         """KL divergence should be non-negative."""
         config = AssociationConfig(d_model=64, n_heads=4)
         module = AssociationDiscrepancyModule(config)
@@ -145,7 +145,7 @@ class TestAssociationDiscrepancyModule:
 
         assert (result["discrepancy"] >= -1e-5).all()
 
-    def test_anomaly_score_computation(self):
+    def test_anomaly_score_computation(self) -> None:
         """Anomaly score should be computed correctly."""
         config = AssociationConfig(d_model=64, n_heads=4)
         module = AssociationDiscrepancyModule(config)
@@ -159,7 +159,7 @@ class TestAssociationDiscrepancyModule:
 class TestAnomalyTransformerEncoder:
     """Tests for full Anomaly Transformer encoder."""
 
-    def test_forward_output_keys(self):
+    def test_forward_output_keys(self) -> None:
         """Should return expected keys."""
         encoder = AnomalyTransformerEncoder(
             input_dim=25,
@@ -175,7 +175,7 @@ class TestAnomalyTransformerEncoder:
         assert "discrepancy" in result
         assert "anomaly_score" in result
 
-    def test_reconstruction_shape(self):
+    def test_reconstruction_shape(self) -> None:
         """Reconstruction should match input shape."""
         encoder = AnomalyTransformerEncoder(
             input_dim=25,
@@ -189,7 +189,7 @@ class TestAnomalyTransformerEncoder:
 
         assert result["reconstruction"].shape == x.shape
 
-    def test_detect_method(self):
+    def test_detect_method(self) -> None:
         """Detect should return predictions."""
         encoder = AnomalyTransformerEncoder(
             input_dim=25,
@@ -208,7 +208,7 @@ class TestAnomalyTransformerEncoder:
 class TestAssociationDiscrepancyLoss:
     """Tests for Anomaly Transformer loss function."""
 
-    def test_loss_computation(self):
+    def test_loss_computation(self) -> None:
         """Loss should be computed correctly."""
         loss_fn = AssociationDiscrepancyLoss(lambda_=3.0)
         x = torch.randn(2, 20, 25)
@@ -221,7 +221,7 @@ class TestAssociationDiscrepancyLoss:
         assert "reconstruction_loss" in losses
         assert "association_loss" in losses
 
-    def test_minimax_phases(self):
+    def test_minimax_phases(self) -> None:
         """Maximize phase should have different loss."""
         loss_fn = AssociationDiscrepancyLoss(lambda_=3.0)
         x = torch.randn(2, 20, 25)
@@ -243,7 +243,7 @@ class TestAssociationDiscrepancyLoss:
 class TestFocusScoreConditioning:
     """Tests for Focus Score-Based Self-Conditioning."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Output should match input shape."""
         focus = FocusScoreConditioning(input_dim=25, d_model=64)
         x = torch.randn(2, 20, 25)
@@ -252,7 +252,7 @@ class TestFocusScoreConditioning:
 
         assert output.shape == x.shape
 
-    def test_return_scores(self):
+    def test_return_scores(self) -> None:
         """Should return focus scores when requested."""
         focus = FocusScoreConditioning(input_dim=25, d_model=64)
         x = torch.randn(2, 20, 25)
@@ -263,7 +263,7 @@ class TestFocusScoreConditioning:
         # Scores should sum to 1 over features
         assert torch.allclose(scores.sum(dim=-1), torch.ones(2, 20), atol=1e-5)
 
-    def test_feature_importance(self):
+    def test_feature_importance(self) -> None:
         """Should compute feature importance."""
         focus = FocusScoreConditioning(input_dim=25, d_model=64)
         x = torch.randn(2, 20, 25)
@@ -277,7 +277,7 @@ class TestFocusScoreConditioning:
 class TestTransformerEncoder:
     """Tests for TranAD Transformer Encoder."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Output should have d_model dimension."""
         encoder = TransformerEncoder(d_model=64, n_heads=4, n_layers=2)
         x = torch.randn(2, 20, 64)
@@ -290,7 +290,7 @@ class TestTransformerEncoder:
 class TestTransformerDecoder:
     """Tests for TranAD Transformer Decoder."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Output should have d_model dimension."""
         decoder = TransformerDecoder(d_model=64, n_heads=4, n_layers=1)
         tgt = torch.randn(2, 20, 64)
@@ -304,7 +304,7 @@ class TestTransformerDecoder:
 class TestTranADModel:
     """Tests for full TranAD model."""
 
-    def test_forward_output_keys(self):
+    def test_forward_output_keys(self) -> None:
         """Should return expected keys."""
         config = TranADConfig(input_dim=25, d_model=64, n_heads=4)
         model = TranADModel(config)
@@ -315,7 +315,7 @@ class TestTranADModel:
         assert "reconstruction" in result
         assert "anomaly_score" in result
 
-    def test_reconstruction_shape(self):
+    def test_reconstruction_shape(self) -> None:
         """Reconstruction should match input shape."""
         config = TranADConfig(input_dim=25, d_model=64, n_heads=4)
         model = TranADModel(config)
@@ -325,7 +325,7 @@ class TestTranADModel:
 
         assert result["reconstruction"].shape == x.shape
 
-    def test_detect_method(self):
+    def test_detect_method(self) -> None:
         """Detect should return predictions."""
         config = TranADConfig(input_dim=25, d_model=64, n_heads=4)
         model = TranADModel(config)
@@ -336,7 +336,7 @@ class TestTranADModel:
         assert "predictions" in result
         assert "threshold" in result
 
-    def test_adversarial_mode(self):
+    def test_adversarial_mode(self) -> None:
         """Should work with adversarial training enabled."""
         config = TranADConfig(input_dim=25, d_model=64, n_heads=4, use_adversarial=True)
         model = TranADModel(config)
@@ -348,7 +348,7 @@ class TestTranADModel:
 class TestAdversarialTrainer:
     """Tests for TranAD adversarial training."""
 
-    def test_train_step(self):
+    def test_train_step(self) -> None:
         """Should complete training step without errors."""
         config = TranADConfig(input_dim=25, d_model=64, n_heads=4, use_adversarial=True)
         model = TranADModel(config)
@@ -364,7 +364,7 @@ class TestAdversarialTrainer:
 class TestMAMLOptimizer:
     """Tests for MAML meta-learning."""
 
-    def test_inner_loop(self):
+    def test_inner_loop(self) -> None:
         """Inner loop should adapt model."""
         config = TranADConfig(input_dim=25, d_model=64, n_heads=4)
         model = TranADModel(config)
@@ -376,7 +376,7 @@ class TestMAMLOptimizer:
         # Model should exist
         assert adapted is not None
 
-    def test_adapt_method(self):
+    def test_adapt_method(self) -> None:
         """Adapt should return working model."""
         config = TranADConfig(input_dim=25, d_model=64, n_heads=4)
         model = TranADModel(config)
@@ -398,7 +398,7 @@ class TestMAMLOptimizer:
 class TestSparseAttention:
     """Tests for Sparse Attention module."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Output should have correct shape."""
         sparse_attn = SparseAttention(d_model=64, n_heads=4, sparsity=0.5)
         x = torch.randn(2, 20, 64)
@@ -407,7 +407,7 @@ class TestSparseAttention:
 
         assert output.shape == x.shape
 
-    def test_return_attention(self):
+    def test_return_attention(self) -> None:
         """Should return attention weights when requested."""
         sparse_attn = SparseAttention(d_model=64, n_heads=4, sparsity=0.5)
         x = torch.randn(2, 20, 64)
@@ -420,7 +420,7 @@ class TestSparseAttention:
 class TestSelectiveSSM:
     """Tests for Selective State Space Model."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Output should have correct shape."""
         ssm = SelectiveSSM(d_model=64, d_state=16)
         x = torch.randn(2, 20, 64)
@@ -433,7 +433,7 @@ class TestSelectiveSSM:
 class TestMambaSSM:
     """Tests for Mamba-SSM block."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Output should have correct shape."""
         mamba = MambaSSM(d_model=64, d_state=16)
         x = torch.randn(2, 20, 64)
@@ -446,7 +446,7 @@ class TestMambaSSM:
 class TestGatedFeatureFusion:
     """Tests for Gated Feature Fusion."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Output should have correct shape."""
         fusion = GatedFeatureFusion(d_model=64)
         x_attn = torch.randn(2, 20, 64)
@@ -456,7 +456,7 @@ class TestGatedFeatureFusion:
 
         assert output.shape == x_attn.shape
 
-    def test_return_gate(self):
+    def test_return_gate(self) -> None:
         """Should return gate values when requested."""
         fusion = GatedFeatureFusion(d_model=64)
         x_attn = torch.randn(2, 20, 64)
@@ -472,7 +472,7 @@ class TestGatedFeatureFusion:
 class TestMAATEncoderLayer:
     """Tests for MAAT encoder layer."""
 
-    def test_output_shape(self):
+    def test_output_shape(self) -> None:
         """Output should have correct shape."""
         config = MAATConfig(d_model=64, n_heads=4)
         layer = MAATEncoderLayer(config)
@@ -486,7 +486,7 @@ class TestMAATEncoderLayer:
 class TestMAATModel:
     """Tests for full MAAT model."""
 
-    def test_forward_output_keys(self):
+    def test_forward_output_keys(self) -> None:
         """Should return expected keys."""
         config = MAATConfig(input_dim=25, d_model=64, n_heads=4, n_layers=2)
         model = MAATModel(config)
@@ -498,7 +498,7 @@ class TestMAATModel:
         assert "anomaly_score" in result
         assert "discrepancy" in result
 
-    def test_reconstruction_shape(self):
+    def test_reconstruction_shape(self) -> None:
         """Reconstruction should match input shape."""
         config = MAATConfig(input_dim=25, d_model=64, n_heads=4, n_layers=2)
         model = MAATModel(config)
@@ -508,7 +508,7 @@ class TestMAATModel:
 
         assert result["reconstruction"].shape == x.shape
 
-    def test_detect_method(self):
+    def test_detect_method(self) -> None:
         """Detect should return predictions."""
         config = MAATConfig(input_dim=25, d_model=64, n_heads=4, n_layers=2)
         model = MAATModel(config)
@@ -519,7 +519,7 @@ class TestMAATModel:
         assert "predictions" in result
         assert "threshold" in result
 
-    def test_pathway_importance(self):
+    def test_pathway_importance(self) -> None:
         """Should analyze pathway importance."""
         config = MAATConfig(input_dim=25, d_model=64, n_heads=4, n_layers=2)
         model = MAATModel(config)
@@ -533,7 +533,7 @@ class TestMAATModel:
 class TestMAATLoss:
     """Tests for MAAT loss function."""
 
-    def test_loss_computation(self):
+    def test_loss_computation(self) -> None:
         """Loss should be computed correctly."""
         config = MAATConfig(input_dim=25, d_model=64, n_heads=4, n_layers=2)
         model = MAATModel(config)
@@ -555,7 +555,7 @@ class TestMAATLoss:
 class TestEthicalConstraints:
     """Tests for ethical constraint functions."""
 
-    def test_apply_ethical_constraints(self):
+    def test_apply_ethical_constraints(self) -> None:
         """Should scale scores by harm prevention scalar."""
         scores = torch.rand(10, 20)
 
@@ -564,7 +564,7 @@ class TestEthicalConstraints:
         # Scores should be scaled up
         assert (adjusted >= scores).all()
 
-    def test_min_recall_threshold(self):
+    def test_min_recall_threshold(self) -> None:
         """Should ensure minimum detection sensitivity."""
         scores = torch.rand(10, 20)
 
@@ -590,7 +590,7 @@ class TestModelIntegration:
         "This is by design - decoder2 parameters don't receive gradients from recon1 loss.",
         strict=False,
     )
-    def test_all_models_trainable(self):
+    def test_all_models_trainable(self) -> None:
         """All models should be trainable."""
         models: list[nn.Module] = [
             AnomalyTransformerEncoder(input_dim=25, d_model=64, n_heads=4, n_layers=2),
@@ -613,7 +613,7 @@ class TestModelIntegration:
                 if param.requires_grad:
                     assert param.grad is not None or param.numel() == 0
 
-    def test_models_detect_similar_anomalies(self):
+    def test_models_detect_similar_anomalies(self) -> None:
         """Models should detect obvious anomalies."""
         models: list[nn.Module] = [
             AnomalyTransformerEncoder(input_dim=25, d_model=64, n_heads=4, n_layers=2),

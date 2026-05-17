@@ -37,7 +37,7 @@ from omni_mercury_engine.core.signal_processing import (
 class TestFilterType:
     """Tests for FilterType enumeration."""
 
-    def test_filter_type_values(self):
+    def test_filter_type_values(self) -> None:
         """Test FilterType enum values."""
         assert FilterType.FFT_LOWPASS.value == "fft_lowpass"
         assert FilterType.WAVELET.value == "wavelet"
@@ -51,7 +51,7 @@ class TestFilterType:
 class TestFilterConfig:
     """Tests for FilterConfig dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default configuration values."""
         config = FilterConfig()
 
@@ -66,7 +66,7 @@ class TestFilterConfig:
         assert config.ema_alpha == 0.3
         assert config.extra_params == {}
 
-    def test_custom_values(self):
+    def test_custom_values(self) -> None:
         """Test custom configuration values."""
         config = FilterConfig(
             filter_type=FilterType.KALMAN,
@@ -90,18 +90,18 @@ class TestAdaptiveNoiseFilter:
         noise = deterministic_rng.randn(len(t)) * 0.5
         return clean + noise
 
-    def test_default_initialization(self):
+    def test_default_initialization(self) -> None:
         """Test default initialization."""
         filter_obj = AdaptiveNoiseFilter()
         assert filter_obj.config.filter_type == FilterType.FFT_LOWPASS
 
-    def test_custom_initialization(self):
+    def test_custom_initialization(self) -> None:
         """Test initialization with custom config."""
         config = FilterConfig(filter_type=FilterType.KALMAN)
         filter_obj = AdaptiveNoiseFilter(config=config)
         assert filter_obj.config.filter_type == FilterType.KALMAN
 
-    def test_short_signal_passthrough(self):
+    def test_short_signal_passthrough(self) -> None:
         """Test that very short signals are passed through unchanged."""
         filter_obj = AdaptiveNoiseFilter()
         short_data = np.array([1.0, 2.0])
@@ -109,7 +109,7 @@ class TestAdaptiveNoiseFilter:
 
         np.testing.assert_array_equal(result, short_data)
 
-    def test_fft_lowpass_filter(self, noisy_signal):
+    def test_fft_lowpass_filter(self, noisy_signal) -> None:
         """Test FFT lowpass filter."""
         config = FilterConfig(filter_type=FilterType.FFT_LOWPASS, cutoff_freq=0.3)
         filter_obj = AdaptiveNoiseFilter(config=config)
@@ -119,7 +119,7 @@ class TestAdaptiveNoiseFilter:
         # Filtered signal should be smoother (lower std of differences)
         assert np.std(np.diff(filtered)) < np.std(np.diff(noisy_signal))
 
-    def test_wavelet_filter(self, noisy_signal):
+    def test_wavelet_filter(self, noisy_signal) -> None:
         """Test wavelet denoising filter."""
         config = FilterConfig(filter_type=FilterType.WAVELET, wavelet_level=3)
         filter_obj = AdaptiveNoiseFilter(config=config)
@@ -127,7 +127,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_wavelet_filter_short_signal(self):
+    def test_wavelet_filter_short_signal(self) -> None:
         """Test wavelet filter with very short signal."""
         config = FilterConfig(filter_type=FilterType.WAVELET, wavelet_level=5)
         filter_obj = AdaptiveNoiseFilter(config=config)
@@ -136,7 +136,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(short_signal)
 
-    def test_kalman_filter(self, noisy_signal):
+    def test_kalman_filter(self, noisy_signal) -> None:
         """Test Kalman filter."""
         config = FilterConfig(
             filter_type=FilterType.KALMAN,
@@ -149,7 +149,7 @@ class TestAdaptiveNoiseFilter:
         assert len(filtered) == len(noisy_signal)
         assert filter_obj._kalman_state is not None
 
-    def test_savitzky_golay_filter(self, noisy_signal):
+    def test_savitzky_golay_filter(self, noisy_signal) -> None:
         """Test Savitzky-Golay filter."""
         config = FilterConfig(
             filter_type=FilterType.SAVITZKY_GOLAY,
@@ -161,7 +161,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_savitzky_golay_even_window(self, noisy_signal):
+    def test_savitzky_golay_even_window(self, noisy_signal) -> None:
         """Test Savitzky-Golay with even window size (auto-corrected)."""
         config = FilterConfig(
             filter_type=FilterType.SAVITZKY_GOLAY,
@@ -172,7 +172,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_adaptive_bandpass_filter(self, noisy_signal):
+    def test_adaptive_bandpass_filter(self, noisy_signal) -> None:
         """Test adaptive bandpass filter."""
         config = FilterConfig(
             filter_type=FilterType.ADAPTIVE_BANDPASS,
@@ -183,7 +183,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_median_filter(self, noisy_signal):
+    def test_median_filter(self, noisy_signal) -> None:
         """Test median filter."""
         config = FilterConfig(
             filter_type=FilterType.MEDIAN,
@@ -194,7 +194,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_ema_filter(self, noisy_signal):
+    def test_ema_filter(self, noisy_signal) -> None:
         """Test exponential moving average filter."""
         config = FilterConfig(
             filter_type=FilterType.EXPONENTIAL_MOVING_AVERAGE,
@@ -205,7 +205,7 @@ class TestAdaptiveNoiseFilter:
 
         assert len(filtered) == len(noisy_signal)
 
-    def test_reset_state(self, noisy_signal):
+    def test_reset_state(self, noisy_signal) -> None:
         """Test reset state for Kalman filter."""
         config = FilterConfig(filter_type=FilterType.KALMAN)
         filter_obj = AdaptiveNoiseFilter(config=config)
@@ -226,14 +226,14 @@ class TestMultiStageFilter:
         """Create noisy signal for testing."""
         return deterministic_rng.randn(100) + 5.0
 
-    def test_empty_pipeline(self, noisy_signal):
+    def test_empty_pipeline(self, noisy_signal) -> None:
         """Test empty filter pipeline."""
         pipeline = MultiStageFilter()
         result = pipeline.apply(noisy_signal)
 
         np.testing.assert_array_equal(result, noisy_signal)
 
-    def test_single_stage(self, noisy_signal):
+    def test_single_stage(self, noisy_signal) -> None:
         """Test single stage filter."""
         stages = [FilterConfig(filter_type=FilterType.MEDIAN)]
         pipeline = MultiStageFilter(stages=stages)
@@ -241,7 +241,7 @@ class TestMultiStageFilter:
 
         assert len(result) == len(noisy_signal)
 
-    def test_multi_stage(self, noisy_signal):
+    def test_multi_stage(self, noisy_signal) -> None:
         """Test multi-stage filter pipeline."""
         stages = [
             FilterConfig(filter_type=FilterType.MEDIAN, window_size=3),
@@ -252,7 +252,7 @@ class TestMultiStageFilter:
 
         assert len(result) == len(noisy_signal)
 
-    def test_add_stage(self, noisy_signal):
+    def test_add_stage(self, noisy_signal) -> None:
         """Test adding a stage to pipeline."""
         pipeline = MultiStageFilter()
         assert len(pipeline.stages) == 0
@@ -268,7 +268,7 @@ class TestMultiStageFilter:
 class TestRollingStatistics:
     """Tests for compute_rolling_statistics function."""
 
-    def test_basic_rolling_stats(self):
+    def test_basic_rolling_stats(self) -> None:
         """Test basic rolling statistics computation."""
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
         stats = compute_rolling_statistics(data, window_size=3)
@@ -283,14 +283,14 @@ class TestRollingStatistics:
         assert len(stats["rolling_min"]) == len(data)
         assert len(stats["rolling_max"]) == len(data)
 
-    def test_rolling_stats_window_larger_than_data(self):
+    def test_rolling_stats_window_larger_than_data(self) -> None:
         """Test rolling stats when window is larger than data."""
         data = np.array([1.0, 2.0, 3.0])
         stats = compute_rolling_statistics(data, window_size=10)
 
         assert len(stats["rolling_mean"]) == 3
 
-    def test_rolling_stats_single_element(self):
+    def test_rolling_stats_single_element(self) -> None:
         """Test rolling stats with single element."""
         data = np.array([5.0])
         stats = compute_rolling_statistics(data, window_size=3)
@@ -301,7 +301,7 @@ class TestRollingStatistics:
 class TestTemporalLagFeatures:
     """Tests for compute_temporal_lag_features function."""
 
-    def test_basic_lag_features(self):
+    def test_basic_lag_features(self) -> None:
         """Test basic lag feature computation."""
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
         features = compute_temporal_lag_features(data)
@@ -311,7 +311,7 @@ class TestTemporalLagFeatures:
         assert "diff_1" in features
         assert "diff_2" in features
 
-    def test_custom_lags(self):
+    def test_custom_lags(self) -> None:
         """Test with custom lag values."""
         data = np.arange(20, dtype=float)
         features = compute_temporal_lag_features(data, lags=[1, 3, 7])
@@ -321,7 +321,7 @@ class TestTemporalLagFeatures:
         assert "lag_7" in features
         assert "lag_2" not in features
 
-    def test_lag_larger_than_data(self):
+    def test_lag_larger_than_data(self) -> None:
         """Test when lag is larger than data length."""
         data = np.array([1.0, 2.0, 3.0])
         features = compute_temporal_lag_features(data, lags=[1, 5, 10])
@@ -334,7 +334,7 @@ class TestTemporalLagFeatures:
 class TestInteractionFeatures:
     """Tests for compute_interaction_features function."""
 
-    def test_basic_interactions(self):
+    def test_basic_interactions(self) -> None:
         """Test basic interaction feature computation."""
         features_dict = {
             "feature_a": np.array([1.0, 2.0, 3.0]),
@@ -345,7 +345,7 @@ class TestInteractionFeatures:
         assert "feature_a_x_feature_b" in interactions
         assert "feature_a_corr_feature_b" in interactions
 
-    def test_interactions_product(self):
+    def test_interactions_product(self) -> None:
         """Test that product interaction is correct."""
         features_dict = {
             "a": np.array([1.0, 2.0]),
@@ -356,7 +356,7 @@ class TestInteractionFeatures:
         expected = np.array([3.0, 8.0])
         np.testing.assert_array_almost_equal(interactions["a_x_b"], expected)
 
-    def test_interactions_mismatched_shapes(self):
+    def test_interactions_mismatched_shapes(self) -> None:
         """Test interactions with mismatched shapes."""
         features_dict = {
             "a": np.array([1.0, 2.0, 3.0]),
@@ -367,7 +367,7 @@ class TestInteractionFeatures:
         # Should skip mismatched shapes
         assert "a_x_b" not in interactions
 
-    def test_interactions_single_feature(self):
+    def test_interactions_single_feature(self) -> None:
         """Test interactions with single feature."""
         features_dict = {
             "a": np.array([1.0, 2.0, 3.0]),
@@ -377,7 +377,7 @@ class TestInteractionFeatures:
         # No interactions possible with single feature
         assert len(interactions) == 0
 
-    def test_interactions_multiple_features(self):
+    def test_interactions_multiple_features(self) -> None:
         """Test interactions with multiple features."""
         features_dict = {
             "a": np.array([1.0, 2.0, 3.0]),

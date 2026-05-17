@@ -1,8 +1,23 @@
+# mypy: disable-error-code="untyped-decorator,misc"
 """
 Mercury Agent Load Testing Infrastructure
 
 Comprehensive load testing suite using Locust for the Mercury Agent API.
 Tests API performance under various load conditions and validates SLOs.
+
+The ``# mypy: disable-error-code`` pragma at the top of this file silences
+two whole-file boundary effects of running a Locust harness through mypy:
+
+* ``untyped-decorator``: ``@task``, ``@tag``, and ``@events.test_start.add_listener``
+  are framework decorators without public type stubs.  The ``locust.*``
+  third-party boundary is already declared in ``pyproject.toml``; this
+  pragma extends that to the decorators themselves so we do not need to
+  paint every callsite with per-line ``# type: ignore[untyped-decorator]``
+  noise.
+* ``misc``: subclassing ``locust.HttpUser`` (which mypy sees as ``Any``)
+  triggers ``Class cannot subclass "HttpUser" (has type "Any")`` once
+  strict mode is in effect — same root cause, same justification, no
+  weakening of the gate elsewhere because the override is file-local.
 
 Usage:
     # Start Locust web UI (interactive mode)
@@ -28,6 +43,7 @@ from __future__ import annotations
 import os
 import random
 import time
+from typing import Any
 
 from locust import HttpUser, between, events, tag, task
 
@@ -103,7 +119,7 @@ def generate_multivariate_data(
 # Custom Event Handlers
 # =============================================================================
 @events.test_start.add_listener
-def on_test_start(environment, **kwargs):
+def on_test_start(environment, **kwargs) -> None:
     """Log test start and validate configuration."""
     print("\n" + "=" * 60)
     print("Mercury Agent Load Test Starting")
@@ -115,7 +131,7 @@ def on_test_start(environment, **kwargs):
 
 
 @events.test_stop.add_listener
-def on_test_stop(environment, **kwargs):
+def on_test_stop(environment, **kwargs) -> None:
     """Validate SLOs after test completion."""
     stats = environment.stats
 
@@ -178,7 +194,7 @@ class MercuryAPIUser(HttpUser):
 
     wait_time = between(THINK_TIME_MIN, THINK_TIME_MAX)
 
-    def on_start(self):
+    def on_start(self) -> None:
         """Initialize user session."""
         self.headers = {"Content-Type": "application/json"}
         if API_KEY:
@@ -191,7 +207,7 @@ class MercuryAPIUser(HttpUser):
 
     @tag("health")
     @task(10)
-    def health_check(self):
+    def health_check(self) -> None:
         """Check API health endpoint."""
         with self.client.get("/health", headers=self.headers, catch_response=True) as response:
             if response.status_code == 200:
@@ -201,7 +217,7 @@ class MercuryAPIUser(HttpUser):
 
     @tag("detection", "univariate")
     @task(60)
-    def detect_univariate(self):
+    def detect_univariate(self) -> None:
         """Test univariate anomaly detection."""
         data = generate_univariate_data(length=random.randint(50, 200))
         payload = {
@@ -227,7 +243,7 @@ class MercuryAPIUser(HttpUser):
 
     @tag("detection", "multivariate")
     @task(25)
-    def detect_multivariate(self):
+    def detect_multivariate(self) -> None:
         """Test multivariate anomaly detection."""
         features = random.randint(3, 10)
         data = generate_multivariate_data(
@@ -253,7 +269,7 @@ class MercuryAPIUser(HttpUser):
 
     @tag("detection", "batch")
     @task(5)
-    def detect_batch(self):
+    def detect_batch(self) -> None:
         """Test batch anomaly detection."""
         batch_size = random.randint(5, 20)
         batch = [
@@ -287,7 +303,7 @@ class HighThroughputUser(HttpUser):
 
     wait_time = between(0.01, 0.1)  # Minimal delay
 
-    def on_start(self):
+    def on_start(self) -> None:
         """Initialize user session."""
         self.headers = {"Content-Type": "application/json"}
         if API_KEY:
@@ -298,7 +314,7 @@ class HighThroughputUser(HttpUser):
 
     @tag("stress", "univariate")
     @task(100)
-    def rapid_detection(self):
+    def rapid_detection(self) -> None:
         """Rapid-fire univariate detection for stress testing."""
         payload = {
             "data": random.choice(self.cached_data),
@@ -329,7 +345,7 @@ class StreamingUser(HttpUser):
 
     wait_time = between(0.1, 0.5)
 
-    def on_start(self):
+    def on_start(self) -> None:
         """Initialize streaming session."""
         self.headers = {"Content-Type": "application/json"}
         if API_KEY:
@@ -340,7 +356,7 @@ class StreamingUser(HttpUser):
 
     @tag("streaming")
     @task
-    def streaming_detection(self):
+    def streaming_detection(self) -> None:
         """Simulate streaming detection with sliding window."""
         # Add new data point
         new_value = self.data_buffer[-1] + random.gauss(0, 5)
@@ -380,12 +396,12 @@ class SLOValidationUser(HttpUser):
     wait_time = between(1, 2)
     weight = 1  # Lower weight, run fewer of these
 
-    def on_start(self):
+    def on_start(self) -> None:
         """Initialize SLO validation."""
         self.headers = {"Content-Type": "application/json"}
         self.test_cases = self._generate_test_cases()
 
-    def _generate_test_cases(self) -> list[dict]:
+    def _generate_test_cases(self) -> list[dict[str, Any]]:
         """Generate standard test cases for SLO validation."""
         return [
             {"name": "small", "length": 20},
@@ -396,7 +412,7 @@ class SLOValidationUser(HttpUser):
 
     @tag("slo")
     @task
-    def slo_test_cases(self):
+    def slo_test_cases(self) -> None:
         """Run through standard SLO test cases."""
         for case in self.test_cases:
             data = generate_univariate_data(length=case["length"])

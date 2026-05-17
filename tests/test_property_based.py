@@ -38,61 +38,66 @@ try:
 except ImportError:
     hypothesis_available = False
 
-    # Create dummy decorators for when hypothesis isn't available
-    def given(*args, **kwargs):
+    # Create dummy decorators for when hypothesis isn't available.
+    # The ``# type: ignore[no-redef]`` annotations acknowledge that mypy sees
+    # both branches of this try/except as defining the same symbols at the
+    # module level — which is exactly the optional-import pattern we want
+    # here.  Each fallback is a runtime shim that defers to ``pytest.skip``
+    # so the tests never actually execute against it.
+    def given(*args, **kwargs):  # type: ignore[no-redef]
         def decorator(func):
             return pytest.mark.skip(reason="Hypothesis not installed")(func)
 
         return decorator
 
-    def settings(*args, **kwargs):
+    def settings(*args, **kwargs):  # type: ignore[no-redef]
         def decorator(func):
             return func
 
         return decorator
 
-    class st:
+    class st:  # type: ignore[no-redef]
         @staticmethod
-        def floats(*args, **kwargs):
+        def floats(*args, **kwargs) -> None:
             return None
 
         @staticmethod
-        def integers(*args, **kwargs):
+        def integers(*args, **kwargs) -> None:
             return None
 
         @staticmethod
-        def text(*args, **kwargs):
+        def text(*args, **kwargs) -> None:
             return None
 
         @staticmethod
-        def lists(*args, **kwargs):
+        def lists(*args, **kwargs) -> None:
             return None
 
         @staticmethod
-        def dictionaries(*args, **kwargs):
+        def dictionaries(*args, **kwargs) -> None:
             return None
 
         @staticmethod
-        def booleans():
+        def booleans() -> None:
             return None
 
         @staticmethod
-        def characters(*args, **kwargs):
+        def characters(*args, **kwargs) -> None:
             return None
 
         @staticmethod
-        def tuples(*args, **kwargs):
+        def tuples(*args, **kwargs) -> None:
             return None
 
-    class npst:
+    class npst:  # type: ignore[no-redef]
         @staticmethod
-        def arrays(*args, **kwargs):
+        def arrays(*args, **kwargs) -> None:
             return None
 
-    class HealthCheck:
+    class HealthCheck:  # type: ignore[no-redef]
         too_slow = None
 
-    def assume(condition):
+    def assume(condition) -> None:  # type: ignore[no-redef]
         pass
 
 
@@ -102,7 +107,7 @@ class TestInputValidationProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.text(min_size=0, max_size=1000))
     @settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-    def test_sanitize_never_returns_dangerous_html(self, text: str):
+    def test_sanitize_never_returns_dangerous_html(self, text: str) -> None:
         """Sanitized output should never contain raw script tags."""
         from omni_mercury_engine.security.input_validation import (
             InputValidator,
@@ -120,7 +125,7 @@ class TestInputValidationProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.text(min_size=0, max_size=100))
     @settings(max_examples=100)
-    def test_sanitize_strict_only_allows_safe_chars(self, text: str):
+    def test_sanitize_strict_only_allows_safe_chars(self, text: str) -> None:
         """Strict sanitization should only allow alphanumeric and limited punctuation."""
         from omni_mercury_engine.security.input_validation import (
             InputValidator,
@@ -140,7 +145,7 @@ class TestInputValidationProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.integers(min_value=-(10**15), max_value=10**15))
     @settings(max_examples=100)
-    def test_integer_validation_roundtrip(self, value: int):
+    def test_integer_validation_roundtrip(self, value: int) -> None:
         """Integer validation should preserve valid integers."""
         from omni_mercury_engine.security.input_validation import InputValidator
 
@@ -154,7 +159,7 @@ class TestInputValidationProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.floats(min_value=-1e10, max_value=1e10, allow_nan=False, allow_infinity=False))
     @settings(max_examples=100)
-    def test_float_validation_preserves_valid_floats(self, value: float):
+    def test_float_validation_preserves_valid_floats(self, value: float) -> None:
         """Float validation should preserve valid floats."""
         from omni_mercury_engine.security.input_validation import InputValidator
 
@@ -168,7 +173,7 @@ class TestInputValidationProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.text(min_size=1, max_size=50))
     @settings(max_examples=100)
-    def test_path_traversal_always_detected(self, prefix: str):
+    def test_path_traversal_always_detected(self, prefix: str) -> None:
         """Path traversal patterns should always be detected."""
         from omni_mercury_engine.security.input_validation import InputValidator
 
@@ -201,7 +206,7 @@ class TestDoubleHelixEngineProperties:
         )
     )
     @settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-    def test_evolution_preserves_finite_values(self, initial_state: np.ndarray[Any, Any]):
+    def test_evolution_preserves_finite_values(self, initial_state: np.ndarray[Any, Any]) -> None:
         """Evolution should never produce NaN or Inf values."""
         from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
 
@@ -224,7 +229,7 @@ class TestDoubleHelixEngineProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.integers(min_value=4, max_value=128))
     @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
-    def test_evolution_dimension_consistency(self, dim: int):
+    def test_evolution_dimension_consistency(self, dim: int) -> None:
         """Evolution should preserve state dimension."""
         from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
 
@@ -244,7 +249,7 @@ class TestBiasDetectorProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.integers(min_value=100, max_value=1000), st.integers(min_value=2, max_value=5))
     @settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-    def test_perfect_predictor_is_fair(self, n_samples: int, n_groups: int):
+    def test_perfect_predictor_is_fair(self, n_samples: int, n_groups: int) -> None:
         """A perfect predictor should pass fairness checks."""
         from omni_mercury_engine.ml.bias_detection import BiasDetector, FairnessMetric
 
@@ -267,7 +272,7 @@ class TestBiasDetectorProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.integers(min_value=50, max_value=500))
     @settings(max_examples=20)
-    def test_random_predictor_detected_as_unfair_for_biased_data(self, n_samples: int):
+    def test_random_predictor_detected_as_unfair_for_biased_data(self, n_samples: int) -> None:
         """Deliberately biased predictions should fail fairness checks."""
         from omni_mercury_engine.ml.bias_detection import BiasDetector, FairnessMetric
 
@@ -296,7 +301,7 @@ class TestThreatDetectorProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.text(alphabet=st.characters(categories=["L", "N"]), min_size=1, max_size=100))
     @settings(max_examples=100)
-    def test_clean_input_not_flagged(self, text: str):
+    def test_clean_input_not_flagged(self, text: str) -> None:
         """Alphanumeric text should not be flagged as threats."""
         from omni_mercury_engine.security.threat_detection import ThreatDetector
 
@@ -309,7 +314,7 @@ class TestThreatDetectorProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.text(min_size=0, max_size=50))
     @settings(max_examples=50)
-    def test_sql_injection_always_detected(self, prefix: str):
+    def test_sql_injection_always_detected(self, prefix: str) -> None:
         """SQL injection patterns should always be detected."""
         from omni_mercury_engine.security.threat_detection import ThreatDetector
 
@@ -330,7 +335,7 @@ class TestThreatDetectorProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.text(min_size=0, max_size=50))
     @settings(max_examples=50)
-    def test_xss_always_detected(self, prefix: str):
+    def test_xss_always_detected(self, prefix: str) -> None:
         """XSS patterns should always be detected."""
         from omni_mercury_engine.security.threat_detection import ThreatDetector
 
@@ -362,7 +367,7 @@ class TestEthicalEngineProperties:
         )
     )
     @settings(max_examples=50)
-    def test_maat_balance_bounded_output(self, ethical_scores: dict[str, Any]):
+    def test_maat_balance_bounded_output(self, ethical_scores: dict[str, Any]) -> None:
         """Ma'at balance should always produce bounded heart weight."""
         from omni_mercury_engine.ethical.ethical_constraint_engine import MaatBalanceEngine
 
@@ -384,7 +389,7 @@ class TestEthicalEngineProperties:
         )
     )
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
-    def test_geometry_analysis_bounded_scores(self, data: np.ndarray[Any, Any]):
+    def test_geometry_analysis_bounded_scores(self, data: np.ndarray[Any, Any]) -> None:
         """Immutable geometry analysis should produce scores in [0, 1]."""
         from omni_mercury_engine.ethical.ethical_constraint_engine import ImmutableGeometryProcessor
 
@@ -405,7 +410,7 @@ class TestDetectorRegistryProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(npst.arrays(dtype=np.float64, shape=st.integers(min_value=10, max_value=100)))
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
-    def test_aggregate_features_produces_128d_output(self, features: np.ndarray[Any, Any]):
+    def test_aggregate_features_produces_128d_output(self, features: np.ndarray[Any, Any]) -> None:
         """Aggregated features should always produce 128D output."""
         from omni_mercury_engine.core.detector_registry import (
             DetectorRegistry,
@@ -435,7 +440,7 @@ class TestDetectorRegistryProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.integers(min_value=1, max_value=10))
     @settings(max_examples=20)
-    def test_registry_register_unregister_invariant(self, n_detectors: int):
+    def test_registry_register_unregister_invariant(self, n_detectors: int) -> None:
         """Registry should maintain consistent state after register/unregister."""
         from omni_mercury_engine.core.detector_registry import (
             DetectorCategory,
@@ -476,7 +481,7 @@ class TestDetectorRegistryProperties:
         )
     )
     @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
-    def test_aggregate_features_no_nans(self, features: np.ndarray[Any, Any]):
+    def test_aggregate_features_no_nans(self, features: np.ndarray[Any, Any]) -> None:
         """Aggregated features should never contain NaN values."""
         import torch
 
@@ -514,7 +519,7 @@ class TestDetectorRegistryProperties:
         )
     )
     @settings(max_examples=20)
-    def test_list_by_tags_returns_subset(self, tags: list[Any]):
+    def test_list_by_tags_returns_subset(self, tags: list[Any]) -> None:
         """list_by_tags should return subset of registered detectors."""
         from omni_mercury_engine.core.detector_registry import (
             DetectorCategory,
@@ -544,7 +549,7 @@ class TestFusionNetworkProperties:
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
     @given(st.integers(min_value=1, max_value=4))
     @settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-    def test_fusion_forward_pass_output_shapes(self, batch_size: int):
+    def test_fusion_forward_pass_output_shapes(self, batch_size: int) -> None:
         """Fusion network forward pass should produce correct output shapes."""
         fusion_network = pytest.importorskip("omni_mercury_engine.ml.fusion_network")
         OmniFusionModel = fusion_network.OmniFusionModel
@@ -587,11 +592,10 @@ class TestValidationPipelineProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.text(min_size=1, max_size=50))
     @settings(max_examples=20)
-    def test_invalid_dataset_name_handled(self, dataset_name: str):
+    def test_invalid_dataset_name_handled(self, dataset_name: str) -> None:
         """Invalid dataset names should be handled gracefully."""
         # get_loader was removed from validation.data_loaders; tolerate either
         # state (still available in some forks) without breaking the type gate.
-        get_loader = None  # Initialize before conditional import
         try:
             from omni_mercury_engine.validation.data_loaders import (  # type: ignore[attr-defined]
                 get_loader,
@@ -602,7 +606,7 @@ class TestValidationPipelineProperties:
 
         # Property: Invalid dataset names should not crash
         try:
-            get_loader(dataset_name)  # type: ignore[misc]
+            get_loader(dataset_name)
             # If it returns something, it should be None or raise an error
         except (ValueError, KeyError, NotImplementedError):
             pass  # Expected behavior for invalid names
@@ -617,7 +621,7 @@ class TestKnowledgeGraphProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.text(min_size=1, max_size=30, alphabet=st.characters(categories=["L", "N"])))
     @settings(max_examples=20)
-    def test_query_nonexistent_node_handled(self, node_name: str):
+    def test_query_nonexistent_node_handled(self, node_name: str) -> None:
         """Querying non-existent nodes should be handled gracefully."""
         knowledge_graph = pytest.importorskip("omni_mercury_engine.cognitive.knowledge_graph")
         KnowledgeGraph = knowledge_graph.KnowledgeGraph

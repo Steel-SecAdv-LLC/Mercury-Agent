@@ -27,7 +27,7 @@ from omni_mercury_engine.core.score_calibration import (
 class TestScoreDiagnostics:
     """Test ScoreDiagnostics class."""
 
-    def test_analyze_basic_statistics(self):
+    def test_analyze_basic_statistics(self) -> None:
         """Test basic score statistics computation."""
         scores = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
 
@@ -39,7 +39,7 @@ class TestScoreDiagnostics:
         assert diag.n_samples == 9
         assert diag.n_above_threshold == 4  # 0.6, 0.7, 0.8, 0.9
 
-    def test_analyze_all_below_threshold(self):
+    def test_analyze_all_below_threshold(self) -> None:
         """Test detection of F1=0 scenario where all scores < threshold."""
         # This simulates the F1=0 problem
         scores = np.array([0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45])
@@ -50,7 +50,7 @@ class TestScoreDiagnostics:
         assert diag.predicted_anomaly_ratio == 0.0
         assert diag.score_max < 0.5
 
-    def test_analyze_with_labels(self):
+    def test_analyze_with_labels(self) -> None:
         """Test analysis with ground truth labels."""
         scores = np.array([0.1, 0.2, 0.3, 0.4, 0.9])
         labels = np.array([0, 0, 0, 0, 1])  # 20% contamination
@@ -60,7 +60,7 @@ class TestScoreDiagnostics:
         assert diag.actual_contamination == 0.2
         assert diag.estimated_contamination is not None
 
-    def test_bimodality_detection(self):
+    def test_bimodality_detection(self) -> None:
         """Test bimodal distribution detection."""
         # Create bimodal distribution
         normal = np.random.normal(0.2, 0.05, 100)
@@ -72,7 +72,7 @@ class TestScoreDiagnostics:
         # Should detect bimodality
         assert isinstance(is_bimodal, bool)
 
-    def test_percentiles_computed(self):
+    def test_percentiles_computed(self) -> None:
         """Test that all expected percentiles are computed."""
         scores = np.random.uniform(0, 1, 100)
 
@@ -86,7 +86,7 @@ class TestScoreDiagnostics:
 class TestAutoThresholdOptimizer:
     """Test AutoThresholdOptimizer class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup test fixtures."""
         self.optimizer = AutoThresholdOptimizer(
             default_contamination=0.05,
@@ -94,7 +94,7 @@ class TestAutoThresholdOptimizer:
             max_contamination=0.5,
         )
 
-    def test_fixed_threshold(self):
+    def test_fixed_threshold(self) -> None:
         """Test FIXED calibration method."""
         scores = np.random.uniform(0, 1, 100)
 
@@ -107,7 +107,7 @@ class TestAutoThresholdOptimizer:
         assert result.threshold == 0.7
         assert result.method == CalibrationMethod.FIXED
 
-    def test_percentile_threshold(self):
+    def test_percentile_threshold(self) -> None:
         """Test PERCENTILE calibration method."""
         scores = np.linspace(0, 1, 100)
 
@@ -120,7 +120,7 @@ class TestAutoThresholdOptimizer:
         # Threshold should be around 95th percentile
         assert 0.90 < result.threshold <= 1.0
 
-    def test_otsu_threshold_bimodal(self):
+    def test_otsu_threshold_bimodal(self) -> None:
         """Test OTSU method on bimodal distribution."""
         # Create clearly bimodal distribution
         normal = np.random.normal(0.2, 0.02, 90)
@@ -138,7 +138,7 @@ class TestAutoThresholdOptimizer:
         # Must predict at least some of the anomaly group
         assert result.predictions.sum() >= 5
 
-    def test_mad_threshold(self):
+    def test_mad_threshold(self) -> None:
         """Test MAD-based calibration."""
         # Create scores with clear outliers
         scores = np.concatenate(
@@ -157,7 +157,7 @@ class TestAutoThresholdOptimizer:
         # Should produce some positive predictions
         assert result.predictions.sum() > 0
 
-    def test_optimal_f1_with_labels(self):
+    def test_optimal_f1_with_labels(self) -> None:
         """Test OPTIMAL_F1 method with ground truth."""
         # Create scores where optimal threshold is around 0.5
         scores = np.array([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9, 0.95, 0.98])
@@ -173,7 +173,7 @@ class TestAutoThresholdOptimizer:
         assert result.method == CalibrationMethod.OPTIMAL_F1
         assert 0.4 < result.threshold < 0.7
 
-    def test_auto_method_selection(self):
+    def test_auto_method_selection(self) -> None:
         """Test AUTO method selection."""
         scores = np.random.uniform(0, 1, 100)
 
@@ -186,7 +186,7 @@ class TestAutoThresholdOptimizer:
         assert result.method in CalibrationMethod
         assert result.confidence > 0
 
-    def test_empty_scores_handling(self):
+    def test_empty_scores_handling(self) -> None:
         """Test handling of empty score array."""
         scores = np.array([])
 
@@ -202,7 +202,7 @@ class TestAutoThresholdOptimizer:
 class TestScoreCalibrationManager:
     """Test ScoreCalibrationManager class."""
 
-    def test_basic_calibration(self):
+    def test_basic_calibration(self) -> None:
         """Test basic calibration workflow."""
         manager = ScoreCalibrationManager(contamination=0.1)
 
@@ -215,7 +215,7 @@ class TestScoreCalibrationManager:
         assert len(result.predictions) == len(scores)
         assert isinstance(result.diagnostics, CalibrationDiagnostics)
 
-    def test_get_calibrated_threshold(self):
+    def test_get_calibrated_threshold(self) -> None:
         """Test convenience method for getting threshold."""
         manager = ScoreCalibrationManager(contamination=0.05)
 
@@ -226,7 +226,7 @@ class TestScoreCalibrationManager:
         assert isinstance(threshold, float)
         assert 0 <= threshold <= 1
 
-    def test_calibration_with_labels(self):
+    def test_calibration_with_labels(self) -> None:
         """Test calibration with ground truth labels."""
         manager = ScoreCalibrationManager(contamination=0.1)
 
@@ -238,7 +238,7 @@ class TestScoreCalibrationManager:
         # With labels, should use optimal F1 threshold
         assert result.diagnostics.actual_contamination == 0.4
 
-    def test_different_methods(self):
+    def test_different_methods(self) -> None:
         """Test calibration with different methods."""
         methods = [
             CalibrationMethod.PERCENTILE,
@@ -260,7 +260,7 @@ class TestScoreCalibrationManager:
 class TestF1ZeroProblem:
     """Test that the calibration system solves the F1=0 problem."""
 
-    def test_f1_zero_scenario(self):
+    def test_f1_zero_scenario(self) -> None:
         """
         Test the exact scenario described by the user:
         - ROC-AUC = 0.88 (good discrimination)
@@ -298,7 +298,7 @@ class TestF1ZeroProblem:
         # Should have some positive predictions
         assert result.predictions.sum() > 0
 
-    def test_calibration_improves_f1(self):
+    def test_calibration_improves_f1(self) -> None:
         """Test that calibration improves F1 compared to fixed threshold."""
         np.random.seed(42)
 
@@ -346,7 +346,7 @@ class TestF1ZeroProblem:
 class TestConvenienceFunctions:
     """Test convenience functions."""
 
-    def test_calibrate_scores_function(self):
+    def test_calibrate_scores_function(self) -> None:
         """Test calibrate_scores convenience function."""
         scores = np.random.uniform(0, 1, 100)
 
@@ -356,7 +356,7 @@ class TestConvenienceFunctions:
         assert len(predictions) == 100
         assert isinstance(diagnostics, CalibrationDiagnostics)
 
-    def test_diagnose_scores_function(self, capsys):
+    def test_diagnose_scores_function(self, capsys) -> None:
         """Test diagnose_scores convenience function."""
         scores = np.array([0.1, 0.2, 0.3, 0.4])  # All below threshold
         labels = np.array([0, 0, 1, 1])
@@ -372,7 +372,7 @@ class TestConvenienceFunctions:
 class TestDiagnosticsOutput:
     """Test that diagnostics provide actionable information."""
 
-    def test_diagnostics_to_dict(self):
+    def test_diagnostics_to_dict(self) -> None:
         """Test diagnostics serialization."""
         scores = np.random.uniform(0, 1, 50)
 
@@ -386,7 +386,7 @@ class TestDiagnosticsOutput:
         assert "n_above_threshold" in d
         assert "percentiles" in d
 
-    def test_diagnostics_str_output(self):
+    def test_diagnostics_str_output(self) -> None:
         """Test diagnostics string representation."""
         scores = np.random.uniform(0, 1, 50)
 
@@ -403,7 +403,7 @@ class TestDiagnosticsOutput:
 class TestDetectorIntegration:
     """Test integration with actual detectors."""
 
-    def test_statistical_detector_auto_calibration(self):
+    def test_statistical_detector_auto_calibration(self) -> None:
         """Test MercuryAnomalyDetector with auto-calibration."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -436,7 +436,7 @@ class TestDetectorIntegration:
         # And should have calibration info
         assert "threshold" in result_cal
 
-    def test_detector_diagnose_scores_method(self):
+    def test_detector_diagnose_scores_method(self) -> None:
         """Test detector's diagnose_scores method."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -457,7 +457,7 @@ class TestDetectorIntegration:
 class TestEdgeCases:
     """Test edge cases: empty arrays, NaN/Inf, constant arrays, single elements."""
 
-    def test_empty_array_returns_empty_diagnostics(self):
+    def test_empty_array_returns_empty_diagnostics(self) -> None:
         """Test that empty arrays return empty diagnostics (graceful degradation)."""
         scores = np.array([])
 
@@ -466,7 +466,7 @@ class TestEdgeCases:
         assert diag.n_samples == 0
         assert diag.predicted_anomaly_ratio == 0.0
 
-    def test_nan_values_handled(self):
+    def test_nan_values_handled(self) -> None:
         """Test that NaN values are handled gracefully."""
         scores = np.array([0.1, np.nan, 0.3, 0.4, 0.5])
 
@@ -476,7 +476,7 @@ class TestEdgeCases:
         assert diag.n_samples == 5  # Still reports 5 samples
         assert np.isfinite(diag.score_mean)
 
-    def test_inf_values_handled(self):
+    def test_inf_values_handled(self) -> None:
         """Test that Inf values are handled gracefully."""
         scores = np.array([0.1, np.inf, 0.3, 0.4, 0.5])
 
@@ -485,7 +485,7 @@ class TestEdgeCases:
         assert diag.n_samples == 5
         assert np.isfinite(diag.score_max)
 
-    def test_all_nan_returns_empty_diagnostics(self):
+    def test_all_nan_returns_empty_diagnostics(self) -> None:
         """Test that all-NaN arrays return empty diagnostics (graceful degradation)."""
         scores = np.array([np.nan, np.nan, np.nan])
 
@@ -494,7 +494,7 @@ class TestEdgeCases:
         assert diag.n_samples == 0
         assert diag.predicted_anomaly_ratio == 0.0
 
-    def test_constant_array(self):
+    def test_constant_array(self) -> None:
         """Test handling of constant arrays (all same value)."""
         scores = np.array([0.5, 0.5, 0.5, 0.5, 0.5])
 
@@ -505,7 +505,7 @@ class TestEdgeCases:
         assert result.threshold is not None
         assert 0 <= result.threshold <= 1
 
-    def test_single_element_array(self):
+    def test_single_element_array(self) -> None:
         """Test handling of single-element arrays."""
         scores = np.array([0.5])
 
@@ -514,7 +514,7 @@ class TestEdgeCases:
 
         assert result.threshold == 0.5
 
-    def test_two_element_array(self):
+    def test_two_element_array(self) -> None:
         """Test handling of two-element arrays."""
         scores = np.array([0.1, 0.9])
 
@@ -523,7 +523,7 @@ class TestEdgeCases:
 
         assert 0.1 <= result.threshold <= 0.9
 
-    def test_invalid_labels_raises_error(self):
+    def test_invalid_labels_raises_error(self) -> None:
         """Test that invalid labels (non-binary) raise error."""
         scores = np.array([0.1, 0.2, 0.3, 0.4])
         labels = np.array([0, 1, 2, 3])  # Invalid: should be binary
@@ -531,7 +531,7 @@ class TestEdgeCases:
         with pytest.raises(ValueError, match="binary"):
             ScoreDiagnostics.analyze(scores, labels=labels)
 
-    def test_float_labels_converted(self):
+    def test_float_labels_converted(self) -> None:
         """Test that float labels are converted to int."""
         scores = np.array([0.1, 0.2, 0.3, 0.4])
         labels = np.array([0.0, 1.0, 0.0, 1.0])  # Float labels
@@ -544,7 +544,7 @@ class TestEdgeCases:
 class TestContaminationValidation:
     """Test contamination parameter validation."""
 
-    def test_invalid_contamination_raises_error(self):
+    def test_invalid_contamination_raises_error(self) -> None:
         """Test that invalid contamination raises ValueError."""
         with pytest.raises(ValueError, match="contamination"):
             AutoThresholdOptimizer(default_contamination=1.5)
@@ -555,12 +555,12 @@ class TestContaminationValidation:
         with pytest.raises(ValueError, match="contamination"):
             AutoThresholdOptimizer(default_contamination=0.0)
 
-    def test_invalid_min_max_contamination(self):
+    def test_invalid_min_max_contamination(self) -> None:
         """Test that invalid min/max contamination raises ValueError."""
         with pytest.raises(ValueError, match=r"min.*max"):
             AutoThresholdOptimizer(min_contamination=0.5, max_contamination=0.3)
 
-    def test_default_outside_range_raises_error(self):
+    def test_default_outside_range_raises_error(self) -> None:
         """Test that default outside [min, max] raises error."""
         with pytest.raises(ValueError, match="default"):
             AutoThresholdOptimizer(
@@ -571,7 +571,7 @@ class TestContaminationValidation:
 class TestErrorHandling:
     """Test error handling and fallback behavior."""
 
-    def test_gmm_fallback_on_small_dataset(self):
+    def test_gmm_fallback_on_small_dataset(self) -> None:
         """Test that GMM falls back to percentile on small datasets."""
         scores = np.array([0.1, 0.2, 0.3])  # Only 3 samples
 
@@ -581,7 +581,7 @@ class TestErrorHandling:
         # Should fall back to percentile
         assert result.threshold is not None
 
-    def test_optimal_f1_fallback_without_labels(self):
+    def test_optimal_f1_fallback_without_labels(self) -> None:
         """Test that OPTIMAL_F1 falls back when labels not provided."""
         scores = np.random.uniform(0, 1, 50)
 
@@ -595,7 +595,7 @@ class TestErrorHandling:
 class TestReturnTypeConsistency:
     """Test that return types are consistent across methods."""
 
-    def test_all_methods_return_calibration_result(self):
+    def test_all_methods_return_calibration_result(self) -> None:
         """Test that all methods return CalibrationResult."""
         scores = np.random.uniform(0, 1, 100)
         labels = np.array([0] * 90 + [1] * 10)

@@ -131,7 +131,7 @@ def binary_labels(draw, size=100):
 class TestRigorousBenchmark:
     """Property-based tests for benchmark harness."""
 
-    def test_seed_reproducibility(self):
+    def test_seed_reproducibility(self) -> None:
         """Setting same seed should produce identical results."""
         set_all_seeds(42)
         a1 = np.random.random(10)
@@ -143,7 +143,7 @@ class TestRigorousBenchmark:
 
     @given(binary_labels())
     @settings(max_examples=20)
-    def test_metric_result_stats(self, values):
+    def test_metric_result_stats(self, values) -> None:
         """MetricResult should compute valid statistics."""
         result = MetricResult(name="test", values=list(values.astype(float)))
         result.compute_stats()
@@ -154,7 +154,7 @@ class TestRigorousBenchmark:
 
     @given(binary_labels(), binary_labels())
     @settings(max_examples=30)
-    def test_event_metrics_bounds(self, y_true, y_pred):
+    def test_event_metrics_bounds(self, y_true, y_pred) -> None:
         """Event metrics should be in [0, 1] range."""
         # Make arrays same length
         min_len = min(len(y_true), len(y_pred))
@@ -169,7 +169,7 @@ class TestRigorousBenchmark:
 
     @given(binary_labels())
     @settings(max_examples=20)
-    def test_point_adjusted_f1_bounds(self, y_true):
+    def test_point_adjusted_f1_bounds(self, y_true) -> None:
         """Point-adjusted F1 should be in [0, 1]."""
         # Create predictions
         y_pred = np.random.randint(0, 2, len(y_true))
@@ -177,7 +177,7 @@ class TestRigorousBenchmark:
         paf1 = point_adjusted_f1(y_true, y_pred)
         assert 0 <= paf1 <= 1
 
-    def test_stratified_split_maintains_ratio(self):
+    def test_stratified_split_maintains_ratio(self) -> None:
         """Stratified split should maintain class ratio approximately."""
         np.random.seed(42)
         n = 1000
@@ -205,7 +205,7 @@ class TestCalibration:
 
     @given(probability_array(), binary_labels())
     @settings(max_examples=30)
-    def test_platt_scaling_output_bounds(self, y_prob, y_true):
+    def test_platt_scaling_output_bounds(self, y_prob, y_true) -> None:
         """Platt scaling should output valid probabilities."""
         min_len = min(len(y_prob), len(y_true))
         y_prob = y_prob[:min_len]
@@ -220,7 +220,7 @@ class TestCalibration:
 
     @given(probability_array(), binary_labels())
     @settings(max_examples=30)
-    def test_isotonic_monotonicity(self, y_prob, y_true):
+    def test_isotonic_monotonicity(self, y_prob, y_true) -> None:
         """Isotonic calibration should be monotonic."""
         min_len = min(len(y_prob), len(y_true))
         y_prob = y_prob[:min_len]
@@ -240,7 +240,7 @@ class TestCalibration:
 
     @given(st.floats(min_value=0.01, max_value=0.99))
     @settings(max_examples=20)
-    def test_ece_perfect_calibration(self, threshold):
+    def test_ece_perfect_calibration(self, threshold) -> None:
         """ECE should be 0 for perfectly calibrated predictions."""
         n = 1000
         y_prob = np.random.random(n)
@@ -253,7 +253,7 @@ class TestCalibration:
 
     @given(probability_array(), binary_labels())
     @settings(max_examples=20)
-    def test_mce_bounds(self, y_prob, y_true):
+    def test_mce_bounds(self, y_prob, y_true) -> None:
         """MCE should be in [0, 1]."""
         min_len = min(len(y_prob), len(y_true))
         mce = compute_mce(y_true[:min_len], y_prob[:min_len])
@@ -271,7 +271,7 @@ class TestConformalPrediction:
 
     @given(st.floats(min_value=0.8, max_value=0.99))
     @settings(max_examples=20)
-    def test_split_conformal_coverage_level(self, coverage):
+    def test_split_conformal_coverage_level(self, coverage) -> None:
         """Split conformal should respect coverage level asymptotically."""
         np.random.seed(42)
         n = 500
@@ -294,7 +294,7 @@ class TestConformalPrediction:
 
     @given(st.floats(min_value=0.8, max_value=0.99))
     @settings(max_examples=20)
-    def test_adaptive_conformal_convergence(self, target_coverage):
+    def test_adaptive_conformal_convergence(self, target_coverage) -> None:
         """Adaptive conformal should converge to target coverage."""
         aci = AdaptiveConformalInference(
             target_coverage=target_coverage,
@@ -316,7 +316,7 @@ class TestConformalPrediction:
             abs(stats["empirical_coverage"] - target_coverage) < 0.15
         ), f"Adaptive coverage {stats['empirical_coverage']} far from {target_coverage}"
 
-    def test_conformal_threshold_positive(self):
+    def test_conformal_threshold_positive(self) -> None:
         """Conformal threshold should always be positive."""
         np.random.seed(42)
         scores = np.abs(np.random.randn(100))
@@ -335,7 +335,7 @@ class TestConformalPrediction:
 class TestFusion:
     """Property-based tests for ensemble fusion."""
 
-    def test_stacking_fusion_with_detectors(self):
+    def test_stacking_fusion_with_detectors(self) -> None:
         """Stacking fusion should work with multiple detectors."""
         np.random.seed(42)
         X = np.random.randn(100, 10)
@@ -351,7 +351,7 @@ class TestFusion:
         assert len(predictions) == len(y)
         assert set(np.unique(predictions)).issubset({0, 1})
 
-    def test_bayesian_weights_sum_to_one(self):
+    def test_bayesian_weights_sum_to_one(self) -> None:
         """Bayesian weights should sum to 1."""
         np.random.seed(42)
         X = np.random.randn(100, 10)
@@ -366,7 +366,7 @@ class TestFusion:
         assert bma.weights is not None
         assert abs(np.sum(bma.weights.weights) - 1.0) < 1e-6
 
-    def test_ethical_fusion_constraint(self):
+    def test_ethical_fusion_constraint(self) -> None:
         """Ethical fusion should respect sigma_immutable threshold."""
         np.random.seed(42)
         X = np.random.randn(100, 10)
@@ -388,7 +388,7 @@ class TestFusion:
 
     @given(st.floats(min_value=1.0, max_value=3.0))
     @settings(max_examples=10)
-    def test_golden_ratio_constant(self, x):
+    def test_golden_ratio_constant(self, x) -> None:
         """Verify golden ratio constant is correct."""
         # phi = (1 + sqrt(5)) / 2
         expected_phi = (1 + np.sqrt(5)) / 2
@@ -405,7 +405,7 @@ class TestBenevolenceOptimization:
 
     @given(binary_labels(), binary_labels())
     @settings(max_examples=30)
-    def test_benevolence_score_bounds(self, y_true, y_pred):
+    def test_benevolence_score_bounds(self, y_true, y_pred) -> None:
         """Benevolence score should be in [0, 1]."""
         min_len = min(len(y_true), len(y_pred))
         y_true = y_true[:min_len]
@@ -418,14 +418,14 @@ class TestBenevolenceOptimization:
 
     @given(binary_labels())
     @settings(max_examples=20)
-    def test_perfect_predictions_high_benevolence(self, y_true):
+    def test_perfect_predictions_high_benevolence(self, y_true) -> None:
         """Perfect predictions should yield high benevolence."""
         bl = BenevolenceLoss()
         score = bl.compute(y_true.astype(float), y_true)
 
         assert score >= 0.9, f"Perfect predictions gave benevolence {score} < 0.9"
 
-    def test_multi_objective_loss_components(self):
+    def test_multi_objective_loss_components(self) -> None:
         """Multi-objective loss should have correct component structure."""
         np.random.seed(42)
         y_true = np.random.randint(0, 2, 100)
@@ -445,7 +445,7 @@ class TestBenevolenceOptimization:
         assert 0 <= result.fairness_score <= 1
         assert result.detection_loss >= 0
 
-    def test_benevolence_threshold_constant(self):
+    def test_benevolence_threshold_constant(self) -> None:
         """Verify benevolence threshold matches requirements."""
         assert (
             BENEVOLENCE_THRESHOLD == 0.99
@@ -460,7 +460,7 @@ class TestBenevolenceOptimization:
 class TestIntegration:
     """Integration tests combining multiple modules."""
 
-    def test_full_pipeline(self):
+    def test_full_pipeline(self) -> None:
         """Test full pipeline: benchmark -> calibrate -> conformal."""
         np.random.seed(42)
 
@@ -470,10 +470,10 @@ class TestIntegration:
 
         # Create simple detector
         class SimpleDetector:
-            def __init__(self):
+            def __init__(self) -> None:
                 self.model = LogisticRegression()
 
-            def fit(self, X, y):
+            def fit(self, X, y) -> None:
                 self.model.fit(X, y)
 
             def predict(self, X):
@@ -493,7 +493,7 @@ class TestIntegration:
         assert result.roc_auc.mean >= 0.5  # Better than random
         assert result.f1.mean > 0  # Some detections
 
-    def test_calibrated_conformal(self):
+    def test_calibrated_conformal(self) -> None:
         """Test calibration followed by conformal prediction."""
         np.random.seed(42)
 

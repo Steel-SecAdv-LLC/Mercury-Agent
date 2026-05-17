@@ -5,6 +5,9 @@ Copyright (C) 2025 Steel Security Advisors LLC
 Tests for MercuryConversationInterface - Unified "Alive" Interface.
 """
 
+from collections.abc import Iterator
+from typing import Any
+
 import pytest
 
 from omni_mercury_engine.narrative.interface import (
@@ -27,7 +30,7 @@ class TestMercuryConversationInterface:
         )
 
     @pytest.fixture
-    def interface_with_proactive(self) -> MercuryConversationInterface:
+    def interface_with_proactive(self) -> Iterator[MercuryConversationInterface]:
         """Create interface with proactive monitoring."""
         iface = MercuryConversationInterface(
             enable_proactive=True,
@@ -38,7 +41,7 @@ class TestMercuryConversationInterface:
             iface.stop_proactive_monitoring()
 
     @pytest.fixture
-    def sample_detection(self) -> dict:
+    def sample_detection(self) -> dict[str, Any]:
         """Sample detection result."""
         return {
             "anomaly_detected": True,
@@ -79,8 +82,8 @@ class TestMercuryConversationInterface:
         assert greeting_ctx is not None
 
     def test_process_detection(
-        self, interface: MercuryConversationInterface, sample_detection: dict
-    ) -> None:
+        self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
+) -> None:
         """Test detection processing."""
         ctx = interface.create_session()
         response = interface.process_detection(sample_detection, ctx)
@@ -92,8 +95,8 @@ class TestMercuryConversationInterface:
         assert response.narrative is not None
 
     def test_response_structure(
-        self, interface: MercuryConversationInterface, sample_detection: dict
-    ) -> None:
+        self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
+) -> None:
         """Test response has all expected fields."""
         response = interface.process_detection(sample_detection)
 
@@ -107,8 +110,8 @@ class TestMercuryConversationInterface:
         assert isinstance(response.warnings, list)
 
     def test_response_to_dict(
-        self, interface: MercuryConversationInterface, sample_detection: dict
-    ) -> None:
+        self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
+) -> None:
         """Test response serialization."""
         response = interface.process_detection(sample_detection)
         response_dict = response.to_dict()
@@ -119,8 +122,8 @@ class TestMercuryConversationInterface:
         assert "metadata" in response_dict
 
     def test_conversation_history(
-        self, interface: MercuryConversationInterface, sample_detection: dict
-    ) -> None:
+        self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
+) -> None:
         """Test conversation history tracking."""
         ctx = interface.create_session()
 
@@ -130,8 +133,8 @@ class TestMercuryConversationInterface:
         assert len(ctx.conversation_history) == 2
 
     def test_memory_context_in_response(
-        self, interface: MercuryConversationInterface, sample_detection: dict
-    ) -> None:
+        self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
+) -> None:
         """Test memory context is included in response."""
         response = interface.process_detection(sample_detection)
 
@@ -139,8 +142,8 @@ class TestMercuryConversationInterface:
         assert response.historical_references is not None
 
     def test_follow_up_suggestions(
-        self, interface: MercuryConversationInterface, sample_detection: dict
-    ) -> None:
+        self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
+) -> None:
         """Test follow-up suggestions are generated."""
         response = interface.process_detection(sample_detection)
 
@@ -168,8 +171,8 @@ class TestMercuryConversationInterface:
         assert "Mercury" in response or "operational" in response.lower()
 
     def test_statistics(
-        self, interface: MercuryConversationInterface, sample_detection: dict
-    ) -> None:
+        self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
+) -> None:
         """Test statistics gathering."""
         interface.process_detection(sample_detection)
         interface.process_detection(sample_detection)
@@ -185,7 +188,7 @@ class TestMercuryConversationInterfaceProactive:
     """Test proactive monitoring features."""
 
     @pytest.fixture
-    def interface(self) -> MercuryConversationInterface:
+    def interface(self) -> Iterator[MercuryConversationInterface]:
         """Create interface with proactive enabled."""
         iface = MercuryConversationInterface(
             enable_proactive=True,
@@ -219,7 +222,7 @@ class TestMercuryConversationInterfaceProactive:
 
     def test_proactive_callback_registration(self, interface: MercuryConversationInterface) -> None:
         """Test proactive alert callback registration."""
-        events = []
+        events: list[Any] = []
         interface.on_proactive_alert(events.append)
 
         # Callback should be registered

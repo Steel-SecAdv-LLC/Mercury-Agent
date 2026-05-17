@@ -34,12 +34,12 @@ from omni_mercury_engine.ml.fusion_network import STEMDisciplineRouter
 class TestSTEMDisciplineRouter:
     """Test suite for STEMDisciplineRouter."""
 
-    def test_router_instantiation(self):
+    def test_router_instantiation(self) -> None:
         """Test router can be instantiated."""
         router = STEMDisciplineRouter()
         assert router is not None
 
-    def test_discipline_mappings_exist(self):
+    def test_discipline_mappings_exist(self) -> None:
         """Test discipline mappings are defined."""
         router = STEMDisciplineRouter()
 
@@ -48,7 +48,7 @@ class TestSTEMDisciplineRouter:
         assert "physics" in router.discipline_weights
         assert "chemistry" in router.discipline_weights
 
-    def test_route_biology_data(self):
+    def test_route_biology_data(self) -> None:
         """Test routing biology data to appropriate engines."""
         router = STEMDisciplineRouter()
         data = torch.randn(10, 5)
@@ -59,7 +59,7 @@ class TestSTEMDisciplineRouter:
         assert weights["biometric"] > 0.5
         assert "neural" in weights
 
-    def test_route_physics_data(self):
+    def test_route_physics_data(self) -> None:
         """Test routing physics data to appropriate engines."""
         router = STEMDisciplineRouter()
         data = torch.randn(10, 5)
@@ -70,7 +70,7 @@ class TestSTEMDisciplineRouter:
         assert weights["quantum"] > 0.5
         assert "astrophysical" in weights
 
-    def test_route_cybersecurity_data(self):
+    def test_route_cybersecurity_data(self) -> None:
         """Test routing cybersecurity data to security engine."""
         router = STEMDisciplineRouter()
         data = torch.randn(10, 5)
@@ -80,7 +80,7 @@ class TestSTEMDisciplineRouter:
         assert "security" in weights
         assert weights["security"] >= 0.9
 
-    def test_adaptive_weight_adjustment(self):
+    def test_adaptive_weight_adjustment(self) -> None:
         """Test adaptive weight adjustment based on data type."""
         router = STEMDisciplineRouter()
 
@@ -95,7 +95,7 @@ class TestSTEMDisciplineRouter:
         assert len(weights_num) > 0
         assert len(weights_ts) > 0
 
-    def test_explain_routing(self):
+    def test_explain_routing(self) -> None:
         """Test routing explanation functionality."""
         router = STEMDisciplineRouter()
 
@@ -106,7 +106,7 @@ class TestSTEMDisciplineRouter:
         assert "status" in explanation
         assert explanation["status"] == "routed"
 
-    def test_unknown_discipline_fallback(self):
+    def test_unknown_discipline_fallback(self) -> None:
         """Test fallback for unknown disciplines."""
         router = STEMDisciplineRouter()
         data = torch.randn(10, 5)

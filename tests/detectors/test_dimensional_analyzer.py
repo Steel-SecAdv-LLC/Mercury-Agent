@@ -35,13 +35,13 @@ from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer, Neura
 class TestNeuralProjection:
     """Tests for NeuralProjection module."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test NeuralProjection initialization with various dimensions."""
         model = NeuralProjection(input_dim=20, latent_dim=5)
         assert model.encoder is not None
         assert model.decoder is not None
 
-    def test_forward_pass(self):
+    def test_forward_pass(self) -> None:
         """Test forward pass through NeuralProjection."""
         model = NeuralProjection(input_dim=20, latent_dim=5)
         x = torch.randn(10, 20)
@@ -50,7 +50,7 @@ class TestNeuralProjection:
         assert latent.shape == (10, 5)
         assert reconstructed.shape == (10, 20)
 
-    def test_encoder_decoder_consistency(self):
+    def test_encoder_decoder_consistency(self) -> None:
         """Test that encoder reduces dims and decoder restores them."""
         model = NeuralProjection(input_dim=50, latent_dim=10)
         x = torch.randn(5, 50)
@@ -63,7 +63,7 @@ class TestNeuralProjection:
 class TestDimensionalAnalyzer:
     """Tests for DimensionalAnalyzer detector."""
 
-    def test_initialization_default_config(self):
+    def test_initialization_default_config(self) -> None:
         """Test initialization with default config."""
         analyzer = DimensionalAnalyzer()
         assert analyzer.n_components == 10
@@ -71,7 +71,7 @@ class TestDimensionalAnalyzer:
         assert analyzer.use_db_term is True
         assert not analyzer._is_fitted
 
-    def test_initialization_custom_config(self):
+    def test_initialization_custom_config(self) -> None:
         """Test initialization with custom config."""
         config = {
             "n_components": 5,
@@ -83,7 +83,7 @@ class TestDimensionalAnalyzer:
         assert analyzer.reconstruction_threshold == 1.5
         assert analyzer.use_db_term is False
 
-    def test_fit_numpy_array(self, sample_data):
+    def test_fit_numpy_array(self, sample_data) -> None:
         """Test fitting with numpy array."""
         analyzer = DimensionalAnalyzer()
         result = analyzer.fit(sample_data)
@@ -94,7 +94,7 @@ class TestDimensionalAnalyzer:
         assert analyzer.autoencoder is not None
         assert analyzer.input_dim == sample_data.shape[1]
 
-    def test_fit_torch_tensor(self):
+    def test_fit_torch_tensor(self) -> None:
         """Test fitting with torch tensor."""
         data = torch.randn(100, 15)
         analyzer = DimensionalAnalyzer()
@@ -104,7 +104,7 @@ class TestDimensionalAnalyzer:
         assert analyzer._is_fitted
         assert analyzer.input_dim == 15
 
-    def test_fit_with_db_term(self, sample_data):
+    def test_fit_with_db_term(self, sample_data) -> None:
         """Test fitting computes baseline spectral signature when DB term enabled."""
         analyzer = DimensionalAnalyzer(config={"use_db_term": True})
         analyzer.fit(sample_data)
@@ -112,20 +112,20 @@ class TestDimensionalAnalyzer:
         assert analyzer.baseline_spectral_signature is not None
         assert len(analyzer.baseline_spectral_signature) > 0
 
-    def test_fit_without_db_term(self, sample_data):
+    def test_fit_without_db_term(self, sample_data) -> None:
         """Test fitting skips spectral signature when DB term disabled."""
         analyzer = DimensionalAnalyzer(config={"use_db_term": False})
         analyzer.fit(sample_data)
 
         assert analyzer.baseline_spectral_signature is None
 
-    def test_detect_unfitted_raises(self, sample_data):
+    def test_detect_unfitted_raises(self, sample_data) -> None:
         """Test detection on unfitted detector raises exception."""
         analyzer = DimensionalAnalyzer()
         with pytest.raises(DetectorException, match="must be fitted"):
             analyzer.detect(sample_data)
 
-    def test_detect_numpy_array(self, sample_data):
+    def test_detect_numpy_array(self, sample_data) -> None:
         """Test detection with numpy array input."""
         analyzer = DimensionalAnalyzer()
         analyzer.fit(sample_data)
@@ -139,7 +139,7 @@ class TestDimensionalAnalyzer:
         assert result["detector_type"] == "dimensional"
         assert len(result["scores"]) == len(sample_data)
 
-    def test_detect_torch_tensor(self):
+    def test_detect_torch_tensor(self) -> None:
         """Test detection with torch tensor input."""
         data = torch.randn(50, 20)
         analyzer = DimensionalAnalyzer()
@@ -150,7 +150,7 @@ class TestDimensionalAnalyzer:
         assert "scores" in result
         assert len(result["scores"]) == 50
 
-    def test_detect_with_db_term(self, sample_data):
+    def test_detect_with_db_term(self, sample_data) -> None:
         """Test detection includes DB scores when enabled."""
         analyzer = DimensionalAnalyzer(config={"use_db_term": True})
         analyzer.fit(sample_data)
@@ -159,7 +159,7 @@ class TestDimensionalAnalyzer:
         assert result["db_scores"] is not None
         assert len(result["db_scores"]) == len(sample_data)
 
-    def test_detect_without_db_term(self, sample_data):
+    def test_detect_without_db_term(self, sample_data) -> None:
         """Test detection returns None for DB scores when disabled."""
         analyzer = DimensionalAnalyzer(config={"use_db_term": False})
         analyzer.fit(sample_data)
@@ -167,7 +167,7 @@ class TestDimensionalAnalyzer:
 
         assert result["db_scores"] is None
 
-    def test_detect_anomalies_in_outliers(self, sample_data):
+    def test_detect_anomalies_in_outliers(self, sample_data) -> None:
         """Test that clear outliers are detected as anomalies."""
         normal_data = sample_data
         # Create outliers with much larger values
@@ -180,7 +180,7 @@ class TestDimensionalAnalyzer:
         # At least some outliers should be detected
         assert np.sum(result["is_anomaly"]) > 0
 
-    def test_extract_features_unfitted(self, sample_data):
+    def test_extract_features_unfitted(self, sample_data) -> None:
         """Test feature extraction auto-fits if not fitted."""
         analyzer = DimensionalAnalyzer()
         features = analyzer.extract_features(sample_data)
@@ -188,7 +188,7 @@ class TestDimensionalAnalyzer:
         assert analyzer._is_fitted
         assert isinstance(features, torch.Tensor)
 
-    def test_extract_features_numpy(self, sample_data):
+    def test_extract_features_numpy(self, sample_data) -> None:
         """Test feature extraction with numpy input."""
         analyzer = DimensionalAnalyzer()
         analyzer.fit(sample_data)
@@ -199,7 +199,7 @@ class TestDimensionalAnalyzer:
         # Should have at least 50 features (or padded to 50)
         assert features.shape[1] >= 50
 
-    def test_extract_features_torch(self):
+    def test_extract_features_torch(self) -> None:
         """Test feature extraction with torch tensor input."""
         data = torch.randn(30, 20)
         analyzer = DimensionalAnalyzer()
@@ -210,7 +210,7 @@ class TestDimensionalAnalyzer:
         assert features.shape[0] == 30
         assert features.shape[1] >= 50
 
-    def test_extract_features_padding(self):
+    def test_extract_features_padding(self) -> None:
         """Test feature extraction pads to minimum dimension."""
         data = np.random.randn(20, 5)  # Small features
         analyzer = DimensionalAnalyzer(config={"n_components": 3})
@@ -224,7 +224,7 @@ class TestDimensionalAnalyzer:
 class TestDBTerm:
     """Tests for Dimensional Code-Breaking (DB) term functions."""
 
-    def test_compute_spectral_signature_1d(self):
+    def test_compute_spectral_signature_1d(self) -> None:
         """Test spectral signature computation with 1D input."""
         analyzer = DimensionalAnalyzer()
         signal = np.sin(np.linspace(0, 10, 100))
@@ -233,7 +233,7 @@ class TestDBTerm:
         assert signature is not None
         assert len(signature) > 0
 
-    def test_compute_spectral_signature_2d(self):
+    def test_compute_spectral_signature_2d(self) -> None:
         """Test spectral signature computation with 2D input."""
         analyzer = DimensionalAnalyzer()
         data = np.random.randn(100, 5)
@@ -242,7 +242,7 @@ class TestDBTerm:
         assert signature is not None
         assert len(signature) > 0
 
-    def test_dimensional_code_breaking(self, sample_data):
+    def test_dimensional_code_breaking(self, sample_data) -> None:
         """Test DB score computation."""
         analyzer = DimensionalAnalyzer()
         analyzer.fit(sample_data)
@@ -253,7 +253,7 @@ class TestDBTerm:
         assert np.all(scores >= 0)
         assert np.all(scores <= 1)
 
-    def test_phase_coherence(self):
+    def test_phase_coherence(self) -> None:
         """Test phase coherence computation."""
         analyzer = DimensionalAnalyzer()
 
@@ -267,14 +267,14 @@ class TestDBTerm:
         random_coherence = analyzer._compute_phase_coherence(random_signal)
         assert 0.0 <= random_coherence <= 1.0
 
-    def test_phase_coherence_short_signal(self):
+    def test_phase_coherence_short_signal(self) -> None:
         """Test phase coherence with very short signal."""
         analyzer = DimensionalAnalyzer()
         short_signal = np.array([1.0, 2.0])
         coherence = analyzer._compute_phase_coherence(short_signal)
         assert coherence == 1.0  # Should return 1.0 for signals < 4 samples
 
-    def test_harmonic_distortion(self):
+    def test_harmonic_distortion(self) -> None:
         """Test harmonic distortion computation."""
         analyzer = DimensionalAnalyzer()
 
@@ -288,7 +288,7 @@ class TestDBTerm:
         random_thd = analyzer._compute_harmonic_distortion(random_signal)
         assert 0.0 <= random_thd <= 1.0
 
-    def test_harmonic_distortion_short_signal(self):
+    def test_harmonic_distortion_short_signal(self) -> None:
         """Test harmonic distortion with very short signal."""
         analyzer = DimensionalAnalyzer()
         short_signal = np.array([1.0, 2.0, 3.0])

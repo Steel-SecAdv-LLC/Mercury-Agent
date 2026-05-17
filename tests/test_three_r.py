@@ -31,12 +31,12 @@ from omni_mercury_engine.core.three_r_mechanism import (
 
 
 class TestRecursionEngine:
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         engine = RecursionEngine(max_depth=5)
         assert engine.max_depth == 5
         assert isinstance(engine.recursion_cache, dict)
 
-    def test_recursive_transform_convergence(self):
+    def test_recursive_transform_convergence(self) -> None:
         engine = RecursionEngine(max_depth=10)
         data = np.array([1.0, 2.0, 3.0, 4.0])
 
@@ -48,7 +48,7 @@ class TestRecursionEngine:
         assert result.shape == data.shape
         assert np.all(result < data)
 
-    def test_recursive_transform_max_depth(self):
+    def test_recursive_transform_max_depth(self) -> None:
         engine = RecursionEngine(max_depth=2)
         data = np.array([1.0, 2.0, 3.0, 4.0])
 
@@ -59,7 +59,7 @@ class TestRecursionEngine:
 
         assert result.shape == data.shape
 
-    def test_hierarchical_feature_extraction(self):
+    def test_hierarchical_feature_extraction(self) -> None:
         engine = RecursionEngine()
         data = np.random.randn(100)
 
@@ -68,7 +68,7 @@ class TestRecursionEngine:
         assert len(features) == 3
         assert all(isinstance(f, np.ndarray) for f in features)
 
-    def test_hierarchical_feature_extraction_2d(self):
+    def test_hierarchical_feature_extraction_2d(self) -> None:
         engine = RecursionEngine()
         data = np.random.randn(20, 5)
 
@@ -77,7 +77,7 @@ class TestRecursionEngine:
         assert len(features) == 2
         assert all(isinstance(f, np.ndarray) for f in features)
 
-    def test_extract_level_features_small_data(self):
+    def test_extract_level_features_small_data(self) -> None:
         engine = RecursionEngine()
         data = np.array([1.0, 2.0])
 
@@ -85,7 +85,7 @@ class TestRecursionEngine:
 
         assert isinstance(features, np.ndarray)
 
-    def test_sliding_window_stats_small_window(self):
+    def test_sliding_window_stats_small_window(self) -> None:
         engine = RecursionEngine()
         data = np.array([1.0, 2.0])
 
@@ -93,7 +93,7 @@ class TestRecursionEngine:
 
         assert isinstance(features, np.ndarray)
 
-    def test_downsample_small_data(self):
+    def test_downsample_small_data(self) -> None:
         engine = RecursionEngine()
         data = np.array([1.0])
 
@@ -103,11 +103,11 @@ class TestRecursionEngine:
 
 
 class TestResonanceEngine:
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         engine = ResonanceEngine(sampling_rate=100.0)
         assert engine.sampling_rate == 100.0
 
-    def test_compute_resonance_spectrum(self):
+    def test_compute_resonance_spectrum(self) -> None:
         engine = ResonanceEngine(sampling_rate=1.0)
         signal = np.sin(2 * np.pi * 5 * np.linspace(0, 1, 100))
 
@@ -117,7 +117,7 @@ class TestResonanceEngine:
         assert len(magnitudes) > 0
         assert len(frequencies) == len(magnitudes)
 
-    def test_compute_resonance_spectrum_2d(self):
+    def test_compute_resonance_spectrum_2d(self) -> None:
         engine = ResonanceEngine(sampling_rate=1.0)
         signal = np.random.randn(10, 10)
 
@@ -126,7 +126,7 @@ class TestResonanceEngine:
         assert len(frequencies) > 0
         assert len(magnitudes) > 0
 
-    def test_amplify_resonant_frequencies_with_targets(self):
+    def test_amplify_resonant_frequencies_with_targets(self) -> None:
         engine = ResonanceEngine(sampling_rate=1.0)
         signal = np.sin(2 * np.pi * 5 * np.linspace(0, 1, 100))
 
@@ -137,7 +137,7 @@ class TestResonanceEngine:
         assert len(amplified) == len(signal)
         assert isinstance(amplified, np.ndarray)
 
-    def test_amplify_resonant_frequencies_auto_detect(self):
+    def test_amplify_resonant_frequencies_auto_detect(self) -> None:
         engine = ResonanceEngine(sampling_rate=1.0)
         signal = np.sin(2 * np.pi * 5 * np.linspace(0, 1, 100))
 
@@ -147,7 +147,7 @@ class TestResonanceEngine:
 
         assert len(amplified) == len(signal)
 
-    def test_detect_resonance_anomalies(self):
+    def test_detect_resonance_anomalies(self) -> None:
         engine = ResonanceEngine(sampling_rate=1.0)
 
         normal_signal = np.random.randn(100) * 0.1
@@ -158,7 +158,7 @@ class TestResonanceEngine:
         assert "num_anomalies" in result
         assert isinstance(result["is_anomalous"], (bool, np.bool_))
 
-    def test_detect_resonance_anomalies_with_spike(self):
+    def test_detect_resonance_anomalies_with_spike(self) -> None:
         engine = ResonanceEngine(sampling_rate=1.0)
 
         signal = np.zeros(100)
@@ -171,11 +171,11 @@ class TestResonanceEngine:
 
 
 class TestRefactoringEngine:
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         engine = RefactoringEngine()
         assert isinstance(engine.optimization_history, list)
 
-    def test_analyze_function_complexity(self):
+    def test_analyze_function_complexity(self) -> None:
         engine = RefactoringEngine()
 
         def simple_function(x):
@@ -185,7 +185,7 @@ class TestRefactoringEngine:
 
         assert "num_nodes" in metrics or "error" in metrics
 
-    def test_analyze_complex_function(self):
+    def test_analyze_complex_function(self) -> None:
         engine = RefactoringEngine()
 
         def complex_function(x, y):
@@ -205,7 +205,7 @@ class TestRefactoringEngine:
             assert metrics["num_loops"] >= 2
             assert metrics["num_branches"] >= 2
 
-    def test_suggest_refactorings_simple(self):
+    def test_suggest_refactorings_simple(self) -> None:
         engine = RefactoringEngine()
 
         def simple_function(x):
@@ -215,7 +215,7 @@ class TestRefactoringEngine:
 
         assert isinstance(suggestions, list)
 
-    def test_suggest_refactorings_complex(self):
+    def test_suggest_refactorings_complex(self) -> None:
         engine = RefactoringEngine()
 
         def complex_function(x, y):
@@ -233,7 +233,7 @@ class TestRefactoringEngine:
 
         assert isinstance(suggestions, list)
 
-    def test_optimize_data_structure(self):
+    def test_optimize_data_structure(self) -> None:
         engine = RefactoringEngine()
 
         data = [1, 2, 3, 4, 5]
@@ -241,7 +241,7 @@ class TestRefactoringEngine:
 
         assert optimized is not None
 
-    def test_optimize_data_structure_iteration(self):
+    def test_optimize_data_structure_iteration(self) -> None:
         engine = RefactoringEngine()
 
         data = {1, 2, 3, 4, 5}
@@ -249,7 +249,7 @@ class TestRefactoringEngine:
 
         assert isinstance(optimized, list)
 
-    def test_optimize_data_structure_insertion(self):
+    def test_optimize_data_structure_insertion(self) -> None:
         engine = RefactoringEngine()
 
         data = (1, 2, 3, 4, 5)
@@ -259,14 +259,14 @@ class TestRefactoringEngine:
 
 
 class TestThreeRMechanism:
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         mechanism = ThreeRMechanism(max_recursion_depth=5, sampling_rate=1.0)
 
         assert mechanism.recursion_engine is not None
         assert mechanism.resonance_engine is not None
         assert mechanism.refactoring_engine is not None
 
-    def test_enhance_features(self):
+    def test_enhance_features(self) -> None:
         mechanism = ThreeRMechanism()
         data = np.random.randn(50)
 
@@ -275,7 +275,7 @@ class TestThreeRMechanism:
         assert isinstance(enhanced, np.ndarray)
         assert enhanced.size > 0
 
-    def test_enhance_features_recursion_only(self):
+    def test_enhance_features_recursion_only(self) -> None:
         mechanism = ThreeRMechanism()
         data = np.random.randn(50)
 
@@ -284,7 +284,7 @@ class TestThreeRMechanism:
         assert isinstance(enhanced, np.ndarray)
         assert enhanced.size > 0
 
-    def test_enhance_features_short_signal(self):
+    def test_enhance_features_short_signal(self) -> None:
         mechanism = ThreeRMechanism()
         data = np.random.randn(5)
 
@@ -292,7 +292,7 @@ class TestThreeRMechanism:
 
         assert isinstance(enhanced, np.ndarray)
 
-    def test_detect_with_resonance(self):
+    def test_detect_with_resonance(self) -> None:
         mechanism = ThreeRMechanism()
         signal = np.random.randn(100)
 
@@ -301,7 +301,7 @@ class TestThreeRMechanism:
         assert "is_anomalous" in result
         assert "num_anomalies" in result
 
-    def test_optimize_component(self):
+    def test_optimize_component(self) -> None:
         mechanism = ThreeRMechanism()
 
         def sample_function(x, y):
@@ -315,7 +315,7 @@ class TestThreeRMechanism:
         assert "complexity_metrics" in result
         assert "refactoring_suggestions" in result
 
-    def test_recursive_anomaly_refinement(self):
+    def test_recursive_anomaly_refinement(self) -> None:
         mechanism = ThreeRMechanism()
 
         initial_scores = np.array([0.5, 0.6, 0.7, 0.8])
@@ -334,14 +334,14 @@ class TestThreeRMechanism:
 class TestRefactoringEngineAutoApplication:
     """Tests for automatic refactoring application."""
 
-    def test_apply_refactorings_disabled_by_default(self):
+    def test_apply_refactorings_disabled_by_default(self) -> None:
         """Test that apply_refactorings requires explicit opt-in."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig
 
         config = RefactoringConfig()
         assert config.apply_refactorings is False
 
-    def test_apply_refactorings_with_backup(self):
+    def test_apply_refactorings_with_backup(self) -> None:
         """Test automatic refactoring creates backup."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
@@ -359,7 +359,7 @@ class TestRefactoringEngineAutoApplication:
         assert "backup_path" in result or "message" in result
         assert "success" in result
 
-    def test_rollback_refactoring(self):
+    def test_rollback_refactoring(self) -> None:
         """Test rollback functionality."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
@@ -375,7 +375,7 @@ class TestRefactoringEngineAutoApplication:
             rollback = engine.rollback_refactoring("test_func")
             assert "restored_code" in rollback or "error" in rollback
 
-    def test_harmonic_analysis(self):
+    def test_harmonic_analysis(self) -> None:
         """Test harmonic-enhanced code analysis."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
@@ -395,7 +395,7 @@ class TestRefactoringEngineAutoApplication:
         if "harmonic_analysis" in harmonic_result:
             assert "dominant_frequency" in harmonic_result["harmonic_analysis"]
 
-    def test_quantum_path_exploration(self):
+    def test_quantum_path_exploration(self) -> None:
         """Test quantum-inspired refactoring path exploration."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
@@ -417,7 +417,7 @@ class TestRefactoringEngineAutoApplication:
             assert "suggestions" in paths[0]
             assert "score" in paths[0]
 
-    def test_resonance_pattern_detection(self):
+    def test_resonance_pattern_detection(self) -> None:
         """Test resonance-based pattern detection."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
@@ -437,7 +437,7 @@ class TestRefactoringEngineAutoApplication:
 
         assert "resonance_detected" in resonance or "error" in resonance
 
-    def test_orchestrated_refactoring(self):
+    def test_orchestrated_refactoring(self) -> None:
         """Test meta-orchestration of multiple strategies."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
@@ -457,7 +457,7 @@ class TestRefactoringEngineAutoApplication:
         assert "unified_suggestions" in orchestrated
         assert "recommended_strategy" in orchestrated
 
-    def test_refactoring_with_invalid_function(self):
+    def test_refactoring_with_invalid_function(self) -> None:
         """Test error handling for invalid functions."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
@@ -469,7 +469,7 @@ class TestRefactoringEngineAutoApplication:
         assert result["success"] is False
         assert "error" in result
 
-    def test_ast_transformation_validation(self):
+    def test_ast_transformation_validation(self) -> None:
         """Test that AST transformations produce valid Python code."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
@@ -491,7 +491,7 @@ class TestRefactoringEngineAutoApplication:
             except SyntaxError:
                 raise AssertionError("Refactored code has syntax errors")
 
-    def test_complex_nesting_reduction(self):
+    def test_complex_nesting_reduction(self) -> None:
         """Test refactoring of deeply nested code."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
@@ -511,7 +511,7 @@ class TestRefactoringEngineAutoApplication:
         nesting_suggestions = [s for s in suggestions if s.get("type") == "reduce_nesting"]
         assert len(nesting_suggestions) > 0
 
-    def test_optimization_history_tracking(self):
+    def test_optimization_history_tracking(self) -> None:
         """Test that optimization history is tracked."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig, RefactoringEngine
 
@@ -527,7 +527,7 @@ class TestRefactoringEngineAutoApplication:
 
         assert len(engine.optimization_history) >= initial_history_len
 
-    def test_three_r_with_enhanced_refactoring(self):
+    def test_three_r_with_enhanced_refactoring(self) -> None:
         """Test ThreeRMechanism integration with enhanced refactoring."""
         from omni_mercury_engine.core.three_r_mechanism import ThreeRMechanism
 
@@ -544,7 +544,7 @@ class TestRefactoringEngineAutoApplication:
         assert "complexity_metrics" in result
         assert "refactoring_suggestions" in result
 
-    def test_backup_file_creation(self):
+    def test_backup_file_creation(self) -> None:
         """Test that backup files are created correctly."""
         import os
 
@@ -563,7 +563,7 @@ class TestRefactoringEngineAutoApplication:
         if result.get("backup_path"):
             assert os.path.exists(result["backup_path"])
 
-    def test_refactoring_config_defaults(self):
+    def test_refactoring_config_defaults(self) -> None:
         """Test RefactoringConfig default values."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringConfig
 
@@ -578,7 +578,7 @@ class TestRefactoringEngineAutoApplication:
 class TestNewEnginePatterns:
     """Tests for patterns integrated from 17 new engine documents."""
 
-    def test_multi_dimensional_anomaly_detection(self):
+    def test_multi_dimensional_anomaly_detection(self) -> None:
         """Test multi-dimensional anomaly detection from Anomaly Engine."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
@@ -599,7 +599,7 @@ class TestNewEnginePatterns:
         assert "anomaly_score" in anomalies
         assert "method" in anomalies
 
-    def test_issue_classification_by_type_and_severity(self):
+    def test_issue_classification_by_type_and_severity(self) -> None:
         """Test issue classification from Engineering & Refinement Engine."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
@@ -622,7 +622,7 @@ class TestNewEnginePatterns:
             assert "description" in issues[0]
             assert "recommendation" in issues[0]
 
-    def test_evolution_strategy_adaptation(self):
+    def test_evolution_strategy_adaptation(self) -> None:
         """Test adaptive evolution strategy from Evolution Engine."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
@@ -643,7 +643,7 @@ class TestNewEnginePatterns:
         assert "current_complexity" in evolved
         assert "strategy_justification" in evolved
 
-    def test_neurosymbolic_symbolic_analysis(self):
+    def test_neurosymbolic_symbolic_analysis(self) -> None:
         """Test neurosymbolic symbolic analysis."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringEngine
 
@@ -660,7 +660,7 @@ class TestNewEnginePatterns:
         assert "neural" in results
         assert "readiness_level" in results
 
-    def test_neurosymbolic_readiness_level(self):
+    def test_neurosymbolic_readiness_level(self) -> None:
         """Test neurosymbolic readiness level assessment."""
         from omni_mercury_engine.core.neurosymbolic_engine import (
             NeurosymbolicConfig,
@@ -675,7 +675,7 @@ class TestNewEnginePatterns:
         readiness = ns_engine.get_readiness_level()
         assert readiness == ReadinessLevel.PRODUCTION_READY
 
-    def test_bias_checking(self):
+    def test_bias_checking(self) -> None:
         """Test bias checking in neurosymbolic engine."""
         from omni_mercury_engine.core.neurosymbolic_engine import NeurosymbolicEngine
 
@@ -692,7 +692,7 @@ class TestNewEnginePatterns:
         assert "bias_detected" in bias_result
         assert "diversity_ratio" in bias_result
 
-    def test_three_r_with_enhanced_refactoring(self):
+    def test_three_r_with_enhanced_refactoring(self) -> None:
         """Test ThreeRMechanism integration with enhanced refactoring."""
         from omni_mercury_engine.core.three_r_mechanism import ThreeRMechanism
 
@@ -716,7 +716,7 @@ class TestNewEnginePatterns:
 class TestNeuralVerifierIntegration:
     """Tests for neural verifier integration with ThreeRMechanism."""
 
-    def test_neural_verifier_initialization(self):
+    def test_neural_verifier_initialization(self) -> None:
         """Test that neural verifier is initialized with ThreeRMechanism."""
         mechanism = ThreeRMechanism()
 
@@ -725,7 +725,7 @@ class TestNeuralVerifierIntegration:
         assert mechanism._torch_available is True
         assert mechanism._neural_verifier is not None
 
-    def test_compute_dominance_score_with_neural_verification(self):
+    def test_compute_dominance_score_with_neural_verification(self) -> None:
         """Test compute_dominance_score includes neural verification."""
         mechanism = ThreeRMechanism()
         data = np.random.randn(100)
@@ -742,7 +742,7 @@ class TestNeuralVerifierIntegration:
         assert result.neural_anomaly_score <= 1.0
         assert isinstance(result.dual_verified, bool)
 
-    def test_neural_score_stored_for_gosnn(self):
+    def test_neural_score_stored_for_gosnn(self) -> None:
         """Test that neural score is stored for GOSNN integration."""
         mechanism = ThreeRMechanism()
         data = np.random.randn(50)
@@ -753,7 +753,7 @@ class TestNeuralVerifierIntegration:
         assert mechanism.last_neural_score >= 0.0
         assert mechanism.last_neural_score <= 1.0
 
-    def test_dual_verification_agreement(self):
+    def test_dual_verification_agreement(self) -> None:
         """Test dual verification when scores agree."""
         mechanism = ThreeRMechanism()
         data = np.random.randn(100)
@@ -769,7 +769,7 @@ class TestNeuralVerifierIntegration:
         else:
             assert result.dual_verified is False
 
-    def test_custom_neural_dimensions(self):
+    def test_custom_neural_dimensions(self) -> None:
         """Test ThreeRMechanism with custom neural dimensions."""
         mechanism = ThreeRMechanism(neural_input_dim=32, neural_d_model=64)
 
@@ -777,7 +777,7 @@ class TestNeuralVerifierIntegration:
         assert mechanism._neural_d_model == 64
         assert mechanism._neural_verifier is not None
 
-    def test_neural_verification_with_small_data(self):
+    def test_neural_verification_with_small_data(self) -> None:
         """Test neural verification handles small input data."""
         mechanism = ThreeRMechanism()
         data = np.array([1.0, 2.0, 3.0])
@@ -788,7 +788,7 @@ class TestNeuralVerifierIntegration:
         assert result.neural_anomaly_score >= 0.0
         assert result.neural_anomaly_score <= 1.0
 
-    def test_neural_verification_with_large_data(self):
+    def test_neural_verification_with_large_data(self) -> None:
         """Test neural verification handles large input data."""
         mechanism = ThreeRMechanism()
         data = np.random.randn(1000)
@@ -799,7 +799,7 @@ class TestNeuralVerifierIntegration:
         assert result.neural_anomaly_score >= 0.0
         assert result.neural_anomaly_score <= 1.0
 
-    def test_anomaly_fusion_result_has_neural_fields(self):
+    def test_anomaly_fusion_result_has_neural_fields(self) -> None:
         """Test AnomalyFusionResult dataclass has neural verification fields."""
         from omni_mercury_engine.core.three_r_mechanism import AnomalyFusionResult
 

@@ -28,14 +28,14 @@ from omni_mercury_engine.ml.lightweight_primitives import (
 class TestActivationFunctions:
     """Tests for activation functions."""
 
-    def test_relu(self):
+    def test_relu(self) -> None:
         """Test ReLU activation."""
         x = np.array([-2, -1, 0, 1, 2], dtype=np.float32)
         result = relu(x)
 
         np.testing.assert_array_equal(result, np.array([0, 0, 0, 1, 2]))
 
-    def test_relu_preserves_positive(self):
+    def test_relu_preserves_positive(self) -> None:
         """Test ReLU preserves positive values."""
         x = np.random.randn(100).astype(np.float32)
         result = relu(x)
@@ -44,7 +44,7 @@ class TestActivationFunctions:
         positive_mask = x > 0
         np.testing.assert_array_almost_equal(result[positive_mask], x[positive_mask])
 
-    def test_leaky_relu(self):
+    def test_leaky_relu(self) -> None:
         """Test Leaky ReLU activation."""
         x = np.array([-2, -1, 0, 1, 2], dtype=np.float32)
         result = leaky_relu(x, alpha=0.1)
@@ -52,7 +52,7 @@ class TestActivationFunctions:
         expected = np.array([-0.2, -0.1, 0, 1, 2])
         np.testing.assert_array_almost_equal(result, expected)
 
-    def test_sigmoid(self):
+    def test_sigmoid(self) -> None:
         """Test sigmoid activation."""
         x = np.array([-10, 0, 10], dtype=np.float32)
         result = sigmoid(x)
@@ -64,7 +64,7 @@ class TestActivationFunctions:
         # Sigmoid(0) = 0.5
         assert np.abs(result[1] - 0.5) < 1e-6
 
-    def test_sigmoid_extreme_values(self):
+    def test_sigmoid_extreme_values(self) -> None:
         """Test sigmoid handles extreme values without overflow."""
         x = np.array([-1000, 1000], dtype=np.float32)
         result = sigmoid(x)
@@ -74,7 +74,7 @@ class TestActivationFunctions:
         assert result[0] < 0.01
         assert result[1] > 0.99
 
-    def test_tanh(self):
+    def test_tanh(self) -> None:
         """Test tanh activation."""
         x = np.array([-10, 0, 10], dtype=np.float32)
         result = tanh(x)
@@ -86,7 +86,7 @@ class TestActivationFunctions:
         # Tanh(0) = 0
         assert np.abs(result[1]) < 1e-6
 
-    def test_softmax(self):
+    def test_softmax(self) -> None:
         """Test softmax activation."""
         x = np.array([[1, 2, 3], [1, 1, 1]], dtype=np.float32)
         result = softmax(x, axis=1)
@@ -97,7 +97,7 @@ class TestActivationFunctions:
         # All values should be positive
         assert np.all(result > 0)
 
-    def test_softmax_numerical_stability(self):
+    def test_softmax_numerical_stability(self) -> None:
         """Test softmax handles large values without overflow."""
         x = np.array([[1000, 1001, 1002]], dtype=np.float32)
         result = softmax(x, axis=1)
@@ -106,7 +106,7 @@ class TestActivationFunctions:
         assert np.isfinite(result).all()
         np.testing.assert_almost_equal(result.sum(), 1.0)
 
-    def test_get_activation(self):
+    def test_get_activation(self) -> None:
         """Test activation function getter."""
         assert get_activation("relu") is relu
         assert get_activation("sigmoid") is sigmoid
@@ -134,13 +134,13 @@ class TestLightweightMLP:
         """Create MLP instance."""
         return LightweightMLP(config)
 
-    def test_init(self, mlp, config):
+    def test_init(self, mlp, config) -> None:
         """Test MLP initialization."""
         assert mlp.config.input_dim == 64
         assert mlp.config.output_dim == 1
         assert len(mlp.layers) == 3  # 2 hidden + 1 output
 
-    def test_layer_dimensions(self, mlp):
+    def test_layer_dimensions(self, mlp) -> None:
         """Test layer weight dimensions."""
         # First layer: input_dim -> hidden_dim[0]
         assert mlp.layers[0].weights.shape == (64, 128)
@@ -154,7 +154,7 @@ class TestLightweightMLP:
         assert mlp.layers[2].weights.shape == (64, 1)
         assert mlp.layers[2].bias.shape == (1,)
 
-    def test_forward_single_sample(self, mlp):
+    def test_forward_single_sample(self, mlp) -> None:
         """Test forward pass with single sample."""
         x = np.random.randn(64).astype(np.float32)
         output = mlp.forward(x)
@@ -163,7 +163,7 @@ class TestLightweightMLP:
         # Sigmoid output should be in (0, 1)
         assert 0 < output[0, 0] < 1
 
-    def test_forward_batch(self, mlp):
+    def test_forward_batch(self, mlp) -> None:
         """Test forward pass with batch."""
         x = np.random.randn(32, 64).astype(np.float32)
         output = mlp.forward(x)
@@ -171,21 +171,21 @@ class TestLightweightMLP:
         assert output.shape == (32, 1)
         assert np.all((output > 0) & (output < 1))
 
-    def test_forward_padding(self, mlp):
+    def test_forward_padding(self, mlp) -> None:
         """Test forward handles input padding."""
         x = np.random.randn(10, 32).astype(np.float32)  # Only 32 features
         output = mlp.forward(x)
 
         assert output.shape == (10, 1)
 
-    def test_forward_truncation(self, mlp):
+    def test_forward_truncation(self, mlp) -> None:
         """Test forward handles input truncation."""
         x = np.random.randn(10, 128).astype(np.float32)  # 128 features
         output = mlp.forward(x)
 
         assert output.shape == (10, 1)
 
-    def test_predict_alias(self, mlp):
+    def test_predict_alias(self, mlp) -> None:
         """Test predict is alias for forward."""
         x = np.random.randn(64).astype(np.float32)
         forward_result = mlp.forward(x)
@@ -193,7 +193,7 @@ class TestLightweightMLP:
 
         np.testing.assert_array_equal(forward_result, predict_result)
 
-    def test_export_load_weights(self, mlp):
+    def test_export_load_weights(self, mlp) -> None:
         """Test weight export and loading."""
         x = np.random.randn(10, 64).astype(np.float32)
 
@@ -211,13 +211,13 @@ class TestLightweightMLP:
         loaded_output = new_mlp.forward(x)
         np.testing.assert_array_almost_equal(original_output, loaded_output)
 
-    def test_param_count(self, mlp):
+    def test_param_count(self, mlp) -> None:
         """Test parameter counting."""
         # Expected: 64*128 + 128 + 128*64 + 64 + 64*1 + 1 = 8192 + 128 + 8192 + 64 + 64 + 1 = 16641
         expected = 64 * 128 + 128 + 128 * 64 + 64 + 64 * 1 + 1
         assert mlp.get_param_count() == expected
 
-    def test_batch_normalization(self):
+    def test_batch_normalization(self) -> None:
         """Test MLP with batch normalization."""
         config = MLPConfig(
             input_dim=32,
@@ -242,7 +242,7 @@ class TestLightweightMLP:
         output = mlp.forward(x)
         assert output.shape == (10, 1)
 
-    def test_different_activations(self):
+    def test_different_activations(self) -> None:
         """Test MLP with different activations."""
         for activation in ["relu", "tanh", "sigmoid", "leaky_relu"]:
             config = MLPConfig(
@@ -274,33 +274,33 @@ class TestLightweightAutoencoder:
             seed=42,
         )
 
-    def test_init(self, autoencoder):
+    def test_init(self, autoencoder) -> None:
         """Test autoencoder initialization."""
         assert autoencoder.input_dim == 64
         assert autoencoder.latent_dim == 16
 
-    def test_encode(self, autoencoder):
+    def test_encode(self, autoencoder) -> None:
         """Test encoding to latent space."""
         x = np.random.randn(10, 64).astype(np.float32)
         z = autoencoder.encode(x)
 
         assert z.shape == (10, 16)
 
-    def test_decode(self, autoencoder):
+    def test_decode(self, autoencoder) -> None:
         """Test decoding from latent space."""
         z = np.random.randn(10, 16).astype(np.float32)
         reconstruction = autoencoder.decode(z)
 
         assert reconstruction.shape == (10, 64)
 
-    def test_reconstruct(self, autoencoder):
+    def test_reconstruct(self, autoencoder) -> None:
         """Test full reconstruction."""
         x = np.random.randn(10, 64).astype(np.float32)
         reconstruction = autoencoder.reconstruct(x)
 
         assert reconstruction.shape == x.shape
 
-    def test_anomaly_score(self, autoencoder):
+    def test_anomaly_score(self, autoencoder) -> None:
         """Test anomaly scoring."""
         x = np.random.randn(10, 64).astype(np.float32)
         scores = autoencoder.anomaly_score(x)
@@ -310,7 +310,7 @@ class TestLightweightAutoencoder:
         assert np.all(scores >= 0)
         assert np.all(scores < 1)
 
-    def test_anomaly_score_single(self, autoencoder):
+    def test_anomaly_score_single(self, autoencoder) -> None:
         """Test anomaly scoring with single sample."""
         x = np.random.randn(64).astype(np.float32)
         scores = autoencoder.anomaly_score(x)
@@ -332,7 +332,7 @@ class TestIsolationScorer:
         rng = np.random.default_rng(42)
         return rng.normal(0, 1, (100, 10)).astype(np.float32)
 
-    def test_fit(self, scorer, normal_data):
+    def test_fit(self, scorer, normal_data) -> None:
         """Test fitting scorer."""
         result = scorer.fit(normal_data)
 
@@ -341,12 +341,12 @@ class TestIsolationScorer:
         assert scorer._projections is not None
         assert scorer._thresholds is not None
 
-    def test_score_not_fitted(self, scorer, normal_data):
+    def test_score_not_fitted(self, scorer, normal_data) -> None:
         """Test score raises error when not fitted."""
         with pytest.raises(ValueError, match="not fitted"):
             scorer.score(normal_data)
 
-    def test_score(self, scorer, normal_data):
+    def test_score(self, scorer, normal_data) -> None:
         """Test scoring."""
         scorer.fit(normal_data)
         scores = scorer.score(normal_data)
@@ -355,7 +355,7 @@ class TestIsolationScorer:
         assert np.all(scores >= 0)
         assert np.all(scores <= 1)
 
-    def test_anomaly_detection(self, scorer, normal_data):
+    def test_anomaly_detection(self, scorer, normal_data) -> None:
         """Test that anomalies get higher scores."""
         scorer.fit(normal_data)
 
@@ -379,7 +379,7 @@ class TestQuickAnomalyScore:
         rng = np.random.default_rng(42)
         return rng.normal(0, 1, (50, 16)).astype(np.float32)
 
-    def test_isolation_method(self, data):
+    def test_isolation_method(self, data) -> None:
         """Test isolation method."""
         scores = quick_anomaly_score(data, method="isolation", seed=42)
 
@@ -387,20 +387,20 @@ class TestQuickAnomalyScore:
         assert np.all(scores >= 0)
         assert np.all(scores <= 1)
 
-    def test_reconstruction_method(self, data):
+    def test_reconstruction_method(self, data) -> None:
         """Test reconstruction method."""
         scores = quick_anomaly_score(data, method="reconstruction", seed=42)
 
         assert scores.shape == (50,)
         assert np.all(scores >= 0)
 
-    def test_statistical_method(self, data):
+    def test_statistical_method(self, data) -> None:
         """Test statistical method."""
         scores = quick_anomaly_score(data, method="statistical")
 
         assert scores.shape == (50,)
 
-    def test_unknown_method(self, data):
+    def test_unknown_method(self, data) -> None:
         """Test unknown method raises error."""
         with pytest.raises(ValueError, match="Unknown method"):
             quick_anomaly_score(data, method="unknown")
@@ -409,7 +409,7 @@ class TestQuickAnomalyScore:
 class TestWeightInitialization:
     """Tests for weight initialization methods."""
 
-    def test_xavier_init(self):
+    def test_xavier_init(self) -> None:
         """Test Xavier initialization."""
         config = MLPConfig(
             input_dim=100,
@@ -427,7 +427,7 @@ class TestWeightInitialization:
         # Should be close to expected
         assert np.abs(actual_std - expected_std) < 0.1
 
-    def test_he_init(self):
+    def test_he_init(self) -> None:
         """Test He initialization."""
         config = MLPConfig(
             input_dim=100,
@@ -449,7 +449,7 @@ class TestWeightInitialization:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_empty_hidden_dims(self):
+    def test_empty_hidden_dims(self) -> None:
         """Test MLP with no hidden layers."""
         config = MLPConfig(
             input_dim=10,
@@ -465,7 +465,7 @@ class TestEdgeCases:
         output = mlp.forward(x)
         assert output.shape == (5, 1)
 
-    def test_single_feature(self):
+    def test_single_feature(self) -> None:
         """Test MLP with single input feature."""
         config = MLPConfig(
             input_dim=1,
@@ -479,7 +479,7 @@ class TestEdgeCases:
         output = mlp.forward(x)
         assert output.shape == (5, 1)
 
-    def test_multiclass_output(self):
+    def test_multiclass_output(self) -> None:
         """Test MLP with multiclass output."""
         config = MLPConfig(
             input_dim=32,

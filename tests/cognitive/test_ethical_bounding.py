@@ -27,12 +27,12 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
 class TestHarmReducer:
     """Tests for HarmReducer class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test harm reducer initialization."""
         reducer = HarmReducer()
         assert reducer._evaluation_counter == 0
 
-    def test_evaluate_harm_neutral(self):
+    def test_evaluate_harm_neutral(self) -> None:
         """Test harm evaluation for neutral action."""
         reducer = HarmReducer()
         harm_score, breakdown = reducer.evaluate_harm(
@@ -43,7 +43,7 @@ class TestHarmReducer:
         assert 0 <= harm_score <= 1
         assert len(breakdown) == len(HarmCategory)
 
-    def test_evaluate_harm_harmful_action(self):
+    def test_evaluate_harm_harmful_action(self) -> None:
         """Test harm evaluation for potentially harmful action."""
         reducer = HarmReducer()
         harm_score, breakdown = reducer.evaluate_harm(
@@ -54,7 +54,7 @@ class TestHarmReducer:
         assert harm_score > 0.2
         assert breakdown["privacy"] > 0
 
-    def test_evaluate_harm_physical(self):
+    def test_evaluate_harm_physical(self) -> None:
         """Test physical harm detection."""
         reducer = HarmReducer()
         harm_score, breakdown = reducer.evaluate_harm(
@@ -64,7 +64,7 @@ class TestHarmReducer:
 
         assert breakdown["physical"] > 0
 
-    def test_evaluate_harm_psychological(self):
+    def test_evaluate_harm_psychological(self) -> None:
         """Test psychological harm detection."""
         reducer = HarmReducer()
         harm_score, breakdown = reducer.evaluate_harm(
@@ -78,12 +78,12 @@ class TestHarmReducer:
 class TestBenefitMaximizer:
     """Tests for BenefitMaximizer class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test benefit maximizer initialization."""
         maximizer = BenefitMaximizer()
         assert maximizer._evaluation_counter == 0
 
-    def test_evaluate_benefit_neutral(self):
+    def test_evaluate_benefit_neutral(self) -> None:
         """Test benefit evaluation for neutral action."""
         maximizer = BenefitMaximizer()
         benefit_score, breakdown = maximizer.evaluate_benefit(
@@ -94,7 +94,7 @@ class TestBenefitMaximizer:
         assert 0 <= benefit_score <= 1
         assert len(breakdown) == len(BenefitCategory)
 
-    def test_evaluate_benefit_positive_action(self):
+    def test_evaluate_benefit_positive_action(self) -> None:
         """Test benefit evaluation for positive action."""
         maximizer = BenefitMaximizer()
         benefit_score, breakdown = maximizer.evaluate_benefit(
@@ -105,7 +105,7 @@ class TestBenefitMaximizer:
         assert benefit_score > 0.3
         assert breakdown["safety"] > 0
 
-    def test_evaluate_benefit_humanitarian(self):
+    def test_evaluate_benefit_humanitarian(self) -> None:
         """Test humanitarian benefit detection."""
         maximizer = BenefitMaximizer()
         benefit_score, breakdown = maximizer.evaluate_benefit(
@@ -115,7 +115,7 @@ class TestBenefitMaximizer:
 
         assert breakdown["humanitarian"] > 0
 
-    def test_evaluate_benefit_knowledge(self):
+    def test_evaluate_benefit_knowledge(self) -> None:
         """Test knowledge benefit detection."""
         maximizer = BenefitMaximizer()
         benefit_score, breakdown = maximizer.evaluate_benefit(
@@ -129,40 +129,40 @@ class TestBenefitMaximizer:
 class TestEquityCalculator:
     """Tests for EquityCalculator class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test equity calculator initialization."""
         calculator = EquityCalculator()
         assert calculator is not None
 
-    def test_calculate_gini_equal(self):
+    def test_calculate_gini_equal(self) -> None:
         """Test Gini coefficient for equal distribution."""
         calculator = EquityCalculator()
         gini = calculator.calculate_gini([1, 1, 1, 1, 1])
 
         assert gini == 0.0
 
-    def test_calculate_gini_unequal(self):
+    def test_calculate_gini_unequal(self) -> None:
         """Test Gini coefficient for unequal distribution."""
         calculator = EquityCalculator()
         gini = calculator.calculate_gini([0, 0, 0, 0, 100])
 
         assert gini > 0.5
 
-    def test_calculate_gini_empty(self):
+    def test_calculate_gini_empty(self) -> None:
         """Test Gini coefficient for empty list."""
         calculator = EquityCalculator()
         gini = calculator.calculate_gini([])
 
         assert gini == 0.0
 
-    def test_calculate_gini_single(self):
+    def test_calculate_gini_single(self) -> None:
         """Test Gini coefficient for single value."""
         calculator = EquityCalculator()
         gini = calculator.calculate_gini([100])
 
         assert gini == 0.0
 
-    def test_evaluate_equity_neutral(self):
+    def test_evaluate_equity_neutral(self) -> None:
         """Test equity evaluation for neutral action."""
         calculator = EquityCalculator()
         equity = calculator.evaluate_equity(
@@ -172,7 +172,7 @@ class TestEquityCalculator:
 
         assert 0 <= equity <= 1
 
-    def test_evaluate_equity_positive(self):
+    def test_evaluate_equity_positive(self) -> None:
         """Test equity evaluation for equitable action."""
         calculator = EquityCalculator()
         equity = calculator.evaluate_equity(
@@ -182,7 +182,7 @@ class TestEquityCalculator:
 
         assert equity > 0.7
 
-    def test_evaluate_equity_negative(self):
+    def test_evaluate_equity_negative(self) -> None:
         """Test equity evaluation for inequitable action."""
         calculator = EquityCalculator()
         equity = calculator.evaluate_equity(
@@ -192,7 +192,7 @@ class TestEquityCalculator:
 
         assert equity < 0.7
 
-    def test_evaluate_equity_with_distribution(self):
+    def test_evaluate_equity_with_distribution(self) -> None:
         """Test equity evaluation with distribution context."""
         calculator = EquityCalculator()
         equity = calculator.evaluate_equity(
@@ -206,12 +206,12 @@ class TestEquityCalculator:
 class TestEmpathyModule:
     """Tests for EmpathyModule class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test empathy module initialization."""
         module = EmpathyModule()
         assert module._assessment_counter == 0
 
-    def test_assess_empathy_basic(self):
+    def test_assess_empathy_basic(self) -> None:
         """Test basic empathy assessment."""
         module = EmpathyModule()
         assessment = module.assess_empathy(
@@ -223,7 +223,7 @@ class TestEmpathyModule:
         assert assessment.assessment_id.startswith("empathy_")
         assert 0 <= assessment.overall_empathy_score <= 1
 
-    def test_assess_empathy_with_users(self):
+    def test_assess_empathy_with_users(self) -> None:
         """Test empathy assessment with users context."""
         module = EmpathyModule()
         assessment = module.assess_empathy(
@@ -233,7 +233,7 @@ class TestEmpathyModule:
 
         assert "direct_users" in assessment.affected_parties
 
-    def test_assess_empathy_with_vulnerabilities(self):
+    def test_assess_empathy_with_vulnerabilities(self) -> None:
         """Test empathy assessment with vulnerability factors."""
         module = EmpathyModule()
         assessment = module.assess_empathy(
@@ -247,7 +247,7 @@ class TestEmpathyModule:
         assert len(assessment.vulnerability_factors) >= 2
         assert len(assessment.mitigation_suggestions) >= 2
 
-    def test_assess_empathy_humanitarian(self):
+    def test_assess_empathy_humanitarian(self) -> None:
         """Test empathy assessment for humanitarian action."""
         module = EmpathyModule()
         assessment = module.assess_empathy(
@@ -261,12 +261,12 @@ class TestEmpathyModule:
 class TestValuePreserver:
     """Tests for ValuePreserver class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test value preserver initialization."""
         preserver = ValuePreserver()
         assert preserver._preservation_counter == 0
 
-    def test_analyze_preservation_safe(self):
+    def test_analyze_preservation_safe(self) -> None:
         """Test preservation analysis for safe action."""
         preserver = ValuePreserver()
         preservation = preserver.analyze_preservation(
@@ -279,7 +279,7 @@ class TestValuePreserver:
         assert preservation.preservation_score >= 0.8
         assert preservation.default_to_positive is True
 
-    def test_analyze_preservation_risky(self):
+    def test_analyze_preservation_risky(self) -> None:
         """Test preservation analysis for risky action."""
         preserver = ValuePreserver()
         preservation = preserver.analyze_preservation(
@@ -291,7 +291,7 @@ class TestValuePreserver:
         assert len(preservation.values_at_risk) > 0
         assert len(preservation.safeguards_needed) > 0
 
-    def test_analyze_preservation_multiple_risks(self):
+    def test_analyze_preservation_multiple_risks(self) -> None:
         """Test preservation analysis with multiple value risks."""
         preserver = ValuePreserver()
         preservation = preserver.analyze_preservation(
@@ -305,18 +305,18 @@ class TestValuePreserver:
 class TestBenevolenceScorer:
     """Tests for BenevolenceScorer class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test benevolence scorer initialization."""
         scorer = BenevolenceScorer()
         assert scorer.benevolence_threshold == 0.99
         assert scorer._score_counter == 0
 
-    def test_init_custom_threshold(self):
+    def test_init_custom_threshold(self) -> None:
         """Test benevolence scorer with custom threshold."""
         scorer = BenevolenceScorer(benevolence_threshold=0.95)
         assert scorer.benevolence_threshold == 0.95
 
-    def test_score_action_basic(self):
+    def test_score_action_basic(self) -> None:
         """Test basic action scoring."""
         scorer = BenevolenceScorer()
         score = scorer.score_action(
@@ -330,7 +330,7 @@ class TestBenevolenceScorer:
         assert 0 <= score.harm_score <= 1
         assert 0 <= score.benefit_score <= 1
 
-    def test_score_action_positive(self):
+    def test_score_action_positive(self) -> None:
         """Test scoring for positive action."""
         scorer = BenevolenceScorer(benevolence_threshold=0.5)
         score = scorer.score_action(
@@ -341,7 +341,7 @@ class TestBenevolenceScorer:
         assert score.benevolence_score > 0.5
         assert score.benefit_score > 0
 
-    def test_score_action_negative(self):
+    def test_score_action_negative(self) -> None:
         """Test scoring for negative action."""
         scorer = BenevolenceScorer()
         score = scorer.score_action(
@@ -352,7 +352,7 @@ class TestBenevolenceScorer:
         assert score.harm_score > 0
         assert score.is_permissible is False
 
-    def test_score_action_principles(self):
+    def test_score_action_principles(self) -> None:
         """Test principle scoring."""
         scorer = BenevolenceScorer()
         score = scorer.score_action(
@@ -364,7 +364,7 @@ class TestBenevolenceScorer:
         for principle_score in score.principle_scores.values():
             assert 0 <= principle_score <= 1
 
-    def test_score_action_explanation(self):
+    def test_score_action_explanation(self) -> None:
         """Test explanation generation."""
         scorer = BenevolenceScorer()
         score = scorer.score_action(
@@ -375,7 +375,7 @@ class TestBenevolenceScorer:
         assert len(score.explanation) > 0
         assert "test_action" in score.explanation
 
-    def test_full_audit(self):
+    def test_full_audit(self) -> None:
         """Test full alignment audit."""
         scorer = BenevolenceScorer()
         audit = scorer.full_audit(
@@ -389,7 +389,7 @@ class TestBenevolenceScorer:
         assert audit.empathy_assessment is not None
         assert audit.value_preservation is not None
 
-    def test_full_audit_passed(self):
+    def test_full_audit_passed(self) -> None:
         """Test full audit that passes."""
         scorer = BenevolenceScorer(benevolence_threshold=0.3)
         audit = scorer.full_audit(
@@ -400,7 +400,7 @@ class TestBenevolenceScorer:
         assert audit.passed is True
         assert len(audit.failure_reasons) == 0
 
-    def test_full_audit_failed(self):
+    def test_full_audit_failed(self) -> None:
         """Test full audit that fails."""
         scorer = BenevolenceScorer(benevolence_threshold=0.99)
         audit = scorer.full_audit(
@@ -411,7 +411,7 @@ class TestBenevolenceScorer:
         assert audit.passed is False
         assert len(audit.failure_reasons) > 0
 
-    def test_is_action_permissible(self):
+    def test_is_action_permissible(self) -> None:
         """Test quick permissibility check."""
         scorer = BenevolenceScorer(benevolence_threshold=0.5)
         is_permissible, score, explanation = scorer.is_action_permissible(
@@ -423,7 +423,7 @@ class TestBenevolenceScorer:
         assert 0 <= score <= 1
         assert len(explanation) > 0
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         scorer = BenevolenceScorer()
         scorer.score_action("action1", {})
@@ -435,7 +435,7 @@ class TestBenevolenceScorer:
         assert stats["audits_performed"] >= 1
         assert "benevolence_threshold" in stats
 
-    def test_get_audit_history(self):
+    def test_get_audit_history(self) -> None:
         """Test audit history retrieval."""
         scorer = BenevolenceScorer()
         scorer.full_audit("action1", {})
@@ -449,7 +449,7 @@ class TestBenevolenceScorer:
 class TestEthicalPrinciple:
     """Tests for EthicalPrinciple enum."""
 
-    def test_all_principles_exist(self):
+    def test_all_principles_exist(self) -> None:
         """Test all ethical principles exist."""
         assert EthicalPrinciple.COMPASSION.value == "compassion"
         assert EthicalPrinciple.EVIDENCE.value == "evidence"
@@ -464,7 +464,7 @@ class TestEthicalPrinciple:
 class TestHarmCategory:
     """Tests for HarmCategory enum."""
 
-    def test_all_categories_exist(self):
+    def test_all_categories_exist(self) -> None:
         """Test all harm categories exist."""
         assert HarmCategory.PHYSICAL.value == "physical"
         assert HarmCategory.PSYCHOLOGICAL.value == "psychological"
@@ -479,7 +479,7 @@ class TestHarmCategory:
 class TestBenefitCategory:
     """Tests for BenefitCategory enum."""
 
-    def test_all_categories_exist(self):
+    def test_all_categories_exist(self) -> None:
         """Test all benefit categories exist."""
         assert BenefitCategory.SAFETY.value == "safety"
         assert BenefitCategory.WELLBEING.value == "wellbeing"
@@ -494,7 +494,7 @@ class TestBenefitCategory:
 class TestDataclasses:
     """Tests for dataclasses."""
 
-    def test_ethical_score(self):
+    def test_ethical_score(self) -> None:
         """Test EthicalScore dataclass."""
         score = EthicalScore(
             score_id="test_001",
@@ -516,7 +516,7 @@ class TestDataclasses:
         assert score.benevolence_score == 0.95
         assert score.is_permissible is True
 
-    def test_empathy_assessment(self):
+    def test_empathy_assessment(self) -> None:
         """Test EmpathyAssessment dataclass."""
         assessment = EmpathyAssessment(
             assessment_id="empathy_001",
@@ -530,7 +530,7 @@ class TestDataclasses:
         assert assessment.assessment_id == "empathy_001"
         assert assessment.overall_empathy_score == 0.75
 
-    def test_value_preservation(self):
+    def test_value_preservation(self) -> None:
         """Test ValuePreservation dataclass."""
         preservation = ValuePreservation(
             preservation_id="preserve_001",
@@ -543,7 +543,7 @@ class TestDataclasses:
         assert preservation.preservation_id == "preserve_001"
         assert preservation.default_to_positive is True
 
-    def test_alignment_audit(self):
+    def test_alignment_audit(self) -> None:
         """Test AlignmentAudit dataclass."""
         ethical_score = EthicalScore(
             score_id="test_001",
@@ -578,7 +578,7 @@ class TestDataclasses:
 class TestIntegration:
     """Integration tests for ethical bounding."""
 
-    def test_full_ethical_evaluation_pipeline(self):
+    def test_full_ethical_evaluation_pipeline(self) -> None:
         """Test complete ethical evaluation pipeline."""
         scorer = BenevolenceScorer(benevolence_threshold=0.5)
 
@@ -597,7 +597,7 @@ class TestIntegration:
         assert audit.value_preservation is not None
         assert audit.value_preservation.preservation_score > 0.5
 
-    def test_harmful_action_blocked(self):
+    def test_harmful_action_blocked(self) -> None:
         """Test that harmful actions are blocked."""
         scorer = BenevolenceScorer(benevolence_threshold=0.99)
 
@@ -612,7 +612,7 @@ class TestIntegration:
         assert is_permissible is False
         assert "BLOCKED" in explanation
 
-    def test_benevolent_action_approved(self):
+    def test_benevolent_action_approved(self) -> None:
         """Test that benevolent actions are approved."""
         scorer = BenevolenceScorer(benevolence_threshold=0.3)
 
@@ -627,7 +627,7 @@ class TestIntegration:
         assert is_permissible is True
         assert "APPROVED" in explanation
 
-    def test_equity_impact_on_score(self):
+    def test_equity_impact_on_score(self) -> None:
         """Test that equity impacts benevolence score."""
         scorer = BenevolenceScorer()
 
@@ -643,7 +643,7 @@ class TestIntegration:
 
         assert score_equal.equity_score > score_unequal.equity_score
 
-    def test_multiple_audits_tracked(self):
+    def test_multiple_audits_tracked(self) -> None:
         """Test that multiple audits are tracked."""
         scorer = BenevolenceScorer()
 

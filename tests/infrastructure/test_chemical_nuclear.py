@@ -29,7 +29,7 @@ from omni_mercury_engine.infrastructure.chemical_nuclear import ChemicalNuclearD
 class TestCISASector:
     """Tests for CISASector enumeration."""
 
-    def test_sector_values(self):
+    def test_sector_values(self) -> None:
         """Test CISASector enum values."""
         assert CISASector.CHEMICAL.value == "chemical"
         assert CISASector.NUCLEAR.value == "nuclear_reactors_materials_waste"
@@ -38,7 +38,7 @@ class TestCISASector:
 class TestChemicalNuclearDetectorInitialization:
     """Tests for ChemicalNuclearDetector initialization."""
 
-    def test_chemical_sector_initialization(self):
+    def test_chemical_sector_initialization(self) -> None:
         """Test initialization for chemical sector."""
         detector = ChemicalNuclearDetector(sector=CISASector.CHEMICAL)
 
@@ -48,7 +48,7 @@ class TestChemicalNuclearDetectorInitialization:
         assert "ph_level" in detector.safety_thresholds
         assert "leak_rate_ppm" in detector.safety_thresholds
 
-    def test_nuclear_sector_initialization(self):
+    def test_nuclear_sector_initialization(self) -> None:
         """Test initialization for nuclear sector."""
         detector = ChemicalNuclearDetector(sector=CISASector.NUCLEAR)
 
@@ -58,14 +58,14 @@ class TestChemicalNuclearDetectorInitialization:
         assert "coolant_flow_gpm" in detector.safety_thresholds
         assert "neutron_flux" in detector.safety_thresholds
 
-    def test_interdependency_map_chemical(self):
+    def test_interdependency_map_chemical(self) -> None:
         """Test interdependency map for chemical sector."""
         detector = ChemicalNuclearDetector(sector=CISASector.CHEMICAL)
 
         assert "energy" in detector.interdependency_map[CISASector.CHEMICAL]
         assert "water" in detector.interdependency_map[CISASector.CHEMICAL]
 
-    def test_interdependency_map_nuclear(self):
+    def test_interdependency_map_nuclear(self) -> None:
         """Test interdependency map for nuclear sector."""
         detector = ChemicalNuclearDetector(sector=CISASector.NUCLEAR)
 
@@ -103,7 +103,7 @@ class TestChemicalSectorDetection:
             ]
         )
 
-    def test_detect_normal_conditions(self, chemical_detector, normal_chemical_data):
+    def test_detect_normal_conditions(self, chemical_detector, normal_chemical_data) -> None:
         """Test detection with normal chemical conditions."""
         param_names = ["temperature_celsius", "pressure_psi", "ph_level", "leak_rate_ppm"]
         result = chemical_detector.detect(normal_chemical_data, parameter_names=param_names)
@@ -112,7 +112,7 @@ class TestChemicalSectorDetection:
         assert result["sector"] == "chemical"
         assert len(result["anomalies"]) == 0
 
-    def test_detect_temperature_violation(self, chemical_detector, anomalous_chemical_data):
+    def test_detect_temperature_violation(self, chemical_detector, anomalous_chemical_data) -> None:
         """Test detection of temperature threshold violation."""
         param_names = ["temperature_celsius", "pressure_psi", "ph_level", "leak_rate_ppm"]
         result = chemical_detector.detect(anomalous_chemical_data, parameter_names=param_names)
@@ -120,7 +120,7 @@ class TestChemicalSectorDetection:
         assert result["safety_status"] == "WARNING"
         assert "temperature_celsius" in result["anomalies"]
 
-    def test_detect_multiple_violations(self, chemical_detector):
+    def test_detect_multiple_violations(self, chemical_detector) -> None:
         """Test detection of multiple violations."""
         data = np.array(
             [
@@ -133,7 +133,7 @@ class TestChemicalSectorDetection:
         assert result["safety_status"] in ["WARNING", "CRITICAL"]
         assert len(result["anomalies"]) > 1
 
-    def test_detect_leak_rate_violation(self, chemical_detector):
+    def test_detect_leak_rate_violation(self, chemical_detector) -> None:
         """Test detection of high leak rate (emergency condition)."""
         data = np.array(
             [
@@ -148,7 +148,7 @@ class TestChemicalSectorDetection:
 
         assert "leak_rate_ppm" in result["anomalies"]
 
-    def test_default_parameter_names(self, chemical_detector):
+    def test_default_parameter_names(self, chemical_detector) -> None:
         """Test detection with default parameter names."""
         data = np.array([[25.0, 500.0, 7.0, 10.0]])
         result = chemical_detector.detect(data)
@@ -188,7 +188,7 @@ class TestNuclearSectorDetection:
             ]
         )
 
-    def test_detect_normal_conditions(self, nuclear_detector, normal_nuclear_data):
+    def test_detect_normal_conditions(self, nuclear_detector, normal_nuclear_data) -> None:
         """Test detection with normal nuclear conditions."""
         param_names = [
             "radiation_mrem_hr",
@@ -201,7 +201,7 @@ class TestNuclearSectorDetection:
         assert result["safety_status"] == "NORMAL"
         assert result["sector"] == "nuclear_reactors_materials_waste"
 
-    def test_detect_radiation_spike(self, nuclear_detector, anomalous_nuclear_data):
+    def test_detect_radiation_spike(self, nuclear_detector, anomalous_nuclear_data) -> None:
         """Test detection of radiation threshold violation."""
         param_names = [
             "radiation_mrem_hr",
@@ -214,7 +214,7 @@ class TestNuclearSectorDetection:
         assert result["safety_status"] in ["WARNING", "CRITICAL"]
         assert "radiation_mrem_hr" in result["anomalies"]
 
-    def test_detect_coolant_flow_loss(self, nuclear_detector):
+    def test_detect_coolant_flow_loss(self, nuclear_detector) -> None:
         """Test detection of coolant flow loss (emergency condition)."""
         data = np.array(
             [
@@ -235,7 +235,7 @@ class TestNuclearSectorDetection:
         assert "coolant_flow_gpm" in result["anomalies"]
         assert bool(result["anomalies"]["coolant_flow_gpm"]["requires_emergency_response"]) is True
 
-    def test_detect_core_temperature_high(self, nuclear_detector):
+    def test_detect_core_temperature_high(self, nuclear_detector) -> None:
         """Test detection of high core temperature."""
         data = np.array(
             [
@@ -261,30 +261,30 @@ class TestSeverityCalculation:
         """Create detector for testing."""
         return ChemicalNuclearDetector(sector=CISASector.CHEMICAL)
 
-    def test_severity_none(self, detector):
+    def test_severity_none(self, detector) -> None:
         """Test severity calculation with no violations."""
         severity = detector._calculate_severity(np.array([]), {"lower": 0, "upper": 100})
         assert severity == "NONE"
 
-    def test_severity_low(self, detector):
+    def test_severity_low(self, detector) -> None:
         """Test low severity calculation."""
         violations = np.array([105.0])  # 5% over 100 threshold
         severity = detector._calculate_severity(violations, {"lower": 0, "upper": 100})
         assert severity == "LOW"
 
-    def test_severity_medium(self, detector):
+    def test_severity_medium(self, detector) -> None:
         """Test medium severity calculation."""
         violations = np.array([115.0])  # 15% over threshold
         severity = detector._calculate_severity(violations, {"lower": 0, "upper": 100})
         assert severity == "MEDIUM"
 
-    def test_severity_high(self, detector):
+    def test_severity_high(self, detector) -> None:
         """Test high severity calculation."""
         violations = np.array([130.0])  # 30% over threshold
         severity = detector._calculate_severity(violations, {"lower": 0, "upper": 100})
         assert severity == "HIGH"
 
-    def test_severity_critical(self, detector):
+    def test_severity_critical(self, detector) -> None:
         """Test critical severity calculation."""
         violations = np.array([180.0])  # 80% over threshold
         severity = detector._calculate_severity(violations, {"lower": 0, "upper": 100})
@@ -299,14 +299,14 @@ class TestCrossSectorImpact:
         """Create detector for testing."""
         return ChemicalNuclearDetector(sector=CISASector.CHEMICAL)
 
-    def test_no_impact_no_anomalies(self, detector):
+    def test_no_impact_no_anomalies(self, detector) -> None:
         """Test no impact when no anomalies."""
         impact = detector._assess_cross_sector_impact({})
 
         assert impact["affected_sectors"] == []
         assert impact["impact_level"] == "NONE"
 
-    def test_medium_impact(self, detector):
+    def test_medium_impact(self, detector) -> None:
         """Test medium impact with non-critical anomalies."""
         anomalies = {"temperature_celsius": {"severity": "MEDIUM"}}
         impact = detector._assess_cross_sector_impact(anomalies)
@@ -314,7 +314,7 @@ class TestCrossSectorImpact:
         assert len(impact["affected_sectors"]) > 0
         assert impact["impact_level"] == "MEDIUM"
 
-    def test_high_impact_critical_anomaly(self, detector):
+    def test_high_impact_critical_anomaly(self, detector) -> None:
         """Test high impact with critical anomalies."""
         anomalies = {"leak_rate_ppm": {"severity": "CRITICAL"}}
         impact = detector._assess_cross_sector_impact(anomalies)
@@ -331,13 +331,13 @@ class TestRecommendations:
         """Create detector for testing."""
         return ChemicalNuclearDetector(sector=CISASector.NUCLEAR)
 
-    def test_recommendations_no_anomalies(self, detector):
+    def test_recommendations_no_anomalies(self, detector) -> None:
         """Test recommendations when no anomalies."""
         recommendations = detector._generate_recommendations({})
 
         assert "Continue normal operations" in recommendations
 
-    def test_recommendations_emergency(self, detector):
+    def test_recommendations_emergency(self, detector) -> None:
         """Test recommendations for emergency conditions."""
         anomalies = {
             "radiation_mrem_hr": {
@@ -350,7 +350,7 @@ class TestRecommendations:
         assert any("URGENT" in rec for rec in recommendations)
         assert any("regulatory" in rec.lower() for rec in recommendations)
 
-    def test_recommendations_high_severity(self, detector):
+    def test_recommendations_high_severity(self, detector) -> None:
         """Test recommendations for high severity anomalies."""
         anomalies = {
             "core_temperature_celsius": {
@@ -362,7 +362,7 @@ class TestRecommendations:
 
         assert any("Investigate" in rec for rec in recommendations)
 
-    def test_recommendations_low_severity(self, detector):
+    def test_recommendations_low_severity(self, detector) -> None:
         """Test recommendations for low severity anomalies."""
         anomalies = {
             "neutron_flux": {

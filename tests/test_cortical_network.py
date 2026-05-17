@@ -57,7 +57,7 @@ from omni_mercury_engine.ml.cortical_network import (
 class TestSparseCoding:
     """Test sparse coding module."""
 
-    def test_sparsity_level_maintained(self):
+    def test_sparsity_level_maintained(self) -> None:
         """Output should have approximately target sparsity."""
         sparse_coder = SparseCoding(sparsity=0.1)
 
@@ -72,7 +72,7 @@ class TestSparseCoding:
         # Should be approximately 10% non-zero (sparsity=0.1)
         assert_allclose(non_zero_ratio.mean().item(), 0.1, atol=0.05)
 
-    def test_sparse_output_shape(self):
+    def test_sparse_output_shape(self) -> None:
         """Output shape should match input shape."""
         sparse_coder = SparseCoding(sparsity=0.2)
         x = torch.randn(5, 50)
@@ -81,7 +81,7 @@ class TestSparseCoding:
 
         assert output.shape == x.shape
 
-    def test_sparse_preserves_top_k(self):
+    def test_sparse_preserves_top_k(self) -> None:
         """Top-k values should be preserved."""
         sparse_coder = SparseCoding(sparsity=0.2, temperature=0.1)
 
@@ -98,7 +98,7 @@ class TestSparseCoding:
 class TestLateralInhibition:
     """Test lateral inhibition module."""
 
-    def test_lateral_inhibition_shape(self):
+    def test_lateral_inhibition_shape(self) -> None:
         """Output shape should match input shape."""
         lateral = LateralInhibition(features=64, strength=0.5)
         x = torch.randn(8, 64)
@@ -107,7 +107,7 @@ class TestLateralInhibition:
 
         assert output.shape == x.shape
 
-    def test_inhibition_reduces_spread(self):
+    def test_inhibition_reduces_spread(self) -> None:
         """Lateral inhibition should sharpen activations."""
         lateral = LateralInhibition(features=32, strength=0.8)
 
@@ -124,7 +124,7 @@ class TestLateralInhibition:
         # Peak should be higher than surroundings
         assert peak_values > surround_values
 
-    def test_strength_zero_is_identity(self):
+    def test_strength_zero_is_identity(self) -> None:
         """With strength=0, output should match input."""
         lateral = LateralInhibition(features=20, strength=0.0)
         x = torch.randn(4, 20)
@@ -137,13 +137,13 @@ class TestLateralInhibition:
 class TestHebbianLearning:
     """Test Hebbian learning rule module."""
 
-    def test_hebbian_weight_shape(self):
+    def test_hebbian_weight_shape(self) -> None:
         """Weight matrix should have correct shape."""
         hebbian = HebbianLearningRule(input_dim=64, output_dim=32)
 
         assert hebbian.weight.shape == (32, 64)
 
-    def test_hebbian_forward(self):
+    def test_hebbian_forward(self) -> None:
         """Forward pass should compute linear transformation."""
         hebbian = HebbianLearningRule(input_dim=10, output_dim=5)
         x = torch.randn(8, 10)
@@ -152,7 +152,7 @@ class TestHebbianLearning:
 
         assert output.shape == (8, 5)
 
-    def test_hebbian_update_direction(self):
+    def test_hebbian_update_direction(self) -> None:
         """Hebbian update should strengthen correlated connections."""
         hebbian = HebbianLearningRule(
             input_dim=4, output_dim=2, learning_rate=0.1, weight_decay=0.0
@@ -168,7 +168,7 @@ class TestHebbianLearning:
         # Weight connecting active pre to active post should increase
         assert delta[0, 0].item() > 0
 
-    def test_hebbian_update_inplace(self):
+    def test_hebbian_update_inplace(self) -> None:
         """In-place Hebbian update should modify weights."""
         hebbian = HebbianLearningRule(input_dim=8, output_dim=4, learning_rate=0.1)
 
@@ -186,7 +186,7 @@ class TestHebbianLearning:
 class TestThalamocorticalGate:
     """Test thalamocortical gating mechanism."""
 
-    def test_gate_output_shape(self):
+    def test_gate_output_shape(self) -> None:
         """Output should have correct shape."""
         gate = ThalamocorticalGate(input_dim=32, hidden_dim=64)
         sensory = torch.randn(8, 32)
@@ -195,7 +195,7 @@ class TestThalamocorticalGate:
 
         assert output.shape == (8, 64)
 
-    def test_gate_with_feedback(self):
+    def test_gate_with_feedback(self) -> None:
         """Should incorporate cortical feedback."""
         gate = ThalamocorticalGate(input_dim=32, hidden_dim=64, feedback_dim=64)
 
@@ -208,7 +208,7 @@ class TestThalamocorticalGate:
         # Outputs should differ when feedback is provided
         assert not torch.allclose(output_no_feedback, output_with_feedback)
 
-    def test_gate_modulates_input(self):
+    def test_gate_modulates_input(self) -> None:
         """Gate should modulate sensory input based on feedback."""
         gate = ThalamocorticalGate(input_dim=16, hidden_dim=32, feedback_dim=32)
 
@@ -228,7 +228,7 @@ class TestThalamocorticalGate:
 class TestCorticalColumn:
     """Test single cortical column."""
 
-    def test_column_forward_shape(self):
+    def test_column_forward_shape(self) -> None:
         """Output should have correct shape."""
         config = CorticalConfig(input_dim=64, hidden_dim=128, output_dim=64)
         column = CorticalColumn(config)
@@ -238,7 +238,7 @@ class TestCorticalColumn:
 
         assert output.shape == (8, 64)
 
-    def test_column_returns_layer_activations(self):
+    def test_column_returns_layer_activations(self) -> None:
         """Should return intermediate layer activations."""
         config = CorticalConfig(input_dim=32, hidden_dim=64, output_dim=32)
         column = CorticalColumn(config)
@@ -253,7 +253,7 @@ class TestCorticalColumn:
         assert "layer_v" in activations
         assert "layer_vi" in activations
 
-    def test_column_feedback_modulation(self):
+    def test_column_feedback_modulation(self) -> None:
         """Feedback should modulate processing."""
         config = CorticalConfig(input_dim=32, hidden_dim=64, output_dim=32, feedback_strength=0.5)
         column = CorticalColumn(config)
@@ -275,7 +275,7 @@ class TestCorticalColumn:
 class TestCorticalLaminatedNetwork:
     """Test full cortical network."""
 
-    def test_network_forward(self):
+    def test_network_forward(self) -> None:
         """Full network forward pass should work."""
         config = CorticalConfig(input_dim=64, hidden_dim=128, output_dim=64)
         network = CorticalLaminatedNetwork(config, num_columns=3)
@@ -285,7 +285,7 @@ class TestCorticalLaminatedNetwork:
 
         assert output.shape == (8, 64)
 
-    def test_network_with_activations(self):
+    def test_network_with_activations(self) -> None:
         """Should return all activations when requested."""
         config = CorticalConfig(input_dim=32, hidden_dim=64, output_dim=32)
         network = CorticalLaminatedNetwork(config, num_columns=2)
@@ -298,7 +298,7 @@ class TestCorticalLaminatedNetwork:
         assert "column_0" in result["activations"]
         assert "column_1" in result["activations"]
 
-    def test_network_hebbian_during_training(self):
+    def test_network_hebbian_during_training(self) -> None:
         """Hebbian learning should be applied during training."""
         config = CorticalConfig(input_dim=32, hidden_dim=64, output_dim=32)
         network = CorticalLaminatedNetwork(config, num_columns=2, use_hebbian=True)
@@ -314,7 +314,7 @@ class TestCorticalLaminatedNetwork:
         # Weights should have changed
         assert not torch.allclose(network.hebbian.weight, initial_weights)
 
-    def test_network_no_hebbian_during_eval(self):
+    def test_network_no_hebbian_during_eval(self) -> None:
         """Hebbian learning should not be applied during eval."""
         config = CorticalConfig(input_dim=32, hidden_dim=64, output_dim=32)
         network = CorticalLaminatedNetwork(config, num_columns=2, use_hebbian=True)
@@ -333,7 +333,7 @@ class TestCorticalLaminatedNetwork:
 class TestGolgiAnalyzer:
     """Test Golgi stain-inspired analysis."""
 
-    def test_analyze_connectivity(self):
+    def test_analyze_connectivity(self) -> None:
         """Should analyze network connectivity patterns."""
         # Create simple network
         model = torch.nn.Sequential(
@@ -350,7 +350,7 @@ class TestGolgiAnalyzer:
         # Should have results for the linear layers
         assert len(results["layer_connectivity"]) > 0
 
-    def test_visualize_dendrite_tree(self):
+    def test_visualize_dendrite_tree(self) -> None:
         """Should return weight matrix for visualization."""
         model = torch.nn.Sequential(torch.nn.Linear(16, 32))
 
@@ -363,7 +363,7 @@ class TestGolgiAnalyzer:
 class TestNisslAnalyzer:
     """Test Nissl stain-inspired analysis."""
 
-    def test_capture_activations(self):
+    def test_capture_activations(self) -> None:
         """Should capture layer activations."""
         model = torch.nn.Sequential(
             torch.nn.Linear(16, 32), torch.nn.ReLU(), torch.nn.Linear(32, 8)
@@ -381,7 +381,7 @@ class TestNisslAnalyzer:
 
         analyzer.remove_hooks()
 
-    def test_analyze_activations(self):
+    def test_analyze_activations(self) -> None:
         """Should analyze activation patterns."""
         model = torch.nn.Sequential(torch.nn.Linear(16, 32), torch.nn.ReLU())
 
@@ -406,7 +406,7 @@ class TestNisslAnalyzer:
 class TestWeigertAnalyzer:
     """Test Weigert stain-inspired analysis."""
 
-    def test_analyze_connections(self):
+    def test_analyze_connections(self) -> None:
         """Should analyze connection strength patterns."""
         model = torch.nn.Sequential(
             torch.nn.Linear(32, 64), torch.nn.ReLU(), torch.nn.Linear(64, 16)
@@ -428,7 +428,7 @@ class TestWeigertAnalyzer:
 class TestCorticalLoss:
     """Test cortical loss function."""
 
-    def test_loss_components(self):
+    def test_loss_components(self) -> None:
         """Should compute all loss components."""
         loss_fn = CorticalLoss(
             task_weight=1.0, sparsity_weight=0.1, hebbian_weight=0.01, target_sparsity=0.1
@@ -446,7 +446,7 @@ class TestCorticalLoss:
         assert "sparsity" in loss_dict
         assert "hebbian" in loss_dict
 
-    def test_loss_regression_mode(self):
+    def test_loss_regression_mode(self) -> None:
         """Should work in regression mode."""
         loss_fn = CorticalLoss()
 
@@ -457,7 +457,7 @@ class TestCorticalLoss:
 
         assert loss_dict["total"].item() > 0
 
-    def test_loss_without_activations(self):
+    def test_loss_without_activations(self) -> None:
         """Should work without activations."""
         loss_fn = CorticalLoss()
 
@@ -473,7 +473,7 @@ class TestCorticalLoss:
 class TestSTDP:
     """Test spike-timing dependent plasticity."""
 
-    def test_stdp_potentiation(self):
+    def test_stdp_potentiation(self) -> None:
         """Pre before post should cause potentiation."""
         stdp = SpikeTimingDependentPlasticity(a_plus=0.1, a_minus=0.1)
 
@@ -486,7 +486,7 @@ class TestSTDP:
         # Should be positive (potentiation)
         assert delta_w[0, 0].item() > 0
 
-    def test_stdp_depression(self):
+    def test_stdp_depression(self) -> None:
         """Post before pre should cause depression."""
         stdp = SpikeTimingDependentPlasticity(a_plus=0.1, a_minus=0.1)
 
@@ -499,7 +499,7 @@ class TestSTDP:
         # Should be negative (depression)
         assert delta_w[0, 0].item() < 0
 
-    def test_stdp_shape(self):
+    def test_stdp_shape(self) -> None:
         """Output should have correct shape."""
         stdp = SpikeTimingDependentPlasticity()
 

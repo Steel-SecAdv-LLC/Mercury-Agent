@@ -41,7 +41,7 @@ def client():
 class TestHealthEndpoint:
     """Tests for the /health endpoint."""
 
-    def test_health_check_returns_200(self, client):
+    def test_health_check_returns_200(self, client) -> None:
         """Test health endpoint returns 200 with status healthy."""
         response = client.get("/health")
         assert response.status_code == 200
@@ -49,7 +49,7 @@ class TestHealthEndpoint:
         assert data["status"] == "healthy"
         assert "version" in data
 
-    def test_health_check_version_matches(self, client):
+    def test_health_check_version_matches(self, client) -> None:
         """Test health endpoint returns correct API version."""
         from omni_mercury_engine.api.server import API_VERSION
 
@@ -66,7 +66,7 @@ class TestHealthEndpoint:
 class TestUnivariateDetection:
     """Tests for the /api/v1/detect/univariate endpoint."""
 
-    def test_basic_detection(self, client):
+    def test_basic_detection(self, client) -> None:
         """Test basic univariate anomaly detection."""
         data = [1.0, 2.0, 1.5, 100.0, 1.8, 2.1, 1.9, 2.0, 1.7]
         response = client.post(
@@ -82,7 +82,7 @@ class TestUnivariateDetection:
         assert "threshold" in result
         assert "summary" in result
 
-    def test_detection_with_clear_anomaly(self, client):
+    def test_detection_with_clear_anomaly(self, client) -> None:
         """Test that a clear outlier is detected."""
         data = [1.0, 1.1, 1.0, 1.1, 1.0, 50.0, 1.0, 1.1, 1.0]
         response = client.post(
@@ -95,7 +95,7 @@ class TestUnivariateDetection:
         assert result["anomalies"][5] is True
         assert result["summary"]["anomaly_count"] >= 1
 
-    def test_detection_minimum_data_points(self, client):
+    def test_detection_minimum_data_points(self, client) -> None:
         """Test that minimum 3 data points are required."""
         response = client.post(
             "/api/v1/detect/univariate",
@@ -103,7 +103,7 @@ class TestUnivariateDetection:
         )
         assert response.status_code == 422  # Validation error
 
-    def test_detection_sensitivity_range(self, client):
+    def test_detection_sensitivity_range(self, client) -> None:
         """Test sensitivity must be 0.0-1.0."""
         data = [1.0, 2.0, 3.0, 4.0, 5.0]
         # Valid sensitivity
@@ -113,7 +113,7 @@ class TestUnivariateDetection:
         )
         assert response.status_code == 200
 
-    def test_anomaly_points_detail(self, client):
+    def test_anomaly_points_detail(self, client) -> None:
         """Test anomaly_points contain index, value, score, severity."""
         data = [1.0, 1.1, 1.0, 100.0, 1.1, 1.0, 1.1, 1.0, 1.1]
         response = client.post(
@@ -138,7 +138,7 @@ class TestUnivariateDetection:
 class TestMultivariateDetection:
     """Tests for the /api/v1/detect/multivariate endpoint."""
 
-    def test_basic_multivariate_detection(self, client):
+    def test_basic_multivariate_detection(self, client) -> None:
         """Test basic multivariate anomaly detection."""
         data = [
             [1.0, 2.0],
@@ -160,7 +160,7 @@ class TestMultivariateDetection:
         assert len(result["anomalies"]) == 6
         assert len(result["features"]) == 2
 
-    def test_multivariate_with_feature_names(self, client):
+    def test_multivariate_with_feature_names(self, client) -> None:
         """Test multivariate detection with named features."""
         data = [
             [1.0, 2.0, 3.0],
@@ -181,7 +181,7 @@ class TestMultivariateDetection:
         assert result["features"] == ["temp", "pressure", "humidity"]
         assert "feature_contributions" in result
 
-    def test_multivariate_minimum_data_points(self, client):
+    def test_multivariate_minimum_data_points(self, client) -> None:
         """Test minimum 3 data points required."""
         response = client.post(
             "/api/v1/detect/multivariate",
@@ -189,7 +189,7 @@ class TestMultivariateDetection:
         )
         assert response.status_code == 422
 
-    def test_multivariate_inconsistent_dimensions(self, client):
+    def test_multivariate_inconsistent_dimensions(self, client) -> None:
         """Test error on inconsistent feature dimensions."""
         response = client.post(
             "/api/v1/detect/multivariate",
@@ -212,7 +212,7 @@ class TestMultivariateDetection:
 class TestPIIMaskingFilter:
     """Tests for the PII masking log filter."""
 
-    def test_email_redaction(self):
+    def test_email_redaction(self) -> None:
         """Test email addresses are redacted in log messages."""
         from omni_mercury_engine.api.server import PIIMaskingFilter
 
@@ -232,7 +232,7 @@ class TestPIIMaskingFilter:
         assert "user@example.com" not in record.msg
         assert "[EMAIL_REDACTED]" in record.msg
 
-    def test_bearer_token_redaction(self):
+    def test_bearer_token_redaction(self) -> None:
         """Test Bearer tokens are redacted."""
         from omni_mercury_engine.api.server import PIIMaskingFilter
 
@@ -252,7 +252,7 @@ class TestPIIMaskingFilter:
         assert "eyJhbGciOiJIUzI1NiJ9" not in record.msg
         assert "[TOKEN_REDACTED]" in record.msg
 
-    def test_ip_redaction(self):
+    def test_ip_redaction(self) -> None:
         """Test IP addresses are redacted."""
         from omni_mercury_engine.api.server import PIIMaskingFilter
 
@@ -281,31 +281,31 @@ class TestPIIMaskingFilter:
 class TestSeverityClassification:
     """Tests for the _classify_severity function."""
 
-    def test_low_severity(self):
+    def test_low_severity(self) -> None:
         """Test low severity classification."""
         from omni_mercury_engine.api.server import SeverityLevel, _classify_severity
 
         assert _classify_severity(1.2, 1.0) == SeverityLevel.LOW
 
-    def test_medium_severity(self):
+    def test_medium_severity(self) -> None:
         """Test medium severity classification."""
         from omni_mercury_engine.api.server import SeverityLevel, _classify_severity
 
         assert _classify_severity(2.0, 1.0) == SeverityLevel.MEDIUM
 
-    def test_high_severity(self):
+    def test_high_severity(self) -> None:
         """Test high severity classification."""
         from omni_mercury_engine.api.server import SeverityLevel, _classify_severity
 
         assert _classify_severity(3.0, 1.0) == SeverityLevel.HIGH
 
-    def test_critical_severity(self):
+    def test_critical_severity(self) -> None:
         """Test critical severity classification."""
         from omni_mercury_engine.api.server import SeverityLevel, _classify_severity
 
         assert _classify_severity(5.0, 1.0) == SeverityLevel.CRITICAL
 
-    def test_zero_threshold(self):
+    def test_zero_threshold(self) -> None:
         """Test classification with zero threshold."""
         from omni_mercury_engine.api.server import _classify_severity
 
@@ -322,7 +322,7 @@ class TestSeverityClassification:
 class TestCORSConfiguration:
     """Tests for CORS middleware configuration."""
 
-    def test_development_cors_origins(self):
+    def test_development_cors_origins(self) -> None:
         """Test that development mode includes localhost origins."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("MERCURY_AGENT_ENV", None)
@@ -333,7 +333,7 @@ class TestCORSConfiguration:
 
             assert app is not None  # App should initialize without error
 
-    def test_cors_preflight(self, client):
+    def test_cors_preflight(self, client) -> None:
         """Test CORS preflight request handling."""
         response = client.options(
             "/health",
@@ -354,12 +354,12 @@ class TestCORSConfiguration:
 class TestCorrelationIDMiddleware:
     """Tests for correlation ID tracking."""
 
-    def test_response_includes_correlation_id(self, client):
+    def test_response_includes_correlation_id(self, client) -> None:
         """Test that responses include X-Correlation-ID header."""
         response = client.get("/health")
         assert "X-Correlation-ID" in response.headers
 
-    def test_custom_correlation_id_propagated(self, client):
+    def test_custom_correlation_id_propagated(self, client) -> None:
         """Test that provided correlation ID is propagated."""
         custom_id = "test-correlation-123"
         response = client.get(
@@ -368,7 +368,7 @@ class TestCorrelationIDMiddleware:
         )
         assert response.headers.get("X-Correlation-ID") == custom_id
 
-    def test_request_id_alias(self, client):
+    def test_request_id_alias(self, client) -> None:
         """Test that X-Request-ID works as alias."""
         custom_id = "test-request-456"
         response = client.get(
@@ -377,7 +377,7 @@ class TestCorrelationIDMiddleware:
         )
         assert response.headers.get("X-Correlation-ID") == custom_id
 
-    def test_request_duration_header(self, client):
+    def test_request_duration_header(self, client) -> None:
         """Test that X-Request-Duration-Ms header is included."""
         response = client.get("/health")
         assert "X-Request-Duration-Ms" in response.headers
@@ -393,7 +393,7 @@ class TestCorrelationIDMiddleware:
 class TestOpenAPISchema:
     """Tests for custom OpenAPI schema."""
 
-    def test_openapi_schema_accessible(self, client):
+    def test_openapi_schema_accessible(self, client) -> None:
         """Test OpenAPI schema is accessible."""
         response = client.get("/openapi.json")
         assert response.status_code == 200
@@ -401,7 +401,7 @@ class TestOpenAPISchema:
         assert "info" in schema
         assert schema["info"]["title"] == "Mercury Agent API"
 
-    def test_docs_accessible(self, client):
+    def test_docs_accessible(self, client) -> None:
         """Test Swagger docs are accessible."""
         response = client.get("/docs")
         assert response.status_code == 200

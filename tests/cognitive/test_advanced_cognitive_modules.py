@@ -26,7 +26,7 @@ import numpy as np
 class TestChainOfThoughtEngine:
     """Tests for ChainOfThoughtEngine."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_thought import ChainOfThoughtEngine
 
         engine = ChainOfThoughtEngine()
@@ -34,7 +34,7 @@ class TestChainOfThoughtEngine:
         stats = engine.get_statistics()
         assert stats["total_reasoning_sessions"] == 0
 
-    def test_standard_reasoning(self):
+    def test_standard_reasoning(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_thought import (
             ChainOfThoughtEngine,
             ReasoningStrategy,
@@ -57,7 +57,7 @@ class TestChainOfThoughtEngine:
         assert result.confidence >= 0 and result.confidence <= 1
         assert len(result.thoughts) > 0
 
-    def test_self_consistency_reasoning(self):
+    def test_self_consistency_reasoning(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_thought import (
             ChainOfThoughtEngine,
             ReasoningStrategy,
@@ -80,7 +80,7 @@ class TestChainOfThoughtEngine:
         # Self-consistency should aggregate multiple reasoning paths
         assert "consistency_score" in result.metadata
 
-    def test_tree_of_thoughts_reasoning(self):
+    def test_tree_of_thoughts_reasoning(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_thought import (
             ChainOfThoughtEngine,
             ReasoningStrategy,
@@ -107,7 +107,7 @@ class TestChainOfThoughtEngine:
         # Tree of thoughts should explore multiple branches
         assert "branches_explored" in result.metadata
 
-    def test_anomaly_chain_of_thought(self):
+    def test_anomaly_chain_of_thought(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_thought import AnomalyChainOfThought
 
         cot = AnomalyChainOfThought()
@@ -125,7 +125,7 @@ class TestChainOfThoughtEngine:
         assert "reasoning_chain" in analysis
         assert "conclusion" in analysis
 
-    def test_statistics_tracking(self):
+    def test_statistics_tracking(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_thought import ChainOfThoughtEngine
 
         engine = ChainOfThoughtEngine()
@@ -146,7 +146,7 @@ class TestChainOfThoughtEngine:
 class TestReflexionEngine:
     """Tests for ReflexionEngine."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.reflexion import ReflexionEngine
 
         engine = ReflexionEngine()
@@ -154,7 +154,7 @@ class TestReflexionEngine:
         stats = engine.get_statistics()
         assert stats["total_reflections"] == 0
 
-    def test_execute_with_reflection(self):
+    def test_execute_with_reflection(self) -> None:
         from omni_mercury_engine.cognitive.reflexion import ReflexionEngine
 
         engine = ReflexionEngine()
@@ -172,7 +172,7 @@ class TestReflexionEngine:
         assert "iterations" in result
         assert result["iterations"] <= 3
 
-    def test_experience_memory(self):
+    def test_experience_memory(self) -> None:
         from omni_mercury_engine.cognitive.reflexion import ExperienceMemory
 
         memory = ExperienceMemory(max_size=100)
@@ -189,7 +189,7 @@ class TestReflexionEngine:
         similar = memory.retrieve_similar({"action": "action_0"}, k=3)
         assert len(similar) <= 3
 
-    def test_heuristic_evaluator(self):
+    def test_heuristic_evaluator(self) -> None:
         from omni_mercury_engine.cognitive.reflexion import HeuristicEvaluator
 
         evaluator = HeuristicEvaluator()
@@ -205,7 +205,7 @@ class TestReflexionEngine:
         assert "score" in evaluation
         assert "feedback" in evaluation
 
-    def test_anomaly_reflexion_integration(self):
+    def test_anomaly_reflexion_integration(self) -> None:
         from omni_mercury_engine.cognitive.reflexion import AnomalyReflexion
 
         reflexion = AnomalyReflexion()
@@ -221,7 +221,7 @@ class TestReflexionEngine:
         assert result is not None
         assert "refined_score" in result or "recommendations" in result
 
-    def test_improvement_planning(self):
+    def test_improvement_planning(self) -> None:
         from omni_mercury_engine.cognitive.reflexion import ReflexionEngine
 
         engine = ReflexionEngine()
@@ -245,7 +245,7 @@ class TestReflexionEngine:
 class TestChainOfHindsightEngine:
     """Tests for ChainOfHindsightEngine."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_hindsight import ChainOfHindsightEngine
 
         engine = ChainOfHindsightEngine()
@@ -253,7 +253,7 @@ class TestChainOfHindsightEngine:
         stats = engine.get_statistics()
         assert stats["total_sequences"] == 0
 
-    def test_record_sequence(self):
+    def test_record_sequence(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_hindsight import ChainOfHindsightEngine
 
         engine = ChainOfHindsightEngine()
@@ -274,7 +274,7 @@ class TestChainOfHindsightEngine:
         stats = engine.get_statistics()
         assert stats["total_sequences"] == 1
 
-    def test_credit_assignment(self):
+    def test_credit_assignment(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_hindsight import CreditAssignment
 
         assigner = CreditAssignment()
@@ -291,7 +291,7 @@ class TestChainOfHindsightEngine:
         # Later decisions should have higher credit with positive outcomes
         assert credits[2] >= credits[0]
 
-    def test_hindsight_relabeling(self):
+    def test_hindsight_relabeling(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_hindsight import HindsightRelabeler
 
         relabeler = HindsightRelabeler()
@@ -307,9 +307,10 @@ class TestChainOfHindsightEngine:
         # Should create alternative trajectory with achieved goal
         assert len(relabeled) == len(trajectory)
         for step in relabeled:
+            assert isinstance(step, dict)
             assert step["goal"] == achieved_goal
 
-    def test_feedback_processor(self):
+    def test_feedback_processor(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_hindsight import FeedbackProcessor
 
         processor = FeedbackProcessor()
@@ -322,7 +323,7 @@ class TestChainOfHindsightEngine:
         assert "linguistic_feedback" in feedback
         assert "improvement_signals" in feedback
 
-    def test_anomaly_chain_of_hindsight(self):
+    def test_anomaly_chain_of_hindsight(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_hindsight import AnomalyChainOfHindsight
 
         coh = AnomalyChainOfHindsight()
@@ -348,7 +349,7 @@ class TestChainOfHindsightEngine:
 class TestHierarchicalPlanner:
     """Tests for HierarchicalPlanner."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.hierarchical_planning import HierarchicalPlanner
 
         planner = HierarchicalPlanner()
@@ -356,7 +357,7 @@ class TestHierarchicalPlanner:
         stats = planner.get_statistics()
         assert stats["total_plans"] == 0
 
-    def test_goal_decomposition(self):
+    def test_goal_decomposition(self) -> None:
         from omni_mercury_engine.cognitive.hierarchical_planning import GoalDecomposer
 
         decomposer = GoalDecomposer()
@@ -375,7 +376,7 @@ class TestHierarchicalPlanner:
             assert isinstance(subgoal, dict)
             assert "level" in subgoal or "parent" in subgoal or "type" in subgoal
 
-    def test_option_library(self):
+    def test_option_library(self) -> None:
         from omni_mercury_engine.cognitive.hierarchical_planning import OptionLibrary
 
         library = OptionLibrary()
@@ -393,7 +394,7 @@ class TestHierarchicalPlanner:
         assert len(options) >= 1
         assert options[0]["name"] == "isolate_host"
 
-    def test_hierarchical_value_function(self):
+    def test_hierarchical_value_function(self) -> None:
         from omni_mercury_engine.cognitive.hierarchical_planning import HierarchicalValueFunction
 
         hvf = HierarchicalValueFunction(num_levels=3)
@@ -405,7 +406,7 @@ class TestHierarchicalPlanner:
 
         assert isinstance(value, (int, float))
 
-    def test_create_plan(self):
+    def test_create_plan(self) -> None:
         from omni_mercury_engine.cognitive.hierarchical_planning import HierarchicalPlanner
 
         planner = HierarchicalPlanner()
@@ -427,7 +428,7 @@ class TestHierarchicalPlanner:
         assert "actions" in plan or "steps" in plan
         assert "estimated_success" in plan or "confidence" in plan
 
-    def test_anomaly_hierarchical_planner(self):
+    def test_anomaly_hierarchical_planner(self) -> None:
         from omni_mercury_engine.cognitive.hierarchical_planning import AnomalyHierarchicalPlanner
 
         planner = AnomalyHierarchicalPlanner()
@@ -453,7 +454,7 @@ class TestHierarchicalPlanner:
 class TestMultiAgentCoordination:
     """Tests for MultiAgentDetectionSystem."""
 
-    def test_agent_coordinator_initialization(self):
+    def test_agent_coordinator_initialization(self) -> None:
         from omni_mercury_engine.cognitive.multi_agent_coordination import AgentCoordinator
 
         coordinator = AgentCoordinator()
@@ -461,7 +462,7 @@ class TestMultiAgentCoordination:
         stats = coordinator.get_statistics()
         assert stats["registered_agents"] == 0
 
-    def test_register_agent(self):
+    def test_register_agent(self) -> None:
         from omni_mercury_engine.cognitive.multi_agent_coordination import (
             AgentCoordinator,
             DetectionAgent,
@@ -470,7 +471,7 @@ class TestMultiAgentCoordination:
         coordinator = AgentCoordinator()
 
         class TestAgent(DetectionAgent):
-            def detect(self, data):
+            def detect(self, data, context=None):
                 return {"score": 0.5}
 
         agent = TestAgent(agent_id="agent_1", capabilities=["statistical"])
@@ -479,7 +480,7 @@ class TestMultiAgentCoordination:
         stats = coordinator.get_statistics()
         assert stats["registered_agents"] == 1
 
-    def test_consensus_protocol_majority_vote(self):
+    def test_consensus_protocol_majority_vote(self) -> None:
         from omni_mercury_engine.cognitive.multi_agent_coordination import ConsensusProtocol
 
         protocol = ConsensusProtocol(method="majority_vote")
@@ -496,7 +497,7 @@ class TestMultiAgentCoordination:
         assert consensus["decision"]
         assert "agreement_ratio" in consensus
 
-    def test_consensus_protocol_weighted_vote(self):
+    def test_consensus_protocol_weighted_vote(self) -> None:
         from omni_mercury_engine.cognitive.multi_agent_coordination import ConsensusProtocol
 
         protocol = ConsensusProtocol(method="weighted_vote")
@@ -510,9 +511,10 @@ class TestMultiAgentCoordination:
         consensus = protocol.reach_consensus(votes)
 
         # Weighted: True has 1.8, False has 1.5
+        assert isinstance(consensus, dict)
         assert consensus["decision"]
 
-    def test_byzantine_tolerant_consensus(self):
+    def test_byzantine_tolerant_consensus(self) -> None:
         from omni_mercury_engine.cognitive.multi_agent_coordination import ConsensusProtocol
 
         protocol = ConsensusProtocol(method="byzantine_tolerant")
@@ -527,17 +529,18 @@ class TestMultiAgentCoordination:
 
         consensus = protocol.reach_consensus(votes)
 
+        assert isinstance(consensus, dict)
         assert consensus["decision"]
         assert consensus["is_byzantine_safe"]
 
-    def test_coalition_formation(self):
+    def test_coalition_formation(self) -> None:
         from omni_mercury_engine.cognitive.multi_agent_coordination import (
             Coalition,
             DetectionAgent,
         )
 
         class SpecializedAgent(DetectionAgent):
-            def detect(self, data):
+            def detect(self, data, context=None):
                 return {"score": np.random.random()}
 
         agents = [
@@ -553,18 +556,18 @@ class TestMultiAgentCoordination:
         assert len(coalition.members) == 3
         assert coalition.objective == "investigate_threat"
 
-    def test_multi_agent_detection_system(self):
+    def test_multi_agent_detection_system(self) -> None:
         from omni_mercury_engine.cognitive.multi_agent_coordination import (
             DetectionAgent,
             MultiAgentDetectionSystem,
         )
 
         class SimpleAgent(DetectionAgent):
-            def __init__(self, agent_id, threshold):
+            def __init__(self, agent_id, threshold) -> None:
                 super().__init__(agent_id, capabilities=["threshold"])
                 self.threshold = threshold
 
-            def detect(self, data):
+            def detect(self, data, context=None):
                 score = np.mean(np.abs(data))
                 return {"is_anomaly": score > self.threshold, "score": score}
 
@@ -592,7 +595,7 @@ class TestMultiAgentCoordination:
 class TestFormalVerification:
     """Tests for FormalVerificationEngine."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.formal_verification import FormalVerificationEngine
 
         engine = FormalVerificationEngine()
@@ -600,7 +603,7 @@ class TestFormalVerification:
         stats = engine.get_statistics()
         assert stats["total_verifications"] == 0
 
-    def test_safety_verifier(self):
+    def test_safety_verifier(self) -> None:
         from omni_mercury_engine.cognitive.formal_verification import SafetyVerifier
 
         verifier = SafetyVerifier()
@@ -621,7 +624,7 @@ class TestFormalVerification:
 
         assert result["satisfied"]
 
-    def test_constraint_solver(self):
+    def test_constraint_solver(self) -> None:
         from omni_mercury_engine.cognitive.formal_verification import ConstraintSolver
 
         solver = ConstraintSolver()
@@ -637,7 +640,7 @@ class TestFormalVerification:
         assert result["satisfiable"]
         assert 0.5 < result["solution"]["threshold"] < 0.9
 
-    def test_reachability_analyzer(self):
+    def test_reachability_analyzer(self) -> None:
         from omni_mercury_engine.cognitive.formal_verification import ReachabilityAnalyzer
 
         analyzer = ReachabilityAnalyzer()
@@ -656,7 +659,7 @@ class TestFormalVerification:
         assert result["reachable"]
         assert len(result["path"]) > 0
 
-    def test_interval_bound_propagator(self):
+    def test_interval_bound_propagator(self) -> None:
         from omni_mercury_engine.cognitive.formal_verification import IntervalBoundPropagator
 
         propagator = IntervalBoundPropagator()
@@ -675,7 +678,7 @@ class TestFormalVerification:
 
         assert "y0" in output_bounds or len(output_bounds) == 2
 
-    def test_anomaly_verifier(self):
+    def test_anomaly_verifier(self) -> None:
         from omni_mercury_engine.cognitive.formal_verification import AnomalyVerifier
 
         verifier = AnomalyVerifier()
@@ -701,7 +704,7 @@ class TestFormalVerification:
         assert "all_satisfied" in result
         assert result["all_satisfied"]
 
-    def test_statistics_tracking(self):
+    def test_statistics_tracking(self) -> None:
         from omni_mercury_engine.cognitive.formal_verification import FormalVerificationEngine
 
         engine = FormalVerificationEngine()
@@ -722,14 +725,14 @@ class TestFormalVerification:
 class TestPredictiveCoding:
     """Tests for PredictiveCodingDetector."""
 
-    def test_hierarchical_predictive_coder_initialization(self):
+    def test_hierarchical_predictive_coder_initialization(self) -> None:
         from omni_mercury_engine.cognitive.predictive_coding import HierarchicalPredictiveCoder
 
         coder = HierarchicalPredictiveCoder(num_levels=3, input_dim=10)
         assert coder is not None
         assert coder.num_levels == 3
 
-    def test_prediction_and_error(self):
+    def test_prediction_and_error(self) -> None:
         from omni_mercury_engine.cognitive.predictive_coding import HierarchicalPredictiveCoder
 
         coder = HierarchicalPredictiveCoder(num_levels=3, input_dim=10)
@@ -741,7 +744,7 @@ class TestPredictiveCoding:
         assert prediction.shape == input_data.shape
         assert error.shape == input_data.shape
 
-    def test_precision_estimator(self):
+    def test_precision_estimator(self) -> None:
         from omni_mercury_engine.cognitive.predictive_coding import PrecisionEstimator
 
         estimator = PrecisionEstimator()
@@ -752,7 +755,7 @@ class TestPredictiveCoding:
         assert len(precisions) == len(errors)
         assert all(p > 0 for p in precisions)  # Precisions should be positive
 
-    def test_active_inference_agent(self):
+    def test_active_inference_agent(self) -> None:
         from omni_mercury_engine.cognitive.predictive_coding import ActiveInferenceAgent
 
         agent = ActiveInferenceAgent(
@@ -771,7 +774,7 @@ class TestPredictiveCoding:
         assert action is not None
         assert "id" in action
 
-    def test_free_energy_minimization(self):
+    def test_free_energy_minimization(self) -> None:
         from omni_mercury_engine.cognitive.predictive_coding import HierarchicalPredictiveCoder
 
         coder = HierarchicalPredictiveCoder(num_levels=2, input_dim=5)
@@ -789,7 +792,7 @@ class TestPredictiveCoding:
         assert len(free_energies) == 10
         assert all(isinstance(fe, (int, float)) for fe in free_energies)
 
-    def test_predictive_coding_detector(self):
+    def test_predictive_coding_detector(self) -> None:
         from omni_mercury_engine.cognitive.predictive_coding import PredictiveCodingDetector
 
         detector = PredictiveCodingDetector(
@@ -814,7 +817,7 @@ class TestPredictiveCoding:
         assert "is_anomaly" in result
         assert "prediction_error" in result
 
-    def test_mercury_predictive_coding(self):
+    def test_mercury_predictive_coding(self) -> None:
         from omni_mercury_engine.cognitive.predictive_coding import MercuryPredictiveCoding
 
         pc = MercuryPredictiveCoding()
@@ -830,7 +833,7 @@ class TestPredictiveCoding:
         assert enhanced_result is not None
         assert "prediction_based_score" in enhanced_result or "enhanced_scores" in enhanced_result
 
-    def test_belief_updating(self):
+    def test_belief_updating(self) -> None:
         from omni_mercury_engine.cognitive.predictive_coding import HierarchicalPredictiveCoder
 
         coder = HierarchicalPredictiveCoder(num_levels=2, input_dim=5)
@@ -848,7 +851,7 @@ class TestPredictiveCoding:
         # Posterior should move towards observation
         assert np.mean(posterior) > np.mean(prior)
 
-    def test_statistics(self):
+    def test_statistics(self) -> None:
         from omni_mercury_engine.cognitive.predictive_coding import PredictiveCodingDetector
 
         detector = PredictiveCodingDetector(input_dim=10, num_levels=2)
@@ -871,7 +874,7 @@ class TestPredictiveCoding:
 class TestCognitiveModulesIntegration:
     """Integration tests for all cognitive modules working together."""
 
-    def test_chain_of_thought_with_reflexion(self):
+    def test_chain_of_thought_with_reflexion(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_thought import ChainOfThoughtEngine
         from omni_mercury_engine.cognitive.reflexion import ReflexionEngine
 
@@ -895,7 +898,7 @@ class TestCognitiveModulesIntegration:
 
         assert reflection_result is not None
 
-    def test_hierarchical_planning_with_multi_agent(self):
+    def test_hierarchical_planning_with_multi_agent(self) -> None:
         from omni_mercury_engine.cognitive.hierarchical_planning import HierarchicalPlanner
         from omni_mercury_engine.cognitive.multi_agent_coordination import (
             DetectionAgent,
@@ -903,11 +906,11 @@ class TestCognitiveModulesIntegration:
         )
 
         class PlanningAgent(DetectionAgent):
-            def __init__(self, agent_id, planner):
+            def __init__(self, agent_id, planner) -> None:
                 super().__init__(agent_id, capabilities=["planning"])
                 self.planner = planner
 
-            def detect(self, data):
+            def detect(self, data, context=None):
                 plan = self.planner.create_plan(
                     {"objective": "analyze_data"},
                     {"data": data.tolist() if hasattr(data, "tolist") else data},
@@ -924,7 +927,7 @@ class TestCognitiveModulesIntegration:
 
         assert "consensus_decision" in result
 
-    def test_formal_verification_of_predictive_coding(self):
+    def test_formal_verification_of_predictive_coding(self) -> None:
         from omni_mercury_engine.cognitive.formal_verification import AnomalyVerifier
         from omni_mercury_engine.cognitive.predictive_coding import PredictiveCodingDetector
 
@@ -943,7 +946,7 @@ class TestCognitiveModulesIntegration:
 
         assert verification is not None
 
-    def test_chain_of_hindsight_learning_loop(self):
+    def test_chain_of_hindsight_learning_loop(self) -> None:
         from omni_mercury_engine.cognitive.chain_of_hindsight import ChainOfHindsightEngine
         from omni_mercury_engine.cognitive.predictive_coding import PredictiveCodingDetector
 
@@ -979,7 +982,7 @@ class TestCognitiveModulesIntegration:
 class TestModuleImports:
     """Test that all new modules can be imported correctly."""
 
-    def test_import_chain_of_thought(self):
+    def test_import_chain_of_thought(self) -> None:
         from omni_mercury_engine.cognitive import (
             AnomalyChainOfThought,
             ChainOfThoughtEngine,
@@ -992,7 +995,7 @@ class TestModuleImports:
         assert AnomalyChainOfThought is not None
         assert ReasoningStrategy is not None
 
-    def test_import_reflexion(self):
+    def test_import_reflexion(self) -> None:
         from omni_mercury_engine.cognitive import (
             AnomalyReflexion,
             ExperienceMemory,
@@ -1005,7 +1008,7 @@ class TestModuleImports:
         assert HeuristicEvaluator is not None
         assert AnomalyReflexion is not None
 
-    def test_import_chain_of_hindsight(self):
+    def test_import_chain_of_hindsight(self) -> None:
         from omni_mercury_engine.cognitive import (
             AnomalyChainOfHindsight,
             ChainOfHindsightEngine,
@@ -1020,7 +1023,7 @@ class TestModuleImports:
         assert FeedbackProcessor is not None
         assert AnomalyChainOfHindsight is not None
 
-    def test_import_hierarchical_planning(self):
+    def test_import_hierarchical_planning(self) -> None:
         from omni_mercury_engine.cognitive import (
             AbstractionLevel,
             AnomalyHierarchicalPlanner,
@@ -1037,7 +1040,7 @@ class TestModuleImports:
         assert AnomalyHierarchicalPlanner is not None
         assert AbstractionLevel is not None
 
-    def test_import_multi_agent_coordination(self):
+    def test_import_multi_agent_coordination(self) -> None:
         from omni_mercury_engine.cognitive import (
             AgentCoordinator,
             Coalition,
@@ -1052,7 +1055,7 @@ class TestModuleImports:
         assert Coalition is not None
         assert MultiAgentDetectionSystem is not None
 
-    def test_import_formal_verification(self):
+    def test_import_formal_verification(self) -> None:
         from omni_mercury_engine.cognitive import (
             AnomalyVerifier,
             ConstraintSolver,
@@ -1069,7 +1072,7 @@ class TestModuleImports:
         assert IntervalBoundPropagator is not None
         assert AnomalyVerifier is not None
 
-    def test_import_predictive_coding(self):
+    def test_import_predictive_coding(self) -> None:
         from omni_mercury_engine.cognitive import (
             ActiveInferenceAgent,
             HierarchicalPredictiveCoder,
