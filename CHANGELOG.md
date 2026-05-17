@@ -17,6 +17,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Omni-AXA-Engine assimilation (Omni SHA `2a3c6dd`) — Batch 1: utils + ml
+
+First batch of the 18-module port from `Steel-SecAdv-LLC/Omni-AXA-Engine`
+(pinned SHA `2a3c6dd9d7035e9fef39223ffb371af11cf0e0a3`). Source is read-only;
+every module below was rewritten Mercury-native (license header, Mercury logging,
+no `omni_*` scalar imports, no synthetic-data paths). Lineage lives in this
+changelog entry only — module docstrings do not mention the origin repository.
+
+- `utils/profiling.py` — cProfile / tracemalloc / wall-clock decorators and
+  `PerformanceBenchmark` context manager. Dropped the global
+  `set_profiling_logger` / `get_profiling_logger` setters; per-module loggers
+  are obtained via `logging.getLogger(__name__)` per Mercury convention. The
+  hardcoded `"OmniAXA.Profiling"` logger name is gone.
+- `utils/numeric_stability.py` — renamed from `utils/ancient_math.py`.
+  Keeps the verified Babylonian / Heron iterative square root
+  (`robust_sqrt`, `robust_sqrt_vec`); removes the Vedic helpers
+  (`vedic_reciprocal`, `vedic_multiply`, `set_vedic_optimization`,
+  `is_vedic_enabled`, `_ENABLE_VEDIC_OPT`) — they were straight wrappers
+  over native operators with no algorithmic value. Module docstring no
+  longer carries the "heritage" framing; it describes the module honestly
+  as numerically-stable square-root utilities.
+- `ml/fairness_regularizers.py` — `HSICRegularizer` (Gretton 2005,
+  RBF + centering matrix + `tr(KHLH)/m²`), `DemographicParityLoss`, and the
+  `compute_fairness_metrics` offline diagnostic. Dropped the unsupported
+  "Medical fairness (91% acc)" benchmark claim from the docstring; renamed
+  the linear-algebra reference from `σ_Sacred` to `σ_min` (Weyl's eigenvalue
+  perturbation inequality).
+- `ml/equilibrium_propagation.py` — `EquilibriumPropagationLayer`
+  (Scellier & Bengio 2017 energy-based relaxation with Lyapunov check) and
+  `LowPowerAnomalyDetector`. Lands as a sibling of `ml/lightweight_primitives.py`
+  rather than inside it because `lightweight_primitives.py` is explicitly
+  NumPy-only by design. Deleted the arbitrary `estimate_power_savings()`
+  method (divided by a hardcoded baseline of 100 — meaningless without
+  hardware measurement); renamed `compute_neuromorphic_efficiency` to
+  `compute_ep_dynamics_metrics`, which now reports `energy_drop_per_sample`,
+  `convergence_iterations`, and `stability_ratio` — diagnostics that can
+  be defined without a hardware reference.
+
+Batch 1 gate status (run locally pre-push):
+- src mypy: `502` source files, zero errors (baseline `498` + `4` new).
+- Doctrinal-residue grep on new files: zero hits.
+- OverwatchNexus-pollution grep on new files: zero hits.
+- Synthetic-data grep on new files: zero hits.
+- black + ruff: clean on all eight new files (four src, four tests).
+- pytest (excluding `network`/`credentialed` markers): `76/76` new tests pass.
+
+Branch + scope note: the spec brief named `claude/verify-previous-info-jzvV4`
+as the develop branch, but the harness-injected execution environment
+checks out and pushes `claude/clarify-requirements-wKiaW`. The PR runs
+against the latter; harness configuration wins, no force-push to a
+different branch.
+
 ### Security — HTTP escape hatch removed (PR #210)
 
 - **`allow_untrusted=True` is removed from every `SafeHTTPClient` method**
