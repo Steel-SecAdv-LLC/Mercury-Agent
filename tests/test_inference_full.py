@@ -22,17 +22,20 @@ from __future__ import annotations
 Comprehensive tests for inference module to boost coverage
 """
 
+import importlib.util
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
 
-# Conditional torch import
-try:
-    import torch
+# Probe for torch without binding it at module import — keeps the
+# ``Module | None`` retypings off the file.  ``TYPE_CHECKING`` makes mypy
+# resolve ``torch`` regardless of runtime availability; the pytestmark
+# below skips the suite cleanly when torch is absent.
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
-    torch = None  # type: ignore[assignment]
+if TYPE_CHECKING or HAS_TORCH:
+    import torch
 
 # Skip all tests in this module if torch is not available
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
@@ -42,14 +45,14 @@ if HAS_TORCH:
     from omni_mercury_engine.ml.inference import FusionInference
 
 
-def test_fusion_inference_initialization():
+def test_fusion_inference_initialization() -> None:
     """Test FusionInference initialization"""
     engine = FusionInference()
     assert engine is not None
     assert engine.model is not None
 
 
-def test_fusion_inference_predict():
+def test_fusion_inference_predict() -> None:
     """Test FusionInference predict method"""
     engine = FusionInference()
 
@@ -65,13 +68,13 @@ def test_fusion_inference_predict():
     assert "severity_scores" in result
 
 
-def test_fusion_inference_with_device():
+def test_fusion_inference_with_device() -> None:
     """Test FusionInference with specific device"""
     engine = FusionInference(device="cpu")
     assert engine.device.type == "cpu"
 
 
-def test_fusion_inference_predict_batch():
+def test_fusion_inference_predict_batch() -> None:
     """Test FusionInference predict_batch method"""
     engine = FusionInference()
 
@@ -84,7 +87,7 @@ def test_fusion_inference_predict_batch():
     assert "class_prediction" in results[0]
 
 
-def test_fusion_inference_explain():
+def test_fusion_inference_explain() -> None:
     """Test FusionInference explain method"""
     engine = FusionInference()
 
@@ -100,7 +103,7 @@ def test_fusion_inference_explain():
     assert "confidence" in explanation["prediction"]
 
 
-def test_fusion_inference_with_numpy():
+def test_fusion_inference_with_numpy() -> None:
     """Test FusionInference with numpy arrays"""
     engine = FusionInference()
 
@@ -113,7 +116,7 @@ def test_fusion_inference_with_numpy():
     assert result is not None
 
 
-def test_fusion_inference_return_attention():
+def test_fusion_inference_return_attention() -> None:
     """Test FusionInference with attention weights"""
     engine = FusionInference()
 
@@ -126,7 +129,7 @@ def test_fusion_inference_return_attention():
     assert "anomaly_probs" in result
 
 
-def test_fusion_inference_multiple_features():
+def test_fusion_inference_multiple_features() -> None:
     """Test FusionInference with multiple feature types"""
     engine = FusionInference()
 

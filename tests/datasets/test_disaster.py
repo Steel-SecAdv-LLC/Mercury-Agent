@@ -6,6 +6,8 @@ Tests for FEMA disaster declarations and hazard mitigation loaders.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -20,7 +22,7 @@ class TestFEMADisasterLoader:
     """Tests for FEMA disaster declarations loader."""
 
     @pytest.fixture
-    def config(self, tmp_path) -> DatasetConfig:
+    def config(self, tmp_path: Any) -> DatasetConfig:
         """Create test configuration."""
         return DatasetConfig(
             name="fema_disaster",
@@ -35,23 +37,23 @@ class TestFEMADisasterLoader:
         )
 
     @pytest.fixture
-    def loader(self, config) -> FEMADisasterLoader:
+    def loader(self, config: Any) -> FEMADisasterLoader:
         """Create loader instance."""
         return FEMADisasterLoader(config)
 
-    def test_init(self, loader):
+    def test_init(self, loader: Any) -> None:
         """Test loader initialization."""
         assert loader.DATASET_NAME == "fema_disaster"
         assert loader.REQUIRES_CREDENTIALS is False
         assert loader.year_range == (2010, 2024)
 
-    def test_disaster_types(self, loader):
+    def test_disaster_types(self, loader: Any) -> None:
         """Test disaster types are defined."""
         assert "DR" in loader.DISASTER_TYPES
         assert "EM" in loader.DISASTER_TYPES
         assert loader.DISASTER_TYPES["DR"] == "Major Disaster Declaration"
 
-    def test_incident_types(self, loader):
+    def test_incident_types(self, loader: Any) -> None:
         """Test incident types list."""
         assert "Hurricane" in loader.INCIDENT_TYPES
         assert "Flood" in loader.INCIDENT_TYPES
@@ -59,7 +61,7 @@ class TestFEMADisasterLoader:
         assert "Earthquake" in loader.INCIDENT_TYPES
         assert len(loader.INCIDENT_TYPES) >= 10
 
-    def test_feature_names(self, loader):
+    def test_feature_names(self, loader: Any) -> None:
         """Test feature names are correctly defined."""
         expected = [
             "disaster_number",
@@ -76,13 +78,13 @@ class TestFEMADisasterLoader:
         ]
         assert expected == loader.FEATURE_NAMES
 
-    def test_synthetic_fallback(self, loader):
+    def test_synthetic_fallback(self, loader: Any) -> None:
         """Test synthetic data generation."""
         # Note: This will try real API first, fall back to synthetic
         result = loader.download()
         assert result is True
 
-    def test_load_data(self, loader):
+    def test_load_data(self, loader: Any) -> None:
         """Test loading disaster data."""
         loader.download()
         features, labels = loader._load_raw()
@@ -92,7 +94,7 @@ class TestFEMADisasterLoader:
         assert len(features) == len(labels)
         assert features.shape[1] == 11  # Number of features
 
-    def test_preprocess(self, loader):
+    def test_preprocess(self, loader: Any) -> None:
         """Test preprocessing."""
         loader.download()
         features, _ = loader._load_raw()
@@ -101,7 +103,7 @@ class TestFEMADisasterLoader:
 
         assert processed.dtype == np.float32
 
-    def test_year_range(self, loader):
+    def test_year_range(self, loader: Any) -> None:
         """Test generated data is within year range."""
         loader.download()
         features, _ = loader._load_raw()
@@ -110,7 +112,7 @@ class TestFEMADisasterLoader:
         assert years.min() >= 2010
         assert years.max() <= 2024
 
-    def test_state_fips_valid(self, loader):
+    def test_state_fips_valid(self, loader: Any) -> None:
         """Test state FIPS codes are valid US states and territories."""
         loader.download()
         features, _ = loader._load_raw()
@@ -120,7 +122,7 @@ class TestFEMADisasterLoader:
         # Max FIPS includes US territories: PR=72, VI=78, GU=66, AS=60, MP=69
         assert state_fips.max() <= 78
 
-    def test_program_flags_binary(self, loader):
+    def test_program_flags_binary(self, loader: Any) -> None:
         """Test program flags are binary."""
         loader.download()
         features, _ = loader._load_raw()
@@ -133,7 +135,7 @@ class TestFEMADisasterLoader:
             unique_vals = np.unique(prog)
             assert all(v in [0, 1] for v in unique_vals)
 
-    def test_major_disaster_labeling(self, loader):
+    def test_major_disaster_labeling(self, loader: Any) -> None:
         """Test major disaster labeling logic."""
         loader.download()
         features, labels = loader._load_raw()
@@ -150,7 +152,7 @@ class TestFEMAHazardMitigationLoader:
     """Tests for FEMA hazard mitigation loader."""
 
     @pytest.fixture
-    def config(self, tmp_path) -> DatasetConfig:
+    def config(self, tmp_path: Any) -> DatasetConfig:
         """Create test configuration."""
         return DatasetConfig(
             name="fema_hazard_mitigation",
@@ -164,16 +166,16 @@ class TestFEMAHazardMitigationLoader:
         )
 
     @pytest.fixture
-    def loader(self, config) -> FEMAHazardMitigationLoader:
+    def loader(self, config: Any) -> FEMAHazardMitigationLoader:
         """Create loader instance."""
         return FEMAHazardMitigationLoader(config)
 
-    def test_init(self, loader):
+    def test_init(self, loader: Any) -> None:
         """Test loader initialization."""
         assert loader.DATASET_NAME == "fema_hazard_mitigation"
         assert loader.REQUIRES_CREDENTIALS is False
 
-    def test_feature_names(self, loader):
+    def test_feature_names(self, loader: Any) -> None:
         """Test feature names."""
         expected = [
             "project_amount",
@@ -186,12 +188,12 @@ class TestFEMAHazardMitigationLoader:
         ]
         assert expected == loader.FEATURE_NAMES
 
-    def test_synthetic_fallback(self, loader):
+    def test_synthetic_fallback(self, loader: Any) -> None:
         """Test synthetic data generation."""
         result = loader.download()
         assert result is True
 
-    def test_load_data(self, loader):
+    def test_load_data(self, loader: Any) -> None:
         """Test loading mitigation data."""
         loader.download()
         features, labels = loader._load_raw()
@@ -199,7 +201,7 @@ class TestFEMAHazardMitigationLoader:
         assert isinstance(features, np.ndarray)
         assert features.shape[1] == 7
 
-    def test_project_amounts_positive(self, loader):
+    def test_project_amounts_positive(self, loader: Any) -> None:
         """Test project amounts are positive."""
         loader.download()
         features, _ = loader._load_raw()
@@ -207,7 +209,7 @@ class TestFEMAHazardMitigationLoader:
         amounts = features[:, 0]
         assert (amounts >= 0).all()
 
-    def test_federal_share_less_than_total(self, loader):
+    def test_federal_share_less_than_total(self, loader: Any) -> None:
         """Test federal share is less than or equal to project amount."""
         loader.download()
         features, _ = loader._load_raw()
@@ -216,7 +218,7 @@ class TestFEMAHazardMitigationLoader:
         federal_share = features[:, 1]
         assert (federal_share <= project_amount * 1.01).all()  # Allow small rounding
 
-    def test_preprocess_log_transform(self, loader):
+    def test_preprocess_log_transform(self, loader: Any) -> None:
         """Test preprocessing applies log transform to monetary values."""
         loader.download()
         features, _ = loader._load_raw()
@@ -234,7 +236,7 @@ class TestFEMAHazardMitigationLoader:
 class TestFEMADatasetRegistry:
     """Test dataset registry for FEMA loaders."""
 
-    def test_fema_disaster_registered(self):
+    def test_fema_disaster_registered(self) -> None:
         """Test FEMA disaster is registered."""
         from omni_mercury_engine.datasets import DatasetRegistry
 
@@ -245,7 +247,7 @@ class TestFEMADatasetRegistry:
         assert DatasetRegistry.get("fema") is FEMADisasterLoader
         assert DatasetRegistry.get("disaster_declarations") is FEMADisasterLoader
 
-    def test_hazard_mitigation_registered(self):
+    def test_hazard_mitigation_registered(self) -> None:
         """Test hazard mitigation is registered."""
         from omni_mercury_engine.datasets import DatasetRegistry
 
@@ -260,7 +262,7 @@ class TestFEMADisasterStatistics:
     """Integration tests for FEMA disaster statistics."""
 
     @pytest.fixture
-    def loader(self, tmp_path) -> FEMADisasterLoader:
+    def loader(self, tmp_path: Any) -> FEMADisasterLoader:
         """Create FEMA loader with larger sample."""
         config = DatasetConfig(
             name="fema_disaster",
@@ -276,7 +278,7 @@ class TestFEMADisasterStatistics:
         loader.download()
         return loader
 
-    def test_seasonal_patterns(self, loader):
+    def test_seasonal_patterns(self, loader: Any) -> None:
         """Test seasonal patterns in disaster data."""
         features, _ = loader._load_raw()
         months = features[:, 3]
@@ -291,7 +293,7 @@ class TestFEMADisasterStatistics:
             # At least some hurricane season events
             assert hurricane_season.sum() > 0
 
-    def test_incident_type_distribution(self, loader):
+    def test_incident_type_distribution(self, loader: Any) -> None:
         """Test incident types have variety."""
         features, _ = loader._load_raw()
         incident_codes = features[:, 5]
@@ -300,7 +302,7 @@ class TestFEMADisasterStatistics:
         # Should have at least a few different incident types
         assert len(unique_incidents) >= 3
 
-    def test_get_statistics(self, loader):
+    def test_get_statistics(self, loader: Any) -> None:
         """Test get_statistics method."""
         stats = loader.get_statistics()
 
@@ -319,7 +321,7 @@ class TestFEMAAPIIntegration:
     """Tests for FEMA API integration (may require network)."""
 
     @pytest.fixture
-    def loader(self, tmp_path) -> FEMADisasterLoader:
+    def loader(self, tmp_path: Any) -> FEMADisasterLoader:
         """Create FEMA loader."""
         config = DatasetConfig(
             name="fema_disaster",
@@ -330,12 +332,12 @@ class TestFEMAAPIIntegration:
         )
         return FEMADisasterLoader(config)
 
-    def test_rate_limiting(self, loader):
+    def test_rate_limiting(self, loader: Any) -> None:
         """Test rate limiting is implemented."""
         assert hasattr(loader, "_rate_limit")
         assert loader._request_delay >= 0.1  # At least 100ms delay
 
-    def test_api_url_valid(self, loader):
+    def test_api_url_valid(self, loader: Any) -> None:
         """Test API URL is correctly configured."""
         from omni_mercury_engine.security.input_validation import TrustedEndpoints
 
@@ -347,7 +349,7 @@ class TestFEMAAPIIntegration:
 class TestDisasterDataEdgeCases:
     """Edge case tests for disaster data."""
 
-    def test_empty_year_range(self, tmp_path):
+    def test_empty_year_range(self, tmp_path: Any) -> None:
         """Test handling of invalid year range."""
         config = DatasetConfig(
             name="fema_disaster",
@@ -362,7 +364,7 @@ class TestDisasterDataEdgeCases:
         result = loader.download()
         assert result is True  # Should still generate synthetic
 
-    def test_small_sample_size(self, tmp_path):
+    def test_small_sample_size(self, tmp_path: Any) -> None:
         """Test with very small sample size."""
         config = DatasetConfig(
             name="fema_disaster",
@@ -377,7 +379,7 @@ class TestDisasterDataEdgeCases:
         assert len(features) == 5
         assert len(labels) == 5
 
-    def test_large_sample_size(self, tmp_path):
+    def test_large_sample_size(self, tmp_path: Any) -> None:
         """Test with large sample size."""
         config = DatasetConfig(
             name="fema_disaster",

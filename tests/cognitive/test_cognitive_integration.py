@@ -21,7 +21,7 @@ import numpy as np
 class TestPlasticityEngine:
     """Tests for PlasticityEngine."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.plasticity_engine import PlasticityEngine
 
         engine = PlasticityEngine()
@@ -29,7 +29,7 @@ class TestPlasticityEngine:
         stats = engine.get_statistics()
         assert stats["active_connections"] == 0
 
-    def test_adaptation(self):
+    def test_adaptation(self) -> None:
         from omni_mercury_engine.cognitive.plasticity_engine import PlasticityEngine
 
         engine = PlasticityEngine()
@@ -43,7 +43,7 @@ class TestPlasticityEngine:
         stats = engine.get_statistics()
         assert stats["active_connections"] == 1
 
-    def test_association_query(self):
+    def test_association_query(self) -> None:
         from omni_mercury_engine.cognitive.plasticity_engine import PlasticityEngine
 
         engine = PlasticityEngine()
@@ -57,7 +57,7 @@ class TestPlasticityEngine:
 class TestKnowledgeGraph:
     """Tests for KnowledgeGraph."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.knowledge_graph import KnowledgeGraph
 
         graph = KnowledgeGraph()
@@ -65,7 +65,7 @@ class TestKnowledgeGraph:
         stats = graph.get_statistics()
         assert stats["total_nodes"] == 0
 
-    def test_add_node_and_edge(self):
+    def test_add_node_and_edge(self) -> None:
         from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
 
         graph = KnowledgeGraph()
@@ -78,7 +78,7 @@ class TestKnowledgeGraph:
         neighbors = graph.get_neighbors("concept1")
         assert len(neighbors) == 1
 
-    def test_spreading_activation(self):
+    def test_spreading_activation(self) -> None:
         from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
 
         graph = KnowledgeGraph()
@@ -98,7 +98,7 @@ class TestKnowledgeGraph:
 class TestMultiHopReasoner:
     """Tests for MultiHopReasoner."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner
 
         reasoner = MultiHopReasoner()
@@ -106,7 +106,7 @@ class TestMultiHopReasoner:
         stats = reasoner.get_statistics()
         assert stats["total_rules"] > 0  # Core rules initialized
 
-    def test_deduction(self):
+    def test_deduction(self) -> None:
         from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 
         reasoner = MultiHopReasoner()
@@ -119,7 +119,7 @@ class TestMultiHopReasoner:
         reasoner.deduce(premises)
         # May or may not find derivations depending on knowledge base
 
-    def test_abduction(self):
+    def test_abduction(self) -> None:
         from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
 
         reasoner = MultiHopReasoner()
@@ -138,13 +138,13 @@ class TestMultiHopReasoner:
 class TestIPBEngine:
     """Tests for IPBEngine."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.ipb_engine import IPBEngine
 
         ipb = IPBEngine()
         assert ipb is not None
 
-    def test_environment_definition(self):
+    def test_environment_definition(self) -> None:
         from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
 
         ipb = IPBEngine()
@@ -161,13 +161,13 @@ class TestIPBEngine:
 class TestCausalDiscovery:
     """Tests for CausalDiscoveryEngine."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
 
         causal = CausalDiscoveryEngine()
         assert causal is not None
 
-    def test_structure_discovery(self):
+    def test_structure_discovery(self) -> None:
         from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
 
         causal = CausalDiscoveryEngine()
@@ -187,13 +187,13 @@ class TestCausalDiscovery:
 class TestUncertaintyQuantifier:
     """Tests for UncertaintyQuantifier."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
         assert uq is not None
 
-    def test_uncertainty_estimation(self):
+    def test_uncertainty_estimation(self) -> None:
         from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
 
         uq = UncertaintyQuantifier()
@@ -210,13 +210,13 @@ class TestUncertaintyQuantifier:
 class TestCaseBasedReasoner:
     """Tests for CaseBasedReasoner."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.case_based_reasoning import CaseBasedReasoner
 
         cbr = CaseBasedReasoner()
         assert cbr is not None
 
-    def test_add_and_retrieve_case(self):
+    def test_add_and_retrieve_case(self) -> None:
         from omni_mercury_engine.cognitive.case_based_reasoning import (
             Case,
             CaseBasedReasoner,
@@ -245,13 +245,13 @@ class TestCaseBasedReasoner:
 class TestIndicatorSystem:
     """Tests for IndicatorDevelopmentSystem."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 
         ids = IndicatorDevelopmentSystem()
         assert ids is not None
 
-    def test_develop_indicator(self):
+    def test_develop_indicator(self) -> None:
         from omni_mercury_engine.cognitive.indicator_system import (
             IndicatorDevelopmentSystem,
             IndicatorType,
@@ -274,7 +274,7 @@ class TestIndicatorSystem:
 class TestCognitiveOrchestrator:
     """Tests for CognitiveOrchestrator integration."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
         orchestrator = CognitiveOrchestrator()
@@ -283,7 +283,7 @@ class TestCognitiveOrchestrator:
         assert orchestrator.reasoner is not None
         assert orchestrator.uncertainty is not None
 
-    def test_analyze_detection_result(self):
+    def test_analyze_detection_result(self) -> None:
         from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
         orchestrator = CognitiveOrchestrator()
@@ -303,7 +303,7 @@ class TestCognitiveOrchestrator:
         assert result.anomaly_score == 0.85
         assert 0 <= result.confidence <= 1
 
-    def test_statistics(self):
+    def test_statistics(self) -> None:
         from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
         orchestrator = CognitiveOrchestrator()
@@ -322,21 +322,21 @@ class TestCognitiveOrchestrator:
 class TestTruthDecipherIntegration:
     """Tests for Truth Decipher Framework with Cognitive Integration."""
 
-    def test_cognitive_integration_disabled(self):
+    def test_cognitive_integration_disabled(self) -> None:
         """Test that framework works with cognitive disabled."""
         from omni_mercury_engine.truth_decipher import TruthDecipherFramework
 
         framework = TruthDecipherFramework(enable_cognitive=False)
         assert framework.cognitive is None
 
-    def test_cognitive_integration_enabled(self):
+    def test_cognitive_integration_enabled(self) -> None:
         """Test that cognitive orchestrator is integrated."""
         from omni_mercury_engine.truth_decipher import TruthDecipherFramework
 
         framework = TruthDecipherFramework(enable_cognitive=True)
         assert framework.cognitive is not None
 
-    def test_decipher_truth_with_cognitive(self):
+    def test_decipher_truth_with_cognitive(self) -> None:
         """Test full pipeline with cognitive layer."""
         from omni_mercury_engine.truth_decipher import TruthDecipherFramework
 
@@ -360,7 +360,7 @@ class TestTruthDecipherIntegration:
             assert hasattr(result, "is_reliable")
             assert hasattr(result, "epistemic_uncertainty")
 
-    def test_statistics_include_cognitive(self):
+    def test_statistics_include_cognitive(self) -> None:
         """Test that statistics include cognitive stats."""
         from omni_mercury_engine.truth_decipher import TruthDecipherFramework
 

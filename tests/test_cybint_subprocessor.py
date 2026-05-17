@@ -29,7 +29,7 @@ from omni_mercury_engine.security.cybint_subprocessor import (
 class TestAPTGroup:
     """Tests for APTGroup enum."""
 
-    def test_enum_values(self):
+    def test_enum_values(self) -> None:
         """Test enum values exist."""
         assert APTGroup.APT1.value == "apt1_comment_crew"
         assert APTGroup.APT28.value == "apt28_fancy_bear"
@@ -41,7 +41,7 @@ class TestAPTGroup:
 class TestMalwareFamily:
     """Tests for MalwareFamily enum."""
 
-    def test_enum_values(self):
+    def test_enum_values(self) -> None:
         """Test enum values exist."""
         assert MalwareFamily.RANSOMWARE_WANNACRY.value == "wannacry"
         assert MalwareFamily.TROJAN_EMOTET.value == "emotet"
@@ -52,7 +52,7 @@ class TestMalwareFamily:
 class TestCyberKillChainStage:
     """Tests for CyberKillChainStage enum."""
 
-    def test_enum_values(self):
+    def test_enum_values(self) -> None:
         """Test enum values exist."""
         assert CyberKillChainStage.RECONNAISSANCE.value == "reconnaissance"
         assert CyberKillChainStage.WEAPONIZATION.value == "weaponization"
@@ -64,7 +64,7 @@ class TestCyberKillChainStage:
 class TestThreatActorType:
     """Tests for ThreatActorType enum."""
 
-    def test_enum_values(self):
+    def test_enum_values(self) -> None:
         """Test enum values exist."""
         assert ThreatActorType.NATION_STATE.value == "nation_state"
         assert ThreatActorType.CYBERCRIME.value == "cybercriminal"
@@ -75,7 +75,7 @@ class TestThreatActorType:
 class TestCYBINTAnalysisResult:
     """Tests for CYBINTAnalysisResult dataclass."""
 
-    def test_init_minimal(self):
+    def test_init_minimal(self) -> None:
         """Test initialization with minimal parameters."""
         result = CYBINTAnalysisResult(
             threat_detected=False,
@@ -87,7 +87,7 @@ class TestCYBINTAnalysisResult:
         assert result.apt_group is None
         assert result.ttps_detected == []
 
-    def test_init_full(self):
+    def test_init_full(self) -> None:
         """Test initialization with all parameters."""
         result = CYBINTAnalysisResult(
             threat_detected=True,
@@ -114,14 +114,14 @@ class TestCYBINTAnalysisResult:
 class TestAPTPatternRecognizer:
     """Tests for APTPatternRecognizer class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         recognizer = APTPatternRecognizer(input_dim=256)
         assert recognizer.pattern_encoder is not None
         assert recognizer.apt_classifier is not None
         assert recognizer.confidence_head is not None
 
-    def test_forward(self):
+    def test_forward(self) -> None:
         """Test forward pass."""
         recognizer = APTPatternRecognizer(input_dim=128)
         recognizer.eval()
@@ -132,7 +132,7 @@ class TestAPTPatternRecognizer:
         assert confidence.shape == (4, 1)
         assert torch.all(confidence >= 0) and torch.all(confidence <= 1)
 
-    def test_different_batch_sizes(self):
+    def test_different_batch_sizes(self) -> None:
         """Test with different batch sizes."""
         recognizer = APTPatternRecognizer(input_dim=128)
         recognizer.eval()
@@ -147,13 +147,13 @@ class TestAPTPatternRecognizer:
 class TestMalwareTaxonomyClassifier:
     """Tests for MalwareTaxonomyClassifier class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         classifier = MalwareTaxonomyClassifier(input_dim=128)
         assert classifier.feature_extractor is not None
         assert classifier.family_classifier is not None
 
-    def test_forward(self):
+    def test_forward(self) -> None:
         """Test forward pass."""
         classifier = MalwareTaxonomyClassifier(input_dim=64)
         classifier.eval()
@@ -162,7 +162,7 @@ class TestMalwareTaxonomyClassifier:
             classification = classifier.forward(x)
         assert classification.shape == (4, len(MalwareFamily))
 
-    def test_different_batch_sizes(self):
+    def test_different_batch_sizes(self) -> None:
         """Test with different batch sizes."""
         classifier = MalwareTaxonomyClassifier(input_dim=64)
         classifier.eval()
@@ -176,20 +176,20 @@ class TestMalwareTaxonomyClassifier:
 class TestC2InfrastructureDetector:
     """Tests for C2InfrastructureDetector class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         detector = C2InfrastructureDetector()
         assert "http_beacon" in detector.c2_signatures
         assert "dns_tunneling" in detector.c2_signatures
 
-    def test_detect_c2_empty(self):
+    def test_detect_c2_empty(self) -> None:
         """Test C2 detection with empty data."""
         detector = C2InfrastructureDetector()
         result = detector.detect_c2({})
         assert not result["c2_detected"]
         assert result["c2_indicators"] == []
 
-    def test_detect_c2_with_beaconing(self):
+    def test_detect_c2_with_beaconing(self) -> None:
         """Test C2 detection with beaconing pattern."""
         detector = C2InfrastructureDetector()
         network_data = {
@@ -199,7 +199,7 @@ class TestC2InfrastructureDetector:
         assert result["c2_detected"]
         assert "beaconing_activity" in result["c2_indicators"]
 
-    def test_detect_c2_with_dga(self):
+    def test_detect_c2_with_dga(self) -> None:
         """Test C2 detection with DGA domains."""
         detector = C2InfrastructureDetector()
         network_data = {
@@ -212,7 +212,7 @@ class TestC2InfrastructureDetector:
         result = detector.detect_c2(network_data)
         assert "c2_detected" in result
 
-    def test_detect_c2_with_signature_match(self):
+    def test_detect_c2_with_signature_match(self) -> None:
         """Test C2 detection with signature match."""
         detector = C2InfrastructureDetector()
         network_data = {
@@ -223,7 +223,7 @@ class TestC2InfrastructureDetector:
         assert result["c2_detected"]
         assert "http_beacon" in result["c2_indicators"]
 
-    def test_calculate_entropy(self):
+    def test_calculate_entropy(self) -> None:
         """Test entropy calculation."""
         detector = C2InfrastructureDetector()
         entropy = detector._calculate_entropy("aaaaaa")
@@ -232,7 +232,7 @@ class TestC2InfrastructureDetector:
         entropy = detector._calculate_entropy("abcdef")
         assert entropy > 0  # Different characters
 
-    def test_generate_c2_recommendations(self):
+    def test_generate_c2_recommendations(self) -> None:
         """Test C2 recommendation generation."""
         detector = C2InfrastructureDetector()
         indicators = ["beaconing_activity", "domain_generation_algorithm"]
@@ -245,12 +245,12 @@ class TestC2InfrastructureDetector:
 class TestZeroDayIndicatorAnalyzer:
     """Tests for ZeroDayIndicatorAnalyzer class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         analyzer = ZeroDayIndicatorAnalyzer()
         assert analyzer.logger is not None
 
-    def test_analyze_zero_day_no_indicators(self):
+    def test_analyze_zero_day_no_indicators(self) -> None:
         """Test analysis with no zero-day indicators."""
         analyzer = ZeroDayIndicatorAnalyzer()
         exploit_data = {
@@ -263,7 +263,7 @@ class TestZeroDayIndicatorAnalyzer:
         assert result["zero_day_likelihood"] == 0.0
         assert len(result["indicators"]) == 0
 
-    def test_analyze_zero_day_high_likelihood(self):
+    def test_analyze_zero_day_high_likelihood(self) -> None:
         """Test analysis with high zero-day likelihood."""
         analyzer = ZeroDayIndicatorAnalyzer()
         exploit_data = {
@@ -278,7 +278,7 @@ class TestZeroDayIndicatorAnalyzer:
         assert "unknown_vulnerability" in result["indicators"]
         assert "novel_exploitation_technique" in result["indicators"]
 
-    def test_generate_zero_day_recommendations(self):
+    def test_generate_zero_day_recommendations(self) -> None:
         """Test zero-day recommendation generation."""
         analyzer = ZeroDayIndicatorAnalyzer()
         recs_critical = analyzer._generate_zero_day_recommendations(0.8)
@@ -292,7 +292,7 @@ class TestZeroDayIndicatorAnalyzer:
 class TestCYBINTSubProcessor:
     """Tests for CYBINTSubProcessor class."""
 
-    def test_init_default(self):
+    def test_init_default(self) -> None:
         """Test initialization with default parameters."""
         processor = CYBINTSubProcessor()
         assert processor.enable_apt_attribution
@@ -304,7 +304,7 @@ class TestCYBINTSubProcessor:
         assert processor.c2_detector is not None
         assert processor.zero_day_analyzer is not None
 
-    def test_init_disabled_components(self):
+    def test_init_disabled_components(self) -> None:
         """Test initialization with disabled components."""
         processor = CYBINTSubProcessor(
             enable_apt_attribution=False,
@@ -317,14 +317,14 @@ class TestCYBINTSubProcessor:
         assert processor.c2_detector is None
         assert processor.zero_day_analyzer is None
 
-    def test_process_cybint_empty(self):
+    def test_process_cybint_empty(self) -> None:
         """Test processing with empty data."""
         processor = CYBINTSubProcessor()
         result = processor.process_cybint({})
         assert isinstance(result, CYBINTAnalysisResult)
         assert not result.threat_detected
 
-    def test_process_cybint_with_threat_features(self):
+    def test_process_cybint_with_threat_features(self) -> None:
         """Test processing with threat features."""
         processor = CYBINTSubProcessor()
         threat_data = {
@@ -334,7 +334,7 @@ class TestCYBINTSubProcessor:
         assert isinstance(result, CYBINTAnalysisResult)
         assert result.apt_group is not None
 
-    def test_process_cybint_with_malware_features(self):
+    def test_process_cybint_with_malware_features(self) -> None:
         """Test processing with malware features."""
         processor = CYBINTSubProcessor()
         threat_data = {
@@ -344,7 +344,7 @@ class TestCYBINTSubProcessor:
         assert isinstance(result, CYBINTAnalysisResult)
         assert result.malware_family is not None
 
-    def test_process_cybint_with_network_data(self):
+    def test_process_cybint_with_network_data(self) -> None:
         """Test processing with network data."""
         processor = CYBINTSubProcessor()
         threat_data = {
@@ -356,7 +356,7 @@ class TestCYBINTSubProcessor:
         assert isinstance(result, CYBINTAnalysisResult)
         assert len(result.c2_indicators) > 0
 
-    def test_process_cybint_with_exploit_data(self):
+    def test_process_cybint_with_exploit_data(self) -> None:
         """Test processing with exploit data."""
         processor = CYBINTSubProcessor()
         threat_data = {
@@ -371,7 +371,7 @@ class TestCYBINTSubProcessor:
         assert isinstance(result, CYBINTAnalysisResult)
         assert result.zero_day_likelihood > 0
 
-    def test_process_cybint_with_ttps(self):
+    def test_process_cybint_with_ttps(self) -> None:
         """Test processing with TTPs."""
         processor = CYBINTSubProcessor()
         threat_data = {
@@ -380,7 +380,7 @@ class TestCYBINTSubProcessor:
         result = processor.process_cybint(threat_data)
         assert result.ttps_detected == ["T1059", "T1071", "T1082"]
 
-    def test_process_cybint_with_iocs(self):
+    def test_process_cybint_with_iocs(self) -> None:
         """Test processing with IOCs."""
         processor = CYBINTSubProcessor()
         threat_data = {
@@ -392,7 +392,7 @@ class TestCYBINTSubProcessor:
         result = processor.process_cybint(threat_data)
         assert result.iocs == threat_data["iocs"]
 
-    def test_process_cybint_comprehensive(self):
+    def test_process_cybint_comprehensive(self) -> None:
         """Test comprehensive processing with all data types."""
         processor = CYBINTSubProcessor()
         threat_data = {

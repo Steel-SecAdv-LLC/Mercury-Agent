@@ -7,6 +7,8 @@ Tests for the health check module - Kubernetes health endpoints.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 try:
@@ -31,12 +33,12 @@ pytestmark = [
 class TestHealthChecker:
     """Tests for HealthChecker class."""
 
-    def test_create_health_checker(self):
+    def test_create_health_checker(self) -> None:
         """Test HealthChecker instantiation."""
         checker = HealthChecker()
         assert checker is not None
 
-    def test_add_check(self):
+    def test_add_check(self) -> None:
         """Test adding a health check."""
         checker = HealthChecker()
 
@@ -47,7 +49,7 @@ class TestHealthChecker:
         # Check should be registered
         assert len(checker._checks) > 0 or hasattr(checker, "checks")
 
-    async def test_run_passing_check(self):
+    async def test_run_passing_check(self) -> None:
         """Test running a check that passes."""
         checker = HealthChecker()
 
@@ -60,11 +62,11 @@ class TestHealthChecker:
         assert status in [HealthStatus.HEALTHY, "healthy", "HEALTHY"]
         assert len(components) > 0
 
-    async def test_run_failing_check(self):
+    async def test_run_failing_check(self) -> None:
         """Test running a check that fails."""
         checker = HealthChecker()
 
-        async def failing_check():
+        async def failing_check() -> dict[str, Any]:
             raise Exception("Service unavailable")
 
         checker.add_check("failing_service", failing_check, critical=True)
@@ -73,14 +75,14 @@ class TestHealthChecker:
         # With critical failure, should be unhealthy
         assert status in [HealthStatus.UNHEALTHY, "unhealthy", "UNHEALTHY"]
 
-    async def test_non_critical_failure_causes_degraded(self):
+    async def test_non_critical_failure_causes_degraded(self) -> None:
         """Test that non-critical failure results in degraded status."""
         checker = HealthChecker()
 
         async def passing_check():
             return {"status": "up", "message": "Core service healthy"}
 
-        async def failing_check():
+        async def failing_check() -> dict[str, Any]:
             raise Exception("Non-critical failure")
 
         checker.add_check("core_service", passing_check, critical=True)
@@ -96,7 +98,7 @@ class TestHealthChecker:
             "healthy",
         ]
 
-    async def test_check_with_timeout(self):
+    async def test_check_with_timeout(self) -> None:
         """Test that slow checks timeout properly."""
         import asyncio
 
@@ -112,7 +114,7 @@ class TestHealthChecker:
         # Should handle timeout gracefully
         assert status is not None
 
-    def test_get_uptime(self):
+    def test_get_uptime(self) -> None:
         """Test uptime calculation."""
         checker = HealthChecker()
         uptime = checker.get_uptime()
@@ -120,7 +122,7 @@ class TestHealthChecker:
         assert isinstance(uptime, (int, float))
         assert uptime >= 0
 
-    def test_get_system_info(self):
+    def test_get_system_info(self) -> None:
         """Test system info collection."""
         checker = HealthChecker()
         info = checker.get_system_info()
@@ -129,7 +131,7 @@ class TestHealthChecker:
         # Should contain platform info
         assert "platform" in info or "system" in info or "python_version" in info
 
-    async def test_check_tagging(self):
+    async def test_check_tagging(self) -> None:
         """Test check filtering by tags."""
         checker = HealthChecker()
 
@@ -152,12 +154,13 @@ class TestHealthChecker:
 class TestComponentHealth:
     """Tests for ComponentHealth data structure."""
 
-    def test_component_health_creation(self):
+    def test_component_health_creation(self) -> None:
         """Test ComponentHealth can be created."""
         health = ComponentHealth(
             name="test_component",
             status=ComponentStatus.UP,
             latency_ms=10.5,
+            message=None,
         )
 
         assert health.name == "test_component"
@@ -168,7 +171,7 @@ class TestComponentHealth:
 class TestComponentStatus:
     """Tests for ComponentStatus enum."""
 
-    def test_status_values_exist(self):
+    def test_status_values_exist(self) -> None:
         """Test all expected status values are defined."""
         assert hasattr(ComponentStatus, "UP")
         assert hasattr(ComponentStatus, "DOWN")
@@ -178,7 +181,7 @@ class TestComponentStatus:
 class TestHealthStatus:
     """Tests for HealthStatus enum."""
 
-    def test_health_status_values_exist(self):
+    def test_health_status_values_exist(self) -> None:
         """Test all expected health status values are defined."""
         assert hasattr(HealthStatus, "HEALTHY")
         assert hasattr(HealthStatus, "UNHEALTHY")
@@ -188,7 +191,7 @@ class TestHealthStatus:
 class TestHealthStatusAggregation:
     """Tests for health status aggregation logic."""
 
-    async def test_all_up_is_healthy(self):
+    async def test_all_up_is_healthy(self) -> None:
         """Test that all UP components result in HEALTHY."""
         checker = HealthChecker()
 
@@ -202,11 +205,11 @@ class TestHealthStatusAggregation:
         status, _ = await checker.run_checks()
         assert status in [HealthStatus.HEALTHY, "healthy", "HEALTHY"]
 
-    async def test_critical_down_is_unhealthy(self):
+    async def test_critical_down_is_unhealthy(self) -> None:
         """Test that critical DOWN results in UNHEALTHY."""
         checker = HealthChecker()
 
-        async def critical_fail():
+        async def critical_fail() -> dict[str, Any]:
             raise Exception("Critical failure")
 
         checker.add_check("critical_service", critical_fail, critical=True)

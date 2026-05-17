@@ -1,3 +1,5 @@
+from typing import Any
+
 """
 Integration Tests for All Calibrated Detectors
 Copyright (C) 2025 Steel Security Advisors LLC
@@ -33,7 +35,7 @@ class TestAllDetectorsAutoCalibration:
         idx = np.random.permutation(len(X))
         return X[idx], y[idx]
 
-    def test_statistical_detector_calibration(self, sample_data):
+    def test_statistical_detector_calibration(self, sample_data: Any) -> None:
         """Test MercuryAnomalyDetector auto-calibration."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -57,7 +59,7 @@ class TestAllDetectorsAutoCalibration:
         # Verify calibrated predictions
         assert result_cal["is_anomaly"].sum() > 0
 
-    def test_temporal_detector_calibration(self, sample_data):
+    def test_temporal_detector_calibration(self, sample_data: Any) -> None:
         """Test TemporalAnomalyDetector auto-calibration."""
         from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 
@@ -74,7 +76,7 @@ class TestAllDetectorsAutoCalibration:
         assert "calibration_diagnostics" in result
         assert result["is_anomaly"].sum() >= 0  # May be 0 for random data
 
-    def test_dimensional_analyzer_calibration(self, sample_data):
+    def test_dimensional_analyzer_calibration(self, sample_data: Any) -> None:
         """Test DimensionalAnalyzer auto-calibration."""
         from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 
@@ -89,7 +91,7 @@ class TestAllDetectorsAutoCalibration:
         assert "calibration_diagnostics" in result
         assert result["is_anomaly"].sum() > 0
 
-    def test_spatial_detector_calibration(self, sample_data):
+    def test_spatial_detector_calibration(self, sample_data: Any) -> None:
         """Test SpatialAnomalyDetector auto-calibration."""
         from omni_mercury_engine.detectors.spatial import SpatialAnomalyDetector
 
@@ -104,7 +106,7 @@ class TestAllDetectorsAutoCalibration:
         assert "calibration_diagnostics" in result
         assert result["is_anomaly"].sum() > 0
 
-    def test_directive_detector_calibration(self, sample_data):
+    def test_directive_detector_calibration(self, sample_data: Any) -> None:
         """Test SigmaDirectiveDetector auto-calibration."""
         from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 
@@ -151,7 +153,7 @@ class TestF1ZeroProblemAllDetectors:
 
         return X, y
 
-    def test_statistical_f1_zero_solved(self, f1_zero_scenario):
+    def test_statistical_f1_zero_solved(self, f1_zero_scenario: Any) -> None:
         """Verify MercuryAnomalyDetector calibration solves F1=0."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -192,7 +194,7 @@ class TestCalibratedThresholdMethods:
         idx = np.random.permutation(len(X))
         return X[idx], y[idx]
 
-    def test_percentile_method(self, bimodal_data):
+    def test_percentile_method(self, bimodal_data: Any) -> None:
         """Test percentile calibration method."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
@@ -207,7 +209,7 @@ class TestCalibratedThresholdMethods:
         pred_ratio = result["is_anomaly"].sum() / len(X)
         assert 0.1 <= pred_ratio <= 0.4  # Allow some variance
 
-    def test_diagnose_scores_method(self, bimodal_data):
+    def test_diagnose_scores_method(self, bimodal_data: Any) -> None:
         """Test detector's diagnose_scores method."""
         from omni_mercury_engine.detectors.dimensional import DimensionalAnalyzer
 
@@ -235,7 +237,7 @@ class TestEngineCalibration:
         y = np.array([0] * 45 + [1] * 5).astype(np.int32)
         return X, y
 
-    def test_engine_enable_auto_calibration(self, engine_data):
+    def test_engine_enable_auto_calibration(self, engine_data: Any) -> None:
         """Test engine.enable_auto_calibration()."""
         from omni_mercury_engine import OmniMercuryEngine
 
@@ -248,7 +250,7 @@ class TestEngineCalibration:
         for detector in engine.detectors.values():
             assert detector._auto_calibrate is True
 
-    def test_engine_detect_with_calibration(self, engine_data):
+    def test_engine_detect_with_calibration(self, engine_data: Any) -> None:
         """Test engine.detect_with_calibration()."""
         from omni_mercury_engine import OmniMercuryEngine
 
@@ -261,7 +263,7 @@ class TestEngineCalibration:
         assert "diagnostics" in result
         assert "is_anomaly" in result
 
-    def test_engine_diagnose_detection(self, engine_data, capsys):
+    def test_engine_diagnose_detection(self, engine_data: Any, capsys: Any) -> None:
         """Test engine.diagnose_detection()."""
         from omni_mercury_engine import OmniMercuryEngine
 
@@ -281,7 +283,7 @@ class TestEngineCalibration:
 class TestBenchmarkDiagnostics:
     """Test benchmark diagnostics module."""
 
-    def test_quick_diagnose(self, caplog):
+    def test_quick_diagnose(self, caplog: Any) -> None:
         """Test BenchmarkDiagnostics.quick_diagnose()."""
         import logging
 
@@ -302,7 +304,7 @@ class TestBenchmarkDiagnostics:
         assert "threshold" in caplog.text
         assert "above_threshold" in caplog.text
 
-    def test_full_diagnostics(self):
+    def test_full_diagnostics(self) -> None:
         """Test BenchmarkDiagnostics.diagnose()."""
         from omni_mercury_engine.evaluation.benchmark_diagnostics import (
             BenchmarkDiagnostics,
@@ -334,7 +336,7 @@ class TestBenchmarkDiagnostics:
         assert result.discrepancy.has_discrepancy
         assert result.discrepancy.discrepancy_type == "f1_zero"
 
-    def test_run_diagnostic_benchmark(self):
+    def test_run_diagnostic_benchmark(self) -> None:
         """Test run_diagnostic_benchmark convenience function."""
         from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
         from omni_mercury_engine.evaluation.benchmark_diagnostics import (
@@ -371,7 +373,7 @@ class TestBenchmarkDiagnostics:
 class TestCalibrationMethodRecommendations:
     """Test that the system makes appropriate calibration recommendations."""
 
-    def test_bimodal_recommends_otsu(self):
+    def test_bimodal_recommends_otsu(self) -> None:
         """Test that bimodal distributions recommend Otsu method."""
         from omni_mercury_engine.evaluation.benchmark_diagnostics import (
             BenchmarkDiagnostics,

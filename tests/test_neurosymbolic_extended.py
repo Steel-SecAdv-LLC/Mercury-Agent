@@ -28,7 +28,7 @@ from omni_mercury_engine.core.neurosymbolic_engine import NeurosymbolicEngine
 class TestNeurosymbolicEngineExtended:
     """Extended tests for uncovered neurosymbolic engine functionality."""
 
-    def test_embed_code_with_comments(self):
+    def test_embed_code_with_comments(self) -> None:
         """Test embedding code that contains comments."""
         engine = NeurosymbolicEngine()
         code = """def example():
@@ -36,7 +36,7 @@ class TestNeurosymbolicEngineExtended:
         result = engine.hybrid_analysis(ast.parse(code))
         assert result is not None
 
-    def test_extract_patterns_multiple_functions(self):
+    def test_extract_patterns_multiple_functions(self) -> None:
         """Test pattern extraction from multiple functions."""
         engine = NeurosymbolicEngine()
         code = """def func1():
@@ -48,7 +48,7 @@ def func3():
         result = engine.hybrid_analysis(ast.parse(code))
         assert "symbolic" in result
 
-    def test_backprop_tune_patterns_with_labels(self):
+    def test_backprop_tune_patterns_with_labels(self) -> None:
         """Test backprop tuning with explicit labels."""
         import numpy as np
 
@@ -64,7 +64,7 @@ def func3():
         assert result["enabled"] is True
         assert result["iterations"] == 5
 
-    def test_symbolic_reasoning_integration(self):
+    def test_symbolic_reasoning_integration(self) -> None:
         """Test symbolic reasoning component."""
         engine = NeurosymbolicEngine()
         code = "def test(): pass"
@@ -73,7 +73,7 @@ def func3():
 
         assert "patterns" in result
 
-    def test_pattern_matching_with_threshold(self):
+    def test_pattern_matching_with_threshold(self) -> None:
         """Test pattern matching with custom threshold."""
         import numpy as np
 
@@ -84,21 +84,21 @@ def func3():
 
         assert "method" in result
 
-    def test_embed_code_empty_string(self):
+    def test_embed_code_empty_string(self) -> None:
         """Test embedding empty code string."""
         engine = NeurosymbolicEngine()
         code = "pass"
         result = engine.hybrid_analysis(ast.parse(code))
         assert result is not None
 
-    def test_extract_patterns_single_line(self):
+    def test_extract_patterns_single_line(self) -> None:
         """Test pattern extraction from single line."""
         engine = NeurosymbolicEngine()
         code = "x = 42"
         result = engine.symbolic_analysis(ast.parse(code))
         assert "patterns" in result
 
-    def test_backprop_tune_convergence(self):
+    def test_backprop_tune_convergence(self) -> None:
         """Test backprop tuning shows convergence."""
         import numpy as np
 
@@ -113,7 +113,7 @@ def func3():
 
         assert result["final_loss"] <= result["initial_loss"]
 
-    def test_pattern_similarity_computation(self):
+    def test_pattern_similarity_computation(self) -> None:
         """Test pattern similarity computation."""
         engine = NeurosymbolicEngine()
         code1 = "def f1(): return 1"
@@ -125,7 +125,7 @@ def func3():
         assert result1["patterns"] is not None
         assert result2["patterns"] is not None
 
-    def test_neurosymbolic_fusion_basic(self):
+    def test_neurosymbolic_fusion_basic(self) -> None:
         """Test basic neurosymbolic fusion."""
         engine = NeurosymbolicEngine()
         code = "def add(a, b): return a + b"

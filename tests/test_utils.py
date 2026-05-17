@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Test utility functions
 """
@@ -34,7 +36,7 @@ from omni_mercury_engine.utils import (
 )
 
 
-def test_normalize_standard(sample_data):
+def test_normalize_standard(sample_data: Any) -> None:
     """Test standard normalization"""
     normalized = normalize_data(sample_data, method="standard")
 
@@ -43,7 +45,7 @@ def test_normalize_standard(sample_data):
     assert abs(np.std(normalized) - 1.0) < 0.1
 
 
-def test_normalize_minmax(sample_data):
+def test_normalize_minmax(sample_data: Any) -> None:
     """Test minmax normalization"""
     normalized = normalize_data(sample_data, method="minmax")
 
@@ -52,7 +54,7 @@ def test_normalize_minmax(sample_data):
     assert np.max(normalized) <= 1
 
 
-def test_compress_decompress(sample_data):
+def test_compress_decompress(sample_data: Any) -> None:
     """Test data compression and decompression"""
     compressed, metadata = compress_information(sample_data)
 
@@ -63,14 +65,14 @@ def test_compress_decompress(sample_data):
     np.testing.assert_array_equal(sample_data, decompressed)
 
 
-def test_gravitational_lensing(sample_data):
+def test_gravitational_lensing(sample_data: Any) -> None:
     """Test signal amplification"""
     amplified = gravitational_lensing(sample_data, amplification_factor=2.0)
 
     assert amplified.shape == sample_data.shape
 
 
-def test_detect_singularity(sample_data):
+def test_detect_singularity(sample_data: Any) -> None:
     """Test singularity detection"""
     result = detect_singularity(sample_data)
 
@@ -79,7 +81,7 @@ def test_detect_singularity(sample_data):
     assert isinstance(result["singularity_detected"], bool)
 
 
-def test_compute_time_dilation():
+def test_compute_time_dilation() -> None:
     """Test time dilation computation"""
     priority_scores = np.array([0.1, 0.5, 0.9])
     dilation = compute_time_dilation(priority_scores)

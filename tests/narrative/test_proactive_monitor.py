@@ -6,6 +6,7 @@ Tests for ProactiveMonitor - Background Vigilance with Initiative.
 """
 
 import time
+from collections.abc import Iterator
 
 import pytest
 
@@ -27,7 +28,7 @@ class TestProactiveMonitor:
         return ProactiveMonitor(enable_scheduled_reports=False)
 
     @pytest.fixture
-    def started_monitor(self, monitor: ProactiveMonitor):
+    def started_monitor(self, monitor: ProactiveMonitor) -> Iterator[ProactiveMonitor]:
         """Monitor that has been started and will be stopped after test."""
         monitor.start()
         yield monitor
@@ -88,7 +89,7 @@ class TestProactiveMonitor:
 
     def test_initiative_callback(self, started_monitor: ProactiveMonitor) -> None:
         """Test initiative callbacks are triggered."""
-        events_received = []
+        events_received: list[InitiativeEvent] = []
 
         def callback(event: InitiativeEvent) -> None:
             events_received.append(event)
@@ -113,7 +114,7 @@ class TestProactiveMonitor:
 
     def test_passive_vigilance_no_initiative(self, started_monitor: ProactiveMonitor) -> None:
         """Test passive vigilance doesn't generate initiatives."""
-        events_received = []
+        events_received: list[InitiativeEvent] = []
 
         started_monitor.on_initiative(events_received.append)
         started_monitor.set_vigilance(VigilanceLevel.PASSIVE, domain="test")
@@ -133,7 +134,7 @@ class TestProactiveMonitor:
 
     def test_cooldown_prevents_duplicate_alerts(self, started_monitor: ProactiveMonitor) -> None:
         """Test cooldown mechanism prevents alert spam."""
-        events_received = []
+        events_received: list[InitiativeEvent] = []
         started_monitor.on_initiative(events_received.append)
 
         # Set short cooldown for test
@@ -157,7 +158,7 @@ class TestProactiveMonitor:
 
     def test_escalation_on_pattern_accumulation(self, started_monitor: ProactiveMonitor) -> None:
         """Test escalation triggers on pattern accumulation."""
-        events_received = []
+        events_received: list[InitiativeEvent] = []
         started_monitor.on_initiative(events_received.append)
 
         # Configure for quick escalation
@@ -190,7 +191,7 @@ class TestProactiveMonitor:
 
     def test_initiative_event_structure(self, started_monitor: ProactiveMonitor) -> None:
         """Test initiative event has correct structure."""
-        events_received = []
+        events_received: list[InitiativeEvent] = []
         started_monitor.on_initiative(events_received.append)
 
         detection = {

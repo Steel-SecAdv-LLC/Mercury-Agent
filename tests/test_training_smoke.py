@@ -23,19 +23,18 @@ Training module smoke tests to boost coverage
 """
 
 import importlib.util
+from typing import TYPE_CHECKING
 
 import pytest
 
-# Conditional torch import
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
-    torch = None  # type: ignore[assignment]
-
+# Probe for torch / lightning without binding them at module import.
+# ``TYPE_CHECKING`` keeps mypy resolution stable while the pytestmark
+# below skips the suite when either dependency is absent.
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 HAS_LIGHTNING = importlib.util.find_spec("pytorch_lightning") is not None
+
+if TYPE_CHECKING or HAS_TORCH:
+    import torch
 
 # Skip all tests in this module if torch or lightning is not available
 pytestmark = pytest.mark.skipif(
@@ -56,7 +55,7 @@ if HAS_TORCH:
     )
 
 
-def test_anomaly_dataset_initialization():
+def test_anomaly_dataset_initialization() -> None:
     """Test AnomalyDataset initialization"""
     features = {
         "statistical": torch.randn(10, 5),
@@ -68,7 +67,7 @@ def test_anomaly_dataset_initialization():
     assert len(dataset) == 10
 
 
-def test_anomaly_dataset_getitem():
+def test_anomaly_dataset_getitem() -> None:
     """Test AnomalyDataset __getitem__"""
     features = {
         "statistical": torch.randn(10, 5),
@@ -82,14 +81,14 @@ def test_anomaly_dataset_getitem():
     assert len(item) == 2
 
 
-def test_fusion_trainer_initialization():
+def test_fusion_trainer_initialization() -> None:
     """Test FusionTrainer initialization"""
     trainer = FusionTrainer(learning_rate=1e-3)
     assert trainer.learning_rate == 1e-3
     assert trainer.model is not None
 
 
-def test_fusion_trainer_forward():
+def test_fusion_trainer_forward() -> None:
     """Test FusionTrainer forward pass"""
     trainer = FusionTrainer()
 
@@ -103,7 +102,7 @@ def test_fusion_trainer_forward():
     assert "anomaly_probs" in outputs
 
 
-def test_fusion_trainer_training_step():
+def test_fusion_trainer_training_step() -> None:
     """Test FusionTrainer training step"""
     trainer = FusionTrainer()
 
@@ -119,7 +118,7 @@ def test_fusion_trainer_training_step():
     assert isinstance(loss, torch.Tensor)
 
 
-def test_fusion_trainer_validation_step():
+def test_fusion_trainer_validation_step() -> None:
     """Test FusionTrainer validation step"""
     trainer = FusionTrainer()
 
@@ -133,7 +132,7 @@ def test_fusion_trainer_validation_step():
     trainer.validation_step(batch, 0)
 
 
-def test_fusion_trainer_configure_optimizers():
+def test_fusion_trainer_configure_optimizers() -> None:
     """Test optimizer configuration"""
     trainer = FusionTrainer()
     optimizers = trainer.configure_optimizers()
@@ -141,14 +140,14 @@ def test_fusion_trainer_configure_optimizers():
     assert "optimizer" in optimizers
 
 
-def test_ava_optimizer_base():
+def test_ava_optimizer_base() -> None:
     """Test base Mercury optimizer"""
     params = [torch.randn(10, 10, requires_grad=True)]
     optimizer = MercuryOptimizer(params, lr=0.001)
     assert optimizer is not None
 
 
-def test_ava_optimizer_step():
+def test_ava_optimizer_step() -> None:
     """Test Mercury optimizer step"""
     param = torch.randn(10, 10, requires_grad=True)
     optimizer = MercuryOptimizer([param], lr=0.001)
@@ -158,28 +157,28 @@ def test_ava_optimizer_step():
     optimizer.step()
 
 
-def test_ava_momentum_optimizer():
+def test_ava_momentum_optimizer() -> None:
     """Test Ava momentum optimizer"""
     params = [torch.randn(10, 10, requires_grad=True)]
     optimizer = MercuryMomentumOptimizer(params, lr=0.001)
     assert optimizer is not None
 
 
-def test_ava_exp_decay_optimizer():
+def test_ava_exp_decay_optimizer() -> None:
     """Test Ava exponential decay optimizer"""
     params = [torch.randn(10, 10, requires_grad=True)]
     optimizer = MercuryExponentialDecayOptimizer(params, lr=0.001)
     assert optimizer is not None
 
 
-def test_ava_harmonic_optimizer():
+def test_ava_harmonic_optimizer() -> None:
     """Test Ava harmonic optimizer"""
     params = [torch.randn(10, 10, requires_grad=True)]
     optimizer = MercuryHarmonicOptimizer(params, lr=0.001)
     assert optimizer is not None
 
 
-def test_create_mercury_optimizer_factory():
+def test_create_mercury_optimizer_factory() -> None:
     """Test Mercury optimizer factory function"""
     params = [torch.randn(10, 10, requires_grad=True)]
 

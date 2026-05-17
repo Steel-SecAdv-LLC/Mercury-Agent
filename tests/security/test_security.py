@@ -27,13 +27,13 @@ from omni_mercury_engine.security.rate_limiting import RateLimiter
 from omni_mercury_engine.security.threat_detection import BanishmentAction, ThreatDetector
 
 
-def test_threat_detector_initialization():
+def test_threat_detector_initialization() -> None:
     """Test threat detector initialization"""
     detector = ThreatDetector()
     assert detector is not None
 
 
-def test_threat_detector_sql_injection():
+def test_threat_detector_sql_injection() -> None:
     """Test SQL injection detection"""
     detector = ThreatDetector()
 
@@ -45,7 +45,7 @@ def test_threat_detector_sql_injection():
     assert result["is_threat"] is True
 
 
-def test_threat_detector_xss():
+def test_threat_detector_xss() -> None:
     """Test XSS detection"""
     detector = ThreatDetector()
 
@@ -57,7 +57,7 @@ def test_threat_detector_xss():
     assert result["is_threat"] is True
 
 
-def test_threat_detector_path_traversal():
+def test_threat_detector_path_traversal() -> None:
     """Test path traversal detection"""
     detector = ThreatDetector()
 
@@ -69,7 +69,7 @@ def test_threat_detector_path_traversal():
     assert result["is_threat"] is True
 
 
-def test_threat_validity_assessment():
+def test_threat_validity_assessment() -> None:
     """Test threat validity assessment"""
     import time
 
@@ -93,7 +93,7 @@ def test_threat_validity_assessment():
     assert "recommended_action" in result
 
 
-def test_banishment_action_enum():
+def test_banishment_action_enum() -> None:
     """Test banishment action enum"""
     assert BanishmentAction.BANISH.value == "banish"
     assert BanishmentAction.VOID.value == "void"
@@ -101,7 +101,7 @@ def test_banishment_action_enum():
     assert BanishmentAction.ESCALATE.value == "escalate"
 
 
-def test_secure_data_handler_sanitize():
+def test_secure_data_handler_sanitize() -> None:
     """Test input sanitization"""
     handler = SecureDataHandler()
     malicious_input = "<script>alert('XSS')</script>"
@@ -110,7 +110,7 @@ def test_secure_data_handler_sanitize():
     assert "&lt;script&gt;" in sanitized
 
 
-def test_secure_data_handler_encoding():
+def test_secure_data_handler_encoding() -> None:
     """Test data encoding and decoding"""
     handler = SecureDataHandler()
     data = "sensitive information"
@@ -122,7 +122,7 @@ def test_secure_data_handler_encoding():
     assert decoded == data.encode()
 
 
-def test_rate_limiter():
+def test_rate_limiter() -> None:
     """Test rate limiting functionality"""
     limiter = RateLimiter(max_requests=5, window_seconds=60)
 
@@ -134,7 +134,7 @@ def test_rate_limiter():
     assert limiter.is_allowed(client_id) is False
 
 
-def test_rate_limiter_reset():
+def test_rate_limiter_reset() -> None:
     """Test rate limiter reset"""
     limiter = RateLimiter(max_requests=2, window_seconds=1)
 

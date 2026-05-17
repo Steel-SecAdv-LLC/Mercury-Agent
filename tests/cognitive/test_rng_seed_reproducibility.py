@@ -8,6 +8,8 @@ License, or (at your option) any later version.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Regression tests for the cognitive/ + models/ RNG cure.
 
@@ -303,7 +305,7 @@ def test_seed_none_does_not_inherit_legacy_global_seed() -> None:
         ).QuantumEngine(seed=42),
     ],
 )
-def test_engine_isolated_from_global_np_random_seed(factory) -> None:
+def test_engine_isolated_from_global_np_random_seed(factory: Any) -> None:
     """
     Critical invariant of the RNG cure: an unrelated caller poisoning the
     legacy ``np.random.seed(...)`` global state must NOT change a seeded
@@ -354,7 +356,7 @@ def test_pareto_optimizer_seed_reproducible() -> None:
     """``ParetoOptimizer`` ``self._rng`` reseeds deterministically from ``self.seed``."""
     from omni_mercury_engine.core.benevolence_optimization import ParetoOptimizer
 
-    def obj(p):  # type: ignore[no-untyped-def]
+    def obj(p):
         return np.array([float(np.sum(p**2)), float(np.sum(np.abs(p)))])
 
     a = ParetoOptimizer(objective_fn=obj, n_objectives=2, seed=1)

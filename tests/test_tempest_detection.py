@@ -27,7 +27,7 @@ from omni_mercury_engine.security.tempest_detection import (
 class TestEmanationType:
     """Tests for EmanationType enum."""
 
-    def test_enum_values(self):
+    def test_enum_values(self) -> None:
         """Test enum values exist."""
         assert EmanationType.VIDEO_DISPLAY.value == "video_display_emanation"
         assert EmanationType.KEYBOARD.value == "keyboard_emanation"
@@ -41,7 +41,7 @@ class TestEmanationType:
 class TestTEMPESTThreatLevel:
     """Tests for TEMPESTThreatLevel enum."""
 
-    def test_enum_values(self):
+    def test_enum_values(self) -> None:
         """Test enum values exist."""
         assert TEMPESTThreatLevel.NO_THREAT.value == "no_threat"
         assert TEMPESTThreatLevel.LOW.value == "low_risk"
@@ -53,7 +53,7 @@ class TestTEMPESTThreatLevel:
 class TestTEMPESTAnalysisResult:
     """Tests for TEMPESTAnalysisResult dataclass."""
 
-    def test_init_minimal(self):
+    def test_init_minimal(self) -> None:
         """Test initialization with minimal parameters."""
         result = TEMPESTAnalysisResult(
             emanation_detected=False,
@@ -66,7 +66,7 @@ class TestTEMPESTAnalysisResult:
         assert result.emanation_types == []
         assert result.countermeasures == []
 
-    def test_init_full(self):
+    def test_init_full(self) -> None:
         """Test initialization with all parameters."""
         result = TEMPESTAnalysisResult(
             emanation_detected=True,
@@ -92,20 +92,20 @@ class TestTEMPESTAnalysisResult:
 class TestRFSpectrumAnalyzer:
     """Tests for RFSpectrumAnalyzer class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         analyzer = RFSpectrumAnalyzer()
         assert "vga_video" in analyzer.tempest_frequency_bands
         assert "keyboard" in analyzer.tempest_frequency_bands
         assert "processor" in analyzer.tempest_frequency_bands
 
-    def test_analyze_spectrum_empty(self):
+    def test_analyze_spectrum_empty(self) -> None:
         """Test analysis with empty data."""
         analyzer = RFSpectrumAnalyzer()
         result = analyzer.analyze_spectrum({})
         assert not result["emanation_detected"]
 
-    def test_analyze_spectrum_no_emanation(self):
+    def test_analyze_spectrum_no_emanation(self) -> None:
         """Test analysis with no emanation detected."""
         analyzer = RFSpectrumAnalyzer()
         spectrum_data = {
@@ -115,7 +115,7 @@ class TestRFSpectrumAnalyzer:
         result = analyzer.analyze_spectrum(spectrum_data)
         assert not result["emanation_detected"]
 
-    def test_analyze_spectrum_with_emanation(self):
+    def test_analyze_spectrum_with_emanation(self) -> None:
         """Test analysis with emanation detected."""
         analyzer = RFSpectrumAnalyzer()
         spectrum_data = {
@@ -126,7 +126,7 @@ class TestRFSpectrumAnalyzer:
         assert "emanation_detected" in result
         assert "max_signal_strength_dbm" in result
 
-    def test_detect_band_emanation(self):
+    def test_detect_band_emanation(self) -> None:
         """Test band emanation detection."""
         analyzer = RFSpectrumAnalyzer()
         frequencies = [50e6, 100e6, 150e6]
@@ -136,7 +136,7 @@ class TestRFSpectrumAnalyzer:
         assert "peak_power" in result
         assert "compromising_potential" in result
 
-    def test_detect_band_emanation_no_match(self):
+    def test_detect_band_emanation_no_match(self) -> None:
         """Test band detection with no matching frequencies."""
         analyzer = RFSpectrumAnalyzer()
         frequencies = [1e6, 2e6, 3e6]
@@ -148,14 +148,14 @@ class TestRFSpectrumAnalyzer:
 class TestVideoEmanationDetector:
     """Tests for VideoEmanationDetector class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         detector = VideoEmanationDetector(input_dim=128)
         assert detector.emanation_encoder is not None
         assert detector.reconstruction_predictor is not None
         assert detector.resolution_estimator is not None
 
-    def test_forward(self):
+    def test_forward(self) -> None:
         """Test forward pass."""
         detector = VideoEmanationDetector(input_dim=64)
         detector.eval()
@@ -167,7 +167,7 @@ class TestVideoEmanationDetector:
         assert torch.all(reconstruction_score >= 0) and torch.all(reconstruction_score <= 1)
         assert torch.allclose(resolution_probs.sum(dim=1), torch.ones(4), atol=1e-5)
 
-    def test_different_batch_sizes(self):
+    def test_different_batch_sizes(self) -> None:
         """Test with different batch sizes."""
         detector = VideoEmanationDetector(input_dim=64)
         detector.eval()
@@ -182,12 +182,12 @@ class TestVideoEmanationDetector:
 class TestSideChannelVulnerabilityAssessor:
     """Tests for SideChannelVulnerabilityAssessor class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         assessor = SideChannelVulnerabilityAssessor()
         assert assessor.logger is not None
 
-    def test_assess_vulnerabilities_no_issues(self):
+    def test_assess_vulnerabilities_no_issues(self) -> None:
         """Test assessment with no vulnerabilities."""
         assessor = SideChannelVulnerabilityAssessor()
         equipment_data = {
@@ -200,7 +200,7 @@ class TestSideChannelVulnerabilityAssessor:
         assert not result["vulnerabilities_detected"]
         assert len(result["vulnerabilities"]) == 0
 
-    def test_assess_vulnerabilities_with_issues(self):
+    def test_assess_vulnerabilities_with_issues(self) -> None:
         """Test assessment with vulnerabilities."""
         assessor = SideChannelVulnerabilityAssessor()
         equipment_data = {
@@ -216,7 +216,7 @@ class TestSideChannelVulnerabilityAssessor:
         assert "unshielded_cables" in result["vulnerabilities"]
         assert "insufficient_control_zone" in result["vulnerabilities"]
 
-    def test_check_compliance(self):
+    def test_check_compliance(self) -> None:
         """Test compliance checking."""
         assessor = SideChannelVulnerabilityAssessor()
         equipment_data = {
@@ -236,32 +236,32 @@ class TestSideChannelVulnerabilityAssessor:
 class TestEMSECCountermeasureGenerator:
     """Tests for EMSECCountermeasureGenerator class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization."""
         generator = EMSECCountermeasureGenerator()
         assert generator.logger is not None
 
-    def test_generate_countermeasures_empty(self):
+    def test_generate_countermeasures_empty(self) -> None:
         """Test countermeasure generation with no issues."""
         generator = EMSECCountermeasureGenerator()
         countermeasures = generator.generate_countermeasures({}, [])
         assert len(countermeasures) >= 2  # Always includes testing and inventory
 
-    def test_generate_countermeasures_video(self):
+    def test_generate_countermeasures_video(self) -> None:
         """Test countermeasures for video emanation."""
         generator = EMSECCountermeasureGenerator()
         analysis_result = {"emanation_sources": ["video_display_emanation"]}
         countermeasures = generator.generate_countermeasures(analysis_result, [])
         assert any("TEMPEST-certified displays" in c for c in countermeasures)
 
-    def test_generate_countermeasures_keyboard(self):
+    def test_generate_countermeasures_keyboard(self) -> None:
         """Test countermeasures for keyboard emanation."""
         generator = EMSECCountermeasureGenerator()
         analysis_result = {"emanation_sources": ["keyboard_emanation"]}
         countermeasures = generator.generate_countermeasures(analysis_result, [])
         assert any("keyboard" in c.lower() for c in countermeasures)
 
-    def test_generate_countermeasures_vulnerabilities(self):
+    def test_generate_countermeasures_vulnerabilities(self) -> None:
         """Test countermeasures for vulnerabilities."""
         generator = EMSECCountermeasureGenerator()
         vulnerabilities = ["insufficient_em_shielding", "unfiltered_power_lines"]
@@ -273,7 +273,7 @@ class TestEMSECCountermeasureGenerator:
 class TestTEMPESTDetector:
     """Tests for TEMPESTDetector class."""
 
-    def test_init_default(self):
+    def test_init_default(self) -> None:
         """Test initialization with default parameters."""
         detector = TEMPESTDetector()
         assert detector.enable_rf_analysis
@@ -283,7 +283,7 @@ class TestTEMPESTDetector:
         assert detector.video_detector is not None
         assert detector.vulnerability_assessor is not None
 
-    def test_init_disabled_components(self):
+    def test_init_disabled_components(self) -> None:
         """Test initialization with disabled components."""
         detector = TEMPESTDetector(
             enable_rf_analysis=False,
@@ -294,14 +294,14 @@ class TestTEMPESTDetector:
         assert detector.video_detector is None
         assert detector.vulnerability_assessor is None
 
-    def test_detect_tempest_threats_empty(self):
+    def test_detect_tempest_threats_empty(self) -> None:
         """Test detection with empty data."""
         detector = TEMPESTDetector()
         result = detector.detect_tempest_threats({})
         assert isinstance(result, TEMPESTAnalysisResult)
         assert not result.emanation_detected
 
-    def test_detect_tempest_threats_with_spectrum(self):
+    def test_detect_tempest_threats_with_spectrum(self) -> None:
         """Test detection with spectrum data."""
         detector = TEMPESTDetector()
         tempest_data = {
@@ -313,7 +313,7 @@ class TestTEMPESTDetector:
         result = detector.detect_tempest_threats(tempest_data)
         assert isinstance(result, TEMPESTAnalysisResult)
 
-    def test_detect_tempest_threats_with_equipment(self):
+    def test_detect_tempest_threats_with_equipment(self) -> None:
         """Test detection with equipment data."""
         detector = TEMPESTDetector()
         tempest_data = {
@@ -329,7 +329,7 @@ class TestTEMPESTDetector:
         assert len(result.vulnerable_equipment) > 0
         assert len(result.countermeasures) > 0
 
-    def test_detect_tempest_threats_with_video(self):
+    def test_detect_tempest_threats_with_video(self) -> None:
         """Test detection with video emanation features."""
         detector = TEMPESTDetector()
         tempest_data = {"video_emanation_features": np.random.randn(128).astype(np.float32)}
@@ -337,7 +337,7 @@ class TestTEMPESTDetector:
         assert isinstance(result, TEMPESTAnalysisResult)
         assert result.reconstruction_feasibility >= 0
 
-    def test_detect_tempest_threats_comprehensive(self):
+    def test_detect_tempest_threats_comprehensive(self) -> None:
         """Test comprehensive detection with all data types."""
         detector = TEMPESTDetector()
         tempest_data = {

@@ -28,13 +28,13 @@ from omni_mercury_engine.cognitive.neural_memory_layer import (
 class TestMemoryVectorizer:
     """Tests for MemoryVectorizer."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test vectorizer initialization."""
         vectorizer = MemoryVectorizer(embedding_dim=64)
         assert vectorizer.embedding_dim == 64
         assert vectorizer._vocab_size == 0
 
-    def test_fit_builds_vocabulary(self):
+    def test_fit_builds_vocabulary(self) -> None:
         """Test that fit builds vocabulary from content."""
         vectorizer = MemoryVectorizer(embedding_dim=32)
         contents = [
@@ -46,7 +46,7 @@ class TestMemoryVectorizer:
         assert vectorizer._vocab_size > 0
         assert len(vectorizer._idf_weights) > 0
 
-    def test_transform_returns_correct_shape(self):
+    def test_transform_returns_correct_shape(self) -> None:
         """Test transform returns correct embedding dimension."""
         vectorizer = MemoryVectorizer(embedding_dim=64)
         contents = [{"event": "test event", "value": 42}]
@@ -54,7 +54,7 @@ class TestMemoryVectorizer:
         embedding = vectorizer.transform(contents[0])
         assert embedding.shape == (64,)
 
-    def test_transform_empty_content(self):
+    def test_transform_empty_content(self) -> None:
         """Test transform handles empty content."""
         vectorizer = MemoryVectorizer(embedding_dim=32)
         vectorizer.fit([{"key": "value"}])
@@ -62,7 +62,7 @@ class TestMemoryVectorizer:
         assert embedding.shape == (32,)
         assert np.allclose(embedding, 0)
 
-    def test_transform_normalized(self):
+    def test_transform_normalized(self) -> None:
         """Test embeddings are normalized."""
         vectorizer = MemoryVectorizer(embedding_dim=64)
         contents = [{"event": "test", "data": "sample"}]
@@ -75,13 +75,13 @@ class TestMemoryVectorizer:
 class TestKMeansClusterer:
     """Tests for KMeansClusterer."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test clusterer initialization."""
         clusterer = KMeansClusterer(n_clusters=5)
         assert clusterer.n_clusters == 5
         assert clusterer.centroids is None
 
-    def test_fit_creates_centroids(self):
+    def test_fit_creates_centroids(self) -> None:
         """Test fit creates cluster centroids."""
         clusterer = KMeansClusterer(n_clusters=3, random_state=42)
         X = np.random.randn(100, 10)
@@ -89,7 +89,7 @@ class TestKMeansClusterer:
         assert clusterer.centroids is not None
         assert clusterer.centroids.shape == (3, 10)
 
-    def test_fit_assigns_labels(self):
+    def test_fit_assigns_labels(self) -> None:
         """Test fit assigns labels to all samples."""
         clusterer = KMeansClusterer(n_clusters=4, random_state=42)
         X = np.random.randn(50, 8)
@@ -98,7 +98,7 @@ class TestKMeansClusterer:
         assert len(clusterer.labels_) == 50
         assert all(0 <= label < 4 for label in clusterer.labels_)
 
-    def test_predict_returns_labels(self):
+    def test_predict_returns_labels(self) -> None:
         """Test predict returns cluster labels."""
         clusterer = KMeansClusterer(n_clusters=3, random_state=42)
         X_train = np.random.randn(30, 5)
@@ -108,13 +108,13 @@ class TestKMeansClusterer:
         assert len(labels) == 10
         assert all(0 <= label < 3 for label in labels)
 
-    def test_predict_without_fit_raises(self):
+    def test_predict_without_fit_raises(self) -> None:
         """Test predict raises error if not fitted."""
         clusterer = KMeansClusterer(n_clusters=3)
         with pytest.raises(ValueError, match="not fitted"):
             clusterer.predict(np.random.randn(5, 3))
 
-    def test_handles_fewer_samples_than_clusters(self):
+    def test_handles_fewer_samples_than_clusters(self) -> None:
         """Test handles case with fewer samples than clusters."""
         clusterer = KMeansClusterer(n_clusters=10, random_state=42)
         X = np.random.randn(5, 4)
@@ -125,7 +125,7 @@ class TestKMeansClusterer:
 class TestMemoryEmbedding:
     """Tests for MemoryEmbedding dataclass."""
 
-    def test_similarity_identical(self):
+    def test_similarity_identical(self) -> None:
         """Test similarity of identical embeddings."""
         emb1 = MemoryEmbedding(
             entry_id="test1",
@@ -141,7 +141,7 @@ class TestMemoryEmbedding:
         )
         assert emb1.similarity(emb2) == pytest.approx(1.0)
 
-    def test_similarity_orthogonal(self):
+    def test_similarity_orthogonal(self) -> None:
         """Test similarity of orthogonal embeddings."""
         emb1 = MemoryEmbedding(
             entry_id="test1",
@@ -157,7 +157,7 @@ class TestMemoryEmbedding:
         )
         assert emb1.similarity(emb2) == pytest.approx(0.0)
 
-    def test_similarity_zero_vector(self):
+    def test_similarity_zero_vector(self) -> None:
         """Test similarity with zero vector."""
         emb1 = MemoryEmbedding(
             entry_id="test1",
@@ -177,19 +177,19 @@ class TestMemoryEmbedding:
 class TestPatternDetector:
     """Tests for PatternDetector."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test pattern detector initialization."""
         detector = PatternDetector(anomaly_threshold=2.5)
         assert detector.anomaly_threshold == 2.5
 
-    def test_detect_patterns_empty(self):
+    def test_detect_patterns_empty(self) -> None:
         """Test detection with empty embeddings."""
         detector = PatternDetector()
         clusterer = KMeansClusterer(n_clusters=3)
         patterns = detector.detect_patterns([], clusterer)
         assert patterns == []
 
-    def test_detect_anomalies(self):
+    def test_detect_anomalies(self) -> None:
         """Test anomaly detection from outliers."""
         detector = PatternDetector(anomaly_threshold=1.5)
         clusterer = KMeansClusterer(n_clusters=2, random_state=42)
@@ -215,7 +215,7 @@ class TestPatternDetector:
         anomaly_patterns = [p for p in patterns if p.pattern_type == PatternType.ANOMALY]
         assert len(anomaly_patterns) >= 0
 
-    def test_detect_trends(self):
+    def test_detect_trends(self) -> None:
         """Test trend detection from importance changes."""
         detector = PatternDetector(trend_window=5)
         clusterer = KMeansClusterer(n_clusters=2, random_state=42)
@@ -244,18 +244,18 @@ class TestPatternDetector:
 class TestAnomalyPredictor:
     """Tests for AnomalyPredictor."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test predictor initialization."""
         predictor = AnomalyPredictor(prediction_horizon=7200.0)
         assert predictor.prediction_horizon == 7200.0
 
-    def test_predict_empty_patterns(self):
+    def test_predict_empty_patterns(self) -> None:
         """Test prediction with no patterns."""
         predictor = AnomalyPredictor()
         predictions = predictor.predict([])
         assert predictions == []
 
-    def test_predict_from_escalations(self):
+    def test_predict_from_escalations(self) -> None:
         """Test prediction from escalation patterns."""
         predictor = AnomalyPredictor(min_confidence=0.3)
         patterns = [
@@ -275,14 +275,14 @@ class TestAnomalyPredictor:
 class TestNeuralMemoryLayer:
     """Tests for NeuralMemoryLayer main interface."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test layer initialization."""
         layer = NeuralMemoryLayer(embedding_dim=32, n_clusters=4)
         assert layer.embedding_dim == 32
         assert layer.n_clusters == 4
         assert not layer._fitted
 
-    def test_ingest_memories(self):
+    def test_ingest_memories(self) -> None:
         """Test memory ingestion."""
         layer = NeuralMemoryLayer(embedding_dim=16, n_clusters=3)
         memories = [
@@ -294,7 +294,7 @@ class TestNeuralMemoryLayer:
         assert len(embeddings) == 3
         assert layer._fitted
 
-    def test_analyze_insufficient_data(self):
+    def test_analyze_insufficient_data(self) -> None:
         """Test analysis with insufficient data."""
         layer = NeuralMemoryLayer(n_clusters=10)
         memories = [{"id": "m1", "event": "test"}]
@@ -302,7 +302,7 @@ class TestNeuralMemoryLayer:
         result = layer.analyze()
         assert result["status"] == "insufficient_data"
 
-    def test_analyze_with_data(self):
+    def test_analyze_with_data(self) -> None:
         """Test analysis with sufficient data."""
         layer = NeuralMemoryLayer(embedding_dim=16, n_clusters=3)
         memories = [
@@ -314,7 +314,7 @@ class TestNeuralMemoryLayer:
         assert "patterns" in result
         assert "predictions" in result
 
-    def test_get_similar_memories(self):
+    def test_get_similar_memories(self) -> None:
         """Test similarity search."""
         layer = NeuralMemoryLayer(embedding_dim=16, n_clusters=3)
         memories = [
@@ -326,7 +326,7 @@ class TestNeuralMemoryLayer:
         assert len(similar) == 3
         assert similar[0][1] >= similar[1][1]
 
-    def test_get_anomaly_score(self):
+    def test_get_anomaly_score(self) -> None:
         """Test anomaly scoring."""
         layer = NeuralMemoryLayer(embedding_dim=16, n_clusters=3)
         memories = [{"id": f"m{i}", "event": "normal", "timestamp": time.time()} for i in range(15)]
@@ -334,7 +334,7 @@ class TestNeuralMemoryLayer:
         score = layer.get_anomaly_score(np.random.randn(16) * 10)
         assert 0 <= score <= 1
 
-    def test_get_neural_features(self):
+    def test_get_neural_features(self) -> None:
         """Test neural feature extraction."""
         layer = NeuralMemoryLayer(embedding_dim=16, n_clusters=3)
         memories = [
@@ -344,7 +344,7 @@ class TestNeuralMemoryLayer:
         features = layer.get_neural_features()
         assert features.shape[0] > 16
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         layer = NeuralMemoryLayer(embedding_dim=32, n_clusters=4)
         stats = layer.get_statistics()
@@ -362,14 +362,14 @@ class TestNeuralMemoryLayer:
 class TestPatternTypes:
     """Tests for pattern type enums."""
 
-    def test_memory_types(self):
+    def test_memory_types(self) -> None:
         """Test all memory types exist."""
         assert MemoryType.EPISODIC.value == "episodic"
         assert MemoryType.SEMANTIC.value == "semantic"
         assert MemoryType.SHORT_TERM.value == "short_term"
         assert MemoryType.LONG_TERM.value == "long_term"
 
-    def test_pattern_types(self):
+    def test_pattern_types(self) -> None:
         """Test all pattern types exist."""
         assert PatternType.ANOMALY.value == "anomaly"
         assert PatternType.TREND.value == "trend"

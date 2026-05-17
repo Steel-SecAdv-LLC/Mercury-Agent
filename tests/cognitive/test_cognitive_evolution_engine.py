@@ -32,18 +32,18 @@ from omni_mercury_engine.cognitive.cognitive_evolution_engine import (
 class TestSelfPlaySimulator:
     """Tests for SelfPlaySimulator class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test simulator initialization."""
         simulator = SelfPlaySimulator(num_agents=5)
         assert len(simulator.agents) == 5
         assert simulator._simulation_counter == 0
 
-    def test_init_custom_agents(self):
+    def test_init_custom_agents(self) -> None:
         """Test simulator with custom agent count."""
         simulator = SelfPlaySimulator(num_agents=10)
         assert len(simulator.agents) == 10
 
-    def test_run_simulation(self):
+    def test_run_simulation(self) -> None:
         """Test running a simulation."""
         simulator = SelfPlaySimulator()
         result = simulator.run_simulation(
@@ -56,7 +56,7 @@ class TestSelfPlaySimulator:
         assert result.outcomes["rounds_completed"] == 5
         assert len(result.insights) > 0
 
-    def test_run_simulation_outcomes(self):
+    def test_run_simulation_outcomes(self) -> None:
         """Test simulation outcomes structure."""
         simulator = SelfPlaySimulator()
         result = simulator.run_simulation(
@@ -69,7 +69,7 @@ class TestSelfPlaySimulator:
         assert "consensus_reached" in result.outcomes
         assert "final_score" in result.outcomes
 
-    def test_agent_experience_increases(self):
+    def test_agent_experience_increases(self) -> None:
         """Test that agent experience increases after simulation."""
         simulator = SelfPlaySimulator()
         initial_experience = [a.experience for a in simulator.agents]
@@ -79,7 +79,7 @@ class TestSelfPlaySimulator:
         for i, agent in enumerate(simulator.agents):
             assert agent.experience > initial_experience[i]
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         simulator = SelfPlaySimulator()
         simulator.run_simulation({"test": True})
@@ -94,19 +94,19 @@ class TestSelfPlaySimulator:
 class TestRuleMutator:
     """Tests for RuleMutator class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test mutator initialization."""
         mutator = RuleMutator()
         assert mutator.mutation_rate == 0.1
         assert mutator.crossover_rate == 0.7
 
-    def test_init_custom_rates(self):
+    def test_init_custom_rates(self) -> None:
         """Test mutator with custom rates."""
         mutator = RuleMutator(mutation_rate=0.2, crossover_rate=0.8)
         assert mutator.mutation_rate == 0.2
         assert mutator.crossover_rate == 0.8
 
-    def test_mutate(self):
+    def test_mutate(self) -> None:
         """Test rule mutation."""
         mutator = RuleMutator()
         rule = Rule(
@@ -123,7 +123,7 @@ class TestRuleMutator:
         assert result.mutation_id.startswith("mut_")
         assert result.child_rule.rule_id != rule.rule_id
 
-    def test_mutate_specific_type(self):
+    def test_mutate_specific_type(self) -> None:
         """Test mutation with specific type."""
         mutator = RuleMutator()
         rule = Rule(
@@ -138,7 +138,7 @@ class TestRuleMutator:
 
         assert result.mutation_type == MutationType.POINT_MUTATION
 
-    def test_crossover(self):
+    def test_crossover(self) -> None:
         """Test rule crossover."""
         mutator = RuleMutator()
         parent1 = Rule(
@@ -162,7 +162,7 @@ class TestRuleMutator:
         assert len(result.parent_rules) == 2
         assert result.child_rule.generation > 0
 
-    def test_evolve_population(self):
+    def test_evolve_population(self) -> None:
         """Test population evolution."""
         mutator = RuleMutator()
         initial_rules = [
@@ -184,7 +184,7 @@ class TestRuleMutator:
 
         assert len(evolved) >= 3
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         mutator = RuleMutator()
         rule = Rule(
@@ -205,18 +205,18 @@ class TestRuleMutator:
 class TestChainOfThoughtReasoner:
     """Tests for ChainOfThoughtReasoner class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test reasoner initialization."""
         reasoner = ChainOfThoughtReasoner()
         assert reasoner.max_steps == 10
         assert reasoner._chain_counter == 0
 
-    def test_init_custom_steps(self):
+    def test_init_custom_steps(self) -> None:
         """Test reasoner with custom max steps."""
         reasoner = ChainOfThoughtReasoner(max_steps=20)
         assert reasoner.max_steps == 20
 
-    def test_reason(self):
+    def test_reason(self) -> None:
         """Test chain-of-thought reasoning."""
         reasoner = ChainOfThoughtReasoner()
         result = reasoner.reason(
@@ -229,7 +229,7 @@ class TestChainOfThoughtReasoner:
         assert len(result.steps) == 5
         assert result.conclusion is not None
 
-    def test_reason_steps_order(self):
+    def test_reason_steps_order(self) -> None:
         """Test that reasoning steps follow correct order."""
         reasoner = ChainOfThoughtReasoner()
         result = reasoner.reason("Test query")
@@ -245,14 +245,14 @@ class TestChainOfThoughtReasoner:
         for i, step in enumerate(result.steps):
             assert step["step"] == expected_steps[i]
 
-    def test_reason_confidence(self):
+    def test_reason_confidence(self) -> None:
         """Test reasoning confidence calculation."""
         reasoner = ChainOfThoughtReasoner()
         result = reasoner.reason("Test query")
 
         assert 0 <= result.confidence <= 1
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         reasoner = ChainOfThoughtReasoner()
         reasoner.reason("Query 1")
@@ -266,12 +266,12 @@ class TestChainOfThoughtReasoner:
 class TestCounterfactualSimulator:
     """Tests for CounterfactualSimulator class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test simulator initialization."""
         simulator = CounterfactualSimulator()
         assert simulator._simulation_counter == 0
 
-    def test_simulate(self):
+    def test_simulate(self) -> None:
         """Test counterfactual simulation."""
         simulator = CounterfactualSimulator()
         result = simulator.simulate(
@@ -283,7 +283,7 @@ class TestCounterfactualSimulator:
         assert result.counterfactual_id.startswith("cf_")
         assert result.intervention == "reduce_risk"
 
-    def test_simulate_outcome_modified(self):
+    def test_simulate_outcome_modified(self) -> None:
         """Test that simulation modifies outcome."""
         simulator = CounterfactualSimulator()
         scenario = {"status": "normal"}
@@ -292,7 +292,7 @@ class TestCounterfactualSimulator:
         assert result.predicted_outcome["outcome_modified"] is True
         assert result.predicted_outcome["intervention_applied"] == "improve_performance"
 
-    def test_simulate_causal_factors(self):
+    def test_simulate_causal_factors(self) -> None:
         """Test causal factor identification."""
         simulator = CounterfactualSimulator()
         result = simulator.simulate(
@@ -302,7 +302,7 @@ class TestCounterfactualSimulator:
 
         assert len(result.causal_factors) > 0
 
-    def test_compare_scenarios(self):
+    def test_compare_scenarios(self) -> None:
         """Test comparing multiple scenarios."""
         simulator = CounterfactualSimulator()
         results = simulator.compare_scenarios(
@@ -312,7 +312,7 @@ class TestCounterfactualSimulator:
 
         assert len(results) == 3
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         simulator = CounterfactualSimulator()
         simulator.simulate({"test": True}, "test_intervention")
@@ -325,12 +325,12 @@ class TestCounterfactualSimulator:
 class TestTheoryOfMind:
     """Tests for TheoryOfMind class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test engine initialization."""
         tom = TheoryOfMind()
         assert tom._inference_counter == 0
 
-    def test_infer_intent(self):
+    def test_infer_intent(self) -> None:
         """Test intent inference."""
         tom = TheoryOfMind()
         result = tom.infer_intent(
@@ -342,7 +342,7 @@ class TestTheoryOfMind:
         assert result.inference_id.startswith("tom_")
         assert result.inferred_intent is not None
 
-    def test_infer_intent_information_seeking(self):
+    def test_infer_intent_information_seeking(self) -> None:
         """Test information seeking intent detection."""
         tom = TheoryOfMind()
         result = tom.infer_intent(
@@ -351,7 +351,7 @@ class TestTheoryOfMind:
 
         assert result.inferred_intent == "information_seeking"
 
-    def test_infer_intent_problem_solving(self):
+    def test_infer_intent_problem_solving(self) -> None:
         """Test problem solving intent detection."""
         tom = TheoryOfMind()
         result = tom.infer_intent(
@@ -360,14 +360,14 @@ class TestTheoryOfMind:
 
         assert result.inferred_intent == "problem_solving"
 
-    def test_infer_intent_alternatives(self):
+    def test_infer_intent_alternatives(self) -> None:
         """Test alternative intent generation."""
         tom = TheoryOfMind()
         result = tom.infer_intent(["general action"])
 
         assert len(result.alternative_intents) > 0
 
-    def test_infer_intent_evidence(self):
+    def test_infer_intent_evidence(self) -> None:
         """Test evidence gathering."""
         tom = TheoryOfMind()
         result = tom.infer_intent(
@@ -377,7 +377,7 @@ class TestTheoryOfMind:
 
         assert len(result.evidence) > 0
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         tom = TheoryOfMind()
         tom.infer_intent(["action"])
@@ -390,18 +390,18 @@ class TestTheoryOfMind:
 class TestCuriosityEngine:
     """Tests for CuriosityEngine class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test engine initialization."""
         engine = CuriosityEngine()
         assert engine.novelty_threshold == 0.7
         assert engine._exploration_counter == 0
 
-    def test_init_custom_threshold(self):
+    def test_init_custom_threshold(self) -> None:
         """Test engine with custom threshold."""
         engine = CuriosityEngine(novelty_threshold=0.8)
         assert engine.novelty_threshold == 0.8
 
-    def test_explore(self):
+    def test_explore(self) -> None:
         """Test exploration."""
         engine = CuriosityEngine()
         result = engine.explore(
@@ -413,7 +413,7 @@ class TestCuriosityEngine:
         assert result.exploration_id.startswith("explore_")
         assert 0 <= result.novelty_score <= 1
 
-    def test_explore_discoveries(self):
+    def test_explore_discoveries(self) -> None:
         """Test discovery generation."""
         engine = CuriosityEngine()
         result = engine.explore(
@@ -423,21 +423,21 @@ class TestCuriosityEngine:
 
         assert len(result.discoveries) > 0
 
-    def test_explore_questions(self):
+    def test_explore_questions(self) -> None:
         """Test question generation."""
         engine = CuriosityEngine()
         result = engine.explore("test_target")
 
         assert len(result.questions_generated) > 0
 
-    def test_explore_follow_ups(self):
+    def test_explore_follow_ups(self) -> None:
         """Test follow-up action generation."""
         engine = CuriosityEngine()
         result = engine.explore("test_target")
 
         assert len(result.follow_up_actions) > 0
 
-    def test_known_patterns_tracked(self):
+    def test_known_patterns_tracked(self) -> None:
         """Test that known patterns are tracked."""
         engine = CuriosityEngine(novelty_threshold=0.5)
         engine.explore("pattern_a")
@@ -446,7 +446,7 @@ class TestCuriosityEngine:
 
         assert result.novelty_score < 0.5
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         engine = CuriosityEngine()
         engine.explore("target1")
@@ -460,13 +460,13 @@ class TestCuriosityEngine:
 class TestCognitiveEvolutionEngine:
     """Tests for CognitiveEvolutionEngine class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test engine initialization."""
         engine = CognitiveEvolutionEngine()
         assert engine.safety_threshold == 0.99
         assert engine.max_improvement_cycles == 100
 
-    def test_init_custom_params(self):
+    def test_init_custom_params(self) -> None:
         """Test bootstrap with custom parameters."""
         bootstrap = CognitiveEvolutionEngine(
             safety_threshold=0.95,
@@ -475,7 +475,7 @@ class TestCognitiveEvolutionEngine:
         assert bootstrap.safety_threshold == 0.95
         assert bootstrap.max_improvement_cycles == 50
 
-    def test_run_improvement_cycle(self):
+    def test_run_improvement_cycle(self) -> None:
         """Test running improvement cycle."""
         bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.run_improvement_cycle(
@@ -487,7 +487,7 @@ class TestCognitiveEvolutionEngine:
         assert "safety_check" in result
         assert "status" in result
 
-    def test_run_improvement_cycle_with_rules(self):
+    def test_run_improvement_cycle_with_rules(self) -> None:
         """Test improvement cycle with rules."""
         bootstrap = CognitiveEvolutionEngine()
         rules = [
@@ -507,7 +507,7 @@ class TestCognitiveEvolutionEngine:
 
         assert "evolved_rules" in result
 
-    def test_max_cycles_limit(self):
+    def test_max_cycles_limit(self) -> None:
         """Test maximum cycles limit."""
         bootstrap = CognitiveEvolutionEngine(max_improvement_cycles=2)
 
@@ -517,7 +517,7 @@ class TestCognitiveEvolutionEngine:
 
         assert result["status"] == "max_cycles_reached"
 
-    def test_infer_user_intent(self):
+    def test_infer_user_intent(self) -> None:
         """Test user intent inference."""
         bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.infer_user_intent(
@@ -527,7 +527,7 @@ class TestCognitiveEvolutionEngine:
 
         assert isinstance(result, IntentInference)
 
-    def test_simulate_counterfactual(self):
+    def test_simulate_counterfactual(self) -> None:
         """Test counterfactual simulation."""
         bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.simulate_counterfactual(
@@ -537,7 +537,7 @@ class TestCognitiveEvolutionEngine:
 
         assert isinstance(result, Counterfactual)
 
-    def test_reason_about(self):
+    def test_reason_about(self) -> None:
         """Test chain-of-thought reasoning."""
         bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.reason_about(
@@ -547,7 +547,7 @@ class TestCognitiveEvolutionEngine:
 
         assert isinstance(result, ThoughtChain)
 
-    def test_explore_novelty(self):
+    def test_explore_novelty(self) -> None:
         """Test novelty exploration."""
         bootstrap = CognitiveEvolutionEngine()
         result = bootstrap.explore_novelty(
@@ -557,7 +557,7 @@ class TestCognitiveEvolutionEngine:
 
         assert isinstance(result, ExplorationResult)
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         bootstrap = CognitiveEvolutionEngine()
         bootstrap.run_improvement_cycle({"test": True})
@@ -573,7 +573,7 @@ class TestCognitiveEvolutionEngine:
 class TestEnums:
     """Tests for enum classes."""
 
-    def test_agent_roles(self):
+    def test_agent_roles(self) -> None:
         """Test all agent roles exist."""
         assert AgentRole.EXPLORER.value == "explorer"
         assert AgentRole.CRITIC.value == "critic"
@@ -581,7 +581,7 @@ class TestEnums:
         assert AgentRole.VALIDATOR.value == "validator"
         assert AgentRole.ADVERSARY.value == "adversary"
 
-    def test_mutation_types(self):
+    def test_mutation_types(self) -> None:
         """Test all mutation types exist."""
         assert MutationType.CROSSOVER.value == "crossover"
         assert MutationType.POINT_MUTATION.value == "point_mutation"
@@ -589,7 +589,7 @@ class TestEnums:
         assert MutationType.DELETION.value == "deletion"
         assert MutationType.INVERSION.value == "inversion"
 
-    def test_reasoning_steps(self):
+    def test_reasoning_steps(self) -> None:
         """Test all reasoning steps exist."""
         assert ReasoningStep.OBSERVE.value == "observe"
         assert ReasoningStep.ANALYZE.value == "analyze"
@@ -601,7 +601,7 @@ class TestEnums:
 class TestDataclasses:
     """Tests for dataclasses."""
 
-    def test_simulation_agent(self):
+    def test_simulation_agent(self) -> None:
         """Test SimulationAgent dataclass."""
         agent = SimulationAgent(
             agent_id="agent_001",
@@ -611,7 +611,7 @@ class TestDataclasses:
         assert agent.agent_id == "agent_001"
         assert agent.role == AgentRole.EXPLORER
 
-    def test_rule(self):
+    def test_rule(self) -> None:
         """Test Rule dataclass."""
         rule = Rule(
             rule_id="rule_001",
@@ -623,7 +623,7 @@ class TestDataclasses:
         assert rule.rule_id == "rule_001"
         assert rule.fitness == 0.8
 
-    def test_thought_chain(self):
+    def test_thought_chain(self) -> None:
         """Test ThoughtChain dataclass."""
         chain = ThoughtChain(
             chain_id="cot_001",
@@ -640,7 +640,7 @@ class TestDataclasses:
 class TestIntegration:
     """Integration tests for cognitive evolution engine."""
 
-    def test_full_improvement_pipeline(self):
+    def test_full_improvement_pipeline(self) -> None:
         """Test complete improvement pipeline."""
         bootstrap = CognitiveEvolutionEngine(
             safety_threshold=0.5,
@@ -666,7 +666,7 @@ class TestIntegration:
         assert result["status"] == "success"
         assert result["safety_check"] is True
 
-    def test_multi_cycle_improvement(self):
+    def test_multi_cycle_improvement(self) -> None:
         """Test multiple improvement cycles."""
         bootstrap = CognitiveEvolutionEngine(max_improvement_cycles=5)
 
@@ -676,7 +676,7 @@ class TestIntegration:
             )
             assert result["cycle"] == i + 1
 
-    def test_cognitive_capabilities_integration(self):
+    def test_cognitive_capabilities_integration(self) -> None:
         """Test integration of all cognitive capabilities."""
         bootstrap = CognitiveEvolutionEngine()
 
@@ -692,7 +692,7 @@ class TestIntegration:
         exploration = bootstrap.explore_novelty("new_pattern")
         assert exploration.novelty_score > 0
 
-    def test_safety_enforcement(self):
+    def test_safety_enforcement(self) -> None:
         """Test that safety is enforced."""
         bootstrap = CognitiveEvolutionEngine(safety_threshold=1.0)
 

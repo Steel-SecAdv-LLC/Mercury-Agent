@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Tests for Knowledge Distillation modules.
 
@@ -45,7 +47,7 @@ pytestmark = [pytest.mark.slow, pytest.mark.visual]
 class TestDualStudentConfig:
     """Tests for DualStudentConfig."""
 
-    def test_default_config(self):
+    def test_default_config(self) -> None:
         """Test default configuration values."""
         from omni_mercury_engine.ml.distillation import DualStudentConfig
 
@@ -55,7 +57,7 @@ class TestDualStudentConfig:
         assert config.temperature == 4.0
         assert config.alpha == 0.5
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test custom configuration."""
         from omni_mercury_engine.ml.distillation import DualStudentConfig
 
@@ -74,14 +76,14 @@ class TestDualStudentConfig:
 class TestEncoderDecoderStudent:
     """Tests for Encoder-Decoder student network."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test Encoder-Decoder student initialization."""
         from omni_mercury_engine.ml.distillation.dual_student import EncoderDecoderStudent
 
         student = EncoderDecoderStudent(in_channels=256, hidden_dim=128)
         assert student is not None
 
-    def test_forward_pass(self):
+    def test_forward_pass(self) -> None:
         """Test Encoder-Decoder forward pass."""
         from omni_mercury_engine.ml.distillation.dual_student import EncoderDecoderStudent
 
@@ -98,14 +100,14 @@ class TestEncoderDecoderStudent:
 class TestEncoderEncoderStudent:
     """Tests for Encoder-Encoder student network."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test Encoder-Encoder student initialization."""
         from omni_mercury_engine.ml.distillation.dual_student import EncoderEncoderStudent
 
         student = EncoderEncoderStudent(in_channels=256, hidden_dim=128)
         assert student is not None
 
-    def test_forward_pass(self):
+    def test_forward_pass(self) -> None:
         """Test Encoder-Encoder forward pass."""
         from omni_mercury_engine.ml.distillation.dual_student import EncoderEncoderStudent
 
@@ -117,7 +119,7 @@ class TestEncoderEncoderStudent:
 
         assert output.shape == x.shape
 
-    def test_attention_mechanism(self):
+    def test_attention_mechanism(self) -> None:
         """Test attention mechanism in Encoder-Encoder student."""
         from omni_mercury_engine.ml.distillation.dual_student import EncoderEncoderStudent
 
@@ -131,7 +133,7 @@ class TestEncoderEncoderStudent:
 class TestDualStudentDistillation:
     """Tests for Dual-Student Distillation main class."""
 
-    def test_initialization_default(self):
+    def test_initialization_default(self) -> None:
         """Test initialization with default config."""
         from omni_mercury_engine.ml.distillation import DualStudentDistillation
 
@@ -139,7 +141,7 @@ class TestDualStudentDistillation:
         assert distiller is not None
         assert distiller.config.backbone == "resnet18"
 
-    def test_initialization_with_dict_config(self):
+    def test_initialization_with_dict_config(self) -> None:
         """Test initialization with dictionary config."""
         from omni_mercury_engine.ml.distillation import DualStudentDistillation
 
@@ -151,7 +153,7 @@ class TestDualStudentDistillation:
         distiller = DualStudentDistillation(config=config)
         assert distiller.config.hidden_dim == 128
 
-    def test_initialization_with_dataclass_config(self):
+    def test_initialization_with_dataclass_config(self) -> None:
         """Test initialization with dataclass config."""
         from omni_mercury_engine.ml.distillation import DualStudentConfig, DualStudentDistillation
 
@@ -159,7 +161,7 @@ class TestDualStudentDistillation:
         distiller = DualStudentDistillation(config=config)
         assert distiller.config.hidden_dim == 512
 
-    def test_not_fitted_error(self, sample_image):
+    def test_not_fitted_error(self, sample_image: Any) -> None:
         """Test error when calling detect before fit."""
         from omni_mercury_engine.ml.distillation import DualStudentDistillation
 
@@ -169,7 +171,7 @@ class TestDualStudentDistillation:
             distiller.detect(sample_image)
 
     @pytest.mark.slow
-    def test_fit_and_detect(self, sample_image_batch, sample_image):
+    def test_fit_and_detect(self, sample_image_batch: Any, sample_image: Any) -> None:
         """Test fitting and detection workflow."""
         from omni_mercury_engine.ml.distillation import DualStudentConfig, DualStudentDistillation
 
@@ -193,7 +195,7 @@ class TestDualStudentDistillation:
         assert "student1_maps" in result
         assert "student2_maps" in result
 
-    def test_distillation_loss(self):
+    def test_distillation_loss(self) -> None:
         """Test distillation loss computation."""
         from omni_mercury_engine.ml.distillation import DualStudentDistillation
 
@@ -207,7 +209,7 @@ class TestDualStudentDistillation:
         assert loss.ndim == 0  # Scalar
         assert loss >= 0
 
-    def test_aggregate_features(self):
+    def test_aggregate_features(self) -> None:
         """Test feature aggregation from multiple layers."""
         from omni_mercury_engine.ml.distillation import DualStudentDistillation
 
@@ -230,14 +232,14 @@ class TestDualStudentDistillation:
 class TestDistillationModule:
     """Tests for distillation module imports and structure."""
 
-    def test_module_imports(self):
+    def test_module_imports(self) -> None:
         """Test that all exports are available."""
         from omni_mercury_engine.ml.distillation import DualStudentConfig, DualStudentDistillation
 
         assert DualStudentDistillation is not None
         assert DualStudentConfig is not None
 
-    def test_module_all_exports(self):
+    def test_module_all_exports(self) -> None:
         """Test __all__ exports."""
         from omni_mercury_engine.ml import distillation
 

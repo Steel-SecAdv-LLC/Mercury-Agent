@@ -78,8 +78,12 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     tpr = np.concatenate([[0], tpr])
     fpr = np.concatenate([[0], fpr])
 
-    # Trapezoidal integration
-    _trapz = getattr(np, "trapezoid", None) or np.trapz
+    # Trapezoidal integration -- numpy 2.0+ exports ``trapezoid``;
+    # older releases (and a handful of distributions still pinning
+    # numpy <2.0 in their wheels) only expose ``trapz``.  Resolve the
+    # callable dynamically and silence the attribute-lookup warning
+    # for the legacy branch -- both callables share the same signature.
+    _trapz = getattr(np, "trapezoid", None) or np.trapz  # type: ignore[attr-defined]
     auc = float(_trapz(tpr, fpr))
     return auc
 

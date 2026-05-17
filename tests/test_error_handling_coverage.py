@@ -14,25 +14,23 @@ silently suppressing errors.
 
 from __future__ import annotations
 
+import importlib.util
 import logging
+from typing import Any
 
 import numpy as np
 import pytest
 
-# Conditional torch import
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
-    torch = None  # type: ignore[assignment]
+# Tests below that touch torch guard their bodies with
+# ``@pytest.mark.skipif(not HAS_TORCH, ...)``; this file does not need
+# torch at module scope.
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
 
 class TestOptimizationErrorHandling:
     """Tests for ml/optimization.py error handling."""
 
-    def test_ddp_cleanup_logs_on_failure(self, caplog):
+    def test_ddp_cleanup_logs_on_failure(self, caplog: Any) -> None:
         """Test that DDP cleanup logs debug message when process group doesn't exist."""
         from omni_mercury_engine.ml.optimization import DDPManager
 
@@ -46,7 +44,7 @@ class TestOptimizationErrorHandling:
         assert not manager.is_initialized
         # Should have logged a debug message about process group
 
-    def test_estimate_batch_size_fallback(self):
+    def test_estimate_batch_size_fallback(self) -> None:
         """Test that estimate_batch_size returns default on failure."""
         from omni_mercury_engine.ml.optimization import estimate_batch_size
 
@@ -71,7 +69,7 @@ class TestOptimizationErrorHandling:
 class TestCrossDomainTransferErrorHandling:
     """Tests for ml/cross_domain_transfer.py error handling."""
 
-    def test_coral_adapter_matrix_sqrt_fallback(self, caplog):
+    def test_coral_adapter_matrix_sqrt_fallback(self, caplog: Any) -> None:
         """Test that CORAL adapter logs and uses fallback for matrix sqrt failures."""
         from omni_mercury_engine.ml.cross_domain_transfer import CORALAdapter
 
@@ -88,7 +86,7 @@ class TestCrossDomainTransferErrorHandling:
         assert result is not None
         assert result.shape == (5, 5)
 
-    def test_coral_adapter_fit_and_transform(self):
+    def test_coral_adapter_fit_and_transform(self) -> None:
         """Test CORAL adapter basic functionality."""
         from omni_mercury_engine.ml.cross_domain_transfer import CORALAdapter
 
@@ -110,7 +108,7 @@ class TestCrossDomainTransferErrorHandling:
 class TestKnowledgeGraphErrorHandling:
     """Tests for cognitive/knowledge_graph.py error handling."""
 
-    def test_spectral_clustering_logs_on_failure(self, caplog):
+    def test_spectral_clustering_logs_on_failure(self, caplog: Any) -> None:
         """Test that spectral clustering logs debug message on failure."""
         from omni_mercury_engine.cognitive.knowledge_graph import (
             EdgeType,
@@ -132,7 +130,7 @@ class TestKnowledgeGraphErrorHandling:
         # Should return results even if clustering falls back
         assert result is not None
 
-    def test_knowledge_graph_basic_operations(self):
+    def test_knowledge_graph_basic_operations(self) -> None:
         """Test basic knowledge graph operations."""
         from omni_mercury_engine.cognitive.knowledge_graph import (
             EdgeType,
@@ -159,7 +157,7 @@ class TestDirectiveDetectorErrorHandling:
     """Tests for detectors/directive.py error handling."""
 
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
-    def test_nano_scale_detection_logs_on_error(self, caplog):
+    def test_nano_scale_detection_logs_on_error(self, caplog: Any) -> None:
         """Test that nano-scale pattern detection logs on error."""
         from omni_mercury_engine.detectors.directive import SigmaDirectiveDetector
 
@@ -188,7 +186,7 @@ class _MockClassifier:
     def score(self, X: np.ndarray, y: np.ndarray) -> float:
         return 0.5
 
-    def get_params(self, deep: bool = True) -> dict:  # type: ignore[type-arg]
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
         return {}
 
     def set_params(self, **params: object) -> _MockClassifier:
@@ -198,7 +196,7 @@ class _MockClassifier:
 class TestGWOOptimizerErrorHandling:
     """Tests for ml/gwo_optimizer.py error handling."""
 
-    def test_cross_val_failure_logs_and_returns_default(self, caplog):
+    def test_cross_val_failure_logs_and_returns_default(self, caplog: Any) -> None:
         """Test that GWO select_features returns valid mask even when cross-val fails.
 
         When sklearn is unavailable, the ImportError is caught inside the
@@ -229,7 +227,7 @@ class TestBiometricModelErrorHandling:
     """Tests for models/biometric.py error handling."""
 
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
-    def test_deepface_feature_extraction_fallback(self, caplog):
+    def test_deepface_feature_extraction_fallback(self, caplog: Any) -> None:
         """Test that DeepFace failure falls back to harmonic features."""
         from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
@@ -245,7 +243,7 @@ class TestBiometricModelErrorHandling:
         assert features is not None
 
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
-    def test_biometric_predict_error_includes_message(self, caplog):
+    def test_biometric_predict_error_includes_message(self, caplog: Any) -> None:
         """Test that biometric predict includes error message on failure."""
         from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
@@ -258,7 +256,7 @@ class TestBiometricModelErrorHandling:
         assert result["anomaly_scores"] is not None
 
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
-    def test_harmonic_decomposer(self):
+    def test_harmonic_decomposer(self) -> None:
         """Test harmonic decomposer functionality."""
         from omni_mercury_engine.models.biometric import HarmonicDecomposer
 
@@ -276,7 +274,7 @@ class TestBiometricModelErrorHandling:
         assert result.shape == (5, 100)
 
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
-    def test_fourier_analyzer(self):
+    def test_fourier_analyzer(self) -> None:
         """Test Fourier analyzer functionality."""
         from omni_mercury_engine.models.biometric import FourierAnalyzer
 
@@ -293,7 +291,7 @@ class TestBiometricModelErrorHandling:
 class TestRealWorldBenchmarkErrorHandling:
     """Tests for core/realworld_benchmark.py error handling."""
 
-    def test_benevolence_scoring_logs_on_unavailable(self, caplog):
+    def test_benevolence_scoring_logs_on_unavailable(self, caplog: Any) -> None:
         """Test that benevolence scoring unavailability is logged."""
         # This test verifies the pattern is in place
         # The actual benchmark runner would be tested in integration tests
@@ -306,7 +304,7 @@ class TestRealWorldBenchmarkErrorHandling:
 class TestObservabilityErrorHandling:
     """Tests for infrastructure/observability.py error handling."""
 
-    def test_file_audit_handler_destructor_safe(self):
+    def test_file_audit_handler_destructor_safe(self) -> None:
         """Test that FileAuditHandler destructor handles errors safely."""
         import tempfile
 
@@ -326,7 +324,7 @@ class TestObservabilityErrorHandling:
 class TestCrossValidationErrorHandling:
     """Additional cross-validation error handling tests."""
 
-    def test_gwo_with_insufficient_samples(self, caplog):
+    def test_gwo_with_insufficient_samples(self, caplog: Any) -> None:
         """Test GWO handles insufficient samples for cross-validation.
 
         With only 6 samples, 3-fold CV has 2 samples per fold which may
@@ -354,7 +352,7 @@ class TestCrossValidationErrorHandling:
 class TestFewShotLearningHardNegativeMining:
     """Tests for ml/few_shot_learning.py hard negative mining implementation."""
 
-    def test_hard_negative_mining_episode_generation(self):
+    def test_hard_negative_mining_episode_generation(self) -> None:
         """Test that hard negative mining generates valid episodes."""
         from omni_mercury_engine.ml.few_shot_learning import (
             EpisodeGenerator,
@@ -392,7 +390,7 @@ class TestFewShotLearningHardNegativeMining:
             assert episode.query_X.shape[0] == 20  # 2-way * 10-query
             assert len(episode.classes) == 2
 
-    def test_hard_negative_mining_selects_challenging_samples(self):
+    def test_hard_negative_mining_selects_challenging_samples(self) -> None:
         """Test that hard negatives are actually closer to other class prototypes."""
 
         from omni_mercury_engine.ml.few_shot_learning import (
@@ -429,7 +427,7 @@ class TestFewShotLearningHardNegativeMining:
             assert episode.support_X.shape[0] == 10
             assert episode.query_X.shape[0] == 30
 
-    def test_hard_negative_fallback_to_random(self):
+    def test_hard_negative_fallback_to_random(self) -> None:
         """Test that hard negative mining falls back to random when needed."""
         from omni_mercury_engine.ml.few_shot_learning import (
             EpisodeGenerator,
@@ -454,7 +452,7 @@ class TestFewShotLearningHardNegativeMining:
         episodes = list(generator.generate(X, y))
         assert len(episodes) == 3
 
-    def test_class_prototype_computation(self):
+    def test_class_prototype_computation(self) -> None:
         """Test that class prototypes are computed correctly."""
         from omni_mercury_engine.ml.few_shot_learning import EpisodeGenerator
 

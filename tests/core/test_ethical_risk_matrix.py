@@ -37,12 +37,12 @@ from omni_mercury_engine.core.ethical_risk_matrix import (
 class TestUSLawPolling:
     """Test US Law Polling."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test initialization."""
         poller = USLawPolling()
         assert len(poller.compliance_rules) > 0
 
-    def test_compliant_context(self):
+    def test_compliant_context(self) -> None:
         """Test compliant context passes."""
         poller = USLawPolling()
         context = {
@@ -57,7 +57,7 @@ class TestUSLawPolling:
         assert compliant is True
         assert len(violations) == 0
 
-    def test_unauthorized_access_violation(self):
+    def test_unauthorized_access_violation(self) -> None:
         """Test CFAA violation detection."""
         poller = USLawPolling()
         context = {"unauthorized_access": True}
@@ -67,7 +67,7 @@ class TestUSLawPolling:
         assert compliant is False
         assert any("CFAA" in v for v in violations)
 
-    def test_wiretap_violation(self):
+    def test_wiretap_violation(self) -> None:
         """Test ECPA violation detection."""
         poller = USLawPolling()
         context = {"intercepts_communications": True}
@@ -81,7 +81,7 @@ class TestUSLawPolling:
 class TestGDPRCompliance:
     """Test GDPR Compliance."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test initialization with all 8 GDPR data subject rights."""
         gdpr = GDPRCompliance()
         # GDPR provides 8 data subject rights per Articles 15-22
@@ -98,7 +98,7 @@ class TestGDPRCompliance:
         ]
         assert gdpr.data_subject_rights == expected_rights
 
-    def test_no_personal_data_compliant(self):
+    def test_no_personal_data_compliant(self) -> None:
         """Test that no personal data processing is compliant."""
         gdpr = GDPRCompliance()
         context = {"processes_personal_data": False}
@@ -108,7 +108,7 @@ class TestGDPRCompliance:
         assert compliant is True
         assert len(violations) == 0
 
-    def test_missing_consent_violation(self):
+    def test_missing_consent_violation(self) -> None:
         """Test consent violation detection."""
         gdpr = GDPRCompliance()
         context = {"processes_personal_data": True, "consent_obtained": False}
@@ -118,7 +118,7 @@ class TestGDPRCompliance:
         assert compliant is False
         assert any("Art. 6" in v for v in violations)
 
-    def test_data_minimization_violation(self):
+    def test_data_minimization_violation(self) -> None:
         """Test data minimization violation."""
         gdpr = GDPRCompliance()
         context = {
@@ -132,7 +132,7 @@ class TestGDPRCompliance:
         assert compliant is False
         assert any("minimization" in v.lower() for v in violations)
 
-    def test_automated_decision_violation(self):
+    def test_automated_decision_violation(self) -> None:
         """Test automated decision-making violation."""
         gdpr = GDPRCompliance()
         context = {
@@ -153,12 +153,12 @@ class TestGDPRCompliance:
 class TestHIPAACompliance:
     """Test HIPAA Compliance."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test initialization."""
         hipaa = HIPAACompliance()
         assert len(hipaa.phi_identifiers) > 0
 
-    def test_no_phi_compliant(self):
+    def test_no_phi_compliant(self) -> None:
         """Test that no PHI processing is compliant."""
         hipaa = HIPAACompliance()
         context = {"processes_phi": False}
@@ -168,7 +168,7 @@ class TestHIPAACompliance:
         assert compliant is True
         assert len(violations) == 0
 
-    def test_missing_encryption_violation(self):
+    def test_missing_encryption_violation(self) -> None:
         """Test encryption at rest violation."""
         hipaa = HIPAACompliance()
         context = {"processes_phi": True, "encryption_at_rest": False}
@@ -178,7 +178,7 @@ class TestHIPAACompliance:
         assert compliant is False
         assert any("encrypted at rest" in v for v in violations)
 
-    def test_missing_audit_trail_violation(self):
+    def test_missing_audit_trail_violation(self) -> None:
         """Test audit trail violation."""
         hipaa = HIPAACompliance()
         context = {
@@ -194,7 +194,7 @@ class TestHIPAACompliance:
         assert compliant is False
         assert any("audit trail" in v.lower() for v in violations)
 
-    def test_full_compliance(self):
+    def test_full_compliance(self) -> None:
         """Test full HIPAA compliance."""
         hipaa = HIPAACompliance()
         context = {
@@ -215,13 +215,13 @@ class TestHIPAACompliance:
 class TestAnomalyOracle:
     """Test Anomaly Oracle."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test initialization."""
         oracle = AnomalyOracle(lookback_window=50)
         assert oracle.lookback_window == 50
         assert len(oracle.historical_anomalies) == 0
 
-    def test_record_anomaly(self):
+    def test_record_anomaly(self) -> None:
         """Test recording anomalies."""
         oracle = AnomalyOracle()
         oracle.record_anomaly(0.8, 0.5)
@@ -229,7 +229,7 @@ class TestAnomalyOracle:
 
         assert len(oracle.historical_anomalies) == 2
 
-    def test_record_anomaly_pruning(self):
+    def test_record_anomaly_pruning(self) -> None:
         """Test that old anomalies are pruned."""
         oracle = AnomalyOracle(lookback_window=5)
 
@@ -238,7 +238,7 @@ class TestAnomalyOracle:
 
         assert len(oracle.historical_anomalies) == 5
 
-    def test_forecast_risk_empty(self):
+    def test_forecast_risk_empty(self) -> None:
         """Test forecasting with no history."""
         oracle = AnomalyOracle()
 
@@ -247,7 +247,7 @@ class TestAnomalyOracle:
         assert likelihood == 0.5
         assert impact == 0.5
 
-    def test_forecast_risk_with_history(self):
+    def test_forecast_risk_with_history(self) -> None:
         """Test forecasting with history."""
         oracle = AnomalyOracle()
         oracle.record_anomaly(0.5, 0.6)
@@ -263,7 +263,7 @@ class TestAnomalyOracle:
 class TestEthicalRiskMatrix:
     """Test Ethical Risk Matrix."""
 
-    def test_initialization_all_enabled(self):
+    def test_initialization_all_enabled(self) -> None:
         """Test initialization with all features enabled."""
         matrix = EthicalRiskMatrix()
 
@@ -276,7 +276,7 @@ class TestEthicalRiskMatrix:
         assert matrix.hipaa is not None
         assert matrix.oracle is not None
 
-    def test_initialization_all_disabled(self):
+    def test_initialization_all_disabled(self) -> None:
         """Test initialization with all features disabled."""
         matrix = EthicalRiskMatrix(
             enable_us_compliance=False,
@@ -290,7 +290,7 @@ class TestEthicalRiskMatrix:
         assert matrix.hipaa is None
         assert matrix.oracle is None
 
-    def test_assess_risk_low(self):
+    def test_assess_risk_low(self) -> None:
         """Test low risk assessment."""
         matrix = EthicalRiskMatrix()
         context = {"potential_impact": 0.1}
@@ -301,7 +301,7 @@ class TestEthicalRiskMatrix:
         assert risk.risk_level in [RiskLevel.NEGLIGIBLE, RiskLevel.LOW]
         assert risk.mitigation_required is False
 
-    def test_assess_risk_critical(self):
+    def test_assess_risk_critical(self) -> None:
         """Test critical risk assessment."""
         matrix = EthicalRiskMatrix()
         context = {"potential_impact": 0.95, "critical_system": True}
@@ -313,7 +313,7 @@ class TestEthicalRiskMatrix:
         assert risk.risk_level in [RiskLevel.CRITICAL, RiskLevel.HIGH, RiskLevel.MEDIUM]
         assert risk.impact >= 0.5
 
-    def test_assess_risk_with_phi(self):
+    def test_assess_risk_with_phi(self) -> None:
         """Test risk assessment with PHI processing."""
         matrix = EthicalRiskMatrix()
         context = {"potential_impact": 0.5, "processes_phi": True}
@@ -323,7 +323,7 @@ class TestEthicalRiskMatrix:
         assert isinstance(risk, RiskScore)
         assert risk.impact > 0.5
 
-    def test_assess_risk_with_violations(self):
+    def test_assess_risk_with_violations(self) -> None:
         """Test risk assessment detects violations."""
         matrix = EthicalRiskMatrix()
         context = {
@@ -336,7 +336,7 @@ class TestEthicalRiskMatrix:
 
         assert len(risk.compliance_violations) > 0
 
-    def test_get_risk_matrix_table_empty(self):
+    def test_get_risk_matrix_table_empty(self) -> None:
         """Test risk matrix table with no history."""
         matrix = EthicalRiskMatrix()
 
@@ -345,7 +345,7 @@ class TestEthicalRiskMatrix:
         assert "matrix" in table
         assert table["summary"] == "No risk data available"
 
-    def test_get_risk_matrix_table_with_history(self):
+    def test_get_risk_matrix_table_with_history(self) -> None:
         """Test risk matrix table with history."""
         matrix = EthicalRiskMatrix()
 
@@ -357,7 +357,7 @@ class TestEthicalRiskMatrix:
         assert "matrix" in table
         assert table["total_risks_assessed"] == 10
 
-    def test_generate_compliance_report(self):
+    def test_generate_compliance_report(self) -> None:
         """Test compliance report generation."""
         matrix = EthicalRiskMatrix()
 
@@ -370,7 +370,7 @@ class TestEthicalRiskMatrix:
         assert "compliance_rate" in report
         assert report["us_compliance_enabled"] is True
 
-    def test_determine_risk_level(self):
+    def test_determine_risk_level(self) -> None:
         """Test risk level determination."""
         matrix = EthicalRiskMatrix()
 
@@ -389,7 +389,7 @@ class TestEthicalRiskMatrix:
 class TestRiskLevel:
     """Test RiskLevel enum."""
 
-    def test_risk_levels(self):
+    def test_risk_levels(self) -> None:
         """Test risk level values."""
         assert RiskLevel.CRITICAL.value == "critical"
         assert RiskLevel.HIGH.value == "high"
@@ -401,7 +401,7 @@ class TestRiskLevel:
 class TestComplianceRegime:
     """Test ComplianceRegime enum."""
 
-    def test_compliance_regimes(self):
+    def test_compliance_regimes(self) -> None:
         """Test compliance regime values."""
         assert ComplianceRegime.US_FEDERAL.value == "us_federal"
         assert ComplianceRegime.GDPR.value == "gdpr"

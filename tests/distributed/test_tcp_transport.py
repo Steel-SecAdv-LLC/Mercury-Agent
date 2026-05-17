@@ -20,6 +20,7 @@ Pins three contracts:
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import pytest
 
@@ -62,7 +63,7 @@ async def test_request_vote_round_trip() -> None:
     a, b = await _fresh_pair()
     try:
 
-        async def _vote_handler(req: RequestVoteRequest):
+        async def _vote_handler(req: RequestVoteRequest) -> Any:
             from omni_mercury_engine.distributed.raft_consensus import (
                 RequestVoteResponse,
             )
@@ -91,7 +92,7 @@ async def test_unsigned_envelope_is_rejected() -> None:
     try:
         seen: list[RequestVoteRequest] = []
 
-        async def _vote_handler(req: RequestVoteRequest):
+        async def _vote_handler(req: RequestVoteRequest) -> Any:
             from omni_mercury_engine.distributed.raft_consensus import (
                 RequestVoteResponse,
             )
@@ -124,7 +125,7 @@ async def test_append_entries_round_trip_with_log_entries() -> None:
     a, b = await _fresh_pair()
     try:
 
-        async def _ae_handler(req: AppendEntriesRequest):
+        async def _ae_handler(req: AppendEntriesRequest) -> Any:
             from omni_mercury_engine.distributed.raft_consensus import (
                 AppendEntriesResponse,
             )

@@ -7,6 +7,8 @@ Tests for ThreeRAttentionBlock and LyapunovAnomalyLoss.
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 pytest.importorskip("torch")
@@ -33,12 +35,20 @@ class TestThreeRAttentionBlock:
         phi = 1.618033988749895
         phi_sum = phi + 1.0 + (1.0 / phi)
 
-        assert abs(block.w_R.item() - phi / phi_sum) < 1e-6
-        assert abs(block.w_H.item() - 1.0 / phi_sum) < 1e-6
-        assert abs(block.w_O.item() - (1.0 / phi) / phi_sum) < 1e-6
+        # ``w_R``/``w_H``/``w_O`` are installed via ``register_buffer``,
+        # which the public PyTorch stubs type as ``Tensor | Module``.
+        # We installed Tensors, so narrow the union explicitly rather
+        # than suppressing ``[union-attr]`` / ``[operator]`` per call.
+        w_R = cast("torch.Tensor", block.w_R)
+        w_H = cast("torch.Tensor", block.w_H)
+        w_O = cast("torch.Tensor", block.w_O)
+
+        assert abs(w_R.item() - phi / phi_sum) < 1e-6
+        assert abs(w_H.item() - 1.0 / phi_sum) < 1e-6
+        assert abs(w_O.item() - (1.0 / phi) / phi_sum) < 1e-6
 
         # Weights should sum to 1
-        total_weight = block.w_R.item() + block.w_H.item() + block.w_O.item()
+        total_weight = w_R.item() + w_H.item() + w_O.item()
         assert abs(total_weight - 1.0) < 1e-6
 
     def test_forward_shape(self) -> None:

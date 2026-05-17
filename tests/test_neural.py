@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Test neural and consciousness models
 """
@@ -26,7 +28,7 @@ from omni_mercury_engine.models.consciousness import ConsciousnessPreservationMo
 from omni_mercury_engine.models.neural import NeuralCognitiveModel
 
 
-def test_neural_model_initialization():
+def test_neural_model_initialization() -> None:
     """Test neural cognitive model initialization"""
     model = NeuralCognitiveModel()
     assert model is not None
@@ -34,7 +36,7 @@ def test_neural_model_initialization():
     assert model.memory_capacity == 100
 
 
-def test_neural_model_predict(sample_data):
+def test_neural_model_predict(sample_data: Any) -> None:
     """Test neural cognitive model prediction"""
     model = NeuralCognitiveModel()
     result = model.predict(sample_data)
@@ -47,7 +49,7 @@ def test_neural_model_predict(sample_data):
     assert result["model_type"] == "neural"
 
 
-def test_neural_model_features(sample_data):
+def test_neural_model_features(sample_data: Any) -> None:
     """Test neural feature extraction"""
     model = NeuralCognitiveModel()
     features = model.extract_features(sample_data)
@@ -56,7 +58,7 @@ def test_neural_model_features(sample_data):
     assert features.shape[1] >= 48
 
 
-def test_neural_hippocampal_memory(sample_data):
+def test_neural_hippocampal_memory(sample_data: Any) -> None:
     """Test hippocampal memory processing"""
     model = NeuralCognitiveModel()
     memory_scores = model._hippocampal_memory(sample_data)
@@ -65,7 +67,7 @@ def test_neural_hippocampal_memory(sample_data):
     assert len(memory_scores) == len(sample_data)
 
 
-def test_neural_prefrontal_executive(sample_data):
+def test_neural_prefrontal_executive(sample_data: Any) -> None:
     """Test prefrontal executive processing"""
     model = NeuralCognitiveModel()
     executive_scores = model._prefrontal_executive(sample_data)
@@ -74,7 +76,7 @@ def test_neural_prefrontal_executive(sample_data):
     assert len(executive_scores) == len(sample_data)
 
 
-def test_neural_amygdala_processing(sample_data):
+def test_neural_amygdala_processing(sample_data: Any) -> None:
     """Test amygdala emotional processing"""
     model = NeuralCognitiveModel()
     emotional_scores = model._amygdala_processing(sample_data)
@@ -83,14 +85,14 @@ def test_neural_amygdala_processing(sample_data):
     assert len(emotional_scores) == len(sample_data)
 
 
-def test_consciousness_model_initialization():
+def test_consciousness_model_initialization() -> None:
     """Test consciousness preservation model initialization"""
     model = ConsciousnessPreservationModel()
     assert model is not None
     assert model.coherence_threshold == 0.5
 
 
-def test_consciousness_model_predict(sample_data):
+def test_consciousness_model_predict(sample_data: Any) -> None:
     """Test consciousness preservation model prediction"""
     model = ConsciousnessPreservationModel()
     result = model.predict(sample_data)
@@ -103,7 +105,7 @@ def test_consciousness_model_predict(sample_data):
     assert result["model_type"] == "consciousness"
 
 
-def test_consciousness_features(sample_data):
+def test_consciousness_features(sample_data: Any) -> None:
     """Test consciousness feature extraction"""
     model = ConsciousnessPreservationModel()
     features = model.extract_features(sample_data)
@@ -112,7 +114,7 @@ def test_consciousness_features(sample_data):
     assert features.shape[1] >= 32
 
 
-def test_consciousness_pattern_encoding(sample_data):
+def test_consciousness_pattern_encoding(sample_data: Any) -> None:
     """Test pattern state encoding"""
     model = ConsciousnessPreservationModel()
     pattern_states = model._encode_pattern_states(sample_data)
@@ -121,7 +123,7 @@ def test_consciousness_pattern_encoding(sample_data):
     assert len(pattern_states) == len(sample_data)
 
 
-def test_consciousness_coherence_measure(sample_data):
+def test_consciousness_coherence_measure(sample_data: Any) -> None:
     """Test pattern coherence measurement"""
     model = ConsciousnessPreservationModel()
     pattern_states = model._encode_pattern_states(sample_data)
@@ -131,7 +133,7 @@ def test_consciousness_coherence_measure(sample_data):
     assert len(coherence) == len(sample_data)
 
 
-def test_consciousness_entanglement(sample_data):
+def test_consciousness_entanglement(sample_data: Any) -> None:
     """Test pattern entanglement computation"""
     model = ConsciousnessPreservationModel()
     pattern_states = model._encode_pattern_states(sample_data)

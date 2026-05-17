@@ -38,7 +38,8 @@ class MockModel(nn.Module):
         self.linear = nn.Linear(config.input_dim, config.hidden_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.linear(x)
+        out: torch.Tensor = self.linear(x)
+        return out
 
 
 class TestModelInfo:
@@ -153,6 +154,9 @@ class TestSOTARegistry:
             default_config={"input_dim": 10, "hidden_dim": 32},
         )
         model = SOTARegistry.get("mock_model", input_dim=20, hidden_dim=64)
+        # SOTARegistry.get returns nn.Module for caller flexibility;
+        # narrow to MockModel here because that is what we registered.
+        assert isinstance(model, MockModel)
         assert model.config.input_dim == 20
         assert model.config.hidden_dim == 64
 

@@ -30,13 +30,13 @@ from omni_mercury_engine.cognitive.autonomous_agent import (
 class TestUserSyncInterface:
     """Tests for UserSyncInterface."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test interface initialization."""
         interface = UserSyncInterface(approval_timeout=60.0)
         assert interface.approval_timeout == 60.0
         assert len(interface.pending_approvals) == 0
 
-    def test_request_approval(self):
+    def test_request_approval(self) -> None:
         """Test requesting approval."""
         interface = UserSyncInterface()
         decision = Decision(
@@ -55,7 +55,7 @@ class TestUserSyncInterface:
         assert request.status == ApprovalStatus.PENDING
         assert request.decision == decision
 
-    def test_provide_approval_approved(self):
+    def test_provide_approval_approved(self) -> None:
         """Test providing approval."""
         interface = UserSyncInterface()
         decision = Decision(
@@ -74,7 +74,7 @@ class TestUserSyncInterface:
         assert result is True
         assert interface.pending_approvals[request.request_id].status == ApprovalStatus.APPROVED
 
-    def test_provide_approval_rejected(self):
+    def test_provide_approval_rejected(self) -> None:
         """Test rejecting approval."""
         interface = UserSyncInterface()
         decision = Decision(
@@ -92,7 +92,7 @@ class TestUserSyncInterface:
 
         assert interface.pending_approvals[request.request_id].status == ApprovalStatus.REJECTED
 
-    def test_check_approval_status(self):
+    def test_check_approval_status(self) -> None:
         """Test checking approval status."""
         interface = UserSyncInterface()
         decision = Decision(
@@ -110,7 +110,7 @@ class TestUserSyncInterface:
 
         assert status == ApprovalStatus.PENDING
 
-    def test_add_user_input(self):
+    def test_add_user_input(self) -> None:
         """Test adding user input."""
         interface = UserSyncInterface()
         interface.add_user_input({"feedback": "test feedback"})
@@ -118,7 +118,7 @@ class TestUserSyncInterface:
         assert len(interface.user_inputs) == 1
         assert interface.user_inputs[0]["data"]["feedback"] == "test feedback"
 
-    def test_get_pending_inputs(self):
+    def test_get_pending_inputs(self) -> None:
         """Test getting pending inputs."""
         interface = UserSyncInterface()
         interface.add_user_input({"input": "1"})
@@ -131,7 +131,7 @@ class TestUserSyncInterface:
         pending = interface.get_pending_inputs()
         assert len(pending) == 1
 
-    def test_preferences(self):
+    def test_preferences(self) -> None:
         """Test user preferences."""
         interface = UserSyncInterface()
         interface.set_preference("risk_tolerance", "low")
@@ -139,7 +139,7 @@ class TestUserSyncInterface:
         assert interface.get_preference("risk_tolerance") == "low"
         assert interface.get_preference("unknown", "default") == "default"
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         interface = UserSyncInterface()
         stats = interface.get_statistics()
@@ -151,7 +151,7 @@ class TestUserSyncInterface:
 class TestSelfMaintenance:
     """Tests for SelfMaintenance."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test maintenance initialization."""
         maintenance = SelfMaintenance(
             confidence_threshold=0.85,
@@ -160,7 +160,7 @@ class TestSelfMaintenance:
         assert maintenance.confidence_threshold == 0.85
         assert maintenance.memory_limit == 5000
 
-    def test_run_diagnostics(self):
+    def test_run_diagnostics(self) -> None:
         """Test running diagnostics."""
         maintenance = SelfMaintenance()
 
@@ -174,7 +174,7 @@ class TestSelfMaintenance:
         assert results[0].component == "test_component"
         assert results[0].status == "healthy"
 
-    def test_run_diagnostics_degraded(self):
+    def test_run_diagnostics_degraded(self) -> None:
         """Test diagnostics detecting degraded state."""
         maintenance = SelfMaintenance(confidence_threshold=0.9)
 
@@ -187,7 +187,7 @@ class TestSelfMaintenance:
         assert results[0].status == "degraded"
         assert len(results[0].issues) >= 1
 
-    def test_prune_memories(self):
+    def test_prune_memories(self) -> None:
         """Test memory pruning."""
         maintenance = SelfMaintenance(memory_limit=5)
         memories = [{"id": f"m{i}", "importance": i * 0.1} for i in range(10)]
@@ -198,7 +198,7 @@ class TestSelfMaintenance:
         assert removed == 5
         assert pruned[0]["importance"] == 0.9
 
-    def test_prune_memories_under_limit(self):
+    def test_prune_memories_under_limit(self) -> None:
         """Test pruning when under limit."""
         maintenance = SelfMaintenance(memory_limit=100)
         memories = [{"id": f"m{i}"} for i in range(10)]
@@ -208,7 +208,7 @@ class TestSelfMaintenance:
         assert len(pruned) == 10
         assert removed == 0
 
-    def test_detect_redundant_memories(self):
+    def test_detect_redundant_memories(self) -> None:
         """Test redundant memory detection."""
         maintenance = SelfMaintenance(redundancy_threshold=0.9)
         memories = [
@@ -223,7 +223,7 @@ class TestSelfMaintenance:
         assert redundant[0][0] == 0
         assert redundant[0][1] == 1
 
-    def test_repair_rule_inconsistencies(self):
+    def test_repair_rule_inconsistencies(self) -> None:
         """Test rule repair."""
         maintenance = SelfMaintenance()
         rules: list[dict[str, Any]] = [
@@ -239,14 +239,14 @@ class TestSelfMaintenance:
         assert repaired[1]["enabled"] is False
         assert len(log) >= 2
 
-    def test_should_trigger_reflection(self):
+    def test_should_trigger_reflection(self) -> None:
         """Test reflection trigger check."""
         maintenance = SelfMaintenance(confidence_threshold=0.9)
 
         assert maintenance.should_trigger_reflection(0.85) is True
         assert maintenance.should_trigger_reflection(0.95) is False
 
-    def test_generate_maintenance_task(self):
+    def test_generate_maintenance_task(self) -> None:
         """Test task generation."""
         maintenance = SelfMaintenance()
         task = maintenance.generate_maintenance_task("Low confidence detected", "high")
@@ -255,7 +255,7 @@ class TestSelfMaintenance:
         assert task["priority"] == "high"
         assert task["status"] == "pending"
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         maintenance = SelfMaintenance()
         stats = maintenance.get_statistics()
@@ -267,7 +267,7 @@ class TestSelfMaintenance:
 class TestOODAAgent:
     """Tests for OODAAgent main interface."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test agent initialization."""
         agent = OODAAgent(
             risk_threshold=ActionRisk.LOW,
@@ -277,7 +277,7 @@ class TestOODAAgent:
         assert agent.ethical_threshold == 0.95
         assert agent.state == AgentState.IDLE
 
-    def test_observe(self):
+    def test_observe(self) -> None:
         """Test observe phase."""
         agent = OODAAgent()
         observation = agent.observe(
@@ -289,7 +289,7 @@ class TestOODAAgent:
         assert observation.source == "test_source"
         assert agent.state == AgentState.OBSERVING
 
-    def test_orient(self):
+    def test_orient(self) -> None:
         """Test orient phase."""
         agent = OODAAgent()
         observation = agent.observe({"event": "test"})
@@ -308,7 +308,7 @@ class TestOODAAgent:
         assert len(orientation.patterns) == 1
         assert len(orientation.opportunities) == 1
 
-    def test_decide(self):
+    def test_decide(self) -> None:
         """Test decide phase."""
         agent = OODAAgent()
         observation = agent.observe({"event": "test"})
@@ -320,7 +320,7 @@ class TestOODAAgent:
         assert decision.action is not None
         assert 0 <= decision.ethical_score <= 1
 
-    def test_decide_with_ethical_scorer(self):
+    def test_decide_with_ethical_scorer(self) -> None:
         """Test decide with custom ethical scorer."""
         agent = OODAAgent()
         observation = agent.observe({"event": "test"})
@@ -333,7 +333,7 @@ class TestOODAAgent:
 
         assert decision.ethical_score == 0.99
 
-    def test_act_low_risk(self):
+    def test_act_low_risk(self) -> None:
         """Test act phase with low risk action."""
         agent = OODAAgent(risk_threshold=ActionRisk.HIGH)
         observation = agent.observe({"event": "test"})
@@ -349,7 +349,7 @@ class TestOODAAgent:
         assert result is not None
         assert result.result_id.startswith("result_")
 
-    def test_act_blocked_ethical(self):
+    def test_act_blocked_ethical(self) -> None:
         """Test act blocked due to low ethical score."""
         agent = OODAAgent(ethical_threshold=0.99)
         observation = agent.observe({"event": "test"})
@@ -362,7 +362,7 @@ class TestOODAAgent:
 
         assert result is None
 
-    def test_reflect(self):
+    def test_reflect(self) -> None:
         """Test reflect phase."""
         agent = OODAAgent()
         observation = agent.observe({"event": "test"})
@@ -379,7 +379,7 @@ class TestOODAAgent:
         assert len(reflection.lessons_learned) >= 1
         assert agent.state == AgentState.IDLE
 
-    def test_reflect_blocked_action(self):
+    def test_reflect_blocked_action(self) -> None:
         """Test reflect on blocked action."""
         agent = OODAAgent()
         observation = agent.observe({"event": "test"})
@@ -391,7 +391,7 @@ class TestOODAAgent:
         assert "blocked" in reflection.outcome_assessment.lower()
         assert reflection.confidence_adjustment < 0
 
-    def test_run_cycle(self):
+    def test_run_cycle(self) -> None:
         """Test complete OODA cycle."""
         agent = OODAAgent(
             risk_threshold=ActionRisk.CRITICAL,
@@ -413,7 +413,7 @@ class TestOODAAgent:
         assert "decision" in results
         assert "reflection" in results
 
-    def test_kill_switch(self):
+    def test_kill_switch(self) -> None:
         """Test kill switch functionality."""
         agent = OODAAgent()
         agent.activate_kill_switch()
@@ -427,7 +427,7 @@ class TestOODAAgent:
         agent.deactivate_kill_switch()
         assert agent._kill_switch is False
 
-    def test_pause_resume(self):
+    def test_pause_resume(self) -> None:
         """Test pause and resume."""
         agent = OODAAgent()
         agent.pause()
@@ -439,7 +439,7 @@ class TestOODAAgent:
         assert agent._paused is False
         assert agent.state == AgentState.IDLE
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         agent = OODAAgent()
         agent.observe({"event": "test"})
@@ -451,7 +451,7 @@ class TestOODAAgent:
         assert "user_sync" in stats
         assert "maintenance" in stats
 
-    def test_get_audit_log(self):
+    def test_get_audit_log(self) -> None:
         """Test audit log retrieval."""
         agent = OODAAgent()
         agent.observe({"event": "test"})
@@ -465,7 +465,7 @@ class TestOODAAgent:
 class TestAgentStates:
     """Tests for agent state enums."""
 
-    def test_agent_states(self):
+    def test_agent_states(self) -> None:
         """Test all agent states exist."""
         assert AgentState.IDLE.value == "idle"
         assert AgentState.OBSERVING.value == "observing"
@@ -481,7 +481,7 @@ class TestAgentStates:
 class TestActionRisk:
     """Tests for action risk enums."""
 
-    def test_action_risk_levels(self):
+    def test_action_risk_levels(self) -> None:
         """Test all risk levels exist."""
         assert ActionRisk.LOW.value == "low"
         assert ActionRisk.MEDIUM.value == "medium"
@@ -492,7 +492,7 @@ class TestActionRisk:
 class TestApprovalStatus:
     """Tests for approval status enums."""
 
-    def test_approval_statuses(self):
+    def test_approval_statuses(self) -> None:
         """Test all approval statuses exist."""
         assert ApprovalStatus.PENDING.value == "pending"
         assert ApprovalStatus.APPROVED.value == "approved"
@@ -503,7 +503,7 @@ class TestApprovalStatus:
 class TestDataclasses:
     """Tests for dataclasses."""
 
-    def test_observation(self):
+    def test_observation(self) -> None:
         """Test Observation dataclass."""
         obs = Observation(
             observation_id="obs_001",
@@ -513,7 +513,7 @@ class TestDataclasses:
         assert obs.observation_id == "obs_001"
         assert obs.confidence == 0.8
 
-    def test_orientation(self):
+    def test_orientation(self) -> None:
         """Test Orientation dataclass."""
         orient = Orientation(
             orientation_id="orient_001",
@@ -525,7 +525,7 @@ class TestDataclasses:
         assert orient.orientation_id == "orient_001"
         assert orient.confidence == 0.8
 
-    def test_decision(self):
+    def test_decision(self) -> None:
         """Test Decision dataclass."""
         dec = Decision(
             decision_id="dec_001",
@@ -539,7 +539,7 @@ class TestDataclasses:
         assert dec.decision_id == "dec_001"
         assert dec.risk_level == ActionRisk.LOW
 
-    def test_action_result(self):
+    def test_action_result(self) -> None:
         """Test ActionResult dataclass."""
         result = ActionResult(
             result_id="result_001",
@@ -551,7 +551,7 @@ class TestDataclasses:
         assert result.result_id == "result_001"
         assert result.success is True
 
-    def test_reflection(self):
+    def test_reflection(self) -> None:
         """Test Reflection dataclass."""
         ref = Reflection(
             reflection_id="reflect_001",
@@ -565,7 +565,7 @@ class TestDataclasses:
         assert ref.reflection_id == "reflect_001"
         assert len(ref.lessons_learned) == 1
 
-    def test_diagnostic_result(self):
+    def test_diagnostic_result(self) -> None:
         """Test DiagnosticResult dataclass."""
         diag = DiagnosticResult(
             diagnostic_id="diag_001",
@@ -581,7 +581,7 @@ class TestDataclasses:
 class TestIntegration:
     """Integration tests for autonomous agent."""
 
-    def test_full_autonomous_cycle(self):
+    def test_full_autonomous_cycle(self) -> None:
         """Test complete autonomous operation cycle."""
         agent = OODAAgent(
             risk_threshold=ActionRisk.CRITICAL,
@@ -620,7 +620,7 @@ class TestIntegration:
         assert stats["observations"] == 1
         assert stats["decisions"] == 1
 
-    def test_user_sync_integration(self):
+    def test_user_sync_integration(self) -> None:
         """Test user synchronization integration."""
         agent = OODAAgent()
 
@@ -632,7 +632,7 @@ class TestIntegration:
         assert "user_input" in observation.data
         assert agent.user_sync.get_preference("risk_tolerance") == "low"
 
-    def test_maintenance_integration(self):
+    def test_maintenance_integration(self) -> None:
         """Test self-maintenance integration."""
         agent = OODAAgent(confidence_threshold=0.95)
 
@@ -645,7 +645,7 @@ class TestIntegration:
         assert len(diagnostics) == 1
         assert agent.maintenance.should_trigger_reflection(0.8) is True
 
-    def test_ethical_blocking_integration(self):
+    def test_ethical_blocking_integration(self) -> None:
         """Test that unethical actions are blocked."""
         agent = OODAAgent(ethical_threshold=0.99)
 

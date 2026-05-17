@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Test detector modules
 """
@@ -29,7 +31,7 @@ from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 from omni_mercury_engine.detectors.temporal import TemporalAnomalyDetector
 
 
-def test_statistical_detector(sample_data):
+def test_statistical_detector(sample_data: Any) -> None:
     """Test statistical anomaly detection"""
     detector = MercuryAnomalyDetector()
     detector.fit(sample_data)
@@ -40,7 +42,7 @@ def test_statistical_detector(sample_data):
     assert len(result["scores"]) == len(sample_data)
 
 
-def test_temporal_detector(sample_data):
+def test_temporal_detector(sample_data: Any) -> None:
     """Test temporal anomaly detection"""
     detector = TemporalAnomalyDetector()
     detector.fit(sample_data)
@@ -51,7 +53,7 @@ def test_temporal_detector(sample_data):
     assert "trend_flags" in result
 
 
-def test_spatial_detector(sample_data):
+def test_spatial_detector(sample_data: Any) -> None:
     """Test spatial anomaly detection"""
     detector = SpatialAnomalyDetector()
     detector.fit(sample_data)
@@ -62,7 +64,7 @@ def test_spatial_detector(sample_data):
     assert "distance_scores" in result
 
 
-def test_dimensional_detector(sample_data):
+def test_dimensional_detector(sample_data: Any) -> None:
     """Test dimensional anomaly detection"""
     detector = DimensionalAnalyzer()
     detector.fit(sample_data)
@@ -72,7 +74,7 @@ def test_dimensional_detector(sample_data):
     assert "pca_errors" in result
 
 
-def test_directive_detector(sample_data):
+def test_directive_detector(sample_data: Any) -> None:
     """Test directive-based detection with quantum enhancements"""
     detector = SigmaDirectiveDetector()
     detector.fit(sample_data)

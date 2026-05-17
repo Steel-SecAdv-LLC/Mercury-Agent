@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Test model modules
 """
@@ -30,7 +32,7 @@ from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 from omni_mercury_engine.models.quantum import QuantumAnomalyModel
 
 
-def test_quantum_model(sample_data):
+def test_quantum_model(sample_data: Any) -> None:
     """Test quantum-inspired anomaly model"""
     model = QuantumAnomalyModel()
     result = model.predict(sample_data)
@@ -41,7 +43,7 @@ def test_quantum_model(sample_data):
     assert "energy_levels" in result
 
 
-def test_quantum_features(sample_data):
+def test_quantum_features(sample_data: Any) -> None:
     """Test quantum feature extraction"""
     model = QuantumAnomalyModel()
     features = model.extract_features(sample_data)
@@ -50,7 +52,7 @@ def test_quantum_features(sample_data):
     assert features.shape[1] >= 16
 
 
-def test_astrophysical_model(sample_data):
+def test_astrophysical_model(sample_data: Any) -> None:
     """Test astrophysical anomaly model"""
     model = AstrophysicalAnomalyModel()
     result = model.predict(sample_data)
@@ -59,7 +61,7 @@ def test_astrophysical_model(sample_data):
     assert "event_horizons" in result
 
 
-def test_affective_model(sample_data):
+def test_affective_model(sample_data: Any) -> None:
     """Test affective computing model"""
     model = AffectiveAnomalyModel()
     result = model.predict(sample_data)
@@ -69,7 +71,7 @@ def test_affective_model(sample_data):
     assert "distress_levels" in result
 
 
-def test_biometric_model():
+def test_biometric_model() -> None:
     """Test biometric quality model"""
     model = BiometricAnomalyModel()
 

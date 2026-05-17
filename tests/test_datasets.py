@@ -16,6 +16,7 @@ from __future__ import annotations
 # regardless of which worker collects which test file first).
 import os
 import tempfile
+from typing import Any
 
 import numpy as np
 import pytest
@@ -40,7 +41,7 @@ from omni_mercury_engine.datasets.space import NASAExoplanetLoader, SETILoader, 
 class TestDatasetConfig:
     """Tests for DatasetConfig."""
 
-    def test_config_creation(self):
+    def test_config_creation(self) -> None:
         """Test basic config creation."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(
@@ -51,7 +52,7 @@ class TestDatasetConfig:
             assert config.name == "test"
             assert config.split_ratios == (0.7, 0.15, 0.15)
 
-    def test_config_split_ratios_validation(self):
+    def test_config_split_ratios_validation(self) -> None:
         """Test split ratio validation."""
         with tempfile.TemporaryDirectory() as tmpdir, pytest.raises(ValueError):
             DatasetConfig(
@@ -60,7 +61,7 @@ class TestDatasetConfig:
                 split_ratios=(0.5, 0.3, 0.3),  # Sums to 1.1
             )
 
-    def test_cache_key_generation(self):
+    def test_cache_key_generation(self) -> None:
         """Test unique cache key generation."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config1 = DatasetConfig(name="test", data_dir=tmpdir)
@@ -77,7 +78,7 @@ class TestMedicalDatasets:
         with tempfile.TemporaryDirectory() as d:
             yield d
 
-    def test_mimic_loader_credential_gate(self, tmpdir):
+    def test_mimic_loader_credential_gate(self, tmpdir: Any) -> None:
         """Test MIMIC loader raises without credentials (never generates synthetic)."""
         config = DatasetConfig(
             name="mimic-iii",
@@ -90,7 +91,7 @@ class TestMedicalDatasets:
         with pytest.raises(DataSourceUnavailableError, match="PhysioNet"):
             loader.load(DatasetSplit.ALL)
 
-    def test_physionet_loader_ecg(self, tmpdir):
+    def test_physionet_loader_ecg(self, tmpdir: Any) -> None:
         """Test PhysioNet ECG loader."""
         config = DatasetConfig(
             name="physionet",
@@ -105,7 +106,7 @@ class TestMedicalDatasets:
         assert len(features) > 0
         assert len(labels) == len(features)
 
-    def test_sepsis_dataset(self, tmpdir):
+    def test_sepsis_dataset(self, tmpdir: Any) -> None:
         """Test sepsis-focused dataset."""
         config = DatasetConfig(
             name="sepsis",
@@ -130,7 +131,7 @@ class TestSpaceDatasets:
         with tempfile.TemporaryDirectory() as d:
             yield d
 
-    def test_seti_loader_deprecated(self, tmpdir):
+    def test_seti_loader_deprecated(self, tmpdir: Any) -> None:
         """Test SETI loader is deprecated and raises."""
         config = DatasetConfig(
             name="seti",
@@ -143,7 +144,7 @@ class TestSpaceDatasets:
         with pytest.raises(DataSourceUnavailableError, match="deprecated"):
             loader.load(DatasetSplit.ALL)
 
-    def test_exoplanet_loader(self, tmpdir):
+    def test_exoplanet_loader(self, tmpdir: Any) -> None:
         """Test exoplanet loader."""
         config = DatasetConfig(
             name="exoplanet",
@@ -157,7 +158,7 @@ class TestSpaceDatasets:
 
         assert features.shape[1] == len(NASAExoplanetLoader.FEATURE_NAMES)
 
-    def test_solar_dynamics_loader(self, tmpdir):
+    def test_solar_dynamics_loader(self, tmpdir: Any) -> None:
         """Test solar dynamics loader."""
         config = DatasetConfig(
             name="solar",
@@ -181,7 +182,7 @@ class TestEnvironmentalDatasets:
         with tempfile.TemporaryDirectory() as d:
             yield d
 
-    def test_earthquake_loader(self, tmpdir):
+    def test_earthquake_loader(self, tmpdir: Any) -> None:
         """Test earthquake catalog loader."""
         config = DatasetConfig(
             name="earthquake",
@@ -195,7 +196,7 @@ class TestEnvironmentalDatasets:
 
         assert features.shape[1] == len(USGSEarthquakeLoader.FEATURE_NAMES)
 
-    def test_weather_loader(self, tmpdir):
+    def test_weather_loader(self, tmpdir: Any) -> None:
         """Test weather data loader."""
         config = DatasetConfig(
             name="weather",
@@ -209,7 +210,7 @@ class TestEnvironmentalDatasets:
 
         assert features.shape[1] == len(NOAAWeatherLoader.FEATURE_NAMES)
 
-    def test_wildfire_loader(self, tmpdir):
+    def test_wildfire_loader(self, tmpdir: Any) -> None:
         """Test wildfire detection loader."""
         config = DatasetConfig(
             name="wildfire",
@@ -237,7 +238,7 @@ class TestSecurityDatasets:
         with tempfile.TemporaryDirectory() as d:
             yield d
 
-    def test_nslkdd_loader(self, tmpdir):
+    def test_nslkdd_loader(self, tmpdir: Any) -> None:
         """Test NSL-KDD loader."""
         config = DatasetConfig(
             name="nsl-kdd",
@@ -252,7 +253,7 @@ class TestSecurityDatasets:
         assert features.shape[1] == len(NSLKDDLoader.FEATURE_NAMES)
         assert np.any(labels == 1)  # Should have attacks
 
-    def test_cicids_loader(self, tmpdir):
+    def test_cicids_loader(self, tmpdir: Any) -> None:
         """Test CICIDS loader."""
         config = DatasetConfig(
             name="cicids",
@@ -266,7 +267,7 @@ class TestSecurityDatasets:
 
         assert len(features) == 100
 
-    def test_threat_intel_loader(self, tmpdir):
+    def test_threat_intel_loader(self, tmpdir: Any) -> None:
         """Test threat intelligence loader."""
         config = DatasetConfig(
             name="threat-intel",
@@ -284,7 +285,7 @@ class TestSecurityDatasets:
 class TestDatasetRegistry:
     """Tests for dataset registry."""
 
-    def test_list_datasets(self):
+    def test_list_datasets(self) -> None:
         """Test listing available datasets."""
         datasets = DatasetRegistry.list_datasets()
 
@@ -293,7 +294,7 @@ class TestDatasetRegistry:
         assert "earthquake" in datasets
         assert "nsl-kdd" in datasets
 
-    def test_create_from_registry(self):
+    def test_create_from_registry(self) -> None:
         """Test creating loader from registry."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config = DatasetConfig(name="earthquake", data_dir=tmpdir, cache_dir=tmpdir)
@@ -310,7 +311,7 @@ class TestBenchmarkSuite:
         with tempfile.TemporaryDirectory() as d:
             yield d
 
-    def test_benchmark_single_dataset(self, tmpdir):
+    def test_benchmark_single_dataset(self, tmpdir: Any) -> None:
         """Test running benchmark on single dataset."""
         suite = RealWorldBenchmarkSuite(
             data_dir=tmpdir,
@@ -332,7 +333,7 @@ class TestBenchmarkSuite:
         assert 0 <= result.accuracy <= 1
         assert 0 <= result.f1_score <= 1
 
-    def test_benchmark_multiple_datasets(self, tmpdir):
+    def test_benchmark_multiple_datasets(self, tmpdir: Any) -> None:
         """Test running benchmark across categories."""
         suite = RealWorldBenchmarkSuite(
             data_dir=tmpdir,
@@ -349,7 +350,7 @@ class TestBenchmarkSuite:
         assert len(results) == 2
         assert all(isinstance(r, BenchmarkResult) for r in results)
 
-    def test_baseline_comparison(self, tmpdir):
+    def test_baseline_comparison(self, tmpdir: Any) -> None:
         """Test comparing against baseline."""
         suite = RealWorldBenchmarkSuite(
             data_dir=tmpdir,
@@ -376,7 +377,7 @@ class TestBenchmarkSuite:
         assert comparison.baseline_name == "RandomBaseline"
         assert "earthquake" in comparison.improvement_vs_baseline
 
-    def test_save_and_load_results(self, tmpdir):
+    def test_save_and_load_results(self, tmpdir: Any) -> None:
         """Test saving and loading benchmark results."""
         suite = RealWorldBenchmarkSuite(
             data_dir=tmpdir,
@@ -411,7 +412,7 @@ class TestPyTorchIntegration:
         with tempfile.TemporaryDirectory() as d:
             yield d
 
-    def test_to_pytorch_dataset(self, tmpdir):
+    def test_to_pytorch_dataset(self, tmpdir: Any) -> None:
         """Test converting to PyTorch dataset."""
         pytest.importorskip("torch")
 
@@ -430,7 +431,7 @@ class TestPyTorchIntegration:
         x, y = torch_dataset[0]
         assert hasattr(x, "shape")  # Is a tensor
 
-    def test_get_dataloader(self, tmpdir):
+    def test_get_dataloader(self, tmpdir: Any) -> None:
         """Test getting PyTorch DataLoader."""
         pytest.importorskip("torch")
 

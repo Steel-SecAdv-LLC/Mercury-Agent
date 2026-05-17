@@ -237,7 +237,7 @@ def test_max_bytes_enforced(tmp_path: Path, legacy_pkl: Path) -> None:
 class _OsSystemReduce:
     """A classic pickle RCE payload: reduce -> os.system('whatever')."""
 
-    def __reduce__(self):  # type: ignore[no-untyped-def]
+    def __reduce__(self):
         import os
 
         return (os.system, ("echo MIGRATE_PKL_RCE > /tmp/migrate_pkl_rce_proof",))
@@ -246,7 +246,7 @@ class _OsSystemReduce:
 class _SubprocessPopenReduce:
     """A subprocess.Popen reduce-chain. Different module, same threat."""
 
-    def __reduce__(self):  # type: ignore[no-untyped-def]
+    def __reduce__(self):
         import subprocess
 
         return (subprocess.Popen, (["/bin/sh", "-c", "true"],))
@@ -255,7 +255,7 @@ class _SubprocessPopenReduce:
 class _BuiltinsEvalReduce:
     """``builtins.eval`` bootstrap. Bypassing the os/subprocess block is not enough."""
 
-    def __reduce__(self):  # type: ignore[no-untyped-def]
+    def __reduce__(self):
         return (eval, ("__import__('os').system('true')",))
 
 

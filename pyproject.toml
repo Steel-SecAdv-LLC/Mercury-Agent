@@ -267,9 +267,13 @@ extend-exclude = '''
 #     gated in CI with no --ignore-missing-imports.  Ships a PEP 561
 #     ``py.typed`` marker so downstream callers (and our own tests)
 #     pick up the inline types instead of being treated as un-typed.
-#   * tests/ -- incrementally annotated.  CI strictly gates the
-#     security, ethical, and safeguards test directories; remaining
-#     test directories are tracked debt and not yet gated.
+#   * tests/ -- the entire tree is gated in CI.  The two remaining
+#     relaxations are ``--allow-untyped-defs`` (a function with no
+#     annotations at all passes; partial annotation is still a hard
+#     error) and ``--disable-error-code untyped-decorator`` (pytest's
+#     ``@fixture`` / ``@parametrize`` decorators return ``Any`` from
+#     public stubs).  Both are pytest-idiom flags, not silencers --
+#     no per-error suppressions ride on top of the gate.
 #
 # Third-party boundaries are declared per-module under the
 # [[tool.mypy.overrides]] block below.  The src/ and critical-tests
@@ -442,6 +446,24 @@ module = [
     # Safe XML parsing — no public type stubs published
     "defusedxml",
     "defusedxml.*",
+    # Load-testing framework (optional, ``[loadtest]`` extra)
+    "locust",
+    "locust.*",
+    # Optional test-data generators -- supplied by an external assets bundle
+    # that is not vendored with the repository.  Tests that import these
+    # modules skip themselves when the bundle is absent (see
+    # tests/emergent/test_emergent_life_detector_real_data.py for the
+    # canonical try/except pattern); the imports remain declared so the
+    # mypy boundary is explicit.
+    "assets",
+    "assets.*",
+    # Sibling-script modules under benchmarks/ are imported by the
+    # benchmark test harness via sys.path manipulation rather than
+    # package install.  They are first-party but live outside the
+    # mypy package root (src/) so mypy cannot follow the import; the
+    # override declares them as a typed-boundary equivalent.
+    "calibration_validation",
+    "mercury_benchmark",
 ]
 ignore_missing_imports = true
 

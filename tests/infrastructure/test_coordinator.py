@@ -28,12 +28,12 @@ from omni_mercury_engine.infrastructure import InfrastructureCoordinator
 class TestInfrastructureCoordinator:
     """Test suite for InfrastructureCoordinator."""
 
-    def test_coordinator_instantiation(self):
+    def test_coordinator_instantiation(self) -> None:
         """Test coordinator can be instantiated."""
         coord = InfrastructureCoordinator()
         assert coord is not None
 
-    def test_list_all_modules(self):
+    def test_list_all_modules(self) -> None:
         """Test listing all available modules."""
         coord = InfrastructureCoordinator()
         modules = coord.list_all_modules()
@@ -43,7 +43,7 @@ class TestInfrastructureCoordinator:
         assert "space_infrastructure" in modules
         assert "essential_workers" in modules
 
-    def test_filter_by_priority(self):
+    def test_filter_by_priority(self) -> None:
         """Test filtering modules by priority."""
         coord = InfrastructureCoordinator()
 
@@ -55,7 +55,7 @@ class TestInfrastructureCoordinator:
         medium_priority = coord.filter_modules(priorities=["medium"])
         assert len(medium_priority) == 4
 
-    def test_filter_by_category(self):
+    def test_filter_by_category(self) -> None:
         """Test filtering modules by category."""
         coord = InfrastructureCoordinator()
 
@@ -68,7 +68,7 @@ class TestInfrastructureCoordinator:
         assert len(humanitarian) == 2
         assert "essential_workers" in humanitarian
 
-    def test_filter_by_module_names(self):
+    def test_filter_by_module_names(self) -> None:
         """Test filtering by explicit module names."""
         coord = InfrastructureCoordinator()
 
@@ -77,7 +77,7 @@ class TestInfrastructureCoordinator:
         assert "ncf_monitor" in specific
         assert "space_infrastructure" in specific
 
-    def test_combined_filters(self):
+    def test_combined_filters(self) -> None:
         """Test combining multiple filter criteria."""
         coord = InfrastructureCoordinator()
 
@@ -85,7 +85,7 @@ class TestInfrastructureCoordinator:
         assert len(result) == 1
         assert "space_infrastructure" in result
 
-    def test_get_single_module(self):
+    def test_get_single_module(self) -> None:
         """Test getting a single module instance."""
         coord = InfrastructureCoordinator()
 
@@ -93,7 +93,7 @@ class TestInfrastructureCoordinator:
         assert ncf is not None
         assert hasattr(ncf, "detect")
 
-    def test_instantiate_filtered_modules(self):
+    def test_instantiate_filtered_modules(self) -> None:
         """Test instantiating multiple filtered modules."""
         coord = InfrastructureCoordinator()
 
@@ -103,21 +103,21 @@ class TestInfrastructureCoordinator:
         for module in high_priority.values():
             assert hasattr(module, "detect")
 
-    def test_flexible_selection_1_module(self):
+    def test_flexible_selection_1_module(self) -> None:
         """Test running 1 module at a time."""
         coord = InfrastructureCoordinator()
 
         single = coord.instantiate_filtered_modules(module_names=["ncf_monitor"])
         assert len(single) == 1
 
-    def test_flexible_selection_5_modules(self):
+    def test_flexible_selection_5_modules(self) -> None:
         """Test running 5 modules at a time."""
         coord = InfrastructureCoordinator()
 
         five = coord.instantiate_filtered_modules(priorities=["high"])
         assert len(five) >= 5
 
-    def test_flexible_selection_all_modules(self):
+    def test_flexible_selection_all_modules(self) -> None:
         """Test running all 12 modules simultaneously."""
         coord = InfrastructureCoordinator()
 

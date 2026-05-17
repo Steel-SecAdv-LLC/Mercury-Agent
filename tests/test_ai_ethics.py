@@ -36,7 +36,7 @@ from omni_mercury_engine.core.ai_ethics import (
 class TestEthicalPrinciple:
     """Test the EthicalPrinciple enum."""
 
-    def test_all_principles_exist(self):
+    def test_all_principles_exist(self) -> None:
         """Test that all 8 principles are defined."""
         principles = [p.value for p in EthicalPrinciple]
         assert len(principles) == 8
@@ -53,7 +53,7 @@ class TestEthicalPrinciple:
 class TestEthicsConfig:
     """Test the EthicsConfig dataclass."""
 
-    def test_default_config(self):
+    def test_default_config(self) -> None:
         """Test default configuration values."""
         config = EthicsConfig()
         assert config.enable_compassion_checks is True
@@ -67,7 +67,7 @@ class TestEthicsConfig:
         assert config.min_ethics_score == 0.7
         assert config.strict_mode is False
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test custom configuration."""
         config = EthicsConfig(
             enable_compassion_checks=False, min_ethics_score=0.9, strict_mode=True
@@ -80,7 +80,7 @@ class TestEthicsConfig:
 class TestEthicsResult:
     """Test the EthicsResult dataclass."""
 
-    def test_passed_result(self):
+    def test_passed_result(self) -> None:
         """Test a passing ethics result."""
         result = EthicsResult(
             passed=True,
@@ -94,7 +94,7 @@ class TestEthicsResult:
         assert len(result.principle_scores) == 2
         assert len(result.violations) == 0
 
-    def test_failed_result(self):
+    def test_failed_result(self) -> None:
         """Test a failing ethics result."""
         result = EthicsResult(
             passed=False,
@@ -112,14 +112,14 @@ class TestEthicsResult:
 class TestEthicalAutonomyGovernor:
     """Test the EthicalAutonomyGovernor class."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test governor initialization."""
         governor = EthicalAutonomyGovernor()
         assert governor.config is not None
         assert isinstance(governor.config, EthicsConfig)
         assert len(governor.audit_log) == 0
 
-    def test_evaluate_action_basic(self):
+    def test_evaluate_action_basic(self) -> None:
         """Test basic action evaluation."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -129,7 +129,7 @@ class TestEthicalAutonomyGovernor:
         assert result.overall_score > 0
         assert len(result.principle_scores) == 8
 
-    def test_compassion_check_with_backup(self):
+    def test_compassion_check_with_backup(self) -> None:
         """Test compassion check with backup enabled."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -139,7 +139,7 @@ class TestEthicalAutonomyGovernor:
         )
         assert result.principle_scores["compassion"] >= 0.8
 
-    def test_compassion_check_without_backup(self):
+    def test_compassion_check_without_backup(self) -> None:
         """Test compassion check without backup."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -149,7 +149,7 @@ class TestEthicalAutonomyGovernor:
         # Result is 0.65 due to harm_reduction_keywords matching in stringified params
         assert result.principle_scores["compassion"] == 0.65
 
-    def test_evidence_check_with_benchmarks(self):
+    def test_evidence_check_with_benchmarks(self) -> None:
         """Test evidence check with benchmarks."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -159,14 +159,14 @@ class TestEthicalAutonomyGovernor:
         )
         assert result.principle_scores["evidence"] >= 0.8
 
-    def test_justice_check_ast_transform(self):
+    def test_justice_check_ast_transform(self) -> None:
         """Test justice check for AST transformations."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(action_type="ast_transform", action_params={}, context={})
         # Deterministic actions like ast_transform get 0.95 justice score
         assert result.principle_scores["justice"] == 0.95
 
-    def test_altruism_check_open_source(self):
+    def test_altruism_check_open_source(self) -> None:
         """Test altruism check for open source."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -175,7 +175,7 @@ class TestEthicalAutonomyGovernor:
         # Base 0.6 + 0.15 for open source = 0.75
         assert result.principle_scores["altruism"] >= 0.75
 
-    def test_control_check_with_logging(self):
+    def test_control_check_with_logging(self) -> None:
         """Test control check with logging enabled."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -185,7 +185,7 @@ class TestEthicalAutonomyGovernor:
         )
         assert result.principle_scores["control"] >= 0.8
 
-    def test_character_check_transparent(self):
+    def test_character_check_transparent(self) -> None:
         """Test character check with transparency."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -195,7 +195,7 @@ class TestEthicalAutonomyGovernor:
         )
         assert result.principle_scores["character"] >= 0.9
 
-    def test_competence_check_high_coverage(self):
+    def test_competence_check_high_coverage(self) -> None:
         """Test competence check with high test coverage."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -204,7 +204,7 @@ class TestEthicalAutonomyGovernor:
         # Base 0.5 + 0.35 for >95% coverage = 0.85
         assert result.principle_scores["competence"] >= 0.85
 
-    def test_competence_check_low_coverage(self):
+    def test_competence_check_low_coverage(self) -> None:
         """Test competence check with low test coverage."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -212,7 +212,7 @@ class TestEthicalAutonomyGovernor:
         )
         assert result.principle_scores["competence"] == 0.5
 
-    def test_commitment_check_extensible(self):
+    def test_commitment_check_extensible(self) -> None:
         """Test commitment check with extensibility."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -222,7 +222,7 @@ class TestEthicalAutonomyGovernor:
         )
         assert result.principle_scores["commitment"] >= 0.9
 
-    def test_audit_log_records_actions(self):
+    def test_audit_log_records_actions(self) -> None:
         """Test that audit log records all evaluations."""
         governor = EthicalAutonomyGovernor()
         assert len(governor.audit_log) == 0
@@ -233,7 +233,7 @@ class TestEthicalAutonomyGovernor:
         governor.evaluate_action("optimization", {"test": True}, {})
         assert len(governor.audit_log) == 2
 
-    def test_get_audit_log(self):
+    def test_get_audit_log(self) -> None:
         """Test getting audit log."""
         governor = EthicalAutonomyGovernor()
         governor.evaluate_action("refactoring", {"test": True}, {})
@@ -244,7 +244,7 @@ class TestEthicalAutonomyGovernor:
         assert "overall_score" in log[0]
         assert "passed" in log[0]
 
-    def test_reset_audit_log(self):
+    def test_reset_audit_log(self) -> None:
         """Test resetting audit log."""
         governor = EthicalAutonomyGovernor()
         governor.evaluate_action("refactoring", {"test": True}, {})
@@ -253,7 +253,7 @@ class TestEthicalAutonomyGovernor:
         governor.reset_audit_log()
         assert len(governor.audit_log) == 0
 
-    def test_get_statistics_empty(self):
+    def test_get_statistics_empty(self) -> None:
         """Test statistics with empty audit log."""
         governor = EthicalAutonomyGovernor()
         stats = governor.get_statistics()
@@ -263,7 +263,7 @@ class TestEthicalAutonomyGovernor:
         assert stats["pass_rate"] == 0.0
         assert stats["avg_score"] == 0.0
 
-    def test_get_statistics_with_data(self):
+    def test_get_statistics_with_data(self) -> None:
         """Test statistics with audit log data."""
         governor = EthicalAutonomyGovernor()
 
@@ -280,7 +280,7 @@ class TestEthicalAutonomyGovernor:
         assert 0.0 <= stats["pass_rate"] <= 1.0
         assert stats["avg_score"] > 0
 
-    def test_strict_mode_requires_no_violations(self):
+    def test_strict_mode_requires_no_violations(self) -> None:
         """Test that strict mode requires no violations."""
         config = EthicsConfig(strict_mode=True, min_ethics_score=0.5)
         governor = EthicalAutonomyGovernor(config)
@@ -292,7 +292,7 @@ class TestEthicalAutonomyGovernor:
         if len(result.violations) > 0:
             assert result.passed is False
 
-    def test_non_strict_mode_allows_violations(self):
+    def test_non_strict_mode_allows_violations(self) -> None:
         """Test that non-strict mode can pass with violations if score is high."""
         config = EthicsConfig(strict_mode=False, min_ethics_score=0.5)
         governor = EthicalAutonomyGovernor(config)
@@ -309,7 +309,7 @@ class TestEthicalAutonomyGovernor:
 class TestConvenienceFunctions:
     """Test convenience functions."""
 
-    def test_evaluate_refactoring_ethics_full_safety(self):
+    def test_evaluate_refactoring_ethics_full_safety(self) -> None:
         """Test refactoring ethics with full safety features."""
         result = evaluate_refactoring_ethics(
             create_backup=True, require_confirmation=True, has_tests=True, test_coverage=0.95
@@ -317,7 +317,7 @@ class TestConvenienceFunctions:
         assert isinstance(result, EthicsResult)
         assert result.overall_score >= 0.7
 
-    def test_evaluate_refactoring_ethics_minimal_safety(self):
+    def test_evaluate_refactoring_ethics_minimal_safety(self) -> None:
         """Test refactoring ethics with minimal safety."""
         result = evaluate_refactoring_ethics(
             create_backup=False, require_confirmation=False, has_tests=False, test_coverage=0.0
@@ -325,7 +325,7 @@ class TestConvenienceFunctions:
         assert isinstance(result, EthicsResult)
         assert result.overall_score < 0.8
 
-    def test_evaluate_refactoring_ethics_principle_scores(self):
+    def test_evaluate_refactoring_ethics_principle_scores(self) -> None:
         """Test that all principles are evaluated."""
         result = evaluate_refactoring_ethics(create_backup=True, test_coverage=0.95)
         assert len(result.principle_scores) == 8
@@ -342,14 +342,14 @@ class TestConvenienceFunctions:
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
-    def test_empty_action_params(self):
+    def test_empty_action_params(self) -> None:
         """Test evaluation with empty action parameters."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(action_type="unknown", action_params={}, context={})
         assert isinstance(result, EthicsResult)
         assert result.overall_score > 0
 
-    def test_none_context(self):
+    def test_none_context(self) -> None:
         """Test evaluation with None context."""
         governor = EthicalAutonomyGovernor()
         result = governor.evaluate_action(
@@ -357,7 +357,7 @@ class TestEdgeCases:
         )
         assert isinstance(result, EthicsResult)
 
-    def test_custom_min_ethics_score(self):
+    def test_custom_min_ethics_score(self) -> None:
         """Test custom minimum ethics score."""
         config = EthicsConfig(min_ethics_score=0.9)
         governor = EthicalAutonomyGovernor(config)

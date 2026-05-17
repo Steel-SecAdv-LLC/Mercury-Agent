@@ -30,12 +30,12 @@ from omni_mercury_engine.comparison import CombinationMethod, PyODAlgorithm, PyO
 class TestPyODComparison:
     """Tests for PyOD comparison functionality."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test comparison module initialization."""
         comparison = PyODComparison()
         assert len(comparison.algorithm_characteristics) > 0
 
-    def test_algorithm_recommendation(self):
+    def test_algorithm_recommendation(self) -> None:
         """Test algorithm recommendation."""
         comparison = PyODComparison()
 
@@ -47,7 +47,7 @@ class TestPyODComparison:
         assert len(result["recommendations"]) > 0
         assert "algorithm" in result["recommendations"][0]
 
-    def test_algorithm_recommendation_large_dataset(self):
+    def test_algorithm_recommendation_large_dataset(self) -> None:
         """Test recommendation for large dataset."""
         comparison = PyODComparison()
 
@@ -59,7 +59,7 @@ class TestPyODComparison:
 
         assert result["recommendations"][0]["algorithm"] == PyODAlgorithm.COPOD
 
-    def test_combine_predictions_average(self):
+    def test_combine_predictions_average(self) -> None:
         """Test prediction combination with average method."""
         comparison = PyODComparison()
 
@@ -74,7 +74,7 @@ class TestPyODComparison:
         assert combined.shape == (4,)
         assert np.allclose(combined, [0.15, 0.25, 0.35, 0.45])
 
-    def test_combine_predictions_maximum(self):
+    def test_combine_predictions_maximum(self) -> None:
         """Test prediction combination with maximum method."""
         comparison = PyODComparison()
 
@@ -88,7 +88,7 @@ class TestPyODComparison:
         assert combined.shape == (4,)
         assert np.allclose(combined, [0.2, 0.3, 0.4, 0.5])
 
-    def test_combine_predictions_aom(self):
+    def test_combine_predictions_aom(self) -> None:
         """Test prediction combination with AOM method."""
         comparison = PyODComparison()
 
@@ -103,7 +103,7 @@ class TestPyODComparison:
 
         assert combined.shape == (4,)
 
-    def test_comparison_summary(self):
+    def test_comparison_summary(self) -> None:
         """Test comparison summary generation."""
         comparison = PyODComparison()
 

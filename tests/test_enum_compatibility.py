@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 _MODULE_NAME = "omni_mercury_engine.integrations.mercury_amacrypto"
 
 
-@pytest.fixture(scope="module")  # type: ignore[untyped-decorator]
+@pytest.fixture(scope="module")
 def mercury_amacrypto() -> ModuleType:
     """Import ``mercury_amacrypto`` or skip the test suite cleanly."""
     try:

@@ -23,7 +23,7 @@ import pytest
 class TestMetaLearningAdapter:
     """Tests for MetaLearningAdapter unified interface."""
 
-    def test_initialization_prototypical(self):
+    def test_initialization_prototypical(self) -> None:
         from omni_mercury_engine.ml.meta_learning import (
             MetaLearningAdapter,
             MetaLearningAlgorithm,
@@ -38,7 +38,7 @@ class TestMetaLearningAdapter:
         stats = adapter.get_statistics()
         assert stats["algorithm"] == "prototypical"
 
-    def test_initialization_maml(self):
+    def test_initialization_maml(self) -> None:
         from omni_mercury_engine.ml.meta_learning import (
             MetaLearningAdapter,
             MetaLearningAlgorithm,
@@ -53,7 +53,7 @@ class TestMetaLearningAdapter:
         stats = adapter.get_statistics()
         assert stats["algorithm"] == "maml"
 
-    def test_initialization_reptile(self):
+    def test_initialization_reptile(self) -> None:
         from omni_mercury_engine.ml.meta_learning import (
             MetaLearningAdapter,
             MetaLearningAlgorithm,
@@ -68,7 +68,7 @@ class TestMetaLearningAdapter:
         stats = adapter.get_statistics()
         assert stats["algorithm"] == "reptile"
 
-    def test_few_shot_adaptation(self):
+    def test_few_shot_adaptation(self) -> None:
         from omni_mercury_engine.ml.meta_learning import (
             MetaLearningAdapter,
             MetaLearningAlgorithm,
@@ -96,7 +96,7 @@ class TestMetaLearningAdapter:
         assert len(predictions) == 10
         assert all(p in ["normal", "anomaly"] for p in predictions)
 
-    def test_meta_training(self):
+    def test_meta_training(self) -> None:
         from omni_mercury_engine.ml.meta_learning import (
             MetaLearningAdapter,
             MetaLearningAlgorithm,
@@ -128,7 +128,7 @@ class TestMetaLearningAdapter:
 
         assert "loss" in metrics or "accuracy" in metrics
 
-    def test_get_embeddings(self):
+    def test_get_embeddings(self) -> None:
         from omni_mercury_engine.ml.meta_learning import (
             MetaLearningAdapter,
             MetaLearningAlgorithm,
@@ -149,13 +149,13 @@ class TestMetaLearningAdapter:
 class TestPrototypicalNetworks:
     """Tests for PrototypicalNetworks."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.ml.meta_learning import PrototypicalNetworks
 
         proto = PrototypicalNetworks(input_dim=20, embedding_dim=16)
         assert proto is not None
 
-    def test_compute_prototypes(self):
+    def test_compute_prototypes(self) -> None:
         from omni_mercury_engine.ml.meta_learning import PrototypicalNetworks
 
         proto = PrototypicalNetworks(input_dim=10, embedding_dim=8)
@@ -172,7 +172,7 @@ class TestPrototypicalNetworks:
         assert "class_b" in prototypes
         assert prototypes["class_a"].shape == (8,)  # embedding_dim
 
-    def test_classify(self):
+    def test_classify(self) -> None:
         from omni_mercury_engine.ml.meta_learning import PrototypicalNetworks
 
         proto = PrototypicalNetworks(input_dim=10, embedding_dim=8)
@@ -192,7 +192,7 @@ class TestPrototypicalNetworks:
         assert "confidence" in result
         assert "distances" in result
 
-    def test_batch_classify(self):
+    def test_batch_classify(self) -> None:
         from omni_mercury_engine.ml.meta_learning import PrototypicalNetworks
 
         proto = PrototypicalNetworks(input_dim=10, embedding_dim=8)
@@ -210,7 +210,7 @@ class TestPrototypicalNetworks:
         for r in results:
             assert "predicted_class" in r
 
-    def test_distance_metrics(self):
+    def test_distance_metrics(self) -> None:
         from omni_mercury_engine.ml.meta_learning import PrototypicalNetworks
 
         # Test with different distance metrics
@@ -232,7 +232,7 @@ class TestPrototypicalNetworks:
 class TestMAML:
     """Tests for Model-Agnostic Meta-Learning."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.ml.meta_learning import MAML
 
         maml = MAML(
@@ -244,7 +244,7 @@ class TestMAML:
         )
         assert maml is not None
 
-    def test_inner_loop_adaptation(self):
+    def test_inner_loop_adaptation(self) -> None:
         from omni_mercury_engine.ml.meta_learning import MAML
 
         maml = MAML(input_dim=10, hidden_dim=8, output_dim=2)
@@ -257,7 +257,7 @@ class TestMAML:
 
         assert adapted_params is not None
 
-    def test_meta_step(self):
+    def test_meta_step(self) -> None:
         from omni_mercury_engine.ml.meta_learning import MAML
 
         maml = MAML(input_dim=10, hidden_dim=8, output_dim=2)
@@ -278,7 +278,7 @@ class TestMAML:
 
         assert isinstance(loss, (int, float))
 
-    def test_predict_after_adaptation(self):
+    def test_predict_after_adaptation(self) -> None:
         from omni_mercury_engine.ml.meta_learning import MAML
 
         maml = MAML(input_dim=10, hidden_dim=8, output_dim=2)
@@ -295,7 +295,7 @@ class TestMAML:
         assert len(predictions) == 3
         assert all(p in [0, 1] for p in predictions)
 
-    def test_first_order_approximation(self):
+    def test_first_order_approximation(self) -> None:
         from omni_mercury_engine.ml.meta_learning import MAML
 
         # First-order MAML (FOMAML) for efficiency
@@ -316,7 +316,7 @@ class TestMAML:
 class TestReptile:
     """Tests for Reptile meta-learning algorithm."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.ml.meta_learning import Reptile
 
         reptile = Reptile(
@@ -327,7 +327,7 @@ class TestReptile:
         )
         assert reptile is not None
 
-    def test_task_adaptation(self):
+    def test_task_adaptation(self) -> None:
         from omni_mercury_engine.ml.meta_learning import Reptile
 
         reptile = Reptile(input_dim=10, hidden_dim=8, output_dim=2)
@@ -340,7 +340,7 @@ class TestReptile:
 
         assert task_params is not None
 
-    def test_meta_update(self):
+    def test_meta_update(self) -> None:
         from omni_mercury_engine.ml.meta_learning import Reptile
 
         reptile = Reptile(input_dim=10, hidden_dim=8, output_dim=2, epsilon=0.1)
@@ -355,7 +355,7 @@ class TestReptile:
         stats = reptile.get_statistics()
         assert stats["meta_updates"] == 3
 
-    def test_few_shot_evaluation(self):
+    def test_few_shot_evaluation(self) -> None:
         from omni_mercury_engine.ml.meta_learning import Reptile
 
         reptile = Reptile(input_dim=10, hidden_dim=8, output_dim=2)
@@ -374,7 +374,7 @@ class TestReptile:
 class TestAnomalyMetaLearner:
     """Tests for Mercury Agent integration."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner
 
         learner = AnomalyMetaLearner()
@@ -382,7 +382,7 @@ class TestAnomalyMetaLearner:
         stats = learner.get_statistics()
         assert stats["anomaly_types_learned"] == 0
 
-    def test_learn_new_anomaly_type(self):
+    def test_learn_new_anomaly_type(self) -> None:
         from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner
 
         learner = AnomalyMetaLearner(feature_dim=20)
@@ -398,7 +398,7 @@ class TestAnomalyMetaLearner:
         stats = learner.get_statistics()
         assert stats["anomaly_types_learned"] == 1
 
-    def test_detect_with_meta_learning(self):
+    def test_detect_with_meta_learning(self) -> None:
         from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner
 
         learner = AnomalyMetaLearner(feature_dim=10)
@@ -420,7 +420,7 @@ class TestAnomalyMetaLearner:
         assert "confidence" in result
         assert "is_anomaly" in result
 
-    def test_batch_detection(self):
+    def test_batch_detection(self) -> None:
         from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner
 
         learner = AnomalyMetaLearner(feature_dim=10)
@@ -437,7 +437,7 @@ class TestAnomalyMetaLearner:
 
         assert len(results) == 20
 
-    def test_online_adaptation(self):
+    def test_online_adaptation(self) -> None:
         from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner
 
         learner = AnomalyMetaLearner(feature_dim=10)
@@ -458,7 +458,7 @@ class TestAnomalyMetaLearner:
         stats = learner.get_statistics()
         assert stats["anomaly_types_learned"] >= 2
 
-    def test_confidence_calibration(self):
+    def test_confidence_calibration(self) -> None:
         from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner
 
         learner = AnomalyMetaLearner(feature_dim=10, calibrate_confidence=True)
@@ -475,7 +475,7 @@ class TestAnomalyMetaLearner:
 
         assert 0 <= result["confidence"] <= 1
 
-    def test_feature_importance(self):
+    def test_feature_importance(self) -> None:
         from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner
 
         learner = AnomalyMetaLearner(feature_dim=10)
@@ -499,7 +499,7 @@ class TestAnomalyMetaLearner:
 class TestMetaLearningEpisodes:
     """Tests for episodic meta-learning."""
 
-    def test_episode_generation(self):
+    def test_episode_generation(self) -> None:
         from omni_mercury_engine.ml.meta_learning import (
             MetaLearningAdapter,
             MetaLearningAlgorithm,
@@ -532,7 +532,7 @@ class TestMetaLearningEpisodes:
             assert "query" in episode
             assert len(episode["support"]) == 2  # n_way
 
-    def test_n_way_k_shot_evaluation(self):
+    def test_n_way_k_shot_evaluation(self) -> None:
         from omni_mercury_engine.ml.meta_learning import (
             MetaLearningAdapter,
             MetaLearningAlgorithm,
@@ -560,7 +560,7 @@ class TestMetaLearningEpisodes:
 class TestModuleImports:
     """Test that meta-learning module can be imported correctly."""
 
-    def test_import_from_ml(self):
+    def test_import_from_ml(self) -> None:
         from omni_mercury_engine.ml import (
             MAML,
             AnomalyMetaLearner,
@@ -577,7 +577,7 @@ class TestModuleImports:
         assert AnomalyMetaLearner is not None
         assert create_meta_learner is not None
 
-    def test_create_meta_learner_factory(self):
+    def test_create_meta_learner_factory(self) -> None:
         from omni_mercury_engine.ml import create_meta_learner
 
         learner = create_meta_learner(feature_dim=20)
@@ -587,7 +587,7 @@ class TestModuleImports:
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
-    def test_empty_support_set(self):
+    def test_empty_support_set(self) -> None:
         from omni_mercury_engine.ml.meta_learning import PrototypicalNetworks
 
         proto = PrototypicalNetworks(input_dim=10, embedding_dim=8)
@@ -596,7 +596,7 @@ class TestEdgeCases:
         with pytest.raises((ValueError, KeyError)):
             proto.fit({})
 
-    def test_single_example_per_class(self):
+    def test_single_example_per_class(self) -> None:
         from omni_mercury_engine.ml.meta_learning import PrototypicalNetworks
 
         proto = PrototypicalNetworks(input_dim=10, embedding_dim=8)
@@ -613,7 +613,7 @@ class TestEdgeCases:
 
         assert result is not None
 
-    def test_high_dimensional_input(self):
+    def test_high_dimensional_input(self) -> None:
         from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner
 
         # Test with high-dimensional features
@@ -630,7 +630,7 @@ class TestEdgeCases:
 
         assert result is not None
 
-    def test_many_classes(self):
+    def test_many_classes(self) -> None:
         from omni_mercury_engine.ml.meta_learning import AnomalyMetaLearner
 
         learner = AnomalyMetaLearner(feature_dim=20)

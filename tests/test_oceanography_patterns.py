@@ -25,7 +25,7 @@ import numpy as np
 from omni_mercury_engine.ocean.oceanography_patterns import OceanographyPatterns, WavePattern
 
 
-def test_oceanography_initialization():
+def test_oceanography_initialization() -> None:
     """Test oceanography patterns system initialization"""
     system = OceanographyPatterns(
         depth_levels=4, acoustic_sensitivity=0.8, wave_detection_threshold=0.6
@@ -36,7 +36,7 @@ def test_oceanography_initialization():
     assert len(system.pattern_history) == 0
 
 
-def test_acoustic_sensing():
+def test_acoustic_sensing() -> None:
     """Test acoustic sensing analogous to sonar"""
     system = OceanographyPatterns()
 
@@ -51,7 +51,7 @@ def test_acoustic_sensing():
     assert isinstance(result["reflection_pattern"], np.ndarray)
 
 
-def test_wave_pattern_analysis():
+def test_wave_pattern_analysis() -> None:
     """Test wave pattern analysis for time-series"""
     system = OceanographyPatterns(wave_detection_threshold=0.3)
 
@@ -67,7 +67,7 @@ def test_wave_pattern_analysis():
         assert patterns[0].amplitude > 0
 
 
-def test_depth_based_stratification():
+def test_depth_based_stratification() -> None:
     """Test depth-based hierarchical analysis"""
     system = OceanographyPatterns(depth_levels=3)
 
@@ -82,7 +82,7 @@ def test_depth_based_stratification():
     assert all(len(v) == 4 for v in stratified.values())
 
 
-def test_multi_sensor_fusion():
+def test_multi_sensor_fusion() -> None:
     """Test multi-sensor fusion inspired by interdisciplinary oceanography"""
     system = OceanographyPatterns()
 
@@ -98,7 +98,7 @@ def test_multi_sensor_fusion():
     assert len(fused) == 12
 
 
-def test_multi_sensor_fusion_with_weights():
+def test_multi_sensor_fusion_with_weights() -> None:
     """Test multi-sensor fusion with custom weights"""
     system = OceanographyPatterns()
 
@@ -112,7 +112,7 @@ def test_multi_sensor_fusion_with_weights():
     assert len(fused) == 8
 
 
-def test_systematic_sampling_challenger():
+def test_systematic_sampling_challenger() -> None:
     """Test systematic sampling inspired by HMS Challenger (492 soundings)"""
     system = OceanographyPatterns()
 
@@ -125,7 +125,7 @@ def test_systematic_sampling_challenger():
     assert len(indices) == len(values)
 
 
-def test_tidal_pattern_detection():
+def test_tidal_pattern_detection() -> None:
     """Test tidal pattern detection for periodic signals"""
     system = OceanographyPatterns()
 
@@ -140,7 +140,7 @@ def test_tidal_pattern_detection():
     assert isinstance(result["is_periodic"], bool)
 
 
-def test_climate_drift_detection():
+def test_climate_drift_detection() -> None:
     """Test climate drift detection for gradual changes"""
     system = OceanographyPatterns()
 

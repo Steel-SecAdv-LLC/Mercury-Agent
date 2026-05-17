@@ -34,6 +34,7 @@ HTTP layer is mocked at the ``SafeHTTPClient`` boundary.
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -63,7 +64,7 @@ class TestAdaptersConstructWithoutKey:
         ],
     )
     def test_adapter_unavailable_without_key(
-        self, cls, provider, env_var, monkeypatch: pytest.MonkeyPatch
+        self, cls: Any, provider: Any, env_var: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Adapters with public default base_url surface key absence as unavailable."""
         monkeypatch.delenv(env_var, raising=False)
@@ -102,7 +103,7 @@ class TestAdaptersCallSafeHTTPClient:
         ],
     )
     def test_openai_compatible_adapters_call_chat_completions(
-        self, cls, provider, expected_path_suffix
+        self, cls: Any, provider: Any, expected_path_suffix: Any
     ) -> None:
         """xAI / DeepSeek hit ``/chat/completions`` on their default base_url."""
         config = LLMConfig(provider=provider, api_key="sk-test", model_name="m")
@@ -178,7 +179,7 @@ class TestAdaptersPropagateUnsafeURLError:
             (GeminiCloudAdapter, LLMProvider.GEMINI),
         ],
     )
-    def test_unsafe_url_error_propagates(self, cls, provider) -> None:
+    def test_unsafe_url_error_propagates(self, cls: Any, provider: Any) -> None:
         """Each adapter re-raises ``UnsafeURLError`` instead of returning a string."""
         adapter = cls(LLMConfig(provider=provider, api_key="k", model_name="m"))
         with (
@@ -205,7 +206,7 @@ class TestFallbackChainRoutesEveryProvider:
         ],
     )
     def test_create_cloud_adapter_routes(
-        self, provider, expected_cls, monkeypatch: pytest.MonkeyPatch
+        self, provider: Any, expected_cls: Any, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """``FallbackLLMChain._create_cloud_adapter`` returns the right type."""
         # Provide a key so the adapter constructs cleanly; Cursor also
@@ -235,7 +236,7 @@ class TestFallbackChainRoutesEveryProvider:
         # cloud branch we actually want to exercise.
         import omni_mercury_engine.models.foundation.ollama_adapter as _ollama_mod
 
-        def _noop_check_availability(self) -> None:  # type: ignore[no-untyped-def]
+        def _noop_check_availability(self: Any) -> None:
             self._is_available = False
 
         monkeypatch.setattr(

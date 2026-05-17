@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -29,7 +30,7 @@ import pytest
 class TestJWTAuthMissingKey:
     """Tests for JWT authentication with missing secret key."""
 
-    def test_jwt_auth_missing_key_dev_fallback(self):
+    def test_jwt_auth_missing_key_dev_fallback(self) -> None:
         """Test JWT auth uses dev fallback when key missing in non-production."""
         # Clear any existing JWT_SECRET_KEY
         with patch.dict(os.environ, {}, clear=True):
@@ -50,7 +51,7 @@ class TestJWTAuthMissingKey:
             assert auth.using_fallback is True
             assert auth.secret_key == JWTAuth._DEV_FALLBACK_KEY
 
-    def test_jwt_auth_missing_key_no_fallback_raises(self):
+    def test_jwt_auth_missing_key_no_fallback_raises(self) -> None:
         """Test JWT auth raises error when key missing and fallback disabled."""
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("JWT_SECRET_KEY", None)
@@ -61,7 +62,7 @@ class TestJWTAuthMissingKey:
             with pytest.raises(ValueError, match="JWT_SECRET_KEY"):
                 JWTAuth(allow_dev_fallback=False)
 
-    def test_jwt_auth_missing_key_production_derives_from_ama_hd(self):
+    def test_jwt_auth_missing_key_production_derives_from_ama_hd(self) -> None:
         """In production w/ AMA available, JWT key is derived from HD key management.
 
         FIPS 204/205 substrate is online: ``get_auth_key_manager()`` delegates
@@ -90,7 +91,7 @@ class TestJWTAuthMissingKey:
             ), "AMA HD-derived JWT key must populate self.secret_key in production."
             assert auth.using_fallback is False
 
-    def test_jwt_auth_missing_key_production_raises_when_ama_unavailable(self):
+    def test_jwt_auth_missing_key_production_raises_when_ama_unavailable(self) -> None:
         """In production w/o AMA, JWTAuth raises ValueError pinning the HD failure.
 
         Mocks ``get_auth_key_manager`` to raise (the same surface signature
@@ -143,7 +144,7 @@ class TestJWTAuthExpiredToken:
         return jwt.encode(payload, "test_secret_key_for_testing", algorithm="HS256")
 
     @pytest.mark.asyncio
-    async def test_expired_token_returns_none(self, jwt_auth, expired_token):
+    async def test_expired_token_returns_none(self, jwt_auth: Any, expired_token: Any) -> None:
         """Test that expired tokens return None."""
         result = await jwt_auth._validate_jwt(expired_token)
         assert result is None
@@ -161,7 +162,7 @@ class TestJWTAuthMalformedToken:
             return JWTAuth()
 
     @pytest.mark.asyncio
-    async def test_malformed_token_returns_none(self, jwt_auth):
+    async def test_malformed_token_returns_none(self, jwt_auth: Any) -> None:
         """Test that malformed tokens return None."""
         malformed_tokens = [
             "not.a.valid.jwt",
@@ -177,7 +178,7 @@ class TestJWTAuthMalformedToken:
             assert result is None, f"Expected None for malformed token: {token}"
 
     @pytest.mark.asyncio
-    async def test_invalid_signature_returns_none(self, jwt_auth):
+    async def test_invalid_signature_returns_none(self, jwt_auth: Any) -> None:
         """Test that tokens with invalid signatures return None."""
         jwt = pytest.importorskip("jwt")
 
@@ -208,7 +209,7 @@ class TestJWTAuthMissingClaims:
             return JWTAuth()
 
     @pytest.mark.asyncio
-    async def test_missing_sub_claim_returns_none(self, jwt_auth):
+    async def test_missing_sub_claim_returns_none(self, jwt_auth: Any) -> None:
         """Test that tokens missing 'sub' claim return None."""
         jwt = pytest.importorskip("jwt")
 
@@ -226,7 +227,7 @@ class TestJWTAuthMissingClaims:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_missing_exp_claim_returns_none(self, jwt_auth):
+    async def test_missing_exp_claim_returns_none(self, jwt_auth: Any) -> None:
         """Test that tokens missing 'exp' claim return None."""
         jwt = pytest.importorskip("jwt")
 
@@ -256,7 +257,7 @@ class TestJWTAuthValidToken:
             return JWTAuth()
 
     @pytest.mark.asyncio
-    async def test_valid_token_returns_user(self, jwt_auth):
+    async def test_valid_token_returns_user(self, jwt_auth: Any) -> None:
         """Test that valid tokens return User object."""
         jwt = pytest.importorskip("jwt")
 
@@ -281,7 +282,7 @@ class TestJWTAuthValidToken:
         assert "analyst" in result.roles
 
     @pytest.mark.asyncio
-    async def test_create_and_validate_token_roundtrip(self, jwt_auth):
+    async def test_create_and_validate_token_roundtrip(self, jwt_auth: Any) -> None:
         """Test creating and validating a token works correctly."""
         import importlib.util
 
@@ -311,7 +312,7 @@ class TestJWTAuthValidToken:
 class TestAPIKeyAuth:
     """Tests for API key authentication."""
 
-    def test_api_key_store_create_and_retrieve(self):
+    def test_api_key_store_create_and_retrieve(self) -> None:
         """Test creating and retrieving API keys."""
         from omni_mercury_engine.api.auth import APIKeyStore, Permission
 
@@ -335,7 +336,7 @@ class TestAPIKeyAuth:
         assert retrieved_by_id is not None
         assert retrieved_by_id.key_id == api_key.key_id
 
-    def test_api_key_store_revoke(self):
+    def test_api_key_store_revoke(self) -> None:
         """Test revoking API keys."""
         from omni_mercury_engine.api.auth import APIKeyStore
 
@@ -354,7 +355,7 @@ class TestAPIKeyAuth:
         assert retrieved is not None
         assert retrieved.is_active is False
 
-    def test_api_key_expiration(self):
+    def test_api_key_expiration(self) -> None:
         """Test API key expiration check."""
         from omni_mercury_engine.api.auth import APIKeyStore
 

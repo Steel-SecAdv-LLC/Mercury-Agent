@@ -26,14 +26,14 @@ from omni_mercury_engine.cognitive.anomaly_detection_enhanced import (
 class TestMemoryKnowledgeGraph:
     """Tests for MemoryKnowledgeGraph."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test graph initialization."""
         graph = MemoryKnowledgeGraph()
         stats = graph.get_statistics()
         assert stats["num_nodes"] == 0
         assert stats["num_edges"] == 0
 
-    def test_add_memory_node(self):
+    def test_add_memory_node(self) -> None:
         """Test adding memory nodes."""
         graph = MemoryKnowledgeGraph()
         node_id = graph.add_memory_node(
@@ -47,7 +47,7 @@ class TestMemoryKnowledgeGraph:
         stats = graph.get_statistics()
         assert stats["num_nodes"] == 1
 
-    def test_add_relationship(self):
+    def test_add_relationship(self) -> None:
         """Test adding relationships between nodes."""
         graph = MemoryKnowledgeGraph()
         graph.add_memory_node("m1", "episodic", {"event": "e1"})
@@ -64,7 +64,7 @@ class TestMemoryKnowledgeGraph:
         stats = graph.get_statistics()
         assert stats["num_edges"] == 1
 
-    def test_find_related_memories(self):
+    def test_find_related_memories(self) -> None:
         """Test finding related memories."""
         graph = MemoryKnowledgeGraph()
         graph.add_memory_node("m1", "episodic", {"event": "e1"})
@@ -77,7 +77,7 @@ class TestMemoryKnowledgeGraph:
         related = graph.find_related_memories("mem_m1", max_depth=2)
         assert len(related) >= 1
 
-    def test_compute_centrality(self):
+    def test_compute_centrality(self) -> None:
         """Test centrality computation."""
         graph = MemoryKnowledgeGraph()
         graph.add_memory_node("m1", "episodic", {"event": "e1"})
@@ -91,13 +91,13 @@ class TestMemoryKnowledgeGraph:
 class TestBayesianPredictor:
     """Tests for BayesianPredictor."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test predictor initialization."""
         predictor = BayesianPredictor(prior_alpha=2.0, prior_beta=2.0)
         assert predictor.prior_alpha == 2.0
         assert predictor.prior_beta == 2.0
 
-    def test_update_success(self):
+    def test_update_success(self) -> None:
         """Test updating with success."""
         predictor = BayesianPredictor()
         predictor.update("context_1", success=True)
@@ -105,14 +105,14 @@ class TestBayesianPredictor:
         assert "context_1" in predictor.contexts
         assert predictor.contexts["context_1"]["alpha"] == 2.0
 
-    def test_update_failure(self):
+    def test_update_failure(self) -> None:
         """Test updating with failure."""
         predictor = BayesianPredictor()
         predictor.update("context_1", success=False)
 
         assert predictor.contexts["context_1"]["beta"] == 2.0
 
-    def test_predict_new_context(self):
+    def test_predict_new_context(self) -> None:
         """Test prediction for new context."""
         predictor = BayesianPredictor()
         prob, interval = predictor.predict("new_context")
@@ -120,7 +120,7 @@ class TestBayesianPredictor:
         assert prob == 0.5
         assert interval[0] <= prob <= interval[1]
 
-    def test_predict_after_updates(self):
+    def test_predict_after_updates(self) -> None:
         """Test prediction after multiple updates."""
         predictor = BayesianPredictor()
 
@@ -132,7 +132,7 @@ class TestBayesianPredictor:
         prob, interval = predictor.predict("context_1")
         assert prob > 0.7
 
-    def test_get_confidence(self):
+    def test_get_confidence(self) -> None:
         """Test confidence calculation."""
         predictor = BayesianPredictor()
 
@@ -149,13 +149,13 @@ class TestBayesianPredictor:
 class TestHiddenMarkovPredictor:
     """Tests for HiddenMarkovPredictor."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test HMM initialization."""
         hmm = HiddenMarkovPredictor(n_states=5)
         assert hmm.n_states == 5
         assert hmm.transition_matrix.shape == (5, 5)
 
-    def test_observe(self):
+    def test_observe(self) -> None:
         """Test observation processing."""
         hmm = HiddenMarkovPredictor(n_states=3)
         state = hmm.observe("event_a")
@@ -164,7 +164,7 @@ class TestHiddenMarkovPredictor:
         assert len(hmm.state_history) == 1
         assert len(hmm.observation_history) == 1
 
-    def test_observe_sequence(self):
+    def test_observe_sequence(self) -> None:
         """Test processing sequence of observations."""
         hmm = HiddenMarkovPredictor(n_states=3)
 
@@ -174,7 +174,7 @@ class TestHiddenMarkovPredictor:
         assert len(hmm.state_history) == 5
         assert len(hmm.observation_history) == 5
 
-    def test_predict_next_state(self):
+    def test_predict_next_state(self) -> None:
         """Test next state prediction."""
         hmm = HiddenMarkovPredictor(n_states=3)
 
@@ -185,12 +185,12 @@ class TestHiddenMarkovPredictor:
         assert 0 <= state < 3
         assert 0 <= prob <= 1
 
-    def test_detect_anomaly_no_history(self):
+    def test_detect_anomaly_no_history(self) -> None:
         """Test anomaly detection with no history."""
         hmm = HiddenMarkovPredictor(n_states=3)
         assert hmm.detect_anomaly() is False
 
-    def test_detect_anomaly_with_history(self):
+    def test_detect_anomaly_with_history(self) -> None:
         """Test anomaly detection with history."""
         hmm = HiddenMarkovPredictor(n_states=3)
 
@@ -204,7 +204,7 @@ class TestHiddenMarkovPredictor:
 class TestExternalDataSources:
     """Tests for external data sources."""
 
-    def test_simulated_geological_source(self):
+    def test_simulated_geological_source(self) -> None:
         """Test simulated geological source."""
         source = SimulatedGeologicalSource()
         data = source.fetch()
@@ -213,7 +213,7 @@ class TestExternalDataSources:
         assert data[0].source_type == ExternalSourceCategory.GEOLOGICAL
         assert "magnitude" in data[0].data
 
-    def test_simulated_environmental_source(self):
+    def test_simulated_environmental_source(self) -> None:
         """Test simulated environmental source."""
         source = SimulatedEnvironmentalSource()
         data = source.fetch()
@@ -226,20 +226,20 @@ class TestExternalDataSources:
 class TestExternalDataIntegrator:
     """Tests for ExternalDataIntegrator."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test integrator initialization."""
         integrator = ExternalDataIntegrator()
         assert len(integrator.sources) == 0
         assert len(integrator.data_buffer) == 0
 
-    def test_register_source(self):
+    def test_register_source(self) -> None:
         """Test source registration."""
         integrator = ExternalDataIntegrator()
         integrator.register_source("geo", SimulatedGeologicalSource())
 
         assert "geo" in integrator.sources
 
-    def test_fetch_all(self):
+    def test_fetch_all(self) -> None:
         """Test fetching from all sources."""
         integrator = ExternalDataIntegrator()
         integrator.register_source("geo", SimulatedGeologicalSource())
@@ -248,7 +248,7 @@ class TestExternalDataIntegrator:
         data = integrator.fetch_all()
         assert len(data) == 2
 
-    def test_align_with_internal(self):
+    def test_align_with_internal(self) -> None:
         """Test alignment with internal patterns."""
         integrator = ExternalDataIntegrator()
         integrator.register_source("geo", SimulatedGeologicalSource())
@@ -261,7 +261,7 @@ class TestExternalDataIntegrator:
         alignments = integrator.align_with_internal(internal_patterns)
         assert isinstance(alignments, list)
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         integrator = ExternalDataIntegrator()
         integrator.register_source("geo", SimulatedGeologicalSource())
@@ -273,12 +273,12 @@ class TestExternalDataIntegrator:
 class TestValueExtractor:
     """Tests for ValueExtractor."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test extractor initialization."""
         extractor = ValueExtractor(benevolence_threshold=0.95)
         assert extractor.benevolence_threshold == 0.95
 
-    def test_extract_benevolent(self):
+    def test_extract_benevolent(self) -> None:
         """Test extraction with benevolent score."""
         extractor = ValueExtractor(benevolence_threshold=0.99)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
@@ -289,7 +289,7 @@ class TestValueExtractor:
         assert extraction.is_benevolent is True
         assert extraction.value_type == "early_warning"
 
-    def test_extract_not_benevolent(self):
+    def test_extract_not_benevolent(self) -> None:
         """Test extraction with low ethical score."""
         extractor = ValueExtractor(benevolence_threshold=0.99)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
@@ -298,7 +298,7 @@ class TestValueExtractor:
 
         assert extraction is None
 
-    def test_extract_different_types(self):
+    def test_extract_different_types(self) -> None:
         """Test extraction for different anomaly types."""
         extractor = ValueExtractor(benevolence_threshold=0.9)
 
@@ -321,14 +321,14 @@ class TestValueExtractor:
 class TestEnhancedAnomalyDetector:
     """Tests for EnhancedAnomalyDetector main interface."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test detector initialization."""
         detector = EnhancedAnomalyDetector()
         assert detector.benevolence_threshold == 0.99
         assert detector.memory_graph is not None
         assert detector.bayesian_predictor is not None
 
-    def test_add_memory(self):
+    def test_add_memory(self) -> None:
         """Test adding memory to graph."""
         detector = EnhancedAnomalyDetector()
         node_id = detector.add_memory(
@@ -340,7 +340,7 @@ class TestEnhancedAnomalyDetector:
 
         assert node_id == "mem_m1"
 
-    def test_add_memory_with_relations(self):
+    def test_add_memory_with_relations(self) -> None:
         """Test adding memory with relations."""
         detector = EnhancedAnomalyDetector()
         detector.add_memory("m1", "episodic", {"event": "e1"})
@@ -355,21 +355,21 @@ class TestEnhancedAnomalyDetector:
         stats = detector.memory_graph.get_statistics()
         assert stats["num_edges"] >= 1
 
-    def test_update_predictor(self):
+    def test_update_predictor(self) -> None:
         """Test updating Bayesian predictor."""
         detector = EnhancedAnomalyDetector()
         detector.update_predictor("context_1", success=True)
 
         assert "context_1" in detector.bayesian_predictor.contexts
 
-    def test_observe_sequence(self):
+    def test_observe_sequence(self) -> None:
         """Test HMM observation."""
         detector = EnhancedAnomalyDetector()
         state = detector.observe_sequence("event_a")
 
         assert 0 <= state < 3
 
-    def test_predict(self):
+    def test_predict(self) -> None:
         """Test prediction generation."""
         detector = EnhancedAnomalyDetector()
 
@@ -382,14 +382,14 @@ class TestEnhancedAnomalyDetector:
         assert 0 <= result.probability <= 1
         assert result.explanation is not None
 
-    def test_predict_with_external(self):
+    def test_predict_with_external(self) -> None:
         """Test prediction with external data."""
         detector = EnhancedAnomalyDetector()
         result = detector.predict("test_context", include_external=True)
 
         assert "External data points" in str(result.contributing_factors)
 
-    def test_extract_value(self):
+    def test_extract_value(self) -> None:
         """Test value extraction."""
         detector = EnhancedAnomalyDetector(benevolence_threshold=0.9)
         anomaly = {"id": "a1", "type": "escalation", "confidence": 0.8}
@@ -399,7 +399,7 @@ class TestEnhancedAnomalyDetector:
         assert extraction is not None
         assert extraction.is_benevolent is True
 
-    def test_analyze_memory_patterns(self):
+    def test_analyze_memory_patterns(self) -> None:
         """Test memory pattern analysis."""
         detector = EnhancedAnomalyDetector()
         detector.add_memory("m1", "episodic", {"event": "e1"})
@@ -411,7 +411,7 @@ class TestEnhancedAnomalyDetector:
         assert "related_memories" in analysis
         assert "graph_stats" in analysis
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics retrieval."""
         detector = EnhancedAnomalyDetector()
         detector.add_memory("m1", "episodic", {"event": "e1"})
@@ -427,7 +427,7 @@ class TestEnhancedAnomalyDetector:
 class TestPredictionTypes:
     """Tests for prediction type enums."""
 
-    def test_prediction_types(self):
+    def test_prediction_types(self) -> None:
         """Test all prediction types exist."""
         assert PredictionType.ANOMALY.value == "anomaly"
         assert PredictionType.TREND.value == "trend"
@@ -439,7 +439,7 @@ class TestPredictionTypes:
 class TestExternalSourceCategory:
     """Tests for external source category enums."""
 
-    def test_external_source_categories(self):
+    def test_external_source_categories(self) -> None:
         """Test all external source categories exist."""
         assert ExternalSourceCategory.GEOLOGICAL.value == "geological"
         assert ExternalSourceCategory.ENVIRONMENTAL.value == "environmental"
@@ -454,7 +454,7 @@ class TestExternalSourceCategory:
 class TestIntegration:
     """Integration tests for enhanced anomaly detection."""
 
-    def test_full_pipeline(self):
+    def test_full_pipeline(self) -> None:
         """Test complete enhanced detection pipeline."""
         detector = EnhancedAnomalyDetector(benevolence_threshold=0.95)
 
@@ -488,7 +488,7 @@ class TestIntegration:
         analysis = detector.analyze_memory_patterns("m5")
         assert len(analysis["related_memories"]) >= 0
 
-    def test_ethical_filtering(self):
+    def test_ethical_filtering(self) -> None:
         """Test that unethical extractions are blocked."""
         detector = EnhancedAnomalyDetector(benevolence_threshold=0.99)
 

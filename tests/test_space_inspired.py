@@ -25,7 +25,7 @@ import numpy as np
 from omni_mercury_engine.space.space_inspired import SpaceInspiredResilience, SystemState
 
 
-def test_space_resilience_initialization():
+def test_space_resilience_initialization() -> None:
     """Test space-inspired resilience system initialization"""
     system = SpaceInspiredResilience(redundancy_factor=5, degradation_threshold=0.8)
     assert system.redundancy_factor == 5
@@ -34,11 +34,11 @@ def test_space_resilience_initialization():
     assert isinstance(system.component_health, dict)
 
 
-def test_graceful_degradation_nominal():
+def test_graceful_degradation_nominal() -> None:
     """Test graceful degradation with no failures"""
     system = SpaceInspiredResilience()
 
-    failures = []
+    failures: list[str] = []
     available = ["comp1", "comp2", "comp3", "comp4"]
 
     state, priorities = system.graceful_degradation(failures, available)
@@ -48,7 +48,7 @@ def test_graceful_degradation_nominal():
     assert all(p > 0 for p in priorities.values())
 
 
-def test_graceful_degradation_partial_failure():
+def test_graceful_degradation_partial_failure() -> None:
     """Test graceful degradation with partial failures"""
     system = SpaceInspiredResilience(degradation_threshold=0.7, min_operational_components=2)
 
@@ -62,7 +62,7 @@ def test_graceful_degradation_partial_failure():
     assert all(priorities[c] > 0 for c in ["comp2", "comp3", "comp4"])
 
 
-def test_debris_filtering():
+def test_debris_filtering() -> None:
     """Test debris filtering for noise reduction"""
     system = SpaceInspiredResilience()
 
@@ -75,7 +75,7 @@ def test_debris_filtering():
     assert isinstance(filtered, np.ndarray)
 
 
-def test_trajectory_optimization():
+def test_trajectory_optimization() -> None:
     """Test trajectory optimization for pathfinding"""
     system = SpaceInspiredResilience()
 
@@ -89,7 +89,7 @@ def test_trajectory_optimization():
     assert np.allclose(pathway[0], start, atol=0.1)
 
 
-def test_reusability_tracking():
+def test_reusability_tracking() -> None:
     """Test component reusability tracking"""
     system = SpaceInspiredResilience()
 
@@ -101,7 +101,7 @@ def test_reusability_tracking():
     assert health > 0.8
 
 
-def test_reusability_limit():
+def test_reusability_limit() -> None:
     """Test that components become non-reusable at limit"""
     system = SpaceInspiredResilience()
 
@@ -111,7 +111,7 @@ def test_reusability_limit():
     assert is_reusable is False
 
 
-def test_extreme_environment_adaptation():
+def test_extreme_environment_adaptation() -> None:
     """Test adaptation to extreme environmental stress"""
     system = SpaceInspiredResilience()
 

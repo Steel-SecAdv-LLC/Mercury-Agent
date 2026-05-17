@@ -21,6 +21,7 @@ Covers:
 from __future__ import annotations
 
 import importlib.util
+from typing import Any
 
 import numpy as np
 import pytest
@@ -29,7 +30,7 @@ import pytest
 HAS_TORCH = importlib.util.find_spec("torch") is not None
 if HAS_TORCH:
     import torch
-    from torch.utils.data import DataLoader
+    from torch.utils.data import DataLoader, Dataset
 
 
 # =============================================================================
@@ -51,33 +52,33 @@ class TestSyntheticGradientPredictor:
 
         return SyntheticGradientPredictor(input_dim=64, hidden_dim=128, output_dim=64)
 
-    def test_predictor_initialization(self, predictor):
+    def test_predictor_initialization(self, predictor: Any) -> None:
         """Test predictor initializes correctly."""
         assert predictor is not None
         assert predictor.input_dim == 64
         assert predictor.hidden_dim == 128
         assert predictor.output_dim == 64
 
-    def test_forward_pass(self, predictor, deterministic_rng):
+    def test_forward_pass(self, predictor: Any, deterministic_rng: Any) -> None:
         """Test forward pass produces correct output shape."""
         input_data = deterministic_rng.randn(1, 64)
         output = predictor.forward(input_data)
         assert output.shape == (1, 64)
 
-    def test_forward_batch(self, predictor, deterministic_rng):
+    def test_forward_batch(self, predictor: Any, deterministic_rng: Any) -> None:
         """Test forward pass with batch input."""
         input_data = deterministic_rng.randn(16, 64)
         output = predictor.forward(input_data)
         assert output.shape == (16, 64)
 
-    def test_update_weights(self, predictor, deterministic_rng):
+    def test_update_weights(self, predictor: Any, deterministic_rng: Any) -> None:
         """Test weight update with target gradients."""
         input_data = deterministic_rng.randn(1, 64)
         target_grad = deterministic_rng.randn(1, 64)
         predicted = predictor.forward(input_data)
         predictor.update(predicted, target_grad)
 
-    def test_prediction_improves(self, predictor, deterministic_rng):
+    def test_prediction_improves(self, predictor: Any, deterministic_rng: Any) -> None:
         """Test prediction improves with training."""
         input_data = deterministic_rng.randn(1, 64)
         target_grad = deterministic_rng.randn(1, 64)
@@ -94,7 +95,7 @@ class TestSyntheticGradientPredictor:
 
         assert final_error <= initial_error * 1.5
 
-    def test_different_dimensions(self):
+    def test_different_dimensions(self) -> None:
         """Test predictor with different dimensions."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
@@ -128,13 +129,13 @@ class TestDifferenceTargetPropagation:
         forward_layer = torch.nn.Linear(64, 128)
         return DifferenceTargetPropagation(forward_layer=forward_layer, learning_rate=0.01)
 
-    def test_dtp_initialization(self, dtp):
+    def test_dtp_initialization(self, dtp: Any) -> None:
         """Test DTP initializes correctly."""
         assert dtp is not None
         assert dtp.forward_layer is not None
         assert dtp.learning_rate == 0.01
 
-    def test_compute_targets(self, dtp, deterministic_rng):
+    def test_compute_targets(self, dtp: Any, deterministic_rng: Any) -> None:
         """Test target computation via backward_pass."""
         # h_current should match forward_layer input (64), target should match output (128)
         h_current = deterministic_rng.randn(16, 128)  # Match forward_layer output
@@ -143,14 +144,14 @@ class TestDifferenceTargetPropagation:
         assert target_prev is not None
         assert target_prev.shape == (16, 64)  # Inverse maps back to input dim
 
-    def test_compute_local_loss(self, dtp, deterministic_rng):
+    def test_compute_local_loss(self, dtp: Any, deterministic_rng: Any) -> None:
         """Test forward pass produces output."""
         input_data = deterministic_rng.randn(16, 64)
         output = dtp.forward(input_data)
         assert output is not None
         assert output.shape == (16, 128)
 
-    def test_biologically_plausible(self, dtp):
+    def test_biologically_plausible(self, dtp: Any) -> None:
         """Test DTP is biologically plausible (has forward and backward_pass)."""
         assert hasattr(dtp, "forward")
         assert hasattr(dtp, "backward_pass")
@@ -173,25 +174,25 @@ class TestAuxiliaryMaxVariance:
 
         return AuxiliaryMaxVariance(num_tasks=3, alpha=0.5)
 
-    def test_amav_initialization(self, amav):
+    def test_amav_initialization(self, amav: Any) -> None:
         """Test AMAV initializes correctly."""
         assert amav is not None
         assert amav.num_tasks == 3
         assert amav.alpha == 0.5
 
-    def test_compute_loss(self, amav):
+    def test_compute_loss(self, amav: Any) -> None:
         """Test multi-task loss computation."""
         task_losses = [0.5, 0.3, 0.2]
         combined_loss = amav.compute_loss(task_losses)
         assert combined_loss > 0
 
-    def test_update_weights(self, amav):
+    def test_update_weights(self, amav: Any) -> None:
         """Test task weight updates."""
         task_losses = [0.5, 0.3, 0.2]
         amav.compute_loss(task_losses)
         assert hasattr(amav, "task_weights")
 
-    def test_weight_normalization(self, amav):
+    def test_weight_normalization(self, amav: Any) -> None:
         """Test task weights are normalized."""
         for _ in range(10):
             task_losses = [np.random.rand() for _ in range(3)]
@@ -199,7 +200,7 @@ class TestAuxiliaryMaxVariance:
         weights_sum = sum(amav.task_weights)
         assert abs(weights_sum - amav.num_tasks) < 0.1 or weights_sum > 0
 
-    def test_variance_maximization(self, amav):
+    def test_variance_maximization(self, amav: Any) -> None:
         """Test variance is maximized across tasks."""
         task_losses_uniform = [0.5, 0.5, 0.5]
         task_losses_varied = [0.1, 0.5, 0.9]
@@ -219,7 +220,7 @@ class TestAuxiliaryMaxVariance:
 class TestConvergenceRateEstimation:
     """Tests for convergence rate estimation utilities."""
 
-    def test_estimate_convergence_rate(self):
+    def test_estimate_convergence_rate(self) -> None:
         """Test convergence rate estimation."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
@@ -231,7 +232,7 @@ class TestConvergenceRateEstimation:
         assert "half_life" in stats
         assert "converged" in stats
 
-    def test_convergence_rate_decreasing_loss(self):
+    def test_convergence_rate_decreasing_loss(self) -> None:
         """Test convergence rate with decreasing loss."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
@@ -241,7 +242,7 @@ class TestConvergenceRateEstimation:
         stats = estimate_convergence_rate(loss_history)
         assert stats["convergence_rate"] > 0
 
-    def test_convergence_rate_flat_loss(self):
+    def test_convergence_rate_flat_loss(self) -> None:
         """Test convergence rate with flat loss."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
@@ -252,7 +253,7 @@ class TestConvergenceRateEstimation:
         # Flat loss can have near-zero convergence rate (positive or negative due to numerical precision)
         assert abs(stats["convergence_rate"]) < 0.1  # Should be close to zero for flat loss
 
-    def test_convergence_rate_oscillating_loss(self):
+    def test_convergence_rate_oscillating_loss(self) -> None:
         """Test convergence rate with oscillating loss."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
@@ -290,7 +291,7 @@ class TestOmniFusionModelAdvancedTraining:
         )
 
     @pytest.fixture
-    def train_loader(self, deterministic_rng):
+    def train_loader(self, deterministic_rng: Any) -> Any:
         """Create training data loader."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
@@ -306,8 +307,8 @@ class TestOmniFusionModelAdvancedTraining:
         labels[:, 1] = torch.randint(0, 5, (n_samples,)).float()
         labels[:, 2] = torch.rand(n_samples)
 
-        class DictDataset:
-            def __init__(self, features, labels) -> None:
+        class DictDataset(Dataset[Any]):
+            def __init__(self, features: Any, labels: Any) -> None:
                 self.features = features
                 self.labels = labels
                 self.n_samples = labels.shape[0]
@@ -315,18 +316,18 @@ class TestOmniFusionModelAdvancedTraining:
             def __len__(self):
                 return self.n_samples
 
-            def __getitem__(self, idx):
+            def __getitem__(self, idx: Any) -> Any:
                 feat_dict = {k: v[idx] for k, v in self.features.items()}
                 return feat_dict, self.labels[idx]
 
         dataset = DictDataset(features, labels)
         return DataLoader(dataset, batch_size=16, shuffle=True)
 
-    def test_train_with_advanced_optimizers_exists(self, fusion_model):
+    def test_train_with_advanced_optimizers_exists(self, fusion_model: Any) -> None:
         """Test train_with_advanced_optimizers method exists."""
         assert hasattr(fusion_model, "train_with_advanced_optimizers")
 
-    def test_train_basic(self, fusion_model, train_loader):
+    def test_train_basic(self, fusion_model: Any, train_loader: Any) -> None:
         """Test basic training with advanced optimizers."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -341,7 +342,7 @@ class TestOmniFusionModelAdvancedTraining:
         assert "loss_history" in result
         assert "convergence_rate" in result
 
-    def test_train_without_synthetic_gradients(self, fusion_model, train_loader):
+    def test_train_without_synthetic_gradients(self, fusion_model: Any, train_loader: Any) -> None:
         """Test training without synthetic gradients."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -352,7 +353,7 @@ class TestOmniFusionModelAdvancedTraining:
         )
         assert "final_loss" in result
 
-    def test_train_without_dtp(self, fusion_model, train_loader):
+    def test_train_without_dtp(self, fusion_model: Any, train_loader: Any) -> None:
         """Test training without DTP."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -363,7 +364,7 @@ class TestOmniFusionModelAdvancedTraining:
         )
         assert "final_loss" in result
 
-    def test_train_without_amav(self, fusion_model, train_loader):
+    def test_train_without_amav(self, fusion_model: Any, train_loader: Any) -> None:
         """Test training without AMAV."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -374,7 +375,7 @@ class TestOmniFusionModelAdvancedTraining:
         )
         assert "final_loss" in result
 
-    def test_train_vanilla(self, fusion_model, train_loader):
+    def test_train_vanilla(self, fusion_model: Any, train_loader: Any) -> None:
         """Test vanilla training without any advanced optimizers."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -385,7 +386,7 @@ class TestOmniFusionModelAdvancedTraining:
         )
         assert "final_loss" in result
 
-    def test_lyapunov_stability_tracking(self, fusion_model, train_loader):
+    def test_lyapunov_stability_tracking(self, fusion_model: Any, train_loader: Any) -> None:
         """Test Lyapunov stability is tracked."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -396,7 +397,7 @@ class TestOmniFusionModelAdvancedTraining:
         assert "lambda_lyapunov" in result
         assert result["lambda_lyapunov"] == 0.25
 
-    def test_speedup_factor(self, fusion_model, train_loader):
+    def test_speedup_factor(self, fusion_model: Any, train_loader: Any) -> None:
         """Test speedup factor is computed."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -405,7 +406,7 @@ class TestOmniFusionModelAdvancedTraining:
         assert "speedup_factor" in result
         assert result["speedup_factor"] >= 1.0
 
-    def test_epochs_trained(self, fusion_model, train_loader):
+    def test_epochs_trained(self, fusion_model: Any, train_loader: Any) -> None:
         """Test epochs trained is recorded."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -414,7 +415,7 @@ class TestOmniFusionModelAdvancedTraining:
         assert "epochs_trained" in result
         assert result["epochs_trained"] == 10
 
-    def test_loss_decreases(self, fusion_model, train_loader):
+    def test_loss_decreases(self, fusion_model: Any, train_loader: Any) -> None:
         """Test loss is tracked during training."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -425,7 +426,7 @@ class TestOmniFusionModelAdvancedTraining:
         assert len(loss_history) > 0
         assert all(isinstance(loss, (int, float)) for loss in loss_history)
 
-    def test_convergence_detection(self, fusion_model, train_loader):
+    def test_convergence_detection(self, fusion_model: Any, train_loader: Any) -> None:
         """Test convergence is detected."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -433,7 +434,7 @@ class TestOmniFusionModelAdvancedTraining:
         )
         assert "converged" in result
 
-    def test_half_life_computation(self, fusion_model, train_loader):
+    def test_half_life_computation(self, fusion_model: Any, train_loader: Any) -> None:
         """Test half-life is computed."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -469,7 +470,7 @@ class TestLyapunovStability:
         )
 
     @pytest.fixture
-    def train_loader(self, deterministic_rng):
+    def train_loader(self, deterministic_rng: Any) -> Any:
         """Create training data loader."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
@@ -485,8 +486,8 @@ class TestLyapunovStability:
         labels[:, 1] = torch.randint(0, 5, (n_samples,)).float()
         labels[:, 2] = torch.rand(n_samples)
 
-        class DictDataset:
-            def __init__(self, features, labels) -> None:
+        class DictDataset(Dataset[Any]):
+            def __init__(self, features: Any, labels: Any) -> None:
                 self.features = features
                 self.labels = labels
                 self.n_samples = labels.shape[0]
@@ -494,14 +495,14 @@ class TestLyapunovStability:
             def __len__(self):
                 return self.n_samples
 
-            def __getitem__(self, idx):
+            def __getitem__(self, idx: Any) -> Any:
                 feat_dict = {k: v[idx] for k, v in self.features.items()}
                 return feat_dict, self.labels[idx]
 
         dataset = DictDataset(features, labels)
         return DataLoader(dataset, batch_size=16, shuffle=True)
 
-    def test_lambda_025_stability(self, fusion_model, train_loader):
+    def test_lambda_025_stability(self, fusion_model: Any, train_loader: Any) -> None:
         """Test stability with lambda=0.25."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -510,7 +511,7 @@ class TestLyapunovStability:
         )
         assert result["lambda_lyapunov"] == 0.25
 
-    def test_lambda_018_stability(self, fusion_model, train_loader):
+    def test_lambda_018_stability(self, fusion_model: Any, train_loader: Any) -> None:
         """Test stability with lambda=0.18 (baseline)."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -519,7 +520,7 @@ class TestLyapunovStability:
         )
         assert result["lambda_lyapunov"] == 0.18
 
-    def test_phi_weighting_applied(self, fusion_model, train_loader):
+    def test_phi_weighting_applied(self, fusion_model: Any, train_loader: Any) -> None:
         """Test phi weighting is applied in Lyapunov computation."""
         result = fusion_model.train_with_advanced_optimizers(
             train_loader=train_loader,
@@ -536,7 +537,7 @@ class TestLyapunovStability:
 class TestOptimizerIntegration:
     """Integration tests for advanced optimizers."""
 
-    def test_all_optimizers_importable(self):
+    def test_all_optimizers_importable(self) -> None:
         """Test all optimizers can be imported."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")
@@ -552,7 +553,7 @@ class TestOptimizerIntegration:
         assert AuxiliaryMaxVariance is not None
         assert estimate_convergence_rate is not None
 
-    def test_optimizers_work_together(self, deterministic_rng):
+    def test_optimizers_work_together(self, deterministic_rng: Any) -> None:
         """Test all optimizers work together."""
         if not HAS_TORCH:
             pytest.skip("torch not installed")

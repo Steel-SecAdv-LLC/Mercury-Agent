@@ -37,7 +37,7 @@ from omni_mercury_engine.ml.training import (
 class TestTrainingConfig:
     """Tests for TrainingConfig dataclass."""
 
-    def test_default_config(self):
+    def test_default_config(self) -> None:
         """Test default configuration values."""
         config = TrainingConfig()
         assert config.learning_rate == 0.001
@@ -47,7 +47,7 @@ class TestTrainingConfig:
         assert config.device == "cpu"
         assert config.optimizer == "adam"
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test custom configuration values."""
         config = TrainingConfig(
             learning_rate=0.01,
@@ -62,7 +62,7 @@ class TestTrainingConfig:
         assert config.epochs == 50
         assert config.optimizer == "adamw"
 
-    def test_invalid_learning_rate(self):
+    def test_invalid_learning_rate(self) -> None:
         """Test validation for invalid learning rate."""
         with pytest.raises(ValueError, match="learning_rate must be positive"):
             TrainingConfig(learning_rate=0)
@@ -70,7 +70,7 @@ class TestTrainingConfig:
         with pytest.raises(ValueError, match="learning_rate must be positive"):
             TrainingConfig(learning_rate=-0.01)
 
-    def test_invalid_batch_size(self):
+    def test_invalid_batch_size(self) -> None:
         """Test validation for invalid batch size."""
         with pytest.raises(ValueError, match="batch_size must be positive"):
             TrainingConfig(batch_size=0)
@@ -78,7 +78,7 @@ class TestTrainingConfig:
         with pytest.raises(ValueError, match="batch_size must be positive"):
             TrainingConfig(batch_size=-1)
 
-    def test_invalid_epochs(self):
+    def test_invalid_epochs(self) -> None:
         """Test validation for invalid epochs."""
         with pytest.raises(ValueError, match="epochs must be positive"):
             TrainingConfig(epochs=0)
@@ -87,7 +87,7 @@ class TestTrainingConfig:
 class TestEarlyStopping:
     """Tests for EarlyStopping callback."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test early stopping initialization."""
         es = EarlyStopping(patience=5, min_delta=0.01, mode="min")
         assert es.patience == 5
@@ -97,7 +97,7 @@ class TestEarlyStopping:
         assert es.best_score is None
         assert es.early_stop is False
 
-    def test_improvement_resets_counter(self):
+    def test_improvement_resets_counter(self) -> None:
         """Test that improvement resets counter."""
         es = EarlyStopping(patience=3, mode="min")
 
@@ -117,7 +117,7 @@ class TestEarlyStopping:
         assert es(0.3) is False
         assert es.counter == 0
 
-    def test_patience_exceeded(self):
+    def test_patience_exceeded(self) -> None:
         """Test early stopping triggers after patience exceeded."""
         es = EarlyStopping(patience=3, mode="min")
 
@@ -129,7 +129,7 @@ class TestEarlyStopping:
         assert result is True
         assert es.early_stop is True
 
-    def test_max_mode(self):
+    def test_max_mode(self) -> None:
         """Test early stopping in max mode (for accuracy)."""
         es = EarlyStopping(patience=2, mode="max")
 
@@ -138,7 +138,7 @@ class TestEarlyStopping:
         assert es(0.55) is False  # no improvement, counter=1
         assert es(0.54) is True  # no improvement, counter=2 >= patience
 
-    def test_min_delta(self):
+    def test_min_delta(self) -> None:
         """Test min_delta threshold for improvement."""
         es = EarlyStopping(patience=3, min_delta=0.1, mode="min")
 
@@ -155,7 +155,7 @@ class TestEarlyStopping:
 class TestLearningRateScheduler:
     """Tests for LearningRateScheduler wrapper."""
 
-    def test_step_scheduler(self):
+    def test_step_scheduler(self) -> None:
         """Test step decay scheduler."""
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
@@ -171,7 +171,7 @@ class TestLearningRateScheduler:
         new_lr = scheduler.get_last_lr()[0]
         assert abs(new_lr - 0.05) < 1e-6  # LR should be halved
 
-    def test_cosine_scheduler(self):
+    def test_cosine_scheduler(self) -> None:
         """Test cosine annealing scheduler."""
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
@@ -187,7 +187,7 @@ class TestLearningRateScheduler:
         final_lr = scheduler.get_last_lr()[0]
         assert final_lr < initial_lr  # LR should decrease
 
-    def test_plateau_scheduler(self):
+    def test_plateau_scheduler(self) -> None:
         """Test reduce on plateau scheduler."""
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
@@ -198,7 +198,7 @@ class TestLearningRateScheduler:
         scheduler.step(metric=1.0)
         scheduler.step(metric=1.0)  # Should trigger reduction
 
-    def test_invalid_mode(self):
+    def test_invalid_mode(self) -> None:
         """Test invalid scheduler mode raises error."""
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
@@ -214,7 +214,7 @@ class TestTrainer:
         """Create a simple model for testing."""
         return nn.Sequential(nn.Linear(10, 5), nn.ReLU(), nn.Linear(5, 1))
 
-    def test_init_adam(self):
+    def test_init_adam(self) -> None:
         """Test trainer initialization with Adam optimizer."""
         model = self._create_simple_model()
         config = TrainingConfig(optimizer="adam", learning_rate=0.01)
@@ -224,7 +224,7 @@ class TestTrainer:
         assert isinstance(trainer.optimizer, torch.optim.Adam)
         assert trainer.config.learning_rate == 0.01
 
-    def test_init_adamw(self):
+    def test_init_adamw(self) -> None:
         """Test trainer initialization with AdamW optimizer."""
         model = self._create_simple_model()
         config = TrainingConfig(optimizer="adamw")
@@ -232,7 +232,7 @@ class TestTrainer:
 
         assert isinstance(trainer.optimizer, torch.optim.AdamW)
 
-    def test_init_sgd(self):
+    def test_init_sgd(self) -> None:
         """Test trainer initialization with SGD optimizer."""
         model = self._create_simple_model()
         config = TrainingConfig(optimizer="sgd")
@@ -240,7 +240,7 @@ class TestTrainer:
 
         assert isinstance(trainer.optimizer, torch.optim.SGD)
 
-    def test_init_default_optimizer(self):
+    def test_init_default_optimizer(self) -> None:
         """Test trainer falls back to Adam for unknown optimizer."""
         model = self._create_simple_model()
         config = TrainingConfig(optimizer="unknown")
@@ -248,7 +248,7 @@ class TestTrainer:
 
         assert isinstance(trainer.optimizer, torch.optim.Adam)
 
-    def test_train_step(self):
+    def test_train_step(self) -> None:
         """Test single training step."""
         model = self._create_simple_model()
         config = TrainingConfig()
@@ -261,7 +261,7 @@ class TestTrainer:
         assert isinstance(loss, float)
         assert loss >= 0
 
-    def test_train_step_with_gradient_clip(self):
+    def test_train_step_with_gradient_clip(self) -> None:
         """Test training step with gradient clipping."""
         model = self._create_simple_model()
         config = TrainingConfig(gradient_clip=1.0)
@@ -273,7 +273,7 @@ class TestTrainer:
         loss = trainer.train_step(x, y)
         assert isinstance(loss, float)
 
-    def test_validate_step(self):
+    def test_validate_step(self) -> None:
         """Test single validation step."""
         model = self._create_simple_model()
         config = TrainingConfig()
@@ -286,7 +286,7 @@ class TestTrainer:
         assert isinstance(loss, float)
         assert loss >= 0
 
-    def test_save_load_checkpoint(self):
+    def test_save_load_checkpoint(self) -> None:
         """Test checkpoint save and load."""
         model = self._create_simple_model()
         config = TrainingConfig()
@@ -319,7 +319,7 @@ class TestMercuryOptimizers:
         """Create simple model for optimizer testing."""
         return nn.Linear(10, 1)
 
-    def test_mercury_optimizer_step(self):
+    def test_mercury_optimizer_step(self) -> None:
         """Test MercuryOptimizer step function."""
         model = self._create_simple_model()
         optimizer = MercuryOptimizer(model.parameters(), lr=0.01, alpha=0.1, beta=0.9)
@@ -333,7 +333,7 @@ class TestMercuryOptimizers:
 
         optimizer.step()
 
-    def test_mercury_optimizer_with_quantum_noise(self):
+    def test_mercury_optimizer_with_quantum_noise(self) -> None:
         """Test MercuryOptimizer with quantum noise."""
         model = self._create_simple_model()
         optimizer = MercuryOptimizer(model.parameters(), lr=0.01, quantum_noise=0.01)
@@ -347,7 +347,7 @@ class TestMercuryOptimizers:
 
         optimizer.step()
 
-    def test_mercury_optimizer_with_closure(self):
+    def test_mercury_optimizer_with_closure(self) -> None:
         """Test MercuryOptimizer with closure function."""
         model = self._create_simple_model()
         optimizer = MercuryOptimizer(model.parameters(), lr=0.01)
@@ -366,7 +366,7 @@ class TestMercuryOptimizers:
         assert loss is not None
         assert isinstance(loss, float)
 
-    def test_mercury_momentum_optimizer(self):
+    def test_mercury_momentum_optimizer(self) -> None:
         """Test MercuryMomentumOptimizer."""
         model = self._create_simple_model()
         optimizer = MercuryMomentumOptimizer(model.parameters(), lr=0.01, alpha=0.1, momentum=0.9)
@@ -382,7 +382,7 @@ class TestMercuryOptimizers:
             loss.backward()
             optimizer.step()
 
-    def test_mercury_exp_decay_optimizer(self):
+    def test_mercury_exp_decay_optimizer(self) -> None:
         """Test MercuryExponentialDecayOptimizer."""
         model = self._create_simple_model()
         optimizer = MercuryExponentialDecayOptimizer(
@@ -399,7 +399,7 @@ class TestMercuryOptimizers:
             loss.backward()
             optimizer.step()
 
-    def test_mercury_harmonic_optimizer(self):
+    def test_mercury_harmonic_optimizer(self) -> None:
         """Test MercuryHarmonicOptimizer."""
         model = self._create_simple_model()
         optimizer = MercuryHarmonicOptimizer(model.parameters(), lr=0.01, alpha=0.1, omega=0.1)
@@ -418,31 +418,31 @@ class TestMercuryOptimizers:
 class TestCreateMercuryOptimizer:
     """Tests for create_mercury_optimizer factory function."""
 
-    def test_create_base_optimizer(self):
+    def test_create_base_optimizer(self) -> None:
         """Test creating base Mercury optimizer."""
         model = nn.Linear(10, 1)
         optimizer = create_mercury_optimizer(model.parameters(), variant="base", lr=0.01)
         assert isinstance(optimizer, MercuryOptimizer)
 
-    def test_create_momentum_optimizer(self):
+    def test_create_momentum_optimizer(self) -> None:
         """Test creating momentum Mercury optimizer."""
         model = nn.Linear(10, 1)
         optimizer = create_mercury_optimizer(model.parameters(), variant="momentum", lr=0.01)
         assert isinstance(optimizer, MercuryMomentumOptimizer)
 
-    def test_create_exp_decay_optimizer(self):
+    def test_create_exp_decay_optimizer(self) -> None:
         """Test creating exponential decay Mercury optimizer."""
         model = nn.Linear(10, 1)
         optimizer = create_mercury_optimizer(model.parameters(), variant="exp_decay", lr=0.01)
         assert isinstance(optimizer, MercuryExponentialDecayOptimizer)
 
-    def test_create_harmonic_optimizer(self):
+    def test_create_harmonic_optimizer(self) -> None:
         """Test creating harmonic Mercury optimizer."""
         model = nn.Linear(10, 1)
         optimizer = create_mercury_optimizer(model.parameters(), variant="harmonic", lr=0.01)
         assert isinstance(optimizer, MercuryHarmonicOptimizer)
 
-    def test_create_invalid_variant(self):
+    def test_create_invalid_variant(self) -> None:
         """Test invalid variant raises error."""
         model = nn.Linear(10, 1)
         with pytest.raises(ValueError, match="Unknown Mercury optimizer variant"):
@@ -452,7 +452,7 @@ class TestCreateMercuryOptimizer:
 class TestLyapunovAnomalyLoss:
     """Tests for LyapunovAnomalyLoss stability-constrained loss."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test loss function initialization."""
         loss_fn = LyapunovAnomalyLoss(
             lambda_kl=0.1, lambda_supervised=1.0, mu_stability=0.1, alpha=0.25
@@ -462,7 +462,7 @@ class TestLyapunovAnomalyLoss:
         assert loss_fn.mu_stability == 0.1
         assert loss_fn.alpha == 0.25
 
-    def test_forward_basic(self):
+    def test_forward_basic(self) -> None:
         """Test basic forward pass."""
         loss_fn = LyapunovAnomalyLoss()
 
@@ -478,7 +478,7 @@ class TestLyapunovAnomalyLoss:
         assert "lyapunov_V" in result
         assert isinstance(result["total"], torch.Tensor)
 
-    def test_forward_with_labels(self):
+    def test_forward_with_labels(self) -> None:
         """Test forward pass with supervised labels."""
         loss_fn = LyapunovAnomalyLoss(lambda_supervised=1.0)
 
@@ -491,7 +491,7 @@ class TestLyapunovAnomalyLoss:
 
         assert result["supervised"].item() > 0  # BCE should be non-zero
 
-    def test_forward_with_vae(self):
+    def test_forward_with_vae(self) -> None:
         """Test forward pass with VAE KL divergence."""
         loss_fn = LyapunovAnomalyLoss(lambda_kl=0.1)
 
@@ -505,7 +505,7 @@ class TestLyapunovAnomalyLoss:
 
         assert result["kl"].item() != 0  # KL should be computed
 
-    def test_stability_tracking(self):
+    def test_stability_tracking(self) -> None:
         """Test Lyapunov stability tracking over multiple steps."""
         loss_fn = LyapunovAnomalyLoss(mu_stability=0.1, alpha=0.25)
 
@@ -523,7 +523,7 @@ class TestLyapunovAnomalyLoss:
         # Stability loss may or may not be zero depending on score changes
         assert "stability" in _result2
 
-    def test_reset_state(self):
+    def test_reset_state(self) -> None:
         """Test reset_state clears previous scores."""
         loss_fn = LyapunovAnomalyLoss()
 
@@ -539,7 +539,7 @@ class TestLyapunovAnomalyLoss:
         loss_fn.reset_state()
         assert loss_fn.prev_scores is None
 
-    def test_get_stability_rate(self):
+    def test_get_stability_rate(self) -> None:
         """Test stability rate computation."""
         loss_fn = LyapunovAnomalyLoss()
 
@@ -557,7 +557,7 @@ class TestLyapunovAnomalyLoss:
         rate = loss_fn.get_stability_rate()
         assert 0.0 <= rate <= 1.0
 
-    def test_sum_reduction(self):
+    def test_sum_reduction(self) -> None:
         """Test sum reduction mode."""
         loss_fn = LyapunovAnomalyLoss(reduction="sum")
 
@@ -568,7 +568,7 @@ class TestLyapunovAnomalyLoss:
         result = loss_fn(x, x_recon, anomaly_scores)
         assert isinstance(result["reconstruction"], torch.Tensor)
 
-    def test_multidim_labels(self):
+    def test_multidim_labels(self) -> None:
         """Test handling of multi-dimensional labels."""
         loss_fn = LyapunovAnomalyLoss(lambda_supervised=1.0)
 
@@ -584,7 +584,7 @@ class TestLyapunovAnomalyLoss:
 class TestAnomalyDataset:
     """Tests for AnomalyDataset class."""
 
-    def test_init_basic(self):
+    def test_init_basic(self) -> None:
         """Test basic dataset initialization."""
         features = {
             "detector_a": torch.randn(100, 10),
@@ -595,7 +595,7 @@ class TestAnomalyDataset:
         dataset = AnomalyDataset(features, labels)
         assert len(dataset) == 100
 
-    def test_getitem_without_scores(self):
+    def test_getitem_without_scores(self) -> None:
         """Test __getitem__ without scores."""
         features = {
             "detector_a": torch.randn(100, 10),
@@ -609,7 +609,7 @@ class TestAnomalyDataset:
         assert len(item) == 2
         assert "detector_a" in item[0]
 
-    def test_getitem_with_scores(self):
+    def test_getitem_with_scores(self) -> None:
         """Test __getitem__ with scores."""
         features = {"detector_a": torch.randn(100, 10)}
         labels = torch.randint(0, 2, (100,))
@@ -621,7 +621,7 @@ class TestAnomalyDataset:
         assert isinstance(item, tuple)
         assert len(item) == 3  # features, scores, label
 
-    def test_len(self):
+    def test_len(self) -> None:
         """Test dataset length."""
         features = {"detector_a": torch.randn(50, 10)}
         labels = torch.randint(0, 2, (50,))

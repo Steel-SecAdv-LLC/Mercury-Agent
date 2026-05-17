@@ -27,7 +27,7 @@ from omni_mercury_engine.energy.energy_optimization import (
 )
 
 
-def test_energy_optimization_initialization():
+def test_energy_optimization_initialization() -> None:
     """Test energy optimization system initialization"""
     system = EnergyOptimization(max_power_budget=2000.0, efficiency_target=0.85, carbon_limit=150.0)
     assert system.max_power_budget == 2000.0
@@ -36,7 +36,7 @@ def test_energy_optimization_initialization():
     assert len(system.energy_profiles) == 0
 
 
-def test_efficiency_first_optimization():
+def test_efficiency_first_optimization() -> None:
     """Test efficiency-first optimization strategy"""
     system = EnergyOptimization()
 
@@ -54,7 +54,7 @@ def test_efficiency_first_optimization():
     assert efficiencies == sorted(efficiencies, reverse=True)
 
 
-def test_renewable_resource_allocation():
+def test_renewable_resource_allocation() -> None:
     """Test renewable resource allocation"""
     system = EnergyOptimization()
 
@@ -69,7 +69,7 @@ def test_renewable_resource_allocation():
     assert allocation["renewable"] + allocation["conventional"] == 1000.0
 
 
-def test_carbon_footprint_tracking():
+def test_carbon_footprint_tracking() -> None:
     """Test carbon footprint tracking"""
     system = EnergyOptimization()
 
@@ -86,7 +86,7 @@ def test_carbon_footprint_tracking():
     assert isinstance(system.energy_profiles[0], EnergyProfile)
 
 
-def test_carbon_renewable_vs_conventional():
+def test_carbon_renewable_vs_conventional() -> None:
     """Test that renewable sources have lower carbon footprint"""
     system = EnergyOptimization()
 
@@ -101,7 +101,7 @@ def test_carbon_renewable_vs_conventional():
     assert renewable_carbon < conventional_carbon
 
 
-def test_transition_strategy():
+def test_transition_strategy() -> None:
     """Test transition from legacy to modern methods"""
     system = EnergyOptimization()
 
@@ -114,7 +114,7 @@ def test_transition_strategy():
     assert modern_consumption == 180.0
 
 
-def test_roi_analysis():
+def test_roi_analysis() -> None:
     """Test ROI analysis balancing accuracy vs cost"""
     system = EnergyOptimization()
 
@@ -126,7 +126,7 @@ def test_roi_analysis():
     assert high_roi > low_roi
 
 
-def test_efficiency_report():
+def test_efficiency_report() -> None:
     """Test comprehensive efficiency report generation"""
     system = EnergyOptimization(carbon_limit=100.0)
 

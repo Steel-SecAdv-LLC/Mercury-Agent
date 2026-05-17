@@ -28,7 +28,7 @@ from omni_mercury_engine.scaling.bain_ai_scaling import BainAIScaling, ComputeRe
 class TestComputeResource:
     """Test ComputeResource dataclass."""
 
-    def test_creation(self):
+    def test_creation(self) -> None:
         """Test creating ComputeResource."""
         resource = ComputeResource(
             cpu_cores=16,
@@ -48,18 +48,18 @@ class TestComputeResource:
 class TestBainAIScaling:
     """Test BainAIScaling class."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test initialization."""
         scaler = BainAIScaling()
         assert scaler.max_power_watts == 1000.0
         assert scaler.current_allocation == {}
 
-    def test_initialization_custom_power(self):
+    def test_initialization_custom_power(self) -> None:
         """Test initialization with custom power limit."""
         scaler = BainAIScaling(max_power_watts=5000.0)
         assert scaler.max_power_watts == 5000.0
 
-    def test_optimize_compute_allocation(self):
+    def test_optimize_compute_allocation(self) -> None:
         """Test compute allocation optimization."""
         scaler = BainAIScaling()
 
@@ -78,7 +78,7 @@ class TestBainAIScaling:
         assert "inference" in allocation
         assert allocation["training"].cpu_cores > allocation["inference"].cpu_cores
 
-    def test_estimate_power_consumption(self):
+    def test_estimate_power_consumption(self) -> None:
         """Test power consumption estimation."""
         scaler = BainAIScaling()
 
@@ -90,7 +90,7 @@ class TestBainAIScaling:
         assert power > 100.0  # Reasonable minimum for 1B param model
         assert power <= scaler.max_power_watts
 
-    def test_estimate_power_consumption_large_model(self):
+    def test_estimate_power_consumption_large_model(self) -> None:
         """Test power consumption capped at max."""
         scaler = BainAIScaling(max_power_watts=200.0)
 
@@ -100,7 +100,7 @@ class TestBainAIScaling:
 
         assert power == 200.0
 
-    def test_calculate_efficiency_score(self):
+    def test_calculate_efficiency_score(self) -> None:
         """Test efficiency score calculation."""
         scaler = BainAIScaling()
 
@@ -108,7 +108,7 @@ class TestBainAIScaling:
 
         assert 0 < score <= 1
 
-    def test_calculate_efficiency_high_accuracy(self):
+    def test_calculate_efficiency_high_accuracy(self) -> None:
         """Test efficiency with high accuracy, low power, low latency."""
         scaler = BainAIScaling()
 
@@ -122,7 +122,7 @@ class TestBainAIScaling:
 
         assert high_score > low_score
 
-    def test_plan_infrastructure_scaling(self):
+    def test_plan_infrastructure_scaling(self) -> None:
         """Test infrastructure scaling plan."""
         scaler = BainAIScaling()
 
@@ -138,7 +138,7 @@ class TestBainAIScaling:
         assert "recommendations" in plan
         assert len(plan["recommendations"]) > 0
 
-    def test_plan_infrastructure_scaling_projections(self):
+    def test_plan_infrastructure_scaling_projections(self) -> None:
         """Test infrastructure scaling projections."""
         scaler = BainAIScaling()
 
@@ -152,7 +152,7 @@ class TestBainAIScaling:
             assert "cumulative_investment_millions" in projection
             assert "estimated_compute_capacity_petaflops" in projection
 
-    def test_estimate_agentic_ai_impact(self):
+    def test_estimate_agentic_ai_impact(self) -> None:
         """Test agentic AI impact estimation."""
         scaler = BainAIScaling()
 
@@ -167,7 +167,7 @@ class TestBainAIScaling:
         assert "key_capabilities" in impact
         assert "implementation_priorities" in impact
 
-    def test_estimate_agentic_ai_impact_augmented_workforce(self):
+    def test_estimate_agentic_ai_impact_augmented_workforce(self) -> None:
         """Test augmented workforce calculation."""
         scaler = BainAIScaling()
 
@@ -177,7 +177,7 @@ class TestBainAIScaling:
 
         assert impact["augmented_workforce_size"] < 1000
 
-    def test_optimize_power_management(self):
+    def test_optimize_power_management(self) -> None:
         """Test power management optimization."""
         scaler = BainAIScaling()
 
@@ -194,7 +194,7 @@ class TestBainAIScaling:
         assert result["critical_workloads"] == 2
         assert result["total_power_allocated_watts"] <= 1000.0
 
-    def test_optimize_power_management_over_budget(self):
+    def test_optimize_power_management_over_budget(self) -> None:
         """Test power management when critical workloads exceed budget."""
         scaler = BainAIScaling()
 
@@ -209,7 +209,7 @@ class TestBainAIScaling:
         assert result["power_deficit_watts"] == 200.0
         assert "recommendation" in result
 
-    def test_optimize_power_management_with_headroom(self):
+    def test_optimize_power_management_with_headroom(self) -> None:
         """Test power management with headroom calculation."""
         scaler = BainAIScaling()
 

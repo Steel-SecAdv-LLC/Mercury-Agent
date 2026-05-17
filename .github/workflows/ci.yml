@@ -225,25 +225,37 @@ jobs:
             --pretty
 
       - name: Run MyPy on critical tests
-        # Incremental test typing: start with security, ethics, and
-        # safeguards tests so high-risk behavioural gates get type coverage
-        # without requiring the entire historical test suite to be strict in
-        # one PR.  The temporary disabled codes are the current test-only
-        # debt categories observed in those suites; remove them one-by-one
-        # as the critical tests are annotated.  --ignore-missing-imports
-        # was removed here too -- third-party boundaries are declared in
-        # pyproject.toml [[tool.mypy.overrides]], so any new un-declared
-        # import in test code now fails the gate instead of being silenced.
+        # Incremental test typing: gated on the **entire** ``tests/``
+        # tree.  ``--ignore-missing-imports`` is **not** present --
+        # third-party boundaries are declared in pyproject.toml
+        # [[tool.mypy.overrides]], so any new un-declared import in
+        # test code fails the gate instead of being silenced.
+        #
+        # The two remaining relaxations are:
+        #
+        # * ``--allow-untyped-defs`` / ``--allow-untyped-calls`` -- a
+        #   test function with no parameter annotations at all is
+        #   accepted, matching the historical pytest idiom.  Parameter
+        #   annotations are tracked at the source (``: Any`` is the
+        #   stopgap), so partial annotation is still a hard error --
+        #   ``--allow-incomplete-defs`` is **not** present.
+        # * ``--disable-error-code untyped-decorator`` -- pytest's
+        #   ``@pytest.fixture`` / ``@parametrize`` decorators return
+        #   ``Any`` from the public stubs, which would otherwise flag
+        #   every decorated test as ``[untyped-decorator]``.
+        #
+        # ``--allow-subclassing-any`` matches the global pyproject
+        # setting and lets test mocks subclass ``torch.nn.Module``,
+        # ``pydantic.BaseModel``, etc.  ``[misc]`` errors from
+        # deliberately writing to read-only properties are pinned with
+        # per-line ``# type: ignore[misc]`` so the suppression is
+        # visible at the source rather than at the gate.
         run: |
-          mypy tests/security/ tests/ethical/ tests/safeguards/ \
+          mypy tests/ \
             --allow-untyped-defs \
             --allow-untyped-calls \
+            --allow-subclassing-any \
             --disable-error-code untyped-decorator \
-            --disable-error-code misc \
-            --disable-error-code unused-ignore \
-            --disable-error-code no-any-return \
-            --disable-error-code type-arg \
-            --disable-error-code var-annotated \
             --show-error-codes \
             --pretty \
             --no-warn-unused-configs

@@ -5,6 +5,8 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 """
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -116,7 +118,7 @@ class TestOverwatchNexus:
         """Test bio threat detection with no threats."""
         nexus = OverwatchNexus()
         data_stream = np.ones(100) * 0.5
-        intel_reports = {}
+        intel_reports: dict[str, Any] = {}
         indicators = nexus._detect_bio_threats(data_stream, intel_reports)
         assert isinstance(indicators, list)
 

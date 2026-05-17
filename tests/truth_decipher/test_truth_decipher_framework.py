@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Integration tests for Truth Deciphering Framework.
 
@@ -42,7 +44,7 @@ from omni_mercury_engine.truth_decipher import TruthDecipherFramework, TruthDeci
 
 
 @pytest.fixture(autouse=True)
-def _bypass_sigma_immutable_for_framework(monkeypatch):
+def _bypass_sigma_immutable_for_framework(monkeypatch: Any) -> Any:
     """Mock the σ_Immutable singleton's ``enforce`` for the whole file.
 
     Wave B (PR #179) promoted σ_Immutable to a mandatory hard ethical
@@ -83,7 +85,7 @@ def _bypass_sigma_immutable_for_framework(monkeypatch):
 class TestTruthDecipherFramework:
     """Test Truth Deciphering Framework orchestration."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test framework initialization with all components."""
         framework = TruthDecipherFramework()
 
@@ -93,7 +95,7 @@ class TestTruthDecipherFramework:
         assert framework.enable_novel_discovery is True
         assert framework.enable_self_healing is True
 
-    def test_phase1_discovery_with_anomaly(self):
+    def test_phase1_discovery_with_anomaly(self) -> None:
         """Test Phase 1: Discovery on synthetic anomaly data."""
         framework = TruthDecipherFramework()
 
@@ -108,7 +110,7 @@ class TestTruthDecipherFramework:
         assert "novel_classes" in result
         assert isinstance(result["anomaly_score"], float)
 
-    def test_phase1_discovery_without_anomaly(self):
+    def test_phase1_discovery_without_anomaly(self) -> None:
         """Test Phase 1: Discovery on normal data."""
         framework = TruthDecipherFramework()
 
@@ -119,7 +121,7 @@ class TestTruthDecipherFramework:
         assert "anomaly_detected" in result
         assert "anomaly_score" in result
 
-    def test_phase2_identification_critical(self):
+    def test_phase2_identification_critical(self) -> None:
         """Test Phase 2: Identification of critical anomaly."""
         framework = TruthDecipherFramework()
 
@@ -136,7 +138,7 @@ class TestTruthDecipherFramework:
         assert "Immediate investigation required" in result["recommendations"]
         assert len(result["recommendations"]) >= 3
 
-    def test_phase2_identification_medium(self):
+    def test_phase2_identification_medium(self) -> None:
         """Test Phase 2: Identification of medium severity anomaly."""
         framework = TruthDecipherFramework()
 
@@ -152,7 +154,7 @@ class TestTruthDecipherFramework:
         assert result["issue_type"] == "MEDIUM"
         assert "Schedule detailed analysis" in result["recommendations"]
 
-    def test_phase3_ethics_evaluation_pass(self):
+    def test_phase3_ethics_evaluation_pass(self) -> None:
         """Test Phase 3: Ethical evaluation that passes."""
         framework = TruthDecipherFramework()
 
@@ -169,7 +171,7 @@ class TestTruthDecipherFramework:
         assert result.overall_score >= 0.7
         assert len(result.principle_scores) == 8
 
-    def test_phase3_ethics_evaluation_with_context(self):
+    def test_phase3_ethics_evaluation_with_context(self) -> None:
         """Test Phase 3: Ethical evaluation with context."""
         framework = TruthDecipherFramework()
 
@@ -188,7 +190,7 @@ class TestTruthDecipherFramework:
         assert "compassion" in result.principle_scores
         assert "justice" in result.principle_scores
 
-    def test_phase4_resolution_with_self_healing(self):
+    def test_phase4_resolution_with_self_healing(self) -> None:
         """Test Phase 4: Resolution with self-healing."""
         framework = TruthDecipherFramework(enable_self_healing=True)
 
@@ -203,7 +205,7 @@ class TestTruthDecipherFramework:
         assert len(result["actions"]) > 0
         assert result["signature_id"] is not None
 
-    def test_phase4_resolution_without_self_healing(self):
+    def test_phase4_resolution_without_self_healing(self) -> None:
         """Test Phase 4: Resolution without self-healing."""
         framework = TruthDecipherFramework(enable_self_healing=False)
 
@@ -217,7 +219,7 @@ class TestTruthDecipherFramework:
         assert len(result["actions"]) > 0
         assert result["signature_id"] is None
 
-    def test_full_pipeline_with_anomaly(self):
+    def test_full_pipeline_with_anomaly(self) -> None:
         """Test complete pipeline: All 5 phases with anomaly."""
         framework = TruthDecipherFramework()
 
@@ -239,7 +241,7 @@ class TestTruthDecipherFramework:
                 assert result.phase_completed == 5  # Updated for 5-phase architecture
                 assert result.resolution_applied is True
 
-    def test_full_pipeline_without_anomaly(self):
+    def test_full_pipeline_without_anomaly(self) -> None:
         """Test complete pipeline: Early exit when no anomaly."""
         np.random.seed(999)
         framework = TruthDecipherFramework()
@@ -254,7 +256,7 @@ class TestTruthDecipherFramework:
         if result.phase_completed == 1:
             assert result.resolution_applied is False
 
-    def test_full_pipeline_energy_grid_scenario(self):
+    def test_full_pipeline_energy_grid_scenario(self) -> None:
         """Test pipeline on realistic energy grid anomaly scenario."""
         framework = TruthDecipherFramework()
 
@@ -275,7 +277,7 @@ class TestTruthDecipherFramework:
             assert result.severity is not None
             assert len(result.recommendations) > 0
 
-    def test_statistics_collection(self):
+    def test_statistics_collection(self) -> None:
         """Test statistics collection from framework."""
         framework = TruthDecipherFramework()
 
@@ -289,7 +291,7 @@ class TestTruthDecipherFramework:
         assert "self_healing_signatures" in stats
         assert isinstance(stats["ethics_stats"], dict)
 
-    def test_torch_tensor_input(self):
+    def test_torch_tensor_input(self) -> None:
         """Test framework with PyTorch tensor input."""
         import torch
 
@@ -302,7 +304,7 @@ class TestTruthDecipherFramework:
         assert isinstance(result, TruthDecipherResult)
         assert result.phase_completed >= 1
 
-    def test_dict_input(self):
+    def test_dict_input(self) -> None:
         """Test framework with dictionary input."""
         framework = TruthDecipherFramework()
 
@@ -321,7 +323,7 @@ class TestTruthDecipherFramework:
 class TestTruthDecipherIntegration:
     """Integration tests for cross-domain scenarios."""
 
-    def test_space_infrastructure_anomaly(self):
+    def test_space_infrastructure_anomaly(self) -> None:
         """Test framework on space infrastructure anomaly."""
         framework = TruthDecipherFramework()
 
@@ -336,7 +338,7 @@ class TestTruthDecipherIntegration:
 
         assert result.phase_completed >= 1
 
-    def test_healthcare_emergency_scenario(self):
+    def test_healthcare_emergency_scenario(self) -> None:
         """Test framework on healthcare emergency scenario."""
         framework = TruthDecipherFramework()
 

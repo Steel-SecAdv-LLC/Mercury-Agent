@@ -34,7 +34,7 @@ from omni_mercury_engine.core.fusion import OmniMercuryEngine
 class TestOmniMercuryEngine:
     """Test suite for OmniMercuryEngine."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test engine initialization with GA-optimized defaults."""
         engine = OmniMercuryEngine(state_dim=50)
 
@@ -48,7 +48,7 @@ class TestOmniMercuryEngine:
         assert engine.vqe_params.shape == (50,)
         assert engine.qbm_J.shape == (50, 50)
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test custom configuration."""
         config = {"alpha": 0.2, "beta": 0.1, "enable_H": False, "enable_Q": True}
 
@@ -60,7 +60,7 @@ class TestOmniMercuryEngine:
         assert engine.enable_Q is True
         assert engine.state_dim == 30
 
-    def test_single_step(self):
+    def test_single_step(self) -> None:
         """Test single iterative step."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -71,7 +71,7 @@ class TestOmniMercuryEngine:
         assert not np.array_equal(initial_state, next_state)
         assert np.all(np.isfinite(next_state))
 
-    def test_convergence(self):
+    def test_convergence(self) -> None:
         """Test convergence to stable state."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -85,7 +85,7 @@ class TestOmniMercuryEngine:
         if len(history) > 5:
             assert history[-1] < history[0] or abs(history[-1] - history[0]) < 0.1
 
-    def test_convergence_rate(self):
+    def test_convergence_rate(self) -> None:
         """Test exponential convergence O(e^{-0.13 t})."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -101,7 +101,7 @@ class TestOmniMercuryEngine:
                 reduction_ratio = late_error / early_error
                 assert reduction_ratio < 1.0
 
-    def test_all_terms_enabled(self):
+    def test_all_terms_enabled(self) -> None:
         """Test that all 24 terms (22 original + Ω + 𝐀𝐥) can be enabled."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -112,7 +112,7 @@ class TestOmniMercuryEngine:
         assert state_with_all.shape == (20,)
         assert np.all(np.isfinite(state_with_all))
 
-    def test_individual_terms(self):
+    def test_individual_terms(self) -> None:
         """Test each term individually."""
         engine = OmniMercuryEngine(state_dim=20)
         state = np.random.randn(20) * 0.1
@@ -143,7 +143,7 @@ class TestOmniMercuryEngine:
         assert engine._term_Omega(state).shape == (20,)
         assert engine._term_Al(state).shape == (20,)
 
-    def test_ethical_integration(self):
+    def test_ethical_integration(self) -> None:
         """Test integration with ethical scalars."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -155,7 +155,7 @@ class TestOmniMercuryEngine:
 
         assert ethical_mean > 1.0
 
-    def test_anomaly_detection(self):
+    def test_anomaly_detection(self) -> None:
         """Test anomaly detection functionality."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -171,7 +171,7 @@ class TestOmniMercuryEngine:
 
         assert anomalous_result["anomaly_score"] > normal_result["anomaly_score"]
 
-    def test_lyapunov_stability(self):
+    def test_lyapunov_stability(self) -> None:
         """Test Lyapunov stability (ΔV<0)."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -188,7 +188,7 @@ class TestOmniMercuryEngine:
         if abs(delta_V) > 1e-10:
             assert delta_V <= 0 or abs(delta_V) < V_initial * 0.1
 
-    def test_bounded_output(self):
+    def test_bounded_output(self) -> None:
         """Test that asymptotic bound works (∞_b term)."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -198,7 +198,7 @@ class TestOmniMercuryEngine:
 
         assert np.all(np.abs(bounded_state) <= 10.0)
 
-    def test_quantum_terms(self):
+    def test_quantum_terms(self) -> None:
         """Test quantum-inspired terms (Q, An, hq, VQE, QBM)."""
         engine = OmniMercuryEngine(state_dim=20)
         state = np.random.randn(20) * 0.1
@@ -218,7 +218,7 @@ class TestOmniMercuryEngine:
         qbm_term = engine._term_QBM(state)
         assert np.all(np.isfinite(qbm_term))
 
-    def test_temperature_decay(self):
+    def test_temperature_decay(self) -> None:
         """Test quantum annealing temperature decay."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -237,7 +237,7 @@ class TestOmniMercuryEngine:
         "This is a known limitation documented for future optimization.",
         strict=False,
     )
-    def test_complexity_performance(self):
+    def test_complexity_performance(self) -> None:
         """Test O(n log n) complexity requirement.
 
         Note: This test verifies that computation time scales reasonably with input size.
@@ -283,7 +283,7 @@ class TestOmniMercuryEngine:
             times[2] < times[1] * 5
         ), f"80-dim ({times[2]:.3f}s) should be < 5x 40-dim ({times[1]:.3f}s)"
 
-    def test_double_helix_architecture(self):
+    def test_double_helix_architecture(self) -> None:
         """Test double-helix DNA-inspired architecture."""
         engine = OmniMercuryEngine(state_dim=20)
 
@@ -316,7 +316,7 @@ class TestOmniMercuryEngine:
 class TestOmniMercuryIntegration:
     """Integration tests for OmniMercuryEngine."""
 
-    def test_threat_detection_simulation(self):
+    def test_threat_detection_simulation(self) -> None:
         """Test threat detection in simulated scenario."""
         engine = OmniMercuryEngine(state_dim=30)
 
@@ -328,7 +328,7 @@ class TestOmniMercuryIntegration:
 
         assert np.mean(threat_scores) > np.mean(normal_scores)
 
-    def test_convergence_consistency(self):
+    def test_convergence_consistency(self) -> None:
         """Test that convergence is reasonably consistent with same initial state."""
         np.random.seed(12345)
         config_linear = {"use_double_helix": False}
@@ -341,7 +341,7 @@ class TestOmniMercuryIntegration:
 
         assert np.allclose(state1, state2, rtol=0.25, atol=0.1)
 
-    def test_multi_round_adaptation(self):
+    def test_multi_round_adaptation(self) -> None:
         """Test multi-round learning and adaptation."""
         engine = OmniMercuryEngine(state_dim=20)
 

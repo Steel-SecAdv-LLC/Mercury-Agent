@@ -70,7 +70,7 @@ class TestEnhancedStatisticalDetectors:
         assert detector.mad_ is not None
         assert detector._fitted is True
 
-    def test_mad_detector_detect(self, data_with_anomalies: tuple) -> None:
+    def test_mad_detector_detect(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test MAD detector anomaly detection."""
         from omni_mercury_engine.detectors.enhanced_statistical import MADDetector
 
@@ -88,7 +88,7 @@ class TestEnhancedStatisticalDetectors:
         # Should detect at least some anomalies
         assert np.sum(result.is_anomaly) > 0
 
-    def test_lof_detector(self, data_with_anomalies: tuple) -> None:
+    def test_lof_detector(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test LOF detector."""
         from omni_mercury_engine.detectors.enhanced_statistical import LOFDetector
 
@@ -102,7 +102,7 @@ class TestEnhancedStatisticalDetectors:
         assert len(result.scores) == len(data)
         assert np.all((result.scores >= 0) & (result.scores <= 1))
 
-    def test_dbscan_detector(self, data_with_anomalies: tuple) -> None:
+    def test_dbscan_detector(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test DBSCAN detector."""
         from omni_mercury_engine.detectors.enhanced_statistical import DBSCANDetector
 
@@ -116,7 +116,7 @@ class TestEnhancedStatisticalDetectors:
         assert "n_clusters" in result.details
         assert "n_noise" in result.details
 
-    def test_mcd_detector(self, data_with_anomalies: tuple) -> None:
+    def test_mcd_detector(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test MCD detector."""
         from omni_mercury_engine.detectors.enhanced_statistical import MCDDetector
 
@@ -149,7 +149,7 @@ class TestEnhancedStatisticalDetectors:
         # Should detect shift after index 500
         assert np.any(result.is_anomaly[500:])
 
-    def test_gesd_test(self, data_with_anomalies: tuple) -> None:
+    def test_gesd_test(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test GESD outlier detection."""
         from omni_mercury_engine.detectors.enhanced_statistical import GESDTest
 
@@ -162,7 +162,7 @@ class TestEnhancedStatisticalDetectors:
         assert "n_outliers" in result.details
         assert "R_values" in result.details
 
-    def test_grubbs_test(self, data_with_anomalies: tuple) -> None:
+    def test_grubbs_test(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
         """Test Grubbs outlier test."""
         from omni_mercury_engine.detectors.enhanced_statistical import GrubbsTest
 
@@ -196,7 +196,9 @@ class TestEnhancedStatisticalDetectors:
         assert "ema_score" in stats
         assert stats["history_size"] == 500
 
-    def test_enhanced_statistical_detector_ensemble(self, data_with_anomalies: tuple) -> None:
+    def test_enhanced_statistical_detector_ensemble(
+        self, data_with_anomalies: tuple[np.ndarray, np.ndarray]
+    ) -> None:
         """Test unified enhanced statistical detector."""
         from omni_mercury_engine.detectors.enhanced_statistical import (
             EnhancedStatisticalDetector,
@@ -363,7 +365,7 @@ class TestEnsembleCoordinator:
     class MockDetector:
         """Mock detector for testing."""
 
-        def __init__(self, bias: float = 0.0):
+        def __init__(self, bias: float = 0.0) -> None:
             self.bias = bias
             self._fitted = False
 
@@ -371,7 +373,7 @@ class TestEnsembleCoordinator:
             self._fitted = True
             return self
 
-        def detect(self, data: np.ndarray) -> dict:
+        def detect(self, data: np.ndarray) -> dict[str, Any]:
             np.random.seed(42)
             scores = np.clip(np.random.rand(len(data)) + self.bias, 0, 1)
             return {"scores": scores, "is_anomaly": scores > 0.5}
@@ -503,7 +505,7 @@ class TestDistributedProcessor:
     class MockDetector:
         """Mock detector for testing."""
 
-        def detect(self, data: np.ndarray) -> dict:
+        def detect(self, data: np.ndarray) -> dict[str, Any]:
             scores = np.random.rand(len(data))
             return {"scores": scores, "is_anomaly": scores > 0.5}
 

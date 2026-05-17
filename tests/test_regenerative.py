@@ -22,6 +22,8 @@ from __future__ import annotations
 Tests for Regenerative Architecture module
 """
 
+from typing import Any
+
 import numpy as np
 
 from omni_mercury_engine.core.regenerative import (
@@ -34,7 +36,7 @@ from omni_mercury_engine.core.regenerative import (
 class TestRegenerativeArchitecture:
     """Test suite for RegenerativeArchitecture."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test basic initialization."""
         arch = RegenerativeArchitecture()
         assert arch.enable_closed_loops is True
@@ -42,12 +44,12 @@ class TestRegenerativeArchitecture:
         assert len(arch.knowledge_bank) == 0
         assert len(arch.waste_log) == 0
 
-    def test_initialization_without_closed_loops(self):
+    def test_initialization_without_closed_loops(self) -> None:
         """Test initialization with closed loops disabled."""
         arch = RegenerativeArchitecture(enable_closed_loops=False)
         assert arch.enable_closed_loops is False
 
-    def test_create_feedback_loop(self):
+    def test_create_feedback_loop(self) -> None:
         """Test creating a feedback loop."""
         arch = RegenerativeArchitecture()
         loop = arch.create_feedback_loop(
@@ -65,7 +67,7 @@ class TestRegenerativeArchitecture:
         assert loop.is_positive is True
         assert "test_loop" in arch.feedback_loops
 
-    def test_apply_feedback_loops_positive(self):
+    def test_apply_feedback_loops_positive(self) -> None:
         """Test applying positive feedback loops."""
         arch = RegenerativeArchitecture()
         arch.create_feedback_loop(
@@ -81,7 +83,7 @@ class TestRegenerativeArchitecture:
 
         assert updated["output"] == 0.5 + 0.1 * 1.0
 
-    def test_apply_feedback_loops_negative(self):
+    def test_apply_feedback_loops_negative(self) -> None:
         """Test applying negative feedback loops."""
         arch = RegenerativeArchitecture()
         arch.create_feedback_loop(
@@ -98,7 +100,7 @@ class TestRegenerativeArchitecture:
         expected = 0.5 - 0.1 * (0.5 - 1.0)
         assert abs(updated["output"] - expected) < 1e-6
 
-    def test_apply_feedback_loops_disabled(self):
+    def test_apply_feedback_loops_disabled(self) -> None:
         """Test that feedback is not applied when disabled."""
         arch = RegenerativeArchitecture(enable_closed_loops=False)
         arch.create_feedback_loop(
@@ -110,17 +112,17 @@ class TestRegenerativeArchitecture:
 
         assert updated["output"] == 0.5
 
-    def test_apply_permaculture_observe_interact(self):
+    def test_apply_permaculture_observe_interact(self) -> None:
         """Test OBSERVE_INTERACT principle."""
         arch = RegenerativeArchitecture()
-        context = {}
+        context: dict[str, Any] = {}
 
         result = arch.apply_permaculture_principle(PermaculturePrinciple.OBSERVE_INTERACT, context)
 
         assert "observation_data" in result
         assert arch.permaculture_metrics[PermaculturePrinciple.OBSERVE_INTERACT] == 1.0
 
-    def test_apply_permaculture_catch_store_energy(self):
+    def test_apply_permaculture_catch_store_energy(self) -> None:
         """Test CATCH_STORE_ENERGY principle."""
         arch = RegenerativeArchitecture()
         context = {"learned_patterns": ["pattern1", "pattern2"]}
@@ -130,7 +132,7 @@ class TestRegenerativeArchitecture:
         assert len(arch.knowledge_bank) == 1
         assert "patterns" in arch.knowledge_bank[0]
 
-    def test_apply_permaculture_obtain_yield(self):
+    def test_apply_permaculture_obtain_yield(self) -> None:
         """Test OBTAIN_YIELD principle."""
         arch = RegenerativeArchitecture()
         context = {"accuracy": 0.9, "efficiency": 0.8}
@@ -140,17 +142,17 @@ class TestRegenerativeArchitecture:
         assert "value_metrics" in result
         assert "total_value" in result["value_metrics"]
 
-    def test_apply_permaculture_self_regulate(self):
+    def test_apply_permaculture_self_regulate(self) -> None:
         """Test SELF_REGULATE principle."""
         arch = RegenerativeArchitecture()
-        context = {}
+        context: dict[str, Any] = {}
 
         result = arch.apply_permaculture_principle(PermaculturePrinciple.SELF_REGULATE, context)
 
         assert result["ethical_constraints_applied"] is True
         assert result["parameters_tuned"] is True
 
-    def test_apply_permaculture_renewable_resources(self):
+    def test_apply_permaculture_renewable_resources(self) -> None:
         """Test RENEWABLE_RESOURCES principle."""
         arch = RegenerativeArchitecture()
         context = {"dependencies": ["numpy", "proprietary_lib", "scipy"]}
@@ -162,17 +164,17 @@ class TestRegenerativeArchitecture:
         assert "proprietary_lib" not in result["dependencies"]
         assert "numpy" in result["dependencies"]
 
-    def test_apply_permaculture_produce_no_waste(self):
+    def test_apply_permaculture_produce_no_waste(self) -> None:
         """Test PRODUCE_NO_WASTE principle."""
         arch = RegenerativeArchitecture()
-        context = {}
+        context: dict[str, Any] = {}
 
         result = arch.apply_permaculture_principle(PermaculturePrinciple.PRODUCE_NO_WASTE, context)
 
         assert len(arch.waste_log) == 1
         assert "waste_eliminated" in result
 
-    def test_apply_permaculture_patterns_to_details(self):
+    def test_apply_permaculture_patterns_to_details(self) -> None:
         """Test PATTERNS_TO_DETAILS principle."""
         arch = RegenerativeArchitecture()
         context = {"patterns": ["pattern1", "pattern2"]}
@@ -183,7 +185,7 @@ class TestRegenerativeArchitecture:
 
         assert "detailed_design" in result
 
-    def test_apply_permaculture_integrate(self):
+    def test_apply_permaculture_integrate(self) -> None:
         """Test INTEGRATE principle."""
         arch = RegenerativeArchitecture()
         context = {"isolated_components": ["comp1", "comp2", "comp3"]}
@@ -193,7 +195,7 @@ class TestRegenerativeArchitecture:
         assert "integrated_system" in result
         assert result["integrated_system"]["component_count"] == 3
 
-    def test_apply_permaculture_small_slow(self):
+    def test_apply_permaculture_small_slow(self) -> None:
         """Test SMALL_SLOW principle."""
         arch = RegenerativeArchitecture()
         context = {"change_magnitude": 0.5}
@@ -202,7 +204,7 @@ class TestRegenerativeArchitecture:
 
         assert result["change_magnitude"] == 0.1
 
-    def test_apply_permaculture_value_diversity(self):
+    def test_apply_permaculture_value_diversity(self) -> None:
         """Test VALUE_DIVERSITY principle."""
         arch = RegenerativeArchitecture()
         context = {"models": ["model_a", "model_b", "model_a"]}
@@ -212,7 +214,7 @@ class TestRegenerativeArchitecture:
         assert result["ensemble_size"] == 3
         assert "diversity_score" in result
 
-    def test_apply_permaculture_use_edges(self):
+    def test_apply_permaculture_use_edges(self) -> None:
         """Test USE_EDGES principle."""
         arch = RegenerativeArchitecture()
         data = np.random.randn(100, 5)
@@ -223,7 +225,7 @@ class TestRegenerativeArchitecture:
         assert "edge_cases" in result
         assert "anomaly_potential" in result
 
-    def test_apply_permaculture_respond_to_change(self):
+    def test_apply_permaculture_respond_to_change(self) -> None:
         """Test RESPOND_TO_CHANGE principle."""
         arch = RegenerativeArchitecture()
         context = {"environmental_changes": {"temperature": 2.0, "load": 1.5}}
@@ -233,7 +235,7 @@ class TestRegenerativeArchitecture:
         assert "adaptation_strategy" in result
         assert result["adaptation_strategy"]["changes_addressed"] == 2
 
-    def test_calculate_net_positive_score(self):
+    def test_calculate_net_positive_score(self) -> None:
         """Test net-positive score calculation."""
         arch = RegenerativeArchitecture()
 
@@ -247,7 +249,7 @@ class TestRegenerativeArchitecture:
         assert score > 0
         assert isinstance(score, float)
 
-    def test_calculate_net_positive_score_with_knowledge(self):
+    def test_calculate_net_positive_score_with_knowledge(self) -> None:
         """Test net-positive score with accumulated knowledge."""
         arch = RegenerativeArchitecture()
         arch.knowledge_bank.append({"patterns": ["p1"]})
@@ -262,7 +264,7 @@ class TestRegenerativeArchitecture:
 
         assert score > 0
 
-    def test_identify_edges_empty_data(self):
+    def test_identify_edges_empty_data(self) -> None:
         """Test edge identification with empty data."""
         arch = RegenerativeArchitecture()
 
@@ -274,7 +276,7 @@ class TestRegenerativeArchitecture:
 class TestFeedbackLoop:
     """Test FeedbackLoop dataclass."""
 
-    def test_feedback_loop_creation(self):
+    def test_feedback_loop_creation(self) -> None:
         """Test creating a FeedbackLoop."""
         loop = FeedbackLoop(
             loop_id="test",
@@ -293,7 +295,7 @@ class TestFeedbackLoop:
 class TestPermaculturePrinciple:
     """Test PermaculturePrinciple enum."""
 
-    def test_principle_values(self):
+    def test_principle_values(self) -> None:
         """Test that all 12 principles are defined."""
         assert len(PermaculturePrinciple) == 12
         assert PermaculturePrinciple.OBSERVE_INTERACT.value == 1

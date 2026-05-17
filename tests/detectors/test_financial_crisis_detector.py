@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -42,7 +44,7 @@ from omni_mercury_engine.detectors.economic.financial_crisis_detector import (
 class TestCrisisEnums:
     """Tests for crisis enumerations."""
 
-    def test_crisis_type_values(self):
+    def test_crisis_type_values(self) -> None:
         """Test CrisisType enum values."""
         assert CrisisType.MARKET_CRASH.value == "market_crash"
         assert CrisisType.BANKING_CRISIS.value == "banking_crisis"
@@ -51,7 +53,7 @@ class TestCrisisEnums:
         assert CrisisType.LIQUIDITY_CRISIS.value == "liquidity_crisis"
         assert CrisisType.SYSTEMIC_CRISIS.value == "systemic_crisis"
 
-    def test_crisis_severity_values(self):
+    def test_crisis_severity_values(self) -> None:
         """Test CrisisSeverity enum values."""
         assert CrisisSeverity.STABLE.value == "stable"
         assert CrisisSeverity.STRESS.value == "stress"
@@ -63,7 +65,7 @@ class TestCrisisEnums:
 class TestFinancialCrisisPredictionResult:
     """Tests for prediction result dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default values of result dataclass."""
         result = FinancialCrisisPredictionResult(
             crisis_imminent=False,
@@ -89,7 +91,7 @@ class TestMarketCrashDetector:
         """Create MarketCrashDetector instance."""
         return MarketCrashDetector()
 
-    def test_detect_no_crash_stable_market(self, detector):
+    def test_detect_no_crash_stable_market(self, detector: Any) -> None:
         """Test detection in stable market conditions."""
         market_data = {
             "price_change_pct": 0.5,
@@ -102,7 +104,7 @@ class TestMarketCrashDetector:
         assert result["severity"] == "low"
         assert result["panic_selling"] is False
 
-    def test_detect_crash_high_volatility(self, detector):
+    def test_detect_crash_high_volatility(self, detector: Any) -> None:
         """Test detection during high volatility crash."""
         market_data = {
             "price_change_pct": -7.0,
@@ -115,7 +117,7 @@ class TestMarketCrashDetector:
         assert result["severity"] == "high"
         assert result["panic_selling"] is True
 
-    def test_detect_extreme_volatility(self, detector):
+    def test_detect_extreme_volatility(self, detector: Any) -> None:
         """Test detection during extreme volatility."""
         market_data = {
             "price_change_pct": -10.0,
@@ -127,7 +129,7 @@ class TestMarketCrashDetector:
         assert result["crash_detected"] is True
         assert result["severity"] == "extreme"
 
-    def test_detect_moderate_volatility(self, detector):
+    def test_detect_moderate_volatility(self, detector: Any) -> None:
         """Test detection during moderate volatility."""
         market_data = {
             "price_change_pct": -2.0,
@@ -139,9 +141,9 @@ class TestMarketCrashDetector:
         assert result["crash_detected"] is False
         assert result["severity"] == "moderate"
 
-    def test_default_values_handling(self, detector):
+    def test_default_values_handling(self, detector: Any) -> None:
         """Test handling of missing data fields."""
-        market_data = {}
+        market_data: dict[str, Any] = {}
         result = detector.detect_market_crash(market_data)
 
         assert result["crash_detected"] is False
@@ -157,7 +159,7 @@ class TestBankingStressDetector:
         """Create BankingStressDetector instance."""
         return BankingStressDetector()
 
-    def test_detect_no_stress(self, detector):
+    def test_detect_no_stress(self, detector: Any) -> None:
         """Test detection with no banking stress."""
         banking_data = {
             "cds_spread_bps": 100.0,
@@ -170,7 +172,7 @@ class TestBankingStressDetector:
         assert result["stress_score"] == 0.0
         assert result["liquidity_crisis"] is False
 
-    def test_detect_high_cds_spreads(self, detector):
+    def test_detect_high_cds_spreads(self, detector: Any) -> None:
         """Test detection with high CDS spreads."""
         banking_data = {
             "cds_spread_bps": 400.0,
@@ -182,7 +184,7 @@ class TestBankingStressDetector:
         assert result["banking_stress"] is True
         assert result["stress_score"] >= 0.4
 
-    def test_detect_high_default_rate(self, detector):
+    def test_detect_high_default_rate(self, detector: Any) -> None:
         """Test detection with high default rate."""
         banking_data = {
             "cds_spread_bps": 100.0,
@@ -194,7 +196,7 @@ class TestBankingStressDetector:
         assert result["banking_stress"] is True
         assert result["stress_score"] >= 0.3
 
-    def test_detect_liquidity_crisis(self, detector):
+    def test_detect_liquidity_crisis(self, detector: Any) -> None:
         """Test detection of liquidity crisis."""
         banking_data = {
             "cds_spread_bps": 100.0,
@@ -206,7 +208,7 @@ class TestBankingStressDetector:
         assert result["banking_stress"] is True
         assert result["liquidity_crisis"] is True
 
-    def test_detect_multiple_stress_factors(self, detector):
+    def test_detect_multiple_stress_factors(self, detector: Any) -> None:
         """Test detection with multiple stress factors."""
         banking_data = {
             "cds_spread_bps": 400.0,
@@ -227,12 +229,12 @@ class TestFraudDetector:
         """Create FraudDetector instance."""
         return FraudDetector(input_dim=64)
 
-    def test_initialization(self, detector):
+    def test_initialization(self, detector: Any) -> None:
         """Test model initialization."""
         assert detector.pattern_encoder is not None
         assert detector.fraud_classifier is not None
 
-    def test_forward_pass(self, detector):
+    def test_forward_pass(self, detector: Any) -> None:
         """Test forward pass through model."""
         input_tensor = torch.randn(10, 64)
         output = detector(input_tensor)
@@ -241,7 +243,7 @@ class TestFraudDetector:
         assert torch.all(output >= 0)
         assert torch.all(output <= 1)
 
-    def test_batch_processing(self, detector):
+    def test_batch_processing(self, detector: Any) -> None:
         """Test processing of batched inputs."""
         # batch_size > 1 required for BatchNorm during training
         batch_sizes = [2, 5, 20]
@@ -265,7 +267,7 @@ class TestSystemicRiskAnalyzer:
         """Create SystemicRiskAnalyzer instance."""
         return SystemicRiskAnalyzer()
 
-    def test_low_systemic_risk(self, analyzer):
+    def test_low_systemic_risk(self, analyzer: Any) -> None:
         """Test assessment with low systemic risk."""
         network_data = {
             "interconnectedness_score": 0.2,
@@ -277,7 +279,7 @@ class TestSystemicRiskAnalyzer:
         assert result["systemic_risk_score"] < 0.5
         assert result["too_big_to_fail"] is False
 
-    def test_high_systemic_risk(self, analyzer):
+    def test_high_systemic_risk(self, analyzer: Any) -> None:
         """Test assessment with high systemic risk."""
         network_data = {
             "interconnectedness_score": 0.9,
@@ -290,7 +292,7 @@ class TestSystemicRiskAnalyzer:
         assert result["contagion_probability"] > 0.5
         assert result["too_big_to_fail"] is True
 
-    def test_contagion_capped_at_one(self, analyzer):
+    def test_contagion_capped_at_one(self, analyzer: Any) -> None:
         """Test that contagion probability is capped at 1.0."""
         network_data = {
             "interconnectedness_score": 1.0,
@@ -354,14 +356,14 @@ class TestFinancialCrisisDetector:
             },
         }
 
-    def test_initialization_all_enabled(self, detector):
+    def test_initialization_all_enabled(self, detector: Any) -> None:
         """Test initialization with all detectors enabled."""
         assert detector.market_detector is not None
         assert detector.banking_detector is not None
         assert detector.fraud_detector is not None
         assert detector.systemic_analyzer is not None
 
-    def test_initialization_selective_enablement(self):
+    def test_initialization_selective_enablement(self) -> None:
         """Test initialization with selective enablement."""
         detector = FinancialCrisisDetector(
             enable_market_detection=True,
@@ -375,7 +377,7 @@ class TestFinancialCrisisDetector:
         assert detector.fraud_detector is None
         assert detector.systemic_analyzer is not None
 
-    def test_predict_stable_conditions(self, detector, stable_financial_data):
+    def test_predict_stable_conditions(self, detector: Any, stable_financial_data: Any) -> None:
         """Test prediction in stable conditions."""
         result = detector.predict_financial_crisis(stable_financial_data)
 
@@ -383,7 +385,7 @@ class TestFinancialCrisisDetector:
         assert result.crisis_imminent is False
         assert result.severity_level == "stable"
 
-    def test_predict_crisis_conditions(self, detector, crisis_financial_data):
+    def test_predict_crisis_conditions(self, detector: Any, crisis_financial_data: Any) -> None:
         """Test prediction in crisis conditions."""
         result = detector.predict_financial_crisis(crisis_financial_data)
 
@@ -392,25 +394,29 @@ class TestFinancialCrisisDetector:
         assert result.market_crash_detected is True
         assert result.banking_stress is True
 
-    def test_policy_recommendations_generated(self, detector, crisis_financial_data):
+    def test_policy_recommendations_generated(
+        self, detector: Any, crisis_financial_data: Any
+    ) -> None:
         """Test that policy recommendations are generated."""
         result = detector.predict_financial_crisis(crisis_financial_data)
 
         assert len(result.policy_recommendations) > 0
 
-    def test_intervention_actions_generated(self, detector, crisis_financial_data):
+    def test_intervention_actions_generated(
+        self, detector: Any, crisis_financial_data: Any
+    ) -> None:
         """Test that intervention actions are generated."""
         result = detector.predict_financial_crisis(crisis_financial_data)
 
         assert len(result.intervention_actions) > 0
 
-    def test_affected_sectors_identified(self, detector, crisis_financial_data):
+    def test_affected_sectors_identified(self, detector: Any, crisis_financial_data: Any) -> None:
         """Test that affected sectors are identified."""
         result = detector.predict_financial_crisis(crisis_financial_data)
 
         assert "Financial Services" in result.affected_sectors
 
-    def test_currency_crisis_detection(self, detector):
+    def test_currency_crisis_detection(self, detector: Any) -> None:
         """Test currency crisis detection."""
         data = {
             "currency_data": {"volatility": 0.2},
@@ -420,28 +426,28 @@ class TestFinancialCrisisDetector:
 
         assert result.currency_instability is True
 
-    def test_vix_level_captured(self, detector, stable_financial_data):
+    def test_vix_level_captured(self, detector: Any, stable_financial_data: Any) -> None:
         """Test that VIX level is captured in result."""
         result = detector.predict_financial_crisis(stable_financial_data)
 
         assert result.vix_level == 15.0
         assert result.market_volatility_index == 15.0
 
-    def test_systemic_risk_score_captured(self, detector, crisis_financial_data):
+    def test_systemic_risk_score_captured(self, detector: Any, crisis_financial_data: Any) -> None:
         """Test that systemic risk score is captured."""
         result = detector.predict_financial_crisis(crisis_financial_data)
 
         assert result.systemic_risk_score > 0.0
         assert result.contagion_probability > 0.0
 
-    def test_empty_data_handling(self, detector):
+    def test_empty_data_handling(self, detector: Any) -> None:
         """Test handling of empty financial data."""
         result = detector.predict_financial_crisis({})
 
         assert result.crisis_imminent is False
         assert result.severity_level == "stable"
 
-    def test_partial_data_handling(self, detector):
+    def test_partial_data_handling(self, detector: Any) -> None:
         """Test handling of partial financial data."""
         partial_data = {"market_data": {"price_change_pct": -6.0, "vix": 40.0}}
         result = detector.predict_financial_crisis(partial_data)

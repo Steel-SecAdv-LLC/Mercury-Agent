@@ -22,19 +22,20 @@ from __future__ import annotations
 Additional biometric tests to boost coverage
 """
 
+import importlib.util
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import numpy as np
 import pytest
 
-# Conditional torch import
-try:
-    import torch
+# Probe for torch without binding it at module import.
+# ``TYPE_CHECKING`` makes mypy resolve ``torch`` regardless of runtime
+# availability; the pytestmark below skips the suite when torch is absent.
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
-    torch = None  # type: ignore[assignment]
+if TYPE_CHECKING or HAS_TORCH:
+    import torch
 
 # Skip all tests in this module if torch is not available
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
@@ -44,7 +45,7 @@ if HAS_TORCH:
     from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
 
-def test_biometric_with_different_models():
+def test_biometric_with_different_models() -> None:
     """Test biometric model with different face recognition models"""
     models = ["VGG-Face", "Facenet", "OpenFace"]
 
@@ -54,7 +55,7 @@ def test_biometric_with_different_models():
         assert model.model_name == model_name
 
 
-def test_biometric_extract_features_error_handling():
+def test_biometric_extract_features_error_handling() -> None:
     """Test error handling in feature extraction"""
     model = BiometricAnomalyModel()
 
@@ -65,7 +66,7 @@ def test_biometric_extract_features_error_handling():
     assert isinstance(features, torch.Tensor)
 
 
-def test_biometric_predict_with_dict():
+def test_biometric_predict_with_dict() -> None:
     """Test predict with dictionary input"""
     model = BiometricAnomalyModel()
 
@@ -88,7 +89,7 @@ def test_biometric_predict_with_dict():
         assert "model_type" in result
 
 
-def test_biometric_normalize_embedding_size():
+def test_biometric_normalize_embedding_size() -> None:
     """Test embedding normalization to fixed size"""
     model = BiometricAnomalyModel()
 
@@ -101,7 +102,7 @@ def test_biometric_normalize_embedding_size():
     assert normalized.shape[1] == 128
 
 
-def test_biometric_harmonic_features_disabled():
+def test_biometric_harmonic_features_disabled() -> None:
     """Test with harmonic features disabled"""
     config = {"use_harmonic_features": False}
     model = BiometricAnomalyModel(config)
@@ -112,7 +113,7 @@ def test_biometric_harmonic_features_disabled():
     assert isinstance(features, np.ndarray)
 
 
-def test_biometric_deepface_import_error():
+def test_biometric_deepface_import_error() -> None:
     """Test handling when DeepFace is not available"""
     model = BiometricAnomalyModel()
 

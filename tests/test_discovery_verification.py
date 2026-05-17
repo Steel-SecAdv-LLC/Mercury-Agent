@@ -25,7 +25,7 @@ TORCH_AVAILABLE = importlib.util.find_spec("torch") is not None
 class TestDoubleHelixEngine:
     """Verify Double-Helix Evolution Engine novelty claims."""
 
-    def test_golden_ratio_constants(self):
+    def test_golden_ratio_constants(self) -> None:
         """Verify phi constants are correctly defined."""
         from omni_mercury_engine.core.double_helix_engine import PHI, PHI_CUBED, PHI_SQUARED
 
@@ -34,27 +34,27 @@ class TestDoubleHelixEngine:
         assert abs(PHI_SQUARED - expected_phi**2) < 1e-10, "PHI_SQUARED incorrect"
         assert abs(PHI_CUBED - expected_phi**3) < 1e-10, "PHI_CUBED incorrect"
 
-    def test_lyapunov_stability_decay(self):
+    def test_lyapunov_stability_decay(self) -> None:
         """Verify Lyapunov stability decay constant."""
         from omni_mercury_engine.core.double_helix_engine import LAMBDA_DECAY
 
         assert LAMBDA_DECAY == 0.18, "Lambda decay should be 0.18"
 
-    def test_evolution_modes(self):
+    def test_evolution_modes(self) -> None:
         """Test that evolution modes are defined."""
         from omni_mercury_engine.core.double_helix_engine import EvolutionMode
 
         modes = list(EvolutionMode)
         assert len(modes) >= 4, f"Expected 4+ evolution modes, got {len(modes)}"
 
-    def test_term_types(self):
+    def test_term_types(self) -> None:
         """Test that term types are defined."""
         from omni_mercury_engine.core.double_helix_engine import TermType
 
         types = list(TermType)
         assert len(types) >= 6, f"Expected 6+ term types, got {len(types)}"
 
-    def test_phi_optimized_term_weights(self):
+    def test_phi_optimized_term_weights(self) -> None:
         """Verify phi-optimization in term weights."""
         from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
 
@@ -64,7 +64,7 @@ class TestDoubleHelixEngine:
         total_weight = sum(engine.term_weights.values())
         assert abs(total_weight - 1.0) < 0.01, "Term weights should sum to 1.0"
 
-    def test_18_evolution_terms(self):
+    def test_18_evolution_terms(self) -> None:
         """Verify 18+ evolution terms as claimed."""
         from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
 
@@ -72,7 +72,7 @@ class TestDoubleHelixEngine:
         num_terms = len(engine.term_weights)
         assert num_terms >= 18, f"Expected 18+ terms, got {num_terms}"
 
-    def test_seed_makes_evolution_reproducible(self):
+    def test_seed_makes_evolution_reproducible(self) -> None:
         """Two MercuryEquationEngine instances with the same seed must
         evolve identically across all stochastic terms (ethical-matrix
         init, Hamiltonian symmetric matrix, Boltzmann sampling,
@@ -106,14 +106,14 @@ class TestDoubleHelixEngine:
 class TestEthicalScalars:
     """Verify ethical scalar framework claims."""
 
-    def test_ethical_scalars_exist(self):
+    def test_ethical_scalars_exist(self) -> None:
         """Verify ethical scalars are defined."""
         from omni_mercury_engine.core.ethical_config import EthicalScalars
 
         scalars = EthicalScalars()
         assert scalars is not None
 
-    def test_to_dict_method(self):
+    def test_to_dict_method(self) -> None:
         """Verify scalars can be exported."""
         from omni_mercury_engine.core.ethical_config import EthicalScalars
 
@@ -125,7 +125,7 @@ class TestEthicalScalars:
 class TestStatisticalValidation:
     """Verify statistical validation methodology claims."""
 
-    def test_improvement_calculation(self):
+    def test_improvement_calculation(self) -> None:
         """Test that improvement percentages are calculated correctly."""
         np.random.seed(42)
 
@@ -144,7 +144,7 @@ class TestStatisticalValidation:
         assert improvement > 15, f"Should show >15% improvement, got {improvement:.1f}%"
         assert p_value < 0.05, f"Should be statistically significant, p={p_value:.4f}"
 
-    def test_effect_size_calculation(self):
+    def test_effect_size_calculation(self) -> None:
         """Test Cohen's d effect size calculation."""
         np.random.seed(42)
 
@@ -165,7 +165,7 @@ class TestStatisticalValidation:
 class TestNovelClassDiscovery:
     """Verify Novel Class Discovery integration claims."""
 
-    def test_mebin_initialization(self):
+    def test_mebin_initialization(self) -> None:
         """Test MEBin initialization."""
         from omni_mercury_engine.core.novel_class_discovery import MultiElementBinarization
 
@@ -173,7 +173,7 @@ class TestNovelClassDiscovery:
         assert mebin.rotation_angles == [0, 90, 180, 270]
         assert mebin.binarization_threshold == 0.5
 
-    def test_mebin_binarization(self):
+    def test_mebin_binarization(self) -> None:
         """Test Multi-Element Binarization."""
         from omni_mercury_engine.core.novel_class_discovery import MultiElementBinarization
 
@@ -186,7 +186,7 @@ class TestNovelClassDiscovery:
         expected = np.array([0.0, 1.0, 1.0, 0.0, 1.0])
         np.testing.assert_array_equal(binary, expected)
 
-    def test_ncd_initialization(self):
+    def test_ncd_initialization(self) -> None:
         """Test NCD initialization."""
         from omni_mercury_engine.core.novel_class_discovery import NovelClassDiscovery
 
@@ -194,7 +194,7 @@ class TestNovelClassDiscovery:
         assert ncd.enable_mebin is True
         assert ncd.num_clusters == 5
 
-    def test_kmeans_clustering(self):
+    def test_kmeans_clustering(self) -> None:
         """Test K-means clustering in novel class discovery."""
         from omni_mercury_engine.core.novel_class_discovery import NovelClassDiscovery
 
@@ -210,7 +210,7 @@ class TestNovelClassDiscovery:
         assert "class_assignments" in results
         assert "discovered_classes" in results
 
-    def test_class_statistics(self):
+    def test_class_statistics(self) -> None:
         """Test class statistics computation."""
         from omni_mercury_engine.core.novel_class_discovery import NovelClassDiscovery
 
@@ -227,7 +227,7 @@ class TestNovelClassDiscovery:
 class TestGoldenRatioUniversality:
     """Verify golden ratio appearance across domains (Discovery claim)."""
 
-    def test_phi_constant_accuracy(self):
+    def test_phi_constant_accuracy(self) -> None:
         """Verify phi is the true golden ratio."""
         from omni_mercury_engine.core.double_helix_engine import PHI
 
@@ -236,14 +236,14 @@ class TestGoldenRatioUniversality:
 
         assert abs(PHI - true_phi) < 1e-15, "PHI should match true golden ratio"
 
-    def test_phi_self_similar_property(self):
+    def test_phi_self_similar_property(self) -> None:
         """Verify phi's self-similar property: phi^2 = phi + 1."""
         from omni_mercury_engine.core.double_helix_engine import PHI, PHI_SQUARED
 
         # phi^2 should equal phi + 1
         assert abs(PHI_SQUARED - (PHI + 1)) < 1e-10, "phi^2 should equal phi + 1"
 
-    def test_phi_reciprocal_property(self):
+    def test_phi_reciprocal_property(self) -> None:
         """Verify phi's reciprocal property: 1/phi = phi - 1."""
         from omni_mercury_engine.core.double_helix_engine import PHI
 
@@ -255,14 +255,14 @@ class TestGoldenRatioUniversality:
 class TestPyTorchDependentFeatures:
     """Tests for features that require PyTorch."""
 
-    def test_medical_specialties(self):
+    def test_medical_specialties(self) -> None:
         """Verify 24 ABMS board specialties are defined."""
         from omni_mercury_engine.medical.abms_disciplines import ABMSSpecialty
 
         specialties = list(ABMSSpecialty)
         assert len(specialties) == 24, f"Expected 24 specialties, got {len(specialties)}"
 
-    def test_schumann_detector(self):
+    def test_schumann_detector(self) -> None:
         """Test Schumann resonance detector."""
         from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 

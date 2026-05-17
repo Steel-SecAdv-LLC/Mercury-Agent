@@ -33,7 +33,7 @@ from assets.loaders import generate_seti_signal
 from omni_mercury_engine.emergent.emergent_life_detector import EmergentLifeDetector
 
 
-def validate_life_detector():
+def validate_life_detector() -> None:
     """Validate Life Detector with t-tests."""
     print("Emergent Life Detector Validation")
     print("=" * 60)

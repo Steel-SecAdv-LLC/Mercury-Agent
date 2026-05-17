@@ -18,7 +18,7 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 """
 Tests for Vision-Language Model (VLM) anomaly detectors.
@@ -43,7 +43,7 @@ pytestmark = pytest.mark.vlm
 class TestAnyAnomalyDetector:
     """Tests for AnyAnomaly zero-shot VAD detector."""
 
-    def test_anyanomaly_initialization(self):
+    def test_anyanomaly_initialization(self) -> None:
         """Test AnyAnomaly can be initialized with default config."""
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
@@ -51,7 +51,7 @@ class TestAnyAnomalyDetector:
         assert detector is not None
         assert detector.config is not None
 
-    def test_anyanomaly_config(self):
+    def test_anyanomaly_config(self) -> None:
         """Test AnyAnomaly with custom config."""
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
         from omni_mercury_engine.detectors.vlm.anyanomaly import AnyAnomalyConfig
@@ -66,7 +66,7 @@ class TestAnyAnomalyDetector:
         assert cfg.context_window == 4
         assert cfg.enable_positional_context is True
 
-    def test_anyanomaly_set_anomaly_definition(self):
+    def test_anyanomaly_set_anomaly_definition(self) -> None:
         """Test setting custom anomaly definition."""
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
@@ -74,7 +74,7 @@ class TestAnyAnomalyDetector:
         detector.set_anomaly_definition("A person falling down or collapsing on the ground")
         assert detector.anomaly_definition is not None
 
-    def test_anyanomaly_set_reference_normal(self, sample_image_batch):
+    def test_anyanomaly_set_reference_normal(self, sample_image_batch: Any) -> None:
         """Test setting reference normal frames."""
         from omni_mercury_engine.detectors.vlm import AnyAnomalyDetector
 
@@ -84,7 +84,7 @@ class TestAnyAnomalyDetector:
         detector.set_reference_normal(frames)
         assert len(detector.reference_frames) > 0
 
-    def test_anyanomaly_mock_backend_factory_hard_fails(self):
+    def test_anyanomaly_mock_backend_factory_hard_fails(self) -> None:
         """Failure-mode coverage on the detect-path:
         ``MockLVLMBackend`` is intentionally a hard-fail (Phase 2 audit
         cure: silent mock degradation is not permitted in production).
@@ -119,7 +119,7 @@ class TestAnyAnomalyDetector:
 class TestLAVADDetector:
     """Tests for LAVAD training-free LLM-based detector."""
 
-    def test_lavad_initialization(self):
+    def test_lavad_initialization(self) -> None:
         """Test LAVAD can be initialized with default config."""
         from omni_mercury_engine.detectors.vlm import LAVADDetector
 
@@ -127,7 +127,7 @@ class TestLAVADDetector:
         assert detector is not None
         assert detector.config is not None
 
-    def test_lavad_config(self):
+    def test_lavad_config(self) -> None:
         """Test LAVAD with custom config."""
         from omni_mercury_engine.detectors.vlm import LAVADDetector
         from omni_mercury_engine.detectors.vlm.lavad import LAVADConfig
@@ -143,7 +143,7 @@ class TestLAVADDetector:
         assert cfg.sampling_fps == 1.0
         assert cfg.temporal_window == 8
 
-    def test_lavad_set_scene_context(self):
+    def test_lavad_set_scene_context(self) -> None:
         """Test setting scene context."""
         from omni_mercury_engine.detectors.vlm import LAVADDetector
 
@@ -155,7 +155,7 @@ class TestLAVADDetector:
         )
         assert detector.scene_context is not None
 
-    def test_lavad_detect_video_mock_hard_fails(self, sample_video_frames):
+    def test_lavad_detect_video_mock_hard_fails(self, sample_video_frames: Any) -> None:
         """``LAVADDetector(config=LAVADConfig(llm_model="mock"))`` must
         raise when ``detect_video`` is called.
 
@@ -180,14 +180,14 @@ class TestLAVADDetector:
 class TestBaseVLMDetector:
     """Tests for base VLM detector class."""
 
-    def test_base_vlm_initialization(self):
+    def test_base_vlm_initialization(self) -> None:
         """Test BaseVLMDetector can be initialized."""
         from omni_mercury_engine.detectors.vlm import BaseVLMDetector
 
         detector = BaseVLMDetector()
         assert detector is not None
 
-    def test_frame_sampling(self):
+    def test_frame_sampling(self) -> None:
         """Test frame sampling functionality."""
         from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector
 
@@ -205,7 +205,7 @@ class TestBaseVLMDetector:
 class TestContextProviders:
     """Tests for context extraction utilities."""
 
-    def test_positional_context_extractor(self, sample_image):
+    def test_positional_context_extractor(self, sample_image: Any) -> None:
         """Test positional context extraction."""
         from omni_mercury_engine.detectors.vlm.context_providers import PositionalContextExtractor
 
@@ -213,7 +213,7 @@ class TestContextProviders:
         context = extractor.extract(sample_image)
         assert isinstance(context, dict)
 
-    def test_temporal_context_extractor(self, sample_video_frames):
+    def test_temporal_context_extractor(self, sample_video_frames: Any) -> None:
         """Test temporal context extraction."""
         from omni_mercury_engine.detectors.vlm.context_providers import TemporalContextExtractor
 
@@ -226,7 +226,7 @@ class TestContextProviders:
 class TestLVLMBackends:
     """Tests for LVLM backend implementations."""
 
-    def test_mock_backend_hard_fails_on_use(self):
+    def test_mock_backend_hard_fails_on_use(self) -> None:
         """``MockLVLMBackend`` must raise ``NotImplementedError`` the
         moment its model is used.
 
@@ -255,7 +255,7 @@ class TestLVLMBackends:
                 question="What is in this image?",
             )
 
-    def test_backend_factory_rejects_unknown_model_type(self):
+    def test_backend_factory_rejects_unknown_model_type(self) -> None:
         """``get_lvlm_backend("unknown")`` must raise ``ValueError``.
 
         Phase 2 audit cure: the legacy fall-through to

@@ -17,6 +17,7 @@ in these routes, which means the JSON body must be nested under a `request` key.
 from __future__ import annotations
 
 import os
+from typing import Any
 
 # Disable rate limiting BEFORE importing the server module.
 # This must happen before any import of omni_mercury_engine.api.server,
@@ -57,20 +58,20 @@ class TestModelRoutes:
         )
         return {"X-API-Key": raw_key}
 
-    def test_list_models_requires_auth(self, client):
+    def test_list_models_requires_auth(self, client: Any) -> None:
         """Test that listing models requires authentication."""
         response = client.get("/api/v1/models")
         # Should require auth - either 401 or 403
         assert response.status_code in (401, 403, 200)
 
-    def test_list_models_with_auth(self, client, auth_headers):
+    def test_list_models_with_auth(self, client: Any, auth_headers: Any) -> None:
         """Test listing models with valid auth."""
         response = client.get("/api/v1/models", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
 
-    def test_register_model(self, client, auth_headers):
+    def test_register_model(self, client: Any, auth_headers: Any) -> None:
         """Test registering a new model."""
         response = client.post(
             "/api/v1/models",
@@ -89,7 +90,7 @@ class TestModelRoutes:
         assert data["name"] == "test_model_for_testing"
         assert "model_id" in data
 
-    def test_register_model_invalid_name(self, client, auth_headers):
+    def test_register_model_invalid_name(self, client: Any, auth_headers: Any) -> None:
         """Test model registration with invalid name."""
         response = client.post(
             "/api/v1/models",
@@ -103,7 +104,7 @@ class TestModelRoutes:
         )
         assert response.status_code == 422
 
-    def test_get_model_not_found(self, client, auth_headers):
+    def test_get_model_not_found(self, client: Any, auth_headers: Any) -> None:
         """Test getting a non-existent model."""
         response = client.get(
             "/api/v1/models/nonexistent_id",
@@ -111,7 +112,7 @@ class TestModelRoutes:
         )
         assert response.status_code == 404
 
-    def test_delete_model_not_found(self, client, auth_headers):
+    def test_delete_model_not_found(self, client: Any, auth_headers: Any) -> None:
         """Test deleting a non-existent model."""
         response = client.delete(
             "/api/v1/models/nonexistent_id",
@@ -119,7 +120,7 @@ class TestModelRoutes:
         )
         assert response.status_code == 404
 
-    def test_register_and_get_model_roundtrip(self, client, auth_headers):
+    def test_register_and_get_model_roundtrip(self, client: Any, auth_headers: Any) -> None:
         """Test model create and retrieve roundtrip."""
         # Create
         create_resp = client.post(
@@ -153,7 +154,7 @@ class TestModelRoutes:
 class TestDetectionRoutes:
     """Tests for /api/v1/detect endpoints."""
 
-    def test_fusion_detection(self, client):
+    def test_fusion_detection(self, client: Any) -> None:
         """Test multi-detector fusion endpoint."""
         data = [1.0, 1.1, 1.0, 50.0, 1.1, 1.0, 1.1, 1.0, 1.1, 1.0]
         response = client.post(
@@ -171,7 +172,7 @@ class TestDetectionRoutes:
         assert "fused_score" in result
         assert "is_anomaly" in result
 
-    def test_fusion_detection_multivariate(self, client):
+    def test_fusion_detection_multivariate(self, client: Any) -> None:
         """Test fusion with multivariate data."""
         data = [
             [1.0, 2.0, 3.0],
@@ -193,7 +194,7 @@ class TestDetectionRoutes:
         result = response.json()
         assert "fused_score" in result
 
-    def test_fusion_minimum_data_points(self, client):
+    def test_fusion_minimum_data_points(self, client: Any) -> None:
         """Test fusion with insufficient data."""
         response = client.post(
             "/api/v1/detect/fusion",
@@ -201,7 +202,7 @@ class TestDetectionRoutes:
         )
         assert response.status_code == 422
 
-    def test_fusion_detects_anomaly(self, client):
+    def test_fusion_detects_anomaly(self, client: Any) -> None:
         """Test that fusion correctly flags clear anomalies."""
         data = [1.0, 1.1, 1.0, 1.1, 1.0, 100.0, 1.0, 1.1, 1.0, 1.1]
         response = client.post(
@@ -218,7 +219,7 @@ class TestDetectionRoutes:
         result = response.json()
         assert result["is_anomaly"] is True
 
-    def test_three_r_detection(self, client):
+    def test_three_r_detection(self, client: Any) -> None:
         """Test 3R mechanism analysis endpoint."""
         data = [float(i) + np.sin(i * 0.5) for i in range(50)]
         response = client.post(
@@ -239,7 +240,7 @@ class TestDetectionRoutes:
         assert "resonance_score" in result
         assert "is_stable" in result
 
-    def test_three_r_invalid_recursion_depth(self, client):
+    def test_three_r_invalid_recursion_depth(self, client: Any) -> None:
         """Test 3R with invalid recursion depth."""
         data = [1.0] * 50
         response = client.post(
@@ -253,7 +254,7 @@ class TestDetectionRoutes:
         )
         assert response.status_code == 422
 
-    def test_three_r_response_structure(self, client):
+    def test_three_r_response_structure(self, client: Any) -> None:
         """Test 3R response includes all expected fields."""
         data = [np.sin(i * 0.1) for i in range(100)]
         response = client.post(
@@ -277,7 +278,7 @@ class TestDetectionRoutes:
 class TestBatchRoutes:
     """Tests for /api/v1/batch endpoints."""
 
-    def test_submit_batch_job(self, client):
+    def test_submit_batch_job(self, client: Any) -> None:
         """Test submitting a batch detection job."""
         data = [[float(i)] for i in range(20)]
         response = client.post(
@@ -295,7 +296,7 @@ class TestBatchRoutes:
         assert "job_id" in result
         assert result["status"] in ("PENDING", "pending")
 
-    def test_get_job_status(self, client):
+    def test_get_job_status(self, client: Any) -> None:
         """Test getting job status."""
         # First submit a job
         data = [[float(i)] for i in range(20)]
@@ -318,12 +319,12 @@ class TestBatchRoutes:
         status_data = status_resp.json()
         assert status_data["job_id"] == job_id
 
-    def test_get_job_not_found(self, client):
+    def test_get_job_not_found(self, client: Any) -> None:
         """Test getting non-existent job."""
         response = client.get("/api/v1/batch/jobs/nonexistent_job_id")
         assert response.status_code == 404
 
-    def test_batch_empty_data_rejected(self, client):
+    def test_batch_empty_data_rejected(self, client: Any) -> None:
         """Test that empty data is rejected."""
         response = client.post(
             "/api/v1/batch/detect",
@@ -336,7 +337,7 @@ class TestBatchRoutes:
         )
         assert response.status_code == 422
 
-    def test_batch_sensitivity_range(self, client):
+    def test_batch_sensitivity_range(self, client: Any) -> None:
         """Test sensitivity validation."""
         data = [[1.0], [2.0], [3.0]]
         response = client.post(
@@ -345,7 +346,7 @@ class TestBatchRoutes:
         )
         assert response.status_code == 202
 
-    def test_cancel_job(self, client):
+    def test_cancel_job(self, client: Any) -> None:
         """Test cancelling a batch job."""
         # Submit a job first
         data = [[float(i)] for i in range(100)]
@@ -360,7 +361,7 @@ class TestBatchRoutes:
         cancel_resp = client.delete(f"/api/v1/batch/jobs/{job_id}")
         assert cancel_resp.status_code in (200, 204, 400)
 
-    def test_list_jobs(self, client):
+    def test_list_jobs(self, client: Any) -> None:
         """Test listing batch jobs."""
         response = client.get("/api/v1/batch/jobs")
         assert response.status_code == 200
@@ -388,7 +389,7 @@ class TestExportRoutes:
         )
         return {"X-API-Key": raw_key}
 
-    def test_get_export_summary(self, client, auth_headers):
+    def test_get_export_summary(self, client: Any, auth_headers: Any) -> None:
         """Test export summary endpoint."""
         response = client.get("/api/v1/export/summary", headers=auth_headers)
         assert response.status_code == 200
@@ -396,7 +397,7 @@ class TestExportRoutes:
         assert "total_detections" in data
         assert "total_audit_logs" in data
 
-    def test_export_detections_json(self, client, auth_headers):
+    def test_export_detections_json(self, client: Any, auth_headers: Any) -> None:
         """Test exporting detections as JSON."""
         response = client.get(
             "/api/v1/export/detections",
@@ -405,7 +406,7 @@ class TestExportRoutes:
         )
         assert response.status_code == 200
 
-    def test_export_detections_csv(self, client, auth_headers):
+    def test_export_detections_csv(self, client: Any, auth_headers: Any) -> None:
         """Test exporting detections as CSV."""
         response = client.get(
             "/api/v1/export/detections",
@@ -414,7 +415,7 @@ class TestExportRoutes:
         )
         assert response.status_code == 200
 
-    def test_export_detections_jsonl(self, client, auth_headers):
+    def test_export_detections_jsonl(self, client: Any, auth_headers: Any) -> None:
         """Test exporting detections as JSONL."""
         response = client.get(
             "/api/v1/export/detections",
@@ -423,7 +424,7 @@ class TestExportRoutes:
         )
         assert response.status_code == 200
 
-    def test_export_audit_logs(self, client, auth_headers):
+    def test_export_audit_logs(self, client: Any, auth_headers: Any) -> None:
         """Test exporting audit logs."""
         response = client.get(
             "/api/v1/export/audit-logs",
@@ -432,7 +433,7 @@ class TestExportRoutes:
         )
         assert response.status_code == 200
 
-    def test_export_metrics(self, client, auth_headers):
+    def test_export_metrics(self, client: Any, auth_headers: Any) -> None:
         """Test exporting metrics."""
         response = client.get(
             "/api/v1/export/metrics",
@@ -453,7 +454,7 @@ class TestExportRoutes:
 class TestBatchCallbackSSRF:
     """Tests for batch callback URL SSRF validation."""
 
-    def test_private_callback_url_rejected(self, client):
+    def test_private_callback_url_rejected(self, client: Any) -> None:
         """Test that private IP callback URLs are rejected."""
         data = [[1.0], [2.0], [3.0]]
         response = client.post(
@@ -468,7 +469,7 @@ class TestBatchCallbackSSRF:
         )
         assert response.status_code == 422
 
-    def test_localhost_callback_url_rejected(self, client):
+    def test_localhost_callback_url_rejected(self, client: Any) -> None:
         """Test that localhost callback URLs are rejected."""
         data = [[1.0], [2.0], [3.0]]
         response = client.post(
@@ -483,7 +484,7 @@ class TestBatchCallbackSSRF:
         )
         assert response.status_code == 422
 
-    def test_http_callback_url_rejected(self, client):
+    def test_http_callback_url_rejected(self, client: Any) -> None:
         """Test that non-HTTPS callback URLs are rejected."""
         data = [[1.0], [2.0], [3.0]]
         response = client.post(
@@ -507,7 +508,7 @@ class TestBatchCallbackSSRF:
 class TestModelEnums:
     """Tests for model-related enums."""
 
-    def test_model_type_values(self):
+    def test_model_type_values(self) -> None:
         """Test ModelType enum values exist."""
         from omni_mercury_engine.api.routes.models import ModelType
 
@@ -516,7 +517,7 @@ class TestModelEnums:
         assert hasattr(ModelType, "TEMPORAL")
         assert hasattr(ModelType, "CUSTOM")
 
-    def test_model_status_values(self):
+    def test_model_status_values(self) -> None:
         """Test ModelStatus enum values exist."""
         from omni_mercury_engine.api.routes.models import ModelStatus
 
@@ -525,7 +526,7 @@ class TestModelEnums:
         assert hasattr(ModelStatus, "DEPLOYED")
         assert hasattr(ModelStatus, "DEPRECATED")
 
-    def test_model_framework_values(self):
+    def test_model_framework_values(self) -> None:
         """Test ModelFramework enum values exist."""
         from omni_mercury_engine.api.routes.models import ModelFramework
 
@@ -542,7 +543,7 @@ class TestModelEnums:
 class TestBatchMethodEnum:
     """Tests for batch detection method enum."""
 
-    def test_detection_methods(self):
+    def test_detection_methods(self) -> None:
         """Test all batch detection methods exist."""
         from omni_mercury_engine.api.routes.batch import BatchDetectionMethod
 
@@ -562,7 +563,7 @@ class TestBatchMethodEnum:
 class TestExportFormatEnum:
     """Tests for export format enum."""
 
-    def test_export_formats(self):
+    def test_export_formats(self) -> None:
         """Test all export formats exist."""
         from omni_mercury_engine.api.routes.export import ExportFormat
 

@@ -5,6 +5,8 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 """
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -142,7 +144,7 @@ class TestGeomageticCorrelator:
     def test_space_weather_factor(self) -> None:
         """Test space weather factor calculation."""
         correlator = GeomageticCorrelator()
-        schumann_anomaly = {}
+        schumann_anomaly: dict[str, Any] = {}
         result_low = correlator.correlate_geomagnetic(
             schumann_anomaly, {"kp_index": 3.0, "dst_index": -20}
         )

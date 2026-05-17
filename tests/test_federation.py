@@ -296,8 +296,8 @@ def test_dp_stronger_epsilon_more_noise(data_a: np.ndarray) -> None:
         strong = node.export_statistics(epsilon=0.1)
         weak = node.export_statistics(epsilon=10.0)
 
-        dist_strong += np.linalg.norm(strong.mean - raw.mean)
-        dist_weak += np.linalg.norm(weak.mean - raw.mean)
+        dist_strong += float(np.linalg.norm(strong.mean - raw.mean))
+        dist_weak += float(np.linalg.norm(weak.mean - raw.mean))
 
     dist_strong /= n_trials
     dist_weak /= n_trials

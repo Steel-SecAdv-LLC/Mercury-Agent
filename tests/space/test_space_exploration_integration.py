@@ -30,7 +30,7 @@ from omni_mercury_engine.space import SpaceExplorationAnalyzer
 
 class TestSpaceExplorationIntegration:
 
-    def test_hubble_cosmic_ray_detection_realistic(self):
+    def test_hubble_cosmic_ray_detection_realistic(self) -> None:
         """Test cosmic ray detection with Hubble-like energy distribution."""
         analyzer = SpaceExplorationAnalyzer(config={"cosmic_ray_threshold": 3.5})
 
@@ -47,7 +47,7 @@ class TestSpaceExplorationIntegration:
         assert result["severity"] in ["medium", "high", "critical"]
         assert len(result["recommendations"]) > 0
 
-    def test_iss_orbital_debris_prediction(self):
+    def test_iss_orbital_debris_prediction(self) -> None:
         """Test ISS orbital debris risk with close approach scenarios."""
         analyzer = SpaceExplorationAnalyzer()
 
@@ -69,7 +69,7 @@ class TestSpaceExplorationIntegration:
         if result["proximity_warnings"]:
             assert result["proximity_warnings"][0]["separation_km"] < 50.0
 
-    def test_spectral_quasar_detection(self):
+    def test_spectral_quasar_detection(self) -> None:
         """Test spectral analysis with quasar emission lines."""
         analyzer = SpaceExplorationAnalyzer()
 
@@ -90,7 +90,7 @@ class TestSpaceExplorationIntegration:
         identified_elements = [line["element"] for line in result["identified_lines"]]
         assert any("hydrogen" in elem.lower() for elem in identified_elements)
 
-    def test_leo_satellite_deviation(self):
+    def test_leo_satellite_deviation(self) -> None:
         """Test LEO satellite position deviation detection."""
         analyzer = SpaceExplorationAnalyzer()
 
@@ -134,7 +134,7 @@ class TestSpaceExplorationIntegration:
         assert "position_outliers" in result
         assert result["position_outliers"] > 0
 
-    def test_collision_avoidance_scenario(self):
+    def test_collision_avoidance_scenario(self) -> None:
         """Test debris collision avoidance with critical proximity."""
         analyzer = SpaceExplorationAnalyzer(config={"debris_proximity_km": 5.0})
 
@@ -167,7 +167,7 @@ class TestSpaceExplorationIntegration:
             "maneuver" in r.lower() or "avoidance" in r.lower() for r in result["recommendations"]
         )
 
-    def test_end_to_end_mission_monitoring(self):
+    def test_end_to_end_mission_monitoring(self) -> None:
         """Test complete mission monitoring scenario."""
         analyzer = SpaceExplorationAnalyzer()
 

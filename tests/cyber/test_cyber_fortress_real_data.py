@@ -43,7 +43,7 @@ pytestmark = pytest.mark.skipif(
 
 
 class TestRealDataValidation:
-    def test_hash_integrity_with_tampering(self):
+    def test_hash_integrity_with_tampering(self) -> None:
         """Test hash integrity detection on simulated PCAP with tampering."""
         normal_data = generate_pcap_data(num_packets=500, inject_tampering=False)
         tampered_data = generate_pcap_data(
@@ -58,7 +58,7 @@ class TestRealDataValidation:
         tampered_result = checker.check_integrity(tampered_data["hash_chain"])
         assert tampered_result["resonance_anomalies"] > 0
 
-    def test_threshold_sensitivity(self):
+    def test_threshold_sensitivity(self) -> None:
         """Test different thresholds on simulated data."""
         data = generate_pcap_data(num_packets=300, inject_tampering=True, tampering_ratio=0.05)
 
@@ -75,7 +75,7 @@ class TestRealDataValidation:
             anomaly_counts[0] >= anomaly_counts[-1]
         ), "Lower threshold should detect more anomalies"
 
-    def test_encrypted_traffic_detection(self):
+    def test_encrypted_traffic_detection(self) -> None:
         """Test encrypted traffic anomaly detection on simulated PCAP."""
         fortress = CyberFortress()
 
@@ -90,7 +90,7 @@ class TestRealDataValidation:
         assert all(0.0 <= r.threat_score <= 1.0 for r in results)
         assert all(r.hash_integrity_verified is not None for r in results)
 
-    def test_pcap_benchmark_accuracy(self):
+    def test_pcap_benchmark_accuracy(self) -> None:
         """Benchmark accuracy on simulated PCAP data."""
         checker = ResonanceHashIntegrityChecker(threshold_std=10.0)
 

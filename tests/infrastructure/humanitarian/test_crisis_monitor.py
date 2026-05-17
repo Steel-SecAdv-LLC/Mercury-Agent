@@ -17,7 +17,7 @@ from omni_mercury_engine.infrastructure.humanitarian.crisis_monitoring.crisis_mo
 class TestCrisisAlert:
     """Tests for CrisisAlert dataclass."""
 
-    def test_basic_alert(self):
+    def test_basic_alert(self) -> None:
         """Test basic crisis alert creation."""
         alert = CrisisAlert(
             crisis_detected=True,
@@ -34,7 +34,7 @@ class TestCrisisAlert:
         assert alert.severity == "high"
         assert alert.affected_population == 10000
 
-    def test_no_crisis_alert(self):
+    def test_no_crisis_alert(self) -> None:
         """Test alert when no crisis detected."""
         alert = CrisisAlert(
             crisis_detected=False,
@@ -49,7 +49,7 @@ class TestCrisisAlert:
         assert alert.crisis_detected is False
         assert len(alert.vulnerable_groups) == 0
 
-    def test_alert_with_vulnerable_groups(self):
+    def test_alert_with_vulnerable_groups(self) -> None:
         """Test alert with vulnerable groups identified."""
         alert = CrisisAlert(
             crisis_detected=True,
@@ -64,7 +64,7 @@ class TestCrisisAlert:
         assert len(alert.vulnerable_groups) == 4
         assert "elderly" in alert.vulnerable_groups
 
-    def test_alert_survivor_priorities(self):
+    def test_alert_survivor_priorities(self) -> None:
         """Test alert with survivor priorities."""
         alert = CrisisAlert(
             crisis_detected=True,
@@ -83,27 +83,27 @@ class TestCrisisAlert:
 class TestCrisisMonitorInitialization:
     """Tests for CrisisMonitor initialization."""
 
-    def test_default_initialization(self):
+    def test_default_initialization(self) -> None:
         """Test default initialization."""
         monitor = CrisisMonitor()
         assert monitor.config == {}
         assert monitor.severity_threshold == 0.7
         assert len(monitor.crisis_types) > 0
 
-    def test_custom_config(self):
+    def test_custom_config(self) -> None:
         """Test initialization with custom config."""
         config = {"severity_threshold": 0.5, "alert_level": "high"}
         monitor = CrisisMonitor(config=config)
         assert monitor.severity_threshold == 0.5
 
-    def test_crisis_types_available(self):
+    def test_crisis_types_available(self) -> None:
         """Test crisis types are defined."""
         monitor = CrisisMonitor()
         assert "natural_disaster" in monitor.crisis_types
         assert "pandemic" in monitor.crisis_types
         assert "humanitarian_emergency" in monitor.crisis_types
 
-    def test_logger_initialized(self):
+    def test_logger_initialized(self) -> None:
         """Test logger is initialized."""
         monitor = CrisisMonitor()
         assert monitor.logger is not None
@@ -112,16 +112,16 @@ class TestCrisisMonitorInitialization:
 class TestCrisisMonitorMonitoring:
     """Tests for crisis monitoring functionality."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.monitor = CrisisMonitor()
 
-    def test_monitor_crisis_no_data(self):
+    def test_monitor_crisis_no_data(self) -> None:
         """Test monitoring with no data."""
         alert = self.monitor.monitor_crisis()
         assert isinstance(alert, CrisisAlert)
 
-    def test_monitor_crisis_with_geoint(self):
+    def test_monitor_crisis_with_geoint(self) -> None:
         """Test monitoring with GEOINT data."""
         geoint_data = {
             "flood_level": 0.9,
@@ -132,7 +132,7 @@ class TestCrisisMonitorMonitoring:
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
         assert isinstance(alert, CrisisAlert)
 
-    def test_monitor_crisis_with_osint(self):
+    def test_monitor_crisis_with_osint(self) -> None:
         """Test monitoring with OSINT data."""
         osint_data = {
             "social_media_alerts": 150,
@@ -142,7 +142,7 @@ class TestCrisisMonitorMonitoring:
         alert = self.monitor.monitor_crisis(osint_data=osint_data)
         assert isinstance(alert, CrisisAlert)
 
-    def test_monitor_crisis_with_both_int(self):
+    def test_monitor_crisis_with_both_int(self) -> None:
         """Test monitoring with both GEOINT and OSINT."""
         geoint_data = {"flood_level": 0.8}
         osint_data = {"social_media_alerts": 200}
@@ -152,7 +152,7 @@ class TestCrisisMonitorMonitoring:
         )
         assert isinstance(alert, CrisisAlert)
 
-    def test_high_severity_detection(self):
+    def test_high_severity_detection(self) -> None:
         """Test high severity crisis detection."""
         geoint_data = {
             "flood_level": 0.95,
@@ -163,7 +163,7 @@ class TestCrisisMonitorMonitoring:
         if alert.crisis_detected:
             assert alert.severity in ["high", "critical"]
 
-    def test_low_severity_no_detection(self):
+    def test_low_severity_no_detection(self) -> None:
         """Test low severity data doesn't trigger crisis."""
         geoint_data = {
             "flood_level": 0.1,
@@ -178,11 +178,11 @@ class TestCrisisMonitorMonitoring:
 class TestCrisisMonitorClassification:
     """Tests for crisis classification."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.monitor = CrisisMonitor()
 
-    def test_natural_disaster_classification(self):
+    def test_natural_disaster_classification(self) -> None:
         """Test natural disaster classification."""
         geoint_data = {
             "earthquake_magnitude": 7.5,
@@ -193,7 +193,7 @@ class TestCrisisMonitorClassification:
         # Should classify as natural_disaster
         assert alert.crisis_type in self.monitor.crisis_types or alert.crisis_type == "unknown"
 
-    def test_pandemic_classification(self):
+    def test_pandemic_classification(self) -> None:
         """Test pandemic classification."""
         geoint_data = {
             "infection_rate": 0.9,
@@ -203,7 +203,7 @@ class TestCrisisMonitorClassification:
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
         assert isinstance(alert.crisis_type, str)
 
-    def test_infrastructure_failure_classification(self):
+    def test_infrastructure_failure_classification(self) -> None:
         """Test infrastructure failure classification."""
         geoint_data = {
             "power_outage": 0.8,
@@ -217,17 +217,17 @@ class TestCrisisMonitorClassification:
 class TestCrisisMonitorVulnerableGroups:
     """Tests for vulnerable group identification."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.monitor = CrisisMonitor()
 
-    def test_identifies_vulnerable_groups(self):
+    def test_identifies_vulnerable_groups(self) -> None:
         """Test that vulnerable groups are identified."""
         geoint_data = {"severity": 0.9, "population_density": 10000}
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
         assert isinstance(alert.vulnerable_groups, list)
 
-    def test_vulnerable_groups_for_natural_disaster(self):
+    def test_vulnerable_groups_for_natural_disaster(self) -> None:
         """Test vulnerable groups for natural disaster."""
         geoint_data = {
             "flood_level": 0.9,
@@ -242,17 +242,17 @@ class TestCrisisMonitorVulnerableGroups:
 class TestCrisisMonitorRecommendations:
     """Tests for response recommendations."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.monitor = CrisisMonitor()
 
-    def test_generates_recommendations(self):
+    def test_generates_recommendations(self) -> None:
         """Test that recommendations are generated."""
         geoint_data = {"severity": 0.9}
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
         assert isinstance(alert.recommended_response, list)
 
-    def test_recommendations_for_high_severity(self):
+    def test_recommendations_for_high_severity(self) -> None:
         """Test recommendations for high severity crisis."""
         geoint_data = {
             "severity": 0.95,
@@ -267,17 +267,17 @@ class TestCrisisMonitorRecommendations:
 class TestCrisisMonitorSurvivorPriorities:
     """Tests for survivor priority identification."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.monitor = CrisisMonitor()
 
-    def test_identifies_survivor_priorities(self):
+    def test_identifies_survivor_priorities(self) -> None:
         """Test that survivor priorities are identified."""
         geoint_data = {"severity": 0.9}
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
         assert isinstance(alert.survivor_priorities, list)
 
-    def test_survivor_first_prioritization(self):
+    def test_survivor_first_prioritization(self) -> None:
         """Test survivor-first prioritization principle."""
         geoint_data = {
             "mass_casualty_event": True,
@@ -291,11 +291,11 @@ class TestCrisisMonitorSurvivorPriorities:
 class TestCrisisMonitorGEOINTIndicators:
     """Tests for GEOINT indicator processing."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.monitor = CrisisMonitor()
 
-    def test_processes_geoint_indicators(self):
+    def test_processes_geoint_indicators(self) -> None:
         """Test GEOINT indicator processing."""
         geoint_data = {
             "satellite_imagery_anomaly": True,
@@ -305,7 +305,7 @@ class TestCrisisMonitorGEOINTIndicators:
         alert = self.monitor.monitor_crisis(geoint_data=geoint_data)
         assert isinstance(alert.geoint_indicators, list)
 
-    def test_multiple_geoint_sources(self):
+    def test_multiple_geoint_sources(self) -> None:
         """Test processing multiple GEOINT sources."""
         geoint_data = {
             "sar_data": {"flood_extent": 0.7},
@@ -319,11 +319,11 @@ class TestCrisisMonitorGEOINTIndicators:
 class TestCrisisMonitorAffectedPopulation:
     """Tests for affected population estimation."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.monitor = CrisisMonitor()
 
-    def test_estimates_affected_population(self):
+    def test_estimates_affected_population(self) -> None:
         """Test affected population estimation."""
         geoint_data = {
             "affected_area_km2": 100,
@@ -333,7 +333,7 @@ class TestCrisisMonitorAffectedPopulation:
         assert isinstance(alert.affected_population, int)
         assert alert.affected_population >= 0
 
-    def test_high_population_density_area(self):
+    def test_high_population_density_area(self) -> None:
         """Test estimation for high population density."""
         geoint_data = {
             "affected_area_km2": 50,
@@ -347,11 +347,11 @@ class TestCrisisMonitorAffectedPopulation:
 class TestCrisisMonitorSeverityLevels:
     """Tests for severity level determination."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.monitor = CrisisMonitor()
 
-    def test_severity_levels(self):
+    def test_severity_levels(self) -> None:
         """Test different severity levels."""
         # Low severity
         alert_low = self.monitor.monitor_crisis(geoint_data={"severity": 0.2})
@@ -361,7 +361,7 @@ class TestCrisisMonitorSeverityLevels:
         alert_high = self.monitor.monitor_crisis(geoint_data={"severity": 0.9})
         assert alert_high.severity in ["low", "medium", "high", "critical"]
 
-    def test_critical_severity_threshold(self):
+    def test_critical_severity_threshold(self) -> None:
         """Test critical severity threshold."""
         config = {"severity_threshold": 0.9}
         monitor = CrisisMonitor(config=config)
@@ -373,26 +373,26 @@ class TestCrisisMonitorSeverityLevels:
 class TestCrisisMonitorEdgeCases:
     """Tests for edge cases."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.monitor = CrisisMonitor()
 
-    def test_empty_geoint_data(self):
+    def test_empty_geoint_data(self) -> None:
         """Test with empty GEOINT data."""
         alert = self.monitor.monitor_crisis(geoint_data={})
         assert isinstance(alert, CrisisAlert)
 
-    def test_empty_osint_data(self):
+    def test_empty_osint_data(self) -> None:
         """Test with empty OSINT data."""
         alert = self.monitor.monitor_crisis(osint_data={})
         assert isinstance(alert, CrisisAlert)
 
-    def test_none_inputs(self):
+    def test_none_inputs(self) -> None:
         """Test with None inputs."""
         alert = self.monitor.monitor_crisis(geoint_data=None, osint_data=None)
         assert isinstance(alert, CrisisAlert)
 
-    def test_unusual_data_values(self):
+    def test_unusual_data_values(self) -> None:
         """Test with unusual data values."""
         geoint_data = {
             "severity": 1.5,  # Over 1.0
@@ -402,7 +402,7 @@ class TestCrisisMonitorEdgeCases:
         # Should handle gracefully
         assert isinstance(alert, CrisisAlert)
 
-    def test_very_large_values(self):
+    def test_very_large_values(self) -> None:
         """Test with very large values."""
         geoint_data = {
             "affected_area_km2": 1000000,

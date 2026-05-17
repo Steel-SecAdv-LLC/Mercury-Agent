@@ -7,6 +7,8 @@ Tests for Advanced Physics Integration Module.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -275,7 +277,7 @@ class TestPhysicsGOSNNScalars:
 
     def test_compute_ethical_scaling_basic(self) -> None:
         """Test basic ethical scaling computation."""
-        context = {}
+        context: dict[str, Any] = {}
         scaling = PhysicsGOSNNScalars.compute_ethical_scaling(context)
 
         assert 0 < scaling <= 1

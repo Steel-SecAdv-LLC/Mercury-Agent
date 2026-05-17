@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Test communication utilities
 """
@@ -27,7 +29,7 @@ import asyncio
 from omni_mercury_engine.utils.comm import AsyncMessageQueue, Message, MessagePriority, SimplePubSub
 
 
-def test_message_creation():
+def test_message_creation() -> None:
     """Test message object creation"""
     msg = Message(
         sender="test_sender",
@@ -42,7 +44,7 @@ def test_message_creation():
     assert msg.recipient == "test_recipient"
 
 
-def test_message_priority_enum():
+def test_message_priority_enum() -> None:
     """Test message priority enum values"""
     assert MessagePriority.LOW.value == 1
     assert MessagePriority.NORMAL.value == 2
@@ -50,14 +52,14 @@ def test_message_priority_enum():
     assert MessagePriority.CRITICAL.value == 4
 
 
-def test_async_message_queue_initialization():
+def test_async_message_queue_initialization() -> None:
     """Test async message queue initialization"""
     queue = AsyncMessageQueue(max_size=100)
     assert queue is not None
     assert queue.queue.maxsize == 100
 
 
-async def async_test_send_receive():
+async def async_test_send_receive() -> None:
     """Test async send and receive operations"""
     queue = AsyncMessageQueue(max_size=10)
 
@@ -74,12 +76,12 @@ async def async_test_send_receive():
     assert retrieved.content == "test"
 
 
-def test_async_queue_send_receive():
+def test_async_queue_send_receive() -> None:
     """Test async queue operations"""
     asyncio.run(async_test_send_receive())
 
 
-async def async_test_priority_ordering():
+async def async_test_priority_ordering() -> None:
     """Test priority ordering in queue"""
     queue = AsyncMessageQueue(max_size=10)
 
@@ -97,23 +99,23 @@ async def async_test_priority_ordering():
     assert first is not None
 
 
-def test_priority_ordering():
+def test_priority_ordering() -> None:
     """Test message send/receive"""
     asyncio.run(async_test_priority_ordering())
 
 
-def test_pubsub_initialization():
+def test_pubsub_initialization() -> None:
     """Test pub/sub system initialization"""
     pubsub = SimplePubSub()
     assert pubsub is not None
 
 
-def test_pubsub_subscribe():
+def test_pubsub_subscribe() -> None:
     """Test subscribing to topic"""
     pubsub = SimplePubSub()
     received = []
 
-    def callback(msg):
+    def callback(msg: Any) -> None:
         received.append(msg)
 
     pubsub.subscribe("test_topic", callback)
@@ -123,16 +125,16 @@ def test_pubsub_subscribe():
     assert received[0] == "test message"
 
 
-def test_pubsub_multiple_subscribers():
+def test_pubsub_multiple_subscribers() -> None:
     """Test multiple subscribers"""
     pubsub = SimplePubSub()
     received1 = []
     received2 = []
 
-    def callback1(msg):
+    def callback1(msg: Any) -> None:
         received1.append(msg)
 
-    def callback2(msg):
+    def callback2(msg: Any) -> None:
         received2.append(msg)
 
     pubsub.subscribe("test_topic", callback1)
@@ -143,12 +145,12 @@ def test_pubsub_multiple_subscribers():
     assert len(received2) == 1
 
 
-def test_pubsub_unsubscribe():
+def test_pubsub_unsubscribe() -> None:
     """Test unsubscribing from topic"""
     pubsub = SimplePubSub()
     received = []
 
-    def callback(msg):
+    def callback(msg: Any) -> None:
         received.append(msg)
 
     pubsub.subscribe("test_topic", callback)

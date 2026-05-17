@@ -5,6 +5,8 @@ Mercury Agent
 Copyright (C) 2025 Steel Security Advisors LLC
 """
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -259,7 +261,7 @@ class TestSolarStormDetector:
     def test_predict_no_storm(self) -> None:
         """Test prediction with no storm data."""
         detector = SolarStormDetector()
-        storm_data = {}
+        storm_data: dict[str, Any] = {}
         result = detector.predict_solar_storm(storm_data)
         assert result.solar_storm_imminent is False
         assert result.confidence == 0.0

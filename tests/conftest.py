@@ -28,6 +28,10 @@ to ensure consistent test results across runs.
 
 import logging
 import os
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 # Synthetic fallback contract for the unit-test suite.  The dataset
 # loaders are strict-by-default — they raise ``DataSourceUnavailableError``
@@ -66,7 +70,7 @@ DEFAULT_TEST_SEED = 42
 
 
 @pytest.fixture(autouse=True)
-def set_random_seed():
+def set_random_seed() -> Iterator[None]:
     """
     Set a deterministic seed before each test.
 
@@ -83,7 +87,7 @@ def set_random_seed():
 
 
 @pytest.fixture(autouse=True)
-def _restore_engine_logger_propagation():
+def _restore_engine_logger_propagation() -> Iterator[None]:
     """Keep ``omni_mercury_engine`` logger propagating across every test.
 
     ``omni_mercury_engine.utils.logging.configure_logging`` (exercised by
@@ -112,7 +116,7 @@ def _restore_engine_logger_propagation():
 
 
 @pytest.fixture
-def deterministic_rng():
+def deterministic_rng() -> DeterministicRNG:
     """
     Provide a DeterministicRNG instance for tests.
 
@@ -123,13 +127,13 @@ def deterministic_rng():
 
 
 @pytest.fixture
-def sample_data(deterministic_rng):
+def sample_data(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate sample data for testing using deterministic RNG."""
     return deterministic_rng.randn(100, 10)
 
 
 @pytest.fixture
-def sample_tensor(set_random_seed):
+def sample_tensor(set_random_seed: None) -> Any:
     """Generate sample tensor for testing (requires torch)"""
     if not HAS_TORCH:
         pytest.skip("torch not installed - skipping ML test")
@@ -137,7 +141,7 @@ def sample_tensor(set_random_seed):
 
 
 @pytest.fixture
-def anomaly_data(deterministic_rng):
+def anomaly_data(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate data with known anomalies using deterministic RNG."""
     normal = deterministic_rng.randn(90, 10)
     anomalies = deterministic_rng.randn(10, 10) * 5
@@ -145,28 +149,29 @@ def anomaly_data(deterministic_rng):
 
 
 @pytest.fixture
-def biometric_sample(deterministic_rng):
+def biometric_sample(deterministic_rng: DeterministicRNG) -> dict[str, np.ndarray]:
     """Generate sample biometric data using deterministic RNG."""
+    image_arr = cast("np.ndarray", deterministic_rng.randint(0, 255, (224, 224, 3)))
     return {
-        "image": deterministic_rng.randint(0, 255, (224, 224, 3)).astype(np.uint8),
+        "image": image_arr.astype(np.uint8),
         "face_mesh": deterministic_rng.randn(468, 3),
     }
 
 
 @pytest.fixture
-def univariate_data(deterministic_rng):
+def univariate_data(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate univariate time series data for testing."""
     return deterministic_rng.randn(1000)
 
 
 @pytest.fixture
-def multivariate_data(deterministic_rng):
+def multivariate_data(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate multivariate time series data for testing."""
     return deterministic_rng.randn(500, 20)
 
 
 @pytest.fixture
-def ecg_signal(deterministic_rng):
+def ecg_signal(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate synthetic ECG-like signal for medical tests."""
     t = np.linspace(0, 10, 5000)
     # Simple ECG-like waveform
@@ -176,19 +181,19 @@ def ecg_signal(deterministic_rng):
 
 
 @pytest.fixture
-def threat_features(deterministic_rng):
+def threat_features(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate synthetic threat feature vectors for security tests."""
     return deterministic_rng.randn(256)
 
 
 @pytest.fixture
-def seismic_sequence(deterministic_rng):
+def seismic_sequence(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate synthetic seismic sequence for geological tests."""
     return deterministic_rng.randn(100, 32)
 
 
 @pytest.fixture
-def thermal_data(deterministic_rng):
+def thermal_data(deterministic_rng: DeterministicRNG) -> dict[str, Any]:
     """Generate synthetic thermal data for volcanic monitoring tests."""
     base_temp = 288.0  # 15°C in Kelvin
     return {
@@ -198,7 +203,7 @@ def thermal_data(deterministic_rng):
 
 
 @pytest.fixture
-def gas_emissions(deterministic_rng):
+def gas_emissions(deterministic_rng: DeterministicRNG) -> dict[str, float]:
     """Generate synthetic gas emission data for volcanic tests."""
     return {
         "so2_tons_per_day": deterministic_rng.rand(1)[0] * 200 + 50,
@@ -207,7 +212,7 @@ def gas_emissions(deterministic_rng):
 
 
 @pytest.fixture
-def schumann_resonance(deterministic_rng):
+def schumann_resonance(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate synthetic Schumann resonance data."""
     t = np.linspace(0, 1, 1000)
     # 7.83 Hz fundamental frequency with noise
@@ -221,7 +226,7 @@ def schumann_resonance(deterministic_rng):
 
 
 @pytest.fixture
-def sample_image(deterministic_rng):
+def sample_image(deterministic_rng: DeterministicRNG) -> Any:
     """Generate sample image tensor for visual anomaly detection tests."""
     if not HAS_TORCH:
         pytest.skip("torch not installed - skipping visual test")
@@ -230,7 +235,7 @@ def sample_image(deterministic_rng):
 
 
 @pytest.fixture
-def sample_image_batch(deterministic_rng):
+def sample_image_batch(deterministic_rng: DeterministicRNG) -> Any:
     """Generate batch of sample images for visual anomaly detection tests."""
     if not HAS_TORCH:
         pytest.skip("torch not installed - skipping visual test")
@@ -239,7 +244,7 @@ def sample_image_batch(deterministic_rng):
 
 
 @pytest.fixture
-def sample_video_frames(deterministic_rng):
+def sample_video_frames(deterministic_rng: DeterministicRNG) -> list[Any]:
     """Generate sample video frames for VLM tests."""
     if not HAS_TORCH:
         pytest.skip("torch not installed - skipping VLM test")
@@ -248,7 +253,7 @@ def sample_video_frames(deterministic_rng):
 
 
 @pytest.fixture
-def time_series_with_anomaly(deterministic_rng):
+def time_series_with_anomaly(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate time series with known anomaly for foundation model tests."""
     # Normal data with spike anomaly
     data = deterministic_rng.randn(200)
@@ -258,13 +263,13 @@ def time_series_with_anomaly(deterministic_rng):
 
 
 @pytest.fixture
-def time_series_multivariate(deterministic_rng):
+def time_series_multivariate(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate multivariate time series for foundation model tests."""
     return deterministic_rng.randn(200, 5)
 
 
 @pytest.fixture
-def binary_labels(deterministic_rng):
+def binary_labels(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate binary labels for metric testing."""
     # 90 normal (0) + 10 anomalies (1)
     labels = np.zeros(100)
@@ -273,7 +278,7 @@ def binary_labels(deterministic_rng):
 
 
 @pytest.fixture
-def anomaly_scores(deterministic_rng):
+def anomaly_scores(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate anomaly scores corresponding to binary_labels."""
     # Lower scores for normal, higher for anomalies
     scores = deterministic_rng.rand(100)
@@ -282,7 +287,7 @@ def anomaly_scores(deterministic_rng):
 
 
 @pytest.fixture
-def pixel_masks(deterministic_rng):
+def pixel_masks(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate pixel-level masks for localization metrics."""
     # [N, H, W] binary masks
     masks = np.zeros((10, 64, 64))
@@ -292,7 +297,7 @@ def pixel_masks(deterministic_rng):
 
 
 @pytest.fixture
-def pixel_scores(deterministic_rng):
+def pixel_scores(deterministic_rng: DeterministicRNG) -> np.ndarray:
     """Generate pixel-level anomaly scores."""
     # [N, H, W] score maps
     scores = deterministic_rng.rand(10, 64, 64) * 0.3
@@ -301,7 +306,7 @@ def pixel_scores(deterministic_rng):
     return scores
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Auto-skip network-marked tests unless MERCURY_NETWORK_TESTS=1 is set."""
     if os.environ.get("MERCURY_NETWORK_TESTS", "0") == "1":
         return
@@ -312,7 +317,7 @@ def pytest_collection_modifyitems(config, items):
 
 
 # Marker for slow tests
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config) -> None:
     """Configure pytest with custom markers."""
     config.addinivalue_line("markers", "slow: marks tests as slow")
     config.addinivalue_line("markers", "integration: marks integration tests")

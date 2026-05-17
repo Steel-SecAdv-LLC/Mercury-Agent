@@ -25,7 +25,7 @@ import numpy as np
 from omni_mercury_engine.models.multiverse import MultiverseOmniEngine, UniverseState
 
 
-def test_multiverse_initialization():
+def test_multiverse_initialization() -> None:
     """Test multiverse engine initialization"""
     engine = MultiverseOmniEngine(num_universes=10, state_dim=50)
     assert len(engine.universes) == 10
@@ -33,7 +33,7 @@ def test_multiverse_initialization():
     assert engine.timeline == 0
 
 
-def test_multiverse_convergence():
+def test_multiverse_convergence() -> None:
     """Test multiverse convergence to optimal solution"""
     engine = MultiverseOmniEngine(num_universes=5, state_dim=10)
 
@@ -46,7 +46,7 @@ def test_multiverse_convergence():
     assert engine.best_universe is not None
 
 
-def test_multiverse_extract_features():
+def test_multiverse_extract_features() -> None:
     """Test feature extraction for anomaly detection"""
     engine = MultiverseOmniEngine(num_universes=5, state_dim=20)
     data = np.random.randn(3, 15)
@@ -56,7 +56,7 @@ def test_multiverse_extract_features():
     assert features.shape[1] == 12
 
 
-def test_multiverse_predict():
+def test_multiverse_predict() -> None:
     """Test anomaly prediction"""
     engine = MultiverseOmniEngine(num_universes=5, state_dim=20)
     data = np.random.randn(4, 10)
@@ -68,7 +68,7 @@ def test_multiverse_predict():
     assert "best_fitness" in result
 
 
-def test_multiverse_report():
+def test_multiverse_report() -> None:
     """Test multiverse report generation"""
     engine = MultiverseOmniEngine(num_universes=8, state_dim=30)
 

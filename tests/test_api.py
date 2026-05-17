@@ -34,7 +34,7 @@ client = TestClient(app)
 class TestAPI:
     """Test REST API endpoints."""
 
-    def test_health_endpoint(self):
+    def test_health_endpoint(self) -> None:
         """Test health check endpoint."""
         response = client.get("/health")
 
@@ -43,7 +43,7 @@ class TestAPI:
         assert result["status"] == "healthy"
         assert result["version"] == "1.6.0"
 
-    def test_univariate_detection_endpoint(self):
+    def test_univariate_detection_endpoint(self) -> None:
         """Test univariate anomaly detection endpoint."""
         response = client.post(
             "/api/v1/detect/univariate",
@@ -57,7 +57,7 @@ class TestAPI:
         assert result["method"] == "univariate"
         assert len(result["anomalies"]) == 5
 
-    def test_univariate_detection_default_sensitivity(self):
+    def test_univariate_detection_default_sensitivity(self) -> None:
         """Test univariate detection with default sensitivity."""
         response = client.post(
             "/api/v1/detect/univariate", json={"data": [1.0, 2.0, 3.0, 4.0, 5.0]}
@@ -67,7 +67,7 @@ class TestAPI:
         result = response.json()
         assert "anomalies" in result
 
-    def test_multivariate_detection_endpoint(self):
+    def test_multivariate_detection_endpoint(self) -> None:
         """Test multivariate anomaly detection endpoint."""
         response = client.post(
             "/api/v1/detect/multivariate",
@@ -81,7 +81,7 @@ class TestAPI:
         assert "features" in result
         assert result["method"] == "multivariate"
 
-    def test_multivariate_detection_with_feature_names(self):
+    def test_multivariate_detection_with_feature_names(self) -> None:
         """Test multivariate detection with custom feature names."""
         response = client.post(
             "/api/v1/detect/multivariate",
@@ -96,7 +96,7 @@ class TestAPI:
         result = response.json()
         assert result["features"] == ["temperature", "pressure"]
 
-    def test_multivariate_detection_invalid_shape(self):
+    def test_multivariate_detection_invalid_shape(self) -> None:
         """Test multivariate detection with invalid data shape."""
         response = client.post(
             "/api/v1/detect/multivariate", json={"data": [1.0, 2.0, 3.0], "sensitivity": 0.5}
@@ -104,7 +104,7 @@ class TestAPI:
 
         assert response.status_code == 422
 
-    def test_univariate_sensitivity_affects_detection(self):
+    def test_univariate_sensitivity_affects_detection(self) -> None:
         """Test that sensitivity parameter affects detection."""
         data = {"data": [1.0, 1.0, 1.0, 10.0, 1.0]}
 
@@ -119,7 +119,7 @@ class TestAPI:
 
         assert result_low["threshold"] != result_high["threshold"]
 
-    def test_multivariate_sensitivity_affects_detection(self):
+    def test_multivariate_sensitivity_affects_detection(self) -> None:
         """Test that sensitivity parameter affects multivariate detection."""
         data = {"data": [[1.0, 2.0], [1.0, 2.0], [10.0, 20.0]]}
 
@@ -131,14 +131,14 @@ class TestAPI:
         assert response_low.status_code == 200
         assert response_high.status_code == 200
 
-    def test_univariate_empty_data(self):
+    def test_univariate_empty_data(self) -> None:
         """Test univariate detection with empty data returns validation error."""
         response = client.post("/api/v1/detect/univariate", json={"data": []})
 
         # Empty data should be rejected with 422 (min_length=3 validation)
         assert response.status_code == 422
 
-    def test_api_returns_correct_types(self):
+    def test_api_returns_correct_types(self) -> None:
         """Test API returns correct data types."""
         response = client.post(
             "/api/v1/detect/univariate", json={"data": [1.0, 2.0, 3.0, 4.0, 5.0]}

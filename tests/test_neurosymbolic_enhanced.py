@@ -36,7 +36,7 @@ class TestFuzzyOperators:
     """Tests for fuzzy logic operators."""
 
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
-    def test_and_product(self):
+    def test_and_product(self) -> None:
         """Test product t-norm."""
         x = torch.tensor([0.8, 0.6])
         y = torch.tensor([0.9, 0.5])
@@ -46,7 +46,7 @@ class TestFuzzyOperators:
         assert torch.allclose(result, torch.tensor([0.72, 0.30]))
 
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
-    def test_and_godel(self):
+    def test_and_godel(self) -> None:
         """Test Gödel t-norm (min)."""
         x = torch.tensor([0.8, 0.6])
         y = torch.tensor([0.9, 0.5])
@@ -56,7 +56,7 @@ class TestFuzzyOperators:
         assert torch.allclose(result, torch.tensor([0.8, 0.5]))
 
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
-    def test_or_product(self):
+    def test_or_product(self) -> None:
         """Test product t-conorm."""
         x = torch.tensor([0.8])
         y = torch.tensor([0.5])
@@ -67,7 +67,7 @@ class TestFuzzyOperators:
         assert torch.allclose(result, torch.tensor([expected]))
 
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
-    def test_not_standard(self):
+    def test_not_standard(self) -> None:
         """Test standard negation."""
         x = torch.tensor([0.3, 0.7, 1.0])
 
@@ -76,7 +76,7 @@ class TestFuzzyOperators:
         assert torch.allclose(result, torch.tensor([0.7, 0.3, 0.0]))
 
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
-    def test_implies_product(self):
+    def test_implies_product(self) -> None:
         """Test Reichenbach implication."""
         x = torch.tensor([0.8])
         y = torch.tensor([0.9])
@@ -90,7 +90,7 @@ class TestFuzzyOperators:
 class TestTemporalGraphReasoner:
     """Tests for temporal graph reasoning."""
 
-    def test_add_node_and_edge(self):
+    def test_add_node_and_edge(self) -> None:
         """Test adding nodes and edges."""
         reasoner = TemporalGraphReasoner()
 
@@ -102,7 +102,7 @@ class TestTemporalGraphReasoner:
         assert len(reasoner.edges) == 1
         assert edge.relation == "has_symptom"
 
-    def test_add_temporal_rule(self):
+    def test_add_temporal_rule(self) -> None:
         """Test adding temporal rules."""
         reasoner = TemporalGraphReasoner()
 
@@ -117,7 +117,7 @@ class TestTemporalGraphReasoner:
         assert len(reasoner.rules) == 1
         assert rule.time_window == 6
 
-    def test_basic_reasoning(self):
+    def test_basic_reasoning(self) -> None:
         """Test basic reasoning query."""
         reasoner = TemporalGraphReasoner()
 
@@ -138,7 +138,7 @@ class TestTemporalGraphReasoner:
         assert "derived_facts" in result
         assert "explanation" in result
 
-    def test_open_world_assumption(self):
+    def test_open_world_assumption(self) -> None:
         """Test open world reasoning (unknown != false)."""
         reasoner = TemporalGraphReasoner(open_world=True)
 
@@ -147,7 +147,7 @@ class TestTemporalGraphReasoner:
         # With open world, unknown should be 0.5 (uncertain), not 0
         assert result["confidence"] == 0.5
 
-    def test_closed_world_assumption(self):
+    def test_closed_world_assumption(self) -> None:
         """Test closed world reasoning (unknown = false)."""
         reasoner = TemporalGraphReasoner(open_world=False)
 
@@ -160,14 +160,14 @@ class TestTemporalGraphReasoner:
 class TestKnowledgeGraphBridge:
     """Tests for knowledge graph integration."""
 
-    def test_core_knowledge_initialized(self):
+    def test_core_knowledge_initialized(self) -> None:
         """Test that core knowledge is initialized."""
         kg = KnowledgeGraphBridge()
 
         # Check some core knowledge exists
         assert len(kg.knowledge_base) > 0
 
-    def test_add_and_query_knowledge(self):
+    def test_add_and_query_knowledge(self) -> None:
         """Test adding and querying knowledge."""
         kg = KnowledgeGraphBridge()
 
@@ -177,7 +177,7 @@ class TestKnowledgeGraphBridge:
         assert len(results) > 0
         assert any(r.object == "deviation" for r in results)
 
-    def test_inference(self):
+    def test_inference(self) -> None:
         """Test knowledge inference."""
         kg = KnowledgeGraphBridge()
 
@@ -187,7 +187,7 @@ class TestKnowledgeGraphBridge:
 
         assert confidence == 0.95
 
-    def test_enhance_reasoning(self):
+    def test_enhance_reasoning(self) -> None:
         """Test reasoning enhancement with commonsense."""
         kg = KnowledgeGraphBridge()
 
@@ -204,7 +204,7 @@ class TestKnowledgeGraphBridge:
 class TestMetaCognitionLayer:
     """Tests for meta-cognition layer."""
 
-    def test_assess_state(self):
+    def test_assess_state(self) -> None:
         """Test reasoning state assessment."""
         meta = MetaCognitionLayer()
 
@@ -215,7 +215,7 @@ class TestMetaCognitionLayer:
         assert 0 <= state.confidence <= 1
         assert 0 <= state.uncertainty <= 1
 
-    def test_should_continue_reasoning(self):
+    def test_should_continue_reasoning(self) -> None:
         """Test reasoning continuation decision."""
         meta = MetaCognitionLayer(
             confidence_threshold=0.8,
@@ -255,7 +255,7 @@ class TestMetaCognitionLayer:
         )
         assert not meta.should_continue_reasoning(state_deep)
 
-    def test_select_reasoning_strategy(self):
+    def test_select_reasoning_strategy(self) -> None:
         """Test strategy selection based on state."""
         meta = MetaCognitionLayer()
 
@@ -281,7 +281,7 @@ class TestMetaCognitionLayer:
         )
         assert meta.select_reasoning_strategy(high_confidence) == "neural_only"
 
-    def test_uncertainty_quantification(self):
+    def test_uncertainty_quantification(self) -> None:
         """Test uncertainty quantification."""
         meta = MetaCognitionLayer()
 
@@ -293,7 +293,7 @@ class TestMetaCognitionLayer:
         assert "total" in uncertainty
         assert uncertainty["aleatoric"] == 0.25  # 0.5 * 0.5
 
-    def test_calibration_with_ground_truth(self):
+    def test_calibration_with_ground_truth(self) -> None:
         """Test confidence calibration."""
         meta = MetaCognitionLayer()
 
@@ -310,7 +310,7 @@ class TestMetaCognitionLayer:
 class TestCausalReasoningModule:
     """Tests for causal reasoning."""
 
-    def test_add_causal_edge(self):
+    def test_add_causal_edge(self) -> None:
         """Test adding causal edges."""
         causal = CausalReasoningModule()
 
@@ -320,7 +320,7 @@ class TestCausalReasoningModule:
         assert "infection" in causal.causal_graph
         assert len(causal.causal_graph["infection"]) == 1
 
-    def test_observe_variables(self):
+    def test_observe_variables(self) -> None:
         """Test observing variable values."""
         causal = CausalReasoningModule()
 
@@ -330,7 +330,7 @@ class TestCausalReasoningModule:
         assert causal.variable_values["temperature"] == 38.5
         assert causal.variable_values["heart_rate"] == 95
 
-    def test_intervention(self):
+    def test_intervention(self) -> None:
         """Test do-calculus intervention."""
         causal = CausalReasoningModule()
 
@@ -344,7 +344,7 @@ class TestCausalReasoningModule:
         assert result["treatment"] == 1
         assert result["recovery"] == 0.8  # Should be affected
 
-    def test_counterfactual(self):
+    def test_counterfactual(self) -> None:
         """Test counterfactual reasoning."""
         causal = CausalReasoningModule()
 
@@ -358,7 +358,7 @@ class TestCausalReasoningModule:
         # If hadn't smoked, lung disease risk should be 0
         assert result["lung_disease"] == 0
 
-    def test_find_root_causes(self):
+    def test_find_root_causes(self) -> None:
         """Test root cause analysis."""
         causal = CausalReasoningModule()
 
@@ -377,7 +377,7 @@ class TestCausalReasoningModule:
 class TestProbabilisticLogicLayer:
     """Tests for probabilistic logic."""
 
-    def test_set_and_get_probability(self):
+    def test_set_and_get_probability(self) -> None:
         """Test setting and getting probability bounds."""
         prob = ProbabilisticLogicLayer()
 
@@ -387,7 +387,7 @@ class TestProbabilisticLogicLayer:
         assert low == 0.7
         assert high == 0.9
 
-    def test_and_probability(self):
+    def test_and_probability(self) -> None:
         """Test conjunction probability with Fréchet bounds."""
         prob = ProbabilisticLogicLayer()
 
@@ -399,7 +399,7 @@ class TestProbabilisticLogicLayer:
         # Fréchet bounds: max(0, P(A) + P(B) - 1) <= P(A∧B) <= min(P(A), P(B))
         assert 0 <= low <= high <= 1
 
-    def test_or_probability(self):
+    def test_or_probability(self) -> None:
         """Test disjunction probability."""
         prob = ProbabilisticLogicLayer()
 
@@ -415,7 +415,7 @@ class TestProbabilisticLogicLayer:
 class TestEnhancedNeurosymbolicEngine:
     """Tests for unified enhanced engine."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test engine initialization."""
         engine = EnhancedNeurosymbolicEngine(
             input_dim=32,
@@ -432,7 +432,7 @@ class TestEnhancedNeurosymbolicEngine:
         assert stats["knowledge_graph_size"] > 0
         assert stats["temporal_rules"] > 0
 
-    def test_predict(self):
+    def test_predict(self) -> None:
         """Test prediction with full neuro-symbolic stack."""
         engine = EnhancedNeurosymbolicEngine(input_dim=16)
 
@@ -449,7 +449,7 @@ class TestEnhancedNeurosymbolicEngine:
         if result["anomaly_scores"] is not None:
             assert len(result["anomaly_scores"]) == 5
 
-    def test_extract_features(self):
+    def test_extract_features(self) -> None:
         """Test feature extraction for detector integration."""
         engine = EnhancedNeurosymbolicEngine(input_dim=16)
 
@@ -459,7 +459,7 @@ class TestEnhancedNeurosymbolicEngine:
         assert features.shape[0] == 10
         assert features.dtype == np.float32
 
-    def test_explanation_generation(self):
+    def test_explanation_generation(self) -> None:
         """Test explanation generation."""
         engine = EnhancedNeurosymbolicEngine(input_dim=16)
 
@@ -472,7 +472,7 @@ class TestEnhancedNeurosymbolicEngine:
         assert "OMNI" in explanation or "Neural" in explanation
 
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
-    def test_ltn_grounding(self):
+    def test_ltn_grounding(self) -> None:
         """Test Logic Tensor Network predicate grounding."""
         from omni_mercury_engine.models.neurosymbolic_enhanced import EnhancedLogicTensorNetwork
 
@@ -491,7 +491,7 @@ class TestEnhancedNeurosymbolicEngine:
         assert output["predicate_values"].shape == (4, 8)
 
     @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch required")
-    def test_formula_evaluation(self):
+    def test_formula_evaluation(self) -> None:
         """Test logical formula evaluation."""
         from omni_mercury_engine.models.neurosymbolic_enhanced import EnhancedLogicTensorNetwork
 

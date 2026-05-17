@@ -30,12 +30,12 @@ from omni_mercury_engine.infrastructure.cyber.space_infrastructure import SpaceI
 class TestSpaceInfrastructureMonitor:
     """Test suite for SpaceInfrastructureMonitor."""
 
-    def test_space_monitor_instantiation(self):
+    def test_space_monitor_instantiation(self) -> None:
         """Test space infrastructure monitor can be instantiated."""
         monitor = SpaceInfrastructureMonitor()
         assert monitor is not None
 
-    def test_asset_types_defined(self):
+    def test_asset_types_defined(self) -> None:
         """Test space asset types are defined."""
         monitor = SpaceInfrastructureMonitor()
 
@@ -43,7 +43,7 @@ class TestSpaceInfrastructureMonitor:
         assert "ground_stations" in monitor.asset_types
         assert "launch_facilities" in monitor.asset_types
 
-    def test_detect_satellite_anomaly(self):
+    def test_detect_satellite_anomaly(self) -> None:
         """Test satellite anomaly detection."""
         monitor = SpaceInfrastructureMonitor()
         data = np.random.randn(100, 10)
@@ -54,7 +54,7 @@ class TestSpaceInfrastructureMonitor:
         assert "asset_type" in result
         assert result["asset_type"] == "satellite"
 
-    def test_detect_ground_station_anomaly(self):
+    def test_detect_ground_station_anomaly(self) -> None:
         """Test ground station anomaly detection."""
         monitor = SpaceInfrastructureMonitor()
         data = np.random.randn(100, 10)

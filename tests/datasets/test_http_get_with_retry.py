@@ -24,6 +24,7 @@ gate.  Coverage here pins:
 from __future__ import annotations
 
 import inspect
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -85,7 +86,7 @@ class TestSchemeGate:
                 session_factory.call_count == 0
             ), "Bad scheme reached requests.Session despite the gate."
 
-    def test_safe_urlretrieve_refuses_http(self, tmp_path) -> None:
+    def test_safe_urlretrieve_refuses_http(self, tmp_path: Any) -> None:
         """``safe_urlretrieve`` does not opt into ``allow_http``."""
         with pytest.raises(UnsafeURLError, match="scheme 'http'"):
             safe_urlretrieve(
@@ -93,7 +94,7 @@ class TestSchemeGate:
                 tmp_path / "out.bin",
             )
 
-    def test_safe_urlretrieve_refuses_unlisted_https_host(self, tmp_path) -> None:
+    def test_safe_urlretrieve_refuses_unlisted_https_host(self, tmp_path: Any) -> None:
         """``safe_urlretrieve`` enforces TRUSTED_DOMAINS for https too."""
         with pytest.raises(UnsafeURLError, match="not in trusted allowlist"):
             safe_urlretrieve(
@@ -244,7 +245,7 @@ class TestSafeUrlretrieve:
     inside the delegated ``http_get_with_retry`` call.
     """
 
-    def test_writes_body_to_target_path(self, tmp_path) -> None:
+    def test_writes_body_to_target_path(self, tmp_path: Any) -> None:
         target = tmp_path / "sub" / "out.bin"  # parent does not exist yet
         with patch(
             "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
@@ -256,7 +257,7 @@ class TestSafeUrlretrieve:
             )
         assert target.read_bytes() == b"hello-mercury"
 
-    def test_uses_120s_timeout(self, tmp_path) -> None:
+    def test_uses_120s_timeout(self, tmp_path: Any) -> None:
         """The helper sets a 120s default timeout for slow CDNs."""
         with patch(
             "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",

@@ -9,6 +9,7 @@ Comprehensive test coverage for threat detection functionality.
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from omni_mercury_engine.security.threat_detection import (
     BanishmentAction,
@@ -19,19 +20,19 @@ from omni_mercury_engine.security.threat_detection import (
 class TestBanishmentAction:
     """Tests for BanishmentAction enum."""
 
-    def test_banish_action(self):
+    def test_banish_action(self) -> None:
         """Test BANISH action value."""
         assert BanishmentAction.BANISH.value == "banish"
 
-    def test_void_action(self):
+    def test_void_action(self) -> None:
         """Test VOID action value."""
         assert BanishmentAction.VOID.value == "void"
 
-    def test_maintain_action(self):
+    def test_maintain_action(self) -> None:
         """Test MAINTAIN action value."""
         assert BanishmentAction.MAINTAIN.value == "maintain"
 
-    def test_escalate_action(self):
+    def test_escalate_action(self) -> None:
         """Test ESCALATE action value."""
         assert BanishmentAction.ESCALATE.value == "escalate"
 
@@ -39,7 +40,7 @@ class TestBanishmentAction:
 class TestThreatDetectorInitialization:
     """Tests for ThreatDetector initialization."""
 
-    def test_default_initialization(self):
+    def test_default_initialization(self) -> None:
         """Test default initialization."""
         detector = ThreatDetector()
         assert detector.config == {}
@@ -47,7 +48,7 @@ class TestThreatDetectorInitialization:
         assert len(detector.xss_patterns) > 0
         assert len(detector.path_traversal_patterns) > 0
 
-    def test_initialization_with_config(self):
+    def test_initialization_with_config(self) -> None:
         """Test initialization with custom config."""
         config = {"strict_mode": True}
         detector = ThreatDetector(config=config)
@@ -57,11 +58,11 @@ class TestThreatDetectorInitialization:
 class TestSQLInjectionDetection:
     """Tests for SQL injection detection."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.detector = ThreatDetector()
 
-    def test_union_select_detected(self):
+    def test_union_select_detected(self) -> None:
         """Test UNION SELECT injection detection."""
         payload = "1 UNION SELECT * FROM users"
         result = self.detector.detect_sql_injection(payload)
@@ -69,44 +70,44 @@ class TestSQLInjectionDetection:
         assert result["threat_type"] == "sql_injection"
         assert len(result["matched_patterns"]) > 0
 
-    def test_or_equals_detected(self):
+    def test_or_equals_detected(self) -> None:
         """Test OR 1=1 injection detection."""
         payload = "' OR 1=1--"
         result = self.detector.detect_sql_injection(payload)
         assert result["is_threat"] is True
 
-    def test_drop_table_detected(self):
+    def test_drop_table_detected(self) -> None:
         """Test DROP TABLE injection detection."""
         payload = "'; DROP TABLE users;--"
         result = self.detector.detect_sql_injection(payload)
         assert result["is_threat"] is True
 
-    def test_comment_injection_detected(self):
+    def test_comment_injection_detected(self) -> None:
         """Test SQL comment injection detection."""
         payload = "admin'--"
         result = self.detector.detect_sql_injection(payload)
         assert result["is_threat"] is True
 
-    def test_exec_detected(self):
+    def test_exec_detected(self) -> None:
         """Test EXEC procedure detection."""
         payload = "'; EXEC(xp_cmdshell 'dir')"
         result = self.detector.detect_sql_injection(payload)
         assert result["is_threat"] is True
 
-    def test_safe_input_allowed(self):
+    def test_safe_input_allowed(self) -> None:
         """Test safe input is not flagged."""
         payload = "John Smith"
         result = self.detector.detect_sql_injection(payload)
         assert result["is_threat"] is False
         assert len(result["matched_patterns"]) == 0
 
-    def test_confidence_calculation(self):
+    def test_confidence_calculation(self) -> None:
         """Test confidence is calculated correctly."""
         payload = "1 UNION SELECT * FROM users"
         result = self.detector.detect_sql_injection(payload)
         assert 0.0 <= result["confidence"] <= 1.0
 
-    def test_case_insensitive_detection(self):
+    def test_case_insensitive_detection(self) -> None:
         """Test case insensitive detection."""
         payload = "1 union SELECT * from users"
         result = self.detector.detect_sql_injection(payload)
@@ -116,48 +117,48 @@ class TestSQLInjectionDetection:
 class TestXSSDetection:
     """Tests for XSS attack detection."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.detector = ThreatDetector()
 
-    def test_script_tag_detected(self):
+    def test_script_tag_detected(self) -> None:
         """Test script tag detection."""
         payload = "<script>alert('xss')</script>"
         result = self.detector.detect_xss(payload)
         assert result["is_threat"] is True
         assert result["threat_type"] == "xss"
 
-    def test_javascript_uri_detected(self):
+    def test_javascript_uri_detected(self) -> None:
         """Test javascript: URI detection."""
         payload = "javascript:alert(1)"
         result = self.detector.detect_xss(payload)
         assert result["is_threat"] is True
 
-    def test_event_handler_detected(self):
+    def test_event_handler_detected(self) -> None:
         """Test event handler detection."""
         payload = "<img onerror=alert(1)>"
         result = self.detector.detect_xss(payload)
         assert result["is_threat"] is True
 
-    def test_iframe_detected(self):
+    def test_iframe_detected(self) -> None:
         """Test iframe detection."""
         payload = "<iframe src='evil.com'></iframe>"
         result = self.detector.detect_xss(payload)
         assert result["is_threat"] is True
 
-    def test_safe_html_allowed(self):
+    def test_safe_html_allowed(self) -> None:
         """Test safe text is not flagged."""
         payload = "Hello, World!"
         result = self.detector.detect_xss(payload)
         assert result["is_threat"] is False
 
-    def test_safe_html_tags_allowed(self):
+    def test_safe_html_tags_allowed(self) -> None:
         """Test some HTML tags don't trigger XSS."""
         payload = "<p>Hello</p><br><b>World</b>"
         result = self.detector.detect_xss(payload)
         assert result["is_threat"] is False
 
-    def test_multiple_xss_patterns(self):
+    def test_multiple_xss_patterns(self) -> None:
         """Test multiple XSS patterns in one payload."""
         payload = "<script>alert(1)</script><iframe src='evil'>"
         result = self.detector.detect_xss(payload)
@@ -168,42 +169,42 @@ class TestXSSDetection:
 class TestPathTraversalDetection:
     """Tests for path traversal detection."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.detector = ThreatDetector()
 
-    def test_dot_dot_slash_detected(self):
+    def test_dot_dot_slash_detected(self) -> None:
         """Test ../ path traversal detection."""
         payload = "../../../etc/passwd"
         result = self.detector.detect_path_traversal(payload)
         assert result["is_threat"] is True
         assert result["threat_type"] == "path_traversal"
 
-    def test_dot_dot_backslash_detected(self):
+    def test_dot_dot_backslash_detected(self) -> None:
         """Test ..\\ path traversal detection."""
         payload = "..\\..\\windows\\system32"
         result = self.detector.detect_path_traversal(payload)
         assert result["is_threat"] is True
 
-    def test_url_encoded_traversal_detected(self):
+    def test_url_encoded_traversal_detected(self) -> None:
         """Test URL-encoded path traversal detection."""
         payload = "%2e%2e/etc/passwd"
         result = self.detector.detect_path_traversal(payload)
         assert result["is_threat"] is True
 
-    def test_url_encoded_backslash_detected(self):
+    def test_url_encoded_backslash_detected(self) -> None:
         """Test URL-encoded backslash traversal detection."""
         payload = "%2e%2e\\windows"
         result = self.detector.detect_path_traversal(payload)
         assert result["is_threat"] is True
 
-    def test_safe_path_allowed(self):
+    def test_safe_path_allowed(self) -> None:
         """Test safe path is not flagged."""
         payload = "/home/user/documents/file.txt"
         result = self.detector.detect_path_traversal(payload)
         assert result["is_threat"] is False
 
-    def test_relative_path_in_context(self):
+    def test_relative_path_in_context(self) -> None:
         """Test relative path in normal context."""
         payload = "uploads/myfile.txt"
         result = self.detector.detect_path_traversal(payload)
@@ -213,11 +214,11 @@ class TestPathTraversalDetection:
 class TestDetectAll:
     """Tests for detect_all comprehensive detection."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.detector = ThreatDetector()
 
-    def test_no_threats_detected(self):
+    def test_no_threats_detected(self) -> None:
         """Test clean payload returns no threats."""
         payload = "Hello, World!"
         result = self.detector.detect_all(payload)
@@ -225,34 +226,34 @@ class TestDetectAll:
         assert result["threat_count"] == 0
         assert len(result["threats"]) == 0
 
-    def test_single_threat_detected(self):
+    def test_single_threat_detected(self) -> None:
         """Test single threat detection."""
         payload = "1 UNION SELECT * FROM users"
         result = self.detector.detect_all(payload)
         assert result["is_threat"] is True
         assert result["threat_count"] >= 1
 
-    def test_multiple_threats_detected(self):
+    def test_multiple_threats_detected(self) -> None:
         """Test multiple threat detection."""
         payload = "' OR 1=1; <script>alert(1)</script>"
         result = self.detector.detect_all(payload)
         assert result["is_threat"] is True
         assert result["threat_count"] >= 2
 
-    def test_banishment_action_returned(self):
+    def test_banishment_action_returned(self) -> None:
         """Test banishment action is included in result."""
         payload = "Hello, World!"
         result = self.detector.detect_all(payload)
         assert "banishment_action" in result
 
-    def test_banishment_with_context(self):
+    def test_banishment_with_context(self) -> None:
         """Test banishment action with context."""
         payload = "' OR 1=1--"
         context = {"timestamp": time.time(), "source_type": "user_input"}
         result = self.detector.detect_all(payload, context=context)
         assert "banishment_action" in result
 
-    def test_all_threat_types_combined(self):
+    def test_all_threat_types_combined(self) -> None:
         """Test payload with all threat types."""
         payload = "1 UNION SELECT * FROM users; <script>alert(1)</script>; ../../../etc/passwd"
         result = self.detector.detect_all(payload)
@@ -267,11 +268,11 @@ class TestDetectAll:
 class TestPasswordHashing:
     """Tests for password hashing functionality."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.detector = ThreatDetector()
 
-    def test_hash_password(self):
+    def test_hash_password(self) -> None:
         """Test password hashing."""
         password = "my_secure_password_123"
         hashed = ThreatDetector.hash_password(password)
@@ -279,19 +280,19 @@ class TestPasswordHashing:
         assert hashed != password
         assert len(hashed) > 0
 
-    def test_verify_password_correct(self):
+    def test_verify_password_correct(self) -> None:
         """Test password verification with correct password."""
         password = "my_secure_password_123"
         hashed = ThreatDetector.hash_password(password)
         assert ThreatDetector.verify_password(password, hashed) is True
 
-    def test_verify_password_incorrect(self):
+    def test_verify_password_incorrect(self) -> None:
         """Test password verification with incorrect password."""
         password = "my_secure_password_123"
         hashed = ThreatDetector.hash_password(password)
         assert ThreatDetector.verify_password("wrong_password", hashed) is False
 
-    def test_hash_different_for_same_password(self):
+    def test_hash_different_for_same_password(self) -> None:
         """Test that same password produces different hashes (salt)."""
         password = "my_secure_password_123"
         hash1 = ThreatDetector.hash_password(password)
@@ -299,14 +300,14 @@ class TestPasswordHashing:
         # Due to salting, hashes should be different
         assert hash1 != hash2
 
-    def test_verify_pbkdf2_format(self):
+    def test_verify_pbkdf2_format(self) -> None:
         """Test verification of PBKDF2 format hash."""
         password = "test_password"
         # If bcrypt not available, hash will be in PBKDF2 format
         hashed = ThreatDetector.hash_password(password)
         assert ThreatDetector.verify_password(password, hashed) is True
 
-    def test_verify_invalid_pbkdf2_format(self):
+    def test_verify_invalid_pbkdf2_format(self) -> None:
         """Test verification fails for invalid PBKDF2 format."""
         result = ThreatDetector.verify_password("test", "pbkdf2$invalid")
         assert result is False
@@ -315,17 +316,17 @@ class TestPasswordHashing:
 class TestThreatValidity:
     """Tests for threat validity assessment."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.detector = ThreatDetector()
 
-    def test_no_threats_void_action(self):
+    def test_no_threats_void_action(self) -> None:
         """Test empty threats list returns VOID action."""
         result = self.detector.assess_threat_validity([], {})
         assert result["is_valid"] is False
         assert result["recommended_action"] == BanishmentAction.VOID
 
-    def test_high_confidence_threat(self):
+    def test_high_confidence_threat(self) -> None:
         """Test high confidence threat assessment."""
         threats = [
             {"threat_type": "sql_injection", "confidence": 0.9},
@@ -339,7 +340,7 @@ class TestThreatValidity:
             BanishmentAction.ESCALATE,
         ]
 
-    def test_low_confidence_threat(self):
+    def test_low_confidence_threat(self) -> None:
         """Test low confidence threat assessment."""
         threats = [{"threat_type": "unknown", "confidence": 0.1}]
         context = {"timestamp": time.time() - 100000}  # Old timestamp
@@ -347,7 +348,7 @@ class TestThreatValidity:
         # Low confidence + old timestamp should result in lower validity
         assert isinstance(result["is_valid"], bool)
 
-    def test_validity_includes_all_fields(self):
+    def test_validity_includes_all_fields(self) -> None:
         """Test validity result includes all required fields."""
         threats = [{"threat_type": "sql_injection", "confidence": 0.7}]
         context = {"timestamp": time.time()}
@@ -362,26 +363,26 @@ class TestThreatValidity:
 class TestTemporalRelevance:
     """Tests for temporal relevance evaluation."""
 
-    def test_recent_threat_high_relevance(self):
+    def test_recent_threat_high_relevance(self) -> None:
         """Test recent threat has high relevance."""
         context = {"timestamp": time.time()}
         relevance = ThreatDetector.evaluate_temporal_relevance(context)
         assert relevance > 0.9
 
-    def test_old_threat_low_relevance(self):
+    def test_old_threat_low_relevance(self) -> None:
         """Test old threat has low relevance."""
         # 2 days old
         context = {"timestamp": time.time() - 172800}
         relevance = ThreatDetector.evaluate_temporal_relevance(context)
         assert relevance < 0.1
 
-    def test_missing_timestamp_default_relevance(self):
+    def test_missing_timestamp_default_relevance(self) -> None:
         """Test missing timestamp returns default relevance."""
-        context = {}
+        context: dict[str, Any] = {}
         relevance = ThreatDetector.evaluate_temporal_relevance(context)
         assert relevance == 0.5
 
-    def test_relevance_bounded(self):
+    def test_relevance_bounded(self) -> None:
         """Test relevance is bounded between 0 and 1."""
         # Very old timestamp
         context = {"timestamp": time.time() - 1000000}
@@ -392,28 +393,28 @@ class TestTemporalRelevance:
 class TestEthicalAlignment:
     """Tests for ethical alignment evaluation."""
 
-    def test_user_input_higher_alignment(self):
+    def test_user_input_higher_alignment(self) -> None:
         """Test user input source has higher alignment."""
         threats = [{"threat_type": "sql_injection"}]
         context = {"source_type": "user_input"}
         alignment = ThreatDetector._evaluate_ethical_alignment(threats, context)
         assert alignment >= 0.8
 
-    def test_non_user_input_lower_alignment(self):
+    def test_non_user_input_lower_alignment(self) -> None:
         """Test non-user input has lower base alignment."""
         threats = [{"threat_type": "unknown"}]
         context = {"source_type": "api"}
         alignment = ThreatDetector._evaluate_ethical_alignment(threats, context)
         assert alignment == 0.5
 
-    def test_dangerous_threats_increase_alignment(self):
+    def test_dangerous_threats_increase_alignment(self) -> None:
         """Test dangerous threat types increase alignment."""
         threats = [{"threat_type": "sql_injection"}, {"threat_type": "xss"}]
         context = {"source_type": "user_input"}
         alignment = ThreatDetector._evaluate_ethical_alignment(threats, context)
         assert alignment == 1.0
 
-    def test_alignment_bounded(self):
+    def test_alignment_bounded(self) -> None:
         """Test alignment is bounded at 1.0."""
         threats = [
             {"threat_type": "sql_injection"},
@@ -428,11 +429,11 @@ class TestEthicalAlignment:
 class TestBanishmentActionDecisions:
     """Tests for banishment action decision logic."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.detector = ThreatDetector()
 
-    def test_escalate_for_very_high_validity(self):
+    def test_escalate_for_very_high_validity(self) -> None:
         """Test ESCALATE action for very high validity threats."""
         threats = [
             {"threat_type": "sql_injection", "confidence": 1.0},
@@ -442,7 +443,7 @@ class TestBanishmentActionDecisions:
         result = self.detector.assess_threat_validity(threats, context)
         assert result["recommended_action"] == BanishmentAction.ESCALATE
 
-    def test_void_for_low_validity(self):
+    def test_void_for_low_validity(self) -> None:
         """Test VOID action for low validity threats."""
         threats = [{"threat_type": "unknown", "confidence": 0.1}]
         context = {"timestamp": time.time() - 200000, "source_type": "system"}
@@ -457,40 +458,40 @@ class TestBanishmentActionDecisions:
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.detector = ThreatDetector()
 
-    def test_empty_payload(self):
+    def test_empty_payload(self) -> None:
         """Test empty payload handling."""
         result = self.detector.detect_all("")
         assert result["is_threat"] is False
 
-    def test_very_long_payload(self):
+    def test_very_long_payload(self) -> None:
         """Test very long payload handling."""
         payload = "A" * 100000
         result = self.detector.detect_all(payload)
         assert result["is_threat"] is False
 
-    def test_unicode_payload(self):
+    def test_unicode_payload(self) -> None:
         """Test unicode payload handling."""
         payload = "你好世界 مرحبا بالعالم"
         result = self.detector.detect_all(payload)
         assert isinstance(result, dict)
 
-    def test_special_characters(self):
+    def test_special_characters(self) -> None:
         """Test special character handling."""
         payload = "!@#$%^&*()_+-=[]{}|;':\",./<>?"
         result = self.detector.detect_all(payload)
         assert isinstance(result, dict)
 
-    def test_newlines_in_payload(self):
+    def test_newlines_in_payload(self) -> None:
         """Test newlines in payload."""
         payload = "Line1\nLine2\r\nLine3"
         result = self.detector.detect_all(payload)
         assert isinstance(result, dict)
 
-    def test_null_characters(self):
+    def test_null_characters(self) -> None:
         """Test null character handling."""
         payload = "test\x00null\x00chars"
         result = self.detector.detect_all(payload)

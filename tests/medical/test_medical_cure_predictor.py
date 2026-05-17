@@ -34,7 +34,7 @@ from omni_mercury_engine.medical.medical_cure_predictor import (
 
 
 class TestTemporalVitalSigns:
-    def test_normal_vitals(self):
+    def test_normal_vitals(self) -> None:
         detector = TemporalVitalSignsDetector()
         vitals = np.tile([75, 120, 98, 98.6, 16], (100, 1))
         result = detector.detect_temporal_anomaly(vitals)
@@ -43,7 +43,7 @@ class TestTemporalVitalSigns:
 
 
 class TestMedicalCurePredictor:
-    def test_comprehensive_prediction(self):
+    def test_comprehensive_prediction(self) -> None:
         predictor = MedicalCurePredictor()
         patient_data = {
             "vital_signs_sequence": np.tile([75, 120, 98, 98.6, 16], (100, 1)),

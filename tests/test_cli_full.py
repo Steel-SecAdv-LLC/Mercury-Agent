@@ -37,7 +37,7 @@ from omni_mercury_engine.cli import main
 # ---------------------------------------------------------------------------
 
 
-def test_detect_with_csv_data():
+def test_detect_with_csv_data() -> None:
     """Test detect command with CSV data file."""
     runner = CliRunner()
 
@@ -57,7 +57,7 @@ def test_detect_with_csv_data():
         Path(temp_file).unlink()
 
 
-def test_detect_with_json_data():
+def test_detect_with_json_data() -> None:
     """Test detect command with JSON data file."""
     runner = CliRunner()
 
@@ -75,7 +75,7 @@ def test_detect_with_json_data():
         Path(temp_file).unlink()
 
 
-def test_detect_with_threshold():
+def test_detect_with_threshold() -> None:
     """Test detect command with custom threshold."""
     runner = CliRunner()
 
@@ -93,7 +93,7 @@ def test_detect_with_threshold():
         Path(temp_file).unlink()
 
 
-def test_detect_with_output_file():
+def test_detect_with_output_file() -> None:
     """Test detect command writes to output file."""
     runner = CliRunner()
 
@@ -116,7 +116,7 @@ def test_detect_with_output_file():
             Path(output_file).unlink()
 
 
-def test_detect_with_statistical_detector():
+def test_detect_with_statistical_detector() -> None:
     """Test detect command with statistical detector type."""
     runner = CliRunner()
 
@@ -134,7 +134,7 @@ def test_detect_with_statistical_detector():
         Path(temp_file).unlink()
 
 
-def test_detect_with_unsupported_format():
+def test_detect_with_unsupported_format() -> None:
     """Test detect command with unsupported file format."""
     runner = CliRunner()
 
@@ -149,7 +149,7 @@ def test_detect_with_unsupported_format():
         Path(temp_file).unlink()
 
 
-def test_detect_missing_input():
+def test_detect_missing_input() -> None:
     """Test detect command without required --input flag."""
     runner = CliRunner()
     result = runner.invoke(main, ["detect"])
@@ -161,7 +161,7 @@ def test_detect_missing_input():
 # ---------------------------------------------------------------------------
 
 
-def test_train_command_help():
+def test_train_command_help() -> None:
     """Test train command help output."""
     runner = CliRunner()
     result = runner.invoke(main, ["train", "--help"])
@@ -171,14 +171,14 @@ def test_train_command_help():
     assert "--epochs" in result.output
 
 
-def test_train_missing_required_flags():
+def test_train_missing_required_flags() -> None:
     """Test train command fails without required flags."""
     runner = CliRunner()
     result = runner.invoke(main, ["train"])
     assert result.exit_code != 0
 
 
-def test_train_with_correct_flags():
+def test_train_with_correct_flags() -> None:
     """Test train command with correct --data and --output flags."""
     runner = CliRunner()
 
@@ -200,21 +200,21 @@ def test_train_with_correct_flags():
 # ---------------------------------------------------------------------------
 
 
-def test_security_command_with_payload():
+def test_security_command_with_payload() -> None:
     """Test security command with --payload flag (correct flag name)."""
     runner = CliRunner()
     result = runner.invoke(main, ["security", "--payload", "SELECT * FROM users WHERE 1=1"])
     assert result.exit_code >= 0 or "Error" in result.output
 
 
-def test_security_command_with_xss_payload():
+def test_security_command_with_xss_payload() -> None:
     """Test security command with XSS payload."""
     runner = CliRunner()
     result = runner.invoke(main, ["security", "--payload", "<script>alert('xss')</script>"])
     assert result.exit_code >= 0 or "Error" in result.output
 
 
-def test_security_missing_payload():
+def test_security_missing_payload() -> None:
     """Test security command fails without required --payload."""
     runner = CliRunner()
     result = runner.invoke(main, ["security"])
@@ -226,14 +226,14 @@ def test_security_missing_payload():
 # ---------------------------------------------------------------------------
 
 
-def test_biometric_with_reference():
+def test_biometric_with_reference() -> None:
     """Test biometric command with --reference flag."""
     runner = CliRunner()
     result = runner.invoke(main, ["biometric", "--reference", "/nonexistent/ref.jpg"])
     assert result.exit_code != 0 or "Error" in result.output or "error" in result.output.lower()
 
 
-def test_biometric_with_both_flags():
+def test_biometric_with_both_flags() -> None:
     """Test biometric command with --reference and --test flags."""
     runner = CliRunner()
     result = runner.invoke(
@@ -243,7 +243,7 @@ def test_biometric_with_both_flags():
     assert result.exit_code != 0 or "Error" in result.output or "error" in result.output.lower()
 
 
-def test_biometric_missing_reference():
+def test_biometric_missing_reference() -> None:
     """Test biometric command fails without required --reference."""
     runner = CliRunner()
     result = runner.invoke(main, ["biometric"])
@@ -255,7 +255,7 @@ def test_biometric_missing_reference():
 # ---------------------------------------------------------------------------
 
 
-def test_explain_help():
+def test_explain_help() -> None:
     """Test explain command help output."""
     runner = CliRunner()
     result = runner.invoke(main, ["explain", "--help"])
@@ -264,7 +264,7 @@ def test_explain_help():
     assert "--model" in result.output
 
 
-def test_explain_with_csv_input():
+def test_explain_with_csv_input() -> None:
     """Test explain command with CSV data."""
     runner = CliRunner()
 
@@ -282,7 +282,7 @@ def test_explain_with_csv_input():
         Path(temp_file).unlink()
 
 
-def test_explain_with_model_flag():
+def test_explain_with_model_flag() -> None:
     """Test explain command with --model flag."""
     runner = CliRunner()
 
@@ -300,7 +300,7 @@ def test_explain_with_model_flag():
         Path(temp_file).unlink()
 
 
-def test_explain_missing_input():
+def test_explain_missing_input() -> None:
     """Test explain command fails without required --input."""
     runner = CliRunner()
     result = runner.invoke(main, ["explain"])
@@ -312,7 +312,7 @@ def test_explain_missing_input():
 # ---------------------------------------------------------------------------
 
 
-def test_physics_help():
+def test_physics_help() -> None:
     """Test physics command group help."""
     runner = CliRunner()
     result = runner.invoke(main, ["physics", "--help"])
@@ -324,7 +324,7 @@ def test_physics_help():
     assert "list" in result.output
 
 
-def test_physics_spectral_help():
+def test_physics_spectral_help() -> None:
     """Test physics spectral subcommand help."""
     runner = CliRunner()
     result = runner.invoke(main, ["physics", "spectral", "--help"])
@@ -334,7 +334,7 @@ def test_physics_spectral_help():
     assert "--sample-rate" in result.output
 
 
-def test_physics_dynamics_help():
+def test_physics_dynamics_help() -> None:
     """Test physics dynamics subcommand help."""
     runner = CliRunner()
     result = runner.invoke(main, ["physics", "dynamics", "--help"])
@@ -343,7 +343,7 @@ def test_physics_dynamics_help():
     assert "--time-step" in result.output
 
 
-def test_physics_uiux_help():
+def test_physics_uiux_help() -> None:
     """Test physics uiux subcommand help."""
     runner = CliRunner()
     result = runner.invoke(main, ["physics", "uiux", "--help"])
@@ -351,7 +351,7 @@ def test_physics_uiux_help():
     assert "--input" in result.output
 
 
-def test_physics_integrated_help():
+def test_physics_integrated_help() -> None:
     """Test physics integrated subcommand help."""
     runner = CliRunner()
     result = runner.invoke(main, ["physics", "integrated", "--help"])
@@ -361,7 +361,7 @@ def test_physics_integrated_help():
     assert "--uiux-input" in result.output
 
 
-def test_physics_list():
+def test_physics_list() -> None:
     """Test physics list subcommand outputs detector catalog."""
     runner = CliRunner()
     result = runner.invoke(main, ["physics", "list"])
@@ -369,7 +369,7 @@ def test_physics_list():
     assert "Spectral" in result.output or "spectral" in result.output
 
 
-def test_physics_spectral_with_csv():
+def test_physics_spectral_with_csv() -> None:
     """Test physics spectral with CSV signal data."""
     runner = CliRunner()
 
@@ -388,7 +388,7 @@ def test_physics_spectral_with_csv():
         Path(temp_file).unlink()
 
 
-def test_physics_dynamics_with_csv():
+def test_physics_dynamics_with_csv() -> None:
     """Test physics dynamics with motion data."""
     runner = CliRunner()
 
@@ -407,7 +407,7 @@ def test_physics_dynamics_with_csv():
         Path(temp_file).unlink()
 
 
-def test_physics_uiux_with_json():
+def test_physics_uiux_with_json() -> None:
     """Test physics uiux with interaction JSON data."""
     runner = CliRunner()
 
@@ -429,7 +429,7 @@ def test_physics_uiux_with_json():
         Path(temp_file).unlink()
 
 
-def test_physics_spectral_missing_input():
+def test_physics_spectral_missing_input() -> None:
     """Test physics spectral fails without required --input."""
     runner = CliRunner()
     result = runner.invoke(main, ["physics", "spectral"])
@@ -441,7 +441,7 @@ def test_physics_spectral_missing_input():
 # ---------------------------------------------------------------------------
 
 
-def test_serve_help():
+def test_serve_help() -> None:
     """Test serve command help output."""
     runner = CliRunner()
     result = runner.invoke(main, ["serve", "--help"])
@@ -458,7 +458,7 @@ def test_serve_help():
 # ---------------------------------------------------------------------------
 
 
-def test_voice_help():
+def test_voice_help() -> None:
     """Test voice command help output."""
     runner = CliRunner()
     result = runner.invoke(main, ["voice", "--help"])

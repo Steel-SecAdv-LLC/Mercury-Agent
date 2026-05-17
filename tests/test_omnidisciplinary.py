@@ -24,7 +24,7 @@ import numpy as np
 import pytest
 
 
-def test_medical_abms_import():
+def test_medical_abms_import() -> None:
     """Test ABMS medical module imports correctly"""
     from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
 
@@ -32,7 +32,7 @@ def test_medical_abms_import():
     assert detector is not None
 
 
-def test_intelligence_fusion_import():
+def test_intelligence_fusion_import() -> None:
     """Test intelligence fusion module imports correctly"""
     from omni_mercury_engine.security.intelligence_fusion import IntelligenceFusionEngine
 
@@ -40,7 +40,7 @@ def test_intelligence_fusion_import():
     assert engine is not None
 
 
-def test_schumann_resonance_import():
+def test_schumann_resonance_import() -> None:
     """Test Schumann resonance module imports correctly"""
     from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 
@@ -48,7 +48,7 @@ def test_schumann_resonance_import():
     assert detector is not None
 
 
-def test_chemistry_import():
+def test_chemistry_import() -> None:
     """Test chemistry module imports correctly"""
     from omni_mercury_engine.models.chemistry import ChemistryAnomalyDetector
 
@@ -56,7 +56,7 @@ def test_chemistry_import():
     assert detector is not None
 
 
-def test_parapsychology_import():
+def test_parapsychology_import() -> None:
     """Test parapsychology module imports correctly"""
     from omni_mercury_engine.models.parapsychology import ParapsychologyDetector
 
@@ -64,7 +64,7 @@ def test_parapsychology_import():
     assert detector is not None
 
 
-def test_medical_abms_basic_detection():
+def test_medical_abms_basic_detection() -> None:
     """Test ABMS medical detection with simulated data"""
     from omni_mercury_engine.medical.abms_disciplines import ABMSDisciplineDetector
 
@@ -85,7 +85,7 @@ def test_medical_abms_basic_detection():
     assert result.confidence >= 0.0
 
 
-def test_schumann_resonance_detection():
+def test_schumann_resonance_detection() -> None:
     """Test Schumann resonance detection with synthetic signal"""
     from omni_mercury_engine.space.schumann_resonance import SchumannResonanceDetector
 
@@ -99,7 +99,7 @@ def test_schumann_resonance_detection():
     assert abs(result.fundamental_freq - 7.83) < 2.0
 
 
-def test_engine_with_new_models():
+def test_engine_with_new_models() -> None:
     """Test that engine initializes with all new models"""
     from omni_mercury_engine import OmniMercuryEngine
 

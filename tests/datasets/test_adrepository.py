@@ -22,7 +22,7 @@ from omni_mercury_engine.datasets import (
 class TestADRepositoryMetadata:
     """Test ADRepository dataset metadata."""
 
-    def test_datasets_defined(self):
+    def test_datasets_defined(self) -> None:
         """Verify all expected datasets are defined."""
         expected = {
             "fraud",
@@ -39,7 +39,7 @@ class TestADRepositoryMetadata:
         }
         assert expected.issubset(set(ADREPOSITORY_DATASETS.keys()))
 
-    def test_dataset_info_complete(self):
+    def test_dataset_info_complete(self) -> None:
         """Verify all datasets have required metadata fields."""
         required_fields = {"samples", "features", "anomaly_ratio", "domain", "description", "url"}
 
@@ -47,7 +47,7 @@ class TestADRepositoryMetadata:
             for field in required_fields:
                 assert field in info, f"Dataset '{name}' missing field '{field}'"
 
-    def test_list_available_datasets(self):
+    def test_list_available_datasets(self) -> None:
         """Test convenience function to list datasets."""
         datasets = list_available_datasets()
         assert isinstance(datasets, dict)
@@ -59,7 +59,7 @@ class TestADRepositoryMetadata:
 class TestADRepositoryLoader:
     """Test ADRepository loader functionality."""
 
-    def test_init_valid_dataset(self):
+    def test_init_valid_dataset(self) -> None:
         """Test loader initialization with valid dataset."""
         config = DatasetConfig(name="thyroid", data_dir="./data/test")
         loader = ADRepositoryLoader(config, dataset_name="thyroid")
@@ -68,14 +68,14 @@ class TestADRepositoryLoader:
         assert loader.dataset_info["samples"] == 7200
         assert loader.dataset_info["features"] == 21
 
-    def test_init_invalid_dataset(self):
+    def test_init_invalid_dataset(self) -> None:
         """Test loader raises error for invalid dataset."""
         config = DatasetConfig(name="invalid", data_dir="./data/test")
 
         with pytest.raises(ValueError, match="Unknown dataset"):
             ADRepositoryLoader(config, dataset_name="nonexistent")
 
-    def test_get_metadata(self):
+    def test_get_metadata(self) -> None:
         """Test metadata retrieval."""
         config = DatasetConfig(name="fraud", data_dir="./data/test")
         loader = ADRepositoryLoader(config, dataset_name="fraud")
@@ -88,7 +88,7 @@ class TestADRepositoryLoader:
         assert metadata["domain"] == "finance"
         assert "Pang" in metadata["citation"]
 
-    def test_synthetic_fallback(self):
+    def test_synthetic_fallback(self) -> None:
         """Test synthetic fallback when download fails."""
         config = DatasetConfig(
             name="thyroid",
@@ -108,7 +108,7 @@ class TestADRepositoryLoader:
         assert y.sum() > 0  # Should have some anomalies
         assert not loader.is_real_data
 
-    def test_load_with_max_samples(self):
+    def test_load_with_max_samples(self) -> None:
         """Test loading with sample limit."""
         config = DatasetConfig(
             name="donors",
@@ -123,7 +123,7 @@ class TestADRepositoryLoader:
         assert X.shape[0] <= 500
         assert len(y) <= 500
 
-    def test_get_statistics(self):
+    def test_get_statistics(self) -> None:
         """Test statistics calculation."""
         config = DatasetConfig(
             name="campaign",
@@ -148,7 +148,7 @@ class TestADRepositoryLoader:
 class TestLoadDatasetConvenience:
     """Test the load_dataset convenience function."""
 
-    def test_load_thyroid_synthetic(self):
+    def test_load_thyroid_synthetic(self) -> None:
         """Test loading thyroid with synthetic fallback."""
         X, y, meta = load_dataset(
             "thyroid",
@@ -162,7 +162,7 @@ class TestLoadDatasetConvenience:
         assert X.shape[0] == len(y)
         assert meta["name"] == "thyroid"
 
-    def test_load_invalid_dataset(self):
+    def test_load_invalid_dataset(self) -> None:
         """Test error on invalid dataset name."""
         with pytest.raises(ValueError):
             load_dataset("not_a_real_dataset")
@@ -171,7 +171,7 @@ class TestLoadDatasetConvenience:
 class TestIntegrationWithEngine:
     """Integration tests with Mercury Agent engine."""
 
-    def test_adrepository_with_detector(self):
+    def test_adrepository_with_detector(self) -> None:
         """Test using ADRepository data with anomaly detector."""
         from omni_mercury_engine import OmniMercuryEngine
 
@@ -192,7 +192,7 @@ class TestIntegrationWithEngine:
         assert "detectors" in result
         assert "is_anomaly" in result
 
-    def test_multiple_datasets_benchmark(self):
+    def test_multiple_datasets_benchmark(self) -> None:
         """Test benchmarking across multiple ADRepository datasets."""
         from omni_mercury_engine.ml.mercury_ml import roc_auc_score
 

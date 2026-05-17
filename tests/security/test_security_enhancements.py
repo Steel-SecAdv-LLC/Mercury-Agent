@@ -37,7 +37,7 @@ from omni_mercury_engine.security.realtime_threat_detection import (
 class TestQuantumResistantEncryption:
     """Test quantum-resistant encryption."""
 
-    def test_key_generation(self):
+    def test_key_generation(self) -> None:
         """Test lattice-based key generation."""
         qr = QuantumResistantEncryption(security_level=128)
 
@@ -48,7 +48,7 @@ class TestQuantumResistantEncryption:
         assert b.shape == (128,)
         assert private_key.shape == (128,)
 
-    def test_encryption_decryption(self):
+    def test_encryption_decryption(self) -> None:
         """Test encrypt/decrypt cycle."""
         qr = QuantumResistantEncryption(security_level=128)
         public_key, private_key = qr._generate_lattice_key()
@@ -64,7 +64,7 @@ class TestQuantumResistantEncryption:
 
         assert decrypted == plaintext
 
-    def test_secure_data_handler(self):
+    def test_secure_data_handler(self) -> None:
         """Test SecureDataHandler with quantum-resistant encryption."""
         handler = SecureDataHandler(enable_quantum_resistant=True)
 
@@ -80,7 +80,7 @@ class TestQuantumResistantEncryption:
         decrypted = handler.decrypt_quantum_resistant(encrypted)
         assert decrypted == data.encode()
 
-    def test_sanitization(self):
+    def test_sanitization(self) -> None:
         """Test input sanitization."""
         handler = SecureDataHandler(enable_quantum_resistant=False)
 
@@ -94,7 +94,7 @@ class TestQuantumResistantEncryption:
 class TestRealTimeThreatDetector:
     """Test real-time threat detection."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test detector initialization."""
         detector = RealTimeThreatDetector(contamination=0.1, n_estimators=50)
 
@@ -104,7 +104,7 @@ class TestRealTimeThreatDetector:
         assert "lof" in detector.detectors
         assert "elliptic" in detector.detectors
 
-    def test_fit_and_detect(self):
+    def test_fit_and_detect(self) -> None:
         """Test fitting and detection."""
         detector = RealTimeThreatDetector(contamination=0.1)
 
@@ -122,7 +122,7 @@ class TestRealTimeThreatDetector:
         assert "ensemble_scores" in result
         assert "threat_level" in result
 
-    def test_threat_levels(self):
+    def test_threat_levels(self) -> None:
         """Test threat level classification."""
         detector = RealTimeThreatDetector(contamination=0.1)
 
@@ -141,7 +141,7 @@ class TestRealTimeThreatDetector:
         assert normal_result["threat_level"] in ["LOW", "MEDIUM", "NEGLIGIBLE", "HIGH", "CRITICAL"]
         assert anomalous_result["threat_level"] in ["HIGH", "CRITICAL", "MEDIUM", "LOW"]
 
-    def test_threat_recording(self):
+    def test_threat_recording(self) -> None:
         """Test threat signature recording."""
         detector = RealTimeThreatDetector()
 
@@ -153,7 +153,7 @@ class TestRealTimeThreatDetector:
         assert signature.severity == 0.8
         assert len(detector.threat_history) == 1
 
-    def test_threat_statistics(self):
+    def test_threat_statistics(self) -> None:
         """Test threat statistics generation."""
         detector = RealTimeThreatDetector()
 
@@ -172,7 +172,7 @@ class TestRealTimeThreatDetector:
 class TestAdaptiveThreatDetector:
     """Test adaptive threat detector."""
 
-    def test_adaptation(self):
+    def test_adaptation(self) -> None:
         """Test model adaptation over time."""
         detector = AdaptiveThreatDetector(contamination=0.1, update_frequency=10)
 
@@ -189,7 +189,7 @@ class TestAdaptiveThreatDetector:
 class TestHiveFirewall:
     """Test HCIS-inspired hive-structured firewall."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test firewall initialization."""
         firewall = HiveFirewall(
             num_worker_nodes=10, num_supervisor_nodes=3, consensus_threshold=0.6
@@ -199,7 +199,7 @@ class TestHiveFirewall:
         assert len(firewall.supervisor_nodes) == 3
         assert firewall.queen_node.node_type == "queen"
 
-    def test_signature_hash(self):
+    def test_signature_hash(self) -> None:
         """Test O(1) signature hashing."""
         firewall = HiveFirewall()
 
@@ -214,7 +214,7 @@ class TestHiveFirewall:
         assert hash1 == hash2
         assert hash1 != hash3
 
-    def test_blocking_decision(self):
+    def test_blocking_decision(self) -> None:
         """Test hierarchical blocking decision."""
         firewall = HiveFirewall()
 
@@ -227,7 +227,7 @@ class TestHiveFirewall:
         assert decision.confidence >= 0.0
         assert decision.confidence <= 1.0
 
-    def test_o1_lookup(self):
+    def test_o1_lookup(self) -> None:
         """Test O(1) blocking lookup."""
         firewall = HiveFirewall()
 
@@ -241,7 +241,7 @@ class TestHiveFirewall:
         if is_blocked:
             assert decision is not None
 
-    def test_whitelist(self):
+    def test_whitelist(self) -> None:
         """Test pattern whitelisting."""
         firewall = HiveFirewall()
 
@@ -255,7 +255,7 @@ class TestHiveFirewall:
 
         assert is_blocked is False
 
-    def test_false_positive_handling(self):
+    def test_false_positive_handling(self) -> None:
         """Test false positive reporting and trust adjustment."""
         firewall = HiveFirewall()
 
@@ -269,7 +269,7 @@ class TestHiveFirewall:
 
         assert final_trust < initial_trust
 
-    def test_consensus_mechanism(self):
+    def test_consensus_mechanism(self) -> None:
         """Test worker-supervisor-queen consensus."""
         firewall = HiveFirewall()
 
@@ -280,7 +280,7 @@ class TestHiveFirewall:
         assert high_anomaly.block_decision
         assert high_anomaly.confidence > low_anomaly.confidence
 
-    def test_firewall_stats(self):
+    def test_firewall_stats(self) -> None:
         """Test firewall statistics."""
         firewall = HiveFirewall()
 
@@ -295,7 +295,7 @@ class TestHiveFirewall:
         assert "queen_trust" in stats
         assert "detection_accuracy" in stats
 
-    def test_byzantine_tolerance(self):
+    def test_byzantine_tolerance(self) -> None:
         """Test Byzantine fault tolerance through trust scoring."""
         firewall = HiveFirewall()
 
@@ -311,7 +311,7 @@ class TestHiveFirewall:
 class TestIntegratedSecurity:
     """Integration tests for security components."""
 
-    def test_end_to_end_threat_pipeline(self):
+    def test_end_to_end_threat_pipeline(self) -> None:
         """Test complete threat detection and blocking pipeline."""
         detector = RealTimeThreatDetector(contamination=0.1)
         firewall = HiveFirewall()
@@ -331,7 +331,7 @@ class TestIntegratedSecurity:
 
                 assert decision.signature_hash is not None
 
-    def test_ddos_resilience(self):
+    def test_ddos_resilience(self) -> None:
         """Test DDoS resilience with high-volume requests."""
         firewall = HiveFirewall()
 

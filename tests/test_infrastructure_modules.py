@@ -39,13 +39,13 @@ from omni_mercury_engine.infrastructure import (
 class TestChemicalNuclearDetector:
     """Tests for Chemical & Nuclear infrastructure detector."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test detector initialization."""
         detector = ChemicalNuclearDetector(CISASector.CHEMICAL)
         assert detector.sector == CISASector.CHEMICAL
         assert len(detector.safety_thresholds) > 0
 
-    def test_process_anomaly_detection_normal(self):
+    def test_process_anomaly_detection_normal(self) -> None:
         """Test anomaly detection with normal parameters."""
         detector = ChemicalNuclearDetector(CISASector.CHEMICAL)
 
@@ -57,7 +57,7 @@ class TestChemicalNuclearDetector:
         assert result["safety_status"] == "NORMAL"
         assert len(result["anomalies"]) == 0
 
-    def test_process_anomaly_detection_violation(self):
+    def test_process_anomaly_detection_violation(self) -> None:
         """Test anomaly detection with parameter violations."""
         detector = ChemicalNuclearDetector(CISASector.CHEMICAL)
 
@@ -69,7 +69,7 @@ class TestChemicalNuclearDetector:
         assert "temperature_celsius" in result["anomalies"]
         assert result["safety_status"] in ["WARNING", "CRITICAL"]
 
-    def test_nuclear_sector(self):
+    def test_nuclear_sector(self) -> None:
         """Test nuclear sector specific thresholds."""
         detector = ChemicalNuclearDetector(CISASector.NUCLEAR)
 
@@ -80,13 +80,13 @@ class TestChemicalNuclearDetector:
 class TestCommunicationsITDetector:
     """Tests for Communications & IT infrastructure detector."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test detector initialization."""
         detector = CommunicationsITDetector()
         assert len(detector.traffic_history) == 0
         assert detector.baseline_window == 3600
 
-    def test_network_anomaly_learning_phase(self):
+    def test_network_anomaly_learning_phase(self) -> None:
         """Test detector learning phase."""
         detector = CommunicationsITDetector()
 
@@ -100,7 +100,7 @@ class TestCommunicationsITDetector:
 
         assert result["status"] == "LEARNING"
 
-    def test_network_anomaly_with_baseline(self):
+    def test_network_anomaly_with_baseline(self) -> None:
         """Test anomaly detection after baseline established."""
         detector = CommunicationsITDetector()
 
@@ -128,13 +128,13 @@ class TestCommunicationsITDetector:
 class TestEnergyDamsDetector:
     """Tests for Energy & Dams infrastructure detector."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test detector initialization."""
         detector = EnergyDamsDetector()
         assert detector.subsector == EnergySubsector.ELECTRICITY
         assert "frequency_hz" in detector.grid_parameters
 
-    def test_grid_anomaly_normal(self):
+    def test_grid_anomaly_normal(self) -> None:
         """Test grid anomaly detection with normal frequency."""
         detector = EnergyDamsDetector()
 
@@ -145,7 +145,7 @@ class TestEnergyDamsDetector:
         assert result["grid_status"] == "NORMAL"
         assert len(result["anomalies"]) == 0
 
-    def test_grid_anomaly_frequency_deviation(self):
+    def test_grid_anomaly_frequency_deviation(self) -> None:
         """Test grid anomaly detection with frequency deviation."""
         detector = EnergyDamsDetector()
 
@@ -156,7 +156,7 @@ class TestEnergyDamsDetector:
         assert "frequency" in result["anomalies"]
         assert result["grid_status"] in ["ALERT", "EMERGENCY"]
 
-    def test_dam_anomaly_normal(self):
+    def test_dam_anomaly_normal(self) -> None:
         """Test dam anomaly detection with normal parameters."""
         detector = EnergyDamsDetector()
 
@@ -171,7 +171,7 @@ class TestEnergyDamsDetector:
         assert result["safety_status"] == "SAFE"
         assert len(result["anomalies"]) == 0
 
-    def test_dam_anomaly_excessive_seepage(self):
+    def test_dam_anomaly_excessive_seepage(self) -> None:
         """Test dam anomaly detection with excessive seepage."""
         detector = EnergyDamsDetector()
 
@@ -190,12 +190,12 @@ class TestEnergyDamsDetector:
 class TestHealthcareEmergencyDetector:
     """Tests for Healthcare & Emergency Services infrastructure detector."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test detector initialization."""
         detector = HealthcareEmergencyDetector()
         assert len(detector.vital_sign_ranges) > 0
 
-    def test_patient_deterioration_stable(self):
+    def test_patient_deterioration_stable(self) -> None:
         """Test patient deterioration detection with stable vitals."""
         detector = HealthcareEmergencyDetector()
 
@@ -213,7 +213,7 @@ class TestHealthcareEmergencyDetector:
         assert result["early_warning_score"] == 0
         assert not result["requires_intervention"]
 
-    def test_patient_deterioration_critical(self):
+    def test_patient_deterioration_critical(self) -> None:
         """Test patient deterioration detection with critical vitals."""
         detector = HealthcareEmergencyDetector()
 
@@ -234,7 +234,7 @@ class TestHealthcareEmergencyDetector:
         assert result["early_warning_score"] >= 5
         assert result["requires_intervention"]
 
-    def test_emergency_call_anomaly_normal(self):
+    def test_emergency_call_anomaly_normal(self) -> None:
         """Test emergency call anomaly detection with normal volume."""
         detector = HealthcareEmergencyDetector()
 
@@ -245,7 +245,7 @@ class TestHealthcareEmergencyDetector:
         assert result["call_volume_status"] == "NORMAL"
         assert result["estimated_event_type"] == "normal_operations"
 
-    def test_emergency_call_anomaly_surge(self):
+    def test_emergency_call_anomaly_surge(self) -> None:
         """Test emergency call anomaly detection with call surge."""
         detector = HealthcareEmergencyDetector()
 

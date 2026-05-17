@@ -22,18 +22,19 @@ from __future__ import annotations
 Test attention mechanism functionality
 """
 
+import importlib.util
+from typing import TYPE_CHECKING
+
 import pytest
 
-# Conditional torch import
-try:
-    import torch
-    from torch import nn
+# Probe for torch without binding it at module import — keeps the
+# ``Module | None`` retypings off the file and lets ``pytestmark`` skip
+# the suite cleanly when torch is absent.  ``TYPE_CHECKING`` makes mypy
+# resolve the symbols regardless of runtime availability.
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
-    torch = None  # type: ignore[assignment]
-    nn = None  # type: ignore[assignment]
+if TYPE_CHECKING or HAS_TORCH:
+    import torch
 
 # Skip all tests in this module if torch is not available
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
@@ -48,13 +49,13 @@ if HAS_TORCH:
     )
 
 
-def test_multihead_detector_attention_init():
+def test_multihead_detector_attention_init() -> None:
     """Test multi-head detector attention initialization"""
     attention = MultiHeadDetectorAttention(embed_dim=64, num_heads=4)
     assert attention is not None
 
 
-def test_multihead_detector_attention_forward():
+def test_multihead_detector_attention_forward() -> None:
     """Test multi-head detector attention forward pass"""
     attention = MultiHeadDetectorAttention(embed_dim=64, num_heads=4)
 
@@ -68,14 +69,14 @@ def test_multihead_detector_attention_forward():
     assert weights.shape[0] == 2
 
 
-def test_temporal_attention_init():
+def test_temporal_attention_init() -> None:
     """Test temporal attention initialization"""
     attention = TemporalAttention(hidden_dim=64, num_heads=4)
     assert attention.hidden_dim == 64
     assert attention.num_heads == 4
 
 
-def test_temporal_attention_forward():
+def test_temporal_attention_forward() -> None:
     """Test temporal attention forward pass"""
     attention = TemporalAttention(hidden_dim=64, num_heads=4)
 
@@ -86,13 +87,13 @@ def test_temporal_attention_forward():
     assert weights.shape[0] == 2
 
 
-def test_spatial_attention_init():
+def test_spatial_attention_init() -> None:
     """Test spatial attention initialization"""
     attention = SpatialAttention(channels=32)
     assert attention is not None
 
 
-def test_spatial_attention_forward():
+def test_spatial_attention_forward() -> None:
     """Test spatial attention forward pass"""
     attention = SpatialAttention(channels=32)
 
@@ -102,13 +103,13 @@ def test_spatial_attention_forward():
     assert output.shape == (4, 32, 8, 8)
 
 
-def test_crossmodal_attention_init():
+def test_crossmodal_attention_init() -> None:
     """Test cross-modal attention initialization"""
     attention = CrossModalAttention(dim1=32, dim2=64, hidden_dim=48)
     assert attention is not None
 
 
-def test_crossmodal_attention_forward():
+def test_crossmodal_attention_forward() -> None:
     """Test cross-modal attention forward pass"""
     attention = CrossModalAttention(dim1=32, dim2=64, hidden_dim=48)
 

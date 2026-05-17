@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import logging
 import textwrap
+from typing import Any
 
 import numpy as np
 import pytest
@@ -34,7 +35,7 @@ import pytest
 class TestEthicalConstraintViolationError:
     """Tests for the hard ethical enforcement exception."""
 
-    def test_exception_attributes(self):
+    def test_exception_attributes(self) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import (
             EthicalConstraintViolationError,
         )
@@ -50,7 +51,7 @@ class TestEthicalConstraintViolationError:
         assert "delete_all" in str(exc)
         assert "0.5000" in str(exc)
 
-    def test_is_runtime_error(self):
+    def test_is_runtime_error(self) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import (
             EthicalConstraintViolationError,
         )
@@ -62,7 +63,7 @@ class TestEthicalConstraintViolationError:
 class TestMinimumBenevolenceFloor:
     """Tests for the benevolence threshold floor clamp."""
 
-    def test_floor_clamps_low_threshold(self):
+    def test_floor_clamps_low_threshold(self) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import (
             MINIMUM_BENEVOLENCE_FLOOR,
             BenevolenceScorer,
@@ -71,13 +72,13 @@ class TestMinimumBenevolenceFloor:
         scorer = BenevolenceScorer(benevolence_threshold=0.0)
         assert scorer.benevolence_threshold == MINIMUM_BENEVOLENCE_FLOOR
 
-    def test_floor_allows_high_threshold(self):
+    def test_floor_allows_high_threshold(self) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import BenevolenceScorer
 
         scorer = BenevolenceScorer(benevolence_threshold=0.95)
         assert scorer.benevolence_threshold == 0.95
 
-    def test_floor_value(self):
+    def test_floor_value(self) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import (
             MINIMUM_BENEVOLENCE_FLOOR,
         )
@@ -88,7 +89,7 @@ class TestMinimumBenevolenceFloor:
 class TestBenevolenceScorerEnforce:
     """Tests for BenevolenceScorer.enforce()."""
 
-    def test_enforce_raises_on_impermissible(self):
+    def test_enforce_raises_on_impermissible(self) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import (
             BenevolenceScorer,
             EthicalConstraintViolationError,
@@ -102,7 +103,7 @@ class TestBenevolenceScorerEnforce:
         assert exc_info.value.score < 0.99
         assert exc_info.value.threshold == 0.99
 
-    def test_enforce_returns_score_on_permissible(self):
+    def test_enforce_returns_score_on_permissible(self) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import (
             BenevolenceScorer,
             EthicalScore,
@@ -125,7 +126,7 @@ class TestBenevolenceScorerEnforce:
 class TestCognitiveOrchestratorEthicalGate:
     """Tests for ethical gate wiring into CognitiveOrchestrator."""
 
-    def test_analyze_includes_benevolence_score(self):
+    def test_analyze_includes_benevolence_score(self) -> None:
         """analyze() always scores benevolence; the result exposes both
         the score and the permissibility flag."""
         import warnings
@@ -159,7 +160,7 @@ class TestCognitiveOrchestratorEthicalGate:
         assert hasattr(result, "ethical_permissible")
         assert result.benevolence_score > 0
 
-    def test_strict_mode_raises_on_violation(self):
+    def test_strict_mode_raises_on_violation(self) -> None:
         from omni_mercury_engine.cognitive.ethical_bounding import (
             EthicalConstraintViolationError,
         )
@@ -196,7 +197,7 @@ class TestCognitiveOrchestratorEthicalGate:
 class TestCognitiveInitExports:
     """Test that the cognitive __init__ exports the new symbols."""
 
-    def test_exports_available(self):
+    def test_exports_available(self) -> None:
         from omni_mercury_engine.cognitive import (
             MINIMUM_BENEVOLENCE_FLOOR,
             BenevolenceScorer,
@@ -216,7 +217,7 @@ class TestCognitiveInitExports:
 class TestRefactoringTransformerGuardClause:
     """Tests for guard-clause extraction (nesting reduction)."""
 
-    def test_guard_clause_single_if(self):
+    def test_guard_clause_single_if(self) -> None:
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
         source = textwrap.dedent("""\
@@ -277,7 +278,7 @@ class TestRefactoringTransformerGuardClause:
         assert namespace["foo"](5) == 6  # type: ignore[operator]
         assert namespace["foo"](None) is None  # type: ignore[operator]
 
-    def test_guard_clause_preserves_docstring(self):
+    def test_guard_clause_preserves_docstring(self) -> None:
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
         source = textwrap.dedent('''\
@@ -295,7 +296,7 @@ class TestRefactoringTransformerGuardClause:
         code = ast.unparse(new_tree)
         assert "My docstring" in code
 
-    def test_guard_clause_multiple_ifs_preserves_semantics(self):
+    def test_guard_clause_multiple_ifs_preserves_semantics(self) -> None:
         """Only the *last* if (no else) is safe to transform into a guard clause."""
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
@@ -353,7 +354,7 @@ class TestRefactoringTransformerGuardClause:
         assert namespace["foo"](None, 2) is None  # type: ignore[operator]
         assert namespace["foo"](1, None) is None  # type: ignore[operator]
 
-    def test_if_with_else_not_transformed(self):
+    def test_if_with_else_not_transformed(self) -> None:
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
         source = textwrap.dedent("""\
@@ -378,7 +379,7 @@ class TestRefactoringTransformerGuardClause:
 class TestRefactoringTransformerConstantHoisting:
     """Tests for constant hoisting (complexity reduction)."""
 
-    def test_hoists_repeated_literal(self):
+    def test_hoists_repeated_literal(self) -> None:
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
         source = textwrap.dedent("""\
@@ -398,7 +399,7 @@ class TestRefactoringTransformerConstantHoisting:
         # Should have a _const_ variable
         assert "_const_" in code
 
-    def test_does_not_hoist_trivial_values(self):
+    def test_does_not_hoist_trivial_values(self) -> None:
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
         source = textwrap.dedent("""\
@@ -419,7 +420,7 @@ class TestRefactoringTransformerConstantHoisting:
         # 0 and 1 are trivial — should NOT be hoisted
         assert "_const_" not in code
 
-    def test_hoists_repeated_strings(self):
+    def test_hoists_repeated_strings(self) -> None:
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
         source = textwrap.dedent("""\
@@ -436,7 +437,7 @@ class TestRefactoringTransformerConstantHoisting:
         code = ast.unparse(new_tree)
         assert "_const_" in code
 
-    def test_output_compiles_and_runs(self):
+    def test_output_compiles_and_runs(self) -> None:
         from omni_mercury_engine.core.three_r_mechanism import RefactoringTransformer
 
         source = textwrap.dedent("""\
@@ -459,7 +460,7 @@ class TestRefactoringTransformerConstantHoisting:
         exec(compiled, namespace)  # noqa: S102
         assert namespace["foo"]() == 84  # type: ignore[operator]
 
-    def test_does_not_hoist_default_arguments(self):
+    def test_does_not_hoist_default_arguments(self) -> None:
         """Regression: hoisting must not touch args.defaults / decorator_list.
 
         Constants in default-argument positions are evaluated at function-
@@ -495,7 +496,7 @@ class TestRefactoringTransformerConstantHoisting:
         assert namespace["foo"]() == 84  # type: ignore[operator]
         assert namespace["foo"](100) == 142  # type: ignore[operator]
 
-    def test_does_not_rewrite_inside_fstring(self):
+    def test_does_not_rewrite_inside_fstring(self) -> None:
         """Regression: ``ast.JoinedStr.values`` must contain only ``Constant``/
         ``FormattedValue`` children — replacing a ``Constant`` direct child
         with an ``ast.Name`` produces an AST that ``compile()`` rejects.
@@ -530,7 +531,7 @@ class TestRefactoringTransformerConstantHoisting:
             "greeting",
         )
 
-    def test_does_not_rewrite_inside_match_pattern(self):
+    def test_does_not_rewrite_inside_match_pattern(self) -> None:
         """Regression: ``MatchValue.value`` must remain literal-bearing —
         replacing it with an ``ast.Name`` either fails to compile or
         silently turns the case arm into a ``MatchAs`` capture pattern
@@ -618,7 +619,7 @@ class TestLearnable3RFit:
         config = Learnable3RConfig(hidden_dim=16)
         return Learnable3REngine(config=config, device="cpu")
 
-    def test_fit_returns_history(self, engine):
+    def test_fit_returns_history(self, engine: Any) -> None:
         X = np.random.randn(50, 4).astype(np.float32)
         y = np.random.randn(50).astype(np.float32)
 
@@ -651,7 +652,7 @@ class TestLearnable3RFit:
         # And ``stopped_early`` must reflect that.
         assert history["stopped_early"] is False
 
-    def test_fit_loss_decreases(self, engine):
+    def test_fit_loss_decreases(self, engine: Any) -> None:
         # Generate a simple learnable pattern
         rng = np.random.default_rng(123)
         X = rng.standard_normal((100, 4)).astype(np.float32)
@@ -662,7 +663,7 @@ class TestLearnable3RFit:
         # First loss should be higher than last
         assert history["train_losses"][0] > history["train_losses"][-1]
 
-    def test_early_stopping(self, engine):
+    def test_early_stopping(self, engine: Any) -> None:
         # Random data has no learnable signal, so val_loss plateaus quickly.
         # min_delta=0.01 ensures the patience counter actually advances once
         # improvements become small — at min_delta=1e-10 the test was
@@ -687,7 +688,7 @@ class TestLearnable3RFit:
         assert history["stopped_early"] is True
         assert len(history["train_losses"]) == len(history["val_losses"])
 
-    def test_best_epoch_checkpoint_restored(self, engine):
+    def test_best_epoch_checkpoint_restored(self, engine: Any) -> None:
         X = np.random.randn(80, 4).astype(np.float32)
         y = np.random.randn(80).astype(np.float32)
 
@@ -698,22 +699,26 @@ class TestLearnable3RFit:
         best_epoch = history["best_epoch"]
         assert history["val_losses"][best_epoch] == history["best_val_loss"]
 
-    def test_fit_requires_minimum_samples(self, engine):
+    def test_fit_requires_minimum_samples(self, engine: Any) -> None:
         X = np.array([[1.0, 2.0, 3.0, 4.0]])
         y = np.array([1.0])
 
         with pytest.raises(ValueError, match="at least 2 samples"):
             engine.fit(X, y)
 
-    def test_fit_without_pytorch(self):
+    def test_fit_without_pytorch(self) -> None:
         """Test that fit() gracefully handles missing PyTorch."""
         from omni_mercury_engine.core.three_r.learnable_fusion import (
             Learnable3REngine,
         )
 
-        # Create an engine and force model to None
+        # Create an engine and force model to None.  Learnable3REngine.model
+        # is normally ``Learnable3RFusion`` but the engine's runtime guard
+        # path (line 592) explicitly tolerates ``None``, so injecting
+        # ``None`` here exercises that branch.  The ``type: ignore`` mirrors
+        # the matching pragma in the source (``learnable_fusion.py:570``).
         engine = Learnable3REngine.__new__(Learnable3REngine)
-        engine.model = None
+        engine.model = None  # type: ignore[assignment]
 
         history = engine.fit(np.zeros((10, 4)), np.zeros(10))
         assert history["train_losses"] == []
@@ -728,19 +733,19 @@ class TestLearnable3RFit:
 class TestAttentionProvider:
     """Tests for the AttentionProvider interface."""
 
-    def test_interface_exists(self):
+    def test_interface_exists(self) -> None:
         from omni_mercury_engine.core.gosnn_optimizer import AttentionProvider
 
         assert hasattr(AttentionProvider, "get_attention")
 
-    def test_custom_provider_plugs_in(self):
+    def test_custom_provider_plugs_in(self) -> None:
         from omni_mercury_engine.core.gosnn_optimizer import (
             AttentionProvider,
             GOSNNOptimizer,
         )
 
         class MockProvider(AttentionProvider):
-            def __init__(self):
+            def __init__(self) -> None:
                 self.called = False
 
             def get_attention(self) -> np.ndarray:
@@ -751,7 +756,7 @@ class TestAttentionProvider:
         optimizer = GOSNNOptimizer(attention_provider=provider)
         assert optimizer._attention_provider is provider
 
-    def test_placeholder_warning_when_no_provider(self, caplog):
+    def test_placeholder_warning_when_no_provider(self, caplog: Any) -> None:
         from omni_mercury_engine.core.global_omni_scalar_network import (
             GlobalOmniScalarNetwork,
             reset_global_network,
@@ -780,7 +785,7 @@ class TestAttentionProvider:
 class TestBenchmarkDiagnosticsLogging:
     """Tests that quick_diagnose uses logger, not print."""
 
-    def test_quick_diagnose_uses_logger(self, caplog):
+    def test_quick_diagnose_uses_logger(self, caplog: Any) -> None:
         from omni_mercury_engine.evaluation.benchmark_diagnostics import (
             BenchmarkDiagnostics,
         )
@@ -802,7 +807,7 @@ class TestBenchmarkDiagnosticsLogging:
         assert "TestDetector" in caplog.text
         assert "Precision" in caplog.text
 
-    def test_quick_diagnose_f1_zero_warning(self, caplog):
+    def test_quick_diagnose_f1_zero_warning(self, caplog: Any) -> None:
         from omni_mercury_engine.evaluation.benchmark_diagnostics import (
             BenchmarkDiagnostics,
         )

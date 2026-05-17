@@ -42,7 +42,7 @@ from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 class TestZScoreComputation:
     """Test z-score computation with mathematically verifiable values."""
 
-    def test_z_score_known_values(self):
+    def test_z_score_known_values(self) -> None:
         """Verify z-scores match hand-calculated values.
 
         For data [80, 90, 100, 110, 120]:
@@ -66,7 +66,7 @@ class TestZScoreComputation:
         # Verify within tolerance (1e-5 due to numerical precision)
         assert_allclose(actual_z_scores[0, 0], expected_z, rtol=1e-5)
 
-    def test_z_score_zero_deviation(self):
+    def test_z_score_zero_deviation(self) -> None:
         """Z-score should be 0 for point at mean."""
         detector = MercuryAnomalyDetector()
         data = np.array([[10], [20], [30], [40], [50]])  # mean = 30
@@ -77,7 +77,7 @@ class TestZScoreComputation:
 
         assert_allclose(z_scores[0, 0], 0.0, atol=1e-10)
 
-    def test_z_score_multivariate(self):
+    def test_z_score_multivariate(self) -> None:
         """Z-scores computed correctly for multivariate data."""
         detector = MercuryAnomalyDetector()
         # Two features with different distributions
@@ -107,7 +107,7 @@ class TestZScoreComputation:
 class TestIQRBounds:
     """Test IQR-based anomaly detection bounds."""
 
-    def test_iqr_bounds_calculation(self):
+    def test_iqr_bounds_calculation(self) -> None:
         """Verify IQR bounds match manual calculation.
 
         For data [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
@@ -123,6 +123,8 @@ class TestIQRBounds:
         expected_q1 = np.percentile(data, 25)
         expected_q3 = np.percentile(data, 75)
 
+        assert detector.q1 is not None
+        assert detector.q3 is not None
         assert_allclose(detector.q1[0], expected_q1, rtol=1e-10)
         assert_allclose(detector.q3[0], expected_q3, rtol=1e-10)
 
@@ -136,7 +138,7 @@ class TestIQRBounds:
         result = detector.detect(test_above)
         assert result["iqr_scores"][0] > 0.5  # Anomalous
 
-    def test_iqr_continuous_scores(self):
+    def test_iqr_continuous_scores(self) -> None:
         """IQR scores should be continuous, not discrete flags."""
         detector = MercuryAnomalyDetector()
         data = np.random.randn(100, 1)
@@ -167,7 +169,7 @@ class TestAdaptiveContamination:
     its info-geometry and kinematic scoring.
     """
 
-    def test_noisy_data_scores_higher_than_clean(self):
+    def test_noisy_data_scores_higher_than_clean(self) -> None:
         """Noisy data should produce higher anomaly scores than clean data."""
         clean_data = np.random.RandomState(42).randn(200, 1)
         noisy_data = np.concatenate(
@@ -185,14 +187,14 @@ class TestAdaptiveContamination:
 
         assert noisy_scores > clean_scores
 
-    def test_config_contamination_accepted(self):
+    def test_config_contamination_accepted(self) -> None:
         """Legacy contamination config should not cause errors."""
         detector = MercuryAnomalyDetector({"contamination": 0.25})
         data = np.random.randn(100, 1)
         detector.fit(data)
         assert detector._is_fitted
 
-    def test_uniform_data_handled(self):
+    def test_uniform_data_handled(self) -> None:
         """Uniform/constant data should not crash the detector."""
         uniform_data = np.ones((100, 1))
         detector = MercuryAnomalyDetector()
@@ -204,7 +206,7 @@ class TestAdaptiveContamination:
 class TestContinuousScores:
     """Test continuous score preservation (Fix for Issue #3)."""
 
-    def test_combined_scores_continuous(self):
+    def test_combined_scores_continuous(self) -> None:
         """Combined scores should have more than 5 discrete values."""
         detector = MercuryAnomalyDetector()
         data = np.random.randn(200, 5)
@@ -219,7 +221,7 @@ class TestContinuousScores:
         # Should have many unique values (continuous), not just {0, 0.3, 0.4, 0.7, 1}
         assert len(unique_scores) > 10
 
-    def test_scores_preserve_ranking(self):
+    def test_scores_preserve_ranking(self) -> None:
         """Scores should preserve ranking of anomaly severity."""
         detector = MercuryAnomalyDetector()
         data = np.random.randn(100, 1)
@@ -235,7 +237,7 @@ class TestContinuousScores:
         for i in range(len(scores) - 1):
             assert scores[i] <= scores[i + 1]
 
-    def test_z_score_continuous_not_boolean(self):
+    def test_z_score_continuous_not_boolean(self) -> None:
         """Z-score component should be continuous in [0, 1]."""
         detector = MercuryAnomalyDetector()
         data = np.random.randn(100, 1)
@@ -258,7 +260,7 @@ class TestContinuousScores:
 class TestAnomalyAccuracy:
     """Test anomaly detection accuracy on synthetic datasets."""
 
-    def test_detects_obvious_outliers(self):
+    def test_detects_obvious_outliers(self) -> None:
         """Should detect points > 3 std from mean as anomalies."""
         detector = MercuryAnomalyDetector({"z_threshold": 3.0})
         # Training data: normal distribution
@@ -283,7 +285,7 @@ class TestAnomalyAccuracy:
         outlier_above_median = np.mean(outlier_scores > median_score)
         assert outlier_above_median >= 0.8
 
-    def test_isolation_forest_scores(self):
+    def test_isolation_forest_scores(self) -> None:
         """Isolation forest scores should identify outliers."""
         np.random.seed(42)
         detector = MercuryAnomalyDetector()
@@ -305,7 +307,7 @@ class TestAnomalyAccuracy:
             >= normal_result["isolation_forest_scores"][0]
         )
 
-    def test_multivariate_anomaly_detection(self):
+    def test_multivariate_anomaly_detection(self) -> None:
         """Should detect anomalies in multivariate data."""
         np.random.seed(42)
         detector = MercuryAnomalyDetector()
@@ -332,7 +334,7 @@ class TestAnomalyAccuracy:
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
-    def test_empty_data_raises_exception(self):
+    def test_empty_data_raises_exception(self) -> None:
         """Should raise DetectorException for empty data."""
         from omni_mercury_engine.core.exceptions import DetectorException
 
@@ -340,7 +342,7 @@ class TestEdgeCases:
         with pytest.raises(DetectorException, match="empty data"):
             detector.fit(np.array([]))
 
-    def test_nan_inf_handling(self):
+    def test_nan_inf_handling(self) -> None:
         """Should handle NaN and Inf values gracefully."""
         from omni_mercury_engine.core.exceptions import DetectorException
 
@@ -357,7 +359,7 @@ class TestEdgeCases:
 
         assert detector._is_fitted
 
-    def test_single_sample(self):
+    def test_single_sample(self) -> None:
         """Should handle single sample edge case."""
         detector = MercuryAnomalyDetector()
         data = np.array([[5.0]])
@@ -367,7 +369,7 @@ class TestEdgeCases:
         assert "scores" in result
         assert len(result["scores"]) == 1
 
-    def test_constant_data(self):
+    def test_constant_data(self) -> None:
         """Should handle constant (zero variance) data."""
         detector = MercuryAnomalyDetector()
         data = np.ones((100, 1)) * 5
@@ -381,7 +383,7 @@ class TestEdgeCases:
 class TestFeatureExtraction:
     """Test feature extraction for ML fusion."""
 
-    def test_feature_extraction_shape(self):
+    def test_feature_extraction_shape(self) -> None:
         """Extracted features should have correct shape."""
         detector = MercuryAnomalyDetector()
         data = np.random.randn(50, 5)
@@ -393,7 +395,7 @@ class TestFeatureExtraction:
         assert features.shape[0] == 50
         assert features.shape[1] == 10
 
-    def test_features_include_statistics(self):
+    def test_features_include_statistics(self) -> None:
         """Features should include meaningful statistics."""
         detector = MercuryAnomalyDetector()
         data = np.random.randn(100, 3)
@@ -412,7 +414,7 @@ class TestFeatureExtraction:
 class TestAutoCalibration:
     """Test auto-calibration functionality."""
 
-    def test_auto_calibration_adjusts_threshold(self):
+    def test_auto_calibration_adjusts_threshold(self) -> None:
         """Auto-calibration should adjust threshold based on score distribution."""
         detector = MercuryAnomalyDetector()
         detector.enable_auto_calibration()
@@ -428,7 +430,7 @@ class TestAutoCalibration:
         # Threshold should be adjusted (not default 0.5)
         assert "threshold" in result
 
-    def test_calibrated_threshold_produces_positives(self):
+    def test_calibrated_threshold_produces_positives(self) -> None:
         """Calibrated threshold should produce some positive predictions."""
         detector = MercuryAnomalyDetector()
         detector.enable_auto_calibration()

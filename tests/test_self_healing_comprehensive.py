@@ -23,7 +23,7 @@ from omni_mercury_engine.resilience.self_healing import (
 class TestAnomalySignature:
     """Tests for AnomalySignature dataclass."""
 
-    def test_signature_creation(self):
+    def test_signature_creation(self) -> None:
         """Test creating anomaly signature."""
         feature_vec = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         sig = AnomalySignature(
@@ -40,7 +40,7 @@ class TestAnomalySignature:
         assert sig.detection_count == 5
         assert sig.confidence == 0.95
 
-    def test_signature_defaults(self):
+    def test_signature_defaults(self) -> None:
         """Test default values for signature."""
         sig = AnomalySignature(
             signature_id="test",
@@ -56,14 +56,14 @@ class TestAnomalySignature:
 class TestAdaptiveDefenseSystem:
     """Tests for AdaptiveDefenseSystem (CRISPR-inspired)."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test system initialization."""
         system = AdaptiveDefenseSystem(max_signatures=500, similarity_threshold=0.9)
         assert system.max_signatures == 500
         assert system.similarity_threshold == 0.9
         assert len(system.signature_library) == 0
 
-    def test_stage_1_acquisition(self):
+    def test_stage_1_acquisition(self) -> None:
         """Test Stage 1: Acquisition of anomaly signature."""
         system = AdaptiveDefenseSystem()
         data = np.random.randn(100)
@@ -75,7 +75,7 @@ class TestAdaptiveDefenseSystem:
         assert signature.confidence == 0.95
         assert signature.metadata["type"] == "test"
 
-    def test_stage_2_expression(self):
+    def test_stage_2_expression(self) -> None:
         """Test Stage 2: Expression of signature to detection pattern."""
         system = AdaptiveDefenseSystem()
         data = np.random.randn(100)
@@ -87,7 +87,7 @@ class TestAdaptiveDefenseSystem:
         norm = np.linalg.norm(pattern)
         assert abs(norm - 1.0) < 1e-6
 
-    def test_stage_2_zero_vector(self):
+    def test_stage_2_zero_vector(self) -> None:
         """Test Stage 2 with zero vector."""
         system = AdaptiveDefenseSystem()
 
@@ -101,7 +101,7 @@ class TestAdaptiveDefenseSystem:
         pattern = system.stage_2_expression(sig)
         assert np.allclose(pattern, np.zeros(7))
 
-    def test_stage_3_interference_no_library(self):
+    def test_stage_3_interference_no_library(self) -> None:
         """Test Stage 3: Interference with empty library."""
         system = AdaptiveDefenseSystem()
         data = np.random.randn(100)
@@ -112,7 +112,7 @@ class TestAdaptiveDefenseSystem:
         assert confidence == 0.0
         assert sig_id is None
 
-    def test_stage_3_interference_with_match(self):
+    def test_stage_3_interference_with_match(self) -> None:
         """Test Stage 3: Interference with matching pattern."""
         system = AdaptiveDefenseSystem(similarity_threshold=0.5)
 
@@ -128,7 +128,7 @@ class TestAdaptiveDefenseSystem:
         assert confidence > 0.5
         assert sig_id is not None
 
-    def test_library_pruning(self):
+    def test_library_pruning(self) -> None:
         """Test automatic pruning when library is full."""
         system = AdaptiveDefenseSystem(max_signatures=3)
 
@@ -140,7 +140,7 @@ class TestAdaptiveDefenseSystem:
         # Library should be at max size
         assert len(system.signature_library) == 3
 
-    def test_save_load_library(self):
+    def test_save_load_library(self) -> None:
         """Test saving and loading signature library."""
         system = AdaptiveDefenseSystem()
 
@@ -161,7 +161,7 @@ class TestAdaptiveDefenseSystem:
 
             assert len(new_system.signature_library) == 3
 
-    def test_online_learning_disabled(self):
+    def test_online_learning_disabled(self) -> None:
         """Test that online learning is disabled by default."""
         system = AdaptiveDefenseSystem(enable_online_learning=False)
         data = np.random.randn(100)
@@ -171,7 +171,7 @@ class TestAdaptiveDefenseSystem:
 
         assert system._sample_count == 0
 
-    def test_online_learning_enabled(self):
+    def test_online_learning_enabled(self) -> None:
         """Test online learning with incremental statistics."""
         system = AdaptiveDefenseSystem(
             enable_online_learning=True,
@@ -188,7 +188,7 @@ class TestAdaptiveDefenseSystem:
         assert system._running_mean is not None
         assert len(system._sliding_window) == 5
 
-    def test_concept_drift_detection(self):
+    def test_concept_drift_detection(self) -> None:
         """Test concept drift detection."""
         system = AdaptiveDefenseSystem(
             enable_online_learning=True,
@@ -209,7 +209,7 @@ class TestAdaptiveDefenseSystem:
         assert "concept_drift_detected" in stats
         assert "drift_magnitude" in stats
 
-    def test_adapt_signature(self):
+    def test_adapt_signature(self) -> None:
         """Test incremental signature adaptation."""
         system = AdaptiveDefenseSystem(
             enable_online_learning=True,
@@ -228,14 +228,14 @@ class TestAdaptiveDefenseSystem:
         assert result is True
         assert system.signature_library[sig_id].detection_count == 2
 
-    def test_adapt_signature_not_found(self):
+    def test_adapt_signature_not_found(self) -> None:
         """Test adaptation with non-existent signature."""
         system = AdaptiveDefenseSystem(enable_online_learning=True)
 
         result = system.adapt_signature("nonexistent", np.random.randn(100))
         assert result is False
 
-    def test_adapt_signature_learning_disabled(self):
+    def test_adapt_signature_learning_disabled(self) -> None:
         """Test adaptation when online learning is disabled."""
         system = AdaptiveDefenseSystem(enable_online_learning=False)
 
@@ -245,7 +245,7 @@ class TestAdaptiveDefenseSystem:
         result = system.adapt_signature(signature.signature_id, np.random.randn(100))
         assert result is False
 
-    def test_get_statistics_empty(self):
+    def test_get_statistics_empty(self) -> None:
         """Test statistics with empty library."""
         system = AdaptiveDefenseSystem()
 
@@ -255,7 +255,7 @@ class TestAdaptiveDefenseSystem:
         assert stats["total_detections"] == 0
         assert stats["average_confidence"] == 0.0
 
-    def test_get_statistics_with_signatures(self):
+    def test_get_statistics_with_signatures(self) -> None:
         """Test statistics with populated library."""
         system = AdaptiveDefenseSystem()
 
@@ -268,7 +268,7 @@ class TestAdaptiveDefenseSystem:
         assert stats["total_detections"] == 3  # Each signature counted once
         assert stats["average_confidence"] > 0
 
-    def test_get_statistics_with_online_learning(self):
+    def test_get_statistics_with_online_learning(self) -> None:
         """Test statistics include online learning info."""
         system = AdaptiveDefenseSystem(enable_online_learning=True)
 
@@ -278,7 +278,7 @@ class TestAdaptiveDefenseSystem:
         stats = system.get_statistics()
         assert "online_learning" in stats
 
-    def test_backward_compat_aliases(self):
+    def test_backward_compat_aliases(self) -> None:
         """Test backward compatibility aliases."""
         system = AdaptiveDefenseSystem()
         system.stage_1_acquisition(np.random.randn(100))
@@ -298,7 +298,7 @@ class TestAdaptiveDefenseSystem:
 class TestSelfHealingEngine:
     """Tests for SelfHealingEngine."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test engine initialization."""
         engine = SelfHealingEngine(max_signatures=500, similarity_threshold=0.9)
 
@@ -306,14 +306,14 @@ class TestSelfHealingEngine:
         assert engine.adaptive_defense is not None
         assert engine.adaptive_defense.max_signatures == 500
 
-    def test_register_component(self):
+    def test_register_component(self) -> None:
         """Test component registration."""
         engine = SelfHealingEngine()
 
         def health_check():
             return True
 
-        def recovery():
+        def recovery() -> None:
             pass
 
         engine.register_component("test_component", health_check, recovery)
@@ -321,7 +321,7 @@ class TestSelfHealingEngine:
         assert "test_component" in engine.components
         assert "test_component" in engine.circuit_breakers
 
-    def test_check_health_healthy(self):
+    def test_check_health_healthy(self) -> None:
         """Test health check for healthy component."""
         engine = SelfHealingEngine()
 
@@ -334,7 +334,7 @@ class TestSelfHealingEngine:
         assert result is True
         assert engine.components["healthy"]["status"] == "healthy"
 
-    def test_check_health_unhealthy(self):
+    def test_check_health_unhealthy(self) -> None:
         """Test health check for unhealthy component."""
         engine = SelfHealingEngine()
 
@@ -347,11 +347,11 @@ class TestSelfHealingEngine:
         assert result is False
         assert engine.components["unhealthy"]["status"] == "unhealthy"
 
-    def test_check_health_exception(self):
+    def test_check_health_exception(self) -> None:
         """Test health check that raises exception."""
         engine = SelfHealingEngine()
 
-        def health_check():
+        def health_check() -> bool:
             raise RuntimeError("Health check failed")
 
         engine.register_component("failing", health_check)
@@ -360,14 +360,14 @@ class TestSelfHealingEngine:
         assert result is False
         assert engine.components["failing"]["status"] == "unhealthy"
 
-    def test_check_health_unknown_component(self):
+    def test_check_health_unknown_component(self) -> None:
         """Test health check for unknown component."""
         engine = SelfHealingEngine()
 
         result = engine.check_health("unknown")
         assert result is False
 
-    def test_attempt_recovery_success(self):
+    def test_attempt_recovery_success(self) -> None:
         """Test successful recovery."""
         engine = SelfHealingEngine()
 
@@ -376,7 +376,7 @@ class TestSelfHealingEngine:
         def health_check():
             return state["healthy"]
 
-        def recovery():
+        def recovery() -> None:
             state["healthy"] = True
 
         engine.register_component("recoverable", health_check, recovery)
@@ -389,7 +389,7 @@ class TestSelfHealingEngine:
         assert result is True
         assert engine.components["recoverable"]["status"] == "healthy"
 
-    def test_attempt_recovery_no_action(self):
+    def test_attempt_recovery_no_action(self) -> None:
         """Test recovery with no recovery action."""
         engine = SelfHealingEngine()
 
@@ -401,21 +401,21 @@ class TestSelfHealingEngine:
         result = engine.attempt_recovery("no_recovery")
         assert result is False
 
-    def test_attempt_recovery_unknown_component(self):
+    def test_attempt_recovery_unknown_component(self) -> None:
         """Test recovery for unknown component."""
         engine = SelfHealingEngine()
 
         result = engine.attempt_recovery("unknown")
         assert result is False
 
-    def test_attempt_recovery_exception(self):
+    def test_attempt_recovery_exception(self) -> None:
         """Test recovery that raises exception."""
         engine = SelfHealingEngine()
 
         def health_check():
             return False
 
-        def recovery():
+        def recovery() -> None:
             raise RuntimeError("Recovery failed")
 
         engine.register_component("failing_recovery", health_check, recovery)
@@ -423,7 +423,7 @@ class TestSelfHealingEngine:
         result = engine.attempt_recovery("failing_recovery")
         assert result is False
 
-    def test_learn_anomaly(self):
+    def test_learn_anomaly(self) -> None:
         """Test learning new anomaly pattern."""
         engine = SelfHealingEngine()
 
@@ -433,7 +433,7 @@ class TestSelfHealingEngine:
         assert signature is not None
         assert signature.metadata["source"] == "test"
 
-    def test_check_known_anomaly(self):
+    def test_check_known_anomaly(self) -> None:
         """Test checking for known anomaly patterns."""
         engine = SelfHealingEngine(similarity_threshold=0.5)
 
@@ -447,7 +447,7 @@ class TestSelfHealingEngine:
         assert is_anomaly is True
         assert confidence > 0.5
 
-    def test_get_system_health_all_healthy(self):
+    def test_get_system_health_all_healthy(self) -> None:
         """Test system health when all components healthy."""
         engine = SelfHealingEngine()
 
@@ -463,7 +463,7 @@ class TestSelfHealingEngine:
         assert health["components"]["comp1"]["is_healthy"] is True
         assert health["components"]["comp2"]["is_healthy"] is True
 
-    def test_get_system_health_degraded(self):
+    def test_get_system_health_degraded(self) -> None:
         """Test system health when some components unhealthy."""
         engine = SelfHealingEngine()
 
@@ -481,7 +481,7 @@ class TestSelfHealingEngine:
         assert health["overall_health"] == "degraded"
         assert "adaptive_defense" in health
 
-    def test_get_system_health_empty(self):
+    def test_get_system_health_empty(self) -> None:
         """Test system health with no components."""
         engine = SelfHealingEngine()
 

@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("torch")
@@ -41,7 +43,7 @@ from omni_mercury_engine.detectors.energy.emp_detector import (
 class TestEMPEnums:
     """Tests for EMP enumerations."""
 
-    def test_emp_type_values(self):
+    def test_emp_type_values(self) -> None:
         """Test EMPType enum values."""
         assert EMPType.HEMP.value == "high_altitude_emp"
         assert EMPType.NUCLEAR_EMP.value == "nuclear_emp"
@@ -50,7 +52,7 @@ class TestEMPEnums:
         assert EMPType.SOLAR_GIC.value == "solar_geomagnetic_current"
         assert EMPType.INTENTIONAL_EMI.value == "intentional_emi"
 
-    def test_threat_level_values(self):
+    def test_threat_level_values(self) -> None:
         """Test ThreatLevel enum values."""
         assert ThreatLevel.BENIGN.value == "benign"
         assert ThreatLevel.ANOMALOUS.value == "anomalous"
@@ -62,7 +64,7 @@ class TestEMPEnums:
 class TestEMPPredictionResult:
     """Tests for EMPPredictionResult dataclass."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test default values of result dataclass."""
         result = EMPPredictionResult(
             emp_detected=False,
@@ -87,7 +89,7 @@ class TestE1PulseDetector:
         """Create E1PulseDetector instance."""
         return E1PulseDetector()
 
-    def test_no_e1_pulse_normal_conditions(self, detector):
+    def test_no_e1_pulse_normal_conditions(self, detector: Any) -> None:
         """Test detection with normal EM conditions."""
         sensor_data = {
             "field_strength_vm": 100.0,
@@ -99,7 +101,7 @@ class TestE1PulseDetector:
         assert result["e1_detected"] is False
         assert result["severity"] == "low"
 
-    def test_e1_pulse_detected(self, detector):
+    def test_e1_pulse_detected(self, detector: Any) -> None:
         """Test detection of E1 pulse."""
         sensor_data = {
             "field_strength_vm": 15000.0,
@@ -111,7 +113,7 @@ class TestE1PulseDetector:
         assert result["e1_detected"] is True
         assert result["severity"] == "critical"
 
-    def test_e1_detection_threshold_boundary(self, detector):
+    def test_e1_detection_threshold_boundary(self, detector: Any) -> None:
         """Test E1 detection at threshold boundaries."""
         # Just above threshold
         sensor_data = {
@@ -122,7 +124,7 @@ class TestE1PulseDetector:
         result = detector.detect_e1_pulse(sensor_data)
         assert result["e1_detected"] is True
 
-    def test_field_strength_captured(self, detector):
+    def test_field_strength_captured(self, detector: Any) -> None:
         """Test that field strength is captured in result."""
         sensor_data = {"field_strength_vm": 5000.0}
         result = detector.detect_e1_pulse(sensor_data)
@@ -138,7 +140,7 @@ class TestE3PulseDetector:
         """Create E3PulseDetector instance."""
         return E3PulseDetector()
 
-    def test_no_e3_pulse_normal_conditions(self, detector):
+    def test_no_e3_pulse_normal_conditions(self, detector: Any) -> None:
         """Test detection with normal geomagnetic conditions."""
         magnetometer_data = {
             "db_dt_nt_s": 100.0,
@@ -149,7 +151,7 @@ class TestE3PulseDetector:
         assert result["e3_detected"] is False
         assert result["grid_impact"] == "low"
 
-    def test_e3_pulse_detected(self, detector):
+    def test_e3_pulse_detected(self, detector: Any) -> None:
         """Test detection of E3 pulse."""
         magnetometer_data = {
             "db_dt_nt_s": 3000.0,
@@ -159,7 +161,7 @@ class TestE3PulseDetector:
 
         assert result["e3_detected"] is True
 
-    def test_grid_impact_levels(self, detector):
+    def test_grid_impact_levels(self, detector: Any) -> None:
         """Test different grid impact levels."""
         # Low impact
         result = detector.detect_e3_pulse({"db_dt_nt_s": 100.0, "duration_seconds": 120.0})
@@ -177,7 +179,7 @@ class TestE3PulseDetector:
         result = detector.detect_e3_pulse({"db_dt_nt_s": 1500.0, "duration_seconds": 120.0})
         assert result["grid_impact"] == "critical"
 
-    def test_gic_amplitude_calculation(self, detector):
+    def test_gic_amplitude_calculation(self, detector: Any) -> None:
         """Test GIC amplitude calculation."""
         magnetometer_data = {
             "db_dt_nt_s": 1000.0,
@@ -197,12 +199,12 @@ class TestIntentionalEMIDetector:
         """Create IntentionalEMIDetector instance."""
         return IntentionalEMIDetector(input_dim=64)
 
-    def test_initialization(self, detector):
+    def test_initialization(self, detector: Any) -> None:
         """Test model initialization."""
         assert detector.signature_analyzer is not None
         assert detector.attack_classifier is not None
 
-    def test_forward_pass(self, detector):
+    def test_forward_pass(self, detector: Any) -> None:
         """Test forward pass through model."""
         input_tensor = torch.randn(10, 64)
         output = detector(input_tensor)
@@ -211,7 +213,7 @@ class TestIntentionalEMIDetector:
         assert torch.all(output >= 0)
         assert torch.all(output <= 1)
 
-    def test_batch_processing(self, detector):
+    def test_batch_processing(self, detector: Any) -> None:
         """Test processing of batched inputs."""
         for batch_size in [1, 5, 20]:
             input_tensor = torch.randn(batch_size, 64)
@@ -266,13 +268,13 @@ class TestEMPDetector:
             "solar_data": {"storm_active": True},
         }
 
-    def test_initialization_all_enabled(self, detector):
+    def test_initialization_all_enabled(self, detector: Any) -> None:
         """Test initialization with all detectors enabled."""
         assert detector.e1_detector is not None
         assert detector.e3_detector is not None
         assert detector.emi_detector is not None
 
-    def test_initialization_selective_enablement(self):
+    def test_initialization_selective_enablement(self) -> None:
         """Test selective detector enablement."""
         detector = EMPDetector(
             enable_e1_detection=True,
@@ -284,7 +286,7 @@ class TestEMPDetector:
         assert detector.e3_detector is None
         assert detector.emi_detector is None
 
-    def test_predict_normal_conditions(self, detector, normal_emp_data):
+    def test_predict_normal_conditions(self, detector: Any, normal_emp_data: Any) -> None:
         """Test prediction with normal conditions."""
         result = detector.predict_emp(normal_emp_data)
 
@@ -292,7 +294,7 @@ class TestEMPDetector:
         assert result.emp_detected is False
         assert result.threat_level == "benign"
 
-    def test_predict_e1_event(self, detector, e1_emp_data):
+    def test_predict_e1_event(self, detector: Any, e1_emp_data: Any) -> None:
         """Test prediction of E1 event."""
         result = detector.predict_emp(e1_emp_data)
 
@@ -300,7 +302,7 @@ class TestEMPDetector:
         assert result.e1_component_detected is True
         assert result.emp_type == "non_nuclear_emp"
 
-    def test_predict_e3_event(self, detector, e3_emp_data):
+    def test_predict_e3_event(self, detector: Any, e3_emp_data: Any) -> None:
         """Test prediction of E3 event (solar GIC)."""
         result = detector.predict_emp(e3_emp_data)
 
@@ -308,7 +310,7 @@ class TestEMPDetector:
         assert result.e3_component_detected is True
         assert result.emp_type == "solar_geomagnetic_current"
 
-    def test_predict_nuclear_emp(self, detector):
+    def test_predict_nuclear_emp(self, detector: Any) -> None:
         """Test prediction of nuclear EMP (E1 + E3)."""
         data = {
             "sensor_data": {
@@ -328,34 +330,34 @@ class TestEMPDetector:
         assert result.emp_type == "nuclear_emp"
         assert result.threat_level == "critical"
 
-    def test_affected_infrastructure_identified(self, detector, e1_emp_data):
+    def test_affected_infrastructure_identified(self, detector: Any, e1_emp_data: Any) -> None:
         """Test that affected infrastructure is identified."""
         result = detector.predict_emp(e1_emp_data)
 
         assert len(result.affected_infrastructure) > 0
         assert "Electronics and semiconductors" in result.affected_infrastructure
 
-    def test_protective_actions_generated(self, detector, e1_emp_data):
+    def test_protective_actions_generated(self, detector: Any, e1_emp_data: Any) -> None:
         """Test that protective actions are generated for threats."""
         result = detector.predict_emp(e1_emp_data)
 
         # Should generate some protective actions
         assert len(result.protective_actions) >= 0
 
-    def test_recovery_actions_generated(self, detector, e1_emp_data):
+    def test_recovery_actions_generated(self, detector: Any, e1_emp_data: Any) -> None:
         """Test that recovery actions are generated."""
         result = detector.predict_emp(e1_emp_data)
 
         assert len(result.recovery_actions) >= 0
 
-    def test_empty_data_handling(self, detector):
+    def test_empty_data_handling(self, detector: Any) -> None:
         """Test handling of empty EMP data."""
         result = detector.predict_emp({})
 
         assert result.emp_detected is False
         assert result.threat_level == "benign"
 
-    def test_threat_level_assessment(self, detector):
+    def test_threat_level_assessment(self, detector: Any) -> None:
         """Test threat level assessment function."""
         result = EMPPredictionResult(
             emp_detected=True,
@@ -368,7 +370,7 @@ class TestEMPDetector:
         level = detector._assess_threat_level(result, 2)
         assert level == "critical"
 
-    def test_source_localization_field(self, detector, normal_emp_data):
+    def test_source_localization_field(self, detector: Any, normal_emp_data: Any) -> None:
         """Test source localization field in result."""
         result = detector.predict_emp(normal_emp_data)
 

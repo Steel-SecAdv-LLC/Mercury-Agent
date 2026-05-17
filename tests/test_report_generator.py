@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import Any
 
 import pytest
 
@@ -24,12 +25,12 @@ from omni_mercury_engine.utils.report_generator import (
 class TestReportFormat:
     """Tests for ReportFormat enum."""
 
-    def test_all_formats_defined(self):
+    def test_all_formats_defined(self) -> None:
         """Test that expected formats are defined."""
         formats = list(ReportFormat)
         assert len(formats) >= 3  # At least JSON, HTML, PDF
 
-    def test_format_values(self):
+    def test_format_values(self) -> None:
         """Test format values are strings."""
         for fmt in list(ReportFormat):
             assert isinstance(fmt.value, str)
@@ -38,7 +39,7 @@ class TestReportFormat:
 class TestAnomalyReport:
     """Tests for AnomalyReport dataclass."""
 
-    def test_basic_creation(self):
+    def test_basic_creation(self) -> None:
         """Test basic report creation."""
         report = AnomalyReport(
             title="Test Report",
@@ -49,7 +50,7 @@ class TestAnomalyReport:
         assert report.title == "Test Report"
         assert report.anomaly_count == 5
 
-    def test_severity_calculation(self):
+    def test_severity_calculation(self) -> None:
         """Test severity level calculation."""
         report = AnomalyReport(
             title="Test",
@@ -60,7 +61,7 @@ class TestAnomalyReport:
         # 10% anomaly rate should be high severity
         assert report.severity in ["low", "medium", "high", "critical"]
 
-    def test_anomaly_rate(self):
+    def test_anomaly_rate(self) -> None:
         """Test anomaly rate calculation."""
         report = AnomalyReport(
             title="Test",
@@ -74,7 +75,7 @@ class TestAnomalyReport:
 class TestReportSection:
     """Tests for ReportSection class."""
 
-    def test_section_creation(self):
+    def test_section_creation(self) -> None:
         """Test section creation."""
         section = ReportSection(
             title="Analysis Results",
@@ -83,7 +84,7 @@ class TestReportSection:
         )
         assert section.title == "Analysis Results"
 
-    def test_nested_sections(self):
+    def test_nested_sections(self) -> None:
         """Test nested subsections."""
         subsection = ReportSection(title="Subsection", content="Details")
         section = ReportSection(title="Main Section", content="Overview", subsections=[subsection])
@@ -94,7 +95,7 @@ class TestReportSection:
 class TestExecutiveSummary:
     """Tests for ExecutiveSummary class."""
 
-    def test_summary_generation(self):
+    def test_summary_generation(self) -> None:
         """Test executive summary generation."""
         summary = ExecutiveSummary(
             key_findings=["Finding 1", "Finding 2"],
@@ -105,7 +106,7 @@ class TestExecutiveSummary:
         assert len(summary.key_findings) == 2
         assert summary.confidence_score == 0.85
 
-    def test_summary_to_dict(self):
+    def test_summary_to_dict(self) -> None:
         """Test converting summary to dictionary."""
         summary = ExecutiveSummary(
             key_findings=["Test finding"],
@@ -123,7 +124,7 @@ class TestExecutiveSummary:
 class TestTechnicalDetails:
     """Tests for TechnicalDetails class."""
 
-    def test_details_creation(self):
+    def test_details_creation(self) -> None:
         """Test technical details creation."""
         details = TechnicalDetails(
             methodology="Statistical analysis",
@@ -133,7 +134,7 @@ class TestTechnicalDetails:
         )
         assert len(details.algorithms_used) == 2
 
-    def test_parameters_serialization(self):
+    def test_parameters_serialization(self) -> None:
         """Test that parameters are serializable."""
         details = TechnicalDetails(
             methodology="Test",
@@ -149,15 +150,15 @@ class TestTechnicalDetails:
 class TestReportGenerator:
     """Tests for ReportGenerator class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.generator = ReportGenerator()
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test generator initialization."""
         assert self.generator is not None
 
-    def test_generate_json_report(self):
+    def test_generate_json_report(self) -> None:
         """Test JSON report generation."""
         data = {
             "anomalies": [
@@ -173,7 +174,7 @@ class TestReportGenerator:
         parsed = json.loads(report)
         assert "anomalies" in parsed or "summary" in parsed
 
-    def test_generate_html_report(self):
+    def test_generate_html_report(self) -> None:
         """Test HTML report generation."""
         data = {
             "title": "Test Report",
@@ -184,7 +185,7 @@ class TestReportGenerator:
         assert report is not None
         assert "<html>" in report.lower() or "<!doctype" in report.lower()
 
-    def test_generate_markdown_report(self):
+    def test_generate_markdown_report(self) -> None:
         """Test Markdown report generation."""
         data = {
             "title": "Test Report",
@@ -197,7 +198,7 @@ class TestReportGenerator:
         assert report is not None
         assert "#" in report  # Markdown headings
 
-    def test_add_section(self):
+    def test_add_section(self) -> None:
         """Test adding sections to report."""
         self.generator.add_section("Introduction", "This is the introduction.")
         self.generator.add_section("Analysis", "This is the analysis.")
@@ -206,7 +207,7 @@ class TestReportGenerator:
         assert "Introduction" in report
         assert "Analysis" in report
 
-    def test_add_chart_placeholder(self):
+    def test_add_chart_placeholder(self) -> None:
         """Test adding chart placeholders."""
         chart_data = {
             "type": "line",
@@ -217,7 +218,7 @@ class TestReportGenerator:
 
         assert "trend_chart" in self.generator._charts
 
-    def test_add_table(self):
+    def test_add_table(self) -> None:
         """Test adding tables to report."""
         table_data = {
             "headers": ["ID", "Score", "Status"],
@@ -231,7 +232,7 @@ class TestReportGenerator:
         report = self.generator.generate({}, format=ReportFormat.HTML)
         assert "table" in report.lower() or "ID" in report
 
-    def test_template_customization(self):
+    def test_template_customization(self) -> None:
         """Test custom template support."""
         custom_template = "Custom Report: {{ title }}"
         generator = ReportGenerator(template=custom_template)
@@ -244,11 +245,11 @@ class TestReportGenerator:
 class TestReportContent:
     """Tests for report content generation."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.generator = ReportGenerator()
 
-    def test_timestamp_included(self):
+    def test_timestamp_included(self) -> None:
         """Test that timestamp is included in report."""
         data = {"title": "Test"}
         report = self.generator.generate(data, format=ReportFormat.JSON)
@@ -260,7 +261,7 @@ class TestReportContent:
             or "title" in parsed
         )
 
-    def test_metadata_included(self):
+    def test_metadata_included(self) -> None:
         """Test that metadata is included."""
         self.generator.set_metadata(
             author="Test Author", version="1.0", classification="UNCLASSIFIED"
@@ -272,7 +273,7 @@ class TestReportContent:
         if "metadata" in parsed:
             assert "author" in parsed["metadata"] or "version" in parsed["metadata"]
 
-    def test_anomaly_details_formatting(self):
+    def test_anomaly_details_formatting(self) -> None:
         """Test anomaly details are properly formatted."""
         anomalies = [
             {
@@ -294,11 +295,11 @@ class TestReportContent:
 class TestReportExport:
     """Tests for report export functionality."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.generator = ReportGenerator()
 
-    def test_export_to_file(self, tmp_path):
+    def test_export_to_file(self, tmp_path: Any) -> None:
         """Test exporting report to file."""
         data = {"title": "Test Report", "content": "Test content"}
         filepath = tmp_path / "report.json"
@@ -310,7 +311,7 @@ class TestReportExport:
             content = f.read()
             assert len(content) > 0
 
-    def test_export_html_to_file(self, tmp_path):
+    def test_export_html_to_file(self, tmp_path: Any) -> None:
         """Test exporting HTML report to file."""
         data = {"title": "Test Report"}
         filepath = tmp_path / "report.html"
@@ -319,7 +320,7 @@ class TestReportExport:
 
         assert filepath.exists()
 
-    def test_export_creates_directory(self, tmp_path):
+    def test_export_creates_directory(self, tmp_path: Any) -> None:
         """Test that export creates directory if needed."""
         data = {"title": "Test"}
         nested_path = tmp_path / "subdir" / "report.json"
@@ -332,11 +333,11 @@ class TestReportExport:
 class TestReportValidation:
     """Tests for report validation."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.generator = ReportGenerator()
 
-    def test_validates_required_fields(self):
+    def test_validates_required_fields(self) -> None:
         """Test validation of required fields."""
         # Empty data should still generate valid report
         report = self.generator.generate({}, format=ReportFormat.JSON)
@@ -345,7 +346,7 @@ class TestReportValidation:
         # Should have at least some structure
         assert isinstance(parsed, dict)
 
-    def test_sanitizes_html_content(self):
+    def test_sanitizes_html_content(self) -> None:
         """Test that HTML content is sanitized."""
         data = {"content": "<script>alert('xss')</script>Malicious content"}
         report = self.generator.generate(data, format=ReportFormat.HTML)
@@ -353,7 +354,7 @@ class TestReportValidation:
         # Script tags should be escaped or removed
         assert "<script>" not in report or "&lt;script&gt;" in report
 
-    def test_handles_unicode(self):
+    def test_handles_unicode(self) -> None:
         """Test handling of unicode characters."""
         data = {"title": "レポート", "content": "日本語テスト"}
         report = self.generator.generate(data, format=ReportFormat.JSON)

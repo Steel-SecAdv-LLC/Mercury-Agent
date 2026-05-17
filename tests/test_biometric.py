@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Test biometric model functionality
 """
@@ -29,7 +31,7 @@ import numpy as np
 from omni_mercury_engine.models.biometric import BiometricAnomalyModel
 
 
-def test_biometric_initialization():
+def test_biometric_initialization() -> None:
     """Test biometric model initialization"""
     model = BiometricAnomalyModel()
     assert model is not None
@@ -38,7 +40,7 @@ def test_biometric_initialization():
 
 
 @patch("omni_mercury_engine.models.biometric.DeepFace")
-def test_biometric_predict_valid_image(mock_deepface):
+def test_biometric_predict_valid_image(mock_deepface: Any) -> None:
     """Test biometric prediction with valid image"""
     mock_deepface.analyze.return_value = [
         {
@@ -62,7 +64,7 @@ def test_biometric_predict_valid_image(mock_deepface):
 
 
 @patch("omni_mercury_engine.models.biometric.DeepFace")
-def test_biometric_extract_features(mock_deepface):
+def test_biometric_extract_features(mock_deepface: Any) -> None:
     """Test biometric feature extraction"""
     mock_deepface.represent.return_value = [{"embedding": np.random.randn(128).tolist()}]
 
@@ -75,7 +77,7 @@ def test_biometric_extract_features(mock_deepface):
 
 
 @patch("omni_mercury_engine.models.biometric.DeepFace")
-def test_biometric_predict_error_handling(mock_deepface):
+def test_biometric_predict_error_handling(mock_deepface: Any) -> None:
     """Test biometric error handling"""
     mock_deepface.analyze.side_effect = Exception("Face not detected")
 
@@ -86,7 +88,7 @@ def test_biometric_predict_error_handling(mock_deepface):
     assert "error" in result or "model_type" in result
 
 
-def test_biometric_config():
+def test_biometric_config() -> None:
     """Test biometric model with custom config"""
     config = {"use_harmonic": True, "detector_backend": "opencv"}
     model = BiometricAnomalyModel(config=config)

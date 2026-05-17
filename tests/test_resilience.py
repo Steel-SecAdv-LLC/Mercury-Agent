@@ -30,7 +30,7 @@ from omni_mercury_engine.resilience.retry import RetryPolicy
 from omni_mercury_engine.resilience.self_healing import SelfHealingEngine
 
 
-def test_circuit_breaker_closed_state():
+def test_circuit_breaker_closed_state() -> None:
     """Test circuit breaker in closed state"""
     from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
@@ -44,13 +44,13 @@ def test_circuit_breaker_closed_state():
     assert breaker.state == CircuitState.CLOSED
 
 
-def test_circuit_breaker_open_state():
+def test_circuit_breaker_open_state() -> None:
     """Test circuit breaker transitions to open state"""
     from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
     breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=1)
 
-    def fail_func():
+    def fail_func() -> None:
         raise Exception("Test failure")
 
     for _ in range(3):
@@ -62,13 +62,13 @@ def test_circuit_breaker_open_state():
     assert breaker.state == CircuitState.OPEN
 
 
-def test_circuit_breaker_half_open_state():
+def test_circuit_breaker_half_open_state() -> None:
     """Test circuit breaker half-open state"""
     from omni_mercury_engine.resilience.circuit_breaker import CircuitState
 
     breaker = CircuitBreaker(failure_threshold=2, recovery_timeout=0.1)
 
-    def fail_func():
+    def fail_func() -> None:
         raise Exception("Test failure")
 
     for _ in range(3):
@@ -87,7 +87,7 @@ def test_circuit_breaker_half_open_state():
     assert breaker.state == CircuitState.CLOSED
 
 
-def test_retry_policy_success():
+def test_retry_policy_success() -> None:
     """Test retry policy on success"""
     counter = {"calls": 0}
     retry = RetryPolicy(max_retries=3)
@@ -104,13 +104,13 @@ def test_retry_policy_success():
     assert counter["calls"] == 2
 
 
-def test_retry_policy_failure():
+def test_retry_policy_failure() -> None:
     """Test retry policy exhausts retries"""
     counter = {"calls": 0}
     retry = RetryPolicy(max_retries=2)
 
     @retry
-    def always_fails():
+    def always_fails() -> None:
         counter["calls"] += 1
         raise Exception("Permanent failure")
 
@@ -122,7 +122,7 @@ def test_retry_policy_failure():
         assert counter["calls"] == 3
 
 
-def test_retry_policy_custom_config():
+def test_retry_policy_custom_config() -> None:
     """Test retry policy with custom configuration"""
     retry = RetryPolicy(
         max_retries=5,
@@ -134,14 +134,14 @@ def test_retry_policy_custom_config():
     assert retry.base_delay == 0.5
 
 
-def test_health_monitor_initialization():
+def test_health_monitor_initialization() -> None:
     """Test health monitor initialization"""
     monitor = HealthMonitor()
     assert monitor is not None
     assert hasattr(monitor, "metrics")
 
 
-def test_health_monitor_record_metrics():
+def test_health_monitor_record_metrics() -> None:
     """Test recording health metrics"""
     from omni_mercury_engine.resilience.health_monitoring import HealthMetrics
 
@@ -153,7 +153,7 @@ def test_health_monitor_record_metrics():
     assert len(monitor.metrics["test_component"]) == 1
 
 
-def test_health_monitor_get_current_health():
+def test_health_monitor_get_current_health() -> None:
     """Test getting current health status"""
     from omni_mercury_engine.resilience.health_monitoring import HealthMetrics
 
@@ -167,7 +167,7 @@ def test_health_monitor_get_current_health():
     assert health["status"] in ["healthy", "unhealthy", "unknown"]
 
 
-def test_self_healing_initialization():
+def test_self_healing_initialization() -> None:
     """Test self-healing engine initialization"""
     healer = SelfHealingEngine()
     assert healer is not None
@@ -175,14 +175,14 @@ def test_self_healing_initialization():
     assert hasattr(healer, "circuit_breakers")
 
 
-def test_self_healing_register_component():
+def test_self_healing_register_component() -> None:
     """Test component registration"""
     healer = SelfHealingEngine()
 
     def health_check():
         return True
 
-    def recovery_action():
+    def recovery_action() -> None:
         pass
 
     healer.register_component(
@@ -193,7 +193,7 @@ def test_self_healing_register_component():
     assert "test_component" in healer.circuit_breakers
 
 
-def test_self_healing_check_health():
+def test_self_healing_check_health() -> None:
     """Test health check"""
     healer = SelfHealingEngine()
 
@@ -206,7 +206,7 @@ def test_self_healing_check_health():
     assert is_healthy is True
 
 
-def test_self_healing_attempt_recovery():
+def test_self_healing_attempt_recovery() -> None:
     """Test recovery attempt"""
     healer = SelfHealingEngine()
     recovery_called = {"value": False}
@@ -214,7 +214,7 @@ def test_self_healing_attempt_recovery():
     def health_check():
         return recovery_called["value"]
 
-    def recovery_action():
+    def recovery_action() -> None:
         recovery_called["value"] = True
 
     healer.register_component(

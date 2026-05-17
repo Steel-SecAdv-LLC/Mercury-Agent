@@ -37,13 +37,13 @@ from omni_mercury_engine.core.detector_registry import (
 class TestDetectorRegistryCore:
     """Tests for core registry operations."""
 
-    def test_empty_registry(self):
+    def test_empty_registry(self) -> None:
         """Test empty registry state."""
         reg = DetectorRegistry(auto_discover=False)
         assert reg.list_all() == []
         assert len(reg._detectors) == 0
 
-    def test_register_detector(self):
+    def test_register_detector(self) -> None:
         """Test registering a detector."""
         reg = DetectorRegistry(auto_discover=False)
         detector = MagicMock()
@@ -66,24 +66,24 @@ class TestDetectorRegistryCore:
         assert info.description == "A test detector"
         assert "test" in info.tags
 
-    def test_unregister_detector(self):
+    def test_unregister_detector(self) -> None:
         """Test unregistering a detector."""
         reg = DetectorRegistry(auto_discover=False)
         reg.register("det1", MagicMock(), DetectorCategory.BASE)
         assert reg.unregister("det1") is True
         assert "det1" not in reg.list_all()
 
-    def test_unregister_nonexistent(self):
+    def test_unregister_nonexistent(self) -> None:
         """Test unregistering non-existent detector returns False."""
         reg = DetectorRegistry(auto_discover=False)
         assert reg.unregister("nonexistent") is False
 
-    def test_get_nonexistent(self):
+    def test_get_nonexistent(self) -> None:
         """Test getting non-existent detector returns None."""
         reg = DetectorRegistry(auto_discover=False)
         assert reg.get("nonexistent") is None
 
-    def test_get_by_category(self):
+    def test_get_by_category(self) -> None:
         """Test retrieving detectors by category."""
         reg = DetectorRegistry(auto_discover=False)
         reg.register("det_base", MagicMock(), DetectorCategory.BASE)
@@ -97,7 +97,7 @@ class TestDetectorRegistryCore:
         medical_dets = reg.get_by_category(DetectorCategory.MEDICAL)
         assert len(medical_dets) == 1
 
-    def test_list_by_tags(self):
+    def test_list_by_tags(self) -> None:
         """Test filtering detectors by tags."""
         reg = DetectorRegistry(auto_discover=False)
         reg.register("det1", MagicMock(), DetectorCategory.BASE, tags=["physics", "spectral"])
@@ -119,7 +119,7 @@ class TestDetectorRegistryCore:
 class TestFeatureExtraction:
     """Tests for feature extraction operations."""
 
-    def test_extract_features_success(self):
+    def test_extract_features_success(self) -> None:
         """Test successful feature extraction."""
         reg = DetectorRegistry(auto_discover=False)
         detector = MagicMock()
@@ -134,7 +134,7 @@ class TestFeatureExtraction:
         assert result.features is not None
         assert result.execution_time_ms >= 0
 
-    def test_extract_features_not_found(self):
+    def test_extract_features_not_found(self) -> None:
         """Test extraction for non-existent detector."""
         reg = DetectorRegistry(auto_discover=False)
         result = reg.extract_features("nonexistent", np.array([1.0]))
@@ -142,7 +142,7 @@ class TestFeatureExtraction:
         assert result.error is not None
         assert "not found" in result.error
 
-    def test_extract_features_detector_error(self):
+    def test_extract_features_detector_error(self) -> None:
         """Test extraction handles detector errors gracefully."""
         reg = DetectorRegistry(auto_discover=False)
         detector = MagicMock()
@@ -154,7 +154,7 @@ class TestFeatureExtraction:
         assert result.success is False
         assert result.error is not None
 
-    def test_extract_all_features_sequential(self):
+    def test_extract_all_features_sequential(self) -> None:
         """Test extracting features from all detectors sequentially."""
         reg = DetectorRegistry(auto_discover=False)
 
@@ -168,7 +168,7 @@ class TestFeatureExtraction:
         assert len(results) == 3
         assert all(r.success for r in results.values())
 
-    def test_extract_all_features_filter_by_category(self):
+    def test_extract_all_features_filter_by_category(self) -> None:
         """Test category filtering in extract_all_features."""
         reg = DetectorRegistry(auto_discover=False)
 
@@ -191,7 +191,7 @@ class TestFeatureExtraction:
         assert "med_det" in results
         assert "base_det" not in results
 
-    def test_extract_all_features_filter_by_name(self):
+    def test_extract_all_features_filter_by_name(self) -> None:
         """Test name filtering in extract_all_features."""
         reg = DetectorRegistry(auto_discover=False)
 
@@ -217,14 +217,14 @@ class TestFeatureExtraction:
 class TestImportValidation:
     """Tests for dynamic import path validation (security hardening)."""
 
-    def test_manifest_entries_all_trusted(self):
+    def test_manifest_entries_all_trusted(self) -> None:
         """Test that all manifest entries use trusted module paths."""
         for entry in DETECTOR_MANIFEST:
             assert entry.module_path.startswith("omni_mercury_engine."), (
                 f"Manifest entry '{entry.name}' has untrusted module path: " f"{entry.module_path}"
             )
 
-    def test_untrusted_module_path_blocked(self):
+    def test_untrusted_module_path_blocked(self) -> None:
         """Test that auto_discover blocks untrusted module paths."""
         reg = DetectorRegistry(auto_discover=False)
 
@@ -245,7 +245,7 @@ class TestImportValidation:
             assert count == 0
             assert "evil_det" not in reg.list_all()
 
-    def test_trusted_module_path_allowed(self):
+    def test_trusted_module_path_allowed(self) -> None:
         """Test that trusted omni_mercury_engine paths are allowed."""
         reg = DetectorRegistry(auto_discover=False)
 
@@ -276,7 +276,7 @@ class TestImportValidation:
 class TestStatisticsAndHealth:
     """Tests for registry statistics and health checks."""
 
-    def test_get_statistics_empty(self):
+    def test_get_statistics_empty(self) -> None:
         """Test statistics for empty registry."""
         reg = DetectorRegistry(auto_discover=False)
         stats = reg.get_statistics()
@@ -284,7 +284,7 @@ class TestStatisticsAndHealth:
         assert stats["total_invocations"] == 0
         assert stats["total_errors"] == 0
 
-    def test_get_statistics_with_detectors(self):
+    def test_get_statistics_with_detectors(self) -> None:
         """Test statistics after registering detectors."""
         reg = DetectorRegistry(auto_discover=False)
         reg.register("det1", MagicMock(), DetectorCategory.BASE)
@@ -295,7 +295,7 @@ class TestStatisticsAndHealth:
         assert "base" in stats["categories"]
         assert "medical" in stats["categories"]
 
-    def test_get_feature_dimensions(self):
+    def test_get_feature_dimensions(self) -> None:
         """Test feature dimension reporting."""
         reg = DetectorRegistry(auto_discover=False)
         reg.register("det1", MagicMock(), DetectorCategory.BASE, feature_dim=128)
@@ -307,7 +307,7 @@ class TestStatisticsAndHealth:
         assert dims["det2"] == 256
         assert dims["det3"] is None
 
-    def test_health_check(self):
+    def test_health_check(self) -> None:
         """Test health check for registered detectors."""
         reg = DetectorRegistry(auto_discover=False)
 
@@ -336,7 +336,7 @@ class TestStatisticsAndHealth:
 class TestDetectorInfo:
     """Tests for DetectorInfo dataclass."""
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test DetectorInfo to_dict conversion."""
         info = DetectorInfo(
             name="test",
@@ -365,7 +365,7 @@ class TestDetectorInfo:
 class TestFeatureExtractionResult:
     """Tests for FeatureExtractionResult dataclass."""
 
-    def test_success_result(self):
+    def test_success_result(self) -> None:
         """Test successful feature extraction result."""
         result = FeatureExtractionResult(
             detector_name="test",
@@ -377,7 +377,7 @@ class TestFeatureExtractionResult:
         assert result.success is True
         assert result.error is None
 
-    def test_failed_result(self):
+    def test_failed_result(self) -> None:
         """Test failed feature extraction result."""
         result = FeatureExtractionResult(
             detector_name="test",
@@ -399,16 +399,16 @@ class TestFeatureExtractionResult:
 class TestManifestIntegrity:
     """Tests for DETECTOR_MANIFEST data integrity."""
 
-    def test_manifest_not_empty(self):
+    def test_manifest_not_empty(self) -> None:
         """Test manifest has entries."""
         assert len(DETECTOR_MANIFEST) > 0
 
-    def test_manifest_no_duplicate_names(self):
+    def test_manifest_no_duplicate_names(self) -> None:
         """Test no duplicate detector names in manifest."""
         names = [e.name for e in DETECTOR_MANIFEST]
         assert len(names) == len(set(names)), "Duplicate detector names found"
 
-    def test_manifest_entries_well_formed(self):
+    def test_manifest_entries_well_formed(self) -> None:
         """Test all manifest entries have required fields."""
         for entry in DETECTOR_MANIFEST:
             assert entry.name, "Entry missing name"
@@ -417,7 +417,7 @@ class TestManifestIntegrity:
             assert isinstance(entry.category, DetectorCategory)
             assert entry.description, f"Entry {entry.name} missing description"
 
-    def test_manifest_covers_expected_categories(self):
+    def test_manifest_covers_expected_categories(self) -> None:
         """Test manifest covers key detector categories."""
         categories = {e.category for e in DETECTOR_MANIFEST}
         expected = {

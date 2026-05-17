@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from typing import Any
 
 import pytest
 
@@ -28,7 +29,7 @@ from omni_mercury_engine.utils.logging import (
 class TestStructuredFormatter:
     """Tests for StructuredFormatter class."""
 
-    def test_basic_formatting(self):
+    def test_basic_formatting(self) -> None:
         """Test basic JSON formatting."""
         formatter = StructuredFormatter()
         record = logging.LogRecord(
@@ -52,7 +53,7 @@ class TestStructuredFormatter:
         assert data["location"]["file"] == "test.py"
         assert data["location"]["line"] == 10
 
-    def test_include_hostname(self):
+    def test_include_hostname(self) -> None:
         """Test including hostname in output."""
         formatter = StructuredFormatter(include_hostname=True)
         record = logging.LogRecord(
@@ -71,7 +72,7 @@ class TestStructuredFormatter:
         assert "hostname" in data
         assert isinstance(data["hostname"], str)
 
-    def test_exclude_timestamp(self):
+    def test_exclude_timestamp(self) -> None:
         """Test excluding timestamp from output."""
         formatter = StructuredFormatter(include_timestamp=False)
         record = logging.LogRecord(
@@ -89,7 +90,7 @@ class TestStructuredFormatter:
 
         assert "timestamp" not in data
 
-    def test_pii_redaction(self):
+    def test_pii_redaction(self) -> None:
         """Test that PII fields are redacted."""
         formatter = StructuredFormatter(redact_pii=True)
         record = logging.LogRecord(
@@ -112,7 +113,7 @@ class TestStructuredFormatter:
         assert data["api_key"] == "[REDACTED]"
         assert data["user_data"] == "normal_data"
 
-    def test_pii_redaction_disabled(self):
+    def test_pii_redaction_disabled(self) -> None:
         """Test that PII fields are not redacted when disabled."""
         formatter = StructuredFormatter(redact_pii=False)
         record = logging.LogRecord(
@@ -131,7 +132,7 @@ class TestStructuredFormatter:
 
         assert data["password"] == "secret123"
 
-    def test_extra_fields(self):
+    def test_extra_fields(self) -> None:
         """Test adding extra fields to all log entries."""
         formatter = StructuredFormatter(
             extra_fields={"service": "test-service", "version": "1.0.0"}
@@ -152,7 +153,7 @@ class TestStructuredFormatter:
         assert data["service"] == "test-service"
         assert data["version"] == "1.0.0"
 
-    def test_exception_info(self):
+    def test_exception_info(self) -> None:
         """Test that exception info is included."""
         formatter = StructuredFormatter()
 
@@ -180,7 +181,7 @@ class TestStructuredFormatter:
         assert "ValueError" in data["exception"]
         assert "Test error" in data["exception"]
 
-    def test_correlation_id_included(self):
+    def test_correlation_id_included(self) -> None:
         """Test that correlation ID is included when set."""
         formatter = StructuredFormatter()
 
@@ -204,7 +205,7 @@ class TestStructuredFormatter:
 class TestColoredFormatter:
     """Tests for ColoredFormatter class."""
 
-    def test_basic_formatting(self):
+    def test_basic_formatting(self) -> None:
         """Test basic colored formatting."""
         formatter = ColoredFormatter()
         record = logging.LogRecord(
@@ -223,7 +224,7 @@ class TestColoredFormatter:
         assert "\033[" in result
         assert "Test message" in result
 
-    def test_color_codes_by_level(self):
+    def test_color_codes_by_level(self) -> None:
         """Test that different levels get different colors."""
         formatter = ColoredFormatter()
 
@@ -256,13 +257,13 @@ class TestColoredFormatter:
 class TestPerformanceLogger:
     """Tests for PerformanceLogger class."""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test performance logger initialization."""
         perf = PerformanceLogger("test_component")
         assert perf.component == "test_component"
         assert perf._metrics == {}
 
-    def test_measure_context_manager(self):
+    def test_measure_context_manager(self) -> None:
         """Test measuring operation duration."""
         perf = PerformanceLogger("test")
 
@@ -273,7 +274,7 @@ class TestPerformanceLogger:
         assert len(perf._metrics["test_operation"]) == 1
         assert perf._metrics["test_operation"][0] >= 0.01
 
-    def test_multiple_measurements(self):
+    def test_multiple_measurements(self) -> None:
         """Test multiple measurements of same operation."""
         perf = PerformanceLogger("test")
 
@@ -283,7 +284,7 @@ class TestPerformanceLogger:
 
         assert len(perf._metrics["test_op"]) == 5
 
-    def test_log_metrics(self):
+    def test_log_metrics(self) -> None:
         """Test aggregated metrics logging."""
         perf = PerformanceLogger("test")
 
@@ -301,7 +302,7 @@ class TestPerformanceLogger:
         assert "max_ms" in stats["test_op"]
         assert "std_ms" in stats["test_op"]  # Multiple samples
 
-    def test_reset(self):
+    def test_reset(self) -> None:
         """Test resetting metrics."""
         perf = PerformanceLogger("test")
 
@@ -315,11 +316,11 @@ class TestPerformanceLogger:
 class TestCorrelationContext:
     """Tests for correlation ID management."""
 
-    def test_get_correlation_id_none(self):
+    def test_get_correlation_id_none(self) -> None:
         """Test getting correlation ID when not set."""
         assert get_correlation_id() is None
 
-    def test_set_correlation_id(self):
+    def test_set_correlation_id(self) -> None:
         """Test setting correlation ID."""
         set_correlation_id("test-id")
         assert get_correlation_id() == "test-id"
@@ -328,7 +329,7 @@ class TestCorrelationContext:
 
         delattr(_correlation_context, "correlation_id")
 
-    def test_correlation_context_explicit_id(self):
+    def test_correlation_context_explicit_id(self) -> None:
         """Test context manager with explicit ID."""
         with correlation_context("my-corr-id") as corr_id:
             assert corr_id == "my-corr-id"
@@ -336,7 +337,7 @@ class TestCorrelationContext:
 
         assert get_correlation_id() is None
 
-    def test_correlation_context_auto_id(self):
+    def test_correlation_context_auto_id(self) -> None:
         """Test context manager with auto-generated ID."""
         with correlation_context() as corr_id:
             assert corr_id is not None
@@ -345,7 +346,7 @@ class TestCorrelationContext:
 
         assert get_correlation_id() is None
 
-    def test_nested_correlation_contexts(self):
+    def test_nested_correlation_contexts(self) -> None:
         """Test nested correlation contexts."""
         with correlation_context("outer"):
             assert get_correlation_id() == "outer"
@@ -359,7 +360,7 @@ class TestCorrelationContext:
 class TestConfigureLogging:
     """Tests for configure_logging function."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Reset logging configuration before each test."""
         logger = logging.getLogger("omni_mercury_engine")
         logger.handlers.clear()
@@ -372,14 +373,14 @@ class TestConfigureLogging:
         # the parent logger and breaks any caplog assertion downstream.
         logger.propagate = True
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Restore the parent logger to a propagating, handler-free state."""
         logger = logging.getLogger("omni_mercury_engine")
         logger.handlers.clear()
         logger.setLevel(logging.NOTSET)
         logger.propagate = True
 
-    def test_configure_with_defaults(self):
+    def test_configure_with_defaults(self) -> None:
         """Test configuration with default settings."""
         configure_logging()
 
@@ -388,28 +389,28 @@ class TestConfigureLogging:
         assert len(logger.handlers) == 1
         assert isinstance(logger.handlers[0], logging.StreamHandler)
 
-    def test_configure_debug_level(self):
+    def test_configure_debug_level(self) -> None:
         """Test configuration with DEBUG level."""
         configure_logging(level="DEBUG")
 
         logger = logging.getLogger("omni_mercury_engine")
         assert logger.level == logging.DEBUG
 
-    def test_configure_json_format(self):
+    def test_configure_json_format(self) -> None:
         """Test configuration with JSON format."""
         configure_logging(json_format=True)
 
         logger = logging.getLogger("omni_mercury_engine")
         assert isinstance(logger.handlers[0].formatter, StructuredFormatter)
 
-    def test_configure_colored_format(self):
+    def test_configure_colored_format(self) -> None:
         """Test configuration with colored format."""
         configure_logging(json_format=False)
 
         logger = logging.getLogger("omni_mercury_engine")
         assert isinstance(logger.handlers[0].formatter, ColoredFormatter)
 
-    def test_configure_integer_level(self):
+    def test_configure_integer_level(self) -> None:
         """Test configuration with integer level."""
         configure_logging(level=logging.WARNING)
 
@@ -420,13 +421,13 @@ class TestConfigureLogging:
 class TestGetLogger:
     """Tests for get_logger function."""
 
-    def test_get_logger(self):
+    def test_get_logger(self) -> None:
         """Test getting a logger by name."""
         logger = get_logger("test.module")
         assert isinstance(logger, logging.Logger)
         assert logger.name == "test.module"
 
-    def test_get_logger_same_instance(self):
+    def test_get_logger_same_instance(self) -> None:
         """Test that same name returns same logger."""
         logger1 = get_logger("test.module")
         logger2 = get_logger("test.module")
@@ -436,7 +437,7 @@ class TestGetLogger:
 class TestLogFunctionCall:
     """Tests for log_function_call decorator."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test logging."""
         configure_logging(level="DEBUG")
         # ``configure_logging`` sets ``propagate = False`` to keep production
@@ -447,14 +448,14 @@ class TestLogFunctionCall:
         # module's caplog assertions will silently see empty ``caplog.text``).
         logging.getLogger("omni_mercury_engine").propagate = True
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Restore logger to a propagating, handler-free state."""
         logger = logging.getLogger("omni_mercury_engine")
         logger.handlers.clear()
         logger.setLevel(logging.NOTSET)
         logger.propagate = True
 
-    def test_decorator_logs_entry_exit(self, caplog):
+    def test_decorator_logs_entry_exit(self, caplog: Any) -> None:
         """Test that decorator logs entry and exit."""
 
         @log_function_call()
@@ -469,17 +470,17 @@ class TestLogFunctionCall:
         log_text = caplog.text.lower()
         assert "sample_function" in log_text or "entering" in log_text
 
-    def test_decorator_logs_exception(self, caplog):
+    def test_decorator_logs_exception(self, caplog: Any) -> None:
         """Test that decorator logs exceptions."""
 
         @log_function_call()
-        def failing_function():
+        def failing_function() -> None:
             raise ValueError("Test error")
 
         with caplog.at_level(logging.DEBUG), pytest.raises(ValueError):
             failing_function()
 
-    def test_decorator_with_custom_logger(self, caplog):
+    def test_decorator_with_custom_logger(self, caplog: Any) -> None:
         """Test decorator with custom logger."""
         custom_logger = logging.getLogger("custom")
 
@@ -520,7 +521,7 @@ class TestPIIPatterns:
             ("name", False),
         ],
     )
-    def test_pii_pattern_matching(self, key, expected_redacted):
+    def test_pii_pattern_matching(self, key: Any, expected_redacted: Any) -> None:
         """Test that PII patterns are correctly identified."""
         formatter = StructuredFormatter(redact_pii=True)
         result = formatter._redact_value(key, "test_value")
