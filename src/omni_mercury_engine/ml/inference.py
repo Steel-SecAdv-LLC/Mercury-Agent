@@ -20,7 +20,6 @@ from __future__ import annotations
 Production inference utilities for fusion model
 """
 
-from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -28,6 +27,9 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.ml.fusion_network import OmniFusionModel
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

@@ -212,7 +212,9 @@ class TestAnomalyMetrics:
         assert "precision" in results
         assert "recall" in results
 
-    def test_compute_all_with_masks(self, binary_labels, anomaly_scores, pixel_masks, pixel_scores) -> None:
+    def test_compute_all_with_masks(
+        self, binary_labels, anomaly_scores, pixel_masks, pixel_scores
+    ) -> None:
         """Test computing metrics with pixel masks."""
         from omni_mercury_engine.metrics import AnomalyMetrics
 

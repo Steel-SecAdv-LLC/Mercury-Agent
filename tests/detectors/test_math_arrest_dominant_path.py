@@ -85,9 +85,7 @@ def test_ensemble_runs_end_to_end_per_domain(
 
     # standard_normal(int) returns ndarray; mypy's overload picks the scalar
     # branch, so cast through ``np.asarray`` to recover the array view.
-    eval_clean: np.ndarray = np.asarray(
-        np.random.default_rng(7).standard_normal(train.shape[0])
-    )
+    eval_clean: np.ndarray = np.asarray(np.random.default_rng(7).standard_normal(train.shape[0]))
     clean_scores = arrest.detect(eval_clean)
     anomalous_scores = arrest.detect(eval_anomalous)
 

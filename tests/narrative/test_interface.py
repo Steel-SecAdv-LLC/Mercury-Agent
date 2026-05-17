@@ -83,7 +83,7 @@ class TestMercuryConversationInterface:
 
     def test_process_detection(
         self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
-) -> None:
+    ) -> None:
         """Test detection processing."""
         ctx = interface.create_session()
         response = interface.process_detection(sample_detection, ctx)
@@ -96,7 +96,7 @@ class TestMercuryConversationInterface:
 
     def test_response_structure(
         self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
-) -> None:
+    ) -> None:
         """Test response has all expected fields."""
         response = interface.process_detection(sample_detection)
 
@@ -111,7 +111,7 @@ class TestMercuryConversationInterface:
 
     def test_response_to_dict(
         self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
-) -> None:
+    ) -> None:
         """Test response serialization."""
         response = interface.process_detection(sample_detection)
         response_dict = response.to_dict()
@@ -123,7 +123,7 @@ class TestMercuryConversationInterface:
 
     def test_conversation_history(
         self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
-) -> None:
+    ) -> None:
         """Test conversation history tracking."""
         ctx = interface.create_session()
 
@@ -134,7 +134,7 @@ class TestMercuryConversationInterface:
 
     def test_memory_context_in_response(
         self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
-) -> None:
+    ) -> None:
         """Test memory context is included in response."""
         response = interface.process_detection(sample_detection)
 
@@ -143,7 +143,7 @@ class TestMercuryConversationInterface:
 
     def test_follow_up_suggestions(
         self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
-) -> None:
+    ) -> None:
         """Test follow-up suggestions are generated."""
         response = interface.process_detection(sample_detection)
 
@@ -172,7 +172,7 @@ class TestMercuryConversationInterface:
 
     def test_statistics(
         self, interface: MercuryConversationInterface, sample_detection: dict[str, Any]
-) -> None:
+    ) -> None:
         """Test statistics gathering."""
         interface.process_detection(sample_detection)
         interface.process_detection(sample_detection)

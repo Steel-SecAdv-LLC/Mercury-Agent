@@ -196,7 +196,9 @@ class TestEnhancedStatisticalDetectors:
         assert "ema_score" in stats
         assert stats["history_size"] == 500
 
-    def test_enhanced_statistical_detector_ensemble(self, data_with_anomalies: tuple[np.ndarray, np.ndarray]) -> None:
+    def test_enhanced_statistical_detector_ensemble(
+        self, data_with_anomalies: tuple[np.ndarray, np.ndarray]
+    ) -> None:
         """Test unified enhanced statistical detector."""
         from omni_mercury_engine.detectors.enhanced_statistical import (
             EnhancedStatisticalDetector,

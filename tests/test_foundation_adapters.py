@@ -78,7 +78,9 @@ class TestTimeGPTAdapter:
         ):
             adapter.detect(univariate_data)
 
-    def test_timegpt_forecast_without_api_key_hard_fails(self, univariate_data, monkeypatch) -> None:
+    def test_timegpt_forecast_without_api_key_hard_fails(
+        self, univariate_data, monkeypatch
+    ) -> None:
         """TimeGPT.forecast must raise ``NotImplementedError`` without
         an API key — same contract as ``detect``.  See
         ``test_timegpt_detect_without_api_key_hard_fails``.
@@ -184,7 +186,9 @@ class TestMatrixProfileAdapter:
         adapter = MatrixProfileAdapter(config=config)
         assert adapter.config.window_size == 50
 
-    def test_matrix_profile_detect_without_package_hard_fails(self, time_series_with_anomaly) -> None:
+    def test_matrix_profile_detect_without_package_hard_fails(
+        self, time_series_with_anomaly
+    ) -> None:
         """``MatrixProfileAdapter.detect`` must raise ``NotImplementedError``
         when ``stumpy`` is not installed.
 

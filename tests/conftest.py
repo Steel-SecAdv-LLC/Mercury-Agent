@@ -28,8 +28,10 @@ to ensure consistent test results across runs.
 
 import logging
 import os
-from collections.abc import Iterator
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 # Synthetic fallback contract for the unit-test suite.  The dataset
 # loaders are strict-by-default — they raise ``DataSourceUnavailableError``
@@ -149,7 +151,7 @@ def anomaly_data(deterministic_rng: DeterministicRNG) -> np.ndarray:
 @pytest.fixture
 def biometric_sample(deterministic_rng: DeterministicRNG) -> dict[str, np.ndarray]:
     """Generate sample biometric data using deterministic RNG."""
-    image_arr = cast(np.ndarray, deterministic_rng.randint(0, 255, (224, 224, 3)))
+    image_arr = cast("np.ndarray", deterministic_rng.randint(0, 255, (224, 224, 3)))
     return {
         "image": image_arr.astype(np.uint8),
         "face_mesh": deterministic_rng.randn(468, 3),
@@ -304,9 +306,7 @@ def pixel_scores(deterministic_rng: DeterministicRNG) -> np.ndarray:
     return scores
 
 
-def pytest_collection_modifyitems(
-    config: pytest.Config, items: list[pytest.Item]
-) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Auto-skip network-marked tests unless MERCURY_NETWORK_TESTS=1 is set."""
     if os.environ.get("MERCURY_NETWORK_TESTS", "0") == "1":
         return
