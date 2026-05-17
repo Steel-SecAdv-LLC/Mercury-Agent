@@ -23,19 +23,18 @@ Additional training tests to boost coverage above 85%
 """
 
 import importlib.util
+from typing import TYPE_CHECKING
 
 import pytest
 
-# Conditional torch import
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
-    torch = None
-
+# Probe for torch / lightning without binding them at module import.
+# ``TYPE_CHECKING`` keeps mypy resolution stable while the pytestmark
+# below skips the suite when either dependency is absent.
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 HAS_LIGHTNING = importlib.util.find_spec("pytorch_lightning") is not None
+
+if TYPE_CHECKING or HAS_TORCH:
+    import torch
 
 # Skip all tests in this module if torch or lightning is not available
 pytestmark = pytest.mark.skipif(

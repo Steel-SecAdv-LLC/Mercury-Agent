@@ -22,19 +22,20 @@ from __future__ import annotations
 Additional biometric tests to boost coverage
 """
 
+import importlib.util
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import numpy as np
 import pytest
 
-# Conditional torch import
-try:
-    import torch
+# Probe for torch without binding it at module import.
+# ``TYPE_CHECKING`` makes mypy resolve ``torch`` regardless of runtime
+# availability; the pytestmark below skips the suite when torch is absent.
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
-    torch = None
+if TYPE_CHECKING or HAS_TORCH:
+    import torch
 
 # Skip all tests in this module if torch is not available
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")

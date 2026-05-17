@@ -22,18 +22,19 @@ from __future__ import annotations
 Comprehensive encoder tests to boost coverage
 """
 
+import importlib.util
+from typing import TYPE_CHECKING
+
 import pytest
 
-# Conditional torch import
-try:
+# Probe for torch without binding it at module import.
+# ``TYPE_CHECKING`` keeps mypy resolution stable while the pytestmark
+# below skips the suite when torch is absent.
+HAS_TORCH = importlib.util.find_spec("torch") is not None
+
+if TYPE_CHECKING or HAS_TORCH:
     import torch
     from torch import nn
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
-    torch = None
-    nn = None
 
 # Skip all tests in this module if torch is not available
 pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")

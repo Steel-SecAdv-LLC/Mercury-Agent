@@ -14,20 +14,17 @@ silently suppressing errors.
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 from typing import Any
 
 import numpy as np
 import pytest
 
-# Conditional torch import
-try:
-    import torch
-
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
-    torch = None
+# Tests below that touch torch guard their bodies with
+# ``@pytest.mark.skipif(not HAS_TORCH, ...)``; this file does not need
+# torch at module scope.
+HAS_TORCH = importlib.util.find_spec("torch") is not None
 
 
 class TestOptimizationErrorHandling:

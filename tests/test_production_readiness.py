@@ -718,7 +718,7 @@ class TestLearnable3RFit:
         # ``None`` here exercises that branch.  The ``type: ignore`` mirrors
         # the matching pragma in the source (``learnable_fusion.py:570``).
         engine = Learnable3REngine.__new__(Learnable3REngine)
-        engine.model = None
+        engine.model = None  # type: ignore[assignment]
 
         history = engine.fit(np.zeros((10, 4)), np.zeros(10))
         assert history["train_losses"] == []
