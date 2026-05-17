@@ -267,9 +267,13 @@ extend-exclude = '''
 #     gated in CI with no --ignore-missing-imports.  Ships a PEP 561
 #     ``py.typed`` marker so downstream callers (and our own tests)
 #     pick up the inline types instead of being treated as un-typed.
-#   * tests/ -- incrementally annotated.  CI strictly gates the
-#     security, ethical, and safeguards test directories; remaining
-#     test directories are tracked debt and not yet gated.
+#   * tests/ -- the entire tree is gated in CI.  The two remaining
+#     relaxations are ``--allow-untyped-defs`` (a function with no
+#     annotations at all passes; partial annotation is still a hard
+#     error) and ``--disable-error-code untyped-decorator`` (pytest's
+#     ``@fixture`` / ``@parametrize`` decorators return ``Any`` from
+#     public stubs).  Both are pytest-idiom flags, not silencers --
+#     no per-error suppressions ride on top of the gate.
 #
 # Third-party boundaries are declared per-module under the
 # [[tool.mypy.overrides]] block below.  The src/ and critical-tests
@@ -610,7 +614,6 @@ module = [
     "omni_mercury_engine.core.engine_config",
 ]
 disallow_untyped_decorators = false
-
 
 # =============================================================================
 # Pytest Configuration
