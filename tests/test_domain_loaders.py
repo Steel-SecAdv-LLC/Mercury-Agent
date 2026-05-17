@@ -30,7 +30,7 @@ import inspect
 import json
 import sys
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -80,11 +80,11 @@ _REQUIRED_EVENT_KEYS = {"event_id", "name", "date", "description"}
 # ---------------------------------------------------------------------------
 
 
-def _import_loader_class(module_path: str, class_name: str) -> type:
+def _import_loader_class(module_path: str, class_name: str) -> type[BaseDomainLoader]:
     """Import a loader class by module path and class name."""
     mod = importlib.import_module(module_path)
     cls = getattr(mod, class_name)
-    return cls
+    return cast("type[BaseDomainLoader]", cls)
 
 
 def _make_loader(module_path: str, class_name: str, tmp_path: Path) -> BaseDomainLoader:

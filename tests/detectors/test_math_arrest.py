@@ -421,7 +421,9 @@ class TestAnomalyMathArrest:
         # class name strings" branch and validates each element. The
         # second element is an instance, which must trip the guard.
         with pytest.raises(TypeError, match="Mixed probe spec lists"):
-            AnomalyMathArrest(probes=["AdditiveProbe", first])
+            # Mixed-type list deliberately violates the type to exercise the
+            # runtime guard; the ignore documents that this is intentional.
+            AnomalyMathArrest(probes=["AdditiveProbe", first])  # type: ignore[arg-type]
 
     def test_scores_in_zero_one(self) -> None:
         arrest = AnomalyMathArrest()

@@ -738,8 +738,9 @@ class TestCrossConformalPredictor:
         rng = np.random.RandomState(42)
         X = rng.randn(200, 5)
 
-        def scoring_fn(X_input: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
-            return np.linalg.norm(X_input, axis=1)
+        # Parameter names must match ScoringFunction protocol (X, y).
+        def scoring_fn(X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+            return np.linalg.norm(X, axis=1)
 
         predictor = CrossConformalPredictor(coverage=0.95, n_folds=5, seed=42)
         predictor.fit(X, scoring_fn)
@@ -757,8 +758,9 @@ class TestCrossConformalPredictor:
         rng = np.random.RandomState(42)
         X = rng.randn(100, 3)
 
-        def scoring_fn(X_input: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
-            return np.linalg.norm(X_input, axis=1)
+        # Parameter names must match ScoringFunction protocol (X, y).
+        def scoring_fn(X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
+            return np.linalg.norm(X, axis=1)
 
         predictor = CrossConformalPredictor(coverage=0.90, n_folds=5, seed=42)
         predictor.fit(X, scoring_fn)

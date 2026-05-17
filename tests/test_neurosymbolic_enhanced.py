@@ -350,8 +350,8 @@ class TestCausalReasoningModule:
 
         causal.add_causal_edge("smoking", "lung_disease", 0.7)
 
-        observation = {"smoking": 1, "lung_disease": 0.7}
-        intervention = {"smoking": 0}
+        observation: dict[str, float] = {"smoking": 1.0, "lung_disease": 0.7}
+        intervention: dict[str, float] = {"smoking": 0.0}
 
         result = causal.counterfactual(observation, intervention)
 

@@ -145,14 +145,14 @@ class TestChaosEvolutionOptimizer:
     def test_initialize_population_shape(self):
         """Test population initialization shape."""
         optimizer = ChaosEvolutionOptimizer({"population_size": 20})
-        bounds = [(0, 1), (0, 1), (0, 1)]
+        bounds: list[tuple[float, float]] = [(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)]
         population = optimizer._initialize_population(3, bounds)
         assert population.shape == (20, 3)
 
     def test_initialize_population_bounds(self):
         """Test population initialization respects bounds."""
         optimizer = ChaosEvolutionOptimizer()
-        bounds = [(0, 1), (-5, 5), (10, 20)]
+        bounds: list[tuple[float, float]] = [(0.0, 1.0), (-5.0, 5.0), (10.0, 20.0)]
         population = optimizer._initialize_population(3, bounds)
 
         assert np.all((population[:, 0] >= 0) & (population[:, 0] <= 1))
@@ -165,7 +165,7 @@ class TestChaosEvolutionOptimizer:
         position = np.array([0.5, 0.5])
         best_position = np.array([0.8, 0.8])
         chaos_value = 0.7
-        bounds = [(0, 1), (0, 1)]
+        bounds: list[tuple[float, float]] = [(0.0, 1.0), (0.0, 1.0)]
 
         new_position = optimizer._chaos_game_step(position, best_position, chaos_value, bounds)
         assert len(new_position) == 2
@@ -177,7 +177,7 @@ class TestChaosEvolutionOptimizer:
         position = np.array([0.1, 0.9])
         best_position = np.array([0.0, 1.0])
         chaos_value = 0.5
-        bounds = [(0, 1), (0, 1)]
+        bounds: list[tuple[float, float]] = [(0.0, 1.0), (0.0, 1.0)]
 
         new_position = optimizer._chaos_game_step(position, best_position, chaos_value, bounds)
         assert np.all((new_position >= 0) & (new_position <= 1))
@@ -260,7 +260,10 @@ class TestChaosEvolutionOptimizer:
 
     def test_tune_hyperparameters_convergence(self):
         """Test hyperparameter tuning converges to optimum."""
-        parameter_space = {"param1": (-5, 5), "param2": (-5, 5)}
+        parameter_space: dict[str, tuple[float, float]] = {
+            "param1": (-5.0, 5.0),
+            "param2": (-5.0, 5.0),
+        }
 
         def eval_func(params):
             return params["param1"] ** 2 + params["param2"] ** 2
@@ -275,7 +278,7 @@ class TestChaosEvolutionOptimizer:
 
     def test_tune_hyperparameters_result_structure(self):
         """Test hyperparameter tuning returns correct structure."""
-        parameter_space = {"x": (0, 1)}
+        parameter_space: dict[str, tuple[float, float]] = {"x": (0.0, 1.0)}
 
         def eval_func(params):
             return params["x"] ** 2
@@ -397,7 +400,7 @@ class TestChaosEvolutionOptimizer:
         position = np.array([0.0, 0.0])
         best_position = np.array([1.0, 1.0])
         chaos_value = 0.5
-        bounds = [(-10, 10), (-10, 10)]
+        bounds: list[tuple[float, float]] = [(-10.0, 10.0), (-10.0, 10.0)]
 
         new_position = optimizer._chaos_game_step(position, best_position, chaos_value, bounds)
 
@@ -412,7 +415,7 @@ class TestChaosEvolutionOptimizer:
             return np.sum(x**2)
 
         optimizer = ChaosEvolutionOptimizer({"population_size": 30, "max_iterations": 10})
-        bounds = [(-5, 5), (-5, 5)]
+        bounds: list[tuple[float, float]] = [(-5.0, 5.0), (-5.0, 5.0)]
         population = optimizer._initialize_population(2, bounds)
 
         for _ in range(10):
@@ -491,7 +494,7 @@ class TestChaosEvolutionOptimizer:
         position = np.array([0.0, 0.0])
         best_position = np.array([5.0, 5.0])
         chaos_value = 0.5
-        bounds = [(-10, 10), (-10, 10)]
+        bounds: list[tuple[float, float]] = [(-10.0, 10.0), (-10.0, 10.0)]
 
         new_position = optimizer._chaos_game_step(position, best_position, chaos_value, bounds)
 

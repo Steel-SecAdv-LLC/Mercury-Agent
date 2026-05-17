@@ -70,6 +70,7 @@ async def async_test_send_receive():
     await queue.send(msg)
 
     retrieved = await queue.receive()
+    assert retrieved is not None
     assert retrieved.content == "test"
 
 

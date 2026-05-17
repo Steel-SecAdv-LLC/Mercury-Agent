@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import cast
+
 """
 Tests for Vision-Language Model (VLM) anomaly detectors.
 
@@ -60,8 +62,9 @@ class TestAnyAnomalyDetector:
             enable_temporal_context=False,
         )
         detector = AnyAnomalyDetector(config=config)
-        assert detector.config.context_window == 4
-        assert detector.config.enable_positional_context is True
+        cfg = cast("AnyAnomalyConfig", detector.config)
+        assert cfg.context_window == 4
+        assert cfg.enable_positional_context is True
 
     def test_anyanomaly_set_anomaly_definition(self):
         """Test setting custom anomaly definition."""
@@ -136,8 +139,9 @@ class TestLAVADDetector:
             temporal_window=8,
         )
         detector = LAVADDetector(config=config)
-        assert detector.config.sampling_fps == 1.0
-        assert detector.config.temporal_window == 8
+        cfg = cast("LAVADConfig", detector.config)
+        assert cfg.sampling_fps == 1.0
+        assert cfg.temporal_window == 8
 
     def test_lavad_set_scene_context(self):
         """Test setting scene context."""
@@ -233,10 +237,17 @@ class TestLVLMBackends:
         ``NotImplementedError`` rather than silently returning fake
         scores.  This test pins that contract.
         """
-        from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
+        from omni_mercury_engine.detectors.vlm.lvlm_backends import (
+            MockLVLMBackend,
+            get_lvlm_backend,
+        )
 
         backend = get_lvlm_backend("mock")
-        assert backend is not None
+        # ``isinstance`` both narrows the type for mypy and pins the runtime
+        # contract -- if the factory wiring ever regresses to a different
+        # backend, this assertion fails with a clear message instead of
+        # producing an AttributeError on the missing ``vqa`` method.
+        assert isinstance(backend, MockLVLMBackend)
 
         with pytest.raises(NotImplementedError, match="cannot be used in production"):
             backend.vqa(

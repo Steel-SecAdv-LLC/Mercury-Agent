@@ -429,6 +429,7 @@ class TestNeurocriticalCarePredictor:
         }
         result = predictor.predict_neurocritical_emergency(patient_data)
         assert isinstance(result, NeurocriticalPredictionResult)
+        assert result.nihss_score is not None
         assert result.nihss_score > 0
         assert "recommendations" in result.__dict__ or hasattr(result, "clinical_recommendations")
 
@@ -457,7 +458,9 @@ class TestNeurocriticalCarePredictor:
             "tbi_features": {"gcs_score": 14},
         }
         result = predictor.predict_neurocritical_emergency(patient_data)
-        assert result.tbi_severity in ["mild", "none", None] or result.gcs_score >= 13
+        assert result.tbi_severity in ["mild", "none", None] or (
+            result.gcs_score is not None and result.gcs_score >= 13
+        )
 
     def test_tbi_severity_moderate(self, predictor: NeurocriticalCarePredictor) -> None:
         """Test moderate TBI detection (GCS 9-12)."""
@@ -484,6 +487,7 @@ class TestNeurocriticalCarePredictor:
         }
         result = predictor.predict_neurocritical_emergency(patient_data)
         assert result.neurological_emergency_detected is True
+        assert result.gcs_score is not None
         assert result.gcs_score <= 8
 
     def test_combined_emergency(self, predictor: NeurocriticalCarePredictor) -> None:
@@ -552,6 +556,7 @@ class TestNeurocriticalEdgeCases:
                 "tbi_features": {"gcs_score": gcs},
             }
             result = predictor.predict_neurocritical_emergency(patient_data)
+            assert result.gcs_score is not None
             assert 3 <= result.gcs_score <= 15
 
     def test_maximum_nihss_score(self, predictor: NeurocriticalCarePredictor) -> None:

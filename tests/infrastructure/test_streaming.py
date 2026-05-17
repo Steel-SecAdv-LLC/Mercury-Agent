@@ -14,6 +14,7 @@ Licensed under GPL-3.0-or-later
 from __future__ import annotations
 
 from datetime import datetime
+from typing import cast
 from unittest.mock import patch
 
 import pytest
@@ -223,7 +224,9 @@ class TestStreamFactories:
         """Test creating producer with config."""
         config = StreamConfig(batch_size=200)
         producer = StreamProducerFactory.create("memory", config=config)
-        assert producer.config.batch_size == 200
+        # Factory returns abstract StreamProducer; narrow to concrete subclass.
+        assert isinstance(producer, InMemoryStreamProducer)
+        assert cast("InMemoryStreamProducer", producer).config.batch_size == 200
 
     def test_consumer_factory_memory(self):
         """Test creating in-memory consumer."""

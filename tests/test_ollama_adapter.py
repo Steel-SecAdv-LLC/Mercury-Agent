@@ -71,6 +71,7 @@ def ollama_module():
         llm_spec = importlib.util.spec_from_file_location(llm_module_name, llm_path)
         if llm_spec is None or llm_spec.loader is None:
             pytest.skip("Could not load llm_adapter module spec")
+        assert llm_spec is not None and llm_spec.loader is not None  # narrowing for mypy
 
         llm_adapter = importlib.util.module_from_spec(llm_spec)
         sys.modules[llm_module_name] = llm_adapter
@@ -91,6 +92,7 @@ def ollama_module():
     ollama_spec = importlib.util.spec_from_file_location(ollama_module_name, ollama_path)
     if ollama_spec is None or ollama_spec.loader is None:
         pytest.skip("Could not load ollama_adapter module spec")
+    assert ollama_spec is not None and ollama_spec.loader is not None  # narrowing for mypy
 
     ollama_adapter = importlib.util.module_from_spec(ollama_spec)
     sys.modules[ollama_module_name] = ollama_adapter
@@ -119,6 +121,7 @@ def llm_module():
     llm_spec = importlib.util.spec_from_file_location(module_name, llm_path)
     if llm_spec is None or llm_spec.loader is None:
         pytest.skip("Could not load llm_adapter module spec")
+    assert llm_spec is not None and llm_spec.loader is not None  # narrowing for mypy
 
     llm_adapter = importlib.util.module_from_spec(llm_spec)
     # Register module in sys.modules BEFORE executing to allow dataclass decorator to work

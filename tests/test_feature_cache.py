@@ -134,6 +134,7 @@ class TestMemoryEfficientFeatureCache:
         cache.put("test_key", data1)
         cache.put("test_key", data2)
         retrieved = cache.get("test_key")
+        assert retrieved is not None
         np.testing.assert_array_almost_equal(retrieved, data2)
 
     def test_contains(self) -> None:

@@ -133,6 +133,7 @@ class TestSemanticContextProvider:
         assert context.description is not None
         assert context.features is not None
         assert len(context.features) == 6  # 6 semantic features
+        assert context.metadata is not None
         assert "scene_type" in context.metadata
 
     def test_extract_context_video(self, sample_video: np.ndarray) -> None:
@@ -207,6 +208,7 @@ class TestFrequencyContextProvider:
         assert context.context_type == "frequency"
         assert context.features is not None
         assert len(context.features) == 6  # 6 frequency features
+        assert context.metadata is not None
         assert "periodic_score" in context.metadata
 
     def test_extract_context_video(self, sample_video: np.ndarray) -> None:
@@ -215,6 +217,7 @@ class TestFrequencyContextProvider:
         context = provider.extract_context(sample_video)
 
         assert context.context_type == "frequency"
+        assert context.metadata is not None
         assert "temporal_periodicity" in context.metadata
         assert "flicker_detected" in context.metadata
 
@@ -269,6 +272,7 @@ class TestAppearanceContextProvider:
 
         assert context.context_type == "appearance"
         assert context.features is not None
+        assert context.metadata is not None
         assert "brightness_mean" in context.metadata
         assert "dominant_colors" in context.metadata
 
@@ -542,6 +546,7 @@ class TestFeatureConcatFusion:
         fusion = FeatureConcatFusion(output_dim=128, normalize=True)
         result = fusion.fuse([sample_vlm_input, sample_visual_input])
 
+        assert result.fused_features is not None
         assert result.fused_features.shape[-1] == 128
         # Check normalization
         norms = torch.norm(result.fused_features, dim=-1)
@@ -561,6 +566,8 @@ class TestScoreWeightedFusion:
         result = fusion.fuse([sample_vlm_input, sample_visual_input])
 
         # Should be average of scores
+        assert sample_vlm_input.scores is not None
+        assert sample_visual_input.scores is not None
         expected = (sample_vlm_input.scores + sample_visual_input.scores) / 2
         np.testing.assert_array_almost_equal(result.fused_scores, expected)
 
@@ -576,6 +583,8 @@ class TestScoreWeightedFusion:
         )
         result = fusion.fuse([sample_vlm_input, sample_visual_input])
 
+        assert sample_vlm_input.scores is not None
+        assert sample_visual_input.scores is not None
         expected = 0.7 * sample_vlm_input.scores + 0.3 * sample_visual_input.scores
         np.testing.assert_array_almost_equal(result.fused_scores, expected)
 

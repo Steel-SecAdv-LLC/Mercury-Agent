@@ -148,6 +148,7 @@ class TestAsyncMessageQueue:
         # Receive all
         for i in range(5):
             received = await queue.receive()
+            assert received is not None
             assert received.content == f"msg_{i}"
 
         assert queue.stats["messages_received"] == 5

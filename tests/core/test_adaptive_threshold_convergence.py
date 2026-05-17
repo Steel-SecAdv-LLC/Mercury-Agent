@@ -11,6 +11,8 @@ Acceptance criteria from the punch list:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -133,12 +135,12 @@ def test_iterative_call_structure_is_bounded(monkeypatch: pytest.MonkeyPatch) ->
     real_calibrate = manager.calibrate
     real_refine = manager._cooperative_refine_threshold
 
-    def _counting_calibrate(*args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+    def _counting_calibrate(*args: Any, **kwargs: Any):  # type: ignore[no-untyped-def]
         nonlocal calibrate_calls
         calibrate_calls += 1
         return real_calibrate(*args, **kwargs)
 
-    def _counting_refine(*args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+    def _counting_refine(*args: Any, **kwargs: Any):  # type: ignore[no-untyped-def]
         nonlocal refine_calls
         refine_calls += 1
         return real_refine(*args, **kwargs)

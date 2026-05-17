@@ -546,14 +546,15 @@ class TestBiasDetectorEdgeCases:
 
     def test_numpy_array_conversion(self):
         """Test that lists are converted to numpy arrays."""
+        # Pass lists deliberately to exercise the runtime ndarray-conversion path.
         y_true = [1, 0, 1, 0]
         y_pred = [1, 0, 1, 0]
         sensitive = ["A", "A", "B", "B"]
 
         report = self.detector.evaluate(
-            y_true=y_true,
-            y_pred=y_pred,
-            sensitive_features=sensitive,
+            y_true=y_true,  # type: ignore[arg-type]
+            y_pred=y_pred,  # type: ignore[arg-type]
+            sensitive_features=sensitive,  # type: ignore[arg-type]
         )
         assert report.total_samples == 4
 

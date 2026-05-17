@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 """
 Tests for Benchmark Dataset Loaders.
 
@@ -26,6 +28,11 @@ Tests MVTec AD, UCF-Crime, and Shanghai Tech Campus dataset loaders.
 
 
 import importlib.util
+
+if TYPE_CHECKING:
+    # Imported only for cast() type narrowing; kept under TYPE_CHECKING so
+    # importing this test module does not eagerly load benchmark-dataset deps.
+    from omni_mercury_engine.datasets.benchmarks.mvtec import MVTecADConfig
 
 import numpy as np
 import pytest
@@ -110,7 +117,7 @@ class TestMVTecADDataset:
 
         config = {"root": str(tmp_path), "category": "cable"}
         dataset = MVTecADDataset(config=config)
-        assert dataset.config.category == "cable"
+        assert cast("MVTecADConfig", dataset.config).category == "cable"
 
 
 class TestUCFCrimeConfig:

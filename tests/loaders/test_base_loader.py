@@ -251,12 +251,14 @@ class TestFetchUrlExceptionRouting:
 
         original = OSError("simulated transient socket failure")
 
-        with patch(
-            "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
-            side_effect=original,
+        with (
+            patch(
+                "omni_mercury_engine.loaders.base.SafeHTTPClient.get_bytes",
+                side_effect=original,
+            ),
+            pytest.raises(ConnectionError) as exc_info,
         ):
-            with pytest.raises(ConnectionError) as exc_info:
-                loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
+            loader._fetch_url("https://earthquake.usgs.gov/fdsnws/event/1/query")
 
         assert exc_info.value.__cause__ is original, (
             "ConnectionError did not chain to the underlying exception; "

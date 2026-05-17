@@ -354,6 +354,7 @@ class TestPandemicDetector:
             OutbreakSeverity.PANDEMIC.value,
         ]
         # R0 estimate should be positive
+        assert result.r0_estimate is not None
         assert result.r0_estimate >= 1.0
         # Public health actions and containment measures should be lists
         assert isinstance(result.public_health_actions, list)
@@ -601,7 +602,9 @@ class TestPandemicIntegration:
         contained_result = detector.predict_pandemic(contained_data)
 
         # Should show declining outbreak - R0 estimates should be positive
+        assert contained_result.r0_estimate is not None
         assert contained_result.r0_estimate >= 1.0
+        assert peak_result.r0_estimate is not None
         assert peak_result.r0_estimate >= 1.0
         # case_surge_detected is numpy bool - verify it's a boolean type
         assert isinstance(

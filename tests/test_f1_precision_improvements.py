@@ -84,7 +84,7 @@ class TestNoiseColorEstimation:
     """Tests for SpectralDomainOracle._estimate_noise_color."""
 
     def _make_oracle(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
         )
 
@@ -146,7 +146,7 @@ class TestAdaptiveAlpha:
     """Tests for SpectralDomainOracle._compute_adaptive_alpha."""
 
     def _make_oracle(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
         )
 
@@ -326,7 +326,7 @@ class TestOracleIntegration:
 
     def test_oracle_noise_color_estimated(self):
         """When Oracle is active, noise color should be estimated."""
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
         )
 
@@ -339,7 +339,7 @@ class TestOracleIntegration:
 
     def test_oracle_multiplier_in_bounds(self):
         """Influence multiplier should stay within configured bounds."""
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
         )
 
@@ -361,7 +361,7 @@ class TestOracleIntegration:
 
     def test_oracle_detect_returns_dict(self):
         """T0biU Oracle returns dict with influence_vector key."""
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
         )
 
@@ -377,7 +377,7 @@ class TestOracleIntegration:
 
     def test_oracle_noise_color_in_detect_result(self):
         """Detection result should include noise_color metadata."""
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             SpectralDomainOracle,
         )
 
@@ -400,7 +400,7 @@ class TestOracleInfluenceMultiplier:
     """Tests for _compute_influence_multiplier."""
 
     def test_significant_bands_increase_multiplier(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             FrequencyBandResult,
             SpectralDomainOracle,
         )
@@ -446,7 +446,7 @@ class TestOracleInfluenceMultiplier:
         assert mult > 1.0, f"Significant bands should amplify, got {mult}"
 
     def test_no_significant_bands_attenuate(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             FrequencyBandResult,
             SpectralDomainOracle,
         )
@@ -530,7 +530,7 @@ class TestSpectralHints:
     """Tests for DOMAIN_ANOMALY_SPECTRAL_HINTS constant."""
 
     def test_five_domains_defined(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             DOMAIN_ANOMALY_SPECTRAL_HINTS,
         )
 
@@ -539,7 +539,7 @@ class TestSpectralHints:
             assert domain in DOMAIN_ANOMALY_SPECTRAL_HINTS
 
     def test_each_hint_has_anomaly_beta_shift(self):
-        from omni_mercury_engine.detectors.spectral_domain_oracle import (
+        from omni_mercury_engine.detectors.spectral_domain_frequency import (
             DOMAIN_ANOMALY_SPECTRAL_HINTS,
         )
 
@@ -586,7 +586,10 @@ class TestFullPipelineIntegration:
 
         detector = MercuryAnomalyDetector()
         detector.fit(X_train)
-        detector._benchmark_domain = "environmental"
+        # _benchmark_domain is a dynamic attribute read by detect() via getattr;
+        # see detectors/statistical.py:1905. setattr keeps mypy happy and the
+        # B010 noqa records that the dynamic write is intentional.
+        setattr(detector, "_benchmark_domain", "environmental")  # noqa: B010
         result = detector.detect(X_test)
 
         assert result["scores"].shape == (100,)

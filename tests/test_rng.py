@@ -104,6 +104,8 @@ class TestDeterministicRNG:
         """Test integer random generation."""
         rng = DeterministicRNG(seed=42)
         result = rng.randint(0, 100, size=(50,))
+        # randint returns int | ndarray; with size given it is always ndarray.
+        assert isinstance(result, np.ndarray)
         assert result.shape == (50,)
         assert result.min() >= 0
         assert result.max() < 100

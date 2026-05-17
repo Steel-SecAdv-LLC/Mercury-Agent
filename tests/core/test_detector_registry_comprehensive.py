@@ -139,6 +139,7 @@ class TestFeatureExtraction:
         reg = DetectorRegistry(auto_discover=False)
         result = reg.extract_features("nonexistent", np.array([1.0]))
         assert result.success is False
+        assert result.error is not None
         assert "not found" in result.error
 
     def test_extract_features_detector_error(self):

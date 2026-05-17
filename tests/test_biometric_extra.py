@@ -18,6 +18,8 @@ along with this program. If not, see https://www.gnu.org/licenses/.
 
 from __future__ import annotations
 
+from typing import Any
+
 """
 Additional biometric tests to boost coverage above 85%
 """
@@ -45,7 +47,8 @@ def test_biometric_predict_with_none_input():
     """Test predict with None input"""
     model = BiometricAnomalyModel()
 
-    result = model.predict(None)
+    # Deliberately pass None to verify error-path handling.
+    result = model.predict(None)  # type: ignore[arg-type]
     assert "model_type" in result
     assert "error" in result
 
@@ -72,7 +75,7 @@ def test_biometric_harmonic_features_error_handling():
 
 def test_biometric_config_variants():
     """Test BiometricAnomalyModel with different config options"""
-    configs = [
+    configs: list[dict[str, Any]] = [
         {"use_harmonic_features": True},
         {"use_harmonic_features": False},
         {"model_name": "Facenet"},

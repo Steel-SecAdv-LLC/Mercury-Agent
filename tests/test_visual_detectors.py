@@ -25,8 +25,21 @@ Tests PatchCore, PaDiM, STFPM, Reverse Distillation, and CFlow detectors.
 """
 
 import importlib.util
+from typing import TYPE_CHECKING, cast
 
 import pytest
+
+if TYPE_CHECKING:
+    # Imported only for cast() type narrowing; the runtime classes pull in torch,
+    # so keeping them under TYPE_CHECKING avoids importing torch at test-collection
+    # time even when the suite is skipped for missing torch/torchvision.
+    # PatchCoreConfig is omitted because test_patchcore_config constructs it at
+    # runtime, so its import lives inside that function.
+    from omni_mercury_engine.detectors.visual.cflow import CFlowConfig
+    from omni_mercury_engine.detectors.visual.padim import PaDiMConfig
+    from omni_mercury_engine.detectors.visual.reverse_distillation import (
+        ReverseDistillationConfig,
+    )
 
 try:
     import torch
@@ -65,8 +78,11 @@ class TestPatchCoreDetector:
             k_nearest=3,
         )
         detector = PatchCoreDetector(config=config)
-        assert detector.config.coreset_ratio == 0.1
-        assert detector.config.k_nearest == 3
+        # detector.config is typed as base VisualDetectorConfig but is actually
+        # the PatchCoreConfig subclass at runtime.
+        cfg = cast("PatchCoreConfig", detector.config)
+        assert cfg.coreset_ratio == 0.1
+        assert cfg.k_nearest == 3
 
     def test_patchcore_fit(self, sample_image_batch):
         """Test PatchCore fitting on normal images."""
@@ -101,7 +117,7 @@ class TestPaDiMDetector:
 
         detector = PaDiMDetector()
         assert detector is not None
-        assert detector.config.d_reduced == 100
+        assert cast("PaDiMConfig", detector.config).d_reduced == 100
 
     def test_padim_fit(self, sample_image_batch):
         """Test PaDiM fitting on normal images."""
@@ -162,7 +178,7 @@ class TestReverseDistillationDetector:
 
         detector = ReverseDistillationDetector()
         assert detector is not None
-        assert detector.config.bottleneck_dim == 256
+        assert cast("ReverseDistillationConfig", detector.config).bottleneck_dim == 256
 
     def test_reverse_distillation_config(self):
         """Test Reverse Distillation with custom config."""
@@ -177,8 +193,9 @@ class TestReverseDistillationDetector:
             oce_gamma=0.5,
         )
         detector = ReverseDistillationDetector(config=config)
-        assert detector.config.bottleneck_dim == 128
-        assert detector.config.oce_gamma == 0.5
+        cfg = cast("ReverseDistillationConfig", detector.config)
+        assert cfg.bottleneck_dim == 128
+        assert cfg.oce_gamma == 0.5
 
 
 @pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")
@@ -191,7 +208,7 @@ class TestCFlowDetector:
 
         detector = CFlowDetector()
         assert detector is not None
-        assert detector.config.n_flows == 8
+        assert cast("CFlowConfig", detector.config).n_flows == 8
 
     def test_cflow_config(self):
         """Test CFlow with custom config."""
@@ -204,8 +221,9 @@ class TestCFlowDetector:
             hidden_ratio=0.5,
         )
         detector = CFlowDetector(config=config)
-        assert detector.config.n_flows == 4
-        assert detector.config.hidden_ratio == 0.5
+        cfg = cast("CFlowConfig", detector.config)
+        assert cfg.n_flows == 4
+        assert cfg.hidden_ratio == 0.5
 
 
 @pytest.mark.skipif(not HAS_TORCH or not HAS_TORCHVISION, reason="torch/torchvision not installed")

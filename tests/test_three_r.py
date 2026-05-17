@@ -760,6 +760,7 @@ class TestNeuralVerifierIntegration:
 
         result = mechanism.compute_dominance_score(data, anomaly_threshold=0.5)
 
+        assert result.neural_anomaly_score is not None
         traditional_is_anomaly = result.fusion_score >= 0.5
         neural_is_anomaly = result.neural_anomaly_score >= 0.5
 

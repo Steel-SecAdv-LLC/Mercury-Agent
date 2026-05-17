@@ -251,8 +251,8 @@ class TestBiometricModelErrorHandling:
 
         model = BiometricAnomalyModel()
 
-        # Test with None data
-        result = model.predict(None)
+        # Deliberately pass None to exercise the error-path branch.
+        result = model.predict(None)  # type: ignore[arg-type]
 
         assert "error" in result
         assert result["anomaly_scores"] is not None

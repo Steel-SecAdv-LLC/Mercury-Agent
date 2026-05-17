@@ -87,6 +87,7 @@ class TestReportSection:
         """Test nested subsections."""
         subsection = ReportSection(title="Subsection", content="Details")
         section = ReportSection(title="Main Section", content="Overview", subsections=[subsection])
+        assert section.subsections is not None
         assert len(section.subsections) == 1
 
 

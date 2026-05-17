@@ -188,11 +188,13 @@ class TestMultivariateTSDetector:
         detector.fit(normal_data)
 
         threshold1 = detector.threshold
+        assert threshold1 is not None
 
         noisy_data = np.random.randn(100, 100, 10) * 2.0
         detector.fit(noisy_data)
 
         threshold2 = detector.threshold
+        assert threshold2 is not None
 
         assert threshold2 > threshold1
 

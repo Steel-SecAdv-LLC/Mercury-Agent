@@ -87,6 +87,7 @@ class TestInformationGeometryDetector:
 
         detector.fit_reference_distribution(in_dist_data)
 
+        assert detector.fisher_matrix is not None
         assert detector.fisher_matrix.shape == (10, 10)
 
     def test_compute_fisher_matrix(self):
