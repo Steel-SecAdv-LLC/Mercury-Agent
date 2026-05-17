@@ -294,9 +294,7 @@ class TestThreatDetectorProperties:
     """Property-based tests for threat detection."""
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
-    @given(
-        st.text(alphabet=st.characters(categories=["L", "N"]), min_size=1, max_size=100)
-    )
+    @given(st.text(alphabet=st.characters(categories=["L", "N"]), min_size=1, max_size=100))
     @settings(max_examples=100)
     def test_clean_input_not_flagged(self, text: str):
         """Alphanumeric text should not be flagged as threats."""
@@ -357,9 +355,7 @@ class TestEthicalEngineProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(
         st.dictionaries(
-            keys=st.text(
-                min_size=1, max_size=20, alphabet=st.characters(categories=["L"])
-            ),
+            keys=st.text(min_size=1, max_size=20, alphabet=st.characters(categories=["L"])),
             values=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
             min_size=1,
             max_size=10,
@@ -511,9 +507,7 @@ class TestDetectorRegistryProperties:
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(
         st.lists(
-            st.text(
-                min_size=1, max_size=20, alphabet=st.characters(categories=["L", "N"])
-            ),
+            st.text(min_size=1, max_size=20, alphabet=st.characters(categories=["L", "N"])),
             min_size=1,
             max_size=5,
             unique=True,
@@ -621,9 +615,7 @@ class TestKnowledgeGraphProperties:
     """Property-based tests for knowledge graph query operations."""
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
-    @given(
-        st.text(min_size=1, max_size=30, alphabet=st.characters(categories=["L", "N"]))
-    )
+    @given(st.text(min_size=1, max_size=30, alphabet=st.characters(categories=["L", "N"])))
     @settings(max_examples=20)
     def test_query_nonexistent_node_handled(self, node_name: str):
         """Querying non-existent nodes should be handled gracefully."""

@@ -699,7 +699,8 @@ class TestAllowUntrustedKwargRemoval:
         # rejection -- the sole defence layer -- is what we actually
         # exercise; this mirrors the public-API test above and avoids
         # asking mypy to validate a deliberately-invalid signature.
-        request_method = getattr(SafeHTTPClient, "_request")
+        # The B009 noqa records that the dynamic lookup is intentional.
+        request_method = getattr(SafeHTTPClient, "_request")  # noqa: B009
         kwargs: dict[str, object] = {"allow_untrusted": True}
         with pytest.raises(TypeError, match="allow_untrusted"):
             request_method("GET", "https://earthquake.usgs.gov/path", **kwargs)

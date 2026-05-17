@@ -84,7 +84,7 @@ def _import_loader_class(module_path: str, class_name: str) -> type[BaseDomainLo
     """Import a loader class by module path and class name."""
     mod = importlib.import_module(module_path)
     cls = getattr(mod, class_name)
-    return cast(type[BaseDomainLoader], cls)
+    return cast("type[BaseDomainLoader]", cls)
 
 
 def _make_loader(module_path: str, class_name: str, tmp_path: Path) -> BaseDomainLoader:

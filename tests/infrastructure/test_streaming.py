@@ -226,7 +226,7 @@ class TestStreamFactories:
         producer = StreamProducerFactory.create("memory", config=config)
         # Factory returns abstract StreamProducer; narrow to concrete subclass.
         assert isinstance(producer, InMemoryStreamProducer)
-        assert cast(InMemoryStreamProducer, producer).config.batch_size == 200
+        assert cast("InMemoryStreamProducer", producer).config.batch_size == 200
 
     def test_consumer_factory_memory(self):
         """Test creating in-memory consumer."""

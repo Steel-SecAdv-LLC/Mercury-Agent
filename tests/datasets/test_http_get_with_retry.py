@@ -113,16 +113,18 @@ class TestRetrySemantics:
         response.status_code = 404
         error = requests.HTTPError("404 client error", response=response)
 
-        with patch(
-            "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
-            side_effect=error,
-        ) as get_bytes:
-            with pytest.raises(requests.HTTPError):
-                http_get_with_retry(
-                    "https://earthquake.usgs.gov/path",
-                    retries=3,
-                    backoff=0.0,
-                )
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
+                side_effect=error,
+            ) as get_bytes,
+            pytest.raises(requests.HTTPError),
+        ):
+            http_get_with_retry(
+                "https://earthquake.usgs.gov/path",
+                retries=3,
+                backoff=0.0,
+            )
         assert (
             get_bytes.call_count == 1
         ), "Permanent 4xx should not retry; the helper kept hammering."
@@ -160,16 +162,18 @@ class TestRetrySemantics:
             requests.RequestException("attempt 3"),
         ]
 
-        with patch(
-            "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
-            side_effect=attempts,
-        ) as get_bytes:
-            with pytest.raises(requests.RequestException, match="attempt 3"):
-                http_get_with_retry(
-                    "https://earthquake.usgs.gov/path",
-                    retries=3,
-                    backoff=0.0,
-                )
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
+                side_effect=attempts,
+            ) as get_bytes,
+            pytest.raises(requests.RequestException, match="attempt 3"),
+        ):
+            http_get_with_retry(
+                "https://earthquake.usgs.gov/path",
+                retries=3,
+                backoff=0.0,
+            )
         assert get_bytes.call_count == 3
 
     def test_configuration_fault_does_not_retry(self) -> None:
@@ -180,16 +184,18 @@ class TestRetrySemantics:
         socket exceptions). The original raise from the inner
         ``SafeHTTPClient.get_bytes`` propagates straight up.
         """
-        with patch(
-            "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
-            side_effect=UnsafeURLError("test: forced refusal"),
-        ) as get_bytes:
-            with pytest.raises(UnsafeURLError, match="forced refusal"):
-                http_get_with_retry(
-                    "https://earthquake.usgs.gov/path",
-                    retries=3,
-                    backoff=0.0,
-                )
+        with (
+            patch(
+                "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
+                side_effect=UnsafeURLError("test: forced refusal"),
+            ) as get_bytes,
+            pytest.raises(UnsafeURLError, match="forced refusal"),
+        ):
+            http_get_with_retry(
+                "https://earthquake.usgs.gov/path",
+                retries=3,
+                backoff=0.0,
+            )
         assert get_bytes.call_count == 1
 
 

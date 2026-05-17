@@ -166,7 +166,7 @@ class TestPrototypicalNetworks:
         }
 
         # dict-input returns dict[str, ndarray] branch; see ml/meta_learning.py:416.
-        prototypes = cast(dict[str, np.ndarray], proto.compute_prototypes(support_set))
+        prototypes = cast("dict[str, np.ndarray]", proto.compute_prototypes(support_set))
 
         assert "class_a" in prototypes
         assert "class_b" in prototypes

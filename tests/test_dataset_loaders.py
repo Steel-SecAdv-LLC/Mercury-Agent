@@ -415,7 +415,7 @@ class TestBaselineResults:
 
         # MBA
         mba_tranad = BASELINE_RESULTS["MBA"]["TranAD"]
-        assert cast(float, mba_tranad["f1"]) > 0.98  # Very high for bearing data
+        assert cast("float", mba_tranad["f1"]) > 0.98  # Very high for bearing data
 
         # MSDS
         msds_tranad = BASELINE_RESULTS["MSDS"]["TranAD"]

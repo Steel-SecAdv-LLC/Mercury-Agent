@@ -49,11 +49,11 @@ class TestBaselineResults:
         for dataset, baselines in BASELINE_RESULTS.items():
             for method, metrics in baselines.items():
                 if "f1" in metrics:  # Some like NAB use nab_score
-                    assert 0 <= cast(float, metrics["f1"]) <= 1
+                    assert 0 <= cast("float", metrics["f1"]) <= 1
                 if "precision" in metrics:
-                    assert 0 <= cast(float, metrics["precision"]) <= 1
+                    assert 0 <= cast("float", metrics["precision"]) <= 1
                 if "recall" in metrics:
-                    assert 0 <= cast(float, metrics["recall"]) <= 1
+                    assert 0 <= cast("float", metrics["recall"]) <= 1
 
 
 class TestCompareToBaselines:
@@ -208,10 +208,10 @@ class TestGetSotaForDataset:
         method, metrics = get_sota_for_dataset("SMD")
         smd_baselines = BASELINE_RESULTS["SMD"]
 
-        sota_f1 = cast(float, metrics["f1"])
+        sota_f1 = cast("float", metrics["f1"])
         for name, m in smd_baselines.items():
             if "f1" in m:
-                assert cast(float, m["f1"]) <= sota_f1
+                assert cast("float", m["f1"]) <= sota_f1
 
     def test_unknown_dataset_raises(self):
         """Should raise for unknown dataset."""

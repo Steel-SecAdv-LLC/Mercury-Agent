@@ -587,8 +587,9 @@ class TestFullPipelineIntegration:
         detector = MercuryAnomalyDetector()
         detector.fit(X_train)
         # _benchmark_domain is a dynamic attribute read by detect() via getattr;
-        # see detectors/statistical.py:1905. setattr keeps mypy happy.
-        setattr(detector, "_benchmark_domain", "environmental")
+        # see detectors/statistical.py:1905. setattr keeps mypy happy and the
+        # B010 noqa records that the dynamic write is intentional.
+        setattr(detector, "_benchmark_domain", "environmental")  # noqa: B010
         result = detector.detect(X_test)
 
         assert result["scores"].shape == (100,)

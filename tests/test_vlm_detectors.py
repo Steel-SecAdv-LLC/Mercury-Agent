@@ -62,7 +62,7 @@ class TestAnyAnomalyDetector:
             enable_temporal_context=False,
         )
         detector = AnyAnomalyDetector(config=config)
-        cfg = cast(AnyAnomalyConfig, detector.config)
+        cfg = cast("AnyAnomalyConfig", detector.config)
         assert cfg.context_window == 4
         assert cfg.enable_positional_context is True
 
@@ -139,7 +139,7 @@ class TestLAVADDetector:
             temporal_window=8,
         )
         detector = LAVADDetector(config=config)
-        cfg = cast(LAVADConfig, detector.config)
+        cfg = cast("LAVADConfig", detector.config)
         assert cfg.sampling_fps == 1.0
         assert cfg.temporal_window == 8
 
@@ -245,7 +245,7 @@ class TestLVLMBackends:
         backend = get_lvlm_backend("mock")
         assert backend is not None
         # vqa is defined on MockLVLMBackend, not on the abstract base.
-        mock_backend = cast(MockLVLMBackend, backend)
+        mock_backend = cast("MockLVLMBackend", backend)
 
         with pytest.raises(NotImplementedError, match="cannot be used in production"):
             mock_backend.vqa(
