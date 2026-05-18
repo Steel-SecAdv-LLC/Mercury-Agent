@@ -10,12 +10,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > **64 reproducible datasets** (of 75 attempted). 11 datasets currently
 > fail to load due to unavailable external sources (SMAP, MSL,
 > CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA
-> StormEvents, NOAA ERDDAP, FEMA HazardMitigation), and 1 of the 64
-> (FEMA Disaster) is a known-broken loader producing inverted scores.
-> See the README "Empirical Benchmark Results" section for the full
-> reproducibility footnote and `docs/ROADMAP.md` for tracked fixes.
+> StormEvents, NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0
+> the previously-flagged "FEMA Disaster — inverted scores" loader
+> is no longer in the broken set; the label-polarity correction is
+> documented under `[Unreleased]` below and locked by
+> `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`.
+> The 11 unreachable loaders now have a two-lane reachability harness
+> (`tests/datasets/test_unreachable_loaders_{offline,network}.py`,
+> plus the nightly `.github/workflows/dataset-reachability.yml`
+> workflow) so an upstream provider outage surfaces as a failed
+> nightly run rather than as a benchmark silently dropping a
+> dataset.  See the README "Empirical Benchmark Results" section for
+> the full reproducibility footnote and `docs/ROADMAP.md` for
+> tracked fixes.
 
 ## [Unreleased]
+
+### FEMA Disaster loader — label-polarity correction (closes "known-broken" footnote item)
+
+- **`FEMADisasterLoader._select_anomaly_polarity`** enforces the
+  minority-as-anomaly convention used everywhere else in Mercury.
+  Historical OpenFEMA records make "DR + multi-program" the
+  *majority* class on most slices (major hurricanes / floods
+  routinely activate IA, PA, and HM together), so handing those
+  records label==1 inverted the anomaly detector and AUC drifted
+  below 0.5.  The loader now logs a loud `INFO` line when the
+  polarity flip kicks in and exposes the result via the new
+  `loader.labels_inverted` property so benchmark reporters can
+  surface the flip alongside their AUC numbers.  Behaviour is
+  identical on the synthetic-fallback path so CI runs (which lack
+  network access to the OpenFEMA API) exercise the same code
+  path as production.  Locked by
+  `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`
+  (5 regression tests covering majority-inversion, minority-no-op,
+  empty mask, initial property state, and the real-data-shape
+  processing pipeline).
+
+### Dataset reachability harness — two lanes for the unreachable-11
+
+- **`tests/datasets/test_unreachable_loaders_offline.py`** — runs
+  in every CI lane.  Parametrised across all 11 historically-
+  unreachable loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT,
+  WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA
+  HazardMitigation), it asserts each loader (a) constructs against
+  a valid `DatasetConfig`, (b) populates the metadata contract
+  (`DATASET_NAME` / `DATASET_URL` / `LICENSE` / `CITATION`),
+  (c) fails *loudly* (`DataSourceUnavailableError` /
+  `ConnectionError` / `OSError`) when every HTTP surface is
+  monkeypatched to simulate an upstream outage — never with a
+  silent `False` return.  This is the regression contract that
+  upgrades the loaders from "untested under outage" to "tested to
+  fail loudly under outage".
+- **`tests/datasets/test_unreachable_loaders_network.py`** —
+  marked `@pytest.mark.network`, deselected from default CI lanes
+  by the existing `-m "not network"` filter.  Calls the real
+  `download()` against the upstream provider.  Run nightly via
+  the new `.github/workflows/dataset-reachability.yml` workflow
+  (04:17 UTC) with `MERCURY_ALLOW_SYNTHETIC=0` so the synthetic
+  fallback cannot mask an outage.
+- **Coverage-drift gate.**  Both files include a
+  `test_harness_covers_*_loaders` assertion that pins the matrix
+  to exactly 11 entries.  Adding or removing a loader from the
+  unreachable set fails the build unless `CHANGELOG.md`,
+  `docs/DATASOURCES.md`, and both harness files are updated in
+  the same commit.
+
+### DATASOURCES.md — SafeHTTP DNS-fails-closed discoverability (§6 P1)
+
+- **New `Operating the SafeHTTP gate` section in
+  `docs/DATASOURCES.md`.**  Documents the intentional
+  DNS-resolution-fails-closed behaviour of
+  `SafeHTTPClient.validate_url(..., user_configured=True)` —
+  previously memory-only knowledge that operators kept
+  re-discovering when an internal mirror's hostname couldn't be
+  resolved by the container's stub resolver.  Section names the
+  three supported remediations in preference order (fix the
+  resolver / `allow_private=True` / `local_path` preprocessing
+  key) and points at the regression test that locks the
+  behaviour (`tests/loaders/test_base_loader.py:99`).  Cross-
+  references `docs/MIGRATION-1.6-to-1.7.md` §1 so operators
+  trying to re-enable the v1.6 `allow_untrusted=True` workaround
+  see the migration path immediately.
 
 ### Production-mode primitive — `MERCURY_ENV` (new in v1.7.0)
 

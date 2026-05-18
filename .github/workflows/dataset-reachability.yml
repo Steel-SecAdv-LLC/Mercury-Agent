@@ -1,0 +1,119 @@
+name: Dataset Reachability
+
+# ---------------------------------------------------------------------------
+# Nightly reachability harness for the 11 currently-unreachable Mercury
+# dataset loaders flagged in CHANGELOG.md's reproducibility footnote
+# (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry,
+# NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation).
+#
+# Why a separate workflow:
+#   * The reachability tests are marked ``@pytest.mark.network`` and are
+#     auto-deselected from the default ``ci.yml`` lanes (which run with
+#     ``-m "not network"``).  Without an opt-in workflow, an upstream
+#     provider outage would silently drop a dataset from the headline
+#     75-set benchmark comparison and no human would notice.
+#   * Running these on every PR would slam external providers and
+#     produce false-positive failures from transient network blips.
+#     Nightly is the right cadence.
+#
+# Failure semantics:
+#   * A *single* loader's failure marks this job ``failure`` but does
+#     NOT block merges into ``main`` (this workflow is decoupled from
+#     ``ci.yml`` for that reason).
+#   * Maintainers should treat a sustained failure (>=3 consecutive
+#     nights) as a signal to either fix the loader or update the
+#     CHANGELOG footnote to remove the dataset from the reproducible-75
+#     count.
+# ---------------------------------------------------------------------------
+
+on:
+  schedule:
+    # 04:17 UTC nightly — off-the-hour to avoid the GitHub-Actions
+    # ``schedule`` queue's top-of-hour congestion that delays jobs by
+    # 20+ minutes.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+    inputs:
+      include_offline:
+        description: 'Also run the offline harness (default true)'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: read
+
+concurrency:
+  # One reachability run at a time, no cancel-in-progress so an
+  # operator-triggered ``workflow_dispatch`` can't pre-empt the
+  # scheduled nightly mid-run.
+  group: dataset-reachability
+  cancel-in-progress: false
+
+jobs:
+  reachability:
+    name: Reachability (${{ matrix.lane }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lane:
+          - network
+          - offline
+    timeout-minutes: 30
+
+    env:
+      # Force the harness to exercise the real-data path; the
+      # synthetic fallback would defeat the purpose of a reachability
+      # probe.
+      MERCURY_ALLOW_SYNTHETIC: "0"
+      # Opt into the network test lane.  ``tests/conftest.py`` auto-
+      # skips ``@pytest.mark.network`` tests unless this env var is
+      # set to ``1`` so the default CI lanes don't accidentally hit
+      # the internet.  Here we explicitly opt in.
+      MERCURY_NETWORK_TESTS: "1"
+      # Skip the PQC import gate; the harness only touches dataset
+      # loaders, not anything that depends on AMA-native PQC.
+      AMA_REQUIRE_REAL_PQC: "false"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install Mercury + test dependencies
+        run: |
+          pip install --upgrade "pip>=26.1"
+          pip install -e .[dev]
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run offline reachability harness
+        if: matrix.lane == 'offline' && (github.event_name != 'workflow_dispatch' || inputs.include_offline == 'true')
+        run: |
+          # The offline harness exercises constructor + simulated-
+          # outage failure paths for all 11 loaders without making
+          # any network calls.  Runs in the default-CI lane too
+          # (this is a belt-and-braces re-run on the nightly).
+          pytest tests/datasets/test_unreachable_loaders_offline.py -v --tb=short --no-cov
+
+      - name: Run network reachability harness
+        if: matrix.lane == 'network'
+        run: |
+          # Opt-in network probes for the 11 unreachable loaders.
+          # ``--no-cov`` keeps the run time bounded — coverage is
+          # not the goal of this job.
+          pytest -m network tests/datasets/test_unreachable_loaders_network.py -v --tb=short --no-cov
+
+      - name: Upload reachability report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataset-reachability-${{ matrix.lane }}-${{ github.run_id }}
+          path: |
+            .pytest_cache/
+            *.log
+          retention-days: 14
+          if-no-files-found: ignore
