@@ -62,9 +62,9 @@ class TestVoiceLLMMissingProvider:
         with caplog.at_level("WARNING", logger="omni_mercury_engine.narrative.voice"):
             voice = MercuryVoice(enable_llm=True)
         assert voice._llm_adapter is None
-        assert any("template-only narration" in r.message for r in caplog.records), (
-            "Expected a warning naming the template-only fallback"
-        )
+        assert any(
+            "template-only narration" in r.message for r in caplog.records
+        ), "Expected a warning naming the template-only fallback"
 
     def test_production_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(MERCURY_ENV_VAR, MERCURY_ENV_PRODUCTION)
@@ -246,7 +246,7 @@ class TestVoiceLLMConfiguredProvider:
             base_url="http://ollama.internal:11435",
         )
 
-        ollama_config = getattr(detector.adapter, "ollama_config")
+        ollama_config = detector.adapter.ollama_config
         assert ollama_config.host == "ollama.internal"
         assert ollama_config.port == 11435
 

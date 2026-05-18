@@ -307,9 +307,7 @@ class TestFEMAInvertedScoresCorrection:
         assert np.array_equal(loaded_labels, labels)
         assert loader.labels_inverted is True
 
-    def test_statistics_separate_major_disasters_from_anomaly_labels(
-        self, tmp_path: Any
-    ) -> None:
+    def test_statistics_separate_major_disasters_from_anomaly_labels(self, tmp_path: Any) -> None:
         """Public statistics do not rename inverted anomaly labels as disasters."""
         config = DatasetConfig(
             name="fema_disaster",

@@ -431,7 +431,7 @@ class FEMADisasterLoader(DatasetLoader):
         rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
-        features = []
+        feature_rows = []
         labels = []
 
         # State FIPS codes (sampling of major disaster-prone states)
@@ -508,7 +508,7 @@ class FEMADisasterLoader(DatasetLoader):
                 pa_program,
                 hm_program,
             ]
-            features.append(feature_vec)
+            feature_rows.append(feature_vec)
 
             # Major disaster mask (DR type + multiple programs).  Final
             # label polarity is decided after the loop via
@@ -519,7 +519,7 @@ class FEMADisasterLoader(DatasetLoader):
             )
             labels.append(1 if is_major else 0)
 
-        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
+        features = np.array(feature_rows, dtype=np.float32)
         labels_arr = np.array(labels, dtype=bool)
         labels = self._select_anomaly_polarity(labels_arr)  # type: ignore[assignment]
 

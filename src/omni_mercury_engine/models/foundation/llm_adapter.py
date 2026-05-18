@@ -776,7 +776,10 @@ def create_llm_detector(
     # Handle Ollama specifically so host/port kwargs and base_url both
     # reach OllamaConfig instead of being ignored by LLMConfig.
     if provider_enum == LLMProvider.OLLAMA:
-        from omni_mercury_engine.models.foundation.ollama_adapter import OllamaConfig, OllamaLLMAdapter
+        from omni_mercury_engine.models.foundation.ollama_adapter import (
+            OllamaConfig,
+            OllamaLLMAdapter,
+        )
 
         base_host, base_port = _parse_ollama_base_url(config.base_url)
 
