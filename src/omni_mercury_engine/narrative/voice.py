@@ -159,6 +159,7 @@ class MercuryVoice:
         default_domain: str | None = None,
         llm_provider: str | None = None,
         llm_model_name: str | None = None,
+        llm_revision: str | None = None,
         llm_api_key: str | None = None,
         llm_base_url: str | None = None,
     ) -> None:
@@ -169,7 +170,7 @@ class MercuryVoice:
             enable_llm: Whether to use LLM for response generation.
             default_domain: Default domain context.
             llm_provider: Concrete LLM provider name (case-insensitive,
-                must match a member of
+                must match an implemented member of
                 :class:`~omni_mercury_engine.models.foundation.llm_adapter.LLMProvider`
                 — e.g. ``"huggingface"``, ``"ollama"``).  Required when
                 ``enable_llm`` is true and ``MERCURY_ENV=production``;
@@ -179,6 +180,9 @@ class MercuryVoice:
             llm_model_name: Provider-specific model identifier
                 (e.g. ``"facebook/bart-large-mnli"`` for HuggingFace,
                 ``"llama3.2:3b"`` for Ollama).
+            llm_revision: Optional HuggingFace revision pin.  Remote
+                HuggingFace model IDs require a verified 40-character
+                commit SHA; absolute local model paths do not.
             llm_api_key: Optional API key for providers that require one.
             llm_base_url: Optional override for providers with a
                 configurable endpoint (Ollama, OpenAI-compatible
@@ -191,12 +195,13 @@ class MercuryVoice:
                 refuses to silently fall through to a stub LLM in
                 production — see ``docs/MIGRATION-1.6-to-1.7.md``.
             ValueError: When ``llm_provider`` is set but does not match
-                any supported :class:`LLMProvider` member.
+                any implemented :class:`LLMProvider` member.
         """
         self.enable_llm = enable_llm
         self.default_domain = default_domain
         self._llm_provider = llm_provider
         self._llm_model_name = llm_model_name
+        self._llm_revision = llm_revision
         self._llm_api_key = llm_api_key
         self._llm_base_url = llm_base_url
 
@@ -246,7 +251,7 @@ class MercuryVoice:
           ``models/foundation/llm_adapter.py:MockLLMAdapter``).  We
           surface that misconfiguration here rather than at first
           call so the failure is at construction time.
-        - ``llm_provider`` is a supported provider: delegate to
+        - ``llm_provider`` is an implemented provider: delegate to
           ``models.foundation.llm_adapter.create_llm_detector`` and
           store the underlying adapter.  A failure to import the
           provider's optional dependency (e.g. ``transformers`` for
@@ -298,18 +303,41 @@ class MercuryVoice:
         # then exploding on MockLLMAdapter's NotImplementedError two
         # frames away from the call site.
         from omni_mercury_engine.models.foundation.llm_adapter import (
+            IMPLEMENTED_LLM_PROVIDERS,
             LLMProvider,
         )
 
         try:
-            LLMProvider(self._llm_provider.lower())
+            provider_enum = LLMProvider(self._llm_provider.lower())
         except ValueError as exc:
-            supported = sorted(p.value for p in LLMProvider if p.value != "mock")
+            supported = sorted(p.value for p in IMPLEMENTED_LLM_PROVIDERS)
             raise ValueError(
                 f"Unknown llm_provider {self._llm_provider!r}.  Supported providers: {supported}."
             ) from exc
+        if provider_enum not in IMPLEMENTED_LLM_PROVIDERS:
+            supported = sorted(p.value for p in IMPLEMENTED_LLM_PROVIDERS)
+            raise ValueError(
+                f"llm_provider {self._llm_provider!r} is declared in LLMProvider "
+                f"but has no MercuryVoice adapter implementation in this build. "
+                f"Supported providers: {supported}."
+            )
 
         try:
+            if provider_enum == LLMProvider.HUGGINGFACE:
+                from pathlib import PurePosixPath, PureWindowsPath
+
+                model_name = self._llm_model_name or "gpt-4o"
+                is_local_path = (
+                    PurePosixPath(model_name).is_absolute()
+                    or PureWindowsPath(model_name).is_absolute()
+                )
+                if not is_local_path and not self._llm_revision:
+                    raise ValueError(
+                        "HuggingFace remote model IDs require "
+                        "llm_revision=<40-character commit SHA> so SafeHFLoader "
+                        "can enforce reproducible model loading."
+                    )
+
             from omni_mercury_engine.models.foundation.llm_adapter import (
                 create_llm_detector,
             )
@@ -319,8 +347,15 @@ class MercuryVoice:
                 model_name=self._llm_model_name,
                 api_key=self._llm_api_key,
                 base_url=self._llm_base_url,
+                revision=self._llm_revision,
             )
-            self._llm_adapter = detector.adapter
+            adapter = detector.adapter
+            is_available = getattr(adapter, "is_available", None)
+            if callable(is_available) and not bool(is_available()):
+                raise ImportError(
+                    f"adapter for provider {self._llm_provider!r} reported unavailable"
+                )
+            self._llm_adapter = adapter
         except (
             ImportError,
             NotImplementedError,
@@ -861,6 +896,7 @@ def create_mercury_voice(
     default_domain: str | None = None,
     llm_provider: str | None = None,
     llm_model_name: str | None = None,
+    llm_revision: str | None = None,
     llm_api_key: str | None = None,
     llm_base_url: str | None = None,
 ) -> MercuryVoice:
@@ -874,6 +910,7 @@ def create_mercury_voice(
             :class:`MercuryVoice`.  Required in
             ``MERCURY_ENV=production`` when ``enable_llm`` is true.
         llm_model_name: Provider-specific model identifier.
+        llm_revision: Optional HuggingFace revision pin.
         llm_api_key: Optional API key for providers that require one.
         llm_base_url: Optional endpoint override for providers that
             support it.
@@ -886,6 +923,7 @@ def create_mercury_voice(
         default_domain=default_domain,
         llm_provider=llm_provider,
         llm_model_name=llm_model_name,
+        llm_revision=llm_revision,
         llm_api_key=llm_api_key,
         llm_base_url=llm_base_url,
     )

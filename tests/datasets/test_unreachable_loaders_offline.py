@@ -166,11 +166,11 @@ def test_loader_fails_loudly_on_simulated_outage(
             assert str(exc), f"{label}: empty exception message"
             return
 
-        # If download() returned without raising, the loader either
-        # genuinely found cached data (acceptable on a clean tmp_path
-        # this should not happen) or fell through to a silent failure
-        # (the regression we're guarding against).
-        assert result is False, (
+        # A clean tmp_path cannot contain verified cached data.  Any
+        # non-exceptional return means the loader swallowed the outage
+        # or invented success, both of which violate the loud-failure
+        # contract.
+        pytest.fail(
             f"{label}: download() returned {result!r} despite every HTTP "
             "surface being patched to raise ConnectionError. This is the "
             "silent-failure regression the offline harness exists to catch."

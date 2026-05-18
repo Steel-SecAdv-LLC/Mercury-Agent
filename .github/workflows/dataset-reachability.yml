@@ -7,11 +7,11 @@ name: Dataset Reachability
 # NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation).
 #
 # Why a separate workflow:
-#   * The reachability tests are marked ``@pytest.mark.network`` and are
-#     auto-deselected from the default ``ci.yml`` lanes (which run with
-#     ``-m "not network"``).  Without an opt-in workflow, an upstream
-#     provider outage would silently drop a dataset from the headline
-#     75-set benchmark comparison and no human would notice.
+#   * The reachability tests are marked ``@pytest.mark.network`` and
+#     ``tests/conftest.py`` auto-skips them unless
+#     ``MERCURY_NETWORK_TESTS=1`` is set. Without an opt-in workflow, an
+#     upstream provider outage would silently drop a dataset from the
+#     headline 75-set benchmark comparison and no human would notice.
 #   * Running these on every PR would slam external providers and
 #     produce false-positive failures from transient network blips.
 #     Nightly is the right cadence.

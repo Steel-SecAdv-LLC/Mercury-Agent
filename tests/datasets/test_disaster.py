@@ -283,6 +283,63 @@ class TestFEMAInvertedScoresCorrection:
         # The 2 minority records carry the anomaly label.
         assert labels[-2:].tolist() == [1, 1]
 
+    def test_cached_polarity_metadata_restored_for_fresh_loader(self, tmp_path: Any) -> None:
+        """A cache written before the metadata sidecar still reports polarity."""
+        config = DatasetConfig(
+            name="fema_disaster",
+            data_dir=str(tmp_path / "d"),
+            cache_dir=str(tmp_path / "c"),
+        )
+        data_dir = tmp_path / "d" / "fema_disaster"
+        data_dir.mkdir(parents=True)
+
+        features = np.zeros((10, 11), dtype=np.float32)
+        features[:8, 6] = 0  # DR
+        features[:8, 8:11] = 1  # multi-program majority
+        features[8:, 6] = 1  # EM minority
+        labels = np.array([0] * 8 + [1] * 2, dtype=np.int64)
+        np.savez_compressed(data_dir / "fema_disaster_real.npz", features=features, labels=labels)
+
+        loader = FEMADisasterLoader(config)
+        loaded_features, loaded_labels = loader._load_raw()
+
+        assert np.array_equal(loaded_features, features)
+        assert np.array_equal(loaded_labels, labels)
+        assert loader.labels_inverted is True
+
+    def test_statistics_separate_major_disasters_from_anomaly_labels(
+        self, tmp_path: Any
+    ) -> None:
+        """Public statistics do not rename inverted anomaly labels as disasters."""
+        config = DatasetConfig(
+            name="fema_disaster",
+            data_dir=str(tmp_path / "d"),
+            cache_dir=str(tmp_path / "c"),
+        )
+        data_dir = tmp_path / "d" / "fema_disaster"
+        data_dir.mkdir(parents=True)
+
+        features = np.zeros((10, 11), dtype=np.float32)
+        features[:, 2] = 2020
+        features[:8, 6] = 0
+        features[:8, 8:11] = 1
+        features[8:, 6] = 1
+        labels = np.array([0] * 8 + [1] * 2, dtype=np.int64)
+        np.savez_compressed(
+            data_dir / "fema_disaster_real.npz",
+            features=features,
+            labels=labels,
+            labels_inverted=np.array(True, dtype=bool),
+        )
+
+        stats = FEMADisasterLoader(config).get_statistics()
+
+        assert stats["n_major_disasters"] == 8
+        assert stats["major_disaster_ratio"] == 0.8
+        assert stats["n_anomaly_labels"] == 2
+        assert stats["anomaly_label_ratio"] == 0.2
+        assert stats["labels_inverted"] is True
+
 
 class TestFEMAHazardMitigationLoader:
     """Tests for FEMA hazard mitigation loader."""

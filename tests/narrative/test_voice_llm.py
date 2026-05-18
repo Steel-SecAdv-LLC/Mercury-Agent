@@ -26,7 +26,10 @@ from omni_mercury_engine._env import (
     MERCURY_ENV_VAR,
     MercuryProductionConfigError,
 )
+from omni_mercury_engine.models.foundation.llm_adapter import create_llm_detector
 from omni_mercury_engine.narrative.voice import MercuryVoice, create_mercury_voice
+
+_HF_REVISION = "0123456789abcdef0123456789abcdef01234567"
 
 
 class TestVoiceLLMDisabled:
@@ -125,12 +128,30 @@ class TestVoiceLLMConfiguredProvider:
                 enable_llm=True,
                 llm_provider="huggingface",
                 llm_model_name="facebook/bart-large-mnli",
+                llm_revision=_HF_REVISION,
             )
 
         assert voice._llm_adapter is None
         assert any(
             "huggingface" in r.message and "template-only" in r.message for r in caplog.records
         )
+
+    def test_huggingface_remote_model_requires_revision(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Remote HuggingFace IDs need a SafeHFLoader revision pin."""
+        monkeypatch.delenv(MERCURY_ENV_VAR, raising=False)
+        with caplog.at_level("WARNING", logger="omni_mercury_engine.narrative.voice"):
+            voice = MercuryVoice(
+                enable_llm=True,
+                llm_provider="huggingface",
+                llm_model_name="facebook/bart-large-mnli",
+            )
+
+        assert voice._llm_adapter is None
+        assert any("llm_revision" in r.message for r in caplog.records)
 
     def test_provider_init_failure_fails_closed_in_production(
         self, monkeypatch: pytest.MonkeyPatch
@@ -151,6 +172,7 @@ class TestVoiceLLMConfiguredProvider:
                 enable_llm=True,
                 llm_provider="huggingface",
                 llm_model_name="facebook/bart-large-mnli",
+                llm_revision=_HF_REVISION,
             )
 
         message = str(exc_info.value)
@@ -175,11 +197,58 @@ class TestVoiceLLMConfiguredProvider:
                 enable_llm=True,
                 llm_provider="huggingface",
                 llm_model_name="facebook/bart-large-mnli",
+                llm_revision=_HF_REVISION,
             )
 
         assert isinstance(voice._llm_adapter, _FakeAdapter)
         stats = voice.get_statistics()
         assert stats["llm_enabled"] is True
+
+    def test_unavailable_adapter_degrades_in_development(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """A constructed-but-unavailable adapter is not accepted as enabled."""
+        monkeypatch.delenv(MERCURY_ENV_VAR, raising=False)
+
+        class _UnavailableAdapter:
+            def is_available(self) -> bool:
+                return False
+
+        class _FakeDetector:
+            adapter = _UnavailableAdapter()
+
+        with (
+            patch(
+                "omni_mercury_engine.models.foundation.llm_adapter.create_llm_detector",
+                return_value=_FakeDetector(),
+            ),
+            caplog.at_level("WARNING", logger="omni_mercury_engine.narrative.voice"),
+        ):
+            voice = MercuryVoice(
+                enable_llm=True,
+                llm_provider="huggingface",
+                llm_model_name="facebook/bart-large-mnli",
+                llm_revision=_HF_REVISION,
+            )
+
+        assert voice._llm_adapter is None
+        assert any("unavailable" in r.message for r in caplog.records)
+
+    def test_ollama_base_url_reaches_adapter_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``llm_base_url`` configures the Ollama host/port, not a dead kwarg."""
+        monkeypatch.delenv(MERCURY_ENV_VAR, raising=False)
+
+        detector = create_llm_detector(
+            provider="ollama",
+            model_name="llama3.2:3b",
+            base_url="http://ollama.internal:11435",
+        )
+
+        ollama_config = getattr(detector.adapter, "ollama_config")
+        assert ollama_config.host == "ollama.internal"
+        assert ollama_config.port == 11435
 
 
 class TestCreateMercuryVoiceFactory:

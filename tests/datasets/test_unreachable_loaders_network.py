@@ -38,10 +38,10 @@ Each smoke test:
     **not** accept is a silent ``False`` return that swallows real
     breakage — that would let parsing regressions land unnoticed.
 
-The tests are skipped by default (the suite runs with
-``-m "not network"`` in normal CI).  To run them locally::
+The tests are skipped by default by ``tests/conftest.py`` unless
+``MERCURY_NETWORK_TESTS=1`` is set.  To run them locally::
 
-    MERCURY_ALLOW_SYNTHETIC=0 pytest -m network tests/datasets/test_unreachable_loaders_network.py
+    MERCURY_ALLOW_SYNTHETIC=0 MERCURY_NETWORK_TESTS=1 pytest tests/datasets/test_unreachable_loaders_network.py
 
 They are also wired into the nightly ``dataset-reachability`` job in
 ``.github/workflows/dataset-reachability.yml`` so an upstream provider
@@ -57,7 +57,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from omni_mercury_engine.datasets.base import DatasetConfig
+from omni_mercury_engine.datasets.base import DatasetConfig, DatasetLoader
 from omni_mercury_engine.datasets.disaster import FEMAHazardMitigationLoader
 from omni_mercury_engine.datasets.environmental import USGSGeochemistryLoader
 from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
@@ -71,6 +71,29 @@ from omni_mercury_engine.datasets.ucr_archive import UCRLoader
 from omni_mercury_engine.security.safe_http import UnsafeURLError
 
 pytestmark = pytest.mark.network
+
+# (label, loader-class, config-name, ctor-preprocessing) for each
+# unreachable loader.  The single parametrized test below is driven
+# from this matrix so the drift gate can prove every listed loader has
+# a live network smoke case.
+_UNREACHABLE_LOADERS: list[tuple[str, type[DatasetLoader], str, dict[str, Any]]] = [
+    ("SMAP", SMAPMSLLoader, "smap_msl_smap", {"dataset": "SMAP"}),
+    ("MSL", SMAPMSLLoader, "smap_msl_msl", {"dataset": "MSL"}),
+    ("CICIDS-2017", CICIDSLoader, "cicids", {}),
+    ("MIT-BIH", MITBIHLoader, "mitbih", {}),
+    ("UCR", UCRLoader, "ucr", {}),
+    ("SWaT", SWaTLoader, "swat", {}),
+    ("WADI", WADILoader, "wadi", {}),
+    ("USGS Geochemistry", USGSGeochemistryLoader, "geochemistry", {}),
+    ("NOAA StormEvents", NOAAStormEventsLoader, "noaa_storm_events", {"year": 2019}),
+    ("NOAA ERDDAP", NOAAERDDAPLoader, "noaa_erddap", {}),
+    (
+        "FEMA HazardMitigation",
+        FEMAHazardMitigationLoader,
+        "fema_hazard_mitigation",
+        {"year_range": (2018, 2024)},
+    ),
+]
 
 # Acceptable terminal exceptions across loaders.  Each represents a
 # *loud* upstream-unavailable signal — the opposite of a silent
@@ -144,102 +167,22 @@ def _force_real_data(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MERCURY_DISABLE_NETWORK", raising=False)
 
 
-# ---------------------------------------------------------------------------
-# 1 + 2.  SMAP and MSL (NASA telemetry, hosted on GitHub release page)
-# ---------------------------------------------------------------------------
-@pytest.mark.parametrize("subset_id", ["SMAP", "MSL"])
-def test_smap_msl_reachable(tmp_path: Any, subset_id: str) -> None:
-    """SMAP / MSL telemetry corpora reachable from `khundman/telemanom`."""
-    config = _config(tmp_path, f"smap_msl_{subset_id.lower()}", dataset=subset_id)
-    loader = SMAPMSLLoader(config)
-    _exercise(loader, dataset_label=subset_id)
-
-
-# ---------------------------------------------------------------------------
-# 3.  CICIDS-2017 (network security)
-# ---------------------------------------------------------------------------
-def test_cicids_2017_reachable(tmp_path: Any) -> None:
-    """CICIDS-2017 reachable via the Hugging Face/Distrinet/CIC chain."""
-    config = _config(tmp_path, "cicids")
-    loader = CICIDSLoader(config)
-    _exercise(loader, dataset_label="CICIDS-2017")
-
-
-# ---------------------------------------------------------------------------
-# 4.  MIT-BIH (arrhythmia database on PhysioNet)
-# ---------------------------------------------------------------------------
-def test_mitbih_reachable(tmp_path: Any) -> None:
-    """MIT-BIH arrhythmia DB reachable from physionet.org."""
-    config = _config(tmp_path, "mitbih")
-    loader = MITBIHLoader(config)
-    _exercise(loader, dataset_label="MIT-BIH")
-
-
-# ---------------------------------------------------------------------------
-# 5.  UCR Time Series Classification Archive
-# ---------------------------------------------------------------------------
-def test_ucr_reachable(tmp_path: Any) -> None:
-    """UCR Time Series Classification Archive reachable."""
-    config = _config(tmp_path, "ucr")
-    loader = UCRLoader(config)
-    _exercise(loader, dataset_label="UCR")
-
-
-# ---------------------------------------------------------------------------
-# 6 + 7.  SWaT and WADI (iTrust Centre, SUTD)
-# ---------------------------------------------------------------------------
-def test_swat_reachable(tmp_path: Any) -> None:
-    """SWaT Secure Water Treatment dataset reachable from iTrust."""
-    config = _config(tmp_path, "swat")
-    loader = SWaTLoader(config)
-    _exercise(loader, dataset_label="SWaT")
-
-
-def test_wadi_reachable(tmp_path: Any) -> None:
-    """WADI Water Distribution dataset reachable from iTrust."""
-    config = _config(tmp_path, "wadi")
-    loader = WADILoader(config)
-    _exercise(loader, dataset_label="WADI")
-
-
-# ---------------------------------------------------------------------------
-# 8.  USGS Geochemistry
-# ---------------------------------------------------------------------------
-def test_usgs_geochemistry_reachable(tmp_path: Any) -> None:
-    """USGS Geochemistry dataset reachable from mrdata.usgs.gov."""
-    config = _config(tmp_path, "geochemistry")
-    loader = USGSGeochemistryLoader(config)
-    _exercise(loader, dataset_label="USGS Geochemistry")
-
-
-# ---------------------------------------------------------------------------
-# 9.  NOAA Storm Events
-# ---------------------------------------------------------------------------
-def test_noaa_storm_events_reachable(tmp_path: Any) -> None:
-    """NOAA Storm Events bulk CSVs reachable from ncei.noaa.gov."""
-    config = _config(tmp_path, "noaa_storm_events", year=2019)
-    loader = NOAAStormEventsLoader(config)
-    _exercise(loader, dataset_label="NOAA StormEvents")
-
-
-# ---------------------------------------------------------------------------
-# 10.  NOAA ERDDAP
-# ---------------------------------------------------------------------------
-def test_noaa_erddap_reachable(tmp_path: Any) -> None:
-    """NOAA ERDDAP gridded oceanography reachable from CoastWatch."""
-    config = _config(tmp_path, "noaa_erddap")
-    loader = NOAAERDDAPLoader(config)
-    _exercise(loader, dataset_label="NOAA ERDDAP")
-
-
-# ---------------------------------------------------------------------------
-# 11.  FEMA Hazard Mitigation
-# ---------------------------------------------------------------------------
-def test_fema_hazard_mitigation_reachable(tmp_path: Any) -> None:
-    """FEMA Hazard Mitigation reachable from OpenFEMA."""
-    config = _config(tmp_path, "fema_hazard_mitigation", year_range=(2018, 2024))
-    loader = FEMAHazardMitigationLoader(config)
-    _exercise(loader, dataset_label="FEMA HazardMitigation")
+@pytest.mark.parametrize(
+    "label,loader_cls,config_name,preproc",
+    _UNREACHABLE_LOADERS,
+    ids=[row[0] for row in _UNREACHABLE_LOADERS],
+)
+def test_unreachable_loader_reachability_smoke(
+    tmp_path: Any,
+    label: str,
+    loader_cls: type[DatasetLoader],
+    config_name: str,
+    preproc: dict[str, Any],
+) -> None:
+    """Every historically-unreachable loader has a live network smoke test."""
+    config = _config(tmp_path, config_name, **preproc)
+    loader = loader_cls(config)
+    _exercise(loader, dataset_label=label)
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +212,9 @@ def test_harness_covers_all_eleven_unreachable_loaders() -> None:
         "NOAA ERDDAP",
         "FEMA HazardMitigation",
     }
-    assert len(expected) == 11
+    labels = {row[0] for row in _UNREACHABLE_LOADERS}
+    assert len(_UNREACHABLE_LOADERS) == 11
+    assert labels == expected
 
     # Also sanity-check that this file is invoked under the right
     # marker selection — if someone deletes `pytestmark = network`

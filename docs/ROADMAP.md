@@ -23,7 +23,7 @@
 > | # | Capability | Designed | Stubbed | Functional | Notes |
 > |---|------------|:--------:|:-------:|:----------:|-------|
 > | 1 | Distributed Processing | ✓ | — | ✓ | Phase 2 audit cure (May 2026) ships a native pure-stdlib `TCPMessageTransport` (`omni_mercury_engine.distributed.tcp_transport`) — asyncio + length-prefixed binary frames + per-message Ed25519 signatures via Mercury's own AMA Cryptography surface. No third-party RPC framework. The five `NotImplementedError` sites in `raft_consensus.py` are gone; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes. Integration test: `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects` spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and confirms re-election. |
-> | 2 | Biometric Modalities | ✓ | — | ✓ | `iris_recognition.py` (721 LOC), `fingerprint_recognition.py` (1131 LOC), `voice_recognition.py` (884 LOC) all import-clean with no `NotImplementedError`. As of v1.7.0 `narrative/voice.py:_init_llm` no longer silently substitutes `MockLLMAdapter` — it requires `llm_provider=` to be passed explicitly (any supported `LLMProvider` member except `mock`).  Missing provider in `MERCURY_ENV=production` raises `MercuryProductionConfigError`; in development it logs a warning and the voice path falls through to deterministic template narration.  Iris and fingerprint paths are functional pending dedicated test coverage. |
+> | 2 | Biometric Modalities | ✓ | — | ✓ | `iris_recognition.py` (721 LOC), `fingerprint_recognition.py` (1131 LOC), `voice_recognition.py` (884 LOC) all import-clean with no `NotImplementedError`. As of v1.7.0 `narrative/voice.py:_init_llm` no longer silently substitutes `MockLLMAdapter` — it requires `llm_provider=` to name an implemented provider (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, or `template`). Remote HuggingFace IDs also require `llm_revision=<40-char SHA>`. Missing/unavailable provider in `MERCURY_ENV=production` raises `MercuryProductionConfigError`; in development it logs a warning and the voice path falls through to deterministic template narration. Iris and fingerprint paths are functional pending dedicated test coverage. |
 > | 3 | Real Quantum Computing | ✓ | — | partial | `executor.py` defaults to `BackendType.SIMULATOR` and uses `AerSimulator`. Real-hardware path (IBM Quantum, IonQ) requires user credentials and is not exercised in CI. Treat as "simulated by default; real hardware untested in-tree." |
 > | 4 | Advanced Harmonics | ✓ | — | ✓ | `harmonics/analyzer.py`, `features.py`, `transform.py` are wired and exercised by the 21-probe ensemble and detector pipeline. |
 > | 5 | AutoML | ✓ | — | ✓ | `automl/optimizer.py`, `schedulers.py`, `search_space.py` (~1,135 LOC main file). `tests/automl/test_scheduler_completion.py` exercises the scheduler. Hyperparameter search wired into training loop. |
@@ -43,7 +43,7 @@
 > | FEMA Disaster loader label polarity | ✓ | — | ✓ | v1.7.0. `FEMADisasterLoader._select_anomaly_polarity` enforces the minority-as-anomaly convention used everywhere else in Mercury; the loader exposes `labels_inverted` so benchmark reporters can surface the flip alongside their AUC numbers. Closes the README "1 of the 64 (FEMA Disaster) is a known-broken loader" footnote item. Regression suite: `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`. |
 > | Dataset reachability harness (unreachable-11) | ✓ | — | ✓ | v1.7.0. Two-lane harness covering all 11 historically-unreachable loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation): an always-on offline lane (`tests/datasets/test_unreachable_loaders_offline.py`) that asserts every loader fails loudly under simulated outage, plus a nightly network lane (`tests/datasets/test_unreachable_loaders_network.py`) wired into `.github/workflows/dataset-reachability.yml` (04:17 UTC, `MERCURY_ALLOW_SYNTHETIC=0`). Both files carry a drift-gate `test_harness_covers_*_loaders` assertion pinning the matrix to exactly 11 entries. |
 > | Production-mode primitive (`MERCURY_ENV`) | ✓ | — | ✓ | v1.7.0. New `omni_mercury_engine._env` module provides the canonical `MERCURY_ENV` flag (`development` default, `production`) plus shared fail-closed helpers (`get_mercury_env`, `is_production`, `require_real_component`, `MercuryProductionConfigError`). Orthogonal to `AMA_REQUIRE_REAL_PQC`; production deployments typically set both. Locked by `tests/test_env.py`. |
-> | PQC dependency pin (`ama-cryptography`) | ✓ | — | ✓ | v1.7.0. `pyproject.toml [project.optional-dependencies].pqc` pins `ama-cryptography` to the `v3.0.0` git tag rather than tracking the default branch, so an upstream force-push or breaking change cannot silently bump Mercury's PQC surface mid-cycle. Bump the tag in lockstep with `tests/security/test_pqc_gate_real_ama.py` and `docs/MIGRATION-1.6-to-1.7.md` §3. |
+> | PQC dependency pin (`ama-cryptography`) | ✓ | — | ✓ | v1.7.0. `pyproject.toml [project.optional-dependencies].pqc` pins `ama-cryptography` to the validated `v3.1.0` git tag rather than tracking the default branch, matching the CI `AMA_REF: v3.1.0` real-AMA gate so an upstream force-push or breaking change cannot silently bump Mercury's PQC surface mid-cycle. Bump the tag in lockstep with `tests/security/test_pqc_gate_real_ama.py` and `docs/MIGRATION-1.6-to-1.7.md` §3. |
 >
 > The phase checklists later in this document were written **before**
 > implementations were merged and use `[ ]` markers throughout. They are
@@ -193,9 +193,12 @@ class DistributedMercuryCluster:
 > (`biometric/voice_recognition.py`, 884 LOC, plus
 > `narrative/voice.py`) no longer falls back to `MockLLMAdapter` —
 > as of v1.7.0, `MercuryVoice(enable_llm=True)` requires an explicit
-> `llm_provider=` argument naming a supported
-> :class:`~omni_mercury_engine.models.foundation.llm_adapter.LLMProvider`
-> member.  Without one, `MERCURY_ENV=production` raises
+> `llm_provider=` argument naming an implemented provider
+> (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`,
+> `gemini`, `cohere`, `deepseek`, `cursor`, or `template`).
+> Remote HuggingFace IDs additionally require
+> `llm_revision=<40-char SHA>`. Without a provider,
+> `MERCURY_ENV=production` raises
 > `MercuryProductionConfigError` and development logs a warning and
 > downgrades to deterministic template narration.  The design below
 > was written pre-implementation; actual API may differ.

@@ -62,12 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   upgrades the loaders from "untested under outage" to "tested to
   fail loudly under outage".
 - **`tests/datasets/test_unreachable_loaders_network.py`** —
-  marked `@pytest.mark.network`, deselected from default CI lanes
-  by the existing `-m "not network"` filter.  Calls the real
-  `download()` against the upstream provider.  Run nightly via
-  the new `.github/workflows/dataset-reachability.yml` workflow
-  (04:17 UTC) with `MERCURY_ALLOW_SYNTHETIC=0` so the synthetic
-  fallback cannot mask an outage.
+  marked `@pytest.mark.network` and auto-skipped by
+  `tests/conftest.py` unless `MERCURY_NETWORK_TESTS=1` is set.
+  Calls the real `download()` against the upstream provider.  Run
+  nightly via the new `.github/workflows/dataset-reachability.yml`
+  workflow (04:17 UTC) with `MERCURY_ALLOW_SYNTHETIC=0` and
+  `MERCURY_NETWORK_TESTS=1` so the synthetic fallback cannot mask an
+  outage.
 - **Coverage-drift gate.**  Both files include a
   `test_harness_covers_*_loaders` assertion that pins the matrix
   to exactly 11 entries.  Adding or removing a loader from the
@@ -84,9 +85,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previously memory-only knowledge that operators kept
   re-discovering when an internal mirror's hostname couldn't be
   resolved by the container's stub resolver.  Section names the
-  three supported remediations in preference order (fix the
-  resolver / `allow_private=True` / `local_path` preprocessing
-  key) and points at the regression test that locks the
+  supported remediations in preference order (fix the resolver / use
+  an already-plumbed `SafeHTTPClient(..., allow_private=True)` call
+  path / prefer `local_path` where a loader exposes it) and points at
+  the regression test that locks the
   behaviour (`tests/loaders/test_base_loader.py:99`).  Cross-
   references `docs/MIGRATION-1.6-to-1.7.md` §1 so operators
   trying to re-enable the v1.6 `allow_untrusted=True` workaround
@@ -121,8 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NotImplementedError`, so any caller that asked for LLM-enhanced
   narration got an unhandled exception.  v1.7.0 wires the real
   provider selection that was always intended via a new
-  `llm_provider=` / `llm_model_name=` / `llm_api_key=` /
-  `llm_base_url=` parameter set on `MercuryVoice` and
+  `llm_provider=` / `llm_model_name=` / `llm_revision=` /
+  `llm_api_key=` / `llm_base_url=` parameter set on `MercuryVoice` and
   `create_mercury_voice`.  Behaviour matrix:
   - `enable_llm=False`: unchanged pure-template fast path.
   - `enable_llm=True, llm_provider="<supported>"`: delegates to
@@ -180,9 +182,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Migration path for operators who were using it:** call
   `SafeHTTPClient` directly with `user_configured=True` so the
   private-network / IMDS gate fires explicitly. For RFC1918
-  destinations on a private VPC, additionally pass `allow_private=True`;
-  the IMDS / loopback / multicast / reserved / CGNAT ranges remain
-  in the always-blocked set even then. See
+  destinations on a private VPC, additionally pass `allow_private=True`
+  at the `SafeHTTPClient` call site; dataset loaders do not accept a
+  generic `allow_private` preprocessing key unless a specific loader
+  explicitly documents one. The IMDS / loopback / multicast /
+  reserved / CGNAT ranges remain in the always-blocked set even then. See
   `tests/security/test_safe_http.py::TestMigrationFromAllowUntrusted`
   for the documented replacement.
 - **Loader retry-exhaustion now chains the underlying exception.**

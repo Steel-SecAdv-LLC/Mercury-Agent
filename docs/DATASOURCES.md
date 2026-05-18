@@ -386,13 +386,14 @@ fired, not that Mercury is broken:
     resolver, not a Mercury bug.  Fix the resolver and the loader
     starts working immediately.
 2.  **If you are intentionally pointing Mercury at a private
-    mirror,** pass `allow_private=True` to the loader's
-    `DatasetConfig.preprocessing` (or directly to
-    `SafeHTTPClient`).  This opts into trusting RFC1918 / RFC4193
-    targets and is the supported configuration for air-gapped /
-    on-prem dataset mirrors.  Document this opt-in alongside the
-    deployment so the next operator knows the gate has been
-    relaxed for that one loader.
+    mirror,** use a code path that explicitly passes
+    `allow_private=True` to `SafeHTTPClient` together with
+    `user_configured=True`.  The dataset loaders do not currently
+    expose a repository-wide `allow_private` preprocessing key, so
+    adding a new private-mirror endpoint requires plumbing that flag
+    in the specific loader instead of relying on ignored config.
+    Document this opt-in alongside the deployment so the next
+    operator knows the gate has been relaxed for that one endpoint.
 3.  **Place the dataset on disk and use the loader's
     `local_path` preprocessing key.**  CICIDS-2017 (see above) is
     the reference implementation — `_load_from_local_path` skips

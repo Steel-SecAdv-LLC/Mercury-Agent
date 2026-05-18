@@ -288,6 +288,7 @@ jobs:
         # * tests/safeguards/    -- v1.7.0 follow-up
         run: |
           mypy tests/datasets/ tests/ethical/ tests/safeguards/ \
+            --disallow-subclassing-any \
             --show-error-codes \
             --pretty \
             --no-warn-unused-configs

@@ -140,10 +140,12 @@ real-provider selection that was always intended:
 - `MercuryVoice(enable_llm=False)` is unchanged: pure-template
   narration, no LLM stack touched.
 - `MercuryVoice(enable_llm=True, llm_provider="huggingface",
-  llm_model_name="facebook/bart-large-mnli")` initialises the real
-  HuggingFace adapter.  Other supported providers: `ollama`,
-  `openai`, `anthropic`, `xai`, `gemini`, `cohere`, `deepseek`,
-  `cursor`, `local`, `template`.
+  llm_model_name="facebook/bart-large-mnli",
+  llm_revision="<40-character commit SHA>")` initialises the real
+  HuggingFace adapter.  Remote HuggingFace IDs require the revision
+  pin enforced by `SafeHFLoader`; absolute local model paths do not.
+  Other implemented providers: `ollama`, `openai`, `anthropic`,
+  `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, `template`.
 - `MercuryVoice(enable_llm=True)` with no provider:
   - `MERCURY_ENV=production` → raises `MercuryProductionConfigError`.
   - `MERCURY_ENV=development` → logs a `WARNING` and sets
@@ -157,8 +159,8 @@ real-provider selection that was always intended:
 
 | Before (v1.6.x)                              | After (v1.7.0)                                                                                       |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `MercuryVoice(enable_llm=True)`              | `MercuryVoice(enable_llm=True, llm_provider="huggingface", llm_model_name="facebook/bart-large-mnli")` |
-| `create_mercury_voice(enable_llm=True)`      | `create_mercury_voice(enable_llm=True, llm_provider=..., llm_model_name=...)`                          |
+| `MercuryVoice(enable_llm=True)`              | `MercuryVoice(enable_llm=True, llm_provider="huggingface", llm_model_name="facebook/bart-large-mnli", llm_revision="<40-char SHA>")` |
+| `create_mercury_voice(enable_llm=True)`      | `create_mercury_voice(enable_llm=True, llm_provider=..., llm_model_name=..., llm_revision=...)`         |
 | `MercuryVoice(enable_llm=True)` *(dev only)* | unchanged at the call site — now warns and disables instead of crashing                              |
 
 Locking test: `tests/narrative/test_voice_llm.py`.
