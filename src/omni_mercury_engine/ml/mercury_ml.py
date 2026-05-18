@@ -701,7 +701,7 @@ class PCA:
         X = np.asarray(X, dtype=np.float64)
         n_samples = X.shape[0]
         self.mean_ = X.mean(axis=0)
-        X_centered = X - self.mean_
+        X_centered: NDArray[np.float64] = np.asarray(X - self.mean_, dtype=np.float64)
         _U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
         self.components_ = Vt[: self.n_components]
         # Explained variance
@@ -891,6 +891,17 @@ class NearestNeighbors:
 # =====================================================================
 
 
+class NotFittedError(ValueError, AttributeError):
+    """Raised when an estimator is used before being fit.
+
+    Matches the semantics of :class:`sklearn.exceptions.NotFittedError`:
+    the exception inherits from both :class:`ValueError` (so that
+    existing call-sites catching ``ValueError`` continue to handle the
+    typed error) and :class:`AttributeError` (so that hasattr-style
+    feature probes return False for unfit estimators).
+    """
+
+
 class LogisticRegression:
     """Logistic Regression using L-BFGS (sklearn-free reimplementation)."""
 
@@ -909,6 +920,7 @@ class LogisticRegression:
         self.coef_: NDArray[np.number[Any]] = np.empty((0, 0))
         self.intercept_: NDArray[np.number[Any]] = np.empty(0)
         self.classes_: NDArray[np.number[Any]] = np.empty(0)
+        self.is_fitted_: bool = False
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> LogisticRegression:
         """Fit."""
@@ -917,6 +929,12 @@ class LogisticRegression:
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         self.classes_ = np.unique(y)
+
+        if self.classes_.size < 2:
+            raise ValueError(
+                "LogisticRegression.fit requires at least two distinct classes in y; "
+                f"got {self.classes_.tolist()}."
+            )
 
         # Binary classification
         y_bin = (y == self.classes_[-1]).astype(np.float64)
@@ -952,15 +970,27 @@ class LogisticRegression:
         )
         self.coef_ = result.x[:-1].reshape(1, -1)
         self.intercept_ = np.array([result.x[-1]])
+        self.is_fitted_ = True
         return self
+
+    def _check_is_fitted(self) -> None:
+        """Raise :class:`NotFittedError` if the estimator was not fit."""
+        if not self.is_fitted_:
+            raise NotFittedError(
+                "LogisticRegression instance is not fitted yet. Call 'fit' with "
+                "appropriate arguments (and at least two distinct class labels) "
+                "before using this estimator."
+            )
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Predict."""
+        self._check_is_fitted()
         prob = self.predict_proba(X)
         return self.classes_[(prob[:, 1] >= 0.5).astype(int)]
 
     def predict_proba(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:
         """Predict proba."""
+        self._check_is_fitted()
         X = np.asarray(X, dtype=np.float64)
         z = X @ self.coef_.T + self.intercept_
         z = np.clip(z.ravel(), -500, 500)
@@ -1356,8 +1386,9 @@ class _DecisionStump:
         self.is_leaf: bool = True
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]], depth: int = 0) -> None:
-        self.value = float(np.mean(y))
-        if depth >= self.max_depth or len(X) <= 2 or float(np.std(y)) < 1e-10:
+        y_arr: NDArray[np.float64] = np.asarray(y, dtype=np.float64)
+        self.value = float(np.mean(y_arr))
+        if depth >= self.max_depth or len(X) <= 2 or float(np.std(y_arr)) < 1e-10:
             self.is_leaf = True
             return
 
@@ -1376,10 +1407,10 @@ class _DecisionStump:
                 right_mask = ~left_mask
                 if not np.any(left_mask) or not np.any(right_mask):
                     continue
-                var_reduction = float(np.var(y)) - (
-                    float(np.sum(left_mask)) * float(np.var(y[left_mask]))
-                    + float(np.sum(right_mask)) * float(np.var(y[right_mask]))
-                ) / len(y)
+                var_reduction = float(np.var(y_arr)) - (
+                    float(np.sum(left_mask)) * float(np.var(y_arr[left_mask]))
+                    + float(np.sum(right_mask)) * float(np.var(y_arr[right_mask]))
+                ) / len(y_arr)
                 if var_reduction > best_gain:
                     best_gain = var_reduction
                     self.feature = int(f)
@@ -1525,7 +1556,8 @@ def mutual_info_classif(
         if n_bins <= 1:
             mi[f] = 0.0
             continue
-        bins = np.percentile(col, np.linspace(0, 100, n_bins + 1))
+        col_f64: NDArray[np.float64] = np.asarray(col, dtype=np.float64)
+        bins = np.percentile(col_f64, np.linspace(0, 100, n_bins + 1))
         bins = np.unique(bins)
         if len(bins) <= 1:
             mi[f] = 0.0
@@ -1660,8 +1692,8 @@ class IsotonicRegression:
         # Pool Adjacent Violators
         n = len(y_sorted)
         blocks = list(range(n))
-        values = y_sorted.copy()
-        weights = np.ones(n)
+        values: NDArray[np.float64] = y_sorted.copy()
+        weights: NDArray[np.float64] = np.ones(n, dtype=np.float64)
 
         i = 0
         while i < len(values) - 1:
@@ -1679,7 +1711,7 @@ class IsotonicRegression:
                 i += 1
 
         # Expand back
-        result = np.zeros(n)
+        result: NDArray[np.float64] = np.zeros(n, dtype=np.float64)
         idx = 0
         for val, w in zip(values, weights):
             count = int(w)
