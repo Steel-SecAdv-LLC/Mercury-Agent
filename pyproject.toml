@@ -328,7 +328,10 @@ module = [
     "plotly.*",
     "mammoth.*",
     "hypothesis.*",
-    "pytest.*",
+    # NOTE: ``pytest.*`` deliberately omitted -- pytest ships ``py.typed``
+    # and is installed in the Type Checking CI job so mypy can resolve
+    # ``@pytest.fixture`` / ``@pytest.mark.parametrize`` signatures and
+    # keep the strict test-lane gate honest (no decorator-disable needed).
     "torchvision.*",
     "torch_geometric.*",
     "cv2.*",

@@ -1292,10 +1292,24 @@ class OmniMercuryEngine(LoggerMixin):
                     "HuggingFace remote model IDs require revision=<40-character "
                     "commit SHA> so SafeHFLoader can enforce reproducible model loading."
                 )
+        elif llm_provider == LLMProvider.TEMPLATE:
+            # TemplateLLMAdapter is deterministic-offline and ignores model_name.
+            resolved_model_name = model_name or "template"
+        else:
+            # Every other real provider needs an explicit, provider-specific
+            # model identifier.  ``"mock-model"`` was previously used as a
+            # placeholder default which masked configuration errors and let
+            # callers reach adapter construction with a meaningless name.
+            if not model_name:
+                raise ValueError(
+                    f"enable_llm_enhancement(provider={provider!r}) requires "
+                    "model_name=<provider-specific model identifier>."
+                )
+            resolved_model_name = model_name
 
         llm_config = LLMConfig(
             provider=llm_provider,
-            model_name=model_name or "mock-model",
+            model_name=resolved_model_name,
             revision=revision,
             api_key=api_key,
             base_url=base_url,

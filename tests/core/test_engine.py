@@ -48,6 +48,20 @@ def test_huggingface_llm_enhancement_requires_model_name() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "provider",
+    ["ollama", "openai", "anthropic", "xai", "gemini", "cohere", "deepseek", "cursor"],
+)
+def test_enable_llm_enhancement_real_provider_requires_model_name(provider: str) -> None:
+    """Every real provider in ``enable_llm_enhancement`` must demand an
+    explicit ``model_name``.  The previous ``or "mock-model"`` fallback
+    let any caller reach adapter construction with a meaningless name.
+    """
+    engine = OmniMercuryEngine()
+    with pytest.raises(ValueError, match="model_name"):
+        engine.enable_llm_enhancement(provider=provider)
+
+
 def test_detect_basic(sample_data: Any) -> None:
     """Test basic anomaly detection"""
     engine = OmniMercuryEngine()

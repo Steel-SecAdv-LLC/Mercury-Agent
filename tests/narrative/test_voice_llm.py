@@ -278,6 +278,35 @@ class TestVoiceLLMConfiguredProvider:
                 revision=_HF_REVISION,
             )
 
+    @pytest.mark.parametrize(
+        "provider",
+        ["ollama", "openai", "anthropic", "xai", "gemini", "cohere", "deepseek", "cursor"],
+    )
+    def test_create_llm_detector_real_provider_requires_model_name(
+        self, provider: str
+    ) -> None:
+        """Every real provider must demand an explicit model_name.
+
+        The previous ``or "gpt-4o"`` fallback silently substituted a
+        cross-provider placeholder, which (for Ollama) made the
+        per-adapter ``llama3.2:3b`` default unreachable and (for cloud
+        adapters) masked the missing-configuration error until adapter
+        construction.
+        """
+        with pytest.raises(ValueError, match="model_name"):
+            create_llm_detector(provider=provider)
+
+    def test_create_llm_detector_template_allows_omitted_model_name(self) -> None:
+        """TemplateLLMAdapter is deterministic-offline and ignores model_name."""
+        detector = create_llm_detector(provider="template")
+        # The factory routes through the implemented-provider switch and
+        # returns a real detector wired to TemplateLLMAdapter.
+        from omni_mercury_engine.models.foundation.ollama_adapter import (
+            TemplateLLMAdapter,
+        )
+
+        assert isinstance(detector.adapter, TemplateLLMAdapter)
+
 
 class TestCreateMercuryVoiceFactory:
     """Factory function forwards every LLM kwarg to the constructor."""

@@ -212,9 +212,16 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          # [ml] needed for torch type stubs used by mypy
+          # [ml] needed for torch type stubs used by mypy.
+          # pytest (and its plugins) installed explicitly so mypy can
+          # consume pytest's bundled ``py.typed`` stubs when checking
+          # tests/.  Without pytest on sys.path the strict lane below
+          # cannot see fixture/mark decorator signatures and flags every
+          # ``@pytest.fixture`` / ``@pytest.mark.parametrize`` as
+          # ``[untyped-decorator]`` even though the stubs are correct.
           pip install -e ".[ml]"
-          pip install mypy types-requests
+          pip install mypy types-requests \
+            "pytest>=9.0.3" pytest-asyncio pytest-mock
 
       - name: Run MyPy
         # MyPy reads strict config from pyproject.toml automatically.

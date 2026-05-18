@@ -785,9 +785,25 @@ def create_llm_detector(
                 "commit SHA> so SafeHFLoader can enforce reproducible model loading."
             )
 
+    if provider_enum == LLMProvider.TEMPLATE:
+        # TemplateLLMAdapter is deterministic-offline and ignores model_name.
+        resolved_model_name = model_name or "template"
+    else:
+        # Every real LLM provider needs an explicit model identifier --
+        # silently substituting a cross-provider placeholder like
+        # ``gpt-4o`` for an Ollama or Anthropic caller masks the
+        # configuration error and (for Ollama) makes the per-adapter
+        # default (``llama3.2:3b``) unreachable.
+        if not model_name:
+            raise ValueError(
+                f"create_llm_detector(provider={provider_enum.value!r}) requires "
+                "model_name=<provider-specific model identifier>."
+            )
+        resolved_model_name = model_name
+
     config = LLMConfig(
         provider=provider_enum,
-        model_name=model_name or "gpt-4o",
+        model_name=resolved_model_name,
         **config_kwargs,
     )
 
@@ -802,7 +818,7 @@ def create_llm_detector(
         base_host, base_port = _parse_ollama_base_url(config.base_url)
 
         ollama_config = OllamaConfig(
-            model=model_name or "llama3.2:3b",
+            model=resolved_model_name,
             host=ollama_host or base_host or "localhost",
             port=ollama_port or base_port or 11434,
         )
