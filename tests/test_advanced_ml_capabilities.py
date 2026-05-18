@@ -595,6 +595,158 @@ class TestActiveLearning:
         # After one query of 10 samples: budget_remaining = 50 - 10 = 40
         assert state.budget_remaining == 40
 
+    def test_logistic_regression_predict_proba_raises_when_unfitted(self) -> None:
+        """Unfitted ``LogisticRegression.predict_proba`` raises ``NotFittedError``.
+
+        Regression for the previously-silent zero-size branch in
+        ``ActiveLearner.query``. The original implementation initialised
+        ``coef_`` to ``np.empty((0, 0))`` and let downstream code call
+        ``predict_proba`` on an un-fit estimator. The resulting
+        ``X @ self.coef_.T`` would surface as a cryptic
+        ``ValueError: matmul: ... (size 0 is different from {n_features})``
+        rather than a typed ``NotFittedError``. The fix replaces the
+        silent matmul with an explicit fitted-state check; this test
+        pins that contract so the bug cannot recur.
+        """
+        from omni_mercury_engine.ml.mercury_ml import (
+            LogisticRegression,
+            NotFittedError,
+        )
+
+        rng = np.random.default_rng(42)
+        X = rng.standard_normal((5, 20))
+
+        lr = LogisticRegression(random_state=42)
+        with pytest.raises(NotFittedError, match="not fitted"):
+            lr.predict_proba(X)
+        with pytest.raises(NotFittedError, match="not fitted"):
+            lr.predict(X)
+
+    def test_logistic_regression_fit_rejects_single_class_labels(self) -> None:
+        """``LogisticRegression.fit`` raises on degenerate single-class ``y``.
+
+        Calling ``fit`` with a vector that has fewer than two distinct
+        labels cannot produce a usable decision boundary; the original
+        code silently fit anyway and returned a zero-coefficient
+        estimator. We now raise ``ValueError`` with a message naming
+        the observed class set so the failure is loud and actionable.
+        """
+        from omni_mercury_engine.ml.mercury_ml import LogisticRegression
+
+        rng = np.random.default_rng(42)
+        X = rng.standard_normal((10, 4))
+        y_single = np.zeros(10, dtype=np.int64)
+
+        lr = LogisticRegression(random_state=42)
+        with pytest.raises(ValueError, match="two distinct classes"):
+            lr.fit(X, y_single)
+
+    def test_active_learner_initialize_stratifies_initial_sample(
+        self,
+        synthetic_data: Any,
+    ) -> None:
+        """Initial labeled batch covers every class present in ``y``.
+
+        ``synthetic_data`` is an 80/20 class imbalance. Random
+        sampling of ``initial_samples=20`` can, with non-negligible
+        probability, draw an all-normal batch and leave the underlying
+        ``LogisticRegression`` unfitted -- which is what caused the
+        ``size 0 is different from 20`` matmul failure observed in CI.
+        ``ActiveLearner.initialize`` now uses largest-remainder
+        stratification with a per-class floor of one whenever the
+        request fits; this test pins both invariants on the published
+        imbalance.
+        """
+        from omni_mercury_engine.ml.active_learning import ActiveLearner
+        from omni_mercury_engine.ml.mercury_ml import LogisticRegression
+
+        X, y = synthetic_data
+
+        learner = ActiveLearner(
+            model=LogisticRegression(random_state=42),
+            batch_size=10,
+            budget=50,
+            initial_samples=20,
+            random_state=0,
+        )
+        init_batch = learner.initialize(X, y)
+
+        assert len(init_batch) == 20
+        selected_labels = {int(y[idx]) for idx in init_batch.indices}
+        pool_labels = {int(label) for label in np.unique(y)}
+        assert selected_labels == pool_labels
+        # And the underlying model must now be fit.
+        assert learner._model_is_fitted() is True
+
+    def test_active_learner_query_handles_single_class_initial_batch(
+        self,
+        synthetic_data: Any,
+    ) -> None:
+        """Single-class initial batch must not crash the next ``query``.
+
+        Regression for the matmul shape mismatch reported in CI
+        (gw3 worker) on ``tests/test_advanced_ml_capabilities.py``:
+        with an unlucky RNG seed, the initial 20-sample draw was
+        all-normal, ``_train_model`` skipped the fit, and the
+        subsequent ``query`` invoked ``predict_proba`` on the
+        unfitted estimator. The fix has two halves which this test
+        exercises together:
+
+        1. ``LogisticRegression`` now raises a typed ``NotFittedError``
+           instead of crashing inside numpy ``matmul``.
+        2. ``ActiveLearner.query`` consults the new
+           ``_model_is_fitted`` guard and falls back to uniform
+           random sampling for the duration of the unfit window
+           rather than swallowing the error or fabricating
+           probabilities.
+        """
+        from omni_mercury_engine.ml.active_learning import (
+            ActiveLearner,
+            LabeledSample,
+            LabelType,
+            SamplingStrategy,
+        )
+        from omni_mercury_engine.ml.mercury_ml import LogisticRegression
+
+        X, y = synthetic_data
+        class_zero = np.where(y == 0)[0][:20].tolist()
+        assert len(class_zero) == 20
+
+        learner = ActiveLearner(
+            model=LogisticRegression(random_state=42),
+            batch_size=10,
+            budget=50,
+            initial_samples=20,
+            random_state=123,
+        )
+        # Force the pathological all-one-class initial batch.
+        init_batch = learner.initialize(X, y, initial_indices=class_zero)
+        assert len(init_batch) == 20
+        assert learner._model_is_fitted() is False
+
+        # Must not raise: query falls back to random sampling.
+        batch = learner.query(X)
+        assert len(batch) == 10
+        assert batch.strategy is SamplingStrategy.RANDOM
+        for idx in batch.indices:
+            assert 0 <= int(idx) < len(X)
+            assert int(idx) not in class_zero  # excluded as already labeled
+
+        # Once at least one anomaly is observed, ``update`` retrains
+        # and the model becomes fitted again.
+        anomaly_idx = int(np.where(y == 1)[0][0])
+        learner.update(
+            [
+                LabeledSample(
+                    index=anomaly_idx,
+                    features=X[anomaly_idx],
+                    label=LabelType.ANOMALY,
+                )
+            ],
+            X,
+        )
+        assert learner._model_is_fitted() is True
+
 
 # =============================================================================
 # Online Learning Tests

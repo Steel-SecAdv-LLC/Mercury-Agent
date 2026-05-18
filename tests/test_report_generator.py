@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 
+from omni_mercury_engine.compliance.tlp_handler import TLPColor, get_tlp_handler
 from omni_mercury_engine.utils.report_generator import (
     AnomalyReport,
     ExecutiveSummary,
@@ -362,3 +363,123 @@ class TestReportValidation:
         parsed = json.loads(report)
         # Unicode should be preserved
         assert any("レポート" in str(v) or "日本語" in str(v) for v in parsed.values())
+
+
+class TestReportTLPIntegration:
+    """Tests for the TLP wiring on :class:`ReportGenerator`."""
+
+    def test_default_no_tlp_block_in_json(self) -> None:
+        """Without an applied classification, no TLP block is emitted."""
+        gen = ReportGenerator()
+        report = json.loads(gen.generate({"title": "T"}, format=ReportFormat.JSON))
+        assert "tlp" not in report
+        assert gen.tlp_classification is None
+
+    def test_apply_from_score_low_emits_clear(self) -> None:
+        """A low score classifies the report as TLP:CLEAR."""
+        gen = ReportGenerator()
+        classification = gen.apply_tlp_classification(
+            anomaly_score=0.05,
+            domain_type="general",
+            sensitive_data_type="public_metric",
+        )
+        assert classification.color is TLPColor.CLEAR
+        assert gen.tlp_classification is classification
+
+    def test_apply_from_score_high_emits_red(self) -> None:
+        """A high anomaly score escalates to TLP:RED."""
+        gen = ReportGenerator()
+        classification = gen.apply_tlp_classification(
+            anomaly_score=0.95,
+            domain_type="critical_infrastructure",
+            sensitive_data_type="phi",
+        )
+        assert classification.color is TLPColor.RED
+
+    def test_apply_with_pre_computed_classification(self) -> None:
+        """Pre-computed classifications are accepted and used verbatim."""
+        handler = get_tlp_handler()
+        pre = handler.classify_anomaly(
+            anomaly_score=0.6,
+            anomaly_type="phi",
+            domain="medical",
+        )
+        gen = ReportGenerator()
+        result = gen.apply_tlp_classification(classification=pre)
+        assert result is pre
+        assert gen.tlp_classification is pre
+
+    def test_apply_rejects_non_classification(self) -> None:
+        """Passing a non-classification object raises ``TypeError``."""
+        gen = ReportGenerator()
+        with pytest.raises(TypeError, match="classification"):
+            gen.apply_tlp_classification(classification="TLP:RED")  # type: ignore[arg-type]
+
+    def test_apply_requires_input(self) -> None:
+        """Missing both classification and score raises ``TypeError``."""
+        gen = ReportGenerator()
+        with pytest.raises(TypeError, match="apply_tlp_classification"):
+            gen.apply_tlp_classification()
+
+    def test_json_output_contains_tlp_block(self) -> None:
+        """JSON output embeds the canonical TLP metadata + watermark."""
+        gen = ReportGenerator()
+        gen.apply_tlp_classification(
+            anomaly_score=0.85,
+            domain_type="security",
+            sensitive_data_type="confidential",
+        )
+        report = json.loads(gen.generate({"title": "Sensitive"}, format=ReportFormat.JSON))
+        assert "tlp" in report
+        block = report["tlp"]
+        for key in (
+            "tlp_label",
+            "tlp_color",
+            "tlp_confidence",
+            "tlp_reasoning",
+            "sharing_guidelines",
+            "ethical_considerations",
+            "tlp_rank",
+            "watermark",
+        ):
+            assert key in block
+        assert block["tlp_label"].startswith("TLP:")
+        assert block["watermark"].startswith("TLP:")
+
+    def test_html_output_contains_tlp_banner(self) -> None:
+        """HTML output renders a sanitised TLP banner above the title."""
+        gen = ReportGenerator()
+        gen.apply_tlp_classification(
+            anomaly_score=0.9,
+            domain_type="security",
+            sensitive_data_type="confidential",
+        )
+        html = gen.generate({"title": "Sensitive"}, format=ReportFormat.HTML)
+        assert 'class="tlp-banner"' in html
+        assert "TLP:" in html
+        # Sensitive output must NOT bypass HTML escaping.
+        assert "<script>" not in html
+
+    def test_markdown_output_contains_tlp_blockquote(self) -> None:
+        """Markdown output renders a blockquote TLP banner."""
+        gen = ReportGenerator()
+        gen.apply_tlp_classification(
+            anomaly_score=0.4,
+            domain_type="general",
+            sensitive_data_type="internal_metric",
+        )
+        md = gen.generate({"title": "Internal"}, format=ReportFormat.MARKDOWN)
+        lines = md.splitlines()
+        assert lines[0].startswith("> **TLP:")
+        assert any(line.startswith("> ") for line in lines[1:3])
+
+    def test_strict_sharing_forces_amber_strict(self) -> None:
+        """The ``strict_sharing`` flag escalates AMBER → AMBER+STRICT."""
+        gen = ReportGenerator()
+        classification = gen.apply_tlp_classification(
+            anomaly_score=0.65,
+            domain_type="security",
+            sensitive_data_type="internal",
+            strict_sharing=True,
+        )
+        assert classification.color is TLPColor.AMBER_STRICT

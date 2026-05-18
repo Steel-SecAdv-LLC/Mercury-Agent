@@ -681,6 +681,94 @@ class ActiveLearner:
         else:
             return HybridSampler()
 
+    def _stratified_initial_indices(
+        self,
+        y: NDArray[np.int64],
+        n: int,
+    ) -> list[int]:
+        """Select ``n`` initial indices preserving class proportions.
+
+        Uses largest-remainder proportional allocation with a per-class
+        floor of one whenever ``n >= number_of_classes``. This
+        guarantees that the initial labeled batch contains at least one
+        sample from every class present in ``y`` (when feasible), which
+        is required for downstream binary/multinomial classifiers to be
+        trainable on the initial batch.
+
+        Args:
+            y: Full label vector for the pool ``X``.
+            n: Number of initial samples to draw.
+
+        Returns:
+            List of ``n`` integer indices into ``y`` / the pool, drawn
+            without replacement, stratified by the classes in ``y``.
+        """
+        n = max(0, min(n, len(y)))
+        if n == 0:
+            return []
+
+        classes = np.unique(y)
+        n_classes = int(classes.size)
+
+        # Single-class pool: stratification reduces to uniform sampling.
+        if n_classes <= 1:
+            return self.rng.choice(len(y), n, replace=False).tolist()
+
+        class_counts = {int(c): int(np.sum(y == c)) for c in classes}
+        total = sum(class_counts.values())
+
+        # Largest-remainder allocation with optional per-class floor.
+        floor_one = n >= n_classes
+        allocations: dict[int, int] = {}
+        remainders: list[tuple[float, int]] = []
+        assigned = 0
+        for c in classes:
+            c_int = int(c)
+            exact = n * class_counts[c_int] / total
+            base = int(exact)
+            if floor_one:
+                base = max(base, 1)
+            base = min(base, class_counts[c_int])
+            allocations[c_int] = base
+            assigned += base
+            remainders.append((exact - base, c_int))
+
+        # Distribute remaining slots by largest remainder, respecting
+        # the per-class cap. Iterate until we either fill the quota or
+        # all classes saturate.
+        remaining = n - assigned
+        remainders.sort(reverse=True)
+        if remaining > 0:
+            for _, c_int in remainders:
+                if remaining == 0:
+                    break
+                if allocations[c_int] < class_counts[c_int]:
+                    take = min(remaining, class_counts[c_int] - allocations[c_int])
+                    allocations[c_int] += take
+                    remaining -= take
+        elif remaining < 0:
+            # Over-allocated because of the per-class floor; trim from
+            # the smallest remainders first while keeping >= 1 sample
+            # per class.
+            for _, c_int in sorted(remainders):
+                while remaining < 0 and allocations[c_int] > 1:
+                    allocations[c_int] -= 1
+                    remaining += 1
+                if remaining == 0:
+                    break
+
+        indices: list[int] = []
+        for c_int, count in allocations.items():
+            if count <= 0:
+                continue
+            class_indices = np.where(y == c_int)[0]
+            chosen = self.rng.choice(class_indices, count, replace=False)
+            indices.extend(int(i) for i in chosen)
+
+        # Shuffle so callers do not see a class-ordered batch.
+        self.rng.shuffle(indices)
+        return indices
+
     def initialize(
         self,
         X: NDArray[np.float64],
@@ -689,6 +777,14 @@ class ActiveLearner:
     ) -> QueryBatch:
         """
         Initialize with random or specified samples.
+
+        When ``y`` is provided and contains at least two distinct
+        classes, sampling is **stratified** so every class is
+        represented in the initial labeled batch (when the requested
+        size permits). This is required so the underlying classifier
+        can be trained on the initial batch; without stratification a
+        random draw can pick all-same-class samples and leave the
+        model unfit, which would later crash downstream queries.
 
         Args:
             X: Full feature matrix
@@ -699,11 +795,13 @@ class ActiveLearner:
             QueryBatch for initial labeling
         """
         if initial_indices is not None:
-            indices = initial_indices
+            indices = list(initial_indices)
         else:
-            # Random initial selection
             n_initial = min(self.initial_samples, len(X))
-            indices = self.rng.choice(len(X), n_initial, replace=False).tolist()
+            if y is not None:
+                indices = self._stratified_initial_indices(np.asarray(y), n_initial)
+            else:
+                indices = self.rng.choice(len(X), n_initial, replace=False).tolist()
 
         # If labels provided, add to labeled set
         if y is not None:
@@ -726,7 +824,13 @@ class ActiveLearner:
         )
 
     def _train_model(self) -> None:
-        """Retrain model on current labeled data."""
+        """Retrain model on current labeled data.
+
+        Skips training (with a warning) when fewer than two distinct
+        classes are labeled. Callers must not assume the model is
+        fitted after this returns; downstream code consults
+        :meth:`_model_is_fitted` before invoking ``predict_proba``.
+        """
         if len(self._labeled_y) < 2:
             return
 
@@ -735,11 +839,28 @@ class ActiveLearner:
 
         # Check for both classes
         if len(np.unique(y)) < 2:
-            logger.warning("Need samples from both classes to train")
+            logger.warning(
+                "Labeled set contains a single class (%s); model fit skipped. "
+                "Subsequent queries will fall back to random sampling until "
+                "the second class is observed.",
+                np.unique(y).tolist(),
+            )
             return
 
         self.model.fit(X, y)
         logger.info(f"Model retrained on {len(y)} samples")
+
+    def _model_is_fitted(self) -> bool:
+        """Return True when ``self.model`` has been successfully fit.
+
+        Mercury's :class:`~omni_mercury_engine.ml.mercury_ml.LogisticRegression`
+        exposes an ``is_fitted_`` flag; estimators without that flag
+        are assumed to manage their own state (sklearn convention).
+        """
+        flag = getattr(self.model, "is_fitted_", None)
+        if flag is None:
+            return True
+        return bool(flag)
 
     def query(
         self,
@@ -792,14 +913,49 @@ class ActiveLearner:
 
         # Select samples
         n_to_select = min(self.batch_size, self.budget - self._queries_made)
+        n_to_select = max(0, n_to_select)
 
-        if isinstance(self.sampler, QueryByCommitteeSampler):
+        if n_to_select == 0:
+            empty = QueryBatch(
+                indices=[],
+                features=X_unlabeled[:0],
+                uncertainties=[],
+                diversity_scores=[],
+                priority_scores=[],
+                strategy=self.strategy,
+            )
+            return empty
+
+        # If the underlying model is not yet fitted (e.g. the initial
+        # labeled batch happened to contain a single class, so
+        # ``_train_model`` skipped the fit), we cannot call
+        # ``predict_proba`` -- doing so would either raise NotFittedError
+        # or, for estimators that do not check, produce a shape-mismatch
+        # matmul error. Fall back to a uniform random query so the
+        # active-learning loop can keep gathering labels until the
+        # missing class is observed and the model becomes trainable.
+        if not self._model_is_fitted():
+            logger.warning(
+                "Underlying model is not fitted; falling back to random "
+                "sampling for this query batch."
+            )
+            n_random = min(n_to_select, len(X_unlabeled))
+            random_local_indices = self.rng.choice(len(X_unlabeled), n_random, replace=False)
+            batch = QueryBatch(
+                indices=random_local_indices.tolist(),
+                features=X_unlabeled[random_local_indices],
+                uncertainties=[0.5] * n_random,
+                diversity_scores=[0.0] * n_random,
+                priority_scores=[0.5] * n_random,
+                strategy=SamplingStrategy.RANDOM,
+            )
+        elif isinstance(self.sampler, QueryByCommitteeSampler):
             batch = self.sampler.select(self.model, X_unlabeled, n_to_select, X_labeled, y_labeled)
         else:
             batch = self.sampler.select(self.model, X_unlabeled, n_to_select, X_labeled)
 
         # Map back to original indices
-        original_indices = [unlabeled_indices[i] for i in batch.indices]
+        original_indices = [int(unlabeled_indices[i]) for i in batch.indices]
         batch.indices = original_indices
 
         self._queries_made += len(batch.indices)

@@ -26,6 +26,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Omni-AXA → Mercury port, PR 1: infrastructure & stdlib-only modules
+
+Three first-party modules ported from `Steel-SecAdv-LLC/Omni-AXA-Engine`
+(GPL-3.0+) into Mercury Agent.  The runtime dependency surface added by
+these ports is `numpy` (already required by Mercury Agent core),
+`requests` (existing Mercury dependency, used by the NIST CSF live
+fetcher), and `openpyxl` (new, gated behind the `compliance` extra in
+`pyproject.toml` and only required when parsing the live NIST CSF
+reference XLSX).  No new mandatory dependencies were introduced.  All
+three ported modules are fully typed for `mypy --strict` and have no
+overlap with existing Mercury code.
+
+- **`omni_mercury_engine.utils.profiling`** (411 LOC source → 652 LOC port).
+  Six public entry points: `@profile_func`, `@profile_memory`,
+  `@profile_time`, `@profile_time_async`, `@profile_complete`,
+  `PerformanceBenchmark` context manager, and `benchmark_function`.
+  Mercury delta: added `@profile_time_async` for Mercury's asyncio
+  paths and added an opt-in global enable flag exposed via
+  `set_profiling_enabled(...)` / `is_profiling_enabled()` in
+  `omni_mercury_engine.utils.profiling`.  Locked by
+  `tests/test_profiling.py` (32 tests).
+
+- **`omni_mercury_engine.compliance.nist_csf_integrator`**
+  (578 LOC source → 1,349 LOC port).  Implements NIST CSF 2.0
+  end-to-end: the six core functions (GOVERN, IDENTIFY, PROTECT,
+  DETECT, RESPOND, RECOVER), 22 categories, and 106+ subcategories
+  with implementation tier scoring (PARTIAL → ADAPTIVE),
+  organisational profiles, gap analysis, supply-chain anomaly
+  detection, continuous-monitoring deltas, and JSON-serialisable
+  compliance reports.  Mercury delta: a new
+  `NISTCSFReferenceFetcher` hits the live NIST CSF 2.0 Reference
+  Tool at
+  `https://csrc.nist.gov/extensions/nudp/services/json/csf/download?olirids=all`
+  (XLSX, ~143 KB) with a 7-day on-disk cache under
+  `$XDG_CACHE_HOME/mercury-agent/nist_csf` so callers see the
+  authoritative subcategory tree rather than a hard-coded
+  snapshot.  Locked by `tests/test_nist_csf_integrator.py`
+  (29 unit + 2 `@pytest.mark.network` integration tests against
+  csrc.nist.gov).
+
+- **`omni_mercury_engine.compliance.tlp_handler`**
+  (313 LOC source → 603 LOC port).  Implements FIRST.org / CISA
+  TLP 2.0 classification with the full five-colour ladder
+  (CLEAR / GREEN / AMBER / AMBER+STRICT / RED), single-anomaly and
+  batch classification, per-colour statistics, watermark
+  generation, and a JSON-serialisable export-metadata block.
+  **Behavioural delta (known-issue fix):** the upstream module
+  shipped only the four legacy TLP 1.0 colours; `AMBER+STRICT` has
+  been added end-to-end (classification, reasoning, sharing
+  guidelines, ethical considerations, watermark, export metadata)
+  so Mercury is TLP-2.0 compliant out of the box.  Sharing
+  guidelines are verbatim from FIRST.org TLP 2.0; bare
+  `except:` clauses present in the upstream module were replaced
+  with explicit `TLPValidationError` paths.  **Location delta:**
+  the module lives in `omni_mercury_engine.compliance` alongside
+  `nist_csf_integrator` and `osha_anomaly` rather than in
+  `omni_mercury_engine.security`.  Mercury's `security/` package
+  is reserved for implementation primitives (crypto, PQC, threat
+  detection, audit logging); governance frameworks live in
+  `compliance/`.  The upstream location was
+  `domains/ciad/compliance/`, so this restores upstream intent.
+  Internal callers (`utils.report_generator`,
+  `tests.test_report_generator`, `tests.test_tlp_handler`) were
+  updated to the new import path; a repository-wide
+  `git grep` confirmed no other call sites, so no
+  backwards-compatibility shim was added in `security/`.  Locked
+  by `tests/test_tlp_handler.py` (45 tests covering every public
+  surface including AMBER+STRICT escalation, watermark integrity,
+  and export-metadata schema).
+
+### `ReportGenerator` — first-class TLP 2.0 wiring
+
+- **`ReportGenerator.apply_tlp_classification(...)`** is the canonical
+  choke-point for tagging Mercury reports with a Traffic Light
+  Protocol classification.  Callers either pass a pre-computed
+  `TLPClassification` (preferred when the colour was decided at an
+  earlier choke-point) or supply an `anomaly_score` and let the
+  handler classify here.  The classification is rendered into
+  every output format produced by `generate()`:
+  - JSON output gains a top-level `"tlp"` block containing the
+    canonical `tlp_label` / `tlp_color` / `tlp_rank` /
+    `tlp_confidence` / `tlp_reasoning`, the FIRST.org
+    sharing-guideline text, the ethical considerations list, and a
+    watermark string.
+  - HTML output renders a sanitised `<div class="tlp-banner">`
+    above the report title with the watermark and sharing
+    guidelines (HTML escaping is preserved end-to-end; sensitive
+    output never bypasses the existing XSS protection).
+  - Markdown output renders a `> **TLP:…**` blockquote at the
+    top of the document.
+  Default behaviour is unchanged when callers do not opt in,
+  so existing report consumers are not affected.  Locked by
+  `tests/test_report_generator.py::TestReportTLPIntegration`
+  (10 tests including the no-classification baseline, the
+  pre-computed path, the score-driven path, validation errors,
+  per-format rendering checks, and the strict-sharing escalation
+  path).
+
 ### FEMA Disaster loader — label-polarity correction (closes "known-broken" footnote item)
 
 - **`FEMADisasterLoader._select_anomaly_polarity`** enforces the

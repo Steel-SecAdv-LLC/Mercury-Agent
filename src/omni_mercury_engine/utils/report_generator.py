@@ -27,7 +27,6 @@ Automated report generation for non-technical users:
 - CSV/Excel exports
 
 """
-
 import json
 import logging
 import os
@@ -35,7 +34,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from html import escape
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.compliance.tlp_handler import TLPClassification
 
 
 class ReportFormat(StrEnum):
@@ -123,6 +125,7 @@ class ReportGenerator:
         self._charts: dict[str, dict[str, Any]] = {}
         self._tables: dict[str, dict[str, Any]] = {}
         self._metadata: dict[str, Any] = {}
+        self._tlp_classification: TLPClassification | None = None
         self.logger = logging.getLogger(__name__)
 
     def add_section(self, title: str, content: str) -> None:
@@ -141,6 +144,90 @@ class ReportGenerator:
         """Set report metadata."""
         self._metadata.update(kwargs)
 
+    def apply_tlp_classification(
+        self,
+        *,
+        anomaly_score: float | None = None,
+        domain_type: str = "general",
+        sensitive_data_type: str = "anomaly_detection",
+        classification: TLPClassification | None = None,
+        strict_sharing: bool = False,
+        context: dict[str, Any] | None = None,
+    ) -> TLPClassification:
+        """Apply a Traffic Light Protocol classification to this report.
+
+        The classification is rendered into every output format produced by
+        :meth:`generate` (JSON ``tlp`` block, HTML banner, Markdown heading).
+        Mercury Agent enforces TLP 2.0 (FIRST.org) tagging on every sensitive
+        artifact; this method is the canonical wiring point for reports.
+
+        Either pass a pre-computed ``classification`` (preferred when the
+        caller has already classified at a different choke-point) or supply
+        an ``anomaly_score`` and let the handler classify here.
+
+        Args:
+            anomaly_score: Anomaly score in ``[0.0, 1.0]``.  Required when
+                ``classification`` is not supplied.
+            domain_type: Mercury domain (``"medical"``, ``"security"`` ...).
+            sensitive_data_type: Data class label
+                (``"phi"``, ``"pii"``, ``"anomaly_detection"`` ...).
+            classification: A pre-computed
+                :class:`TLPClassification`.  When provided, all other inputs
+                are ignored.
+            strict_sharing: If True, force AMBER+STRICT when the colour
+                would otherwise be AMBER.
+            context: Optional context forwarded to
+                :meth:`TLPHandler.classify_anomaly` (e.g. ``{"contains_pii":
+                True}``).
+
+        Returns:
+            The :class:`TLPClassification` applied to the report.
+
+        Raises:
+            TypeError: If neither ``classification`` nor ``anomaly_score``
+                is provided.
+        """
+        from omni_mercury_engine.compliance.tlp_handler import (
+            TLPClassification as _TLPClassification,
+            get_tlp_handler,
+        )
+
+        if classification is None:
+            if anomaly_score is None:
+                msg = "apply_tlp_classification requires either 'classification' or 'anomaly_score'"
+                raise TypeError(msg)
+            handler = get_tlp_handler()
+            merged_context: dict[str, Any] = dict(context) if context else {}
+            if strict_sharing:
+                merged_context["strict_sharing"] = True
+            classification = handler.classify_anomaly(
+                anomaly_score=float(anomaly_score),
+                anomaly_type=sensitive_data_type,
+                domain=domain_type,
+                context=merged_context,
+            )
+        elif not isinstance(classification, _TLPClassification):
+            msg = "classification must be an instance of TLPClassification"
+            raise TypeError(msg)
+        self._tlp_classification = classification
+        return classification
+
+    @property
+    def tlp_classification(self) -> TLPClassification | None:
+        """Return the active TLP classification, if any."""
+        return self._tlp_classification
+
+    def _tlp_metadata_block(self) -> dict[str, Any] | None:
+        """Build the JSON-serialisable TLP metadata block for export."""
+        if self._tlp_classification is None:
+            return None
+        from omni_mercury_engine.compliance.tlp_handler import get_tlp_handler
+
+        handler = get_tlp_handler()
+        block = handler.get_export_metadata(self._tlp_classification)
+        block["watermark"] = handler.generate_watermark_text(self._tlp_classification.color)
+        return block
+
     def generate(self, data: dict[str, Any], format: ReportFormat) -> str:
         """Generate report in specified format."""
         if format == ReportFormat.JSON:
@@ -155,6 +242,9 @@ class ReportGenerator:
         """Generate JSON report."""
         output = dict(data)
         output["generated_at"] = datetime.now().isoformat()
+        tlp_block = self._tlp_metadata_block()
+        if tlp_block is not None:
+            output["tlp"] = tlp_block
         if self._metadata:
             output["metadata"] = self._metadata
         if self._sections:
@@ -189,6 +279,18 @@ class ReportGenerator:
                 )
             tables_html += "</table>\n"
 
+        tlp_banner_html = ""
+        tlp_block = self._tlp_metadata_block()
+        if tlp_block is not None:
+            watermark = escape(str(tlp_block["watermark"]))
+            guidelines = escape(str(tlp_block["sharing_guidelines"]))
+            tlp_banner_html = (
+                '<div class="tlp-banner" role="note" aria-label="TLP classification">'
+                f"<strong>{watermark}</strong>"
+                f'<div class="tlp-guidelines">{guidelines}</div>'
+                "</div>\n"
+            )
+
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -197,10 +299,13 @@ class ReportGenerator:
         body {{ font-family: Arial, sans-serif; margin: 40px; }}
         table {{ border-collapse: collapse; margin: 20px 0; }}
         th, td {{ padding: 8px; text-align: left; }}
+        .tlp-banner {{ border: 2px solid #444; padding: 12px; margin-bottom: 24px;
+                       font-family: monospace; background: #f6f6f6; }}
+        .tlp-guidelines {{ font-size: 0.9em; margin-top: 6px; }}
     </style>
 </head>
 <body>
-    <h1>{title}</h1>
+    {tlp_banner_html}<h1>{title}</h1>
     <p>{content}</p>
     {sections_html}
     {tables_html}
@@ -217,6 +322,11 @@ class ReportGenerator:
                 pass
 
         lines = []
+        tlp_block = self._tlp_metadata_block()
+        if tlp_block is not None:
+            lines.append(f"> **{tlp_block['watermark']}**")
+            lines.append(f"> {tlp_block['sharing_guidelines']}")
+            lines.append("")
         title = data.get("title", "Report")
         lines.append(f"# {title}")
         lines.append("")
@@ -661,6 +771,5 @@ class ReportManager:
         </body>
         </html>
         """
-
         with open(output_path, "w") as f:
             f.write(html_template)
