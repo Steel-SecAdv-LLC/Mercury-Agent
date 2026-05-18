@@ -13,7 +13,6 @@ You should have received a copy of the GNU General Public License along with thi
 see
 https://www.gnu.org/licenses/.
 """
-
 from __future__ import annotations
 
 """
@@ -22,7 +21,6 @@ Security module for Mercury Agent
 Provides threat detection, rate limiting, encryption utilities,
 and post-quantum cryptographic protection.
 """
-
 from omni_mercury_engine.security.crypto_api import (
     AlgorithmType,
     CryptoBackend,

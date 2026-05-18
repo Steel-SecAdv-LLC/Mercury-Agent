@@ -80,13 +80,11 @@ class TLPColor(Enum):
     @property
     def label(self) -> str:
         """Return the canonical ``TLP:<colour>`` label string."""
-
         return f"TLP:{self.value}"
 
     @property
     def rank(self) -> int:
-        """Return monotonic severity rank (CLEAR=0 ... RED=4)."""
-
+        """Monotonic severity rank ranging from ``0`` (CLEAR) to ``4`` (RED)."""
         return _TLP_RANK[self]
 
 
@@ -259,7 +257,6 @@ class TLPHandler:
             TLPValidationError: If thresholds are not in monotonic order
                 inside the closed interval ``[0.0, 1.0]``.
         """
-
         if not 0.0 <= green_threshold <= amber_threshold <= red_threshold <= 1.0:
             msg = (
                 "TLP thresholds must satisfy "
@@ -310,7 +307,6 @@ class TLPHandler:
             TLPValidationError: If ``anomaly_score`` is not finite or
                 falls outside ``[0.0, 1.0]``.
         """
-
         if not _is_in_unit_interval(anomaly_score):
             msg = "anomaly_score must be a finite number in [0.0, 1.0]; " f"got {anomaly_score!r}"
             raise TLPValidationError(msg)
@@ -348,7 +344,6 @@ class TLPHandler:
         Returns:
             A list of :class:`TLPClassification` results, one per input.
         """
-
         classifications: list[TLPClassification] = []
         for anomaly in anomalies:
             score = float(anomaly.get("score", 0.0))
@@ -376,7 +371,6 @@ class TLPHandler:
         The returned mapping always contains every TLP 2.0 colour, with
         zero counts for colours that did not appear.
         """
-
         stats: dict[str, int] = {color.value: 0 for color in TLPColor}
         for classification in classifications:
             stats[classification.color.value] += 1
@@ -389,7 +383,6 @@ class TLPHandler:
         and is followed by the first sentence of the FIRST.org sharing
         guidelines so reviewers can interpret the colour at a glance.
         """
-
         guideline = self.sharing_guidelines[color]
         # First sentence == everything up to the first period followed by
         # a space or end of string.
@@ -405,7 +398,6 @@ class TLPHandler:
         contains the colour label, confidence, reasoning, full sharing
         guidelines, ethical considerations and a watermark string.
         """
-
         return {
             "tlp_color": classification.color.value,
             "tlp_label": classification.color.label,
@@ -429,7 +421,6 @@ class TLPHandler:
         context: Mapping[str, Any],
     ) -> TLPColor:
         """Decide a TLP colour given inputs and contextual hints."""
-
         lowered_domain = domain.lower()
         lowered_type = anomaly_type.lower()
         type_is_critical = any(ct in lowered_type for ct in _CRITICAL_TYPES)
@@ -464,7 +455,6 @@ class TLPHandler:
         context: Mapping[str, Any],
     ) -> TLPColor:
         """Escalate AMBER to AMBER+STRICT when context warrants it."""
-
         if base is not TLPColor.AMBER:
             return base
 
@@ -485,7 +475,6 @@ class TLPHandler:
 
     def _calculate_confidence(self, score: float, anomaly_type: str, domain: str) -> float:
         """Compute classification confidence in ``[0.0, 1.0]``."""
-
         base_confidence = 0.80
         if score >= 0.90 or score <= 0.20:
             base_confidence += 0.15
@@ -504,7 +493,6 @@ class TLPHandler:
         color: TLPColor,
     ) -> str:
         """Generate a human-readable rationale string."""
-
         if color is TLPColor.RED:
             severity = (
                 f"Critical severity (score: {score:.2f})",
@@ -540,7 +528,6 @@ class TLPHandler:
 
     def _get_ethical_considerations(self, color: TLPColor, domain: str) -> tuple[str, ...]:
         """Return domain-specific ethical considerations as a tuple."""
-
         considerations: list[str] = list(self.ethical_considerations_base)
         if color in {TLPColor.RED, TLPColor.AMBER_STRICT}:
             considerations.extend(
@@ -574,7 +561,6 @@ class TLPHandler:
 
 def _is_in_unit_interval(value: float) -> bool:
     """Return True if value is a finite float in ``[0.0, 1.0]``."""
-
     try:
         float_value = float(value)
     except (TypeError, ValueError):
@@ -586,5 +572,4 @@ def _is_in_unit_interval(value: float) -> bool:
 
 def get_tlp_handler() -> TLPHandler:
     """Factory returning a fresh :class:`TLPHandler` with default thresholds."""
-
     return TLPHandler()

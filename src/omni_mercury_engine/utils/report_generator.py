@@ -27,7 +27,6 @@ Automated report generation for non-technical users:
 - CSV/Excel exports
 
 """
-
 import json
 import logging
 import os
@@ -772,6 +771,5 @@ class ReportManager:
         </body>
         </html>
         """
-
         with open(output_path, "w") as f:
             f.write(html_template)
