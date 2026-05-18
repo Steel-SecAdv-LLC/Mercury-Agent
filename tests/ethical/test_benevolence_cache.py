@@ -63,7 +63,7 @@ class _CountingScorer(BenevolenceScorer):
         super().__init__(benevolence_threshold=0.99)
         self.enforce_calls = 0
 
-    def enforce(self, action, context):
+    def enforce(self, action: str, context: dict[str, Any]) -> EthicalScore:
         self.enforce_calls += 1
         return _make_permissible_score(action, score_id_suffix=str(self.enforce_calls))
 
@@ -259,7 +259,7 @@ def test_violation_then_recovery_is_cached_correctly() -> None:
             self.calls = 0
             self.permit_after = 2  # Calls 1 and 2 violate; calls ≥ 3 pass.
 
-        def enforce(self, action, context):
+        def enforce(self, action: str, context: dict[str, Any]) -> EthicalScore:
             self.calls += 1
             if self.calls <= self.permit_after:
                 raise EthicalConstraintViolationError(

@@ -166,10 +166,20 @@ Measured on **64 reproducible real-world datasets\*** (of 75 attempted: 47 ADBen
 > MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP,
 > FEMA HazardMitigation) are unavailable or rate-limited from this build
 > environment. Headline metrics (Mean AUC 0.8285, Median AUC 0.9091) are
-> computed over the **64 successful** datasets. Additionally, **1 of the 64**
-> (FEMA Disaster) is a known-broken loader producing inverted scores (AUC ≈ 0,
-> see line "Disaster (FEMA)" below). Both gaps have tracked owners and a
-> scheduled fix; see `docs/ROADMAP.md` for status.
+> computed over the **64 successful** datasets. As of v1.7.0, the FEMA
+> Disaster label-polarity bug previously called out here is fixed
+> (`FEMADisasterLoader._select_anomaly_polarity` now enforces the
+> minority-as-anomaly convention used everywhere else in Mercury, locked
+> by `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`);
+> the headline-table AUC for "Disaster (FEMA)" is rerun on the next
+> benchmark refresh. The 11 unreachable loaders now have a two-lane
+> reachability harness — an always-on offline lane
+> (`tests/datasets/test_unreachable_loaders_offline.py`) plus a nightly
+> network lane (`tests/datasets/test_unreachable_loaders_network.py` +
+> `.github/workflows/dataset-reachability.yml`, 04:17 UTC) — so an
+> upstream provider outage surfaces as a failed nightly run rather than
+> as a benchmark silently dropping a dataset. See `docs/ROADMAP.md` for
+> status and `CHANGELOG.md` for the full landing notes.
 
 **Statistical Detector Ensemble:**
 
@@ -206,7 +216,12 @@ Measured on **64 reproducible real-world datasets\*** (of 75 attempted: 47 ADBen
 | Space (NASA, Solar) | 2 | 0.8879 | 0.7902 | 2 |
 | ADBench (47 datasets) | 47 | 0.8180 | 0.5859 | 29 |
 | Time Series (SMD, NAB) | 2 | 0.6972 | 0.4401 | 2 |
-| Disaster (FEMA) | 1 | 0.0000 | 0.8471 | 0 |
+| Disaster (FEMA) | 1 | 0.0000† | 0.8471 | 0 |
+
+*\*† Pre-fix score from the 2026-03-04 benchmark run. The FEMA Disaster
+label-polarity bug is fixed in v1.7.0 (see the reproducibility note above
+and `CHANGELOG.md` → "FEMA Disaster loader — label-polarity correction");
+the headline AUC is rerun on the next benchmark refresh.*
 
 **Empirical Comparison vs Near-Peer Baselines (5-Fold CV):**
 
@@ -259,8 +274,8 @@ Measured on **64 reproducible real-world datasets\*** (of 75 attempted: 47 ADBen
 - 6 datasets have AUC < 0.50 (ensemble inversion on high-dimensional data)
 - No hyperparameter tuning was performed
 - SpectralDomainOracle auto-activates for temporal/spectral domains
-- FEMA Disaster loader produces inverted scores (AUC near 0) — known issue with label encoding
-- 11/75 datasets failed due to unavailable external data sources
+- FEMA Disaster loader label-polarity bug fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity` now enforces minority-as-anomaly; AUC near 0 on the 2026-03-04 row above; next benchmark refresh reruns it)
+- 11/75 datasets failed due to unavailable external data sources (covered by the offline + nightly reachability harness as of v1.7.0)
 
 **When to Use Mercury-Agent:**
 - When interpretability of anomaly decisions is required
@@ -330,11 +345,13 @@ Mercury Agent validates its core `MercuryAnomalyDetector` against 28 domain-spec
 | Space (NASA, Solar) | 2 | 0.8879 | NASA APIs |
 | ADBench | 47 | 0.8180 | ADBench standardized |
 | Time Series (SMD, NAB) | 2 | 0.6972 | OmniAnomaly / Numenta |
-| Disaster (FEMA) | 1 | 0.0000* | OpenFEMA API |
+| Disaster (FEMA) | 1 | 0.0000† | OpenFEMA API |
 
-*\*FEMA Disaster loader produces inverted scores — known label-encoding issue under investigation.*
+*\*† 2026-03-04 benchmark row, pre-fix. FEMA Disaster label-polarity bug
+fixed in v1.7.0; AUC is rerun on the next benchmark refresh — see the
+reproducibility note above and `CHANGELOG.md` for details.*
 
-**11 datasets failed** due to unavailable external sources (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation).
+**11 datasets failed** due to unavailable external sources (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0 these are tracked by a two-lane reachability harness so an upstream outage now surfaces as a failed nightly run (see `.github/workflows/dataset-reachability.yml`, `tests/datasets/test_unreachable_loaders_offline.py`, `tests/datasets/test_unreachable_loaders_network.py`).
 
 ### Federated Learning (Privacy-Preserving Detection)
 
@@ -2022,7 +2039,7 @@ The human architect does not hold formal credentials in machine learning or medi
 
 - **No Independent Audit:** All security and performance analysis is self-assessed. Production deployment requires review by qualified professionals.
 - **AI-Generated Code:** May contain subtle implementation errors. All critical paths require independent verification.
-- **Domain-Specific Validation:** Core detection is benchmarked on **64 reproducible real datasets** (of 75 attempted; Mean AUC 0.8285, Median AUC 0.9091). 11 datasets currently fail to load due to unavailable external sources and 1 (FEMA Disaster) is a known-broken loader -- both have tracked fixes scheduled. Domain-specific modules may require additional validation.
+- **Domain-Specific Validation:** Core detection is benchmarked on **64 reproducible real datasets** (of 75 attempted; Mean AUC 0.8285, Median AUC 0.9091). 11 datasets currently fail to load due to unavailable external sources and are tracked by a two-lane reachability harness (offline + nightly network) as of v1.7.0. The FEMA Disaster loader's previously-flagged inverted-score bug is fixed in v1.7.0 (`FEMADisasterLoader._select_anomaly_polarity`); the headline AUC for that row is rerun on the next benchmark refresh. Domain-specific modules may require additional validation.
 - **Medical Applications:** No clinical validation. Medical modules require validation on real patient data before any deployment.
 - **Research Status:** This is a research-grade framework, not a production-ready product.
 

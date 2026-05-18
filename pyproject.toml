@@ -148,7 +148,15 @@ fairness = [
 
 # Post-Quantum Cryptography - Primary backend (AMA Cryptography)
 pqc = [
-    "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git",  # Primary: Steel Security PQC framework
+    # Pinned to v3.0.0 (published 2026-04-07; "AMA Cryptography v3.0.0:
+    # AVX-512 Keccak, RFC 9106 Argon2id Conformance & Distribution
+    # Hardening").  Pinning the git ref (rather than tracking the
+    # default branch) protects Mercury's reproducible-build promise:
+    # an upstream main-branch force-push or breaking change cannot
+    # silently bump the Mercury PQC surface mid-cycle.  Bump this tag
+    # in lockstep with `tests/security/test_pqc_gate_real_ama.py` and
+    # the migration notes in `docs/MIGRATION-1.6-to-1.7.md` §3.
+    "ama-cryptography @ git+https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git@v3.0.0",  # Primary: Steel Security PQC framework
 ]
 
 

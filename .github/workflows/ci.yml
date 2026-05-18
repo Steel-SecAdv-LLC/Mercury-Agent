@@ -39,28 +39,32 @@ env:
   # ---------------------------------------------------------------------
   # Coverage thresholds.
   #
-  # Measured baseline (full suite, 2026-05-05 CI run on
-  # claude/organize-project-directory-IIqcr): 36.03% lines covered.
-  # The previous 10/10 floor was MyPy-era scaffolding; the target
-  # quality bar in `pyproject.toml [tool.coverage.report]` is
-  # `fail_under = 85`.  A 75-point CI gate failed immediately because
-  # the codebase is genuinely at ~36% line coverage today, not
+  # Measured baseline (full suite, 2026-05-17 CI run #1182 on main @
+  # a1e189d): 59.84% lines covered on the ML/full lane and 16.62% on
+  # the core lane. The previous 10/10 floor was MyPy-era scaffolding;
+  # the target quality bar in `pyproject.toml [tool.coverage.report]`
+  # is `fail_under = 85`.  A 75-point CI gate failed immediately
+  # because the codebase is genuinely well below that today, not
   # because of regressions.
   #
-  # Compromise floor pending a dedicated coverage push:
-  #   COVERAGE_THRESHOLD_CORE: 15  (core subset, was 30)
-  #   COVERAGE_THRESHOLD_FULL: 35  (full suite, was 75)
-  # 35 is "do not regress below the measured 36.03% baseline" with a
-  # 1-point cushion for CI noise.  15 is the matching floor for the
-  # core subset which exercises a strictly smaller fraction of src/
-  # against the full source tree.
+  # v1.7.0 floors (strengthening plan §5):
+  #   COVERAGE_THRESHOLD_CORE: 15  (core subset, was 30 → 15 → 15)
+  #   COVERAGE_THRESHOLD_FULL: 50  (full suite, was 75 → 35 → 50)
+  # 50 is "do not regress more than ~10 points below the measured
+  # 59.84% baseline" — a deliberate cushion for CI noise / dataset
+  # availability flakes while moving the floor decisively above the
+  # historical 35-point compromise.  Core stays at 15 because the
+  # core-lane coverage is 16.62% today; bumping to 25 would fail
+  # the gate on the next push.  A separate dedicated coverage pass
+  # for the core lane is tracked in `docs/ROADMAP.md` § "Coverage
+  # uplift" and is the prerequisite for raising this floor.
   #
   # The 85-point pyproject target stays in place as the strict
   # aspirational nightly bar.  Raise these CI floors as the dedicated
   # coverage session lands tests; do not lower them back toward 10.
   # ---------------------------------------------------------------------
   COVERAGE_THRESHOLD_CORE: 15
-  COVERAGE_THRESHOLD_FULL: 35
+  COVERAGE_THRESHOLD_FULL: 50
 
 jobs:
   # ===========================================================================
@@ -260,24 +264,30 @@ jobs:
             --pretty \
             --no-warn-unused-configs
 
-      - name: Run MyPy strict on tests/datasets (no test-debt disables)
+      - name: Run MyPy strict on graduated test directories (no test-debt disables)
         # ---- v1.7.0: incremental test-debt removal ----
         # Newly-authored or refactored test directories opt into the
         # strict mypy gate (no ``--allow-untyped-defs``, no
         # ``--allow-subclassing-any``, no decorator disable) once
-        # they are clean.  Every test file under ``tests/datasets/``
-        # is fully annotated (verified by the run below) so the
-        # historical test-debt relaxations no longer apply here.
+        # they are clean.  Every test file under the directories
+        # listed below is fully annotated (verified by the run below)
+        # so the historical test-debt relaxations no longer apply
+        # there.
         #
         # The mechanism is intentionally additive: directories that
         # are not yet clean stay on the relaxed lane above, and
         # individual directories graduate to the strict lane one
         # commit at a time.  When a directory graduates, add it to
-        # the comma-separated list below.  See the strengthening
-        # plan §5 P0 ("Re-lift the test-debt mypy disables") for
-        # the long-term goal of emptying the relaxed lane.
+        # the list below.  See the strengthening plan §5 P0
+        # ("Re-lift the test-debt mypy disables") for the long-term
+        # goal of emptying the relaxed lane.
+        #
+        # Graduated (strict, no test-debt disables):
+        # * tests/datasets/      -- v1.7.0
+        # * tests/ethical/       -- v1.7.0 follow-up
+        # * tests/safeguards/    -- v1.7.0 follow-up
         run: |
-          mypy tests/datasets/ \
+          mypy tests/datasets/ tests/ethical/ tests/safeguards/ \
             --show-error-codes \
             --pretty \
             --no-warn-unused-configs
