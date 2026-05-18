@@ -9,12 +9,13 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from omni_mercury_engine.anomaly.drone_detector import (
+from omni_mercury_engine.detectors.drone import (
     DroneAnomalyDetector,
     DroneFault,
     DroneState,
     FaultType,
     MissionPhase,
+    detector as drone_detector_module,
     get_drone_detector,
 )
 
@@ -200,7 +201,7 @@ class TestSklearnEnsemble:
 
     def test_isolation_forest_imported(self) -> None:
         """The detector imports IsolationForest at module load."""
-        from omni_mercury_engine.anomaly import drone_detector as module
+        module = drone_detector_module
 
         assert module._SKLEARN_AVAILABLE is True
         assert module.IsolationForest is not None
@@ -245,7 +246,7 @@ class TestSklearnEnsemble:
 
     def test_fallback_when_sklearn_unavailable(self) -> None:
         """Without sklearn the detector uses a deterministic Mahalanobis scorer."""
-        with patch("omni_mercury_engine.anomaly.drone_detector._SKLEARN_AVAILABLE", False):
+        with patch("omni_mercury_engine.detectors.drone.detector._SKLEARN_AVAILABLE", False):
             detector = DroneAnomalyDetector()
             for _ in range(25):
                 detector.detect_faults(_make_state())
@@ -286,6 +287,57 @@ class TestDronLomalyLogs:
         ]
         faults = detector.detect_faults(_make_state(), logs)
         assert any(f.fault_type is FaultType.CYBERATTACK for f in faults)
+
+    def test_log_keyword_scoring_does_not_overflag_routine_lines(self) -> None:
+        """Task 8 regression: extended keyword set must not over-fire on noise.
+
+        ``_analyze_log_entry`` was extended beyond the upstream's
+        mechanical-fault keywords with three Mercury-specific signals:
+
+        * ``+0.55`` for ``attack | intrusion | unauthorized`` (security).
+        * ``+0.40`` for ``overheat[ing]`` (thermal).
+        * ``+0.35`` for ``signal lost`` (telemetry loss).
+
+        Weights are tuned to keep operationally-noisy lines (routine
+        "signal weak" advisories, expected ``intrusion_detection``
+        self-tests, transient temperature notes) below the
+        ``score > 0.75`` fault gate while still letting genuinely
+        anomalous lines cross it.  This regression test pins the
+        balance.
+        """
+        threshold = 0.75
+
+        # Operationally noisy but benign: must stay <= threshold.
+        benign_lines = [
+            # "signal" appears but no "lost" pair, no critical/error
+            {"message": "Signal strength is weak but stable", "level": "INFO"},
+            # "intrusion_detection" self-test is a routine INFO log
+            {"message": "intrusion_detection self-test pass", "level": "INFO"},
+            # Temperature note without overheat/critical/error words
+            {"message": "Thermal sensor reports normal range", "level": "INFO"},
+        ]
+        for log in benign_lines:
+            score = DroneAnomalyDetector._analyze_log_entry(log)
+            assert score <= threshold, f"Routine line was over-scored: {log!r} -> {score:.2f}"
+
+        # Genuinely anomalous: must exceed threshold.
+        anomalous_lines = [
+            {
+                "message": "Critical error: unauthorized command intrusion detected",
+                "level": "CRITICAL",
+            },
+            {
+                "message": "Motor 2 overheating - thermal runaway warning",
+                "level": "ERROR",
+            },
+            {
+                "message": "Connection lost: signal lost from GCS",
+                "level": "ERROR",
+            },
+        ]
+        for log in anomalous_lines:
+            score = DroneAnomalyDetector._analyze_log_entry(log)
+            assert score > threshold, f"Anomalous line was under-scored: {log!r} -> {score:.2f}"
 
 
 class TestFlightReport:
@@ -359,7 +411,7 @@ class TestNoUnvalidatedRecallClaim:
 
     def test_no_recall_claim_in_docstrings(self) -> None:
         """No docstring contains the unvalidated 93.84% recall claim."""
-        from omni_mercury_engine.anomaly import drone_detector as module
+        module = drone_detector_module
 
         bad_texts: list[str] = []
         for value in vars(module).values():

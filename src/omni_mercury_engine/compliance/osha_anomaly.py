@@ -15,9 +15,16 @@ details.
 This module ports ``osha_compliance_anomaly.py`` from Omni-AXA-Engine and
 upgrades the heat-index calculation to the National Weather Service Rothfusz
 regression with the standard low-humidity and low-temperature adjustments.
+
 The simplified ``T + 0.5*RH`` heuristic used in the original implementation
-materially under-reported heat stress at high humidity (e.g. T=95 F, RH=70%
-returned a heat-index of 130 F under the heuristic vs. 122 F under Rothfusz).
+diverged from the NWS Rothfusz regression in opposite directions depending on
+operating point.  At high humidity it materially **over-reported** apparent
+temperature (T=95 F, RH=70% returned ~130 F under the heuristic vs. ~122 F
+under Rothfusz, an 8 F over-report).  At low humidity (RH < 40%) it
+**under-reported** because it did not apply the low-humidity adjustment.
+Both directions cause OSHA-relevant misclassification; the Rothfusz regression
+replaces the heuristic so the detector neither cries wolf nor sleeps through
+real heat stress.
 
 OSHA standard citations may optionally be validated against the live eCFR API
 (https://www.ecfr.gov).  Validation is opt-in via the ``ecfr_client`` argument
@@ -218,9 +225,17 @@ class ECFRClient:
 
     The eCFR is a free public service operated by the U.S. National Archives
     and the Office of the Federal Register.  Authentication is not required.
-    Per the published rate-limit guidance (60 requests / minute / IP) we cache
-    in-process so repeated lookups during a single audit do not re-hit the
-    API.
+
+    Rate limiting
+    -------------
+    The public eCFR API publishes a 60 req/min/IP guidance.  This client
+    **does not enforce that limit programmatically** - operators running
+    batch audits across many citations should cap concurrency at the call
+    site (e.g. a thread / asyncio semaphore around
+    :meth:`verify_citation`) or pace requests externally.  The in-process
+    cache (:attr:`_cache`, protected by :attr:`_cache_lock`) reduces
+    duplicate lookups during a single audit run and is the primary
+    mechanism by which Mercury stays under the published limit.
     """
 
     DEFAULT_BASE_URL: Final[str] = "https://www.ecfr.gov"

@@ -21,6 +21,12 @@ Security module for Mercury Agent
 
 Provides threat detection, rate limiting, encryption utilities,
 and post-quantum cryptographic protection.
+
+This package hosts *implementation primitives* (crypto backends, PQC
+key material, audit logging, safe I/O guards).  Governance and policy
+frameworks (NIST CSF, OSHA / eCFR, TLP) live in
+:mod:`omni_mercury_engine.compliance`; downstream code should import
+those names from ``compliance`` rather than from ``security``.
 """
 from omni_mercury_engine.security.crypto_api import (
     AlgorithmType,

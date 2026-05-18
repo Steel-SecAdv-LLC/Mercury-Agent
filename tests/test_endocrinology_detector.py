@@ -70,6 +70,14 @@ class TestCGMAnalyzer:
         # Reference: 155K parameters (tolerance for linear-layer drift).
         assert 145_000 <= count <= 165_000, f"Got {count} parameters"
 
+    def test_cgm_analyzer_parameter_count_is_approximately_155k(self) -> None:
+        """Guard for Task 4 (Option B): trend head widened 32 -> 64; count window pinned."""
+        count = count_cgm_parameters()
+        assert 145_000 <= count <= 165_000, (
+            f"CGMAnalyzer parameter count {count} drifted outside the [145k, 165k] "
+            "window pinned by docs/CHANGELOG.md for the widened-trend-head layout."
+        )
+
     def test_input_dim_is_one(self) -> None:
         model = CGMAnalyzer()
         assert model.lstm.input_size == 1
@@ -172,6 +180,61 @@ class TestSmartInsulinPenMonitor:
         result = monitor.monitor_insulin_delivery({"recent_doses": [], "adherence_rate": 1.5})
         assert result["adherence_rate"] == 1.0
 
+    def test_smart_pen_large_bolus_alert_fires_above_15u_rapid_acting(self) -> None:
+        """Task 3a regression: rapid-acting bolus > 15 U fires the FDA / ADA ceiling alert."""
+        monitor = SmartInsulinPenMonitor()
+        result = monitor.monitor_insulin_delivery(
+            {
+                "recent_doses": [],
+                "adherence_rate": 1.0,
+                "dose_units": 16.0,
+                "insulin_type": "rapid_acting",
+            }
+        )
+        assert result["insulin_delivery_safe"] is False
+        joined_alerts = " ".join(result["alerts"]).lower()
+        joined_recs = " ".join(result["recommendations"]).lower()
+        assert "rapid-acting bolus" in joined_alerts or "ceiling" in joined_alerts
+        assert "verify dose" in joined_recs
+        assert "splitting dose" in joined_recs
+
+    def test_smart_pen_large_bolus_does_not_fire_for_basal(self) -> None:
+        """Task 3a regression: bolus ceiling is rapid-acting only."""
+        monitor = SmartInsulinPenMonitor()
+        result = monitor.monitor_insulin_delivery(
+            {
+                "recent_doses": [],
+                "adherence_rate": 1.0,
+                "dose_units": 30.0,
+                "insulin_type": "basal",
+            }
+        )
+        assert result["insulin_delivery_safe"] is True
+        assert result["alerts"] == []
+
+    def test_smart_pen_daily_total_alert_fires_above_50u(self) -> None:
+        """Task 3a regression: daily insulin total > 50 U triggers ADA-cited review."""
+        monitor = SmartInsulinPenMonitor()
+        result = monitor.monitor_insulin_delivery(
+            {
+                "recent_doses": [],
+                "adherence_rate": 1.0,
+                "daily_total_units": 60.0,
+            }
+        )
+        assert result["insulin_delivery_safe"] is False
+        joined = " ".join(result["recommendations"]).lower()
+        assert "insulin sensitivity" in joined and "regimen" in joined
+
+    def test_smart_pen_no_alert_when_fields_omitted(self) -> None:
+        """Task 3a regression: legacy callers without new fields keep passing."""
+        monitor = SmartInsulinPenMonitor()
+        result = monitor.monitor_insulin_delivery(
+            {"recent_doses": [], "adherence_rate": 1.0},
+        )
+        assert result["insulin_delivery_safe"] is True
+        assert result["alerts"] == []
+
 
 class TestGLP1TherapyMonitor:
     """GLP-1 therapy monitor with pancreatitis discontinuation."""
@@ -226,6 +289,65 @@ class TestGLP1TherapyMonitor:
         joined = " ".join(result["recommendations"]).lower()
         assert "dose" in joined or "adherence" in joined
 
+    def test_glp1_dose_escalation_recommended_at_week_12_inadequate_a1c(self) -> None:
+        """Task 3c regression: inadequate A1C drop at >=12 weeks triggers escalation."""
+        monitor = GLP1TherapyMonitor()
+        result = monitor.monitor_glp1_therapy(
+            {
+                "a1c_change_percent": -0.2,
+                "weight_loss_kg": 3.0,
+                "side_effects": [],
+                "duration_weeks": 14,
+            }
+        )
+        joined = " ".join(result["recommendations"]).lower()
+        assert "inadequate a1c" in joined
+        assert "dose escalation" in joined
+
+    def test_glp1_no_escalation_before_week_12(self) -> None:
+        """Task 3c regression: at <12 weeks, inadequate A1C does not yet escalate."""
+        monitor = GLP1TherapyMonitor()
+        result = monitor.monitor_glp1_therapy(
+            {
+                "a1c_change_percent": -0.2,
+                "weight_loss_kg": 3.0,
+                "side_effects": [],
+                "duration_weeks": 8,
+            }
+        )
+        joined = " ".join(result["recommendations"]).lower()
+        assert "inadequate a1c" not in joined
+
+    def test_glp1_gi_side_effects_trigger_titration_advice(self) -> None:
+        """Task 3c regression: nausea/vomiting trigger titration guidance."""
+        monitor = GLP1TherapyMonitor()
+        result = monitor.monitor_glp1_therapy(
+            {
+                "a1c_change_percent": -0.8,
+                "weight_loss_kg": 3.0,
+                "side_effects": ["Nausea after morning dose", "occasional vomiting"],
+                "duration_weeks": 6,
+            }
+        )
+        joined = " ".join(result["recommendations"]).lower()
+        assert "take with food" in joined
+        assert "slower dose titration" in joined or "antiemetic" in joined
+
+    def test_glp1_pancreatitis_still_dominates(self) -> None:
+        """Task 3c regression: pancreatitis discontinuation precedes other rules."""
+        monitor = GLP1TherapyMonitor()
+        result = monitor.monitor_glp1_therapy(
+            {
+                "a1c_change_percent": -0.2,
+                "weight_loss_kg": 0.5,
+                "side_effects": ["pancreatitis", "nausea"],
+                "duration_weeks": 20,
+            }
+        )
+        assert result["continue_therapy"] is False
+        joined = " ".join(result["recommendations"]).lower()
+        assert "discontinue" in joined or "pancreatitis" in joined
+
 
 class TestInhaledInsulinMonitor:
     """Inhaled insulin monitor + Afrezza FEV1 contraindication."""
@@ -256,6 +378,42 @@ class TestInhaledInsulinMonitor:
         result = monitor.monitor_inhaled_insulin({"fev1_percent": 90.0, "post_meal_glucose": 220.0})
         joined = " ".join(result["recommendations"]).lower()
         assert "post-meal" in joined or "dose adjustment" in joined
+
+    def test_inhaled_dose_ceiling_alert_fires_above_12u(self) -> None:
+        """Task 3b regression: inhaled dose > 12 U triggers FDA Section 5 alert."""
+        monitor = InhaledInsulinMonitor()
+        result = monitor.monitor_inhaled_insulin({"fev1_percent": 90.0, "dose_units": 14})
+        assert result["inhaled_insulin_appropriate"] is True  # FEV1 still OK
+        joined_alerts = " ".join(result["alerts"]).lower()
+        joined_recs = " ".join(result["recommendations"]).lower()
+        assert "ceiling" in joined_alerts or "u >" in joined_alerts
+        assert "subcutaneous" in joined_recs
+
+    def test_inhaled_technique_alert_fires_below_0_7(self) -> None:
+        """Task 3b regression: technique score < 0.7 fires AARC-cited retraining alert."""
+        monitor = InhaledInsulinMonitor()
+        result = monitor.monitor_inhaled_insulin(
+            {"fev1_percent": 90.0, "inhalation_technique_score": 0.5},
+        )
+        joined_recs = " ".join(result["recommendations"]).lower()
+        assert "retrain" in joined_recs
+        assert "suboptimal absorption" in joined_recs
+
+    def test_inhaled_contraindication_still_dominates(self) -> None:
+        """Task 3b regression: FEV1<70 contraindication remains the gate even with other alerts."""
+        monitor = InhaledInsulinMonitor()
+        result = monitor.monitor_inhaled_insulin(
+            {
+                "fev1_percent": 65.0,
+                "dose_units": 14,
+                "inhalation_technique_score": 0.5,
+            },
+        )
+        assert result["inhaled_insulin_appropriate"] is False
+        joined_alerts = " ".join(result["alerts"])
+        assert "CONTRAINDICATION" in joined_alerts
+        # All three alerts fire (contraindication + ceiling + technique).
+        assert len(result["alerts"]) >= 3
 
 
 # --------------------------------------------------------------------------- #

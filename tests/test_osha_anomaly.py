@@ -74,6 +74,36 @@ class TestRothfuszHeatIndex:
         with pytest.raises(ValueError):
             compute_heat_index_fahrenheit(float("inf"), 50.0)
 
+    @pytest.mark.parametrize(
+        ("temperature_f", "relative_humidity", "expected_hi", "tol"),
+        [
+            # Task 5 NWS reference points (https://www.wpc.ncep.noaa.gov/html/heatindex.shtml)
+            # 1. Steadman / low-temp path: HI ~ T at moderate RH and low T.
+            (80.0, 40.0, 80.0, 2.0),
+            # 2. Rothfusz, no adjustment: T=95, RH=70 -> ~122 F.
+            (95.0, 70.0, 122.0, 1.0),
+            # 3. Rothfusz + low-humidity adjustment: T=100, RH=10 -> ~95 F.
+            (100.0, 10.0, 95.0, 1.0),
+        ],
+    )
+    def test_heat_index_known_values(
+        self,
+        temperature_f: float,
+        relative_humidity: float,
+        expected_hi: float,
+        tol: float,
+    ) -> None:
+        """Three NWS reference points pinning the Rothfusz / Steadman branches.
+
+        Source: NWS Weather Prediction Center, heat-index table
+        (https://www.wpc.ncep.noaa.gov/html/heatindex.shtml).  Reference
+        points cover (a) the Steadman / low-temp branch, (b) the
+        unadjusted Rothfusz branch, and (c) the low-humidity adjustment
+        branch so a regression that disables either branch is caught.
+        """
+        value = compute_heat_index_fahrenheit(temperature_f, relative_humidity)
+        assert value == pytest.approx(expected_hi, abs=tol)
+
 
 class TestECFRClient:
     """Tests for the eCFR client (verifies without making real HTTP calls)."""

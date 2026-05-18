@@ -120,8 +120,16 @@ class CGMAnalyzer(nn.Module):
 
     Architecture: ``input_dim=1`` -> Bi-LSTM(``hidden_dim=64``, num_layers=2,
     dropout=0.2, bidirectional=True) -> additive attention -> 5-class
-    classifier + scalar trend.  Parameter count: 155K (matches the verified
-    Omni-AXA implementation).
+    classifier + scalar trend.  Parameter count: ~155K.
+
+    Architecture derived from the upstream Omni-AXA ``CGMAnalyzer``, with
+    the trend head widened from ``32`` to ``hidden_dim`` (``64``) units to
+    match the glycemic classifier's hidden width.  Parameter count is
+    approximately equal (~155K) but the resulting weights are **not
+    interchangeable** with upstream checkpoints; any prior pretrained
+    weights would need to be re-trained for this layout.  The guard test
+    :func:`tests.test_endocrinology_detector.test_cgm_analyzer_parameter_count_is_approximately_155k`
+    pins the count window.
     """
 
     def __init__(
@@ -172,13 +180,22 @@ class CGMAnalyzer(nn.Module):
 
 
 class SmartInsulinPenMonitor:
-    """Smart-pen monitor enforcing the dose-stacking guard.
+    """Smart-pen monitor enforcing dose-stacking, bolus-ceiling and daily-total guards.
 
-    Reference: ADA Standards of Care - rapid-acting boluses spaced under
-    two hours without verified glucose risk *insulin stacking* hypoglycaemia.
+    Citations:
+
+    * ADA Standards of Care - rapid-acting boluses spaced under two
+      hours without verified glucose risk *insulin stacking*
+      hypoglycaemia.
+    * FDA insulin labeling and ADA Standards of Care - large boluses
+      without sensitivity verification are a documented hypoglycemia
+      risk; total daily insulin above ~50 U warrants a sensitivity /
+      regimen review.
     """
 
     DOSE_STACK_WINDOW_HOURS: Final[float] = 2.0
+    MAX_BOLUS_UNITS: Final[float] = 15.0
+    MAX_DAILY_INSULIN_UNITS: Final[float] = 50.0
 
     def monitor_insulin_delivery(self, delivery_data: Mapping[str, Any]) -> dict[str, Any]:
         """Score smart-pen telemetry for delivery safety.
@@ -186,8 +203,13 @@ class SmartInsulinPenMonitor:
         Args:
             delivery_data: Mapping with ``recent_doses`` (sequence of dicts
                 with ``time_hours`` and ``units`` keys), optional
-                ``adherence_rate`` (0-1), and optional ``patient_glucose``
-                (mg/dL).
+                ``adherence_rate`` (0-1), optional ``patient_glucose``
+                (mg/dL), optional ``dose_units`` (single bolus in units),
+                optional ``insulin_type`` (``"rapid_acting"`` by default;
+                bolus ceiling only fires for rapid-acting), and optional
+                ``daily_total_units`` (cumulative insulin for the rolling
+                24 h window).  Missing fields silently skip the relevant
+                check so legacy callers keep working.
 
         Returns:
             Dictionary with ``insulin_delivery_safe`` flag, ``alerts`` and
@@ -208,6 +230,34 @@ class SmartInsulinPenMonitor:
                     recommendations.append(
                         "Hold next rapid-acting dose; verify glucose before stacking"
                     )
+
+        dose_units_raw = delivery_data.get("dose_units")
+        insulin_type = str(delivery_data.get("insulin_type", "rapid_acting")).lower()
+        if dose_units_raw is not None and insulin_type == "rapid_acting":
+            try:
+                dose_units = float(dose_units_raw)
+            except (TypeError, ValueError):
+                dose_units = 0.0
+            if dose_units > self.MAX_BOLUS_UNITS:
+                alerts.append(
+                    f"Large rapid-acting bolus: {dose_units:.1f} U > "
+                    f"{self.MAX_BOLUS_UNITS:.0f} U ceiling"
+                )
+                recommendations.append("Verify dose - risk of hypoglycemia")
+                recommendations.append("Consider splitting dose if meal is large")
+
+        daily_total_raw = delivery_data.get("daily_total_units")
+        if daily_total_raw is not None:
+            try:
+                daily_total = float(daily_total_raw)
+            except (TypeError, ValueError):
+                daily_total = 0.0
+            if daily_total > self.MAX_DAILY_INSULIN_UNITS:
+                alerts.append(
+                    f"High daily insulin total: {daily_total:.1f} U > "
+                    f"{self.MAX_DAILY_INSULIN_UNITS:.0f} U"
+                )
+                recommendations.append("Review insulin sensitivity and dosing regimen")
 
         adherence = self._calculate_adherence(delivery_data)
         if adherence < 0.8:
@@ -234,17 +284,33 @@ class SmartInsulinPenMonitor:
 class GLP1TherapyMonitor:
     """GLP-1 therapy monitor with FDA pancreatitis discontinuation rule.
 
-    Reference: FDA black-box warning on GLP-1 receptor agonists (e.g.
-    semaglutide, liraglutide) - history or signal of pancreatitis is a
-    discontinuation indication.
+    Citations:
+
+    * FDA black-box warning on GLP-1 receptor agonists (e.g. semaglutide,
+      liraglutide) - history or signal of pancreatitis is a
+      discontinuation indication.
+    * ADA pharmacological guidance and FDA semaglutide / liraglutide
+      labeling - dose-titration windows (review A1C and weight response
+      at week 12 / 16) and GI side-effect management (slower titration,
+      take with food, antiemetics when severe).
     """
+
+    A1C_ESCALATION_WEEK: Final[int] = 12
+    A1C_INADEQUATE_DROP_PERCENT: Final[float] = -0.5
+    WEIGHT_LOSS_REVIEW_WEEK: Final[int] = 16
+    WEIGHT_LOSS_TARGET_KG: Final[float] = 2.5
 
     def monitor_glp1_therapy(self, therapy_data: Mapping[str, Any]) -> dict[str, Any]:
         """Score GLP-1 therapy telemetry.
 
         Args:
             therapy_data: Mapping with ``side_effects`` (iterable of strings),
-                ``a1c_change_percent``, ``weight_loss_kg``, and ``medication``.
+                ``a1c_change_percent``, ``weight_loss_kg``, ``medication``,
+                and optional ``duration_weeks`` (treatment duration; the
+                A1C / weight-loss escalation rules only fire once the
+                relevant titration window has elapsed).  ``side_effects``
+                entries containing ``"nausea"`` or ``"vomiting"`` trigger
+                titration / antiemetic guidance.
 
         Returns:
             Dictionary with ``continue_therapy``, ``therapeutic_success``,
@@ -254,6 +320,7 @@ class GLP1TherapyMonitor:
         a1c_change = float(therapy_data.get("a1c_change_percent", 0.0))
         weight_loss = float(therapy_data.get("weight_loss_kg", 0.0))
         medication = str(therapy_data.get("medication", "GLP-1 agonist"))
+        duration_weeks = int(therapy_data.get("duration_weeks", 0))
 
         recommendations: list[str] = []
         continue_therapy = True
@@ -264,11 +331,34 @@ class GLP1TherapyMonitor:
             recommendations.append("Switch to alternative agent (e.g. SGLT2 inhibitor)")
 
         therapeutic_success = a1c_change <= -0.5 and weight_loss >= 2.5
-        if not therapeutic_success and continue_therapy:
-            recommendations.append(
-                "Therapeutic response is below ADA benchmarks; "
-                "reassess dose escalation or adherence"
-            )
+        if continue_therapy:
+            if (
+                a1c_change > self.A1C_INADEQUATE_DROP_PERCENT
+                and duration_weeks >= self.A1C_ESCALATION_WEEK
+            ):
+                recommendations.append(
+                    "Inadequate A1C response after "
+                    f"{duration_weeks} weeks; consider dose escalation per FDA label"
+                )
+            if (
+                abs(weight_loss) < self.WEIGHT_LOSS_TARGET_KG
+                and duration_weeks >= self.WEIGHT_LOSS_REVIEW_WEEK
+            ):
+                recommendations.append(
+                    "Weight-loss response below ADA benchmark after "
+                    f"{duration_weeks} weeks; review diet / exercise and "
+                    "escalate dose if tolerated"
+                )
+            if not therapeutic_success and not recommendations:
+                recommendations.append(
+                    "Therapeutic response is below ADA benchmarks; "
+                    "reassess dose escalation or adherence"
+                )
+            if any("nausea" in s or "vomiting" in s for s in side_effects):
+                recommendations.append(
+                    "GI side effects: take with food, slower dose titration; "
+                    "consider antiemetics if severe"
+                )
 
         return {
             "continue_therapy": continue_therapy,
@@ -276,25 +366,39 @@ class GLP1TherapyMonitor:
             "recommendations": recommendations,
             "a1c_change_percent": a1c_change,
             "weight_loss_kg": weight_loss,
+            "duration_weeks": duration_weeks,
         }
 
 
 class InhaledInsulinMonitor:
-    """Inhaled-insulin (Afrezza) monitor enforcing the FEV1 contraindication.
+    """Inhaled-insulin (Afrezza) monitor enforcing FEV1, dose-ceiling and technique guards.
 
-    Reference: FDA Afrezza label, Section 4 (Contraindications) - patients
-    with FEV1 < 70 % predicted must not receive inhaled insulin due to the
-    risk of acute bronchospasm.
+    Citations:
+
+    * FDA Afrezza label, Section 4 (Contraindications) - patients with
+      FEV1 < 70 % predicted must not receive inhaled insulin due to the
+      risk of acute bronchospasm.
+    * FDA Afrezza label, Section 5 (Warnings and Precautions) - large
+      doses warrant consideration of subcutaneous insulin.
+    * AARC inhaler-technique guidance - sub-threshold inhalation
+      technique scores predict suboptimal absorption.
     """
 
     FEV1_THRESHOLD: Final[float] = 70.0
+    MAX_DOSE_UNITS: Final[int] = 12
+    MIN_TECHNIQUE_SCORE: Final[float] = 0.7
 
     def monitor_inhaled_insulin(self, inhaled_data: Mapping[str, Any]) -> dict[str, Any]:
         """Score Afrezza telemetry for appropriateness.
 
         Args:
             inhaled_data: Mapping with ``fev1_percent`` (predicted), optional
-                ``post_meal_glucose`` (mg/dL).
+                ``post_meal_glucose`` (mg/dL), optional ``dose_units`` (single
+                inhaled dose in units; ceiling fires above
+                :attr:`MAX_DOSE_UNITS`), and optional
+                ``inhalation_technique_score`` (0-1; technique alert fires
+                below :attr:`MIN_TECHNIQUE_SCORE`).  Missing fields silently
+                skip the relevant check so legacy callers keep working.
 
         Returns:
             Dictionary with ``inhaled_insulin_appropriate``, ``alerts``, and
@@ -302,6 +406,8 @@ class InhaledInsulinMonitor:
         """
         fev1 = float(inhaled_data.get("fev1_percent", 100.0))
         post_meal = inhaled_data.get("post_meal_glucose")
+        dose_units_raw = inhaled_data.get("dose_units")
+        technique_raw = inhaled_data.get("inhalation_technique_score")
 
         alerts: list[str] = []
         recommendations: list[str] = []
@@ -311,6 +417,27 @@ class InhaledInsulinMonitor:
             appropriate = False
             alerts.append(f"CONTRAINDICATION: FEV1 {fev1:.0f}% < 70%")
             recommendations.append("Discontinue inhaled insulin; switch to subcutaneous insulin")
+
+        if dose_units_raw is not None:
+            try:
+                dose_units = float(dose_units_raw)
+            except (TypeError, ValueError):
+                dose_units = 0.0
+            if dose_units > self.MAX_DOSE_UNITS:
+                alerts.append(f"Inhaled dose {dose_units:.0f} U > {self.MAX_DOSE_UNITS} U ceiling")
+                recommendations.append("Consider subcutaneous insulin for large doses")
+
+        if technique_raw is not None:
+            try:
+                technique = float(technique_raw)
+            except (TypeError, ValueError):
+                technique = 1.0
+            if technique < self.MIN_TECHNIQUE_SCORE:
+                alerts.append(
+                    f"Inhalation technique {technique:.2f} < " f"{self.MIN_TECHNIQUE_SCORE:.2f}"
+                )
+                recommendations.append("Retrain on proper inhaler use")
+                recommendations.append("May result in suboptimal absorption")
 
         if post_meal is not None and float(post_meal) > 180.0:
             recommendations.append("Post-meal glucose above target; consider dose adjustment")

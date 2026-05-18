@@ -1,0 +1,36 @@
+name: network-tests
+
+# Runs the @pytest.mark.network suite weekly so external-endpoint
+# schema drift (Dexcom v3, FHIR R4 Observation, eCFR Title-29, NIST CSF
+# Reference Tool) is caught within seven days even though these tests
+# auto-skip on every per-PR run.
+
+on:
+  schedule:
+    - cron: "0 13 * * 1"  # Mondays 13:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Mercury Agent with compliance + dev extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[compliance,dev]"
+
+      - name: Run @pytest.mark.network suite
+        env:
+          MERCURY_NETWORK_TESTS: "1"
+        run: |
+          pytest -m network -v --tb=short

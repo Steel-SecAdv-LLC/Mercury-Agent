@@ -207,17 +207,227 @@ runbook.
 upstream license matches Mercury's, and the user has full legal
 standing to relicense across both repositories.
 
-**Deviations from the original (documented):**
-- OSHA heat-index switched from ``T + 0.5*RH`` to NWS Rothfusz +
-  two standard adjustments.
-- Drone ensemble switched from hand-coded z-score to real sklearn
-  ``IsolationForest`` / ``EllipticEnvelope`` /
-  ``LocalOutlierFactor`` with a Mahalanobis fallback.
-- Drone "93.84 % recall" docstring claim removed (no reproducible
-  source).
-- Synthetic data generators removed from production paths in
-  anesthesiology and endocrinology modules; tests supply real
-  fixtures and use ``unittest.mock`` for HTTP boundaries.
+### Omni-AXA → Mercury port, PR 2 refinements (hard-guardrail review)
+
+Round-2 refinement pass over the four ported domain modules driven by
+the repo owner's explicit "no debt-for-debt trade" guardrails.  Every
+removed rule from the upstream that the initial port had quietly
+dropped is documented here under explicit "Deviations from the
+original" subsections per module; every restored rule is pinned by a
+named regression test; every cited threshold is re-anchored to a
+module-level constant via the new clinical rule-pin harness.
+
+#### Architectural reorganisation
+
+- **`omni_mercury_engine.detectors.drone`** (new subpackage).  The
+  ported drone detector now lives in
+  `src/omni_mercury_engine/detectors/drone/detector.py` alongside
+  Mercury's existing single-domain detector subpackages
+  (`marine/`, `economic/`, `energy/`, `geological/`, …).  The
+  `omni_mercury_engine.anomaly` package is **retained** (with a
+  policy docstring) for future multi-modal anomaly detectors that
+  fuse two or more `detectors/<domain>/` outputs into a single
+  decision-support stream; no such detector ships in this PR.  All
+  existing imports continue to work via the new
+  `omni_mercury_engine.detectors.drone` package's `__init__.py`,
+  which re-exports the public API
+  (`DroneAnomalyDetector`, `DroneFault`, `DroneState`, `FaultType`,
+  `MissionPhase`, `get_drone_detector`).  Test imports in
+  `tests/test_drone_detector.py` were updated to the new path.
+
+#### `omni_mercury_engine.medical.endocrinology_detector` — Deviations from the original
+
+The initial port dropped three rule groups from the upstream
+`endocrinology_detector.py` without CHANGELOG documentation.  All three
+groups are restored in this pass with citation-pinned class constants
+and regression tests:
+
+- **`SmartInsulinPenMonitor` — large-bolus and daily-total guards (restored).**
+  - `MAX_BOLUS_UNITS: Final[float] = 15.0` — fires
+    `"Verify dose - risk of hypoglycemia"` and
+    `"Consider splitting dose if meal is large"` when
+    `dose_units > MAX_BOLUS_UNITS` **and**
+    `insulin_type == "rapid_acting"`.  Citation: ADA Standards of
+    Care; FDA insulin labeling — large rapid-acting boluses without
+    sensitivity verification are a documented hypoglycemia risk.
+  - `MAX_DAILY_INSULIN_UNITS: Final[float] = 50.0` — fires
+    `"Review insulin sensitivity and dosing regimen"` when
+    `daily_total_units > MAX_DAILY_INSULIN_UNITS`.  Citation: ADA
+    Standards of Care — total daily insulin above ~50 U warrants a
+    sensitivity / regimen review.
+  - Both checks accept their inputs as **optional** parameters on
+    `monitor_insulin_delivery()` so legacy callers that supplied
+    only `recent_doses` / `adherence_rate` / `patient_glucose`
+    continue to work unchanged.  Locked by four new tests in
+    `TestSmartInsulinPenMonitor`
+    (`test_smart_pen_large_bolus_alert_fires_above_15u_rapid_acting`,
+    `test_smart_pen_large_bolus_does_not_fire_for_basal`,
+    `test_smart_pen_daily_total_alert_fires_above_50u`,
+    `test_smart_pen_no_alert_when_fields_omitted`).
+- **`InhaledInsulinMonitor` — dose ceiling and technique guards (restored).**
+  - `MAX_DOSE_UNITS: Final[int] = 12` — fires
+    `"Consider subcutaneous insulin for large doses"` when
+    `dose_units > MAX_DOSE_UNITS`.  Citation: FDA Afrezza label,
+    Section 5 (Warnings and Precautions).
+  - `MIN_TECHNIQUE_SCORE: Final[float] = 0.7` — fires
+    `"Retrain on proper inhaler use"` and
+    `"May result in suboptimal absorption"` when
+    `inhalation_technique_score < MIN_TECHNIQUE_SCORE`.  Citation:
+    AARC inhaler-technique guidance.
+  - Inputs are optional on `monitor_inhaled_insulin()`; the FEV1
+    contraindication still dominates the result when all three
+    alerts fire concurrently.  Locked by three new tests in
+    `TestInhaledInsulinMonitor`
+    (`test_inhaled_dose_ceiling_alert_fires_above_12u`,
+    `test_inhaled_technique_alert_fires_below_0_7`,
+    `test_inhaled_contraindication_still_dominates`).
+- **`GLP1TherapyMonitor` — duration-aware titration and GI handling (restored).**
+  - `A1C_ESCALATION_WEEK: Final[int] = 12` /
+    `A1C_INADEQUATE_DROP_PERCENT: Final[float] = -0.5` — when
+    `a1c_change_percent > -0.5` **and** `duration_weeks >= 12`, the
+    monitor recommends dose escalation.  Citation: ADA
+    pharmacological guidance; FDA semaglutide / liraglutide
+    labeling.
+  - `WEIGHT_LOSS_REVIEW_WEEK: Final[int] = 16` /
+    `WEIGHT_LOSS_TARGET_KG: Final[float] = 2.5` — when
+    `abs(weight_loss_kg) < 2.5` **and** `duration_weeks >= 16`, the
+    monitor recommends a diet / exercise review and dose escalation
+    if tolerated.
+  - GI side-effects: when `side_effects` contains `"nausea"` or
+    `"vomiting"` (case-insensitive), the monitor emits
+    `"Take with food, slower dose titration; consider antiemetics
+    if severe"`.
+  - `duration_weeks` is an **optional** parameter (default `0`).
+    The pancreatitis discontinuation rule still dominates the
+    `continue_therapy` flag when any of the new rules fire.  Locked
+    by four new tests in `TestGLP1TherapyMonitor`
+    (`test_glp1_dose_escalation_recommended_at_week_12_inadequate_a1c`,
+    `test_glp1_no_escalation_before_week_12`,
+    `test_glp1_gi_side_effects_trigger_titration_advice`,
+    `test_glp1_pancreatitis_still_dominates`).
+- **`CGMAnalyzer` — trend-head width (kept widened, docstring
+  corrected).**  The upstream architecture has the trend head at
+  `hidden_dim * 2 -> 32 -> 1`; Mercury's port widens it to
+  `hidden_dim * 2 -> 64 -> 1` to match the glycemic classifier's
+  hidden width.  Parameter count is approximately equal (~155K) but
+  the resulting weights are **not interchangeable** with upstream
+  checkpoints — any prior pretrained weights would need to be
+  re-trained for this layout.  The class docstring has been updated
+  to drop the previous "matches the verified Omni-AXA
+  implementation" wording, which was directionally wrong.  Locked
+  by the new
+  `test_cgm_analyzer_parameter_count_is_approximately_155k` guard
+  (asserts `145_000 <= count_cgm_parameters() <= 165_000`).
+- **`SmartInsulinPenMonitor` — adherence scalar (intentionally
+  simplified).**  Mercury accepts a single
+  `adherence_rate ∈ [0, 1]` scalar rather than the upstream's
+  `doses_taken / doses_prescribed` ratio because the
+  `CGMDataSource` / vendor-adapter contract returns this as a
+  pre-computed daily fraction; recomputing it inside the monitor
+  would invite a divide-by-zero on partially-reported days.  The
+  low-adherence alert still fires below `0.8`.
+
+#### `omni_mercury_engine.medical.anesthesiology_predictor` — Deviations from the original
+
+- **`HemodynamicMonitor.spo2_threshold` (kept explicit guard).**  The
+  port keeps the explicit
+  `intervention_needed = overall_risk > 0.6 or spo2 < spo2_threshold`
+  short-circuit so that any sub-92 % SpO₂ reading triggers
+  intervention even when the per-vital risk weights happen to
+  average out below 0.6.  Citation: ASA standards for basic
+  anesthetic monitoring.
+- **`HemodynamicMonitor` bradycardia threshold (kept tightened at
+  ≥ 0.5).**  Sub-50 bpm HR contributes `0.5 * (50 - hr) / 50`
+  capped at `1.0`, so a reading of 45 bpm contributes 0.05 of risk
+  rather than the upstream's 0.10 — the upstream value risked
+  overcounting routine athletes-at-rest readings while the OR is
+  otherwise stable.  Locked by
+  `tests/test_anesthesiology_predictor.py::TestHemodynamicMonitor::test_bradycardia_contributes_to_risk`.
+- **Synthetic vitals generator removed from production paths.**  The
+  upstream module included a `VitalDBClient` synthetic-data
+  generator that emitted fabricated MAP / HR / SpO₂ traces.  Mercury
+  refuses to operate on synthetic vitals in production: the
+  predictor raises `ConfigurationError` when
+  `enable_hemodynamics=True` and no `VitalsDataSource` adapter is
+  supplied.  Tests use sanitized FHIR-R4 `Observation` fixtures
+  (`tests/fixtures/medical/fhir_observation_vitals.json`).
+
+#### `omni_mercury_engine.compliance.osha_anomaly` — Deviations from the original
+
+- **Heat-index regression direction (docstring correction).**  The
+  initial port's module-level docstring claimed the simplified
+  `T + 0.5*RH` heuristic "under-reported heat stress at high
+  humidity."  The worked example actually shows **over**-reporting
+  (the heuristic returns ~130 °F at T=95 °F / RH=70 % while the
+  Rothfusz regression returns ~122 °F, an 8 °F over-report).  The
+  docstring has been rewritten to capture both directions: high-RH
+  over-reporting and low-RH under-reporting.  Three new NWS
+  reference-point tests
+  (`test_heat_index_known_values[80F/40%RH]`,
+  `[95F/70%RH]`, `[100F/10%RH]`) pin the Steadman branch, the
+  unadjusted Rothfusz branch, and the low-humidity adjustment
+  branch respectively.
+- **`OSHAComplianceAnomaly` legacy alias removed.**  The upstream
+  module ended with
+  `OSHAComplianceAnomaly = OSHAComplianceDetector`.  A repository-wide
+  `git grep OSHAComplianceAnomaly` confirmed that the only external
+  reference lives in the upstream Omni-AXA tree and Mercury's own
+  `docs/ARCHITECTURE.md`; no Mercury runtime code, tests, or
+  downstream callers depend on the alias.  The alias is **removed
+  without replacement** in the Mercury port.  Importers that hit
+  the missing name will get a clear `ImportError`; integrators
+  should import `OSHAComplianceDetector` directly.
+- **`ECFRClient` rate-limit handling (clarified, not enforced).**  The
+  class docstring previously implied the client enforced the
+  published 60 req/min/IP guidance; in fact it only caches.  The
+  docstring has been rewritten to state explicitly that the client
+  does **not** enforce the limit programmatically — operators
+  running batch audits should cap concurrency at the call site
+  (e.g. a thread / asyncio semaphore around `verify_citation()`).
+  The in-process cache reduces duplicate lookups during a single
+  audit run and is the primary mechanism by which Mercury stays
+  under the published limit.
+
+#### `omni_mercury_engine.detectors.drone.detector` — Deviations from the original
+
+- **`_analyze_log_entry` keyword scoring (extended, not narrowed).**
+  The upstream scored only mechanical-fault keywords
+  (`critical`, `error`, `warning`, level guards, `timeout`,
+  `connection lost`).  Mercury extends this with three
+  Mercury-specific signals, weights tuned so operationally-noisy
+  lines (routine "signal weak" advisories, expected
+  `intrusion_detection` self-tests, transient thermal notes) stay
+  below the `score > 0.75` fault gate while genuinely anomalous
+  lines cross it:
+  - `+0.55` for `attack | intrusion | unauthorized` (security).
+  - `+0.40` for `overheat[ing]` (thermal).
+  - `+0.35` for `signal lost` (telemetry loss).
+  Pinned by
+  `tests/test_drone_detector.py::TestDronLomalyLogs::test_log_keyword_scoring_does_not_overflag_routine_lines`,
+  which feeds three benign-but-noisy lines and three genuinely
+  anomalous lines and asserts each side of the threshold.
+
+#### Testing
+
+- **`tests/test_clinical_rule_pins.py`** (new, rule-vs-citation
+  harness).  Pins every cited FDA / ADA / NWS / ASA / AARC
+  threshold against the module-level constant the citation refers
+  to via a parametrised pin table.  Regressions that change a
+  comparison operator (e.g. `<` → `<=`) or threshold value
+  (e.g. `70.0` → `70`) surface immediately with the citation URL
+  alongside the failing assertion.  A second test prints the live
+  pin table during `pytest -v` so the mapping is visible per run.
+  Initial coverage: nine pins across
+  `endocrinology_detector` (seven), `anesthesiology_predictor`
+  (one), and `osha_anomaly` (one).
+- **Weekly network-test cadence.**  `@pytest.mark.network`-marked
+  tests now run weekly via
+  `.github/workflows/network-tests.yml` (Mondays 13:00 UTC, plus
+  `workflow_dispatch`).  Failures surface as a separate CI signal
+  so external-endpoint schema drift (Dexcom v3, FHIR R4
+  `Observation`, eCFR Title 29, NIST CSF Reference Tool) is caught
+  within seven days even though those tests auto-skip on every
+  per-PR run.
 
 ### Omni-AXA → Mercury port, PR 1: infrastructure & stdlib-only modules
 
