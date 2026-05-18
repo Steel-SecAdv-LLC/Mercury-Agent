@@ -122,6 +122,16 @@ Auth: None (public domain, US Government)
 Loader: `FEMADisasterLoader` in `src/omni_mercury_engine/datasets/disaster.py`
 Status: Live API. Not included in mercury_benchmark.py suite (API-based, not static dataset).
 
+> **v1.7.0 label-polarity fix.** Prior to v1.7.0 the FEMA Disaster
+> loader handed the anomaly detector inverted labels — historical
+> FEMA records make "DR + multi-program" the majority class, which
+> drove benchmark AUC below 0.5 and earned the loader a
+> "known-broken" note in the CHANGELOG reproducibility footnote.
+> `FEMADisasterLoader._select_anomaly_polarity` now enforces the
+> minority-as-anomaly convention used elsewhere in Mercury and
+> exposes `loader.labels_inverted` for downstream reporters.
+> Locked by `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`.
+
 ## Unavailable — Credential-Gated (not counted in benchmarks)
 
 ### SMAP / MSL (NASA Spacecraft Telemetry)
@@ -325,3 +335,98 @@ No synthetic data is used in any benchmark.
 | EIA | Optional (free) | `EIA_API_KEY` |
 
 All API keys are stored in environment variables, never in code. See `.env.example` for the complete list.
+
+---
+
+## Operating the SafeHTTP gate
+
+Every loader that reaches the public internet flows through
+`omni_mercury_engine.security.safe_http.SafeHTTPClient`, which is
+Mercury's single SSRF / DNS-rebinding defence layer.  Two operational
+behaviours are worth pinning down for operators because they are
+intentional but counter-intuitive on first encounter.
+
+### DNS resolution fails closed for `user_configured=True` URLs
+
+When a loader (or any caller) hands the SafeHTTP gate a URL that came
+from operator configuration — anything where `user_configured=True`
+is passed to `SafeHTTPClient.validate_url` — and DNS resolution of
+the host fails for **any** reason, the gate raises
+`omni_mercury_engine.security.safe_http.UnsafeURLError` rather than
+treating the failure as a benign network blip and falling through.
+
+This is **intentional**.  A DNS-rebinding attack works by first
+giving the validator a public-IP A record, then flipping the same
+hostname to a private IP for the actual HTTP request.  Failing
+closed on resolution errors is the only way to prevent a timing
+window where the attacker can race the validator.  See:
+
+* `src/omni_mercury_engine/security/safe_http.py:138-155` —
+  the `getaddrinfo` failure branch.
+* `tests/loaders/test_base_loader.py:99` — the regression test
+  that locks the "DNS failure must NOT be classified as
+  non-fatal" contract.
+
+**Operator symptoms.**  Any of these usually mean DNS-fails-closed
+fired, not that Mercury is broken:
+
+* `UnsafeURLError: DNS resolution failed for <host>: <reason>`
+* A dataset loader that worked yesterday now fails at
+  `download()` with the above, even though `curl <host>` from the
+  same box succeeds.
+* CI is green but a production deployment cannot reach an
+  on-premises mirror whose host is only resolvable via the
+  internal resolver.
+
+**Remediation, in order of preference.**
+
+1.  **Verify the host is actually resolvable from the Mercury
+    process's resolver.**  In containers this commonly means the
+    pod is missing `dnsConfig.searches` or the internal stub
+    resolver, not a Mercury bug.  Fix the resolver and the loader
+    starts working immediately.
+2.  **If you are intentionally pointing Mercury at a private
+    mirror,** pass `allow_private=True` to the loader's
+    `DatasetConfig.preprocessing` (or directly to
+    `SafeHTTPClient`).  This opts into trusting RFC1918 / RFC4193
+    targets and is the supported configuration for air-gapped /
+    on-prem dataset mirrors.  Document this opt-in alongside the
+    deployment so the next operator knows the gate has been
+    relaxed for that one loader.
+3.  **Place the dataset on disk and use the loader's
+    `local_path` preprocessing key.**  CICIDS-2017 (see above) is
+    the reference implementation — `_load_from_local_path` skips
+    the network entirely and only the on-disk parsing path runs.
+    Several other loaders accept the same key; consult the loader
+    source for its exact preprocessing schema.
+
+Do **not** try to work around this by toggling `allow_untrusted=True`
+on `SafeHTTPClient` — the kwarg was removed in v1.7.0 (PR #210) and
+attempting to construct the client with it raises `TypeError`.  See
+`docs/MIGRATION-1.6-to-1.7.md` §1 for the migration guide.
+
+### Reachability harness for the historically-unreachable 11
+
+The 11 datasets listed in `CHANGELOG.md`'s reproducibility footnote
+(SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS
+Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA
+HazardMitigation) each have a two-lane reachability harness so the
+loaders do not silently bitrot when an upstream provider goes away:
+
+* `tests/datasets/test_unreachable_loaders_offline.py` — runs in
+  every CI lane.  Constructs each loader, exercises the
+  metadata contract, and asserts that a simulated upstream
+  outage produces a loud `DataSourceUnavailableError` /
+  `ConnectionError` rather than a silent `False` return.
+* `tests/datasets/test_unreachable_loaders_network.py` — marked
+  `@pytest.mark.network`, deselected by default, run nightly via
+  `.github/workflows/dataset-reachability.yml`.  Calls the real
+  `download()` and accepts either successful retrieval (asserting
+  non-empty features) or a loud upstream-unavailable exception.
+
+If you add or remove a loader from the unreachable-11 set, update
+**all three** of: this section, the CHANGELOG footnote, and the
+`_UNREACHABLE_LOADERS` table in
+`tests/datasets/test_unreachable_loaders_offline.py`.  The harness
+includes a coverage-drift assertion (`test_harness_covers_eleven_loaders`)
+that fails the build if these get out of sync.

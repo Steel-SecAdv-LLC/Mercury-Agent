@@ -136,16 +136,152 @@ class TestFEMADisasterLoader:
             assert all(v in [0, 1] for v in unique_vals)
 
     def test_major_disaster_labeling(self, loader: Any) -> None:
-        """Test major disaster labeling logic."""
+        """Major disaster labels follow the minority-as-anomaly convention.
+
+        As of v1.7.0 the FEMA Disaster loader auto-corrects label
+        polarity so the *rarer* event class always carries label==1
+        (the unsupervised-anomaly convention).  This test locks two
+        invariants on the synthetic-fallback path used in CI:
+
+        1.  Positive rate is at most 50 percent — anomaly class is
+            the minority.
+        2.  When `loader.labels_inverted` is False, label==1 matches
+            the legacy "DR + multi-program" mask; when it is True,
+            label==1 matches its complement.  This is the same
+            invariant that `_select_anomaly_polarity` enforces and
+            is what unblocks the previously-broken FEMA Disaster
+            benchmark (see CHANGELOG `[Unreleased]`).
+        """
         loader.download()
         features, labels = loader._load_raw()
 
-        # Check label logic: DR type + multiple programs
-        for i in range(len(features)):
-            is_dr = features[i, 6] == 0  # declaration_type_code == DR
-            program_count = features[i, 8] + features[i, 9] + features[i, 10]
-            expected_label = 1 if (is_dr and program_count >= 2) else 0
-            assert labels[i] == expected_label
+        positive_rate = float(labels.mean())
+        assert positive_rate <= 0.5, (
+            f"FEMA Disaster positive rate is {positive_rate:.3f}; "
+            "the anomaly class must be the minority "
+            "(minority-as-anomaly invariant)."
+        )
+
+        candidate_major = (features[:, 6] == 0) & (
+            (features[:, 8] + features[:, 9] + features[:, 10]) >= 2
+        )
+        expected_after_polarity = (~candidate_major) if loader.labels_inverted else candidate_major
+        assert (labels == expected_after_polarity.astype(labels.dtype)).all()
+
+
+class TestFEMAInvertedScoresCorrection:
+    """Regression coverage for the v1.7.0 inverted-scores fix.
+
+    The `CHANGELOG.md` reproducibility footnote previously flagged
+    `fema_disaster` as a "known-broken loader producing inverted
+    scores" — meaning the model's AUC routinely fell below 0.5
+    because the loader handed it majority-as-positive labels.
+    These tests pin the fix.
+    """
+
+    def test_polarity_flips_when_candidate_class_is_majority(self, tmp_path: Any) -> None:
+        """`_select_anomaly_polarity` inverts a majority mask."""
+        config = DatasetConfig(
+            name="fema_disaster",
+            data_dir=str(tmp_path / "d"),
+            cache_dir=str(tmp_path / "c"),
+        )
+        loader = FEMADisasterLoader(config)
+        mask = np.array([True, True, True, True, True, True, True, False, False, False])
+        labels = loader._select_anomaly_polarity(mask)
+        assert loader.labels_inverted is True
+        assert labels.sum() == 3  # minority class wins
+        assert (labels == (~mask).astype(np.int64)).all()
+
+    def test_polarity_preserved_when_candidate_class_is_minority(self, tmp_path: Any) -> None:
+        """`_select_anomaly_polarity` is a no-op when already minority."""
+        config = DatasetConfig(
+            name="fema_disaster",
+            data_dir=str(tmp_path / "d"),
+            cache_dir=str(tmp_path / "c"),
+        )
+        loader = FEMADisasterLoader(config)
+        mask = np.array([True, True, False, False, False, False, False, False, False, False])
+        labels = loader._select_anomaly_polarity(mask)
+        assert loader.labels_inverted is False
+        assert labels.sum() == 2
+        assert (labels == mask.astype(np.int64)).all()
+
+    def test_polarity_handles_empty_mask(self, tmp_path: Any) -> None:
+        """No records → no flip, no crash."""
+        config = DatasetConfig(
+            name="fema_disaster",
+            data_dir=str(tmp_path / "d"),
+            cache_dir=str(tmp_path / "c"),
+        )
+        loader = FEMADisasterLoader(config)
+        labels = loader._select_anomaly_polarity(np.array([], dtype=bool))
+        assert loader.labels_inverted is False
+        assert labels.size == 0
+
+    def test_property_starts_false(self, tmp_path: Any) -> None:
+        """`labels_inverted` defaults to False before any load."""
+        config = DatasetConfig(
+            name="fema_disaster",
+            data_dir=str(tmp_path / "d"),
+            cache_dir=str(tmp_path / "c"),
+        )
+        loader = FEMADisasterLoader(config)
+        assert loader.labels_inverted is False
+
+    def test_real_data_processing_invariant(self, tmp_path: Any) -> None:
+        """Synthesised "real-data shape" records exercise the same path.
+
+        Constructs an in-memory record set that mimics OpenFEMA's API
+        response with a deliberately majority "DR + multi-program"
+        slice, then runs the real-data processing pipeline.  Locks
+        that the public path produces a minority-positive label set
+        and reports the inversion via `labels_inverted`.
+        """
+        config = DatasetConfig(
+            name="fema_disaster",
+            data_dir=str(tmp_path / "d"),
+            cache_dir=str(tmp_path / "c"),
+        )
+        loader = FEMADisasterLoader(config)
+
+        # 8 records that would historically be label==1
+        # (DR + IA + PA + HM), 2 minority records.
+        majority_records = [
+            {
+                "declarationDate": "2020-01-01T00:00:00.000Z",
+                "incidentType": "Hurricane",
+                "declarationType": "DR",
+                "fipsStateCode": "12",
+                "designatedArea": "Statewide",
+                "ihProgramDeclared": True,
+                "paProgramDeclared": True,
+                "hmProgramDeclared": True,
+                "disasterNumber": 4000 + i,
+            }
+            for i in range(8)
+        ]
+        minority_records = [
+            {
+                "declarationDate": "2020-02-01T00:00:00.000Z",
+                "incidentType": "Fire",
+                "declarationType": "EM",
+                "fipsStateCode": "6",
+                "designatedArea": "Los Angeles (County)",
+                "ihProgramDeclared": False,
+                "paProgramDeclared": False,
+                "hmProgramDeclared": False,
+                "disasterNumber": 5000 + i,
+            }
+            for i in range(2)
+        ]
+
+        features, labels = loader._process_fema_data(majority_records + minority_records)
+        assert features.shape == (10, 11)
+        assert loader.labels_inverted is True
+        assert labels.sum() == 2  # minority class wins
+        # The 2 minority records carry the anomaly label.
+        assert labels[-2:].tolist() == [1, 1]
 
 
 class TestFEMAHazardMitigationLoader:

@@ -260,6 +260,28 @@ jobs:
             --pretty \
             --no-warn-unused-configs
 
+      - name: Run MyPy strict on tests/datasets (no test-debt disables)
+        # ---- v1.7.0: incremental test-debt removal ----
+        # Newly-authored or refactored test directories opt into the
+        # strict mypy gate (no ``--allow-untyped-defs``, no
+        # ``--allow-subclassing-any``, no decorator disable) once
+        # they are clean.  Every test file under ``tests/datasets/``
+        # is fully annotated (verified by the run below) so the
+        # historical test-debt relaxations no longer apply here.
+        #
+        # The mechanism is intentionally additive: directories that
+        # are not yet clean stay on the relaxed lane above, and
+        # individual directories graduate to the strict lane one
+        # commit at a time.  When a directory graduates, add it to
+        # the comma-separated list below.  See the strengthening
+        # plan §5 P0 ("Re-lift the test-debt mypy disables") for
+        # the long-term goal of emptying the relaxed lane.
+        run: |
+          mypy tests/datasets/ \
+            --show-error-codes \
+            --pretty \
+            --no-warn-unused-configs
+
   # ===========================================================================
   # Stage 3: Security Scanning
   # ===========================================================================
