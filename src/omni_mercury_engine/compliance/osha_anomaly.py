@@ -47,7 +47,6 @@ References
 
 from __future__ import annotations
 
-import json
 import logging
 import math
 import threading
@@ -56,8 +55,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Final
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+
+import requests
+
+from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +227,15 @@ class ECFRClient:
     The eCFR is a free public service operated by the U.S. National Archives
     and the Office of the Federal Register.  Authentication is not required.
 
+    Egress safety
+    -------------
+    Every request goes through :class:`SafeHTTPClient`, so the scheme
+    allowlist (HTTPS), IP/private-network gate, DNS-rebinding pin, and
+    redirect refusal sit in front of each eCFR call.  ``base_url`` is
+    additionally constrained to :data:`ALLOWED_BASE_URLS` so an
+    operator typo or hostile environment variable cannot quietly
+    re-target the citation verifier at an attacker-controlled host.
+
     Rate limiting
     -------------
     The public eCFR API publishes a 60 req/min/IP guidance.  This client
@@ -239,6 +249,11 @@ class ECFRClient:
     """
 
     DEFAULT_BASE_URL: Final[str] = "https://www.ecfr.gov"
+    #: Canonical eCFR hosts the National Archives publishes.  Restricting
+    #: ``base_url`` to this set turns an operator misconfiguration into a
+    #: hard ``ValueError`` at client construction rather than a silent
+    #: redirection of regulatory traffic.
+    ALLOWED_BASE_URLS: Final[tuple[str, ...]] = ("https://www.ecfr.gov",)
 
     def __init__(
         self,
@@ -250,11 +265,24 @@ class ECFRClient:
         """Initialise the eCFR client.
 
         Args:
-            base_url: Base URL for the eCFR HTTP API.
+            base_url: Base URL for the eCFR HTTP API.  Must be one of
+                :data:`ALLOWED_BASE_URLS`; any other value is rejected.
             timeout_seconds: Network timeout for each request.
             user_agent: HTTP ``User-Agent`` header value.
+
+        Raises:
+            ValueError: If ``base_url`` is not in :data:`ALLOWED_BASE_URLS`.
         """
-        self._base_url = base_url.rstrip("/")
+        trimmed = base_url.rstrip("/")
+        if trimmed not in self.ALLOWED_BASE_URLS:
+            raise ValueError(
+                "ECFRClient.base_url must be one of ECFRClient.ALLOWED_BASE_URLS "
+                f"({list(self.ALLOWED_BASE_URLS)}); got {base_url!r}. "
+                "The eCFR API is published only at the National Archives' "
+                "canonical host; arbitrary URLs are rejected to keep "
+                "regulatory verification from being silently rerouted."
+            )
+        self._base_url = trimmed
         self._timeout = float(timeout_seconds)
         self._user_agent = user_agent
         self._cache: dict[tuple[str, str, str], bool] = {}
@@ -313,22 +341,24 @@ class ECFRClient:
                 return cached
 
         url = f"{self._base_url}/api/versioner/v1/structure/current/title-{title}.json"
-        request = Request(  # noqa: S310 - HTTPS URL constructed from validated digits
-            url,
-            headers={"User-Agent": self._user_agent, "Accept": "application/json"},
-        )
         try:
-            with urlopen(request, timeout=self._timeout) as response:  # noqa: S310
-                if response.status != 200:
-                    raise ECFRClientError(f"Unexpected status {response.status} for {url}")
-                payload = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            if exc.code == 404:
+            payload = SafeHTTPClient.get_json(
+                url,
+                headers={"User-Agent": self._user_agent, "Accept": "application/json"},
+                timeout=self._timeout,
+                user_configured=True,
+            )
+        except UnsafeURLError as exc:
+            raise ECFRClientError(f"eCFR request failed: {exc}") from exc
+        except requests.HTTPError as exc:
+            response = exc.response
+            status = response.status_code if response is not None else None
+            if status == 404:
                 with self._cache_lock:
                     self._cache[(title, part, section)] = False
                 return False
-            raise ECFRClientError(f"eCFR HTTP error {exc.code}: {exc.reason}") from exc
-        except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+            raise ECFRClientError(f"eCFR HTTP error {status}") from exc
+        except Exception as exc:
             raise ECFRClientError(f"eCFR request failed: {exc}") from exc
 
         verified = _ecfr_structure_contains_part(payload, part)

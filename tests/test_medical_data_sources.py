@@ -1,21 +1,26 @@
 """Tests for the medical data-source adapters.
 
 The adapters parse real vendor responses captured as sanitized fixtures.
-Network calls are not performed: ``urlopen`` is patched at the boundary so
-the real parsing + auth logic runs without leaving the test process.
+Network calls are not performed: :class:`SafeHTTPClient` is patched at
+its public boundary so the real parsing + auth logic runs without
+leaving the test process.  Routing through SafeHTTPClient (rather than
+``urllib.request.urlopen``) puts the scheme allowlist, private-network
+block, DNS-rebinding pin, and redirect refusal in front of every Dexcom
+/ FHIR call; the adapter unit tests focus on the parsing, auth flow,
+and exception-mapping logic - the SafeHTTPClient gates themselves are
+covered by ``tests/test_safe_http.py``.
 """
 
 from __future__ import annotations
 
-import io
 import json
 from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
-from urllib.error import HTTPError
 
 import pytest
+import requests
 
 from omni_mercury_engine.medical.data_sources import (
     CGMDataSource,
@@ -31,6 +36,7 @@ from omni_mercury_engine.medical.data_sources import (
     parse_dexcom_egvs_payload,
     parse_fhir_observation_bundle,
 )
+from omni_mercury_engine.security.safe_http import SafeHTTPClient
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "medical"
 
@@ -42,21 +48,19 @@ def _load_fixture(name: str) -> dict[str, Any]:
     return data
 
 
-class _FakeHTTPResponse:
-    """Minimal stand-in for ``http.client.HTTPResponse`` used by ``urlopen``."""
+def _build_http_error(url: str, status: int, reason: str = "Bad Request") -> requests.HTTPError:
+    """Construct a ``requests.HTTPError`` matching ``SafeHTTPClient`` failures.
 
-    def __init__(self, payload: bytes, status: int = 200) -> None:
-        self._payload = payload
-        self.status = status
-
-    def read(self) -> bytes:
-        return self._payload
-
-    def __enter__(self) -> _FakeHTTPResponse:
-        return self
-
-    def __exit__(self, *_exc: object) -> None:
-        return None
+    ``SafeHTTPClient`` calls ``response.raise_for_status()`` on 4xx/5xx
+    so the adapter sees exactly this exception shape (status code
+    embedded in ``response.status_code``).  The reusable builder keeps
+    every adapter-failure test consistent with the production gate.
+    """
+    response = requests.Response()
+    response.status_code = status
+    response.url = url
+    response.reason = reason
+    return requests.HTTPError(f"{status} {reason}: {url}", response=response)
 
 
 class _FrozenClock:
@@ -183,8 +187,40 @@ class TestParseFhirObservationBundle:
 # --------------------------------------------------------------------------- #
 
 
+class TestDexcomConfigAllowlist:
+    """``DexcomConfig`` rejects any base URL outside the published hosts."""
+
+    def _base_kwargs(self) -> dict[str, str]:
+        return {
+            "client_id": "test-client-id",
+            "client_secret": "test-client-secret",
+            "refresh_token": "test-refresh-token",
+            "redirect_uri": "https://example.invalid/callback",
+        }
+
+    def test_production_base_accepted(self) -> None:
+        config = DexcomConfig(**self._base_kwargs(), base_url="https://api.dexcom.com")
+        assert config.base_url == "https://api.dexcom.com"
+
+    def test_sandbox_base_accepted(self) -> None:
+        config = DexcomConfig(**self._base_kwargs(), base_url="https://sandbox-api.dexcom.com")
+        assert config.base_url == "https://sandbox-api.dexcom.com"
+
+    def test_trailing_slash_is_canonicalised(self) -> None:
+        config = DexcomConfig(**self._base_kwargs(), base_url="https://api.dexcom.com/")
+        assert config.base_url == "https://api.dexcom.com"
+
+    def test_unknown_host_rejected(self) -> None:
+        with pytest.raises(ConfigurationError, match="DEXCOM_BASE_URL"):
+            DexcomConfig(**self._base_kwargs(), base_url="https://evil.example.com")
+
+    def test_http_scheme_rejected(self) -> None:
+        with pytest.raises(ConfigurationError, match="DEXCOM_BASE_URL"):
+            DexcomConfig(**self._base_kwargs(), base_url="http://api.dexcom.com")
+
+
 class TestDexcomV3DataSource:
-    """End-to-end adapter tests with the network boundary mocked."""
+    """End-to-end adapter tests with the SafeHTTPClient boundary mocked."""
 
     def _config(self) -> DexcomConfig:
         return DexcomConfig(
@@ -220,6 +256,15 @@ class TestDexcomV3DataSource:
         adapter = DexcomV3DataSource()
         assert adapter.config.client_id == "env-id"
 
+    def test_env_base_url_outside_allowlist_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DEXCOM_CLIENT_ID", "env-id")
+        monkeypatch.setenv("DEXCOM_CLIENT_SECRET", "env-secret")
+        monkeypatch.setenv("DEXCOM_REFRESH_TOKEN", "env-refresh")
+        monkeypatch.setenv("DEXCOM_REDIRECT_URI", "https://example.invalid/cb")
+        monkeypatch.setenv("DEXCOM_BASE_URL", "https://attacker.example/v3")
+        with pytest.raises(ConfigurationError, match="DEXCOM_BASE_URL"):
+            DexcomV3DataSource()
+
     def test_fetch_recent_readings_validates_window(self) -> None:
         adapter = DexcomV3DataSource(self._config())
         with pytest.raises(ValueError, match="window_minutes"):
@@ -228,85 +273,112 @@ class TestDexcomV3DataSource:
             adapter.fetch_recent_readings(window_minutes=1441)
 
     def test_fetch_recent_readings_returns_parsed_records(self) -> None:
-        token_payload = json.dumps(_load_fixture("dexcom_token.json")).encode()
-        egvs_payload = json.dumps(_load_fixture("dexcom_egvs.json")).encode()
-        responses = iter(
-            [
-                _FakeHTTPResponse(token_payload),
-                _FakeHTTPResponse(egvs_payload),
-            ]
-        )
+        token_payload = _load_fixture("dexcom_token.json")
+        egvs_payload = _load_fixture("dexcom_egvs.json")
 
-        def _fake_urlopen(*_args: object, **_kwargs: object) -> _FakeHTTPResponse:
-            return next(responses)
+        captured_token: dict[str, Any] = {}
+        captured_egvs: dict[str, Any] = {}
+
+        def _fake_post_form(url: str, **kwargs: Any) -> dict[str, Any]:
+            captured_token["url"] = url
+            captured_token["form_data"] = kwargs.get("form_data")
+            captured_token["user_configured"] = kwargs.get("user_configured")
+            return token_payload
+
+        def _fake_get_json(url: str, **kwargs: Any) -> dict[str, Any]:
+            captured_egvs["url"] = url
+            captured_egvs["headers"] = kwargs.get("headers")
+            captured_egvs["params"] = kwargs.get("params")
+            captured_egvs["user_configured"] = kwargs.get("user_configured")
+            return egvs_payload
 
         clock = _FrozenClock(datetime(2024, 1, 15, 13, 0, 0, tzinfo=UTC))
         adapter = DexcomV3DataSource(self._config(), clock=clock)
-        with patch("omni_mercury_engine.medical.data_sources.urlopen", _fake_urlopen):
+        with (
+            patch.object(SafeHTTPClient, "post_form", staticmethod(_fake_post_form)),
+            patch.object(SafeHTTPClient, "get_json", staticmethod(_fake_get_json)),
+        ):
             readings = adapter.fetch_recent_readings(window_minutes=60)
         assert len(readings) == 5
         assert readings[0].value_mg_dl == 118
         assert readings[-1].value_mg_dl == 158
+        # Token endpoint goes through SafeHTTPClient with user_configured=True
+        # so the operator-supplied base URL passes the private-network gate
+        # without needing the trusted-allowlist.
+        assert captured_token["url"] == "https://sandbox-api.dexcom.com/v2/oauth2/token"
+        assert captured_token["form_data"] == {
+            "client_id": "test-client-id",
+            "client_secret": "test-client-secret",
+            "refresh_token": "test-refresh-token",
+            "grant_type": "refresh_token",
+            "redirect_uri": "https://example.invalid/callback",
+        }
+        assert captured_token["user_configured"] is True
+        assert captured_egvs["url"] == "https://sandbox-api.dexcom.com/v3/users/self/egvs"
+        assert captured_egvs["user_configured"] is True
+        # The bearer token from the token response must be forwarded.
+        headers = captured_egvs["headers"]
+        assert headers["Authorization"].startswith("Bearer ")
 
     def test_token_endpoint_http_error_wrapped(self) -> None:
-        def _raise_http_error(*_args: object, **_kwargs: object) -> _FakeHTTPResponse:
-            raise HTTPError(
-                "https://sandbox-api.dexcom.com/v2/oauth2/token",
-                400,
-                "Bad Request",
-                {},  # type: ignore[arg-type]
-                io.BytesIO(b'{"error": "invalid_grant"}'),
+        def _raise_http_error(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _build_http_error(
+                "https://sandbox-api.dexcom.com/v2/oauth2/token", 400, "Bad Request"
             )
 
         adapter = DexcomV3DataSource(self._config())
         with (
-            patch("omni_mercury_engine.medical.data_sources.urlopen", _raise_http_error),
+            patch.object(SafeHTTPClient, "post_form", staticmethod(_raise_http_error)),
             pytest.raises(DataSourceError, match="token refresh failed"),
         ):
             adapter.fetch_recent_readings(window_minutes=60)
 
     def test_egv_endpoint_invalid_status_wrapped(self) -> None:
-        token_payload = json.dumps(_load_fixture("dexcom_token.json")).encode()
-        responses = iter(
-            [
-                _FakeHTTPResponse(token_payload, status=200),
-                _FakeHTTPResponse(b"{}", status=503),
-            ]
-        )
+        token_payload = _load_fixture("dexcom_token.json")
 
-        def _fake_urlopen(*_args: object, **_kwargs: object) -> _FakeHTTPResponse:
-            return next(responses)
+        def _fake_post_form(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            return token_payload
+
+        def _fake_get_json(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise _build_http_error(
+                "https://sandbox-api.dexcom.com/v3/users/self/egvs",
+                503,
+                "Service Unavailable",
+            )
 
         clock = _FrozenClock(datetime(2024, 1, 15, 13, 0, 0, tzinfo=UTC))
         adapter = DexcomV3DataSource(self._config(), clock=clock)
         with (
-            patch("omni_mercury_engine.medical.data_sources.urlopen", _fake_urlopen),
+            patch.object(SafeHTTPClient, "post_form", staticmethod(_fake_post_form)),
+            patch.object(SafeHTTPClient, "get_json", staticmethod(_fake_get_json)),
             pytest.raises(DataSourceError, match="503"),
         ):
             adapter.fetch_recent_readings(window_minutes=60)
 
     def test_token_is_cached_between_calls(self) -> None:
-        token_payload = json.dumps(_load_fixture("dexcom_token.json")).encode()
-        egvs_payload = json.dumps(_load_fixture("dexcom_egvs.json")).encode()
-        # Single token response followed by two EGV responses; if the
-        # adapter re-requests the token the iterator will be exhausted.
-        responses = iter(
-            [
-                _FakeHTTPResponse(token_payload),
-                _FakeHTTPResponse(egvs_payload),
-                _FakeHTTPResponse(egvs_payload),
-            ]
-        )
+        token_payload = _load_fixture("dexcom_token.json")
+        egvs_payload = _load_fixture("dexcom_egvs.json")
+        token_calls = {"n": 0}
+        egv_calls = {"n": 0}
 
-        def _fake_urlopen(*_args: object, **_kwargs: object) -> _FakeHTTPResponse:
-            return next(responses)
+        def _fake_post_form(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            token_calls["n"] += 1
+            return token_payload
+
+        def _fake_get_json(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            egv_calls["n"] += 1
+            return egvs_payload
 
         clock = _FrozenClock(datetime(2024, 1, 15, 13, 0, 0, tzinfo=UTC))
         adapter = DexcomV3DataSource(self._config(), clock=clock)
-        with patch("omni_mercury_engine.medical.data_sources.urlopen", _fake_urlopen):
+        with (
+            patch.object(SafeHTTPClient, "post_form", staticmethod(_fake_post_form)),
+            patch.object(SafeHTTPClient, "get_json", staticmethod(_fake_get_json)),
+        ):
             adapter.fetch_recent_readings(window_minutes=60)
             adapter.fetch_recent_readings(window_minutes=60)
-        # If we get here the second call did not trigger another token refresh.
+        assert token_calls["n"] == 1, "Second fetch must reuse the cached access token"
+        assert egv_calls["n"] == 2
 
 
 # --------------------------------------------------------------------------- #
@@ -314,8 +386,56 @@ class TestDexcomV3DataSource:
 # --------------------------------------------------------------------------- #
 
 
+class TestFHIRConfigHttpsPolicy:
+    """``FHIRConfig`` enforces HTTPS by default with an explicit ``allow_http``."""
+
+    def test_https_is_accepted(self) -> None:
+        config = FHIRConfig(
+            base_url="https://fhir.example.org/r4",
+            patient_id="sanitized-pid",
+        )
+        assert config.allow_http is False
+
+    def test_http_rejected_by_default(self) -> None:
+        with pytest.raises(ConfigurationError, match="https://"):
+            FHIRConfig(
+                base_url="http://fhir.example.org/r4",
+                patient_id="sanitized-pid",
+            )
+
+    def test_http_accepted_with_allow_http_optin(self) -> None:
+        config = FHIRConfig(
+            base_url="http://localhost:8080/fhir",
+            patient_id="sanitized-pid",
+            allow_http=True,
+        )
+        assert config.allow_http is True
+
+    def test_unsupported_scheme_rejected(self) -> None:
+        with pytest.raises(ConfigurationError, match="https://"):
+            FHIRConfig(
+                base_url="ftp://fhir.example.org/r4",
+                patient_id="sanitized-pid",
+            )
+
+    def test_env_allow_http_flag_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("FHIR_BASE_URL", "http://localhost:8080/fhir")
+        monkeypatch.setenv("FHIR_PATIENT_ID", "abc")
+        monkeypatch.setenv("FHIR_ALLOW_HTTP", "1")
+        monkeypatch.delenv("FHIR_BEARER_TOKEN", raising=False)
+        adapter = FHIRObservationVitalsSource()
+        assert adapter.config.allow_http is True
+
+    def test_env_http_without_optin_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("FHIR_BASE_URL", "http://localhost:8080/fhir")
+        monkeypatch.setenv("FHIR_PATIENT_ID", "abc")
+        monkeypatch.delenv("FHIR_ALLOW_HTTP", raising=False)
+        with pytest.raises(ConfigurationError, match="https://"):
+            FHIRObservationVitalsSource()
+
+
 class TestFHIRObservationVitalsSource:
-    """End-to-end adapter tests with the network boundary mocked."""
+    """End-to-end adapter tests with the SafeHTTPClient boundary mocked."""
 
     def _config(self, *, bearer: str | None = None) -> FHIRConfig:
         return FHIRConfig(
@@ -340,7 +460,7 @@ class TestFHIRObservationVitalsSource:
         assert adapter.config.bearer_token == "test-token"
 
     def test_rejects_bad_base_url(self) -> None:
-        with pytest.raises(ConfigurationError, match="http"):
+        with pytest.raises(ConfigurationError, match="https://"):
             FHIRObservationVitalsSource(
                 FHIRConfig(
                     base_url="not-a-url",
@@ -356,46 +476,80 @@ class TestFHIRObservationVitalsSource:
             adapter.fetch_recent_vitals(window_minutes=1441)
 
     def test_fetch_recent_vitals_returns_parsed_snapshots(self) -> None:
-        bundle_bytes = json.dumps(_load_fixture("fhir_observation_vitals.json")).encode()
+        bundle = _load_fixture("fhir_observation_vitals.json")
+        captured: dict[str, Any] = {}
 
-        def _fake_urlopen(request: Any, *_args: object, **_kwargs: object) -> _FakeHTTPResponse:
-            # Ensure the Authorization header is forwarded when configured.
-            auth_header = request.get_header("Authorization")
-            assert auth_header == "Bearer sanitized-token"
-            return _FakeHTTPResponse(bundle_bytes)
+        def _fake_get_json(url: str, **kwargs: Any) -> dict[str, Any]:
+            captured["url"] = url
+            captured["headers"] = kwargs.get("headers")
+            captured["params"] = kwargs.get("params")
+            captured["allow_http"] = kwargs.get("allow_http")
+            captured["user_configured"] = kwargs.get("user_configured")
+            return bundle
 
         clock = _FrozenClock(datetime(2024, 3, 22, 13, 40, 0, tzinfo=UTC))
         adapter = FHIRObservationVitalsSource(self._config(bearer="sanitized-token"), clock=clock)
-        with patch("omni_mercury_engine.medical.data_sources.urlopen", _fake_urlopen):
+        with patch.object(SafeHTTPClient, "get_json", staticmethod(_fake_get_json)):
             readings = adapter.fetch_recent_vitals(window_minutes=15)
         assert len(readings) == 2
         assert readings[0].hr_bpm == 78
         assert readings[-1].hr_bpm == 82
+        # Ensure the Authorization header is forwarded when configured.
+        headers = captured["headers"]
+        assert headers["Authorization"] == "Bearer sanitized-token"
+        # PHI must default to allow_http=False so the SafeHTTPClient
+        # scheme gate rejects any operator that points at http:// without
+        # the explicit opt-in.
+        assert captured["allow_http"] is False
+        assert captured["user_configured"] is True
 
     def test_omits_authorization_when_no_token(self) -> None:
-        bundle_bytes = json.dumps(_load_fixture("fhir_observation_vitals.json")).encode()
+        bundle = _load_fixture("fhir_observation_vitals.json")
+        captured: dict[str, Any] = {}
 
-        def _fake_urlopen(request: Any, *_args: object, **_kwargs: object) -> _FakeHTTPResponse:
-            assert request.get_header("Authorization") is None
-            return _FakeHTTPResponse(bundle_bytes)
+        def _fake_get_json(url: str, **kwargs: Any) -> dict[str, Any]:
+            captured["headers"] = kwargs.get("headers")
+            return bundle
 
         clock = _FrozenClock(datetime(2024, 3, 22, 13, 40, 0, tzinfo=UTC))
         adapter = FHIRObservationVitalsSource(self._config(), clock=clock)
-        with patch("omni_mercury_engine.medical.data_sources.urlopen", _fake_urlopen):
+        with patch.object(SafeHTTPClient, "get_json", staticmethod(_fake_get_json)):
             readings = adapter.fetch_recent_vitals(window_minutes=15)
         assert len(readings) == 2
+        assert "Authorization" not in captured["headers"]
 
     def test_server_error_wrapped(self) -> None:
-        def _fake_urlopen(*_args: object, **_kwargs: object) -> _FakeHTTPResponse:
-            return _FakeHTTPResponse(b"{}", status=502)
+        def _fake_get_json(url: str, **_kwargs: Any) -> dict[str, Any]:
+            raise _build_http_error(url, 502, "Bad Gateway")
 
         clock = _FrozenClock(datetime(2024, 3, 22, 13, 40, 0, tzinfo=UTC))
         adapter = FHIRObservationVitalsSource(self._config(), clock=clock)
         with (
-            patch("omni_mercury_engine.medical.data_sources.urlopen", _fake_urlopen),
+            patch.object(SafeHTTPClient, "get_json", staticmethod(_fake_get_json)),
             pytest.raises(DataSourceError, match="502"),
         ):
             adapter.fetch_recent_vitals(window_minutes=15)
+
+    def test_allow_http_flag_propagates_to_safe_http_client(self) -> None:
+        bundle = _load_fixture("fhir_observation_vitals.json")
+        captured: dict[str, Any] = {}
+
+        def _fake_get_json(url: str, **kwargs: Any) -> dict[str, Any]:
+            captured["allow_http"] = kwargs.get("allow_http")
+            return bundle
+
+        clock = _FrozenClock(datetime(2024, 3, 22, 13, 40, 0, tzinfo=UTC))
+        adapter = FHIRObservationVitalsSource(
+            FHIRConfig(
+                base_url="http://localhost:8080/fhir",
+                patient_id="sanitized-pid",
+                allow_http=True,
+            ),
+            clock=clock,
+        )
+        with patch.object(SafeHTTPClient, "get_json", staticmethod(_fake_get_json)):
+            adapter.fetch_recent_vitals(window_minutes=15)
+        assert captured["allow_http"] is True
 
 
 # --------------------------------------------------------------------------- #

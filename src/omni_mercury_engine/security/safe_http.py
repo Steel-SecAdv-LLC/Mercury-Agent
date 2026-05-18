@@ -89,7 +89,7 @@ import ipaddress
 import logging
 import socket
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 if TYPE_CHECKING:
     import requests
@@ -792,6 +792,49 @@ class SafeHTTPClient:
             url,
             json_body=json_body,
             headers=headers,
+            timeout=timeout,
+            allow_http=allow_http,
+            user_configured=user_configured,
+            loopback_only=loopback_only,
+            allow_private=allow_private,
+        ) as response:
+            return response.json()
+
+    @classmethod
+    def post_form(
+        cls,
+        url: str,
+        *,
+        form_data: dict[str, str],
+        headers: dict[str, str] | None = None,
+        timeout: float = 60.0,
+        allow_http: bool = False,
+        user_configured: bool = False,
+        loopback_only: bool = False,
+        allow_private: bool = False,
+    ) -> Any:
+        """POST an ``application/x-www-form-urlencoded`` body, decode JSON.
+
+        OAuth 2.0 token endpoints (RFC 6749 §4.1.3) require form-encoded
+        request bodies.  This helper centralises the ``urlencode`` +
+        ``Content-Type`` plumbing so every SafeHTTPClient gate (scheme
+        allowlist, private-network block, DNS-rebinding pin, redirect
+        refusal) runs in front of the OAuth call.  The response is
+        decoded as JSON because every OAuth token endpoint replies in
+        JSON; a non-JSON response surfaces as :class:`ValueError` from
+        the underlying ``requests.Response.json``.
+        """
+        encoded = urlencode(form_data).encode("utf-8")
+        request_headers: dict[str, str] = {
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        if headers:
+            request_headers.update(headers)
+        with cls._request(
+            "POST",
+            url,
+            data=encoded,
+            headers=request_headers,
             timeout=timeout,
             allow_http=allow_http,
             user_configured=user_configured,

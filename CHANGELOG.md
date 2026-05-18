@@ -85,16 +85,34 @@ runbook.
      explicitly supplied.  Regression tests in
      ``tests/test_drone_detector.py`` exercise the previously
      silent rules end-to-end.
-  2. **Real sklearn ensemble.**  The hand-coded z-score
-     "ensemble" has been replaced with three actual sklearn
-     estimators — ``IsolationForest`` (rough density),
-     ``EllipticEnvelope`` (Mahalanobis under multivariate
-     Gaussian), and ``LocalOutlierFactor`` (local density) — each
-     trained on the rolling 100-state telemetry window before
-     scoring the current state.  When ``scikit-learn`` is not
-     available the detector falls back to a deterministic
-     Mahalanobis scorer with the same public interface; the
-     fallback is exercised by an explicit unit test.
+  2. **Mercury in-house anomaly ensemble.**  The hand-coded z-score
+     "ensemble" was first replaced with three scikit-learn estimators
+     (``IsolationForest``, ``EllipticEnvelope``, ``LocalOutlierFactor``)
+     during the initial port.  That implementation is itself superseded
+     in this PR by Mercury Agent's own first-class anomaly ensemble,
+     :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`,
+     which combines three deterministic ``numpy``/``scipy`` scorers —
+     **Resonance** (40 %; FFT-based harmonic spectral anomaly),
+     **Kinematic** (30 %; physics-based jerk / curvature dynamics) and
+     **InfoGeometry** (30 %; Fisher Information Matrix OOD detection).
+     The previous default ensemble weights (``isolation_forest=0.40``,
+     ``elliptic_envelope=0.25``, ``lof=0.35``) are replaced with
+     ``resonance=0.40``, ``kinematic=0.30``, ``info_geometry=0.30``,
+     matching the published MercuryAnomalyDetector ratio.  The
+     ``DroneAnomalyDetector(ensemble_weights=...)`` keyword still
+     accepts a custom override; callers must now key it on the three
+     new component names.  scikit-learn is **removed from the drone
+     detector's runtime dependency surface** — it survives only in the
+     ``benchmark-comparison`` optional extra (per ``pyproject.toml``),
+     where it is used to score Mercury against external baselines
+     rather than to power Mercury itself.  The Mahalanobis fallback
+     path and its ``_SKLEARN_AVAILABLE`` flag are removed; the
+     in-house ensemble is deterministic after fit and has no optional
+     dependency.  Locked by ``TestMercuryEnsemble`` in
+     ``tests/test_drone_detector.py``, which asserts the absence of
+     every previously-exported sklearn symbol on the module and
+     verifies the three Mercury components are produced with scores
+     in ``[0, 1]``.
   3. **Unvalidated 93.84 % recall claim removed.**  The
      upstream docstrings cited a 93.84 % recall number with no
      reproducible benchmark.  The claim is removed and a
@@ -104,11 +122,34 @@ runbook.
   detector's ``detect_faults(state, logs)`` entry point —
   callers translate their MAVLink / pyulog stream into the
   ``DroneState`` dataclass.  Locked by
-  `tests/test_drone_detector.py` (25 tests covering all three
+  `tests/test_drone_detector.py` (27 tests covering all three
   known-issue fixes, every mission-phase rule that previously
-  silent-no-op'd, sklearn ensemble availability, the
-  Mahalanobis fallback, log-based fault detection, flight-report
-  aggregation, and per-fault recommendation lists).
+  silent-no-op'd, the Mercury in-house ensemble component layout,
+  degenerate-window robustness, log-based fault detection,
+  flight-report aggregation, and per-fault recommendation lists).
+
+  **Deviations from the original (drone_anomaly_detector.py):**
+  - Ensemble vendor: the upstream module imports
+    ``sklearn.ensemble.IsolationForest``,
+    ``sklearn.covariance.EllipticEnvelope`` and
+    ``sklearn.neighbors.LocalOutlierFactor`` directly and falls back
+    to a hand-coded Mahalanobis scorer when sklearn is missing.  The
+    port replaces both branches with Mercury Agent's in-house
+    ``MercuryAnomalyDetector`` (Resonance / Kinematic / InfoGeometry).
+    scikit-learn is no longer imported at runtime by this module; it
+    remains available only via the ``benchmark-comparison`` optional
+    extra for external baseline comparisons.
+  - ``ensemble_weights`` keys: ``{"isolation_forest", "elliptic_envelope",
+    "lof"}`` → ``{"resonance", "kinematic", "info_geometry"}``.  The
+    weights themselves continue to be normalised to sum to ``1.0``.
+  - ``random_state`` constructor argument is retained for API stability
+    but is now a no-op; ``MercuryAnomalyDetector`` is deterministic
+    after ``fit()`` and consumes no RNG seed.
+  - ``_compute_sklearn_scores`` and ``_compute_fallback_scores`` are
+    removed; the single ``_compute_ensemble_scores`` path now
+    delegates to ``MercuryAnomalyDetector.fit`` /
+    ``MercuryAnomalyDetector.detect`` and returns an empty dict on
+    fit/detect failure rather than zero-filling components.
 
 - **`omni_mercury_engine.medical.anesthesiology_predictor`**
   (541 LOC source → 741 LOC port).  Integrated anesthesiology
@@ -206,6 +247,101 @@ runbook.
 ``Steel-SecAdv-LLC/Omni-AXA-Engine`` (private; GPL-3.0+).  The
 upstream license matches Mercury's, and the user has full legal
 standing to relicense across both repositories.
+
+### Omni-AXA → Mercury port, PR 2 refinements — round 3 (Copilot review)
+
+Round-3 refinement pass closing the twelve Copilot review alerts on
+PR #224.  Every alert is addressed in-code; no `# noqa`, no
+`# type: ignore`, no `pragma: no cover`, no broad except, and no
+coverage-threshold lowering.  The changes harden SSRF / DNS-rebinding
+posture on every outbound HTTP call made by the ported modules,
+upgrade the DroneState input contract with explicit shape validation,
+and reconcile the medical module top-level docstrings with the
+deviations already documented under the per-module
+*"Deviations from the original"* subsections below.
+
+- **SSRF / DNS-rebinding gate on every medical and compliance HTTP
+  call.**  `DexcomV3DataSource._refresh_access_token`,
+  `DexcomV3DataSource.fetch_recent_readings`,
+  `FHIRObservationVitalsSource.fetch_recent_vitals`, and
+  `ECFRClient.verify_citation` all previously bypassed Mercury's
+  central HTTP egress gate by going through
+  `urllib.request.urlopen` directly.  The four methods now route
+  through `omni_mercury_engine.security.safe_http.SafeHTTPClient`,
+  picking up the scheme allowlist (HTTPS), private-network / IMDS
+  block, DNS-rebinding pinning, and redirect refusal for free.
+  `SafeHTTPClient.post_form` is a new helper added for the OAuth2
+  token endpoint; it mirrors `post_json` but emits a
+  form-urlencoded body and validates the response as JSON.
+  `requests.HTTPError` raised by `raise_for_status()` is mapped to
+  the adapter-specific `DataSourceError` / `ECFRClientError`
+  semantics so the public contract is unchanged.
+- **Hard URL allowlists for operator-supplied endpoints.**
+  `DexcomConfig.__post_init__` now validates `base_url` against
+  the two published Dexcom hosts (`https://api.dexcom.com`,
+  `https://sandbox-api.dexcom.com`) and raises
+  `ConfigurationError` on anything else.  `ECFRClient.__init__`
+  similarly restricts `base_url` to
+  `https://www.ecfr.gov` via the new
+  `ECFRClient.ALLOWED_BASE_URLS` class constant.  Both fixes turn
+  a hostile environment variable or operator typo into a hard,
+  visible failure at construction time instead of a silent
+  redirect of regulatory or PHI traffic.
+- **HTTPS-by-default for FHIR PHI traffic.**  `FHIRConfig` rejects
+  any non-HTTPS `base_url` unless the operator explicitly sets
+  `allow_http=True` (or `FHIR_ALLOW_HTTP=1` in the environment).
+  The opt-in is intended exclusively for documented local /
+  development FHIR servers; vital-signs observations are PHI and
+  must traverse TLS in production.  The flag is forwarded to
+  `SafeHTTPClient.get_json`'s `allow_http` parameter and tested
+  end-to-end in
+  `tests/test_medical_data_sources.py::TestFHIRConfigHttpsPolicy`.
+- **`DroneState.__post_init__` shape validation.**  The dataclass
+  now rejects malformed `position` / `velocity` / `attitude`
+  (3-vectors), `motor_speeds` (4-vector), and `home_position`
+  (3-vector when supplied) with a clear `ValueError`.  RADD's
+  invariant rules index those positions directly; a mis-shaped
+  feed previously bubbled up as an obscure `IndexError` deep in
+  the rule loop, which is the exact silent-failure class this
+  port was commissioned to eliminate.  Pinned by
+  `tests/test_drone_detector.py::TestDroneStateShapeValidation`
+  (five cases covering each vector and the optional
+  `home_position`).
+- **Drone detector module-docstring correction.**  The previous
+  module docstring referenced `omni_mercury_engine.anomaly.drone_telemetry`
+  as the live-telemetry adapter module; that module does not
+  exist in the Mercury tree.  The docstring now states the
+  correct contract: the detector is transport-agnostic, callers
+  populate `DroneState` from their ingest layer of choice
+  (`pyulog.ULog`, `pymavlink`, custom feed), and an integration
+  example lives in `docs/drone/SETUP.md`.
+- **Medical detector top-level docstrings reconciled with documented
+  deviations.**  Two of the medical modules previously claimed
+  upstream architectural parity that the round-2 deviations section
+  had already retracted:
+  - `endocrinology_detector.py` no longer claims the neural
+    architecture "matches the original verified implementation".
+    The module docstring now references the `CGMAnalyzer`
+    trend-head widening and the additive
+    `GLP1TherapyMonitor` / `InhaledInsulinMonitor` rules under
+    *"Deviations from the original"* explicitly.
+  - `anesthesiology_predictor.py` similarly defers to the
+    documented deviations for `HemodynamicMonitor`'s explicit
+    SpO2 guard and `SmartInfusionController`'s test-introspection
+    surface.  The PID controller gains and clinical vital ranges
+    remain preserved verbatim, with their ASA / AARC citations
+    intact.
+- **Test plumbing.**  `tests/test_medical_data_sources.py` and
+  `tests/test_osha_anomaly.py` now mock at the `SafeHTTPClient`
+  public surface rather than at `urllib.request.urlopen`.  A
+  reusable `_build_http_error` helper in the medical tests keeps
+  the failure shape consistent with how `SafeHTTPClient` propagates
+  `raise_for_status()` failures.  `tests/test_drone_detector.py`
+  uses `pytest.importorskip("sklearn")` so the ensemble test
+  module is gracefully skipped when the `benchmark-comparison`
+  extra is not installed; the sklearn-unavailable fallback path is
+  separately covered by
+  `TestSklearnEnsemble.test_fallback_when_sklearn_unavailable`.
 
 ### Omni-AXA → Mercury port, PR 2 refinements (hard-guardrail review)
 

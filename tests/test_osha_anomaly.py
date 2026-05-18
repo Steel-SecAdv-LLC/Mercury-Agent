@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import io
-import json
 from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
+import requests
 
 from omni_mercury_engine.compliance.osha_anomaly import (
     ComplianceLevel,
@@ -20,6 +19,7 @@ from omni_mercury_engine.compliance.osha_anomaly import (
     compute_heat_index_fahrenheit,
     get_osha_compliance_detector,
 )
+from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
 
 class TestRothfuszHeatIndex:
@@ -53,13 +53,22 @@ class TestRothfuszHeatIndex:
     def test_regression_vs_simplified_formula(self) -> None:
         """Rothfusz must materially differ from the original ``T + 0.5*RH``.
 
-        The simplified formula heavily under-reports at moderate-RH
-        conditions; this test pins the difference at T=95 F, RH=70%.
+        At moderate humidity the simplified formula **over-reports**
+        apparent temperature relative to the NWS Rothfusz regression.
+        This test pins that gap at T=95 F / RH=70%, where the heuristic
+        returns 130 F while Rothfusz returns ~122 F per the NWS heat
+        index table.  The mirror failure mode - the simplified formula
+        *under-reporting* at low humidity because it skips the
+        low-humidity adjustment - is covered by
+        :meth:`test_low_humidity_adjustment_engaged`.
         """
         rothfusz = compute_heat_index_fahrenheit(95.0, 70.0)
         simplified = 95.0 + 0.5 * 70.0  # 130 F
-        # Rothfusz at T=95, RH=70% is ~122 F per NWS table; not 130 F
-        assert abs(rothfusz - simplified) > 5.0
+        # Rothfusz at T=95, RH=70% is ~122 F per NWS table, so the
+        # simplified heuristic over-reports by ~8 F at this operating
+        # point.
+        assert simplified > rothfusz
+        assert simplified - rothfusz > 5.0
         assert rothfusz == pytest.approx(122.0, abs=2.0)
 
     def test_rejects_invalid_humidity(self) -> None:
@@ -106,7 +115,14 @@ class TestRothfuszHeatIndex:
 
 
 class TestECFRClient:
-    """Tests for the eCFR client (verifies without making real HTTP calls)."""
+    """Tests for the eCFR client (verifies without making real HTTP calls).
+
+    Every test patches :class:`SafeHTTPClient` at its public boundary so
+    the scheme allowlist, IP/private-network gate, DNS-rebinding pin,
+    and redirect refusal sit in front of every eCFR call - the unit
+    tests focus on the client's caching, parsing, and exception-mapping
+    logic.
+    """
 
     def test_parse_citation_numeric(self) -> None:
         """parse_citation extracts numeric Title/Part/Section tuples."""
@@ -122,69 +138,91 @@ class TestECFRClient:
         parsed = ECFRClient.parse_citation("29 CFR 1926")
         assert parsed == ("29", "1926", "")
 
+    def test_init_rejects_unlisted_base_url(self) -> None:
+        """Any base_url outside ALLOWED_BASE_URLS is refused at construction."""
+        with pytest.raises(ValueError, match="ALLOWED_BASE_URLS"):
+            ECFRClient(base_url="https://attacker.example/api")
+        # The default (https://www.ecfr.gov) is always accepted.
+        ECFRClient(base_url="https://www.ecfr.gov")
+
+    def test_init_canonicalises_trailing_slash(self) -> None:
+        """A trailing slash is allowed and stripped during validation."""
+        client = ECFRClient(base_url="https://www.ecfr.gov/")
+        # Internal attribute is intentionally read here to confirm
+        # canonicalisation - the trailing slash is removed before
+        # being concatenated into request URLs.
+        assert client._base_url == "https://www.ecfr.gov"
+
     def test_verify_citation_caches_result(self) -> None:
         """Verified results are cached in-process and not re-fetched."""
         client = ECFRClient()
         payload = {
             "children": [{"type": "chapter", "children": [{"type": "part", "identifier": "1910"}]}]
         }
-        body = json.dumps(payload).encode("utf-8")
+        call_count = {"n": 0}
 
-        class _Response:
-            status = 200
+        def _fake_get_json(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            call_count["n"] += 1
+            return payload
 
-            def __init__(self, data: bytes) -> None:
-                self._buf = io.BytesIO(data)
-
-            def read(self) -> bytes:
-                return self._buf.read()
-
-            def __enter__(self) -> _Response:
-                return self
-
-            def __exit__(self, *args: Any) -> None:
-                return None
-
-        with patch(
-            "omni_mercury_engine.compliance.osha_anomaly.urlopen",
-            return_value=_Response(body),
-        ) as mocked:
+        with patch.object(SafeHTTPClient, "get_json", staticmethod(_fake_get_json)):
             assert client.verify_citation("29 CFR 1910.95") is True
             assert client.verify_citation("29 CFR 1910.95") is True
-            assert mocked.call_count == 1
+        assert call_count["n"] == 1, "Second verify must reuse the cached result"
 
     def test_verify_citation_unparseable_returns_false(self) -> None:
         """Unparseable citations don't hit the network."""
         client = ECFRClient()
-        with patch("omni_mercury_engine.compliance.osha_anomaly.urlopen") as mocked:
+        call_count = {"n": 0}
+
+        def _fake_get_json(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            call_count["n"] += 1
+            return {}
+
+        with patch.object(SafeHTTPClient, "get_json", staticmethod(_fake_get_json)):
             assert client.verify_citation("OSHA Guidelines") is False
-            mocked.assert_not_called()
+        assert call_count["n"] == 0
 
     def test_verify_citation_raises_on_network_error(self) -> None:
         """Non-404 HTTP errors are wrapped as ECFRClientError."""
-        from urllib.error import URLError
-
         client = ECFRClient()
+
+        def _raise_unsafe(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise UnsafeURLError("scheme allowlist denial")
+
         with (
-            patch(
-                "omni_mercury_engine.compliance.osha_anomaly.urlopen",
-                side_effect=URLError("boom"),
-            ),
+            patch.object(SafeHTTPClient, "get_json", staticmethod(_raise_unsafe)),
             pytest.raises(ECFRClientError),
+        ):
+            client.verify_citation("29 CFR 1910.95")
+
+    def test_verify_citation_500_wrapped(self) -> None:
+        """5xx HTTP errors are wrapped as ECFRClientError, not silently cached."""
+        client = ECFRClient()
+
+        def _raise_http_500(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            response = requests.Response()
+            response.status_code = 500
+            response.reason = "Internal Server Error"
+            raise requests.HTTPError("500 Internal Server Error", response=response)
+
+        with (
+            patch.object(SafeHTTPClient, "get_json", staticmethod(_raise_http_500)),
+            pytest.raises(ECFRClientError, match="500"),
         ):
             client.verify_citation("29 CFR 1910.95")
 
     def test_verify_citation_404_returns_false(self) -> None:
         """404 responses are cached as False without raising."""
-        from urllib.error import HTTPError
-
         client = ECFRClient()
-        with patch(
-            "omni_mercury_engine.compliance.osha_anomaly.urlopen",
-            side_effect=HTTPError(
-                "https://www.ecfr.gov/", 404, "Not Found", {}, None  # type: ignore[arg-type]
-            ),
-        ):
+
+        def _raise_http_404(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            response = requests.Response()
+            response.status_code = 404
+            response.reason = "Not Found"
+            raise requests.HTTPError("404 Not Found", response=response)
+
+        with patch.object(SafeHTTPClient, "get_json", staticmethod(_raise_http_404)):
             assert client.verify_citation("29 CFR 9999.99") is False
 
 

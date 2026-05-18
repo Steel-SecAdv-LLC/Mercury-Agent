@@ -29,16 +29,14 @@ and the contract for writing custom adapters against other vendors.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+
+from omni_mercury_engine.security.safe_http import SafeHTTPClient, UnsafeURLError
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +45,15 @@ _DEXCOM_TOKEN_PATH: Final[str] = "/v2/oauth2/token"  # noqa: S105 - URL path, no
 _DEXCOM_EGVS_PATH: Final[str] = "/v3/users/self/egvs"
 _DEXCOM_PROD_BASE: Final[str] = "https://api.dexcom.com"
 _DEXCOM_SANDBOX_BASE: Final[str] = "https://sandbox-api.dexcom.com"
+
+# Tuple of fully-qualified Dexcom base URLs accepted by the v3 adapter.
+# DEXCOM_BASE_URL from the environment, or an explicit ``DexcomConfig.base_url``,
+# must equal one of these.  Restricting to the published Dexcom hosts blocks an
+# operator from accidentally pointing the adapter at an attacker-controlled
+# domain that happens to speak the Dexcom JSON schema; combined with the
+# SafeHTTPClient gates this means a typo or hostile env-var cannot redirect
+# patient credentials off-vendor.
+_DEXCOM_ALLOWED_BASES: Final[tuple[str, ...]] = (_DEXCOM_PROD_BASE, _DEXCOM_SANDBOX_BASE)
 
 # LOINC vital-sign codes consumed by :class:`FHIRObservationVitalsSource`.
 _LOINC_HR: Final[str] = "8867-4"
@@ -390,6 +397,40 @@ def parse_fhir_observation_bundle(payload: dict[str, Any]) -> list[VitalsReading
     return readings
 
 
+def _validate_dexcom_base_url(base_url: str) -> str:
+    """Validate an operator-supplied Dexcom base URL against the published hosts.
+
+    The Dexcom Developer API publishes exactly two base URLs - the
+    production endpoint at ``https://api.dexcom.com`` and the sandbox at
+    ``https://sandbox-api.dexcom.com``.  Anything else is either an
+    operator typo or a hostile redirect of patient credentials away from
+    Dexcom; both are unacceptable.  Restricting the allowlist here gives
+    misconfiguration a hard, loud surface (:class:`ConfigurationError`)
+    instead of letting it slip through to runtime and hitting
+    SafeHTTPClient's downstream gates.
+
+    Args:
+        base_url: The base URL to validate.
+
+    Returns:
+        The validated URL stripped of any trailing slash.
+
+    Raises:
+        ConfigurationError: ``base_url`` is not one of the published
+            Dexcom hosts.
+    """
+    trimmed = base_url.rstrip("/")
+    if trimmed not in _DEXCOM_ALLOWED_BASES:
+        raise ConfigurationError(
+            "DEXCOM_BASE_URL must be one of "
+            f"{list(_DEXCOM_ALLOWED_BASES)}; got {base_url!r}. "
+            "The Dexcom Developer API publishes only the production and sandbox "
+            "hosts; any other value is rejected as an operator typo or a "
+            "credential-redirect attempt."
+        )
+    return trimmed
+
+
 @dataclass(frozen=True)
 class DexcomConfig:
     """Resolved configuration for :class:`DexcomV3DataSource`.
@@ -402,7 +443,9 @@ class DexcomConfig:
         redirect_uri: Redirect URI registered for the OAuth app
             (``DEXCOM_REDIRECT_URI``); required by the token endpoint.
         base_url: API base URL.  Defaults to the production endpoint;
-            point to ``https://sandbox-api.dexcom.com`` for testing.
+            point to ``https://sandbox-api.dexcom.com`` for testing.  Any
+            other value is rejected by
+            :func:`_validate_dexcom_base_url` at construction time.
     """
 
     client_id: str
@@ -410,6 +453,15 @@ class DexcomConfig:
     refresh_token: str
     redirect_uri: str
     base_url: str = _DEXCOM_PROD_BASE
+
+    def __post_init__(self) -> None:
+        """Enforce the Dexcom base-URL allowlist at construction time."""
+        validated = _validate_dexcom_base_url(self.base_url)
+        # ``frozen=True`` blocks normal attribute assignment; use
+        # ``object.__setattr__`` to canonicalise the URL (strip any
+        # trailing slash) without bypassing the immutability contract
+        # for callers.
+        object.__setattr__(self, "base_url", validated)
 
 
 class DexcomV3DataSource(CGMDataSource):
@@ -519,40 +571,41 @@ class DexcomV3DataSource(CGMDataSource):
         return self._clock.now(UTC)  # type: ignore[attr-defined]
 
     def _refresh_access_token(self) -> str:
-        """Exchange the refresh token for a fresh access token."""
-        body = urlencode(
-            {
-                "client_id": self._config.client_id,
-                "client_secret": self._config.client_secret,
-                "refresh_token": self._config.refresh_token,
-                "grant_type": "refresh_token",
-                "redirect_uri": self._config.redirect_uri,
-            }
-        ).encode("utf-8")
-        request = Request(  # noqa: S310 - public HTTPS endpoint
-            self._config.base_url + _DEXCOM_TOKEN_PATH,
-            data=body,
-            method="POST",
-            headers={
-                "User-Agent": self._user_agent,
-                "Accept": "application/json",
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-        )
+        """Exchange the refresh token for a fresh access token.
+
+        Routes through :class:`SafeHTTPClient` so every Dexcom call goes
+        through Mercury's central egress gate (scheme allowlist, IP
+        validation, DNS-rebinding pin, redirect refusal).  The base URL
+        is restricted by :class:`DexcomConfig` to the published Dexcom
+        prod/sandbox hosts, so ``user_configured=True`` here passes the
+        private-network / IMDS gate without needing the trusted-host
+        allowlist.
+        """
+        url = self._config.base_url + _DEXCOM_TOKEN_PATH
         try:
-            with urlopen(request, timeout=self._timeout) as response:  # noqa: S310
-                if response.status != 200:
-                    raise DataSourceError(
-                        f"Dexcom token endpoint returned status {response.status}"
-                    )
-                payload = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            raise DataSourceError(
-                f"Dexcom token refresh failed: HTTP {exc.code} {exc.reason}"
-            ) from exc
-        except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+            payload = SafeHTTPClient.post_form(
+                url,
+                form_data={
+                    "client_id": self._config.client_id,
+                    "client_secret": self._config.client_secret,
+                    "refresh_token": self._config.refresh_token,
+                    "grant_type": "refresh_token",
+                    "redirect_uri": self._config.redirect_uri,
+                },
+                headers={
+                    "User-Agent": self._user_agent,
+                    "Accept": "application/json",
+                },
+                timeout=self._timeout,
+                user_configured=True,
+            )
+        except UnsafeURLError as exc:
+            raise DataSourceError(f"Dexcom token refresh failed: {exc}") from exc
+        except Exception as exc:
             raise DataSourceError(f"Dexcom token refresh failed: {exc}") from exc
 
+        if not isinstance(payload, dict):
+            raise DataSourceError("Dexcom token response is not a JSON object")
         access_token = payload.get("access_token")
         expires_in = payload.get("expires_in")
         if not isinstance(access_token, str) or not isinstance(expires_in, int):
@@ -587,31 +640,26 @@ class DexcomV3DataSource(CGMDataSource):
         access_token = self._ensure_access_token()
         end = self._now_utc().replace(microsecond=0)
         start = end - timedelta(minutes=window_minutes)
-        params = urlencode(
-            {
-                "startDate": start.strftime("%Y-%m-%dT%H:%M:%S"),
-                "endDate": end.strftime("%Y-%m-%dT%H:%M:%S"),
-            }
-        )
-        url = f"{self._config.base_url}{_DEXCOM_EGVS_PATH}?{params}"
-        request = Request(  # noqa: S310 - public HTTPS endpoint
-            url,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/json",
-                "User-Agent": self._user_agent,
-            },
-        )
+        url = self._config.base_url + _DEXCOM_EGVS_PATH
+        params: dict[str, str] = {
+            "startDate": start.strftime("%Y-%m-%dT%H:%M:%S"),
+            "endDate": end.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
         try:
-            with urlopen(request, timeout=self._timeout) as response:  # noqa: S310
-                if response.status != 200:
-                    raise DataSourceError(f"Dexcom EGVs endpoint returned status {response.status}")
-                payload = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            raise DataSourceError(
-                f"Dexcom EGVs request failed: HTTP {exc.code} {exc.reason}"
-            ) from exc
-        except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+            payload = SafeHTTPClient.get_json(
+                url,
+                params=params,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Accept": "application/json",
+                    "User-Agent": self._user_agent,
+                },
+                timeout=self._timeout,
+                user_configured=True,
+            )
+        except UnsafeURLError as exc:
+            raise DataSourceError(f"Dexcom EGVs request failed: {exc}") from exc
+        except Exception as exc:
             raise DataSourceError(f"Dexcom EGVs request failed: {exc}") from exc
         return parse_dexcom_egvs_payload(payload)
 
@@ -621,16 +669,42 @@ class FHIRConfig:
     """Resolved configuration for :class:`FHIRObservationVitalsSource`.
 
     Attributes:
-        base_url: Root URL of the FHIR R4 server (no trailing slash).
+        base_url: Root URL of the FHIR R4 server (no trailing slash).  Must
+            start with ``https://`` unless ``allow_http=True`` is supplied
+            for an explicit local/dev deployment.
         patient_id: Logical id of the patient resource being monitored.
         bearer_token: Optional pre-issued bearer token.  When supplied the
             adapter sends it as ``Authorization: Bearer <token>``; open
             FHIR servers may omit this.
+        allow_http: If ``True``, accept a plain ``http://`` ``base_url``.
+            Off by default because vital-signs payloads are PHI and
+            must traverse TLS; only flip this for an explicitly
+            documented local or development FHIR server.
     """
 
     base_url: str
     patient_id: str
     bearer_token: str | None = None
+    allow_http: bool = False
+
+    def __post_init__(self) -> None:
+        """Enforce the HTTPS-by-default policy for PHI endpoints."""
+        lowered = self.base_url.lower()
+        if lowered.startswith("https://"):
+            return
+        if lowered.startswith("http://"):
+            if not self.allow_http:
+                raise ConfigurationError(
+                    "FHIR base_url must use the https:// scheme because PHI "
+                    "must traverse TLS. Set ``allow_http=True`` (or "
+                    "``FHIR_ALLOW_HTTP=1``) only for an explicitly documented "
+                    f"local/development FHIR server; got {self.base_url!r}."
+                )
+            return
+        raise ConfigurationError(
+            "FHIR base_url must start with https:// (or http:// behind an "
+            f"explicit allow_http opt-in); got {self.base_url!r}"
+        )
 
 
 class FHIRObservationVitalsSource(VitalsDataSource):
@@ -645,12 +719,15 @@ class FHIRObservationVitalsSource(VitalsDataSource):
 
     Required environment variables (when no explicit ``config`` is given):
 
-    * ``FHIR_BASE_URL``
+    * ``FHIR_BASE_URL`` - must use ``https://`` unless ``FHIR_ALLOW_HTTP=1``
+      is also set for an explicitly documented local/development server.
     * ``FHIR_PATIENT_ID``
 
     Optional:
 
     * ``FHIR_BEARER_TOKEN`` - pre-issued OAuth2 bearer token.
+    * ``FHIR_ALLOW_HTTP`` - set to ``1`` to permit plain ``http://`` (PHI
+      traverses cleartext; only safe for local/dev FHIR sandboxes).
     """
 
     name = "fhir_observation"
@@ -668,21 +745,22 @@ class FHIRObservationVitalsSource(VitalsDataSource):
         Args:
             config: Explicit configuration.  When ``None`` the constructor
                 reads ``FHIR_BASE_URL`` / ``FHIR_PATIENT_ID`` /
-                ``FHIR_BEARER_TOKEN`` from the environment and raises
-                :class:`ConfigurationError` if the required ones are missing.
+                ``FHIR_BEARER_TOKEN`` / ``FHIR_ALLOW_HTTP`` from the
+                environment and raises :class:`ConfigurationError` if the
+                required ones are missing or if ``FHIR_BASE_URL`` uses
+                ``http://`` without ``FHIR_ALLOW_HTTP=1``.
             timeout_seconds: HTTP timeout per request.
             user_agent: HTTP ``User-Agent`` header.
             clock: Object exposing ``now(tz)``; defaults to :class:`datetime`.
 
         Raises:
-            ConfigurationError: If required configuration is missing.
+            ConfigurationError: If required configuration is missing or
+                if ``base_url`` violates the HTTPS-by-default policy.
         """
         if config is None:
             config = self._config_from_env()
-        if not config.base_url.lower().startswith(("http://", "https://")):
-            raise ConfigurationError(
-                "FHIR base_url must start with http:// or https://; " f"got {config.base_url!r}"
-            )
+        # ``FHIRConfig.__post_init__`` enforces the scheme allowlist
+        # (https:// required by default; http:// only with explicit opt-in).
         self._config = config
         self._timeout = float(timeout_seconds)
         self._user_agent = user_agent
@@ -713,6 +791,7 @@ class FHIRObservationVitalsSource(VitalsDataSource):
             base_url=base_url.rstrip("/"),
             patient_id=patient_id,
             bearer_token=os.environ.get("FHIR_BEARER_TOKEN") or None,
+            allow_http=os.environ.get("FHIR_ALLOW_HTTP") == "1",
         )
 
     @property
@@ -740,32 +819,31 @@ class FHIRObservationVitalsSource(VitalsDataSource):
         _validate_window(window_minutes)
         end = self._now_utc().replace(microsecond=0)
         start = end - timedelta(minutes=window_minutes)
-        params = urlencode(
-            {
-                "patient": self._config.patient_id,
-                "category": "vital-signs",
-                "date": f"ge{start.strftime('%Y-%m-%dT%H:%M:%S')}Z",
-                "_sort": "-date",
-            }
-        )
-        url = f"{self._config.base_url}/Observation?{params}"
-        headers = {
+        params: dict[str, str] = {
+            "patient": self._config.patient_id,
+            "category": "vital-signs",
+            "date": f"ge{start.strftime('%Y-%m-%dT%H:%M:%S')}Z",
+            "_sort": "-date",
+        }
+        url = f"{self._config.base_url}/Observation"
+        headers: dict[str, str] = {
             "Accept": "application/fhir+json",
             "User-Agent": self._user_agent,
         }
         if self._config.bearer_token:
             headers["Authorization"] = f"Bearer {self._config.bearer_token}"
-        request = Request(url, headers=headers)  # noqa: S310 - operator-supplied endpoint
         try:
-            with urlopen(request, timeout=self._timeout) as response:  # noqa: S310
-                if response.status != 200:
-                    raise DataSourceError(f"FHIR server returned status {response.status}")
-                payload = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            raise DataSourceError(
-                f"FHIR Observation request failed: HTTP {exc.code} {exc.reason}"
-            ) from exc
-        except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+            payload = SafeHTTPClient.get_json(
+                url,
+                params=params,
+                headers=headers,
+                timeout=self._timeout,
+                allow_http=self._config.allow_http,
+                user_configured=True,
+            )
+        except UnsafeURLError as exc:
+            raise DataSourceError(f"FHIR Observation request failed: {exc}") from exc
+        except Exception as exc:
             raise DataSourceError(f"FHIR Observation request failed: {exc}") from exc
         return parse_fhir_observation_bundle(payload)
 

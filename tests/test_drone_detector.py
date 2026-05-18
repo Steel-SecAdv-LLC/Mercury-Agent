@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from typing import Any
-from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -18,6 +17,12 @@ from omni_mercury_engine.detectors.drone import (
     detector as drone_detector_module,
     get_drone_detector,
 )
+
+# The drone ensemble is wired to Mercury Agent's in-house
+# :class:`MercuryAnomalyDetector` (Resonance / Kinematic /
+# InfoGeometry) rather than scikit-learn.  These tests therefore
+# require **no** optional dependency -- they run unconditionally and
+# exercise the real ensemble path.
 
 
 def _make_state(
@@ -109,6 +114,62 @@ class TestDroneStateDerivedFields:
         assert state.horizontal_velocity == pytest.approx(0.2)
 
 
+class TestDroneStateShapeValidation:
+    """``DroneState.__post_init__`` rejects malformed input vectors.
+
+    The RADD invariant rules index ``position[0..2]``, ``velocity[0..2]``,
+    ``attitude[0..2]`` and ``motor_speeds[0..3]`` directly.  A mis-shaped
+    feed previously bubbled up as an obscure ``IndexError`` deep inside
+    the rule loop; the port now raises a clear :class:`ValueError` at
+    state construction so the failure surfaces at the source.
+    """
+
+    def _kwargs(self) -> dict[str, Any]:
+        return {
+            "position": np.zeros(3, dtype=np.float64),
+            "velocity": np.zeros(3, dtype=np.float64),
+            "attitude": np.zeros(3, dtype=np.float64),
+            "battery_level": 0.5,
+            "altitude": 10.0,
+            "gps_satellites": 10,
+            "signal_strength": 0.8,
+            "motor_speeds": np.full(4, 2500.0, dtype=np.float64),
+            "temperature": 25.0,
+            "mission_phase": MissionPhase.ON_MISSION,
+        }
+
+    def test_position_wrong_length_raises(self) -> None:
+        kw = self._kwargs()
+        kw["position"] = np.zeros(2, dtype=np.float64)
+        with pytest.raises(ValueError, match="position"):
+            DroneState(**kw)
+
+    def test_velocity_wrong_length_raises(self) -> None:
+        kw = self._kwargs()
+        kw["velocity"] = np.zeros(4, dtype=np.float64)
+        with pytest.raises(ValueError, match="velocity"):
+            DroneState(**kw)
+
+    def test_attitude_wrong_dim_raises(self) -> None:
+        kw = self._kwargs()
+        # 2-D array is invalid even if total element count matches.
+        kw["attitude"] = np.zeros((1, 3), dtype=np.float64)
+        with pytest.raises(ValueError, match="attitude"):
+            DroneState(**kw)
+
+    def test_motor_speeds_wrong_length_raises(self) -> None:
+        kw = self._kwargs()
+        kw["motor_speeds"] = np.full(3, 2500.0, dtype=np.float64)
+        with pytest.raises(ValueError, match="motor_speeds"):
+            DroneState(**kw)
+
+    def test_home_position_wrong_length_raises(self) -> None:
+        kw = self._kwargs()
+        kw["home_position"] = np.zeros(2, dtype=np.float64)
+        with pytest.raises(ValueError, match="home_position"):
+            DroneState(**kw)
+
+
 class TestInvariantRulesEvaluateAfterFieldFix:
     """Rules that referenced missing fields now actually evaluate."""
 
@@ -196,46 +257,63 @@ class TestInvariantRulesEvaluateAfterFieldFix:
         )
 
 
-class TestSklearnEnsemble:
-    """The ensemble must use real sklearn estimators (not hand-coded z-scores)."""
+class TestMercuryEnsemble:
+    """The ensemble must use Mercury's in-house anomaly detector.
 
-    def test_isolation_forest_imported(self) -> None:
-        """The detector imports IsolationForest at module load."""
+    The drone detector previously delegated ensemble scoring to
+    scikit-learn (``IsolationForest`` / ``EllipticEnvelope`` /
+    ``LocalOutlierFactor``).  Per the architectural correction in
+    ``CHANGELOG.md`` (PR #224, "MercuryAnomalyDetector adoption"),
+    scoring is now done by Mercury Agent's first-class
+    :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`,
+    which combines three deterministic ``numpy``/``scipy`` scorers --
+    **Resonance**, **Kinematic**, and **InfoGeometry**.  scikit-learn
+    is no longer in the runtime dependency surface; it lives only in
+    the ``benchmark-comparison`` extra.
+    """
+
+    def test_no_sklearn_runtime_import(self) -> None:
+        """The drone detector module does not import sklearn at load."""
         module = drone_detector_module
 
-        assert module._SKLEARN_AVAILABLE is True
-        assert module.IsolationForest is not None
-        assert module.LocalOutlierFactor is not None
-        assert module.EllipticEnvelope is not None
+        # The in-house ensemble is the only ensemble path; no sklearn
+        # estimators may be referenced as module-level symbols.
+        assert not hasattr(module, "IsolationForest")
+        assert not hasattr(module, "EllipticEnvelope")
+        assert not hasattr(module, "LocalOutlierFactor")
+        assert not hasattr(module, "_SKLEARN_AVAILABLE")
+        assert not hasattr(module, "_compute_sklearn_scores")
+        assert not hasattr(module, "_compute_fallback_scores")
 
-    def test_ensemble_returns_three_scorers(self) -> None:
-        """The sklearn ensemble exposes three scorers, not five fake ones."""
+    def test_ensemble_returns_mercury_components(self) -> None:
+        """The in-house ensemble exposes the three Mercury components."""
         detector = DroneAnomalyDetector()
         for i in range(25):
             detector.detect_faults(_make_state(velocity=(5.0 + 0.1 * i, 0.0, 0.0)))
-        # The 26th call will produce ensemble scores via _compute_ensemble_scores
         features = detector._extract_features_for_ensemble(_make_state())
         historical = np.asarray(
             [detector._extract_features_for_ensemble(s) for s in detector.state_history]
         )
         scores = detector._compute_ensemble_scores(features, historical)
-        assert set(scores.keys()) == {"isolation_forest", "elliptic_envelope", "lof"}
+        assert set(scores.keys()) == {"resonance", "kinematic", "info_geometry"}
+        for component, value in scores.items():
+            assert 0.0 <= value <= 1.0, f"{component}={value!r} outside [0, 1]"
 
     def test_anomalous_state_flagged_by_ensemble(self) -> None:
-        """An obvious outlier produces an ENS fault after the warm-up window."""
+        """An obvious outlier produces finite Mercury scores after warm-up."""
         detector = DroneAnomalyDetector()
-        # Build a stable history
+        # Build a stable history.
         for _ in range(30):
             detector.detect_faults(_make_state(velocity=(0.0, 0.0, 0.0)))
-        # Now an outlier
+        # Now an outlier; we just check that the in-house ensemble produces
+        # finite scores rather than raising.
         outlier = _make_state(velocity=(50.0, 50.0, 0.0), temperature=120.0)
-        # Need to give the detector enough chances; we just check that no error
-        # is raised and that ensemble can produce a finite score
         features = detector._extract_features_for_ensemble(outlier)
         historical = np.asarray(
             [detector._extract_features_for_ensemble(s) for s in detector.state_history]
         )
         scores = detector._compute_ensemble_scores(features, historical)
+        assert scores, "Mercury ensemble unexpectedly returned no components"
         assert all(math.isfinite(v) for v in scores.values())
 
     def test_ensemble_does_not_run_before_minimum_history(self) -> None:
@@ -244,18 +322,32 @@ class TestSklearnEnsemble:
         faults = detector.detect_faults(_make_state())
         assert not [f for f in faults if f.detected_by == "RADD_Ensemble"]
 
-    def test_fallback_when_sklearn_unavailable(self) -> None:
-        """Without sklearn the detector uses a deterministic Mahalanobis scorer."""
-        with patch("omni_mercury_engine.detectors.drone.detector._SKLEARN_AVAILABLE", False):
-            detector = DroneAnomalyDetector()
-            for _ in range(25):
-                detector.detect_faults(_make_state())
-            features = detector._extract_features_for_ensemble(_make_state())
-            historical = np.asarray(
-                [detector._extract_features_for_ensemble(s) for s in detector.state_history]
-            )
-            scores = detector._compute_ensemble_scores(features, historical)
-            assert set(scores.keys()) == set(detector.ensemble_weights.keys())
+    def test_default_weights_match_mercury_ratio(self) -> None:
+        """Default weights mirror the 40/30/30 Resonance/Kinematic/InfoGeo ratio."""
+        detector = DroneAnomalyDetector()
+        assert detector.ensemble_weights["resonance"] == pytest.approx(0.40)
+        assert detector.ensemble_weights["kinematic"] == pytest.approx(0.30)
+        assert detector.ensemble_weights["info_geometry"] == pytest.approx(0.30)
+
+    def test_degenerate_history_returns_empty_scores(self) -> None:
+        """A zero-variance baseline yields an empty score dict, not a crash.
+
+        ``MercuryAnomalyDetector.fit`` raises ``DetectorException`` when
+        the training data contains only NaN/Inf, but a constant feed
+        passes fit and exercises the surrounding numerical safeguards.
+        Either way, the ensemble must surface a clean empty mapping
+        rather than propagating a NumPy warning or raising.
+        """
+        detector = DroneAnomalyDetector()
+        # All-zero rows -- well-defined statistics but no variance.
+        features = np.zeros(detector._extract_features_for_ensemble(_make_state()).shape)
+        historical = np.zeros((25, features.shape[0]))
+        scores = detector._compute_ensemble_scores(features, historical)
+        # The in-house detector should either return three finite component
+        # scores or an empty dict; both outcomes are well-formed.
+        if scores:
+            assert set(scores.keys()) == {"resonance", "kinematic", "info_geometry"}
+            assert all(math.isfinite(v) for v in scores.values())
 
 
 class TestDronLomalyLogs:

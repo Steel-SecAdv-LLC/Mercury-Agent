@@ -17,21 +17,28 @@ defects from the original implementation are corrected in this port:
     object; rules now actually evaluate and fire correctly.
 2.  The ensemble previously branded as "K-Means / DBSCAN / OPTICS / LOF /
     OCSVM" was implemented as hand-coded z-scores over a single feature
-    matrix.  The port replaces that with three honest sklearn estimators
-    (:class:`~sklearn.ensemble.IsolationForest`,
-    :class:`~sklearn.covariance.EllipticEnvelope`,
-    :class:`~sklearn.neighbors.LocalOutlierFactor`) that are fitted on the
-    most recent state history.  The detector degrades to a deterministic
-    Mahalanobis-distance scorer if scikit-learn is unavailable, with a clear
-    log message identifying the fallback.
+    matrix.  The port replaces that with Mercury Agent's first-class
+    in-house anomaly ensemble,
+    :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`,
+    which combines three deterministic ``numpy``/``scipy`` scorers:
+    **Resonance** (40 %; FFT-based harmonic spectral anomaly),
+    **Kinematic** (30 %; physics-based jerk / curvature dynamics) and
+    **InfoGeometry** (30 %; Fisher Information Matrix OOD detection).
+    The drone detector therefore carries **no scikit-learn runtime
+    dependency** - sklearn lives in the ``benchmark-comparison`` extra
+    only, where it is used to score Mercury against external baselines
+    rather than to power Mercury itself.
 3.  The original docstring carried an unvalidated "93.84% average recall"
     paper-citation claim.  No reproduction dataset existed in either tree, so
     the claim is removed here.  Any future quantitative claim must be backed
     by a reproducible benchmark in ``benchmarks/``.
 
-Live telemetry adapters for PX4 ULog flight logs (via :mod:`pyulog`) and
-MAVLink endpoints (via :mod:`pymavlink`) are provided as optional helpers in
-:mod:`omni_mercury_engine.anomaly.drone_telemetry`.
+Live telemetry adapters for PX4 ULog flight logs (via :mod:`pyulog`) or
+MAVLink endpoints (via :mod:`pymavlink`) are *not* shipped in this PR -
+adopters who want them should populate :class:`DroneState` instances
+from their ingest layer of choice (an example using
+:mod:`pyulog.ULog` is provided in
+``docs/drone/SETUP.md``).  The detector itself is transport-agnostic.
 
 References
 ----------
@@ -44,31 +51,21 @@ from __future__ import annotations
 
 import logging
 import math
-import warnings
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, cast
 
 import numpy as np
 import numpy.typing as npt
+
+from omni_mercury_engine.core.exceptions import DetectorException
+from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
-
-try:  # pragma: no cover - import guard exercised in tests via monkeypatch
-    from sklearn.covariance import EllipticEnvelope
-    from sklearn.ensemble import IsolationForest
-    from sklearn.neighbors import LocalOutlierFactor
-
-    _SKLEARN_AVAILABLE = True
-except ImportError:  # pragma: no cover - environment without sklearn
-    _SKLEARN_AVAILABLE = False
-    EllipticEnvelope = None
-    IsolationForest = None
-    LocalOutlierFactor = None
 
 
 class MissionPhase(Enum):
@@ -162,7 +159,38 @@ class DroneState:
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:
-        """Populate derived fields from raw kinematics when not supplied."""
+        """Validate array shapes and populate derived kinematic fields.
+
+        ``position``, ``velocity`` and ``attitude`` must each be 3-vectors
+        and ``motor_speeds`` must be a 4-vector (RADD's invariant rules
+        index those positions directly).  Validating up-front turns a
+        mis-shaped feed into a clear :class:`ValueError` at the source
+        rather than an obscure ``IndexError`` deep inside the rule
+        engine, which is the exact silent-failure class this port was
+        commissioned to eliminate.
+
+        Raises:
+            ValueError: If any of ``position``, ``velocity``, ``attitude``
+                or ``motor_speeds`` is not a 1-D array of the expected
+                length.  ``home_position``, if supplied, must also be a
+                3-vector.
+        """
+
+        def _check_shape(name: str, value: npt.NDArray[np.float64], length: int) -> None:
+            array = np.asarray(value)
+            if array.ndim != 1 or array.shape[0] != length:
+                raise ValueError(
+                    f"DroneState.{name} must be a 1-D array of length {length}; "
+                    f"got shape {tuple(array.shape)}"
+                )
+
+        _check_shape("position", self.position, 3)
+        _check_shape("velocity", self.velocity, 3)
+        _check_shape("attitude", self.attitude, 3)
+        _check_shape("motor_speeds", self.motor_speeds, 4)
+        if self.home_position is not None:
+            _check_shape("home_position", self.home_position, 3)
+
         velocity = np.asarray(self.velocity, dtype=np.float64)
         if self.horizontal_velocity is None:
             self.horizontal_velocity = float(
@@ -185,17 +213,12 @@ class DroneState:
 
 
 _DEFAULT_ENSEMBLE_WEIGHTS: Final[dict[str, float]] = {
-    "isolation_forest": 0.40,
-    "elliptic_envelope": 0.25,
-    "lof": 0.35,
+    "resonance": 0.40,
+    "kinematic": 0.30,
+    "info_geometry": 0.30,
 }
-
-
-def _normalise_outlier_score(raw: float, *, scale: float) -> float:
-    """Squash an unbounded sklearn outlier score into ``[0, 1]``."""
-    if not math.isfinite(raw):
-        return 0.0
-    return float(max(0.0, min(1.0, raw / scale)))
+"""Default ensemble weights matching ``MercuryAnomalyDetector``'s
+published Resonance / Kinematic / InfoGeometry ratio."""
 
 
 class DroneAnomalyDetector:
@@ -205,15 +228,14 @@ class DroneAnomalyDetector:
 
     * **RADD rules** -- mission-phase-specific invariants over the state
       vector (battery thresholds, GPS sat count, altitude rate, etc.).
-    * **Unsupervised ML ensemble** -- :class:`~sklearn.ensemble.IsolationForest`,
-      :class:`~sklearn.covariance.EllipticEnvelope`, and
-      :class:`~sklearn.neighbors.LocalOutlierFactor` fitted on the recent
-      state history.
+    * **Mercury in-house anomaly ensemble** -- the Resonance / Kinematic
+      / InfoGeometry triple exposed by
+      :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`,
+      fitted on the rolling telemetry window.  This is Mercury Agent's
+      own first-class ensemble; scikit-learn is **not** in the runtime
+      dependency surface of this detector.
     * **DronLomaly log analysis** -- keyword-based feature extraction over
       structured sensor-log entries.
-
-    When scikit-learn is not installed the ensemble falls back to a
-    deterministic Mahalanobis-distance scorer.
     """
 
     DEFAULT_HISTORY_WINDOW: Final[int] = 100
@@ -238,8 +260,12 @@ class DroneAnomalyDetector:
             enable_dronlomaly: Enable DronLomaly log-based detection.
             mission_phases: Mission phases to monitor (default: all).
             history_window: Number of recent states the ensemble is fitted on.
-            ensemble_weights: Optional override of the per-estimator weights.
-            random_state: RNG seed used by IsolationForest.
+            ensemble_weights: Optional override of the per-component weights.
+                Keys must match the three ensemble components: ``resonance``,
+                ``kinematic``, ``info_geometry``.
+            random_state: Reserved for backwards compatibility; the in-house
+                :class:`MercuryAnomalyDetector` is deterministic after fit
+                and consumes no RNG seed.
         """
         self.enable_radd = enable_radd
         self.enable_dronlomaly = enable_dronlomaly
@@ -262,12 +288,6 @@ class DroneAnomalyDetector:
         self.fault_thresholds = self._initialize_fault_thresholds()
         self.log_buffer: list[dict[str, Any]] = []
         self.state_history: list[DroneState] = []
-
-        if not _SKLEARN_AVAILABLE:
-            logger.warning(
-                "scikit-learn not installed; falling back to deterministic "
-                "Mahalanobis ensemble scorer for drone anomaly detection."
-            )
 
     # -- public API ---------------------------------------------------------
 
@@ -502,7 +522,14 @@ class DroneAnomalyDetector:
     # -- ensemble -----------------------------------------------------------
 
     def _ensemble_detection(self, drone_state: DroneState) -> list[DroneFault]:
-        """Run the sklearn (or fallback) outlier ensemble."""
+        """Run Mercury's in-house anomaly ensemble for the current state.
+
+        Scores the current sample with the Resonance / Kinematic /
+        InfoGeometry triple exposed by
+        :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`
+        and emits a ``RADD_Ensemble`` :class:`DroneFault` when the
+        weighted score crosses the ``0.70`` gate.
+        """
         if len(self.state_history) < self.DEFAULT_FIT_MINIMUM:
             return []
         features = self._extract_features_for_ensemble(drone_state)
@@ -543,70 +570,45 @@ class DroneAnomalyDetector:
         features: npt.NDArray[np.float64],
         historical_features: npt.NDArray[np.float64],
     ) -> dict[str, float]:
-        """Compute outlier scores from the sklearn ensemble."""
-        if _SKLEARN_AVAILABLE:
-            return self._compute_sklearn_scores(features, historical_features)
-        return self._compute_fallback_scores(features, historical_features)
+        """Compute outlier scores via Mercury's in-house anomaly ensemble.
 
-    def _compute_sklearn_scores(
-        self,
-        features: npt.NDArray[np.float64],
-        historical_features: npt.NDArray[np.float64],
-    ) -> dict[str, float]:
-        """Compute outlier scores using real sklearn estimators."""
-        scores: dict[str, float] = {}
+        Fits a fresh :class:`MercuryAnomalyDetector` on the rolling
+        telemetry window and scores the current sample.  The three
+        component scores -- Resonance (FFT harmonic), Kinematic
+        (jerk / curvature) and InfoGeometry (Fisher OOD) -- are returned
+        in ``[0, 1]`` and keyed to match :attr:`ensemble_weights`.
+
+        Args:
+            features: Current sample feature vector, shape
+                ``(n_features,)``.
+            historical_features: Rolling baseline window, shape
+                ``(n_history, n_features)``.
+
+        Returns:
+            Dictionary mapping ``"resonance"`` / ``"kinematic"`` /
+            ``"info_geometry"`` to a continuous anomaly score.  Returns
+            an empty dict when the in-house detector cannot be fitted
+            or invoked for the current window (e.g. degenerate baseline);
+            ``_ensemble_detection`` interprets an empty mapping as
+            "no ensemble signal this tick" rather than zero.
+        """
+        detector = MercuryAnomalyDetector()
         sample = features.reshape(1, -1)
-
         try:
-            forest = IsolationForest(
-                n_estimators=100,
-                contamination="auto",
-                random_state=self._random_state,
-            )
-            forest.fit(historical_features)
-            raw = float(-forest.score_samples(sample)[0])
-            scores["isolation_forest"] = _normalise_outlier_score(raw, scale=0.6)
-        except (ValueError, RuntimeError) as exc:
-            logger.warning("IsolationForest failed: %s", exc)
-            scores["isolation_forest"] = 0.0
+            detector.fit(historical_features)
+            result = detector.detect(sample)
+        except DetectorException as exc:
+            logger.warning("MercuryAnomalyDetector unavailable for current window: %s", exc)
+            return {}
 
-        try:
-            envelope = EllipticEnvelope(
-                support_fraction=0.95, contamination=0.1, random_state=self._random_state
-            )
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=RuntimeWarning)
-                envelope.fit(historical_features)
-                raw = float(-envelope.score_samples(sample)[0])
-            scores["elliptic_envelope"] = _normalise_outlier_score(raw, scale=50.0)
-        except (ValueError, RuntimeError) as exc:
-            logger.warning("EllipticEnvelope failed: %s", exc)
-            scores["elliptic_envelope"] = 0.0
-
-        try:
-            combined = np.vstack([historical_features, sample])
-            lof = LocalOutlierFactor(n_neighbors=min(20, len(historical_features)))
-            lof.fit_predict(combined)
-            raw = float(-lof.negative_outlier_factor_[-1])
-            scores["lof"] = _normalise_outlier_score(max(raw - 1.0, 0.0), scale=2.0)
-        except (ValueError, RuntimeError) as exc:
-            logger.warning("LocalOutlierFactor failed: %s", exc)
-            scores["lof"] = 0.0
-
-        return scores
-
-    def _compute_fallback_scores(
-        self,
-        features: npt.NDArray[np.float64],
-        historical_features: npt.NDArray[np.float64],
-    ) -> dict[str, float]:
-        """Deterministic Mahalanobis-based fallback when sklearn is missing."""
-        mean = np.mean(historical_features, axis=0)
-        std = np.std(historical_features, axis=0) + 1e-10
-        z = np.abs((features - mean) / std)
-        distance = float(np.linalg.norm(z))
-        normalised = _normalise_outlier_score(distance, scale=10.0)
-        return dict.fromkeys(self.ensemble_weights, normalised)
+        resonance = cast("npt.NDArray[np.float64]", result["resonance_scores"])
+        kinematic = cast("npt.NDArray[np.float64]", result["kinematic_scores"])
+        info_geo = cast("npt.NDArray[np.float64]", result["info_geometry_scores"])
+        return {
+            "resonance": float(np.clip(resonance[0], 0.0, 1.0)),
+            "kinematic": float(np.clip(kinematic[0], 0.0, 1.0)),
+            "info_geometry": float(np.clip(info_geo[0], 0.0, 1.0)),
+        }
 
     def _extract_features_for_ensemble(self, drone_state: DroneState) -> npt.NDArray[np.float64]:
         """Stack the drone-state telemetry into a flat feature vector."""

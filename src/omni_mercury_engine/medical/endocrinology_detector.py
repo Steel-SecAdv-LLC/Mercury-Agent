@@ -8,9 +8,27 @@ Foundation, either version 3 of the License, or (at your option) any later
 version.
 
 Ported from Omni-AXA-Engine's ``endocrinology_detector.py``.  The neural
-architecture (Bi-LSTM, 155K parameters), FDA-aligned clinical rules, and
-risk weights all match the original verified implementation.  Three rules
-have been audited and are preserved verbatim:
+architecture is a Bi-LSTM with additive attention of approximately the
+same parameter count as the upstream (~155K), and the FDA-aligned
+clinical rules are preserved verbatim with their citations intact.
+Two deviations from the upstream are recorded explicitly in
+``CHANGELOG.md`` under
+*"omni_mercury_engine.medical.endocrinology_detector - Deviations
+from the original"* and must not be silently re-collapsed:
+
+* :class:`CGMAnalyzer` widens the trend-prediction head from
+  ``hidden_dim * 2 -> 32 -> 1`` to ``hidden_dim * 2 -> 64 -> 1`` to
+  match the glycemic classifier's hidden width.  Parameter count
+  stays approximately ~155K but the resulting weights are **not
+  interchangeable** with upstream checkpoints.
+* :class:`GLP1TherapyMonitor` and :class:`InhaledInsulinMonitor`
+  retain Mercury-specific reinforcing rules (e.g. duration-based
+  efficacy review, GI-side-effect tracking, MRD spirometry cadence)
+  that the upstream did not ship.  These are additive only - no
+  upstream rule has been weakened or removed.
+
+The three FDA-aligned clinical rules below are preserved exactly as
+upstream:
 
 * **Afrezza inhaled-insulin contraindication**: ``FEV1 < 70%`` triggers a
   contraindication alert and recommends switching to subcutaneous insulin.

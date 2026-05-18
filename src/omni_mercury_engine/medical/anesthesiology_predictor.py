@@ -7,11 +7,30 @@ the terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version.
 
-Ported from Omni-AXA-Engine's ``anesthesiology_predictor.py``.  The neural
-architecture (Bi-LSTM, 164K parameters), PID infusion controller signs and
-gains (kp=0.5, ki=0.1, kd=0.2, target BIS=50, safe BIS window 40-60), and
-clinical vital ranges (MAP 65-110 mmHg, HR 50-100 bpm, SpO2 >= 92%, EtCO2
-30-45 mmHg) all match the original verified implementation.
+Ported from Omni-AXA-Engine's ``anesthesiology_predictor.py``.  The PID
+infusion controller signs and gains (kp=0.5, ki=0.1, kd=0.2, target
+BIS=50, safe BIS window 40-60) and the upstream clinical vital ranges
+(MAP 65-110 mmHg, HR 50-100 bpm, SpO2 >= 92%, EtCO2 30-45 mmHg) are
+preserved verbatim from the verified implementation; the citations
+(ASA standards, AARC capnography guidance) are preserved alongside
+them.
+
+The neural architecture is a TIVA Bi-LSTM in the same family as the
+upstream (~164K parameters), but two deliberate deviations are
+documented in ``CHANGELOG.md`` under
+*"omni_mercury_engine.medical.anesthesiology_predictor - Deviations
+from the original"* and must not be silently re-collapsed:
+
+* :class:`HemodynamicMonitor` keeps an explicit
+  ``intervention_needed = overall_risk > 0.6 or spo2 < spo2_threshold``
+  guard so that any sub-92 % SpO2 reading triggers intervention even
+  when the weighted per-vital risks happen to average out below 0.6.
+* :class:`SmartInfusionController` exposes its working set via
+  ``_last_*`` attributes for test introspection.  Behaviour is
+  identical to the upstream; the surface is additive.
+
+Both deviations strengthen the safety floor relative to upstream; no
+clinical rule has been weakened or removed.
 
 Live data integration
 ---------------------
