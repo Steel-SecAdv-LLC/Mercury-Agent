@@ -340,8 +340,13 @@ class TestMercuryEnsemble:
         """
         detector = DroneAnomalyDetector()
         # All-zero rows -- well-defined statistics but no variance.
-        features = np.zeros(detector._extract_features_for_ensemble(_make_state()).shape)
-        historical = np.zeros((25, features.shape[0]))
+        # ``_extract_features_for_ensemble`` returns a 1-D ``NDArray[float64]``;
+        # ``len(...)`` is unambiguously typed as ``int`` and avoids the
+        # numpy-stub-driven ``tuple[int, ...]`` indexing error that mypy
+        # ``--strict`` flags on Python 3.11.
+        n_features = len(detector._extract_features_for_ensemble(_make_state()))
+        features = np.zeros(n_features, dtype=np.float64)
+        historical = np.zeros((25, n_features), dtype=np.float64)
         scores = detector._compute_ensemble_scores(features, historical)
         # The in-house detector should either return three finite component
         # scores or an empty dict; both outcomes are well-formed.

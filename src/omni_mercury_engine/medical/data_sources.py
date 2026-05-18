@@ -64,6 +64,17 @@ _LOINC_SPO2: Final[str] = "2708-6"
 _LOINC_SPO2_ALT: Final[str] = "59408-5"
 _LOINC_ETCO2: Final[str] = "19911-5"
 
+# Canonical FHIR ``CodeSystem`` URI for LOINC, per
+# https://hl7.org/fhir/loinc.html .  The spec assigns LOINC exactly one
+# system URI; any other ``Observation.code.coding[].system`` value is
+# either a different terminology (SNOMED CT, UCUM, vendor-local) or a
+# spoofed lookalike (e.g. ``http://evil-loinc.org``).  We match exactly
+# rather than via a substring/suffix check so an attacker-controlled
+# system URI cannot impersonate LOINC -- the latter is the
+# ``py/incomplete-url-substring-sanitization`` weakness CodeQL flags as
+# a high-severity finding.
+_LOINC_SYSTEM_URI: Final[str] = "http://loinc.org"
+
 
 class ConfigurationError(RuntimeError):
     """Raised when a data source is instantiated without required credentials.
@@ -272,14 +283,25 @@ def _parse_fhir_instant(value: str) -> datetime:
 
 
 def _loinc_codes(resource: dict[str, Any]) -> list[str]:
-    """Return the LOINC codes attached to a FHIR Observation resource."""
+    """Return the LOINC codes attached to a FHIR Observation resource.
+
+    Only ``coding`` entries whose ``system`` field equals the canonical
+    LOINC ``CodeSystem`` URI (:data:`_LOINC_SYSTEM_URI`) are accepted.
+    The previous implementation used ``endswith("loinc.org")``, which
+    CodeQL flags as ``py/incomplete-url-substring-sanitization``: an
+    attacker-controlled bundle could supply ``http://evil-loinc.org``
+    and have its codes silently treated as authoritative LOINC values,
+    redirecting clinical interpretation.  The FHIR specification
+    assigns LOINC exactly one system URI, so exact-match is both
+    sufficient and correct (https://hl7.org/fhir/loinc.html).
+    """
     coding = resource.get("code", {}).get("coding", [])
     if not isinstance(coding, list):
         return []
     return [
         c.get("code", "")
         for c in coding
-        if isinstance(c, dict) and c.get("system", "").endswith("loinc.org")
+        if isinstance(c, dict) and c.get("system") == _LOINC_SYSTEM_URI
     ]
 
 

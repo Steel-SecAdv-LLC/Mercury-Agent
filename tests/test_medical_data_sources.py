@@ -181,6 +181,50 @@ class TestParseFhirObservationBundle:
         assert len(readings) == 1
         assert readings[0].map_mmhg == 95
 
+    def test_spoofed_loinc_system_uri_is_ignored(self) -> None:
+        """Look-alike LOINC system URIs must not be honoured.
+
+        Regression test for CodeQL alert 881
+        (``py/incomplete-url-substring-sanitization``).  An attacker
+        cannot smuggle malicious vital-sign codes into the rule engine
+        by supplying ``http://evil-loinc.org`` or
+        ``https://loinc.org.example.com`` in ``Observation.code.coding[].system``
+        -- only the canonical ``http://loinc.org`` URI is honoured per
+        https://hl7.org/fhir/loinc.html .
+        """
+        spoofed_systems = [
+            "http://evil-loinc.org",
+            "https://loinc.org.example.com",
+            "http://attacker.invalid/loinc.org",
+            "https://loinc.org",  # close-but-wrong scheme -- LOINC URI is HTTP
+            "",
+        ]
+        for spoofed in spoofed_systems:
+            bundle = {
+                "resourceType": "Bundle",
+                "type": "searchset",
+                "entry": [
+                    {
+                        "resource": {
+                            "resourceType": "Observation",
+                            "status": "final",
+                            "code": {
+                                "coding": [
+                                    # ``8478-0`` is the LOINC code for mean BP;
+                                    # rule engine must not pick it up under a
+                                    # spoofed system URI.
+                                    {"system": spoofed, "code": "8478-0"},
+                                ]
+                            },
+                            "effectiveDateTime": "2024-03-22T13:30:00Z",
+                            "valueQuantity": {"value": 999, "unit": "mm[Hg]"},
+                        }
+                    }
+                ],
+            }
+            readings = parse_fhir_observation_bundle(bundle)
+            assert readings == [], f"Spoofed LOINC system URI {spoofed!r} was honoured by parser"
+
 
 # --------------------------------------------------------------------------- #
 # DexcomV3DataSource (auth + fetch)

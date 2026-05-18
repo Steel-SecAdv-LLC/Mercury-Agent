@@ -13,6 +13,14 @@ on:
 permissions:
   contents: read
 
+# Cancel a prior weekly run if a manual ``workflow_dispatch`` is fired
+# while one is still in flight.  Required by
+# ``scripts/check_workflow_hardening.py`` and keeps the network-drift
+# signal from queueing on top of itself.
+concurrency:
+  group: network-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   run:
     runs-on: ubuntu-latest
