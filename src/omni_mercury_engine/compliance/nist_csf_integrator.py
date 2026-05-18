@@ -74,10 +74,10 @@ from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
+from urllib.parse import urlparse
 
 import numpy as np
 import requests
-from urllib.parse import urlparse
 
 from omni_mercury_engine.utils.logging import get_logger
 
