@@ -37,7 +37,7 @@ from html import escape
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from omni_mercury_engine.security.tlp_handler import TLPClassification
+    from omni_mercury_engine.compliance.tlp_handler import TLPClassification
 
 
 class ReportFormat(StrEnum):
@@ -187,7 +187,7 @@ class ReportGenerator:
             TypeError: If neither ``classification`` nor ``anomaly_score``
                 is provided.
         """
-        from omni_mercury_engine.security.tlp_handler import (
+        from omni_mercury_engine.compliance.tlp_handler import (
             TLPClassification as _TLPClassification,
             get_tlp_handler,
         )
@@ -221,7 +221,7 @@ class ReportGenerator:
         """Build the JSON-serialisable TLP metadata block for export."""
         if self._tlp_classification is None:
             return None
-        from omni_mercury_engine.security.tlp_handler import get_tlp_handler
+        from omni_mercury_engine.compliance.tlp_handler import get_tlp_handler
 
         handler = get_tlp_handler()
         block = handler.get_export_metadata(self._tlp_classification)

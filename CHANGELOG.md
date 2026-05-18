@@ -61,7 +61,7 @@ overlap with existing Mercury code, and are fully typed for
   (29 unit + 2 `@pytest.mark.network` integration tests against
   csrc.nist.gov).
 
-- **`omni_mercury_engine.security.tlp_handler`**
+- **`omni_mercury_engine.compliance.tlp_handler`**
   (313 LOC source → 603 LOC port).  Implements FIRST.org / CISA
   TLP 2.0 classification with the full five-colour ladder
   (CLEAR / GREEN / AMBER / AMBER+STRICT / RED), single-anomaly and
@@ -74,8 +74,20 @@ overlap with existing Mercury code, and are fully typed for
   so Mercury is TLP-2.0 compliant out of the box.  Sharing
   guidelines are verbatim from FIRST.org TLP 2.0; bare
   `except:` clauses present in the upstream module were replaced
-  with explicit `TLPValidationError` paths.  Locked by
-  `tests/test_tlp_handler.py` (45 tests covering every public
+  with explicit `TLPValidationError` paths.  **Location delta:**
+  the module lives in `omni_mercury_engine.compliance` alongside
+  `nist_csf_integrator` and `osha_anomaly` rather than in
+  `omni_mercury_engine.security`.  Mercury's `security/` package
+  is reserved for implementation primitives (crypto, PQC, threat
+  detection, audit logging); governance frameworks live in
+  `compliance/`.  The upstream location was
+  `domains/ciad/compliance/`, so this restores upstream intent.
+  Internal callers (`utils.report_generator`,
+  `tests.test_report_generator`, `tests.test_tlp_handler`) were
+  updated to the new import path; a repository-wide
+  `git grep` confirmed no other call sites, so no
+  backwards-compatibility shim was added in `security/`.  Locked
+  by `tests/test_tlp_handler.py` (45 tests covering every public
   surface including AMBER+STRICT escalation, watermark integrity,
   and export-metadata schema).
 

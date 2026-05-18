@@ -1,4 +1,4 @@
-"""Tests for :mod:`omni_mercury_engine.security.tlp_handler`.
+"""Tests for :mod:`omni_mercury_engine.compliance.tlp_handler`.
 
 Exercises the full public surface of the TLP 2.0 classifier ported from
 Omni-AXA-Engine, including the Mercury Agent addition of the
@@ -17,7 +17,7 @@ import math
 
 import pytest
 
-from omni_mercury_engine.security import (
+from omni_mercury_engine.compliance import (
     TLPClassification,
     TLPColor,
     TLPHandler,

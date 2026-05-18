@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from omni_mercury_engine.security.tlp_handler import TLPColor, get_tlp_handler
+from omni_mercury_engine.compliance.tlp_handler import TLPColor, get_tlp_handler
 from omni_mercury_engine.utils.report_generator import (
     AnomalyReport,
     ExecutiveSummary,
