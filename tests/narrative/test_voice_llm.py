@@ -153,6 +153,23 @@ class TestVoiceLLMConfiguredProvider:
         assert voice._llm_adapter is None
         assert any("llm_revision" in r.message for r in caplog.records)
 
+    def test_huggingface_provider_requires_model_name(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Missing HuggingFace model names get a direct, actionable error."""
+        monkeypatch.delenv(MERCURY_ENV_VAR, raising=False)
+        with caplog.at_level("WARNING", logger="omni_mercury_engine.narrative.voice"):
+            voice = MercuryVoice(
+                enable_llm=True,
+                llm_provider="huggingface",
+                llm_revision=_HF_REVISION,
+            )
+
+        assert voice._llm_adapter is None
+        assert any("llm_model_name" in r.message for r in caplog.records)
+
     def test_provider_init_failure_fails_closed_in_production(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -238,6 +255,8 @@ class TestVoiceLLMConfiguredProvider:
 
     def test_ollama_base_url_reaches_adapter_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """``llm_base_url`` configures the Ollama host/port, not a dead kwarg."""
+        from omni_mercury_engine.models.foundation.ollama_adapter import OllamaLLMAdapter
+
         monkeypatch.delenv(MERCURY_ENV_VAR, raising=False)
 
         detector = create_llm_detector(
@@ -246,9 +265,18 @@ class TestVoiceLLMConfiguredProvider:
             base_url="http://ollama.internal:11435",
         )
 
+        assert isinstance(detector.adapter, OllamaLLMAdapter)
         ollama_config = detector.adapter.ollama_config
         assert ollama_config.host == "ollama.internal"
         assert ollama_config.port == 11435
+
+    def test_create_llm_detector_huggingface_requires_model_name(self) -> None:
+        """The low-level factory does not substitute cross-provider placeholders."""
+        with pytest.raises(ValueError, match="model_name"):
+            create_llm_detector(
+                provider="huggingface",
+                revision=_HF_REVISION,
+            )
 
 
 class TestCreateMercuryVoiceFactory:

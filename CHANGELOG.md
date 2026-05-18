@@ -143,6 +143,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     naming every supported provider, instead of routing through
     `create_llm_detector`'s legacy "unknown → mock" fallback and
     blowing up on `NotImplementedError` later.
+  - HuggingFace requires an explicit `llm_model_name`; remote
+    HuggingFace IDs also require `llm_revision=<40-char SHA>` so
+    `SafeHFLoader` can enforce reproducible model loading.
   Locked by `tests/narrative/test_voice_llm.py`; full
   `tests/narrative/` suite (92 tests) is green.
 

@@ -38,6 +38,16 @@ def test_engine_initialization() -> None:
     assert hasattr(engine, "fusion_model")
 
 
+def test_huggingface_llm_enhancement_requires_model_name() -> None:
+    """HuggingFace LLM enhancement fails before using a placeholder model."""
+    engine = OmniMercuryEngine()
+    with pytest.raises(ValueError, match="model_name"):
+        engine.enable_llm_enhancement(
+            provider="huggingface",
+            revision="0123456789abcdef0123456789abcdef01234567",
+        )
+
+
 def test_detect_basic(sample_data: Any) -> None:
     """Test basic anomaly detection"""
     engine = OmniMercuryEngine()

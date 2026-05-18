@@ -23,7 +23,7 @@
 > | # | Capability | Designed | Stubbed | Functional | Notes |
 > |---|------------|:--------:|:-------:|:----------:|-------|
 > | 1 | Distributed Processing | ✓ | — | ✓ | Phase 2 audit cure (May 2026) ships a native pure-stdlib `TCPMessageTransport` (`omni_mercury_engine.distributed.tcp_transport`) — asyncio + length-prefixed binary frames + per-message Ed25519 signatures via Mercury's own AMA Cryptography surface. No third-party RPC framework. The five `NotImplementedError` sites in `raft_consensus.py` are gone; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes. Integration test: `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects` spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and confirms re-election. |
-> | 2 | Biometric Modalities | ✓ | — | ✓ | `iris_recognition.py` (721 LOC), `fingerprint_recognition.py` (1131 LOC), `voice_recognition.py` (884 LOC) all import-clean with no `NotImplementedError`. As of v1.7.0 `narrative/voice.py:_init_llm` no longer silently substitutes `MockLLMAdapter` — it requires `llm_provider=` to name an implemented provider (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, or `template`). Remote HuggingFace IDs also require `llm_revision=<40-char SHA>`. Missing/unavailable provider in `MERCURY_ENV=production` raises `MercuryProductionConfigError`; in development it logs a warning and the voice path falls through to deterministic template narration. Iris and fingerprint paths are functional pending dedicated test coverage. |
+> | 2 | Biometric Modalities | ✓ | — | ✓ | `iris_recognition.py` (721 LOC), `fingerprint_recognition.py` (1131 LOC), `voice_recognition.py` (884 LOC) all import-clean with no `NotImplementedError`. As of v1.7.0 `narrative/voice.py:_init_llm` no longer silently substitutes `MockLLMAdapter` — it requires `llm_provider=` to name an implemented provider (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, or `template`). HuggingFace additionally requires an explicit `llm_model_name`; remote HuggingFace IDs also require `llm_revision=<40-char SHA>`. Missing/unavailable provider in `MERCURY_ENV=production` raises `MercuryProductionConfigError`; in development it logs a warning and the voice path falls through to deterministic template narration. Iris and fingerprint paths are functional pending dedicated test coverage. |
 > | 3 | Real Quantum Computing | ✓ | — | partial | `executor.py` defaults to `BackendType.SIMULATOR` and uses `AerSimulator`. Real-hardware path (IBM Quantum, IonQ) requires user credentials and is not exercised in CI. Treat as "simulated by default; real hardware untested in-tree." |
 > | 4 | Advanced Harmonics | ✓ | — | ✓ | `harmonics/analyzer.py`, `features.py`, `transform.py` are wired and exercised by the 21-probe ensemble and detector pipeline. |
 > | 5 | AutoML | ✓ | — | ✓ | `automl/optimizer.py`, `schedulers.py`, `search_space.py` (~1,135 LOC main file). `tests/automl/test_scheduler_completion.py` exercises the scheduler. Hyperparameter search wired into training loop. |
@@ -196,8 +196,8 @@ class DistributedMercuryCluster:
 > `llm_provider=` argument naming an implemented provider
 > (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`,
 > `gemini`, `cohere`, `deepseek`, `cursor`, or `template`).
-> Remote HuggingFace IDs additionally require
-> `llm_revision=<40-char SHA>`. Without a provider,
+> HuggingFace additionally requires an explicit model name, and remote
+> HuggingFace IDs require `llm_revision=<40-char SHA>`. Without a provider,
 > `MERCURY_ENV=production` raises
 > `MercuryProductionConfigError` and development logs a warning and
 > downgrades to deterministic template narration.  The design below

@@ -326,7 +326,12 @@ class MercuryVoice:
             if provider_enum == LLMProvider.HUGGINGFACE:
                 from pathlib import PurePosixPath, PureWindowsPath
 
-                model_name = self._llm_model_name or "gpt-4o"
+                if not self._llm_model_name:
+                    raise ValueError(
+                        "MercuryVoice llm_provider='huggingface' requires "
+                        "llm_model_name=<HuggingFace model ID or absolute local path>."
+                    )
+                model_name = self._llm_model_name
                 is_local_path = (
                     PurePosixPath(model_name).is_absolute()
                     or PureWindowsPath(model_name).is_absolute()

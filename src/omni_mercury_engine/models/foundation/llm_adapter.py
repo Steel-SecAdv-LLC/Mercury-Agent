@@ -753,8 +753,10 @@ def create_llm_detector(
         ) from exc
 
     if provider_enum == LLMProvider.MOCK:
-        return ZeroShotAnomalyDetector(
-            LLMConfig(provider=provider_enum, model_name=model_name or "gpt-4o")
+        raise NotImplementedError(
+            "MockLLMAdapter cannot be used in production. Configure a real "
+            "provider or use the explicit template adapter for deterministic "
+            "offline responses."
         )
     if provider_enum not in IMPLEMENTED_LLM_PROVIDERS:
         supported = ", ".join(sorted(p.value for p in IMPLEMENTED_LLM_PROVIDERS))
@@ -766,6 +768,22 @@ def create_llm_detector(
     config_kwargs = dict(kwargs)
     ollama_host = config_kwargs.pop("host", None)
     ollama_port = config_kwargs.pop("port", None)
+    if provider_enum == LLMProvider.HUGGINGFACE:
+        from pathlib import PurePosixPath, PureWindowsPath
+
+        if not model_name:
+            raise ValueError(
+                "create_llm_detector(provider='huggingface') requires "
+                "model_name=<HuggingFace model ID or absolute local path>."
+            )
+        is_local_path = (
+            PurePosixPath(model_name).is_absolute() or PureWindowsPath(model_name).is_absolute()
+        )
+        if not is_local_path and not config_kwargs.get("revision"):
+            raise ValueError(
+                "HuggingFace remote model IDs require revision=<40-character "
+                "commit SHA> so SafeHFLoader can enforce reproducible model loading."
+            )
 
     config = LLMConfig(
         provider=provider_enum,

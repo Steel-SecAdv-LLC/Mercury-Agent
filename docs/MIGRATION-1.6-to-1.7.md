@@ -142,7 +142,8 @@ real-provider selection that was always intended:
 - `MercuryVoice(enable_llm=True, llm_provider="huggingface",
   llm_model_name="facebook/bart-large-mnli",
   llm_revision="<40-character commit SHA>")` initialises the real
-  HuggingFace adapter.  Remote HuggingFace IDs require the revision
+  HuggingFace adapter.  HuggingFace requires an explicit
+  `llm_model_name`; remote HuggingFace IDs also require the revision
   pin enforced by `SafeHFLoader`; absolute local model paths do not.
   Other implemented providers: `ollama`, `openai`, `anthropic`,
   `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, `template`.

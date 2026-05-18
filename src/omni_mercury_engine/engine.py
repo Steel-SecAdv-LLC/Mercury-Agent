@@ -1277,7 +1277,12 @@ class OmniMercuryEngine(LoggerMixin):
             )
 
         if llm_provider == LLMProvider.HUGGINGFACE:
-            resolved_model_name = model_name or "gpt-4o"
+            if not model_name:
+                raise ValueError(
+                    "enable_llm_enhancement(provider='huggingface') requires "
+                    "model_name=<HuggingFace model ID or absolute local path>."
+                )
+            resolved_model_name = model_name
             is_local_path = (
                 PurePosixPath(resolved_model_name).is_absolute()
                 or PureWindowsPath(resolved_model_name).is_absolute()
