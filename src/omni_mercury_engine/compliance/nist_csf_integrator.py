@@ -77,6 +77,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 import numpy as np
 import requests
+from urllib.parse import urlparse
 
 from omni_mercury_engine.utils.logging import get_logger
 
@@ -94,6 +95,12 @@ _LOG: Final[logging.Logger] = get_logger("omni_mercury_engine.compliance.nist_cs
 NIST_CSF_REFERENCE_URL: Final[str] = (
     "https://csrc.nist.gov/extensions/nudp/services/json/csf/download?olirids=all"
 )
+
+# Allowlist of hosts the fetcher may contact. Bound to the published
+# NIST CSRC endpoint to prevent SSRF / redirect-pivot attacks via the
+# ``url`` constructor argument; ``follow_redirects`` is forced off on
+# every outbound request for the same reason.
+_ALLOWED_REFERENCE_HOSTS: Final[frozenset[str]] = frozenset({"csrc.nist.gov"})
 
 # NIST CSF 2.0 publication landing pages and authoritative PDF. Used by
 # :meth:`NISTCSFReferenceFetcher.metadata` to surface publication context
@@ -279,18 +286,52 @@ class NISTCSFReferenceFetcher:
 
         Args:
             url: Reference download URL. Defaults to
-                :data:`NIST_CSF_REFERENCE_URL`.
+                :data:`NIST_CSF_REFERENCE_URL`. The scheme must be
+                ``https`` and the host must be in
+                :data:`_ALLOWED_REFERENCE_HOSTS` (currently the public
+                NIST CSRC reference-tool endpoint). Any other value
+                raises :class:`NISTCSFReferenceError` at construction
+                time so SSRF / redirect-pivot attempts surface at the
+                boundary instead of at fetch time.
             cache_dir: Cache directory. Defaults to
                 :func:`_default_cache_dir`.
             cache_ttl_seconds: Maximum cache age before a fresh fetch
                 is forced. ``0`` disables caching entirely.
             session: Optional pre-configured :class:`requests.Session`.
                 A fresh session is constructed when ``None``.
+
+        Raises:
+            NISTCSFReferenceError: If ``url`` is not HTTPS or its host
+                is not in :data:`_ALLOWED_REFERENCE_HOSTS`.
         """
+        self._validate_url(url)
         self._url = url
         self._cache_dir = cache_dir if cache_dir is not None else _default_cache_dir()
         self._cache_ttl = float(cache_ttl_seconds)
         self._session = session if session is not None else requests.Session()
+
+    @staticmethod
+    def _validate_url(url: str) -> None:
+        """Validate that ``url`` targets the published NIST CSRC host over HTTPS.
+
+        Args:
+            url: Candidate reference URL.
+
+        Raises:
+            NISTCSFReferenceError: If the scheme is not ``https`` or the
+                host is not in :data:`_ALLOWED_REFERENCE_HOSTS`.
+        """
+        parsed = urlparse(url)
+        if parsed.scheme.lower() != "https":
+            raise NISTCSFReferenceError(
+                f"NIST CSF reference URL must use HTTPS; got scheme={parsed.scheme!r}"
+            )
+        host = (parsed.hostname or "").lower()
+        if host not in _ALLOWED_REFERENCE_HOSTS:
+            raise NISTCSFReferenceError(
+                f"NIST CSF reference URL host {host!r} is not in the published "
+                f"NIST CSRC allowlist {sorted(_ALLOWED_REFERENCE_HOSTS)!r}"
+            )
 
     # ------------------------------------------------------------------ caching
 
@@ -342,12 +383,20 @@ class NISTCSFReferenceFetcher:
                 self._url,
                 timeout=_HTTP_TIMEOUT_SECONDS,
                 headers={"User-Agent": _USER_AGENT, "Accept": "*/*"},
+                allow_redirects=False,
             )
             response.raise_for_status()
         except requests.RequestException as exc:
             raise NISTCSFReferenceError(
                 f"Failed to fetch NIST CSF reference from {self._url}: {exc}"
             ) from exc
+        if response.status_code in {301, 302, 303, 307, 308}:
+            raise NISTCSFReferenceError(
+                f"NIST CSF reference endpoint returned a redirect "
+                f"({response.status_code} -> {response.headers.get('Location', '')!r}); "
+                f"refusing to follow to prevent SSRF / pivot via Location header. "
+                f"Update NIST_CSF_REFERENCE_URL if NIST CSRC has moved the endpoint."
+            )
 
         payload = response.content
         if not payload:
@@ -581,8 +630,12 @@ def _parse_subcategory_row(
     Args:
         subcategory_text: Cell text from the Subcategory column,
             formatted as ``"GV.OC-01: The organizational mission ..."``.
-        examples_text: Multi-line implementation examples; entries are
-            split on ``"Ex"`` markers.
+        examples_text: Multi-line implementation examples; one example
+            per line. NIST CSRC ships each ``"Ex1: ..." / "Ex2: ..."``
+            marker on its own line, so splitting on newlines and
+            preserving the original ``"ExN:"`` prefix is equivalent to
+            splitting on the marker itself while remaining tolerant of
+            cells that do not use the convention.
         refs_text: Multi-line informative references; entries are split
             on newlines.
 

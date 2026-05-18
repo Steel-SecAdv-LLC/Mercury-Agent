@@ -29,19 +29,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Omni-AXA → Mercury port, PR 1: infrastructure & stdlib-only modules
 
 Three first-party modules ported from `Steel-SecAdv-LLC/Omni-AXA-Engine`
-(GPL-3.0+) into Mercury Agent.  All three are stdlib-only (plus
-`requests`/`openpyxl` for the NIST CSF live-reference fetcher), have no
-overlap with existing Mercury code, and are fully typed for
-`mypy --strict`.
+(GPL-3.0+) into Mercury Agent.  The runtime dependency surface added by
+these ports is `numpy` (already required by Mercury Agent core),
+`requests` (existing Mercury dependency, used by the NIST CSF live
+fetcher), and `openpyxl` (new, gated behind the `compliance` extra in
+`pyproject.toml` and only required when parsing the live NIST CSF
+reference XLSX).  No new mandatory dependencies were introduced.  All
+three ported modules are fully typed for `mypy --strict` and have no
+overlap with existing Mercury code.
 
 - **`omni_mercury_engine.utils.profiling`** (411 LOC source → 652 LOC port).
   Six public entry points: `@profile_func`, `@profile_memory`,
   `@profile_time`, `@profile_time_async`, `@profile_complete`,
   `PerformanceBenchmark` context manager, and `benchmark_function`.
   Mercury delta: added `@profile_time_async` for Mercury's asyncio
-  paths and added an opt-in global enable flag
-  (`profiling.set_enabled`).  Locked by `tests/test_profiling.py`
-  (32 tests).
+  paths and added an opt-in global enable flag exposed via
+  `set_profiling_enabled(...)` / `is_profiling_enabled()` in
+  `omni_mercury_engine.utils.profiling`.  Locked by
+  `tests/test_profiling.py` (32 tests).
 
 - **`omni_mercury_engine.compliance.nist_csf_integrator`**
   (578 LOC source → 1,349 LOC port).  Implements NIST CSF 2.0
