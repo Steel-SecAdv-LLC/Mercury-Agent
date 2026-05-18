@@ -1,52 +1,84 @@
-"""Tests for the endocrinology detector."""
+"""Tests for the endocrinology detector and its rule monitors."""
 
 from __future__ import annotations
 
-import io
-import json
-from typing import Any
-from unittest.mock import patch
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import pytest
 
+from omni_mercury_engine.medical.data_sources import (
+    CGMDataSource,
+    CGMReading,
+    ConfigurationError,
+)
 from omni_mercury_engine.medical.endocrinology_detector import (
     CGMAnalyzer,
-    DexcomCredentials,
     EndocrinologyDetector,
     EndocrinologyPredictionResult,
     GLP1TherapyMonitor,
     GlycemicState,
     InhaledInsulinMonitor,
     SmartInsulinPenMonitor,
-    TidepoolClient,
-    TidepoolClientError,
     count_cgm_parameters,
     get_endocrinology_detector,
 )
+
+
+class _StaticCGMSource(CGMDataSource):
+    """In-process CGM source backed by a static reading list.
+
+    Used purely to drive end-to-end tests of the detector's integration with
+    a configured adapter; no synthetic data ever enters production paths.
+    """
+
+    name = "static_test_cgm"
+
+    def __init__(self, readings: list[CGMReading]) -> None:
+        self._readings = readings
+        self.calls = 0
+        self.last_window: int | None = None
+
+    def fetch_recent_readings(self, window_minutes: int = 180) -> list[CGMReading]:
+        self.calls += 1
+        self.last_window = window_minutes
+        return list(self._readings)
+
+
+def _readings_at_glucose(value: float, n: int = 60) -> list[CGMReading]:
+    start = datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)
+    return [
+        CGMReading(
+            timestamp=start + timedelta(minutes=5 * i),
+            value_mg_dl=value,
+            source="static_test_cgm",
+        )
+        for i in range(n)
+    ]
+
+
+# --------------------------------------------------------------------------- #
+# CGMAnalyzer (neural network) structural tests
+# --------------------------------------------------------------------------- #
 
 
 class TestCGMAnalyzer:
     """CGM Bi-LSTM structural tests."""
 
     def test_parameter_count_in_reference_band(self) -> None:
-        """CGM model parameter count is ~155K."""
         count = count_cgm_parameters()
-        # Reference: 155K parameters (tolerance for linear-layer drift)
+        # Reference: 155K parameters (tolerance for linear-layer drift).
         assert 145_000 <= count <= 165_000, f"Got {count} parameters"
 
     def test_input_dim_is_one(self) -> None:
-        """The first LSTM input dim is 1 (glucose only)."""
         model = CGMAnalyzer()
         assert model.lstm.input_size == 1
 
     def test_bidirectional(self) -> None:
-        """The LSTM is bidirectional."""
         model = CGMAnalyzer()
         assert model.lstm.bidirectional is True
 
     def test_forward_shapes(self) -> None:
-        """forward returns 5-class logits, scalar trend, and attention weights."""
         import torch
 
         model = CGMAnalyzer()
@@ -55,133 +87,144 @@ class TestCGMAnalyzer:
         with torch.no_grad():
             logits, trend, attn = model(x)
         assert logits.shape == (1, 5)
-        assert trend.shape == (1, 1)
+        assert trend.shape == (1,)
         assert attn.shape == (1, 60)
+
+
+# --------------------------------------------------------------------------- #
+# Rule-engine monitors
+# --------------------------------------------------------------------------- #
 
 
 class TestSmartInsulinPenMonitor:
     """Smart insulin pen monitor + dose-stacking guard."""
 
-    def test_normal_dose_safe(self) -> None:
-        """A normal-sized dose at a sensible spacing is safe."""
+    def test_safe_when_doses_spaced(self) -> None:
         monitor = SmartInsulinPenMonitor()
         result = monitor.monitor_insulin_delivery(
             {
-                "dose_units": 5.0,
-                "insulin_type": "rapid_acting",
-                "time_since_last_dose_hours": 4.0,
-                "daily_total_units": 30.0,
+                "recent_doses": [
+                    {"time_hours": 0.0, "units": 5.0},
+                    {"time_hours": 4.0, "units": 5.0},
+                ],
+                "adherence_rate": 1.0,
+                "patient_glucose": 140.0,
+            }
+        )
+        assert result["insulin_delivery_safe"] is True
+        assert result["alerts"] == []
+
+    def test_dose_stacking_blocked_when_glucose_missing(self) -> None:
+        """Without verified glucose, stacking < 2 h triggers an alert."""
+        monitor = SmartInsulinPenMonitor()
+        result = monitor.monitor_insulin_delivery(
+            {
+                "recent_doses": [
+                    {"time_hours": 0.0, "units": 5.0},
+                    {"time_hours": 1.0, "units": 5.0},
+                ],
+                "adherence_rate": 1.0,
+            }
+        )
+        assert result["insulin_delivery_safe"] is False
+        joined = " ".join(result["alerts"])
+        assert "stacking" in joined.lower()
+
+    def test_dose_stacking_blocked_when_glucose_high(self) -> None:
+        """Glucose > 250 mg/dL signals hyperglycaemia; stacking is alerted."""
+        monitor = SmartInsulinPenMonitor()
+        result = monitor.monitor_insulin_delivery(
+            {
+                "recent_doses": [
+                    {"time_hours": 0.0, "units": 5.0},
+                    {"time_hours": 1.0, "units": 5.0},
+                ],
+                "adherence_rate": 1.0,
+                "patient_glucose": 320.0,
+            }
+        )
+        assert result["insulin_delivery_safe"] is False
+
+    def test_dose_stacking_allowed_when_glucose_verified_safe(self) -> None:
+        """When measured glucose is ≤ 250 mg/dL the stacking guard does not fire."""
+        monitor = SmartInsulinPenMonitor()
+        result = monitor.monitor_insulin_delivery(
+            {
+                "recent_doses": [
+                    {"time_hours": 0.0, "units": 5.0},
+                    {"time_hours": 1.0, "units": 5.0},
+                ],
+                "adherence_rate": 1.0,
+                "patient_glucose": 180.0,
             }
         )
         assert result["insulin_delivery_safe"] is True
 
-    def test_large_bolus_flagged(self) -> None:
-        """A bolus > max_bolus_units triggers an alert."""
+    def test_low_adherence_alert(self) -> None:
         monitor = SmartInsulinPenMonitor()
-        result = monitor.monitor_insulin_delivery(
-            {
-                "dose_units": 25.0,
-                "insulin_type": "rapid_acting",
-                "time_since_last_dose_hours": 4.0,
-            }
-        )
+        result = monitor.monitor_insulin_delivery({"recent_doses": [], "adherence_rate": 0.5})
         assert result["insulin_delivery_safe"] is False
-        assert any("Large bolus" in a for a in result["alerts"])
+        assert any("adherence" in a.lower() for a in result["alerts"])
+        assert result["adherence_rate"] == pytest.approx(0.5)
 
-    def test_dose_stacking_under_two_hours_blocked(self) -> None:
-        """Rapid-acting doses < 2h apart trip the dose-stacking guard."""
+    def test_adherence_clamped(self) -> None:
         monitor = SmartInsulinPenMonitor()
-        result = monitor.monitor_insulin_delivery(
-            {
-                "dose_units": 5.0,
-                "insulin_type": "rapid_acting",
-                "time_since_last_dose_hours": 1.0,
-            }
-        )
-        assert result["insulin_delivery_safe"] is False
-        assert any("Dose stacking" in a for a in result["alerts"])
-
-    def test_dose_stacking_only_applies_to_rapid_acting(self) -> None:
-        """Basal insulin within 2h is not flagged as stacking."""
-        monitor = SmartInsulinPenMonitor()
-        result = monitor.monitor_insulin_delivery(
-            {
-                "dose_units": 5.0,
-                "insulin_type": "basal",
-                "time_since_last_dose_hours": 0.5,
-                "daily_total_units": 25.0,
-            }
-        )
-        assert all("Dose stacking" not in a for a in result["alerts"])
-
-    def test_adherence_calculation(self) -> None:
-        """Adherence is doses_taken / doses_prescribed, capped at 1.0."""
-        monitor = SmartInsulinPenMonitor()
-        result = monitor.monitor_insulin_delivery(
-            {
-                "doses_taken_last_week": 18,
-                "doses_prescribed_last_week": 21,
-                "dose_units": 5.0,
-                "insulin_type": "rapid_acting",
-                "time_since_last_dose_hours": 4.0,
-            }
-        )
-        assert result["adherence_score"] == pytest.approx(18 / 21)
+        result = monitor.monitor_insulin_delivery({"recent_doses": [], "adherence_rate": 1.5})
+        assert result["adherence_rate"] == 1.0
 
 
 class TestGLP1TherapyMonitor:
     """GLP-1 therapy monitor with pancreatitis discontinuation."""
 
     def test_pancreatitis_forces_discontinuation(self) -> None:
-        """Pancreatitis in side_effects sets continue_therapy=False."""
         monitor = GLP1TherapyMonitor()
         result = monitor.monitor_glp1_therapy(
             {
                 "medication": "semaglutide",
-                "dose_mg": 1.0,
-                "duration_weeks": 16,
-                "a1c_percent": 6.8,
-                "weight_change_percent": -8.0,
+                "a1c_change_percent": -0.6,
+                "weight_loss_kg": 4.0,
                 "side_effects": ["pancreatitis"],
             }
         )
         assert result["continue_therapy"] is False
-        assert any(
-            "Pancreatitis" in r or "discontinue" in r.lower() for r in result["recommendations"]
-        )
+        joined = " ".join(result["recommendations"]).lower()
+        assert "discontinue" in joined or "pancreatitis" in joined
 
     def test_pancreatitis_keyword_case_insensitive(self) -> None:
-        """The pancreatitis check is case-insensitive."""
         monitor = GLP1TherapyMonitor()
         result = monitor.monitor_glp1_therapy({"side_effects": ["PANCREATITIS"]})
         assert result["continue_therapy"] is False
 
+    def test_pancreatitis_substring_match(self) -> None:
+        monitor = GLP1TherapyMonitor()
+        result = monitor.monitor_glp1_therapy({"side_effects": ["acute pancreatitis history"]})
+        assert result["continue_therapy"] is False
+
     def test_normal_therapy_continues(self) -> None:
-        """GLP-1 therapy without pancreatitis continues."""
         monitor = GLP1TherapyMonitor()
         result = monitor.monitor_glp1_therapy(
             {
-                "a1c_percent": 6.9,
-                "weight_change_percent": -10.5,
+                "a1c_change_percent": -1.0,
+                "weight_loss_kg": 5.0,
                 "side_effects": [],
             }
         )
         assert result["continue_therapy"] is True
+        assert result["therapeutic_success"] is True
 
-    def test_nausea_recommendations(self) -> None:
-        """GI side effects yield management recommendations."""
-        monitor = GLP1TherapyMonitor()
-        result = monitor.monitor_glp1_therapy({"side_effects": ["nausea"], "duration_weeks": 4})
-        joined = " ".join(result["recommendations"]).lower()
-        assert "food" in joined or "titration" in joined
-
-    def test_high_a1c_after_12_weeks(self) -> None:
-        """A1C > target at 12+ weeks triggers dose-escalation recommendation."""
+    def test_subtherapeutic_response_recommended(self) -> None:
         monitor = GLP1TherapyMonitor()
         result = monitor.monitor_glp1_therapy(
-            {"a1c_percent": 8.5, "duration_weeks": 14, "side_effects": []}
+            {
+                "a1c_change_percent": -0.1,
+                "weight_loss_kg": 0.5,
+                "side_effects": [],
+            }
         )
-        assert any("dose escalation" in r.lower() for r in result["recommendations"])
+        assert result["continue_therapy"] is True
+        assert result["therapeutic_success"] is False
+        joined = " ".join(result["recommendations"]).lower()
+        assert "dose" in joined or "adherence" in joined
 
 
 class TestInhaledInsulinMonitor:
@@ -190,156 +233,143 @@ class TestInhaledInsulinMonitor:
     @pytest.mark.parametrize(
         ("fev1", "appropriate"),
         [
-            (70.1, True),  # just above the threshold
-            (70.0, True),  # exactly at the threshold
-            (69.9, False),  # just below -> contraindicated
-            (50.0, False),  # clearly contraindicated
+            (70.1, True),
+            (70.0, True),
+            (69.9, False),
+            (50.0, False),
         ],
     )
     def test_fev1_threshold(self, fev1: float, appropriate: bool) -> None:
-        """The Afrezza contraindication fires at FEV1 < 70%."""
         monitor = InhaledInsulinMonitor()
-        result = monitor.monitor_inhaled_insulin({"pulmonary_function_fev1_percent": fev1})
+        result = monitor.monitor_inhaled_insulin({"fev1_percent": fev1})
         assert result["inhaled_insulin_appropriate"] is appropriate
 
-    def test_high_dose_recommends_subcutaneous(self) -> None:
-        """Doses above max_dose_units recommend SC insulin."""
+    def test_contraindication_message(self) -> None:
         monitor = InhaledInsulinMonitor()
-        result = monitor.monitor_inhaled_insulin(
-            {"dose_units": 20, "pulmonary_function_fev1_percent": 90.0}
-        )
+        result = monitor.monitor_inhaled_insulin({"fev1_percent": 50.0})
+        assert any("CONTRAINDICATION" in a for a in result["alerts"])
         joined = " ".join(result["recommendations"]).lower()
         assert "subcutaneous" in joined
 
-    def test_poor_technique_warning(self) -> None:
-        """Technique score < 0.7 produces a retraining recommendation."""
+    def test_high_post_meal_glucose_recommendation(self) -> None:
         monitor = InhaledInsulinMonitor()
-        result = monitor.monitor_inhaled_insulin(
-            {
-                "inhalation_technique_score": 0.5,
-                "pulmonary_function_fev1_percent": 90.0,
-            }
-        )
+        result = monitor.monitor_inhaled_insulin({"fev1_percent": 90.0, "post_meal_glucose": 220.0})
         joined = " ".join(result["recommendations"]).lower()
-        assert "retrain" in joined or "technique" in joined
+        assert "post-meal" in joined or "dose adjustment" in joined
 
 
-class TestTidepoolClient:
-    """Tidepool client behaviour (no real network in tests)."""
-
-    def _fake_response(self, body: bytes, status: int = 200) -> Any:
-        class _Resp:
-            def __init__(self, data: bytes, code: int) -> None:
-                self._buf = io.BytesIO(data)
-                self.status = code
-
-            def read(self) -> bytes:
-                return self._buf.read()
-
-            def __enter__(self) -> _Resp:
-                return self
-
-            def __exit__(self, *args: Any) -> None:
-                return None
-
-        return _Resp(body, status)
-
-    def test_info_returns_parsed_json(self) -> None:
-        """info() parses Tidepool /info as JSON."""
-        body = json.dumps({"version": "1.0.0"}).encode("utf-8")
-        client = TidepoolClient()
-        with patch(
-            "omni_mercury_engine.medical.endocrinology_detector.urlopen",
-            return_value=self._fake_response(body),
-        ):
-            data = client.info()
-        assert data == {"version": "1.0.0"}
-
-    def test_bearer_token_attached(self) -> None:
-        """A configured token is sent as a bearer header."""
-        body = json.dumps({}).encode("utf-8")
-        client = TidepoolClient(token="abc")  # noqa: S106 - test fixture
-        with patch(
-            "omni_mercury_engine.medical.endocrinology_detector.urlopen",
-            return_value=self._fake_response(body),
-        ) as mocked:
-            client.info()
-            req = mocked.call_args[0][0]
-            assert req.get_header("Authorization") == "Bearer abc"
-
-    def test_oserror_wrapped(self) -> None:
-        """Network errors raise TidepoolClientError."""
-        client = TidepoolClient()
-        with (
-            patch(
-                "omni_mercury_engine.medical.endocrinology_detector.urlopen",
-                side_effect=OSError("offline"),
-            ),
-            pytest.raises(TidepoolClientError),
-        ):
-            client.info()
+# --------------------------------------------------------------------------- #
+# EndocrinologyDetector integration
+# --------------------------------------------------------------------------- #
 
 
-class TestDexcomCredentials:
-    """DexcomCredentials environment loading."""
+class TestDetectorConfiguration:
+    """Configuration semantics + ConfigurationError contract."""
 
-    def test_missing_env_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Missing env vars raise RuntimeError."""
-        monkeypatch.delenv("DEXCOM_CLIENT_ID", raising=False)
-        monkeypatch.delenv("DEXCOM_CLIENT_SECRET", raising=False)
-        with pytest.raises(RuntimeError):
-            DexcomCredentials.from_environment()
+    def test_missing_data_source_raises(self) -> None:
+        with pytest.raises(ConfigurationError, match="CGMDataSource"):
+            EndocrinologyDetector()
 
-    def test_present_env_loaded(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Present env vars are loaded."""
-        monkeypatch.setenv("DEXCOM_CLIENT_ID", "client-id")
-        monkeypatch.setenv("DEXCOM_CLIENT_SECRET", "secret")
-        creds = DexcomCredentials.from_environment()
-        assert creds.client_id == "client-id"
-        assert creds.client_secret == "secret"
+    def test_factory_raises_without_data_source(self) -> None:
+        with pytest.raises(ConfigurationError, match="CGMDataSource"):
+            get_endocrinology_detector()
+
+    def test_cgm_disabled_allows_no_source(self) -> None:
+        detector = EndocrinologyDetector(enable_cgm=False)
+        assert detector.data_source is None
+        assert detector.cgm_analyzer is None
+
+    def test_with_source_constructs(self) -> None:
+        source = _StaticCGMSource(_readings_at_glucose(120.0))
+        detector = EndocrinologyDetector(source)
+        assert detector.data_source is source
+        assert detector.cgm_analyzer is not None
+
+    def test_non_subclass_data_source_rejected(self) -> None:
+        with pytest.raises(TypeError, match="CGMDataSource"):
+            EndocrinologyDetector(object())  # type: ignore[arg-type]
+
+    def test_factory_returns_detector_when_disabled(self) -> None:
+        detector = get_endocrinology_detector(enable_cgm=False)
+        assert isinstance(detector, EndocrinologyDetector)
+        assert detector.cgm_analyzer is None
 
 
-class TestEndocrinologyDetector:
-    """End-to-end detector behaviour."""
+class TestDetectorPipeline:
+    """Detector pipeline behaviour with real CGMReading inputs."""
 
     def test_empty_input_safe_default(self) -> None:
-        """Empty input yields no detected anomaly."""
-        detector = EndocrinologyDetector()
+        detector = EndocrinologyDetector(enable_cgm=False)
         result = detector.detect_endocrine_anomaly({})
         assert isinstance(result, EndocrinologyPredictionResult)
         assert result.anomaly_detected is False
         assert result.glycemic_state == GlycemicState.NORMAL.value
 
-    def test_cgm_sequence_runs_inference(self) -> None:
-        """A 60-point CGM sequence runs the Bi-LSTM and reports time-in-range."""
+    def test_cgm_readings_run_inference_and_compute_tir(self) -> None:
+        source = _StaticCGMSource(_readings_at_glucose(130.0))
         detector = EndocrinologyDetector(
-            enable_smart_pen=False, enable_glp1=False, enable_inhaled_insulin=False
+            source,
+            enable_smart_pen=False,
+            enable_glp1=False,
+            enable_inhaled_insulin=False,
         )
-        sequence = np.full(60, 130.0, dtype=np.float64)
-        result = detector.detect_endocrine_anomaly({"cgm_sequence": sequence})
-        assert result.time_in_range_percent is not None
+        result = detector.detect_endocrine_anomaly({"cgm_readings": source.fetch_recent_readings()})
         assert result.time_in_range_percent == pytest.approx(100.0)
+        assert result.cgm_reading_count == 60
+        assert result.cgm_source == "static_test_cgm"
+
+    def test_fetch_and_detect_uses_adapter(self) -> None:
+        source = _StaticCGMSource(_readings_at_glucose(140.0))
+        detector = EndocrinologyDetector(
+            source,
+            enable_smart_pen=False,
+            enable_glp1=False,
+            enable_inhaled_insulin=False,
+        )
+        result = detector.fetch_and_detect(window_minutes=90)
+        assert source.calls == 1
+        assert source.last_window == 90
+        assert result.cgm_reading_count == 60
+        assert result.cgm_source == "static_test_cgm"
+
+    def test_fetch_and_detect_requires_enabled_cgm(self) -> None:
+        detector = EndocrinologyDetector(enable_cgm=False)
+        with pytest.raises(ConfigurationError, match="enable_cgm"):
+            detector.fetch_and_detect()
+
+    def test_cgm_readings_must_be_cgmreading_instances(self) -> None:
+        source = _StaticCGMSource(_readings_at_glucose(130.0))
+        detector = EndocrinologyDetector(source)
+        with pytest.raises(TypeError, match="CGMReading"):
+            detector.detect_endocrine_anomaly({"cgm_readings": [120.0, 130.0]})
 
     def test_time_in_range_below_70(self) -> None:
-        """Values below 70 mg/dL are not in the target range."""
+        source = _StaticCGMSource([])
         detector = EndocrinologyDetector(
-            enable_smart_pen=False, enable_glp1=False, enable_inhaled_insulin=False
+            source,
+            enable_smart_pen=False,
+            enable_glp1=False,
+            enable_inhaled_insulin=False,
         )
         sequence = np.array([60.0] * 30 + [120.0] * 30, dtype=np.float64)
         result = detector.detect_endocrine_anomaly({"cgm_sequence": sequence})
         assert result.time_in_range_percent == pytest.approx(50.0)
 
     def test_insulin_delivery_path(self) -> None:
-        """Smart-pen unsafe dosing triggers intervention_needed."""
         detector = EndocrinologyDetector(
-            enable_cgm=False, enable_glp1=False, enable_inhaled_insulin=False
+            enable_cgm=False,
+            enable_glp1=False,
+            enable_inhaled_insulin=False,
         )
+        # Doses < 2 h apart with unverified glucose ⇒ stacking alert.
         result = detector.detect_endocrine_anomaly(
             {
                 "insulin_delivery": {
-                    "dose_units": 25.0,
-                    "insulin_type": "rapid_acting",
-                    "time_since_last_dose_hours": 1.0,
+                    "recent_doses": [
+                        {"time_hours": 0.0, "units": 5.0},
+                        {"time_hours": 1.0, "units": 5.0},
+                    ],
+                    "adherence_rate": 1.0,
                 }
             }
         )
@@ -347,9 +377,10 @@ class TestEndocrinologyDetector:
         assert result.anomaly_detected is True
 
     def test_glp1_pancreatitis_triggers_intervention(self) -> None:
-        """Pancreatitis in GLP-1 therapy triggers intervention."""
         detector = EndocrinologyDetector(
-            enable_cgm=False, enable_smart_pen=False, enable_inhaled_insulin=False
+            enable_cgm=False,
+            enable_smart_pen=False,
+            enable_inhaled_insulin=False,
         )
         result = detector.detect_endocrine_anomaly(
             {"glp1_therapy": {"side_effects": ["pancreatitis"]}}
@@ -358,22 +389,16 @@ class TestEndocrinologyDetector:
         assert result.anomaly_detected is True
 
     def test_afrezza_contraindication_triggers_intervention(self) -> None:
-        """FEV1 below 70% triggers intervention."""
         detector = EndocrinologyDetector(
-            enable_cgm=False, enable_smart_pen=False, enable_glp1=False
+            enable_cgm=False,
+            enable_smart_pen=False,
+            enable_glp1=False,
         )
-        result = detector.detect_endocrine_anomaly(
-            {
-                "inhaled_insulin": {
-                    "pulmonary_function_fev1_percent": 65.0,
-                }
-            }
-        )
+        result = detector.detect_endocrine_anomaly({"inhaled_insulin": {"fev1_percent": 65.0}})
         assert result.intervention_needed is True
 
     def test_overall_risk_capped(self) -> None:
-        """Risk score is capped at 1.0."""
-        detector = EndocrinologyDetector()
+        detector = EndocrinologyDetector(enable_cgm=False)
         result = EndocrinologyPredictionResult(
             anomaly_detected=True,
             confidence=0.9,
@@ -385,12 +410,21 @@ class TestEndocrinologyDetector:
         )
         assert detector._calculate_overall_risk(result) == pytest.approx(1.0)
 
-
-class TestFactory:
-    """Factory function."""
-
-    def test_factory_returns_detector(self) -> None:
-        """get_endocrinology_detector returns a detector."""
-        detector = get_endocrinology_detector(enable_cgm=False)
-        assert isinstance(detector, EndocrinologyDetector)
-        assert detector.cgm_analyzer is None
+    def test_mixed_sources_label(self) -> None:
+        start = datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)
+        mixed = [
+            CGMReading(timestamp=start, value_mg_dl=120.0, source="dexcom_v3"),
+            CGMReading(
+                timestamp=start + timedelta(minutes=5),
+                value_mg_dl=121.0,
+                source="abbott_libre",
+            ),
+        ]
+        detector = EndocrinologyDetector(
+            _StaticCGMSource(mixed),
+            enable_smart_pen=False,
+            enable_glp1=False,
+            enable_inhaled_insulin=False,
+        )
+        result = detector.detect_endocrine_anomaly({"cgm_readings": mixed})
+        assert result.cgm_source == "mixed"

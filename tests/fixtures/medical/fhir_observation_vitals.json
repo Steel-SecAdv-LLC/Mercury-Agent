@@ -1,0 +1,225 @@
+{
+  "resourceType": "Bundle",
+  "id": "sanitized-bundle-1",
+  "type": "searchset",
+  "total": 5,
+  "link": [
+    {
+      "relation": "self",
+      "url": "https://sanitized.example/fhir/Observation?category=vital-signs&patient=sanitized-pid&_sort=-date"
+    }
+  ],
+  "entry": [
+    {
+      "fullUrl": "https://sanitized.example/fhir/Observation/sanitized-obs-hr-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "sanitized-obs-hr-1",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ],
+          "text": "Heart rate"
+        },
+        "subject": {"reference": "Patient/sanitized-pid"},
+        "effectiveDateTime": "2024-03-22T13:30:00Z",
+        "valueQuantity": {
+          "value": 78,
+          "unit": "/min",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    },
+    {
+      "fullUrl": "https://sanitized.example/fhir/Observation/sanitized-obs-bp-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "sanitized-obs-bp-1",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "85354-9",
+              "display": "Blood pressure panel with all children optional"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/sanitized-pid"},
+        "effectiveDateTime": "2024-03-22T13:30:00Z",
+        "component": [
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8480-6",
+                  "display": "Systolic blood pressure"
+                }
+              ]
+            },
+            "valueQuantity": {
+              "value": 118,
+              "unit": "mm[Hg]",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          },
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8462-4",
+                  "display": "Diastolic blood pressure"
+                }
+              ]
+            },
+            "valueQuantity": {
+              "value": 76,
+              "unit": "mm[Hg]",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "https://sanitized.example/fhir/Observation/sanitized-obs-spo2-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "sanitized-obs-spo2-1",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2708-6",
+              "display": "Oxygen saturation in Arterial blood"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/sanitized-pid"},
+        "effectiveDateTime": "2024-03-22T13:30:00Z",
+        "valueQuantity": {
+          "value": 98,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      }
+    },
+    {
+      "fullUrl": "https://sanitized.example/fhir/Observation/sanitized-obs-etco2-1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "sanitized-obs-etco2-1",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "19911-5",
+              "display": "Carbon dioxide.end tidal [Partial pressure] in Exhaled gas"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/sanitized-pid"},
+        "effectiveDateTime": "2024-03-22T13:30:00Z",
+        "valueQuantity": {
+          "value": 38,
+          "unit": "mm[Hg]",
+          "system": "http://unitsofmeasure.org",
+          "code": "mm[Hg]"
+        }
+      }
+    },
+    {
+      "fullUrl": "https://sanitized.example/fhir/Observation/sanitized-obs-hr-2",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "sanitized-obs-hr-2",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ]
+        },
+        "subject": {"reference": "Patient/sanitized-pid"},
+        "effectiveDateTime": "2024-03-22T13:35:00Z",
+        "valueQuantity": {
+          "value": 82,
+          "unit": "/min",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      }
+    }
+  ]
+}

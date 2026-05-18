@@ -9,17 +9,24 @@ version.
 
 Ported from Omni-AXA-Engine's ``anesthesiology_predictor.py``.  The neural
 architecture (Bi-LSTM, 164K parameters), PID infusion controller signs and
-gains, and clinical vital ranges (MAP 65-110 mmHg, HR 50-100 bpm, SpO2 >= 92%,
-EtCO2 30-45 mmHg) all match the original verified implementation.
+gains (kp=0.5, ki=0.1, kd=0.2, target BIS=50, safe BIS window 40-60), and
+clinical vital ranges (MAP 65-110 mmHg, HR 50-100 bpm, SpO2 >= 92%, EtCO2
+30-45 mmHg) all match the original verified implementation.
 
 Live data integration
 ---------------------
-Synthetic generators have been removed from production paths.  Real anesthesia
-traces should be supplied via the
-:class:`omni_mercury_engine.medical.anesthesiology_predictor.VitalDBClient`
-helper, which streams cases and per-track samples from the public VitalDB
-research dataset hosted at https://api.vitaldb.net (no auth required).  See
-``VitalDBClient.fetch_case_track`` for usage.
+Mercury Agent ships integration-ready, not pre-integrated.  The predictor
+**requires** a
+:class:`~omni_mercury_engine.medical.data_sources.VitalsDataSource` adapter
+whenever ``enable_hemodynamics`` is true; instantiating the class without
+one raises :class:`~omni_mercury_engine.medical.data_sources.ConfigurationError`.
+
+Reference adapter: :class:`FHIRObservationVitalsSource` consumes any
+spec-compliant FHIR R4 server (Epic, Cerner, SMART Health IT sandbox, on-prem
+HL7 v2 gateway with FHIR translation).  Vendor SDK adapters (Philips
+IntelliVue, GE CARESCAPE, Mindray BeneVision) can be written as
+:class:`VitalsDataSource` subclasses; the contract is documented in
+``docs/medical/SETUP.md``.
 
 Operational notes
 -----------------
@@ -31,19 +38,20 @@ must not be wired into actual infusion pumps without clinical-trial validation.
 
 from __future__ import annotations
 
-import csv
-import io
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Final
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 import numpy as np
-import numpy.typing as npt
 import torch
 from torch import nn
+
+from omni_mercury_engine.medical.data_sources import (
+    ConfigurationError,
+    VitalsDataSource,
+    VitalsReading,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -94,6 +102,8 @@ class AnesthesiaPredictionResult:
     mac_equivalent: float | None = None
     predicted_awareness_risk: float = 0.0
     intervention_needed: bool = False
+    vitals_source: str | None = None
+    vitals_snapshot_count: int = 0
 
 
 _RISK_TYPES: Final[tuple[str, ...]] = (
@@ -117,13 +127,7 @@ class TIVAMonitoringSystem(nn.Module):
     """
 
     def __init__(self, input_dim: int = 8, hidden_dim: int = 64, num_layers: int = 2) -> None:
-        """Initialise the TIVA monitor.
-
-        Args:
-            input_dim: Per-time-step feature dimensionality.
-            hidden_dim: LSTM hidden size.
-            num_layers: Number of stacked LSTM layers.
-        """
+        """Initialise the TIVA monitor."""
         super().__init__()
         self.lstm = nn.LSTM(
             input_dim,
@@ -176,10 +180,9 @@ class TIVAMonitoringSystem(nn.Module):
 class SmartInfusionController:
     """PID closed-loop infusion controller for propofol/remifentanil.
 
-    Implements a discrete-time PID controller with anti-windup-free error
-    integration, identical to the verified Omni-AXA implementation
-    (kp=0.5, ki=0.1, kd=0.2).  Target BIS is 50; the safe BIS window is
-    ``(40, 60)``.
+    Implements a discrete-time PID controller, identical to the verified
+    Omni-AXA implementation (kp=0.5, ki=0.1, kd=0.2).  Target BIS is 50; the
+    safe BIS window is ``(40, 60)``.
 
     .. warning::
 
@@ -219,7 +222,7 @@ class SmartInfusionController:
             current_propofol_rate: Current propofol infusion (mcg/kg/min).
             current_remifentanil_rate: Current remifentanil infusion
                 (mcg/kg/min).
-            dt: Time step in minutes (>= 0).
+            dt: Time step in minutes (must be positive).
 
         Returns:
             Adjustment dictionary.
@@ -422,141 +425,139 @@ class HemodynamicMonitor:
         return recs
 
 
-class VitalDBClientError(RuntimeError):
-    """Raised when the VitalDB API returns an unrecoverable error."""
+def _vitals_reading_to_snapshot(reading: VitalsReading) -> dict[str, float]:
+    """Map a :class:`VitalsReading` to the snapshot dict the monitor expects.
 
-
-class VitalDBClient:
-    """Read-only client for the public VitalDB research API.
-
-    VitalDB is a free public anesthesia/critical-care research dataset
-    operated by Seoul National University Hospital.  No authentication is
-    required.  See https://vitaldb.net for the dataset description.
-
-    Endpoints used:
-
-    * ``/cases`` - case-level metadata as CSV.
-    * ``/trks`` - per-case track index as CSV.
-    * ``/{tid}`` - per-track samples as CSV.
+    Missing channels are omitted (not filled with synthetic defaults); the
+    monitor's own keyword defaults are exercised only when the reading
+    itself did not report a channel.
     """
-
-    DEFAULT_BASE_URL: Final[str] = "https://api.vitaldb.net"
-
-    def __init__(
-        self,
-        *,
-        base_url: str = DEFAULT_BASE_URL,
-        timeout_seconds: float = 30.0,
-        user_agent: str = "Mercury-Agent/1.7 Anesthesiology",
-    ) -> None:
-        """Initialise the client.
-
-        Args:
-            base_url: Base URL for the VitalDB HTTP API.
-            timeout_seconds: Network timeout per request.
-            user_agent: HTTP ``User-Agent`` header value.
-        """
-        self._base_url = base_url.rstrip("/")
-        self._timeout = float(timeout_seconds)
-        self._user_agent = user_agent
-
-    def _request_csv(self, path: str, params: Mapping[str, str] | None = None) -> str:
-        """Fetch a CSV resource from the VitalDB API."""
-        url = f"{self._base_url}/{path.lstrip('/')}"
-        if params:
-            url = f"{url}?{urlencode(dict(params))}"
-        request = Request(  # noqa: S310 - public HTTPS endpoint
-            url,
-            headers={"User-Agent": self._user_agent, "Accept": "text/csv"},
-        )
-        try:
-            with urlopen(request, timeout=self._timeout) as response:  # noqa: S310
-                if response.status != 200:
-                    raise VitalDBClientError(f"Unexpected status {response.status} from {url}")
-                return response.read().decode("utf-8")
-        except OSError as exc:
-            raise VitalDBClientError(f"VitalDB request failed: {exc}") from exc
-
-    def list_cases(self) -> list[dict[str, str]]:
-        """Return the case index as a list of dictionaries."""
-        text = self._request_csv("cases")
-        return list(csv.DictReader(io.StringIO(text)))
-
-    def list_tracks(self, case_id: int) -> list[dict[str, str]]:
-        """Return the per-track index for ``case_id``."""
-        text = self._request_csv("trks", {"caseid": str(case_id)})
-        return list(csv.DictReader(io.StringIO(text)))
-
-    def fetch_case_track(self, track_id: str) -> npt.NDArray[np.float64]:
-        """Fetch raw samples for a single track id.
-
-        Args:
-            track_id: VitalDB track identifier from :meth:`list_tracks`.
-
-        Returns:
-            ``(N, 2)`` float64 array of ``(time_seconds, value)`` pairs.
-        """
-        text = self._request_csv(track_id)
-        reader = csv.reader(io.StringIO(text))
-        rows: list[tuple[float, float]] = []
-        for row in reader:
-            if not row or row[0].lower() == "time":
-                continue
-            try:
-                rows.append((float(row[0]), float(row[1])))
-            except (IndexError, ValueError):
-                continue
-        return np.asarray(rows, dtype=np.float64)
+    snapshot: dict[str, float] = {}
+    if reading.map_mmhg is not None:
+        snapshot["mean_arterial_pressure_mmhg"] = float(reading.map_mmhg)
+    if reading.hr_bpm is not None:
+        snapshot["heart_rate_bpm"] = float(reading.hr_bpm)
+    if reading.spo2_pct is not None:
+        snapshot["oxygen_saturation_pct"] = float(reading.spo2_pct)
+    if reading.etco2_mmhg is not None:
+        snapshot["end_tidal_co2_mmhg"] = float(reading.etco2_mmhg)
+    return snapshot
 
 
 class AnesthesiologyPredictor:
-    """Integrated anesthesiology prediction system.
+    """Integrated anesthesia risk predictor.
 
-    Combines :class:`TIVAMonitoringSystem`, :class:`SmartInfusionController`,
-    and :class:`HemodynamicMonitor` into a single :meth:`predict_anesthesia_risk`
-    entry point.  Synthetic generators are intentionally absent; callers must
-    supply real traces (e.g. via :class:`VitalDBClient` or a local clinical
-    feed).
+    Combines the TIVA Bi-LSTM, PID infusion controller, and hemodynamic
+    monitor.  Like :class:`EndocrinologyDetector` this is the platform
+    integration unit and **requires** a configured
+    :class:`~omni_mercury_engine.medical.data_sources.VitalsDataSource`
+    whenever ``enable_hemodynamics`` is true.
+
+    Synthetic generators have been removed from production paths.  Callers
+    who only need the rule monitors (PID controller, hemodynamic range
+    checks) can instantiate :class:`SmartInfusionController` and
+    :class:`HemodynamicMonitor` directly.
     """
 
     def __init__(
         self,
+        data_source: VitalsDataSource | None = None,
+        *,
         enable_tiva: bool = True,
-        enable_smart_infusion: bool = True,
-        enable_hemodynamic: bool = True,
+        enable_pid: bool = True,
+        enable_hemodynamics: bool = True,
     ) -> None:
         """Initialise the predictor.
 
         Args:
-            enable_tiva: Enable the TIVA Bi-LSTM monitor.
-            enable_smart_infusion: Enable the PID infusion controller.
-            enable_hemodynamic: Enable the hemodynamic monitor.
+            data_source: Configured vitals adapter (e.g. a
+                :class:`~omni_mercury_engine.medical.data_sources.FHIRObservationVitalsSource`
+                or a custom subclass of :class:`VitalsDataSource`).  Required
+                whenever ``enable_hemodynamics`` is true.
+            enable_tiva: Enable the TIVA Bi-LSTM.
+            enable_pid: Enable the PID infusion controller.
+            enable_hemodynamics: Enable the hemodynamic monitor.
+
+        Raises:
+            ConfigurationError: If ``enable_hemodynamics`` is true and
+                ``data_source`` is ``None``.
+            TypeError: If ``data_source`` is not a :class:`VitalsDataSource`.
         """
+        if enable_hemodynamics and data_source is None:
+            raise ConfigurationError(
+                "AnesthesiologyPredictor requires a configured "
+                "VitalsDataSource when hemodynamic monitoring is enabled. "
+                "Mercury Agent does not ship with default credentials. See "
+                "docs/medical/SETUP.md for instructions on configuring a "
+                "vitals adapter (FHIR R4 reference implementation provided)."
+            )
+        if data_source is not None and not isinstance(data_source, VitalsDataSource):
+            raise TypeError(
+                "data_source must subclass VitalsDataSource; " f"got {type(data_source).__name__}"
+            )
+        self.data_source = data_source
         self.enable_tiva = enable_tiva
-        self.enable_smart_infusion = enable_smart_infusion
-        self.enable_hemodynamic = enable_hemodynamic
+        self.enable_pid = enable_pid
+        self.enable_hemodynamics = enable_hemodynamics
         self.tiva_monitor: TIVAMonitoringSystem | None = (
             TIVAMonitoringSystem() if enable_tiva else None
         )
         self.infusion_controller: SmartInfusionController | None = (
-            SmartInfusionController() if enable_smart_infusion else None
+            SmartInfusionController() if enable_pid else None
         )
         self.hemodynamic_monitor: HemodynamicMonitor | None = (
-            HemodynamicMonitor() if enable_hemodynamic else None
+            HemodynamicMonitor() if enable_hemodynamics else None
         )
 
-    def predict_anesthesia_risk(
-        self, patient_data: Mapping[str, Any]
+    def fetch_and_predict(
+        self,
+        *,
+        window_minutes: int = 5,
+        anesthesia_context: Mapping[str, Any] | None = None,
     ) -> AnesthesiaPredictionResult:
-        """Run the full prediction pipeline.
+        """Fetch the latest vitals window then run the full prediction pipeline.
 
         Args:
-            patient_data: Patient data dictionary.  Recognised keys:
+            window_minutes: Look-back window passed to
+                :meth:`VitalsDataSource.fetch_recent_vitals`.
+            anesthesia_context: Optional supplementary case data (e.g.
+                ``anesthesia_sequence`` for the TIVA Bi-LSTM,
+                ``infusion`` snapshot for the PID controller).
 
-                * ``anesthesia_sequence``: ``(time_steps, 8)`` float array.
-                * ``current_vitals``: vitals mapping.
-                * ``infusion_rates``: current infusion rates.
-                * ``bis_score``: current BIS score.
+        Returns:
+            :class:`AnesthesiaPredictionResult`.
+
+        Raises:
+            ConfigurationError: If ``enable_hemodynamics`` is false or no
+                data source was supplied at construction time.
+        """
+        if not self.enable_hemodynamics or self.data_source is None:
+            raise ConfigurationError(
+                "fetch_and_predict requires enable_hemodynamics=True and a "
+                "configured data_source. Use predict_anesthesia_risk() with "
+                "pre-loaded data for rule-engine-only flows."
+            )
+        readings = self.data_source.fetch_recent_vitals(window_minutes=window_minutes)
+        payload: dict[str, Any] = dict(anesthesia_context or {})
+        payload["vitals_readings"] = readings
+        return self.predict_anesthesia_risk(payload)
+
+    def predict_anesthesia_risk(
+        self, anesthesia_data: Mapping[str, Any]
+    ) -> AnesthesiaPredictionResult:
+        """Run the rule + ML pipeline on pre-loaded anesthesia data.
+
+        Args:
+            anesthesia_data: Mapping that may contain any of:
+
+                * ``anesthesia_sequence`` - 2-D float sequence
+                  ``(time, 8)`` for the TIVA Bi-LSTM.
+                * ``infusion`` - dict with ``current_bis``,
+                  ``current_propofol_rate``, ``current_remifentanil_rate``.
+                * ``vitals_readings`` - sequence of
+                  :class:`~omni_mercury_engine.medical.data_sources.VitalsReading`
+                  (preferred; produced by ``fetch_and_predict``).
+                * ``vitals`` - legacy single-snapshot mapping.
 
         Returns:
             :class:`AnesthesiaPredictionResult`.
@@ -574,142 +575,140 @@ class AnesthesiologyPredictor:
         if (
             self.enable_tiva
             and self.tiva_monitor is not None
-            and "anesthesia_sequence" in patient_data
+            and "anesthesia_sequence" in anesthesia_data
         ):
             tiva_result = self._analyze_tiva(
-                np.asarray(patient_data["anesthesia_sequence"], dtype=np.float64)
+                np.asarray(anesthesia_data["anesthesia_sequence"], dtype=np.float64)
             )
-            result.depth_of_anesthesia = float(tiva_result["depth"])
-            result.predicted_awareness_risk = float(tiva_result["awareness_risk"])
-            result.infusion_anomalies = list(tiva_result["anomalies"])
-            result.confidence = max(result.confidence, float(tiva_result["confidence"]))
-            if tiva_result["risk_detected"]:
+            result.depth_of_anesthesia = float(tiva_result["depth_of_anesthesia"])
+            result.risk_type = str(tiva_result["risk_type"])
+            result.confidence = float(tiva_result["confidence"])
+            if result.risk_type != "none":
                 result.risk_detected = True
-                result.risk_type = str(tiva_result["primary_risk"])
 
         if (
-            self.enable_hemodynamic
-            and self.hemodynamic_monitor is not None
-            and "current_vitals" in patient_data
+            self.enable_pid
+            and self.infusion_controller is not None
+            and "infusion" in anesthesia_data
         ):
-            hemo_result = self.hemodynamic_monitor.assess_hemodynamics(
-                patient_data["current_vitals"]
+            infusion = anesthesia_data["infusion"]
+            pid_result = self.infusion_controller.compute_infusion_adjustment(
+                current_bis=float(infusion["current_bis"]),
+                current_propofol_rate=float(infusion["current_propofol_rate"]),
+                current_remifentanil_rate=float(infusion["current_remifentanil_rate"]),
+                dt=float(infusion.get("dt", 1.0)),
             )
+            result.bis_score = float(infusion["current_bis"])
+            result.infusion_anomalies = list(pid_result["recommendations"])
+            if pid_result["anomaly_detected"]:
+                result.risk_detected = True
+                result.intervention_needed = True
+
+        snapshot, source_label, reading_count = self._extract_vitals_snapshot(anesthesia_data)
+        if (
+            self.enable_hemodynamics
+            and self.hemodynamic_monitor is not None
+            and snapshot is not None
+        ):
+            hemo_result = self.hemodynamic_monitor.assess_hemodynamics(snapshot)
             result.hemodynamic_stability = float(hemo_result["hemodynamic_stability"])
             result.vital_sign_alerts = list(hemo_result["alerts"])
-            result.intervention_needed = bool(hemo_result["intervention_needed"])
             result.clinical_recommendations.extend(hemo_result["recommendations"])
+            result.vitals_source = source_label
+            result.vitals_snapshot_count = reading_count
             if hemo_result["intervention_needed"]:
                 result.risk_detected = True
-
-        if (
-            self.enable_smart_infusion
-            and self.infusion_controller is not None
-            and "infusion_rates" in patient_data
-        ):
-            bis = float(patient_data.get("bis_score", 50.0))
-            infusion = patient_data["infusion_rates"]
-            adjustment = self.infusion_controller.compute_infusion_adjustment(
-                bis,
-                float(infusion.get("propofol_mcg_kg_min", 100.0)),
-                float(infusion.get("remifentanil_mcg_kg_min", 0.2)),
-            )
-            result.bis_score = bis
-            result.clinical_recommendations.extend(adjustment["recommendations"])
-            if adjustment["anomaly_detected"]:
-                result.risk_detected = True
-                result.infusion_anomalies.append(f"BIS out of range: {bis:.1f} (target: 40-60)")
+                result.intervention_needed = True
 
         result.risk_score = self._calculate_overall_risk(result)
         if result.risk_score > 0.7:
             result.intervention_needed = True
         return result
 
-    def _analyze_tiva(self, anesthesia_sequence: npt.NDArray[np.float64]) -> dict[str, Any]:
-        """Run the TIVA Bi-LSTM in inference mode.
+    @staticmethod
+    def _extract_vitals_snapshot(
+        anesthesia_data: Mapping[str, Any],
+    ) -> tuple[dict[str, float] | None, str | None, int]:
+        """Resolve the most-recent vitals snapshot for the hemodynamic monitor."""
+        readings = anesthesia_data.get("vitals_readings")
+        if readings:
+            ordered: list[VitalsReading] = []
+            sources: set[str] = set()
+            for r in readings:
+                if not isinstance(r, VitalsReading):
+                    raise TypeError(
+                        "vitals_readings entries must be VitalsReading instances; "
+                        f"got {type(r).__name__}"
+                    )
+                ordered.append(r)
+                sources.add(r.source)
+            ordered.sort(key=lambda r: r.timestamp)
+            latest = ordered[-1]
+            source_label = next(iter(sources)) if len(sources) == 1 else "mixed"
+            return _vitals_reading_to_snapshot(latest), source_label, len(ordered)
 
-        Args:
-            anesthesia_sequence: ``(time_steps, 8)`` float array.
+        legacy = anesthesia_data.get("vitals")
+        if legacy is not None:
+            snapshot = {k: float(v) for k, v in dict(legacy).items()}
+            return snapshot, "preloaded", 1
+        return None, None, 0
 
-        Returns:
-            Inference dictionary with depth, awareness risk, primary risk,
-            confidence, anomalies, and full risk-score breakdown.
-        """
+    def _analyze_tiva(self, sequence: np.ndarray[Any, np.dtype[np.float64]]) -> dict[str, Any]:
+        """Run the TIVA Bi-LSTM in inference mode."""
         if self.tiva_monitor is None:
             raise RuntimeError("TIVA monitor is not enabled")
-        x = torch.tensor(anesthesia_sequence, dtype=torch.float32).unsqueeze(0)
+        if sequence.ndim != 2 or sequence.shape[-1] != 8:
+            raise ValueError(
+                "anesthesia_sequence must have shape (time, 8); got " f"{sequence.shape}"
+            )
+        x = torch.tensor(sequence, dtype=torch.float32).unsqueeze(0)
         self.tiva_monitor.eval()
         with torch.no_grad():
-            depth, risks, _attention = self.tiva_monitor(x)
-        depth_val = float(depth.item())
-        risk_probs = torch.softmax(risks, dim=1)[0].cpu().numpy()
-        max_idx = int(np.argmax(risk_probs))
-        max_score = float(risk_probs[max_idx])
-        anomalies: list[str] = []
-        if depth_val < 0.3:
-            anomalies.append("Deep anesthesia detected (depth < 0.3)")
-        elif depth_val > 0.7:
-            anomalies.append("Light anesthesia detected (depth > 0.7)")
+            depth, risks, _attn = self.tiva_monitor(x)
+        risk_probs = torch.softmax(risks[0], dim=0).cpu().numpy()
+        risk_idx = int(np.argmax(risk_probs))
+        risk_label = _RISK_TYPES[risk_idx] if risk_probs[risk_idx] > 0.5 else "none"
         return {
-            "depth": depth_val,
-            "awareness_risk": float(risk_probs[0]),
-            "risk_detected": max_score > 0.5,
-            "primary_risk": _RISK_TYPES[max_idx],
-            "confidence": max_score,
-            "anomalies": anomalies,
-            "all_risk_scores": {
-                _RISK_TYPES[i]: float(risk_probs[i]) for i in range(len(_RISK_TYPES))
-            },
+            "depth_of_anesthesia": float(depth.item()),
+            "risk_type": risk_label,
+            "confidence": float(risk_probs[risk_idx]),
         }
 
     @staticmethod
     def _calculate_overall_risk(result: AnesthesiaPredictionResult) -> float:
-        """Compute the overall anesthesia risk score."""
-        depth_component = (
-            1.0 - result.depth_of_anesthesia if result.depth_of_anesthesia > 0.7 else 0.0
-        )
+        """Compute the overall anesthesia risk score in ``[0, 1]``."""
+        # Stability and adequacy are both 1.0 when "fine"; subtract them so
+        # the components contribute proportionally to instability.
         components = (
-            depth_component,
-            result.predicted_awareness_risk,
-            1.0 - result.hemodynamic_stability,
-            1.0 - result.respiratory_adequacy,
+            (1.0 - result.hemodynamic_stability) * 0.4,
+            (1.0 - result.respiratory_adequacy) * 0.3,
+            result.predicted_awareness_risk * 0.3,
         )
-        return float(np.mean(components))
+        return float(min(sum(components), 1.0))
 
 
 def get_anesthesiology_predictor(
+    data_source: VitalsDataSource | None = None,
     *,
     enable_tiva: bool = True,
-    enable_smart_infusion: bool = True,
-    enable_hemodynamic: bool = True,
+    enable_pid: bool = True,
+    enable_hemodynamics: bool = True,
 ) -> AnesthesiologyPredictor:
     """Factory returning a configured :class:`AnesthesiologyPredictor`.
 
-    Args:
-        enable_tiva: Enable the TIVA Bi-LSTM monitor.
-        enable_smart_infusion: Enable the PID infusion controller.
-        enable_hemodynamic: Enable the hemodynamic monitor.
-
-    Returns:
-        A new predictor instance.
+    See :class:`AnesthesiologyPredictor` for the full argument contract and
+    the :class:`ConfigurationError` semantics.
     """
     return AnesthesiologyPredictor(
+        data_source,
         enable_tiva=enable_tiva,
-        enable_smart_infusion=enable_smart_infusion,
-        enable_hemodynamic=enable_hemodynamic,
+        enable_pid=enable_pid,
+        enable_hemodynamics=enable_hemodynamics,
     )
 
 
 def count_tiva_parameters(model: TIVAMonitoringSystem | None = None) -> int:
-    """Return the trainable parameter count of the TIVA model.
-
-    Args:
-        model: Optional existing model.  When ``None`` a fresh model with the
-            default dimensions is instantiated.
-
-    Returns:
-        Number of trainable parameters.
-    """
+    """Return the trainable parameter count of the TIVA Bi-LSTM."""
     instance = model if model is not None else TIVAMonitoringSystem()
     return int(sum(p.numel() for p in instance.parameters() if p.requires_grad))
 
@@ -722,8 +721,6 @@ __all__ = [
     "HemodynamicMonitor",
     "SmartInfusionController",
     "TIVAMonitoringSystem",
-    "VitalDBClient",
-    "VitalDBClientError",
     "count_tiva_parameters",
     "get_anesthesiology_predictor",
 ]

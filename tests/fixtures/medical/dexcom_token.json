@@ -1,0 +1,6 @@
+{
+  "access_token": "SANITIZED-ACCESS-TOKEN-DO-NOT-USE",
+  "expires_in": 7200,
+  "token_type": "Bearer",
+  "refresh_token": "SANITIZED-REFRESH-TOKEN-DO-NOT-USE"
+}

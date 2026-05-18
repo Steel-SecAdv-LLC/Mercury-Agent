@@ -1,0 +1,82 @@
+{
+  "recordType": "egv",
+  "recordVersion": "3.0",
+  "userId": "SANITIZED-USER-UUID",
+  "records": [
+    {
+      "recordId": "SANITIZED-RECORD-1",
+      "systemTime": "2024-01-15T12:00:00",
+      "displayTime": "2024-01-15T07:00:00",
+      "transmitterId": "SANITIZED-TX",
+      "transmitterTicks": 6300100,
+      "value": 118,
+      "status": null,
+      "trend": "flat",
+      "trendRate": 0.4,
+      "unit": "mg/dL",
+      "rateUnit": "mg/dL/min",
+      "displayDevice": "receiver",
+      "transmitterGeneration": "g6"
+    },
+    {
+      "recordId": "SANITIZED-RECORD-2",
+      "systemTime": "2024-01-15T12:05:00",
+      "displayTime": "2024-01-15T07:05:00",
+      "transmitterId": "SANITIZED-TX",
+      "transmitterTicks": 6300400,
+      "value": 122,
+      "status": null,
+      "trend": "fortyFiveUp",
+      "trendRate": 0.8,
+      "unit": "mg/dL",
+      "rateUnit": "mg/dL/min",
+      "displayDevice": "receiver",
+      "transmitterGeneration": "g6"
+    },
+    {
+      "recordId": "SANITIZED-RECORD-3",
+      "systemTime": "2024-01-15T12:10:00",
+      "displayTime": "2024-01-15T07:10:00",
+      "transmitterId": "SANITIZED-TX",
+      "transmitterTicks": 6300700,
+      "value": 132,
+      "status": null,
+      "trend": "fortyFiveUp",
+      "trendRate": 1.6,
+      "unit": "mg/dL",
+      "rateUnit": "mg/dL/min",
+      "displayDevice": "receiver",
+      "transmitterGeneration": "g6"
+    },
+    {
+      "recordId": "SANITIZED-RECORD-4",
+      "systemTime": "2024-01-15T12:15:00",
+      "displayTime": "2024-01-15T07:15:00",
+      "transmitterId": "SANITIZED-TX",
+      "transmitterTicks": 6301000,
+      "value": 146,
+      "status": null,
+      "trend": "singleUp",
+      "trendRate": 2.4,
+      "unit": "mg/dL",
+      "rateUnit": "mg/dL/min",
+      "displayDevice": "receiver",
+      "transmitterGeneration": "g6"
+    },
+    {
+      "recordId": "SANITIZED-RECORD-5",
+      "systemTime": "2024-01-15T12:20:00",
+      "displayTime": "2024-01-15T07:20:00",
+      "transmitterId": "SANITIZED-TX",
+      "transmitterTicks": 6301300,
+      "value": 158,
+      "status": null,
+      "trend": "singleUp",
+      "trendRate": 2.0,
+      "unit": "mg/dL",
+      "rateUnit": "mg/dL/min",
+      "displayDevice": "receiver",
+      "transmitterGeneration": "g6"
+    }
+  ]
+}

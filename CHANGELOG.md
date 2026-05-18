@@ -30,9 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Four domain modules ported from `Steel-SecAdv-LLC/Omni-AXA-Engine`
 (GPL-3.0+) into Mercury Agent.  All known issues from the verdict table
-are resolved in-PR; no follow-ups.  Modules are wired to live public
-data sources (eCFR, VitalDB, Tidepool) and an optional Dexcom auth
-plumbing layer for production CGM streams.
+are resolved in-PR; no follow-ups.  Compliance and drone modules are
+wired to live public data sources (eCFR, PX4 / MAVLink).  The medical
+modules ship **integration-ready, not pre-integrated**: real adapter
+ABCs (`CGMDataSource`, `VitalsDataSource`), a reference Dexcom v3
+OAuth2 adapter, and a reference HL7 FHIR R4 Observation adapter.
+Mercury Agent never carries vendor medical credentials; the platform
+refuses to start a misconfigured medical integration via
+`ConfigurationError`.  See `docs/medical/SETUP.md` for the operator
+runbook.
 
 - **`omni_mercury_engine.compliance.osha_anomaly`**
   (666 LOC source → 1,003 LOC port).  Multi-sector OSHA compliance
@@ -105,7 +111,7 @@ plumbing layer for production CGM streams.
   aggregation, and per-fault recommendation lists).
 
 - **`omni_mercury_engine.medical.anesthesiology_predictor`**
-  (541 LOC source → 733 LOC port).  Integrated anesthesiology
+  (541 LOC source → 741 LOC port).  Integrated anesthesiology
   prediction combining a Bi-LSTM TIVA monitor, a discrete-time
   PID infusion controller, and a hemodynamic monitor:
   - **TIVA Bi-LSTM** (``input_dim=8``, ``hidden_dim=64``,
@@ -120,20 +126,28 @@ plumbing layer for production CGM streams.
   - **Hemodynamic monitor** with the ASA-aligned ranges
     MAP 65–110 mmHg, HR 50–100 bpm, SpO₂ ≥ 92 %,
     EtCO₂ 30–45 mmHg.
-  Live data: new ``VitalDBClient`` streams cases, per-case track
-  indices, and per-track samples from the public **VitalDB**
-  research dataset (`https://api.vitaldb.net`, no auth) hosted by
-  Seoul National University Hospital.  Synthetic generators
-  present in the upstream module have been removed from
-  production paths.  Locked by
-  `tests/test_anesthesiology_predictor.py` (27 tests covering the
-  TIVA parameter count, PID gain/clamp/integrator behaviour, the
-  full hemodynamic risk ladder, the VitalDB client (cases /
-  tracks / samples / network-error wrapping), and the integrated
-  predictor across the TIVA / hemodynamic / infusion branches).
+  Integration: the predictor now requires a
+  ``VitalsDataSource`` adapter at construction time when
+  ``enable_hemodynamics`` is true (the default); without one the
+  constructor raises ``ConfigurationError``.  A reference
+  ``FHIRObservationVitalsSource`` ships in
+  ``omni_mercury_engine.medical.data_sources`` and speaks HL7
+  FHIR R4 ``Observation`` search with ``category=vital-signs`` —
+  spec-compliant against Epic, Oracle/Cerner, MEDITECH, and the
+  SMART-on-FHIR sandbox.  LOINC codes recognised: 8867-4 HR,
+  8480-6 / 8462-4 SBP/DBP (MAP computed when absent), 8478-0 MAP
+  direct, 2708-6 / 59408-5 SpO₂, 19911-5 EtCO₂.  Synthetic
+  generators and the old ``VitalDBClient`` have been removed
+  from production paths; integrators wire their own vendor
+  adapter (Philips IntelliVue, GE CARESCAPE, Mindray, custom HL7
+  v2 / FHIR endpoint) by subclassing ``VitalsDataSource``.
+  Locked by `tests/test_anesthesiology_predictor.py` (rule-engine
+  and integration tests against an in-process
+  ``VitalsDataSource``) and `tests/test_medical_data_sources.py`
+  (FHIR adapter end-to-end against sanitized fixtures).
 
 - **`omni_mercury_engine.medical.endocrinology_detector`**
-  (521 LOC source → 600 LOC port).  Integrated endocrine anomaly
+  (521 LOC source → 660 LOC port).  Integrated endocrine anomaly
   detection with CGM Bi-LSTM analysis and three FDA-aligned
   rules:
   - **CGM Bi-LSTM** (``input_dim=1``, ``hidden_dim=64``,
@@ -153,19 +167,40 @@ plumbing layer for production CGM streams.
     less than ``min_dose_interval_hours = 2.0`` apart trip the
     smart-pen alert and require glucose verification before
     additional dosing.
-  Live data: new ``TidepoolClient`` reads the public Tidepool
-  ``/info`` endpoint (no auth) and accepts an optional OAuth
-  bearer token for authenticated routes.  A
-  ``DexcomCredentials.from_environment()`` helper plumbs
-  ``DEXCOM_CLIENT_ID`` / ``DEXCOM_CLIENT_SECRET`` so production
-  Dexcom-API integrations have a documented secret path; the
-  helper is not invoked by default.  Synthetic generators in the
-  upstream module have been removed from production paths.
-  Locked by `tests/test_endocrinology_detector.py` (29 tests
-  including the FDA-rule edge cases, the Bi-LSTM parameter
-  count, the Tidepool client (info / token / network-error), the
-  Dexcom credential loader, and the integrated detector across
-  the CGM / smart-pen / GLP-1 / inhaled-insulin branches).
+  Integration: the detector now requires a ``CGMDataSource``
+  adapter at construction time when ``enable_cgm`` is true (the
+  default); without one the constructor raises
+  ``ConfigurationError``.  A reference ``DexcomV3DataSource``
+  ships in ``omni_mercury_engine.medical.data_sources`` and
+  speaks the Dexcom Developer API v3 over OAuth2 refresh-token
+  flow (``api.dexcom.com/v2/oauth2/token`` →
+  ``/v3/users/self/egvs``).  Required environment variables:
+  ``DEXCOM_CLIENT_ID``, ``DEXCOM_CLIENT_SECRET``,
+  ``DEXCOM_REFRESH_TOKEN``, ``DEXCOM_REDIRECT_URI``;
+  ``DEXCOM_BASE_URL`` defaults to production with sandbox
+  override available.  Synthetic generators and the old
+  ``TidepoolClient`` / ``DexcomCredentials`` helpers have been
+  removed from production paths; integrators wire their own
+  vendor adapter (Abbott LibreView, Medtronic CareLink, custom
+  cloud bridge) by subclassing ``CGMDataSource``.  Locked by
+  `tests/test_endocrinology_detector.py` (rule-engine and
+  integration tests against an in-process ``CGMDataSource``)
+  and `tests/test_medical_data_sources.py` (Dexcom v3 adapter
+  end-to-end against sanitized fixtures, including OAuth token
+  caching and HTTP error wrapping).
+
+- **`omni_mercury_engine.medical.data_sources`** (new, 800 LOC).
+  Common medical-data infrastructure:
+  ``CGMDataSource`` / ``VitalsDataSource`` ABCs,
+  ``CGMReading`` / ``VitalsReading`` dataclasses,
+  ``ConfigurationError`` / ``DataSourceError`` typed exceptions,
+  reference ``DexcomV3DataSource`` (OAuth2 refresh) and
+  ``FHIRObservationVitalsSource`` (HL7 FHIR R4 Observation
+  search), plus module-level
+  ``parse_dexcom_egvs_payload`` / ``parse_fhir_observation_bundle``
+  helpers so integrators can unit-test their own payloads
+  against the same parsers Mercury uses internally.  See
+  `docs/medical/SETUP.md` for the full operator runbook.
 
 **Provenance.**  All four modules originate from
 ``Steel-SecAdv-LLC/Omni-AXA-Engine`` (private; GPL-3.0+).  The

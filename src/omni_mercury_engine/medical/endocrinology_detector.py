@@ -23,11 +23,20 @@ have been audited and are preserved verbatim:
 
 Live data integration
 ---------------------
-Synthetic CGM generators have been removed from production paths.  Real CGM
-traces should be supplied via :class:`TidepoolClient` (public dataset; no
-auth) or by integrating a vendor SDK (Dexcom, Libre).  The optional Dexcom
-client requires ``DEXCOM_CLIENT_ID`` / ``DEXCOM_CLIENT_SECRET`` environment
-variables when used; see :class:`DexcomCredentials` for details.
+Mercury Agent ships integration-ready, not pre-integrated.  The detector
+**requires** a :class:`~omni_mercury_engine.medical.data_sources.CGMDataSource`
+adapter; instantiating the class with ``enable_cgm=True`` but no data source
+raises :class:`~omni_mercury_engine.medical.data_sources.ConfigurationError`.
+
+Two ways to provide a data source:
+
+* Pass a configured adapter explicitly, e.g.
+  ``EndocrinologyDetector(data_source=DexcomV3DataSource())``.  The reference
+  adapter reads ``DEXCOM_CLIENT_ID`` / ``DEXCOM_CLIENT_SECRET`` /
+  ``DEXCOM_REFRESH_TOKEN`` / ``DEXCOM_REDIRECT_URI`` from the environment.
+* Implement :class:`CGMDataSource` for any other vendor (Abbott LibreView,
+  Medtronic CareLink, etc.) and pass that instance.  The contract is the
+  same; ``docs/medical/SETUP.md`` documents the extension point.
 
 Operational notes
 -----------------
@@ -37,22 +46,24 @@ required before any output is used to influence patient care.
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Final, cast
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from typing import TYPE_CHECKING, Any, Final
 
 import numpy as np
 import numpy.typing as npt
 import torch
 from torch import nn
 
+from omni_mercury_engine.medical.data_sources import (
+    CGMDataSource,
+    CGMReading,
+    ConfigurationError,
+)
+
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +108,8 @@ class EndocrinologyPredictionResult:
     time_in_range_percent: float | None = None
     glucose_variability: float | None = None
     intervention_needed: bool = False
+    cgm_source: str | None = None
+    cgm_reading_count: int = 0
 
 
 _GLYCEMIC_STATES: Final[tuple[str, ...]] = tuple(e.value for e in GlycemicState)
@@ -111,230 +124,196 @@ class CGMAnalyzer(nn.Module):
     Omni-AXA implementation).
     """
 
-    def __init__(self, input_dim: int = 1, hidden_dim: int = 64, num_layers: int = 2) -> None:
-        """Initialise the CGM analyser.
-
-        Args:
-            input_dim: Per-time-step feature dimensionality (glucose only).
-            hidden_dim: LSTM hidden size.
-            num_layers: Number of stacked LSTM layers.
-        """
+    def __init__(
+        self,
+        *,
+        input_dim: int = 1,
+        hidden_dim: int = 64,
+        num_layers: int = 2,
+        dropout: float = 0.2,
+    ) -> None:
+        """Initialise the analyser network."""
         super().__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
         self.lstm = nn.LSTM(
-            input_dim,
-            hidden_dim,
-            num_layers,
-            batch_first=True,
-            dropout=0.2,
+            input_size=input_dim,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            dropout=dropout,
             bidirectional=True,
+            batch_first=True,
         )
-        self.attention = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim), nn.Tanh(), nn.Linear(hidden_dim, 1)
-        )
+        self.attention_W = nn.Linear(hidden_dim * 2, hidden_dim)
+        self.attention_v = nn.Linear(hidden_dim, 1)
         self.glycemic_classifier = nn.Sequential(
-            nn.Linear(hidden_dim * 2, 64),
+            nn.Linear(hidden_dim * 2, hidden_dim),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(64, len(_GLYCEMIC_STATES)),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, len(_GLYCEMIC_STATES)),
         )
-        self.trend_predictor = nn.Sequential(
-            nn.Linear(hidden_dim * 2, 32), nn.ReLU(), nn.Linear(32, 1)
+        self.trend_head = nn.Sequential(
+            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1),
         )
 
-    def forward(self, cgm_data: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Forward pass.
-
-        Args:
-            cgm_data: ``(batch, time_steps, 1)`` tensor of glucose values
-                in mg/dL.
-
-        Returns:
-            Tuple of (glycemic_classification, trend_prediction,
-            attention_weights).
-        """
-        lstm_out, _ = self.lstm(cgm_data)
-        attention_scores = self.attention(lstm_out)
-        attention_weights = torch.softmax(attention_scores, dim=1)
-        context = torch.sum(lstm_out * attention_weights, dim=1)
-        glycemic_state = self.glycemic_classifier(context)
-        trend = self.trend_predictor(context)
-        return glycemic_state, trend, attention_weights.squeeze(-1)
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Run the analyser on a ``(batch, time, input_dim)`` tensor."""
+        lstm_out, _ = self.lstm(x)
+        attn_scores = torch.tanh(self.attention_W(lstm_out))
+        attn_scores = self.attention_v(attn_scores).squeeze(-1)
+        attn_weights = torch.softmax(attn_scores, dim=1)
+        context = torch.bmm(attn_weights.unsqueeze(1), lstm_out).squeeze(1)
+        glycemic_logits = self.glycemic_classifier(context)
+        trend = self.trend_head(context).squeeze(-1)
+        return glycemic_logits, trend, attn_weights
 
 
 class SmartInsulinPenMonitor:
-    """Smart insulin pen monitor enforcing FDA-aligned dose-stacking guards.
+    """Smart-pen monitor enforcing the dose-stacking guard.
 
-    The two-hour minimum dose interval for rapid-acting insulin is taken from
-    the ADA Standards of Care; doses inside the window must be reviewed
-    against a recent glucose value before delivery.
+    Reference: ADA Standards of Care - rapid-acting boluses spaced under
+    two hours without verified glucose risk *insulin stacking* hypoglycaemia.
     """
 
-    max_bolus_units: float = 15.0
-    max_basal_units_per_day: float = 50.0
-    min_dose_interval_hours: float = 2.0
+    DOSE_STACK_WINDOW_HOURS: Final[float] = 2.0
 
-    def monitor_insulin_delivery(self, insulin_data: Mapping[str, Any]) -> dict[str, Any]:
-        """Monitor smart insulin pen usage and emit dose-stacking alerts.
+    def monitor_insulin_delivery(self, delivery_data: Mapping[str, Any]) -> dict[str, Any]:
+        """Score smart-pen telemetry for delivery safety.
 
         Args:
-            insulin_data: Mapping with ``dose_units``, ``dose_time``,
-                ``insulin_type``, ``time_since_last_dose_hours`` and
-                optional adherence keys.
+            delivery_data: Mapping with ``recent_doses`` (sequence of dicts
+                with ``time_hours`` and ``units`` keys), optional
+                ``adherence_rate`` (0-1), and optional ``patient_glucose``
+                (mg/dL).
 
         Returns:
-            Dictionary with ``insulin_delivery_safe`` plus alert and
-            recommendation lists.
+            Dictionary with ``insulin_delivery_safe`` flag, ``alerts`` and
+            ``recommendations`` lists.
         """
-        dose = float(insulin_data.get("dose_units", 5.0))
-        insulin_type = str(insulin_data.get("insulin_type", "rapid_acting"))
-        time_since_last = float(insulin_data.get("time_since_last_dose_hours", 4.0))
-        daily_total = float(insulin_data.get("daily_total_units", 30.0))
-
+        recent_doses: Sequence[Mapping[str, Any]] = delivery_data.get("recent_doses", [])
+        glucose = delivery_data.get("patient_glucose")
         alerts: list[str] = []
         recommendations: list[str] = []
 
-        if insulin_type == "rapid_acting" and dose > self.max_bolus_units:
-            alerts.append(f"ALERT: Large bolus dose {dose:.1f} units")
-            recommendations.append("Verify dose - risk of hypoglycemia")
-            recommendations.append("Consider splitting dose if meal is large")
+        for idx in range(1, len(recent_doses)):
+            previous = recent_doses[idx - 1]
+            current = recent_doses[idx]
+            gap_hours = float(current["time_hours"]) - float(previous["time_hours"])
+            if gap_hours < self.DOSE_STACK_WINDOW_HOURS:
+                if glucose is None or float(glucose) > 250.0:
+                    alerts.append(f"Possible insulin stacking: doses {gap_hours:.1f}h apart")
+                    recommendations.append(
+                        "Hold next rapid-acting dose; verify glucose before stacking"
+                    )
 
-        if daily_total > self.max_basal_units_per_day:
-            alerts.append(f"High daily insulin: {daily_total:.1f} units")
-            recommendations.append("Review insulin sensitivity and dosing regimen")
-
-        if time_since_last < self.min_dose_interval_hours and insulin_type == "rapid_acting":
-            alerts.append(f"Dose stacking: {time_since_last:.1f} hours since last dose")
-            recommendations.append("Risk of insulin stacking and hypoglycemia")
-            recommendations.append("Check glucose before additional dosing")
+        adherence = self._calculate_adherence(delivery_data)
+        if adherence < 0.8:
+            alerts.append(f"Low adherence: {adherence * 100:.0f}%")
+            recommendations.append("Counsel patient on dosing schedule")
 
         return {
-            "insulin_delivery_safe": len(alerts) == 0,
+            "insulin_delivery_safe": not alerts,
             "alerts": alerts,
             "recommendations": recommendations,
-            "adherence_score": self._calculate_adherence(insulin_data),
+            "adherence_rate": adherence,
         }
 
     @staticmethod
-    def _calculate_adherence(insulin_data: Mapping[str, Any]) -> float:
-        """Compute the patient's recent insulin adherence ratio in ``[0, 1]``."""
-        doses_taken = float(insulin_data.get("doses_taken_last_week", 18))
-        doses_prescribed = float(insulin_data.get("doses_prescribed_last_week", 21))
-        if doses_prescribed == 0:
+    def _calculate_adherence(delivery_data: Mapping[str, Any]) -> float:
+        """Return adherence as a 0-1 fraction; missing data is treated as full."""
+        raw = delivery_data.get("adherence_rate", 1.0)
+        try:
+            return max(0.0, min(1.0, float(raw)))
+        except (TypeError, ValueError):
             return 1.0
-        return float(min(doses_taken / doses_prescribed, 1.0))
 
 
 class GLP1TherapyMonitor:
-    """GLP-1 therapy monitor enforcing pancreatitis discontinuation.
+    """GLP-1 therapy monitor with FDA pancreatitis discontinuation rule.
 
-    Implements the FDA pancreatitis discontinuation rule: if "pancreatitis"
-    is listed in ``side_effects`` therapy is flagged for immediate
-    discontinuation and :attr:`continue_therapy` is set to ``False``.
+    Reference: FDA black-box warning on GLP-1 receptor agonists (e.g.
+    semaglutide, liraglutide) - history or signal of pancreatitis is a
+    discontinuation indication.
     """
 
-    target_a1c: float = 7.0
-    target_weight_loss_percent: float = 10.0
-
     def monitor_glp1_therapy(self, therapy_data: Mapping[str, Any]) -> dict[str, Any]:
-        """Monitor GLP-1 agonist therapy.
+        """Score GLP-1 therapy telemetry.
 
         Args:
-            therapy_data: Mapping with ``medication``, ``dose_mg``,
-                ``duration_weeks``, ``a1c_percent``, ``weight_change_percent``,
-                ``side_effects`` keys.
+            therapy_data: Mapping with ``side_effects`` (iterable of strings),
+                ``a1c_change_percent``, ``weight_loss_kg``, and ``medication``.
 
         Returns:
-            Dictionary with ``therapeutic_success``, ``continue_therapy`` flag
-            (False when pancreatitis is present), efficacy metrics, and
-            recommendation list.
+            Dictionary with ``continue_therapy``, ``therapeutic_success``,
+            and ``recommendations`` keys.
         """
-        duration = float(therapy_data.get("duration_weeks", 12))
-        a1c = float(therapy_data.get("a1c_percent", 7.5))
-        weight_change = float(therapy_data.get("weight_change_percent", -5.0))
         side_effects = [str(s).lower() for s in therapy_data.get("side_effects", [])]
+        a1c_change = float(therapy_data.get("a1c_change_percent", 0.0))
+        weight_loss = float(therapy_data.get("weight_loss_kg", 0.0))
+        medication = str(therapy_data.get("medication", "GLP-1 agonist"))
 
-        efficacy_metrics: list[str] = []
         recommendations: list[str] = []
+        continue_therapy = True
 
-        if a1c > self.target_a1c:
-            efficacy_metrics.append(f"A1C above target: {a1c:.1f}%")
-            if duration >= 12:
-                recommendations.append("Consider dose escalation")
-            else:
-                recommendations.append("Continue current dose - allow more time for effect")
-        else:
-            efficacy_metrics.append(f"A1C at target: {a1c:.1f}%")
+        if any("pancreatitis" in s for s in side_effects):
+            continue_therapy = False
+            recommendations.append(f"DISCONTINUE {medication}: pancreatitis signal (FDA black-box)")
+            recommendations.append("Switch to alternative agent (e.g. SGLT2 inhibitor)")
 
-        if abs(weight_change) < 5.0 and duration >= 16:
-            efficacy_metrics.append("Suboptimal weight loss")
-            recommendations.append("Review diet and exercise adherence")
-            recommendations.append("Consider dose escalation if tolerated")
-        elif abs(weight_change) >= self.target_weight_loss_percent:
-            efficacy_metrics.append(f"Excellent weight loss: {abs(weight_change):.1f}%")
+        therapeutic_success = a1c_change <= -0.5 and weight_loss >= 2.5
+        if not therapeutic_success and continue_therapy:
+            recommendations.append(
+                "Therapeutic response is below ADA benchmarks; "
+                "reassess dose escalation or adherence"
+            )
 
-        if "nausea" in side_effects or "vomiting" in side_effects:
-            recommendations.append("GI side effects present")
-            recommendations.append("Take with food, slower dose titration")
-            recommendations.append("Consider antiemetics if severe")
-
-        pancreatitis_present = "pancreatitis" in side_effects
-        if pancreatitis_present:
-            recommendations.append("ALERT: Pancreatitis - discontinue GLP-1 immediately")
-
-        therapeutic_success = a1c <= self.target_a1c and abs(weight_change) >= 5.0
         return {
+            "continue_therapy": continue_therapy,
             "therapeutic_success": therapeutic_success,
-            "efficacy_metrics": efficacy_metrics,
             "recommendations": recommendations,
-            "continue_therapy": not pancreatitis_present,
+            "a1c_change_percent": a1c_change,
+            "weight_loss_kg": weight_loss,
         }
 
 
 class InhaledInsulinMonitor:
-    """Inhaled insulin monitor enforcing the FDA Afrezza contraindication.
+    """Inhaled-insulin (Afrezza) monitor enforcing the FEV1 contraindication.
 
-    Implements the FDA Afrezza label rule: inhaled insulin is contraindicated
-    when ``FEV1 < 70%`` (chronic lung disease).  The rule fires at strictly
-    less than 70%, so ``FEV1 = 69.9%`` is flagged and ``FEV1 = 70.1%`` is
-    permitted.
+    Reference: FDA Afrezza label, Section 4 (Contraindications) - patients
+    with FEV1 < 70 % predicted must not receive inhaled insulin due to the
+    risk of acute bronchospasm.
     """
 
-    max_dose_units: int = 12
-    fev1_contraindication_threshold: float = 70.0
+    FEV1_THRESHOLD: Final[float] = 70.0
 
     def monitor_inhaled_insulin(self, inhaled_data: Mapping[str, Any]) -> dict[str, Any]:
-        """Monitor inhaled insulin delivery.
+        """Score Afrezza telemetry for appropriateness.
 
         Args:
-            inhaled_data: Mapping with ``dose_units``,
-                ``inhalation_technique_score``, and
-                ``pulmonary_function_fev1_percent`` keys.
+            inhaled_data: Mapping with ``fev1_percent`` (predicted), optional
+                ``post_meal_glucose`` (mg/dL).
 
         Returns:
-            Dictionary with ``inhaled_insulin_appropriate`` plus alert and
-            recommendation lists.
+            Dictionary with ``inhaled_insulin_appropriate``, ``alerts``, and
+            ``recommendations`` keys.
         """
-        dose = float(inhaled_data.get("dose_units", 4))
-        technique_score = float(inhaled_data.get("inhalation_technique_score", 0.8))
-        fev1 = float(inhaled_data.get("pulmonary_function_fev1_percent", 85))
+        fev1 = float(inhaled_data.get("fev1_percent", 100.0))
+        post_meal = inhaled_data.get("post_meal_glucose")
 
         alerts: list[str] = []
         recommendations: list[str] = []
+        appropriate = True
 
-        if dose > self.max_dose_units:
-            alerts.append(f"High inhaled insulin dose: {dose} units")
-            recommendations.append("Consider subcutaneous insulin for large doses")
+        if fev1 < self.FEV1_THRESHOLD:
+            appropriate = False
+            alerts.append(f"CONTRAINDICATION: FEV1 {fev1:.0f}% < 70%")
+            recommendations.append("Discontinue inhaled insulin; switch to subcutaneous insulin")
 
-        if technique_score < 0.7:
-            alerts.append("Poor inhalation technique")
-            recommendations.append("Retrain on proper inhaler use")
-            recommendations.append("May result in suboptimal absorption")
-
-        appropriate = fev1 >= self.fev1_contraindication_threshold
-        if not appropriate:
-            alerts.append(f"Reduced pulmonary function: FEV1 {fev1}%")
-            recommendations.append("Inhaled insulin contraindicated with FEV1 <70%")
-            recommendations.append("Switch to subcutaneous insulin")
+        if post_meal is not None and float(post_meal) > 180.0:
+            recommendations.append("Post-meal glucose above target; consider dose adjustment")
 
         return {
             "inhaled_insulin_appropriate": appropriate,
@@ -343,116 +322,24 @@ class InhaledInsulinMonitor:
         }
 
 
-class TidepoolClientError(RuntimeError):
-    """Raised when the Tidepool API returns an unrecoverable error."""
-
-
-class TidepoolClient:
-    """Read-only client for the Tidepool public-info endpoints.
-
-    Tidepool operates a free open-source diabetes data ecosystem.  The
-    ``/info`` and ``/metadata`` endpoints do not require authentication; the
-    ``/data`` endpoints used in production require an OAuth bearer token,
-    which callers may supply via ``token`` to enable downstream data fetches.
-
-    Reference: https://github.com/tidepool-org/platform
-    """
-
-    DEFAULT_BASE_URL: Final[str] = "https://api.tidepool.org"
-
-    def __init__(
-        self,
-        *,
-        base_url: str = DEFAULT_BASE_URL,
-        token: str | None = None,
-        timeout_seconds: float = 15.0,
-        user_agent: str = "Mercury-Agent/1.7 Endocrinology",
-    ) -> None:
-        """Initialise the Tidepool client.
-
-        Args:
-            base_url: Base URL for the Tidepool HTTP API.
-            token: Optional OAuth bearer token for authenticated routes.
-            timeout_seconds: Network timeout per request.
-            user_agent: HTTP ``User-Agent`` header value.
-        """
-        self._base_url = base_url.rstrip("/")
-        self._token = token
-        self._timeout = float(timeout_seconds)
-        self._user_agent = user_agent
-
-    def info(self) -> dict[str, Any]:
-        """Fetch the Tidepool service info document."""
-        return cast("dict[str, Any]", self._request_json("/info"))
-
-    def _request_json(self, path: str) -> Any:
-        """Fetch a JSON resource from the Tidepool API."""
-        url = f"{self._base_url}/{path.lstrip('/')}"
-        headers = {
-            "User-Agent": self._user_agent,
-            "Accept": "application/json",
-        }
-        if self._token is not None:
-            headers["Authorization"] = f"Bearer {self._token}"
-        request = Request(url, headers=headers)  # noqa: S310 - public HTTPS endpoint
-        try:
-            with urlopen(request, timeout=self._timeout) as response:  # noqa: S310
-                if response.status != 200:
-                    raise TidepoolClientError(f"Unexpected status {response.status} from {url}")
-                return json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            raise TidepoolClientError(f"Tidepool HTTP error {exc.code}: {exc.reason}") from exc
-        except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
-            raise TidepoolClientError(f"Tidepool request failed: {exc}") from exc
-
-
-@dataclass(frozen=True)
-class DexcomCredentials:
-    """Dexcom Developer API credentials loaded from environment.
-
-    Attributes:
-        client_id: ``DEXCOM_CLIENT_ID`` value.
-        client_secret: ``DEXCOM_CLIENT_SECRET`` value.
-
-    Raises:
-        RuntimeError: If either environment variable is missing.
-    """
-
-    client_id: str
-    client_secret: str
-
-    @classmethod
-    def from_environment(cls) -> DexcomCredentials:
-        """Load credentials from environment variables.
-
-        Returns:
-            A populated :class:`DexcomCredentials` instance.
-
-        Raises:
-            RuntimeError: If a required variable is missing.
-        """
-        client_id = os.environ.get("DEXCOM_CLIENT_ID")
-        client_secret = os.environ.get("DEXCOM_CLIENT_SECRET")
-        if not client_id or not client_secret:
-            raise RuntimeError(
-                "DEXCOM_CLIENT_ID and DEXCOM_CLIENT_SECRET must be set to use "
-                "the Dexcom production client."
-            )
-        return cls(client_id=client_id, client_secret=client_secret)
-
-
 class EndocrinologyDetector:
     """Integrated endocrine anomaly detector.
 
     Combines CGM analysis, smart insulin pen monitoring, GLP-1 therapy
-    monitoring, and inhaled-insulin monitoring into a single entry point.
-    Synthetic generators are absent from production paths; tests should
-    supply realistic fixtures via :class:`TidepoolClient` or an offline
-    sample file.
+    monitoring, and inhaled-insulin monitoring.  The detector is the
+    platform integration unit: it **requires** a configured
+    :class:`~omni_mercury_engine.medical.data_sources.CGMDataSource` whenever
+    ``enable_cgm`` is true.
+
+    Synthetic generators have been removed from production paths.  Operators
+    who need to apply individual rule monitors to pre-loaded data without a
+    live feed can instantiate :class:`SmartInsulinPenMonitor`,
+    :class:`GLP1TherapyMonitor`, and :class:`InhaledInsulinMonitor` directly.
     """
 
     def __init__(
         self,
+        data_source: CGMDataSource | None = None,
         *,
         enable_cgm: bool = True,
         enable_smart_pen: bool = True,
@@ -462,11 +349,34 @@ class EndocrinologyDetector:
         """Initialise the detector.
 
         Args:
+            data_source: Configured CGM adapter (e.g. a
+                :class:`~omni_mercury_engine.medical.data_sources.DexcomV3DataSource`
+                or a custom subclass of :class:`CGMDataSource`).  Required
+                whenever ``enable_cgm`` is true.
             enable_cgm: Enable the CGM Bi-LSTM.
             enable_smart_pen: Enable the smart insulin pen monitor.
             enable_glp1: Enable the GLP-1 therapy monitor.
             enable_inhaled_insulin: Enable the inhaled insulin monitor.
+
+        Raises:
+            ConfigurationError: If ``enable_cgm`` is true and ``data_source``
+                is ``None``.  Mercury Agent never invents glucose readings;
+                operators must wire a real adapter before instantiating.
+            TypeError: If ``data_source`` is not a :class:`CGMDataSource`.
         """
+        if enable_cgm and data_source is None:
+            raise ConfigurationError(
+                "EndocrinologyDetector requires a configured CGMDataSource "
+                "when CGM analysis is enabled. Mercury Agent does not ship "
+                "with default credentials. See docs/medical/SETUP.md for "
+                "instructions on configuring a CGM adapter (Dexcom v3 "
+                "reference implementation provided)."
+            )
+        if data_source is not None and not isinstance(data_source, CGMDataSource):
+            raise TypeError(
+                "data_source must subclass CGMDataSource; " f"got {type(data_source).__name__}"
+            )
+        self.data_source = data_source
         self.enable_cgm = enable_cgm
         self.enable_smart_pen = enable_smart_pen
         self.enable_glp1 = enable_glp1
@@ -481,18 +391,53 @@ class EndocrinologyDetector:
         )
         self.target_range: tuple[float, float] = (70.0, 180.0)
 
+    def fetch_and_detect(
+        self,
+        *,
+        window_minutes: int = 180,
+        patient_context: Mapping[str, Any] | None = None,
+    ) -> EndocrinologyPredictionResult:
+        """Fetch the latest CGM window then run the full detection pipeline.
+
+        Args:
+            window_minutes: Look-back window passed to
+                :meth:`CGMDataSource.fetch_recent_readings`.
+            patient_context: Optional supplementary patient data (e.g.
+                ``insulin_delivery``, ``glp1_therapy``, ``inhaled_insulin``)
+                merged into the detection input.
+
+        Returns:
+            :class:`EndocrinologyPredictionResult`.
+
+        Raises:
+            ConfigurationError: If ``enable_cgm`` is false or no data
+                source was supplied at construction time.
+        """
+        if not self.enable_cgm or self.data_source is None:
+            raise ConfigurationError(
+                "fetch_and_detect requires enable_cgm=True and a configured "
+                "data_source. Use detect_endocrine_anomaly() with pre-loaded "
+                "data for rule-engine-only flows."
+            )
+        readings = self.data_source.fetch_recent_readings(window_minutes=window_minutes)
+        payload: dict[str, Any] = dict(patient_context or {})
+        payload["cgm_readings"] = readings
+        return self.detect_endocrine_anomaly(payload)
+
     def detect_endocrine_anomaly(
         self, patient_data: Mapping[str, Any]
     ) -> EndocrinologyPredictionResult:
-        """Run the full endocrine detection pipeline.
+        """Run the rule + ML pipeline on pre-loaded patient data.
 
         Args:
-            patient_data: Patient data dictionary.  Recognised keys:
+            patient_data: Mapping with any of:
 
-                * ``cgm_sequence``: Time-series CGM data.
-                * ``insulin_delivery``: Smart pen data.
-                * ``glp1_therapy``: GLP-1 treatment data.
-                * ``inhaled_insulin``: Inhaled insulin data.
+                * ``cgm_readings`` - sequence of
+                  :class:`~omni_mercury_engine.medical.data_sources.CGMReading`
+                  (preferred path).
+                * ``cgm_sequence`` - raw mg/dL sequence (used only when
+                  ``cgm_readings`` is absent).
+                * ``insulin_delivery`` / ``glp1_therapy`` / ``inhaled_insulin``.
 
         Returns:
             :class:`EndocrinologyPredictionResult`.
@@ -507,19 +452,21 @@ class EndocrinologyDetector:
             dka_risk=0.0,
         )
 
-        if self.enable_cgm and self.cgm_analyzer is not None and "cgm_sequence" in patient_data:
-            cgm_result = self._analyze_cgm(
-                np.asarray(patient_data["cgm_sequence"], dtype=np.float64)
-            )
-            result.glycemic_state = str(cgm_result["glycemic_state"])
-            result.hypoglycemia_risk = float(cgm_result["hypoglycemia_risk"])
-            result.hyperglycemia_risk = float(cgm_result["hyperglycemia_risk"])
-            result.confidence = float(cgm_result["confidence"])
-            result.glucose_anomalies = list(cgm_result["anomalies"])
-            result.time_in_range_percent = float(cgm_result["time_in_range"])
-            result.glucose_variability = float(cgm_result["variability"])
-            if cgm_result["glycemic_state"] != GlycemicState.NORMAL.value:
-                result.anomaly_detected = True
+        if self.enable_cgm and self.cgm_analyzer is not None:
+            cgm_values, source_label = self._extract_cgm_sequence(patient_data)
+            if cgm_values is not None and cgm_values.size > 0:
+                cgm_result = self._analyze_cgm(cgm_values)
+                result.glycemic_state = str(cgm_result["glycemic_state"])
+                result.hypoglycemia_risk = float(cgm_result["hypoglycemia_risk"])
+                result.hyperglycemia_risk = float(cgm_result["hyperglycemia_risk"])
+                result.confidence = float(cgm_result["confidence"])
+                result.glucose_anomalies = list(cgm_result["anomalies"])
+                result.time_in_range_percent = float(cgm_result["time_in_range"])
+                result.glucose_variability = float(cgm_result["variability"])
+                result.cgm_source = source_label
+                result.cgm_reading_count = int(cgm_values.size)
+                if cgm_result["glycemic_state"] != GlycemicState.NORMAL.value:
+                    result.anomaly_detected = True
 
         if (
             self.enable_smart_pen
@@ -562,16 +509,35 @@ class EndocrinologyDetector:
             result.intervention_needed = True
         return result
 
+    @staticmethod
+    def _extract_cgm_sequence(
+        patient_data: Mapping[str, Any],
+    ) -> tuple[npt.NDArray[np.float64] | None, str | None]:
+        """Resolve the CGM sequence from ``cgm_readings`` or ``cgm_sequence``."""
+        readings = patient_data.get("cgm_readings")
+        if readings is not None:
+            values: list[float] = []
+            sources: set[str] = set()
+            for r in readings:
+                if not isinstance(r, CGMReading):
+                    raise TypeError(
+                        "cgm_readings entries must be CGMReading instances; "
+                        f"got {type(r).__name__}"
+                    )
+                values.append(float(r.value_mg_dl))
+                sources.add(r.source)
+            if not values:
+                return None, None
+            source_label = next(iter(sources)) if len(sources) == 1 else "mixed"
+            return np.asarray(values, dtype=np.float64), source_label
+
+        raw = patient_data.get("cgm_sequence")
+        if raw is None:
+            return None, None
+        return np.asarray(raw, dtype=np.float64), "preloaded"
+
     def _analyze_cgm(self, cgm_sequence: npt.NDArray[np.float64]) -> dict[str, Any]:
-        """Run the CGM Bi-LSTM in inference mode.
-
-        Args:
-            cgm_sequence: 1-D float array of mg/dL glucose values.
-
-        Returns:
-            Inference dictionary including glycemic state, risks, anomalies,
-            and time-in-range statistics.
-        """
+        """Run the CGM Bi-LSTM in inference mode."""
         if self.cgm_analyzer is None:
             raise RuntimeError("CGM analyser is not enabled")
         x = torch.tensor(cgm_sequence, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
@@ -626,6 +592,7 @@ class EndocrinologyDetector:
 
 
 def get_endocrinology_detector(
+    data_source: CGMDataSource | None = None,
     *,
     enable_cgm: bool = True,
     enable_smart_pen: bool = True,
@@ -634,16 +601,11 @@ def get_endocrinology_detector(
 ) -> EndocrinologyDetector:
     """Factory returning a configured :class:`EndocrinologyDetector`.
 
-    Args:
-        enable_cgm: Enable the CGM Bi-LSTM.
-        enable_smart_pen: Enable the smart insulin pen monitor.
-        enable_glp1: Enable the GLP-1 therapy monitor.
-        enable_inhaled_insulin: Enable the inhaled insulin monitor.
-
-    Returns:
-        A new detector instance.
+    See :class:`EndocrinologyDetector` for the full argument contract and
+    the :class:`ConfigurationError` semantics.
     """
     return EndocrinologyDetector(
+        data_source,
         enable_cgm=enable_cgm,
         enable_smart_pen=enable_smart_pen,
         enable_glp1=enable_glp1,
@@ -652,22 +614,13 @@ def get_endocrinology_detector(
 
 
 def count_cgm_parameters(model: CGMAnalyzer | None = None) -> int:
-    """Return the trainable parameter count of the CGM Bi-LSTM.
-
-    Args:
-        model: Optional existing model.  When ``None`` a fresh model with the
-            default dimensions is instantiated.
-
-    Returns:
-        Number of trainable parameters.
-    """
+    """Return the trainable parameter count of the CGM Bi-LSTM."""
     instance = model if model is not None else CGMAnalyzer()
     return int(sum(p.numel() for p in instance.parameters() if p.requires_grad))
 
 
 __all__ = [
     "CGMAnalyzer",
-    "DexcomCredentials",
     "EndocrinologyDetector",
     "EndocrinologyPredictionResult",
     "GLP1TherapyMonitor",
@@ -675,8 +628,6 @@ __all__ = [
     "InhaledInsulinMonitor",
     "InsulinDeliveryMethod",
     "SmartInsulinPenMonitor",
-    "TidepoolClient",
-    "TidepoolClientError",
     "count_cgm_parameters",
     "get_endocrinology_detector",
 ]
