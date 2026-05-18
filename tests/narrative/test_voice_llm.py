@@ -282,9 +282,7 @@ class TestVoiceLLMConfiguredProvider:
         "provider",
         ["ollama", "openai", "anthropic", "xai", "gemini", "cohere", "deepseek", "cursor"],
     )
-    def test_create_llm_detector_real_provider_requires_model_name(
-        self, provider: str
-    ) -> None:
+    def test_create_llm_detector_real_provider_requires_model_name(self, provider: str) -> None:
         """Every real provider must demand an explicit model_name.
 
         The previous ``or "gpt-4o"`` fallback silently substituted a
