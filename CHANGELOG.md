@@ -26,6 +26,164 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Omni-AXA → Mercury port, PR 2: domain modules with external dependencies
+
+Four domain modules ported from `Steel-SecAdv-LLC/Omni-AXA-Engine`
+(GPL-3.0+) into Mercury Agent.  All known issues from the verdict table
+are resolved in-PR; no follow-ups.  Modules are wired to live public
+data sources (eCFR, VitalDB, Tidepool) and an optional Dexcom auth
+plumbing layer for production CGM streams.
+
+- **`omni_mercury_engine.compliance.osha_anomaly`**
+  (666 LOC source → 1,003 LOC port).  Multi-sector OSHA compliance
+  detector covering 12 hazard categories × 6 industry sectors with
+  real CFR citations.  **Known-issue fix (heat-index regression):**
+  the original implementation used the linear heuristic
+  ``HI = T + 0.5 * RH``.  At ``T=95 °F, RH=70 %`` this returned
+  ``130 °F``, materially over-reporting heat stress.  The port
+  replaces this with the **National Weather Service Rothfusz
+  regression**:
+  ```
+  HI = -42.379 + 2.04901523·T + 10.14333127·RH
+       − 0.22475541·T·RH      − 0.00683783·T²
+       − 0.05481717·RH²       + 0.00122874·T²·RH
+       + 0.00085282·T·RH²     − 0.00000199·T²·RH²
+  ```
+  plus the two standard adjustments — low-humidity
+  (``RH < 13 %`` and ``80 ≤ T ≤ 112 °F``) and
+  low-temperature/high-humidity (``RH > 85 %`` and
+  ``80 ≤ T ≤ 87 °F``).  Numeric NWS reference point at
+  ``T=96 °F, RH=65 %`` now returns ``≈121 °F`` (verified against
+  the published WPC table) instead of ``128 °F`` under the
+  heuristic.  Citations may optionally be validated against the
+  live **eCFR API** (`https://www.ecfr.gov/api/versioner/v1/`,
+  60 req/min, no auth) via the new ``ECFRClient`` helper, which
+  caches verifications in-process.  Locked by
+  `tests/test_osha_anomaly.py` (28 tests covering every
+  sector × hazard combination, the Rothfusz regression and both
+  adjustments, eCFR parsing/caching/error paths, training
+  recommendations, and the compliance report).
+
+- **`omni_mercury_engine.anomaly.drone_detector`**
+  (632 LOC source → 905 LOC port).  Multi-source drone anomaly
+  detector combining rule-based RADD, an ML ensemble, and
+  log-based DronLomaly.  **Three known-issue fixes in-PR:**
+  1. **Missing DroneState fields.**  The upstream detection
+     rules referenced ``altitude_rate``, ``horizontal_velocity``,
+     ``vertical_velocity``, and ``distance_to_home`` but the
+     ``DroneState`` dataclass did not have them, so every rule
+     that gated on those fields silently no-op'd.  The port adds
+     the four fields with explicit ``Optional[float]`` types and
+     a ``__post_init__`` that derives them from
+     ``velocity`` / ``position`` / ``home_position`` when not
+     explicitly supplied.  Regression tests in
+     ``tests/test_drone_detector.py`` exercise the previously
+     silent rules end-to-end.
+  2. **Real sklearn ensemble.**  The hand-coded z-score
+     "ensemble" has been replaced with three actual sklearn
+     estimators — ``IsolationForest`` (rough density),
+     ``EllipticEnvelope`` (Mahalanobis under multivariate
+     Gaussian), and ``LocalOutlierFactor`` (local density) — each
+     trained on the rolling 100-state telemetry window before
+     scoring the current state.  When ``scikit-learn`` is not
+     available the detector falls back to a deterministic
+     Mahalanobis scorer with the same public interface; the
+     fallback is exercised by an explicit unit test.
+  3. **Unvalidated 93.84 % recall claim removed.**  The
+     upstream docstrings cited a 93.84 % recall number with no
+     reproducible benchmark.  The claim is removed and a
+     ``test_no_recall_claim_in_docstrings`` regression test
+     pins the docstrings against re-introduction.
+  Live data: integrates with PX4 / MAVLink telemetry via the
+  detector's ``detect_faults(state, logs)`` entry point —
+  callers translate their MAVLink / pyulog stream into the
+  ``DroneState`` dataclass.  Locked by
+  `tests/test_drone_detector.py` (25 tests covering all three
+  known-issue fixes, every mission-phase rule that previously
+  silent-no-op'd, sklearn ensemble availability, the
+  Mahalanobis fallback, log-based fault detection, flight-report
+  aggregation, and per-fault recommendation lists).
+
+- **`omni_mercury_engine.medical.anesthesiology_predictor`**
+  (541 LOC source → 733 LOC port).  Integrated anesthesiology
+  prediction combining a Bi-LSTM TIVA monitor, a discrete-time
+  PID infusion controller, and a hemodynamic monitor:
+  - **TIVA Bi-LSTM** (``input_dim=8``, ``hidden_dim=64``,
+    ``num_layers=2``, bidirectional, additive attention,
+    164,066 parameters — matches the verified Omni-AXA
+    parameter count).
+  - **PID infusion controller** with the verified upstream
+    gains ``kp=0.5 / ki=0.1 / kd=0.2``, target BIS 50, safe
+    window ``[40, 60]``.  Decision support only; the controller
+    refuses to run with ``dt ≤ 0`` and clamps outputs to
+    documented propofol / remifentanil limits.
+  - **Hemodynamic monitor** with the ASA-aligned ranges
+    MAP 65–110 mmHg, HR 50–100 bpm, SpO₂ ≥ 92 %,
+    EtCO₂ 30–45 mmHg.
+  Live data: new ``VitalDBClient`` streams cases, per-case track
+  indices, and per-track samples from the public **VitalDB**
+  research dataset (`https://api.vitaldb.net`, no auth) hosted by
+  Seoul National University Hospital.  Synthetic generators
+  present in the upstream module have been removed from
+  production paths.  Locked by
+  `tests/test_anesthesiology_predictor.py` (27 tests covering the
+  TIVA parameter count, PID gain/clamp/integrator behaviour, the
+  full hemodynamic risk ladder, the VitalDB client (cases /
+  tracks / samples / network-error wrapping), and the integrated
+  predictor across the TIVA / hemodynamic / infusion branches).
+
+- **`omni_mercury_engine.medical.endocrinology_detector`**
+  (521 LOC source → 600 LOC port).  Integrated endocrine anomaly
+  detection with CGM Bi-LSTM analysis and three FDA-aligned
+  rules:
+  - **CGM Bi-LSTM** (``input_dim=1``, ``hidden_dim=64``,
+    ``num_layers=2``, bidirectional, additive attention) for
+    glycemic-state classification (normal / hypo / hyper /
+    severe-hypo / DKA) plus a scalar trend predictor.
+  - **Afrezza FEV1 contraindication.**  Inhaled insulin is
+    flagged inappropriate when ``FEV1 < 70 %``.  The threshold
+    is strict-less-than, so ``FEV1 = 69.9 %`` is flagged and
+    ``FEV1 = 70.0 %`` is permitted; the boundary case is locked
+    by `TestInhaledInsulinMonitor::test_fev1_threshold`.
+  - **GLP-1 pancreatitis discontinuation.**  Any occurrence of
+    "pancreatitis" (case-insensitive) in the side-effect list
+    sets ``continue_therapy=False`` and emits the FDA-aligned
+    discontinuation recommendation.
+  - **Dose-stacking guard.**  Rapid-acting insulin doses spaced
+    less than ``min_dose_interval_hours = 2.0`` apart trip the
+    smart-pen alert and require glucose verification before
+    additional dosing.
+  Live data: new ``TidepoolClient`` reads the public Tidepool
+  ``/info`` endpoint (no auth) and accepts an optional OAuth
+  bearer token for authenticated routes.  A
+  ``DexcomCredentials.from_environment()`` helper plumbs
+  ``DEXCOM_CLIENT_ID`` / ``DEXCOM_CLIENT_SECRET`` so production
+  Dexcom-API integrations have a documented secret path; the
+  helper is not invoked by default.  Synthetic generators in the
+  upstream module have been removed from production paths.
+  Locked by `tests/test_endocrinology_detector.py` (29 tests
+  including the FDA-rule edge cases, the Bi-LSTM parameter
+  count, the Tidepool client (info / token / network-error), the
+  Dexcom credential loader, and the integrated detector across
+  the CGM / smart-pen / GLP-1 / inhaled-insulin branches).
+
+**Provenance.**  All four modules originate from
+``Steel-SecAdv-LLC/Omni-AXA-Engine`` (private; GPL-3.0+).  The
+upstream license matches Mercury's, and the user has full legal
+standing to relicense across both repositories.
+
+**Deviations from the original (documented):**
+- OSHA heat-index switched from ``T + 0.5*RH`` to NWS Rothfusz +
+  two standard adjustments.
+- Drone ensemble switched from hand-coded z-score to real sklearn
+  ``IsolationForest`` / ``EllipticEnvelope`` /
+  ``LocalOutlierFactor`` with a Mahalanobis fallback.
+- Drone "93.84 % recall" docstring claim removed (no reproducible
+  source).
+- Synthetic data generators removed from production paths in
+  anesthesiology and endocrinology modules; tests supply real
+  fixtures and use ``unittest.mock`` for HTTP boundaries.
+
 ### Omni-AXA → Mercury port, PR 1: infrastructure & stdlib-only modules
 
 Three first-party modules ported from `Steel-SecAdv-LLC/Omni-AXA-Engine`

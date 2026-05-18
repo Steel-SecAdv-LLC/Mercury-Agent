@@ -46,6 +46,19 @@ from omni_mercury_engine.medical.abms_disciplines import (
     ABMSDisciplineDetector,
     MedicalAnomalyResult,
 )
+from omni_mercury_engine.medical.anesthesiology_predictor import (
+    AnesthesiaPredictionResult,
+    AnesthesiaRisk,
+    AnesthesiaType,
+    AnesthesiologyPredictor,
+    HemodynamicMonitor,
+    SmartInfusionController,
+    TIVAMonitoringSystem,
+    VitalDBClient,
+    VitalDBClientError,
+    count_tiva_parameters,
+    get_anesthesiology_predictor,
+)
 
 # Cardiology
 from omni_mercury_engine.medical.cardiology import (
@@ -73,6 +86,21 @@ from omni_mercury_engine.medical.critical_care import (
     SOFACalculator,
     StrokeDetector,
     StrokeType,
+)
+from omni_mercury_engine.medical.endocrinology_detector import (
+    CGMAnalyzer,
+    DexcomCredentials,
+    EndocrinologyDetector,
+    EndocrinologyPredictionResult,
+    GLP1TherapyMonitor,
+    GlycemicState,
+    InhaledInsulinMonitor,
+    InsulinDeliveryMethod,
+    SmartInsulinPenMonitor,
+    TidepoolClient,
+    TidepoolClientError,
+    count_cgm_parameters,
+    get_endocrinology_detector,
 )
 from omni_mercury_engine.medical.medical_cure_predictor import (
     MedicalCurePredictor,
