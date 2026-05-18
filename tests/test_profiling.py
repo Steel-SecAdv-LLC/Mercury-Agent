@@ -44,12 +44,12 @@ def _restore_profiling_state() -> Any:
     """Restore the module's global flags around each test."""
 
     original_enabled = is_profiling_enabled()
-    original_logger = profiling._logger  # type: ignore[attr-defined]
+    original_logger = profiling._logger
     try:
         yield
     finally:
         set_profiling_enabled(original_enabled)
-        profiling._logger = original_logger  # type: ignore[attr-defined]
+        profiling._logger = original_logger
         # Always leave tracemalloc disabled at the end of the test so
         # subsequent tests start from a clean baseline.
         if tracemalloc.is_tracing():
@@ -76,7 +76,7 @@ def test_set_and_get_profiling_logger() -> None:
 
 def test_lazy_logger_namespace() -> None:
     # Forcing the lazy path: clear the cached logger and re-fetch.
-    profiling._logger = None  # type: ignore[attr-defined]
+    profiling._logger = None
     logger = get_profiling_logger()
     assert logger.name == "omni_mercury_engine.profiling"
 
@@ -302,11 +302,11 @@ async def test_profile_time_async_logs_elapsed_ms(
 
 
 def test_profile_time_async_rejects_non_coroutine() -> None:
-    with pytest.raises(TypeError, match="coroutine function"):
+    def not_async() -> int:  # pragma: no cover - decorator raises immediately
+        return 0
 
-        @profile_time_async()
-        def not_async() -> int:  # pragma: no cover - decorator raises immediately
-            return 0
+    with pytest.raises(TypeError, match="coroutine function"):
+        profile_time_async()(not_async)  # type: ignore[arg-type]
 
 
 async def test_profile_time_async_disabled_is_noop(
@@ -452,8 +452,9 @@ def test_benchmark_function_forwards_kwargs() -> None:
     captured: dict[str, Any] = {}
 
     def workload(value: int, *, scale: int = 1) -> int:
-        captured["last"] = value * scale
-        return captured["last"]
+        result = value * scale
+        captured["last"] = result
+        return result
 
     stats = benchmark_function(workload, 5, iterations=3, warmup=0, scale=4)
     assert captured["last"] == 20

@@ -138,7 +138,7 @@ def test_subcategory_ids_normalises_string_form() -> None:
 
 def test_integrator_rejects_unknown_reference_source() -> None:
     with pytest.raises(ValueError, match="reference_source"):
-        NISTCSFIntegrator(reference_source="other")  # type: ignore[arg-type]
+        NISTCSFIntegrator(reference_source="other")
 
 
 def test_integrator_builtin_loads_all_six_functions(
@@ -385,7 +385,7 @@ def test_reference_fetcher_cache_fresh_within_ttl(tmp_path: Path) -> None:
     fetcher = NISTCSFReferenceFetcher(cache_dir=tmp_path, cache_ttl_seconds=3600.0)
     cache_path = tmp_path / "csf.xlsx"
     cache_path.write_bytes(b"PK\x03\x04")
-    fresh = fetcher._cache_fresh(cache_path)  # type: ignore[attr-defined]
+    fresh = fetcher._cache_fresh(cache_path)
     assert fresh is True
 
 
@@ -393,7 +393,7 @@ def test_reference_fetcher_cache_stale_outside_ttl(tmp_path: Path) -> None:
     fetcher = NISTCSFReferenceFetcher(cache_dir=tmp_path, cache_ttl_seconds=0.0)
     cache_path = tmp_path / "csf.xlsx"
     cache_path.write_bytes(b"PK\x03\x04")
-    assert fetcher._cache_fresh(cache_path) is False  # type: ignore[attr-defined]
+    assert fetcher._cache_fresh(cache_path) is False
 
 
 def test_parse_csf_xlsx_rejects_non_xlsx_payload() -> None:
@@ -438,7 +438,7 @@ def test_fetch_payload_wraps_request_exceptions(
 
 def test_fetch_payload_uses_cache_when_fresh(tmp_path: Path) -> None:
     fetcher = NISTCSFReferenceFetcher(cache_dir=tmp_path, cache_ttl_seconds=3600.0)
-    cache_path = fetcher._cache_path()  # type: ignore[attr-defined]
+    cache_path = fetcher._cache_path()
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     payload = b"PK\x03\x04" + b"\x00" * 1024
     cache_path.write_bytes(payload)
