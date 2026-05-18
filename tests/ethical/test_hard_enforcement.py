@@ -29,7 +29,7 @@ regression cannot merge silently.
 from __future__ import annotations
 
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
@@ -39,6 +39,10 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
     EthicalConstraintViolationError,
 )
 from omni_mercury_engine.ethical import EthicalViolation
+
+if TYPE_CHECKING:
+    from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
+    from omni_mercury_engine.engine import OmniMercuryEngine
 
 # ---------------------------------------------------------------------------
 # Realistic-input fixtures.
@@ -174,7 +178,7 @@ class TestBenevolenceScorerEnforce:
 
 
 class TestCognitiveOrchestratorBoundary:
-    def _orchestrator(self):
+    def _orchestrator(self) -> CognitiveOrchestrator:
         from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
 
         return CognitiveOrchestrator(
@@ -335,7 +339,7 @@ class TestNeuroSymbolicHubBoundary:
 # ---------------------------------------------------------------------------
 
 
-def _make_engine_in_fusion_mode():
+def _make_engine_in_fusion_mode() -> OmniMercuryEngine:
     """Build a minimal fusion-mode engine for boundary tests."""
     from omni_mercury_engine.engine import OmniMercuryEngine
 

@@ -34,6 +34,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 import torch
@@ -59,6 +60,22 @@ class LLMProvider(StrEnum):
     COHERE = "cohere"  # Cohere Chat v2 (api.cohere.com)
     DEEPSEEK = "deepseek"  # DeepSeek (api.deepseek.com, OpenAI-compatible)
     CURSOR = "cursor"  # Cursor (operator-supplied base_url, OpenAI-compatible)
+
+
+IMPLEMENTED_LLM_PROVIDERS: frozenset[LLMProvider] = frozenset(
+    {
+        LLMProvider.OPENAI,
+        LLMProvider.ANTHROPIC,
+        LLMProvider.HUGGINGFACE,
+        LLMProvider.OLLAMA,
+        LLMProvider.TEMPLATE,
+        LLMProvider.XAI,
+        LLMProvider.GEMINI,
+        LLMProvider.COHERE,
+        LLMProvider.DEEPSEEK,
+        LLMProvider.CURSOR,
+    }
+)
 
 
 @dataclass
@@ -484,11 +501,24 @@ class ZeroShotAnomalyDetector:
             return MockLLMAdapter(self.config)
         elif self.config.provider == LLMProvider.HUGGINGFACE:
             return HuggingFaceLLMAdapter(self.config)
+        elif self.config.provider in {
+            LLMProvider.OPENAI,
+            LLMProvider.ANTHROPIC,
+            LLMProvider.OLLAMA,
+            LLMProvider.TEMPLATE,
+            LLMProvider.XAI,
+            LLMProvider.GEMINI,
+            LLMProvider.COHERE,
+            LLMProvider.DEEPSEEK,
+            LLMProvider.CURSOR,
+        }:
+            return _create_non_hf_adapter(self.config)
         else:
+            supported = ", ".join(sorted(p.value for p in IMPLEMENTED_LLM_PROVIDERS))
             raise NotImplementedError(
                 f"LLM provider {self.config.provider!r} has no adapter "
                 "implementation in this build.  Configure a supported "
-                "provider (currently: HUGGINGFACE).  Silent mock "
+                f"provider (currently: {supported}).  Silent mock "
                 "degradation is not permitted (Phase 2 audit cure)."
             )
 
@@ -644,6 +674,58 @@ class TextLogAnomalyDetector:
         return self.detector.detect(text, context)
 
 
+def _parse_ollama_base_url(base_url: str | None) -> tuple[str | None, int | None]:
+    """Return ``(host, port)`` from an Ollama base URL override."""
+    if not base_url:
+        return None, None
+    parsed = urlparse(base_url if "://" in base_url else f"http://{base_url}")
+    if not parsed.hostname:
+        raise ValueError(f"Invalid Ollama base_url {base_url!r}: missing host")
+    return parsed.hostname, parsed.port
+
+
+def _create_non_hf_adapter(config: LLMConfig) -> BaseLLMAdapter:
+    """Create implemented non-HuggingFace adapters."""
+    from omni_mercury_engine.models.foundation.ollama_adapter import (
+        AnthropicCloudAdapter,
+        CohereCloudAdapter,
+        CursorAdapter,
+        DeepSeekAdapter,
+        GeminiCloudAdapter,
+        OllamaConfig,
+        OllamaLLMAdapter,
+        OpenAICloudAdapter,
+        TemplateLLMAdapter,
+        XAIGrokAdapter,
+    )
+
+    if config.provider == LLMProvider.OLLAMA:
+        host, port = _parse_ollama_base_url(config.base_url)
+        ollama_config = OllamaConfig(
+            model=config.model_name or "llama3.2:3b",
+            host=host or "localhost",
+            port=port or 11434,
+        )
+        return OllamaLLMAdapter(config, ollama_config)
+    if config.provider == LLMProvider.TEMPLATE:
+        return TemplateLLMAdapter(config)
+    if config.provider == LLMProvider.OPENAI:
+        return OpenAICloudAdapter(config)
+    if config.provider == LLMProvider.ANTHROPIC:
+        return AnthropicCloudAdapter(config)
+    if config.provider == LLMProvider.XAI:
+        return XAIGrokAdapter(config)
+    if config.provider == LLMProvider.DEEPSEEK:
+        return DeepSeekAdapter(config)
+    if config.provider == LLMProvider.CURSOR:
+        return CursorAdapter(config)
+    if config.provider == LLMProvider.COHERE:
+        return CohereCloudAdapter(config)
+    if config.provider == LLMProvider.GEMINI:
+        return GeminiCloudAdapter(config)
+    raise NotImplementedError(f"LLM provider {config.provider!r} has no adapter implementation")
+
+
 def create_llm_detector(
     provider: str = "mock",
     model_name: str | None = None,
@@ -653,7 +735,9 @@ def create_llm_detector(
     Factory function to create LLM-based anomaly detector.
 
     Args:
-        provider: LLM provider name (mock, ollama, huggingface, etc.)
+        provider: Implemented LLM provider name (ollama, huggingface,
+            openai, anthropic, xai, gemini, cohere, deepseek, cursor,
+            template). ``mock`` is a hard-fail sentinel.
         model_name: Model identifier
         **kwargs: Additional configuration
 
@@ -662,29 +746,86 @@ def create_llm_detector(
     """
     try:
         provider_enum = LLMProvider(provider.lower())
-    except ValueError:
-        logger.warning(f"Unknown provider {provider}, using mock")
-        provider_enum = LLMProvider.MOCK
+    except ValueError as exc:
+        supported = ", ".join(sorted(p.value for p in IMPLEMENTED_LLM_PROVIDERS))
+        raise ValueError(
+            f"Unknown LLM provider {provider!r}. Supported providers: {supported}."
+        ) from exc
+
+    if provider_enum == LLMProvider.MOCK:
+        raise NotImplementedError(
+            "MockLLMAdapter cannot be used in production. Configure a real "
+            "provider or use the explicit template adapter for deterministic "
+            "offline responses."
+        )
+    if provider_enum not in IMPLEMENTED_LLM_PROVIDERS:
+        supported = ", ".join(sorted(p.value for p in IMPLEMENTED_LLM_PROVIDERS))
+        raise NotImplementedError(
+            f"LLM provider {provider_enum.value!r} has no adapter implementation "
+            f"in this build. Supported providers: {supported}."
+        )
+
+    config_kwargs = dict(kwargs)
+    ollama_host = config_kwargs.pop("host", None)
+    ollama_port = config_kwargs.pop("port", None)
+    if provider_enum == LLMProvider.HUGGINGFACE:
+        from pathlib import PurePosixPath, PureWindowsPath
+
+        if not model_name:
+            raise ValueError(
+                "create_llm_detector(provider='huggingface') requires "
+                "model_name=<HuggingFace model ID or absolute local path>."
+            )
+        is_local_path = (
+            PurePosixPath(model_name).is_absolute() or PureWindowsPath(model_name).is_absolute()
+        )
+        if not is_local_path and not config_kwargs.get("revision"):
+            raise ValueError(
+                "HuggingFace remote model IDs require revision=<40-character "
+                "commit SHA> so SafeHFLoader can enforce reproducible model loading."
+            )
+
+    if provider_enum == LLMProvider.TEMPLATE:
+        # TemplateLLMAdapter is deterministic-offline and ignores model_name.
+        resolved_model_name = model_name or "template"
+    else:
+        # Every real LLM provider needs an explicit model identifier --
+        # silently substituting a cross-provider placeholder like
+        # ``gpt-4o`` for an Ollama or Anthropic caller masks the
+        # configuration error and (for Ollama) makes the per-adapter
+        # default (``llama3.2:3b``) unreachable.
+        if not model_name:
+            raise ValueError(
+                f"create_llm_detector(provider={provider_enum.value!r}) requires "
+                "model_name=<provider-specific model identifier>."
+            )
+        resolved_model_name = model_name
 
     config = LLMConfig(
         provider=provider_enum,
-        model_name=model_name or "gpt-4o",
-        **kwargs,
+        model_name=resolved_model_name,
+        **config_kwargs,
     )
 
-    # Handle Ollama specifically
+    # Handle Ollama specifically so host/port kwargs and base_url both
+    # reach OllamaConfig instead of being ignored by LLMConfig.
     if provider_enum == LLMProvider.OLLAMA:
         from omni_mercury_engine.models.foundation.ollama_adapter import (
             OllamaConfig,
             OllamaLLMAdapter,
         )
 
+        base_host, base_port = _parse_ollama_base_url(config.base_url)
+
         ollama_config = OllamaConfig(
-            model=model_name or "llama3.2:3b",
-            host=kwargs.get("host", "localhost"),
-            port=kwargs.get("port", 11434),
+            model=resolved_model_name,
+            host=ollama_host or base_host or "localhost",
+            port=ollama_port or base_port or 11434,
         )
         adapter = OllamaLLMAdapter(config, ollama_config)
         return ZeroShotAnomalyDetector(config, adapter=adapter)
+
+    if provider_enum not in {LLMProvider.HUGGINGFACE, LLMProvider.MOCK}:
+        return ZeroShotAnomalyDetector(config, adapter=_create_non_hf_adapter(config))
 
     return ZeroShotAnomalyDetector(config)

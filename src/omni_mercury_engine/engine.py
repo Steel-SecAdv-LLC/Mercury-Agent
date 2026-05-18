@@ -1209,7 +1209,9 @@ class OmniMercuryEngine(LoggerMixin):
         self,
         provider: str,
         model_name: str | None = None,
+        revision: str | None = None,
         api_key: str | None = None,
+        base_url: str | None = None,
         timeout_seconds: float = 30.0,
     ) -> None:
         """Enable LLM-based anomaly explanation enhancement.
@@ -1229,10 +1231,12 @@ class OmniMercuryEngine(LoggerMixin):
 
         Args:
             provider: LLM provider name (e.g. ``"huggingface"``,
-                ``"openai"``).  Must match a member of
+                ``"openai"``).  Must match an implemented member of
                 :class:`LLMProvider` (case-insensitive).
             model_name: Model identifier for the provider.
+            revision: HuggingFace revision pin for remote model IDs.
             api_key: API key for the provider (if required).
+            base_url: Endpoint override for providers that support it.
             timeout_seconds: Maximum time to wait for LLM response.
 
         Raises:
@@ -1243,23 +1247,72 @@ class OmniMercuryEngine(LoggerMixin):
             >>> engine = OmniMercuryEngine()
             >>> engine.enable_llm_enhancement(
             ...     provider="huggingface",
-            ...     model_name="facebook/bart-large-mnli"
+            ...     model_name="facebook/bart-large-mnli",
+            ...     revision="<40-char SHA>"
             ... )
         """
+        from pathlib import PurePosixPath, PureWindowsPath
+
+        from omni_mercury_engine.models.foundation.llm_adapter import (
+            IMPLEMENTED_LLM_PROVIDERS,
+            LLMConfig,
+            LLMProvider,
+            ZeroShotAnomalyDetector,
+        )
+
         try:
             llm_provider = LLMProvider(provider.lower())
         except ValueError as exc:
-            supported = sorted(p.value for p in LLMProvider)
+            supported = sorted(p.value for p in IMPLEMENTED_LLM_PROVIDERS)
             raise ValueError(
                 f"Unknown LLM provider {provider!r}. "
                 f"Supported providers: {supported}.  "
                 "Silent mock fallback is not permitted (Phase 2 audit cure)."
             ) from exc
+        if llm_provider not in IMPLEMENTED_LLM_PROVIDERS:
+            supported = sorted(p.value for p in IMPLEMENTED_LLM_PROVIDERS)
+            raise ValueError(
+                f"LLM provider {provider!r} is declared but has no adapter "
+                f"implementation in this build. Supported providers: {supported}."
+            )
+
+        if llm_provider == LLMProvider.HUGGINGFACE:
+            if not model_name:
+                raise ValueError(
+                    "enable_llm_enhancement(provider='huggingface') requires "
+                    "model_name=<HuggingFace model ID or absolute local path>."
+                )
+            resolved_model_name = model_name
+            is_local_path = (
+                PurePosixPath(resolved_model_name).is_absolute()
+                or PureWindowsPath(resolved_model_name).is_absolute()
+            )
+            if not is_local_path and not revision:
+                raise ValueError(
+                    "HuggingFace remote model IDs require revision=<40-character "
+                    "commit SHA> so SafeHFLoader can enforce reproducible model loading."
+                )
+        elif llm_provider == LLMProvider.TEMPLATE:
+            # TemplateLLMAdapter is deterministic-offline and ignores model_name.
+            resolved_model_name = model_name or "template"
+        else:
+            # Every other real provider needs an explicit, provider-specific
+            # model identifier.  ``"mock-model"`` was previously used as a
+            # placeholder default which masked configuration errors and let
+            # callers reach adapter construction with a meaningless name.
+            if not model_name:
+                raise ValueError(
+                    f"enable_llm_enhancement(provider={provider!r}) requires "
+                    "model_name=<provider-specific model identifier>."
+                )
+            resolved_model_name = model_name
 
         llm_config = LLMConfig(
             provider=llm_provider,
-            model_name=model_name or "mock-model",
+            model_name=resolved_model_name,
+            revision=revision,
             api_key=api_key,
+            base_url=base_url,
             timeout=timeout_seconds,
         )
         self.llm_detector = ZeroShotAnomalyDetector(config=llm_config)

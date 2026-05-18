@@ -38,6 +38,30 @@ def test_engine_initialization() -> None:
     assert hasattr(engine, "fusion_model")
 
 
+def test_huggingface_llm_enhancement_requires_model_name() -> None:
+    """HuggingFace LLM enhancement fails before using a placeholder model."""
+    engine = OmniMercuryEngine()
+    with pytest.raises(ValueError, match="model_name"):
+        engine.enable_llm_enhancement(
+            provider="huggingface",
+            revision="0123456789abcdef0123456789abcdef01234567",
+        )
+
+
+@pytest.mark.parametrize(
+    "provider",
+    ["ollama", "openai", "anthropic", "xai", "gemini", "cohere", "deepseek", "cursor"],
+)
+def test_enable_llm_enhancement_real_provider_requires_model_name(provider: str) -> None:
+    """Every real provider in ``enable_llm_enhancement`` must demand an
+    explicit ``model_name``.  The previous ``or "mock-model"`` fallback
+    let any caller reach adapter construction with a meaningless name.
+    """
+    engine = OmniMercuryEngine()
+    with pytest.raises(ValueError, match="model_name"):
+        engine.enable_llm_enhancement(provider=provider)
+
+
 def test_detect_basic(sample_data: Any) -> None:
     """Test basic anomaly detection"""
     engine = OmniMercuryEngine()

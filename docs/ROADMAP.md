@@ -23,7 +23,7 @@
 > | # | Capability | Designed | Stubbed | Functional | Notes |
 > |---|------------|:--------:|:-------:|:----------:|-------|
 > | 1 | Distributed Processing | ✓ | — | ✓ | Phase 2 audit cure (May 2026) ships a native pure-stdlib `TCPMessageTransport` (`omni_mercury_engine.distributed.tcp_transport`) — asyncio + length-prefixed binary frames + per-message Ed25519 signatures via Mercury's own AMA Cryptography surface. No third-party RPC framework. The five `NotImplementedError` sites in `raft_consensus.py` are gone; `RaftCluster(use_in_memory_transport=False)` constructs real network nodes. Integration test: `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects` spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and confirms re-election. |
-> | 2 | Biometric Modalities | ✓ | ✓ | partial | `iris_recognition.py` (721 LOC), `fingerprint_recognition.py` (1131 LOC), `voice_recognition.py` (884 LOC) all import-clean with no `NotImplementedError`. However `narrative/voice.py:208` defaults to `MockLLMAdapter`, which silently returns heuristic-only narrative output unless a real LLM is wired. Iris and fingerprint paths look functional pending dedicated test coverage. |
+> | 2 | Biometric Modalities | ✓ | — | ✓ | `iris_recognition.py` (721 LOC), `fingerprint_recognition.py` (1131 LOC), `voice_recognition.py` (884 LOC) all import-clean with no `NotImplementedError`. As of v1.7.0 `narrative/voice.py:_init_llm` no longer silently substitutes `MockLLMAdapter` — it requires `llm_provider=` to name an implemented provider (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`, `gemini`, `cohere`, `deepseek`, `cursor`, or `template`). HuggingFace additionally requires an explicit `llm_model_name`; remote HuggingFace IDs also require `llm_revision=<40-char SHA>`. Missing/unavailable provider in `MERCURY_ENV=production` raises `MercuryProductionConfigError`; in development it logs a warning and the voice path falls through to deterministic template narration. Iris and fingerprint paths are functional pending dedicated test coverage. |
 > | 3 | Real Quantum Computing | ✓ | — | partial | `executor.py` defaults to `BackendType.SIMULATOR` and uses `AerSimulator`. Real-hardware path (IBM Quantum, IonQ) requires user credentials and is not exercised in CI. Treat as "simulated by default; real hardware untested in-tree." |
 > | 4 | Advanced Harmonics | ✓ | — | ✓ | `harmonics/analyzer.py`, `features.py`, `transform.py` are wired and exercised by the 21-probe ensemble and detector pipeline. |
 > | 5 | AutoML | ✓ | — | ✓ | `automl/optimizer.py`, `schedulers.py`, `search_space.py` (~1,135 LOC main file). `tests/automl/test_scheduler_completion.py` exercises the scheduler. Hyperparameter search wired into training loop. |
@@ -38,8 +38,12 @@
 > | Pickle migration tool | ✓ | — | ✓ | `python -m omni_mercury_engine.tools.migrate_pkl`; 9 tests cover hardened-subprocess relaunch, schema validation, refusal-by-default. |
 > | VLM detectors | ✓ | ✓ | — | `detectors/vlm/base_vlm.py:184,205,219,250,264` — 5 abstract methods raise `NotImplementedError`. Strategic decision (2026-05): keep native detectors; do **not** ship BLIP/GPT adapters. Surface to be marked experimental or removed in v1.7. |
 > | Visual base detector | ✓ | ✓ | — | `detectors/visual/base_visual.py:294,312,326` — 3 abstract methods raise `NotImplementedError`. Aggressive native-detector improvement is the chosen path. |
-> | Ethics enforcement | ✓ | — | ✓ | Hard-enforced at the decision boundary (Phase 2 cure, May 2026). `CognitiveOrchestrator.analyze`, `OmniMercuryEngine.detect_with_fusion`/`detect_with_fusion_calibrated`, and `NeuroSymbolicHub.predict` all raise `EthicalViolation` on benevolence-threshold violation via `BenevolenceScorer.enforce`; the `strict_ethics=False` flag is deprecated and ignored. The engine's boundary scorer is constructed eagerly at init so the first concurrent call cannot race the gate. σ_Immutable is now trained (99.6% val_acc; weights at `src/omni_mercury_engine/security/sigma_immutable_weights.pt`) and `EthicalGate.evaluate` gates its torch path on `self._trained`, but at the engine boundary σ_Immutable remains *informational* in `result["gosnn_metadata"]` — promotion to a second hard gate (raising with `check="sigma_immutable"` or `check="gosnn_unavailable"`) is deferred to a follow-up PR; those `check` values are reserved in the `EthicalConstraintViolationError` schema but not raised on the merge tip. Decision-boundary contract documented in `src/omni_mercury_engine/ethical/__init__.py`. Regression suite: `tests/ethical/test_hard_enforcement.py` (13 tests, wired into the `Neuro-Symbolic Tests` CI job — a benevolence-threshold regression cannot merge silently). |
+> | Ethics enforcement | ✓ | — | ✓ | Hard-enforced at the decision boundary (Phase 2 cure, May 2026; σ_Immutable promotion completed before v1.7.0 cut). `CognitiveOrchestrator.analyze`, `OmniMercuryEngine.detect_with_fusion`/`detect_with_fusion_calibrated`, and `NeuroSymbolicHub.predict` all raise `EthicalViolation` on benevolence-threshold violation via `BenevolenceScorer.enforce`; the `strict_ethics=False` flag is deprecated and ignored. The engine's boundary scorer is constructed eagerly at init so the first concurrent call cannot race the gate. σ_Immutable is trained (99.6% val_acc; weights at `src/omni_mercury_engine/security/sigma_immutable_weights.pt`) and is now a **second hard gate** at every boundary surface: `EthicalConstraintViolationError(check="sigma_immutable")` is raised on sub-threshold scalar vectors and `check="gosnn_unavailable"` is raised when GOSNN itself cannot run.  Decision-boundary contract documented in `src/omni_mercury_engine/ethical/__init__.py`. Regression suite: `tests/ethical/test_hard_enforcement.py` (covers both the BenevolenceScorer first-gate and the σ_Immutable / gosnn_unavailable second-gate at all three boundary surfaces; wired into the `Neuro-Symbolic Tests` CI job — a benevolence- or σ_Immutable-threshold regression cannot merge silently). |
 > | 21-probe Anomaly Math Arrest ensemble | ✓ | — | ✓ | Phase 2 audit complete (May 2026). All 21 probes are registered and fit-participate on representative corpora; `AnomalyMathArrest.detect` discriminates injected anomalies across `earthquake` / `tsunami` / `pandemic` / `marine` / `geomagnetic` / `default` domain affinity orderings. No live `IsolationForest` import or instantiation remains in `src/` — the only references are documentation strings explaining what the ensemble replaced. Regression suite: `tests/detectors/test_math_arrest_dominant_path.py` (11 tests). |
+> | FEMA Disaster loader label polarity | ✓ | — | ✓ | v1.7.0. `FEMADisasterLoader._select_anomaly_polarity` enforces the minority-as-anomaly convention used everywhere else in Mercury; the loader exposes `labels_inverted` so benchmark reporters can surface the flip alongside their AUC numbers. Closes the README "1 of the 64 (FEMA Disaster) is a known-broken loader" footnote item. Regression suite: `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`. |
+> | Dataset reachability harness (unreachable-11) | ✓ | — | ✓ | v1.7.0. Two-lane harness covering all 11 historically-unreachable loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation): an always-on offline lane (`tests/datasets/test_unreachable_loaders_offline.py`) that asserts every loader fails loudly under simulated outage, plus a nightly network lane (`tests/datasets/test_unreachable_loaders_network.py`) wired into `.github/workflows/dataset-reachability.yml` (04:17 UTC, `MERCURY_ALLOW_SYNTHETIC=0`). Both files carry a drift-gate `test_harness_covers_*_loaders` assertion pinning the matrix to exactly 11 entries. |
+> | Production-mode primitive (`MERCURY_ENV`) | ✓ | — | ✓ | v1.7.0. New `omni_mercury_engine._env` module provides the canonical `MERCURY_ENV` flag (`development` default, `production`) plus shared fail-closed helpers (`get_mercury_env`, `is_production`, `require_real_component`, `MercuryProductionConfigError`). Orthogonal to `AMA_REQUIRE_REAL_PQC`; production deployments typically set both. Locked by `tests/test_env.py`. |
+> | PQC dependency pin (`ama-cryptography`) | ✓ | — | ✓ | v1.7.0. `pyproject.toml [project.optional-dependencies].pqc` pins `ama-cryptography` to the validated `v3.1.0` git tag rather than tracking the default branch, matching the CI `AMA_REF: v3.1.0` real-AMA gate so an upstream force-push or breaking change cannot silently bump Mercury's PQC surface mid-cycle. Bump the tag in lockstep with `tests/security/test_pqc_gate_real_ama.py` and `docs/MIGRATION-1.6-to-1.7.md` §3. |
 >
 > The phase checklists later in this document were written **before**
 > implementations were merged and use `[ ]` markers throughout. They are
@@ -55,7 +59,7 @@ This document outlines the strategic engineering roadmap for Mercury Agent, deta
 Mercury Agent is evolving toward a distributed, privacy-preserving, and explainable AI platform. This roadmap establishes the technical foundation for seven major capability expansions:
 
 1. **Distributed Processing** — Multi-node deployment for horizontal scalability — *Designed + Stubbed; in-memory only, network transport pending v1.7*
-2. **Additional Biometric Modalities** — Iris, fingerprint, and voice authentication — *Iris/fingerprint Functional; voice Partial (MockLLMAdapter default)*
+2. **Additional Biometric Modalities** — Iris, fingerprint, and voice authentication — *Iris/fingerprint Functional; narrative-voice LLM now opt-in via explicit `llm_provider=` (no Mock fallback in any mode)*
 3. **Real Quantum Computing** — Qiskit integration for production quantum workloads — *Simulator Functional; real hardware untested in-tree*
 4. **Advanced Harmonics** — Higher l_max spherical harmonic analysis for 3D data — *Functional*
 5. **AutoML** — Automatic hyperparameter tuning and model selection — *Functional*
@@ -183,14 +187,21 @@ class DistributedMercuryCluster:
 
 ## 2. Additional Biometric Modalities
 
-> **Status: Functional (iris, fingerprint); Partial (voice).** Iris and
-> fingerprint recognition modules (721 + 1131 LOC) import cleanly with no
-> `NotImplementedError`. The voice path is `biometric/voice_recognition.py`
-> (884 LOC) but `narrative/voice.py:208` defaults to `MockLLMAdapter`,
-> which silently returns heuristic-only narrative output unless a real
-> LLM is wired -- treat narrative voice generation as Stubbed by
-> default. The design below was written pre-implementation; actual API
-> may differ.
+> **Status: Functional (iris, fingerprint, narrative-voice template path).**
+> Iris and fingerprint recognition modules (721 + 1131 LOC) import
+> cleanly with no `NotImplementedError`.  The narrative voice path
+> (`biometric/voice_recognition.py`, 884 LOC, plus
+> `narrative/voice.py`) no longer falls back to `MockLLMAdapter` —
+> as of v1.7.0, `MercuryVoice(enable_llm=True)` requires an explicit
+> `llm_provider=` argument naming an implemented provider
+> (`huggingface`, `ollama`, `openai`, `anthropic`, `xai`,
+> `gemini`, `cohere`, `deepseek`, `cursor`, or `template`).
+> HuggingFace additionally requires an explicit model name, and remote
+> HuggingFace IDs require `llm_revision=<40-char SHA>`. Without a provider,
+> `MERCURY_ENV=production` raises
+> `MercuryProductionConfigError` and development logs a warning and
+> downgrades to deterministic template narration.  The design below
+> was written pre-implementation; actual API may differ.
 
 ### Current State
 - Facial recognition behavioral analysis
@@ -1024,6 +1035,39 @@ class ExplainableAnomalyDetector:
 | Beta | Q3 | Integration testing and performance optimization |
 | RC | Q4 | Documentation, compliance verification, and security audit |
 | GA | Q1+1 | Production release with full support |
+
+---
+
+## Coverage uplift
+
+CI enforces two job-scoped coverage floors (set in `.github/workflows/ci.yml`):
+
+| Lane                       | v1.7.0 floor | Measured baseline (2026-05-17, run #1182 on `main`) | Headroom |
+|----------------------------|:------------:|:----------------------------------------------------:|:--------:|
+| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **50** | 59.84 % | ~9.8 pts |
+| `COVERAGE_THRESHOLD_CORE` (core lane)    | **15** | 16.62 % | ~1.6 pts |
+
+`.coveragerc` intentionally carries no `fail_under` — the gates are
+job-scoped only — and `pyproject.toml [tool.coverage.report] fail_under
+= 85` remains the strict aspirational nightly bar.
+
+The strengthening plan §5 P1 target is `CORE: 25 / FULL: 50`. `FULL`
+graduated to 50 in v1.7.0 because the 59.84 % baseline gives nearly
+ten points of cushion. `CORE` stays at 15 until a dedicated
+coverage pass for the core lane lands — bumping to 25 today would
+fail on the next push (the core lane runs a strictly smaller
+fraction of `src/` against the full source tree, and 16.62 % is the
+ceiling at the moment). The intended sequencing is:
+
+1. Land core-lane tests for the highest-marginal-coverage modules
+   identified in `coverage report --skip-covered --sort=cover`.
+2. Re-measure the core-lane baseline on `main`.
+3. Bump `COVERAGE_THRESHOLD_CORE` to within ~1 pt of the new ceiling
+   in the same commit.
+
+Do **not** lower either floor back toward 10 to unblock unrelated
+work — the floors document a non-regression guarantee, not a
+preference.
 
 ---
 

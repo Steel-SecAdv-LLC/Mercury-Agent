@@ -10,12 +10,166 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > **64 reproducible datasets** (of 75 attempted). 11 datasets currently
 > fail to load due to unavailable external sources (SMAP, MSL,
 > CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA
-> StormEvents, NOAA ERDDAP, FEMA HazardMitigation), and 1 of the 64
-> (FEMA Disaster) is a known-broken loader producing inverted scores.
-> See the README "Empirical Benchmark Results" section for the full
-> reproducibility footnote and `docs/ROADMAP.md` for tracked fixes.
+> StormEvents, NOAA ERDDAP, FEMA HazardMitigation). As of v1.7.0
+> the previously-flagged "FEMA Disaster — inverted scores" loader
+> is no longer in the broken set; the label-polarity correction is
+> documented under `[Unreleased]` below and locked by
+> `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`.
+> The 11 unreachable loaders now have a two-lane reachability harness
+> (`tests/datasets/test_unreachable_loaders_{offline,network}.py`,
+> plus the nightly `.github/workflows/dataset-reachability.yml`
+> workflow) so an upstream provider outage surfaces as a failed
+> nightly run rather than as a benchmark silently dropping a
+> dataset.  See the README "Empirical Benchmark Results" section for
+> the full reproducibility footnote and `docs/ROADMAP.md` for
+> tracked fixes.
 
 ## [Unreleased]
+
+### FEMA Disaster loader — label-polarity correction (closes "known-broken" footnote item)
+
+- **`FEMADisasterLoader._select_anomaly_polarity`** enforces the
+  minority-as-anomaly convention used everywhere else in Mercury.
+  Historical OpenFEMA records make "DR + multi-program" the
+  *majority* class on most slices (major hurricanes / floods
+  routinely activate IA, PA, and HM together), so handing those
+  records label==1 inverted the anomaly detector and AUC drifted
+  below 0.5.  The loader now logs a loud `INFO` line when the
+  polarity flip kicks in and exposes the result via the new
+  `loader.labels_inverted` property so benchmark reporters can
+  surface the flip alongside their AUC numbers.  Behaviour is
+  identical on the synthetic-fallback path so CI runs (which lack
+  network access to the OpenFEMA API) exercise the same code
+  path as production.  Locked by
+  `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`
+  (5 regression tests covering majority-inversion, minority-no-op,
+  empty mask, initial property state, and the real-data-shape
+  processing pipeline).
+
+### Dataset reachability harness — two lanes for the unreachable-11
+
+- **`tests/datasets/test_unreachable_loaders_offline.py`** — runs
+  in every CI lane.  Parametrised across all 11 historically-
+  unreachable loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT,
+  WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA
+  HazardMitigation), it asserts each loader (a) constructs against
+  a valid `DatasetConfig`, (b) populates the metadata contract
+  (`DATASET_NAME` / `DATASET_URL` / `LICENSE` / `CITATION`),
+  (c) fails *loudly* (`DataSourceUnavailableError` /
+  `ConnectionError` / `OSError`) when every HTTP surface is
+  monkeypatched to simulate an upstream outage — never with a
+  silent `False` return.  This is the regression contract that
+  upgrades the loaders from "untested under outage" to "tested to
+  fail loudly under outage".
+- **`tests/datasets/test_unreachable_loaders_network.py`** —
+  marked `@pytest.mark.network` and auto-skipped by
+  `tests/conftest.py` unless `MERCURY_NETWORK_TESTS=1` is set.
+  Calls the real `download()` against the upstream provider.  Run
+  nightly via the new `.github/workflows/dataset-reachability.yml`
+  workflow (04:17 UTC) with `MERCURY_ALLOW_SYNTHETIC=0` and
+  `MERCURY_NETWORK_TESTS=1` so the synthetic fallback cannot mask an
+  outage.
+- **Coverage-drift gate.**  Both files include a
+  `test_harness_covers_*_loaders` assertion that pins the matrix
+  to exactly 11 entries.  Adding or removing a loader from the
+  unreachable set fails the build unless `CHANGELOG.md`,
+  `docs/DATASOURCES.md`, and both harness files are updated in
+  the same commit.
+
+### DATASOURCES.md — SafeHTTP DNS-fails-closed discoverability (§6 P1)
+
+- **New `Operating the SafeHTTP gate` section in
+  `docs/DATASOURCES.md`.**  Documents the intentional
+  DNS-resolution-fails-closed behaviour of
+  `SafeHTTPClient.validate_url(..., user_configured=True)` —
+  previously memory-only knowledge that operators kept
+  re-discovering when an internal mirror's hostname couldn't be
+  resolved by the container's stub resolver.  Section names the
+  supported remediations in preference order (fix the resolver / use
+  an already-plumbed `SafeHTTPClient(..., allow_private=True)` call
+  path / prefer `local_path` where a loader exposes it) and points at
+  the regression test that locks the
+  behaviour (`tests/loaders/test_base_loader.py:99`).  Cross-
+  references `docs/MIGRATION-1.6-to-1.7.md` §1 so operators
+  trying to re-enable the v1.6 `allow_untrusted=True` workaround
+  see the migration path immediately.
+
+### Production-mode primitive — `MERCURY_ENV` (new in v1.7.0)
+
+- **New module `omni_mercury_engine._env`.**  Introduces a single
+  canonical environment-mode flag, `MERCURY_ENV` (`development`
+  default, `production`), and a shared fail-closed helper API
+  (`get_mercury_env`, `is_production`, `require_real_component`,
+  `MercuryProductionConfigError`).  Modules that historically had
+  development-friendly stub fallbacks now have a single, uniform
+  place to refuse to silently degrade when an operator opts into
+  production mode.  The PQC import gate
+  (`_pqc_gate._enforce_pqc_production_gate`) stays orthogonal — it
+  has its own hard-required-build contract independent of the
+  development/production distinction — so production deployments
+  typically set **both** `MERCURY_ENV=production` and
+  `AMA_REQUIRE_REAL_PQC=true`.  An unknown value such as
+  `MERCURY_ENV=prod` raises `MercuryProductionConfigError` rather
+  than silently falling through to development mode, so deployment
+  typos are loud.  Locked by `tests/test_env.py`.
+
+### Narrative voice — `MercuryVoice` LLM initialisation fixed (PR for #210 follow-up)
+
+- **`narrative/voice.py:_init_llm` no longer crashes on
+  `MercuryVoice(enable_llm=True)`.**  The pre-1.7.0 implementation
+  unconditionally instantiated `MockLLMAdapter`, which started
+  hard-failing at construction once the Phase 2 audit cure landed.
+  The surrounding `except ImportError` did not catch the resulting
+  `NotImplementedError`, so any caller that asked for LLM-enhanced
+  narration got an unhandled exception.  v1.7.0 wires the real
+  provider selection that was always intended via a new
+  `llm_provider=` / `llm_model_name=` / `llm_revision=` /
+  `llm_api_key=` / `llm_base_url=` parameter set on `MercuryVoice` and
+  `create_mercury_voice`.  Behaviour matrix:
+  - `enable_llm=False`: unchanged pure-template fast path.
+  - `enable_llm=True, llm_provider="<supported>"`: delegates to
+    `models.foundation.llm_adapter.create_llm_detector` and stores
+    the underlying adapter on `self._llm_adapter`.
+  - `enable_llm=True` with no provider, `MERCURY_ENV=production`:
+    raises `MercuryProductionConfigError` with a remediation hint.
+  - `enable_llm=True` with no provider, `MERCURY_ENV=development`:
+    logs a WARNING and downgrades to template-only narration
+    (`self._llm_adapter = None`).
+  - `llm_provider="mock"`: always raises
+    `MercuryProductionConfigError` — `MockLLMAdapter` hard-fails at
+    construction by design and the rejection is now at the
+    `MercuryVoice` call site rather than two frames away.
+  - Unknown `llm_provider` value: raises a clean `ValueError`
+    naming every supported provider, instead of routing through
+    `create_llm_detector`'s legacy "unknown → mock" fallback and
+    blowing up on `NotImplementedError` later.
+  - HuggingFace requires an explicit `llm_model_name`; remote
+    HuggingFace IDs also require `llm_revision=<40-char SHA>` so
+    `SafeHFLoader` can enforce reproducible model loading.
+  Locked by `tests/narrative/test_voice_llm.py`; full
+  `tests/narrative/` suite (92 tests) is green.
+
+### Migration guide — `docs/MIGRATION-1.6-to-1.7.md`
+
+- Consolidated migration notes for v1.6.x → v1.7.0: PR #210's
+  `allow_untrusted=True` removal, σ_Immutable hard-gate semantics
+  (already shipped at every boundary surface; documentation
+  reconciled with code reality), the new `MERCURY_ENV` primitive,
+  and the explicit `llm_provider=` requirement on `MercuryVoice`.
+  Each section names the regression test that locks the new
+  behaviour.
+
+### Documentation reconciliation
+
+- **`docs/ROADMAP.md`.**  Capability-table row #2 (Biometric
+  Modalities) and the §2 "Status" block updated to reflect the
+  narrative-voice fix.  The "Ethics enforcement" cross-cutting row
+  updated to reflect that σ_Immutable hard-gate promotion is
+  complete at every boundary surface (the previous "deferred to a
+  follow-up PR" wording was stale — `OmniMercuryEngine`,
+  `CognitiveOrchestrator`, and `NeuroSymbolicHub` all raise
+  `check="sigma_immutable"` / `check="gosnn_unavailable"` today,
+  with regression coverage in `tests/ethical/test_hard_enforcement.py`).
 
 ### Security — HTTP escape hatch removed (PR #210)
 
@@ -31,9 +185,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Migration path for operators who were using it:** call
   `SafeHTTPClient` directly with `user_configured=True` so the
   private-network / IMDS gate fires explicitly. For RFC1918
-  destinations on a private VPC, additionally pass `allow_private=True`;
-  the IMDS / loopback / multicast / reserved / CGNAT ranges remain
-  in the always-blocked set even then. See
+  destinations on a private VPC, additionally pass `allow_private=True`
+  at the `SafeHTTPClient` call site; dataset loaders do not accept a
+  generic `allow_private` preprocessing key unless a specific loader
+  explicitly documents one. The IMDS / loopback / multicast /
+  reserved / CGNAT ranges remain in the always-blocked set even then. See
   `tests/security/test_safe_http.py::TestMigrationFromAllowUntrusted`
   for the documented replacement.
 - **Loader retry-exhaustion now chains the underlying exception.**

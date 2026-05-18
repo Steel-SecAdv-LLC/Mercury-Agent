@@ -465,7 +465,7 @@ all hard-fail PRs on findings outside the documented accept-lists.**
 17. 🔲 **Configure hardcoded GOSNN values** - Move 15+ magic numbers to config
 18. 🔲 **Enable disabled domain policies** - Financial and humanitarian are off
 19. 🔲 **Add intersectional fairness metrics** - Current bias audits are single-axis only
-20. ✅ (partial) **Document mock fallback behavior** - `MockLLMAdapter` now logs a warning; `docs/DEPLOYMENT.md` includes a troubleshooting section covering mock-adapter degradation
+20. ✅ **Document mock fallback behavior** - `MockLLMAdapter` hard-fails at construction (Phase 2 cure); `MercuryVoice` no longer silently substitutes it — as of v1.7.0 `MercuryVoice(enable_llm=True)` requires an explicit `llm_provider=` and respects `MERCURY_ENV=production` via the new `omni_mercury_engine._env` primitive; `docs/MIGRATION-1.6-to-1.7.md` §4 documents the new contract; `docs/DEPLOYMENT.md` includes a troubleshooting section covering mock-adapter degradation
 21. ✅ **Create `docker-compose.yml`** - Local development compose file added; starts mercury-agent API, Prometheus, and Grafana with volume-backed persistence
 22. 🔲 **Integrate load tests into CI** - Locust/k6 exist but aren't automated
 23. ✅ (partial) **Add operational runbook** - `docs/DEPLOYMENT.md` covers health checks, monitoring metrics, upgrade/rollback procedures, and the most common failure modes
@@ -512,6 +512,7 @@ all hard-fail PRs on findings outside the documented accept-lists.**
 | 2026-03-11 | `claude/apply-branding-optimize-YYHEA` | Items 2, 4, 8-partial, 10-partial, 12, 14, 16, 20-partial, 21, 23-partial |
 | 2026-03-11 | PRs #142, #144, #146 (cherry-picked) | Black formatting, AMA Crypto consolidation (v2.0 at the time; pin advanced to v3.1.0 in PR #162 / pqc-production-check workflow), MyPy/monitoring fixes |
 | 2026-03-11 | `claude/improve-previous-work-k2tWf` | Items 1, 3, 5-partial, 6, 7, 10-continued |
+| 2026-05-17 | `copilot/strengthen-mercury-agent` (v1.7.0 prep) | Item 20 fully resolved (`MercuryVoice` no longer silently substitutes `MockLLMAdapter`; new `omni_mercury_engine._env` production-mode primitive; explicit `llm_provider=` required for LLM-enhanced narration; migration guide at `docs/MIGRATION-1.6-to-1.7.md`); σ_Immutable hard-gate promotion status reconciled in `docs/ROADMAP.md` to match shipped code (`OmniMercuryEngine`, `CognitiveOrchestrator`, `NeuroSymbolicHub` all raise `check="sigma_immutable"` / `check="gosnn_unavailable"` today; covered by `tests/ethical/test_hard_enforcement.py`) |
 
 *Original audit footer: 2026-05-02 (PR #148 — Safety + pip-audit BLOCKING; CVE audit doc; click/typer pin). Status banner at the top of this document was added on 2026-05-05 to reflect post-Wave-B current state; the body text below remains the original audit verbatim.*
 

@@ -120,6 +120,11 @@ class FEMADisasterLoader(DatasetLoader):
         self.incident_types = config.preprocessing.get("incident_types", None)
         self.declaration_types = config.preprocessing.get("declaration_types", ["DR", "EM"])
         self._is_real_data = False
+        # Tracks the v1.7.0 FEMA label-polarity correction; populated
+        # by `_select_anomaly_polarity` on every load.  Exposed via
+        # the `labels_inverted` property for callers that want to
+        # surface the polarity flip in their telemetry.
+        self._labels_inverted = False
 
         # Rate limiting (FEMA recommends respectful API usage)
         self._last_request_time = 0.0
@@ -129,6 +134,17 @@ class FEMADisasterLoader(DatasetLoader):
     def is_real_data(self) -> bool:
         """Return True if real data was loaded."""
         return self._is_real_data
+
+    @property
+    def labels_inverted(self) -> bool:
+        """Return True if `_select_anomaly_polarity` flipped the label mask.
+
+        See the docstring on `_select_anomaly_polarity` and
+        `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`
+        for the contract.  Useful for benchmark reporters that want
+        to footnote the polarity flip alongside AUC.
+        """
+        return self._labels_inverted
 
     def _rate_limit(self) -> None:
         """Implement rate limiting for API requests."""
@@ -237,12 +253,21 @@ class FEMADisasterLoader(DatasetLoader):
             logger.info(f"Downloaded {len(all_records)} disaster declaration records")
             features, labels = self._process_fema_data(all_records)
 
-            np.savez_compressed(cache_file, features=features, labels=labels)
+            np.savez_compressed(
+                cache_file,
+                features=features,
+                labels=labels,
+                labels_inverted=np.array(self._labels_inverted, dtype=bool),
+            )
             self._is_real_data = True
 
+            major_count = int(self._major_disaster_mask_from_features(features).sum())
+            anomaly_count = int(labels.sum())
             logger.info(
                 f"FEMA disaster data loaded: {len(features)} samples, "
-                f"{labels.sum()} major disasters (is_real_data=True)"
+                f"{major_count} DR multi-program major-disaster records, "
+                f"{anomaly_count} anomaly labels "
+                f"(labels_inverted={self._labels_inverted}, is_real_data=True)"
             )
             return True
 
@@ -319,21 +344,94 @@ class FEMADisasterLoader(DatasetLoader):
 
         features = np.array(rows, dtype=np.float32)
 
-        # Label major disasters (DR type with multiple programs)
-        # Index 6 = declaration_type_code, 8-10 = program flags
-        labels = (
-            (features[:, 6] == 0)  # DR (Major Disaster)
-            & ((features[:, 8] + features[:, 9] + features[:, 10]) >= 2)  # Multiple programs
-        ).astype(np.int64)
+        # Label major disasters (DR type with multiple programs).
+        candidate_major = self._major_disaster_mask_from_features(features)
+
+        # ---- v1.7.0: FEMA Disaster label-polarity correction ----
+        #
+        # CHANGELOG previously flagged this loader as "known broken
+        # — produces inverted scores".  Root cause: in the historical
+        # FEMA Disaster Declarations record (1990s–present, filtered
+        # to declarationType in {"DR","EM"}) a majority of records
+        # *are* Major Disaster declarations that activate at least
+        # two of the IA / PA / HM programs — hurricanes and major
+        # floods routinely trigger all three.  Marking that class as
+        # the positive (anomaly) class hands an unsupervised
+        # anomaly detector inverted labels and the ensemble's
+        # rank-based AUC collapses below 0.5.
+        #
+        # Fix: the anomaly class is the empirical minority.  If the
+        # candidate "major-disaster" mask covers more than half the
+        # records on the loaded slice we invert it so that the
+        # *rarer* event (Emergency declarations, single-program
+        # activations, fire-management-only) carries label==1, which
+        # is the unsupervised-anomaly convention used throughout
+        # the rest of Mercury's loaders.  The decision is recorded
+        # on the instance (`self._labels_inverted`) so callers and
+        # tests can introspect it, and emitted at INFO so production
+        # operators see the polarity flip in their logs.
+        labels = self._select_anomaly_polarity(candidate_major)
 
         return features, labels
+
+    @staticmethod
+    def _major_disaster_mask_from_features(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Return the hand-defined DR + multi-program major-disaster mask."""
+        if features.size == 0:
+            return np.array([], dtype=bool)
+        # Index 6 = declaration_type_code, 8-10 = program flags.
+        return (features[:, 6] == 0) & (  # DR (Major Disaster)
+            (features[:, 8] + features[:, 9] + features[:, 10]) >= 2
+        )  # Multiple programs
+
+    def _select_anomaly_polarity(
+        self, candidate_anomaly_mask: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """Return labels with the minority-class-as-anomaly convention.
+
+        Args:
+            candidate_anomaly_mask: Boolean array marking the
+                hand-defined "of-interest" class (DR + multi-program).
+
+        Returns:
+            int64 labels where 1 marks the minority class.  Sets
+            ``self._labels_inverted`` to True when the input mask had
+            to be flipped to satisfy the convention.
+
+        The minority-as-anomaly invariant is what the rest of the
+        Mercury detection stack (`detectors/statistical.py`'s
+        ``is_inverted`` sanity check at line 1479) expects.  Loaders
+        that hand the detector a majority-as-positive label set
+        cause ``adaptive_weights`` to zero out otherwise-correct
+        components — see `tests/datasets/test_disaster.py
+        ::TestFEMAInvertedScoresCorrection`.
+        """
+        self._labels_inverted = False
+        n = int(candidate_anomaly_mask.size)
+        if n == 0:
+            return candidate_anomaly_mask.astype(np.int64)
+
+        positive_rate = float(candidate_anomaly_mask.mean())
+        if positive_rate > 0.5:
+            self._labels_inverted = True
+            logger.info(
+                "FEMA Disaster labels inverted: hand-defined "
+                "'major-disaster' class covered %.1f%% of %d records "
+                "(majority); flipping so the rarer event is the "
+                "anomaly class (label==1) per the unsupervised "
+                "convention.  See `_select_anomaly_polarity` docstring.",
+                positive_rate * 100,
+                n,
+            )
+            return (~candidate_anomaly_mask).astype(np.int64)
+        return candidate_anomaly_mask.astype(np.int64)
 
     def _create_synthetic_disasters(self) -> bool:
         """Create synthetic disaster declaration data."""
         rng = np.random.default_rng(self.config.random_seed)
         n_samples = self.config.max_samples or 5000
 
-        features = []
+        feature_rows = []
         labels = []
 
         # State FIPS codes (sampling of major disaster-prone states)
@@ -410,26 +508,63 @@ class FEMADisasterLoader(DatasetLoader):
                 pa_program,
                 hm_program,
             ]
-            features.append(feature_vec)
+            feature_rows.append(feature_vec)
 
-            # Major disaster label
+            # Major disaster mask (DR type + multiple programs).  Final
+            # label polarity is decided after the loop via
+            # `_select_anomaly_polarity`, matching the real-data path.
             is_major = (
                 decl_code == 0  # DR type
                 and (ia_program + pa_program + hm_program) >= 2  # Multiple programs
             )
             labels.append(1 if is_major else 0)
 
-        features = np.array(features, dtype=np.float32)  # type: ignore[assignment, unused-ignore]
-        labels = np.array(labels, dtype=np.int64)  # type: ignore[assignment, unused-ignore]
+        features = np.array(feature_rows, dtype=np.float32)
+        labels_arr = np.array(labels, dtype=bool)
+        labels = self._select_anomaly_polarity(labels_arr)  # type: ignore[assignment]
 
         save_path = self.data_path / "synthetic_fema_disaster.npz"
-        np.savez_compressed(save_path, features=features, labels=labels)
+        np.savez_compressed(
+            save_path,
+            features=features,
+            labels=labels,
+            labels_inverted=np.array(self._labels_inverted, dtype=bool),
+        )
 
+        major_count = int(self._major_disaster_mask_from_features(features).sum())
+        anomaly_count = int(labels.sum())  # type: ignore[attr-defined, unused-ignore]
         logger.info(
             f"Generated {n_samples} synthetic disaster records, "
-            f"{labels.sum()} major disasters (is_real_data=False)"  # type: ignore[attr-defined, unused-ignore]
+            f"{major_count} DR multi-program major-disaster records, "
+            f"{anomaly_count} anomaly labels "
+            f"(labels_inverted={self._labels_inverted}, is_real_data=False)"
         )
         return True
+
+    def _normalise_cached_labels(
+        self,
+        features: np.ndarray[Any, Any],
+        labels: np.ndarray[Any, Any],
+        cache_path: Any,
+    ) -> np.ndarray[Any, Any]:
+        """Restore v1.7.0 label polarity metadata for cached FEMA data."""
+        candidate_major = self._major_disaster_mask_from_features(features)
+        selected_labels = self._select_anomaly_polarity(candidate_major)
+        cached_labels = labels.astype(np.int64)
+
+        if cached_labels.shape != selected_labels.shape or not np.array_equal(
+            cached_labels, selected_labels
+        ):
+            logger.warning(
+                "FEMA disaster cache at %s had stale or non-canonical labels; "
+                "using v1.7.0 minority-as-anomaly labels for this load.",
+                cache_path,
+            )
+            return selected_labels
+
+        # `_select_anomaly_polarity` above also restored `_labels_inverted`
+        # for caches written before the metadata sidecar existed.
+        return cached_labels
 
     def _load_raw(self) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Load disaster data from cache."""
@@ -437,15 +572,27 @@ class FEMADisasterLoader(DatasetLoader):
         if real_cache.exists():
             data = np.load(real_cache)
             self._is_real_data = True
+            features = data["features"]
+            labels = data["labels"]
+            if "labels_inverted" in data.files:
+                self._labels_inverted = bool(data["labels_inverted"])
+            else:
+                labels = self._normalise_cached_labels(features, labels, real_cache)
             logger.info(f"Loaded REAL FEMA disaster data from {real_cache}")
-            return data["features"], data["labels"]
+            return features, labels
 
         synthetic_path = self.data_path / "synthetic_fema_disaster.npz"
         if synthetic_path.exists() and ALLOW_SYNTHETIC:
             data = np.load(synthetic_path)
             self._is_real_data = False
+            features = data["features"]
+            labels = data["labels"]
+            if "labels_inverted" in data.files:
+                self._labels_inverted = bool(data["labels_inverted"])
+            else:
+                labels = self._normalise_cached_labels(features, labels, synthetic_path)
             logger.warning("Loaded SYNTHETIC FEMA disaster data (MERCURY_ALLOW_SYNTHETIC=1)")
-            return data["features"], data["labels"]
+            return features, labels
 
         raise FileNotFoundError("FEMA disaster data not found. Run download() first.")
 
@@ -476,10 +623,17 @@ class FEMADisasterLoader(DatasetLoader):
             if count > 0:
                 decl_counts[code] = count
 
+        major_mask = self._major_disaster_mask_from_features(features)
+        anomaly_count = int(labels.sum())
+        major_count = int(major_mask.sum())
+
         return {
             "n_samples": len(features),
-            "n_major_disasters": int(labels.sum()),
-            "major_disaster_ratio": float(labels.mean()),
+            "n_major_disasters": major_count,
+            "major_disaster_ratio": float(major_mask.mean()),
+            "n_anomaly_labels": anomaly_count,
+            "anomaly_label_ratio": float(labels.mean()),
+            "labels_inverted": self._labels_inverted,
             "year_range": (int(features[:, 2].min()), int(features[:, 2].max())),
             "incident_type_distribution": incident_counts,
             "declaration_type_distribution": decl_counts,
