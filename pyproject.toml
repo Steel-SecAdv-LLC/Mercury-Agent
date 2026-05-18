@@ -95,6 +95,17 @@ medical = [
     "wfdb>=4.3.1",
 ]
 
+# Compliance frameworks (NIST CSF 2.0 live-reference fetcher, OSHA/eCFR
+# citation resolvers).  openpyxl is required to parse the authoritative
+# NIST CSF 2.0 Reference Tool download
+# (https://csrc.nist.gov/extensions/nudp/services/json/csf/download?olirids=all)
+# which is delivered as an XLSX workbook.  Without this extra, the
+# integrator can still operate in offline mode via
+# ``reference_source="builtin"``.
+compliance = [
+    "openpyxl>=3.1.0",
+]
+
 # Deep face recognition
 face = [
     "deepface>=0.0.79",
@@ -457,6 +468,11 @@ module = [
     # Safe XML parsing — no public type stubs published
     "defusedxml",
     "defusedxml.*",
+    # Excel workbook parser used by NIST CSF 2.0 reference fetcher --
+    # type stubs ship as the separate ``types-openpyxl`` package which we
+    # intentionally do not pull into the runtime extra.
+    "openpyxl",
+    "openpyxl.*",
     # Load-testing framework (optional, ``[loadtest]`` extra)
     "locust",
     "locust.*",

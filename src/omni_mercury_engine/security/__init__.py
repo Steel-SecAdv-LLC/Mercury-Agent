@@ -108,6 +108,13 @@ from omni_mercury_engine.security.secure_audit_logging import (
     get_audit_logger,
 )
 from omni_mercury_engine.security.threat_detection import ThreatDetector
+from omni_mercury_engine.security.tlp_handler import (
+    TLPClassification,
+    TLPColor,
+    TLPHandler,
+    TLPValidationError,
+    get_tlp_handler,
+)
 
 __all__ = [
     "AMA_CRYPTOGRAPHY_AVAILABLE",
