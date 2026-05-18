@@ -40,6 +40,10 @@
 > | Visual base detector | ✓ | ✓ | — | `detectors/visual/base_visual.py:294,312,326` — 3 abstract methods raise `NotImplementedError`. Aggressive native-detector improvement is the chosen path. |
 > | Ethics enforcement | ✓ | — | ✓ | Hard-enforced at the decision boundary (Phase 2 cure, May 2026; σ_Immutable promotion completed before v1.7.0 cut). `CognitiveOrchestrator.analyze`, `OmniMercuryEngine.detect_with_fusion`/`detect_with_fusion_calibrated`, and `NeuroSymbolicHub.predict` all raise `EthicalViolation` on benevolence-threshold violation via `BenevolenceScorer.enforce`; the `strict_ethics=False` flag is deprecated and ignored. The engine's boundary scorer is constructed eagerly at init so the first concurrent call cannot race the gate. σ_Immutable is trained (99.6% val_acc; weights at `src/omni_mercury_engine/security/sigma_immutable_weights.pt`) and is now a **second hard gate** at every boundary surface: `EthicalConstraintViolationError(check="sigma_immutable")` is raised on sub-threshold scalar vectors and `check="gosnn_unavailable"` is raised when GOSNN itself cannot run.  Decision-boundary contract documented in `src/omni_mercury_engine/ethical/__init__.py`. Regression suite: `tests/ethical/test_hard_enforcement.py` (covers both the BenevolenceScorer first-gate and the σ_Immutable / gosnn_unavailable second-gate at all three boundary surfaces; wired into the `Neuro-Symbolic Tests` CI job — a benevolence- or σ_Immutable-threshold regression cannot merge silently). |
 > | 21-probe Anomaly Math Arrest ensemble | ✓ | — | ✓ | Phase 2 audit complete (May 2026). All 21 probes are registered and fit-participate on representative corpora; `AnomalyMathArrest.detect` discriminates injected anomalies across `earthquake` / `tsunami` / `pandemic` / `marine` / `geomagnetic` / `default` domain affinity orderings. No live `IsolationForest` import or instantiation remains in `src/` — the only references are documentation strings explaining what the ensemble replaced. Regression suite: `tests/detectors/test_math_arrest_dominant_path.py` (11 tests). |
+> | FEMA Disaster loader label polarity | ✓ | — | ✓ | v1.7.0. `FEMADisasterLoader._select_anomaly_polarity` enforces the minority-as-anomaly convention used everywhere else in Mercury; the loader exposes `labels_inverted` so benchmark reporters can surface the flip alongside their AUC numbers. Closes the README "1 of the 64 (FEMA Disaster) is a known-broken loader" footnote item. Regression suite: `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`. |
+> | Dataset reachability harness (unreachable-11) | ✓ | — | ✓ | v1.7.0. Two-lane harness covering all 11 historically-unreachable loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation): an always-on offline lane (`tests/datasets/test_unreachable_loaders_offline.py`) that asserts every loader fails loudly under simulated outage, plus a nightly network lane (`tests/datasets/test_unreachable_loaders_network.py`) wired into `.github/workflows/dataset-reachability.yml` (04:17 UTC, `MERCURY_ALLOW_SYNTHETIC=0`). Both files carry a drift-gate `test_harness_covers_*_loaders` assertion pinning the matrix to exactly 11 entries. |
+> | Production-mode primitive (`MERCURY_ENV`) | ✓ | — | ✓ | v1.7.0. New `omni_mercury_engine._env` module provides the canonical `MERCURY_ENV` flag (`development` default, `production`) plus shared fail-closed helpers (`get_mercury_env`, `is_production`, `require_real_component`, `MercuryProductionConfigError`). Orthogonal to `AMA_REQUIRE_REAL_PQC`; production deployments typically set both. Locked by `tests/test_env.py`. |
+> | PQC dependency pin (`ama-cryptography`) | ✓ | — | ✓ | v1.7.0. `pyproject.toml [project.optional-dependencies].pqc` pins `ama-cryptography` to the `v3.0.0` git tag rather than tracking the default branch, so an upstream force-push or breaking change cannot silently bump Mercury's PQC surface mid-cycle. Bump the tag in lockstep with `tests/security/test_pqc_gate_real_ama.py` and `docs/MIGRATION-1.6-to-1.7.md` §3. |
 >
 > The phase checklists later in this document were written **before**
 > implementations were merged and use `[ ]` markers throughout. They are
@@ -1028,6 +1032,39 @@ class ExplainableAnomalyDetector:
 | Beta | Q3 | Integration testing and performance optimization |
 | RC | Q4 | Documentation, compliance verification, and security audit |
 | GA | Q1+1 | Production release with full support |
+
+---
+
+## Coverage uplift
+
+CI enforces two job-scoped coverage floors (set in `.github/workflows/ci.yml`):
+
+| Lane                       | v1.7.0 floor | Measured baseline (2026-05-17, run #1182 on `main`) | Headroom |
+|----------------------------|:------------:|:----------------------------------------------------:|:--------:|
+| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **50** | 59.84 % | ~9.8 pts |
+| `COVERAGE_THRESHOLD_CORE` (core lane)    | **15** | 16.62 % | ~1.6 pts |
+
+`.coveragerc` intentionally carries no `fail_under` — the gates are
+job-scoped only — and `pyproject.toml [tool.coverage.report] fail_under
+= 85` remains the strict aspirational nightly bar.
+
+The strengthening plan §5 P1 target is `CORE: 25 / FULL: 50`. `FULL`
+graduated to 50 in v1.7.0 because the 59.84 % baseline gives nearly
+ten points of cushion. `CORE` stays at 15 until a dedicated
+coverage pass for the core lane lands — bumping to 25 today would
+fail on the next push (the core lane runs a strictly smaller
+fraction of `src/` against the full source tree, and 16.62 % is the
+ceiling at the moment). The intended sequencing is:
+
+1. Land core-lane tests for the highest-marginal-coverage modules
+   identified in `coverage report --skip-covered --sort=cover`.
+2. Re-measure the core-lane baseline on `main`.
+3. Bump `COVERAGE_THRESHOLD_CORE` to within ~1 pt of the new ceiling
+   in the same commit.
+
+Do **not** lower either floor back toward 10 to unblock unrelated
+work — the floors document a non-regression guarantee, not a
+preference.
 
 ---
 

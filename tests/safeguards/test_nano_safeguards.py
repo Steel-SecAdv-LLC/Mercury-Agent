@@ -77,7 +77,7 @@ class TestHierarchicalMicroScanner:
     """Tests for HierarchicalMicroScanner."""
 
     @pytest.fixture
-    def scanner(self):
+    def scanner(self) -> HierarchicalMicroScanner:
         """Create HierarchicalMicroScanner instance."""
         return HierarchicalMicroScanner(input_dim=64, num_scales=4)
 
@@ -109,7 +109,7 @@ class TestResonanceAnalyzer:
     """Tests for ResonanceAnalyzer."""
 
     @pytest.fixture
-    def analyzer(self):
+    def analyzer(self) -> ResonanceAnalyzer:
         """Create ResonanceAnalyzer instance."""
         return ResonanceAnalyzer()
 
@@ -148,12 +148,12 @@ class TestNanoSafeguardDetector:
     """Tests for NanoSafeguardDetector."""
 
     @pytest.fixture
-    def detector(self):
+    def detector(self) -> NanoSafeguardDetector:
         """Create NanoSafeguardDetector instance."""
         return NanoSafeguardDetector()
 
     @pytest.fixture
-    def detector_custom_config(self):
+    def detector_custom_config(self) -> NanoSafeguardDetector:
         """Create NanoSafeguardDetector with custom config."""
         return NanoSafeguardDetector(
             config={
@@ -164,12 +164,12 @@ class TestNanoSafeguardDetector:
         )
 
     @pytest.fixture
-    def normal_data(self):
+    def normal_data(self) -> np.ndarray:
         """Create normal data for testing."""
         return np.random.randn(100, 10)
 
     @pytest.fixture
-    def anomalous_data(self):
+    def anomalous_data(self) -> np.ndarray:
         """Create anomalous data for testing."""
         data = np.random.randn(100, 10)
         data[50:60, :] = 100.0
@@ -307,7 +307,7 @@ class TestNanoSafeguardEdgeCases:
     """Edge case tests for nano-safeguards."""
 
     @pytest.fixture
-    def detector(self):
+    def detector(self) -> NanoSafeguardDetector:
         """Create NanoSafeguardDetector instance."""
         detector = NanoSafeguardDetector()
         detector.fit(np.random.randn(100, 10))
