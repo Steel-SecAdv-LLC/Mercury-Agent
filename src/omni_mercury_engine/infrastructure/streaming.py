@@ -47,15 +47,24 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Callable  # noqa: TC003 - used in runtime annotations
+from collections.abc import AsyncIterator, Awaitable, Callable  # noqa: TC003 - used in runtime annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
 from omni_mercury_engine.core.types import CircuitState
+
+if TYPE_CHECKING:
+    # Type-only imports for the optional ``aiokafka`` / ``redis`` deps.
+    # ``from __future__ import annotations`` (line 17) makes all
+    # annotations lazy strings, so these names never need to exist at
+    # runtime; the corresponding ``import`` statements live inside the
+    # ``connect()`` bodies where they're actually used.
+    from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+    from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -449,7 +458,10 @@ class KafkaStreamProducer(StreamProducer):
 
     def __init__(self, config: StreamConfig | None = None):
         self.config = config or StreamConfig()
-        self._producer = None
+        # Typed handle for the optional ``aiokafka`` dependency.  See the
+        # ``TYPE_CHECKING`` block at the top of this module for the
+        # static-import setup; the runtime import lives inside ``connect()``.
+        self._producer: AIOKafkaProducer | None = None
         self._circuit_breaker = CircuitBreaker(
             name="kafka-producer",
             failure_threshold=self.config.circuit_breaker_threshold,
@@ -484,7 +496,7 @@ class KafkaStreamProducer(StreamProducer):
             kafka_config["sasl_plain_password"] = self.config.kafka_sasl_password
 
         self._producer = AIOKafkaProducer(**kafka_config)
-        await self._producer.start()  # type: ignore[attr-defined]
+        await self._producer.start()
         logger.info(f"Kafka producer connected to {self.config.kafka_bootstrap_servers}")
 
     async def disconnect(self) -> None:
@@ -587,7 +599,8 @@ class KafkaStreamConsumer(StreamConsumer):
         self.config = config or StreamConfig()
         self.group_id = group_id
         self.auto_commit = auto_commit
-        self._consumer = None
+        # See KafkaStreamProducer.__init__ for the typing rationale.
+        self._consumer: AIOKafkaConsumer | None = None
         self._circuit_breaker = CircuitBreaker(
             name="kafka-consumer",
             failure_threshold=self.config.circuit_breaker_threshold,
@@ -623,7 +636,7 @@ class KafkaStreamConsumer(StreamConsumer):
             kafka_config["sasl_plain_password"] = self.config.kafka_sasl_password
 
         self._consumer = AIOKafkaConsumer(**kafka_config)
-        await self._consumer.start()  # type: ignore[attr-defined]
+        await self._consumer.start()
         logger.info(f"Kafka consumer connected to {self.config.kafka_bootstrap_servers}")
 
     async def disconnect(self) -> None:
@@ -681,6 +694,13 @@ class KafkaStreamConsumer(StreamConsumer):
         """Commit offset for consumed message."""
         if not self._consumer or self.auto_commit:
             return
+        if message.offset is None:
+            # A message with no offset cannot be committed (the value was
+            # never set by the broker).  Silently skip rather than raise:
+            # callers may pass synthetic / replayed messages where the
+            # offset is intentionally absent.
+            logger.debug(f"Skipping Kafka commit for message with no offset: {message.topic}")
+            return
 
         try:
             from aiokafka import TopicPartition
@@ -707,18 +727,16 @@ class RedisStreamProducer(StreamProducer):
 
     def __init__(self, config: StreamConfig | None = None):
         self.config = config or StreamConfig()
-        # Connection handle.  Typed ``Any`` (which subsumes ``None``) because
-        # ``redis`` is an optional dependency (extras_require[streaming]);
-        # annotating with the concrete ``redis.asyncio.Redis`` type would
-        # force an unconditional import that breaks the lightweight install,
-        # and ``Any | None`` triggers a mypy quirk where ``await
-        # self._redis.ping()`` resolves to ``Awaitable[bool] | bool``
-        # because the ``None`` branch poisons the union for the await
-        # operator.  Disconnected state is represented by ``self._redis``
-        # being ``None`` at runtime; consumers must check truthiness
-        # (e.g. ``if not self._redis``) rather than relying on a type
-        # narrowing.
-        self._redis: Any = None
+        # Typed handle for the optional ``redis`` dependency
+        # (extras_require[streaming]).  ``redis.asyncio.Redis`` is imported
+        # under ``TYPE_CHECKING`` at the top of this module so the type is
+        # available for mypy without forcing the import at runtime; the
+        # actual ``redis.from_url(...)`` call lives inside ``connect()``
+        # and is guarded by a local ``try/except ImportError``.  The
+        # ``Redis | None`` union mirrors the pattern used in
+        # ``core/adaptive_fusion.py`` and lets ``assert self._redis is
+        # not None`` narrow the type cleanly for callers.
+        self._redis: Redis | None = None
         self._circuit_breaker = CircuitBreaker(
             name="redis-producer",
             failure_threshold=self.config.circuit_breaker_threshold,
@@ -739,8 +757,16 @@ class RedisStreamProducer(StreamProducer):
             max_connections=self.config.redis_max_connections,
             decode_responses=True,
         )
-        # Test connection
-        await self._redis.ping()
+        # ``assert`` narrows ``Redis | None`` to ``Redis`` for the ping call.
+        # ``redis.from_url`` always returns a ``Redis`` instance (it raises on
+        # malformed URL rather than returning None), so the assertion is
+        # informational for mypy rather than a runtime guard against a real
+        # failure mode.  The ``cast`` is needed because redis-py types
+        # ``Redis.ping`` as ``Awaitable[bool] | bool`` to share a signature
+        # between the sync and async client classes; on the async client
+        # (``redis.asyncio.Redis``) the call always returns an Awaitable.
+        assert self._redis is not None
+        await cast("Awaitable[Any]", self._redis.ping())
         logger.info(f"Redis producer connected to {self.config.redis_url}")
 
     async def disconnect(self) -> None:
@@ -766,8 +792,18 @@ class RedisStreamProducer(StreamProducer):
             raise RuntimeError("Producer not connected. Call connect() first.")
 
         try:
-            # Prepare message with metadata
-            message_data = {
+            # Prepare message with metadata.  The dict annotation matches
+            # redis-py's ``StreamCommands.xadd`` field-value type (it
+            # accepts bytes/bytearray/memoryview/str/int/float for both
+            # keys and values).  ``dict`` is invariant in mypy, so a
+            # narrower ``dict[str, str]`` cannot be passed even when the
+            # values are subtypes.  The values we actually store here
+            # are always ``str``, so the wider annotation is purely a
+            # typing accommodation.
+            message_data: dict[
+                bytes | bytearray | memoryview[int] | str | int | float,
+                bytes | bytearray | memoryview[int] | str | int | float,
+            ] = {
                 "value": json.dumps(value),
                 "timestamp": datetime.now(UTC).isoformat(),
             }
@@ -799,7 +835,11 @@ class RedisStreamProducer(StreamProducer):
         pipe = self._redis.pipeline()
 
         for msg in messages:
-            message_data = {
+            # See ``send`` above for the dict-widening rationale.
+            message_data: dict[
+                bytes | bytearray | memoryview[int] | str | int | float,
+                bytes | bytearray | memoryview[int] | str | int | float,
+            ] = {
                 "value": json.dumps(msg),
                 "timestamp": datetime.now(UTC).isoformat(),
             }
@@ -838,9 +878,8 @@ class RedisStreamConsumer(StreamConsumer):
         self.config = config or StreamConfig()
         self.group_id = group_id
         self.consumer_name = consumer_name or f"consumer-{os.getpid()}"
-        # See RedisStreamProducer.__init__ for the rationale on ``Any``
-        # (and why ``Any | None`` is not used).
-        self._redis: Any = None
+        # See RedisStreamProducer.__init__ for the typing rationale.
+        self._redis: Redis | None = None
         self._subscribed_topics: list[str] = []
         self._circuit_breaker = CircuitBreaker(
             name="redis-consumer",
@@ -862,7 +901,9 @@ class RedisStreamConsumer(StreamConsumer):
             max_connections=self.config.redis_max_connections,
             decode_responses=True,
         )
-        await self._redis.ping()
+        # See RedisStreamProducer.connect for the assert+cast rationale.
+        assert self._redis is not None
+        await cast("Awaitable[Any]", self._redis.ping())
         logger.info(f"Redis consumer connected to {self.config.redis_url}")
 
     async def disconnect(self) -> None:
@@ -911,8 +952,14 @@ class RedisStreamConsumer(StreamConsumer):
             return
 
         try:
-            # Build streams dict for XREADGROUP
-            streams = dict.fromkeys(self._subscribed_topics, ">")
+            # Build streams dict for XREADGROUP.  redis-py types this as
+            # ``dict[bytes | str | memoryview, int | bytes | str | memoryview]``
+            # — ``dict.fromkeys(..., ">")`` returns ``dict[str, str]``,
+            # which is invariant-incompatible, so the explicit annotation
+            # is required to land in the wider union.
+            streams: dict[bytes | str | memoryview[int], int | bytes | str | memoryview[int]] = (
+                dict.fromkeys(self._subscribed_topics, ">")
+            )
 
             result = await self._redis.xreadgroup(
                 self.group_id,
@@ -948,6 +995,13 @@ class RedisStreamConsumer(StreamConsumer):
     async def commit(self, message: StreamMessage) -> None:
         """Acknowledge consumed message."""
         if not self._redis:
+            return
+        if message.offset is None:
+            # XACK needs the stream entry id (stored on ``StreamMessage`` as
+            # ``offset``); a None offset means this message never carried a
+            # broker-assigned id and cannot be acknowledged.  Silently skip,
+            # mirroring the Kafka commit path above.
+            logger.debug(f"Skipping Redis ack for message with no offset: {message.topic}")
             return
 
         try:
