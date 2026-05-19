@@ -31,6 +31,18 @@ from omni_mercury_engine.compliance.nist_csf_integrator import (
     NISTSubcategory,
     get_nist_csf_integrator,
 )
+from omni_mercury_engine.compliance.osha_anomaly import (
+    ComplianceLevel,
+    ECFRClient,
+    ECFRClientError,
+    HazardCategory,
+    OSHAComplianceDetector,
+    OSHAHazard,
+    OSHASector,
+    OSHATrainingRecommendation,
+    compute_heat_index_fahrenheit,
+    get_osha_compliance_detector,
+)
 from omni_mercury_engine.compliance.tlp_handler import (
     TLPClassification,
     TLPColor,
@@ -40,6 +52,10 @@ from omni_mercury_engine.compliance.tlp_handler import (
 )
 
 __all__ = [
+    "ComplianceLevel",
+    "ECFRClient",
+    "ECFRClientError",
+    "HazardCategory",
     "ImplementationTier",
     "NISTAssessment",
     "NISTCSFIntegrator",
@@ -48,10 +64,16 @@ __all__ = [
     "NISTFunction",
     "NISTProfile",
     "NISTSubcategory",
+    "OSHAComplianceDetector",
+    "OSHAHazard",
+    "OSHASector",
+    "OSHATrainingRecommendation",
     "TLPClassification",
     "TLPColor",
     "TLPHandler",
     "TLPValidationError",
+    "compute_heat_index_fahrenheit",
     "get_nist_csf_integrator",
+    "get_osha_compliance_detector",
     "get_tlp_handler",
 ]

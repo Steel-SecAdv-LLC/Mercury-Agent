@@ -46,6 +46,17 @@ from omni_mercury_engine.medical.abms_disciplines import (
     ABMSDisciplineDetector,
     MedicalAnomalyResult,
 )
+from omni_mercury_engine.medical.anesthesiology_predictor import (
+    AnesthesiaPredictionResult,
+    AnesthesiaRisk,
+    AnesthesiaType,
+    AnesthesiologyPredictor,
+    HemodynamicMonitor,
+    SmartInfusionController,
+    TIVAMonitoringSystem,
+    count_tiva_parameters,
+    get_anesthesiology_predictor,
+)
 
 # Cardiology
 from omni_mercury_engine.medical.cardiology import (
@@ -73,6 +84,32 @@ from omni_mercury_engine.medical.critical_care import (
     SOFACalculator,
     StrokeDetector,
     StrokeType,
+)
+from omni_mercury_engine.medical.data_sources import (
+    CGMDataSource,
+    CGMReading,
+    ConfigurationError,
+    DataSourceError,
+    DexcomConfig,
+    DexcomV3DataSource,
+    FHIRConfig,
+    FHIRObservationVitalsSource,
+    VitalsDataSource,
+    VitalsReading,
+    parse_dexcom_egvs_payload,
+    parse_fhir_observation_bundle,
+)
+from omni_mercury_engine.medical.endocrinology_detector import (
+    CGMAnalyzer,
+    EndocrinologyDetector,
+    EndocrinologyPredictionResult,
+    GLP1TherapyMonitor,
+    GlycemicState,
+    InhaledInsulinMonitor,
+    InsulinDeliveryMethod,
+    SmartInsulinPenMonitor,
+    count_cgm_parameters,
+    get_endocrinology_detector,
 )
 from omni_mercury_engine.medical.medical_cure_predictor import (
     MedicalCurePredictor,
@@ -306,17 +343,40 @@ __all__ = [
     "ABMSBoard",
     # Core medical
     "ABMSDisciplineDetector",
+    # Anesthesiology
+    "AnesthesiaPredictionResult",
+    "AnesthesiaRisk",
+    "AnesthesiaType",
+    "AnesthesiologyPredictor",
     "ArrhythmiaType",
     "BioThreatResult",
+    # Endocrinology / CGM
+    "CGMAnalyzer",
+    "CGMDataSource",
+    "CGMReading",
     "CardiacBiomarkerAnalyzer",
     "CardiologyPredictionResult",
     # Cardiology
     "CardiologyPredictor",
     "CaseSurgeDetector",
+    # Medical data sources / adapters
+    "ConfigurationError",
+    "DataSourceError",
+    "DexcomConfig",
+    "DexcomV3DataSource",
     "ECGRhythmAnalyzer",
+    "EndocrinologyDetector",
+    "EndocrinologyPredictionResult",
     "EpidemicForecaster",
+    "FHIRConfig",
+    "FHIRObservationVitalsSource",
     "FraminghamRiskCalculator",
+    "GLP1TherapyMonitor",
+    "GlycemicState",
+    "HemodynamicMonitor",
     "ICPMonitor",
+    "InhaledInsulinMonitor",
+    "InsulinDeliveryMethod",
     "MedicalAnomalyResult",
     # Coordinator
     "MedicalCoordinator",
@@ -343,11 +403,22 @@ __all__ = [
     "SepsisPredictionResult",
     "SepsisProgressionPredictor",
     "SepsisStage",
+    "SmartInfusionController",
+    "SmartInsulinPenMonitor",
     "StrokeDetector",
     "StrokeType",
+    "TIVAMonitoringSystem",
     "TemporalVitalSignsDetector",
     "TemporalVitalSignsLSTM",
     "TransmissionNetworkAnalyzer",
     "TreatmentPathwayOptimizer",
     "VariantConcern",
+    "VitalsDataSource",
+    "VitalsReading",
+    "count_cgm_parameters",
+    "count_tiva_parameters",
+    "get_anesthesiology_predictor",
+    "get_endocrinology_detector",
+    "parse_dexcom_egvs_payload",
+    "parse_fhir_observation_bundle",
 ]

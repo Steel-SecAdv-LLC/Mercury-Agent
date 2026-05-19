@@ -124,6 +124,545 @@ overlap with existing Mercury code.
   per-format rendering checks, and the strict-sharing escalation
   path).
 
+### Omni-AXA → Mercury port, PR 2: domain modules with external dependencies
+
+Four domain modules ported from `Steel-SecAdv-LLC/Omni-AXA-Engine`
+(GPL-3.0+) into Mercury Agent.  All known issues from the verdict table
+are resolved in-PR; no follow-ups.  Compliance and drone modules are
+wired to live public data sources (eCFR, PX4 / MAVLink).  The medical
+modules ship **integration-ready, not pre-integrated**: real adapter
+ABCs (`CGMDataSource`, `VitalsDataSource`), a reference Dexcom v3
+OAuth2 adapter, and a reference HL7 FHIR R4 Observation adapter.
+Mercury Agent never carries vendor medical credentials; the platform
+refuses to start a misconfigured medical integration via
+`ConfigurationError`.  See `docs/medical/SETUP.md` for the operator
+runbook.
+
+- **`omni_mercury_engine.compliance.osha_anomaly`**
+  (666 LOC source → 1,003 LOC port).  Multi-sector OSHA compliance
+  detector covering 12 hazard categories × 6 industry sectors with
+  real CFR citations.  **Known-issue fix (heat-index regression):**
+  the original implementation used the linear heuristic
+  ``HI = T + 0.5 * RH``.  At ``T=95 °F, RH=70 %`` this returned
+  ``130 °F``, materially over-reporting heat stress.  The port
+  replaces this with the **National Weather Service Rothfusz
+  regression**:
+  ```
+  HI = -42.379 + 2.04901523·T + 10.14333127·RH
+       − 0.22475541·T·RH      − 0.00683783·T²
+       − 0.05481717·RH²       + 0.00122874·T²·RH
+       + 0.00085282·T·RH²     − 0.00000199·T²·RH²
+  ```
+  plus the two standard adjustments — low-humidity
+  (``RH < 13 %`` and ``80 ≤ T ≤ 112 °F``) and
+  low-temperature/high-humidity (``RH > 85 %`` and
+  ``80 ≤ T ≤ 87 °F``).  Numeric NWS reference point at
+  ``T=96 °F, RH=65 %`` now returns ``≈121 °F`` (verified against
+  the published WPC table) instead of ``128 °F`` under the
+  heuristic.  Citations may optionally be validated against the
+  live **eCFR API** (`https://www.ecfr.gov/api/versioner/v1/`,
+  60 req/min, no auth) via the new ``ECFRClient`` helper, which
+  caches verifications in-process.  Locked by
+  `tests/test_osha_anomaly.py` (28 tests covering every
+  sector × hazard combination, the Rothfusz regression and both
+  adjustments, eCFR parsing/caching/error paths, training
+  recommendations, and the compliance report).
+
+- **`omni_mercury_engine.anomaly.drone_detector`**
+  (632 LOC source → 905 LOC port).  Multi-source drone anomaly
+  detector combining rule-based RADD, an ML ensemble, and
+  log-based DronLomaly.  **Three known-issue fixes in-PR:**
+  1. **Missing DroneState fields.**  The upstream detection
+     rules referenced ``altitude_rate``, ``horizontal_velocity``,
+     ``vertical_velocity``, and ``distance_to_home`` but the
+     ``DroneState`` dataclass did not have them, so every rule
+     that gated on those fields silently no-op'd.  The port adds
+     the four fields with explicit ``Optional[float]`` types and
+     a ``__post_init__`` that derives them from
+     ``velocity`` / ``position`` / ``home_position`` when not
+     explicitly supplied.  Regression tests in
+     ``tests/test_drone_detector.py`` exercise the previously
+     silent rules end-to-end.
+  2. **Mercury in-house anomaly ensemble.**  The hand-coded z-score
+     "ensemble" was first replaced with three scikit-learn estimators
+     (``IsolationForest``, ``EllipticEnvelope``, ``LocalOutlierFactor``)
+     during the initial port.  That implementation is itself superseded
+     in this PR by Mercury Agent's own first-class anomaly ensemble,
+     :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`,
+     which combines three deterministic ``numpy``/``scipy`` scorers —
+     **Resonance** (40 %; FFT-based harmonic spectral anomaly),
+     **Kinematic** (30 %; physics-based jerk / curvature dynamics) and
+     **InfoGeometry** (30 %; Fisher Information Matrix OOD detection).
+     The previous default ensemble weights (``isolation_forest=0.40``,
+     ``elliptic_envelope=0.25``, ``lof=0.35``) are replaced with
+     ``resonance=0.40``, ``kinematic=0.30``, ``info_geometry=0.30``,
+     matching the published MercuryAnomalyDetector ratio.  The
+     ``DroneAnomalyDetector(ensemble_weights=...)`` keyword still
+     accepts a custom override; callers must now key it on the three
+     new component names.  scikit-learn is **removed from the drone
+     detector's runtime dependency surface** — it survives only in the
+     ``benchmark-comparison`` optional extra (per ``pyproject.toml``),
+     where it is used to score Mercury against external baselines
+     rather than to power Mercury itself.  The Mahalanobis fallback
+     path and its ``_SKLEARN_AVAILABLE`` flag are removed; the
+     in-house ensemble is deterministic after fit and has no optional
+     dependency.  Locked by ``TestMercuryEnsemble`` in
+     ``tests/test_drone_detector.py``, which asserts the absence of
+     every previously-exported sklearn symbol on the module and
+     verifies the three Mercury components are produced with scores
+     in ``[0, 1]``.
+  3. **Unvalidated 93.84 % recall claim removed.**  The
+     upstream docstrings cited a 93.84 % recall number with no
+     reproducible benchmark.  The claim is removed and a
+     ``test_no_recall_claim_in_docstrings`` regression test
+     pins the docstrings against re-introduction.
+  Live data: integrates with PX4 / MAVLink telemetry via the
+  detector's ``detect_faults(state, logs)`` entry point —
+  callers translate their MAVLink / pyulog stream into the
+  ``DroneState`` dataclass.  Locked by
+  `tests/test_drone_detector.py` (27 tests covering all three
+  known-issue fixes, every mission-phase rule that previously
+  silent-no-op'd, the Mercury in-house ensemble component layout,
+  degenerate-window robustness, log-based fault detection,
+  flight-report aggregation, and per-fault recommendation lists).
+
+  **Deviations from the original (drone_anomaly_detector.py):**
+  - Ensemble vendor: the upstream module imports
+    ``sklearn.ensemble.IsolationForest``,
+    ``sklearn.covariance.EllipticEnvelope`` and
+    ``sklearn.neighbors.LocalOutlierFactor`` directly and falls back
+    to a hand-coded Mahalanobis scorer when sklearn is missing.  The
+    port replaces both branches with Mercury Agent's in-house
+    ``MercuryAnomalyDetector`` (Resonance / Kinematic / InfoGeometry).
+    scikit-learn is no longer imported at runtime by this module; it
+    remains available only via the ``benchmark-comparison`` optional
+    extra for external baseline comparisons.
+  - ``ensemble_weights`` keys: ``{"isolation_forest", "elliptic_envelope",
+    "lof"}`` → ``{"resonance", "kinematic", "info_geometry"}``.  The
+    weights themselves continue to be normalised to sum to ``1.0``.
+  - ``random_state`` constructor argument is retained for API stability
+    but is now a no-op; ``MercuryAnomalyDetector`` is deterministic
+    after ``fit()`` and consumes no RNG seed.
+  - ``_compute_sklearn_scores`` and ``_compute_fallback_scores`` are
+    removed; the single ``_compute_ensemble_scores`` path now
+    delegates to ``MercuryAnomalyDetector.fit`` /
+    ``MercuryAnomalyDetector.detect`` and returns an empty dict on
+    fit/detect failure rather than zero-filling components.
+
+- **`omni_mercury_engine.medical.anesthesiology_predictor`**
+  (541 LOC source → 741 LOC port).  Integrated anesthesiology
+  prediction combining a Bi-LSTM TIVA monitor, a discrete-time
+  PID infusion controller, and a hemodynamic monitor:
+  - **TIVA Bi-LSTM** (``input_dim=8``, ``hidden_dim=64``,
+    ``num_layers=2``, bidirectional, additive attention,
+    164,066 parameters — matches the verified Omni-AXA
+    parameter count).
+  - **PID infusion controller** with the verified upstream
+    gains ``kp=0.5 / ki=0.1 / kd=0.2``, target BIS 50, safe
+    window ``[40, 60]``.  Decision support only; the controller
+    refuses to run with ``dt ≤ 0`` and clamps outputs to
+    documented propofol / remifentanil limits.
+  - **Hemodynamic monitor** with the ASA-aligned ranges
+    MAP 65–110 mmHg, HR 50–100 bpm, SpO₂ ≥ 92 %,
+    EtCO₂ 30–45 mmHg.
+  Integration: the predictor now requires a
+  ``VitalsDataSource`` adapter at construction time when
+  ``enable_hemodynamics`` is true (the default); without one the
+  constructor raises ``ConfigurationError``.  A reference
+  ``FHIRObservationVitalsSource`` ships in
+  ``omni_mercury_engine.medical.data_sources`` and speaks HL7
+  FHIR R4 ``Observation`` search with ``category=vital-signs`` —
+  spec-compliant against Epic, Oracle/Cerner, MEDITECH, and the
+  SMART-on-FHIR sandbox.  LOINC codes recognised: 8867-4 HR,
+  8480-6 / 8462-4 SBP/DBP (MAP computed when absent), 8478-0 MAP
+  direct, 2708-6 / 59408-5 SpO₂, 19911-5 EtCO₂.  Synthetic
+  generators and the old ``VitalDBClient`` have been removed
+  from production paths; integrators wire their own vendor
+  adapter (Philips IntelliVue, GE CARESCAPE, Mindray, custom HL7
+  v2 / FHIR endpoint) by subclassing ``VitalsDataSource``.
+  Locked by `tests/test_anesthesiology_predictor.py` (rule-engine
+  and integration tests against an in-process
+  ``VitalsDataSource``) and `tests/test_medical_data_sources.py`
+  (FHIR adapter end-to-end against sanitized fixtures).
+
+- **`omni_mercury_engine.medical.endocrinology_detector`**
+  (521 LOC source → 660 LOC port).  Integrated endocrine anomaly
+  detection with CGM Bi-LSTM analysis and three FDA-aligned
+  rules:
+  - **CGM Bi-LSTM** (``input_dim=1``, ``hidden_dim=64``,
+    ``num_layers=2``, bidirectional, additive attention) for
+    glycemic-state classification (normal / hypo / hyper /
+    severe-hypo / DKA) plus a scalar trend predictor.
+  - **Afrezza FEV1 contraindication.**  Inhaled insulin is
+    flagged inappropriate when ``FEV1 < 70 %``.  The threshold
+    is strict-less-than, so ``FEV1 = 69.9 %`` is flagged and
+    ``FEV1 = 70.0 %`` is permitted; the boundary case is locked
+    by `TestInhaledInsulinMonitor::test_fev1_threshold`.
+  - **GLP-1 pancreatitis discontinuation.**  Any occurrence of
+    "pancreatitis" (case-insensitive) in the side-effect list
+    sets ``continue_therapy=False`` and emits the FDA-aligned
+    discontinuation recommendation.
+  - **Dose-stacking guard.**  Rapid-acting insulin doses spaced
+    less than ``min_dose_interval_hours = 2.0`` apart trip the
+    smart-pen alert and require glucose verification before
+    additional dosing.
+  Integration: the detector now requires a ``CGMDataSource``
+  adapter at construction time when ``enable_cgm`` is true (the
+  default); without one the constructor raises
+  ``ConfigurationError``.  A reference ``DexcomV3DataSource``
+  ships in ``omni_mercury_engine.medical.data_sources`` and
+  speaks the Dexcom Developer API v3 over OAuth2 refresh-token
+  flow (``api.dexcom.com/v2/oauth2/token`` →
+  ``/v3/users/self/egvs``).  Required environment variables:
+  ``DEXCOM_CLIENT_ID``, ``DEXCOM_CLIENT_SECRET``,
+  ``DEXCOM_REFRESH_TOKEN``, ``DEXCOM_REDIRECT_URI``;
+  ``DEXCOM_BASE_URL`` defaults to production with sandbox
+  override available.  Synthetic generators and the old
+  ``TidepoolClient`` / ``DexcomCredentials`` helpers have been
+  removed from production paths; integrators wire their own
+  vendor adapter (Abbott LibreView, Medtronic CareLink, custom
+  cloud bridge) by subclassing ``CGMDataSource``.  Locked by
+  `tests/test_endocrinology_detector.py` (rule-engine and
+  integration tests against an in-process ``CGMDataSource``)
+  and `tests/test_medical_data_sources.py` (Dexcom v3 adapter
+  end-to-end against sanitized fixtures, including OAuth token
+  caching and HTTP error wrapping).
+
+- **`omni_mercury_engine.medical.data_sources`** (new, 800 LOC).
+  Common medical-data infrastructure:
+  ``CGMDataSource`` / ``VitalsDataSource`` ABCs,
+  ``CGMReading`` / ``VitalsReading`` dataclasses,
+  ``ConfigurationError`` / ``DataSourceError`` typed exceptions,
+  reference ``DexcomV3DataSource`` (OAuth2 refresh) and
+  ``FHIRObservationVitalsSource`` (HL7 FHIR R4 Observation
+  search), plus module-level
+  ``parse_dexcom_egvs_payload`` / ``parse_fhir_observation_bundle``
+  helpers so integrators can unit-test their own payloads
+  against the same parsers Mercury uses internally.  See
+  `docs/medical/SETUP.md` for the full operator runbook.
+
+**Provenance.**  All four modules originate from
+``Steel-SecAdv-LLC/Omni-AXA-Engine`` (private; GPL-3.0+).  The
+upstream license matches Mercury's, and the user has full legal
+standing to relicense across both repositories.
+
+### Omni-AXA → Mercury port, PR 2 refinements — round 3 (Copilot review)
+
+Round-3 refinement pass closing the twelve Copilot review alerts on
+PR #224.  Every alert is addressed in-code; no `# noqa`, no
+`# type: ignore`, no `pragma: no cover`, no broad except, and no
+coverage-threshold lowering.  The changes harden SSRF / DNS-rebinding
+posture on every outbound HTTP call made by the ported modules,
+upgrade the DroneState input contract with explicit shape validation,
+and reconcile the medical module top-level docstrings with the
+deviations already documented under the per-module
+*"Deviations from the original"* subsections below.
+
+- **SSRF / DNS-rebinding gate on every medical and compliance HTTP
+  call.**  `DexcomV3DataSource._refresh_access_token`,
+  `DexcomV3DataSource.fetch_recent_readings`,
+  `FHIRObservationVitalsSource.fetch_recent_vitals`, and
+  `ECFRClient.verify_citation` all previously bypassed Mercury's
+  central HTTP egress gate by going through
+  `urllib.request.urlopen` directly.  The four methods now route
+  through `omni_mercury_engine.security.safe_http.SafeHTTPClient`,
+  picking up the scheme allowlist (HTTPS), private-network / IMDS
+  block, DNS-rebinding pinning, and redirect refusal for free.
+  `SafeHTTPClient.post_form` is a new helper added for the OAuth2
+  token endpoint; it mirrors `post_json` but emits a
+  form-urlencoded body and validates the response as JSON.
+  `requests.HTTPError` raised by `raise_for_status()` is mapped to
+  the adapter-specific `DataSourceError` / `ECFRClientError`
+  semantics so the public contract is unchanged.
+- **Hard URL allowlists for operator-supplied endpoints.**
+  `DexcomConfig.__post_init__` now validates `base_url` against
+  the two published Dexcom hosts (`https://api.dexcom.com`,
+  `https://sandbox-api.dexcom.com`) and raises
+  `ConfigurationError` on anything else.  `ECFRClient.__init__`
+  similarly restricts `base_url` to
+  `https://www.ecfr.gov` via the new
+  `ECFRClient.ALLOWED_BASE_URLS` class constant.  Both fixes turn
+  a hostile environment variable or operator typo into a hard,
+  visible failure at construction time instead of a silent
+  redirect of regulatory or PHI traffic.
+- **HTTPS-by-default for FHIR PHI traffic.**  `FHIRConfig` rejects
+  any non-HTTPS `base_url` unless the operator explicitly sets
+  `allow_http=True` (or `FHIR_ALLOW_HTTP=1` in the environment).
+  The opt-in is intended exclusively for documented local /
+  development FHIR servers; vital-signs observations are PHI and
+  must traverse TLS in production.  The flag is forwarded to
+  `SafeHTTPClient.get_json`'s `allow_http` parameter and tested
+  end-to-end in
+  `tests/test_medical_data_sources.py::TestFHIRConfigHttpsPolicy`.
+- **`DroneState.__post_init__` shape validation.**  The dataclass
+  now rejects malformed `position` / `velocity` / `attitude`
+  (3-vectors), `motor_speeds` (4-vector), and `home_position`
+  (3-vector when supplied) with a clear `ValueError`.  RADD's
+  invariant rules index those positions directly; a mis-shaped
+  feed previously bubbled up as an obscure `IndexError` deep in
+  the rule loop, which is the exact silent-failure class this
+  port was commissioned to eliminate.  Pinned by
+  `tests/test_drone_detector.py::TestDroneStateShapeValidation`
+  (five cases covering each vector and the optional
+  `home_position`).
+- **Drone detector module-docstring correction.**  The previous
+  module docstring referenced `omni_mercury_engine.anomaly.drone_telemetry`
+  as the live-telemetry adapter module; that module does not
+  exist in the Mercury tree.  The docstring now states the
+  correct contract: the detector is transport-agnostic, callers
+  populate `DroneState` from their ingest layer of choice
+  (`pyulog.ULog`, `pymavlink`, custom feed), and an integration
+  example lives in `docs/drone/SETUP.md`.
+- **Medical detector top-level docstrings reconciled with documented
+  deviations.**  Two of the medical modules previously claimed
+  upstream architectural parity that the round-2 deviations section
+  had already retracted:
+  - `endocrinology_detector.py` no longer claims the neural
+    architecture "matches the original verified implementation".
+    The module docstring now references the `CGMAnalyzer`
+    trend-head widening and the additive
+    `GLP1TherapyMonitor` / `InhaledInsulinMonitor` rules under
+    *"Deviations from the original"* explicitly.
+  - `anesthesiology_predictor.py` similarly defers to the
+    documented deviations for `HemodynamicMonitor`'s explicit
+    SpO2 guard and `SmartInfusionController`'s test-introspection
+    surface.  The PID controller gains and clinical vital ranges
+    remain preserved verbatim, with their ASA / AARC citations
+    intact.
+- **Test plumbing.**  `tests/test_medical_data_sources.py` and
+  `tests/test_osha_anomaly.py` now mock at the `SafeHTTPClient`
+  public surface rather than at `urllib.request.urlopen`.  A
+  reusable `_build_http_error` helper in the medical tests keeps
+  the failure shape consistent with how `SafeHTTPClient` propagates
+  `raise_for_status()` failures.  `tests/test_drone_detector.py`
+  uses `pytest.importorskip("sklearn")` so the ensemble test
+  module is gracefully skipped when the `benchmark-comparison`
+  extra is not installed; the sklearn-unavailable fallback path is
+  separately covered by
+  `TestSklearnEnsemble.test_fallback_when_sklearn_unavailable`.
+
+### Omni-AXA → Mercury port, PR 2 refinements (hard-guardrail review)
+
+Round-2 refinement pass over the four ported domain modules driven by
+the repo owner's explicit "no debt-for-debt trade" guardrails.  Every
+removed rule from the upstream that the initial port had quietly
+dropped is documented here under explicit "Deviations from the
+original" subsections per module; every restored rule is pinned by a
+named regression test; every cited threshold is re-anchored to a
+module-level constant via the new clinical rule-pin harness.
+
+#### Architectural reorganisation
+
+- **`omni_mercury_engine.detectors.drone`** (new subpackage).  The
+  ported drone detector now lives in
+  `src/omni_mercury_engine/detectors/drone/detector.py` alongside
+  Mercury's existing single-domain detector subpackages
+  (`marine/`, `economic/`, `energy/`, `geological/`, …).  The
+  `omni_mercury_engine.anomaly` package is **retained** (with a
+  policy docstring) for future multi-modal anomaly detectors that
+  fuse two or more `detectors/<domain>/` outputs into a single
+  decision-support stream; no such detector ships in this PR.  All
+  existing imports continue to work via the new
+  `omni_mercury_engine.detectors.drone` package's `__init__.py`,
+  which re-exports the public API
+  (`DroneAnomalyDetector`, `DroneFault`, `DroneState`, `FaultType`,
+  `MissionPhase`, `get_drone_detector`).  Test imports in
+  `tests/test_drone_detector.py` were updated to the new path.
+
+#### `omni_mercury_engine.medical.endocrinology_detector` — Deviations from the original
+
+The initial port dropped three rule groups from the upstream
+`endocrinology_detector.py` without CHANGELOG documentation.  All three
+groups are restored in this pass with citation-pinned class constants
+and regression tests:
+
+- **`SmartInsulinPenMonitor` — large-bolus and daily-total guards (restored).**
+  - `MAX_BOLUS_UNITS: Final[float] = 15.0` — fires
+    `"Verify dose - risk of hypoglycemia"` and
+    `"Consider splitting dose if meal is large"` when
+    `dose_units > MAX_BOLUS_UNITS` **and**
+    `insulin_type == "rapid_acting"`.  Citation: ADA Standards of
+    Care; FDA insulin labeling — large rapid-acting boluses without
+    sensitivity verification are a documented hypoglycemia risk.
+  - `MAX_DAILY_INSULIN_UNITS: Final[float] = 50.0` — fires
+    `"Review insulin sensitivity and dosing regimen"` when
+    `daily_total_units > MAX_DAILY_INSULIN_UNITS`.  Citation: ADA
+    Standards of Care — total daily insulin above ~50 U warrants a
+    sensitivity / regimen review.
+  - Both checks accept their inputs as **optional** parameters on
+    `monitor_insulin_delivery()` so legacy callers that supplied
+    only `recent_doses` / `adherence_rate` / `patient_glucose`
+    continue to work unchanged.  Locked by four new tests in
+    `TestSmartInsulinPenMonitor`
+    (`test_smart_pen_large_bolus_alert_fires_above_15u_rapid_acting`,
+    `test_smart_pen_large_bolus_does_not_fire_for_basal`,
+    `test_smart_pen_daily_total_alert_fires_above_50u`,
+    `test_smart_pen_no_alert_when_fields_omitted`).
+- **`InhaledInsulinMonitor` — dose ceiling and technique guards (restored).**
+  - `MAX_DOSE_UNITS: Final[int] = 12` — fires
+    `"Consider subcutaneous insulin for large doses"` when
+    `dose_units > MAX_DOSE_UNITS`.  Citation: FDA Afrezza label,
+    Section 5 (Warnings and Precautions).
+  - `MIN_TECHNIQUE_SCORE: Final[float] = 0.7` — fires
+    `"Retrain on proper inhaler use"` and
+    `"May result in suboptimal absorption"` when
+    `inhalation_technique_score < MIN_TECHNIQUE_SCORE`.  Citation:
+    AARC inhaler-technique guidance.
+  - Inputs are optional on `monitor_inhaled_insulin()`; the FEV1
+    contraindication still dominates the result when all three
+    alerts fire concurrently.  Locked by three new tests in
+    `TestInhaledInsulinMonitor`
+    (`test_inhaled_dose_ceiling_alert_fires_above_12u`,
+    `test_inhaled_technique_alert_fires_below_0_7`,
+    `test_inhaled_contraindication_still_dominates`).
+- **`GLP1TherapyMonitor` — duration-aware titration and GI handling (restored).**
+  - `A1C_ESCALATION_WEEK: Final[int] = 12` /
+    `A1C_INADEQUATE_DROP_PERCENT: Final[float] = -0.5` — when
+    `a1c_change_percent > -0.5` **and** `duration_weeks >= 12`, the
+    monitor recommends dose escalation.  Citation: ADA
+    pharmacological guidance; FDA semaglutide / liraglutide
+    labeling.
+  - `WEIGHT_LOSS_REVIEW_WEEK: Final[int] = 16` /
+    `WEIGHT_LOSS_TARGET_KG: Final[float] = 2.5` — when
+    `abs(weight_loss_kg) < 2.5` **and** `duration_weeks >= 16`, the
+    monitor recommends a diet / exercise review and dose escalation
+    if tolerated.
+  - GI side-effects: when `side_effects` contains `"nausea"` or
+    `"vomiting"` (case-insensitive), the monitor emits
+    `"Take with food, slower dose titration; consider antiemetics
+    if severe"`.
+  - `duration_weeks` is an **optional** parameter (default `0`).
+    The pancreatitis discontinuation rule still dominates the
+    `continue_therapy` flag when any of the new rules fire.  Locked
+    by four new tests in `TestGLP1TherapyMonitor`
+    (`test_glp1_dose_escalation_recommended_at_week_12_inadequate_a1c`,
+    `test_glp1_no_escalation_before_week_12`,
+    `test_glp1_gi_side_effects_trigger_titration_advice`,
+    `test_glp1_pancreatitis_still_dominates`).
+- **`CGMAnalyzer` — trend-head width (kept widened, docstring
+  corrected).**  The upstream architecture has the trend head at
+  `hidden_dim * 2 -> 32 -> 1`; Mercury's port widens it to
+  `hidden_dim * 2 -> 64 -> 1` to match the glycemic classifier's
+  hidden width.  Parameter count is approximately equal (~155K) but
+  the resulting weights are **not interchangeable** with upstream
+  checkpoints — any prior pretrained weights would need to be
+  re-trained for this layout.  The class docstring has been updated
+  to drop the previous "matches the verified Omni-AXA
+  implementation" wording, which was directionally wrong.  Locked
+  by the new
+  `test_cgm_analyzer_parameter_count_is_approximately_155k` guard
+  (asserts `145_000 <= count_cgm_parameters() <= 165_000`).
+- **`SmartInsulinPenMonitor` — adherence scalar (intentionally
+  simplified).**  Mercury accepts a single
+  `adherence_rate ∈ [0, 1]` scalar rather than the upstream's
+  `doses_taken / doses_prescribed` ratio because the
+  `CGMDataSource` / vendor-adapter contract returns this as a
+  pre-computed daily fraction; recomputing it inside the monitor
+  would invite a divide-by-zero on partially-reported days.  The
+  low-adherence alert still fires below `0.8`.
+
+#### `omni_mercury_engine.medical.anesthesiology_predictor` — Deviations from the original
+
+- **`HemodynamicMonitor.spo2_threshold` (kept explicit guard).**  The
+  port keeps the explicit
+  `intervention_needed = overall_risk > 0.6 or spo2 < spo2_threshold`
+  short-circuit so that any sub-92 % SpO₂ reading triggers
+  intervention even when the per-vital risk weights happen to
+  average out below 0.6.  Citation: ASA standards for basic
+  anesthetic monitoring.
+- **`HemodynamicMonitor` bradycardia threshold (kept tightened at
+  ≥ 0.5).**  Sub-50 bpm HR contributes `0.5 * (50 - hr) / 50`
+  capped at `1.0`, so a reading of 45 bpm contributes 0.05 of risk
+  rather than the upstream's 0.10 — the upstream value risked
+  overcounting routine athletes-at-rest readings while the OR is
+  otherwise stable.  Locked by
+  `tests/test_anesthesiology_predictor.py::TestHemodynamicMonitor::test_bradycardia_contributes_to_risk`.
+- **Synthetic vitals generator removed from production paths.**  The
+  upstream module included a `VitalDBClient` synthetic-data
+  generator that emitted fabricated MAP / HR / SpO₂ traces.  Mercury
+  refuses to operate on synthetic vitals in production: the
+  predictor raises `ConfigurationError` when
+  `enable_hemodynamics=True` and no `VitalsDataSource` adapter is
+  supplied.  Tests use sanitized FHIR-R4 `Observation` fixtures
+  (`tests/fixtures/medical/fhir_observation_vitals.json`).
+
+#### `omni_mercury_engine.compliance.osha_anomaly` — Deviations from the original
+
+- **Heat-index regression direction (docstring correction).**  The
+  initial port's module-level docstring claimed the simplified
+  `T + 0.5*RH` heuristic "under-reported heat stress at high
+  humidity."  The worked example actually shows **over**-reporting
+  (the heuristic returns ~130 °F at T=95 °F / RH=70 % while the
+  Rothfusz regression returns ~122 °F, an 8 °F over-report).  The
+  docstring has been rewritten to capture both directions: high-RH
+  over-reporting and low-RH under-reporting.  Three new NWS
+  reference-point tests
+  (`test_heat_index_known_values[80F/40%RH]`,
+  `[95F/70%RH]`, `[100F/10%RH]`) pin the Steadman branch, the
+  unadjusted Rothfusz branch, and the low-humidity adjustment
+  branch respectively.
+- **`OSHAComplianceAnomaly` legacy alias removed.**  The upstream
+  module ended with
+  `OSHAComplianceAnomaly = OSHAComplianceDetector`.  A repository-wide
+  `git grep OSHAComplianceAnomaly` confirmed that the only external
+  reference lives in the upstream Omni-AXA tree and Mercury's own
+  `docs/ARCHITECTURE.md`; no Mercury runtime code, tests, or
+  downstream callers depend on the alias.  The alias is **removed
+  without replacement** in the Mercury port.  Importers that hit
+  the missing name will get a clear `ImportError`; integrators
+  should import `OSHAComplianceDetector` directly.
+- **`ECFRClient` rate-limit handling (clarified, not enforced).**  The
+  class docstring previously implied the client enforced the
+  published 60 req/min/IP guidance; in fact it only caches.  The
+  docstring has been rewritten to state explicitly that the client
+  does **not** enforce the limit programmatically — operators
+  running batch audits should cap concurrency at the call site
+  (e.g. a thread / asyncio semaphore around `verify_citation()`).
+  The in-process cache reduces duplicate lookups during a single
+  audit run and is the primary mechanism by which Mercury stays
+  under the published limit.
+
+#### `omni_mercury_engine.detectors.drone.detector` — Deviations from the original
+
+- **`_analyze_log_entry` keyword scoring (extended, not narrowed).**
+  The upstream scored only mechanical-fault keywords
+  (`critical`, `error`, `warning`, level guards, `timeout`,
+  `connection lost`).  Mercury extends this with three
+  Mercury-specific signals, weights tuned so operationally-noisy
+  lines (routine "signal weak" advisories, expected
+  `intrusion_detection` self-tests, transient thermal notes) stay
+  below the `score > 0.75` fault gate while genuinely anomalous
+  lines cross it:
+  - `+0.55` for `attack | intrusion | unauthorized` (security).
+  - `+0.40` for `overheat[ing]` (thermal).
+  - `+0.35` for `signal lost` (telemetry loss).
+  Pinned by
+  `tests/test_drone_detector.py::TestDronLomalyLogs::test_log_keyword_scoring_does_not_overflag_routine_lines`,
+  which feeds three benign-but-noisy lines and three genuinely
+  anomalous lines and asserts each side of the threshold.
+
+#### Testing
+
+- **`tests/test_clinical_rule_pins.py`** (new, rule-vs-citation
+  harness).  Pins every cited FDA / ADA / NWS / ASA / AARC
+  threshold against the module-level constant the citation refers
+  to via a parametrised pin table.  Regressions that change a
+  comparison operator (e.g. `<` → `<=`) or threshold value
+  (e.g. `70.0` → `70`) surface immediately with the citation URL
+  alongside the failing assertion.  A second test prints the live
+  pin table during `pytest -v` so the mapping is visible per run.
+  Initial coverage: nine pins across
+  `endocrinology_detector` (seven), `anesthesiology_predictor`
+  (one), and `osha_anomaly` (one).
+- **Weekly network-test cadence.**  `@pytest.mark.network`-marked
+  tests now run weekly via
+  `.github/workflows/network-tests.yml` (Mondays 13:00 UTC, plus
+  `workflow_dispatch`).  Failures surface as a separate CI signal
+  so external-endpoint schema drift (Dexcom v3, FHIR R4
+  `Observation`, eCFR Title 29, NIST CSF Reference Tool) is caught
+  within seven days even though those tests auto-skip on every
+  per-PR run.
+
 ### FEMA Disaster loader — label-polarity correction (closes "known-broken" footnote item)
 
 - **`FEMADisasterLoader._select_anomaly_polarity`** enforces the
