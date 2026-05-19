@@ -47,7 +47,11 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Awaitable, Callable  # noqa: TC003 - used in runtime annotations
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+)  # noqa: TC003 - used in runtime annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
