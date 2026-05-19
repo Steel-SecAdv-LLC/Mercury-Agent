@@ -25,7 +25,10 @@ and anomaly detection with 128D feature normalization for fusion pipeline.
 Key Features:
     1. Zero-shot anomaly detection via image captioning
     2. 128D normalized feature extraction for DetectorRegistry integration
-    3. Graceful fallback when HuggingFace transformers unavailable
+    3. Hard fail-fast when HuggingFace transformers unavailable (Phase 2
+       audit cure: silent mock degradation is forbidden — the constructor
+       raises ``NotImplementedError`` rather than substituting a synthetic
+       mock model that would silently corrupt downstream fusion scores)
     4. Interpretable anomaly explanations via natural language
 
 Reference:
@@ -51,7 +54,10 @@ from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelE
 
 logger = logging.getLogger(__name__)
 
-# Optional imports with graceful fallback
+# Optional imports.  When either ``transformers`` or PIL is missing, the
+# detector constructor raises ``NotImplementedError`` rather than running
+# a synthetic stand-in (see Phase 2 audit cure — silent mock degradation
+# is forbidden).
 HAS_TRANSFORMERS = False
 HAS_PIL = False
 
@@ -200,7 +206,9 @@ class BLIPVLMDetector(BaseVLMDetector):
         - Zero-shot detection via image captioning
         - Natural language anomaly explanations
         - 128D feature normalization for fusion pipeline
-        - Graceful fallback when transformers unavailable
+        - Hard fail-fast when transformers unavailable (constructor raises
+          ``NotImplementedError`` to comply with the Phase 2 audit ban on
+          silent mock degradation; install ``mercury-agent[vlm]`` to enable)
 
     Example:
         >>> # SafeHFLoader requires a revision pin for Hub IDs; supply
@@ -258,11 +266,12 @@ class BLIPVLMDetector(BaseVLMDetector):
             )
 
     def _initialize_model(self) -> None:
-        """
-        Initialize BLIP model and processor.
+        """Initialize BLIP model and processor.
 
-        Loads the BLIP model from HuggingFace or creates mock implementation if transformers is not
-        available.
+        Loads the BLIP model from HuggingFace if ``transformers`` is
+        available; otherwise raises ``NotImplementedError`` (the Phase 2
+        audit forbids silent mock degradation, so there is no synthetic
+        fallback model).
         """
         if not self._has_transformers:
             raise NotImplementedError(
@@ -486,39 +495,6 @@ class BLIPVLMDetector(BaseVLMDetector):
             "features": features,
         }
 
-    def _generate_mock_caption(self, image: Any) -> str:
-        """
-        Generate mock caption when BLIP model unavailable.
-
-        Args:
-            image: Input image (PIL or tensor)
-
-        Returns:
-            Mock caption string
-        """
-        # Generate deterministic mock caption based on image statistics
-        if isinstance(image, torch.Tensor):
-            mean_val = image.float().mean().item()
-            std_val = image.float().std().item()
-        elif self._has_pil and hasattr(image, "getdata"):
-            # PIL Image
-            data = np.array(image)
-            mean_val = data.mean() / 255.0
-            std_val = data.std() / 255.0
-        else:
-            mean_val = 0.5
-            std_val = 0.2
-
-        # Generate caption based on statistics
-        if std_val > 0.3:
-            return "An image showing varied scene with multiple elements"
-        elif mean_val < 0.3:
-            return "A dark scene with low visibility"
-        elif mean_val > 0.7:
-            return "A bright scene with high exposure"
-        else:
-            return "A typical scene showing normal activity"
-
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> torch.Tensor:
         """
         Extract 128D normalized features for fusion pipeline.
@@ -577,39 +553,6 @@ class BLIPVLMDetector(BaseVLMDetector):
 
         # L2 normalize features
         features = torch.nn.functional.normalize(features, p=2, dim=-1)
-
-        return features
-
-    def _generate_mock_features(self, images: list[Any]) -> torch.Tensor:
-        """
-        Generate mock features when BLIP model unavailable.
-
-        Args:
-            images: List of images
-
-        Returns:
-            Mock feature tensor [N, 128]
-        """
-        n_images = len(images)
-        features = torch.zeros(n_images, self.blip_config.feature_dim, device=self.device)
-
-        for i, img in enumerate(images):
-            # Generate deterministic features based on image statistics
-            if isinstance(img, torch.Tensor):
-                # Use image statistics as feature seed
-                mean_val = img.float().mean().item()
-                std_val = img.float().std().item()
-            elif self._has_pil and hasattr(img, "getdata"):
-                data = np.array(img)
-                mean_val = data.mean() / 255.0
-                std_val = data.std() / 255.0
-            else:
-                mean_val = 0.5
-                std_val = 0.2
-
-            # Generate pseudo-random features based on statistics
-            torch.manual_seed(int(mean_val * 1000 + std_val * 100))
-            features[i] = torch.randn(self.blip_config.feature_dim, device=self.device)
 
         return features
 
