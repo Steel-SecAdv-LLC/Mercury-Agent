@@ -47,11 +47,6 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from collections.abc import (
-    AsyncIterator,
-    Awaitable,
-    Callable,
-)  # noqa: TC003 - used in runtime annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -62,6 +57,8 @@ import numpy as np
 from omni_mercury_engine.core.types import CircuitState
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable
+
     # Type-only imports for the optional ``aiokafka`` / ``redis`` deps.
     # ``from __future__ import annotations`` (line 17) makes all
     # annotations lazy strings, so these names never need to exist at
