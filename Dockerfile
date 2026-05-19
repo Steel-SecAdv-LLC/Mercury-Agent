@@ -30,7 +30,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2025-8869 (symlink extraction in sdist archives)
 #   CVE-2026-1703  (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp)
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel, fixed in 26.1)
-# Python 3.13 implements PEP 706, so the vulnerable tar fallback is never used,
+# Python 3.13+ implements PEP 706, so the vulnerable tar fallback is never used,
 # but we pin to >=26.1 as defense-in-depth and to fully resolve all three CVEs.
 RUN pip install --no-cache-dir --upgrade "pip>=26.1" "setuptools>=78.1.1" wheel
 
@@ -68,14 +68,19 @@ LABEL org.opencontainers.image.licenses="GPL-3.0"
 LABEL security.hardened="true"
 LABEL security.scan-date="2026-01-09"
 
-# Critical security patches - updates system packages
-# Note: util-linux vulnerabilities (CVE-2025-14104) are mitigated by:
-# 1. Running as non-root user (no SUID binary access)
-# 2. Application does not handle passwd/user operations
-# 3. No 256-byte username processing in application code
-# See .trivyignore for detailed justifications
+# Critical security patches - updates system packages.
+# ``apt-get upgrade`` here is the canonical fix path for every OS-level
+# CVE that ships with a Debian bookworm patch -- under the CI Trivy
+# policy (``--severity CRITICAL,HIGH --ignore-unfixed``) the upgraded
+# image reports zero findings, which is why Mercury no longer ships a
+# ``.trivyignore`` waiver list.  The residual ``affected`` /
+# ``will_not_fix`` Debian CVEs (e.g. util-linux CVE-2025-14104,
+# zlib CVE-2023-45853) are scoped out by ``ignore-unfixed`` and are
+# additionally mitigated below by: running as a non-root user, stripping
+# SUID/SGID bits from every binary, and not invoking the vulnerable
+# code paths (no passwd / setpwnam usage, no minizip usage).
 RUN apt-get update && \
-    # adduser: the upgraded apt in python:3.13+-slim-bookworm depends on it,
+    # adduser: the upgraded apt in python:3.13-slim-bookworm depends on it,
     # but the slim base omits it.  Install before upgrade to unblock the
     # dependency resolver.
     apt-get install -y --no-install-recommends adduser && \

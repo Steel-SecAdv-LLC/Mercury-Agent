@@ -1018,17 +1018,19 @@ jobs:
           TMPDIR: /mnt/trivy-tmp
           TRIVY_TEMP_DIR: /mnt/trivy-tmp
           TRIVY_CACHE_DIR: /mnt/trivy-cache
-        # Blocking gate.  Mirrors the standalone security.yml container
-        # scan policy so risk acceptances are honored consistently across
-        # workflows: ignore-unfixed drops Debian-bookworm CVEs that have no
-        # available patch (these are tracked in .trivyignore with
-        # documented mitigations and quarterly review dates), and
-        # trivyignores: .trivyignore lets Trivy pick up the explicit
-        # acceptance entries.  vuln-type scopes the scan to OS and library
-        # findings (the surface this image actually exposes).
-        # Action pinned to the same tagged version as
-        # security.yml's Trivy steps so both workflows run identical
-        # action code (deterministic, supply-chain hardened).
+        # Blocking gate.  Mirrors the standalone security.yml container scan
+        # policy: ``ignore-unfixed`` drops Debian-bookworm CVEs that have no
+        # available patch (status ``affected`` / ``will_not_fix``), and
+        # ``vuln-type: os,library`` scopes the scan to the OS and Python
+        # library surfaces this image actually ships.  Combined with the
+        # Dockerfile's runtime-stage ``apt-get upgrade`` (which pulls the
+        # latest bookworm security patches at build time) and the
+        # ``pip>=26.1`` floor (which clears the pip-specific CVEs that used
+        # to require a waiver), the scan reports zero CRITICAL/HIGH
+        # findings without a separate `.trivyignore` acceptance list.
+        # Action pinned to the same tagged version as security.yml's
+        # Trivy steps so both workflows run identical action code
+        # (deterministic, supply-chain hardened).
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: mercury-agent:${{ github.sha }}
@@ -1038,7 +1040,6 @@ jobs:
           limit-severities-for-sarif: true
           vuln-type: 'os,library'
           ignore-unfixed: true
-          trivyignores: .trivyignore
           exit-code: '1'
           timeout: '10m'
 
