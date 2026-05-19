@@ -135,8 +135,6 @@ jobs:
         # that cause context-deadline-exceeded timeouts in secret scanning
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
         skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.14/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.14/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
-        # Honor documented risk acceptances in .trivyignore
-        trivyignores: .trivyignore
         timeout: '15m'
 
     - name: Upload Trivy scan results to GitHub Security tab
@@ -162,7 +160,6 @@ jobs:
         ignore-unfixed: true
         skip-dirs: '/var/lib/apt/lists,/var/cache/apt'
         skip-files: '/opt/venv/lib/python3.12/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.12/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.13/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.13/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc,/opt/venv/lib/python3.14/site-packages/torch/include/ATen/Tensor.h,/opt/venv/lib/python3.14/site-packages/tensorflow/include/tensorflow/compiler/mlir/tensorflow/ir/tf_all_ops.h.inc'
-        trivyignores: .trivyignore
         timeout: '15m'
         exit-code: '1'
 
@@ -182,8 +179,6 @@ jobs:
         severity: 'CRITICAL,HIGH,MEDIUM'
         # Ignore unfixed vulnerabilities for consistency with container scan
         ignore-unfixed: true
-        # Honor documented risk acceptances in .trivyignore
-        trivyignores: .trivyignore
         # Skip test files and documentation
         skip-dirs: 'tests,docs,benchmarks'
 

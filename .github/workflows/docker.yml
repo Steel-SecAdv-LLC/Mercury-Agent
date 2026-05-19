@@ -73,11 +73,12 @@ jobs:
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH,MEDIUM
-          # Ignore unfixed vulnerabilities - only report CVEs with available patches
+          # Ignore unfixed vulnerabilities - only report CVEs with available patches.
           # This reduces noise from OS-level CVEs that have no fix in Debian bookworm
+          # and, under the current Dockerfile (`apt-get upgrade` in the runtime stage
+          # plus `pip>=26.1` in both stages), leaves zero CRITICAL/HIGH findings —
+          # no `.trivyignore` waiver list is needed.
           ignore-unfixed: true
-          # Use .trivyignore for documented risk acceptances
-          trivyignores: .trivyignore
           exit-code: 0
           timeout: 10m
 

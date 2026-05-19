@@ -12,10 +12,13 @@ so the local enumeration and the CI gate cover identical surfaces. Tools:
 **Two-tier dep-CVE coverage in CI.** The Python-package-level scan above
 (Safety + pip-audit, fast) gates on `[api]` extras and base dependencies.
 The deployment-surface scan (Trivy on the built Docker image, slower) gates
-on the **full** runtime install (`mercury-agent[all]` + system packages),
-honoring `.trivyignore` for OS-level acceptances. Both must be GREEN for
-PRs to merge; together they cover the full attack surface from PyPI deps
-down to base-image OS libraries.
+on the **full** runtime install (`mercury-agent[all]` + system packages)
+with `--severity CRITICAL,HIGH --ignore-unfixed`.  Under the current
+Dockerfile (runtime stage `apt-get upgrade` + `pip>=26.1` floor) that
+scan reports zero findings without any per-CVE waiver list — Mercury no
+longer ships a `.trivyignore`.  Both must be GREEN for PRs to merge;
+together they cover the full attack surface from PyPI deps down to
+base-image OS libraries.
 
 For local reproduction with broader extras (e.g., to manually verify
 `[ml,dev]` against current Safety advisories), see the Methodology section
@@ -44,9 +47,10 @@ The previous workaround (Trivy as the sole hard-blocking dep-CVE gate, with
 Safety/pip-audit informational because `safety check` rejects v3 policy
 files and `safety scan` requires Cloud auth) is replaced by per-CVE CLI
 ignore flags driven by this document. `.safety-policy.yml` remains in the
-repo as human-readable documentation of OS-level CVE risk acceptances
-(those are enforced by Trivy via `.trivyignore`); it is no longer wired
-into `safety check` invocations.
+repo as human-readable documentation of the OS-level CVE risk-acceptance
+*posture* — Trivy itself no longer reads a waiver file because the
+runtime image, after `apt-get upgrade`, has zero CRITICAL/HIGH findings
+under `--ignore-unfixed`.
 
 ---
 
@@ -159,8 +163,11 @@ working-directory auto-discovery of `.safety-policy.yml`, which is in
 v3 format and rejected by `check`'s legacy parser with `Legacy policy
 file parser only accepts versions minor than 3.0`. Both CI and this
 reproduction use the v2 shim for the same reason. (`.safety-policy.yml`
-itself remains as the human-readable documentation of OS-level CVE
-acceptances enforced by Trivy via `.trivyignore`.)
+itself remains as the human-readable documentation of the OS-level CVE
+risk-acceptance posture; the previously-paired `.trivyignore` waiver
+file has been retired because the runtime image's `apt-get upgrade` +
+`pip>=26.1` already clears every CRITICAL/HIGH finding the CI gate
+would otherwise see.)
 
 ---
 

@@ -17,7 +17,6 @@ DEFAULT_PATHS = (
     Path("benchmarks"),
     Path(".github/workflows"),
     Path("pyproject.toml"),
-    Path(".trivyignore"),
     Path(".safety-policy.yml"),
     Path(".safety-policy-v2.yml"),
 )
@@ -26,7 +25,6 @@ TYPE_IGNORE_RE = re.compile(r"^\s*#\s*type:\s*ignore\b(?!\[)")
 NOSEC_RE = re.compile(r"(?:^|\s)#\s*nosec")
 EXPLICIT_NOSEC_RE = re.compile(r"(?:^|\s)#\s*nosec(?:\s*:\s*|\s+)B\d{3}\b")
 SEMGREP_RE = re.compile(r"#\s*semgrep:\s*ignore(?!\s+[A-Za-z0-9_.:/-]+)")
-CVE_RE = re.compile(r"^(CVE-\d{4}-\d+|GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4})$", re.I)
 # ``.md`` is intentionally excluded: documentation regularly includes
 # the literal pragma strings inside fenced code blocks (worked examples
 # of `# nosec B603` / `# type: ignore[attr-defined]` etc.), and the
@@ -101,23 +99,6 @@ def check_text_file(path: Path) -> list[str]:
     return errors
 
 
-def check_trivyignore(path: Path) -> list[str]:
-    if not path.exists():
-        return []
-    errors: list[str] = []
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        if not CVE_RE.match(stripped):
-            continue
-        window = "\n".join(lines[max(0, idx - 35) : idx])
-        if "Justification for Acceptance" not in window:
-            errors.append(f"{path}:{idx + 1}: Trivy waiver lacks acceptance rationale")
-        if "Expiry:" not in window:
-            errors.append(f"{path}:{idx + 1}: Trivy waiver lacks expiry date")
-    return errors
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="*", type=Path, default=list(DEFAULT_PATHS))
@@ -127,22 +108,6 @@ def main() -> int:
     selected_paths = tuple(args.paths)
     for path in iter_files(selected_paths):
         errors.extend(check_text_file(path))
-    # ``check_trivyignore`` is scoped to the user's requested paths
-    # rather than always running unconditionally.  This keeps the CLI
-    # contract consistent: a developer running
-    # ``python check_suppression_hygiene.py src/`` to scope the check
-    # to just ``src/`` no longer accidentally also runs the Trivy
-    # waiver audit.  The default invocation (no positional arguments
-    # → ``DEFAULT_PATHS``) still includes ``.trivyignore`` so the CI
-    # gate is unchanged.
-    trivyignore = Path(".trivyignore")
-    if trivyignore in selected_paths or any(
-        path == trivyignore
-        or (path.is_dir() and trivyignore.resolve().is_relative_to(path.resolve()))
-        for path in selected_paths
-        if path.exists()
-    ):
-        errors.extend(check_trivyignore(trivyignore))
 
     if errors:
         print("Suppression hygiene check failed:", file=sys.stderr)
