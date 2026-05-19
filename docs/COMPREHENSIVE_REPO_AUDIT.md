@@ -3,9 +3,9 @@
 **Date:** 2026-03-11
 **Auditor:** Automated deep-dive analysis
 **Scope:** GOSNN, 3R, Ethical Pillars, Hidden/Silenced Issues, Production Readiness
-**Status (as of 2026-05-05):** *Historical document — preserved as the
+**Status (as of 2026-05-19):** *Historical document — preserved as the
 audit that motivated the Phase 1 / Phase 2 / Wave A / Wave B
-remediation programme.*
+remediation programme and the v1.7 production-readiness work.*
 
 > **Resolution status banner.** Many of the CRITICAL and HIGH findings
 > in this document have been remediated in subsequent PRs. Do **not**
@@ -21,8 +21,15 @@ remediation programme.*
 > | CVE remediation, version bump, CHANGELOG       | PR #165 (v1.6.0) | v1.6.0 released |
 > | AMA Cryptography fragmentation                 | PR #144, PR #162; CI now pinned to AMA Cryptography **v3.1.0** in `.github/workflows/pqc-production-check.yml` (`AMA_REF: v3.1.0`) | AMA Cryptography is the **sole** PQC backend. Mercury imports successfully without it (the loader catches `ImportError` and falls back to stub functions). `omni_mercury_engine._pqc_gate._enforce_pqc_production_gate` (invoked from `__init__.py` at import time) is the **automatic** import-time gate that fails closed (`RuntimeError`) when `AMA_REQUIRE_REAL_PQC=true` and any of the three AMA algorithms (Dilithium / Kyber / SPHINCS) is missing or unavailable — no manual call to `check_pqc_production_readiness()` is required, the original guard remains available for callers that want the same check at a finer boundary |
 > | Federated learning silent failures             | PR #168 (Wave A) | Silent-failure fixes landed; benevolence cache, threshold convergence, fibring default, seven-axis matrix |
+> | `SafeHTTPClient` `allow_untrusted=True` SSRF bypass | PR #210 (v1.7) | Kwarg **removed**; use `user_configured=True[, allow_private=True]` so the private-network / IMDS gate fires explicitly. See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §1 |
+> | `MercuryVoice` silent `MockLLMAdapter` fallback | v1.7 audit Phase 2 | Removed; `MercuryVoice(enable_llm=True)` requires explicit `llm_provider=`. See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §4 |
+> | No `production` vs `development` runtime distinction | PR landing v1.7 | New `MERCURY_ENV` primitive in `omni_mercury_engine._env`; orthogonal to `AMA_REQUIRE_REAL_PQC`. See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3 |
+> | FEMA Disaster loader label-polarity bug         | v1.7.0 | `FEMADisasterLoader._select_anomaly_polarity` enforces minority-as-anomaly; locked by `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection` |
+> | 11 historically-unreachable loaders silently dropping benchmarks | v1.7.0 | Two-lane reachability harness (`tests/datasets/test_unreachable_loaders_{offline,network}.py` + `.github/workflows/dataset-reachability.yml`) |
+> | No first-party NIST CSF / TLP / OSHA governance modules | PR #223, PR #228 (v1.7) | First-party `omni_mercury_engine.compliance` package — NIST CSF 2.0 live fetcher, TLP 2.0 (incl. AMBER+STRICT), OSHA with NWS Rothfusz heat-index regression. See [`COMPLIANCE.md`](COMPLIANCE.md) |
 >
-> Consult `CHANGELOG.md`, `docs/ROADMAP.md`, and the top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md)
+> Consult `CHANGELOG.md`, `docs/ROADMAP.md`, [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md),
+> and the top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md)
 > §"Dual-Gate Hard Ethical Enforcement" for the current contract.
 
 ---

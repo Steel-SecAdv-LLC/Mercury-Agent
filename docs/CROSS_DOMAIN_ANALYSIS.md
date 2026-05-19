@@ -1,5 +1,16 @@
 # Cross-Domain Frequency Analysis
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
+> **Status: theoretical framework, awaiting live benchmark sweep.**
+> The `CrossDomainFrequencyCorrelator` module is wired and the
+> Schumann band table below is canonical, but a published
+> cross-domain correlation matrix from the production benchmark
+> pipeline is still pending. Operators who want empirical numbers
+> should run the correlator over a multi-domain benchmark window and
+> share the results back — see [`CONTRIBUTING.md`](../CONTRIBUTING.md)
+> §"Real-Data Contributions".
+
 ## Overview
 
 The `CrossDomainFrequencyCorrelator` module

@@ -1,5 +1,18 @@
 # Mercury Agent Benchmark Results
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
+> **v1.7 update.** The README now shows a third cut — the
+> 2026-05-14 **65/65** run (Mean AUC 0.8464, Mean Oracle F1 0.6441),
+> regenerated on every push to `main` by
+> `.github/workflows/benchmark.yml`. The 64/75 and 51/55 cuts below
+> remain the documented public-headline and CI-floor baselines so
+> the historical trajectory stays auditable. The FEMA Disaster
+> label-polarity fix (v1.7.0) and the 11-loader reachability harness
+> are reflected in the 65/65 run — see `docs/ROADMAP.md` cross-cutting
+> entries "FEMA Disaster loader label polarity" and "Dataset
+> reachability harness (unreachable-11)".
+
 > **Reproducibility note — two distinct cuts of the validation set.**
 > The README headline benchmark figure is the **64 / 75
 > reproducibility set** (47 ADBench + 28 domain loaders, 11

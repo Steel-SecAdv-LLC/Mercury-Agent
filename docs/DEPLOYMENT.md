@@ -153,6 +153,24 @@ application will raise an error on startup if they are absent:
 | `MERCURY_CACHE_SECRET` | HMAC key for signed cache entries | `openssl rand -hex 32` |
 | `API_KEY_HASH_SALT` | Salt for API key hashing | `openssl rand -hex 32` |
 
+### v1.7 production-mode primitives
+
+These two environment variables harden production deployments
+independently of `MERCURY_AGENT_ENV` (which is the legacy API-server flag).
+Set **both** in production:
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `MERCURY_ENV` | `development` | When `production`, every collaborator with a mock/stub fallback (currently `narrative.voice.MercuryVoice`, more to come) hard-fails with `MercuryProductionConfigError` rather than silently degrading. Unknown values (e.g. `prod`) also raise — typos must be loud. Locked by `tests/test_env.py`. |
+| `AMA_REQUIRE_REAL_PQC` | unset | When `true`, the import-time PQC production gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) fails closed if AMA Cryptography is not loadable. `import omni_mercury_engine` raises `RuntimeError` before any other package state is materialised. |
+| `AMA_REQUIRE_CONSTANT_TIME` | unset | Recommended alongside `AMA_REQUIRE_REAL_PQC`. Asserts the AMA Cryptography native library exposes its constant-time path. |
+
+`MERCURY_ENV` is consumed via the shared
+`omni_mercury_engine._env.{get_mercury_env, is_production,
+require_real_component, MercuryProductionConfigError}` helpers — new
+modules should adopt these rather than reading `os.environ` directly.
+See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
+
 ---
 
 ## Optional Environment Variables

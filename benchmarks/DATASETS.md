@@ -1,8 +1,24 @@
 # Mercury Agent - Active Dataset Catalog
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
 Every dataset in the benchmark pipeline. Datasets are loaded at runtime;
 API-sourced datasets may be unavailable if endpoints are down. The benchmark
 records `api_unavailable` and continues.
+
+> **v1.7 reachability harness.** The 11 historically-unreachable
+> loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS
+> Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA HazardMitigation)
+> are now covered by a two-lane harness — an always-on offline lane
+> (`tests/datasets/test_unreachable_loaders_offline.py`) plus a
+> nightly network lane (`tests/datasets/test_unreachable_loaders_network.py`
+> + `.github/workflows/dataset-reachability.yml`, 04:17 UTC) — so an
+> upstream provider outage surfaces as a failed nightly run rather
+> than as a benchmark silently dropping a dataset.
+>
+> The full data-sources catalog (loader paths, API URLs, auth
+> requirements, license terms, ground-truth events) is in
+> [`../docs/DATASOURCES.md`](../docs/DATASOURCES.md).
 
 ## ADBench (47 datasets)
 

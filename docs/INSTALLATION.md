@@ -1,16 +1,42 @@
 # Installation
 
-Applies to Mercury Agent **v1.6.x**. Last updated: 2026-05-05.
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
 
 ## Requirements
 
-- Python >= 3.11
+- Python >= 3.11 (3.12 recommended; 3.13 supported)
 - pip >= 21.0
 - A C toolchain (clang or gcc) and CMake >= 3.20 for the AMA
   Cryptography native PQC build (see "Post-Quantum Cryptography
   backend" below); only required when running with
   `AMA_REQUIRE_REAL_PQC=true`, but production deployments **must**
   enable it.
+
+## Production-mode primitives (`MERCURY_ENV` + `AMA_REQUIRE_REAL_PQC`)
+
+Production deployments should set **both** of these environment
+variables before importing `omni_mercury_engine`:
+
+```bash
+export MERCURY_ENV=production
+export AMA_REQUIRE_REAL_PQC=true
+export AMA_REQUIRE_CONSTANT_TIME=true   # recommended
+```
+
+They are orthogonal:
+
+- `MERCURY_ENV` (added in v1.7) is consumed by every collaborator that
+  has a mock/stub fallback (`narrative.voice.MercuryVoice`, more to
+  come). In `production`, the absence of a real adapter raises
+  `MercuryProductionConfigError`; in `development` (the default) it
+  warns and downgrades. An unknown value (e.g.
+  `MERCURY_ENV=prod`) also raises — typos must be loud. See
+  [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
+- `AMA_REQUIRE_REAL_PQC` gates the import-time PQC production check
+  (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`). When
+  set, missing or partially-built AMA Cryptography raises
+  `RuntimeError` at `import omni_mercury_engine` time before any
+  other package state is materialised.
 
 ## Quick Start
 
@@ -35,8 +61,15 @@ pip install -e ".[all]"
 | **Visual** | `pip install -e ".[visual]"` | ML + visual anomaly detectors |
 | **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate |
 | **API** | `pip install -e ".[api]"` | FastAPI, uvicorn |
+| **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v3.1.0`) |
+| **Compliance** | `pip install -e ".[compliance]"` | NIST CSF live-fetcher dependency (`openpyxl`) |
 | **All** | `pip install -e ".[all]"` | Everything above |
 | **Dev** | `pip install -e ".[dev]"` | All + pytest, black, ruff, mypy |
+
+The `[compliance]` extra installs `openpyxl`, used only by
+`NISTCSFReferenceFetcher` when parsing the live NIST CSRC reference
+XLSX. The OSHA and TLP 2.0 modules in `omni_mercury_engine.compliance`
+have no extra dependencies beyond core.
 
 ## Core Dependencies
 
@@ -135,3 +168,24 @@ python benchmarks/mercury_benchmark.py
 ```
 
 Results are written to `benchmarks/mercury_benchmark_results.json`.
+
+## v1.7 cycle additions
+
+- **Medical integrations.** The `EndocrinologyDetector` and
+  `AnesthesiologyPredictor` are integration-ready (no vendor
+  credentials in tree). See [`medical/SETUP.md`](medical/SETUP.md) for
+  Dexcom v3 / FHIR R4 wiring and the `CGMDataSource` /
+  `VitalsDataSource` adapter contract.
+- **Drone telemetry.** The `DroneAnomalyDetector` is transport-agnostic;
+  populate `DroneState` instances from your ingest layer (PX4 ULog via
+  `pyulog`, MAVLink via `pymavlink`, or vendor SDK). See
+  [`drone/SETUP.md`](drone/SETUP.md).
+- **Compliance modules.** NIST CSF 2.0, FIRST.org TLP 2.0, and
+  OSHA / eCFR live under `omni_mercury_engine.compliance`. See
+  [`COMPLIANCE.md`](COMPLIANCE.md).
+- **Performance profiling.** Six entry points (`@profile_func`,
+  `@profile_memory`, `@profile_time`, `@profile_time_async`,
+  `@profile_complete`, `PerformanceBenchmark`) plus `benchmark_function`
+  ship in `omni_mercury_engine.utils.profiling` and are gated by
+  `set_profiling_enabled(True)` at runtime. See
+  [`PROFILING.md`](PROFILING.md).

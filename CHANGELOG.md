@@ -26,6 +26,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation refresh (2026-05-19)
+
+Comprehensive documentation update covering the v1.7 development cycle.
+Every doc surface dated 3+ months stale has been refreshed, and three
+new docs were added for modules that had no operator-facing
+documentation:
+
+- **New: `docs/COMPLIANCE.md`** — first-party reference for the
+  `omni_mercury_engine.compliance` package (NIST CSF 2.0 integrator,
+  OSHA / eCFR detector with NWS Rothfusz heat-index regression, TLP
+  2.0 handler with the full five-colour ladder including
+  `AMBER+STRICT`).
+- **New: `docs/PROFILING.md`** — operator reference for the
+  `omni_mercury_engine.utils.profiling` toolkit (six decorators +
+  `PerformanceBenchmark` + `benchmark_function`, gated by
+  `set_profiling_enabled(...)`).
+- **New: `docs/drone/SETUP.md`** — operator setup guide for the
+  drone anomaly detector (referenced from the detector module
+  docstring; `DroneState` contract, PX4 ULog / MAVLink ingest
+  examples, three upstream-defect fixes recorded).
+- **Updated: `ARCHITECTURE.md` (root)** — new sections covering the
+  v1.7 governance framework modules, medical decision-support
+  modules, drone detector, and profiling toolkit.
+- **Updated: `DEPRECATION.md`** — new §6 "v1.7 Removals
+  (security/correctness exceptions)" enumerating the four surfaces
+  removed under the preservation policy override criteria
+  (`SafeHTTPClient(..., allow_untrusted=True)`, silent
+  `MockLLMAdapter` fallback, `strict_ethics=False`,
+  `gosnn_metadata.fallback_mode=True`) and the one relocation
+  (`tlp_handler` from `security/` to `compliance/`).
+- **Updated: `SECURITY.md`** — v1.7 hard-gate boundary contract,
+  `MERCURY_ENV` production-mode primitive, two-tier dependency-CVE
+  coverage table, governance-framework cross-references.
+- **Updated: `CONTRIBUTING.md`** (v2.5) — v1.7 do-not-restore
+  items, medical / drone / compliance integration-ready
+  contribution channels.
+- **Updated: `docs/INSTALLATION.md`, `docs/DEPLOYMENT.md`** —
+  `MERCURY_ENV` + `AMA_REQUIRE_REAL_PQC` production-mode primitives,
+  `[compliance]` and `[pqc]` extras, v1.7 module installation notes.
+- **Updated: `docs/API_REFERENCE.md`** — module-index table, quick-
+  import blocks for compliance / medical / drone / profiling
+  surfaces, decision-boundary contract banner.
+- **Updated: `docs/index.md`** — `MERCURY_ENV` and compliance
+  primitives in the "What you should know first" block; toctree
+  entries for the new docs.
+- **Updated: `docs/ROADMAP.md`** — capability-status table refreshed
+  to 2026-05-19 with seven new "Functional" rows (NIST CSF 2.0
+  integrator, TLP 2.0 handler, OSHA / eCFR detector, drone anomaly
+  detector, endocrinology detector, anesthesiology predictor,
+  performance profiling toolkit).
+- **Updated: `docs/COMPREHENSIVE_REPO_AUDIT.md`** — resolution-status
+  banner extended with seven additional finding-themes resolved in
+  the v1.7 cycle.
+- **Updated: `docs/DATASOURCES.md`** — "Last verified" bumped to
+  2026-05-19; v1.7 reachability harness and the 65/65 / 64/75 /
+  51/55 benchmark trajectory reconciled.
+- **Updated: `docs/PYTHON_DEP_CVE_AUDIT.md`** — audit date /
+  next-review bumped (2026-05-19 → 2026-08-19); v1.7 dependency
+  surface (`openpyxl` for the `compliance` extra, exact `v3.1.0`
+  pin for the `pqc` extra) documented.
+- **Updated: `docs/medical/SETUP.md`, `docs/BENCHMARKS.md`,
+  `docs/ROUTING_GUIDE.md`, `docs/MATH_SPEC.md`,
+  `docs/LIVE_DATA_VALIDATION.md`, `docs/ORACLE_NOISE_COLOR.md`,
+  `docs/CROSS_DOMAIN_ANALYSIS.md`, `docs/DOMAIN_PERFORMANCE.md`,
+  `benchmarks/DATASETS.md`** — date-stamped to 2026-05-19 with v1.7
+  context where applicable.
+- **Updated: `rust_crypto/README.md`** — clarified scope (classical
+  crypto, **not** PQC); pointed PQC use cases at
+  AMA Cryptography v3.1.0 and the `[pqc]` extra.
+- **Updated: `CODE_OF_CONDUCT.md`** — added document-version
+  metadata table and a Mercury-specific note tying the Code of
+  Conduct to the dual hard ethical gates encoded in the software.
+
+No source code or behaviour changed in this entry; the
+documentation refresh is text-only.
+
 ### Omni-AXA → Mercury port, PR 1: infrastructure & stdlib-only modules
 
 Three first-party modules ported from `Steel-SecAdv-LLC/Omni-AXA-Engine`

@@ -1,6 +1,24 @@
 # Mercury Crypto - Rust Cryptographic Bindings
 
-High-performance cryptographic operations for Mercury Agent, implemented in Rust with Python bindings using PyO3.
+> **Scope.** This crate provides high-performance **classical**
+> cryptographic primitives (AEAD, hashing, KDF, CSPRNG, constant-time
+> comparisons) for Mercury Agent. It is **not** Mercury's
+> post-quantum cryptography (PQC) backend. PQC for Mercury Agent
+> flows exclusively through
+> [AMA Cryptography](https://github.com/Steel-SecAdv-LLC/AMA-Cryptography)
+> (pinned to `v3.1.0` in
+> `.github/workflows/pqc-production-check.yml` and the
+> `[pqc]` extra of `pyproject.toml`). See
+> [`SECURITY.md`](../SECURITY.md) §"Post-Quantum Cryptography
+> Backend Audit Status" and [`docs/INSTALLATION.md`](../docs/INSTALLATION.md)
+> §"Post-Quantum Cryptography backend".
+>
+> If your use case requires Kyber-1024, ML-DSA-65, or SPHINCS+,
+> install the `[pqc]` extra and set `AMA_REQUIRE_REAL_PQC=true` to
+> enable the import-time production gate. This `mercury_crypto`
+> crate is the classical workhorse alongside that PQC backend.
+
+Implemented in Rust with Python bindings using PyO3. Last updated: 2026-05-19.
 
 ## Features
 

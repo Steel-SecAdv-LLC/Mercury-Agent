@@ -1,5 +1,7 @@
 # Mercury Agent Architecture
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
 ## Overview
 
 The Mercury Agent is a neuro-symbolic AI framework that integrates 22+ diverse scientific and computational paradigms — a deep-learning core (163 `torch.nn.Module` subclasses across visual, behavioural, physics-based, fusion and differentiable-logic theorem-proving subsystems, imported across 120 source files) coupled with an explicit symbolic layer (knowledge graphs, rule bases, formal verification, AST-based code analysis, case-based reasoning) — into a unified hybrid-fusion architecture. Multi-domain anomaly detection is one of the capabilities this AI exposes, not the limit of what it is. This document describes the system architecture, data flow, and key design decisions.
@@ -666,6 +668,59 @@ Boundary surfaces:
 engine, the hub, and the orchestrator all observe the same trained
 network and the same signed-corpus verdict, so a corpus tampering at
 startup poisons every decision boundary uniformly (fail-closed).
+
+### Governance Framework Modules (v1.7)
+
+The v1.7 development cycle introduced three first-party governance
+framework modules under `omni_mercury_engine.compliance` (the
+implementation-primitives package `omni_mercury_engine.security` is
+reserved for crypto, PQC, audit logging, SafeHTTP, and threat
+detection — see [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md)):
+
+| Module | Purpose | Live-data path |
+|--------|---------|----------------|
+| `compliance.nist_csf_integrator` | NIST CSF 2.0: 6 functions, 22 categories, 106+ subcategories | `NISTCSFReferenceFetcher` hits `csrc.nist.gov` reference XLSX with 7-day on-disk cache |
+| `compliance.osha_anomaly` | OSHA: 12 hazard categories × 6 industry sectors with NWS Rothfusz heat-index regression | `ECFRClient` validates CFR citations against `ecfr.gov` (60 req/min, cached) |
+| `compliance.tlp_handler` | FIRST.org / CISA TLP 2.0: CLEAR / GREEN / AMBER / AMBER+STRICT / RED end-to-end, watermarking, JSON export | No external dependencies |
+
+### Medical Decision-Support Modules (v1.7)
+
+`omni_mercury_engine.medical` ships **integration-ready, not
+pre-integrated** clinical predictors. Mercury never carries vendor
+credentials and never fabricates patient data; misconfigured adapters
+raise `ConfigurationError`. See [`docs/medical/SETUP.md`](docs/medical/SETUP.md)
+for the operator runbook.
+
+| Module | Purpose | Data-source ABC |
+|--------|---------|-----------------|
+| `medical.endocrinology_detector` | CGM Bi-LSTM (~155 K params), FDA-aligned glycemic rules, GLP-1 and inhaled-insulin monitors | `CGMDataSource` (reference: `DexcomV3DataSource`) |
+| `medical.anesthesiology_predictor` | TIVA Bi-LSTM (~164 K params), PID infusion controller, hemodynamic monitor (MAP / HR / SpO₂ / EtCO₂) | `VitalsDataSource` (reference: `FHIRObservationVitalsSource`) |
+| `medical.cardiology` | ECG rhythm analysis, arrhythmia detection, Framingham risk | (caller-supplied) |
+| `medical.critical_care` | Sepsis (SOFA / qSOFA), stroke (NIHSS), seizure, ICP monitoring | (caller-supplied) |
+| `medical.pandemic` | SEIR forecasting, pathogen detection, mutation tracking, transmission networks | (caller-supplied) |
+
+### Drone Detection Module (v1.7)
+
+`omni_mercury_engine.detectors.drone.detector` ships a
+transport-agnostic drone anomaly detector. Mercury does not ship
+PX4 ULog or MAVLink ingest adapters — adopters populate `DroneState`
+instances from their telemetry source of choice. See
+[`docs/drone/SETUP.md`](docs/drone/SETUP.md).
+
+| Layer | Implementation |
+|-------|----------------|
+| Invariant rules (RADD) | First-party rule engine over `DroneState` fields |
+| Ensemble scorer | Mercury's `MercuryAnomalyDetector` (Resonance 40% + Kinematic 30% + InfoGeometry 30%); no sklearn runtime dependency |
+| Log-based path (DronLomaly) | Optional Bi-LSTM head |
+
+### Performance Profiling (v1.7)
+
+`omni_mercury_engine.utils.profiling` ships six entry points
+(`@profile_func`, `@profile_memory`, `@profile_time`,
+`@profile_time_async`, `@profile_complete`, `PerformanceBenchmark` +
+`benchmark_function`). All entry points are **no-ops by default** —
+enable with `set_profiling_enabled(True)`. See
+[`docs/PROFILING.md`](docs/PROFILING.md).
 
 ### NIST SP 800-53 Controls
 

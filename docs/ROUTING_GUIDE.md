@@ -1,6 +1,18 @@
 # Routing Infrastructure Guide
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
 Mercury Agent provides a flexible routing infrastructure for request handling, pattern matching, and graceful degradation through fallback chains. This guide covers the core routing components and demonstrates how to integrate them with the detection pipeline.
+
+> **v1.7 production-mode addition.** Production deployments should
+> set `MERCURY_ENV=production`. Routes themselves are unchanged, but
+> downstream collaborators that previously silently substituted
+> mock/stub adapters (e.g. `narrative.voice.MercuryVoice`) now raise
+> `MercuryProductionConfigError` rather than degrading silently when
+> `MERCURY_ENV=production`. Route handlers should let those
+> exceptions propagate; the route layer is not the right place to
+> mask a production-mode misconfiguration. See
+> [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.
 
 > **Hard ethical gates run *inside* the prediction call, not at the
 > route layer.** Routes never see, attenuate, or bypass the dual

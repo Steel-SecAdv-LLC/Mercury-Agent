@@ -1,15 +1,21 @@
 # Mercury-Agent Data Sources
 
-Last verified: 2026-02-15. The canonical public benchmarking figure
-is the **64 reproducible / 75 attempted** set documented in the
-README "Empirical Benchmark Results" section (Mean AUC 0.8285,
-Mean Oracle F1 0.6370, after the Oracle pipeline fix and dataset
-expansion). The benchmark run captured below in this file is a
-**separate earlier 51/55** run of `mercury_benchmark.py` that
-reports Mean AUC 0.8030 / Mean Oracle F1 0.5886 — the legacy
-baseline the README explicitly improves upon. The two views are
-not the same measured baseline; see `docs/BENCHMARKS.md` for the
-full reconciliation.
+Last verified: 2026-05-19 (loader catalog refresh; benchmark snapshots
+in the per-dataset tables below still derive from the 2026-02-15
+sweep — that sweep is the legacy 51/55 `mercury_benchmark.py` baseline
+the README headline improves on, and is preserved here as the
+auditable starting point). The canonical public benchmarking figure
+is the **65 reproducible / 65 attempted** set documented in the
+README "Latest Benchmark Results" section (Mean AUC 0.8464, Mean
+Oracle F1 0.6441, run timestamp 2026-05-14T22:14:04 UTC). The earlier
+**64/75** snapshot from 2026-03-04 (Mean AUC 0.8285, Mean Oracle F1
+0.6370) is the public headline that this loader catalog originally
+verified against; the 11 historically-unreachable loaders (SMAP, MSL,
+CICIDS-2017, MIT-BIH, UCR, SWaT, WADI, USGS Geochemistry, NOAA
+StormEvents, NOAA ERDDAP, FEMA HazardMitigation) are now tracked by
+a two-lane reachability harness rather than counted as silent
+benchmark drops. The two earlier views are not the same measured
+baseline; see `docs/BENCHMARKS.md` for the full reconciliation.
 
 ## Successfully Loading (51 datasets)
 
