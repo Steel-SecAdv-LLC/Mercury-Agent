@@ -707,7 +707,11 @@ class RedisStreamProducer(StreamProducer):
 
     def __init__(self, config: StreamConfig | None = None):
         self.config = config or StreamConfig()
-        self._redis = None
+        # Connection handle.  Typed Any|None because ``redis`` is an optional
+        # dependency (extras_require[streaming]); annotating with the concrete
+        # ``redis.asyncio.Redis`` type would force an unconditional import that
+        # breaks the lightweight install.
+        self._redis: Any = None
         self._circuit_breaker = CircuitBreaker(
             name="redis-producer",
             failure_threshold=self.config.circuit_breaker_threshold,
@@ -729,7 +733,7 @@ class RedisStreamProducer(StreamProducer):
             decode_responses=True,
         )
         # Test connection
-        await self._redis.ping()  # type: ignore[attr-defined]
+        await self._redis.ping()
         logger.info(f"Redis producer connected to {self.config.redis_url}")
 
     async def disconnect(self) -> None:
@@ -827,7 +831,8 @@ class RedisStreamConsumer(StreamConsumer):
         self.config = config or StreamConfig()
         self.group_id = group_id
         self.consumer_name = consumer_name or f"consumer-{os.getpid()}"
-        self._redis = None
+        # See RedisStreamProducer.__init__ for the rationale on Any-typing.
+        self._redis: Any = None
         self._subscribed_topics: list[str] = []
         self._circuit_breaker = CircuitBreaker(
             name="redis-consumer",
@@ -849,7 +854,7 @@ class RedisStreamConsumer(StreamConsumer):
             max_connections=self.config.redis_max_connections,
             decode_responses=True,
         )
-        await self._redis.ping()  # type: ignore[attr-defined]
+        await self._redis.ping()
         logger.info(f"Redis consumer connected to {self.config.redis_url}")
 
     async def disconnect(self) -> None:

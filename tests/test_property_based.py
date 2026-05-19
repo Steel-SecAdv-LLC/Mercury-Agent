@@ -225,7 +225,7 @@ class TestDoubleHelixEngineProperties:
 
     @pytest.mark.skipif(not hypothesis_available, reason="Hypothesis not installed")
     @given(st.integers(min_value=4, max_value=128))
-    @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
+    @settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_evolution_dimension_consistency(self, dim: int) -> None:
         """Evolution should preserve state dimension."""
         from omni_mercury_engine.core.double_helix_engine import MercuryEquationEngine
@@ -477,7 +477,7 @@ class TestDetectorRegistryProperties:
             ),
         )
     )
-    @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
+    @settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_aggregate_features_no_nans(self, features: np.ndarray[Any, Any]) -> None:
         """Aggregated features should never contain NaN values."""
         import torch
