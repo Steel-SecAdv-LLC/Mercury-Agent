@@ -707,10 +707,17 @@ class RedisStreamProducer(StreamProducer):
 
     def __init__(self, config: StreamConfig | None = None):
         self.config = config or StreamConfig()
-        # Connection handle.  Typed Any|None because ``redis`` is an optional
-        # dependency (extras_require[streaming]); annotating with the concrete
-        # ``redis.asyncio.Redis`` type would force an unconditional import that
-        # breaks the lightweight install.
+        # Connection handle.  Typed ``Any`` (which subsumes ``None``) because
+        # ``redis`` is an optional dependency (extras_require[streaming]);
+        # annotating with the concrete ``redis.asyncio.Redis`` type would
+        # force an unconditional import that breaks the lightweight install,
+        # and ``Any | None`` triggers a mypy quirk where ``await
+        # self._redis.ping()`` resolves to ``Awaitable[bool] | bool``
+        # because the ``None`` branch poisons the union for the await
+        # operator.  Disconnected state is represented by ``self._redis``
+        # being ``None`` at runtime; consumers must check truthiness
+        # (e.g. ``if not self._redis``) rather than relying on a type
+        # narrowing.
         self._redis: Any = None
         self._circuit_breaker = CircuitBreaker(
             name="redis-producer",
@@ -831,7 +838,8 @@ class RedisStreamConsumer(StreamConsumer):
         self.config = config or StreamConfig()
         self.group_id = group_id
         self.consumer_name = consumer_name or f"consumer-{os.getpid()}"
-        # See RedisStreamProducer.__init__ for the rationale on Any-typing.
+        # See RedisStreamProducer.__init__ for the rationale on ``Any``
+        # (and why ``Any | None`` is not used).
         self._redis: Any = None
         self._subscribed_topics: list[str] = []
         self._circuit_breaker = CircuitBreaker(

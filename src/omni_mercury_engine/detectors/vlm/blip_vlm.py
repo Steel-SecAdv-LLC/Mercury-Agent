@@ -67,7 +67,10 @@ except ImportError:
     # when the import failed and the names are not yet bound.
     BlipProcessor = None  # type: ignore[assignment, misc, unused-ignore]
     BlipForConditionalGeneration = None  # type: ignore[assignment, misc, unused-ignore]
-    logger.debug("transformers not available - BLIP VLM will use mock implementation")
+    logger.debug(
+        "transformers not available - BLIP VLM detector disabled "
+        "(constructor will raise NotImplementedError; Phase 2 audit forbids silent mock degradation)"
+    )
 
 try:
     from PIL import Image
