@@ -47,7 +47,6 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Awaitable, Callable  # noqa: TC003 - used in runtime annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -58,11 +57,17 @@ import numpy as np
 from omni_mercury_engine.core.types import CircuitState
 
 if TYPE_CHECKING:
-    # Type-only imports for the optional ``aiokafka`` / ``redis`` deps.
-    # ``from __future__ import annotations`` (line 17) makes all
-    # annotations lazy strings, so these names never need to exist at
-    # runtime; the corresponding ``import`` statements live inside the
-    # ``connect()`` bodies where they're actually used.
+    # ``from __future__ import annotations`` (line 17) makes every annotation
+    # in this module a lazy string, so the ``collections.abc`` aliases below
+    # and the optional ``aiokafka`` / ``redis`` types are only ever needed by
+    # static type checkers -- the runtime ``import`` for the optional deps
+    # lives inside the ``connect()`` bodies that actually use them, and the
+    # ``cast("Awaitable[Any]", ...)`` calls embed their type argument as a
+    # string literal.  Keeping these imports type-checking-only (rather than
+    # at runtime with a ``noqa`` suppression) eliminates the long-line lint
+    # failure and matches the optional-dep pattern in ``core/adaptive_fusion``.
+    from collections.abc import AsyncIterator, Awaitable, Callable
+
     from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
     from redis.asyncio import Redis
 
