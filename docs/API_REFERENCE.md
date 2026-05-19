@@ -210,10 +210,15 @@ from omni_mercury_engine.detectors.drone.detector import (
 )
 ```
 
-Populate `DroneState(altitude_m, altitude_rate, horizontal_velocity,
-vertical_velocity, distance_to_home, …)` from your ingest layer of
-choice — PX4 ULog via `pyulog`, MAVLink via `pymavlink`, or vendor
-SDK — and feed the sequence through the detector.
+Populate `DroneState` (always with keyword arguments; the dataclass
+field order is `position`, `velocity`, `attitude`, `battery_level`,
+`altitude`, `gps_satellites`, `signal_strength`, `motor_speeds`,
+`temperature`, `mission_phase`, then the four derived kinematic
+fields `altitude_rate` / `horizontal_velocity` / `vertical_velocity`
+/ `distance_to_home`, `home_position`, and `timestamp`) from your
+ingest layer of choice — PX4 ULog via `pyulog`, MAVLink via
+`pymavlink`, or vendor SDK — and feed the sequence through the
+detector.
 
 ## Profiling: `omni_mercury_engine.utils.profiling`
 

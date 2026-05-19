@@ -81,7 +81,7 @@ state = DroneState(
     signal_strength=0.88,
     motor_speeds=np.array([7800.0, 7820.0, 7790.0, 7810.0]),
     temperature=42.0,
-    mission_phase=MissionPhase.CRUISE,
+    mission_phase=MissionPhase.ON_MISSION,
     # The kinematic fields below are derived from ``velocity`` /
     # ``position`` when omitted; supplying them explicitly is preferred
     # when the ingest layer measures them directly.
@@ -113,7 +113,7 @@ rather than leaking obscure `IndexError`s into the rule engine.
 | `signal_strength` | `float` ∈ [0, 1] | yes | Command-link strength. |
 | `motor_speeds` | `ndarray[float64]` shape `(4,)` | yes | Per-motor RPM. Quadrotor only — extend the rules for hex/oct. |
 | `temperature` | `float` | yes | Component temperature in °C. |
-| `mission_phase` | `MissionPhase` | yes | `IDLE`, `TAKEOFF`, `CRUISE`, `LANDING`, `HOVER`, `EMERGENCY`. |
+| `mission_phase` | `MissionPhase` | yes | `INIT`, `TAKEOFF`, `ON_MISSION`, `RETURN`, `LANDING`, `EMERGENCY`. |
 | `altitude_rate` | `float \| None` | derived | Climb rate (positive = ascent). Derived from `velocity[2]` when `None`. |
 | `horizontal_velocity` | `float \| None` | derived | Horizontal speed magnitude. Derived from `velocity[:2]` when `None`. |
 | `vertical_velocity` | `float \| None` | derived | Vertical speed (positive = descent, matches LANDING rule semantics). |
@@ -165,9 +165,24 @@ faults_per_state = [detector.detect(s) for s in states]
 
 `pyulog` is a runtime-optional dependency: install with
 `pip install pyulog` (not vendored by Mercury). The `vehicle_status`
-field maps to `MissionPhase`; PX4 nav states `AUTO_TAKEOFF`,
-`AUTO_LAND`, `AUTO_LOITER`, `AUTO_MISSION`, `AUTO_RTL` should map to
-`TAKEOFF`, `LANDING`, `HOVER`, `CRUISE`, `EMERGENCY` respectively.
+field maps to `MissionPhase`; the recommended PX4 nav-state mapping
+(`commander/state_machine_helper.cpp`) is:
+
+| PX4 nav state | `MissionPhase` |
+|---------------|---------------|
+| `MANUAL`, `STAB`, `ACRO`, `POSCTL`, `ALTCTL`, `OFFBOARD` (pre-arm) | `INIT` |
+| `AUTO_TAKEOFF` | `TAKEOFF` |
+| `AUTO_MISSION`, `AUTO_LOITER`, `AUTO_FOLLOW_TARGET`, `OFFBOARD` (armed) | `ON_MISSION` |
+| `AUTO_RTL`, `AUTO_RTGS` | `RETURN` |
+| `AUTO_LAND`, `AUTO_PRECLAND` | `LANDING` |
+| `TERMINATION`, `AUTO_LANDENGFAIL`, `AUTO_LANDGPSFAIL` | `EMERGENCY` |
+
+`AUTO_LOITER` collapses into `ON_MISSION` rather than a dedicated
+hover state because the Mercury `MissionPhase` enum intentionally
+does not split loiter from mission cruise — the rule engine treats
+them identically. If your operational protocol requires
+distinguishing them, encode the discriminator in your ingest layer's
+`extra` metadata rather than extending `MissionPhase` here.
 
 ### MAVLink
 
