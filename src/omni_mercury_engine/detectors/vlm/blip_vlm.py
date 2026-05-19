@@ -60,8 +60,13 @@ try:
 
     HAS_TRANSFORMERS = True
 except ImportError:
-    BlipProcessor = None
-    BlipForConditionalGeneration = None
+    # ``transformers`` is an optional dependency (extras_require[vlm]).  The
+    # ``# type: ignore`` annotations mirror the PIL fallback below: mypy sees
+    # these names as reassignments of imported types when ``transformers`` is
+    # present in the type-checking env, but at runtime they are only reached
+    # when the import failed and the names are not yet bound.
+    BlipProcessor = None  # type: ignore[assignment, misc, unused-ignore]
+    BlipForConditionalGeneration = None  # type: ignore[assignment, misc, unused-ignore]
     logger.debug("transformers not available - BLIP VLM will use mock implementation")
 
 try:

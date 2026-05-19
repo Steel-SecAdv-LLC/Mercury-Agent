@@ -5,7 +5,7 @@
 # =============================================================================
 # Stage 1: Builder - Install dependencies in a full environment
 # =============================================================================
-FROM python:3.13-slim-bookworm AS builder
+FROM python:3.14-slim-bookworm AS builder
 
 # Install build dependencies
 # gfortran + libopenblas-dev + pkg-config: required when pip falls back to
@@ -30,7 +30,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2025-8869 (symlink extraction in sdist archives)
 #   CVE-2026-1703  (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp)
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel, fixed in 26.1)
-# Python 3.13 implements PEP 706, so the vulnerable tar fallback is never used,
+# Python 3.13+ implements PEP 706, so the vulnerable tar fallback is never used,
 # but we pin to >=26.1 as defense-in-depth and to fully resolve all three CVEs.
 RUN pip install --no-cache-dir --upgrade "pip>=26.1" "setuptools>=78.1.1" wheel
 
@@ -51,7 +51,7 @@ COPY . /app
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only runtime dependencies
 # =============================================================================
-FROM python:3.13-slim-bookworm AS runtime
+FROM python:3.14-slim-bookworm AS runtime
 
 # Build arguments for flexibility
 ARG USERNAME=mercuryagent
@@ -75,7 +75,7 @@ LABEL security.scan-date="2026-01-09"
 # 3. No 256-byte username processing in application code
 # See .trivyignore for detailed justifications
 RUN apt-get update && \
-    # adduser: the upgraded apt in python:3.13+-slim-bookworm depends on it,
+    # adduser: the upgraded apt in python:3.13+/3.14-slim-bookworm depends on it,
     # but the slim base omits it.  Install before upgrade to unblock the
     # dependency resolver.
     apt-get install -y --no-install-recommends adduser && \
@@ -92,7 +92,7 @@ RUN apt-get update && \
 
 # Security hardening: strip setuid/setgid bits from all binaries.
 # This replaces the previous "apt-get purge login passwd" approach which
-# broke on python:3.13-slim-bookworm due to the apt→adduser→passwd
+# broke on python:3.13+/3.14-slim-bookworm due to the apt→adduser→passwd
 # dependency chain — purging passwd cascades into removing adduser,
 # which breaks the apt package manager.  Stripping SUID/SGID bits
 # achieves the same privilege-escalation mitigation without breaking
@@ -115,7 +115,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 #   CVE-2026-1703  (path traversal in wheel archives, GHSA-6vgw-5pg2-w6jp)
 #   CVE-2026-6357  (arbitrary code execution via malicious wheel)
 # The builder's venv already has pip>=26.1 via the copy above, but the base
-# python:3.13-slim-bookworm image ships its own pip that Trivy detects.
+# python:3.14-slim-bookworm image ships its own pip that Trivy detects.
 RUN python -m pip install --upgrade --no-cache-dir "pip>=26.1" "setuptools>=78.1.1" && \
     pip cache purge
 
