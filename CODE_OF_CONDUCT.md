@@ -1,5 +1,13 @@
 # Contributor Covenant Code of Conduct
 
+| Property | Value |
+|----------|-------|
+| Document Version | 1.1 |
+| Last Updated | 2026-05-19 |
+| Classification | Public |
+| Maintainer | Steel Security Advisors LLC |
+| Applies to | Mercury Agent v1.6.x and the v1.7 development cycle |
+
 ## Our Pledge
 
 We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual identity and orientation.
@@ -48,6 +56,16 @@ Community leaders will follow these Community Impact Guidelines in determining t
 2. Warning
 3. Temporary Ban
 4. Permanent Ban
+
+## Mercury-Specific Notes
+
+Mercury Agent's mission is **Civilization-First** AI — every contribution is
+expected to respect both the dual hard ethical gates encoded in the
+software (Benevolence ≥ 0.99, σ_Immutable) and the equivalent norms in
+human collaboration. PRs and discussions that propose weakening either
+gate, or that target real or simulated populations served by Mercury's
+humanitarian domains (medical, disaster, missing-persons, infrastructure
+resilience), receive escalated review.
 
 ## Attribution
 

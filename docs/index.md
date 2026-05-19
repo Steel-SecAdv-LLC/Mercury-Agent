@@ -1,6 +1,6 @@
 # Mercury Agent Documentation
 
-Version `1.6.0` — Steel-SecAdv-LLC. Last updated: 2026-05-05.
+Version `1.6.0` (v1.7 development cycle in flight) — Steel-SecAdv-LLC. Last updated: 2026-05-19.
 
 Mercury Agent is the **neuro-symbolic AI** orchestration / cognition layer
 of the FIND**Ω**YOU stack — a hybrid of deep-learning detectors, an
@@ -56,6 +56,21 @@ for the post-quantum cryptographic substrate.
   loader path), so PyTorch's `.pt` format is still in use for
   trained-model weights — this is intentional and not a `pickle`
   fall-back.
+- **Production-mode primitive (`MERCURY_ENV`).** New v1.7 module
+  `omni_mercury_engine._env` exposes the canonical environment-mode
+  flag (`development` default, `production`) plus shared fail-closed
+  helpers (`get_mercury_env`, `is_production`,
+  `require_real_component`, `MercuryProductionConfigError`). It is
+  orthogonal to `AMA_REQUIRE_REAL_PQC`; production deployments
+  typically set both. See
+  [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3 for the full
+  contract.
+- **Governance modules live in `compliance/`, not `security/`.** The
+  v1.7 development cycle introduced first-party NIST CSF 2.0, FIRST.org
+  TLP 2.0, and OSHA / eCFR modules under
+  `omni_mercury_engine.compliance`. `security/` stays reserved for
+  implementation primitives (crypto, PQC, threat detection, audit
+  logging). See [`COMPLIANCE.md`](COMPLIANCE.md).
 
 ## Navigation
 
@@ -78,6 +93,11 @@ ROADMAP
 PYTHON_DEP_CVE_AUDIT
 CROSS_DOMAIN_ANALYSIS
 COMPREHENSIVE_REPO_AUDIT
+MIGRATION-1.6-to-1.7
+COMPLIANCE
+PROFILING
+medical/SETUP
+drone/SETUP
 ```
 
 ## See also

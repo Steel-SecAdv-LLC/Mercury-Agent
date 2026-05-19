@@ -1,7 +1,8 @@
 # Python Dependency CVE Audit
 
-**Audit Date:** 2026-05-02
-**Next Review:** 2026-08-02 (90 days; quarterly cadence)
+**Audit Date:** 2026-05-19 (refreshed; clean-venv re-enumeration confirms 0 unresolved findings)
+**Next Review:** 2026-08-19 (90 days; quarterly cadence)
+**Prior Review:** 2026-05-02
 **Scope:** Python packages installed by `pip install -e ".[api]"` against the
 `mercury-agent` editable install. This is the **same install set** that the
 GitHub Actions `security-scan` job runs (Python 3.12, `actions/setup-python@v5`),
@@ -184,7 +185,19 @@ substantive from that branch is referenced by the open PR set.
 
 ## Re-review schedule
 
-The next audit is due **2026-08-02**. The PR template's Security checklist
+The next audit is due **2026-08-19**. The PR template's Security checklist
 references this document; reviewers must check that the "Audit Date" above
 is within the past 90 days, and that any new `IGNORE` entry has a fresh
 `Re-review` date. Expired entries must be re-justified or upgraded.
+
+## v1.7 dependency surface
+
+The v1.7 development cycle adds one optional runtime dependency
+(`openpyxl`, gated behind the `compliance` extra in `pyproject.toml`,
+required only by `NISTCSFReferenceFetcher` for parsing the NIST CSRC
+reference XLSX). No new mandatory runtime dependencies were
+introduced. The `pqc` extra now pins
+`ama-cryptography @ v3.1.0` exactly (rather than tracking the default
+branch) so an upstream force-push or breaking change cannot silently
+bump Mercury's PQC surface; bump the tag in lockstep with
+`.github/workflows/pqc-production-check.yml` (`AMA_REF: v3.1.0`).

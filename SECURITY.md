@@ -184,7 +184,7 @@ Mercury Agent includes security intelligence capabilities. Users must:
 
 ## Current Vulnerability Status
 
-*Last Review: 2026-05-15*
+*Last Review: 2026-05-19*
 
 ### Accepted Vulnerabilities (with Mitigations)
 
@@ -234,7 +234,19 @@ Mercury Agent's Docker container implements defense-in-depth:
 
 ### Unresolved Vulnerabilities
 
-Accepted risks are reviewed quarterly. As of the 2026-05-15 review, documented acceptances are 10 CVEs (2 Critical, 3 High, 4 Medium, 1 Low), including fixed pip CVEs retained for audit continuity. See [`.trivyignore`](.trivyignore) for complete details.
+Accepted risks are reviewed quarterly. As of the 2026-05-19 review, documented acceptances are 10 CVEs (2 Critical, 3 High, 4 Medium, 1 Low), including fixed pip CVEs retained for audit continuity. See [`.trivyignore`](.trivyignore) for complete details.
+
+### Two-Tier Dependency-CVE Coverage
+
+Mercury Agent runs **two complementary CVE gates** on every PR:
+
+| Tier | Tool | Scope | Source of truth |
+|------|------|-------|-----------------|
+| Python-package | `safety check` (v3.7.0) + `pip-audit` (v2.10.0) | Editable install (`pip install -e ".[api]"`) | [`docs/PYTHON_DEP_CVE_AUDIT.md`](docs/PYTHON_DEP_CVE_AUDIT.md) |
+| Deployment-image | Trivy | Built Docker image (full runtime + OS) | [`.trivyignore`](.trivyignore) |
+
+Both gates must be GREEN for any PR to merge. See `docs/PYTHON_DEP_CVE_AUDIT.md`
+for the per-CVE rationale and 90-day re-review cadence.
 
 ## Security Audits
 
@@ -251,7 +263,49 @@ Mercury Agent is designed with compliance in mind:
 
 - **OWASP**: Follows OWASP Top 10 security guidelines
 - **CWE**: Addresses Common Weakness Enumeration patterns
-- **NIST**: Aligned with NIST Cybersecurity Framework
+- **NIST CSF 2.0**: First-party integrator at
+  `omni_mercury_engine.compliance.nist_csf_integrator` covers all six
+  core functions (GOVERN, IDENTIFY, PROTECT, DETECT, RESPOND, RECOVER),
+  22 categories, and 106+ subcategories. The fetcher hits the live
+  NIST CSRC reference endpoint with a 7-day on-disk cache so
+  assessments reflect the authoritative subcategory tree, not a
+  hard-coded snapshot. See
+  [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md).
+- **FIRST.org / CISA TLP 2.0**: First-party handler at
+  `omni_mercury_engine.compliance.tlp_handler` implements the full
+  five-colour ladder (CLEAR / GREEN / AMBER / AMBER+STRICT / RED) for
+  every Mercury output, including watermarking and export metadata.
+- **OSHA / eCFR**: First-party detector at
+  `omni_mercury_engine.compliance.osha_anomaly` covers 12 hazard
+  categories × 6 industry sectors with CFR citations and a NWS
+  Rothfusz heat-index regression (the upstream simplified
+  ``T + 0.5·RH`` heuristic over-reported by ~8 °F at high humidity and
+  under-reported at low humidity — both directions removed in the
+  port).
+
+### v1.7 hard-gate boundary contract
+
+As of the v1.7 development cycle every public boundary surface
+(`OmniMercuryEngine.detect_with_fusion[_calibrated]`,
+`CognitiveOrchestrator.analyze`, `NeuroSymbolicHub.predict`) runs **two
+independent mandatory hard ethical gates** — Benevolence (>= 0.99) and
+σ_Immutable (256-D scalar network) — and raises
+`EthicalConstraintViolationError(check=…)` on failure. There is no
+advisory mode. The reserved `check=` codes are `"benevolence"`,
+`"sigma_immutable"`, and `"gosnn_unavailable"`. See
+[`ARCHITECTURE.md`](ARCHITECTURE.md) §"Dual-Gate Hard Ethical
+Enforcement" and [`docs/MIGRATION-1.6-to-1.7.md`](docs/MIGRATION-1.6-to-1.7.md) §2.
+
+### Production-mode primitive (`MERCURY_ENV`)
+
+`omni_mercury_engine._env` exposes the canonical environment-mode flag
+`MERCURY_ENV` (`development` default, `production`) plus shared
+fail-closed helpers (`get_mercury_env`, `is_production`,
+`require_real_component`, `MercuryProductionConfigError`). The flag is
+orthogonal to `AMA_REQUIRE_REAL_PQC`; production deployments typically
+set both. An unknown value (e.g. `MERCURY_ENV=prod`) raises
+`MercuryProductionConfigError` at first read, by design — typos in
+deployment configuration must be loud.
 
 ## Contact
 
@@ -265,5 +319,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-05-15*
-*Version: 1.6.0*
+*Last Updated: 2026-05-19*
+*Version: 1.6.0 (v1.7 development cycle in flight)*

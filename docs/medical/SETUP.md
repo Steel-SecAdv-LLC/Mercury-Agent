@@ -1,5 +1,7 @@
 # Medical modules — operator setup guide
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
 Mercury Agent's medical modules ship **integration-ready, not pre-integrated**.
 The platform never carries vendor credentials and never fabricates patient
 data. This document is written for the licensed clinician (or their IT staff)

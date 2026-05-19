@@ -1,9 +1,27 @@
 # Mercury Agent - System Activation Architecture
 
-Supplement to the top-level `ARCHITECTURE.md`. Covers the loader
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
+Supplement to the top-level [`ARCHITECTURE.md`](../ARCHITECTURE.md). Covers the loader
 registry, Oracle pipeline, cognitive wiring, backend configuration,
 and cross-domain correlation introduced during the Mercury System
 Activation.
+
+> **What's new in v1.7.** Three governance framework modules
+> (`compliance.{nist_csf_integrator, osha_anomaly, tlp_handler}`),
+> two medical predictors (`medical.{endocrinology_detector,
+> anesthesiology_predictor}` plus the `CGMDataSource` /
+> `VitalsDataSource` integration-ready ABCs), one new detector
+> (`detectors.drone.detector`), one profiling toolkit
+> (`utils.profiling`), the `MERCURY_ENV` production-mode primitive
+> (`_env`), and the σ_Immutable second hard gate at every public
+> decision boundary. See the parent
+> [`ARCHITECTURE.md`](../ARCHITECTURE.md) §"Governance Framework
+> Modules (v1.7)" through §"Performance Profiling (v1.7)" for the
+> per-module summary; the deep dives live in
+> [`COMPLIANCE.md`](COMPLIANCE.md), [`PROFILING.md`](PROFILING.md),
+> [`drone/SETUP.md`](drone/SETUP.md), and
+> [`medical/SETUP.md`](medical/SETUP.md).
 
 ## Dataset Loader Registry
 

@@ -1,5 +1,34 @@
 # API Reference
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
+> **Ethical-gate contract on every public surface.** Every `detect` /
+> `analyze` / `predict` entry point on `OmniMercuryEngine`,
+> `CognitiveOrchestrator`, and `NeuroSymbolicHub` runs two mandatory
+> hard ethical gates (Benevolence ≥ 0.99, σ_Immutable) and raises
+> `EthicalConstraintViolationError(check=…)` on failure. The reserved
+> `check=` codes are `"benevolence"`, `"sigma_immutable"`, and
+> `"gosnn_unavailable"`. There is no advisory mode. See
+> [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5 and
+> [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §2.
+
+## Module index
+
+| Module | Purpose | Entry doc |
+|--------|---------|-----------|
+| `omni_mercury_engine.detectors.statistical` | Core 3-component anomaly ensemble | this file |
+| `omni_mercury_engine.engine` | `OmniMercuryEngine` boundary surface | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| `omni_mercury_engine.cognitive` | Cognitive orchestrator, neuro-symbolic fusion | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| `omni_mercury_engine.compliance` | NIST CSF 2.0, TLP 2.0, OSHA / eCFR | [`COMPLIANCE.md`](COMPLIANCE.md) |
+| `omni_mercury_engine.medical` | Cardiology, critical care, endocrinology, anesthesiology, pandemic | [`medical/SETUP.md`](medical/SETUP.md) |
+| `omni_mercury_engine.detectors.drone` | RADD + Mercury-ensemble drone anomaly detection | [`drone/SETUP.md`](drone/SETUP.md) |
+| `omni_mercury_engine.utils.profiling` | CPU / memory / wall-clock profiling decorators | [`PROFILING.md`](PROFILING.md) |
+| `omni_mercury_engine.security.safe_http` | SSRF / DNS-rebinding defence layer | [`DATASOURCES.md`](DATASOURCES.md), [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §1 |
+| `omni_mercury_engine._env` | `MERCURY_ENV` production-mode primitive | [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3 |
+| `omni_mercury_engine._pqc_gate` | Import-time PQC production gate | [`SECURITY.md`](../SECURITY.md), [`INSTALLATION.md`](INSTALLATION.md) |
+
+---
+
 ## MercuryAnomalyDetector
 
 Mercury's original anomaly detection ensemble combining three mathematical frameworks.
@@ -94,3 +123,135 @@ result = detector.detect(X_test)
 from omni_mercury_engine.detectors.statistical import StatisticalAnomalyDetector
 # StatisticalAnomalyDetector is MercuryAnomalyDetector
 ```
+
+---
+
+## Compliance: NIST CSF 2.0 / TLP 2.0 / OSHA
+
+`omni_mercury_engine.compliance` ships three first-party governance
+modules. Full reference (citations, public surface, live-fetcher
+contracts, ethical considerations) lives in
+[`COMPLIANCE.md`](COMPLIANCE.md). Quick imports:
+
+```python
+from omni_mercury_engine.compliance import (
+    NISTCSFIntegrator, NISTFunction, NISTSubcategory, ImplementationTier,
+    OSHAComplianceDetector, OSHASector, HazardCategory,
+    compute_heat_index_fahrenheit,
+    TLPHandler, TLPClassification, TLPColor,
+)
+```
+
+- **NIST CSF 2.0** — all six core functions, 22 categories, 106+
+  subcategories, live reference fetcher (`NISTCSFReferenceFetcher`)
+  with 7-day on-disk cache, gap analysis, supply-chain anomaly
+  detection, JSON compliance reports.
+- **OSHA / eCFR** — 12 hazard categories × 6 industry sectors with
+  CFR citations and NWS Rothfusz heat-index regression
+  (`compute_heat_index_fahrenheit(temp_f, rh_pct)`).
+- **TLP 2.0** — full five-colour ladder (CLEAR / GREEN / AMBER /
+  AMBER+STRICT / RED), single/batch classification, watermark
+  generation, JSON export metadata. `AMBER+STRICT` is implemented
+  end-to-end — the upstream module shipped only TLP 1.0 colours.
+
+## Medical: Endocrinology / Anesthesiology / Cardiology / Critical Care / Pandemic
+
+`omni_mercury_engine.medical` ships **integration-ready, not
+pre-integrated** clinical modules. The platform never carries vendor
+credentials and never fabricates patient data; misconfigured adapters
+raise `ConfigurationError`. Full reference lives in
+[`medical/SETUP.md`](medical/SETUP.md). Quick imports:
+
+```python
+from omni_mercury_engine.medical import (
+    # Data-source contracts
+    CGMDataSource, VitalsDataSource,
+    DexcomV3DataSource, FHIRObservationVitalsSource,
+    ConfigurationError, DataSourceError,
+    # Endocrinology (CGM Bi-LSTM ~155K params; FDA-aligned rules)
+    EndocrinologyDetector, CGMAnalyzer, GlycemicState,
+    GLP1TherapyMonitor, InhaledInsulinMonitor, SmartInsulinPenMonitor,
+    # Anesthesiology (TIVA Bi-LSTM ~164K params; PID infusion)
+    AnesthesiologyPredictor, HemodynamicMonitor,
+    SmartInfusionController, TIVAMonitoringSystem,
+    AnesthesiaType, AnesthesiaRisk,
+    # Cardiology
+    CardiologyPredictor, ECGRhythmAnalyzer,
+    FraminghamRiskCalculator, ArrhythmiaType,
+    # Critical care
+    SepsisDetector, SOFACalculator, QuickSOFACalculator,
+    StrokeDetector, NIHSSCalculator, SeizurePredictor, ICPMonitor,
+    # Pandemic
+    PandemicDetector, EpidemicForecaster, PathogenDetector,
+    MutationTracker, TransmissionNetworkAnalyzer,
+    # Coordinator
+    MedicalCoordinator,
+)
+```
+
+`MedicalCoordinator` exposes a filtered registry over the modules
+above by `category` (`pandemic`, `critical_care`, `cardiology`,
+`general`), `priority` (`high`, `medium`), or explicit `module_names`.
+See [`medical/SETUP.md`](medical/SETUP.md) for the data-source contract
+(`DEXCOM_CLIENT_ID`/`DEXCOM_CLIENT_SECRET`/`DEXCOM_REFRESH_TOKEN`/`DEXCOM_REDIRECT_URI`,
+`FHIR_BASE_URL`/`FHIR_PATIENT_ID`/`FHIR_BEARER_TOKEN`) and how to write
+a custom adapter (e.g. Abbott LibreView, Medtronic CareLink).
+
+## Drone: DroneAnomalyDetector
+
+`omni_mercury_engine.detectors.drone` ships a transport-agnostic drone
+anomaly detector combining rule-based RADD invariants with Mercury
+Agent's first-party ensemble (no sklearn runtime dependency). Full
+reference lives in [`drone/SETUP.md`](drone/SETUP.md). Quick import:
+
+```python
+from omni_mercury_engine.detectors.drone.detector import (
+    DroneAnomalyDetector, DroneState,
+)
+```
+
+Populate `DroneState(altitude_m, altitude_rate, horizontal_velocity,
+vertical_velocity, distance_to_home, …)` from your ingest layer of
+choice — PX4 ULog via `pyulog`, MAVLink via `pymavlink`, or vendor
+SDK — and feed the sequence through the detector.
+
+## Profiling: `omni_mercury_engine.utils.profiling`
+
+Six entry points for performance instrumentation. Full reference lives
+in [`PROFILING.md`](PROFILING.md). All entry points are no-ops when
+profiling is globally disabled via `set_profiling_enabled(False)`
+(the default).
+
+```python
+from omni_mercury_engine.utils.profiling import (
+    set_profiling_enabled, is_profiling_enabled,
+    profile_func, profile_memory, profile_time, profile_time_async,
+    profile_complete,
+    PerformanceBenchmark, benchmark_function,
+)
+
+set_profiling_enabled(True)
+
+@profile_time()
+def expensive_op(x: int) -> int:
+    return sum(range(x))
+
+stats = benchmark_function(expensive_op, 10_000, iterations=200)
+print(stats["mean_ms"], stats["std_ms"])
+```
+
+## Production-mode primitive: `omni_mercury_engine._env`
+
+```python
+from omni_mercury_engine._env import (
+    get_mercury_env,           # -> Literal["development", "production"]
+    is_production,             # -> bool
+    require_real_component,    # raise MercuryProductionConfigError if missing in prod
+    MercuryProductionConfigError,
+)
+```
+
+Reads the `MERCURY_ENV` environment variable (`development` default).
+Unknown values raise `MercuryProductionConfigError` at first read — typos
+must be loud. Orthogonal to `AMA_REQUIRE_REAL_PQC` (the import-time PQC
+gate). See [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3.

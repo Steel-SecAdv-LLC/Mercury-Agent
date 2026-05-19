@@ -1,5 +1,7 @@
 # Oracle Noise Color Calibration
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
 ## Theory
 
 Natural signals follow colored noise — their power spectral density (PSD) scales as a power law:

@@ -4,11 +4,11 @@
 
 | Property | Value |
 |----------|-------|
-| Document Version | 2.4 |
-| Last Updated | 2026-05-05 |
+| Document Version | 2.5 |
+| Last Updated | 2026-05-19 |
 | Classification | Public |
 | Maintainer | Steel Security Advisors LLC |
-| Applies to | Mercury Agent v1.6.x |
+| Applies to | Mercury Agent v1.6.x and the v1.7 development cycle |
 
 ---
 
@@ -47,10 +47,26 @@ We welcome AI-assisted contributions (e.g., via Claude Code, GitHub Copilot):
 ## Real-Data Contributions
 
 **High Priority**: We actively seek contributions for real-world data integration:
-- **Medical**: MIMIC-III vital signs, clinical trial data
+- **Medical**: MIMIC-III vital signs, clinical trial data, additional
+  CGM / vitals vendor adapters (Abbott LibreView, Medtronic CareLink,
+  Philips IntelliVue, GE CARESCAPE, Mindray BeneVision) — see
+  [`docs/medical/SETUP.md`](docs/medical/SETUP.md) for the
+  `CGMDataSource` / `VitalsDataSource` contract.
 - **Cybersecurity**: Actual PCAP files, malware samples (anonymized)
+- **Drone telemetry**: PX4 ULog flight logs (via `pyulog`) and
+  MAVLink ingest examples — see [`docs/drone/SETUP.md`](docs/drone/SETUP.md)
+  for the `DroneState` contract.
+- **Compliance**: Additional OSHA sector mappings, NIST CSF 2.0
+  profile contributions, TLP 2.0 watermark exporters — see
+  [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md).
 - **SETI**: Breakthrough Listen observation data
 - **Submit via**: Issue template "Real-Data Integration Request"
+
+> **Medical, clinical, drone, and compliance contributions** must
+> satisfy the integration-ready (not pre-integrated) posture: no
+> vendor credentials in tree, no synthetic fallback, real ABC adapters
+> with `ConfigurationError` raised when misconfigured. See the
+> per-domain SETUP docs for the exact contract.
 
 ## Getting Started
 
@@ -101,7 +117,21 @@ Please **DO NOT** submit pull requests that:
   banned surface, not the `.pt` extension.
 - Add a non-AMA-Cryptography PQC backend (PR #144 made AMA
   Cryptography the **sole** PQC backend; Mercury hard-requires it
-  under `AMA_REQUIRE_REAL_PQC=true`)
+  under `AMA_REQUIRE_REAL_PQC=true`, pinned to `v3.1.0` in
+  `.github/workflows/pqc-production-check.yml` and
+  `pyproject.toml [project.optional-dependencies].pqc`)
+- Restore the `SafeHTTPClient(..., allow_untrusted=True)` kwarg
+  removed in PR #210; new private-network call sites must use
+  `user_configured=True[, allow_private=True]` so the SSRF /
+  DNS-rebinding gate fires explicitly
+- Restore a silent `MockLLMAdapter` fallback in
+  `narrative/voice.py`; `MercuryVoice(enable_llm=True)` now requires
+  an explicit `llm_provider=` argument naming an implemented provider
+- Move governance frameworks back into `omni_mercury_engine.security`;
+  `security/` is reserved for implementation primitives (crypto, PQC,
+  threat detection, audit logging) and governance frameworks (NIST
+  CSF 2.0, TLP 2.0, OSHA / eCFR) live in
+  `omni_mercury_engine.compliance`
 - Include proprietary or non-GPL-compatible code
 - Lack proper testing and documentation
 
@@ -543,6 +573,8 @@ Contributors will be recognized in:
 | 2.1.0 | 2026-01-09 | Updated to v1.1.0 |
 | 2.2.0 | 2026-02-09 | Updated to v1.4.0, aligned Python prerequisite |
 | 2.3.0 | 2026-02-21 | Updated to v1.5.1, fixed test directory references, aligned with CI |
+| 2.4.0 | 2026-05-05 | Updated to v1.6.x, added Wave B dual-gate hard ethics, AMA Cryptography sole PQC backend, pickle/training-data removal, TODO discipline |
+| 2.5.0 | 2026-05-19 | Updated to v1.6.x / v1.7 development cycle. Added v1.7 do-not-restore items (SafeHTTPClient `allow_untrusted`, MockLLMAdapter silent fallback, `security/` vs `compliance/` boundary). Linked medical / drone / compliance integration-ready contracts. |
 
 ---
 

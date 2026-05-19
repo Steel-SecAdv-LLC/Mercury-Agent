@@ -1,5 +1,7 @@
 # Live Data Validation Guide
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
 ## Overview
 
 Mercury's anomaly detection is validated on real-world datasets — no

@@ -1,6 +1,19 @@
 # Domain Performance Analysis
 
+Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+
 Per-domain precision/recall analysis from real benchmark data.
+
+> **v1.7 update.** Numbers in this document reflect the 51/55 legacy
+> CI floor at the time of the last `benchmarks/mercury_benchmark_results.json`
+> dump. The headline 64/75 cut (2026-03-04) and the latest 65/65 cut
+> (2026-05-14) live in the README "Latest Benchmark Results" and
+> "Empirical Benchmark Results" sections. Domain-level reconciliation
+> across the three cuts is in [`BENCHMARKS.md`](BENCHMARKS.md).
+> The FEMA Disaster row's pre-fix AUC near 0 is corrected in v1.7.0
+> (`FEMADisasterLoader._select_anomaly_polarity` now enforces the
+> minority-as-anomaly convention); the next benchmark refresh
+> re-runs it.
 
 ## Data Source
 
