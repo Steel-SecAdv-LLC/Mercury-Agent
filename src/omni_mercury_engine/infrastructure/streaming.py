@@ -706,11 +706,24 @@ class KafkaStreamConsumer(StreamConsumer):
             # offset is intentionally absent.
             logger.debug(f"Skipping Kafka commit for message with no offset: {message.topic}")
             return
+        if message.partition is None:
+            # Same contract as ``offset is None`` above, applied to the
+            # partition field: aiokafka commits are addressed by
+            # ``TopicPartition(topic, partition)``, and falling back to
+            # ``partition or 0`` would silently commit the message's
+            # offset to partition 0 of the topic -- a *different*
+            # broker-assigned shard from the one the message actually
+            # came from, corrupting the consumer group's read cursor.
+            # Skip with a debug log instead, matching the offset-None
+            # path; synthetic / replayed messages are the expected
+            # source of partition-less StreamMessages.
+            logger.debug(f"Skipping Kafka commit for message with no partition: {message.topic}")
+            return
 
         try:
             from aiokafka import TopicPartition
 
-            tp = TopicPartition(message.topic, message.partition or 0)
+            tp = TopicPartition(message.topic, message.partition)
             await self._consumer.commit({tp: message.offset + 1})
         except Exception as e:
             logger.error(f"Kafka commit failed: {e}")

@@ -54,10 +54,20 @@ from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelE
 
 logger = logging.getLogger(__name__)
 
-# Optional imports.  When either ``transformers`` or PIL is missing, the
-# detector constructor raises ``NotImplementedError`` rather than running
-# a synthetic stand-in (see Phase 2 audit cure — silent mock degradation
-# is forbidden).
+# Optional imports.  The two optional dependencies have **different**
+# failure contracts -- they are not interchangeable:
+#
+#   * ``transformers`` (extras_require[vlm]) is **required** for the
+#     detector to operate at all; the constructor and every dispatch
+#     site raise ``NotImplementedError`` when it is missing (Phase 2
+#     audit cure -- silent mock degradation is forbidden, see class
+#     docstring for the full rationale).
+#   * ``PIL`` (Pillow) is genuinely **optional**: when present it
+#     enables ``ndarray`` / tensor → ``Image.fromarray`` conversion
+#     for raw image inputs.  When absent the detector still runs on
+#     callers that pass tensor inputs (the model accepts them
+#     directly); only the raw-numpy-image input path is disabled,
+#     logged once at import time.
 HAS_TRANSFORMERS = False
 HAS_PIL = False
 

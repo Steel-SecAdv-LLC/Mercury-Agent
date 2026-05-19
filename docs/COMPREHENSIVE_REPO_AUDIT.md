@@ -413,7 +413,7 @@ all hard-fail PRs on findings outside the documented accept-lists.**
 - PyTorch `>=2.2.0` with no upper bound (breaking changes possible)
 - NumPy `>=1.24.0` with no upper bound
 - Bandit security checks partially disabled (B101, B311, B310)
-- ~~12+ CVEs in `.trivyignore` with quarterly review process~~ — **Resolved (v1.7 dep baseline PR):** `.trivyignore` retired entirely after audit. Of the ten prior entries, three (pip CVE-2025-8869 / CVE-2026-1703 / CVE-2026-6357) were already fixed by the `pip>=26.1` floor in the Dockerfile, the four MEDIUM entries (util-linux, sqlite-FTS5) sat below the CI severity gate, and the three remaining HIGH/CRITICAL `affected` / `will_not_fix` entries (gnutls, sqlite, zlib-minizip) are filtered by the existing `--ignore-unfixed` flag.  Result: zero CRITICAL/HIGH findings against the runtime image with no waiver list — debt deleted, not rolled.
+- ~~12+ CVEs in `.trivyignore` with quarterly review process~~ — **Resolved (v1.7 dep baseline PR):** `.trivyignore` retired entirely after audit. The ten prior entries broke down as: three pip CVEs (CVE-2025-8869, CVE-2026-1703, CVE-2026-6357) already fixed by the `pip>=26.1` floor in the Dockerfile; two non-pip MEDIUM entries (CVE-2025-14104 util-linux, CVE-2025-7709 sqlite-FTS5) below the CI `--severity CRITICAL,HIGH` gate; and five HIGH/CRITICAL `affected` / `will_not_fix` entries (CVE-2025-68973 gpgv, CVE-2025-13601 glib, CVE-2025-6020 PAM, CVE-2025-7458 sqlite, CVE-2023-45853 zlib-minizip) filtered by the existing `--ignore-unfixed` flag.  Result: zero CRITICAL/HIGH findings against the runtime image with no waiver list — debt deleted, not rolled.
 - No `requirements.lock` for reproducible builds
 
 ### Missing Production Infrastructure
