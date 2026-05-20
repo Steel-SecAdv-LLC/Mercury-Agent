@@ -55,7 +55,26 @@ jobs:
       # BLOCKING for the same reasons as Safety above — any new
       # finding fails the job until the dependency is bumped or
       # the advisory is explicitly waived.
-      run: pip-audit --format json --output pip-audit-report.json
+      #
+      # Risk-accepted advisories are passed via repeated
+      # ``--ignore-vuln <id>`` flags below.  Each entry's rationale
+      # and re-review date is documented in
+      # ``docs/PYTHON_DEP_CVE_AUDIT.md`` (table "Current findings");
+      # the table is also the single source of truth that mirrors
+      # the ignore list into ``.github/workflows/ci.yml`` so the two
+      # blocking gates cannot drift.
+      #
+      #  PYSEC-2024-277 (joblib): disputed by upstream maintainer;
+      #    Mercury-Agent never invokes the vulnerable load/dump
+      #    pickle path, only joblib.Parallel / joblib.delayed.
+      #  PYSEC-2026-97 (nltk):  not a Mercury-Agent dependency;
+      #    present only as a transitive of the ``safety`` audit
+      #    tool itself, never shipped in any Mercury-Agent install.
+      run: |
+        pip-audit \
+          --ignore-vuln PYSEC-2024-277 \
+          --ignore-vuln PYSEC-2026-97 \
+          --format json --output pip-audit-report.json
 
     - name: Run Bandit security scan
       # Bandit scans application source for common security

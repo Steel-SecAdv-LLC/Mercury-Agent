@@ -420,11 +420,21 @@ jobs:
         # Hard-blocking, parity with Safety above.  Risk-accepted CVEs
         # are passed via repeated ``--ignore-vuln <id>`` flags.  Each
         # ID's rationale and re-review date is documented in
-        # ``docs/PYTHON_DEP_CVE_AUDIT.md`` (the audit table is empty
-        # of accepted CVEs as of PR #148 — every prior finding was
-        # resolved by upgrade).  Adding an ignore later requires the
-        # same two-step process documented on the Safety step above.
-        run: pip-audit --format json --output pip-audit-report.json
+        # ``docs/PYTHON_DEP_CVE_AUDIT.md``.  Adding an ignore later
+        # requires the same two-step process documented on the Safety
+        # step above.
+        #
+        #  PYSEC-2024-277 (joblib): disputed by upstream maintainer;
+        #    Mercury-Agent never invokes the vulnerable load/dump
+        #    pickle path, only joblib.Parallel / joblib.delayed.
+        #  PYSEC-2026-97 (nltk):  not a Mercury-Agent dependency;
+        #    present only as a transitive of the ``safety`` audit
+        #    tool itself, never shipped in any Mercury-Agent install.
+        run: |
+          pip-audit \
+            --ignore-vuln PYSEC-2024-277 \
+            --ignore-vuln PYSEC-2026-97 \
+            --format json --output pip-audit-report.json
 
       - name: Run Semgrep (SAST — BLOCKING)
         # Semgrep static-analysis security scan.  Blocking on
