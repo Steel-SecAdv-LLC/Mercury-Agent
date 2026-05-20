@@ -1,6 +1,6 @@
 # Routing Infrastructure Guide
 
-Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 
 Mercury Agent provides a flexible routing infrastructure for request handling, pattern matching, and graceful degradation through fallback chains. This guide covers the core routing components and demonstrates how to integrate them with the detection pipeline.
 

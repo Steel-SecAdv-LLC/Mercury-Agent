@@ -23,7 +23,7 @@
 
 ```
               +===============================================================================+
-              |                                   Mercury Agent ♱ v1.6.0                     |
+              |                                   Mercury Agent ♱ v1.7.0                     |
               |Neuro-Symbolic AI for Autonomous Anomaly Detection Paradigm with PQC-Protected |
               |                                                                               |
               |   7-Phase Evolution      |   Hybrid Fusion ML      |   Production Security    |
@@ -44,8 +44,8 @@
 **Author/Inventor:** Andrew E. A.
 **Contact:** steel.sa.llc@gmail.com
 **License:** GNU General Public License v3.0
-**Version:** v1.6.0
-**Date:** 2026-05-05
+**Version:** v1.7.0
+**Date:** 2026-05-20
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛
 
 ---
@@ -72,7 +72,7 @@ The framework embodies a **Civilization-First** philosophy, prioritizing ethical
 > This ensures the code and all future improvements remain free and open source forever, even if used by corporations or governments.
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-05-05
+> **Last Updated:** 2026-05-20
 >
 
 ---
@@ -2063,7 +2063,7 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <div align="center">
 
-**Mercury Agent v1.6.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
+**Mercury Agent v1.7.0 - Neuro-Symbolic AI for Autonomous Anomaly Detection**
 
 *Architected with Civilization-First principles, ethical immutability, and transparent methodology.*
 

@@ -81,7 +81,7 @@ except ImportError:
 # Version and Feature Detection
 # =============================================================================
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 
 def get_crypto_backend() -> str:

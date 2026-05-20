@@ -679,7 +679,7 @@ class NWSWeatherAlertsSource(DataSourceBase):
     """
 
     DEFAULT_BASE_URL = "https://api.weather.gov/"
-    DEFAULT_USER_AGENT = "MercuryAgent/1.6.0 (steel.sa.llc@gmail.com)"
+    DEFAULT_USER_AGENT = "MercuryAgent/1.7.0 (steel.sa.llc@gmail.com)"
 
     def __init__(
         self,

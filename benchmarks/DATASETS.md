@@ -1,6 +1,6 @@
 # Mercury Agent - Active Dataset Catalog
 
-Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 
 Every dataset in the benchmark pipeline. Datasets are loaded at runtime;
 API-sourced datasets may be unavailable if endpoints are down. The benchmark

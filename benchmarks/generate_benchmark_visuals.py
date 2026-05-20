@@ -359,7 +359,7 @@ def generate_neuro_symbolic_report(data: dict[str, Any]) -> None:
     _style_ax(ax9, "Key Metrics")
 
     fig.suptitle(
-        "Mercury Agent v1.6.0 — Neuro-Symbolic Benchmark Report",
+        "Mercury Agent v1.7.0 — Neuro-Symbolic Benchmark Report",
         fontsize=16,
         fontweight="bold",
         color="#e6edf3",

@@ -3,8 +3,8 @@
 | Property | Value |
 |----------|-------|
 | Document Version | 1.2 |
-| Last Updated | 2026-05-19 |
-| Applies to | Mercury Agent v1.6.x and the v1.7 development cycle |
+| Last Updated | 2026-05-20 |
+| Applies to | Mercury Agent v1.7.x |
 
 This document tracks deprecated modules, classes, methods, and parameters in Mercury Agent.
 

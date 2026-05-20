@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-05-20
+
 ### Documentation refresh (2026-05-19)
 
 Comprehensive documentation update covering the v1.7 development cycle.
@@ -2140,4 +2142,14 @@ and regression tests:
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
+[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0
+[1.5.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.2.0...v1.4.0
+[1.2.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.1.2...v1.2.0
+[1.1.2]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v0.1.0...v1.1.0
 [0.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/releases/tag/v0.1.0

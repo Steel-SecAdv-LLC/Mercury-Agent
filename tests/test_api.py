@@ -41,7 +41,7 @@ class TestAPI:
         assert response.status_code == 200
         result = response.json()
         assert result["status"] == "healthy"
-        assert result["version"] == "1.6.0"
+        assert result["version"] == "1.7.0"
 
     def test_univariate_detection_endpoint(self) -> None:
         """Test univariate anomaly detection endpoint."""
