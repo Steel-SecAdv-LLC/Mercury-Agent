@@ -26,6 +26,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security / Synthetic-data policy-gate bypass closure (2026-05-20)
+
+The validation-pipeline loaders
+(`omni_mercury_engine.validation.data_loaders`) exposed a
+`use_synthetic: bool = False` argument on every concrete loader
+(`NSLKDDLoader`, `USGSEarthquakeLoader`, `MIMICLoader`,
+`NOAASpaceWeatherLoader`, `NOAAHurricaneLoader`, `NOAAOceanLoader`).
+When set to `True`, the loader returned synthetic data unconditionally
+— **bypassing the deployment-level `MERCURY_ALLOW_SYNTHETIC` policy**
+enforced by
+`omni_mercury_engine.datasets.exceptions.check_synthetic_allowed`.
+
+This was a latent integrity hole: a benchmark, downstream notebook, or
+operator script could request synthetic data via the keyword argument
+and receive it even on a deployment that had explicitly forbidden
+synthetic fallback (`MERCURY_ALLOW_SYNTHETIC=0` or unset).  For a
+humanitarian crisis-response and missing-persons platform, silently
+delivering simulated data when policy forbids it is far worse than
+raising — operators can act on synthetic output without realising the
+real source was never reached.
+
+The fix is surgical and additive:
+
+- Every `if use_synthetic:` branch in `validation/data_loaders.py`
+  now calls `check_synthetic_allowed(loader_name, "Caller passed
+  use_synthetic=True")` immediately before invoking
+  `_generate_synthetic(...)`.  When the env var is not set, the call
+  raises `DataSourceUnavailableError`; when it is set, the legacy
+  contract (caller-flag honoured) holds.
+- `MIMICLoader` (which is *only* available as a synthetic simulation
+  because real MIMIC-III requires PhysioNet credentialing) was
+  rewritten from a tangled `if not use_synthetic and not
+  ALLOW_SYNTHETIC: raise` / `if not use_synthetic:
+  check_synthetic_allowed` two-branch pattern to a single
+  unconditional `check_synthetic_allowed(...)` call.  Both the
+  explicit caller request (`use_synthetic=True`) and the implicit
+  fallback (`use_synthetic=False`) now flow through the same gate,
+  with the documentation pointing operators at the real PhysioNet
+  download URL.
+- `tests/validation/test_synthetic_policy_gate.py` is the regression
+  lock: six tests prove the gate fires for each loader when policy is
+  off, plus a seventh forward-compatibility test confirms the
+  legacy contract (caller flag honoured under `MERCURY_ALLOW_SYNTHETIC=1`).
+
+The closure is additive — no existing test or documented contract is
+broken.  `tests/conftest.py` continues to set
+`MERCURY_ALLOW_SYNTHETIC=1` by default for the test suite, so all 44
+existing `tests/validation/test_validation_pipeline.py` tests still
+pass without modification.  The fallback chain documented in
+`docs/ROUTING_GUIDE.md` still works under the documented contract
+(`MERCURY_ALLOW_SYNTHETIC=1`); without the env var set, the chain
+fails closed at the synthetic step rather than silently degrading.
+
 ### Security / σ_Immutable Wave B Vector 2 + 4 closure (2026-05-20)
 
 Closes two of the remaining σ_Immutable bypass vectors identified in the
