@@ -335,7 +335,17 @@ jobs:
         # ``docs/PYTHON_DEP_CVE_AUDIT.md``: Mercury does not ship
         # those packages, so they must not appear in Mercury's
         # vulnerability report regardless of advisory state.
-        run: pip install bandit safety pip-audit
+        #
+        # ``click>=8.2`` is re-pinned at the **runner** level (not
+        # just inside the Mercury audit venv): the ``safety`` CLI
+        # bundles ``typer>=0.20``, whose ``_types.py`` uses
+        # ``click.Choice[ParamTypeValue]`` (PEP 695 generic
+        # subscripting added in click 8.2).  Without the re-pin the
+        # GHA hosted Python 3.12 image ships a click version that
+        # raises ``TypeError: type 'Choice' is not subscriptable``
+        # the moment ``safety`` imports ``typer``, breaking the
+        # Safety dep-CVE gate before any vulnerability check runs.
+        run: pip install bandit safety pip-audit "click>=8.2"
 
       - name: Install Semgrep
         # Semgrep is heavier (~76MB manylinux wheel including

@@ -43,7 +43,13 @@ jobs:
       # Mercury's declared deps + their transitives.
       run: |
         pip install --upgrade "pip>=26.1"
-        pip install safety bandit pip-audit
+        # ``click>=8.2`` re-pinned at the runner level: ``safety``'s
+        # bundled ``typer>=0.20`` uses PEP 695 ``click.Choice[...]``
+        # subscripting and crashes with ``TypeError: type 'Choice'
+        # is not subscriptable`` against the older click that ships
+        # with the GHA hosted Python image.  See ``ci.yml`` for the
+        # full rationale.
+        pip install safety bandit pip-audit "click>=8.2"
 
     - name: Create isolated Mercury install (audit target)
       # Install Mercury into a dedicated venv so the audits scan
