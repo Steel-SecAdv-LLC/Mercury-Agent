@@ -16,7 +16,7 @@ see https://www.gnu.org/licenses/.
 from __future__ import annotations
 
 """
-Native JSON Web Token (JWT) implementation — pure stdlib.
+Native JSON Web Token (JWT) implementation — stdlib + AMA-routed.
 
 This module is the supply-chain remediation that retires Mercury-Agent's
 dependency on ``pyjwt`` and removes the upstream-disputed
@@ -24,16 +24,38 @@ dependency on ``pyjwt`` and removes the upstream-disputed
 audited surface.  No new third-party library is taken on; the
 implementation is built on ``hmac`` + ``hashlib`` + ``base64`` +
 ``json`` + ``time`` only, in line with Mercury's broader "zero-dep
-crypto where possible" posture (cf. ``AMA-Cryptography`` INVARIANT-1).
+crypto" posture (cf. ``AMA-Cryptography`` INVARIANT-1).
+
+AMA HMAC routing
+----------------
+When AMA Cryptography's native C library is loaded, the HS256 and
+HS512 signing primitives are routed through AMA's ACVP-validated
+constant-time C HMAC implementations
+(:func:`omni_mercury_engine.security.ama_hmac.ama_hmac_sha256` and
+:func:`omni_mercury_engine.security.ama_hmac.ama_hmac_sha512`).  This
+puts the JWT signing path on the same crypto backend the rest of
+Mercury's PQC + HKDF stack already uses, matches AMA's INVARIANT-1
+posture, and removes OpenSSL-backed stdlib HMAC from the production
+auth path.  HS384 stays on stdlib because AMA does not currently bind
+HMAC-SHA-384 (tracked in ``docs/ROADMAP.md``).
+
+The fallback path (when AMA is not installed or its native library
+is unavailable) is stdlib :mod:`hmac` over :mod:`hashlib`.  HMAC-SHA-2
+is wire-format defined by FIPS 198-1 / RFC 2104, so the AMA-routed
+and stdlib-routed signers produce byte-identical digests for the same
+``(key, message)``; this equivalence is locked by RFC 4231 known-answer
+vectors in ``tests/security/test_native_jwt.py``.
 
 Scope
 -----
 Compact JWS (RFC 7519 §3) with HMAC-SHA2 family signatures (RFC 7518
 §3.2):
 
-* ``HS256`` (HMAC-SHA-256) — required by Mercury's API; default
-* ``HS384`` (HMAC-SHA-384) — supported for interop
-* ``HS512`` (HMAC-SHA-512) — supported for interop
+* ``HS256`` (HMAC-SHA-256) — required by Mercury's API; default;
+  **AMA-routed when available**.
+* ``HS384`` (HMAC-SHA-384) — supported for interop; stdlib only.
+* ``HS512`` (HMAC-SHA-512) — supported for interop;
+  **AMA-routed when available**.
 
 Asymmetric algorithms (RS*/ES*/PS*/EdDSA) are out of scope for this
 module — Mercury's deployment surface uses HS256 exclusively, and the
@@ -49,6 +71,10 @@ Security properties
 * Signature verification uses :func:`hmac.compare_digest` (constant
   time on equal-length inputs) via
   :func:`omni_mercury_engine.security.constant_time.constant_time_compare`.
+* HMAC digest computation is delegated to AMA Cryptography's
+  constant-time C backend when available (see
+  ``AMA-Cryptography/CONSTANT_TIME_VERIFICATION.md``); stdlib HMAC
+  falls through only when AMA is not loaded.
 * ``alg`` is read from the header BUT is then matched against the
   caller-supplied ``algorithms=`` whitelist; a token whose header
   claims an algorithm not in the whitelist is rejected before any
@@ -72,6 +98,8 @@ References
 * RFC 7515 — JSON Web Signature (JWS)
 * RFC 7518 — JSON Web Algorithms (JWA)
 * RFC 7519 — JSON Web Token (JWT)
+* RFC 4231 — HMAC-SHA-2 test vectors.
+* FIPS 198-1 — Keyed-Hash Message Authentication Code.
 * CVE-2025-45768 / PYSEC-2025-183 — disputed pyjwt weak-key concern,
   rendered moot here by removal of the pyjwt dependency.
 """
@@ -83,6 +111,7 @@ import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from omni_mercury_engine.security import ama_hmac
 from omni_mercury_engine.security.constant_time import constant_time_compare
 
 if TYPE_CHECKING:
@@ -142,6 +171,13 @@ _HASH_BY_ALG: dict[str, Any] = {
 }
 
 SUPPORTED_ALGORITHMS: tuple[str, ...] = tuple(_HASH_BY_ALG.keys())
+
+# JWS algorithms that may be routed through AMA's native C HMAC when
+# the AMA shared library is loaded.  HS384 stays stdlib-only because
+# AMA Cryptography does not bind HMAC-SHA-384 (cf. AMA's
+# ``src/c/ama_hmac_sha256.c`` / ``ama_hmac_sha512.c``; no SHA-384
+# variant ships in the C library).
+_AMA_ROUTABLE_ALGS: frozenset[str] = frozenset({"HS256", "HS512"})
 
 
 # --------------------------------------------------------------------------- #
@@ -212,12 +248,88 @@ def _normalize_temporal_claims(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _signing_input(header_segment: bytes, payload_segment: bytes) -> bytes:
+    """JWS signing input — ``b64(header) || "." || b64(payload)`` (RFC 7515 §5.1)."""
     return header_segment + b"." + payload_segment
 
 
-def _sign(signing_input: bytes, key: bytes, alg: str) -> bytes:
+def _sign_stdlib(header_segment: bytes, payload_segment: bytes, key: bytes, alg: str) -> bytes:
+    """Stdlib HMAC path (FIPS 198-1 / RFC 2104) using :mod:`hmac`."""
     digestmod = _HASH_BY_ALG[alg]
-    return hmac.new(key, signing_input, digestmod).digest()
+    return hmac.new(key, _signing_input(header_segment, payload_segment), digestmod).digest()
+
+
+def _sign_ama(header_segment: bytes, payload_segment: bytes, key: bytes, alg: str) -> bytes:
+    """AMA-routed HMAC path — ACVP-validated constant-time C backend.
+
+    Pre-condition: the caller has verified ``alg`` is in
+    :data:`_AMA_ROUTABLE_ALGS` *and* the corresponding AMA binding
+    flag is set.  This function does not re-check those; it raises
+    ``RuntimeError`` directly from the AMA layer if the underlying
+    binding has been invalidated since the flag was read.
+
+    For HS256 we use AMA's :func:`ama_hmac.ama_hmac_sha256_2`
+    two-segment entry point so the (potentially large) payload
+    segment is not concatenated in Python before being handed to
+    the C HMAC.  The first segment is ``header || "."`` (typically
+    ≈50 bytes); the second segment is the raw base64url payload.
+    By RFC 2104 / FIPS 198-1 the result is byte-identical to
+    ``HMAC(key, header || "." || payload)``.
+    """
+    if alg == "HS256":
+        return ama_hmac.ama_hmac_sha256_2(key, header_segment + b".", payload_segment)
+    if alg == "HS512":
+        # AMA v3.2.0 does not yet ship a two-segment HMAC-SHA-512
+        # variant; fall back to the one-segment binding with a
+        # single concat.  Tracked in docs/ROADMAP.md.
+        return ama_hmac.ama_hmac_sha512(key, _signing_input(header_segment, payload_segment))
+    raise InvalidAlgorithmError(  # pragma: no cover — guarded by caller
+        f"Algorithm {alg!r} is not AMA-routable",
+    )
+
+
+def _alg_uses_ama(alg: str) -> bool:
+    """Return ``True`` iff ``alg`` will be served by the AMA backend.
+
+    The decision is re-evaluated on every call so that test-time
+    monkeypatching of :data:`ama_hmac.HAS_AMA_HMAC_SHA256` /
+    ``HAS_AMA_HMAC_SHA512` is honoured and so that an operator
+    enabling AMA at runtime sees the next signature use the new
+    backend without restarting the process.
+    """
+    if alg not in _AMA_ROUTABLE_ALGS:
+        return False
+    if alg == "HS256":
+        return bool(ama_hmac.HAS_AMA_HMAC_SHA256)
+    if alg == "HS512":
+        return bool(ama_hmac.HAS_AMA_HMAC_SHA512)
+    return False  # pragma: no cover — _AMA_ROUTABLE_ALGS is exhaustive
+
+
+def _sign(header_segment: bytes, payload_segment: bytes, key: bytes, alg: str) -> bytes:
+    """Compute the HMAC tag for ``b64(header).b64(payload)`` under ``alg``.
+
+    Routes through AMA Cryptography's native C HMAC when the
+    corresponding AMA binding is available, falling back to stdlib
+    HMAC otherwise.  Output is byte-identical between the two paths
+    by FIPS 198-1 / RFC 2104 (verified by RFC 4231 KAT in
+    ``tests/security/test_native_jwt_ama_routing.py``).
+    """
+    if _alg_uses_ama(alg):
+        return _sign_ama(header_segment, payload_segment, key, alg)
+    return _sign_stdlib(header_segment, payload_segment, key, alg)
+
+
+def get_signing_backend(alg: str) -> str:
+    """Return the backend name (``"ama"`` or ``"stdlib"``) used for ``alg``.
+
+    Intended for ``/health`` endpoints and audit logs; do not gate
+    security decisions on this string.
+    """
+    if alg not in _HASH_BY_ALG:
+        raise InvalidAlgorithmError(
+            f"Unsupported algorithm {alg!r}; supported: {', '.join(SUPPORTED_ALGORITHMS)}",
+        )
+    return "ama" if _alg_uses_ama(alg) else "stdlib"
 
 
 # --------------------------------------------------------------------------- #
@@ -272,7 +384,7 @@ def encode(
     payload_segment = _b64url_encode(
         json.dumps(normalised_payload, separators=(",", ":"), sort_keys=True).encode("utf-8"),
     )
-    signature = _sign(_signing_input(header_segment, payload_segment), secret, algorithm)
+    signature = _sign(header_segment, payload_segment, secret, algorithm)
     signature_segment = _b64url_encode(signature)
 
     return b".".join((header_segment, payload_segment, signature_segment)).decode("ascii")
@@ -369,7 +481,8 @@ def decode(
     if opts["verify_signature"]:
         secret = _coerce_secret(key)
         expected = _sign(
-            _signing_input(header_segment, payload_segment),
+            header_segment,
+            payload_segment,
             secret,
             alg,
         )
@@ -483,5 +596,6 @@ __all__ = [
     "NativeJWTError",
     "decode",
     "encode",
+    "get_signing_backend",
     "get_unverified_header",
 ]

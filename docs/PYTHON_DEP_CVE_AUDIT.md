@@ -233,7 +233,12 @@ The v1.7 development cycle adds one optional runtime dependency
 required only by `NISTCSFReferenceFetcher` for parsing the NIST CSRC
 reference XLSX). No new mandatory runtime dependencies were
 introduced. The `pqc` extra now pins
-`ama-cryptography @ v3.1.0` exactly (rather than tracking the default
+`ama-cryptography @ v3.2.0` exactly (rather than tracking the default
 branch) so an upstream force-push or breaking change cannot silently
 bump Mercury's PQC surface; bump the tag in lockstep with
-`.github/workflows/pqc-production-check.yml` (`AMA_REF: v3.1.0`).
+`.github/workflows/pqc-production-check.yml` (`AMA_REF: v3.2.0`).
+v3.2.0 (this pin) extends v3.1.0 with the
+`native_hmac_sha256` / `native_hmac_sha256_2` Python bindings
+consumed by Mercury's `native_jwt` HS256 path; see
+`CHANGELOG.md` “AMA-routed JWT HMAC signatures” under
+`[Unreleased]`.

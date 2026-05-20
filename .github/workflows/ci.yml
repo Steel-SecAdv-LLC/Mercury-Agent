@@ -714,7 +714,7 @@ jobs:
         # ``tests/security/test_pqc_gate_real_ama.py`` which imports
         # ``ama_cryptography.pqc_backends`` at module scope and would
         # fail collection if the native library were absent.  We build
-        # AMA Cryptography v3.1.0 here using the same procedure as
+        # AMA Cryptography v3.2.0 here using the same procedure as
         # ``.github/workflows/pqc-production-check.yml::verify-real-pqc``
         # so the real-AMA tests run against the same dependency in
         # both lanes — no mock, no skip, no silent stub.
@@ -724,7 +724,7 @@ jobs:
             build-essential cmake ninja-build pkg-config
 
       - name: Install AMA Cryptography PEP 517 build-system floors
-        # AMA Cryptography v3.1.0's ``setup.py`` runs a preflight check
+        # AMA Cryptography v3.2.0's ``setup.py`` runs a preflight check
         # against the supply-chain floors declared in
         # ``pyproject.toml [build-system].requires``:
         #   * setuptools>=78.1.1  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5
@@ -757,7 +757,7 @@ jobs:
 
       - name: Build AMA Cryptography native C library
         env:
-          AMA_REF: v3.1.0
+          AMA_REF: v3.2.0
         run: |
           git clone --branch "${AMA_REF}" --depth 1 \
             https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography

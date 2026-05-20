@@ -26,6 +26,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security / AMA-routed JWT HMAC signatures (HS256 + HS512) (2026-05-20)
+
+Mercury's `native_jwt` signing primitive now routes `HS256` and
+`HS512` through AMA Cryptography's ACVP-validated, constant-time,
+zero-third-party-dep C HMAC backend when AMA Cryptography v3.2.0+ is
+installed, falling back transparently to stdlib `hmac` over
+`hashlib` otherwise.  This puts the JWT signing path on the same
+crypto backend that already serves Mercury's PQC and HKDF stack
+(matching AMA's INVARIANT-1 posture) and removes OpenSSL-backed
+stdlib HMAC from the production auth path on AMA-enabled
+deployments.
+
+- **`pyproject.toml [pqc]`** pin bumped
+  `ama-cryptography @ v3.1.0` → `@ v3.2.0`.  v3.2.0 exposes the
+  Python bindings `native_hmac_sha256`, `native_hmac_sha256_2`
+  (two-segment, concat-avoiding for JWT signing input), and
+  `_HMAC_SHA256_NATIVE_AVAILABLE` over the ACVP-validated C symbol
+  `ama_hmac_sha256` (150/150 vectors per
+  `AMA-Cryptography/docs/compliance/ACVP_SELF_ATTESTATION.md`).  CI
+  workflows `.github/workflows/ci.yml` and
+  `.github/workflows/pqc-production-check.yml` updated to
+  `AMA_REF: v3.2.0` in lockstep.
+- **`src/omni_mercury_engine/security/ama_hmac.py`** (new, ~225
+  lines): Mercury-side adapter that surfaces AMA's HMAC bindings
+  with explicit availability flags (`HAS_AMA_HMAC_SHA256`,
+  `HAS_AMA_HMAC_SHA512`), a public `available()` diagnostic helper
+  for `/health` endpoints + audit logs, and a test-only
+  `_reinitialize_for_tests` escape hatch.  Fail-closed semantics:
+  the wrappers raise `RuntimeError` rather than silently falling
+  back, so the routing decision is always explicit in
+  `native_jwt._sign`.
+- **`src/omni_mercury_engine/security/native_jwt.py`** refactored:
+  `_sign()` now threads `(header_segment, payload_segment)`
+  separately rather than the materialised concat, so the HS256 path
+  can use AMA's `native_hmac_sha256_2(key, header || ".", payload)`
+  fast path without ever copying the payload bytes in Python.  HS512
+  routes through `ama_hmac_sha512` (one-segment; AMA does not yet
+  ship a two-segment HMAC-SHA-512 variant).  HS384 stays on stdlib
+  because AMA does not bind HMAC-SHA-384 in v3.2.0 (tracked in
+  `docs/ROADMAP.md`).  A new public helper `get_signing_backend(alg)`
+  returns `"ama"` or `"stdlib"` for diagnostic surfaces.
+- **`tests/security/test_native_jwt_ama_routing.py`** (new, 17
+  tests) locks four invariants:
+  1. **RFC 4231 KAT.**  AMA's HMAC-SHA-256 and HMAC-SHA-512 output
+     matches the canonical Test Case 1 and Test Case 7
+     (oversized-key) vectors from RFC 4231 §4.2 / §4.7.
+  2. **Stdlib byte-equivalence at the `_sign()` boundary.**  AMA-
+     routed and stdlib-routed signatures are bit-identical for the
+     same `(header, payload, key, alg)` triple (FIPS 198-1 /
+     RFC 2104 invariant).
+  3. **Fallback path.**  Monkeypatching
+     `ama_hmac.HAS_AMA_HMAC_SHA256 = False` cleanly demotes the
+     `_sign()` decision to stdlib and the JWT encode/decode round-
+     trip still succeeds.
+  4. **Cross-path interoperability.**  A token signed with AMA
+     enabled verifies with AMA disabled, and vice versa — the
+     routing decision is performance / hardening only, never a
+     wire-format change.
+
+  All 17 tests pass; the 92 existing native-JWT / auth contract
+  tests in `tests/security/test_native_jwt.py`,
+  `tests/security/test_jwt_auth.py`, and
+  `tests/api/test_auth_comprehensive.py` remain green with no
+  semantic change.
+
 ### Security / Permanent supply-chain remediation: native JWT + joblib removal (2026-05-20)
 
 Three upstream-disputed advisories — `PYSEC-2024-277` /
@@ -274,7 +339,7 @@ documentation:
   51/55 benchmark trajectory reconciled.
 - **Updated: `docs/PYTHON_DEP_CVE_AUDIT.md`** — audit date /
   next-review bumped (2026-05-19 → 2026-08-19); v1.7 dependency
-  surface (`openpyxl` for the `compliance` extra, exact `v3.1.0`
+  surface (`openpyxl` for the `compliance` extra, exact `v3.2.0`
   pin for the `pqc` extra) documented.
 - **Updated: `docs/medical/SETUP.md`, `docs/BENCHMARKS.md`,
   `docs/ROUTING_GUIDE.md`, `docs/MATH_SPEC.md`,
@@ -284,7 +349,7 @@ documentation:
   context where applicable.
 - **Updated: `rust_crypto/README.md`** — clarified scope (classical
   crypto, **not** PQC); pointed PQC use cases at
-  AMA Cryptography v3.1.0 and the `[pqc]` extra.
+  AMA Cryptography v3.2.0 and the `[pqc]` extra.
 - **Updated: `CODE_OF_CONDUCT.md`** — added document-version
   metadata table and a Mercury-specific note tying the Code of
   Conduct to the dual hard ethical gates encoded in the software.

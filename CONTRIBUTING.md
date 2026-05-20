@@ -117,7 +117,7 @@ Please **DO NOT** submit pull requests that:
   banned surface, not the `.pt` extension.
 - Add a non-AMA-Cryptography PQC backend (PR #144 made AMA
   Cryptography the **sole** PQC backend; Mercury hard-requires it
-  under `AMA_REQUIRE_REAL_PQC=true`, pinned to `v3.1.0` in
+  under `AMA_REQUIRE_REAL_PQC=true`, pinned to `v3.2.0` in
   `.github/workflows/pqc-production-check.yml` and
   `pyproject.toml [project.optional-dependencies].pqc`)
 - Restore the `SafeHTTPClient(..., allow_untrusted=True)` kwarg

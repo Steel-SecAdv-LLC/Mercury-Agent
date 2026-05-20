@@ -20,9 +20,12 @@ for the post-quantum cryptographic substrate.
   Enforcement" and [`MATH_SPEC.md`](MATH_SPEC.md) §2.1.5
   "σ_Immutable Hard Gate (Wave B, PR #179)".
 - **Sole PQC backend (with a soft import path for non-PQC dev).**
-  AMA Cryptography (pinned to **v3.1.0** in
+  AMA Cryptography (pinned to **v3.2.0** in
   `.github/workflows/pqc-production-check.yml`) is the only
-  supported post-quantum backend (PR #144). The package import is
+  supported post-quantum backend (PR #144). v3.2.0 also exposes the
+  native HMAC-SHA-256 / HMAC-SHA-512 bindings consumed by Mercury's
+  `native_jwt` HS256 / HS512 signing path (see CHANGELOG
+  `[Unreleased]` § "AMA-routed JWT HMAC signatures"). The package import is
   guarded — `security/pqc_backends.py` catches `ImportError` and
   keeps Mercury importable with stub functions, so a developer
   without the native library can still load the package — but
