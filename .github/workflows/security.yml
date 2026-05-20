@@ -70,10 +70,16 @@ jobs:
       #  PYSEC-2026-97 (nltk):  not a Mercury-Agent dependency;
       #    present only as a transitive of the ``safety`` audit
       #    tool itself, never shipped in any Mercury-Agent install.
+      #  PYSEC-2025-183 (pyjwt): disputed by upstream; the advisory
+      #    is a key-length concern that is the application's
+      #    responsibility.  Mercury-Agent requires JWT_SECRET_KEY to
+      #    be set in production and documents 256-bit generation via
+      #    ``openssl rand -hex 32`` (api/auth.py:636,643-688).
       run: |
         pip-audit \
           --ignore-vuln PYSEC-2024-277 \
           --ignore-vuln PYSEC-2026-97 \
+          --ignore-vuln PYSEC-2025-183 \
           --format json --output pip-audit-report.json
 
     - name: Run Bandit security scan
