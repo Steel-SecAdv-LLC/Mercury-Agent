@@ -30,7 +30,13 @@ jobs:
           cache: 'pip'
 
       - name: Install Black
-        run: pip install "black>=26.3.1,<27.0.0"
+        run: |
+          # Floor pip to >=26.1 to close CVE-2026-6357 (pip arbitrary
+          # code execution via malicious wheel).  Every ``pip install``
+          # step in every workflow upgrades pip first so a runner image
+          # that ships an older pip cannot install a poisoned wheel.
+          python -m pip install --upgrade "pip>=26.1"
+          pip install "black>=26.3.1,<27.0.0"
 
       - name: Check formatting with Black
         run: black --check src/ tests/ benchmarks/ scripts/ examples/

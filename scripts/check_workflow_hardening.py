@@ -20,6 +20,29 @@ MAPPING_KEY_RE = re.compile(
     r"^(?P<indent>\s*)(?P<key>[A-Za-z_][A-Za-z0-9_-]*|\"[^\"]+\"|'[^']+'):\s*(?P<value>.*)$"
 )
 
+# CVE-2026-6357 (pip arbitrary code execution via malicious wheel).
+# Every ``pip install`` step in every workflow file MUST first floor pip
+# to >=26.1 so a runner image that ships an older pip cannot install a
+# poisoned wheel.  We detect any ``pip install`` invocation (or
+# ``python -m pip install``) that is *not* preceded by a ``pip>=26.1``
+# upgrade in the same shell block.  An exemption is provided for the
+# explicit upgrade line itself (which is the cure, not the wound) and
+# for example/docstring-style strings inside ``run:`` blocks (those are
+# detected because they appear inside quotes/printable strings rather
+# than as the leading executable token of a line).
+# Matches a ``pip install`` invocation appearing anywhere on a line —
+# both as the leading executable token of a ``run: |`` block line and
+# as the trailing payload of a single-line ``run: pip install ...``
+# step.  ``[^#\n]*`` before the pattern allows leading shell tokens
+# like ``set -e &&`` while excluding everything past a ``#`` comment
+# (so ``# pip install x`` in a comment is not a false positive).
+PIP_INSTALL_RE = re.compile(
+    r"(?<![\w-])(?:python\s+-m\s+)?pip\s+install\b"
+)
+PIP_UPGRADE_RE = re.compile(
+    r"(?:python\s+-m\s+)?pip\s+install\b[^\n]*?--upgrade\b[^\n]*['\"]pip>=26(?:\.\d+)*['\"]"
+)
+
 
 def top_level_indent(text: str) -> int:
     indents = []
@@ -153,8 +176,76 @@ def check_workflow(path: Path) -> list[str]:
         if not SHA_REF_RE.match(ref):
             warnings.append(f"{path}: {action}@{ref} is tag-pinned, not SHA-pinned")
 
+    errors.extend(_check_pip_cve_2026_6357(path, text))
+
     for warning in warnings:
         print(f"::warning title=Workflow supply-chain hardening::{warning}")
+    return errors
+
+
+def _check_pip_cve_2026_6357(path: Path, text: str) -> list[str]:
+    """Every ``pip install`` step must floor pip to >=26.1 (CVE-2026-6357).
+
+    The runner's Python ``site-packages`` is shared across every step of
+    a single job, so the floor only needs to be applied *once per job*
+    before any other ``pip install`` step.  We walk each ``- name:``
+    step boundary and require that the first ``pip install`` line in
+    any step is either (a) the upgrade itself, or (b) preceded by an
+    upgrade step earlier in the same job.
+
+    Returning a non-empty list fails the workflow-hardening gate.
+    """
+    errors: list[str] = []
+    lines = text.splitlines()
+
+    # Track the job each line belongs to via the ``  job_id:`` indent.
+    # A new job resets the ``pip_floored`` state; a new step inside a
+    # job inherits the existing state.
+    pip_floored = False
+    current_job_key: str | None = None
+    job_start_line = 0
+    for lineno, raw in enumerate(lines, start=1):
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        # Job boundary: 2-space-indented mapping key under ``jobs:``.
+        match = MAPPING_KEY_RE.match(raw)
+        if (
+            match
+            and len(match.group("indent")) == 2
+            and normalize_key(match.group("key")) not in {"jobs"}
+        ):
+            pip_floored = False
+            current_job_key = normalize_key(match.group("key"))
+            job_start_line = lineno
+            continue
+        # Strip an inline comment so a ``# pip install`` substring in
+        # a trailing comment is never inspected.
+        scan = raw.split("#", 1)[0]
+        if PIP_UPGRADE_RE.search(scan):
+            pip_floored = True
+            continue
+        # Documentation-emission lines that *write* the string
+        # ``pip install ...`` into a file (typical patterns:
+        # ``echo "pip install ..." >> CHANGELOG``,
+        # ``printf 'pip install ...\n'``, ``cat <<EOF`` heredocs that
+        # contain example install commands) are not actual installs
+        # and must not trip the guard.  Detect them by either an
+        # ``echo``/``printf`` prefix or a redirection / heredoc on
+        # the same line.
+        leading_token = scan.lstrip().split(" ", 1)[0].strip()
+        if leading_token in {"echo", "printf"} or (">>" in scan or "<<" in scan):
+            continue
+        if PIP_INSTALL_RE.search(scan) and not pip_floored:
+            job_hint = (
+                f" (in job ``{current_job_key}`` starting at line {job_start_line})"
+                if current_job_key
+                else ""
+            )
+            errors.append(
+                f"{path}:{lineno}: ``pip install`` without prior "
+                f"``pip>=26.1`` upgrade earlier in the same job{job_hint} "
+                "(CVE-2026-6357 regression guard)"
+            )
     return errors
 
 
