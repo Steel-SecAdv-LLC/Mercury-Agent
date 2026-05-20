@@ -26,6 +26,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security / Permanent supply-chain remediation: native JWT + joblib removal (2026-05-20)
+
+Three upstream-disputed advisories — `PYSEC-2024-277` /
+`CVE-2024-34997` (joblib), `PYSEC-2026-97` / `CVE-2026-0846`
+(nltk), and `PYSEC-2025-183` / `CVE-2025-45768` (pyjwt) — were
+**permanently retired** from Mercury-Agent's audited supply chain
+by removing the affected dependencies rather than ignoring the
+advisories or accepting risk.
+
+- **`pyjwt` removed.** Replaced by
+  `src/omni_mercury_engine/security/native_jwt.py`, a pure-stdlib
+  HS256 JWT module built on `hmac` + `hashlib` + `base64` + `json`
+  with constant-time signature verification (via
+  `security/constant_time.py`) and `alg: none` rejected by
+  construction (HS256-only encoder; decoder whitelists algorithms
+  before any HMAC work).  29 unit tests in
+  `tests/security/test_native_jwt.py`; 14 contract tests in
+  `tests/security/test_jwt_auth.py` and
+  `tests/api/test_auth_comprehensive.py` adapted to the new module
+  with no semantic change.  `api/auth.py` now imports
+  `omni_mercury_engine.security.native_jwt as jwt`, so call sites
+  and exception types (`InvalidTokenError`, `ExpiredSignatureError`,
+  …) are preserved unchanged.
+
+- **`joblib` removed.** `ParallelExecutor` in
+  `src/omni_mercury_engine/ml/optimization.py` is rewritten on
+  `concurrent.futures.{ProcessPoolExecutor, ThreadPoolExecutor}`.
+  The legacy `enable_joblib` / `joblib_backend` config field names
+  are preserved as compatibility aliases — `loky` /
+  `multiprocessing` map to the process pool and `threading` to the
+  thread pool — so downstream config files keep working unchanged.
+  Locked by `tests/ml/test_new_modules.py::test_parallel_executor_no_joblib_import`.
+
+- **`nltk` was never a Mercury dependency** — it appeared in the
+  audit scope only because `safety` itself depends on it.  The CI
+  audits (`ci.yml` and `security.yml`) now install Mercury into an
+  isolated venv (`/tmp/mercury-audit-env`) and scan only that
+  install, so auditor-internal transitives are excluded by
+  construction.
+
+- **`pyproject.toml`** drops `pyjwt>=2.12.0` from `[api]`,
+  `joblib>=1.3.0` from `[optimization]` and `[benchmark]`, and the
+  `jwt` / `joblib` mypy override entries from
+  `[[tool.mypy.overrides]]`.
+
+- **`docs/PYTHON_DEP_CVE_AUDIT.md`** deletes the three IGNORE rows
+  and replaces them with a "Permanent supply-chain remediations"
+  ledger documenting each removal, the in-tree replacement, the
+  commit, and the test that locks the remediation.
+
+Verification on the isolated Mercury [api] install (42 packages,
+Python 3.12, 2026-05-20):
+
+```
+safety check  → 0 vulnerabilities reported, 0 vulnerabilities ignored
+pip-audit     → No known vulnerabilities found  (exit 0)
+```
+
+No `--ignore-vuln` / `--ignore` flags are wired into either
+workflow.  The audit-ledger posture is now "zero risk acceptance":
+findings are remediated by upgrade, isolation, or native re-
+implementation — never by suppression.
+
 ### Security / Synthetic-data policy-gate bypass closure (2026-05-20)
 
 The validation-pipeline loaders

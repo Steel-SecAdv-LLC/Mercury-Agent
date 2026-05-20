@@ -211,6 +211,58 @@ class TestOptimization:
         results = executor.map(lambda x: x * 2, [1, 2, 3, 4])
         assert results == [2, 4, 6, 8]
 
+    def test_parallel_executor_thread_backend_preserves_order(self) -> None:
+        """Thread-backed parallel ``map`` preserves input order.
+
+        Locks the ``concurrent.futures``-backed replacement of the
+        retired ``joblib`` dependency: ``ThreadPoolExecutor.map``
+        guarantees in-order results, matching the prior
+        ``joblib.Parallel`` contract that benchmark loops rely on.
+        """
+        from omni_mercury_engine.ml.optimization import ParallelExecutor
+
+        executor = ParallelExecutor(n_jobs=4, backend="threading")
+        results = executor.map(lambda x: x * 2, list(range(8)))
+        assert results == [0, 2, 4, 6, 8, 10, 12, 14]
+
+    def test_parallel_executor_thread_backend_starmap(self) -> None:
+        """Thread-backed ``starmap`` expands tuple args and keeps order."""
+        from omni_mercury_engine.ml.optimization import ParallelExecutor
+
+        executor = ParallelExecutor(n_jobs=4, prefer="threads")
+        results = executor.starmap(lambda a, b: a + b, [(1, 2), (3, 4), (5, 6)])
+        assert results == [3, 7, 11]
+
+    def test_parallel_executor_kwargs_forwarded(self) -> None:
+        """``map`` forwards ``**kwargs`` to every worker call."""
+        from omni_mercury_engine.ml.optimization import ParallelExecutor
+
+        executor = ParallelExecutor(n_jobs=2, backend="threading")
+        results = executor.map(lambda x, *, scale: x * scale, [1, 2, 3], scale=10)
+        assert results == [10, 20, 30]
+
+    def test_parallel_executor_no_joblib_import(self) -> None:
+        """``ParallelExecutor`` must not import ``joblib`` at runtime.
+
+        Locks the supply-chain remediation: Mercury's parallel
+        executor is pure ``concurrent.futures`` and never touches
+        the upstream-disputed ``joblib`` library.  The docstring
+        legitimately references ``joblib`` for historical /
+        compatibility context, but the executable lines must not
+        contain any ``import joblib`` / ``from joblib …`` statement.
+        """
+        import inspect
+
+        from omni_mercury_engine.ml import optimization
+
+        source = inspect.getsource(optimization.ParallelExecutor)
+        for raw_line in source.splitlines():
+            line = raw_line.strip()
+            if line.startswith("#") or not line:
+                continue
+            assert "import joblib" not in line, f"Found joblib import in: {raw_line!r}"
+            assert "from joblib" not in line, f"Found joblib import in: {raw_line!r}"
+
     def test_apply_all_optimizations(self) -> None:
         """apply_all_optimizations should return components dict."""
         from omni_mercury_engine.ml.optimization import (

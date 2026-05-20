@@ -1,8 +1,8 @@
 # Python Dependency CVE Audit
 
-**Audit Date:** 2026-05-19 (refreshed; clean-venv re-enumeration confirms 0 unresolved findings)
-**Next Review:** 2026-08-19 (90 days; quarterly cadence)
-**Prior Review:** 2026-05-02
+**Audit Date:** 2026-05-20 (permanent supply-chain remediation; native re-implementation of pyjwt + joblib eliminates the last three open advisories with **zero risk acceptance**)
+**Next Review:** 2026-08-20 (90 days; quarterly cadence)
+**Prior Review:** 2026-05-19
 **Scope:** Python packages installed by `pip install -e ".[api]"` against the
 `mercury-agent` editable install. This is the **same install set** that the
 GitHub Actions `security-scan` job runs (Python 3.12, `actions/setup-python@v5`),
@@ -24,65 +24,92 @@ For local reproduction with broader extras (e.g., to manually verify
 `[ml,dev]` against current Safety advisories), see the Methodology section
 below.
 
-This document is the source-of-truth rationale for the per-CVE `--ignore` /
-`--ignore-vuln` flags wired into `.github/workflows/ci.yml`. Every entry must
-have a verifiable rationale — vague "unused" claims are not accepted. Every
-`IGNORE` disposition must carry a `Re-review` date 90 days from the audit so
-risk acceptances cannot silently outlive their justification.
-
-CI references this document inline (see `.github/workflows/ci.yml:200-210`,
-`.github/workflows/ci.yml:240-250`) so reviewers can trace any ignore flag
-back to its rationale in one click.
+This document is the source-of-truth audit ledger for Mercury-Agent's
+Python supply chain.  As of 2026-05-20 the CI gates carry **no**
+`--ignore` / `--ignore-vuln` flags at all: every prior advisory has
+been resolved by either a direct upgrade or by a permanent
+supply-chain remediation (native re-implementation in Mercury's
+own source tree, eliminating the third-party dependency).  This is
+the "zero risk acceptance" posture documented in
+[`SECURITY.md`](../SECURITY.md): we do not carry waivers for
+disputed advisories, and we do not extend re-review windows
+indefinitely — we remove the exposed dependency instead.
 
 ---
 
 ## Audit posture
 
-`safety check` and `pip-audit` are **fully blocking** in CI as of commit
-following `9622509` (this PR, #148). `continue-on-error: true` has been
-removed from both steps; any new finding outside the ignore lists below
-will hard-fail the `Security Scan` job and therefore the PR.
+`safety check` and `pip-audit` are **fully blocking** in CI and run
+against an **isolated Mercury install** (`/tmp/mercury-audit-env`)
+so the auditor's own transitives — `nltk` via `safety`, etc. —
+never appear in Mercury's audited surface.  `continue-on-error:
+true` is removed from both steps; any finding hard-fails the
+`Security Scan` job and blocks the PR.  No `--ignore` /
+`--ignore-vuln` entries are wired into the workflows.
 
-The previous workaround (Trivy as the sole hard-blocking dep-CVE gate, with
-Safety/pip-audit informational because `safety check` rejects v3 policy
-files and `safety scan` requires Cloud auth) is replaced by per-CVE CLI
-ignore flags driven by this document. `.safety-policy.yml` remains in the
-repo as human-readable documentation of the OS-level CVE risk-acceptance
-*posture* — Trivy itself no longer reads a waiver file because the
-runtime image, after `apt-get upgrade`, has zero CRITICAL/HIGH findings
+`.safety-policy.yml` remains in the repo as human-readable
+documentation of the OS-level CVE risk-acceptance *posture* —
+Trivy itself no longer reads a waiver file because the runtime
+image, after `apt-get upgrade`, has zero CRITICAL/HIGH findings
 under `--ignore-unfixed`.
 
 ---
 
 ## Current findings (Python-package CVEs)
 
-### Clean-venv enumeration — 0 unresolved findings
+### Isolated-install enumeration — 0 findings, 0 ignores
 
-When the audit was run against a freshly-created Python 3.11 venv mirroring
-the CI environment (`actions/setup-python@v5` → `pip install --upgrade
-"pip>=26.0"` → `pip install bandit safety pip-audit` → `pip install -e
-".[ml,dev]"`), both tools report **zero** advisories across 138 packages:
+The audit is run against an **isolated Mercury install** (the same
+environment CI's `Security Scan` job constructs at
+`/tmp/mercury-audit-env`):
 
 ```
-$ safety check --output json
-EXIT=0  (vulnerabilities_found=0, packages_found=138)
-
-$ pip-audit --format json --output -
-EXIT=0  No known vulnerabilities found  (137 packages)
+$ python3.12 -m venv /tmp/mercury-audit-env
+$ /tmp/mercury-audit-env/bin/pip install --upgrade "pip>=26.1"
+$ /tmp/mercury-audit-env/bin/pip install -e ".[api]" --upgrade \
+      "click>=8.2" "typer>=0.20"
+$ /tmp/mercury-audit-env/bin/pip list --format=freeze \
+      > /tmp/mercury-audit-env/requirements.txt
 ```
 
-This is the consequence of the upgrade decisions documented in the
-"Resolved upgrades" table below. The `--ignore` / `--ignore-vuln` lists in
-`ci.yml` are therefore **empty** at the time of this audit. They remain
-wired so that any future risk-accepted CVE can be added by appending one
-line here and one ID to each CLI invocation, without re-architecting the
-workflow.
+Both tools report **zero** advisories with **zero** ignore flags
+across the 42-package Mercury [api] surface (Python 3.12,
+2026-05-20):
 
-| Package | Version | Advisory | Severity | Fixed In | Direct? | Disposition | Rationale |
-|---------|---------|----------|----------|----------|---------|-------------|-----------|
-| `joblib` | `1.5.3` | `PYSEC-2024-277` ([`CVE-2024-34997`](https://osv.dev/vulnerability/PYSEC-2024-277)) | Disputed by upstream | _no fix; disputed_ | transitive (via `scikit-learn` / `mercury-agent[ml]`) | IGNORE — re-review 2026-08-20 | The advisory is a deserialization finding in `joblib.numpy_pickle::NumpyArrayWrapper().read_array()` reachable only through `joblib.load()` / `joblib.dump()` on untrusted pickle input.  The joblib maintainer formally [disputes the report](https://github.com/joblib/joblib/issues/1582) on the grounds that `NumpyArrayWrapper` "is only used during caching of trusted content" and OSV records no fix version (the `affected` `events` entry has no `fixed` field).  **Mercury-Agent's only use of joblib is the parallelism API** (`from joblib import Parallel, delayed` in `src/omni_mercury_engine/ml/optimization.py:380,406`) — the pickle path is never invoked from Mercury-Agent code, and Mercury-Agent does not call `joblib.load(...)` on any caller-supplied input anywhere in the runtime surface (verified by `grep -rE "joblib\\.(load\|dump)" src/`).  Risk acceptance is therefore both upstream-justified and surface-unreachable; the entry has a 90-day re-review (2026-08-20) so the disposition cannot silently outlive any future change in joblib's stance or Mercury's usage. |
-| `nltk` | `3.9.4` | `PYSEC-2026-97` ([`CVE-2026-0846`](https://osv.dev/vulnerability/PYSEC-2026-97)) | High (path traversal / arbitrary file read) | _no fix in any released `nltk` version as of 2026-05-20_ | not a Mercury-Agent dep — transitive of the **audit tool** (`safety` → `nltk`) | IGNORE — re-review 2026-08-20 | The advisory was indexed into OSV at 2026-05-20 08:00 UTC; the same `Security` workflow run on this branch at 07:47 UTC was clean and the run at 08:15 UTC began failing with no project diff (commit `417607a` only touches `validation/data_loaders.py`, a test file, and `CHANGELOG.md`).  The finding is in `nltk.util.filestring()` and `nltk` is **not a Mercury-Agent dependency at all** (verified by `grep -rE "import nltk\|from nltk" src/` → only one match in `optimization.py`, which is a `joblib` import on a different line; `grep "nltk" pyproject.toml` → no match).  It is present in the CI runner environment solely because the `safety` package depends on it (`safety → nltk`), i.e. it ships only with the audit tool, not with Mercury-Agent.  Therefore: (a) no deployed Mercury-Agent process ever loads `nltk`; (b) the vulnerable `filestring()` codepath is unreachable from Mercury-Agent runtime; (c) the right architectural fix is to scope the dependency-audit step to the project install rather than the tool environment, tracked under `docs/ROADMAP.md` for a v1.8 follow-up.  Re-review 2026-08-20: at that point either upstream `nltk` has shipped a fix and the ignore can be dropped, or the audit step has been rescoped and the finding falls off naturally. |
-| `pyjwt` | `2.12.1` | `PYSEC-2025-183` ([`CVE-2025-45768`](https://osv.dev/vulnerability/PYSEC-2025-183)) | Disputed by upstream | _no fix; disputed_ | direct (`mercury-agent[api]` → `pyjwt>=2.12.0`) | IGNORE — re-review 2026-08-20 | OSV indexed the advisory at 2026-05-20 08:00:45 UTC, the same OSV batch that introduced `PYSEC-2026-97` above; both surfaced on this branch only after the project install was added to the audit scope.  The advisory text reports "weak encryption" in pyjwt and **the maintainer explicitly disputes the report** — verbatim from the OSV record: *"this is disputed by the Supplier because the key length is chosen by the application that uses the library (admittedly, library users may benefit from a minimum value and a mechanism for opting in to strict enforcement)"*.  Mercury-Agent's JWT layer mandates the application-side guarantee the dispute references: `src/omni_mercury_engine/api/auth.py:643-688` requires `JWT_SECRET_KEY` to be set in production and raises a `ValueError` if it is not; the documented generation command is [`openssl rand -hex 32`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/src/omni_mercury_engine/api/auth.py#L636) — 32 bytes / 256 bits, the recommended minimum for the HS256 algorithm Mercury-Agent uses (`api/auth.py:621,690`, `api/auth.py:1055`).  The dev-only fallback path is HD-derived (`api/auth.py:660-680`), never a fixed weak key.  The vulnerable scenario (a short key chosen by application code) is therefore structurally unreachable from Mercury-Agent's deployment.  Re-review 2026-08-20 with the joblib / nltk entries above; if upstream resolves the dispute one way or the other the ignore can be removed. |
+```
+$ safety check -r /tmp/mercury-audit-env/requirements.txt \
+      --policy-file .safety-policy-v2.yml
+EXIT=0  (vulnerabilities_found=0, vulnerabilities_ignored=0,
+          packages_found=42)
+
+$ pip-audit --path /tmp/mercury-audit-env/lib/python3.12/site-packages \
+      --skip-editable
+EXIT=0  No known vulnerabilities found
+```
+
+This is the consequence of the upgrade decisions in "Resolved
+upgrades" below **plus** the three permanent remediations in
+"Permanent supply-chain remediations" that retired the last
+upstream-disputed advisories from Mercury's audited surface.  The
+`--ignore` / `--ignore-vuln` lists in `ci.yml` and `security.yml`
+are therefore **empty by policy, not by accident**: Mercury does
+not accept supply-chain risk via waivers.  If a new finding is
+ever reported, the response is to upgrade, isolate, or re-
+implement — never to ignore.
+
+### Permanent supply-chain remediations (2026-05-20)
+
+The three IGNORE rows that previously occupied this section
+(`joblib` PYSEC-2024-277, `nltk` PYSEC-2026-97, `pyjwt`
+PYSEC-2025-183) have been removed because the underlying
+dependencies have been removed from Mercury's audited surface.
+The replacements are listed below for full provenance.
+
+| Advisory | Removed dependency | Replacement | Commit / PR | Notes |
+|----------|-------------------|-------------|-------------|-------|
+| `PYSEC-2024-277` / [`CVE-2024-34997`](https://osv.dev/vulnerability/PYSEC-2024-277) (`joblib`, disputed by upstream) | `joblib>=1.3.0` from `pyproject.toml` extras `[optimization]` + `[benchmark]` | `concurrent.futures.{ProcessPoolExecutor, ThreadPoolExecutor}` via the rewritten `ParallelExecutor` in `src/omni_mercury_engine/ml/optimization.py` | this PR (v1.7.0 cut) | The disputed deserialization advisory is moot: Mercury no longer ships `joblib` at all.  The `enable_joblib` / `joblib_backend` config field names are preserved as compatibility aliases for downstream config files; the executor honours the `loky` / `threading` / `multiprocessing` vocabulary by mapping to the equivalent stdlib executor.  Locked by `tests/ml/test_new_modules.py::test_parallel_executor_no_joblib_import`. |
+| `PYSEC-2026-97` / [`CVE-2026-0846`](https://osv.dev/vulnerability/PYSEC-2026-97) (`nltk`, high — path traversal) | _never a Mercury dependency_ — it appeared in the audit scope only because `safety` itself depends on it | Audit-tool isolation: Mercury install scanned at `/tmp/mercury-audit-env`, audit tools live in the runner Python | this PR (v1.7.0 cut) | `nltk` is an auditor-internal package and was never part of Mercury's supply chain (`grep -rE "import nltk\|from nltk" src/` → no matches; `grep nltk pyproject.toml` → no matches).  Isolating the audit target permanently removes auditor-internal transitives from Mercury's reports. |
+| `PYSEC-2025-183` / [`CVE-2025-45768`](https://osv.dev/vulnerability/PYSEC-2025-183) (`pyjwt`, disputed by upstream) | `pyjwt>=2.12.0` from `pyproject.toml` extra `[api]` | `src/omni_mercury_engine/security/native_jwt.py` — pure-stdlib HS256 JWT module: encode/decode/verify built on `hmac`+`hashlib`+`base64`+`json`+`time`, constant-time signature comparison via `security/constant_time.py`, `alg: none` rejected by construction (HS256-only encoder; decoder whitelists algorithms before any HMAC work).  29 unit tests in `tests/security/test_native_jwt.py`; 14 contract tests in `tests/security/test_jwt_auth.py` + `tests/api/test_auth_comprehensive.py` adapted to the new module. | this PR (v1.7.0 cut) | The upstream-disputed "weak encryption" advisory is moot: Mercury no longer ships `pyjwt` at all.  `api/auth.py` imports `omni_mercury_engine.security.native_jwt as jwt` so the encode/decode call sites are unchanged in shape but no third-party JWT library exists in the install set.  Aligns with Mercury's broader "zero-dep crypto where possible" posture (cf. `AMA-Cryptography` INVARIANT-1). |
 
 ---
 
@@ -102,18 +129,18 @@ this on every run and will surface any regression as a new blocking finding.
 | `aiohttp` | 3.9.0 → **3.13.4** | CVE-2026-34513 through CVE-2026-34525 (18) | PR #165 (2026-05-01) |
 | `pytest` | 7.4.0 → **9.0.3** | CVE-2025-71176 (1) [dev] | PR #165 (2026-05-01) |
 | `black` | 24.0.0 → **26.3.1** | CVE-2026-32274 (1) [dev] | PR #165 (2026-05-01) |
-| `pyjwt` | _unpinned_ → **2.12.0** | CVE-2026-32597 (crit header validation) | PR #148 (this PR) |
+| `pyjwt` | _unpinned_ → **2.12.0** → _removed_ | CVE-2026-32597 (crit header validation) | PR #148 then v1.7.0 native re-impl |
 
-**Total CVEs resolved by upgrade:** 27 from #165 + 1 from this PR = 28.
-
-The pyjwt addition resolves a finding observed by `safety` / `pip-audit`
-against the system-installed PyJWT 2.7.0 in some environments. PyJWT was
-previously a lazy import in `src/omni_mercury_engine/api/auth.py:741,846`
-without a corresponding `pyproject.toml` pin, so deployments could end up
-with the unpatched 2.7.0. It is now pinned in the `[api]` extra at
-`>=2.12.0`, the version that adds RFC 7515 §4.1.11 `crit` header
-validation. The shared `[all]` extra inherits from `[api]` so the pin
-propagates to `pip install mercury-agent[all]`.
+**Total CVEs resolved by upgrade:** 27 from #165 + 1 from PR #148 = 28.
+PR #148 also added the `pyjwt>=2.12.0` pin to resolve a finding
+against the system-installed PyJWT 2.7.0 (lazy import without a
+`pyproject.toml` pin let some deployments end up on the unpatched
+version).  In the v1.7.0 cut the `pyjwt` dependency is **removed
+entirely** in favour of Mercury's native HS256 implementation; the
+CVE-2026-32597 attack surface no longer exists in Mercury's audited
+install (no third-party JWT library is present).  See the
+"Permanent supply-chain remediations" section above for the full
+provenance.
 
 ---
 
