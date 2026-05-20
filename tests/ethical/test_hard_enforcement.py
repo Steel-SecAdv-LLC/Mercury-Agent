@@ -535,9 +535,9 @@ class TestNeuroSymbolicHubEmptyBatchClosure:
             action: Any,
             scalar_vector: Any,
             details: Any = None,
-        ) -> None:
+        ) -> Any:
             invocations.append({"action": action, "details": details or {}})
-            return original_enforce(  # type: ignore[no-any-return]
+            return original_enforce(
                 action=action,
                 scalar_vector=scalar_vector,
                 details=details,
