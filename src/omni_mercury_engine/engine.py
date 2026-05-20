@@ -108,6 +108,7 @@ except ImportError:
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
     EthicalConstraintViolationError,
+    sanitize_domain,
 )
 from omni_mercury_engine.core.config import EngineConfig
 from omni_mercury_engine.core.global_omni_scalar_network import (
@@ -2059,7 +2060,14 @@ class OmniMercuryEngine(LoggerMixin):
             domain: Caller-supplied domain hint, used as context only.
             data: The input being detected (used for shape/size context).
         """
-        safe_domain = domain if isinstance(domain, str) else "general"
+        # σ_Immutable Wave B Vector 2 closure: caller-supplied domain
+        # hints can ride into both the scorer's action description and
+        # the σ_Immutable details payload, so a hostile value like
+        # ``"damage destroy harm track expose"`` would either inject
+        # harm-keywords (false negative) or positive keywords (false
+        # positive).  ``sanitize_domain`` collapses every input to the
+        # whitelisted ``EnvironmentDomain`` ∪ {"general"} alphabet.
+        safe_domain = sanitize_domain(domain)
         # Action keywords intentionally evidence the engine's defensive
         # purpose — audit, verify, protect, research — so the scorer
         # produces a deterministic, above-floor score for legitimate

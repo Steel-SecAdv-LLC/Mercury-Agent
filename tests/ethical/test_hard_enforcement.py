@@ -468,3 +468,105 @@ class TestReservedChecksWaveB:
         with pytest.raises(EthicalViolation) as exc_info:
             engine.detect_with_fusion(_synthetic_traffic_batch(seed=2, rows=4, cols=8))
         assert exc_info.value.check == "gosnn_unavailable"
+
+
+class TestSanitizeDomainHelper:
+    """The canonical sanitiser collapses unsafe domain hints to ``general``."""
+
+    def test_known_label_is_passed_through(self) -> None:
+        from omni_mercury_engine.cognitive.ethical_bounding import sanitize_domain
+        from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain
+
+        for member in EnvironmentDomain:
+            assert sanitize_domain(member.value) == member.value
+
+    def test_enum_value_is_accepted(self) -> None:
+        from omni_mercury_engine.cognitive.ethical_bounding import sanitize_domain
+        from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain
+
+        assert sanitize_domain(EnvironmentDomain.CYBER) == EnvironmentDomain.CYBER.value
+
+    def test_unknown_label_collapses_to_general(self) -> None:
+        from omni_mercury_engine.cognitive.ethical_bounding import sanitize_domain
+
+        # An attacker-controlled hint that interpolates harm keywords
+        # into the action description / details payload must be
+        # replaced with the ``general`` sentinel, not passed through.
+        for hostile in (
+            "damage_control",
+            "expose target",
+            "destroy_data",
+            "track victim",
+            "harm survivor",
+        ):
+            assert sanitize_domain(hostile) == "general"
+
+    def test_non_string_collapses_to_general(self) -> None:
+        from omni_mercury_engine.cognitive.ethical_bounding import sanitize_domain
+
+        for non_string in (None, 42, 3.14, [], {}, object()):
+            assert sanitize_domain(non_string) == "general"
+
+
+class TestNeuroSymbolicHubEmptyBatchClosure:
+    """Wave B Vector 4 closure: the empty-batch path is enforced too."""
+
+    def test_empty_batch_invokes_sigma_immutable_gate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An empty input batch must still trip the σ_Immutable gate.
+
+        Without the pre-flight enforce in ``NeuroSymbolicHub.predict``,
+        an empty ``X`` would return ``[]`` immediately without ever
+        invoking the gate — a silent no-op bypass.  The pre-flight
+        runs the same hard gate on a synthetic zero-vector so an empty
+        batch is held to the same ethical contract as a populated one.
+        """
+        from omni_mercury_engine.core.neurosymbolic_hub import (
+            FusionMode,
+            NeuroSymbolicHub,
+        )
+
+        hub = NeuroSymbolicHub(input_dim=4, fusion_mode=FusionMode.BALANCED)
+        invocations: list[dict[str, Any]] = []
+        original_enforce = hub._sigma_immutable_gate.enforce
+
+        def _spy(
+            action: Any,
+            scalar_vector: Any,
+            details: Any = None,
+        ) -> None:
+            invocations.append({"action": action, "details": details or {}})
+            return original_enforce(  # type: ignore[no-any-return]
+                action=action,
+                scalar_vector=scalar_vector,
+                details=details,
+            )
+
+        monkeypatch.setattr(hub._sigma_immutable_gate, "enforce", _spy)
+
+        empty = np.empty((0, 4), dtype=np.float64)
+        out = hub.predict(empty)
+        assert out == []
+        assert invocations, "σ_Immutable gate must fire even on an empty batch"
+        assert invocations[0]["details"].get("empty_batch") is True
+        # The audit trail carries the *sanitised* domain, not the
+        # caller-supplied raw value.
+        assert invocations[0]["details"].get("domain") == "general"
+
+    def test_constructor_sanitises_hostile_domain_for_audit(self) -> None:
+        """A hostile constructor ``domain`` is collapsed before audit."""
+        from omni_mercury_engine.core.neurosymbolic_hub import (
+            FusionMode,
+            NeuroSymbolicHub,
+        )
+
+        hub = NeuroSymbolicHub(
+            input_dim=4,
+            fusion_mode=FusionMode.BALANCED,
+            domain="damage_control track victim",
+        )
+        # The hub's downstream feature-dispatch still sees the raw
+        # caller value (legacy behaviour preserved); only the audit
+        # surface — ``self.domain`` — is sanitised.
+        assert hub.domain == "general"

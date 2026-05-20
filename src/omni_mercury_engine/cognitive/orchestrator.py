@@ -45,6 +45,7 @@ from omni_mercury_engine.cognitive.causal_discovery import CausalDiscoveryEngine
 from omni_mercury_engine.cognitive.ethical_bounding import (
     BenevolenceScorer,
     EthicalConstraintViolationError,
+    sanitize_domain,
 )
 from omni_mercury_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
@@ -120,25 +121,19 @@ class CognitiveAnalysisResult:
         }
 
 
-# Whitelist of caller-supplied ``context["domain"]`` values that are safe to
-# interpolate into the benevolence-scoring action description.  Any domain
-# label outside this set is replaced with the ``_DEFAULT_DOMAIN`` sentinel
-# before scoring so a hostile or malformed value (e.g. ``"damage_control"``,
-# ``"exposure_control"``) cannot inject harm-keyword substrings into the
-# action and trip a false ``EthicalConstraintViolationError``.
-#
-# The base set is derived programmatically from
-# :class:`~omni_mercury_engine.cognitive.ipb_engine.EnvironmentDomain`
-# so a new domain added to the enum is automatically permitted here
-# without having to edit two files.  We then add the explicit
-# ``_DEFAULT_DOMAIN = "general"`` sentinel — this is the value used when
-# the caller did not supply a domain or supplied an unsafe one, and it
-# is intentionally **not** a member of ``EnvironmentDomain`` (it is
-# orchestrator-internal).
+# Whitelist of caller-supplied ``context["domain"]`` values that are
+# safe to interpolate into the benevolence-scoring action description.
+# The canonical sanitiser lives in
+# :func:`omni_mercury_engine.cognitive.ethical_bounding.sanitize_domain`
+# — every public decision boundary in the engine
+# (engine.detect_with_fusion[_calibrated], CognitiveOrchestrator.analyze,
+# NeuroSymbolicHub.predict, narrative voice entry points, the federated
+# aggregator) imports the same helper so the whitelist is one source of
+# truth, not five copies that can drift independently.  The
+# ``_DEFAULT_DOMAIN`` sentinel is kept for orchestrator-local use sites
+# (history bookkeeping, IPB threat-assessment dispatch) that need the
+# canonical fallback label without re-running the sanitiser.
 _DEFAULT_DOMAIN: str = "general"
-_SAFE_DOMAIN_LABELS: frozenset[str] = frozenset(
-    {member.value for member in EnvironmentDomain} | {_DEFAULT_DOMAIN}
-)
 
 
 class CognitiveOrchestrator(LoggerMixin):
@@ -507,20 +502,11 @@ class CognitiveOrchestrator(LoggerMixin):
         # ``context`` is NOT passed to the scorer — arbitrary text
         # could inject harm keywords ("damage", "control", "track",
         # "expose", …) and trip a false EthicalConstraintViolationError.
-        # The domain label is whitelisted so a hostile / typo'd value
-        # like "damage_control" cannot reach the scorer either.
-        raw_domain = context.get("domain", _DEFAULT_DOMAIN)
-        # Normalize first: caller-supplied ``raw_domain`` could be any type
-        # (an unhashable ``dict`` / ``list`` would raise ``TypeError`` from
-        # the ``in`` membership test below; an ``EnvironmentDomain`` enum
-        # value carries the canonical string under ``.value``).
-        if hasattr(raw_domain, "value"):  # EnvironmentDomain enum
-            raw_domain = raw_domain.value
-        safe_domain = (
-            raw_domain
-            if isinstance(raw_domain, str) and raw_domain in _SAFE_DOMAIN_LABELS
-            else _DEFAULT_DOMAIN
-        )
+        # ``sanitize_domain`` from ``cognitive.ethical_bounding`` is the
+        # canonical whitelist (Wave B Vector 2-6 closure) so a hostile or
+        # typo'd value like ``"damage_control"`` is collapsed to
+        # ``"general"`` before reaching the scorer.
+        safe_domain = sanitize_domain(context.get("domain", _DEFAULT_DOMAIN))
         action_desc = (
             f"cognitive_analysis:{safe_domain}:severity={severity:.2f}:"
             "audit monitor verify data research evidence fair oversight"
