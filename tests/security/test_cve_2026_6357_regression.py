@@ -23,8 +23,10 @@ import importlib.util
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pytest
+if TYPE_CHECKING:
+    import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 HARDENING_SCRIPT = REPO_ROOT / "scripts" / "check_workflow_hardening.py"
@@ -36,9 +38,7 @@ DOCKERFILE = REPO_ROOT / "Dockerfile"
 # evolve (e.g. to match new install front-ends); these stay anchored
 # to the textual contract of CVE-2026-6357 so a regression that
 # silently weakens the production regex still fails this suite.
-LOCAL_PIP_INSTALL_RE = re.compile(
-    r"(?<![\w-])(?:python\s+-m\s+)?pip\s+install\b"
-)
+LOCAL_PIP_INSTALL_RE = re.compile(r"(?<![\w-])(?:python\s+-m\s+)?pip\s+install\b")
 LOCAL_PIP_UPGRADE_RE = re.compile(
     r"(?:python\s+-m\s+)?pip\s+install\b[^\n]*?--upgrade\b[^\n]*['\"]pip>=26(?:\.\d+)*['\"]"
 )
@@ -46,9 +46,7 @@ LOCAL_PIP_UPGRADE_RE = re.compile(
 
 def _load_hardening_module() -> object:
     """Load ``scripts/check_workflow_hardening.py`` as a regular module."""
-    spec = importlib.util.spec_from_file_location(
-        "check_workflow_hardening", HARDENING_SCRIPT
-    )
+    spec = importlib.util.spec_from_file_location("check_workflow_hardening", HARDENING_SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules.setdefault(spec.name, module)

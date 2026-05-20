@@ -36,9 +36,7 @@ MAPPING_KEY_RE = re.compile(
 # step.  ``[^#\n]*`` before the pattern allows leading shell tokens
 # like ``set -e &&`` while excluding everything past a ``#`` comment
 # (so ``# pip install x`` in a comment is not a false positive).
-PIP_INSTALL_RE = re.compile(
-    r"(?<![\w-])(?:python\s+-m\s+)?pip\s+install\b"
-)
+PIP_INSTALL_RE = re.compile(r"(?<![\w-])(?:python\s+-m\s+)?pip\s+install\b")
 PIP_UPGRADE_RE = re.compile(
     r"(?:python\s+-m\s+)?pip\s+install\b[^\n]*?--upgrade\b[^\n]*['\"]pip>=26(?:\.\d+)*['\"]"
 )
