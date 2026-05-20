@@ -347,13 +347,29 @@ jobs:
         # Safety dep-CVE gate before any vulnerability check runs.
         run: pip install bandit safety pip-audit "click>=8.2"
 
-      - name: Install Semgrep
+      - name: Install Semgrep (isolated venv)
         # Semgrep is heavier (~76MB manylinux wheel including
         # ``semgrep-core``).  Blocking — if it cannot be installed,
         # the security gate would be silently weaker, so we fail
         # explicitly rather than ``|| true``.  Using a separate step
         # keeps the failure mode self-evident in the GHA UI.
-        run: pip install semgrep
+        #
+        # Semgrep pins ``click~=8.1.8`` (i.e. ``<8.2``), which is
+        # incompatible with ``safety``'s bundled ``typer>=0.20``
+        # that requires ``click>=8.2`` for PEP 695 ``click.Choice[...]``
+        # subscripting.  Installing semgrep into the runner's default
+        # Python would silently downgrade click and crash safety on
+        # import.  Installing semgrep into its own venv lets each
+        # tool keep the click version it actually needs.  Verified
+        # locally against semgrep ``Requires-Dist: click~=8.1.8`` and
+        # safety 3.7.0 ``Requires-Dist: click>=8.0.2`` + typer 0.25.1.
+        run: |
+          python -m venv /tmp/semgrep-env
+          /tmp/semgrep-env/bin/pip install --upgrade "pip>=26.1"
+          /tmp/semgrep-env/bin/pip install semgrep
+          # Expose semgrep on PATH for the scan step below without
+          # contaminating the runner's site-packages.
+          ln -sf /tmp/semgrep-env/bin/semgrep /usr/local/bin/semgrep
 
       - name: Create isolated Mercury install (audit target)
         # Install Mercury into a dedicated venv so the dependency
