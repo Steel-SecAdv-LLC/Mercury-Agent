@@ -26,6 +26,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security / σ_Immutable Wave B Vector 2 + 4 closure (2026-05-20)
+
+Closes two of the remaining σ_Immutable bypass vectors identified in the
+v1.7 audit:
+
+- **Vector 2 — engine boundary.** `engine._enforce_ethics_at_boundary`
+  now routes the caller-supplied `domain` through a canonical
+  `sanitize_domain()` helper instead of the prior bare
+  `isinstance(domain, str)` check.  Hostile values such as
+  `"damage_control"` or `"audit track"` are collapsed to the
+  `"general"` sentinel before reaching the `BenevolenceScorer`, so a
+  caller cannot inject harm/positive keywords into the action string
+  to bias the scorer.
+- **Vector 4 — neuro-symbolic hub.** `NeuroSymbolicHub.__init__` now
+  sanitises the `domain` constructor argument before storing it on
+  the audit surface (`self.domain` interpolated into σ_Immutable
+  `details` payloads); the downstream feature-dispatch components
+  (`FibringComposer`, `DomainFeatureExtractorFactory`,
+  `GOSNN3RIntegration`) still see the raw caller value for legacy
+  compatibility.  `NeuroSymbolicHub.predict` now pre-flights the
+  σ_Immutable gate on `n_samples == 0` batches; previously an empty
+  input would return `[]` immediately without ever firing the per-
+  sample enforcement loop, giving callers a silent no-op bypass.
+- **Canonical sanitiser** lifted into
+  `omni_mercury_engine.cognitive.ethical_bounding.sanitize_domain`
+  with a deferred `EnvironmentDomain` import to preserve
+  `ethical_bounding`'s zero-cost import contract.
+  `cognitive/orchestrator.py` now delegates to the same helper
+  instead of carrying a local copy of the whitelist.
+- **Regression**: `tests/ethical/test_hard_enforcement.py` grows
+  `TestSanitizeDomainHelper` (4 cases) and
+  `TestNeuroSymbolicHubEmptyBatchClosure` (2 cases) — the empty-batch
+  closure is locked with a `monkeypatch` spy that asserts the gate
+  fires with `details["empty_batch"] is True` and a sanitised
+  `details["domain"] == "general"`.
+- **Wave B Vector 3** (`CognitiveOrchestrator.analyze`) was already
+  enforced in v1.6 and remains in place.  Vectors 5 (narrative voice)
+  and 6 (federation aggregator + federated_learning server) are
+  deferred to a Wave C follow-up: those subsystems do not currently
+  carry σ_Immutable wiring, and adding it without breaking the
+  existing calling contract requires a careful interface review that
+  is out of scope for the v1.7.0 release cut.  The deferral is
+  tracked in `docs/ROADMAP.md`.
+
+### Security / CVE-2026-6357 regression guard (2026-05-20)
+
+CVE-2026-6357 lets a malicious wheel hijack the install process on
+`pip` versions earlier than 26.1.  Every Dockerfile stage, every CI
+workflow that runs `pip install`, and every devcontainer / dev-tooling
+script already floors `pip>=26.1` in the v1.7 baseline; this commit
+adds a regression guard that makes the contract durable:
+
+- `scripts/check_workflow_hardening.py` grows a
+  `_check_pip_cve_2026_6357` step.  It walks every workflow YAML,
+  groups lines by job (since runner site-packages is shared across
+  all steps in a job), and fails the `Workflow Hardening` CI gate if
+  any `pip install` (or `python -m pip install`) appears in a job
+  without a prior `pip install --upgrade "pip>=26.1"`.  Documentation-
+  emission lines that *write* the literal string `pip install` into
+  a file (`echo`, `printf`, `>>` / `<<` redirection) are exempt and
+  so are inline comments.
+- `.github/workflows/format.yml` and `.github/workflows/network-tests.yml`
+  were updated to floor pip explicitly (previously the `format` job
+  installed Black without pinning pip first; `network-tests` issued a
+  bare `python -m pip install --upgrade pip`).
+- `tests/security/test_cve_2026_6357_regression.py` is the *gate on
+  the gate*: it directly exercises the hardening checker plus the
+  real workflow / Dockerfile inventory so a future drift — a new
+  workflow that forgets the floor, a Dockerfile that re-introduces
+  an unpinned `pip install`, or a regression in the checker itself —
+  is caught by `pytest` long before it can land in a release branch.
+
 ## [1.7.0] - 2026-05-20
 
 ### Documentation refresh (2026-05-19)
