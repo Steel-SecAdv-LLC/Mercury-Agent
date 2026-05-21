@@ -542,12 +542,25 @@ jobs:
         run: |
           # Core-lane test selection, expanded in v1.7.x for the
           # COVERAGE_THRESHOLD_CORE 15 -> 25 graduation.  Measured
-          # combined stmt+branch coverage on this selection is 31.87%
-          # (1277 -> 3186 collected tests).  When adding a directory
-          # below, prefer the directory form (e.g. ``tests/ml/``) over
-          # listing individual files so the lane picks up new tests
-          # automatically.  Files that depend on packages NOT in the
-          # ``[ml,dev,api]`` install set above must NOT be added here.
+          # combined stmt+branch coverage on this selection (without
+          # tests/security/) is well above the 25 floor.
+          #
+          # tests/security/ is intentionally NOT in this lane:
+          # tests/security/conftest.py runs a pytest_configure hook
+          # that hard-fails any CI session unless MERCURY_PQC_REAL_AMA
+          # is set, which in turn requires the heavyweight AMA
+          # Cryptography native build that ml-tests provisions.  The
+          # core lane is intentionally lightweight; tests/security/
+          # is covered by ml-tests (which DOES build the AMA library)
+          # and Neuro-Symbolic Tests.  Adding it here without the
+          # AMA build would either fail at collection or weaken the
+          # MERCURY_PQC_REAL_AMA safeguard — neither acceptable.
+          #
+          # When adding a directory below, prefer the directory form
+          # (e.g. ``tests/ml/``) over listing individual files so the
+          # lane picks up new tests automatically.  Files that depend
+          # on packages NOT in the ``[ml,dev,api]`` install set above
+          # must NOT be added here.
           pytest tests/test_cli.py tests/core/ \
             tests/test_federation.py \
             tests/test_cap_alerting.py \
@@ -559,7 +572,6 @@ jobs:
             tests/datasets/ \
             tests/api/ \
             tests/automl/ \
-            tests/security/ \
             tests/test_adaptive_detector.py \
             tests/test_acceleration_dynamics.py \
             tests/test_advanced_ml_capabilities.py \
