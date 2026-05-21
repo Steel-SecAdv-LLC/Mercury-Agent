@@ -43,27 +43,26 @@ env:
   # a1e189d): 59.84% lines covered on the ML/full lane and 16.62% on
   # the core lane. The previous 10/10 floor was MyPy-era scaffolding;
   # the target quality bar in `pyproject.toml [tool.coverage.report]`
-  # is `fail_under = 85`.  A 75-point CI gate failed immediately
-  # because the codebase is genuinely well below that today, not
-  # because of regressions.
+  # is `fail_under = 85`.
   #
-  # v1.7.0 floors (strengthening plan §5):
-  #   COVERAGE_THRESHOLD_CORE: 15  (core subset, was 30 → 15 → 15)
-  #   COVERAGE_THRESHOLD_FULL: 50  (full suite, was 75 → 35 → 50)
-  # 50 is "do not regress more than ~10 points below the measured
+  # v1.7.x floors (strengthening plan §5):
+  #   COVERAGE_THRESHOLD_CORE: 25  (core subset, was 15)
+  #   COVERAGE_THRESHOLD_FULL: 50  (full suite)
+  # FULL = 50 is "do not regress more than ~10 points below the measured
   # 59.84% baseline" — a deliberate cushion for CI noise / dataset
-  # availability flakes while moving the floor decisively above the
-  # historical 35-point compromise.  Core stays at 15 because the
-  # core-lane coverage is 16.62% today; bumping to 25 would fail
-  # the gate on the next push.  A separate dedicated coverage pass
-  # for the core lane is tracked in `docs/ROADMAP.md` § "Coverage
-  # uplift" and is the prerequisite for raising this floor.
+  # availability flakes.  CORE graduated from 15 to 25 once the core
+  # lane was expanded to include the high-LOC modules (detectors/, ml/,
+  # datasets/, api/, automl/, security/ plus a curated set of root-level
+  # `test_*.py` files) — measured baseline on the expanded lane is
+  # 31.87% combined stmt+branch coverage, giving ~7 points of cushion
+  # above the floor.  Do not lower either floor back toward 10/15 to
+  # unblock unrelated work — the floors document a non-regression
+  # guarantee, not a preference.
   #
   # The 85-point pyproject target stays in place as the strict
-  # aspirational nightly bar.  Raise these CI floors as the dedicated
-  # coverage session lands tests; do not lower them back toward 10.
+  # aspirational nightly bar.
   # ---------------------------------------------------------------------
-  COVERAGE_THRESHOLD_CORE: 15
+  COVERAGE_THRESHOLD_CORE: 25
   COVERAGE_THRESHOLD_FULL: 50
 
 jobs:
@@ -533,22 +532,47 @@ jobs:
           # [ml] provides torch/sklearn (moved out of core deps to keep
           # `pip install mercury-agent` lightweight).  Core tests exercise
           # engine, fusion, and detector code that needs the ML stack.
-          pip install -e ".[ml,dev]"
-          pip install pytest pytest-cov pytest-asyncio fastapi httpx sympy
+          # [api] supplies python-multipart + fastapi/uvicorn so the
+          # API-surface tests added to the expanded core lane (see
+          # ``Run core tests`` below) collect cleanly.
+          pip install -e ".[ml,dev,api]"
+          pip install pytest pytest-cov pytest-asyncio sympy
 
       - name: Run core tests with coverage
         run: |
-          # Run core tests with coverage threshold enforcement
-          # Note: We test core modules only here; full suite in ml-tests job
+          # Core-lane test selection, expanded in v1.7.x for the
+          # COVERAGE_THRESHOLD_CORE 15 -> 25 graduation.  Measured
+          # combined stmt+branch coverage on this selection is 31.87%
+          # (1277 -> 3186 collected tests).  When adding a directory
+          # below, prefer the directory form (e.g. ``tests/ml/``) over
+          # listing individual files so the lane picks up new tests
+          # automatically.  Files that depend on packages NOT in the
+          # ``[ml,dev,api]`` install set above must NOT be added here.
           pytest tests/test_cli.py tests/core/ \
             tests/test_federation.py \
             tests/test_cap_alerting.py \
             tests/test_streaming_detector.py \
             tests/test_domain_loaders.py \
             tests/test_domain_benchmarks.py \
-            tests/detectors/test_math_arrest.py \
-            tests/detectors/test_math_arrest_extended.py \
-            tests/detectors/test_math_arrest_fusion.py \
+            tests/detectors/ \
+            tests/ml/ \
+            tests/datasets/ \
+            tests/api/ \
+            tests/automl/ \
+            tests/security/ \
+            tests/test_adaptive_detector.py \
+            tests/test_acceleration_dynamics.py \
+            tests/test_advanced_ml_capabilities.py \
+            tests/test_disaster_precursor.py \
+            tests/test_spectral_vibration.py \
+            tests/test_uiux_anomaly.py \
+            tests/test_detectors.py \
+            tests/test_anomaly_metrics.py \
+            tests/test_three_r.py \
+            tests/test_data_sources.py \
+            tests/test_calibration_wiring.py \
+            tests/test_api.py \
+            tests/test_session3_enhancements.py \
             -v \
             --cov=src/omni_mercury_engine \
             --cov-report=xml \

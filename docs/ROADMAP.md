@@ -23,7 +23,7 @@ contract while the feature is built out.
 | 10 | `tests/load/` wired into CI | `tests/load/{k6_load_test.js, locustfile.py}` exists but no workflow invokes them. | None — net-new CI workflow. |
 | 11 | Examples-parity CI | No workflow asserts `examples/*.py` runs end-to-end. | None — net-new CI workflow. |
 | 12 | `tests/loaders/` + `tests/narrative/` graduate to strict mypy lane | Both directories are not yet in `ci.yml`'s strict-mypy invocation (`tests/datasets/`, `tests/ethical/`, `tests/safeguards/` are). Files need full annotations first. | `.github/workflows/ci.yml` job `type-checking` step "Run MyPy strict on graduated test directories". |
-| 13 | Core coverage floor bump 15 → 25 | Measured core-lane baseline is 16.62 %; bumping today fails the next push. Sequencing in this document's "Coverage uplift" section: land core-lane tests, re-measure on `main`, bump in same commit. | `.github/workflows/ci.yml` lines 50-67 + "Coverage uplift" section below. |
+| ~~13~~ | ~~Core coverage floor bump 15 → 25~~ | **CLOSED in v1.7.x.** Core lane expanded to include `tests/detectors/`, `tests/ml/`, `tests/datasets/`, `tests/api/`, `tests/automl/`, `tests/security/`, plus 13 root-level `test_*.py` additions. Measured combined stmt+branch coverage on the expanded lane is 31.87 %, leaving ~7 points of cushion above the 25 floor. | `.github/workflows/ci.yml` env `COVERAGE_THRESHOLD_CORE: 25` + the per-job `--cov-fail-under` flag in the `core-tests` job. |
 
 Items 1, 2, 3, 4, 5, 6, 7 also appear as status rows in the capability
 table below — the rollup above is the single authoritative open-items
@@ -1084,22 +1084,27 @@ class ExplainableAnomalyDetector:
 
 CI enforces two job-scoped coverage floors (set in `.github/workflows/ci.yml`):
 
-| Lane                       | v1.7.0 floor | Measured baseline (2026-05-17, run #1182 on `main`) | Headroom |
+| Lane                       | v1.7.x floor | Measured baseline | Headroom |
 |----------------------------|:------------:|:----------------------------------------------------:|:--------:|
-| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **50** | 59.84 % | ~9.8 pts |
-| `COVERAGE_THRESHOLD_CORE` (core lane)    | **15** | 16.62 % | ~1.6 pts |
+| `COVERAGE_THRESHOLD_FULL` (ML/full lane) | **50** | 59.84 % (2026-05-17, run #1182 on `main`) | ~9.8 pts |
+| `COVERAGE_THRESHOLD_CORE` (core lane)    | **25** | 31.87 % (expanded lane, 2026-05-21)       | ~6.9 pts |
 
 `.coveragerc` intentionally carries no `fail_under` — the gates are
 job-scoped only — and `pyproject.toml [tool.coverage.report] fail_under
 = 85` remains the strict aspirational nightly bar.
 
-The strengthening plan §5 P1 target is `CORE: 25 / FULL: 50`. `FULL`
-graduated to 50 in v1.7.0 because the 59.84 % baseline gives nearly
-ten points of cushion. `CORE` stays at 15 until a dedicated
-coverage pass for the core lane lands — bumping to 25 today would
-fail on the next push (the core lane runs a strictly smaller
-fraction of `src/` against the full source tree, and 16.62 % is the
-ceiling at the moment). The intended sequencing is:
+The strengthening plan §5 P1 target `CORE: 25 / FULL: 50` is complete.
+`FULL` graduated to 50 in v1.7.0; `CORE` graduated from 15 to 25 in
+v1.7.x once the core-lane runlist was widened in
+`.github/workflows/ci.yml` to include `tests/detectors/`, `tests/ml/`,
+`tests/datasets/`, `tests/api/`, `tests/automl/`, `tests/security/`,
+plus thirteen root-level `test_*.py` additions (full list in the
+`core-tests` job). The measured combined stmt+branch coverage on the
+expanded lane is 31.87 %, giving ~6.9 points of cushion. The
+[api] extras are now installed in the core lane so the
+API-surface tests collect cleanly.
+
+When raising the floor again, the sequencing is unchanged:
 
 1. Land core-lane tests for the highest-marginal-coverage modules
    identified in `coverage report --skip-covered --sort=cover`.
@@ -1107,7 +1112,7 @@ ceiling at the moment). The intended sequencing is:
 3. Bump `COVERAGE_THRESHOLD_CORE` to within ~1 pt of the new ceiling
    in the same commit.
 
-Do **not** lower either floor back toward 10 to unblock unrelated
+Do **not** lower either floor back toward 10/15 to unblock unrelated
 work — the floors document a non-regression guarantee, not a
 preference.
 
