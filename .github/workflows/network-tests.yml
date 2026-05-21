@@ -34,7 +34,9 @@ jobs:
 
       - name: Install Mercury Agent with compliance + dev extras
         run: |
-          python -m pip install --upgrade pip
+          # Floor pip to >=26.1 to close CVE-2026-6357 (pip arbitrary
+          # code execution via malicious wheel).
+          python -m pip install --upgrade "pip>=26.1"
           pip install -e ".[compliance,dev]"
 
       - name: Run @pytest.mark.network suite

@@ -97,7 +97,7 @@ class TestDilithiumRoundTripAgainstNativeLib:
 
     def test_sign_and_verify_round_trip_succeeds(self) -> None:
         kp = generate_dilithium_keypair()
-        message = b"Mercury Agent v1.6.0 PQC gate verification message."
+        message = b"Mercury Agent v1.7.0 PQC gate verification message."
         signature = dilithium_sign(message, kp.secret_key)
         assert dilithium_verify(message, signature, kp.public_key) is True
 

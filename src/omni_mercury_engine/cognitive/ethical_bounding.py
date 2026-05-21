@@ -53,6 +53,82 @@ logger = logging.getLogger(__name__)
 MINIMUM_BENEVOLENCE_FLOOR: float = 0.70
 
 
+# ---------------------------------------------------------------------------
+# σ_Immutable Wave B Vector 2-6 closure: canonical domain sanitiser.
+#
+# Every public decision boundary (engine.detect_with_fusion[_calibrated],
+# CognitiveOrchestrator.analyze, NeuroSymbolicHub.predict, voice.py
+# narrative entry points, the federated aggregator) accepts a caller-
+# supplied ``domain`` hint that ends up interpolated into the action
+# string scored by :class:`BenevolenceScorer`.  An attacker who controls
+# that hint could inject harm-keyword substrings (``damage``, ``track``,
+# ``expose``, ``destroy``, …) and either (a) trip a false negative on a
+# legitimate request or (b) inject positive keywords (``audit``,
+# ``protect``) that bias the scorer toward false approval.
+#
+# ``sanitize_domain`` collapses an arbitrary caller value to a fixed
+# whitelist of known-safe canonical labels — the union of
+# :class:`~omni_mercury_engine.cognitive.ipb_engine.EnvironmentDomain`
+# members and the ``"general"`` fallback sentinel.  Anything else
+# (a non-string, an enum, a typo, an injection payload, ``None``) is
+# replaced with ``"general"``.  The function is imported by every
+# boundary so the whitelist is one source-of-truth, not five copies
+# that can drift independently.
+#
+# The IPB-engine import is deferred (lazy local import inside the
+# function) so that ``cognitive.ethical_bounding`` keeps its current
+# zero-cost import contract for callers that never touch the
+# orchestrator.
+# ---------------------------------------------------------------------------
+
+# Cached so the whitelist is built exactly once per process.
+_SAFE_DOMAIN_LABELS: frozenset[str] | None = None
+_DEFAULT_DOMAIN: str = "general"
+
+
+def _build_safe_domain_labels() -> frozenset[str]:
+    """Return the cached union of ``EnvironmentDomain`` values + ``"general"``."""
+    global _SAFE_DOMAIN_LABELS
+    if _SAFE_DOMAIN_LABELS is None:
+        # Deferred import to keep this module importable without
+        # eagerly pulling the IPB engine (which lives in ``cognitive``
+        # and would otherwise create an import cycle when the engine
+        # imports ``ethical_bounding`` at top level).
+        from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain
+
+        _SAFE_DOMAIN_LABELS = frozenset(
+            {member.value for member in EnvironmentDomain} | {_DEFAULT_DOMAIN}
+        )
+    return _SAFE_DOMAIN_LABELS
+
+
+def sanitize_domain(raw_domain: Any) -> str:
+    """Collapse an arbitrary caller-supplied ``domain`` to a safe label.
+
+    Args:
+        raw_domain: The value the caller passed.  Any type is accepted
+            (str, EnvironmentDomain enum, dict, None, …) so the caller
+            never has to defensively coerce before passing through.
+
+    Returns:
+        A string drawn from the union of ``EnvironmentDomain`` member
+        values plus the ``"general"`` fallback sentinel.  Anything
+        else — including ``None``, non-string types, unknown labels,
+        or strings carrying harm/safety keyword payloads — is replaced
+        with ``"general"``.
+    """
+    # Enum carriers (e.g. ``EnvironmentDomain.CYBER``) expose their
+    # canonical label under ``.value``; everything else is forced
+    # through ``isinstance(str)`` so non-string types cannot reach
+    # the membership test below (an unhashable list/dict would raise
+    # ``TypeError`` from ``in``).
+    if hasattr(raw_domain, "value"):
+        raw_domain = raw_domain.value
+    if not isinstance(raw_domain, str):
+        return _DEFAULT_DOMAIN
+    return raw_domain if raw_domain in _build_safe_domain_labels() else _DEFAULT_DOMAIN
+
+
 class EthicalConstraintViolationError(RuntimeError):
     """
     Raised when a hard ethical constraint is violated and execution must halt.

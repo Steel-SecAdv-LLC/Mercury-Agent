@@ -49,7 +49,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          # AMA Cryptography v3.1.0's ``setup.py`` preflight enforces
+          # AMA Cryptography v3.2.0's ``setup.py`` preflight enforces
           # the supply-chain floors declared in
           # ``pyproject.toml [build-system].requires``:
           #   setuptools>=78.1.1  (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5)
@@ -82,7 +82,7 @@ jobs:
         env:
           # FIPS 204/205 KAT pinning (Phase 2): the byte-exact NIST ACVP
           # reproduction in ``tests/security/test_nist_fips_kat.py`` requires
-          # the AMA v3.1.0 surface (``dilithium_sign_ctx`` for FIPS 204 §5.2
+          # the AMA v3.2.0 surface (``dilithium_sign_ctx`` for FIPS 204 §5.2
           # ctx-aware ML-DSA-65 sign + ``slhdsa_sign_deterministic`` /
           # ``slhdsa_verify`` for FIPS 205 SLH-DSA-SHAKE-128s NIST L1) plus
           # the FIPS 204 §6.2 Algorithm 7 line 3 fix that pins
@@ -90,7 +90,11 @@ jobs:
           #
           # AMA Cryptography PR #290 (merge commit 24c7fc7) landed on
           # ``main`` on 2026-05-04 and was tagged ``v3.1.0`` from that
-          # same commit. The tag ships the FIPS 204 §6.2 Algorithm 7
+          # same commit. ``v3.2.0`` (this pin) extends ``v3.1.0`` with
+          # the native HMAC-SHA-256 Python bindings
+          # (``native_hmac_sha256`` / ``native_hmac_sha256_2``) that
+          # Mercury's ``native_jwt`` HS256 path consumes. The tag ships
+          # the FIPS 204 §6.2 Algorithm 7
           # rnd fix, the FIPS 204 §5.2 ctx-aware ``dilithium_sign_ctx``
           # surface, the FIPS 205 NIST L1 SLH-DSA-SHAKE-128s public
           # surface, the POST verify-only KAT against pinned NIST
@@ -100,7 +104,7 @@ jobs:
           # ``main`` branch) gives the byte-exact NIST ACVP
           # reproduction in ``tests/security/test_nist_fips_kat.py``
           # a stable reproducibility anchor.
-          AMA_REF: v3.1.0
+          AMA_REF: v3.2.0
         run: |
           # Clone and build the native C library explicitly via cmake so the
           # compiled shared objects are available before the Python install.
@@ -180,7 +184,7 @@ jobs:
         # Blocking — the previous ``|| echo "Some tests may fail without
         # AMA native C library"`` was a silent escape hatch.  By the time
         # this step runs, the workflow has already:
-        #   - cloned and built AMA Cryptography (``v3.1.0`` tag),
+        #   - cloned and built AMA Cryptography (``v3.2.0`` tag),
         #   - exported ``LD_LIBRARY_PATH`` to the AMA build/lib,
         #   - sanity-checked that ``DILITHIUM_AVAILABLE``, ``SPHINCS_AVAILABLE``
         #     and ``KYBER_AVAILABLE`` are all ``True`` against the real

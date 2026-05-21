@@ -33,29 +33,74 @@ jobs:
         python-version: "3.12"
         cache: 'pip'
 
-    - name: Install security tools
+    - name: Install security tools (audit-tool layer)
+      # Audit tools are installed in the *runner's* default Python
+      # and never inside Mercury's environment.  This keeps audit-
+      # tool transitives (``nltk``, ``joblib``, …) out of the
+      # audited surface — they belong to the auditor, not to
+      # Mercury.  Combined with the isolated Mercury install
+      # created below, the scope of every scan below is exactly
+      # Mercury's declared deps + their transitives.
       run: |
         pip install --upgrade "pip>=26.1"
-        pip install safety bandit pip-audit
+        # ``click>=8.2`` re-pinned at the runner level: ``safety``'s
+        # bundled ``typer>=0.20`` uses PEP 695 ``click.Choice[...]``
+        # subscripting and crashes with ``TypeError: type 'Choice'
+        # is not subscriptable`` against the older click that ships
+        # with the GHA hosted Python image.  See ``ci.yml`` for the
+        # full rationale.
+        pip install safety bandit pip-audit "click>=8.2"
+
+    - name: Create isolated Mercury install (audit target)
+      # Install Mercury into a dedicated venv so the audits scan
+      # ONLY Mercury's declared deps + their transitives.  Without
+      # this isolation, the auditor's own transitives (nltk via
+      # safety, joblib via safety) would appear in pip-audit's
+      # findings as if they were Mercury's responsibility — which
+      # they are not.  This is the architectural remediation that
+      # replaces every prior ``--ignore-vuln`` flag.
+      run: |
+        python -m venv /tmp/mercury-audit-env
+        /tmp/mercury-audit-env/bin/pip install --upgrade "pip>=26.1"
+        /tmp/mercury-audit-env/bin/pip install -e ".[api]" \
+          --upgrade "click>=8.2" "typer>=0.20"
+        /tmp/mercury-audit-env/bin/pip list --format=freeze \
+          > /tmp/mercury-audit-env/requirements.txt
+        {
+          echo "## Audit-target environment (Mercury install only)"
+          echo
+          echo '```'
+          cat /tmp/mercury-audit-env/requirements.txt
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 
     - name: Run Safety check
-      # Safety scans the installed dependency graph for known
-      # vulnerabilities.  This is BLOCKING — if Safety reports a
-      # CVE that is not already an accepted-risk entry in
-      # ``.safety-policy-v2.yml``, the job fails and the PR cannot
-      # merge until the CVE is either patched (dependency bump) or
-      # documented as an explicit risk acceptance in the policy
-      # file.  ``--exit-code`` mirrors the action's default but is
-      # named explicitly so future maintainers do not assume the
-      # step can be silently skipped.
-      run: safety check --save-json safety-report.json --policy-file .safety-policy-v2.yml
+      # Safety scans the isolated Mercury install via ``-r``.
+      # BLOCKING — any finding in Mercury's own dependency surface
+      # fails the job.  No per-CVE risk acceptance: the audit-doc
+      # IGNORE column is the prior architecture (since removed)
+      # because that approach silenced findings rather than
+      # remediating the supply chain.
+      run: |
+        safety check \
+          -r /tmp/mercury-audit-env/requirements.txt \
+          --save-json safety-report.json \
+          --policy-file .safety-policy-v2.yml
 
     - name: Run pip-audit
-      # pip-audit cross-checks against PyPA's advisory database.
-      # BLOCKING for the same reasons as Safety above — any new
-      # finding fails the job until the dependency is bumped or
-      # the advisory is explicitly waived.
-      run: pip-audit --format json --output pip-audit-report.json
+      # pip-audit cross-checks against PyPA's advisory database
+      # over the isolated Mercury install only (``--path`` scopes
+      # to that venv's site-packages).  BLOCKING — any new finding
+      # in Mercury's supply chain fails the job.  No ``--ignore-
+      # vuln`` flags: previously-ignored advisories were either
+      # (a) audit-tool transitives now eliminated by isolation, or
+      # (b) Mercury direct deps that must be remediated by upgrade
+      # / library replacement, not by suppression.
+      run: |
+        pip-audit \
+          --path /tmp/mercury-audit-env/lib/python3.12/site-packages \
+          --skip-editable \
+          --format json --output pip-audit-report.json
 
     - name: Run Bandit security scan
       # Bandit scans application source for common security

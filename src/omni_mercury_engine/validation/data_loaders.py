@@ -241,6 +241,11 @@ class NSLKDDLoader(DatasetLoader):
         start_time = time.time()
 
         if use_synthetic:
+            # Route the caller's request through the policy gate so a
+            # deployment-level ``MERCURY_ALLOW_SYNTHETIC=0`` cannot be
+            # bypassed by a caller flag.  Without the env var,
+            # ``check_synthetic_allowed`` raises ``DataSourceUnavailableError``.
+            check_synthetic_allowed("NSL-KDD", "Caller passed use_synthetic=True")
             self._data, self._labels = self._generate_synthetic(n_samples)
             source = "synthetic"
         else:
@@ -426,6 +431,10 @@ class USGSEarthquakeLoader(DatasetLoader):
         start_time = time.time()
 
         if use_synthetic:
+            # Caller-flag bypass closure: route through policy gate so the
+            # deployment-level ``MERCURY_ALLOW_SYNTHETIC=0`` floor cannot be
+            # circumvented by a caller passing ``use_synthetic=True``.
+            check_synthetic_allowed("USGS Earthquake", "Caller passed use_synthetic=True")
             self._data, self._labels = self._generate_synthetic(n_samples, anomaly_threshold)
             source = "synthetic"
         else:
@@ -700,17 +709,22 @@ class MIMICLoader(DatasetLoader):
 
         start_time = time.time()
 
-        if not use_synthetic and not ALLOW_SYNTHETIC:
-            raise DataSourceUnavailableError(
-                loader_name="MIMIC-III",
-                reason=(
-                    "MIMIC-III requires PhysioNet credentialing. "
-                    "Set MERCURY_ALLOW_SYNTHETIC=1 for synthetic data, "
-                    "or download real data from https://physionet.org/content/mimiciii/1.4/"
-                ),
-            )
-        if not use_synthetic:
-            check_synthetic_allowed("MIMIC-III", "Using synthetic simulation")
+        # Real MIMIC-III requires PhysioNet credentialing not supported by
+        # this loader -- every code path here yields the synthetic simulation.
+        # Both the explicit caller request (``use_synthetic=True``) and the
+        # implicit fallback (``use_synthetic=False``) therefore go through
+        # the single policy gate.  Without ``MERCURY_ALLOW_SYNTHETIC=1`` set
+        # at the deployment level, the gate raises
+        # ``DataSourceUnavailableError`` -- closing the prior bypass where
+        # ``use_synthetic=True`` skipped the policy entirely.
+        check_synthetic_allowed(
+            "MIMIC-III",
+            (
+                "MIMIC-III requires PhysioNet credentialing not supported "
+                "by this loader; only synthetic simulation is available. "
+                "Real data: https://physionet.org/content/mimiciii/1.4/"
+            ),
+        )
 
         self._data, self._labels = self._generate_synthetic(n_samples, anomaly_type)
 
@@ -987,6 +1001,10 @@ class NOAASpaceWeatherLoader(DatasetLoader):
         start_time = time.time()
 
         if use_synthetic:
+            # Caller-flag bypass closure: route through policy gate so the
+            # deployment-level ``MERCURY_ALLOW_SYNTHETIC=0`` floor cannot be
+            # circumvented by a caller passing ``use_synthetic=True``.
+            check_synthetic_allowed("NOAA Space Weather", "Caller passed use_synthetic=True")
             self._data, self._labels = self._generate_synthetic(n_samples, storm_threshold)
             source = "synthetic"
         else:
@@ -1263,6 +1281,10 @@ class NOAAHurricaneLoader(DatasetLoader):
         start_time = time.time()
 
         if use_synthetic:
+            # Caller-flag bypass closure: route through policy gate so the
+            # deployment-level ``MERCURY_ALLOW_SYNTHETIC=0`` floor cannot be
+            # circumvented by a caller passing ``use_synthetic=True``.
+            check_synthetic_allowed("NOAA Hurricane", "Caller passed use_synthetic=True")
             self._data, self._labels = self._generate_synthetic(
                 n_samples, major_hurricane_threshold
             )
@@ -1551,6 +1573,10 @@ class NOAAOceanLoader(DatasetLoader):
         start_time = time.time()
 
         if use_synthetic:
+            # Caller-flag bypass closure: route through policy gate so the
+            # deployment-level ``MERCURY_ALLOW_SYNTHETIC=0`` floor cannot be
+            # circumvented by a caller passing ``use_synthetic=True``.
+            check_synthetic_allowed("NOAA Ocean", "Caller passed use_synthetic=True")
             self._data, self._labels = self._generate_synthetic(n_samples, heatwave_threshold)
             source = "synthetic"
         else:

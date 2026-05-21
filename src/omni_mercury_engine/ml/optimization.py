@@ -51,9 +51,20 @@ class OptimizationConfig:
     """Configuration for efficiency optimizations."""
 
     # Parallelization
-    enable_joblib: bool = True
+    #
+    # The ``enable_joblib`` / ``joblib_backend`` field names are kept
+    # as a stable public-API alias even though the backing executor
+    # is now ``concurrent.futures`` (see ``ParallelExecutor``).  The
+    # change retired the upstream-disputed ``PYSEC-2024-277`` /
+    # ``CVE-2024-34997`` advisory from Mercury's audited supply chain;
+    # callers that previously passed ``backend="loky" / "threading" /
+    # "multiprocessing"`` get the equivalent stdlib executor with no
+    # config change.  Renaming the field would be a breaking change
+    # for downstream config files, so the name is preserved as an
+    # alias and documented here.
+    enable_joblib: bool = True  # alias: enable_parallel_executor
     n_jobs: int = -1  # -1 for all cores
-    joblib_backend: str = "loky"
+    joblib_backend: str = "loky"  # alias: parallel_backend (mapped to concurrent.futures)
     prefer_threads: bool = False
 
     # Torch optimizations
@@ -324,12 +335,32 @@ def compile_model(
 
 
 class ParallelExecutor:
-    """
-    Parallel executor using joblib for benchmark loops.
+    """Parallel executor for benchmark loops, backed by ``concurrent.futures``.
 
-    Provides easy parallelization of independent operations like dataset processing and multi-
-    detector evaluation.
+    Provides easy parallelization of independent operations like
+    dataset processing and multi-detector evaluation.  The
+    implementation is pure stdlib — the prior ``joblib``-backed
+    version is retired so the upstream-disputed ``PYSEC-2024-277`` /
+    ``CVE-2024-34997`` advisory is removed from Mercury's audited
+    supply chain.  The ``backend`` and ``prefer`` arguments are
+    preserved for API compatibility and mapped to the appropriate
+    executor type:
+
+    * ``backend="loky"`` / ``"multiprocessing"`` and ``prefer != "threads"``
+      → :class:`concurrent.futures.ProcessPoolExecutor`.
+    * ``backend="threading"`` or ``prefer="threads"``
+      → :class:`concurrent.futures.ThreadPoolExecutor`.
+
+    The ``loky`` cloudpickle-based unpicklable-function feature is not
+    a Mercury runtime requirement; the call sites in benchmarks pass
+    module-level functions that pickle cleanly under stdlib
+    ``multiprocessing`` semantics.  If a future caller hands in an
+    unpicklable closure, the offender is surfaced as a ``PicklingError``
+    rather than silently retried under cloudpickle — that is the
+    correct failure mode for a self-sufficient implementation.
     """
+
+    _THREAD_BACKENDS = frozenset({"threading", "thread", "threads"})
 
     def __init__(
         self,
@@ -337,25 +368,40 @@ class ParallelExecutor:
         backend: str = "loky",
         prefer: str | None = None,
     ):
-        """
-        Initialize parallel executor.
+        """Initialize parallel executor.
 
         Args:
-            n_jobs: Number of jobs (-1 for all cores)
-            backend: Joblib backend (loky, threading, multiprocessing)
-            prefer: Preference hint (threads, processes)
+            n_jobs: Number of worker jobs.  ``-1`` is mapped to
+                :func:`os.cpu_count` (with a floor of ``1``).  ``1``
+                forces sequential execution and skips executor setup.
+            backend: Compatibility alias for the joblib backend
+                vocabulary; see class docstring for the mapping.
+            prefer: ``"threads"`` forces a thread pool regardless of
+                ``backend``.  Any other value is a no-op hint.
         """
         self.n_jobs = n_jobs
         self.backend = backend
         self.prefer = prefer
-        self._joblib_available = False
+        self._use_threads = prefer == "threads" or backend in self._THREAD_BACKENDS
 
-        try:
-            import importlib.util
+    def _worker_count(self) -> int:
+        if self.n_jobs and self.n_jobs > 0:
+            return self.n_jobs
+        return max(1, os.cpu_count() or 1)
 
-            self._joblib_available = importlib.util.find_spec("joblib") is not None
-        except Exception:
-            logger.warning("joblib not installed, parallel execution disabled")
+    def _run(self, callables: list[Any]) -> list[Any]:
+        """Run a list of zero-arg callables in parallel, preserving order.
+
+        ``executor.map`` preserves input order and re-raises the first
+        exception from any worker — the same contract as
+        ``joblib.Parallel`` for the synchronous call sites Mercury
+        uses.
+        """
+        from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+
+        executor_cls = ThreadPoolExecutor if self._use_threads else ProcessPoolExecutor
+        with executor_cls(max_workers=self._worker_count()) as executor:
+            return list(executor.map(lambda fn: fn(), callables))
 
     def map(
         self,
@@ -363,53 +409,61 @@ class ParallelExecutor:
         items: list[Any],
         **kwargs: Any,
     ) -> list[Any]:
-        """
-        Map function over items in parallel.
+        """Map ``func`` over ``items`` in parallel, returning results in input order.
 
         Args:
-            func: Function to apply
-            items: List of items to process
-            **kwargs: Additional arguments to pass to func
+            func: Function to apply.  Must be picklable when running
+                with a process pool (i.e. defined at module scope).
+            items: Iterable of items to process.
+            **kwargs: Additional keyword arguments forwarded to every
+                call of ``func``.
 
         Returns:
-            List of results
+            List of results in the same order as ``items``.
         """
-        if not self._joblib_available or self.n_jobs == 1:
+        if self.n_jobs == 1 or len(items) <= 1:
             return [func(item, **kwargs) for item in items]
 
-        from joblib import Parallel, delayed
+        if self._use_threads:
+            # Threads can share kwargs by closure capture; processes
+            # cannot, so we materialise a partial for process pools.
+            calls = [(lambda item=item: func(item, **kwargs)) for item in items]
+            return self._run(calls)
 
-        return list(
-            Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
-                delayed(func)(item, **kwargs) for item in items
-            )
-        )
+        from functools import partial
+
+        bound = partial(func, **kwargs) if kwargs else func
+        from concurrent.futures import ProcessPoolExecutor
+
+        with ProcessPoolExecutor(max_workers=self._worker_count()) as executor:
+            return list(executor.map(bound, items))
 
     def starmap(
         self,
         func: Any,
         args_list: list[tuple[Any, ...]],
     ) -> list[Any]:
-        """
-        Map function over argument tuples in parallel.
+        """Map ``func`` over argument tuples in parallel.
 
         Args:
-            func: Function to apply
-            args_list: List of argument tuples
+            func: Function to apply.  Must be picklable when running
+                with a process pool.
+            args_list: List of positional-argument tuples.
 
         Returns:
-            List of results
+            List of results in the same order as ``args_list``.
         """
-        if not self._joblib_available or self.n_jobs == 1:
+        if self.n_jobs == 1 or len(args_list) <= 1:
             return [func(*args) for args in args_list]
 
-        from joblib import Parallel, delayed
+        if self._use_threads:
+            calls = [(lambda args=args: func(*args)) for args in args_list]
+            return self._run(calls)
 
-        return list(
-            Parallel(n_jobs=self.n_jobs, backend=self.backend, prefer=self.prefer)(
-                delayed(func)(*args) for args in args_list
-            )
-        )
+        from concurrent.futures import ProcessPoolExecutor
+
+        with ProcessPoolExecutor(max_workers=self._worker_count()) as executor:
+            return list(executor.map(lambda args: func(*args), args_list))
 
 
 class DDPScaler:

@@ -1,6 +1,6 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 
 ## Overview
 

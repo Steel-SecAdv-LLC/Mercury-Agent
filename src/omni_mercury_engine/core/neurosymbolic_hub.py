@@ -645,7 +645,19 @@ class NeuroSymbolicHub:
         self.use_calibration = use_calibration
         self.seed = seed
         self.rng = np.random.default_rng(seed)
-        self.domain = domain
+        # σ_Immutable Wave B Vector 4 closure: the hub's ``domain``
+        # attribute is interpolated into every gate's ``details``
+        # payload, so a hostile constructor argument like
+        # ``"damage_control"`` could ride into the audit trail and
+        # downstream consumers (orchestrator history, GOSNN signed
+        # corpus).  ``sanitize_domain`` (canonical helper in
+        # ``cognitive.ethical_bounding``) collapses arbitrary input
+        # to the whitelisted ``EnvironmentDomain`` ∪ {"general"}
+        # alphabet so the audit trail can never carry a payload that
+        # was not in the whitelist.
+        from omni_mercury_engine.cognitive.ethical_bounding import sanitize_domain
+
+        self.domain = sanitize_domain(domain)
 
         # σ_Immutable second hard ethical gate (Wave B item 1).
         # The hub raises ``check="sigma_immutable"`` per-sample so a
@@ -1068,7 +1080,36 @@ class NeuroSymbolicHub:
 
         n_samples = len(X)
         context = context or {}
-        results = []
+        results: list[ExplainableOutput] = []
+
+        # σ_Immutable Wave B Vector 4 closure: an empty batch (zero
+        # samples) would short-circuit the per-sample enforcement loop
+        # below — the hub would return ``[]`` without ever running the
+        # σ_Immutable gate, giving callers a no-op bypass.  Run a pre-
+        # flight gate on a synthetic zero-vector so even the empty
+        # path is forced through the same hard ethical contract as a
+        # populated batch.
+        if n_samples == 0:
+            preflight_vector = self._build_sigma_immutable_vector(
+                row=np.zeros(self.input_dim, dtype=np.float64),
+                neural_score=0.0,
+                symbolic_score=0.0,
+                fused_score=0.0,
+                benevolence_score=1.0,
+            )
+            self._sigma_immutable_gate.enforce(
+                action="NeuroSymbolicHub.predict[empty_batch]",
+                scalar_vector=preflight_vector,
+                details={
+                    "boundary": "NeuroSymbolicHub.predict",
+                    "sample_index": -1,
+                    "fused_score": 0.0,
+                    "fusion_mode": self.fusion_mode.value,
+                    "domain": self.domain,
+                    "empty_batch": True,
+                },
+            )
+            return results
 
         # P2 Integration: Apply domain-specific feature extraction
         domain_features: dict[str, Any] = {}

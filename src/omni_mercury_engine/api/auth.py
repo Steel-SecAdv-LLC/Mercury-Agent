@@ -240,8 +240,7 @@ class APIKeyStore:
                     "Generate with: openssl rand -hex 32"
                 )
             logger.warning(
-                "Using default API key hash salt. "
-                "Set API_KEY_HASH_SALT for production deployments."
+                "Using default API key hash salt. Set API_KEY_HASH_SALT for production deployments."
             )
         return hashlib.pbkdf2_hmac(
             hash_name="sha256",
@@ -449,9 +448,7 @@ class AuthKeyManager:
 
         if old_key_id in self._rotation.keys:
             self._rotation.initiate_rotation(old_key_id, new_key_id)
-            logger.info(
-                f"Key rotation initiated: {old_key_id} → {new_key_id} " f"(purpose={purpose})"
-            )
+            logger.info(f"Key rotation initiated: {old_key_id} → {new_key_id} (purpose={purpose})")
 
         return old_key_id, new_key_id
 
@@ -602,8 +599,13 @@ class APIKeyAuth:
 class JWTAuth:
     """JWT Bearer token authentication dependency.
 
-    Production-ready implementation using PyJWT for secure token validation.
-    Supports HS256/RS256 algorithms with configurable secret key management.
+    Production-ready implementation backed by
+    :mod:`omni_mercury_engine.security.native_jwt` — Mercury's pure-stdlib
+    HS256 JWT library.  The native back-end retires the prior ``pyjwt``
+    dependency and the upstream-disputed ``CVE-2025-45768`` /
+    ``PYSEC-2025-183`` advisory from Mercury's audited supply chain
+    without adding any new third-party library.  The encode/decode
+    contract, exception types, and call sites are preserved unchanged.
 
     Usage:
         @app.get("/protected")
@@ -656,7 +658,7 @@ class JWTAuth:
                     derived = km.get_active_key_material("jwt_sign")
                     self.secret_key = derived.hex()
                     logger.info(
-                        "JWT signing key derived from AMA HD Key Management " "(purpose=jwt_sign)"
+                        "JWT signing key derived from AMA HD Key Management (purpose=jwt_sign)"
                     )
                 except Exception as e:
                     raise ValueError(
@@ -739,25 +741,27 @@ class JWTAuth:
 
     async def _validate_jwt(self, token: str) -> User | None:
         """
-        Validate JWT token using PyJWT.
+        Validate JWT token using Mercury's native HS256 JWT module.
 
-        Requires PyJWT package: pip install PyJWT
+        The library is part of Mercury's own ``security`` package
+        (``omni_mercury_engine.security.native_jwt``), so no
+        third-party dependency is required.  See the module docstring
+        for the security properties enforced (alg whitelisting,
+        constant-time signature verification, temporal-claim coercion,
+        ``alg: none`` rejection by construction).
 
-        Token payload expected format:
-        {
-            "sub": "user_id",
-            "username": "user_name",
-            "email": "user@example.com",
-            "roles": ["user"],
-            "permissions": ["read", "detect"],
-            "exp": 1234567890
-        }
+        Token payload expected format::
+
+            {
+                "sub": "user_id",
+                "username": "user_name",
+                "email": "user@example.com",
+                "roles": ["user"],
+                "permissions": ["read", "detect"],
+                "exp": 1234567890
+            }
         """
-        try:
-            import jwt
-        except ImportError:
-            logger.error("PyJWT not installed. Install with: pip install PyJWT")
-            return None
+        from omni_mercury_engine.security import native_jwt as jwt
 
         try:
             if self.secret_key is None:
@@ -859,10 +863,7 @@ class JWTAuth:
         Returns:
             Signed JWT token string
         """
-        try:
-            import jwt
-        except ImportError as e:
-            raise ImportError("PyJWT required. Install with: pip install PyJWT") from e
+        from omni_mercury_engine.security import native_jwt as jwt
 
         payload = {
             "sub": user_id,

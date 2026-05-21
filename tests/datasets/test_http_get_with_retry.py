@@ -199,6 +199,54 @@ class TestRetrySemantics:
             )
         assert get_bytes.call_count == 1
 
+    def test_timeout_per_attempt_caps_socket_timeout(self) -> None:
+        """Dead upstream mirrors cannot spend the full caller budget per retry."""
+        with patch(
+            "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
+            return_value=b"ok",
+        ) as get_bytes:
+            result = http_get_with_retry(
+                "https://earthquake.usgs.gov/path",
+                timeout=120,
+                timeout_per_attempt=20,
+                retries=1,
+                backoff=0.0,
+            )
+        assert result == b"ok"
+        assert get_bytes.call_args.kwargs["timeout"] == 20
+
+    def test_timeout_per_attempt_never_expands_caller_timeout(self) -> None:
+        """The per-attempt cap can only tighten, never weaken, caller timeout."""
+        with patch(
+            "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
+            return_value=b"ok",
+        ) as get_bytes:
+            result = http_get_with_retry(
+                "https://earthquake.usgs.gov/path",
+                timeout=10,
+                timeout_per_attempt=20,
+                retries=1,
+                backoff=0.0,
+            )
+        assert result == b"ok"
+        assert get_bytes.call_args.kwargs["timeout"] == 10
+
+    def test_deadline_is_forwarded_to_safe_http(self) -> None:
+        """SafeHTTP receives a total deadline as well as per-attempt cap."""
+        with patch(
+            "omni_mercury_engine.security.safe_http.SafeHTTPClient.get_bytes",
+            return_value=b"ok",
+        ) as get_bytes:
+            result = http_get_with_retry(
+                "https://earthquake.usgs.gov/path",
+                timeout=120,
+                timeout_per_attempt=20,
+                retries=1,
+                backoff=0.0,
+            )
+        assert result == b"ok"
+        assert isinstance(get_bytes.call_args.kwargs["deadline"], float)
+
 
 class TestUserAgentInjection:
     """The helper injects a Mercury-Agent User-Agent unless the caller overrides it.

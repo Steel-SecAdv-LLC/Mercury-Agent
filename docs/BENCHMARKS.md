@@ -1,6 +1,6 @@
 # Mercury Agent Benchmark Results
 
-Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 
 > **v1.7 update.** The README now shows a third cut — the
 > 2026-05-14 **65/65** run (Mean AUC 0.8464, Mean Oracle F1 0.6441),

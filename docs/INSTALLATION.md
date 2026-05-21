@@ -1,6 +1,6 @@
 # Installation
 
-Applies to Mercury Agent **v1.6.x and the v1.7 development cycle**. Last updated: 2026-05-19.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 
 ## Requirements
 
@@ -61,7 +61,7 @@ pip install -e ".[all]"
 | **Visual** | `pip install -e ".[visual]"` | ML + visual anomaly detectors |
 | **VLM** | `pip install -e ".[vlm]"` | transformers, accelerate |
 | **API** | `pip install -e ".[api]"` | FastAPI, uvicorn |
-| **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v3.1.0`) |
+| **PQC** | `pip install -e ".[pqc]"` | AMA Cryptography (pinned to `v3.2.0`) |
 | **Compliance** | `pip install -e ".[compliance]"` | NIST CSF live-fetcher dependency (`openpyxl`) |
 | **All** | `pip install -e ".[all]"` | Everything above |
 | **Dev** | `pip install -e ".[dev]"` | All + pytest, black, ruff, mypy |
@@ -103,11 +103,11 @@ operates on the AMA-Cryptography checkout, **not** on the
 Mercury-Agent repo, which has no `CMakeLists.txt` of its own).
 The canonical build steps are exercised by
 `.github/workflows/pqc-production-check.yml` (currently pinned to
-`AMA_REF: v3.1.0`):
+`AMA_REF: v3.2.0`):
 
 ```bash
 # 1. Clone and build the AMA-Cryptography native library
-git clone --depth 1 --branch v3.1.0 \
+git clone --depth 1 --branch v3.2.0 \
     https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography
 cd /tmp/ama-cryptography
 cmake -B build -DAMA_USE_NATIVE_PQC=ON

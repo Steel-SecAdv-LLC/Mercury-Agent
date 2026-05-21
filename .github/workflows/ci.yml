@@ -324,20 +324,86 @@ jobs:
         # genuine network / index issue and should fail the job.
         run: python -m pip install --upgrade "pip>=26.1"
 
-      - name: Install bandit / safety / pip-audit
-        # Three lightweight pure-Python tools.  Split from semgrep
-        # below so a failure here surfaces with a clear step name
-        # rather than being conflated with the much larger semgrep
-        # install.
-        run: pip install bandit safety pip-audit
+      - name: Install bandit / safety / pip-audit (audit-tool layer)
+        # Audit tools live in the *runner's* default Python and are
+        # never installed into Mercury's environment.  This keeps
+        # the audit-tool transitives (``nltk``, ``joblib``, etc.)
+        # OUT of the scanned surface — they belong to the auditor,
+        # not to Mercury.  Removing them from the audit scope is
+        # the architectural remediation for the
+        # ``--ignore-vuln`` history previously documented in
+        # ``docs/PYTHON_DEP_CVE_AUDIT.md``: Mercury does not ship
+        # those packages, so they must not appear in Mercury's
+        # vulnerability report regardless of advisory state.
+        #
+        # ``click>=8.2`` is re-pinned at the **runner** level (not
+        # just inside the Mercury audit venv): the ``safety`` CLI
+        # bundles ``typer>=0.20``, whose ``_types.py`` uses
+        # ``click.Choice[ParamTypeValue]`` (PEP 695 generic
+        # subscripting added in click 8.2).  Without the re-pin the
+        # GHA hosted Python 3.12 image ships a click version that
+        # raises ``TypeError: type 'Choice' is not subscriptable``
+        # the moment ``safety`` imports ``typer``, breaking the
+        # Safety dep-CVE gate before any vulnerability check runs.
+        run: pip install bandit safety pip-audit "click>=8.2"
 
-      - name: Install Semgrep
+      - name: Install Semgrep (isolated venv)
         # Semgrep is heavier (~76MB manylinux wheel including
         # ``semgrep-core``).  Blocking — if it cannot be installed,
         # the security gate would be silently weaker, so we fail
         # explicitly rather than ``|| true``.  Using a separate step
         # keeps the failure mode self-evident in the GHA UI.
-        run: pip install semgrep
+        #
+        # Semgrep pins ``click~=8.1.8`` (i.e. ``<8.2``), which is
+        # incompatible with ``safety``'s bundled ``typer>=0.20``
+        # that requires ``click>=8.2`` for PEP 695 ``click.Choice[...]``
+        # subscripting.  Installing semgrep into the runner's default
+        # Python would silently downgrade click and crash safety on
+        # import.  Installing semgrep into its own venv lets each
+        # tool keep the click version it actually needs.  Verified
+        # locally against semgrep ``Requires-Dist: click~=8.1.8`` and
+        # safety 3.7.0 ``Requires-Dist: click>=8.0.2`` + typer 0.25.1.
+        run: |
+          python -m venv /tmp/semgrep-env
+          /tmp/semgrep-env/bin/pip install --upgrade "pip>=26.1"
+          /tmp/semgrep-env/bin/pip install semgrep
+          # Expose semgrep on PATH for the scan step below without
+          # contaminating the runner's site-packages.
+          ln -sf /tmp/semgrep-env/bin/semgrep /usr/local/bin/semgrep
+
+      - name: Create isolated Mercury install (audit target)
+        # Install Mercury into a dedicated venv so the dependency
+        # audits below see ONLY Mercury's declared deps + their
+        # transitives — NOT the transitives of the audit tools
+        # themselves.  This is the architectural fix that lets us
+        # delete every previous ``--ignore-vuln`` flag: nltk and
+        # joblib appear in safety/bandit/pip-audit's own dependency
+        # graph but not in Mercury's, so isolation removes them
+        # from the audit surface entirely.  The frozen requirements
+        # list is emitted to a Job-Summary group so reviewers can
+        # see exactly what surface was audited.
+        #
+        # ``click>=8.2`` + ``typer>=0.20`` re-pin: the GHA hosted
+        # Python ships an older ``typer`` whose ``__types.py`` uses
+        # ``click.Choice[ParamTypeValue]`` (PEP 695 generic
+        # subscripting added in click 8.2); without the re-pin the
+        # ``pip install -e ".[api]"`` resolver downgrades click and
+        # breaks typer's import.  Diagnosed on PR #148 (commits
+        # 6cc4bbd / 1952eb7 / 63ae1dc); fixed in commit ae7ad84.
+        run: |
+          python -m venv /tmp/mercury-audit-env
+          /tmp/mercury-audit-env/bin/pip install --upgrade "pip>=26.1"
+          /tmp/mercury-audit-env/bin/pip install -e ".[api]" \
+            --upgrade "click>=8.2" "typer>=0.20"
+          /tmp/mercury-audit-env/bin/pip list --format=freeze \
+            > /tmp/mercury-audit-env/requirements.txt
+          {
+            echo "## Audit-target environment (Mercury install only)"
+            echo
+            echo '```'
+            cat /tmp/mercury-audit-env/requirements.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 
       - name: Run Bandit (security linter)
         # Bandit security scan is blocking - fails on medium+ severity issues.
@@ -349,52 +415,21 @@ jobs:
             --severity-level medium
 
       - name: Run Safety (dependency vulnerabilities — BLOCKING)
-        # Hard-blocking dep-CVE gate.  Risk-accepted CVEs are passed via
-        # ``--ignore`` with a comma-separated Safety vulnerability-ID
-        # list.  Each ID's rationale and re-review date is documented
-        # in ``docs/PYTHON_DEP_CVE_AUDIT.md`` (the ``--ignore`` argument
-        # below is intentionally empty as of the audit date — every
-        # finding present in PR #148 was resolved by upgrade rather
-        # than acceptance, see the "Resolved upgrades" table in the
-        # audit doc).  Adding an ignore later requires:
-        #   1. Add the row to docs/PYTHON_DEP_CVE_AUDIT.md with
-        #      Disposition=IGNORE and a verifiable Rationale.
-        #   2. Append the Safety vuln-id to the comma-separated list
-        #      passed to ``--ignore`` here.
-        # This sidesteps Safety v3.x's policy-file limitations (legacy
-        # ``check`` rejects v3 policy files; v3-aware ``scan`` requires
-        # Safety Cloud auth) while still enforcing per-CVE acceptance.
+        # Hard-blocking dep-CVE gate, scoped to the isolated Mercury
+        # install via ``-r``.  The audit-tool venv is intentionally
+        # NOT scanned — auditor-internal packages are not Mercury's
+        # supply chain.
         #
         # ``--policy-file .safety-policy-v2.yml`` is required to
         # override Safety's auto-discovery of ``.safety-policy.yml``
         # (which is in v3 format and rejected by ``check``'s legacy
-        # parser).  See the header of ``.safety-policy-v2.yml`` for
-        # the full rationale.  The v2 file is a no-op shim — accepted
-        # CVEs are configured via the ``--ignore`` flag below, not
-        # via the policy file.
+        # parser).  The v2 file is a no-op shim — per-CVE risk
+        # acceptance via ``--ignore`` is intentionally NOT used: any
+        # new finding in Mercury's own surface fails the gate.
         run: |
-          # Install Mercury's [api] extras (which bring in pyjwt — needed
-          # to cover CVE-2026-32597 in the safety scan).  Also re-pin
-          # ``click>=8.2`` and ``typer>=0.20`` because the GHA hosted
-          # Python runner ships an older ``typer`` whose ``__types.py``
-          # uses ``click.Choice[ParamTypeValue]`` (PEP 695 generic
-          # subscripting added in click 8.2).  Without this re-pin the
-          # ``pip install -e ".[api]"`` resolver downgrades click to a
-          # version that breaks typer's import, and ``safety check``
-          # crashes with ``TypeError: type 'Choice' is not subscriptable``
-          # before any vulnerability scanning happens.  Diagnosed via
-          # the diagnostic curl posts on PR #148 commits 6cc4bbd /
-          # 1952eb7 / 63ae1dc; fixed in commit ae7ad84.
-          pip install -e ".[api]" --upgrade "click>=8.2" "typer>=0.20"
           set +e
-          # ``--ignore`` is intentionally omitted while the audit-doc
-          # IGNORE list is empty — passing ``--ignore ""`` is ambiguous
-          # (some Safety versions treat an empty string as a single
-          # invalid vuln-id and exit non-zero before scanning).  When
-          # the first risk-accepted CVE is added to
-          # ``docs/PYTHON_DEP_CVE_AUDIT.md``, change this invocation to
-          # ``--ignore "<id1>,<id2>,..."`` with the ID(s) listed there.
           safety check \
+            -r /tmp/mercury-audit-env/requirements.txt \
             --policy-file .safety-policy-v2.yml \
             --output json > safety-report.json
           rc=$?
@@ -417,14 +452,16 @@ jobs:
           exit "$rc"
 
       - name: Run pip-audit (PyPI/OSV advisories — BLOCKING)
-        # Hard-blocking, parity with Safety above.  Risk-accepted CVEs
-        # are passed via repeated ``--ignore-vuln <id>`` flags.  Each
-        # ID's rationale and re-review date is documented in
-        # ``docs/PYTHON_DEP_CVE_AUDIT.md`` (the audit table is empty
-        # of accepted CVEs as of PR #148 — every prior finding was
-        # resolved by upgrade).  Adding an ignore later requires the
-        # same two-step process documented on the Safety step above.
-        run: pip-audit --format json --output pip-audit-report.json
+        # Hard-blocking, parity with Safety above.  ``--path`` scopes
+        # pip-audit to Mercury's isolated install; the runner-level
+        # audit-tool transitives are excluded by construction.  No
+        # ``--ignore-vuln`` entries: any finding in Mercury's own
+        # supply chain fails the gate.
+        run: |
+          pip-audit \
+            --path /tmp/mercury-audit-env/lib/python${{ env.PYTHON_VERSION }}/site-packages \
+            --skip-editable \
+            --format json --output pip-audit-report.json
 
       - name: Run Semgrep (SAST — BLOCKING)
         # Semgrep static-analysis security scan.  Blocking on
@@ -677,7 +714,7 @@ jobs:
         # ``tests/security/test_pqc_gate_real_ama.py`` which imports
         # ``ama_cryptography.pqc_backends`` at module scope and would
         # fail collection if the native library were absent.  We build
-        # AMA Cryptography v3.1.0 here using the same procedure as
+        # AMA Cryptography v3.2.0 here using the same procedure as
         # ``.github/workflows/pqc-production-check.yml::verify-real-pqc``
         # so the real-AMA tests run against the same dependency in
         # both lanes — no mock, no skip, no silent stub.
@@ -687,7 +724,7 @@ jobs:
             build-essential cmake ninja-build pkg-config
 
       - name: Install AMA Cryptography PEP 517 build-system floors
-        # AMA Cryptography v3.1.0's ``setup.py`` runs a preflight check
+        # AMA Cryptography v3.2.0's ``setup.py`` runs a preflight check
         # against the supply-chain floors declared in
         # ``pyproject.toml [build-system].requires``:
         #   * setuptools>=78.1.1  — PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5
@@ -720,7 +757,7 @@ jobs:
 
       - name: Build AMA Cryptography native C library
         env:
-          AMA_REF: v3.1.0
+          AMA_REF: v3.2.0
         run: |
           git clone --branch "${AMA_REF}" --depth 1 \
             https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git /tmp/ama-cryptography

@@ -130,8 +130,8 @@ class TestJWTAuthExpiredToken:
 
     @pytest.fixture
     def expired_token(self):
-        """Create an expired JWT token."""
-        jwt = pytest.importorskip("jwt")
+        """Create an expired JWT token via Mercury's native JWT library."""
+        from omni_mercury_engine.security import native_jwt as jwt
 
         payload = {
             "sub": "test_user",
@@ -180,7 +180,7 @@ class TestJWTAuthMalformedToken:
     @pytest.mark.asyncio
     async def test_invalid_signature_returns_none(self, jwt_auth: Any) -> None:
         """Test that tokens with invalid signatures return None."""
-        jwt = pytest.importorskip("jwt")
+        from omni_mercury_engine.security import native_jwt as jwt
 
         # Create token with different key
         payload = {
@@ -211,7 +211,7 @@ class TestJWTAuthMissingClaims:
     @pytest.mark.asyncio
     async def test_missing_sub_claim_returns_none(self, jwt_auth: Any) -> None:
         """Test that tokens missing 'sub' claim return None."""
-        jwt = pytest.importorskip("jwt")
+        from omni_mercury_engine.security import native_jwt as jwt
 
         # Token without 'sub' claim
         payload = {
@@ -229,7 +229,7 @@ class TestJWTAuthMissingClaims:
     @pytest.mark.asyncio
     async def test_missing_exp_claim_returns_none(self, jwt_auth: Any) -> None:
         """Test that tokens missing 'exp' claim return None."""
-        jwt = pytest.importorskip("jwt")
+        from omni_mercury_engine.security import native_jwt as jwt
 
         # Token without 'exp' claim
         payload = {
@@ -259,7 +259,7 @@ class TestJWTAuthValidToken:
     @pytest.mark.asyncio
     async def test_valid_token_returns_user(self, jwt_auth: Any) -> None:
         """Test that valid tokens return User object."""
-        jwt = pytest.importorskip("jwt")
+        from omni_mercury_engine.security import native_jwt as jwt
 
         payload = {
             "sub": "test_user_123",
@@ -283,12 +283,14 @@ class TestJWTAuthValidToken:
 
     @pytest.mark.asyncio
     async def test_create_and_validate_token_roundtrip(self, jwt_auth: Any) -> None:
-        """Test creating and validating a token works correctly."""
-        import importlib.util
+        """Test creating and validating a token works correctly.
 
-        if importlib.util.find_spec("jwt") is None:
-            pytest.skip("PyJWT not installed")
-
+        Backed by Mercury's native JWT library — no third-party JWT
+        package required.  Previously gated on ``importorskip('jwt')``
+        which would silently skip in any environment lacking pyjwt;
+        the native back-end makes the test deterministically runnable
+        in every Mercury install.
+        """
         from omni_mercury_engine.api.auth import JWTAuth
 
         # Create token

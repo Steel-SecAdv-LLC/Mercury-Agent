@@ -15,7 +15,7 @@ library is installed.
 
 The gate's real-AMA fail-closed behaviour is exercised end-to-end
 by ``.github/workflows/pqc-production-check.yml`` against the
-actual AMA Cryptography v3.1.0 native build — that's the
+actual AMA Cryptography v3.2.0 native build — that's the
 authoritative test for the AMA-required path.  We deliberately
 do NOT inject a fake ``ama_cryptography`` module here.  Mocking
 the dependency would test our mock, not the real production

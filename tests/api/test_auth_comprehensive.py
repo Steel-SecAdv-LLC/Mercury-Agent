@@ -397,7 +397,7 @@ class TestJWTMaxTokenAge:
     @pytest.mark.asyncio
     async def test_old_token_rejected(self, jwt_auth: Any) -> None:
         """Test that tokens exceeding max age are rejected."""
-        jwt = pytest.importorskip("jwt")
+        from omni_mercury_engine.security import native_jwt as jwt
 
         payload = {
             "sub": "old_user",
@@ -416,7 +416,7 @@ class TestJWTMaxTokenAge:
     @pytest.mark.asyncio
     async def test_recent_token_accepted(self, jwt_auth: Any) -> None:
         """Test that recently issued tokens are accepted."""
-        jwt = pytest.importorskip("jwt")
+        from omni_mercury_engine.security import native_jwt as jwt
 
         payload = {
             "sub": "recent_user",
@@ -436,7 +436,7 @@ class TestJWTMaxTokenAge:
     @pytest.mark.asyncio
     async def test_token_without_iat_accepted(self, jwt_auth: Any) -> None:
         """Test that tokens without iat claim skip age check."""
-        jwt = pytest.importorskip("jwt")
+        from omni_mercury_engine.security import native_jwt as jwt
 
         payload = {
             "sub": "no_iat_user",
@@ -462,7 +462,8 @@ class TestJWTTokenCreation:
 
     def test_create_token_success(self) -> None:
         """Test creating a JWT token."""
-        jwt = pytest.importorskip("jwt")
+        from omni_mercury_engine.security import native_jwt as jwt
+
         test_key = "test-secret"
 
         token = JWTAuth.create_token(
@@ -488,7 +489,8 @@ class TestJWTTokenCreation:
 
     def test_create_token_default_values(self) -> None:
         """Test token creation with default roles/permissions."""
-        jwt = pytest.importorskip("jwt")
+        from omni_mercury_engine.security import native_jwt as jwt
+
         test_key = "test-secret"
 
         token = JWTAuth.create_token(
@@ -502,15 +504,28 @@ class TestJWTTokenCreation:
         assert decoded["permissions"] == ["read"]
         assert "email" not in decoded
 
-    def test_create_token_requires_pyjwt(self) -> None:
-        """Test that missing PyJWT raises ImportError."""
+    def test_create_token_uses_native_jwt(self) -> None:
+        """Mercury's JWT layer is backed by the in-tree native module.
+
+        ``omni_mercury_engine.security.native_jwt`` ships in the
+        Mercury package itself, so token creation works without any
+        third-party JWT library being installed.  This test replaces
+        the prior ``test_create_token_requires_pyjwt`` regression
+        (which asserted that a missing ``pyjwt`` raised ``ImportError``
+        — a behaviour no longer applicable once Mercury owns the JWT
+        implementation).
+        """
+        from omni_mercury_engine.security import native_jwt as jwt
+
         test_key = "test-secret"
-        with patch.dict("sys.modules", {"jwt": None}), pytest.raises(ImportError, match="PyJWT"):
-            JWTAuth.create_token(
-                user_id="u3",
-                username="carol",
-                secret_key=test_key,
-            )
+        token = JWTAuth.create_token(
+            user_id="u3",
+            username="carol",
+            secret_key=test_key,
+        )
+        decoded = jwt.decode(token, test_key, algorithms=["HS256"])
+        assert decoded["sub"] == "u3"
+        assert decoded["username"] == "carol"
 
 
 # =============================================================================

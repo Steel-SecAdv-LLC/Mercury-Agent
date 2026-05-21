@@ -319,5 +319,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-05-19*
-*Version: 1.6.0 (v1.7 development cycle in flight)*
+*Last Updated: 2026-05-20*
+*Version: 1.7.0*

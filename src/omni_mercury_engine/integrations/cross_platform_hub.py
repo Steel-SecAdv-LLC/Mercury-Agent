@@ -217,7 +217,7 @@ class DataTransformer:
                     "resource": {
                         "attributes": [
                             {"key": "service.name", "value": {"stringValue": event.source}},
-                            {"key": "service.version", "value": {"stringValue": "1.6.0"}},
+                            {"key": "service.version", "value": {"stringValue": "1.7.0"}},
                         ]
                     },
                     "scopeMetrics": [

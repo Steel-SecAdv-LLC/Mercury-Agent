@@ -26,6 +26,261 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security / AMA-routed JWT HMAC signatures (HS256 + HS512) (2026-05-20)
+
+Mercury's `native_jwt` signing primitive now routes `HS256` and
+`HS512` through AMA Cryptography's ACVP-validated, constant-time,
+zero-third-party-dep C HMAC backend when AMA Cryptography v3.2.0+ is
+installed, falling back transparently to stdlib `hmac` over
+`hashlib` otherwise.  This puts the JWT signing path on the same
+crypto backend that already serves Mercury's PQC and HKDF stack
+(matching AMA's INVARIANT-1 posture) and removes OpenSSL-backed
+stdlib HMAC from the production auth path on AMA-enabled
+deployments.
+
+- **`pyproject.toml [pqc]`** pin bumped
+  `ama-cryptography @ v3.1.0` → `@ v3.2.0`.  v3.2.0 exposes the
+  Python bindings `native_hmac_sha256`, `native_hmac_sha256_2`
+  (two-segment, concat-avoiding for JWT signing input), and
+  `_HMAC_SHA256_NATIVE_AVAILABLE` over the ACVP-validated C symbol
+  `ama_hmac_sha256` (150/150 vectors per
+  `AMA-Cryptography/docs/compliance/ACVP_SELF_ATTESTATION.md`).  CI
+  workflows `.github/workflows/ci.yml` and
+  `.github/workflows/pqc-production-check.yml` updated to
+  `AMA_REF: v3.2.0` in lockstep.
+- **`src/omni_mercury_engine/security/ama_hmac.py`** (new, ~225
+  lines): Mercury-side adapter that surfaces AMA's HMAC bindings
+  with explicit availability flags (`HAS_AMA_HMAC_SHA256`,
+  `HAS_AMA_HMAC_SHA512`), a public `available()` diagnostic helper
+  for `/health` endpoints + audit logs, and a test-only
+  `_reinitialize_for_tests` escape hatch.  Fail-closed semantics:
+  the wrappers raise `RuntimeError` rather than silently falling
+  back, so the routing decision is always explicit in
+  `native_jwt._sign`.
+- **`src/omni_mercury_engine/security/native_jwt.py`** refactored:
+  `_sign()` now threads `(header_segment, payload_segment)`
+  separately rather than the materialised concat, so the HS256 path
+  can use AMA's `native_hmac_sha256_2(key, header || ".", payload)`
+  fast path without ever copying the payload bytes in Python.  HS512
+  routes through `ama_hmac_sha512` (one-segment; AMA does not yet
+  ship a two-segment HMAC-SHA-512 variant).  HS384 stays on stdlib
+  because AMA does not bind HMAC-SHA-384 in v3.2.0 (tracked in
+  `docs/ROADMAP.md`).  A new public helper `get_signing_backend(alg)`
+  returns `"ama"` or `"stdlib"` for diagnostic surfaces.
+- **`tests/security/test_native_jwt_ama_routing.py`** (new, 17
+  tests) locks four invariants:
+  1. **RFC 4231 KAT.**  AMA's HMAC-SHA-256 and HMAC-SHA-512 output
+     matches the canonical Test Case 1 and Test Case 7
+     (oversized-key) vectors from RFC 4231 §4.2 / §4.7.
+  2. **Stdlib byte-equivalence at the `_sign()` boundary.**  AMA-
+     routed and stdlib-routed signatures are bit-identical for the
+     same `(header, payload, key, alg)` triple (FIPS 198-1 /
+     RFC 2104 invariant).
+  3. **Fallback path.**  Monkeypatching
+     `ama_hmac.HAS_AMA_HMAC_SHA256 = False` cleanly demotes the
+     `_sign()` decision to stdlib and the JWT encode/decode round-
+     trip still succeeds.
+  4. **Cross-path interoperability.**  A token signed with AMA
+     enabled verifies with AMA disabled, and vice versa — the
+     routing decision is performance / hardening only, never a
+     wire-format change.
+
+  All 17 tests pass; the 92 existing native-JWT / auth contract
+  tests in `tests/security/test_native_jwt.py`,
+  `tests/security/test_jwt_auth.py`, and
+  `tests/api/test_auth_comprehensive.py` remain green with no
+  semantic change.
+
+### Security / Permanent supply-chain remediation: native JWT + joblib removal (2026-05-20)
+
+Three upstream-disputed advisories — `PYSEC-2024-277` /
+`CVE-2024-34997` (joblib), `PYSEC-2026-97` / `CVE-2026-0846`
+(nltk), and `PYSEC-2025-183` / `CVE-2025-45768` (pyjwt) — were
+**permanently retired** from Mercury-Agent's audited supply chain
+by removing the affected dependencies rather than ignoring the
+advisories or accepting risk.
+
+- **`pyjwt` removed.** Replaced by
+  `src/omni_mercury_engine/security/native_jwt.py`, a pure-stdlib
+  HS256 JWT module built on `hmac` + `hashlib` + `base64` + `json`
+  with constant-time signature verification (via
+  `security/constant_time.py`) and `alg: none` rejected by
+  construction (HS256-only encoder; decoder whitelists algorithms
+  before any HMAC work).  29 unit tests in
+  `tests/security/test_native_jwt.py`; 14 contract tests in
+  `tests/security/test_jwt_auth.py` and
+  `tests/api/test_auth_comprehensive.py` adapted to the new module
+  with no semantic change.  `api/auth.py` now imports
+  `omni_mercury_engine.security.native_jwt as jwt`, so call sites
+  and exception types (`InvalidTokenError`, `ExpiredSignatureError`,
+  …) are preserved unchanged.
+
+- **`joblib` removed.** `ParallelExecutor` in
+  `src/omni_mercury_engine/ml/optimization.py` is rewritten on
+  `concurrent.futures.{ProcessPoolExecutor, ThreadPoolExecutor}`.
+  The legacy `enable_joblib` / `joblib_backend` config field names
+  are preserved as compatibility aliases — `loky` /
+  `multiprocessing` map to the process pool and `threading` to the
+  thread pool — so downstream config files keep working unchanged.
+  Locked by `tests/ml/test_new_modules.py::test_parallel_executor_no_joblib_import`.
+
+- **`nltk` was never a Mercury dependency** — it appeared in the
+  audit scope only because `safety` itself depends on it.  The CI
+  audits (`ci.yml` and `security.yml`) now install Mercury into an
+  isolated venv (`/tmp/mercury-audit-env`) and scan only that
+  install, so auditor-internal transitives are excluded by
+  construction.
+
+- **`pyproject.toml`** drops `pyjwt>=2.12.0` from `[api]`,
+  `joblib>=1.3.0` from `[optimization]` and `[benchmark]`, and the
+  `jwt` / `joblib` mypy override entries from
+  `[[tool.mypy.overrides]]`.
+
+- **`docs/PYTHON_DEP_CVE_AUDIT.md`** deletes the three IGNORE rows
+  and replaces them with a "Permanent supply-chain remediations"
+  ledger documenting each removal, the in-tree replacement, the
+  commit, and the test that locks the remediation.
+
+Verification on the isolated Mercury [api] install (42 packages,
+Python 3.12, 2026-05-20):
+
+```
+safety check  → 0 vulnerabilities reported, 0 vulnerabilities ignored
+pip-audit     → No known vulnerabilities found  (exit 0)
+```
+
+No `--ignore-vuln` / `--ignore` flags are wired into either
+workflow.  The audit-ledger posture is now "zero risk acceptance":
+findings are remediated by upgrade, isolation, or native re-
+implementation — never by suppression.
+
+### Security / Synthetic-data policy-gate bypass closure (2026-05-20)
+
+The validation-pipeline loaders
+(`omni_mercury_engine.validation.data_loaders`) exposed a
+`use_synthetic: bool = False` argument on every concrete loader
+(`NSLKDDLoader`, `USGSEarthquakeLoader`, `MIMICLoader`,
+`NOAASpaceWeatherLoader`, `NOAAHurricaneLoader`, `NOAAOceanLoader`).
+When set to `True`, the loader returned synthetic data unconditionally
+— **bypassing the deployment-level `MERCURY_ALLOW_SYNTHETIC` policy**
+enforced by
+`omni_mercury_engine.datasets.exceptions.check_synthetic_allowed`.
+
+This was a latent integrity hole: a benchmark, downstream notebook, or
+operator script could request synthetic data via the keyword argument
+and receive it even on a deployment that had explicitly forbidden
+synthetic fallback (`MERCURY_ALLOW_SYNTHETIC=0` or unset).  For a
+humanitarian crisis-response and missing-persons platform, silently
+delivering simulated data when policy forbids it is far worse than
+raising — operators can act on synthetic output without realising the
+real source was never reached.
+
+The fix is surgical and additive:
+
+- Every `if use_synthetic:` branch in `validation/data_loaders.py`
+  now calls `check_synthetic_allowed(loader_name, "Caller passed
+  use_synthetic=True")` immediately before invoking
+  `_generate_synthetic(...)`.  When the env var is not set, the call
+  raises `DataSourceUnavailableError`; when it is set, the legacy
+  contract (caller-flag honoured) holds.
+- `MIMICLoader` (which is *only* available as a synthetic simulation
+  because real MIMIC-III requires PhysioNet credentialing) was
+  rewritten from a tangled `if not use_synthetic and not
+  ALLOW_SYNTHETIC: raise` / `if not use_synthetic:
+  check_synthetic_allowed` two-branch pattern to a single
+  unconditional `check_synthetic_allowed(...)` call.  Both the
+  explicit caller request (`use_synthetic=True`) and the implicit
+  fallback (`use_synthetic=False`) now flow through the same gate,
+  with the documentation pointing operators at the real PhysioNet
+  download URL.
+- `tests/validation/test_synthetic_policy_gate.py` is the regression
+  lock: six tests prove the gate fires for each loader when policy is
+  off, plus a seventh forward-compatibility test confirms the
+  legacy contract (caller flag honoured under `MERCURY_ALLOW_SYNTHETIC=1`).
+
+The closure is additive — no existing test or documented contract is
+broken.  `tests/conftest.py` continues to set
+`MERCURY_ALLOW_SYNTHETIC=1` by default for the test suite, so all 44
+existing `tests/validation/test_validation_pipeline.py` tests still
+pass without modification.  The fallback chain documented in
+`docs/ROUTING_GUIDE.md` still works under the documented contract
+(`MERCURY_ALLOW_SYNTHETIC=1`); without the env var set, the chain
+fails closed at the synthetic step rather than silently degrading.
+
+### Security / σ_Immutable Wave B Vector 2 + 4 closure (2026-05-20)
+
+Closes two of the remaining σ_Immutable bypass vectors identified in the
+v1.7 audit:
+
+- **Vector 2 — engine boundary.** `engine._enforce_ethics_at_boundary`
+  now routes the caller-supplied `domain` through a canonical
+  `sanitize_domain()` helper instead of the prior bare
+  `isinstance(domain, str)` check.  Hostile values such as
+  `"damage_control"` or `"audit track"` are collapsed to the
+  `"general"` sentinel before reaching the `BenevolenceScorer`, so a
+  caller cannot inject harm/positive keywords into the action string
+  to bias the scorer.
+- **Vector 4 — neuro-symbolic hub.** `NeuroSymbolicHub.__init__` now
+  sanitises the `domain` constructor argument before storing it on
+  the audit surface (`self.domain` interpolated into σ_Immutable
+  `details` payloads); the downstream feature-dispatch components
+  (`FibringComposer`, `DomainFeatureExtractorFactory`,
+  `GOSNN3RIntegration`) still see the raw caller value for legacy
+  compatibility.  `NeuroSymbolicHub.predict` now pre-flights the
+  σ_Immutable gate on `n_samples == 0` batches; previously an empty
+  input would return `[]` immediately without ever firing the per-
+  sample enforcement loop, giving callers a silent no-op bypass.
+- **Canonical sanitiser** lifted into
+  `omni_mercury_engine.cognitive.ethical_bounding.sanitize_domain`
+  with a deferred `EnvironmentDomain` import to preserve
+  `ethical_bounding`'s zero-cost import contract.
+  `cognitive/orchestrator.py` now delegates to the same helper
+  instead of carrying a local copy of the whitelist.
+- **Regression**: `tests/ethical/test_hard_enforcement.py` grows
+  `TestSanitizeDomainHelper` (4 cases) and
+  `TestNeuroSymbolicHubEmptyBatchClosure` (2 cases) — the empty-batch
+  closure is locked with a `monkeypatch` spy that asserts the gate
+  fires with `details["empty_batch"] is True` and a sanitised
+  `details["domain"] == "general"`.
+- **Wave B Vector 3** (`CognitiveOrchestrator.analyze`) was already
+  enforced in v1.6 and remains in place.  Vectors 5 (narrative voice)
+  and 6 (federation aggregator + federated_learning server) are
+  deferred to a Wave C follow-up: those subsystems do not currently
+  carry σ_Immutable wiring, and adding it without breaking the
+  existing calling contract requires a careful interface review that
+  is out of scope for the v1.7.0 release cut.  The deferral is
+  tracked in `docs/ROADMAP.md`.
+
+### Security / CVE-2026-6357 regression guard (2026-05-20)
+
+CVE-2026-6357 lets a malicious wheel hijack the install process on
+`pip` versions earlier than 26.1.  Every Dockerfile stage, every CI
+workflow that runs `pip install`, and every devcontainer / dev-tooling
+script already floors `pip>=26.1` in the v1.7 baseline; this commit
+adds a regression guard that makes the contract durable:
+
+- `scripts/check_workflow_hardening.py` grows a
+  `_check_pip_cve_2026_6357` step.  It walks every workflow YAML,
+  groups lines by job (since runner site-packages is shared across
+  all steps in a job), and fails the `Workflow Hardening` CI gate if
+  any `pip install` (or `python -m pip install`) appears in a job
+  without a prior `pip install --upgrade "pip>=26.1"`.  Documentation-
+  emission lines that *write* the literal string `pip install` into
+  a file (`echo`, `printf`, `>>` / `<<` redirection) are exempt and
+  so are inline comments.
+- `.github/workflows/format.yml` and `.github/workflows/network-tests.yml`
+  were updated to floor pip explicitly (previously the `format` job
+  installed Black without pinning pip first; `network-tests` issued a
+  bare `python -m pip install --upgrade pip`).
+- `tests/security/test_cve_2026_6357_regression.py` is the *gate on
+  the gate*: it directly exercises the hardening checker plus the
+  real workflow / Dockerfile inventory so a future drift — a new
+  workflow that forgets the floor, a Dockerfile that re-introduces
+  an unpinned `pip install`, or a regression in the checker itself —
+  is caught by `pytest` long before it can land in a release branch.
+
+## [1.7.0] - 2026-05-20
+
 ### Documentation refresh (2026-05-19)
 
 Comprehensive documentation update covering the v1.7 development cycle.
@@ -84,7 +339,7 @@ documentation:
   51/55 benchmark trajectory reconciled.
 - **Updated: `docs/PYTHON_DEP_CVE_AUDIT.md`** — audit date /
   next-review bumped (2026-05-19 → 2026-08-19); v1.7 dependency
-  surface (`openpyxl` for the `compliance` extra, exact `v3.1.0`
+  surface (`openpyxl` for the `compliance` extra, exact `v3.2.0`
   pin for the `pqc` extra) documented.
 - **Updated: `docs/medical/SETUP.md`, `docs/BENCHMARKS.md`,
   `docs/ROUTING_GUIDE.md`, `docs/MATH_SPEC.md`,
@@ -94,7 +349,7 @@ documentation:
   context where applicable.
 - **Updated: `rust_crypto/README.md`** — clarified scope (classical
   crypto, **not** PQC); pointed PQC use cases at
-  AMA Cryptography v3.1.0 and the `[pqc]` extra.
+  AMA Cryptography v3.2.0 and the `[pqc]` extra.
 - **Updated: `CODE_OF_CONDUCT.md`** — added document-version
   metadata table and a Mercury-specific note tying the Code of
   Conduct to the dual hard ethical gates encoded in the software.
@@ -2140,4 +2395,14 @@ and regression tests:
 ### Note
 **All benchmarks based on simulated data. Real-world validation recommended before production use.**
 
+[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0
+[1.5.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.2.0...v1.4.0
+[1.2.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.1.2...v1.2.0
+[1.1.2]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v0.1.0...v1.1.0
 [0.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/releases/tag/v0.1.0
