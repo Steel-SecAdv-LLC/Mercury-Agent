@@ -42,7 +42,7 @@ test-tier import surface.
 import base64
 import json
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import cast
 
 import pytest
 
@@ -59,9 +59,9 @@ from omni_mercury_engine.security.native_jwt import (
 )
 
 SECRET = "test-secret-key-which-is-clearly-not-for-production-use"
-NON_DICT_PAYLOAD: Any = "not a dict"
-NON_SECRET_KEY: Any = 12345
-NON_TOKEN: Any = 12345
+NON_DICT_PAYLOAD = cast("dict[str, object]", "not a dict")
+NON_SECRET_KEY = cast("str | bytes", 12345)
+NON_TOKEN = cast("str | bytes", 12345)
 
 
 # --------------------------------------------------------------------------- #
