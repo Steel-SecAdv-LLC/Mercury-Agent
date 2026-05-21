@@ -140,7 +140,7 @@ class USGSEarthquakeLoader(DatasetLoader):
             logger.info(
                 f"Downloading earthquake data from USGS API (last {self.days_back} days)..."
             )
-            content = http_get_with_retry(url, timeout=120)
+            content = http_get_with_retry(url, timeout=120, timeout_per_attempt=20, retries=1)
             data = json.loads(content.decode("utf-8"))
 
             features_list = data.get("features", [])
@@ -437,7 +437,9 @@ class NOAAWeatherLoader(DatasetLoader):
 
                 logger.info(f"Downloading weather data for {loc['name']}...")
                 try:
-                    content = http_get_with_retry(url, timeout=60)
+                    content = http_get_with_retry(
+                        url, timeout=60, timeout_per_attempt=20, retries=1
+                    )
                 except Exception as e:
                     logger.warning("Open-Meteo location %s failed: %s", loc["name"], e)
                     continue
@@ -670,7 +672,7 @@ class WildfireDataLoader(DatasetLoader):
                 try:
                     TrustedEndpoints.validate_url(url)
                     logger.info("Downloading fire data from NASA FIRMS (%s)...", url)
-                    body = http_get_with_retry(url, timeout=120)
+                    body = http_get_with_retry(url, timeout=120, timeout_per_attempt=20, retries=1)
                     content_text = body.decode("utf-8", errors="replace")
                     break
                 except Exception as e:

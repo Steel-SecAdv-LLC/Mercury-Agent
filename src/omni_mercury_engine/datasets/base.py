@@ -87,6 +87,7 @@ def http_get_with_retry(
     backoff: float = 2.0,
     retry_on_status: tuple[int, ...] = (408, 425, 429, 500, 502, 503, 504),
     allow_http: bool = False,
+    timeout_per_attempt: int | None = None,
 ) -> bytes:
     """HTTP GET with scheme/domain validation, default UA, and exponential backoff.
 
@@ -117,6 +118,9 @@ def http_get_with_retry(
         allow_http: Permit ``http://`` URLs. Default False (HTTPS-only).
             When True the host still has to clear both the trusted-domain
             allowlist and the private-network / IMDS gate.
+        timeout_per_attempt: Optional per-attempt timeout. When set, each retry
+            uses ``min(timeout, timeout_per_attempt)`` so a dead upstream cannot
+            consume the full caller budget on its first socket attempt.
 
     Returns:
         Response body as bytes.
@@ -137,6 +141,10 @@ def http_get_with_retry(
     request_headers = {"User-Agent": _DEFAULT_DATASET_UA}
     if headers:
         request_headers.update(headers)
+    effective_timeout = (
+        min(timeout, timeout_per_attempt) if timeout_per_attempt is not None else timeout
+    )
+    deadline = time.monotonic() + timeout
 
     last_exc: Exception | None = None
     attempts = max(1, retries)
@@ -145,8 +153,9 @@ def http_get_with_retry(
             return SafeHTTPClient.get_bytes(
                 url,
                 headers=request_headers,
-                timeout=timeout,
+                timeout=effective_timeout,
                 allow_http=allow_http,
+                deadline=deadline,
             )
         except requests.HTTPError as e:
             last_exc = e
@@ -172,7 +181,10 @@ def http_get_with_retry(
             )
 
         if attempt < attempts - 1:
-            time.sleep(backoff ** (attempt + 1))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(backoff ** (attempt + 1), remaining))
 
     if last_exc is None:
         # The loop runs at least once (attempts >= 1) and every code

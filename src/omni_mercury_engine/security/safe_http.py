@@ -88,6 +88,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import socket
+import time
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode, urlparse
 
@@ -475,6 +476,7 @@ class SafeHTTPClient:
         loopback_only: bool = False,
         allow_private: bool = False,
         stream: bool = False,
+        deadline: float | None = None,
     ) -> requests.Response:
         """Shared body of ``get``/``post``/``request``."""
         cls.validate_url(
@@ -599,6 +601,14 @@ class SafeHTTPClient:
         last_exc: Exception | None = None
         response = None
         for candidate_ip in resolved_ips:
+            if deadline is None:
+                request_timeout = timeout
+            else:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(f"SafeHTTPClient: deadline exceeded for '{host}'")
+                request_timeout = min(timeout, remaining)
+
             session = requests.Session()
             adapter = _PinnedDNSHTTPAdapter.build(host, str(candidate_ip))
             # Mount for both schemes; the adapter inspects the URL to
@@ -614,7 +624,7 @@ class SafeHTTPClient:
                     json=json_body,
                     data=data,
                     headers=request_headers,
-                    timeout=timeout,
+                    timeout=request_timeout,
                     stream=stream,
                     allow_redirects=False,
                 )
@@ -678,6 +688,7 @@ class SafeHTTPClient:
         loopback_only: bool = False,
         allow_private: bool = False,
         stream: bool = False,
+        deadline: float | None = None,
     ) -> requests.Response:
         """Issue a validated GET; the returned response is closed by the caller."""
         return cls._request(
@@ -691,6 +702,7 @@ class SafeHTTPClient:
             loopback_only=loopback_only,
             allow_private=allow_private,
             stream=stream,
+            deadline=deadline,
         )
 
     @classmethod
@@ -705,6 +717,7 @@ class SafeHTTPClient:
         user_configured: bool = False,
         loopback_only: bool = False,
         allow_private: bool = False,
+        deadline: float | None = None,
     ) -> bytes:
         """GET and return the response body as bytes."""
         with cls.get(
@@ -716,6 +729,7 @@ class SafeHTTPClient:
             user_configured=user_configured,
             loopback_only=loopback_only,
             allow_private=allow_private,
+            deadline=deadline,
         ) as response:
             body: bytes = response.content
             return body
