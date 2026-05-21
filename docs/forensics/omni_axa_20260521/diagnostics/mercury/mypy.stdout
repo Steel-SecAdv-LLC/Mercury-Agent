@@ -1,0 +1,9 @@
+src/omni_mercury_engine/compliance/nist_csf_integrator.py:431:9: error:
+Returning Any from function declared to return "bytes"  [no-any-return]
+            return payload
+            ^~~~~~~~~~~~~~
+src/omni_mercury_engine/datasets/disaster.py:524: error: Unused "type: ignore"
+comment  [unused-ignore]
+            labels = self._select_anomaly_polarity(labels_arr)  # type: ig...
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~...
+Found 2 errors in 2 files (checked 512 source files)

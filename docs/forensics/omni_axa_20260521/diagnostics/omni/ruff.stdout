@@ -1,0 +1,33 @@
+F401 `pqcrypto.sign.dilithium3.verify` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> src/omni_anomaly_engine/domains/ciad/cyber_security/hive_firewall.py:44:9
+   |
+42 |         generate_keypair as dilithium_generate_keypair,
+43 |         sign,
+44 |         verify,
+   |         ^^^^^^
+45 |     )
+   |
+help: Remove unused import: `pqcrypto.sign.dilithium3.verify`
+
+E741 Ambiguous variable name: `I`
+   --> src/omni_anomaly_engine/domains/ehead/medical/pandemic/epidemic_model.py:112:15
+    |
+110 |         solution = odeint(self._seir_derivatives, y0, t)
+111 |
+112 |         S, E, I, R = solution.T
+    |               ^
+113 |
+114 |         r0 = self._estimate_r0()
+    |
+
+E741 Ambiguous variable name: `I`
+   --> src/omni_anomaly_engine/domains/ehead/medical/pandemic/epidemic_model.py:175:15
+    |
+173 |             [dS/dt, dE/dt, dI/dt, dR/dt] derivatives
+174 |         """
+175 |         S, E, I, R = y
+    |               ^
+176 |         N = self.population
+    |
+
+Found 3 errors.

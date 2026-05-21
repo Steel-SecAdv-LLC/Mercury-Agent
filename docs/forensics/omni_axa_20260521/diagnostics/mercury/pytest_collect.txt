@@ -1,0 +1,4 @@
+ImportError while loading conftest '/home/user/Mercury-Agent/tests/conftest.py'.
+tests/conftest.py:58: in <module>
+    import numpy as np
+E   ModuleNotFoundError: No module named 'numpy'

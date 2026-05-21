@@ -1,0 +1,4860 @@
+[
+  {
+    "omni_path": "src/omni_anomaly_engine/agentic/agentic_autonomy.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "AgentState",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/agentic_autonomy.py",
+          "src/omni_mercury_engine/cognitive/autonomous_agent.py"
+        ]
+      },
+      {
+        "symbol": "AgentAction",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/agentic_autonomy.py"
+        ]
+      },
+      {
+        "symbol": "AgenticAutonomy",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/agentic_autonomy.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/agents/mercury_a.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.125,
+    "details": [
+      {
+        "symbol": "MercuryMode",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MercuryConfig",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MercuryQuery",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MercuryResponse",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/narrative/interface.py"
+        ]
+      },
+      {
+        "symbol": "MercuryKnowledgeBase",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MercuryReasoningEngine",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MercuryArtifactGenerator",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MercuryA",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/api/server.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 6,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "UnivariateRequest",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/api/server.py"
+        ]
+      },
+      {
+        "symbol": "MultivariateRequest",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/api/server.py"
+        ]
+      },
+      {
+        "symbol": "HealthResponse",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/api/server.py"
+        ]
+      },
+      {
+        "symbol": "health_check",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/api/server.py"
+        ]
+      },
+      {
+        "symbol": "detect_univariate",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/api/server.py"
+        ]
+      },
+      {
+        "symbol": "detect_multivariate",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/api/server.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/cli.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 6,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "main",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py",
+          "src/omni_mercury_engine/tools/migrate_pkl.py"
+        ]
+      },
+      {
+        "symbol": "detect",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py"
+        ]
+      },
+      {
+        "symbol": "biometric",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py"
+        ]
+      },
+      {
+        "symbol": "security",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py"
+        ]
+      },
+      {
+        "symbol": "train",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py"
+        ]
+      },
+      {
+        "symbol": "explain",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/cli_enhanced.py",
+    "n_public": 10,
+    "n_defined_in_mercury": 4,
+    "ratio": 0.4,
+    "details": [
+      {
+        "symbol": "main",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py",
+          "src/omni_mercury_engine/tools/migrate_pkl.py"
+        ]
+      },
+      {
+        "symbol": "detect",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py"
+        ]
+      },
+      {
+        "symbol": "run_medical",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "run_security",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "run_humanitarian",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "run_schumann",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "run_chemistry",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "biometric",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py"
+        ]
+      },
+      {
+        "symbol": "train",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py"
+        ]
+      },
+      {
+        "symbol": "run_demo",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/comparison/pyod_integration.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "PyODAlgorithm",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/comparison/pyod_integration.py"
+        ]
+      },
+      {
+        "symbol": "CombinationMethod",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/comparison/pyod_integration.py"
+        ]
+      },
+      {
+        "symbol": "PyODComparison",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/comparison/pyod_integration.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/ai_ethics.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 5,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EthicalPrinciple",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ethical/ethical_constraint_engine.py",
+          "src/omni_mercury_engine/ethical/ethical_alignment_engine.py",
+          "src/omni_mercury_engine/cognitive/ethical_bounding.py",
+          "src/omni_mercury_engine/core/ai_ethics.py",
+          "src/omni_mercury_engine/core/types.py"
+        ]
+      },
+      {
+        "symbol": "EthicsConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ai_ethics.py"
+        ]
+      },
+      {
+        "symbol": "EthicsResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ai_ethics.py"
+        ]
+      },
+      {
+        "symbol": "EthicalAutonomyGovernor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ai_ethics.py",
+          "src/omni_mercury_engine/core/ethical_governor.py"
+        ]
+      },
+      {
+        "symbol": "evaluate_refactoring_ethics",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ai_ethics.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/base.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 2,
+    "ratio": 0.6666666666666666,
+    "details": [
+      {
+        "symbol": "BaseDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/base.py",
+          "src/omni_mercury_engine/core/stacking_fusion.py"
+        ]
+      },
+      {
+        "symbol": "BaseModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/base.py"
+        ]
+      },
+      {
+        "symbol": "BaseEncoder",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/chaos_evolutionary.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ChaoticMap",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/chaos_evolutionary.py"
+        ]
+      },
+      {
+        "symbol": "ChaosEvolutionOptimizer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/chaos_evolutionary.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/config.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 6,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "DeviceType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/config.py",
+          "src/omni_mercury_engine/core/engine_config.py"
+        ]
+      },
+      {
+        "symbol": "FusionMode",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/neurosymbolic_hub.py",
+          "src/omni_mercury_engine/core/config.py",
+          "src/omni_mercury_engine/core/engine_config.py"
+        ]
+      },
+      {
+        "symbol": "DetectorConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/config.py",
+          "src/omni_mercury_engine/core/engine_config.py"
+        ]
+      },
+      {
+        "symbol": "ModelConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/config.py"
+        ]
+      },
+      {
+        "symbol": "FusionConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/config.py"
+        ]
+      },
+      {
+        "symbol": "EngineConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_config.py",
+          "src/omni_mercury_engine/core/config.py",
+          "src/omni_mercury_engine/core/extended_anomaly_engine.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/ethical_config.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EthicalScalars",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_config.py"
+        ]
+      },
+      {
+        "symbol": "EngineConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_config.py",
+          "src/omni_mercury_engine/core/config.py",
+          "src/omni_mercury_engine/core/extended_anomaly_engine.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/ethical_governor.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 4,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EthicalDecision",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_governor.py"
+        ]
+      },
+      {
+        "symbol": "BiasMetrics",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_governor.py"
+        ]
+      },
+      {
+        "symbol": "SigmaDirective",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_governor.py"
+        ]
+      },
+      {
+        "symbol": "EthicalAutonomyGovernor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ai_ethics.py",
+          "src/omni_mercury_engine/core/ethical_governor.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/ethical_risk_matrix.py",
+    "n_public": 9,
+    "n_defined_in_mercury": 9,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "RiskLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_risk_matrix.py"
+        ]
+      },
+      {
+        "symbol": "ComplianceRegime",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_risk_matrix.py"
+        ]
+      },
+      {
+        "symbol": "RiskScore",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_risk_matrix.py"
+        ]
+      },
+      {
+        "symbol": "ComplianceRule",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_risk_matrix.py"
+        ]
+      },
+      {
+        "symbol": "USLawPolling",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_risk_matrix.py"
+        ]
+      },
+      {
+        "symbol": "GDPRCompliance",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_risk_matrix.py"
+        ]
+      },
+      {
+        "symbol": "HIPAACompliance",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_risk_matrix.py"
+        ]
+      },
+      {
+        "symbol": "AnomalyOracle",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_risk_matrix.py"
+        ]
+      },
+      {
+        "symbol": "EthicalRiskMatrix",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_risk_matrix.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/exceptions.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "OmniAnomalyException",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/exceptions.py"
+        ]
+      },
+      {
+        "symbol": "DetectorException",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/exceptions.py"
+        ]
+      },
+      {
+        "symbol": "ModelException",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/exceptions.py"
+        ]
+      },
+      {
+        "symbol": "FusionException",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/exceptions.py"
+        ]
+      },
+      {
+        "symbol": "ConfigException",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/exceptions.py"
+        ]
+      },
+      {
+        "symbol": "DataException",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/exceptions.py"
+        ]
+      },
+      {
+        "symbol": "SecurityException",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/exceptions.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/extended_anomaly_engine.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 5,
+    "ratio": 0.8333333333333334,
+    "details": [
+      {
+        "symbol": "EngineConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/ethical_config.py",
+          "src/omni_mercury_engine/core/config.py",
+          "src/omni_mercury_engine/core/extended_anomaly_engine.py"
+        ]
+      },
+      {
+        "symbol": "EvolutionStrategy",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/extended_anomaly_engine.py",
+          "src/omni_mercury_engine/core/three_r/types.py"
+        ]
+      },
+      {
+        "symbol": "EvolutionEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/extended_anomaly_engine.py"
+        ]
+      },
+      {
+        "symbol": "SecurityEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/extended_anomaly_engine.py"
+        ]
+      },
+      {
+        "symbol": "IntegrationEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/extended_anomaly_engine.py"
+        ]
+      },
+      {
+        "symbol": "OmniAXAEngine",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/federated_learning.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "FederatedAnomalyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/federated_learning/server.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/fusion.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.25,
+    "details": [
+      {
+        "symbol": "AttentionFusion",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/fusion/multimodal_fusion.py"
+        ]
+      },
+      {
+        "symbol": "HybridFusionLayer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "EarlyFusionEncoder",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "OmniAvaEngine",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/info_geometry.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "InformationGeometryDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/info_geometry.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/multivariate_timeseries.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 2,
+    "ratio": 0.6666666666666666,
+    "details": [
+      {
+        "symbol": "FractionalDifferentiator",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MultivariateTSDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/multivariate_timeseries.py"
+        ]
+      },
+      {
+        "symbol": "ChaosMultivariateFusion",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/multivariate_timeseries.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/neurosymbolic_engine.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 5,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ReadinessLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/code_analysis.py"
+        ]
+      },
+      {
+        "symbol": "TrainingPhase",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/code_analysis.py"
+        ]
+      },
+      {
+        "symbol": "NeurosymbolicConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/code_analysis.py"
+        ]
+      },
+      {
+        "symbol": "TrainingMetrics",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/code_analysis.py"
+        ]
+      },
+      {
+        "symbol": "NeurosymbolicEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/neurosymbolic.py",
+          "src/omni_mercury_engine/core/code_analysis.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/novel_class_discovery.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "MultiElementBinarization",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/novel_class_discovery.py"
+        ]
+      },
+      {
+        "symbol": "NovelClassDiscovery",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/novel_class_discovery.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/quantum_kernels.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "QuantumKernelMachine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/quantum_kernels.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/regenerative.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "PermaculturePrinciple",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/regenerative.py"
+        ]
+      },
+      {
+        "symbol": "FeedbackLoop",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/regenerative.py"
+        ]
+      },
+      {
+        "symbol": "RegenerativeArchitecture",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/regenerative.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/self_healing.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.5,
+    "details": [
+      {
+        "symbol": "AnomalySignature",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/resilience/self_healing.py"
+        ]
+      },
+      {
+        "symbol": "CRISPRInspiredSelfHealing",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/symbolic_reasoning.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SymbolicRule",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/neurosymbolic.py",
+          "src/omni_mercury_engine/cognitive/symbolic_logic_layer.py",
+          "src/omni_mercury_engine/core/neurosymbolic_hub.py",
+          "src/omni_mercury_engine/core/symbolic_reasoning.py"
+        ]
+      },
+      {
+        "symbol": "SymbolicReasoningEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/symbolic_reasoning.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/core/three_r_mechanism.py",
+    "n_public": 10,
+    "n_defined_in_mercury": 10,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "RecursionEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/three_r/engines.py"
+        ]
+      },
+      {
+        "symbol": "ResonanceEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/three_r/engines.py"
+        ]
+      },
+      {
+        "symbol": "AnomalyDetectionMethod",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/three_r/types.py"
+        ]
+      },
+      {
+        "symbol": "IssueType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/three_r/types.py"
+        ]
+      },
+      {
+        "symbol": "IssueSeverity",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/three_r/types.py"
+        ]
+      },
+      {
+        "symbol": "EvolutionStrategy",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/extended_anomaly_engine.py",
+          "src/omni_mercury_engine/core/three_r/types.py"
+        ]
+      },
+      {
+        "symbol": "RefactoringConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/three_r/types.py"
+        ]
+      },
+      {
+        "symbol": "RefactoringEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/three_r_mechanism.py"
+        ]
+      },
+      {
+        "symbol": "RefactoringTransformer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/three_r_mechanism.py"
+        ]
+      },
+      {
+        "symbol": "ThreeRMechanism",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/three_r_mechanism.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/data_sources/realtime_apis.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.2,
+    "details": [
+      {
+        "symbol": "DataSourceConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/data_sources/base.py"
+        ]
+      },
+      {
+        "symbol": "USGSEarthquakeAPI",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "NOAASpaceWeatherAPI",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "NASAFIRMSWildfireAPI",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "RealtimeDataAggregator",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/detectors/dimensional.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.5,
+    "details": [
+      {
+        "symbol": "NeuralProjection",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "DimensionalAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/dimensional.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/detectors/directive.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SigmaDirectiveDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/directive.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/detectors/graph_based.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "GraphAnomalyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/graph_based.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/detectors/spatial.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SpatialAnomalyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/spatial.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/detectors/statistical.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "StatisticalAnomalyDetector",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/detectors/temporal.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "TemporalAnomalyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/temporal.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/compliance/iot_connector.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "IoTMode",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "SensorType",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MQTTQoS",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "IoTDevice",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "SensorReading",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "IoTAnomalyResult",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "IoTConnector",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "get_iot_connector",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/compliance/nist_csf_integrator.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "NISTFunction",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/nist_csf_integrator.py"
+        ]
+      },
+      {
+        "symbol": "ImplementationTier",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/nist_csf_integrator.py"
+        ]
+      },
+      {
+        "symbol": "NISTCategory",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/nist_csf_integrator.py"
+        ]
+      },
+      {
+        "symbol": "NISTProfile",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/nist_csf_integrator.py"
+        ]
+      },
+      {
+        "symbol": "NISTAssessment",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/nist_csf_integrator.py"
+        ]
+      },
+      {
+        "symbol": "NISTCSFIntegrator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/nist_csf_integrator.py"
+        ]
+      },
+      {
+        "symbol": "get_nist_csf_integrator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/nist_csf_integrator.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/compliance/osha_compliance_anomaly.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "OSHASector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/osha_anomaly.py"
+        ]
+      },
+      {
+        "symbol": "HazardCategory",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/osha_anomaly.py"
+        ]
+      },
+      {
+        "symbol": "ComplianceLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/osha_anomaly.py"
+        ]
+      },
+      {
+        "symbol": "OSHAHazard",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/osha_anomaly.py"
+        ]
+      },
+      {
+        "symbol": "OSHATrainingRecommendation",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/osha_anomaly.py"
+        ]
+      },
+      {
+        "symbol": "OSHAComplianceDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/osha_anomaly.py"
+        ]
+      },
+      {
+        "symbol": "get_osha_compliance_detector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/osha_anomaly.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/compliance/tlp_handler.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 4,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "TLPColor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/tlp_handler.py"
+        ]
+      },
+      {
+        "symbol": "TLPClassification",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/tlp_handler.py"
+        ]
+      },
+      {
+        "symbol": "TLPHandler",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/tlp_handler.py"
+        ]
+      },
+      {
+        "symbol": "get_tlp_handler",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/compliance/tlp_handler.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/biometric.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "HarmonicDecomposer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/biometric.py"
+        ]
+      },
+      {
+        "symbol": "FourierAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/biometric.py"
+        ]
+      },
+      {
+        "symbol": "BiometricAnomalyModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/biometric.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/core.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "OverwatchNexusResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/counterintelligence.py"
+        ]
+      },
+      {
+        "symbol": "OverwatchNexus",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/counterintelligence.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/crisis_monitor.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "CrisisAlert",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/crisis_monitoring/crisis_monitor.py"
+        ]
+      },
+      {
+        "symbol": "CrisisMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/crisis_monitoring/crisis_monitor.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/cyber/cross_border_intel.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "CrossBorderIntelligence",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/cyber/cross_border_intel.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/cyber/cyber_fortress.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 4,
+    "ratio": 0.8,
+    "details": [
+      {
+        "symbol": "FortressResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cyber_fortress.py"
+        ]
+      },
+      {
+        "symbol": "ResonanceHashIntegrityChecker",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cyber_fortress.py"
+        ]
+      },
+      {
+        "symbol": "MultiverseZeroDaySimulator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cyber_fortress.py"
+        ]
+      },
+      {
+        "symbol": "EncryptedTrafficAnomalyDetector",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "CyberFortress",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cyber_fortress.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/cyber/quantum_risk_cyber.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 5,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ThreatLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py",
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py",
+          "src/omni_mercury_engine/core/types.py",
+          "src/omni_mercury_engine/security/quantum_risk_cyber.py",
+          "src/omni_mercury_engine/security/intelligence_fusion.py"
+        ]
+      },
+      {
+        "symbol": "CryptoSystem",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/quantum_risk_cyber.py"
+        ]
+      },
+      {
+        "symbol": "QuantumThreat",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/quantum_risk_cyber.py"
+        ]
+      },
+      {
+        "symbol": "QuantumRiskCyber",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/quantum_risk_cyber.py"
+        ]
+      },
+      {
+        "symbol": "PostQuantumMigrationPlanner",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/quantum_risk_cyber.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/cyber/space_infrastructure.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SpaceInfrastructureMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/cyber/space_infrastructure.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/cybint_subprocessor.py",
+    "n_public": 10,
+    "n_defined_in_mercury": 10,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "APTGroup",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py"
+        ]
+      },
+      {
+        "symbol": "MalwareFamily",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py"
+        ]
+      },
+      {
+        "symbol": "CyberKillChainStage",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py"
+        ]
+      },
+      {
+        "symbol": "ThreatActorType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py"
+        ]
+      },
+      {
+        "symbol": "CYBINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py",
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "APTPatternRecognizer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py"
+        ]
+      },
+      {
+        "symbol": "MalwareTaxonomyClassifier",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py"
+        ]
+      },
+      {
+        "symbol": "C2InfrastructureDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py"
+        ]
+      },
+      {
+        "symbol": "ZeroDayIndicatorAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py"
+        ]
+      },
+      {
+        "symbol": "CYBINTSubProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/encryption.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "QuantumResistantEncryption",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/encryption.py"
+        ]
+      },
+      {
+        "symbol": "SecureDataHandler",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/encryption.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/hive_firewall.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "HiveNode",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/hive_firewall.py"
+        ]
+      },
+      {
+        "symbol": "ThreatBlocking",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/hive_firewall.py"
+        ]
+      },
+      {
+        "symbol": "HiveFirewall",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/hive_firewall.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/int_sources.py",
+    "n_public": 28,
+    "n_defined_in_mercury": 28,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "OSINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "OSINTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "COMINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "COMINTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "HUMINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "HUMINTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "GEOINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "GEOINTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "IMINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "IMINTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "CYBINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/cybint_subprocessor.py",
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "CYBINTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "FININTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "FININTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "SIGINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "SIGINTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "ELINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "ELINTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "MASINTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "MASINTProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "CryptanalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "CryptanalysisProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "MeteorologicalIntelResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "MeteorologicalProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "TrafficAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/traffic_analysis.py",
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "TrafficAnalysisProcessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "IntelligenceSourceRegistry",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "create_int_source_registry",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/intelligence_fusion.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 6,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "IntelligenceDiscipline",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/intelligence_fusion.py"
+        ]
+      },
+      {
+        "symbol": "ThreatLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py",
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py",
+          "src/omni_mercury_engine/core/types.py",
+          "src/omni_mercury_engine/security/quantum_risk_cyber.py",
+          "src/omni_mercury_engine/security/intelligence_fusion.py"
+        ]
+      },
+      {
+        "symbol": "IntelligenceFusionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/intelligence_fusion.py"
+        ]
+      },
+      {
+        "symbol": "AllSourceFusionNetwork",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/intelligence_fusion.py"
+        ]
+      },
+      {
+        "symbol": "IntelligenceFusionEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/intelligence_fusion.py"
+        ]
+      },
+      {
+        "symbol": "create_omni_intelligence_scalars",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/intelligence_fusion.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/pattern_recognition.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "TerrorismThreatResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/anti_terrorism/pattern_recognition.py"
+        ]
+      },
+      {
+        "symbol": "TerrorismPatternDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/anti_terrorism/pattern_recognition.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/rate_limiting.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "RateLimiter",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/rate_limiting.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/realtime_threat_detection.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ThreatSignature",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/realtime_threat_detection.py"
+        ]
+      },
+      {
+        "symbol": "RealTimeThreatDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/realtime_threat_detection.py"
+        ]
+      },
+      {
+        "symbol": "AdaptiveThreatDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/realtime_threat_detection.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/tempest_detection.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 8,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EmanationType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/tempest_detection.py"
+        ]
+      },
+      {
+        "symbol": "TEMPESTThreatLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/tempest_detection.py"
+        ]
+      },
+      {
+        "symbol": "TEMPESTAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/tempest_detection.py"
+        ]
+      },
+      {
+        "symbol": "RFSpectrumAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/tempest_detection.py"
+        ]
+      },
+      {
+        "symbol": "VideoEmanationDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/tempest_detection.py"
+        ]
+      },
+      {
+        "symbol": "SideChannelVulnerabilityAssessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/tempest_detection.py"
+        ]
+      },
+      {
+        "symbol": "EMSECCountermeasureGenerator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/tempest_detection.py"
+        ]
+      },
+      {
+        "symbol": "TEMPESTDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/tempest_detection.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/threat_detection.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "BanishmentAction",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/threat_detection.py"
+        ]
+      },
+      {
+        "symbol": "ThreatDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/threat_detection.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/cyber_security/traffic_analysis.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "TrafficAnomalyType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/traffic_analysis.py"
+        ]
+      },
+      {
+        "symbol": "TrafficAnalysisResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/traffic_analysis.py",
+          "src/omni_mercury_engine/security/int_sources.py"
+        ]
+      },
+      {
+        "symbol": "NetworkFlowAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/traffic_analysis.py"
+        ]
+      },
+      {
+        "symbol": "CommunicationGraphAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/traffic_analysis.py"
+        ]
+      },
+      {
+        "symbol": "EncryptedTrafficFingerprinter",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/traffic_analysis.py"
+        ]
+      },
+      {
+        "symbol": "CovertChannelDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/traffic_analysis.py"
+        ]
+      },
+      {
+        "symbol": "TrafficAnalysisEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/security/traffic_analysis.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/economic/anomaly_detector_financial_crisis.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 8,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "CrisisType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/economic/financial_crisis_detector.py"
+        ]
+      },
+      {
+        "symbol": "CrisisSeverity",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/economic/financial_crisis_detector.py"
+        ]
+      },
+      {
+        "symbol": "FinancialCrisisPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/economic/financial_crisis_detector.py"
+        ]
+      },
+      {
+        "symbol": "MarketCrashDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/economic/financial_crisis_detector.py"
+        ]
+      },
+      {
+        "symbol": "BankingStressDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/economic/financial_crisis_detector.py"
+        ]
+      },
+      {
+        "symbol": "FraudDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/economic/financial_crisis_detector.py"
+        ]
+      },
+      {
+        "symbol": "SystemicRiskAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/economic/financial_crisis_detector.py"
+        ]
+      },
+      {
+        "symbol": "FinancialCrisisDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/economic/financial_crisis_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/economic/world_bank_sectors.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "WorldBankSectorsMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/economic/world_bank_sectors.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/government/communications_it.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "CommunicationsITDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/communications_it.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ciad/government/ncf_monitor.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "NCFMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/resilience/ncf_monitor.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/earth_sciences/energy/anomaly_detector_emp.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EMPType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py"
+        ]
+      },
+      {
+        "symbol": "ThreatLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py",
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py",
+          "src/omni_mercury_engine/core/types.py",
+          "src/omni_mercury_engine/security/quantum_risk_cyber.py",
+          "src/omni_mercury_engine/security/intelligence_fusion.py"
+        ]
+      },
+      {
+        "symbol": "EMPPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py"
+        ]
+      },
+      {
+        "symbol": "E1PulseDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py"
+        ]
+      },
+      {
+        "symbol": "E3PulseDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py"
+        ]
+      },
+      {
+        "symbol": "IntentionalEMIDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py"
+        ]
+      },
+      {
+        "symbol": "EMPDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/earth_sciences/energy/energy_dams.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EnergySubsector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/energy_dams.py"
+        ]
+      },
+      {
+        "symbol": "DamType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/energy_dams.py"
+        ]
+      },
+      {
+        "symbol": "EnergyDamsDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/energy_dams.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/earth_sciences/energy/energy_optimization.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EnergySource",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/energy/energy_optimization.py"
+        ]
+      },
+      {
+        "symbol": "EnergyProfile",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/energy/energy_optimization.py"
+        ]
+      },
+      {
+        "symbol": "EnergyOptimization",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/energy/energy_optimization.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/earth_sciences/geology/anomaly_detector_landslide.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "LandslideRiskLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/landslide.py"
+        ]
+      },
+      {
+        "symbol": "LandslideType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/landslide.py"
+        ]
+      },
+      {
+        "symbol": "LandslidePredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/landslide.py"
+        ]
+      },
+      {
+        "symbol": "RainfallTriggerModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/landslide.py"
+        ]
+      },
+      {
+        "symbol": "SeismicTriggerModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/landslide.py"
+        ]
+      },
+      {
+        "symbol": "SlopeStabilityModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/landslide.py"
+        ]
+      },
+      {
+        "symbol": "LandslideDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/landslide.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/earth_sciences/geology/anomaly_detector_volcanic.py",
+    "n_public": 9,
+    "n_defined_in_mercury": 9,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "VolcanicActivityLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/volcanic.py"
+        ]
+      },
+      {
+        "symbol": "EruptionType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/volcanic.py"
+        ]
+      },
+      {
+        "symbol": "VolcanicPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/volcanic.py"
+        ]
+      },
+      {
+        "symbol": "SeismicSwarmDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/volcanic.py"
+        ]
+      },
+      {
+        "symbol": "ThermalHotspotDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/volcanic.py"
+        ]
+      },
+      {
+        "symbol": "GasEmissionAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/volcanic.py"
+        ]
+      },
+      {
+        "symbol": "InSARDeformationDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/volcanic.py"
+        ]
+      },
+      {
+        "symbol": "EruptionForecastModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/volcanic.py"
+        ]
+      },
+      {
+        "symbol": "VolcanicEruptionDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/volcanic.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/earth_sciences/geology/anomaly_detector_wildfire.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 5,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "FireRiskLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/wildfire.py"
+        ]
+      },
+      {
+        "symbol": "WildfirePredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/wildfire.py"
+        ]
+      },
+      {
+        "symbol": "FireIgnitionDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/wildfire.py"
+        ]
+      },
+      {
+        "symbol": "FireSpreadModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/wildfire.py"
+        ]
+      },
+      {
+        "symbol": "WildfireDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/wildfire.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/earth_sciences/marine/anomaly_detector_biodiversity.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 4,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EcosystemHealth",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/marine/biodiversity_detector.py"
+        ]
+      },
+      {
+        "symbol": "BiodiversityPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/marine/biodiversity_detector.py"
+        ]
+      },
+      {
+        "symbol": "CoralBleachingDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/marine/biodiversity_detector.py"
+        ]
+      },
+      {
+        "symbol": "MarineBiodiversityDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/marine/biodiversity_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/earth_sciences/marine/anomaly_detector_oceanography.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "DepthLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ocean/oceanography_patterns.py"
+        ]
+      },
+      {
+        "symbol": "WavePattern",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ocean/oceanography_patterns.py"
+        ]
+      },
+      {
+        "symbol": "OceanographyPatterns",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ocean/oceanography_patterns.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/human_events/agrifood_security.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "FoodSecurityThreat",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/agrifood_security.py"
+        ]
+      },
+      {
+        "symbol": "AgriFoodSecurityDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/agrifood_security.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/human_events/climate_resilience.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ClimateEvent",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/climate_resilience.py"
+        ]
+      },
+      {
+        "symbol": "ClimateResilienceDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/climate_resilience.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/human_events/economic_resilience.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EconomicThreat",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/economic_resilience.py"
+        ]
+      },
+      {
+        "symbol": "EconomicResilienceDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/economic_resilience.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/human_events/education_equity.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EducationThreat",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/education_equity.py"
+        ]
+      },
+      {
+        "symbol": "EducationEquityDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/education_equity.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/human_events/essential_workers.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EssentialWorkersMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/essential_workers.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/human_events/government_facilities.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "GovernmentFacilitiesMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/government_facilities.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/human_events/neuroscience.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "NeuralThreat",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/neuroscience.py"
+        ]
+      },
+      {
+        "symbol": "NeuroscienceDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/humanitarian/neuroscience.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/abms_disciplines.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 4,
+    "ratio": 0.8,
+    "details": [
+      {
+        "symbol": "ABMSBoard",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/abms_disciplines.py"
+        ]
+      },
+      {
+        "symbol": "MedicalAnomalyResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/abms_disciplines.py"
+        ]
+      },
+      {
+        "symbol": "MultiSpecialtyNeuralNet",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "ABMSDisciplineDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/abms_disciplines.py"
+        ]
+      },
+      {
+        "symbol": "create_omni_medical_scalars",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/abms_disciplines.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/anesthesiology_predictor.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "AnesthesiaType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/anesthesiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "AnesthesiaRisk",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/anesthesiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "AnesthesiaPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/anesthesiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "TIVAMonitoringSystem",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/anesthesiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "SmartInfusionController",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/anesthesiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "HemodynamicMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/anesthesiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "AnesthesiologyPredictor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/anesthesiology_predictor.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/cardiac_imaging.py",
+    "n_public": 12,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "ImagingModality",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "CardiacImagingResult",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "ECGStreamProcessor",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "EchocardiogramAnalyzer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "StressTestAnalyzer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "WearableDeviceMonitor",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MultiparameterMonitor",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "WFDBSyntheticECGGenerator",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "DICOMProcessor",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "TiltTestAnalyzer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "HolterMonitor",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "CoronaryAngiogramAnalyzer",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/cardiology_predictor.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 6,
+    "ratio": 0.8571428571428571,
+    "details": [
+      {
+        "symbol": "ArrhythmiaType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/cardiology/cardiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "CardiologyPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/cardiology/cardiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "ECGRhythmAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/cardiology/cardiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "CardiacBiomarkerAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/cardiology/cardiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "FraminghamRiskCalculator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/cardiology/cardiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "CardiologyPredictor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/cardiology/cardiology_predictor.py"
+        ]
+      },
+      {
+        "symbol": "AdvancedCardiacInterventions",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/endocrinology_detector.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 8,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "GlycemicState",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/endocrinology_detector.py"
+        ]
+      },
+      {
+        "symbol": "InsulinDeliveryMethod",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/endocrinology_detector.py"
+        ]
+      },
+      {
+        "symbol": "EndocrinologyPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/endocrinology_detector.py"
+        ]
+      },
+      {
+        "symbol": "CGMAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/endocrinology_detector.py"
+        ]
+      },
+      {
+        "symbol": "SmartInsulinPenMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/endocrinology_detector.py"
+        ]
+      },
+      {
+        "symbol": "GLP1TherapyMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/endocrinology_detector.py"
+        ]
+      },
+      {
+        "symbol": "InhaledInsulinMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/endocrinology_detector.py"
+        ]
+      },
+      {
+        "symbol": "EndocrinologyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/endocrinology_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/healthcare_emergency.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "PatientStatus",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/healthcare_emergency.py"
+        ]
+      },
+      {
+        "symbol": "EmergencyType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/healthcare_emergency.py"
+        ]
+      },
+      {
+        "symbol": "HealthcareEmergencyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/healthcare_emergency.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/medical_cure_predictor.py",
+    "n_public": 9,
+    "n_defined_in_mercury": 6,
+    "ratio": 0.6666666666666666,
+    "details": [
+      {
+        "symbol": "MedicalPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/medical_cure_predictor.py"
+        ]
+      },
+      {
+        "symbol": "TemporalVitalSignsLSTM",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/medical_cure_predictor.py"
+        ]
+      },
+      {
+        "symbol": "TemporalVitalSignsDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/medical_cure_predictor.py"
+        ]
+      },
+      {
+        "symbol": "MedicalImagingAnomalyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/medical_cure_predictor.py"
+        ]
+      },
+      {
+        "symbol": "TreatmentPathwayOptimizer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/medical_cure_predictor.py"
+        ]
+      },
+      {
+        "symbol": "MedicalCurePredictor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/medical_cure_predictor.py"
+        ]
+      },
+      {
+        "symbol": "CRISPRGeneEditingAnalyzer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "PolygenicRiskScoreCalculator",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "RNATherapeuticsAnalyzer",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/neurocritical_care.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 8,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "StrokeType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/neurocritical_care.py"
+        ]
+      },
+      {
+        "symbol": "SeizureType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/neurocritical_care.py"
+        ]
+      },
+      {
+        "symbol": "NeurocriticalPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/neurocritical_care.py"
+        ]
+      },
+      {
+        "symbol": "StrokeDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/neurocritical_care.py"
+        ]
+      },
+      {
+        "symbol": "SeizurePredictor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/neurocritical_care.py"
+        ]
+      },
+      {
+        "symbol": "ICPMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/neurocritical_care.py"
+        ]
+      },
+      {
+        "symbol": "NIHSSCalculator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/neurocritical_care.py"
+        ]
+      },
+      {
+        "symbol": "NeurocriticalCarePredictor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/neurocritical_care.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/neurology_detector.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "NeurologicalCondition",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "BCIState",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "NeurologyPredictionResult",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "EEGAnalyzer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "BCIMonitoringSystem",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "NeuromodulationMonitor",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "FocusedUltrasoundMonitor",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "NeurologyDetector",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/pandemic/epidemic_model.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "PandemicForecast",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/forecasting/epidemic_model.py"
+        ]
+      },
+      {
+        "symbol": "EpidemicForecaster",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/forecasting/epidemic_model.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/pandemic/pandemic_detector.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "OutbreakSeverity",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/pandemic_detector.py"
+        ]
+      },
+      {
+        "symbol": "VariantConcern",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/pandemic_detector.py"
+        ]
+      },
+      {
+        "symbol": "PandemicPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/pandemic_detector.py"
+        ]
+      },
+      {
+        "symbol": "CaseSurgeDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/pandemic_detector.py"
+        ]
+      },
+      {
+        "symbol": "MutationTracker",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/pandemic_detector.py"
+        ]
+      },
+      {
+        "symbol": "TransmissionNetworkAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/pandemic_detector.py"
+        ]
+      },
+      {
+        "symbol": "PandemicDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/pandemic_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/pandemic/pathogen_detector.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "BioThreatResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/bio_threats/pathogen_detector.py"
+        ]
+      },
+      {
+        "symbol": "PathogenDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/pandemic/bio_threats/pathogen_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/pathology_analyzer.py",
+    "n_public": 12,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "PathologyStation",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "StainType",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "PathologyResult",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MicrotomeSimulator",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "EmbeddingStationSimulator",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "GrossingStationAnalyzer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "TissueProcessorLSTM",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "TissueProcessorAnalyzer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "CryostatSimulator",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "CoverslippingWorkstation",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "LabStorageMonitor",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "PathologyAnalyzer",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/psychiatry_detector.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "MoodState",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "CrisisLevel",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "PsychiatryPredictionResult",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MoodDetectionLSTM",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "VocalPatternAnalyzer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "DBSMonitoringSystem",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "CrisisInterventionSystem",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "PsychiatryDetector",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/ehead/medical/sepsis_detector.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 6,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SepsisStage",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/sepsis_detector.py"
+        ]
+      },
+      {
+        "symbol": "SepsisPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/sepsis_detector.py"
+        ]
+      },
+      {
+        "symbol": "SOFACalculator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/sepsis_detector.py"
+        ]
+      },
+      {
+        "symbol": "QuickSOFACalculator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/sepsis_detector.py"
+        ]
+      },
+      {
+        "symbol": "SepsisProgressionPredictor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/sepsis_detector.py"
+        ]
+      },
+      {
+        "symbol": "SepsisDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/medical/critical_care/sepsis_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/chemistry/anomaly_detector_periodic_table.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "PeriodicProperty",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "PeriodicTableAnomalyResult",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "PeriodicTableAnomalyDetector",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "create_omni_periodic_table_scalars",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/chemistry/chemical_nuclear.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "CISASector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/chemical_nuclear.py"
+        ]
+      },
+      {
+        "symbol": "ChemicalNuclearDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/chemical_nuclear.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/chemistry/chemistry_model.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 5,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ElementGroup",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/chemistry.py"
+        ]
+      },
+      {
+        "symbol": "ChemicalAnomalyResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/chemistry.py"
+        ]
+      },
+      {
+        "symbol": "PeriodicTableEncoder",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/chemistry.py"
+        ]
+      },
+      {
+        "symbol": "ChemistryAnomalyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/chemistry.py"
+        ]
+      },
+      {
+        "symbol": "create_omni_chemistry_scalars",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/chemistry.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/chemistry/isotope_predictor.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "IsotopeType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py"
+        ]
+      },
+      {
+        "symbol": "ThreatLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py",
+          "src/omni_mercury_engine/detectors/energy/emp_detector.py",
+          "src/omni_mercury_engine/core/types.py",
+          "src/omni_mercury_engine/security/quantum_risk_cyber.py",
+          "src/omni_mercury_engine/security/intelligence_fusion.py"
+        ]
+      },
+      {
+        "symbol": "IsotopePredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py"
+        ]
+      },
+      {
+        "symbol": "IsotopeRatioAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py"
+        ]
+      },
+      {
+        "symbol": "NuclearForensicsAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py"
+        ]
+      },
+      {
+        "symbol": "RadiologicalThreatAssessor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py"
+        ]
+      },
+      {
+        "symbol": "IsotopePredictor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/isotope_predictor.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/engineering_robotics/anomaly_detector_robotics.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.125,
+    "details": [
+      {
+        "symbol": "RoboticsAnomalyType",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "RoboticsAnomalyResult",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "GraphAttentionLayer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "GreyWolfOptimizer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/advanced/gwo_ensemble.py",
+          "src/omni_mercury_engine/ml/gwo_optimizer.py"
+        ]
+      },
+      {
+        "symbol": "GWOAutoencoder",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "StudentTeacherAnomalyDetector",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "RoboticsAnomalyDetector",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "create_omni_robotics_scalars",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/engineering_robotics/drone_anomaly_detector.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 6,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "MissionPhase",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/drone/detector.py"
+        ]
+      },
+      {
+        "symbol": "FaultType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/drone/detector.py"
+        ]
+      },
+      {
+        "symbol": "DroneFault",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/drone/detector.py"
+        ]
+      },
+      {
+        "symbol": "DroneState",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/drone/detector.py"
+        ]
+      },
+      {
+        "symbol": "DroneAnomalyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/drone/detector.py"
+        ]
+      },
+      {
+        "symbol": "get_drone_detector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/drone/detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/mathematics/math_unsolved.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "ProblemCategory",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "UnsolvedProblemResult",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "UnsolvedMathProblems",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "create_omni_mathematics_scalars",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/scientific/emerging_tech_monitor.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "EmergingTechMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/scientific/emerging_tech_monitor.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/space/astrophysical.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "AstrophysicalAnomalyModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/astrophysical.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/space/disaster_precursor_detector.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 6,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "DisasterPrecursorResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/disaster_precursor_detector.py"
+        ]
+      },
+      {
+        "symbol": "EarthquakePrecursorAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/disaster_precursor_detector.py"
+        ]
+      },
+      {
+        "symbol": "GeomageticCorrelator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/disaster_precursor_detector.py"
+        ]
+      },
+      {
+        "symbol": "IonosphericDisturbanceDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/disaster_precursor_detector.py"
+        ]
+      },
+      {
+        "symbol": "SeismicCorrelator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/disaster_precursor_detector.py"
+        ]
+      },
+      {
+        "symbol": "DisasterPrecursorDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/disaster_precursor_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/space/interstellar_objects.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 6,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ISOAnomalyType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/interstellar_objects.py"
+        ]
+      },
+      {
+        "symbol": "NaturalExplanationConfidence",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/interstellar_objects.py"
+        ]
+      },
+      {
+        "symbol": "InterstellarObjectResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/interstellar_objects.py"
+        ]
+      },
+      {
+        "symbol": "InterstellarObjectAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/interstellar_objects.py"
+        ]
+      },
+      {
+        "symbol": "InterstellarObjectDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/interstellar_objects.py"
+        ]
+      },
+      {
+        "symbol": "create_omni_interstellar_scalars",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/interstellar_objects.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/space/schumann_resonance.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 4,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SchumannAnomalyResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/schumann_resonance.py"
+        ]
+      },
+      {
+        "symbol": "SchumannHarmonicAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/schumann_resonance.py"
+        ]
+      },
+      {
+        "symbol": "SchumannResonanceDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/schumann_resonance.py"
+        ]
+      },
+      {
+        "symbol": "create_omni_resonance_scalars",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/schumann_resonance.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/space/solar_storm_detector.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 7,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SolarFlareClass",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/disaster_detectors.py",
+          "src/omni_mercury_engine/space/solar_storm_detector.py"
+        ]
+      },
+      {
+        "symbol": "GeostormScale",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/solar_storm_detector.py"
+        ]
+      },
+      {
+        "symbol": "SolarStormPredictionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/solar_storm_detector.py"
+        ]
+      },
+      {
+        "symbol": "SolarFlareDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/geological/disaster_detectors.py",
+          "src/omni_mercury_engine/space/solar_storm_detector.py"
+        ]
+      },
+      {
+        "symbol": "CMETracker",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/solar_storm_detector.py"
+        ]
+      },
+      {
+        "symbol": "GeomagneticStormPredictor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/solar_storm_detector.py"
+        ]
+      },
+      {
+        "symbol": "SolarStormDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/solar_storm_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/space/space_exploration_analyzer.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SpaceExplorationAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/space_exploration_analyzer.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/domains/stermad/space/space_inspired.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SystemState",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/space_inspired.py"
+        ]
+      },
+      {
+        "symbol": "RedundancyConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/space_inspired.py"
+        ]
+      },
+      {
+        "symbol": "SpaceInspiredResilience",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/space/space_inspired.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/emergent/emergent_life_detector.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 5,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "LifeDetectionResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/emergent/emergent_life_detector.py"
+        ]
+      },
+      {
+        "symbol": "SETICosmicSignalAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/emergent/emergent_life_detector.py"
+        ]
+      },
+      {
+        "symbol": "BioSignalPatternRecognizer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/emergent/emergent_life_detector.py"
+        ]
+      },
+      {
+        "symbol": "MultiverseContactProtocolExplorer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/emergent/emergent_life_detector.py"
+        ]
+      },
+      {
+        "symbol": "EmergentLifeDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/emergent/emergent_life_detector.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/engine.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "OmniAnomalyEngine",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/federated/federated_detector.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 3,
+    "ratio": 0.75,
+    "details": [
+      {
+        "symbol": "FederatedStrategy",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "PrivacyLevel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/types.py"
+        ]
+      },
+      {
+        "symbol": "FederatedAnomalyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/federated_learning/server.py"
+        ]
+      },
+      {
+        "symbol": "CISAFederatedCoordinator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/federated_learning/cisa_coordinator.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/federated/federated_robust.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ClientModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/federated_learning/federated_robust.py"
+        ]
+      },
+      {
+        "symbol": "GlobalModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/federated_learning/federated_robust.py"
+        ]
+      },
+      {
+        "symbol": "FederatedAnomalyDetection",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/federated_learning/federated_robust.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/gui/live_monitoring_dashboard.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.14285714285714285,
+    "details": [
+      {
+        "symbol": "initialize_session_state",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "sidebar_controls",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "render_earthquake_monitoring",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "render_wildfire_monitoring",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "render_solar_storm_monitoring",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "render_schumann_monitoring",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "main",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py",
+          "src/omni_mercury_engine/tools/migrate_pkl.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/gui/streamlit_dashboard.py",
+    "n_public": 19,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.05263157894736842,
+    "details": [
+      {
+        "symbol": "main",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cli.py",
+          "src/omni_mercury_engine/tools/migrate_pkl.py"
+        ]
+      },
+      {
+        "symbol": "medical_analysis_page",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "cardiology_interface",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "display_cardiology_results",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "sepsis_interface",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "display_sepsis_results",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "neurocritical_interface",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "general_medical_interface",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "security_analysis_page",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "cybint_interface",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "display_cybint_results",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "traffic_analysis_interface",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "tempest_interface",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "intel_fusion_interface",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "humanitarian_analysis_page",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "schumann_analysis_page",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "chemistry_analysis_page",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "general_analysis_page",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "load_file_data",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/mercury_a_agent.py",
+    "n_public": 8,
+    "n_defined_in_mercury": 7,
+    "ratio": 0.875,
+    "details": [
+      {
+        "symbol": "AgentState",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/agentic_autonomy.py",
+          "src/omni_mercury_engine/cognitive/autonomous_agent.py"
+        ]
+      },
+      {
+        "symbol": "DomainType",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/mercury_a_agent.py",
+          "src/omni_mercury_engine/core/__init__.py",
+          "src/omni_mercury_engine/core/adaptive_domain_thresholding.py",
+          "src/omni_mercury_engine/core/engine_config.py"
+        ]
+      },
+      {
+        "symbol": "Task",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/mercury_a_agent.py",
+          "src/omni_mercury_engine/ml/meta_learning.py"
+        ]
+      },
+      {
+        "symbol": "AgentMemory",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/mercury_a_agent.py"
+        ]
+      },
+      {
+        "symbol": "MercuryPlanner",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/mercury_a_agent.py"
+        ]
+      },
+      {
+        "symbol": "MercuryReasoner",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/mercury_a_agent.py"
+        ]
+      },
+      {
+        "symbol": "MercuryAgent",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/agentic/mercury_a_agent.py"
+        ]
+      },
+      {
+        "symbol": "analyze_with_mercury",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/mercury_a_crews.py",
+    "n_public": 10,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.1,
+    "details": [
+      {
+        "symbol": "AgentRole",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cognitive/cognitive_evolution_engine.py",
+          "src/omni_mercury_engine/cognitive/multi_agent_coordination.py"
+        ]
+      },
+      {
+        "symbol": "CrewTask",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "BaseCrew",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MedicalCrew",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "SecurityCrew",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "EnergyCrew",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "InfrastructureCrew",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "SpaceCrew",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "EmergentCrew",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "CrewCoordinator",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/mercury_a_learning.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "RewardConfig",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "AnomalyDetectionEnv",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "MercuryLearner",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "AdaptiveLearner",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/attention.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 4,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "MultiHeadDetectorAttention",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/attention.py"
+        ]
+      },
+      {
+        "symbol": "TemporalAttention",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/attention.py"
+        ]
+      },
+      {
+        "symbol": "SpatialAttention",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/attention.py"
+        ]
+      },
+      {
+        "symbol": "CrossModalAttention",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/attention.py",
+          "src/omni_mercury_engine/ml/multimodal_fusion.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/encoders.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 6,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "StatisticalEncoder",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/encoders.py"
+        ]
+      },
+      {
+        "symbol": "TemporalEncoder",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/encoders.py"
+        ]
+      },
+      {
+        "symbol": "BiometricEncoder",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/encoders.py"
+        ]
+      },
+      {
+        "symbol": "QuantumEncoder",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/encoders.py"
+        ]
+      },
+      {
+        "symbol": "AstrophysicalEncoder",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/encoders.py"
+        ]
+      },
+      {
+        "symbol": "AffectiveEncoder",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/encoders.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/fusion_network.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "OmniFusionModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/fusion_network.py"
+        ]
+      },
+      {
+        "symbol": "STEMDisciplineRouter",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/fusion_network.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/gwo_optimizer.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "GreyWolfOptimizer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/detectors/advanced/gwo_ensemble.py",
+          "src/omni_mercury_engine/ml/gwo_optimizer.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/harmonic_encoder.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 3,
+    "ratio": 0.75,
+    "details": [
+      {
+        "symbol": "SphericalHarmonicDecomposer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/harmonic_encoder.py"
+        ]
+      },
+      {
+        "symbol": "FourierHarmonicAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/harmonic_encoder.py"
+        ]
+      },
+      {
+        "symbol": "QuantumHarmonicOscillator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/harmonic_encoder.py"
+        ]
+      },
+      {
+        "symbol": "HarmonicEncoder",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/hatcn_ad.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "TemporalBlock",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/hatcn_ad.py"
+        ]
+      },
+      {
+        "symbol": "HierarchicalAttention",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/hatcn_ad.py"
+        ]
+      },
+      {
+        "symbol": "HATCN_AD",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/hatcn_ad.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/inference.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "FusionInference",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/inference.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/layers.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "EquilibriumPropagationLayer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "LowPowerAnomalyDetector",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "compute_neuromorphic_efficiency",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/multimodal_fusion.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "CrossModalAttention",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/attention.py",
+          "src/omni_mercury_engine/ml/multimodal_fusion.py"
+        ]
+      },
+      {
+        "symbol": "MultimodalFusionNetwork",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/multimodal_fusion.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/optimizers.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 5,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SyntheticGradientPredictor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/advanced_optimizers.py"
+        ]
+      },
+      {
+        "symbol": "SyntheticGradientModule",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/advanced_optimizers.py"
+        ]
+      },
+      {
+        "symbol": "DifferenceTargetPropagation",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/advanced_optimizers.py"
+        ]
+      },
+      {
+        "symbol": "AuxiliaryMaxVariance",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/advanced_optimizers.py"
+        ]
+      },
+      {
+        "symbol": "estimate_convergence_rate",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/advanced_optimizers.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/regularizers.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "HSICRegularizer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "DemographicParityLoss",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "compute_fairness_metrics",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/training.py",
+    "n_public": 7,
+    "n_defined_in_mercury": 2,
+    "ratio": 0.2857142857142857,
+    "details": [
+      {
+        "symbol": "AvaOptimizer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "AvaMomentumOptimizer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "AvaExponentialDecayOptimizer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "AvaHarmonicOptimizer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "create_ava_optimizer",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "AnomalyDataset",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/training.py"
+        ]
+      },
+      {
+        "symbol": "FusionTrainer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/training.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/ml/vae_pattern_learner.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "VAE",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/vae_pattern_learner.py"
+        ]
+      },
+      {
+        "symbol": "VAEPatternLearner",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/ml/vae_pattern_learner.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/models/affective.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "AffectiveAnomalyModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/affective.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/models/consciousness.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ConsciousnessPreservationModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/consciousness.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/models/multiverse.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "UniverseState",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/multiverse.py"
+        ]
+      },
+      {
+        "symbol": "Universe",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/multiverse.py"
+        ]
+      },
+      {
+        "symbol": "MultiverseOmniEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/multiverse.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/models/neural.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "NeuralCognitiveModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/neural.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/models/neurosymbolic.py",
+    "n_public": 3,
+    "n_defined_in_mercury": 3,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SymbolicRule",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/neurosymbolic.py",
+          "src/omni_mercury_engine/cognitive/symbolic_logic_layer.py",
+          "src/omni_mercury_engine/core/neurosymbolic_hub.py",
+          "src/omni_mercury_engine/core/symbolic_reasoning.py"
+        ]
+      },
+      {
+        "symbol": "LogicTensorNetwork",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/neurosymbolic.py"
+        ]
+      },
+      {
+        "symbol": "NeurosymbolicEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/neurosymbolic.py",
+          "src/omni_mercury_engine/core/code_analysis.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/models/parapsychology.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 5,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "PsiPhenomenon",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/parapsychology.py"
+        ]
+      },
+      {
+        "symbol": "ParapsychologyResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/parapsychology.py"
+        ]
+      },
+      {
+        "symbol": "ConsciousnessFieldAnalyzer",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/parapsychology.py"
+        ]
+      },
+      {
+        "symbol": "ParapsychologyDetector",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/parapsychology.py"
+        ]
+      },
+      {
+        "symbol": "create_omni_psi_scalars",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/parapsychology.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/models/quantum.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "QuantumAnomalyModel",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/quantum.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/models/simulation.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SimulationModule",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/models/simulation.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/resilience/circuit_breaker.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "CircuitState",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/core/types.py"
+        ]
+      },
+      {
+        "symbol": "CircuitBreaker",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/infrastructure/streaming.py",
+          "src/omni_mercury_engine/utils/resilience.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/resilience/health_monitoring.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "HealthMetrics",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/resilience/health_monitoring.py"
+        ]
+      },
+      {
+        "symbol": "HealthMonitor",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/resilience/health_monitoring.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/resilience/retry.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "RetryPolicy",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/resilience/retry.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/resilience/self_healing.py",
+    "n_public": 1,
+    "n_defined_in_mercury": 1,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "SelfHealingEngine",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/resilience/self_healing.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/scaling/bain_ai_scaling.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ComputeResource",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/scaling/bain_ai_scaling.py"
+        ]
+      },
+      {
+        "symbol": "BainAIScaling",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/scaling/bain_ai_scaling.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/truth_decipher.py",
+    "n_public": 2,
+    "n_defined_in_mercury": 2,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "TruthDecipherResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/truth_decipher.py"
+        ]
+      },
+      {
+        "symbol": "TruthDecipherFramework",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/truth_decipher.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/utils/ancient_math.py",
+    "n_public": 6,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "robust_sqrt",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "vedic_reciprocal",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "vedic_multiply",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "robust_sqrt_vec",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "set_vedic_optimization",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "is_vedic_enabled",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/utils/comm.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 4,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "MessagePriority",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/comm.py"
+        ]
+      },
+      {
+        "symbol": "Message",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/cognitive/multi_agent_coordination.py",
+          "src/omni_mercury_engine/utils/comm.py"
+        ]
+      },
+      {
+        "symbol": "AsyncMessageQueue",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/comm.py"
+        ]
+      },
+      {
+        "symbol": "SimplePubSub",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/comm.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/utils/logging_config.py",
+    "n_public": 9,
+    "n_defined_in_mercury": 2,
+    "ratio": 0.2222222222222222,
+    "details": [
+      {
+        "symbol": "EthicalAuditFilter",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "StructuredFormatter",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/logging.py"
+        ]
+      },
+      {
+        "symbol": "setup_logging",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "get_logger",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/logging.py"
+        ]
+      },
+      {
+        "symbol": "log_ethical_audit",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "log_data_stats",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "descriptive_output",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "init_global_logging",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "get_global_logger",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/utils/profiling.py",
+    "n_public": 10,
+    "n_defined_in_mercury": 10,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "set_profiling_enabled",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      },
+      {
+        "symbol": "is_profiling_enabled",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      },
+      {
+        "symbol": "set_profiling_logger",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      },
+      {
+        "symbol": "get_profiling_logger",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      },
+      {
+        "symbol": "profile_func",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      },
+      {
+        "symbol": "profile_memory",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      },
+      {
+        "symbol": "profile_time",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      },
+      {
+        "symbol": "profile_complete",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      },
+      {
+        "symbol": "PerformanceBenchmark",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      },
+      {
+        "symbol": "benchmark_function",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/profiling.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/utils/report_generator.py",
+    "n_public": 5,
+    "n_defined_in_mercury": 5,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "ReportConfig",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/report_generator.py"
+        ]
+      },
+      {
+        "symbol": "PlainEnglishReportGenerator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/report_generator.py"
+        ]
+      },
+      {
+        "symbol": "PDFReportGenerator",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/report_generator.py"
+        ]
+      },
+      {
+        "symbol": "EmailReportSender",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/report_generator.py"
+        ]
+      },
+      {
+        "symbol": "ReportManager",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/report_generator.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/utils/rng.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 4,
+    "ratio": 1.0,
+    "details": [
+      {
+        "symbol": "DeterministicRNG",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/rng.py"
+        ]
+      },
+      {
+        "symbol": "get_global_rng",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/rng.py"
+        ]
+      },
+      {
+        "symbol": "set_global_seed",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/rng.py"
+        ]
+      },
+      {
+        "symbol": "reset_global_rng",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/utils/rng.py"
+        ]
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/utils/validation.py",
+    "n_public": 11,
+    "n_defined_in_mercury": 1,
+    "ratio": 0.09090909090909091,
+    "details": [
+      {
+        "symbol": "ValidationResult",
+        "mercury_definitions": [
+          "src/omni_mercury_engine/validation/pipeline.py",
+          "src/omni_mercury_engine/validation/api_validators.py",
+          "src/omni_mercury_engine/security/input_validation.py"
+        ]
+      },
+      {
+        "symbol": "validate_shape",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "validate_range",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "check_normality",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "detect_outliers",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "validate_data_reliability",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "validate_medical_data",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "validate_security_data",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "validate_energy_data",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "validate_symbolic_equation",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "validate_regression_fit",
+        "mercury_definitions": []
+      }
+    ]
+  },
+  {
+    "omni_path": "src/omni_anomaly_engine/visualization/live_visualizer.py",
+    "n_public": 4,
+    "n_defined_in_mercury": 0,
+    "ratio": 0.0,
+    "details": [
+      {
+        "symbol": "VisualizationType",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "VisualizationConfig",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "StreamingData",
+        "mercury_definitions": []
+      },
+      {
+        "symbol": "LiveVisualizer",
+        "mercury_definitions": []
+      }
+    ]
+  }
+]

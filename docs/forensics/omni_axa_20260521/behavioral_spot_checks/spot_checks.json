@@ -1,0 +1,98 @@
+[
+  {
+    "label": "truth_decipher.TruthDecipherFramework",
+    "omni_path": "src/omni_anomaly_engine/truth_decipher.py",
+    "merc_path": "src/omni_mercury_engine/truth_decipher.py",
+    "omni_symbol": "TruthDecipherFramework",
+    "merc_symbol": "TruthDecipherFramework",
+    "omni_cfg_hash": "44c7295d9535068b",
+    "merc_cfg_hash": "bff573c3f7f81cd7",
+    "hashes_match": false,
+    "method": "AST_CFG_FINGERPRINT",
+    "note": "Imports not attempted in audit env; falling back to control-flow fingerprint per Step 3(c)."
+  },
+  {
+    "label": "engine.OmniAnomalyEngine_vs_OmniMercuryEngine",
+    "omni_path": "src/omni_anomaly_engine/engine.py",
+    "merc_path": "src/omni_mercury_engine/engine.py",
+    "omni_symbol": "OmniAnomalyEngine",
+    "merc_symbol": "OmniMercuryEngine",
+    "omni_cfg_hash": "2a029fa533445adb",
+    "merc_cfg_hash": "6b2103c5bbe8bf99",
+    "hashes_match": false,
+    "method": "AST_CFG_FINGERPRINT",
+    "note": "Imports not attempted in audit env; falling back to control-flow fingerprint per Step 3(c)."
+  },
+  {
+    "label": "cli.detect",
+    "omni_path": "src/omni_anomaly_engine/cli.py",
+    "merc_path": "src/omni_mercury_engine/cli.py",
+    "omni_symbol": "detect",
+    "merc_symbol": "detect",
+    "omni_cfg_hash": "dd09ed571dafdbbf",
+    "merc_cfg_hash": "bf0bc139952d579a",
+    "hashes_match": false,
+    "method": "AST_CFG_FINGERPRINT",
+    "note": "Imports not attempted in audit env; falling back to control-flow fingerprint per Step 3(c)."
+  },
+  {
+    "label": "mercury_a_agent.MercuryAgent",
+    "omni_path": "src/omni_anomaly_engine/mercury_a_agent.py",
+    "merc_path": "src/omni_mercury_engine/agentic/mercury_a_agent.py",
+    "omni_symbol": "MercuryAgent",
+    "merc_symbol": "MercuryAgent",
+    "omni_cfg_hash": "bb27e181d7f25f2c",
+    "merc_cfg_hash": "6bbf82c8927cf306",
+    "hashes_match": false,
+    "method": "AST_CFG_FINGERPRINT",
+    "note": "Imports not attempted in audit env; falling back to control-flow fingerprint per Step 3(c)."
+  },
+  {
+    "label": "mercury_a_crews.AgentRole",
+    "omni_path": "src/omni_anomaly_engine/mercury_a_crews.py",
+    "merc_path": "src/omni_mercury_engine/cognitive/multi_agent_coordination.py",
+    "omni_symbol": "AgentRole",
+    "merc_symbol": "AgentRole",
+    "omni_cfg_hash": "664165332cffcfc7",
+    "merc_cfg_hash": "4f9ba1f19304f776",
+    "hashes_match": false,
+    "method": "AST_CFG_FINGERPRINT",
+    "note": "Imports not attempted in audit env; falling back to control-flow fingerprint per Step 3(c)."
+  },
+  {
+    "label": "mercury_a_learning.MercuryLearner_vs_PPOTrainer",
+    "omni_path": "src/omni_anomaly_engine/mercury_a_learning.py",
+    "merc_path": "src/omni_mercury_engine/ml/ppo_trainer.py",
+    "omni_symbol": "MercuryLearner",
+    "merc_symbol": "PPOTrainer",
+    "omni_cfg_hash": "98c70a6c4c502328",
+    "merc_cfg_hash": "b5a8a661188dcbf5",
+    "hashes_match": false,
+    "method": "AST_CFG_FINGERPRINT",
+    "note": "Imports not attempted in audit env; falling back to control-flow fingerprint per Step 3(c)."
+  },
+  {
+    "label": "comparison.PyODComparison",
+    "omni_path": "src/omni_anomaly_engine/comparison/pyod_integration.py",
+    "merc_path": "src/omni_mercury_engine/comparison/pyod_integration.py",
+    "omni_symbol": "PyODComparison",
+    "merc_symbol": "PyODComparison",
+    "omni_cfg_hash": "1ab857653a4e51b1",
+    "merc_cfg_hash": "df4fda07dda6938a",
+    "hashes_match": false,
+    "method": "AST_CFG_FINGERPRINT",
+    "note": "Imports not attempted in audit env; falling back to control-flow fingerprint per Step 3(c)."
+  },
+  {
+    "label": "detectors.StatisticalAnomalyDetector",
+    "omni_path": "src/omni_anomaly_engine/detectors/statistical.py",
+    "merc_path": "src/omni_mercury_engine/detectors/statistical.py",
+    "omni_symbol": "StatisticalAnomalyDetector",
+    "merc_symbol": "StatisticalAnomalyDetector",
+    "omni_cfg_hash": "5f03bacd3c1c4b5d",
+    "merc_cfg_hash": "NOT_FOUND",
+    "hashes_match": false,
+    "method": "AST_CFG_FINGERPRINT",
+    "note": "Imports not attempted in audit env; falling back to control-flow fingerprint per Step 3(c)."
+  }
+]
