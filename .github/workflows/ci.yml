@@ -332,7 +332,7 @@ jobs:
         # not to Mercury.  Removing them from the audit scope is
         # the architectural remediation for the
         # ``--ignore-vuln`` history previously documented in
-        # ``docs/PYTHON_DEP_CVE_AUDIT.md``: Mercury does not ship
+        # ``docs/SECURITY.md``: Mercury does not ship
         # those packages, so they must not appear in Mercury's
         # vulnerability report regardless of advisory state.
         #
