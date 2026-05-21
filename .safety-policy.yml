@@ -7,10 +7,10 @@
 #
 # Last Updated: 2026-05-02 (PR #148 — confirms documentation-only role
 #   alongside .safety-policy-v2.yml shim and per-CVE CLI ignore flags
-#   driven by docs/PYTHON_DEP_CVE_AUDIT.md; OS-level acceptances below
+#   driven by docs/SECURITY.md; OS-level acceptances below
 #   continue to be enforced by Trivy via .trivyignore)
 # Reviewed By: Steel Security Advisors LLC
-# Next Review: 2026-08-02 (quarterly; aligned with PYTHON_DEP_CVE_AUDIT.md)
+# Next Review: 2026-08-02 (quarterly; aligned with docs/SECURITY.md)
 #
 # Reference: https://docs.safetycli.com/safety-docs/policy-file
 

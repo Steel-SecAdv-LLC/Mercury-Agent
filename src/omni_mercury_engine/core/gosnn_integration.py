@@ -47,8 +47,8 @@ class ConformalMisconfigurationError(ValueError):
 
     Replaces the prior silent-failure path
     (``except (ValueError, RuntimeError, AttributeError): confidence_intervals = None``)
-    that the 2026-03 in-tree audit (``docs/COMPREHENSIVE_REPO_AUDIT.md`` §1.4)
-    flagged as a silent-failure gap. Callers that genuinely want to operate
+    that the 2026-03 in-tree audit flagged as a silent-failure gap.
+    Callers that genuinely want to operate
     without conformal intervals must construct the integration with
     ``use_conformal=False`` — they cannot accidentally degrade into the no-
     interval mode by misconfiguring the conformal predictor.

@@ -3,8 +3,8 @@
 """Bidirectional GOSNN weight coupling for federated learning.
 
 Replaces the prior one-way (server → client) integration flagged by the
-2026-03 in-tree audit (``docs/COMPREHENSIVE_REPO_AUDIT.md`` §1) and the
-ROADMAP's federated-learning row. Provides a deterministic, hash-checked
+2026-03 in-tree audit and the ROADMAP's federated-learning row.
+Provides a deterministic, hash-checked
 round-trip protocol so a client can publish its local GOSNN scalar update
 to the server, the server can fold it into the global state via FedAvg,
 and the client can read the updated global state back.

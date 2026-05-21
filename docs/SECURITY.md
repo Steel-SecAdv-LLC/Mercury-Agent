@@ -1,4 +1,8 @@
-# Python Dependency CVE Audit
+# Mercury Agent — Supply-Chain Security Posture
+
+> Source-of-truth ledger for Mercury Agent's Python supply chain.
+> The project-level vulnerability disclosure policy lives in the
+> top-level [`/SECURITY.md`](../SECURITY.md).
 
 **Audit Date:** 2026-05-20 (permanent supply-chain remediation; native re-implementation of pyjwt + joblib eliminates the last three open advisories with **zero risk acceptance**)
 **Next Review:** 2026-08-20 (90 days; quarterly cadence)

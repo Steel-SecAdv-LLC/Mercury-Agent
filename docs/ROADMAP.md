@@ -1,6 +1,36 @@
 # Mercury Agent - Strategic Engineering Roadmap
 
-Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
+Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-21.
+
+## v1.7.x Deferred Items (consolidated)
+
+The following items are deliberately deferred past the v1.7.0 release
+cut. Each row names the surface, the precise gap, and the locking
+artifact that pins behaviour today so a future PR cannot regress the
+contract while the feature is built out.
+
+| # | Surface | Gap | Locked by |
+|---|---------|-----|-----------|
+| 1 | σ_Immutable Wave C — narrative voice + federation | `narrative/voice.py::{speak, process_detection, alert}` and `federation/aggregator.py::{submit, aggregate}` + `federated_learning/server.py::_execute_round` do not run the σ_Immutable dual-gate; adding it requires an interface review. | `tests/ethical/test_hard_enforcement.py` pins the dual-gate at the three existing boundary surfaces (engine, orchestrator, neurosymbolic hub). |
+| 2 | AMA HMAC-SHA-384 binding (HS384 path) | AMA Cryptography v3.2.0 ships HMAC-SHA-256 + HMAC-SHA-512 in C with Python bindings; HMAC-SHA-384 is not yet implemented. `native_jwt` routes HS384 through stdlib `hmac` until upstream lands the binding. | `tests/security/test_native_jwt_ama_routing.py::TestSigningBackendSurface::test_hs384_is_always_stdlib`. |
+| 3 | VLM detector surface | `detectors/vlm/base_vlm.py:184,205,219,250,264` — 5 abstract methods raise `NotImplementedError`. Strategic decision (2026-05): keep native detectors; do not ship BLIP/GPT adapters. To be marked experimental or removed. | None — strategic-decision row; future PR removes or re-classifies the surface. |
+| 4 | Visual base detector | `detectors/visual/base_visual.py:294,312,326` — 3 abstract methods raise `NotImplementedError`. Aggressive native-detector improvement is the chosen path. | Same as #3. |
+| 5 | Bidirectional GOSNN feedback in FL aggregator | Aggregator → GOSNN scalar update path is one-way; no reverse integration from FL aggregation back into GOSNN scalar groups. | `tests/federated/test_no_silent_failure.py` pins the current (one-way) contract; a forward PR must add a regression for the reverse direction in the same commit that wires it. |
+| 6 | Intersectional fairness metrics | Bias audits currently measure marginal demographic parity only — no `(race, gender)`-style joint subgroup metrics. | No `tests/fairness/` directory exists today; a forward PR creates it. |
+| 7 | Concrete `AttentionProvider` implementation | `AttentionProvider` ABC exists in `gosnn_optimizer.py`; no concrete provider is wired to a real attention surface. Placeholder is deterministic-seed + `logger.warning()`. | `tests/core/test_gosnn_placeholder_cures.py` pins the placeholder warning path; a real provider must arrive with its own regression suite. |
+| 8 | Mutation testing on σ_Immutable hot path | No `mutmut` / `cosmic-ray` configuration in `pyproject.toml`; no workflow runs mutation tests. The σ_Immutable hot path lives in `src/omni_mercury_engine/security/{sigma_immutable_gate.py, sigma_immutable_corpus.py}`. | None — net-new gate. |
+| 9 | Lyapunov-stability benchmark for σ_Immutable hard-gate under sustained load | No empirical benchmark validates the `V̇ ≤ -λV` Lyapunov claim. `configs/ablation_3r_lyapunov.yaml` references `scripts/run_ablation.py` which does not exist. README references λ at three different values (0.25, 0.18, 0.13) — constants need reconciliation against the benchmark when authored. | None — net-new benchmark. |
+| 10 | `tests/load/` wired into CI | `tests/load/{k6_load_test.js, locustfile.py}` exists but no workflow invokes them. | None — net-new CI workflow. |
+| 11 | Examples-parity CI | No workflow asserts `examples/*.py` runs end-to-end. | None — net-new CI workflow. |
+| 12 | `tests/loaders/` + `tests/narrative/` graduate to strict mypy lane | Both directories are not yet in `ci.yml`'s strict-mypy invocation (`tests/datasets/`, `tests/ethical/`, `tests/safeguards/` are). Files need full annotations first. | `.github/workflows/ci.yml` job `type-checking` step "Run MyPy strict on graduated test directories". |
+| 13 | Core coverage floor bump 15 → 25 | Measured core-lane baseline is 16.62 %; bumping today fails the next push. Sequencing in this document's "Coverage uplift" section: land core-lane tests, re-measure on `main`, bump in same commit. | `.github/workflows/ci.yml` lines 50-67 + "Coverage uplift" section below. |
+
+Items 1, 2, 3, 4, 5, 6, 7 also appear as status rows in the capability
+table below — the rollup above is the single authoritative open-items
+list. When an item closes, update both the row above and the capability
+table in the same commit.
+
+---
 
 > **Capability status (2026-05-19 — replaces all prior status tables).**
 >
@@ -29,7 +59,7 @@ Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 > | 3 | Real Quantum Computing | ✓ | — | partial | `executor.py` defaults to `BackendType.SIMULATOR` and uses `AerSimulator`. Real-hardware path (IBM Quantum, IonQ) requires user credentials and is not exercised in CI. Treat as "simulated by default; real hardware untested in-tree." |
 > | 4 | Advanced Harmonics | ✓ | — | ✓ | `harmonics/analyzer.py`, `features.py`, `transform.py` are wired and exercised by the 21-probe ensemble and detector pipeline. |
 > | 5 | AutoML | ✓ | — | ✓ | `automl/optimizer.py`, `schedulers.py`, `search_space.py` (~1,135 LOC main file). `tests/automl/test_scheduler_completion.py` exercises the scheduler. Hyperparameter search wired into training loop. |
-> | 6 | Federated Learning | ✓ | ✓ | partial | `federated_learning/client.py`, `server.py`, `privacy.py` implemented. The 2026-03 in-tree audit (`docs/COMPREHENSIVE_REPO_AUDIT.md`) flags one-way GOSNN integration and conformal prediction failing silently with `confidence_intervals=None`; until those are closed, treat as partial. |
+> | 6 | Federated Learning | ✓ | ✓ | partial | `federated_learning/client.py`, `server.py`, `privacy.py` implemented. Treated as partial because GOSNN integration is one-way (aggregator → GOSNN scalar update has no reverse path) and conformal prediction in `core/gosnn_integration.py::GOSNNIntegration.detect()` previously returned `confidence_intervals=None` on failure — the silent path is closed by `ConformalMisconfigurationError` (see CHANGELOG), and the bidirectional feedback gap remains open. |
 > | 7 | Explainability | ✓ | — | ✓ | `explainability/shap.py`, `counterfactuals.py`, `gdpr_compliance.py` (~2,400 LOC combined). No `NotImplementedError`; design surface present. Pending broader test coverage but core paths run. |
 >
 > **Cross-cutting items not in the above seven, but tracked:**
@@ -738,12 +768,14 @@ class MercuryAutoML:
 
 > **Status: Designed + Stubbed (partial Functional).**
 > `federated_learning/client.py`, `server.py`, and `privacy.py` are
-> implemented, but the 2026-03 in-tree audit
-> (`docs/COMPREHENSIVE_REPO_AUDIT.md`) flags one-way GOSNN integration
-> and conformal prediction failing silently with
-> `confidence_intervals=None`. Until those are closed, treat as
-> partial. The design below was written pre-implementation; actual API
-> may differ.
+> implemented. Two gaps keep this row at "partial": GOSNN integration
+> is one-way (aggregator → GOSNN scalar update has no reverse path),
+> and `core/gosnn_integration.py::GOSNNIntegration.detect()` previously
+> swallowed conformal failures into `confidence_intervals=None`. The
+> silent-failure path is closed via `ConformalMisconfigurationError`
+> (see CHANGELOG); the bidirectional-feedback gap is tracked in the
+> v1.7.x Deferred Items rollup at the top of this document. The
+> design below was written pre-implementation; actual API may differ.
 
 ### Current State
 - Centralized training only
