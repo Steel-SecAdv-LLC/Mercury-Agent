@@ -23,7 +23,7 @@ contract while the feature is built out.
 | 10 | `tests/load/` wired into CI | `tests/load/{k6_load_test.js, locustfile.py}` exists but no workflow invokes them. | None — net-new CI workflow. |
 | 11 | Examples-parity CI | No workflow asserts `examples/*.py` runs end-to-end. | None — net-new CI workflow. |
 | 12 | `tests/loaders/` + `tests/narrative/` graduate to strict mypy lane | Both directories are not yet in `ci.yml`'s strict-mypy invocation (`tests/datasets/`, `tests/ethical/`, `tests/safeguards/` are). Files need full annotations first. | `.github/workflows/ci.yml` job `type-checking` step "Run MyPy strict on graduated test directories". |
-| ~~13~~ | ~~Core coverage floor bump 15 → 25~~ | **CLOSED in v1.7.x.** Core lane expanded to include `tests/detectors/`, `tests/ml/`, `tests/datasets/`, `tests/api/`, `tests/automl/`, `tests/security/`, plus 13 root-level `test_*.py` additions. Measured combined stmt+branch coverage on the expanded lane is 31.87 %, leaving ~7 points of cushion above the 25 floor. | `.github/workflows/ci.yml` env `COVERAGE_THRESHOLD_CORE: 25` + the per-job `--cov-fail-under` flag in the `core-tests` job. |
+| 13 (closed) | Core coverage floor bump 15 → 25 | **CLOSED in v1.7.x.** Core lane expanded to include `tests/detectors/`, `tests/ml/`, `tests/datasets/`, `tests/api/`, `tests/automl/`, plus 13 root-level `test_*.py` additions. Measured combined stmt+branch coverage on the expanded lane is ≥25 % with a several-point cushion. | `.github/workflows/ci.yml` env `COVERAGE_THRESHOLD_CORE: 25` + the per-job `--cov-fail-under` flag in the `core-tests` job. |
 
 Items 1, 2, 3, 4, 5, 6, 7 also appear as status rows in the capability
 table below — the rollup above is the single authoritative open-items
