@@ -275,16 +275,15 @@ def _sign_ama(header_segment: bytes, payload_segment: bytes, key: bytes, alg: st
     By RFC 2104 / FIPS 198-1 the result is byte-identical to
     ``HMAC(key, header || "." || payload)``.
     """
-    if alg == "HS256":
-        return ama_hmac.ama_hmac_sha256_2(key, header_segment + b".", payload_segment)
-    if alg == "HS512":
-        # AMA v3.2.0 does not yet ship a two-segment HMAC-SHA-512
-        # variant; fall back to the one-segment binding with a
-        # single concat.  Tracked in docs/ROADMAP.md.
-        return ama_hmac.ama_hmac_sha512(key, _signing_input(header_segment, payload_segment))
-    raise InvalidAlgorithmError(  # pragma: no cover — guarded by caller
-        f"Algorithm {alg!r} is not AMA-routable",
-    )
+    match alg:
+        case "HS256":
+            return ama_hmac.ama_hmac_sha256_2(key, header_segment + b".", payload_segment)
+        case "HS512":
+            # AMA v3.2.0 does not yet ship a two-segment HMAC-SHA-512
+            # variant; fall back to the one-segment binding with a
+            # single concat.  Tracked in docs/ROADMAP.md.
+            return ama_hmac.ama_hmac_sha512(key, _signing_input(header_segment, payload_segment))
+    raise InvalidAlgorithmError(f"Algorithm {alg!r} is not AMA-routable")
 
 
 def _alg_uses_ama(alg: str) -> bool:
@@ -296,13 +295,13 @@ def _alg_uses_ama(alg: str) -> bool:
     enabling AMA at runtime sees the next signature use the new
     backend without restarting the process.
     """
-    if alg not in _AMA_ROUTABLE_ALGS:
-        return False
-    if alg == "HS256":
-        return bool(ama_hmac.HAS_AMA_HMAC_SHA256)
-    if alg == "HS512":
-        return bool(ama_hmac.HAS_AMA_HMAC_SHA512)
-    return False  # pragma: no cover — _AMA_ROUTABLE_ALGS is exhaustive
+    match alg:
+        case "HS256":
+            return bool(ama_hmac.HAS_AMA_HMAC_SHA256)
+        case "HS512":
+            return bool(ama_hmac.HAS_AMA_HMAC_SHA512)
+        case _:
+            return False
 
 
 def _sign(header_segment: bytes, payload_segment: bytes, key: bytes, alg: str) -> bytes:
