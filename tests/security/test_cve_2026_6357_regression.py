@@ -26,6 +26,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -56,7 +58,7 @@ def _iter_workflow_files() -> list[Path]:
     return sorted([*WORKFLOW_DIR.glob("*.yml"), *WORKFLOW_DIR.glob("*.yaml")])
 
 
-def _load_hardening_module() -> object:
+def _load_hardening_module() -> ModuleType:
     """Load ``scripts/check_workflow_hardening.py`` as a regular module."""
     spec = importlib.util.spec_from_file_location("check_workflow_hardening", HARDENING_SCRIPT)
     assert spec is not None and spec.loader is not None
@@ -111,7 +113,7 @@ class TestHardeningChecker:
         # Returns 0 on success, 1 on failure.  We run main() directly
         # rather than spawning a subprocess so the assertion fails
         # with a real Python traceback if the script crashes.
-        exit_code = module.main()  # type: ignore[attr-defined]
+        exit_code = module.main()
         assert exit_code == 0, (
             "scripts/check_workflow_hardening.py failed on the real repo "
             "— CVE-2026-6357 regression-guard or a sibling hardening check "
@@ -143,7 +145,7 @@ class TestHardeningChecker:
             "        run: pip install requests\n",
             encoding="utf-8",
         )
-        errors = module._check_pip_cve_2026_6357(  # type: ignore[attr-defined]
+        errors = module._check_pip_cve_2026_6357(
             fake_workflow, fake_workflow.read_text(encoding="utf-8")
         )
         assert errors, "Guard failed to detect an unpinned ``pip install``"
@@ -171,7 +173,7 @@ class TestHardeningChecker:
             "        run: pip install requests\n",
             encoding="utf-8",
         )
-        errors = module._check_pip_cve_2026_6357(  # type: ignore[attr-defined]
+        errors = module._check_pip_cve_2026_6357(
             fake_workflow, fake_workflow.read_text(encoding="utf-8")
         )
         assert not errors, f"Guard misfired on a properly-floored workflow: {errors}"
@@ -201,7 +203,7 @@ class TestHardeningChecker:
             "        run: pip install requests >> install.log\n",
             encoding="utf-8",
         )
-        errors = module._check_pip_cve_2026_6357(  # type: ignore[attr-defined]
+        errors = module._check_pip_cve_2026_6357(
             fake_workflow, fake_workflow.read_text(encoding="utf-8")
         )
         assert errors, (
@@ -243,7 +245,7 @@ class TestHardeningChecker:
             "          EOF\n",
             encoding="utf-8",
         )
-        errors = module._check_pip_cve_2026_6357(  # type: ignore[attr-defined]
+        errors = module._check_pip_cve_2026_6357(
             fake_workflow, fake_workflow.read_text(encoding="utf-8")
         )
         assert not errors, (
@@ -283,7 +285,7 @@ class TestHardeningChecker:
             "        run: pip install requests\n",
             encoding="utf-8",
         )
-        errors = module._check_pip_cve_2026_6357(  # type: ignore[attr-defined]
+        errors = module._check_pip_cve_2026_6357(
             fake_workflow, fake_workflow.read_text(encoding="utf-8")
         )
         # The workflow is floored correctly, so no errors should fire.

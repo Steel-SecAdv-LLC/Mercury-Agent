@@ -42,6 +42,7 @@ test-tier import surface.
 import base64
 import json
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 
@@ -58,6 +59,9 @@ from omni_mercury_engine.security.native_jwt import (
 )
 
 SECRET = "test-secret-key-which-is-clearly-not-for-production-use"
+NON_DICT_PAYLOAD: Any = "not a dict"
+NON_SECRET_KEY: Any = 12345
+NON_TOKEN: Any = 12345
 
 
 # --------------------------------------------------------------------------- #
@@ -360,14 +364,14 @@ def test_get_unverified_header_rejects_malformed_token() -> None:
 
 def test_encode_rejects_non_dict_payload() -> None:
     with pytest.raises(TypeError):
-        native_jwt.encode("not a dict", SECRET)  # type: ignore[arg-type]
+        native_jwt.encode(NON_DICT_PAYLOAD, SECRET)
 
 
 def test_encode_rejects_non_str_non_bytes_key() -> None:
     with pytest.raises(TypeError):
-        native_jwt.encode({"sub": "x"}, 12345)  # type: ignore[arg-type]
+        native_jwt.encode({"sub": "x"}, NON_SECRET_KEY)
 
 
 def test_decode_rejects_non_str_non_bytes_token() -> None:
     with pytest.raises(DecodeError):
-        native_jwt.decode(12345, SECRET, algorithms=["HS256"])  # type: ignore[arg-type]
+        native_jwt.decode(NON_TOKEN, SECRET, algorithms=["HS256"])
