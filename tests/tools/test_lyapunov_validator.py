@@ -250,13 +250,19 @@ class TestValidateFromConfig:
         # Simulate the read-after-exists race by patching ``Path.read_text``
         # to raise PermissionError just for this specific path.  We monkey-
         # patch at the class level so the validator's call site picks up
-        # the patched method.
+        # the patched method.  The signature mirrors ``Path.read_text``
+        # exactly (encoding + errors keyword args, ``str`` return) so no
+        # ``# type: ignore`` escape hatch is needed at the delegate call.
         original_read_text = Path.read_text
 
-        def fake_read_text(self: Path, *args: object, **kwargs: object) -> str:
+        def fake_read_text(
+            self: Path,
+            encoding: str | None = None,
+            errors: str | None = None,
+        ) -> str:
             if self == cfg:
                 raise PermissionError(13, "simulated permission denied", str(self))
-            return original_read_text(self, *args, **kwargs)  # type: ignore[arg-type]
+            return original_read_text(self, encoding, errors)
 
         monkeypatch.setattr(Path, "read_text", fake_read_text)
 

@@ -206,31 +206,35 @@ tags_metadata = [
 async def _warmup(app_instance: FastAPI) -> None:
     """Drive synthetic detection calls so the first real request is warm.
 
-    Called from :func:`lifespan` exactly once per worker process.  Errors
-    are logged but never raised: a warmup failure must not prevent the
-    API from coming up — the production endpoints have their own
-    error handling and a real request can still surface a real failure
-    via the normal 500 path.
+    Called from :func:`lifespan` exactly once per worker process with
+    deterministic, validator-clean inputs (a tiny univariate series,
+    an 8x3 multivariate matrix, a single /health hit).  Any failure
+    here is propagated -- a hard fault during warmup is a real bug
+    (Pydantic model regression, validator graph drift, numpy ABI
+    mismatch) and must crash the worker so the orchestrator marks
+    the deployment unhealthy.  Silent degradation would let a broken
+    detection path serve traffic; the contract this module signs
+    with the rest of the system is "if uvicorn is up, detection
+    works."  Tests that want to simulate a warmup failure should
+    monkey-patch one of ``detect_univariate`` / ``detect_multivariate``
+    / ``health_check`` and assert that ``await _warmup(...)`` raises.
     """
-    try:
-        # Pydantic model + validator warmup via the univariate path.
-        univariate_data = [float(i % 7) for i in range(16)]
-        univariate_req = UnivariateRequest(data=univariate_data, sensitivity=0.5)
-        await detect_univariate(univariate_req)
+    # Pydantic model + validator warmup via the univariate path.
+    univariate_data = [float(i % 7) for i in range(16)]
+    univariate_req = UnivariateRequest(data=univariate_data, sensitivity=0.5)
+    await detect_univariate(univariate_req)
 
-        # Multivariate path warms a different numpy code path (L2 norm,
-        # axis-wise mean/std) plus a different validator branch.
-        multivariate_data = [[float(i + j) for j in range(3)] for i in range(8)]
-        multivariate_req = MultivariateRequest(data=multivariate_data, sensitivity=0.5)
-        await detect_multivariate(multivariate_req)
+    # Multivariate path warms a different numpy code path (L2 norm,
+    # axis-wise mean/std) plus a different validator branch.
+    multivariate_data = [[float(i + j) for j in range(3)] for i in range(8)]
+    multivariate_req = MultivariateRequest(data=multivariate_data, sensitivity=0.5)
+    await detect_multivariate(multivariate_req)
 
-        # Health path warms the middleware chain (correlation-ID,
-        # rate-limit bypass, logger format).
-        await health_check()
+    # Health path warms the middleware chain (correlation-ID,
+    # rate-limit bypass, logger format).
+    await health_check()
 
-        logger.info("API warmup completed; first request will not pay cold-start cost")
-    except Exception as exc:  # pragma: no cover - warmup must not block startup
-        logger.warning("API warmup failed (continuing without warm caches): %s", exc)
+    logger.info("API warmup completed; first request will not pay cold-start cost")
 
 
 @asynccontextmanager

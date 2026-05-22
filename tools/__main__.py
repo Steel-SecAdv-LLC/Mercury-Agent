@@ -28,10 +28,21 @@ from __future__ import annotations
 
 import importlib
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, cast
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+
+# Every registered tool's entry-point must satisfy this protocol: it
+# accepts an ``argv`` list (the subcommand-strip slice of ``sys.argv``)
+# and returns an integer exit code.  Encoding the contract as a
+# ``Protocol`` rather than ``Callable[[list[str]], int]`` lets entry-
+# points use ``Sequence[str] | None = None`` defaults (the standard
+# ``argparse`` idiom) without breaking the type check.
+class _ToolEntrypoint(Protocol):
+    def __call__(self, argv: Sequence[str] | None = ..., /) -> int: ...
+
 
 # Registry of operator tools.  Each entry maps a CLI name to
 # ``(module_dotted_path, entry_point_attr)``.  The entry-point attr is
@@ -47,24 +58,40 @@ def _print_help(*, missing: str | None = None) -> None:
     if missing is not None:
         print(f"unknown tool: {missing!r}", file=sys.stderr)
     print(
-        "usage: python -m tools <subcommand> [args...]\n" "\n" "Available subcommands:",
+        "usage: python -m tools <subcommand> [args...]\n\nAvailable subcommands:",
         file=sys.stderr,
     )
     for name in sorted(_REGISTRY):
         print(f"  {name}", file=sys.stderr)
     print(
-        "\n" "Each subcommand also accepts ``python -m tools.<name>`` directly.",
+        "\nEach subcommand also accepts ``python -m tools.<name>`` directly.",
         file=sys.stderr,
     )
 
 
-def _resolve_entrypoint(name: str) -> object:
+def _resolve_entrypoint(name: str) -> _ToolEntrypoint:
+    """Resolve ``name`` to its callable entry-point.
+
+    Raises ``ImportError`` if the registered module cannot be imported,
+    ``AttributeError`` if the entry-point attribute is missing, and
+    ``TypeError`` if the registered attribute is not callable (which
+    would otherwise surface as a ``TypeError: 'X' object is not
+    callable`` at dispatch time with a less-helpful traceback).  The
+    ``cast`` to ``_ToolEntrypoint`` is the type narrowing required by
+    the Protocol contract — ``getattr`` returns ``Any`` and the explicit
+    callability check above is what justifies the narrowing.
+    """
     module_path, attr = _REGISTRY[name]
     mod = importlib.import_module(module_path)
     fn = getattr(mod, attr, None)
     if fn is None:
         raise AttributeError(f"tool {name!r} module {module_path!r} has no {attr!r} entry-point")
-    return fn
+    if not callable(fn):
+        raise TypeError(
+            f"tool {name!r} entry-point {module_path}.{attr} is not callable "
+            f"(got {type(fn).__name__})"
+        )
+    return cast("_ToolEntrypoint", fn)
 
 
 def _main(argv: Sequence[str] | None = None) -> int:
@@ -83,7 +110,7 @@ def _main(argv: Sequence[str] | None = None) -> int:
         return 2
     try:
         fn = _resolve_entrypoint(name)
-    except (ImportError, AttributeError) as exc:
+    except (ImportError, AttributeError, TypeError) as exc:
         print(
             f"ERROR: cannot dispatch to tool {name!r}: {exc}",
             file=sys.stderr,
