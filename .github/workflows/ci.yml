@@ -293,8 +293,11 @@ jobs:
         # * tests/ethical/       -- v1.7.0 follow-up
         # * tests/safeguards/    -- v1.7.0 follow-up
         # * tests/tools/         -- ISO hardening (Lyapunov validator)
+        # * tests/loaders/       -- ISO hardening (already clean)
+        # * tests/narrative/     -- ISO hardening (already clean)
         run: |
           mypy tests/datasets/ tests/ethical/ tests/safeguards/ tests/tools/ \
+            tests/loaders/ tests/narrative/ \
             --disallow-subclassing-any \
             --show-error-codes \
             --pretty \
@@ -575,6 +578,8 @@ jobs:
             tests/automl/ \
             tests/tools/ \
             tests/scripts/test_run_ablation.py \
+            tests/scripts/test_check_readme_lyapunov.py \
+            tests/scripts/test_run_hardware_benchmark.py \
             tests/test_adaptive_detector.py \
             tests/test_acceleration_dynamics.py \
             tests/test_advanced_ml_capabilities.py \

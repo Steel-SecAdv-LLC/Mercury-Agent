@@ -1,0 +1,257 @@
+# Mercury Agent — ISO Hardening CI
+#
+# Two independent jobs that the strengthening plan calls out as
+# missing gates:
+#
+#   * examples-parity: every shippable `examples/*.py` script must
+#     exit 0 and emit the expected completion marker.  Catches the
+#     class of regressions where an example silently breaks because
+#     of an internal API change.
+#
+#   * load-tests: stand up the Mercury Agent API in the background
+#     and run `k6` in smoke mode and `locust` headless mode against
+#     it, failing the job if SLO thresholds are violated.
+#
+# Both jobs run on PRs and on pushes to main/develop so regressions
+# are caught at PR time, not after merge.  They are intentionally
+# separate from `.github/workflows/ci.yml` to keep the existing
+# carefully-tuned CI surface untouched.
+
+name: ISO Hardening
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-lambda-drift:
+    name: Docs λ Drift Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Check Lyapunov λ consistency in docs
+        run: |
+          # No third-party dependency: the script is stdlib-only.
+          python scripts/check_readme_lyapunov.py
+
+  examples-parity:
+    name: Examples Parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          # CVE-2026-6357: floor pip before any other pip install in this job.
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[ml]"
+
+      - name: Run humanitarian_demo end-to-end
+        run: |
+          set -euo pipefail
+          out=$(python examples/humanitarian_demo.py --module cyber)
+          echo "$out"
+          # Deterministic markers the demo must always emit on success.
+          echo "$out" | grep -q "CYBER FORTRESS"
+          echo "$out" | grep -q "HUMANITARIAN IMPACT"
+
+      - name: Run live_anomaly_demo end-to-end (quiet, 5 samples)
+        run: |
+          set -euo pipefail
+          out=$(python examples/live_anomaly_demo.py \
+            --domain security --samples 5 --delay 1 --quiet)
+          echo "$out"
+          echo "$out" | grep -q "Demo complete"
+
+      - name: Run physics_detectors_demo end-to-end (spectral)
+        run: |
+          set -euo pipefail
+          out=$(python examples/physics_detectors_demo.py --module spectral)
+          echo "$out"
+          echo "$out" | grep -q "PHYSICS-INSPIRED DETECTORS"
+
+  load-tests:
+    name: Load Tests (smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [examples-parity]
+    env:
+      MERCURY_API_HOST: http://127.0.0.1:8000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies (api + ml + load tooling)
+        run: |
+          # CVE-2026-6357: floor pip once for the whole job.
+          python -m pip install --upgrade "pip>=26.1"
+          pip install -e ".[api,ml]"
+          pip install "locust>=2.31.0"
+
+      - name: Install k6
+        run: |
+          set -euo pipefail
+          # Use the official Grafana repository (signed package);
+          # avoids downloading arbitrary binaries from GitHub releases.
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6 jq
+
+      - name: Start API server in background
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          # Start the API; rate-limit disabled so smoke traffic doesn't
+          # trip 429s and corrupt the SLO measurement.
+          OMNI_RATE_LIMIT_ENABLED=false \
+          MERCURY_AGENT_ENV=development \
+            python -m uvicorn omni_mercury_engine.api.server:app \
+              --host 127.0.0.1 --port 8000 --log-level warning \
+              > artifacts/api.log 2>&1 &
+          echo $! > artifacts/api.pid
+          # Wait for /health to respond (60 s budget).
+          for i in $(seq 1 60); do
+            if curl -fsS "$MERCURY_API_HOST/health" > /dev/null; then
+              echo "API ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to come up" >&2
+          tail -n 200 artifacts/api.log >&2 || true
+          exit 1
+
+      - name: Run k6 smoke test
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          # Override the scenarios in the file with a CI-sized smoke
+          # run (constant 1 VU for 30 s); the in-file thresholds still
+          # apply and k6 exits non-zero when they are breached.
+          k6 run \
+            --vus 1 \
+            --duration 30s \
+            --summary-export=artifacts/k6_summary.json \
+            tests/load/k6_load_test.js
+
+      - name: Assert k6 SLO thresholds
+        run: |
+          set -euo pipefail
+          test -s artifacts/k6_summary.json
+          # k6 sets thresholds.*.ok = false when a threshold is breached;
+          # the previous step already exits non-zero in that case, but
+          # we double-check the JSON here so a future k6 CLI behaviour
+          # change cannot silently pass a broken smoke run.
+          python - <<'PY'
+          import json, pathlib, sys
+          data = json.loads(pathlib.Path("artifacts/k6_summary.json").read_text())
+          metrics = data.get("metrics", {})
+          breaches = []
+          for name, m in metrics.items():
+              thresholds = m.get("thresholds") or {}
+              for t, info in thresholds.items():
+                  if info.get("ok") is False:
+                      breaches.append(f"{name}: {t}")
+          if breaches:
+              print("k6 threshold breaches:", *breaches, sep="\n  ")
+              sys.exit(1)
+          print(f"OK: {sum(len((m.get('thresholds') or {})) for m in metrics.values())} k6 thresholds satisfied")
+          PY
+
+      - name: Run locust smoke test
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          # Headless: 5 users, 1 spawn/sec, 30s.  --exit-code-on-error 1
+          # makes locust propagate a non-zero exit when any request
+          # fails (default would mask request failures).
+          locust -f tests/load/locustfile.py \
+            --host "$MERCURY_API_HOST" \
+            --headless --users 5 --spawn-rate 1 --run-time 30s \
+            --csv artifacts/locust \
+            --exit-code-on-error 1 \
+            --only-summary
+
+      - name: Assert locust SLO thresholds
+        run: |
+          set -euo pipefail
+          test -s artifacts/locust_stats.csv
+          python - <<'PY'
+          import csv, pathlib, sys
+          stats = list(csv.DictReader(
+              pathlib.Path("artifacts/locust_stats.csv").open()
+          ))
+          aggregated = next(
+              (r for r in stats if r.get("Name") == "Aggregated"),
+              None,
+          )
+          if aggregated is None:
+              print("locust produced no aggregated row", file=sys.stderr)
+              sys.exit(1)
+          # Mirrors the SLO constants documented inside
+          # tests/load/locustfile.py (SLO_P95_MS = 500).
+          p95 = float(aggregated.get("95%", "0") or 0)
+          failure_rate = (
+              float(aggregated.get("Failure Count", 0) or 0)
+              / max(float(aggregated.get("Request Count", 0) or 0), 1.0)
+          )
+          breaches = []
+          if p95 > 500:
+              breaches.append(f"p95 latency {p95}ms > 500ms SLO")
+          if failure_rate > 0.01:
+              breaches.append(f"failure rate {failure_rate:.4f} > 1% SLO")
+          if breaches:
+              print("locust SLO breaches:", *breaches, sep="\n  ")
+              sys.exit(1)
+          print(f"OK: locust p95={p95}ms, failure_rate={failure_rate:.4f}")
+          PY
+
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ -f artifacts/api.pid ]; then
+            kill "$(cat artifacts/api.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload load-test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-artifacts
+          path: artifacts/
+          retention-days: 7
