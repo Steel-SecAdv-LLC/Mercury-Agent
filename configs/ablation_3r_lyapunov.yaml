@@ -13,13 +13,21 @@
 #   Medical (MIMIC-III): Recall > 0.93 (prioritize)
 #
 # Usage:
-#   pytest tests/ -k "ablation" --config configs/ablation_3r_lyapunov.yaml
+#   # Certify the Lyapunov pre-gate only (no ablation variant runs):
 #   python scripts/run_ablation.py --config configs/ablation_3r_lyapunov.yaml \
-#       --out artifacts/ablation_result.json
-#   See also: tools/lyapunov_validator.py for the executable Lyapunov
-#   pre-gate that scripts/run_ablation.py invokes before launching any
-#   experiment, and configs/lyapunov_canonical.yaml for the canonical
-#   lambda source-of-truth.
+#       --out artifacts/ablation_result.json --skip-run
+#
+#   # Run a specific ablation variant: load this YAML in your training
+#   # entry-point, select the variant by name (e.g. `lyapunov_recommended`),
+#   # and dispatch to ThreeRAnomalyTrainer.  There is no `--config` flag
+#   # on `pytest` itself; the variant-selection mechanism lives in the
+#   # training code, not in pytest collection.
+#
+# See also:
+#   * tools/lyapunov_validator.py -- executable Lyapunov pre-gate
+#     consumed by scripts/run_ablation.py before any experiment.
+#   * configs/lyapunov_canonical.yaml -- canonical lambda source of
+#     truth (this file mirrors its A/P pencil under `lyapunov:`).
 
 # ═══════════════════════════════════════════════════════════════
 # LYAPUNOV PRE-GATE (consumed by tools/lyapunov_validator.py)

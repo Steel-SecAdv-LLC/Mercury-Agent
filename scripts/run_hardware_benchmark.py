@@ -13,11 +13,18 @@ The harness measures:
 * Wall-clock latency of a single ``validate_quadratic`` call on the
   canonical configuration (mean / p50 / p95 / p99 / max over ``iters``
   repetitions, with ``warmup`` discarded leading samples).
-* Throughput in operations per second, derived from the trimmed mean.
+* Throughput in operations per second, computed as
+  ``samples / total_s`` (the count of post-warmup iterations divided
+  by their summed wall-clock time).  Because ``mean_s`` is the
+  arithmetic mean of the same samples, this quantity is identical to
+  ``1 / mean_s`` up to floating-point rounding; we emit it explicitly
+  so the JSON report carries an unambiguous, directly-assertable
+  invariant (``timing.ops_per_sec == timing.samples / timing.total_s``)
+  that downstream tooling can pin without re-deriving the mean.
 * Environment fingerprint (Python version, NumPy version, platform,
-  CPU count, optional CPU affinity, optional process scheduling
-  class).  This is what makes a measurement *scientifically*
-  comparable: a number without its fingerprint is worthless.
+  CPU count, optional CPU affinity, Linux CPU scaling governor).
+  This is what makes a measurement *scientifically* comparable: a
+  number without its fingerprint is worthless.
 
 The harness deliberately uses only the standard library plus NumPy.
 No new third-party dependencies are introduced.
@@ -58,14 +65,21 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.lyapunov_validator import (  # noqa: E402  (path setup above)
+from tools.lyapunov_validator import (
     validate_lyapunov_from_config,
     validate_quadratic,
 )
 
 
 def _load_config(path: Path) -> dict[str, Any]:
-    import yaml
+    try:
+        import yaml  # PyYAML is declared in pyproject.toml core deps
+    except ImportError as exc:
+        raise ValueError(
+            "PyYAML is required to load the benchmark config but is not "
+            f"installed in this environment ({exc}). Install with "
+            "`pip install pyyaml>=6.0` or `pip install mercury-agent`."
+        ) from exc
 
     data = yaml.safe_load(path.read_text())
     if not isinstance(data, dict):
@@ -136,11 +150,16 @@ def benchmark(
 ) -> dict[str, Any]:
     """Time ``iters`` calls of :func:`validate_quadratic`, discarding warmup.
 
-    Throughput (``ops_per_sec``) is computed from the **total** wall-clock
-    time of the post-warmup iterations divided by the iteration count,
-    not from ``1 / mean_s``.  This avoids the inverse-mean bias that
-    over-states throughput when the per-iteration latency distribution is
-    skewed (e.g. when a stop-the-world GC pause appears in one sample).
+    ``ops_per_sec`` is reported as ``samples / total_s`` -- the count of
+    post-warmup iterations divided by their summed wall-clock time.
+    Because ``mean_s`` is computed from the same samples via
+    ``statistics.fmean``, the identity ``ops_per_sec == 1 / mean_s``
+    holds up to floating-point round-off.  Reporting both ``total_s``
+    and ``ops_per_sec`` lets downstream tooling pin the exact invariant
+    ``ops_per_sec == samples / total_s`` rather than re-deriving the
+    arithmetic mean (which would otherwise be the only documented
+    derivation, and is brittle if the harness ever switches to a
+    trimmed or median estimator).
     """
 
     if iters <= 0:

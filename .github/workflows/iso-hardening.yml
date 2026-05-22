@@ -143,6 +143,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y k6 jq
 
+      - name: Verify API import surface (fail fast before backgrounding)
+        # Validate that ``omni_mercury_engine.api.server:app`` actually
+        # imports BEFORE we put uvicorn in the background.  An import
+        # failure in the backgrounded process would otherwise look like
+        # a 120-second curl timeout with the real ``Traceback`` buried
+        # in api.log; this step surfaces the traceback inline so the
+        # GHA UI shows the root cause without an artifact download.
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib
+          mod = importlib.import_module("omni_mercury_engine.api.server")
+          app = getattr(mod, "app", None)
+          if app is None:
+              raise SystemExit("FATAL: omni_mercury_engine.api.server has no `app` attribute")
+          print(f"OK: API app imported ({type(app).__name__})")
+          PY
+
       - name: Start API server in background
         run: |
           set -euo pipefail
@@ -152,19 +170,41 @@ jobs:
           OMNI_RATE_LIMIT_ENABLED=false \
           MERCURY_AGENT_ENV=development \
             python -m uvicorn omni_mercury_engine.api.server:app \
-              --host 127.0.0.1 --port 8000 --log-level warning \
+              --host 127.0.0.1 --port 8000 --log-level info \
               > artifacts/api.log 2>&1 &
           echo $! > artifacts/api.pid
-          # Wait for /health to respond (60 s budget).
-          for i in $(seq 1 60); do
+          # Wait for /health to respond (120 s budget; raised from 60 s
+          # because the GitHub-hosted runner cold-start of the full
+          # ``[api,ml]`` import chain -- torch + sklearn + AMA stubs --
+          # has been observed to take 70-90 s on the smaller runner
+          # SKUs).  Emit a heartbeat every 10 s so a hung curl is
+          # visible in the live log instead of looking like a stuck
+          # job.
+          for i in $(seq 1 120); do
             if curl -fsS "$MERCURY_API_HOST/health" > /dev/null; then
               echo "API ready after ${i}s"
               exit 0
             fi
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "  ...still waiting for API (${i}s elapsed)"
+              # Surface the most recent log lines on each heartbeat so
+              # the failure mode (import error, port collision, etc.)
+              # is visible in the GHA live tail without waiting for
+              # the artifact upload.
+              tail -n 20 artifacts/api.log >&2 || true
+            fi
             sleep 1
           done
-          echo "API failed to come up" >&2
+          echo "API failed to come up within 120s" >&2
+          echo "===== api.log (last 200 lines) =====" >&2
           tail -n 200 artifacts/api.log >&2 || true
+          echo "===== uvicorn process status =====" >&2
+          if [ -f artifacts/api.pid ] && kill -0 "$(cat artifacts/api.pid)" 2>/dev/null; then
+              echo "uvicorn PID $(cat artifacts/api.pid) is still running but /health never responded" >&2
+              ps -fp "$(cat artifacts/api.pid)" >&2 || true
+          else
+              echo "uvicorn process exited before /health responded" >&2
+          fi
           exit 1
 
       - name: Run k6 smoke test

@@ -143,6 +143,50 @@ def test_timeout_kills_runaway_subprocess(tmp_path: Path) -> None:
     assert payload["run_timeout_s"] == 0.5
 
 
+def test_timeout_kills_orphaned_grandchild(tmp_path: Path) -> None:
+    """Process-group isolation: shell-spawned grandchildren must be reaped.
+
+    Without ``start_new_session=True`` + ``killpg``, killing the shell
+    on timeout leaves any subprocess the shell spawned as an orphan
+    that keeps consuming runner resources after the wrapper returned
+    rc=124.  This test makes the shell spawn a child that ``sleep``s
+    well past the wrapper's timeout + grace window and only then
+    creates a sentinel file via ``touch``; if the grandchild was
+    reaped correctly, the sentinel must NOT exist when the assertion
+    runs.  We use a pure-shell ``sleep && touch`` chain (no python,
+    no YAML-quoted code) so the test's failure mode is unambiguous:
+    a leftover sentinel proves the orphan survived.
+    """
+    import platform
+    import time
+
+    if platform.system() == "Windows":  # pragma: no cover - POSIX-only contract
+        return
+
+    sentinel = tmp_path / "grandchild.sentinel"
+    cfg = tmp_path / "ok.yaml"
+    cfg.write_text(
+        "lambda: 0.25\n"
+        "A: [[-0.25, 0.0], [0.0, -0.5]]\n"
+        "P: [[1.0, 0.0], [0.0, 1.0]]\n"
+        # Shell-only command -- safest for YAML quoting.  ``sleep 8 &&
+        # touch X`` runs the touch only if the sleep completes; if the
+        # shell's process group is killed before the sleep returns,
+        # the touch never executes.
+        f'run_command: "sleep 8 && touch {sentinel}"\n'
+    )
+    out = tmp_path / "result.json"
+    rc = run_ablation.main(["--config", str(cfg), "--out", str(out), "--timeout", "1.0"])
+    assert rc == 124
+    # Wait past the would-be sentinel write time; if the grandchild
+    # was correctly reaped, the file must still not exist.
+    time.sleep(10)
+    assert not sentinel.exists(), (
+        f"grandchild survived the wrapper timeout (sentinel at {sentinel}); "
+        "the process-group cleanup contract is broken."
+    )
+
+
 def test_negative_timeout_rejected(tmp_path: Path) -> None:
     cfg = tmp_path / "ok.yaml"
     cfg.write_text(

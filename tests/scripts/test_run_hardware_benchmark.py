@@ -72,11 +72,16 @@ def test_canonical_run_exit_0_and_schema(tmp_path: Path) -> None:
         assert t[key] > 0
     # Percentile ordering must hold (sanity check on the helper).
     assert t["p50_s"] <= t["p95_s"] <= t["p99_s"] <= t["max_s"]
-    # Throughput is total-time-based, not 1/mean.  These two formulas
-    # agree only when the distribution is perfectly symmetric; for a
-    # CPU-bound numerical workload the difference is tiny but the
-    # invariant ``ops_per_sec == samples / total_s`` must hold exactly.
+    # Reported throughput is ``samples / total_s``.  Because ``mean_s``
+    # is the arithmetic mean of the same samples, this quantity equals
+    # ``1 / mean_s`` up to floating-point round-off; we pin the
+    # stronger identity (``ops_per_sec == samples / total_s`` exactly)
+    # because the harness emits both ``total_s`` and ``samples``
+    # explicitly to make this re-derivation independent of the mean.
     assert abs(t["ops_per_sec"] - (t["samples"] / t["total_s"])) < 1e-9
+    # Sanity: the two formulas agree, demonstrating the invariant
+    # holds for the documented arithmetic-mean estimator.
+    assert abs(t["ops_per_sec"] - (1.0 / t["mean_s"])) < 1e-6
 
     # Environment fingerprint must capture the version-sensitive bits.
     env = report["environment"]

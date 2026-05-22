@@ -46,7 +46,8 @@ The JSON report contains four sections — all required:
     "machine": "x86_64",
     "processor": "x86_64",
     "cpu_count": 4,
-    "cpu_affinity": [0, 1, 2, 3]
+    "cpu_affinity": [0, 1, 2, 3],
+    "cpu_governor": "performance"  // Linux only; null on macOS/Windows
   },
   "validation": {
     "ok": true,
@@ -66,15 +67,19 @@ The JSON report contains four sections — all required:
     "p95_s": 1.5e-4,
     "p99_s": 1.7e-4,
     "max_s": 1.8e-4,
-    "ops_per_sec": 8056
+    "total_s": 2.16e-1,
+    "ops_per_sec": 8056   // == samples / total_s (exact); also == 1/mean_s
   }
 }
 ```
 
-Two reports are comparable **only if** their `environment` blocks
-match on `python`, `numpy`, `platform`, and `cpu_count`.  Anything
-else is an apples-to-oranges comparison and the harness's caller is
-responsible for refusing it.
+Required fields per section:
+
+* `environment.{python, numpy, platform, machine, processor, cpu_count, cpu_affinity, cpu_governor}` -- every key is present on every run.  `cpu_affinity` and `cpu_governor` are `null` on platforms (macOS / Windows) where they are not exposed by the OS, but the keys are still present so consumers can detect "missing data" explicitly.
+* `validation.{ok, claimed_lambda, computed_lambda, max_generalized_eig, mode, tol}` -- emitted by `tools.lyapunov_validator.validate_lyapunov_from_config` for the quadratic mode; the samples-mode path replaces `max_generalized_eig` with `num_samples`.
+* `timing.{iters, warmup, samples, mean_s, stdev_s, p50_s, p95_s, p99_s, max_s, total_s, ops_per_sec}` -- the harness guarantees the algebraic invariant `ops_per_sec == samples / total_s` exactly (up to floating-point round-off), and `ops_per_sec == 1 / mean_s` to within the same tolerance because `mean_s` is the arithmetic mean of the same samples.
+
+Two reports are comparable **only if** their `environment` blocks match on `python`, `numpy`, `platform`, `cpu_count`, and `cpu_governor`.  Anything else is an apples-to-oranges comparison and the harness's caller is responsible for refusing it.
 
 ## Reducing variance on shared / CI runners
 

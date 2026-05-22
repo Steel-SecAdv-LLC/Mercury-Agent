@@ -12,17 +12,22 @@ matrices (or, for non-linear systems, by the supplied
 Exit codes
 ----------
 * ``0`` -- success: Lyapunov gate passed and the experiment completed.
-* ``2`` -- usage error: config path not found.
-* ``3`` -- Lyapunov gate failed; experiment was *not* launched.
+* ``2`` -- usage error: ``--config`` path not found, ``--timeout`` value
+  invalid, or PyYAML import failure.  On these exits the JSON report is
+  intentionally NOT written, because there is no meaningful result to
+  serialise; downstream tooling that polls for ``--out`` should treat
+  the file's absence as the explicit "no run attempted" signal.
+* ``3`` -- Lyapunov gate failed; experiment was *not* launched.  The
+  JSON report IS written so CI dashboards can render the failed
+  certificate's ``computed_lambda`` / ``claimed_lambda`` directly.
 * ``4`` -- config has no ``run_command``; nothing to execute (still
-  considered a soft failure so CI surfaces the missing wiring).
+  considered a soft failure so CI surfaces the missing wiring).  JSON
+  report is written.
 * ``124`` -- experiment exceeded ``--timeout`` seconds; mirrors GNU
   ``timeout(1)`` convention so wrapper scripts can detect the case
-  without parsing stderr.
+  without parsing stderr.  JSON report is written with
+  ``run_timed_out=true``.
 * otherwise -- the exit code of the experiment subprocess.
-
-Results are always written as JSON to the ``--out`` path so downstream
-CI jobs can post deterministic regression reports.
 
 Examples
 --------
@@ -47,26 +52,27 @@ import argparse
 import json
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Dict, Sequence
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(_REPO_ROOT))
 
-from tools.lyapunov_validator import validate_lyapunov_from_config  # noqa: E402
+from tools.lyapunov_validator import validate_lyapunov_from_config
 
 # GNU timeout(1) exit code for "command exceeded the time limit" so CI
 # wrappers can detect timeout vs. genuine subprocess failure.
 _TIMEOUT_EXIT_CODE: int = 124
 
 
-def _write_result(out_path: Path, result: Dict[str, Any]) -> None:
+def _write_result(out_path: Path, result: dict[str, Any]) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, indent=2, sort_keys=True))
 
 
-def _run_command(cmd: str, cwd: Path, timeout: float | None) -> Dict[str, Any]:
+def _run_command(cmd: str, cwd: Path, timeout: float | None) -> dict[str, Any]:
     """Run ``cmd`` in ``cwd`` and return its exit code plus timing data.
 
     ``shell=True`` is used deliberately because configs declare full
@@ -78,34 +84,67 @@ def _run_command(cmd: str, cwd: Path, timeout: float | None) -> Dict[str, Any]:
     fails fast rather than hanging) and inherits stdout/stderr (so CI
     logs remain readable in real time).
 
+    Process-group isolation: the subprocess is started in a *new
+    session* (``start_new_session=True``), which on POSIX creates a
+    fresh process group rooted at the shell PID.  On timeout the entire
+    group is signalled via ``os.killpg(SIGTERM)`` followed by
+    ``SIGKILL`` if the shell's children fail to exit within a short
+    grace window.  Without this, ``subprocess.run(..., shell=True,
+    timeout=...)`` only kills the shell itself; any python /
+    long-running child the shell spawned would survive as an orphan and
+    keep consuming CI runner resources after the wrapper reported
+    rc=124.  On non-POSIX platforms (Windows), ``start_new_session`` is
+    a no-op and we fall back to Popen.terminate(), accepting the
+    weaker guarantee documented by ``subprocess``.
+
     A non-None ``timeout`` enforces a wall-clock bound: the subprocess
     is killed on expiry and the function returns the canonical
     ``timeout(1)`` exit code (``124``) plus a ``timed_out=True`` flag.
     """
     print(f"RUN: {cmd}", flush=True)
+    import os
+    import signal
     import time as _time
 
     started = _time.monotonic()
     timed_out = False
+    proc = subprocess.Popen(  # noqa: S602 - documented trust boundary
+        cmd,
+        shell=True,
+        cwd=str(cwd),
+        start_new_session=True,
+    )
     try:
-        completed = subprocess.run(  # noqa: S602 - documented trust boundary
-            cmd,
-            shell=True,
-            cwd=str(cwd),
-            check=False,
-            timeout=timeout,
-        )
-        rc = int(completed.returncode)
+        rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         timed_out = True
-        rc = _TIMEOUT_EXIT_CODE
+        # Signal the whole process group so the shell's children die too.
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        except (ProcessLookupError, PermissionError, OSError):  # pragma: no cover
+            proc.terminate()
+        # Grace window for graceful exit.
+        try:
+            rc = proc.wait(timeout=5.0)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except (ProcessLookupError, PermissionError, OSError):  # pragma: no cover
+                proc.kill()
+            proc.wait()
+            rc = _TIMEOUT_EXIT_CODE
+        else:
+            # The group exited during the SIGTERM grace window; report
+            # the wrapper's canonical timeout exit code, not whatever
+            # rc the shell happened to return.
+            rc = _TIMEOUT_EXIT_CODE
         print(
             f"ERROR: run_command exceeded --timeout={timeout!r}s; killed.",
             file=sys.stderr,
         )
     elapsed = _time.monotonic() - started
     return {
-        "rc": rc,
+        "rc": int(rc),
         "elapsed_s": elapsed,
         "timed_out": timed_out,
         "timeout_s": float(timeout) if timeout is not None else None,
@@ -163,7 +202,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     valid, details = validate_lyapunov_from_config(cfg_path)
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "config": str(cfg_path),
         "lyapunov_valid": bool(valid),
         "lyapunov_details": details,
@@ -182,7 +221,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         _write_result(out_path, result)
         return 0
 
-    import yaml  # lazy: pyyaml is already a runtime dependency
+    try:
+        import yaml  # PyYAML is declared in pyproject.toml core deps
+    except ImportError as exc:
+        print(
+            "ERROR: PyYAML is required to read the `run_command` field but "
+            f"is not installed in this environment ({exc}). Install with "
+            "`pip install pyyaml>=6.0` or re-run with `--skip-run` to gate "
+            "only on the Lyapunov certificate.",
+            file=sys.stderr,
+        )
+        return 2
 
     cfg = yaml.safe_load(cfg_path.read_text()) or {}
     run_cmd = cfg.get("run_command") if isinstance(cfg, dict) else None

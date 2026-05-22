@@ -59,6 +59,17 @@ dependencies = [
     "tqdm>=4.65.0",
     "networkx>=3.6.1",
     "defusedxml>=0.7.1",
+    # PyYAML is required by ``configs/*.yaml`` loaders in
+    # ``omni_mercury_engine.core.config._load_yaml`` (currently defensive
+    # against ImportError but should not need to be) and by the v1.7.0
+    # operator tooling: ``tools.lyapunov_validator``,
+    # ``scripts.run_ablation``, ``scripts.run_hardware_benchmark``.  We
+    # declare it as a core dep so every install path that ships these
+    # tools also ships a usable YAML parser.  The stdlib-only drift gate
+    # (``scripts/check_readme_lyapunov.py``) deliberately does NOT use
+    # this dependency -- it parses the canonical YAML with a regex so
+    # the ``docs-lambda-drift`` CI job can run on a bare checkout.
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
