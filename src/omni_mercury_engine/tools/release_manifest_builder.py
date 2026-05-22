@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata as _md
-import json
 import os
 import platform
 import subprocess
@@ -99,7 +98,7 @@ def _fusion_weights() -> dict[str, float] | str:
             "w_H": 1.0 / phi_sum,
             "w_O": 1.0 / phi_sum,
         }
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return f"unavailable: {exc}"
 
 
@@ -110,7 +109,7 @@ def _ethical_constants() -> dict[str, Any]:
 
         out["benevolence_immutable"] = float(ETHICAL.BENEVOLENCE_IMMUTABLE)
         out["lambda_convergence"] = float(LYAPUNOV.LAMBDA_CONVERGENCE)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         out["error"] = str(exc)
     try:
         from omni_mercury_engine.security.sigma_immutable_gate import (
@@ -120,7 +119,7 @@ def _ethical_constants() -> dict[str, Any]:
 
         out["sigma_immutable_default_threshold"] = float(SIGMA_IMMUTABLE_DEFAULT_THRESHOLD)
         out["sigma_ethical_band_end"] = float(SIGMA_ETHICAL_BAND_END)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         out["sigma_error"] = str(exc)
     return out
 

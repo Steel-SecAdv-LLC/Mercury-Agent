@@ -128,7 +128,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
                 # ``observe`` raises this once the switch is set.
                 t_observed_holder.append(time.perf_counter_ns())
                 return
-            except Exception:  # noqa: BLE001
+            except Exception:
                 t_observed_holder.append(time.perf_counter_ns())
                 return
             time.sleep(per_step_sleep)

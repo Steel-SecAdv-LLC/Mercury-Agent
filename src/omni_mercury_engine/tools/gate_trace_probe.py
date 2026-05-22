@@ -42,8 +42,9 @@ import argparse
 import threading
 import time
 import traceback
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 
@@ -152,7 +153,7 @@ def _surface_engine_detect() -> dict[str, Any]:
             result = engine.detect(X)  # most common public surface
             status = "ok"
             outcome: dict[str, Any] = {"keys": sorted(result.keys()) if isinstance(result, dict) else None}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             status = "raised"
             outcome = {"exception_type": type(exc).__name__, "message": str(exc)}
         return {
@@ -183,7 +184,7 @@ def _surface_orchestrator_analyze() -> dict[str, Any]:
             result = orch.analyze({"features": X.tolist(), "context": {}})
             status = "ok"
             outcome: dict[str, Any] = {"type": type(result).__name__}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             status = "raised"
             outcome = {"exception_type": type(exc).__name__, "message": str(exc)[:300]}
         return {
@@ -214,7 +215,7 @@ def _surface_hub_predict() -> dict[str, Any]:
             result = hub.predict(X)
             status = "ok"
             outcome: dict[str, Any] = {"type": type(result).__name__}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             status = "raised"
             outcome = {"exception_type": type(exc).__name__, "message": str(exc)[:300]}
         return {
@@ -245,7 +246,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
     for name in selected:
         try:
             records.append(_SURFACES[name]())
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             records.append(
                 {
                     "surface": name,

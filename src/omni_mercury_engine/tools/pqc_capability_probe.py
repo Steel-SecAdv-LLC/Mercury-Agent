@@ -113,7 +113,7 @@ def _probe_one(name: str, fn: Any) -> dict[str, Any]:
         else:
             record["status"] = "error"
             record["detail"] = f"RuntimeError: {msg}"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         record["status"] = "error"
         record["detail"] = f"{type(exc).__name__}: {exc}"
     return record
@@ -285,9 +285,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
 
     if args.require_real and missing_required:
         overall = "fail"
-    elif missing_required:
-        overall = "warn"
-    elif warnings:
+    elif missing_required or warnings:
         overall = "warn"
     else:
         overall = "ok"

@@ -138,6 +138,14 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _is_subpath(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
 def _default_docs(root: Path) -> list[Path]:
     candidates = [
         root / "README.md",
@@ -192,7 +200,10 @@ def _collect(args: argparse.Namespace) -> Certificate:
     per_doc: dict[str, dict[str, list[int]]] = {}
     union_hits: set[str] = set()
     for d in docs:
-        rel = str(d.relative_to(root)) if str(d).startswith(str(root)) else str(d)
+        try:
+            rel = str(d.relative_to(root))
+        except ValueError:
+            rel = str(d)
         scan = _scan_doc(d)
         if scan:
             per_doc[rel] = scan
@@ -224,7 +235,9 @@ def _collect(args: argparse.Namespace) -> Certificate:
 
     body: dict[str, Any] = {
         "root": str(root),
-        "scanned_docs": [str(d.relative_to(root)) for d in docs],
+        "scanned_docs": [
+            (str(d.relative_to(root)) if _is_subpath(d, root) else str(d)) for d in docs
+        ],
         "found_algorithms": sorted(union_hits),
         "per_doc_hits": per_doc,
         "pqc_declarations": declarations,

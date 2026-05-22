@@ -105,6 +105,30 @@ repos:
         files: ^src/
 
   # ==========================================================================
+  # Mercury drift gates (local operator tools)
+  # ==========================================================================
+  - repo: local
+    hooks:
+      - id: mercury-algorithm-name-drift
+        name: mercury — algorithm name drift gate
+        entry: python -m omni_mercury_engine.tools.algorithm_name_drift_gate
+        language: system
+        pass_filenames: false
+        files: ^(README|SECURITY|ARCHITECTURE)\.md$|^docs/.*\.md$|^src/.*pqc.*\.py$
+      - id: mercury-workflow-version-drift
+        name: mercury — workflow AMA_REF drift gate
+        entry: python -m omni_mercury_engine.tools.workflow_version_drift_gate
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|\.github/workflows/.*\.ya?ml)$
+      - id: mercury-convergence-proof
+        name: mercury — convergence-proof emitter (--check)
+        entry: python -m omni_mercury_engine.tools.convergence_proof_emitter --check
+        language: system
+        pass_filenames: false
+        files: ^(docs/MATH_SPEC\.md|src/omni_mercury_engine/tools/convergence_proof_emitter\.py)$
+
+  # ==========================================================================
   # Commit Message Linting
   # ==========================================================================
   - repo: https://github.com/commitizen-tools/commitizen

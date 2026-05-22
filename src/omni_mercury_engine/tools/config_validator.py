@@ -236,7 +236,7 @@ def _collect(args: argparse.Namespace) -> Certificate:
         try:
             doc = _load_doc(f)
             errs = _validate(doc, args.strict)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             errs = [f"{type(exc).__name__}: {exc}"]
         per_file.append({"path": rel, "errors": errs, "valid": not errs})
         if errs:

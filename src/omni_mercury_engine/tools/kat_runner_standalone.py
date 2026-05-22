@@ -135,11 +135,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _run_rfc8032_ed25519() -> list[dict[str, Any]]:
+    from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.primitives.asymmetric.ed25519 import (
         Ed25519PrivateKey,
         Ed25519PublicKey,
     )
-    from cryptography.exceptions import InvalidSignature
 
     records: list[dict[str, Any]] = []
     for label, sk_hex, pk_hex, msg_hex, sig_hex in _RFC8032_ED25519_VECTORS:
