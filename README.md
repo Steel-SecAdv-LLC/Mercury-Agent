@@ -32,7 +32,7 @@
               |                                                                               |
               |   LAYER 3: Ethics        |   LAYER 2: ML/AI        |   LAYER 1: Security      |
               |   -------------------    |   -------------------   |   -------------------    |
-              |   Benevolence >= 0.99    |   Fusion Network        |   Kyber768/Dilithium3    |
+              |   Benevolence >= 0.99    |   Fusion Network        |   Kyber-1024/ML-DSA-65   |
               |   Lyapunov Stability     |   Ensemble Averaging    |   JWT Authentication     |
               |   Civilization-First     |   Property Testing      |   Rate Limiting          |
               |                                                                               |
@@ -699,7 +699,7 @@ Mercury Agent addresses all three challenges through:
 
 - **Unified Framework**: 18+ detection engines under a single hybrid fusion architecture covering medical, security, space, infrastructure, and environmental domains
 - **Ethical Governance**: Fairlearn bias detection with demographic parity, equalized odds, and 80% rule enforcement; 180+ ethical scalars with Lyapunov stability
-- **Production Security**: OWASP-compliant input validation, post-quantum cryptography support (Kyber768, Dilithium3), JWT authentication, rate limiting
+- **Production Security**: OWASP-compliant input validation, post-quantum cryptography support (Kyber-1024, ML-DSA-65), JWT authentication, rate limiting
 
 ### Target Use Cases
 
@@ -721,7 +721,7 @@ See [Use Cases by Sector](#use-cases-by-sector) for detailed scenarios.
 
 | Layer | Protection | Components |
 |-------|------------|------------|
-| 1. Core Infrastructure | Security foundation | Kyber768/Dilithium3 PQC, JWT auth, OWASP validation |
+| 1. Core Infrastructure | Security foundation | Kyber-1024/ML-DSA-65 PQC, JWT auth, OWASP validation |
 | 2. ML/AI Pipeline | Detection intelligence | 18+ engines, hybrid fusion, multi-head attention |
 | 3. Ethical Governance | Fairness assurance | Fairlearn bias audit, 180+ ethical scalars, Lyapunov stability |
 
@@ -809,7 +809,7 @@ Optimized for both accuracy and interpretability:
 
 - **Threat Detection**: SQL injection, XSS, path traversal detection with pattern matching and ML classification
 - **Intelligence Fusion**: 13-source fusion (OSINT, SIGINT, HUMINT, GEOINT) with bias-aware aggregation
-- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber768/Dilithium3
+- **Cyber Fortress**: Hash integrity verification, quantum-resistant validation with Kyber-1024/ML-DSA-65
 - **Traffic Analysis**: Encrypted traffic anomaly detection with privacy-preserving techniques
 
 </details>
@@ -1536,8 +1536,8 @@ Mercury Agent employs a comprehensive security architecture designed for product
 - Rate limiting (token bucket algorithm)
 
 **Post-Quantum Cryptography**:
-- Kyber768 key encapsulation
-- Dilithium3 digital signatures
+- Kyber-1024 key encapsulation
+- ML-DSA-65 digital signatures
 - Classical fallback for compatibility
 
 **Rust Cryptographic Module** (`rust_crypto/`):
