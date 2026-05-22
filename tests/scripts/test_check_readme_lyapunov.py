@@ -64,9 +64,7 @@ def test_matching_doc_passes(tmp_path: Path) -> None:
         "Convergence rate `λ=0.25` is enforced.\n"
         "Implementation uses `lambda_lyapunov=0.25`.\n"
     )
-    assert crl.main(
-        ["--files", str(doc), "--canonical", "0.25", "--require-hits"]
-    ) == 0
+    assert crl.main(["--files", str(doc), "--canonical", "0.25", "--require-hits"]) == 0
 
 
 def test_mismatching_doc_fails(tmp_path: Path) -> None:
@@ -82,13 +80,11 @@ def test_latex_form_is_matched(tmp_path: Path) -> None:
     """LaTeX ``\\lambda = 0.25`` (the form MATH_SPEC.md uses) is enforced."""
     doc = tmp_path / "spec.md"
     doc.write_text(
-        "Lyapunov stability theorem: $\\dot V \\leq -\\lambda V$ with "
-        "$\\lambda = 0.25$.\n"
+        "Lyapunov stability theorem: $\\dot V \\leq -\\lambda V$ with " "$\\lambda = 0.25$.\n"
     )
     assert crl.main(["--files", str(doc), "--canonical", "0.25"]) == 0
     doc.write_text(
-        "Lyapunov stability theorem: $\\dot V \\leq -\\lambda V$ with "
-        "$\\lambda = 0.50$.\n"
+        "Lyapunov stability theorem: $\\dot V \\leq -\\lambda V$ with " "$\\lambda = 0.50$.\n"
     )
     assert crl.main(["--files", str(doc), "--canonical", "0.25"]) == 1
 
@@ -101,15 +97,9 @@ def test_english_lambda_word_is_matched(tmp_path: Path) -> None:
     behaviour with both a positive and negative case.
     """
     doc = tmp_path / "prose.md"
-    doc.write_text(
-        "# Lyapunov\n"
-        "The fusion-trajectory bound holds with `lambda = 0.25`.\n"
-    )
+    doc.write_text("# Lyapunov\n" "The fusion-trajectory bound holds with `lambda = 0.25`.\n")
     assert crl.main(["--files", str(doc), "--canonical", "0.25"]) == 0
-    doc.write_text(
-        "# Lyapunov\n"
-        "The fusion-trajectory bound holds with `lambda = 0.18`.\n"
-    )
+    doc.write_text("# Lyapunov\n" "The fusion-trajectory bound holds with `lambda = 0.18`.\n")
     assert crl.main(["--files", str(doc), "--canonical", "0.25"]) == 1
 
 
@@ -172,24 +162,28 @@ def test_require_hits_catches_vacuous_gate(tmp_path: Path) -> None:
     """
     doc = tmp_path / "empty.md"
     doc.write_text(
-        "# Lyapunov\n"
-        "This document discusses Lyapunov stability but never cites a number.\n"
+        "# Lyapunov\n" "This document discusses Lyapunov stability but never cites a number.\n"
     )
     # Without --require-hits: passes vacuously.
     assert crl.main(["--files", str(doc), "--canonical", "0.25"]) == 0
     # With --require-hits: must fail with a guard message.
-    assert crl.main([
-        "--files", str(doc),
-        "--canonical", "0.25",
-        "--require-hits", str(doc),
-    ]) == 1
+    assert (
+        crl.main(
+            [
+                "--files",
+                str(doc),
+                "--canonical",
+                "0.25",
+                "--require-hits",
+                str(doc),
+            ]
+        )
+        == 1
+    )
 
 
 def test_missing_file_reports_error(tmp_path: Path) -> None:
-    assert (
-        crl.main(["--files", str(tmp_path / "nope.md"), "--canonical", "0.25"])
-        == 1
-    )
+    assert crl.main(["--files", str(tmp_path / "nope.md"), "--canonical", "0.25"]) == 1
 
 
 def test_find_lambda_claims_dedupes_overlapping_patterns() -> None:

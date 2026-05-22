@@ -171,8 +171,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if not valid:
         print(
-            "Lyapunov validation failed; aborting experiment "
-            f"(details={details})",
+            "Lyapunov validation failed; aborting experiment " f"(details={details})",
             file=sys.stderr,
         )
         _write_result(out_path, result)

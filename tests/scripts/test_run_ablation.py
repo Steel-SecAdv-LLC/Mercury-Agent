@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-
 from typing import Any
 
 import pytest
@@ -26,7 +25,6 @@ if str(_REPO_ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(_REPO_ROOT))
 
 from scripts import run_ablation
-
 
 CANONICAL_CFG = _REPO_ROOT / "configs" / "lyapunov_canonical.yaml"
 
@@ -38,9 +36,7 @@ def _read(out: Path) -> dict[str, Any]:
 
 def test_skip_run_succeeds_on_canonical(tmp_path: Path) -> None:
     out = tmp_path / "result.json"
-    rc = run_ablation.main(
-        ["--config", str(CANONICAL_CFG), "--out", str(out), "--skip-run"]
-    )
+    rc = run_ablation.main(["--config", str(CANONICAL_CFG), "--out", str(out), "--skip-run"])
     assert rc == 0
     payload = _read(out)
     assert payload["lyapunov_valid"] is True
@@ -49,9 +45,7 @@ def test_skip_run_succeeds_on_canonical(tmp_path: Path) -> None:
 
 def test_missing_config_exits_2(tmp_path: Path) -> None:
     out = tmp_path / "result.json"
-    rc = run_ablation.main(
-        ["--config", str(tmp_path / "nope.yaml"), "--out", str(out)]
-    )
+    rc = run_ablation.main(["--config", str(tmp_path / "nope.yaml"), "--out", str(out)])
     assert rc == 2
     assert not out.exists()  # we never even validated
 
@@ -76,9 +70,7 @@ def test_lyapunov_failure_exits_3_without_running(tmp_path: Path) -> None:
 def test_missing_run_command_exits_4(tmp_path: Path) -> None:
     cfg = tmp_path / "no_cmd.yaml"
     cfg.write_text(
-        "lambda: 0.25\n"
-        "A: [[-0.25, 0.0], [0.0, -0.5]]\n"
-        "P: [[1.0, 0.0], [0.0, 1.0]]\n"
+        "lambda: 0.25\n" "A: [[-0.25, 0.0], [0.0, -0.5]]\n" "P: [[1.0, 0.0], [0.0, 1.0]]\n"
     )
     out = tmp_path / "result.json"
     rc = run_ablation.main(["--config", str(cfg), "--out", str(out)])
@@ -128,9 +120,7 @@ def test_ablation_config_with_nested_lyapunov_block_passes(tmp_path: Path) -> No
     """The shipped ablation config carries a nested ``lyapunov:`` block."""
     ablation = _REPO_ROOT / "configs" / "ablation_3r_lyapunov.yaml"
     out = tmp_path / "result.json"
-    rc = run_ablation.main(
-        ["--config", str(ablation), "--out", str(out), "--skip-run"]
-    )
+    rc = run_ablation.main(["--config", str(ablation), "--out", str(out), "--skip-run"])
     assert rc == 0, out.read_text() if out.exists() else "(no result file)"
     payload = _read(out)
     assert payload["lyapunov_valid"] is True
@@ -146,9 +136,7 @@ def test_timeout_kills_runaway_subprocess(tmp_path: Path) -> None:
         "run_command: 'python -c \"import time; time.sleep(30)\"'\n"
     )
     out = tmp_path / "result.json"
-    rc = run_ablation.main(
-        ["--config", str(cfg), "--out", str(out), "--timeout", "0.5"]
-    )
+    rc = run_ablation.main(["--config", str(cfg), "--out", str(out), "--timeout", "0.5"])
     assert rc == 124  # GNU timeout(1) exit code
     payload = _read(out)
     assert payload["run_timed_out"] is True
@@ -164,9 +152,7 @@ def test_negative_timeout_rejected(tmp_path: Path) -> None:
         "run_command: 'echo hi'\n"
     )
     out = tmp_path / "result.json"
-    rc = run_ablation.main(
-        ["--config", str(cfg), "--out", str(out), "--timeout", "-1"]
-    )
+    rc = run_ablation.main(["--config", str(cfg), "--out", str(out), "--timeout", "-1"])
     assert rc == 2
 
 

@@ -155,9 +155,7 @@ def benchmark(
         elapsed = time.perf_counter() - t0
         if not ok:
             # The workload itself is broken; do not report perf numbers.
-            raise RuntimeError(
-                f"validate_quadratic returned False on iteration {i}"
-            )
+            raise RuntimeError(f"validate_quadratic returned False on iteration {i}")
         if i >= warmup:
             timings.append(elapsed)
 
@@ -236,9 +234,7 @@ def main(argv: list[str] | None = None) -> int:
     P = np.asarray(cfg["P"], dtype=np.float64)
     claimed_lambda = float(cfg["lambda"])
 
-    timing = benchmark(
-        A, P, claimed_lambda, iters=args.iters, warmup=args.warmup
-    )
+    timing = benchmark(A, P, claimed_lambda, iters=args.iters, warmup=args.warmup)
 
     report = {
         "config": str(cfg_path),
