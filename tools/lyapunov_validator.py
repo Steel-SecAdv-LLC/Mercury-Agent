@@ -38,19 +38,20 @@ mathematically equivalent to :func:`scipy.linalg.eigh` on the pencil
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Dict, Mapping, Sequence, Tuple
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
 __all__ = [
-    "is_positive_definite",
-    "generalized_eigvals_sym_pd",
     "canonical_lambda_for_linear_system",
+    "generalized_eigvals_sym_pd",
+    "is_positive_definite",
+    "validate_lyapunov_from_config",
     "validate_quadratic",
     "validate_samples",
-    "validate_lyapunov_from_config",
 ]
 
 # Floating-point tolerances.  ``_PD_TOL`` gates "P is positive definite"
@@ -113,9 +114,7 @@ def generalized_eigvals_sym_pd(
     return np.linalg.eigvalsh(M).astype(np.float64, copy=False)
 
 
-def canonical_lambda_for_linear_system(
-    A: NDArray[np.float64], P: NDArray[np.float64]
-) -> float:
+def canonical_lambda_for_linear_system(A: NDArray[np.float64], P: NDArray[np.float64]) -> float:
     """Compute the *largest* ``lambda`` certifying ``dot V <= -lambda V``.
 
     For ``V(x) = x^T P x`` with symmetric positive-definite ``P`` and
@@ -128,9 +127,7 @@ def canonical_lambda_for_linear_system(
     A_arr = _as_float_matrix("A", A)
     P_arr = _as_float_matrix("P", P)
     if A_arr.shape != P_arr.shape:
-        raise ValueError(
-            f"A and P must have matching shape; got {A_arr.shape} vs {P_arr.shape}"
-        )
+        raise ValueError(f"A and P must have matching shape; got {A_arr.shape} vs {P_arr.shape}")
     Q = A_arr.T @ P_arr + P_arr @ A_arr
     mu = generalized_eigvals_sym_pd(Q, P_arr)
     return float(-mu.max())
@@ -141,7 +138,7 @@ def validate_quadratic(
     P: NDArray[np.float64],
     claimed_lambda: float,
     tol: float = _LAMBDA_TOL,
-) -> Tuple[bool, Dict[str, Any]]:
+) -> tuple[bool, dict[str, Any]]:
     """Verify the claim ``dot V <= -claimed_lambda * V`` for ``V = x^T P x``.
 
     Returns a ``(ok, details)`` tuple where ``details`` always contains
@@ -174,7 +171,7 @@ def validate_samples(
     samples: Sequence[Mapping[str, Any]],
     claimed_lambda: float,
     tol: float = _LAMBDA_TOL,
-) -> Tuple[bool, Dict[str, Any]]:
+) -> tuple[bool, dict[str, Any]]:
     """Sample-based decay-ratio fallback for general ``V`` and ``f``.
 
     Each entry of ``samples`` must provide numeric ``V`` (> 0) and
@@ -193,8 +190,7 @@ def validate_samples(
         if V <= 0:
             return False, {"error": f"sample {idx}: V must be > 0, got {V}"}
         ratio = -Vdot / V
-        if ratio < min_ratio:
-            min_ratio = ratio
+        min_ratio = min(min_ratio, ratio)
     computed_lambda = float(min_ratio)
     ok = computed_lambda >= (claimed_lambda - tol)
     return ok, {
@@ -229,7 +225,7 @@ def _extract_lyapunov_block(cfg: Mapping[str, Any]) -> Mapping[str, Any]:
     return {}
 
 
-def validate_lyapunov_from_config(cfg_path: Path) -> Tuple[bool, Dict[str, Any]]:
+def validate_lyapunov_from_config(cfg_path: Path) -> tuple[bool, dict[str, Any]]:
     """Validate a Lyapunov claim defined in a YAML config file.
 
     The config may declare the certificate at the top level or under a nested
@@ -243,11 +239,29 @@ def validate_lyapunov_from_config(cfg_path: Path) -> Tuple[bool, Dict[str, Any]]
       ...}`` records plus a ``lambda`` scalar -- triggers
       :func:`validate_samples`.
 
+    The ``lambda`` field is **required** and must be strictly positive:
+    a missing or non-positive ``lambda`` is a config error (not a
+    vacuously-satisfied claim), and the validator returns
+    ``(False, {"error": "..."})`` rather than coercing it to ``0.0``.
+
     Returns ``(ok, details)`` with ``details["mode"]`` indicating which
     path was taken.  Missing/invalid config returns ``(False, {...})``
-    rather than raising, to keep callers (CI gates) simple.
+    rather than raising, to keep callers (CI gates) simple.  PyYAML is
+    declared as a core dependency in ``pyproject.toml``; if it is none
+    the less missing (e.g. a deeply-minimal install), the validator
+    returns a structured error rather than letting the ``ImportError``
+    propagate.
     """
-    import yaml  # local import keeps ``tools.lyapunov_validator`` lazy
+    try:
+        import yaml  # local import keeps ``tools.lyapunov_validator`` lazy
+    except ImportError as exc:
+        return False, {
+            "error": (
+                "PyYAML is required to load Lyapunov config files but is "
+                f"not installed in this environment ({exc}). Install with "
+                "`pip install pyyaml>=6.0` or `pip install mercury-agent`."
+            )
+        }
 
     if not cfg_path.exists():
         return False, {"error": f"config not found: {cfg_path}"}
@@ -268,7 +282,29 @@ def validate_lyapunov_from_config(cfg_path: Path) -> Tuple[bool, Dict[str, Any]]
             "mode": "unknown",
         }
 
-    claimed_lambda = float(block.get("lambda", 0.0))
+    lambda_raw = block.get("lambda")
+    if lambda_raw is None:
+        return False, {
+            "error": (
+                "Lyapunov block is missing the required `lambda` field. "
+                "Declare a strictly-positive decay rate or remove the "
+                "block entirely; a missing claim is not a vacuous pass."
+            ),
+            "mode": "unknown",
+        }
+    try:
+        claimed_lambda = float(lambda_raw)
+    except (TypeError, ValueError) as exc:
+        return False, {"error": f"lambda is not numeric ({lambda_raw!r}): {exc}"}
+    if not math.isfinite(claimed_lambda) or claimed_lambda <= 0.0:
+        return False, {
+            "error": (
+                f"lambda must be strictly positive and finite (got "
+                f"{claimed_lambda!r}); a zero or negative claim certifies "
+                "any stable system vacuously."
+            ),
+        }
+
     A_raw = block.get("A")
     P_raw = block.get("P")
 
@@ -289,9 +325,7 @@ def validate_lyapunov_from_config(cfg_path: Path) -> Tuple[bool, Dict[str, Any]]
         return ok, details
 
     return False, {
-        "error": (
-            "Lyapunov block missing required (A, P) matrices or lyapunov_samples"
-        ),
+        "error": ("Lyapunov block missing required (A, P) matrices or lyapunov_samples"),
         "mode": "unknown",
     }
 
@@ -305,7 +339,6 @@ def _cli(argv: Sequence[str] | None = None) -> int:
     """
     import argparse
     import json
-    import sys
 
     parser = argparse.ArgumentParser(
         prog="python -m tools.lyapunov_validator",

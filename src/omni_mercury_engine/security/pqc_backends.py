@@ -19,13 +19,22 @@ from __future__ import annotations
 """
 Mercury Agent - Post-Quantum Cryptography Backends
 
-AMA Cryptography v2.0 is the sole PQC implementation.
+AMA Cryptography v3.2.0 is the sole PQC implementation.  The git ref is
+pinned in ``pyproject.toml [project.optional-dependencies].pqc`` and in
+the ``AMA_REF`` env var of ``.github/workflows/ci.yml`` /
+``.github/workflows/pqc-production-check.yml`` -- bump those in
+lock-step when upgrading.
 
 Previous versions used a 4-tier fallback chain (AMA → liboqs → pqcrypto →
-SIMULATION).  As of this version Mercury **hard-requires** AMA Cryptography
-and the fallback chain has been removed entirely.  AMA v2.0 carries its own
-native C backend — it *is* the implementation.  Retaining weaker fallbacks
-only widened the attack surface.
+SIMULATION).  As of v1.7.0 Mercury **hard-requires** AMA Cryptography
+and the fallback chain has been removed entirely.  AMA v3.2.0 carries
+its own native C backend — it *is* the implementation.  Retaining
+weaker fallbacks only widened the attack surface.  The v3.x surface
+adds FIPS 204 §5.2 context-aware ML-DSA-65 signing and FIPS 205
+SLH-DSA-SHAKE-128s; v3.2.0 specifically adds the
+``native_hmac_sha256`` / ``native_hmac_sha256_2`` Python bindings
+consumed by ``omni_mercury_engine.security.native_jwt`` for HS256 /
+HS512 JOSE signing.
 
 SECURITY NOTICE
 ===============
@@ -96,7 +105,7 @@ try:
     DILITHIUM_AVAILABLE = _AMA_DILITHIUM
     KYBER_AVAILABLE = _AMA_KYBER
     SPHINCS_AVAILABLE = _AMA_SPHINCS
-    logger.info("AMA Cryptography v2.0 PQC backend loaded (sole backend)")
+    logger.info("AMA Cryptography v3.2.0 PQC backend loaded (sole backend)")
 except ImportError:
     logger.warning(
         "AMA Cryptography is not installed. Post-quantum cryptography features "

@@ -155,6 +155,50 @@ class TestValidateFromConfig:
         assert not ok
         assert "neither" in details["error"]
 
+    def test_missing_lambda_field_rejected(self, tmp_path: Path) -> None:
+        """A nested ``lyapunov:`` block without ``lambda`` is a config error.
+
+        Defaulting a missing ``lambda`` to ``0.0`` would silently certify
+        any stable system (since the worst-case decay rate is almost
+        always ``>= 0``); the gate must refuse to proceed instead.
+        """
+        cfg = tmp_path / "no_lambda.yaml"
+        cfg.write_text(
+            "lyapunov:\n" "  A: [[-0.25, 0.0], [0.0, -0.5]]\n" "  P: [[1.0, 0.0], [0.0, 1.0]]\n"
+        )
+        ok, details = validate_lyapunov_from_config(cfg)
+        assert not ok
+        assert "missing the required `lambda`" in details["error"]
+
+    def test_zero_lambda_rejected(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "zero.yaml"
+        cfg.write_text(
+            "lambda: 0\n" "A: [[-0.25, 0.0], [0.0, -0.5]]\n" "P: [[1.0, 0.0], [0.0, 1.0]]\n"
+        )
+        ok, details = validate_lyapunov_from_config(cfg)
+        assert not ok
+        assert "strictly positive" in details["error"]
+
+    def test_negative_lambda_rejected(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "neg.yaml"
+        cfg.write_text(
+            "lambda: -0.5\n" "A: [[-0.25, 0.0], [0.0, -0.5]]\n" "P: [[1.0, 0.0], [0.0, 1.0]]\n"
+        )
+        ok, details = validate_lyapunov_from_config(cfg)
+        assert not ok
+        assert "strictly positive" in details["error"]
+
+    def test_non_numeric_lambda_rejected(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "bad_type.yaml"
+        cfg.write_text(
+            "lambda: not_a_number\n"
+            "A: [[-0.25, 0.0], [0.0, -0.5]]\n"
+            "P: [[1.0, 0.0], [0.0, 1.0]]\n"
+        )
+        ok, details = validate_lyapunov_from_config(cfg)
+        assert not ok
+        assert "not numeric" in details["error"]
+
     def test_nested_lyapunov_block(self, tmp_path: Path) -> None:
         """A nested ``lyapunov:`` block must drive the same validator path."""
         cfg = tmp_path / "ablation.yaml"
