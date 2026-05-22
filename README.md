@@ -10,14 +10,14 @@
 
 ![GPL v3 Logo](https://www.gnu.org/graphics/gplv3-127x51.png)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
-[![PQC: Kyber-1024/ML-DSA-65](https://img.shields.io/badge/PQC-Kyber--1024%2FML--DSA--65%2FSPHINCS%2B-green.svg)](https://csrc.nist.gov/projects/post-quantum-cryptography)
+[![Anomaly Detection](https://img.shields.io/badge/Anomaly%20Detection-Multi--Domain%20Neuro--Symbolic-00bcd4.svg)](#current-benchmarks-and-visual-proof)
 [![Fairlearn](https://img.shields.io/badge/Fairness-Fairlearn-orange.svg)](https://fairlearn.org/)
 [![Security Scan](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml/badge.svg)](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/actions/workflows/security.yml)
 [![Tests](https://img.shields.io/badge/tests-5100%2B%20collected-brightgreen.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-measured%20per%20release-lightgrey.svg)](tests/)
-[![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-orange.svg)](#3r-recursion-resonance-refactoring)
+[![3R|Mechanism](https://img.shields.io/badge/3R-Mechanism-red.svg)](#3r-recursion-resonance-refactoring)
 [![GOSNN](https://img.shields.io/badge/GOSNN-Synaptic%20Integration-purple.svg)](#gosnn-global-omni-scalar-network)
-[![AMA-Cryptography](https://img.shields.io/badge/AMA--Cryptography-PQC%20Adapter-green.svg)](#ama-cryptography-integration)
+[![AMA-Cryptography](https://img.shields.io/badge/AMA--Cryptography-PQC%20Adapter-4fc3f7.svg)](#ama-cryptography-integration)
 
 </div>
 
