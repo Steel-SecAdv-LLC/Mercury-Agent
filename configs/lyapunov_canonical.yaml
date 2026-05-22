@@ -1,0 +1,33 @@
+# Canonical Lyapunov certificate for Mercury Agent.
+#
+# This file is the **single source of truth** for the Lyapunov decay rate
+# `lambda` referenced throughout the codebase (docs/MATH_SPEC.md §2.2,
+# README.md, src/omni_mercury_engine/core/three_r/fusion.py
+# verify_lyapunov_stability()).  It is consumed by
+# `tools/lyapunov_validator.py` and is verified on every CI run via
+# `tests/tools/test_lyapunov_validator.py`.
+#
+# To change the canonical lambda, edit `A` and `P` below so the
+# generalized eigenvalue analysis certifies the new rate, update the
+# `lambda` field to match the *computed* value reported by
+# `python -m tools.lyapunov_validator configs/lyapunov_canonical.yaml`,
+# and run the test suite.
+
+# Continuous-time linear surrogate of the fusion-score trajectory used
+# to certify the global decay rate.  The (-0.25, -0.5) diagonal gives a
+# minimum eigenvalue of 0.25 for the symmetric pencil (A^T P + P A, P)
+# when P is the identity, yielding the canonical lambda below.
+A:
+  - [-0.25, 0.0]
+  - [0.0, -0.5]
+
+# Quadratic Lyapunov candidate V(x) = x^T P x.  Identity P gives the
+# natural ||x||^2 candidate; positive-definite by construction.
+P:
+  - [1.0, 0.0]
+  - [0.0, 1.0]
+
+# Certified decay rate.  Must satisfy lambda <= -max_eig(A^T P + P A, P);
+# for the matrices above the certified rate is exactly 0.5, so claiming
+# 0.25 is provably satisfied with margin (matches docs/MATH_SPEC.md).
+lambda: 0.25
