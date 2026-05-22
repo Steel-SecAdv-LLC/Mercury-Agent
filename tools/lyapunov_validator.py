@@ -206,10 +206,36 @@ def validate_samples(
     }
 
 
+def _extract_lyapunov_block(cfg: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Locate the Lyapunov certificate inside a YAML config.
+
+    Accepts three forms so a single validator can serve both single-purpose
+    Lyapunov configs (``configs/lyapunov_canonical.yaml``) and multi-variant
+    experiment configs (``configs/ablation_3r_lyapunov.yaml``) without
+    conflating ablation parameters with the stability certificate:
+
+    1. Flat: top-level ``A``/``P``/``lambda`` or ``lyapunov_samples``.
+    2. Nested: ``lyapunov: {A, P, lambda}`` (or with ``lyapunov_samples``).
+    3. Multi-variant with a sibling ``lyapunov:`` block (the runner gates the
+       whole experiment on a single certificate; individual variants share it).
+    """
+    flat_has_matrices = "A" in cfg and "P" in cfg
+    flat_has_samples = isinstance(cfg.get("lyapunov_samples"), list)
+    if flat_has_matrices or flat_has_samples:
+        return cfg
+    nested = cfg.get("lyapunov")
+    if isinstance(nested, Mapping):
+        return nested
+    return {}
+
+
 def validate_lyapunov_from_config(cfg_path: Path) -> Tuple[bool, Dict[str, Any]]:
     """Validate a Lyapunov claim defined in a YAML config file.
 
-    The config may contain either:
+    The config may declare the certificate at the top level or under a nested
+    ``lyapunov:`` block (so an ablation config can carry both experiment
+    parameters and the stability certificate without conflating them).
+    Inside whichever block is located, the validator accepts:
 
     * ``A`` (n x n) and ``P`` (n x n) matrices plus a ``lambda`` scalar
       -- triggers :func:`validate_quadratic`; or
@@ -232,9 +258,19 @@ def validate_lyapunov_from_config(cfg_path: Path) -> Tuple[bool, Dict[str, Any]]
     if not isinstance(cfg, Mapping):
         return False, {"error": "config root must be a mapping"}
 
-    claimed_lambda = float(cfg.get("lambda", 0.0))
-    A_raw = cfg.get("A")
-    P_raw = cfg.get("P")
+    block = _extract_lyapunov_block(cfg)
+    if not block:
+        return False, {
+            "error": (
+                "config provides neither top-level (A, P) matrices, "
+                "lyapunov_samples, nor a nested `lyapunov:` block"
+            ),
+            "mode": "unknown",
+        }
+
+    claimed_lambda = float(block.get("lambda", 0.0))
+    A_raw = block.get("A")
+    P_raw = block.get("P")
 
     if A_raw is not None and P_raw is not None:
         try:
@@ -246,13 +282,47 @@ def validate_lyapunov_from_config(cfg_path: Path) -> Tuple[bool, Dict[str, Any]]
         details["mode"] = "quadratic"
         return ok, details
 
-    samples_raw = cfg.get("lyapunov_samples")
+    samples_raw = block.get("lyapunov_samples")
     if isinstance(samples_raw, list):
         ok, details = validate_samples(samples_raw, claimed_lambda)
         details["mode"] = "samples"
         return ok, details
 
     return False, {
-        "error": "config provides neither (A, P) matrices nor lyapunov_samples",
+        "error": (
+            "Lyapunov block missing required (A, P) matrices or lyapunov_samples"
+        ),
         "mode": "unknown",
     }
+
+
+def _cli(argv: Sequence[str] | None = None) -> int:
+    """Module-level CLI entry-point: ``python -m tools.lyapunov_validator``.
+
+    Exits 0 on certified pass, 1 on a numerical failure (the claim does not
+    hold), and 2 on a usage/config error.  The full details dictionary is
+    written to stdout as JSON so downstream tooling can consume it.
+    """
+    import argparse
+    import json
+    import sys
+
+    parser = argparse.ArgumentParser(
+        prog="python -m tools.lyapunov_validator",
+        description=(
+            "Certify the Lyapunov decay claim in a YAML config. "
+            "Accepts top-level (A, P, lambda) or a nested `lyapunov:` block."
+        ),
+    )
+    parser.add_argument("config", type=Path, help="Path to YAML config")
+    args = parser.parse_args(argv)
+
+    ok, details = validate_lyapunov_from_config(args.config)
+    print(json.dumps(details, indent=2, sort_keys=True))
+    if "error" in details and "ok" not in details:
+        return 2
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI entry-point
+    raise SystemExit(_cli())

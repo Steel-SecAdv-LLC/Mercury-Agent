@@ -22,6 +22,29 @@
 #   lambda source-of-truth.
 
 # ═══════════════════════════════════════════════════════════════
+# LYAPUNOV PRE-GATE (consumed by tools/lyapunov_validator.py)
+# ═══════════════════════════════════════════════════════════════
+#
+# The runner certifies this block BEFORE launching any ablation variant
+# below.  Keeping it under a dedicated `lyapunov:` key (rather than at the
+# top level) prevents the certificate from being conflated with ablation
+# hyper-parameters that share the same names (`alpha`, `lambda_kl`, etc.).
+#
+# The (A, P) pencil here is the canonical 2-D linear surrogate of the
+# fusion-trajectory dynamics — identical to `configs/lyapunov_canonical.yaml`
+# — so any change to the canonical rate is enforced repo-wide by the
+# `test_canonical_yaml_lambda_matches_lyapunov_constant` reconciliation
+# test and the `Docs λ Drift Gate` CI job.
+lyapunov:
+  A:
+    - [-0.25, 0.0]
+    - [0.0, -0.5]
+  P:
+    - [1.0, 0.0]
+    - [0.0, 1.0]
+  lambda: 0.25
+
+# ═══════════════════════════════════════════════════════════════
 # BASELINE (without Lyapunov constraint)
 # ═══════════════════════════════════════════════════════════════
 baseline:

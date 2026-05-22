@@ -11,17 +11,25 @@ These tests exercise the validator on both *certified-positive* and
 * prove that the validator rejects a non-positive-definite ``P``;
 * prove that the validator rejects a system whose decay rate is *less*
   than the claimed lambda (false-claim guard);
-* exercise the sample-based fallback path.
+* exercise the sample-based fallback path;
+* exercise the nested ``lyapunov:`` block path so multi-variant ablation
+  configs are gated on a single shared certificate;
+* exercise the ``python -m tools.lyapunov_validator`` CLI shim.
 """
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from tools.lyapunov_validator import (
+    _cli,
+    _extract_lyapunov_block,
     canonical_lambda_for_linear_system,
     is_positive_definite,
     validate_lyapunov_from_config,
@@ -148,3 +156,87 @@ class TestValidateFromConfig:
         ok, details = validate_lyapunov_from_config(cfg)
         assert not ok
         assert "neither" in details["error"]
+
+    def test_nested_lyapunov_block(self, tmp_path: Path) -> None:
+        """A nested ``lyapunov:`` block must drive the same validator path."""
+        cfg = tmp_path / "ablation.yaml"
+        cfg.write_text(
+            "baseline:\n"
+            "  model: {input_dim: 25}\n"
+            "lyapunov:\n"
+            "  A: [[-0.25, 0.0], [0.0, -0.5]]\n"
+            "  P: [[1.0, 0.0], [0.0, 1.0]]\n"
+            "  lambda: 0.25\n"
+        )
+        ok, details = validate_lyapunov_from_config(cfg)
+        assert ok, details
+        assert details["mode"] == "quadratic"
+
+    def test_ablation_config_certifies(self) -> None:
+        """``configs/ablation_3r_lyapunov.yaml`` ships a valid nested block."""
+        ablation = _REPO_ROOT / "configs" / "ablation_3r_lyapunov.yaml"
+        ok, details = validate_lyapunov_from_config(ablation)
+        assert ok, f"ablation config no longer certifies: {details}"
+        assert details["mode"] == "quadratic"
+
+
+class TestExtractLyapunovBlock:
+    def test_flat_form_returns_self(self) -> None:
+        cfg = {"A": [[1]], "P": [[1]], "lambda": 0.25}
+        assert _extract_lyapunov_block(cfg) is cfg
+
+    def test_nested_form_returned(self) -> None:
+        cfg = {"variant": {}, "lyapunov": {"A": [[1]], "P": [[1]], "lambda": 0.25}}
+        block = _extract_lyapunov_block(cfg)
+        assert block == cfg["lyapunov"]
+
+    def test_neither_form_empty(self) -> None:
+        assert _extract_lyapunov_block({"unrelated": 1}) == {}
+
+
+class TestCli:
+    def test_cli_canonical_exit_0(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        rc = _cli([str(_CANONICAL_CFG)])
+        assert rc == 0
+        out = capsys.readouterr().out
+        payload = json.loads(out)
+        assert payload["mode"] == "quadratic"
+        assert payload["ok"] is True
+
+    def test_cli_bad_config_exit_2(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        rc = _cli([str(tmp_path / "missing.yaml")])
+        assert rc == 2
+        payload = json.loads(capsys.readouterr().out)
+        assert "error" in payload
+
+    def test_cli_overclaim_exit_1(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        cfg = tmp_path / "overclaim.yaml"
+        cfg.write_text(
+            "A: [[-0.25, 0.0], [0.0, -0.5]]\n"
+            "P: [[1.0, 0.0], [0.0, 1.0]]\n"
+            "lambda: 10.0\n"
+        )
+        rc = _cli([str(cfg)])
+        assert rc == 1
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["ok"] is False
+
+    def test_module_dash_m_invocation(self) -> None:
+        """``python -m tools.lyapunov_validator`` must be a real entrypoint."""
+        result = subprocess.run(
+            [sys.executable, "-m", "tools.lyapunov_validator", str(_CANONICAL_CFG)],
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["mode"] == "quadratic"
+        assert payload["ok"] is True

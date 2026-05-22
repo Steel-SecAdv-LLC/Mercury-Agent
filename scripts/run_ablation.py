@@ -16,6 +16,9 @@ Exit codes
 * ``3`` -- Lyapunov gate failed; experiment was *not* launched.
 * ``4`` -- config has no ``run_command``; nothing to execute (still
   considered a soft failure so CI surfaces the missing wiring).
+* ``124`` -- experiment exceeded ``--timeout`` seconds; mirrors GNU
+  ``timeout(1)`` convention so wrapper scripts can detect the case
+  without parsing stderr.
 * otherwise -- the exit code of the experiment subprocess.
 
 Results are always written as JSON to the ``--out`` path so downstream
@@ -25,13 +28,17 @@ Examples
 --------
 ::
 
+    # Single-purpose Lyapunov config (canonical 2x2 surrogate).
     python scripts/run_ablation.py \\
         --config configs/lyapunov_canonical.yaml \\
-        --out artifacts/lyapunov_check.json
+        --out artifacts/lyapunov_check.json \\
+        --skip-run
 
+    # Multi-variant ablation config with a nested `lyapunov:` block.
     python scripts/run_ablation.py \\
         --config configs/ablation_3r_lyapunov.yaml \\
-        --out artifacts/ablation_result.json
+        --out artifacts/ablation_result.json \\
+        --timeout 1800
 """
 
 from __future__ import annotations
@@ -49,23 +56,60 @@ if str(_REPO_ROOT) not in sys.path:  # pragma: no cover - import bootstrap
 
 from tools.lyapunov_validator import validate_lyapunov_from_config  # noqa: E402
 
+# GNU timeout(1) exit code for "command exceeded the time limit" so CI
+# wrappers can detect timeout vs. genuine subprocess failure.
+_TIMEOUT_EXIT_CODE: int = 124
+
 
 def _write_result(out_path: Path, result: Dict[str, Any]) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, indent=2, sort_keys=True))
 
 
-def _run_command(cmd: str, cwd: Path) -> int:
-    """Run ``cmd`` in ``cwd`` and return its exit code.
+def _run_command(cmd: str, cwd: Path, timeout: float | None) -> Dict[str, Any]:
+    """Run ``cmd`` in ``cwd`` and return its exit code plus timing data.
 
     ``shell=True`` is used deliberately because configs declare full
     command strings (matching Mercury Agent's existing benchmark runner
-    convention).  Configs must therefore only be authored by trusted
-    repository contributors -- the same trust boundary that already
-    applies to ``configs/*.yaml``.
+    convention).  Configs are part of the repository trust boundary --
+    only repository contributors can author them, and they are reviewed
+    on the same code path as ``src/``.  The subprocess inherits stdin
+    from the parent (so an experiment that expects ``tty`` interaction
+    fails fast rather than hanging) and inherits stdout/stderr (so CI
+    logs remain readable in real time).
+
+    A non-None ``timeout`` enforces a wall-clock bound: the subprocess
+    is killed on expiry and the function returns the canonical
+    ``timeout(1)`` exit code (``124``) plus a ``timed_out=True`` flag.
     """
     print(f"RUN: {cmd}", flush=True)
-    return subprocess.call(cmd, shell=True, cwd=str(cwd))  # noqa: S602
+    import time as _time
+
+    started = _time.monotonic()
+    timed_out = False
+    try:
+        completed = subprocess.run(  # noqa: S602 - documented trust boundary
+            cmd,
+            shell=True,
+            cwd=str(cwd),
+            check=False,
+            timeout=timeout,
+        )
+        rc = int(completed.returncode)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        rc = _TIMEOUT_EXIT_CODE
+        print(
+            f"ERROR: run_command exceeded --timeout={timeout!r}s; killed.",
+            file=sys.stderr,
+        )
+    elapsed = _time.monotonic() - started
+    return {
+        "rc": rc,
+        "elapsed_s": elapsed,
+        "timed_out": timed_out,
+        "timeout_s": float(timeout) if timeout is not None else None,
+    }
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -89,6 +133,16 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Only run the Lyapunov pre-gate; do not execute run_command.",
     )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help=(
+            "Wall-clock timeout in seconds for the experiment subprocess. "
+            "Defaults to no timeout. Exceeding the timeout exits with 124 "
+            "(GNU timeout(1) convention)."
+        ),
+    )
     return parser
 
 
@@ -99,6 +153,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if not cfg_path.exists():
         print(f"ERROR: config not found: {cfg_path}", file=sys.stderr)
+        return 2
+
+    if args.timeout is not None and args.timeout <= 0:
+        print(
+            f"ERROR: --timeout must be positive (got {args.timeout!r}).",
+            file=sys.stderr,
+        )
         return 2
 
     valid, details = validate_lyapunov_from_config(cfg_path)
@@ -137,11 +198,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         _write_result(out_path, result)
         return 4
 
-    rc = _run_command(str(run_cmd), cwd=_REPO_ROOT)
+    run_info = _run_command(str(run_cmd), cwd=_REPO_ROOT, timeout=args.timeout)
     result["run_command"] = str(run_cmd)
-    result["run_rc"] = int(rc)
+    result["run_rc"] = run_info["rc"]
+    result["run_elapsed_s"] = run_info["elapsed_s"]
+    result["run_timed_out"] = run_info["timed_out"]
+    result["run_timeout_s"] = run_info["timeout_s"]
     _write_result(out_path, result)
-    return int(rc)
+    return int(run_info["rc"])
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry-point

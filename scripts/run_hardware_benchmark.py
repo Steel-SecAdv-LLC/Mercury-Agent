@@ -73,18 +73,30 @@ def _load_config(path: Path) -> dict[str, Any]:
     return data
 
 
-def _environment_fingerprint() -> dict[str, Any]:
-    """Capture enough of the environment that two runs can be compared.
+def _read_cpu_governor() -> str | None:
+    """Return the scaling governor of CPU 0 (Linux), or None elsewhere."""
+    candidate = Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+    try:
+        return candidate.read_text().strip() or None
+    except (OSError, FileNotFoundError):  # pragma: no cover - non-Linux
+        return None
 
-    We do *not* probe CPU model strings via ``/proc/cpuinfo`` — those
-    differ across runners and would create spurious diffs.  We capture
-    the inputs that the validator's runtime actually depends on.
+
+def _environment_fingerprint() -> dict[str, Any]:
+    """Capture enough of the environment that two runs can be comparable.
+
+    We deliberately do *not* probe CPU model strings via ``/proc/cpuinfo``
+    -- those differ across runners and would create spurious diffs.  We
+    capture the inputs the validator's runtime actually depends on PLUS
+    the OS-visible knobs (scheduling affinity, CPU governor) that
+    materially affect the measured number, so a reviewer can decide at a
+    glance whether two reports are comparable.
     """
 
     affinity: list[int] | None
     try:
         affinity = sorted(os.sched_getaffinity(0))
-    except (AttributeError, OSError):  # pragma: no cover — non-Linux
+    except (AttributeError, OSError):  # pragma: no cover - non-Linux
         affinity = None
 
     return {
@@ -95,6 +107,7 @@ def _environment_fingerprint() -> dict[str, Any]:
         "processor": platform.processor(),
         "cpu_count": os.cpu_count(),
         "cpu_affinity": affinity,
+        "cpu_governor": _read_cpu_governor(),
     }
 
 
@@ -121,7 +134,14 @@ def benchmark(
     iters: int,
     warmup: int,
 ) -> dict[str, Any]:
-    """Time ``iters`` calls of :func:`validate_quadratic`, discarding warmup."""
+    """Time ``iters`` calls of :func:`validate_quadratic`, discarding warmup.
+
+    Throughput (``ops_per_sec``) is computed from the **total** wall-clock
+    time of the post-warmup iterations divided by the iteration count,
+    not from ``1 / mean_s``.  This avoids the inverse-mean bias that
+    over-states throughput when the per-iteration latency distribution is
+    skewed (e.g. when a stop-the-world GC pause appears in one sample).
+    """
 
     if iters <= 0:
         raise ValueError("iters must be positive")
@@ -142,6 +162,8 @@ def benchmark(
             timings.append(elapsed)
 
     mean = statistics.fmean(timings)
+    total_s = sum(timings)
+    ops_per_sec = (len(timings) / total_s) if total_s > 0 else float("inf")
     return {
         "iters": iters,
         "warmup": warmup,
@@ -152,7 +174,8 @@ def benchmark(
         "p95_s": _percentile(timings, 95),
         "p99_s": _percentile(timings, 99),
         "max_s": max(timings),
-        "ops_per_sec": 1.0 / mean if mean > 0 else float("inf"),
+        "total_s": total_s,
+        "ops_per_sec": ops_per_sec,
     }
 
 
