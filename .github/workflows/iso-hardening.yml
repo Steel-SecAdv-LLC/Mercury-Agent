@@ -280,35 +280,93 @@ jobs:
           # is still the supported way to emit a machine-readable
           # summary in k6 0.5x; the deprecation warning printed to
           # stderr is informational and does not affect the JSON.
+          # ``|| true`` so k6's non-zero exit on threshold breach does
+          # NOT short-circuit this step -- we want the JSON summary to
+          # be written regardless so the next step can render the exact
+          # breach inline in the GHA log.  The next step is the actual
+          # gate: it greps the JSON for ``ok: false`` and propagates
+          # the failure with a structured diagnosis.
           k6 run \
             --vus 3 \
             --duration 60s \
             --quiet \
             --summary-export=artifacts/k6_summary.json \
-            tests/load/k6_load_test.js
+            tests/load/k6_load_test.js \
+            || true
 
       - name: Assert k6 SLO thresholds
         run: |
           set -euo pipefail
           test -s artifacts/k6_summary.json
-          # k6 sets thresholds.*.ok = false when a threshold is breached;
-          # the previous step already exits non-zero in that case, but
-          # we double-check the JSON here so a future k6 CLI behaviour
-          # change cannot silently pass a broken smoke run.
+          # k6 sets ``thresholds.*.ok = false`` when a threshold is
+          # breached.  We emit a detailed per-metric / per-threshold
+          # report INLINE in the GHA log (the artifact download is the
+          # secondary surface) so a failing smoke run produces an
+          # actionable diagnosis without leaving the workflow UI:
+          #
+          #   - for each breached threshold: the metric, the threshold
+          #     expression, and the actual measured percentile / rate
+          #     value k6 computed -- so the failure mode is named, not
+          #     "process completed with exit code 1".
+          #   - for each PASSING threshold: a one-line summary so the
+          #     log doubles as the smoke-run latency report.
           python - <<'PY'
-          import json, pathlib, sys
+          import json
+          import pathlib
+          import sys
+
           data = json.loads(pathlib.Path("artifacts/k6_summary.json").read_text())
           metrics = data.get("metrics", {})
-          breaches = []
-          for name, m in metrics.items():
+
+          breaches: list[str] = []
+          summary: list[str] = []
+          total_thresholds = 0
+          for metric_name, m in sorted(metrics.items()):
               thresholds = m.get("thresholds") or {}
-              for t, info in thresholds.items():
-                  if info.get("ok") is False:
-                      breaches.append(f"{name}: {t}")
+              if not thresholds:
+                  continue
+              # k6 stashes the actual measured values on the metric
+              # itself (``values`` dict), keyed by aggregation name
+              # ("p(95)", "rate", "med", "max", ...).  Look the
+              # threshold expression up against this dict so the
+              # breach line carries the measured number.
+              values = m.get("values") or {}
+              for expr, info in sorted(thresholds.items()):
+                  total_thresholds += 1
+                  ok = info.get("ok")
+                  agg = expr.split("<")[0].split(">")[0].split("=")[0].strip()
+                  measured = values.get(agg)
+                  measured_str = f"{measured:.2f}" if isinstance(measured, (int, float)) else str(measured)
+                  if ok is False:
+                      breaches.append(
+                          f"BREACH  {metric_name}  threshold={expr!r}  measured[{agg}]={measured_str}"
+                      )
+                  else:
+                      summary.append(
+                          f"OK      {metric_name}  threshold={expr!r}  measured[{agg}]={measured_str}"
+                      )
+
+          print(f"k6 threshold report ({total_thresholds} thresholds evaluated):")
+          for line in summary:
+              print(f"  {line}")
+          for line in breaches:
+              print(f"  {line}")
+
+          # If breaches were found, also dump request error counts so the
+          # "errors: rate<0.01" failure mode is debuggable inline.
           if breaches:
-              print("k6 threshold breaches:", *breaches, sep="\n  ")
+              http_reqs = (metrics.get("http_reqs") or {}).get("values") or {}
+              http_req_failed = (metrics.get("http_req_failed") or {}).get("values") or {}
+              errors_metric = (metrics.get("errors") or {}).get("values") or {}
+              print()
+              print("Error-rate diagnostics:")
+              print(f"  http_reqs.count = {http_reqs.get('count', '?')}")
+              print(f"  http_reqs.rate = {http_reqs.get('rate', '?')}")
+              print(f"  http_req_failed.rate = {http_req_failed.get('rate', '?')}")
+              print(f"  errors.rate = {errors_metric.get('rate', '?')}")
+              print(f"  errors.passes = {errors_metric.get('passes', '?')}")
+              print(f"  errors.fails = {errors_metric.get('fails', '?')}")
               sys.exit(1)
-          print(f"OK: {sum(len((m.get('thresholds') or {})) for m in metrics.values())} k6 thresholds satisfied")
           PY
 
       - name: Run locust smoke test
