@@ -117,9 +117,7 @@ class TestValidateSamples:
         assert "no samples" in details["error"]
 
     def test_nonpositive_V_rejected(self) -> None:
-        ok, details = validate_samples(
-            [{"V": 0.0, "Vdot": -1.0}], claimed_lambda=0.0
-        )
+        ok, details = validate_samples([{"V": 0.0, "Vdot": -1.0}], claimed_lambda=0.0)
         assert not ok
         assert "V must be > 0" in details["error"]
 
@@ -195,9 +193,7 @@ class TestExtractLyapunovBlock:
 
 
 class TestCli:
-    def test_cli_canonical_exit_0(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_cli_canonical_exit_0(self, capsys: pytest.CaptureFixture[str]) -> None:
         rc = _cli([str(_CANONICAL_CFG)])
         assert rc == 0
         out = capsys.readouterr().out
@@ -213,14 +209,10 @@ class TestCli:
         payload = json.loads(capsys.readouterr().out)
         assert "error" in payload
 
-    def test_cli_overclaim_exit_1(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_cli_overclaim_exit_1(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         cfg = tmp_path / "overclaim.yaml"
         cfg.write_text(
-            "A: [[-0.25, 0.0], [0.0, -0.5]]\n"
-            "P: [[1.0, 0.0], [0.0, 1.0]]\n"
-            "lambda: 10.0\n"
+            "A: [[-0.25, 0.0], [0.0, -0.5]]\n" "P: [[1.0, 0.0], [0.0, 1.0]]\n" "lambda: 10.0\n"
         )
         rc = _cli([str(cfg)])
         assert rc == 1
