@@ -14,8 +14,12 @@
 #
 # Usage:
 #   pytest tests/ -k "ablation" --config configs/ablation_3r_lyapunov.yaml
-#   NOTE: scripts/run_ablation.py is not yet implemented. See benchmarks/ for
-#   existing benchmark runners that can be adapted for ablation studies.
+#   python scripts/run_ablation.py --config configs/ablation_3r_lyapunov.yaml \
+#       --out artifacts/ablation_result.json
+#   See also: tools/lyapunov_validator.py for the executable Lyapunov
+#   pre-gate that scripts/run_ablation.py invokes before launching any
+#   experiment, and configs/lyapunov_canonical.yaml for the canonical
+#   lambda source-of-truth.
 
 # ═══════════════════════════════════════════════════════════════
 # BASELINE (without Lyapunov constraint)
