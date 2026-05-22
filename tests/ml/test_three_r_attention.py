@@ -28,12 +28,20 @@ class TestThreeRAttentionBlock:
     """Tests for ThreeRAttentionBlock."""
 
     def test_initialization(self) -> None:
-        """Test block initializes with correct golden-ratio weights."""
+        """Test block initializes with the documented PHI:1:1 fusion weights.
+
+        Mercury's OAE design fixes the (Recursion, Harmonic, Optimization)
+        proportion at PHI:1:1 — w_R receives the φ-weighted share and
+        w_H = w_O take equal unit shares so that the φ-prominence sits on
+        Recursion alone.  Normalising to sum 1.0 gives the canonical
+        (0.4472, 0.2764, 0.2764) tuple quoted in the class docstring,
+        README, and ARCHITECTURE.md.  Drift from these values is now
+        gated by ``omni_mercury_engine.tools.oae_weight_certifier``.
+        """
         block = ThreeRAttentionBlock(d_model=128, n_heads=4)
 
-        # Check golden ratio weights
         phi = 1.618033988749895
-        phi_sum = phi + 1.0 + (1.0 / phi)
+        phi_sum = phi + 2.0  # ≈ 3.618
 
         # ``w_R``/``w_H``/``w_O`` are installed via ``register_buffer``,
         # which the public PyTorch stubs type as ``Tensor | Module``.
@@ -45,7 +53,11 @@ class TestThreeRAttentionBlock:
 
         assert abs(w_R.item() - phi / phi_sum) < 1e-6
         assert abs(w_H.item() - 1.0 / phi_sum) < 1e-6
-        assert abs(w_O.item() - (1.0 / phi) / phi_sum) < 1e-6
+        assert abs(w_O.item() - 1.0 / phi_sum) < 1e-6
+        # And the documented approximations.
+        assert abs(w_R.item() - 0.4472135954999579) < 1e-6
+        assert abs(w_H.item() - 0.276393202250021) < 1e-6
+        assert abs(w_O.item() - 0.276393202250021) < 1e-6
 
         # Weights should sum to 1
         total_weight = w_R.item() + w_H.item() + w_O.item()
