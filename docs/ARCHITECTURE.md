@@ -2,7 +2,7 @@
 
 Applies to Mercury Agent **v1.7.x**. Last updated: 2026-05-20.
 
-Supplement to the top-level [`ARCHITECTURE.md`](../ARCHITECTURE.md). Covers the loader
+Supplement to the top-level [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md). Covers the loader
 registry, Oracle pipeline, cognitive wiring, backend configuration,
 and cross-domain correlation introduced during the Mercury System
 Activation.
@@ -16,7 +16,7 @@ Activation.
 > (`utils.profiling`), the `MERCURY_ENV` production-mode primitive
 > (`_env`), and the σ_Immutable second hard gate at every public
 > decision boundary. See the parent
-> [`ARCHITECTURE.md`](../ARCHITECTURE.md) §"Governance Framework
+> [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md) §"Governance Framework
 > Modules (v1.7)" through §"Performance Profiling (v1.7)" for the
 > per-module summary; the deep dives live in
 > [`COMPLIANCE.md`](COMPLIANCE.md), [`PROFILING.md`](PROFILING.md),

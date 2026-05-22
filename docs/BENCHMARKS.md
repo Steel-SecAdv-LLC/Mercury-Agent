@@ -274,7 +274,11 @@ Does not meet the >90% dataset-level threshold for full resolution. The implemen
 is correct; coverage gaps are inherent to split/cross conformal on small, heavily
 imbalanced datasets.
 
-![Conformal Coverage](images/conformal_coverage.png)
+The empirical-vs-target coverage scatter is included as a panel of the
+consolidated calibration visualization shown above
+([`images/calibration_improvement.png`](images/calibration_improvement.png));
+the standalone `conformal_coverage.png` was retired in PR #139 when the
+two views were merged into a single six-panel image.
 
 ### MD-003: Fusion Weight Cross-Validation
 

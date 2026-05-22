@@ -23,9 +23,12 @@ specifically the `domain_summary` section. Run
 
 ## Domain Summary Schema
 
-Each domain entry in `domain_summary` contains:
+Each domain entry in `domain_summary` contains the following fields
+(type annotations shown in JSON-schema-like shorthand — `null`
+indicates the field is emitted as `null` when no measurement is
+available, e.g. when every dataset in the domain `n_failed`'d):
 
-```json
+```text
 {
   "n_datasets": int,
   "n_measured": int,

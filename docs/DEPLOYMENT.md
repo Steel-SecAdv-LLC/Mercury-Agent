@@ -403,7 +403,7 @@ docker run -d --name mercury-agent \
 > A failing run blocks merge; the dual hard gates (Benevolence,
 > σ_Immutable) at every public boundary surface raise
 > `EthicalConstraintViolationError(check=…)` rather than logging and
-> continuing. See the top-level [`../ARCHITECTURE.md`](../ARCHITECTURE.md) §"Dual-Gate Hard Ethical
+> continuing. See the top-level [`ARCHITECTURE.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/ARCHITECTURE.md) §"Dual-Gate Hard Ethical
 > Enforcement".
 
 - Review the specific test(s) that failed in the CI log
