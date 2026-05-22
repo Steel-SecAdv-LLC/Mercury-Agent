@@ -447,8 +447,17 @@ class TestLifespanWarmup:
         await _warmup(app)
 
     @pytest.mark.asyncio
-    async def test_warmup_swallows_internal_failure(self) -> None:
-        """A warmup failure must not block API startup."""
+    async def test_warmup_propagates_internal_failure(self) -> None:
+        """A warmup failure MUST surface so the deployment fails fast.
+
+        The contract documented on ``_warmup`` is "if uvicorn is up,
+        detection works": silently swallowing a warmup exception
+        would let a broken detection path serve traffic to real
+        callers, which is worse than a worker crashloop on a real
+        regression.  This test pins the fail-loud behaviour by
+        monkey-patching ``detect_univariate`` to raise and asserting
+        the exception propagates out of ``_warmup``.
+        """
         from omni_mercury_engine.api import server
 
         original_detect = server.detect_univariate
@@ -456,14 +465,10 @@ class TestLifespanWarmup:
         async def broken_detect(_request: Any) -> Any:
             raise RuntimeError("simulated warmup failure")
 
-        # Monkey-patch the univariate endpoint to raise; the warmup
-        # should catch + log + continue.  We use the module attribute
-        # rather than the global because the lifespan closure resolves
-        # ``detect_univariate`` from the module namespace at call time.
         try:
             server.detect_univariate = broken_detect
-            # No exception escapes the warmup.
-            await server._warmup(server.app)
+            with pytest.raises(RuntimeError, match="simulated warmup failure"):
+                await server._warmup(server.app)
         finally:
             server.detect_univariate = original_detect
 

@@ -257,17 +257,32 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           # Override the scenarios in the file with a CI-sized smoke
-          # run (constant 1 VU for 30 s); the in-file thresholds still
-          # apply and k6 exits non-zero when they are breached.
+          # run.  The dimensioning here is driven by *statistical*
+          # constraints, not by "what feels small":
+          #
+          #   * ``--vus 3 --duration 60s`` with the file's 0.5-2 s
+          #     think time produces ~120 iterations end-to-end (3 VUs
+          #     × ~40 iters/VU).  Each iteration hits /health once and
+          #     /api/v1/detect/univariate once (always), plus
+          #     /api/v1/detect/multivariate 30 % of the time -- so we
+          #     gather ~120 health, ~120 univariate, and ~36
+          #     multivariate samples.
+          #   * With ~120 samples in the global http_req_duration
+          #     bucket, p(99) is the 119th sorted value: a single
+          #     GHA cgroup-scheduling tail can no longer drag the
+          #     percentile past the threshold (which was the failure
+          #     mode at --vus 1 --duration 30s, where p(99) was
+          #     effectively max-of-20).  p(95) and p(50) become
+          #     statistically meaningful for the first time.
           #
           # ``--quiet`` suppresses k6's progress bar so the GHA log
           # stays diff-friendly across reruns.  ``--summary-export``
           # is still the supported way to emit a machine-readable
           # summary in k6 0.5x; the deprecation warning printed to
-          # stderr is informational.
+          # stderr is informational and does not affect the JSON.
           k6 run \
-            --vus 1 \
-            --duration 30s \
+            --vus 3 \
+            --duration 60s \
             --quiet \
             --summary-export=artifacts/k6_summary.json \
             tests/load/k6_load_test.js
